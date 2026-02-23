@@ -438,7 +438,9 @@ public static class OutlookIntegratorExtensions
     private static List<InternetMessageHeader> GetHeaderList(this MimeMessage mime)
     {
         // Graph API only allows max of 5 headers.
-        // Prioritize threading headers to keep reply grouping intact.
+        // Graph only allows setting custom internet headers (typically X-*).
+        // Reply/threading headers like In-Reply-To and References are managed by
+        // createReply/createReplyAll flows and must not be sent here.
 
         const int headerLimit = 5;
         string[] headersToIgnore = ["Date", "To", "Cc", "Bcc", "MIME-Version", "From", "Subject", "Message-Id"];
@@ -461,18 +463,12 @@ public static class OutlookIntegratorExtensions
         if (winoDraftHeader != null)
             AddHeader(winoDraftHeader.Field, winoDraftHeader.Value);
 
-        // Threading headers must be preserved with their real RFC names.
-        AddHeader("In-Reply-To", mime.Headers[HeaderId.InReplyTo]);
-        AddHeader("References", mime.Headers[HeaderId.References]);
-
         // Fill remaining slots with custom headers only (avoid Graph restrictions).
         foreach (var header in mime.Headers)
         {
             if (headers.Count >= headerLimit) break;
             if (header.Field == Domain.Constants.WinoLocalDraftHeader) continue;
             if (headersToIgnore.Contains(header.Field)) continue;
-            if (string.Equals(header.Field, "In-Reply-To", StringComparison.OrdinalIgnoreCase)) continue;
-            if (string.Equals(header.Field, "References", StringComparison.OrdinalIgnoreCase)) continue;
 
             // Only include custom headers beyond the core threading ones.
             if (!header.Field.StartsWith("X-", StringComparison.OrdinalIgnoreCase)) continue;

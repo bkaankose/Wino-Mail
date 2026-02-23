@@ -91,22 +91,33 @@ public class MailService : BaseDatabaseService, IMailService
         if (draftCreationOptions.ReferencedMessage != null)
         {
             var refMime = draftCreationOptions.ReferencedMessage.MimeMessage;
-            var refs = new List<string>();
+            var referenceMailCopy = draftCreationOptions.ReferencedMessage.MailCopy;
 
-            if (refMime.References != null)
-                refs.AddRange(refMime.References);
+            string referenceMessageId = refMime?.MessageId;
+            string referenceInReplyTo = refMime?.InReplyTo;
+            IEnumerable<string> referenceChain = refMime?.References ?? [];
 
-            if (!string.IsNullOrEmpty(refMime.MessageId))
+            // Fallback to MailCopy metadata if MIME lacks threading headers.
+            if (string.IsNullOrWhiteSpace(referenceMessageId) && referenceMailCopy != null)
             {
-                copy.InReplyTo = refMime.MessageId;
-                refs.Add(refMime.MessageId);
+                referenceMessageId = referenceMailCopy.MessageId;
+                referenceInReplyTo = referenceMailCopy.InReplyTo;
+                referenceChain = SplitStoredReferences(referenceMailCopy.References);
             }
 
+            if (!string.IsNullOrWhiteSpace(referenceMessageId))
+                copy.InReplyTo = MailHeaderExtensions.StripAngleBrackets(referenceMessageId);
+
+            var refs = BuildReferencesChain(referenceChain, referenceInReplyTo, referenceMessageId);
             if (refs.Count > 0)
                 copy.References = string.Join(";", refs);
 
             if (!string.IsNullOrEmpty(draftCreationOptions.ReferencedMessage.MailCopy?.ThreadId))
                 copy.ThreadId = draftCreationOptions.ReferencedMessage.MailCopy.ThreadId;
+
+            // Fallback local threading when provider/native thread id is unavailable.
+            if (string.IsNullOrWhiteSpace(copy.ThreadId))
+                copy.ThreadId = refs.FirstOrDefault() ?? copy.InReplyTo;
         }
 
         await Connection.InsertAsync(copy, typeof(MailCopy));
@@ -152,6 +163,26 @@ public class MailService : BaseDatabaseService, IMailService
         }
 
         return unreadMails;
+    }
+
+    public async Task<MailCopy> GetMailCopyByMessageIdAsync(Guid accountId, string messageId)
+    {
+        var normalizedMessageId = MailHeaderExtensions.StripAngleBrackets(messageId)?.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedMessageId))
+            return null;
+
+        var mailCopy = await Connection.FindWithQueryAsync<MailCopy>(
+            "SELECT MailCopy.* FROM MailCopy " +
+            "INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id " +
+            "WHERE MailItemFolder.MailAccountId = ? AND MailCopy.MessageId = ? " +
+            "ORDER BY MailCopy.IsDraft ASC, MailCopy.CreationDate DESC LIMIT 1",
+            accountId,
+            normalizedMessageId).ConfigureAwait(false);
+
+        if (mailCopy != null)
+            await LoadAssignedPropertiesAsync(mailCopy).ConfigureAwait(false);
+
+        return mailCopy;
     }
 
     private static (string Query, object[] Parameters) BuildMailFetchQuery(MailListInitializationOptions options)
@@ -925,11 +956,12 @@ public class MailService : BaseDatabaseService, IMailService
         var builder = new BodyBuilder();
 
         var signature = await GetSignature(account, draftCreationOptions.Reason);
+        var ownAddresses = await GetOwnAddressesAsync(account).ConfigureAwait(false);
 
         _ = draftCreationOptions.Reason switch
         {
             DraftCreationReason.Empty => CreateEmptyDraft(builder, message, draftCreationOptions, signature),
-            _ => CreateReferencedDraft(builder, message, draftCreationOptions, account, signature),
+            _ => CreateReferencedDraft(builder, message, draftCreationOptions, signature, ownAddresses),
         };
 
         // TODO: Migration
@@ -996,10 +1028,15 @@ public class MailService : BaseDatabaseService, IMailService
         return message;
     }
 
-    private MimeMessage CreateReferencedDraft(BodyBuilder builder, MimeMessage message, DraftCreationOptions draftCreationOptions, MailAccount account, string signature)
+    private MimeMessage CreateReferencedDraft(BodyBuilder builder,
+                                              MimeMessage message,
+                                              DraftCreationOptions draftCreationOptions,
+                                              string signature,
+                                              ISet<string> ownAddresses)
     {
         var reason = draftCreationOptions.Reason;
         var referenceMessage = draftCreationOptions.ReferencedMessage.MimeMessage;
+        ownAddresses ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         var gap = CreateHtmlGap();
         builder.HtmlBody = gap + CreateHtmlForReferencingMessage(referenceMessage);
@@ -1012,27 +1049,72 @@ public class MailService : BaseDatabaseService, IMailService
         // Manage "To"
         if (reason == DraftCreationReason.Reply || reason == DraftCreationReason.ReplyAll)
         {
-            // Reply to the sender of the message
-            if (referenceMessage.ReplyTo.Count > 0)
-                message.To.AddRange(referenceMessage.ReplyTo);
-            else if (referenceMessage.From.Count > 0)
-                message.To.AddRange(referenceMessage.From);
-            else if (referenceMessage.Sender != null)
-                message.To.Add(referenceMessage.Sender);
+            var toRecipients = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var ccRecipients = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            void AddToRecipient(MailboxAddress mailbox, bool allowSelf)
+            {
+                var address = mailbox?.Address?.Trim();
+                if (string.IsNullOrWhiteSpace(address))
+                    return;
+                if (!allowSelf && ownAddresses.Contains(address))
+                    return;
+                if (!toRecipients.Add(address))
+                    return;
+
+                message.To.Add(new MailboxAddress(mailbox.Name, address));
+            }
+
+            void AddCcRecipient(MailboxAddress mailbox, bool allowSelf)
+            {
+                var address = mailbox?.Address?.Trim();
+                if (string.IsNullOrWhiteSpace(address))
+                    return;
+                if (!allowSelf && ownAddresses.Contains(address))
+                    return;
+                if (toRecipients.Contains(address) || !ccRecipients.Add(address))
+                    return;
+
+                message.Cc.Add(new MailboxAddress(mailbox.Name, address));
+            }
+
+            // Reply target follows Reply-To first, then From, then Sender.
+            if (referenceMessage.ReplyTo.Mailboxes.Any())
+            {
+                foreach (var mailbox in referenceMessage.ReplyTo.Mailboxes)
+                    AddToRecipient(mailbox, allowSelf: true);
+            }
+            else if (referenceMessage.From.Mailboxes.Any())
+            {
+                foreach (var mailbox in referenceMessage.From.Mailboxes)
+                    AddToRecipient(mailbox, allowSelf: true);
+            }
+            else if (referenceMessage.Sender is MailboxAddress senderMailbox)
+            {
+                AddToRecipient(senderMailbox, allowSelf: true);
+            }
 
             if (reason == DraftCreationReason.ReplyAll)
             {
                 // Include all of the other original recipients
-                message.To.AddRange(referenceMessage.To.Where(x => x is MailboxAddress mailboxAddress && !mailboxAddress.Address.Equals(account.Address, StringComparison.OrdinalIgnoreCase)));
-                message.Cc.AddRange(referenceMessage.Cc.Where(x => x is MailboxAddress mailboxAddress && !mailboxAddress.Address.Equals(account.Address, StringComparison.OrdinalIgnoreCase)));
+                foreach (var mailbox in referenceMessage.To.Mailboxes)
+                    AddToRecipient(mailbox, allowSelf: false);
+
+                foreach (var mailbox in referenceMessage.Cc.Mailboxes)
+                    AddCcRecipient(mailbox, allowSelf: false);
             }
 
             // Self email can be present at this step, when replying to own message. It should be removed only in case there no other recipients.
-            if (message.To.Count > 1)
+            if (message.To.Mailboxes.Count() > 1)
             {
-                var self = message.To.FirstOrDefault(x => x is MailboxAddress mailboxAddress && mailboxAddress.Address.Equals(account.Address, StringComparison.OrdinalIgnoreCase));
-                if (self != null)
+                var selfRecipients = message.To.Mailboxes
+                    .Where(m => ownAddresses.Contains(m.Address ?? string.Empty))
+                    .ToList();
+
+                foreach (var self in selfRecipients)
+                {
                     message.To.Remove(self);
+                }
             }
 
             // Manage "ThreadId-ConversationId"
@@ -1040,16 +1122,15 @@ public class MailService : BaseDatabaseService, IMailService
             // They must reference the original message's Message-ID from the MIME headers
             if (!string.IsNullOrEmpty(referenceMessage.MessageId))
             {
-                message.InReplyTo = referenceMessage.MessageId;
+                message.InReplyTo = MailHeaderExtensions.StripAngleBrackets(referenceMessage.MessageId);
 
-                // Add all previous References first
-                if (referenceMessage.References != null && referenceMessage.References.Count > 0)
-                {
-                    message.References.AddRange(referenceMessage.References);
-                }
+                var refs = BuildReferencesChain(
+                    referenceMessage.References,
+                    referenceMessage.InReplyTo,
+                    referenceMessage.MessageId);
 
-                // Then add the message we're replying to
-                message.References.Add(referenceMessage.MessageId);
+                foreach (var referenceId in refs)
+                    message.References.Add(referenceId);
             }
             else
             {
@@ -1058,32 +1139,30 @@ public class MailService : BaseDatabaseService, IMailService
                 var referenceMailCopy = draftCreationOptions.ReferencedMessage.MailCopy;
                 if (referenceMailCopy != null && !string.IsNullOrEmpty(referenceMailCopy.MessageId))
                 {
-                    message.InReplyTo = referenceMailCopy.MessageId;
+                    message.InReplyTo = MailHeaderExtensions.StripAngleBrackets(referenceMailCopy.MessageId);
 
-                    if (!string.IsNullOrEmpty(referenceMailCopy.References))
-                    {
-                        // Parse the References string (supports both ";" and "," separators for backward compatibility)
-                        var references = referenceMailCopy.References.Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries);
-                        foreach (var reference in references)
-                        {
-                            message.References.Add(reference.Trim());
-                        }
-                    }
+                    var refs = BuildReferencesChain(
+                        SplitStoredReferences(referenceMailCopy.References),
+                        referenceMailCopy.InReplyTo,
+                        referenceMailCopy.MessageId);
 
-                    message.References.Add(referenceMailCopy.MessageId);
+                    foreach (var referenceId in refs)
+                        message.References.Add(referenceId);
                 }
             }
 
-            message.Headers.Add("Thread-Topic", referenceMessage.Subject);
+            if (!string.IsNullOrEmpty(referenceMessage.Subject))
+                message.Headers.Add("Thread-Topic", referenceMessage.Subject);
         }
 
         // Manage Subject
-        if (reason == DraftCreationReason.Forward && !referenceMessage.Subject.StartsWith("FW: ", StringComparison.OrdinalIgnoreCase))
-            message.Subject = $"FW: {referenceMessage.Subject}";
-        else if ((reason == DraftCreationReason.Reply || reason == DraftCreationReason.ReplyAll) && !referenceMessage.Subject.StartsWith("RE: ", StringComparison.OrdinalIgnoreCase))
-            message.Subject = $"RE: {referenceMessage.Subject}";
-        else if (referenceMessage != null)
-            message.Subject = referenceMessage.Subject;
+        var referenceSubject = referenceMessage?.Subject ?? string.Empty;
+        if (reason == DraftCreationReason.Forward && !referenceSubject.StartsWith("FW: ", StringComparison.OrdinalIgnoreCase))
+            message.Subject = $"FW: {referenceSubject}";
+        else if ((reason == DraftCreationReason.Reply || reason == DraftCreationReason.ReplyAll) && !referenceSubject.StartsWith("RE: ", StringComparison.OrdinalIgnoreCase))
+            message.Subject = $"RE: {referenceSubject}";
+        else
+            message.Subject = referenceSubject;
 
         // Only include attachments if forwarding.
         if (reason == DraftCreationReason.Forward && (referenceMessage?.Attachments?.Any() ?? false))
@@ -1243,6 +1322,67 @@ public class MailService : BaseDatabaseService, IMailService
         var addedMails = onlineArchiveIdSet.Except(localArchiveIdSet).ToArray();
 
         return new GmailArchiveComparisonResult(addedMails, removedMails);
+    }
+
+    private async Task<HashSet<string>> GetOwnAddressesAsync(MailAccount account)
+    {
+        var ownAddresses = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (!string.IsNullOrWhiteSpace(account?.Address))
+            ownAddresses.Add(account.Address.Trim());
+
+        var aliases = await _accountService.GetAccountAliasesAsync(account.Id).ConfigureAwait(false);
+        if (aliases != null)
+        {
+            foreach (var alias in aliases)
+            {
+                if (!string.IsNullOrWhiteSpace(alias?.AliasAddress))
+                    ownAddresses.Add(alias.AliasAddress.Trim());
+            }
+        }
+
+        return ownAddresses;
+    }
+
+    private static IEnumerable<string> SplitStoredReferences(string references)
+    {
+        if (string.IsNullOrWhiteSpace(references))
+            return [];
+
+        return references
+            .Split(new[] { ';', ',', ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(r => r.Trim());
+    }
+
+    private static List<string> BuildReferencesChain(IEnumerable<string> existingReferences, string parentInReplyTo, string parentMessageId)
+    {
+        var results = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        void AddReference(string value)
+        {
+            var normalized = MailHeaderExtensions.StripAngleBrackets(value)?.Trim();
+            if (string.IsNullOrWhiteSpace(normalized))
+                return;
+            if (!seen.Add(normalized))
+                return;
+
+            results.Add(normalized);
+        }
+
+        if (existingReferences != null)
+        {
+            foreach (var reference in existingReferences)
+                AddReference(reference);
+        }
+
+        // RFC 5322 fallback: if References is absent, include parent In-Reply-To first when available.
+        if (results.Count == 0)
+            AddReference(parentInReplyTo);
+
+        AddReference(parentMessageId);
+
+        return results;
     }
 
     public async Task<IEnumerable<string>> GetRecentMailIdsForFolderAsync(Guid folderId, int count)

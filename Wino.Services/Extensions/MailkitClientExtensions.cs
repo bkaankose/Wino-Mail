@@ -114,6 +114,7 @@ public static class MailkitClientExtensions
         var fromAddress = mime != null ? GetActualSenderAddress(mime) : GetEnvelopeSenderAddress(envelope);
         var references = mime?.References?.GetReferences() ?? messageSummary.References?.GetReferences();
         var inReplyTo = mime != null ? mime.GetInReplyTo() : envelope?.InReplyTo ?? string.Empty;
+        var threadId = ResolveThreadId(messageSummary, messageId, references, inReplyTo);
         var hasAttachments = mime != null ? mime.Attachments.Any() : false;
         var itemType = mime != null ? GetMailItemTypeFromMime(mime) : MailItemType.Mail;
 
@@ -121,7 +122,7 @@ public static class MailkitClientExtensions
         {
             Id = messageUid,
             CreationDate = creationDate,
-            ThreadId = messageSummary.GetThreadId(),
+            ThreadId = threadId,
             MessageId = messageId,
             Subject = subject,
             IsRead = messageSummary.Flags.GetIsRead(),
@@ -139,6 +140,48 @@ public static class MailkitClientExtensions
         };
 
         return copy;
+    }
+
+    private static string ResolveThreadId(IMessageSummary messageSummary, string messageId, string references, string inReplyTo)
+    {
+        var serverThreadId = messageSummary.GetThreadId();
+        if (!string.IsNullOrEmpty(serverThreadId))
+            return serverThreadId;
+
+        // Fallback threading for IMAP providers that do not expose a native ThreadId:
+        // - Prefer root of References chain
+        // - Then In-Reply-To
+        // - Finally own Message-Id (single-message thread root)
+        var rootReference = references?
+            .Split(new[] { ';', ',', ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(NormalizeThreadToken)
+            .FirstOrDefault();
+
+        if (!string.IsNullOrEmpty(rootReference))
+            return rootReference;
+
+        var normalizedInReplyTo = NormalizeThreadToken(inReplyTo);
+        if (!string.IsNullOrEmpty(normalizedInReplyTo))
+            return normalizedInReplyTo;
+
+        var normalizedMessageId = NormalizeThreadToken(messageId);
+        if (!string.IsNullOrEmpty(normalizedMessageId))
+            return normalizedMessageId;
+
+        return string.Empty;
+    }
+
+    private static string NormalizeThreadToken(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        value = value.Trim();
+
+        if (value.StartsWith("<") && value.EndsWith(">") && value.Length > 2)
+            value = value.Substring(1, value.Length - 2);
+
+        return value;
     }
 
     private static string GetPreviewText(IMessageSummary messageSummary, string subjectFallback)

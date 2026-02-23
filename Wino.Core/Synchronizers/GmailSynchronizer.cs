@@ -1183,6 +1183,9 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             message.ThreadId = singleDraftRequest.Item.ThreadId;
         }
 
+        // Local draft mapping header must never leak to recipients.
+        singleDraftRequest.Request.Mime.Headers.Remove(Domain.Constants.WinoLocalDraftHeader);
+
         singleDraftRequest.Request.Mime.Prepare(EncodingConstraint.None);
 
         var mimeString = singleDraftRequest.Request.Mime.ToString();

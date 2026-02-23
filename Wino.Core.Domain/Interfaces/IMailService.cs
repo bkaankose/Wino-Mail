@@ -132,6 +132,12 @@ public interface IMailService
     Task<(MailCopy draftMailCopy, string draftBase64MimeMessage)> CreateDraftAsync(Guid accountId, DraftCreationOptions draftCreationOptions);
 
     /// <summary>
+    /// Finds a mail copy in the given account by RFC Message-Id.
+    /// Returns null when no local match exists.
+    /// </summary>
+    Task<MailCopy> GetMailCopyByMessageIdAsync(Guid accountId, string messageId);
+
+    /// <summary>
     /// Returns ids 
     /// </summary>
     /// <param name="folderId"></param>

@@ -1812,6 +1812,10 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                 {
                     await HandleFailedResponseAsync(bundle, response, errors);
                 }
+                else
+                {
+                    await HandleSuccessfulResponseAsync(bundle, response).ConfigureAwait(false);
+                }
             }
         }
 
@@ -1856,6 +1860,39 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             bundle.UIChangeRequest?.RevertUIChanges();
             Debug.WriteLine(errorString);
             errors.Add(errorString);
+        }
+    }
+
+    private async Task HandleSuccessfulResponseAsync(IRequestBundle<RequestInformation> bundle, HttpResponseMessage response)
+    {
+        if (bundle?.UIChangeRequest is not CreateDraftRequest createDraftRequest)
+            return;
+
+        try
+        {
+            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(content))
+                return;
+
+            var json = JsonNode.Parse(content);
+            var createdDraftId = json?["id"]?.GetValue<string>();
+            if (string.IsNullOrWhiteSpace(createdDraftId))
+                return;
+
+            var createdConversationId = json?["conversationId"]?.GetValue<string>();
+            var localDraft = createDraftRequest.DraftPreperationRequest.CreatedLocalDraftCopy;
+
+            await _outlookChangeProcessor.MapLocalDraftAsync(
+                Account.Id,
+                localDraft.UniqueId,
+                createdDraftId,
+                createdConversationId,
+                createdConversationId).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            // Draft mapping is best-effort here. Delta sync mapping remains as fallback.
+            _logger.Debug(ex, "Failed to map Outlook draft from create-draft response.");
         }
     }
 

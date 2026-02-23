@@ -327,10 +327,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         using MemoryStream memoryStream = new();
         CurrentMimeMessage.WriteTo(FormatOptions.Default, memoryStream);
-        byte[] buffer = memoryStream.GetBuffer();
-        int count = (int)memoryStream.Length;
-
-        var base64EncodedMessage = Convert.ToBase64String(buffer);
+        var base64EncodedMessage = Convert.ToBase64String(memoryStream.ToArray());
         var draftSendPreparationRequest = new SendDraftPreparationRequest(CurrentMailDraftItem.MailCopy,
                                                                           SelectedAlias,
                                                                           sentFolder,
@@ -364,11 +361,13 @@ public partial class ComposePageViewModel : MailBaseViewModel,
             await UpdateMimeChangesAsync().ConfigureAwait(false);
 
             var localDraftCopy = CurrentMailDraftItem.MailCopy;
+            var (retryReason, referenceMailCopy) = await ResolveRetryDraftContextAsync().ConfigureAwait(false);
             var draftPreparationRequest = new DraftPreparationRequest(
                 localDraftCopy.AssignedAccount ?? ComposingAccount,
                 localDraftCopy,
                 CurrentMimeMessage.GetBase64MimeMessage(),
-                DraftCreationReason.Empty);
+                retryReason,
+                referenceMailCopy);
 
             await _worker.ExecuteAsync(draftPreparationRequest).ConfigureAwait(false);
         }
@@ -384,7 +383,11 @@ public partial class ComposePageViewModel : MailBaseViewModel,
             });
 
             await UpdatePendingOperationStateAsync().ConfigureAwait(false);
-            NotifyComposeActionStateChanged();
+
+            await ExecuteUIThread(() =>
+            {
+                NotifyComposeActionStateChanged();
+            });
         }
     }
 
@@ -783,6 +786,32 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         foreach (var item in addresses)
             list.Add(new MailboxAddress(item.Name, item.Address));
+    }
+
+    private async Task<(DraftCreationReason reason, MailCopy referenceMailCopy)> ResolveRetryDraftContextAsync()
+    {
+        if (CurrentMimeMessage == null || CurrentMailDraftItem?.MailCopy?.AssignedAccount == null)
+            return (DraftCreationReason.Empty, null);
+
+        var inReplyTo = CurrentMimeMessage.InReplyTo;
+        if (string.IsNullOrWhiteSpace(inReplyTo) && CurrentMimeMessage.Headers.Contains(HeaderId.InReplyTo))
+            inReplyTo = CurrentMimeMessage.Headers[HeaderId.InReplyTo];
+
+        inReplyTo = MailHeaderExtensions.StripAngleBrackets(inReplyTo);
+        if (string.IsNullOrWhiteSpace(inReplyTo))
+            return (DraftCreationReason.Empty, null);
+
+        var accountId = CurrentMailDraftItem.MailCopy.AssignedAccount.Id;
+        var referenceMailCopy = await _mailService.GetMailCopyByMessageIdAsync(accountId, inReplyTo).ConfigureAwait(false);
+        if (referenceMailCopy == null)
+            return (DraftCreationReason.Empty, null);
+
+        // We cannot perfectly reconstruct original intent (Reply vs ReplyAll) from persisted data.
+        // Infer ReplyAll when multiple recipients exist on the local MIME.
+        var totalRecipients = CurrentMimeMessage.To.Mailboxes.Count() + CurrentMimeMessage.Cc.Mailboxes.Count();
+        var reason = totalRecipients > 1 ? DraftCreationReason.ReplyAll : DraftCreationReason.Reply;
+
+        return (reason, referenceMailCopy);
     }
 
     public async Task<AccountContact> GetAddressInformationAsync(string tokenText, ObservableCollection<AccountContact> collection)
