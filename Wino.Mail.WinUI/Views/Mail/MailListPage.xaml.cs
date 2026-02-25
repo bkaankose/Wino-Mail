@@ -47,6 +47,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
     IRecipient<DisposeRenderingFrameRequested>
 {
     private const double RENDERING_COLUMN_MIN_WIDTH = 375;
+    private const int IDLE_NAVIGATION_DELAY_MS = 120;
+    private int _idleNavigationRequestVersion = 0;
 
     private IStatePersistanceService StatePersistenceService { get; } = WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception($"Can't resolve {nameof(KeyPressService)}");
     private IKeyPressService KeyPressService { get; } = WinoApplication.Current.Services.GetService<IKeyPressService>() ?? throw new Exception($"Can't resolve {nameof(KeyPressService)}");
@@ -79,6 +81,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         base.OnNavigatedFrom(e);
+
+        InvalidatePendingIdleNavigation();
 
         this.Bindings.StopTracking();
 
@@ -280,17 +284,12 @@ public sealed partial class MailListPage : MailListPageAbstract,
         // No active mail item. Go to empty page.
         if (message.SelectedMailItemViewModel == null)
         {
-            if (IsRenderingPageActive())
-            {
-                WeakReferenceMessenger.Default.Send(new CancelRenderingContentRequested());
-            }
-
-            // Ensure rendering frame actually navigates away from Compose/Rendering pages.
-            // Otherwise those pages keep their messenger registrations alive.
-            ViewModel.NavigationService.Navigate(WinoPage.IdlePage, null, NavigationReferenceFrame.RenderingFrame, NavigationTransitionType.DrillIn);
+            _ = NavigateIdleWhenSelectionSettlesAsync();
         }
         else
         {
+            InvalidatePendingIdleNavigation();
+
             // Navigate to composing page.
             if (message.SelectedMailItemViewModel.IsDraft)
             {
@@ -309,7 +308,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
                 {
                     // Composer is already active. Skip connected animation since the page
                     // will be reused in-place (no navigation occurs).
-                    // NavigationService will send NewComposeDraftItemRequestedEvent instead.
+                    // NavigationService will send ReaderItemRefreshRequestedEvent instead.
                 }
                 else
                     composerPageTransition = NavigationTransitionType.DrillIn;
@@ -336,6 +335,34 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     private bool IsRenderingPageActive() => RenderingFrame.Content is MailRenderingPage;
     private bool IsComposingPageActive() => RenderingFrame.Content is ComposePage;
+
+    private void InvalidatePendingIdleNavigation()
+    {
+        unchecked
+        {
+            _idleNavigationRequestVersion++;
+        }
+    }
+
+    private async Task NavigateIdleWhenSelectionSettlesAsync()
+    {
+        int requestVersion = ++_idleNavigationRequestVersion;
+
+        await Task.Delay(IDLE_NAVIGATION_DELAY_MS);
+
+        if (requestVersion != _idleNavigationRequestVersion) return;
+        if (ViewModel.MailCollection.SelectedItemsCount != 0) return;
+
+        if (IsRenderingPageActive())
+        {
+            WeakReferenceMessenger.Default.Send(new CancelRenderingContentRequested());
+        }
+
+        // Ensure rendering frame actually navigates away from Compose/Rendering pages.
+        // Otherwise those pages keep their messenger registrations alive.
+        ViewModel.NavigationService.Navigate(WinoPage.IdlePage, null, NavigationReferenceFrame.RenderingFrame, NavigationTransitionType.DrillIn);
+        UpdateAdaptiveness();
+    }
 
     private void PrepareComposePageWebViewTransition()
     {

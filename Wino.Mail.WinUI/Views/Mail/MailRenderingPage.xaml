@@ -46,10 +46,7 @@
                                 Grid.RowSpan="2"
                                 Width="36"
                                 Height="36"
-                                FromAddress="{x:Bind Address}"
-                                FromName="{x:Bind Name}"
-                                SenderContactPicture="{x:Bind Base64ContactPicture}"
-                                ThumbnailUpdatedEvent="{x:Bind ThumbnailUpdatedEvent, Mode=OneWay}" />
+                                MailItemInformation="{x:Bind}" />
 
                             <TextBlock Grid.Column="1" Text="{x:Bind Name}" />
 
@@ -291,9 +288,7 @@
                                 Width="36"
                                 Height="36"
                                 FontSize="16"
-                                FromAddress="{x:Bind ViewModel.FromAddress, Mode=OneWay}"
-                                FromName="{x:Bind ViewModel.FromName, Mode=OneWay}"
-                                SenderContactPicture="{x:Bind ViewModel.ContactPicture, Mode=OneWay}" />
+                                MailItemInformation="{x:Bind ViewModel.CurrentMailItemDisplayInformation, Mode=OneWay}" />
 
                             <Grid
                                 Grid.Column="1"

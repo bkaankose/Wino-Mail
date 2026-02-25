@@ -164,15 +164,17 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
+        // Initialize WebView2 wiring before base navigation invokes ViewModel rendering.
+        // Base.OnNavigatedTo triggers VM.OnNavigatedTo, which can send HtmlRenderingRequested.
+        DOMLoadedTask = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Chromium.CoreWebView2Initialized -= CoreWebViewInitialized;
+        Chromium.CoreWebView2Initialized += CoreWebViewInitialized;
+        _ = Chromium.EnsureCoreWebView2Async();
+
         base.OnNavigatedTo(e);
 
         var anim = ConnectedAnimationService.GetForCurrentView().GetAnimation("WebViewConnectedAnimation");
         anim?.TryStart(Chromium);
-
-        Chromium.CoreWebView2Initialized -= CoreWebViewInitialized;
-        Chromium.CoreWebView2Initialized += CoreWebViewInitialized;
-
-        _ = Chromium.EnsureCoreWebView2Async();
 
         // We don't have shell initialized here. It's only standalone EML viewing.
         // Shift command bar from top to adjust the design.

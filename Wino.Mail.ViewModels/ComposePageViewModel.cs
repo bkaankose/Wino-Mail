@@ -29,7 +29,7 @@ using Wino.Messaging.UI;
 namespace Wino.Mail.ViewModels;
 
 public partial class ComposePageViewModel : MailBaseViewModel,
-    IRecipient<NewComposeDraftItemRequestedEvent>,
+    IRecipient<ReaderItemRefreshRequestedEvent>,
     IRecipient<SynchronizationActionsAdded>,
     IRecipient<SynchronizationActionsCompleted>,
     IRecipient<AccountSynchronizerStateChanged>
@@ -511,8 +511,10 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         }
     }
 
-    public async void Receive(NewComposeDraftItemRequestedEvent message)
+    public async void Receive(ReaderItemRefreshRequestedEvent message)
     {
+        if (message.MailItemViewModel == null || !message.MailItemViewModel.IsDraft) return;
+
         // Save current draft before switching.
         await UpdateMimeChangesAsync();
 
@@ -555,7 +557,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     {
         base.RegisterRecipients();
 
-        Messenger.Register<NewComposeDraftItemRequestedEvent>(this);
+        Messenger.Register<ReaderItemRefreshRequestedEvent>(this);
         Messenger.Register<SynchronizationActionsAdded>(this);
         Messenger.Register<SynchronizationActionsCompleted>(this);
         Messenger.Register<AccountSynchronizerStateChanged>(this);
@@ -565,7 +567,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     {
         base.UnregisterRecipients();
 
-        Messenger.Unregister<NewComposeDraftItemRequestedEvent>(this);
+        Messenger.Unregister<ReaderItemRefreshRequestedEvent>(this);
         Messenger.Unregister<SynchronizationActionsAdded>(this);
         Messenger.Unregister<SynchronizationActionsCompleted>(this);
         Messenger.Unregister<AccountSynchronizerStateChanged>(this);

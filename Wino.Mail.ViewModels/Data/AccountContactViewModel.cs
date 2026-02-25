@@ -1,11 +1,12 @@
-﻿using System;
+using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Mail.ViewModels.Data;
 
-public partial class AccountContactViewModel : ObservableObject
+public partial class AccountContactViewModel : ObservableObject, IMailItemDisplayInformation
 {
     public string Address { get; set; }
     public string Name { get; set; }
@@ -49,4 +50,25 @@ public partial class AccountContactViewModel : ObservableObject
 
     [ObservableProperty]
     public partial bool ThumbnailUpdatedEvent { get; set; }
+
+    // IMailItemDisplayInformation implementation for avatar-only rendering.
+    public string Subject => string.Empty;
+    public string FromName => Name ?? string.Empty;
+    public string FromAddress => Address ?? string.Empty;
+    public string PreviewText => string.Empty;
+    public bool IsRead => true;
+    public bool IsDraft => false;
+    public bool HasAttachments => false;
+    public bool IsCalendarEvent => false;
+    public bool IsFlagged => false;
+    public DateTime CreationDate => default;
+    public bool IsBusy => false;
+    public bool IsThreadExpanded => false;
+    public AccountContact SenderContact => new()
+    {
+        Address = Address,
+        Name = Name,
+        Base64ContactPicture = Base64ContactPicture,
+        IsRootContact = IsRootContact
+    };
 }

@@ -32,7 +32,7 @@ namespace Wino.Views.Mail;
 public sealed partial class ComposePage : ComposePageAbstract,
     IRecipient<CreateNewComposeMailRequested>,
     IRecipient<ApplicationThemeChanged>,
-    IRecipient<NewComposeDraftItemRequestedEvent>
+    IRecipient<ReaderItemRefreshRequestedEvent>
 {
     public WebView2 GetWebView() => WebViewEditor.GetUnderlyingWebView();
 
@@ -302,8 +302,10 @@ public sealed partial class ComposePage : ComposePageAbstract,
         WebViewEditor.IsEditorDarkMode = message.IsUnderlyingThemeDark;
     }
 
-    void IRecipient<NewComposeDraftItemRequestedEvent>.Receive(NewComposeDraftItemRequestedEvent message)
+    void IRecipient<ReaderItemRefreshRequestedEvent>.Receive(ReaderItemRefreshRequestedEvent message)
     {
+        if (message.MailItemViewModel == null || !message.MailItemViewModel.IsDraft) return;
+
         // Reset the initial focus flag so ToBox gets focus for the new draft.
         isInitialFocusHandled = false;
     }
@@ -423,7 +425,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
         WeakReferenceMessenger.Default.Register<CreateNewComposeMailRequested>(this);
         WeakReferenceMessenger.Default.Register<ApplicationThemeChanged>(this);
-        WeakReferenceMessenger.Default.Register<NewComposeDraftItemRequestedEvent>(this);
+        WeakReferenceMessenger.Default.Register<ReaderItemRefreshRequestedEvent>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -432,7 +434,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
         WeakReferenceMessenger.Default.Unregister<CreateNewComposeMailRequested>(this);
         WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
-        WeakReferenceMessenger.Default.Unregister<NewComposeDraftItemRequestedEvent>(this);
+        WeakReferenceMessenger.Default.Unregister<ReaderItemRefreshRequestedEvent>(this);
     }
 
     // TODO: Save mime on closing the app.

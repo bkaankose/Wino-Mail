@@ -226,9 +226,17 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
         if (mode == NavigationMode.Back)
         {
-            // Account list may have changed while this shell was inactive.
-            await RecreateMenuItemsAsync();
-            await RestoreSelectedAccountAfterMenuRefreshAsync(false);
+            // Preserve current mail/folder selection and active rendering page when
+            // switching back from Calendar mode. Recreating menu/folder state here
+            // causes a folder reload, which clears selection and disposes reader page.
+            // Rehydrate only if menu state is unexpectedly empty.
+            if (MenuItems?.Any() != true || FooterItems?.Any() != true)
+            {
+                await CreateFooterItemsAsync();
+                await RecreateMenuItemsAsync();
+                await RestoreSelectedAccountAfterMenuRefreshAsync(false);
+            }
+
             return;
         }
 

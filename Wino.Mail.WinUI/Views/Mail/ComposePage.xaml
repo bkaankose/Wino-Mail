@@ -43,10 +43,7 @@
                 </Grid.ContextFlyout>-->
 
                 <Viewbox Width="24">
-                    <controls:ImagePreviewControl
-                        FromAddress="{x:Bind Address}"
-                        FromName="{x:Bind Name}"
-                        SenderContactPicture="{x:Bind Base64ContactPicture}" />
+                    <PersonPicture DisplayName="{x:Bind Name, Mode=OneTime}" />
                 </Viewbox>
 
                 <TextBlock
@@ -62,10 +59,7 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <controls:ImagePreviewControl
-                    FromAddress="{x:Bind Address}"
-                    FromName="{x:Bind Name}"
-                    SenderContactPicture="{x:Bind Base64ContactPicture}" />
+                    <PersonPicture DisplayName="{x:Bind Name, Mode=OneTime}" />
                 <TextBlock Grid.Column="1">
                     <Run FontWeight="SemiBold" Text="{x:Bind Name}" /><LineBreak /><Run Text="{x:Bind Address}" />
                 </TextBlock>
@@ -485,8 +479,8 @@
                                                             <TextBlock FontWeight="SemiBold" Text="{x:Bind Subject}" />
                                                             <TextBlock FontSize="12" Text="{x:Bind Issuer}" />
                                                             <TextBlock>
-                                                                <Run Text="{x:Bind domain:Translator.Composer_CertificateExpires}" />
-                                                                <Run Text="{x:Bind NotAfter, Mode=OneWay}" />
+                                                                <Run Text="{x:Bind domain:Translator.Composer_CertificateExpires, Mode=OneTime}" />
+                                                                <Run Text="{x:Bind NotAfter, Mode=OneTime}" />
                                                             </TextBlock>
                                                         </StackPanel>
                                                     </DataTemplate>

@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using System.Net.Mail;
+using System.ComponentModel;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.WinUI;
@@ -30,20 +30,9 @@ public sealed partial class ImagePreviewControl : PersonPicture
     [GeneratedDependencyProperty]
     public partial IMailItemDisplayInformation? MailItemInformation { get; set; }
 
-    [GeneratedDependencyProperty]
-    public partial string? FromName { get; set; }
-
-    [GeneratedDependencyProperty]
-    public partial string? FromAddress { get; set; }
-
-    [GeneratedDependencyProperty]
-    public partial string? SenderContactPicture { get; set; }
-
-    [GeneratedDependencyProperty(DefaultValue = false)]
-    public partial bool ThumbnailUpdatedEvent { get; set; }
-
     private readonly IThumbnailService? _thumbnailService;
     private readonly IPreferencesService? _preferencesService;
+    private INotifyPropertyChanged? _mailItemInformationPropertySource;
     private CancellationTokenSource? _refreshCancellationTokenSource;
     private CancellationTokenSource? _scheduledRefreshCancellationTokenSource;
     private long _refreshVersion;
@@ -68,16 +57,20 @@ public sealed partial class ImagePreviewControl : PersonPicture
 
     partial void OnMailItemInformationPropertyChanged(DependencyPropertyChangedEventArgs e)
     {
+        if (_mailItemInformationPropertySource != null)
+        {
+            _mailItemInformationPropertySource.PropertyChanged -= MailItemInformationPropertyChanged;
+            _mailItemInformationPropertySource = null;
+        }
+
+        if (e.NewValue is INotifyPropertyChanged observableMailItemInformation)
+        {
+            _mailItemInformationPropertySource = observableMailItemInformation;
+            _mailItemInformationPropertySource.PropertyChanged += MailItemInformationPropertyChanged;
+        }
+
         RequestRefresh();
     }
-
-    partial void OnFromNameChanged(string? newValue) => RequestRefresh();
-
-    partial void OnFromAddressChanged(string? newValue) => RequestRefresh();
-
-    partial void OnSenderContactPictureChanged(string? newValue) => RequestRefresh();
-
-    partial void OnThumbnailUpdatedEventChanged(bool newValue) => RequestRefresh();
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
@@ -86,8 +79,26 @@ public sealed partial class ImagePreviewControl : PersonPicture
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        if (_mailItemInformationPropertySource != null)
+        {
+            _mailItemInformationPropertySource.PropertyChanged -= MailItemInformationPropertyChanged;
+            _mailItemInformationPropertySource = null;
+        }
+
         CancelScheduledRefresh();
         CancelActiveRefresh();
+    }
+
+    private void MailItemInformationPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        // Refresh only for fields that affect avatar image or initials.
+        if (string.IsNullOrEmpty(e.PropertyName)
+            || e.PropertyName == nameof(IMailItemDisplayInformation.Base64ContactPicture)
+            || e.PropertyName == nameof(IMailItemDisplayInformation.SenderContact)
+            || e.PropertyName == nameof(IMailItemDisplayInformation.ThumbnailUpdatedEvent))
+        {
+            RequestRefresh();
+        }
     }
 
     private void RequestRefresh()
@@ -236,6 +247,9 @@ public sealed partial class ImagePreviewControl : PersonPicture
 
     private string ResolveAddress()
     {
+        if (MailItemInformation == null)
+            return string.Empty;
+
         var contactAddress = MailItemInformation?.SenderContact?.Address;
         if (!string.IsNullOrWhiteSpace(contactAddress))
             return contactAddress.Trim();
@@ -243,7 +257,7 @@ public sealed partial class ImagePreviewControl : PersonPicture
         if (!string.IsNullOrWhiteSpace(MailItemInformation?.FromAddress))
             return MailItemInformation.FromAddress.Trim();
 
-        return FromAddress?.Trim() ?? string.Empty;
+        return string.Empty;
     }
 
     private string ResolveDisplayName(string resolvedAddress)
@@ -254,9 +268,6 @@ public sealed partial class ImagePreviewControl : PersonPicture
 
         if (!string.IsNullOrWhiteSpace(MailItemInformation?.FromName))
             return MailItemInformation.FromName.Trim();
-
-        if (!string.IsNullOrWhiteSpace(FromName))
-            return FromName.Trim();
 
         return resolvedAddress.Trim();
     }
@@ -269,7 +280,7 @@ public sealed partial class ImagePreviewControl : PersonPicture
         if (!string.IsNullOrWhiteSpace(MailItemInformation?.Base64ContactPicture))
             return MailItemInformation.Base64ContactPicture;
 
-        return SenderContactPicture ?? string.Empty;
+        return string.Empty;
     }
 
     private async Task ApplyInitialVisualStateAsync(string displayName, long refreshVersion, CancellationToken cancellationToken)
@@ -387,16 +398,4 @@ public sealed partial class ImagePreviewControl : PersonPicture
         }).ConfigureAwait(false);
     }
 
-    private static bool IsValidEmail(string email)
-    {
-        try
-        {
-            _ = new MailAddress(email);
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
 }

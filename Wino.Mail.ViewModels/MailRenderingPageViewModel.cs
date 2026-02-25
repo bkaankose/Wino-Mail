@@ -34,7 +34,7 @@ using IMailService = Wino.Core.Domain.Interfaces.IMailService;
 namespace Wino.Mail.ViewModels;
 
 public partial class MailRenderingPageViewModel : MailBaseViewModel,
-    IRecipient<NewMailItemRenderingRequestedEvent>,
+    IRecipient<ReaderItemRefreshRequestedEvent>,
     IRecipient<ThumbnailAdded>,
     ITransferProgress // For listening IMAP message download progress.
 {
@@ -126,6 +126,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
     [ObservableProperty]
     public partial string ContactPicture { get; set; }
+
+    [ObservableProperty]
+    public partial IMailItemDisplayInformation CurrentMailItemDisplayInformation { get; set; }
 
     [ObservableProperty]
     public partial DateTime CreationDate { get; set; }
@@ -361,6 +364,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
         initializedMailItemViewModel = null;
         initializedMimeMessageInformation = null;
+        CurrentMailItemDisplayInformation = null;
 
         // Dispose existing content first.
         Messenger.Send(new CancelRenderingContentRequested());
@@ -447,6 +451,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         }
 
         initializedMailItemViewModel = mailItemViewModel;
+        await ExecuteUIThread(() => { CurrentMailItemDisplayInformation = mailItemViewModel; });
         await RenderAsync(mimeMessageInformation);
     }
 
@@ -570,6 +575,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
         initializedMailItemViewModel = null;
         initializedMimeMessageInformation = null;
+        CurrentMailItemDisplayInformation = null;
 
         forceImageLoading = false;
 
@@ -798,8 +804,10 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     // For upload.
     void ITransferProgress.Report(long bytesTransferred) { }
 
-    public async void Receive(NewMailItemRenderingRequestedEvent message)
+    public async void Receive(ReaderItemRefreshRequestedEvent message)
     {
+        if (message.MailItemViewModel == null || message.MailItemViewModel.IsDraft) return;
+
         try
         {
             await RenderAsync(message.MailItemViewModel, renderCancellationTokenSource.Token);
@@ -909,7 +917,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     {
         base.RegisterRecipients();
 
-        Messenger.Register<NewMailItemRenderingRequestedEvent>(this);
+        Messenger.Register<ReaderItemRefreshRequestedEvent>(this);
         Messenger.Register<ThumbnailAdded>(this);
     }
 
@@ -917,7 +925,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     {
         base.UnregisterRecipients();
 
-        Messenger.Unregister<NewMailItemRenderingRequestedEvent>(this);
+        Messenger.Unregister<ReaderItemRefreshRequestedEvent>(this);
         Messenger.Unregister<ThumbnailAdded>(this);
     }
 }
