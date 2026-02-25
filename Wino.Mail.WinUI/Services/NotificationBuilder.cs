@@ -193,7 +193,7 @@ public class NotificationBuilder : INotificationBuilder
 
         try
         {
-            var badgeUpdater = BadgeUpdateManager.CreateBadgeUpdaterForApplication();
+            var badgeUpdater = BadgeUpdateManager.CreateBadgeUpdaterForApplication(MailApplicationId);
             var accounts = await _accountService.GetAccountsAsync();
 
             foreach (var account in accounts)
