@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Toolkit.Uwp.Notifications;
 using Serilog;
+using Windows.ApplicationModel;
 using Windows.Data.Xml.Dom;
 using Windows.UI.Notifications;
 using Wino.Core.Domain.Entities.Calendar;
@@ -19,6 +20,9 @@ namespace Wino.Mail.WinUI.Services;
 
 public class NotificationBuilder : INotificationBuilder
 {
+    private const string MailApplicationId = "App";
+    private const string CalendarApplicationId = "CalendarApp";
+
     private readonly IAccountService _accountService;
     private readonly IFolderService _folderService;
     private readonly IMailService _mailService;
@@ -93,7 +97,7 @@ public class NotificationBuilder : INotificationBuilder
                     Src = new Uri("ms-winsoundevent:Notification.Mail")
                 });
 
-                builder.Show();
+                ShowToast(builder, ToastTargetApp.Mail);
             }
             else
             {
@@ -148,7 +152,7 @@ public class NotificationBuilder : INotificationBuilder
         });
 
         // Use UniqueId as tag to allow removal
-        builder.Show(toast => toast.Tag = mailItem.UniqueId.ToString());
+        ShowToast(builder, ToastTargetApp.Mail, mailItem.UniqueId.ToString());
     }
 
     private ToastButton GetDismissButton()
@@ -234,7 +238,7 @@ public class NotificationBuilder : INotificationBuilder
     {
         try
         {
-            ToastNotificationManager.History.Remove(mailUniqueId.ToString());
+            ToastNotificationManager.History.Remove(mailUniqueId.ToString(), null, GetAppUserModelId(ToastTargetApp.Mail));
         }
         catch (Exception ex)
         {
@@ -255,7 +259,7 @@ public class NotificationBuilder : INotificationBuilder
         builder.AddArgument(Constants.ToastMailAccountIdKey, account.Id.ToString());
         builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
         builder.AddButton(new ToastButton().SetContent(Translator.Buttons_FixAccount));
-        builder.Show();
+        ShowToast(builder, ToastTargetApp.Mail);
     }
 
     public void CreateWebView2RuntimeMissingNotification()
@@ -268,7 +272,7 @@ public class NotificationBuilder : INotificationBuilder
 
         builder.AddButton(GetDismissButton());
         builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
-        builder.Show();
+        ShowToast(builder, ToastTargetApp.Mail);
     }
 
     public Task CreateCalendarReminderNotificationAsync(CalendarItem calendarItem, long reminderDurationInSeconds)
@@ -301,8 +305,34 @@ public class NotificationBuilder : INotificationBuilder
         });
 
         var tag = $"calendar-reminder-{calendarItem.Id:N}-{reminderDurationInSeconds}";
-        builder.Show(toast => toast.Tag = tag);
+        ShowToast(builder, ToastTargetApp.Calendar, tag);
 
         return Task.CompletedTask;
+    }
+
+    private static void ShowToast(ToastContentBuilder builder, ToastTargetApp targetApp, string? tag = null)
+    {
+        var toastNotification = new ToastNotification(builder.GetToastContent().GetXml());
+
+        if (!string.IsNullOrWhiteSpace(tag))
+        {
+            toastNotification.Tag = tag;
+        }
+
+        var appUserModelId = GetAppUserModelId(targetApp);
+        var notifier = ToastNotificationManager.CreateToastNotifier(appUserModelId);
+        notifier.Show(toastNotification);
+    }
+
+    private static string GetAppUserModelId(ToastTargetApp targetApp)
+    {
+        var appId = targetApp == ToastTargetApp.Mail ? MailApplicationId : CalendarApplicationId;
+        return $"{Package.Current.Id.FamilyName}!{appId}";
+    }
+
+    private enum ToastTargetApp
+    {
+        Mail,
+        Calendar
     }
 }
