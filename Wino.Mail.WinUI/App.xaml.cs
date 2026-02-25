@@ -136,10 +136,8 @@ public partial class App : WinoApplication,
     {
         base.OnLaunched(args);
 
-        if (ShouldRegisterAppNotifications(args))
-        {
-            TryRegisterAppNotifications();
-        }
+        // Always register notification callbacks for both app entries (Mail and Calendar).
+        TryRegisterAppNotifications();
 
         // Initialize required services regardless of launch activation type.
         // All activation scenarios require these services to be ready.
@@ -189,28 +187,6 @@ public partial class App : WinoApplication,
 
     private async void AppNotificationInvoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args)
         => await HandleToastActivationAsync(args);
-
-    private bool ShouldRegisterAppNotifications(Microsoft.UI.Xaml.LaunchActivatedEventArgs? args)
-    {
-        var activationArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
-
-        // Always allow registration when activated from a toast.
-        if (activationArgs.Kind == ExtendedActivationKind.AppNotification)
-            return true;
-
-        var launchMode = AppModeActivationResolver.Resolve(args?.Arguments,
-                                                           GetCurrentLaunchTileId(),
-                                                           Environment.CommandLine,
-                                                           _preferencesService?.DefaultApplicationMode ?? WinoApplicationMode.Mail);
-        bool shouldRegister = launchMode == WinoApplicationMode.Mail;
-
-        if (!shouldRegister)
-        {
-            LogActivation("Skipping app notification registration for non-mail launch mode.");
-        }
-
-        return shouldRegister;
-    }
 
     private void TryRegisterAppNotifications()
     {
