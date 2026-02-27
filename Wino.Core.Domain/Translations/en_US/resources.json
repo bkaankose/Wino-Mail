@@ -133,6 +133,7 @@
     "CalendarEventDetails_People": "People",
     "CalendarEventDetails_ReadOnlyEvent": "Read-only event",
     "CalendarEventDetails_Reminder": "Reminder",
+    "CalendarReminder_SnoozeMinutesOption": "{0} minutes",
     "CalendarEventDetails_ShowAs": "Show as",
     "CalendarShowAs_Free": "Free",
     "CalendarShowAs_Tentative": "Tentative",

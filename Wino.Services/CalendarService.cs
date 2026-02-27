@@ -336,6 +336,12 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         });
     }
 
+    public Task SnoozeCalendarItemAsync(Guid calendarItemId, DateTime snoozedUntilLocal)
+        => Connection.ExecuteAsync(
+            $"UPDATE {nameof(CalendarItem)} SET {nameof(CalendarItem.SnoozedUntil)} = ? WHERE {nameof(CalendarItem.Id)} = ?",
+            snoozedUntilLocal,
+            calendarItemId);
+
     public async Task<List<CalendarReminderNotificationRequest>> CheckAndNotifyAsync(DateTime lastCheckLocal, DateTime nowLocal, ISet<string> sentReminderKeys, CancellationToken cancellationToken = default)
     {
         if (sentReminderKeys == null)
@@ -347,7 +353,8 @@ public class CalendarService : BaseDatabaseService, ICalendarService
                 c.Id AS CalendarItemId,
                 c.StartDate,
                 c.StartTimeZone,
-                r.DurationInSeconds AS ReminderDurationInSeconds
+                r.DurationInSeconds AS ReminderDurationInSeconds,
+                c.SnoozedUntil
             FROM CalendarItem c
             INNER JOIN Reminder r ON r.CalendarItemId = c.Id
             INNER JOIN AccountCalendar ac ON ac.Id = c.CalendarId
@@ -367,11 +374,14 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
             var eventStartLocal = candidate.StartDate.ToLocalTimeFromTimeZone(candidate.StartTimeZone);
             var triggerTimeLocal = eventStartLocal.AddSeconds(-candidate.ReminderDurationInSeconds);
+            var effectiveTriggerTimeLocal = candidate.SnoozedUntil.HasValue
+                ? MaxDateTime(triggerTimeLocal, candidate.SnoozedUntil.Value)
+                : triggerTimeLocal;
 
-            if (triggerTimeLocal <= lastCheckLocal || triggerTimeLocal > nowLocal)
+            if (effectiveTriggerTimeLocal <= lastCheckLocal || effectiveTriggerTimeLocal > nowLocal)
                 continue;
 
-            var reminderKey = $"{candidate.CalendarItemId:N}:{candidate.ReminderDurationInSeconds}";
+            var reminderKey = $"{candidate.CalendarItemId:N}:{candidate.ReminderDurationInSeconds}:{effectiveTriggerTimeLocal.Ticks}";
             if (!sentReminderKeys.Add(reminderKey))
                 continue;
 
@@ -438,11 +448,15 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
     #endregion
 
+    private static DateTime MaxDateTime(DateTime first, DateTime second)
+        => first >= second ? first : second;
+
     private sealed class CalendarReminderCandidate
     {
         public Guid CalendarItemId { get; set; }
         public DateTime StartDate { get; set; }
         public string StartTimeZone { get; set; }
         public long ReminderDurationInSeconds { get; set; }
+        public DateTime? SnoozedUntil { get; set; }
     }
 }

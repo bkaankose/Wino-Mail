@@ -42,6 +42,7 @@ public interface ICalendarService
     Task UpdateCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees);
     Task<List<Reminder>> GetRemindersAsync(Guid calendarItemId);
     Task SaveRemindersAsync(Guid calendarItemId, List<Reminder> reminders);
+    Task SnoozeCalendarItemAsync(Guid calendarItemId, DateTime snoozedUntilLocal);
 
     /// <summary>
     /// Checks due reminder windows and returns reminder notifications that should trigger now.

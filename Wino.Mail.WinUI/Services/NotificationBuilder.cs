@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Toolkit.Uwp.Notifications;
 using Serilog;
-using Windows.ApplicationModel;
 using Windows.Data.Xml.Dom;
 using Windows.UI.Notifications;
 using Wino.Core.Domain.Entities.Calendar;
@@ -26,16 +25,19 @@ public class NotificationBuilder : INotificationBuilder
     private readonly IFolderService _folderService;
     private readonly IMailService _mailService;
     private readonly IThumbnailService _thumbnailService;
+    private readonly IPreferencesService _preferencesService;
 
     public NotificationBuilder(IAccountService accountService,
                                IFolderService folderService,
                                IMailService mailService,
-                               IThumbnailService thumbnailService)
+                               IThumbnailService thumbnailService,
+                               IPreferencesService preferencesService)
     {
         _accountService = accountService;
         _folderService = folderService;
         _mailService = mailService;
         _thumbnailService = thumbnailService;
+        _preferencesService = preferencesService;
 
         WeakReferenceMessenger.Default.Register<MailReadStatusChanged>(this, (r, msg) =>
         {
@@ -96,7 +98,7 @@ public class NotificationBuilder : INotificationBuilder
                     Src = new Uri("ms-winsoundevent:Notification.Mail")
                 });
 
-                ShowToast(builder, ToastTargetApp.Mail);
+                ShowToast(builder);
             }
             else
             {
@@ -151,7 +153,7 @@ public class NotificationBuilder : INotificationBuilder
         });
 
         // Use UniqueId as tag to allow removal
-        ShowToast(builder, ToastTargetApp.Mail, mailItem.UniqueId.ToString());
+        ShowToast(builder, mailItem.UniqueId.ToString());
     }
 
     private ToastButton GetDismissButton()
@@ -242,7 +244,7 @@ public class NotificationBuilder : INotificationBuilder
     {
         try
         {
-            ToastNotificationManager.History.Remove(mailUniqueId.ToString(), null, GetAppUserModelId(ToastTargetApp.Mail));
+            ToastNotificationManager.History.Remove(mailUniqueId.ToString());
         }
         catch (Exception ex)
         {
@@ -263,7 +265,7 @@ public class NotificationBuilder : INotificationBuilder
         builder.AddArgument(Constants.ToastMailAccountIdKey, account.Id.ToString());
         builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
         builder.AddButton(new ToastButton().SetContent(Translator.Buttons_FixAccount));
-        ShowToast(builder, ToastTargetApp.Mail);
+        ShowToast(builder);
     }
 
     public void CreateWebView2RuntimeMissingNotification()
@@ -276,7 +278,7 @@ public class NotificationBuilder : INotificationBuilder
 
         builder.AddButton(GetDismissButton());
         builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
-        ShowToast(builder, ToastTargetApp.Mail);
+        ShowToast(builder);
     }
 
     public Task CreateCalendarReminderNotificationAsync(CalendarItem calendarItem, long reminderDurationInSeconds)
@@ -302,19 +304,54 @@ public class NotificationBuilder : INotificationBuilder
         builder.AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarNavigateAction);
         builder.AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString());
         builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar);
-        builder.AddButton(GetDismissButton());
+
+        var allowedSnoozeMinutes = CalendarReminderSnoozeOptions.GetAllowedSnoozeMinutes(
+            reminderDurationInSeconds,
+            _preferencesService.DefaultReminderDurationInSeconds);
+
+        if (allowedSnoozeMinutes.Count > 0)
+        {
+            var selectionBox = new ToastSelectionBox(Constants.ToastCalendarSnoozeDurationInputId)
+            {
+                DefaultSelectionBoxItemId = allowedSnoozeMinutes[0].ToString()
+            };
+
+            foreach (var snoozeMinutes in allowedSnoozeMinutes)
+            {
+                selectionBox.Items.Add(new ToastSelectionBoxItem(
+                    snoozeMinutes.ToString(),
+                    string.Format(Translator.CalendarReminder_SnoozeMinutesOption, snoozeMinutes)));
+            }
+
+            builder.AddInput(selectionBox);
+            builder.AddButton(new ToastButtonSnooze()
+                .SetSelectionBoxId(Constants.ToastCalendarSnoozeDurationInputId)
+                .AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarSnoozeAction)
+                .AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString())
+                .AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar));
+        }
+
+        builder.AddButton(new ToastButtonDismiss());
+
+        if (Uri.TryCreate(calendarItem.HtmlLink, UriKind.Absolute, out var joinUri))
+        {
+            builder.AddButton(new ToastButton()
+                .SetContent(Translator.CalendarEventDetails_JoinOnline)
+                .SetProtocolActivation(joinUri));
+        }
+
         builder.AddAudio(new ToastAudio()
         {
             Src = new Uri("ms-winsoundevent:Notification.Reminder")
         });
 
         var tag = $"calendar-reminder-{calendarItem.Id:N}-{reminderDurationInSeconds}";
-        ShowToast(builder, ToastTargetApp.Calendar, tag);
+        ShowToast(builder, tag);
 
         return Task.CompletedTask;
     }
 
-    private static void ShowToast(ToastContentBuilder builder, ToastTargetApp targetApp, string? tag = null)
+    private static void ShowToast(ToastContentBuilder builder, string? tag = null)
     {
         var toastNotification = new ToastNotification(builder.GetToastContent().GetXml());
 
@@ -323,20 +360,7 @@ public class NotificationBuilder : INotificationBuilder
             toastNotification.Tag = tag;
         }
 
-        var appUserModelId = GetAppUserModelId(targetApp);
-        var notifier = ToastNotificationManager.CreateToastNotifier(appUserModelId);
+        var notifier = ToastNotificationManager.CreateToastNotifier();
         notifier.Show(toastNotification);
-    }
-
-    private static string GetAppUserModelId(ToastTargetApp targetApp)
-    {
-        _ = targetApp;
-        return $"{Package.Current.Id.FamilyName}!{MailApplicationId}";
-    }
-
-    private enum ToastTargetApp
-    {
-        Mail,
-        Calendar
     }
 }

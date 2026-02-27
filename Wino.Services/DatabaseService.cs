@@ -117,6 +117,15 @@ public class DatabaseService : IDatabaseService
                 .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.CalendarSupportMode)} INTEGER NOT NULL DEFAULT 0")
                 .ConfigureAwait(false);
         }
+
+        var calendarItemColumns = await Connection.GetTableInfoAsync(nameof(CalendarItem)).ConfigureAwait(false);
+
+        if (!calendarItemColumns.Any(c => c.Name == nameof(CalendarItem.SnoozedUntil)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CalendarItem)} ADD COLUMN {nameof(CalendarItem.SnoozedUntil)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
     }
 
     private async Task EnsureIndexesAsync()

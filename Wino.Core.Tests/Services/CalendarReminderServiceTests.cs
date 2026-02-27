@@ -68,8 +68,8 @@ public class CalendarReminderServiceTests : IAsyncLifetime
         due.Should().HaveCount(1);
         due[0].CalendarItem.Id.Should().Be(calendarItem.Id);
         due[0].ReminderDurationInSeconds.Should().Be(5 * 60);
-        due[0].ReminderKey.Should().Be($"{calendarItem.Id:N}:{5 * 60}");
-        sentReminderKeys.Should().Contain($"{calendarItem.Id:N}:{5 * 60}");
+        due[0].ReminderKey.Should().StartWith($"{calendarItem.Id:N}:{5 * 60}:");
+        sentReminderKeys.Should().ContainSingle(k => k.StartsWith($"{calendarItem.Id:N}:{5 * 60}:"));
     }
 
     [Fact]
@@ -108,7 +108,7 @@ public class CalendarReminderServiceTests : IAsyncLifetime
 
         firstRun.Should().HaveCount(1);
         secondRun.Should().BeEmpty();
-        sentReminderKeys.Should().Contain($"{calendarItem.Id:N}:{5 * 60}");
+        sentReminderKeys.Should().ContainSingle(k => k.StartsWith($"{calendarItem.Id:N}:{5 * 60}:"));
     }
 
     [Fact]
@@ -187,6 +187,35 @@ public class CalendarReminderServiceTests : IAsyncLifetime
         var due = await _calendarService.CheckAndNotifyAsync(lastCheckLocal, nowLocal, sentReminderKeys);
 
         due.Should().BeEmpty();
+    }
+
+
+    [Fact]
+    public async Task CheckAndNotifyAsync_WhenItemIsSnoozed_TriggersAtSnoozedTime()
+    {
+        var nowLocal = new DateTime(2026, 1, 1, 10, 0, 0);
+        var lastCheckLocal = nowLocal.AddSeconds(-30);
+
+        var calendarItem = await CreateCalendarItemWithReminderAsync(
+            startDate: nowLocal.AddMinutes(5),
+            reminderDurationInSeconds: 5 * 60,
+            reminderType: CalendarItemReminderType.Popup);
+
+        await _calendarService.SnoozeCalendarItemAsync(calendarItem.Id, nowLocal.AddMinutes(10));
+
+        HashSet<string> sentReminderKeys = [];
+
+        var dueAtOriginalTrigger = await _calendarService.CheckAndNotifyAsync(lastCheckLocal, nowLocal, sentReminderKeys);
+        dueAtOriginalTrigger.Should().BeEmpty();
+
+        var snoozeTriggerWindowStart = nowLocal.AddMinutes(10).AddSeconds(-30);
+        var snoozeTriggerWindowEnd = nowLocal.AddMinutes(10);
+
+        var dueAtSnoozeTime = await _calendarService.CheckAndNotifyAsync(snoozeTriggerWindowStart, snoozeTriggerWindowEnd, sentReminderKeys);
+
+        dueAtSnoozeTime.Should().HaveCount(1);
+        dueAtSnoozeTime[0].CalendarItem.Id.Should().Be(calendarItem.Id);
+        dueAtSnoozeTime[0].ReminderKey.Should().StartWith($"{calendarItem.Id:N}:{5 * 60}:");
     }
 
     private async Task<CalendarItem> CreateCalendarItemWithReminderAsync(
