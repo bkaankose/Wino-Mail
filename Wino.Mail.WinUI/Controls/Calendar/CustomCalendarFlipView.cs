@@ -63,7 +63,7 @@ public partial class CustomCalendarFlipView : FlipView
     private void FlipViewSelectionChanged(object sender, SelectionChangedEventArgs e)
         => OnSelectedItemChanged(e.RemovedItems.FirstOrDefault(), e.AddedItems.FirstOrDefault());
 
-    protected virtual void OnSelectedItemChanged(object oldValue, object newValue) { }
+    protected virtual void OnSelectedItemChanged(object? oldValue, object? newValue) { }
 
     protected override void PrepareContainerForItemOverride(DependencyObject element, object item)
     {

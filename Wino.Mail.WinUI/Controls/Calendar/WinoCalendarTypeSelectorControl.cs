@@ -21,9 +21,9 @@ public partial class WinoCalendarTypeSelectorControl : Control
     public static readonly DependencyProperty DisplayDayCountProperty = DependencyProperty.Register(nameof(DisplayDayCount), typeof(int), typeof(WinoCalendarTypeSelectorControl), new PropertyMetadata(0));
     public static readonly DependencyProperty TodayClickedCommandProperty = DependencyProperty.Register(nameof(TodayClickedCommand), typeof(ICommand), typeof(WinoCalendarTypeSelectorControl), new PropertyMetadata(null));
 
-    public ICommand TodayClickedCommand
+    public ICommand? TodayClickedCommand
     {
-        get { return (ICommand)GetValue(TodayClickedCommandProperty); }
+        get { return (ICommand?)GetValue(TodayClickedCommandProperty); }
         set { SetValue(TodayClickedCommandProperty, value); }
     }
 
@@ -39,10 +39,10 @@ public partial class WinoCalendarTypeSelectorControl : Control
         set { SetValue(DisplayDayCountProperty, value); }
     }
 
-    private AppBarButton _todayButton;
-    private AppBarToggleButton _dayToggle;
-    private AppBarToggleButton _weekToggle;
-    private AppBarToggleButton _monthToggle;
+    private AppBarButton? _todayButton;
+    private AppBarToggleButton? _dayToggle;
+    private AppBarToggleButton? _weekToggle;
+    private AppBarToggleButton? _monthToggle;
 
     public WinoCalendarTypeSelectorControl()
     {
@@ -65,16 +65,16 @@ public partial class WinoCalendarTypeSelectorControl : Control
         Guard.IsNotNull(_weekToggle, nameof(_weekToggle));
         Guard.IsNotNull(_monthToggle, nameof(_monthToggle));
 
-        _todayButton.Click += TodayClicked;
+        _todayButton!.Click += TodayClicked;
 
-        _dayToggle.Click += (s, e) => { SetSelectedType(CalendarDisplayType.Day); };
-        _weekToggle.Click += (s, e) => { SetSelectedType(CalendarDisplayType.Week); };
-        _monthToggle.Click += (s, e) => { SetSelectedType(CalendarDisplayType.Month); };
+        _dayToggle!.Click += (s, e) => { SetSelectedType(CalendarDisplayType.Day); };
+        _weekToggle!.Click += (s, e) => { SetSelectedType(CalendarDisplayType.Week); };
+        _monthToggle!.Click += (s, e) => { SetSelectedType(CalendarDisplayType.Month); };
 
         UpdateToggleButtonStates();
     }
 
-    private void TodayClicked(object sender, RoutedEventArgs e) => TodayClickedCommand?.Execute(null);
+    private void TodayClicked(object? sender, RoutedEventArgs e) => TodayClickedCommand?.Execute(null);
 
     private void SetSelectedType(CalendarDisplayType type)
     {

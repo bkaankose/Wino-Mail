@@ -16,10 +16,10 @@ namespace Wino.Services;
 
 public class NativeAppService : INativeAppService
 {
-    private string _mimeMessagesFolder;
-    private string _editorBundlePath;
+    private string _mimeMessagesFolder = string.Empty;
+    private string _editorBundlePath = string.Empty;
 
-    public Func<IntPtr> GetCoreWindowHwnd { get; set; }
+    public Func<IntPtr> GetCoreWindowHwnd { get; set; } = static () => IntPtr.Zero;
 
     public string GetWebAuthenticationBrokerUri()
     {

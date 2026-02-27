@@ -14,9 +14,9 @@ namespace Wino.Mail.WinUI.Controls;
 
 public sealed partial class AccountCreationDialogControl : UserControl, IRecipient<CopyAuthURLRequested>
 {
-    private string copyClipboardURL;
+    private string copyClipboardURL = string.Empty;
 
-    public event EventHandler CancelClicked;
+    public event EventHandler? CancelClicked;
 
     public AccountCreationDialogState State
     {
@@ -67,10 +67,10 @@ public sealed partial class AccountCreationDialogControl : UserControl, IRecipie
     {
         if (string.IsNullOrEmpty(copyClipboardURL)) return;
 
-        var clipboardService = WinoApplication.Current.Services.GetService<IClipboardService>();
+        var clipboardService = WinoApplication.Current.Services.GetRequiredService<IClipboardService>();
         await clipboardService.CopyClipboardAsync(copyClipboardURL);
     }
 
 
-    private void CancelButtonClicked(object sender, Microsoft.UI.Xaml.RoutedEventArgs e) => CancelClicked?.Invoke(this, null);
+    private void CancelButtonClicked(object sender, Microsoft.UI.Xaml.RoutedEventArgs e) => CancelClicked?.Invoke(this, EventArgs.Empty);
 }

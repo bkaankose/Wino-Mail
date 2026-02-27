@@ -25,7 +25,7 @@ public sealed partial class PrintDialog : ContentDialog
     /// Initializes the dialog with existing print settings.
     /// </summary>
     /// <param name="printSettings">The initial print settings to load.</param>
-    public PrintDialog(WebView2PrintSettingsModel printSettings = null)
+    public PrintDialog(WebView2PrintSettingsModel printSettings = default!)
     {
         if (printSettings != null) PrintSettings = printSettings;
 

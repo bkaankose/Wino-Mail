@@ -16,7 +16,7 @@ public class ApplicationResourceManager : IApplicationResourceManager<ResourceDi
         => WinoApplication.Current.Resources.ContainsKey(resourceKey);
 
     public ResourceDictionary GetLastResource()
-        => WinoApplication.Current.Resources.MergedDictionaries.LastOrDefault();
+        => WinoApplication.Current.Resources.MergedDictionaries.LastOrDefault()!;
 
     public void ReplaceResource(string resourceKey, object resource)
         => WinoApplication.Current.Resources[resourceKey] = resource;

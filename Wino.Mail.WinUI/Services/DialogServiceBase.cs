@@ -40,7 +40,7 @@ public class DialogServiceBase : IDialogServiceBase
         ApplicationResourceManager = applicationResourceManager;
     }
 
-    protected XamlRoot GetXamlRoot()
+    protected XamlRoot? GetXamlRoot()
     {
         return WinoApplication.MainWindow?.Content?.XamlRoot;
     }
@@ -54,7 +54,10 @@ public class DialogServiceBase : IDialogServiceBase
 
         picker.FileTypeFilter.Add("*");
 
-        nint windowHandle = WindowNative.GetWindowHandle(WinoApplication.MainWindow);
+        var mainWindow = WinoApplication.MainWindow;
+        if (mainWindow == null) return string.Empty;
+
+        nint windowHandle = WindowNative.GetWindowHandle(mainWindow);
         InitializeWithWindow.Initialize(picker, windowHandle);
 
         var folder = await picker.PickSingleFolderAsync();
@@ -94,7 +97,10 @@ public class DialogServiceBase : IDialogServiceBase
             picker.FileTypeFilter.Add(filter.ToString());
         }
 
-        nint windowHandle = WindowNative.GetWindowHandle(WinoApplication.MainWindow);
+        var mainWindow = WinoApplication.MainWindow;
+        if (mainWindow == null) return returnList;
+
+        nint windowHandle = WindowNative.GetWindowHandle(mainWindow);
         InitializeWithWindow.Initialize(picker, windowHandle);
 
         var files = await picker.PickMultipleFilesAsync();
@@ -111,7 +117,7 @@ public class DialogServiceBase : IDialogServiceBase
         return returnList;
     }
 
-    private async Task<StorageFile> PickFileAsync(params object[] typeFilters)
+    private async Task<StorageFile?> PickFileAsync(params object[] typeFilters)
     {
         var picker = new FileOpenPicker
         {
@@ -123,7 +129,10 @@ public class DialogServiceBase : IDialogServiceBase
             picker.FileTypeFilter.Add(filter.ToString());
         }
 
-        nint windowHandle = WindowNative.GetWindowHandle(WinoApplication.MainWindow);
+        var mainWindow = WinoApplication.MainWindow;
+        if (mainWindow == null) return null;
+
+        nint windowHandle = WindowNative.GetWindowHandle(mainWindow);
         InitializeWithWindow.Initialize(picker, windowHandle);
 
         var file = await picker.PickSingleFileAsync();
@@ -174,7 +183,7 @@ public class DialogServiceBase : IDialogServiceBase
 
         if (isDontAskEnabled && ConfigurationService.Get(dontAskAgainConfigurationKey, false)) return false;
 
-        var informationContainer = new CustomMessageDialogInformationContainer(title, description, icon.Value, isDontAskEnabled);
+        var informationContainer = new CustomMessageDialogInformationContainer(title, description, icon ?? WinoCustomMessageDialogIcon.Information, isDontAskEnabled);
 
         var dialog = new ContentDialog
         {
@@ -270,7 +279,10 @@ public class DialogServiceBase : IDialogServiceBase
 
         picker.FileTypeFilter.Add("*");
 
-        nint windowHandle = WindowNative.GetWindowHandle(WinoApplication.MainWindow);
+        var mainWindow = WinoApplication.MainWindow;
+        if (mainWindow == null) return string.Empty;
+
+        nint windowHandle = WindowNative.GetWindowHandle(mainWindow);
         InitializeWithWindow.Initialize(picker, windowHandle);
 
         var pickedFolder = await picker.PickSingleFolderAsync();
@@ -307,10 +319,10 @@ public class DialogServiceBase : IDialogServiceBase
 
         await HandleDialogPresentationAsync(dialog);
 
-        return dialog.Result;
+        return dialog.Result ?? null!;
     }
 
-    public async Task<WebView2PrintSettingsModel> ShowPrintDialogAsync(WebView2PrintSettingsModel initialSettings = null)
+    public async Task<WebView2PrintSettingsModel> ShowPrintDialogAsync(WebView2PrintSettingsModel initialSettings = default!)
     {
         try
         {
@@ -334,13 +346,13 @@ public class DialogServiceBase : IDialogServiceBase
             // Return the settings if user clicked Print, otherwise null
             return result == ContentDialogResult.Primary
                 ? dialog.PrintSettings
-                : null;
+                : null!;
         }
         catch (Exception ex)
         {
             // Log the exception if logging is available
             Log.Error(ex, "Error showing print dialog");
-            return null;
+            return null!;
         }
     }
 }

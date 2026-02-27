@@ -6,18 +6,20 @@ namespace Wino.Helpers;
 
 public static class WinoVisualTreeHelper
 {
-    public static T GetChildObject<T>(DependencyObject obj, string name) where T : FrameworkElement
+    public static T? GetChildObject<T>(DependencyObject? obj, string name) where T : FrameworkElement
     {
-        DependencyObject child = null;
-        T grandChild = null;
+        if (obj == null) return null;
+
+        DependencyObject? child = null;
+        T? grandChild = null;
 
         for (int i = 0; i <= VisualTreeHelper.GetChildrenCount(obj) - 1; i++)
         {
             child = VisualTreeHelper.GetChild(obj, i);
 
-            if (child is T && (((T)child).Name == name | string.IsNullOrEmpty(name)))
+            if (child is T typedChild && (typedChild.Name == name || string.IsNullOrEmpty(name)))
             {
-                return (T)child;
+                return typedChild;
             }
             else
             {
@@ -31,7 +33,7 @@ public static class WinoVisualTreeHelper
         return null;
     }
 
-    public static IEnumerable<T> FindDescendants<T>(this DependencyObject depObj) where T : DependencyObject
+    public static IEnumerable<T> FindDescendants<T>(this DependencyObject? depObj) where T : DependencyObject
     {
         if (depObj != null)
         {

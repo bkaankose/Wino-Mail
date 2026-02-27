@@ -198,7 +198,13 @@ public class StatePersistenceService : ObservableObject, IStatePersistanceServic
         }
     }
 
-    private void UpdateAppCoreWindowTitle() => WinoApplication.MainWindow.Title = CoreWindowTitle;
+    private void UpdateAppCoreWindowTitle()
+    {
+        if (WinoApplication.MainWindow != null)
+        {
+            WinoApplication.MainWindow.Title = CoreWindowTitle;
+        }
+    }
 
     private static CalendarDisplayType EnsureValidCalendarDisplayType(CalendarDisplayType displayType)
     {

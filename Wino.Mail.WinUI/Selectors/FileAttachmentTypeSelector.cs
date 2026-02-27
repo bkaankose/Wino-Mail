@@ -6,16 +6,16 @@ namespace Wino.Mail.WinUI.Selectors;
 
 public partial class FileAttachmentTypeSelector : DataTemplateSelector
 {
-    public DataTemplate None { get; set; }
-    public DataTemplate Executable { get; set; }
-    public DataTemplate Image { get; set; }
-    public DataTemplate Audio { get; set; }
-    public DataTemplate Video { get; set; }
-    public DataTemplate PDF { get; set; }
-    public DataTemplate HTML { get; set; }
-    public DataTemplate RarArchive { get; set; }
-    public DataTemplate Archive { get; set; }
-    public DataTemplate Other { get; set; }
+    public DataTemplate None { get; set; } = null!;
+    public DataTemplate Executable { get; set; } = null!;
+    public DataTemplate Image { get; set; } = null!;
+    public DataTemplate Audio { get; set; } = null!;
+    public DataTemplate Video { get; set; } = null!;
+    public DataTemplate PDF { get; set; } = null!;
+    public DataTemplate HTML { get; set; } = null!;
+    public DataTemplate RarArchive { get; set; } = null!;
+    public DataTemplate Archive { get; set; } = null!;
+    public DataTemplate Other { get; set; } = null!;
 
     protected override DataTemplate SelectTemplateCore(object item, DependencyObject container)
     {

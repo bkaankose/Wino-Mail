@@ -6,23 +6,23 @@ namespace Wino.Mail.WinUI.Selectors;
 
 public partial class NavigationMenuTemplateSelector : DataTemplateSelector
 {
-    public DataTemplate MenuItemTemplate { get; set; }
-    public DataTemplate ContactsMenuItemTemplate { get; set; }
-    public DataTemplate AccountManagementTemplate { get; set; }
-    public DataTemplate ClickableAccountMenuTemplate { get; set; }
-    public DataTemplate MergedAccountTemplate { get; set; }
-    public DataTemplate MergedAccountFolderTemplate { get; set; }
-    public DataTemplate MergedAccountMoreExpansionItemTemplate { get; set; }
-    public DataTemplate FolderMenuTemplate { get; set; }
-    public DataTemplate SettingsItemTemplate { get; set; }
-    public DataTemplate MoreItemsFolderTemplate { get; set; }
-    public DataTemplate RatingItemTemplate { get; set; }
-    public DataTemplate CreateNewFolderTemplate { get; set; }
-    public DataTemplate SeperatorTemplate { get; set; }
-    public DataTemplate NewMailTemplate { get; set; }
-    public DataTemplate CategoryItemsTemplate { get; set; }
-    public DataTemplate FixAuthenticationIssueTemplate { get; set; }
-    public DataTemplate FixMissingFolderConfigTemplate { get; set; }
+    public DataTemplate MenuItemTemplate { get; set; } = null!;
+    public DataTemplate ContactsMenuItemTemplate { get; set; } = null!;
+    public DataTemplate AccountManagementTemplate { get; set; } = null!;
+    public DataTemplate ClickableAccountMenuTemplate { get; set; } = null!;
+    public DataTemplate MergedAccountTemplate { get; set; } = null!;
+    public DataTemplate MergedAccountFolderTemplate { get; set; } = null!;
+    public DataTemplate MergedAccountMoreExpansionItemTemplate { get; set; } = null!;
+    public DataTemplate FolderMenuTemplate { get; set; } = null!;
+    public DataTemplate SettingsItemTemplate { get; set; } = null!;
+    public DataTemplate MoreItemsFolderTemplate { get; set; } = null!;
+    public DataTemplate RatingItemTemplate { get; set; } = null!;
+    public DataTemplate CreateNewFolderTemplate { get; set; } = null!;
+    public DataTemplate SeperatorTemplate { get; set; } = null!;
+    public DataTemplate NewMailTemplate { get; set; } = null!;
+    public DataTemplate CategoryItemsTemplate { get; set; } = null!;
+    public DataTemplate FixAuthenticationIssueTemplate { get; set; } = null!;
+    public DataTemplate FixMissingFolderConfigTemplate { get; set; } = null!;
 
     protected override DataTemplate SelectTemplateCore(object item)
     {
@@ -34,7 +34,7 @@ public partial class NavigationMenuTemplateSelector : DataTemplateSelector
             return SettingsItemTemplate;
         else if (item is SeperatorItem)
             return SeperatorTemplate;
-        else if (item is AccountMenuItem accountMenuItem)
+        else if (item is AccountMenuItem)
             // Merged inbox account menu items must be nested.
             return ClickableAccountMenuTemplate;
         else if (item is ManageAccountsMenuItem)
@@ -52,10 +52,6 @@ public partial class NavigationMenuTemplateSelector : DataTemplateSelector
         else if (item is FixAccountIssuesMenuItem fixAccountIssuesMenuItem)
             return fixAccountIssuesMenuItem.Account.AttentionReason == Wino.Core.Domain.Enums.AccountAttentionReason.MissingSystemFolderConfiguration
                     ? FixMissingFolderConfigTemplate : FixAuthenticationIssueTemplate;
-        else
-        {
-            var type = item.GetType();
-            return null;
-        }
+        return MenuItemTemplate;
     }
 }

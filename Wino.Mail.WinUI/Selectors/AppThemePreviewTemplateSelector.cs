@@ -6,9 +6,9 @@ namespace Wino.Mail.WinUI.Selectors;
 
 public partial class AppThemePreviewTemplateSelector : DataTemplateSelector
 {
-    public DataTemplate SystemThemeTemplate { get; set; }
-    public DataTemplate PreDefinedThemeTemplate { get; set; }
-    public DataTemplate CustomAppTemplate { get; set; }
+    public DataTemplate SystemThemeTemplate { get; set; } = null!;
+    public DataTemplate PreDefinedThemeTemplate { get; set; } = null!;
+    public DataTemplate CustomAppTemplate { get; set; } = null!;
 
     protected override DataTemplate SelectTemplateCore(object item)
     {
@@ -19,6 +19,6 @@ public partial class AppThemePreviewTemplateSelector : DataTemplateSelector
         else if (item is CustomAppTheme)
             return CustomAppTemplate;
 
-        return base.SelectTemplateCore(item);
+        return base.SelectTemplateCore(item) ?? SystemThemeTemplate;
     }
 }

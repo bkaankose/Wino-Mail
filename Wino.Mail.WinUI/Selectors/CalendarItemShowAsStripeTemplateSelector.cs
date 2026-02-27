@@ -10,11 +10,11 @@ namespace Wino.Selectors;
 /// </summary>
 public partial class CalendarItemShowAsStripeTemplateSelector : DataTemplateSelector
 {
-    public DataTemplate FreeTemplate { get; set; }
-    public DataTemplate TentativeTemplate { get; set; }
-    public DataTemplate BusyTemplate { get; set; }
-    public DataTemplate OutOfOfficeTemplate { get; set; }
-    public DataTemplate WorkingElsewhereTemplate { get; set; }
+    public DataTemplate FreeTemplate { get; set; } = null!;
+    public DataTemplate TentativeTemplate { get; set; } = null!;
+    public DataTemplate BusyTemplate { get; set; } = null!;
+    public DataTemplate OutOfOfficeTemplate { get; set; } = null!;
+    public DataTemplate WorkingElsewhereTemplate { get; set; } = null!;
 
     protected override DataTemplate SelectTemplateCore(object item, DependencyObject container)
     {
@@ -31,6 +31,6 @@ public partial class CalendarItemShowAsStripeTemplateSelector : DataTemplateSele
             };
         }
 
-        return base.SelectTemplateCore(item, container);
+        return base.SelectTemplateCore(item, container) ?? BusyTemplate;
     }
 }

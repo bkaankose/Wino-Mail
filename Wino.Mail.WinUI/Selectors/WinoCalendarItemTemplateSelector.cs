@@ -8,8 +8,8 @@ public partial class WinoCalendarItemTemplateSelector : DataTemplateSelector
 {
     public CalendarDisplayType DisplayType { get; set; }
 
-    public DataTemplate DayWeekWorkWeekTemplate { get; set; }
-    public DataTemplate MonthlyTemplate { get; set; }
+    public DataTemplate DayWeekWorkWeekTemplate { get; set; } = null!;
+    public DataTemplate MonthlyTemplate { get; set; } = null!;
 
 
     protected override DataTemplate SelectTemplateCore(object item, DependencyObject container)
@@ -26,6 +26,6 @@ public partial class WinoCalendarItemTemplateSelector : DataTemplateSelector
                 break;
         }
 
-        return base.SelectTemplateCore(item, container);
+        return base.SelectTemplateCore(item, container) ?? DayWeekWorkWeekTemplate;
     }
 }

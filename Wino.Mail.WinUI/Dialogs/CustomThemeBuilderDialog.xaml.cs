@@ -10,21 +10,21 @@ namespace Wino.Dialogs;
 
 public sealed partial class CustomThemeBuilderDialog : ContentDialog
 {
-    public byte[] WallpaperData { get; private set; }
-    public string AccentColor { get; private set; }
+    public byte[] WallpaperData { get; private set; } = Array.Empty<byte>();
+    public string AccentColor { get; private set; } = string.Empty;
 
-    private INewThemeService _themeService;
+    private readonly INewThemeService _themeService;
 
     public CustomThemeBuilderDialog()
     {
         InitializeComponent();
 
-        _themeService = WinoApplication.Current.Services.GetService<INewThemeService>();
+        _themeService = WinoApplication.Current.Services.GetRequiredService<INewThemeService>();
     }
 
     private async void ApplyClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
-        if (Array.Empty<byte>() == WallpaperData)
+        if (WallpaperData.Length == 0)
             return;
 
         var deferal = args.GetDeferral();
@@ -45,11 +45,11 @@ public sealed partial class CustomThemeBuilderDialog : ContentDialog
 
     private async void BrowseWallpaperClicked(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
-        var dialogService = WinoApplication.Current.Services.GetService<IMailDialogService>();
+        var dialogService = WinoApplication.Current.Services.GetRequiredService<IMailDialogService>();
 
         var pickedFileData = await dialogService.PickWindowsFileContentAsync(".jpg", ".png");
 
-        if (pickedFileData == Array.Empty<byte>()) return;
+        if (pickedFileData.Length == 0) return;
 
         IsPrimaryButtonEnabled = true;
 

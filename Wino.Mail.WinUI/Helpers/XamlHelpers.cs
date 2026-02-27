@@ -51,7 +51,7 @@ public static class XamlHelpers
     public static ListViewSelectionMode BoolToSelectionMode(bool isSelectionMode) => isSelectionMode ? ListViewSelectionMode.Multiple : ListViewSelectionMode.None;
     public static string BoolToSelectionModeText(bool isSelectionMode) => isSelectionMode ? Translator.Buttons_Cancel : Translator.Buttons_Multiselect;
 
-    public static Microsoft.UI.Xaml.Media.Imaging.BitmapImage Base64ToBitmapImage(string base64String)
+    public static Microsoft.UI.Xaml.Media.Imaging.BitmapImage? Base64ToBitmapImage(string base64String)
     {
         if (string.IsNullOrEmpty(base64String))
             return null;
@@ -154,7 +154,7 @@ public static class XamlHelpers
         if (groupObject is string stringObject)
             return stringObject;
 
-        object dateObject = null;
+        object? dateObject = null;
 
         // From regular mail header template
         if (groupObject is DateTime groupedDate)
@@ -180,7 +180,7 @@ public static class XamlHelpers
 
             }
             else
-                return dateObject.ToString();
+                return dateObject.ToString() ?? string.Empty;
         }
 
         return Translator.UnknownDateHeader;
@@ -321,6 +321,10 @@ public static class XamlHelpers
         "xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'>" +
         "<Path.Data>" + pathMarkup + "</Path.Data></Path>";
         var path = XamlReader.Load(xaml) as Microsoft.UI.Xaml.Shapes.Path;
+        if (path?.Data == null)
+        {
+            return new PathGeometry();
+        }
 
         Geometry geometry = path.Data;
         path.Data = null;

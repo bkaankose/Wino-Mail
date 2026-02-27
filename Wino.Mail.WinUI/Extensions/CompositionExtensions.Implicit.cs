@@ -17,12 +17,12 @@ public static partial class CompositionExtensions
         var compositor = elementVisual.Compositor;
         ElementCompositionPreview.SetIsTranslationEnabled(element, true);
 
-        ScalarKeyFrameAnimation hideOpacityAnimation = null;
-        ScalarKeyFrameAnimation showOpacityAnimation = null;
-        ScalarKeyFrameAnimation hideOffsetAnimation = null;
-        ScalarKeyFrameAnimation showOffsetAnimation = null;
-        Vector2KeyFrameAnimation hideScaleAnimation = null;
-        Vector2KeyFrameAnimation showeScaleAnimation = null;
+        ScalarKeyFrameAnimation? hideOpacityAnimation = null;
+        ScalarKeyFrameAnimation? showOpacityAnimation = null;
+        ScalarKeyFrameAnimation? hideOffsetAnimation = null;
+        ScalarKeyFrameAnimation? showOffsetAnimation = null;
+        Vector2KeyFrameAnimation? hideScaleAnimation = null;
+        Vector2KeyFrameAnimation? showeScaleAnimation = null;
 
         if (animateOpacity)
         {
@@ -119,7 +119,7 @@ public static partial class CompositionExtensions
     }
 
     public static void EnableImplicitAnimation(this UIElement element, VisualPropertyType typeToAnimate,
-        double duration = 800, double delay = 0, CompositionEasingFunction easing = null)
+        double duration = 800, double delay = 0, CompositionEasingFunction? easing = null)
     {
         var visual = element.Visual();
         var compositor = visual.Compositor;
@@ -142,7 +142,7 @@ public static partial class CompositionExtensions
     }
 
     public static void EnableImplicitAnimation(this Visual visual, VisualPropertyType typeToAnimate,
-        double duration = 800, double delay = 0, CompositionEasingFunction easing = null)
+        double duration = 800, double delay = 0, CompositionEasingFunction? easing = null)
     {
         var compositor = visual.Compositor;
 
@@ -163,8 +163,8 @@ public static partial class CompositionExtensions
         visual.ImplicitAnimations = animationCollection;
     }
 
-    private static KeyFrameAnimation CreateAnimationByType(Compositor compositor, VisualPropertyType type,
-        double duration = 800, double delay = 0, CompositionEasingFunction easing = null)
+    private static KeyFrameAnimation? CreateAnimationByType(Compositor compositor, VisualPropertyType type,
+        double duration = 800, double delay = 0, CompositionEasingFunction? easing = null)
     {
         KeyFrameAnimation animation;
 

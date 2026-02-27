@@ -17,20 +17,20 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
 {
     private readonly IConfigurationService _configurationService = configurationService;
 
-    public event EventHandler<string> PreferenceChanged;
+    public event EventHandler<string>? PreferenceChanged;
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
 
-        PreferenceChanged?.Invoke(this, e.PropertyName);
+        PreferenceChanged?.Invoke(this, e.PropertyName ?? string.Empty);
     }
 
-    private void SaveProperty(string propertyName, object value) => _configurationService.Set(propertyName, value);
+    private void SaveProperty(string propertyName, object? value) => _configurationService.Set(propertyName, value ?? string.Empty);
 
-    private void SetPropertyAndSave(string propertyName, object value)
+    private void SetPropertyAndSave(string propertyName, object? value)
     {
-        _configurationService.Set(propertyName, value);
+        _configurationService.Set(propertyName, value ?? string.Empty);
 
         OnPropertyChanged(propertyName);
         Debug.WriteLine($"PreferencesService -> {propertyName}:{value?.ToString()}");

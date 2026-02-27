@@ -38,7 +38,7 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
     protected IDatabaseService DatabaseService { get; }
     protected ITranslationService TranslationService { get; }
 
-    public static WindowEx MainWindow { get; set; }
+    public static WindowEx? MainWindow { get; set; }
 
     protected WinoApplication()
     {
@@ -50,14 +50,14 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
         UnhandledException += OnAppUnhandledException;
 
-        LogInitializer = Services.GetService<IWinoLogger>();
-        AppConfiguration = Services.GetService<IApplicationConfiguration>();
+        LogInitializer = Services.GetRequiredService<IWinoLogger>();
+        AppConfiguration = Services.GetRequiredService<IApplicationConfiguration>();
 
-        NewThemeService = Services.GetService<INewThemeService>();
-        DatabaseService = Services.GetService<IDatabaseService>();
-        TranslationService = Services.GetService<ITranslationService>();
-        UnderlyingThemeService = Services.GetService<IUnderlyingThemeService>();
-        ThumbnailService = Services.GetService<IThumbnailService>();
+        NewThemeService = Services.GetRequiredService<INewThemeService>();
+        DatabaseService = Services.GetRequiredService<IDatabaseService>();
+        TranslationService = Services.GetRequiredService<ITranslationService>();
+        UnderlyingThemeService = Services.GetRequiredService<IUnderlyingThemeService>();
+        ThumbnailService = Services.GetRequiredService<IThumbnailService>();
 
         // Make sure the paths are setup on app start.
         AppConfiguration.ApplicationDataFolderPath = ApplicationData.Current.LocalFolder.Path;
@@ -67,10 +67,10 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
         ConfigureLogging();
     }
 
-    private void CurrentDomain_UnhandledException(object sender, System.UnhandledExceptionEventArgs e)
+    private void CurrentDomain_UnhandledException(object? sender, System.UnhandledExceptionEventArgs e)
         => Log.Fatal(e.ExceptionObject as Exception, "AppDomain Unhandled Exception");
 
-    private void OnUnobservedTaskException(object sender, UnobservedTaskExceptionEventArgs e)
+    private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
         => Log.Error(e.Exception, "Unobserved Task Exception");
 
     private void OnAppUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
@@ -83,7 +83,7 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
     {
         yield return DatabaseService;
         yield return TranslationService;
-        yield return Services.GetService<SynchronizationManagerInitializer>();
+        yield return Services.GetRequiredService<SynchronizationManagerInitializer>();
     }
 
     public Task InitializeServicesAsync() => GetActivationServices().Select(a => a.InitializeAsync()).WhenAll();

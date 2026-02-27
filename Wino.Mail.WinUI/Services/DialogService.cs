@@ -119,7 +119,7 @@ public class DialogService : DialogServiceBase, IMailDialogService
 
         await HandleDialogPresentationAsync(accountPicker);
 
-        return accountPicker.PickedAccount;
+        return accountPicker.PickedAccount ?? null!;
     }
 
     public async Task<AccountSignature> ShowSignatureEditorDialog(AccountSignature? signatureModel = null)

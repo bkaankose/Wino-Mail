@@ -15,7 +15,7 @@ namespace Wino.Mail.WinUI.Dialogs;
 
 public sealed partial class NewAccountDialog : ContentDialog
 {
-    private Dictionary<SpecialImapProvider, string> helpingLinks = new Dictionary<SpecialImapProvider, string>()
+    private readonly Dictionary<SpecialImapProvider, string> helpingLinks = new Dictionary<SpecialImapProvider, string>()
     {
         { SpecialImapProvider.iCloud, "https://support.apple.com/en-us/102654" },
         { SpecialImapProvider.Yahoo, "http://help.yahoo.com/kb/SLN15241.html" },
@@ -28,9 +28,9 @@ public sealed partial class NewAccountDialog : ContentDialog
     public static readonly DependencyProperty SelectedCalendarModeIndexProperty = DependencyProperty.Register(nameof(SelectedCalendarModeIndex), typeof(int), typeof(NewAccountDialog), new PropertyMetadata(0));
 
 
-    public AppColorViewModel SelectedColor
+    public AppColorViewModel? SelectedColor
     {
-        get { return (AppColorViewModel)GetValue(SelectedColorProperty); }
+        get { return (AppColorViewModel?)GetValue(SelectedColorProperty); }
         set { SetValue(SelectedColorProperty, value); }
     }
 
@@ -43,9 +43,9 @@ public sealed partial class NewAccountDialog : ContentDialog
     /// <summary>
     /// Gets or sets current selected mail provider in the dialog.
     /// </summary>
-    public ProviderDetail SelectedMailProvider
+    public ProviderDetail? SelectedMailProvider
     {
-        get { return (ProviderDetail)GetValue(SelectedMailProviderProperty); }
+        get { return (ProviderDetail?)GetValue(SelectedMailProviderProperty); }
         set { SetValue(SelectedMailProviderProperty, value); }
     }
 
@@ -64,9 +64,9 @@ public sealed partial class NewAccountDialog : ContentDialog
 
     // List of available mail providers for now.
 
-    public List<IProviderDetail> Providers { get; set; }
+    public List<IProviderDetail> Providers { get; set; } = [];
 
-    public List<AppColorViewModel> AvailableColors { get; set; }
+    public List<AppColorViewModel> AvailableColors { get; set; } = [];
     public List<string> CalendarModeOptions { get; } =
     [
         Translator.ImapCalDavSettingsPage_CalendarModeCalDav,
@@ -75,7 +75,7 @@ public sealed partial class NewAccountDialog : ContentDialog
     ];
 
 
-    public AccountCreationDialogResult Result = null;
+    public AccountCreationDialogResult? Result = null;
 
     public NewAccountDialog()
     {
@@ -113,6 +113,9 @@ public sealed partial class NewAccountDialog : ContentDialog
 
     private void CreateClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
+        if (SelectedMailProvider == null)
+            return;
+
         if (IsSpecialImapServerPartVisible)
         {
             // Special imap detail input.
@@ -198,7 +201,11 @@ public sealed partial class NewAccountDialog : ContentDialog
 
     private async void AppSpecificHelpButtonClicked(object sender, RoutedEventArgs e)
     {
-        var helpUrl = helpingLinks[SelectedMailProvider.SpecialImapProvider];
+        if (SelectedMailProvider == null ||
+            !helpingLinks.TryGetValue(SelectedMailProvider.SpecialImapProvider, out var helpUrl))
+        {
+            return;
+        }
 
         await Launcher.LaunchUriAsync(new Uri(helpUrl));
     }

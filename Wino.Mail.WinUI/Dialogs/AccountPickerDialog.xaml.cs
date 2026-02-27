@@ -6,9 +6,9 @@ namespace Wino.Dialogs;
 
 public sealed partial class AccountPickerDialog : ContentDialog
 {
-    public MailAccount PickedAccount { get; set; }
+    public MailAccount? PickedAccount { get; set; }
 
-    public List<MailAccount> AvailableAccounts { get; set; }
+    public List<MailAccount> AvailableAccounts { get; set; } = [];
 
     public AccountPickerDialog(List<MailAccount> availableAccounts)
     {

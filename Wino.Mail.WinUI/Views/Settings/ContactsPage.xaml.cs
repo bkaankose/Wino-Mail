@@ -89,7 +89,7 @@ public sealed partial class ContactsPage : ContactsPageAbstract
         ClearSelection();
     }
 
-    private void ViewModelPropertyChanged(object sender, PropertyChangedEventArgs e)
+    private void ViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(ContactsPageViewModel.IsSelectionMode) && !ViewModel.IsSelectionMode)
         {

@@ -18,13 +18,16 @@ public abstract class ActivationHandler<T> : ActivationHandler
 
     public override async Task HandleAsync(object args)
     {
-        await HandleInternalAsync(args as T);
+        if (args is T typedArgs)
+        {
+            await HandleInternalAsync(typedArgs);
+        }
     }
 
     public override bool CanHandle(object args)
     {
         // CanHandle checks the args is of type you have configured
-        return args is T && CanHandleInternal(args as T);
+        return args is T typedArgs && CanHandleInternal(typedArgs);
     }
 
     // You can override this method to add extra validation on activation args

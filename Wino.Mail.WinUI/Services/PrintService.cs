@@ -24,10 +24,10 @@ namespace Wino.Mail.WinUI.Services;
 
 public class PrintService : IPrintService
 {
-    private TaskCompletionSource<PrintingResult> _taskCompletionSource;
-    private CanvasPrintDocument printDocument;
-    private PrintTask printTask;
-    private PdfDocument pdfDocument;
+    private TaskCompletionSource<PrintingResult>? _taskCompletionSource;
+    private CanvasPrintDocument? printDocument;
+    private PrintTask? printTask;
+    private PdfDocument? pdfDocument;
 
     private List<CanvasBitmap> bitmaps = new();
     private Vector2 largestBitmap;
@@ -41,7 +41,7 @@ public class PrintService : IPrintService
     private int bitmapsPerPage;
     private int pageCount = -1;
 
-    private PrintInformation _currentPrintInformation;
+    private PrintInformation? _currentPrintInformation;
 
     public async Task<PrintingResult> PrintPdfFileAsync(string pdfFilePath, string printTitle)
     {
@@ -125,6 +125,9 @@ public class PrintService : IPrintService
 
         printTask = args.Request.CreatePrintTask(_currentPrintInformation.PDFTitle, (createPrintTaskArgs) =>
         {
+            if (printDocument == null)
+                return;
+
             createPrintTaskArgs.SetSource(printDocument);
         });
 
@@ -191,6 +194,9 @@ public class PrintService : IPrintService
 
     private async Task LoadPDFPageBitmapsAsync(CanvasPrintDocument sender)
     {
+        if (pdfDocument == null)
+            return;
+
         ClearBitmaps();
 
         bitmaps ??= new List<CanvasBitmap>();
@@ -226,6 +232,9 @@ public class PrintService : IPrintService
     {
         var detailedOptions = PrintTaskOptionDetails.GetFromPrintTaskOptions(args.PrintTaskOptions);
 
+        if (pdfDocument == null)
+            return;
+
         int pageCountToPrint = (int)pdfDocument.PageCount;
 
         for (uint i = 1; i <= pageCountToPrint; ++i)
@@ -239,7 +248,7 @@ public class PrintService : IPrintService
 
     private void DrawPdfPage(CanvasPrintDocument sender, CanvasDrawingSession ds, uint pageNumber)
     {
-        if (bitmaps?.Count == 0) return;
+        if (bitmaps.Count == 0) return;
 
         var cellAcross = new Vector2(cellSize.X, 0);
         var cellDown = new Vector2(0, cellSize.Y);

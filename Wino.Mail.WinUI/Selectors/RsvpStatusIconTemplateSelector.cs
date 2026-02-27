@@ -6,10 +6,10 @@ namespace Wino.Mail.WinUI.Selectors;
 
 public partial class RsvpStatusIconTemplateSelector : DataTemplateSelector
 {
-    public DataTemplate NotRespondedTemplate { get; set; }
-    public DataTemplate ConfirmedTemplate { get; set; }
-    public DataTemplate TentativeTemplate { get; set; }
-    public DataTemplate CancelledTemplate { get; set; }
+    public DataTemplate NotRespondedTemplate { get; set; } = null!;
+    public DataTemplate ConfirmedTemplate { get; set; } = null!;
+    public DataTemplate TentativeTemplate { get; set; } = null!;
+    public DataTemplate CancelledTemplate { get; set; } = null!;
 
     protected override DataTemplate SelectTemplateCore(object item, DependencyObject container)
     {
@@ -25,6 +25,6 @@ public partial class RsvpStatusIconTemplateSelector : DataTemplateSelector
             };
         }
         
-        return base.SelectTemplateCore(item, container);
+        return base.SelectTemplateCore(item, container) ?? NotRespondedTemplate;
     }
 }

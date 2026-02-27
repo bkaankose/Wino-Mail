@@ -120,7 +120,7 @@ public partial class WinoCalendarPanel : Panel
 
         if (!calendarControls.Any()) return base.ArrangeOverride(finalSize);
 
-        var events = calendarControls.Select(a => a.Content as CalendarItemViewModel);
+        var events = calendarControls.Select(a => a.Content as CalendarItemViewModel).OfType<ICalendarItem>();
 
         LayoutEvents(events);
 

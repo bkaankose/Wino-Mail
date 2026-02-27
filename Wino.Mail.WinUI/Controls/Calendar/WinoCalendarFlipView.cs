@@ -81,7 +81,7 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView
         UpdateIdleState();
     }
 
-    protected override void OnSelectedItemChanged(object oldValue, object newValue)
+    protected override void OnSelectedItemChanged(object? oldValue, object? newValue)
     {
         base.OnSelectedItemChanged(oldValue, newValue);
 
@@ -101,7 +101,7 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView
         }
     }
 
-    private void ItemsSourceUpdated(object sender, NotifyCollectionChangedEventArgs e)
+    private void ItemsSourceUpdated(object? sender, NotifyCollectionChangedEventArgs e)
     {
         UpdateIdleState();
     }
@@ -205,7 +205,7 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView
         });
     }
 
-    private ObservableRangeCollection<DayRangeRenderModel> GetItemsSource()
+    private ObservableRangeCollection<DayRangeRenderModel>? GetItemsSource()
         => ItemsSource as ObservableRangeCollection<DayRangeRenderModel>;
 }
 

@@ -17,7 +17,7 @@ public class NavigationServiceBase
         };
     }
 
-    public Type GetCurrentFrameType(ref Frame _frame)
+    public Type? GetCurrentFrameType(ref Frame _frame)
     {
         if (_frame != null && _frame.Content != null)
             return _frame.Content.GetType();

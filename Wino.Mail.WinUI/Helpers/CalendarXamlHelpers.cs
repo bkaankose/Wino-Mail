@@ -15,7 +15,7 @@ namespace Wino.Calendar.Helpers;
 public static class CalendarXamlHelpers
 {
     public static CalendarItemViewModel GetFirstAllDayEvent(CalendarEventCollection collection)
-        => (CalendarItemViewModel)collection.AllDayEvents.FirstOrDefault();
+        => collection.AllDayEvents.OfType<CalendarItemViewModel>().FirstOrDefault()!;
 
     /// <summary>
     /// Returns full date + duration info in Event Details page details title.

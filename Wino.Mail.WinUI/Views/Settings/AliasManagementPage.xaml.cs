@@ -37,7 +37,7 @@ public sealed partial class AliasManagementPage : AliasManagementPageAbstract
         }
     }
 
-    private static (MailAccountAlias alias, X509Certificate2 cert) GetAliasAndSelectedCertificateForCombobox(object sender)
+    private static (MailAccountAlias? alias, X509Certificate2? cert) GetAliasAndSelectedCertificateForCombobox(object sender)
     {
         var comboBox = sender as ComboBox;
         var alias = comboBox?.DataContext as MailAccountAlias;
