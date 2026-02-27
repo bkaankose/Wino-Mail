@@ -181,7 +181,7 @@ public partial class App : WinoApplication,
         else
         {
             // Normal launch - show and activate the window.
-            MainWindow.Activate();
+            MainWindow?.Activate();
             LogActivation("Window created and activated.");
         }
     }
@@ -259,8 +259,8 @@ public partial class App : WinoApplication,
         }
         else
         {
-            MainWindow.BringToFront();
-            MainWindow.Activate();
+            MainWindow?.BringToFront();
+            MainWindow?.Activate();
         }
 
         navigationService.ChangeApplicationMode(Core.Domain.Enums.WinoApplicationMode.Calendar);
@@ -300,7 +300,7 @@ public partial class App : WinoApplication,
             // App is already running - send message and bring window to front.
             navigationService.ChangeApplicationMode(Core.Domain.Enums.WinoApplicationMode.Mail);
             WeakReferenceMessenger.Default.Send(message);
-            MainWindow.BringToFront();
+            MainWindow?.BringToFront();
         }
     }
 
@@ -405,7 +405,7 @@ public partial class App : WinoApplication,
         // Initialize theme service after window is created.
         await NewThemeService.InitializeAsync();
 
-        MainWindow.Activate();
+        MainWindow?.Activate();
         LogActivation("Window created and activated.");
     }
 

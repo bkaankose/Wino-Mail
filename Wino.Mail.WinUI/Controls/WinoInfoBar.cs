@@ -71,7 +71,7 @@ public partial class WinoInfoBar : InfoBar
         }
     }
 
-    private async void TimerTick(object sender, object e)
+    private async void TimerTick(object? sender, object e)
     {
         _dispatcherTimer.Stop();
         _dispatcherTimer.Tick -= TimerTick;

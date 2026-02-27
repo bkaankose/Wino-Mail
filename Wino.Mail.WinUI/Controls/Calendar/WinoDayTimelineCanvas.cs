@@ -17,11 +17,11 @@ namespace Wino.Calendar.Controls;
 
 public partial class WinoDayTimelineCanvas : Control, IDisposable
 {
-    public event EventHandler<TimelineCellSelectedArgs> TimelineCellSelected;
-    public event EventHandler<TimelineCellUnselectedArgs> TimelineCellUnselected;
+    public event EventHandler<TimelineCellSelectedArgs>? TimelineCellSelected;
+    public event EventHandler<TimelineCellUnselectedArgs>? TimelineCellUnselected;
 
     private const string PART_InternalCanvas = nameof(PART_InternalCanvas);
-    private SKXamlCanvas Canvas;
+    private SKXamlCanvas? Canvas;
 
     public static readonly DependencyProperty RenderOptionsProperty = DependencyProperty.Register(nameof(RenderOptions), typeof(CalendarRenderOptions), typeof(WinoDayTimelineCanvas), new PropertyMetadata(null, new PropertyChangedCallback(OnRenderingPropertiesChanged)));
     public static readonly DependencyProperty SeperatorColorProperty = DependencyProperty.Register(nameof(SeperatorColor), typeof(SolidColorBrush), typeof(WinoDayTimelineCanvas), new PropertyMetadata(null, new PropertyChangedCallback(OnRenderingPropertiesChanged)));
@@ -31,39 +31,39 @@ public partial class WinoDayTimelineCanvas : Control, IDisposable
     public static readonly DependencyProperty SelectedDateTimeProperty = DependencyProperty.Register(nameof(SelectedDateTime), typeof(DateTime?), typeof(WinoDayTimelineCanvas), new PropertyMetadata(null, new PropertyChangedCallback(OnSelectedDateTimeChanged)));
     public static readonly DependencyProperty PositionerUIElementProperty = DependencyProperty.Register(nameof(PositionerUIElement), typeof(UIElement), typeof(WinoDayTimelineCanvas), new PropertyMetadata(null));
 
-    public UIElement PositionerUIElement
+    public UIElement? PositionerUIElement
     {
-        get { return (UIElement)GetValue(PositionerUIElementProperty); }
+        get { return (UIElement?)GetValue(PositionerUIElementProperty); }
         set { SetValue(PositionerUIElementProperty, value); }
     }
 
-    public CalendarRenderOptions RenderOptions
+    public CalendarRenderOptions? RenderOptions
     {
-        get { return (CalendarRenderOptions)GetValue(RenderOptionsProperty); }
+        get { return (CalendarRenderOptions?)GetValue(RenderOptionsProperty); }
         set { SetValue(RenderOptionsProperty, value); }
     }
 
-    public SolidColorBrush HalfHourSeperatorColor
+    public SolidColorBrush? HalfHourSeperatorColor
     {
-        get { return (SolidColorBrush)GetValue(HalfHourSeperatorColorProperty); }
+        get { return (SolidColorBrush?)GetValue(HalfHourSeperatorColorProperty); }
         set { SetValue(HalfHourSeperatorColorProperty, value); }
     }
 
-    public SolidColorBrush SeperatorColor
+    public SolidColorBrush? SeperatorColor
     {
-        get { return (SolidColorBrush)GetValue(SeperatorColorProperty); }
+        get { return (SolidColorBrush?)GetValue(SeperatorColorProperty); }
         set { SetValue(SeperatorColorProperty, value); }
     }
 
-    public SolidColorBrush WorkingHourCellBackgroundColor
+    public SolidColorBrush? WorkingHourCellBackgroundColor
     {
-        get { return (SolidColorBrush)GetValue(WorkingHourCellBackgroundColorProperty); }
+        get { return (SolidColorBrush?)GetValue(WorkingHourCellBackgroundColorProperty); }
         set { SetValue(WorkingHourCellBackgroundColorProperty, value); }
     }
 
-    public SolidColorBrush SelectedCellBackgroundBrush
+    public SolidColorBrush? SelectedCellBackgroundBrush
     {
-        get { return (SolidColorBrush)GetValue(SelectedCellBackgroundBrushProperty); }
+        get { return (SolidColorBrush?)GetValue(SelectedCellBackgroundBrushProperty); }
         set { SetValue(SelectedCellBackgroundBrushProperty, value); }
     }
 
@@ -106,9 +106,11 @@ public partial class WinoDayTimelineCanvas : Control, IDisposable
         TimelineCellUnselected?.Invoke(this, new TimelineCellUnselectedArgs());
     }
 
-    private void OnCanvasPointerPressed(object sender, PointerRoutedEventArgs e)
+    private void OnCanvasPointerPressed(object? sender, PointerRoutedEventArgs e)
     {
         if (RenderOptions == null) return;
+        var canvas = Canvas;
+        if (canvas == null) return;
 
         var hourHeight = RenderOptions.CalendarSettings.HourHeight;
 
@@ -119,12 +121,15 @@ public partial class WinoDayTimelineCanvas : Control, IDisposable
             PositionerUIElement = this.FindParents().LastOrDefault(a => a is Grid);
         }
 
+        if (PositionerUIElement == null)
+            return;
+
         PointerPoint positionerRootPoint = e.GetCurrentPoint(PositionerUIElement);
-        PointerPoint canvasPointerPoint = e.GetCurrentPoint(Canvas);
+        PointerPoint canvasPointerPoint = e.GetCurrentPoint(canvas);
 
         Point touchPoint = canvasPointerPoint.Position;
 
-        var singleDayWidth = (Canvas.ActualWidth / RenderOptions.TotalDayCount);
+        var singleDayWidth = (canvas.ActualWidth / RenderOptions.TotalDayCount);
 
         int day = (int)(touchPoint.X / singleDayWidth);
         int hour = (int)(touchPoint.Y / hourHeight);
@@ -187,9 +192,14 @@ public partial class WinoDayTimelineCanvas : Control, IDisposable
             && SelectedCellBackgroundBrush != null;
     }
 
-    private void OnCanvasPaintSurface(object sender, SKPaintSurfaceEventArgs e)
+    private void OnCanvasPaintSurface(object? sender, SKPaintSurfaceEventArgs e)
     {
         if (!CanDrawTimeline()) return;
+        var renderOptions = RenderOptions!;
+        var workingHourCellBackgroundColor = WorkingHourCellBackgroundColor!;
+        var seperatorColor = SeperatorColor!;
+        var halfHourSeperatorColor = HalfHourSeperatorColor!;
+        var selectedCellBackgroundBrush = SelectedCellBackgroundBrush!;
 
         var canvas = e.Surface.Canvas;
         canvas.Clear(SKColors.Transparent);
@@ -203,13 +213,13 @@ public partial class WinoDayTimelineCanvas : Control, IDisposable
 
         // Calculate the width of each rectangle (1 day column)
         // Equal distribution of the whole width.
-        double rectWidth = canvasWidth / RenderOptions.TotalDayCount;
+        double rectWidth = canvasWidth / renderOptions.TotalDayCount;
 
         // Calculate the height of each rectangle (1 hour row)
-        double rectHeight = RenderOptions.CalendarSettings.HourHeight;
+        double rectHeight = renderOptions.CalendarSettings.HourHeight;
 
         // Define stroke and fill colors
-        var strokeColor = ToSKColor(SeperatorColor.Color);
+        var strokeColor = ToSKColor(seperatorColor.Color);
         float strokeThickness = 0.5f;
 
         // Create paints for drawing
@@ -229,18 +239,18 @@ public partial class WinoDayTimelineCanvas : Control, IDisposable
 
         using var dashedPaint = new SKPaint
         {
-            Color = ToSKColor(HalfHourSeperatorColor.Color),
+            Color = ToSKColor(halfHourSeperatorColor.Color),
             StrokeWidth = strokeThickness,
             Style = SKPaintStyle.Stroke,
             PathEffect = SKPathEffect.CreateDash([2f, 2f], 0),
             IsAntialias = true
         };
 
-        for (int day = 0; day < RenderOptions.TotalDayCount; day++)
+        for (int day = 0; day < renderOptions.TotalDayCount; day++)
         {
-            var currentDay = RenderOptions.DateRange.StartDate.AddDays(day);
+            var currentDay = renderOptions.DateRange.StartDate.AddDays(day);
 
-            bool isWorkingDay = RenderOptions.CalendarSettings.WorkingDays.Contains(currentDay.DayOfWeek);
+            bool isWorkingDay = renderOptions.CalendarSettings.WorkingDays.Contains(currentDay.DayOfWeek);
 
             // Loop through each hour (rows)
             for (int hour = 0; hour < hours; hour++)
@@ -263,12 +273,12 @@ public partial class WinoDayTimelineCanvas : Control, IDisposable
 
                 // Fill another rectangle with the working hour background color
                 // This rectangle must be placed with -1 margin to prevent invisible borders of the main rectangle.
-                if (isWorkingDay && renderTime >= RenderOptions.CalendarSettings.WorkingHourStart && renderTime <= RenderOptions.CalendarSettings.WorkingHourEnd)
+                if (isWorkingDay && renderTime >= renderOptions.CalendarSettings.WorkingHourStart && renderTime <= renderOptions.CalendarSettings.WorkingHourEnd)
                 {
                     var backgroundRectangle = new SKRect(x + 1, y + 1, x + width - 1, y + height - 1);
 
                     canvas.DrawRect(backgroundRectangle, strokePaint);
-                    fillPaint.Color = ToSKColor(WorkingHourCellBackgroundColor.Color);
+                    fillPaint.Color = ToSKColor(workingHourCellBackgroundColor.Color);
                     canvas.DrawRect(backgroundRectangle, fillPaint);
                 }
 
@@ -298,7 +308,7 @@ public partial class WinoDayTimelineCanvas : Control, IDisposable
                         (float)(day * rectWidth + rectWidth),
                         (float)(selectedY + selectionRectHeight));
 
-                    fillPaint.Color = ToSKColor(SelectedCellBackgroundBrush.Color);
+                    fillPaint.Color = ToSKColor(selectedCellBackgroundBrush.Color);
                     canvas.DrawRect(selectedRectangle, fillPaint);
                 }
             }

@@ -18,10 +18,10 @@ public partial class WinoCalendarControl : Control
     private const string PART_WinoFlipView = nameof(PART_WinoFlipView);
     private const string PART_IdleGrid = nameof(PART_IdleGrid);
 
-    public event EventHandler<TimelineCellSelectedArgs> TimelineCellSelected;
-    public event EventHandler<TimelineCellUnselectedArgs> TimelineCellUnselected;
+    public event EventHandler<TimelineCellSelectedArgs>? TimelineCellSelected;
+    public event EventHandler<TimelineCellUnselectedArgs>? TimelineCellUnselected;
 
-    public event EventHandler ScrollPositionChanging;
+    public event EventHandler? ScrollPositionChanging;
 
     #region Dependency Properties
 
@@ -66,8 +66,8 @@ public partial class WinoCalendarControl : Control
 
     #endregion
 
-    private WinoCalendarFlipView InternalFlipView;
-    private Grid IdleGrid;
+    private WinoCalendarFlipView? InternalFlipView;
+    private Grid? IdleGrid;
 
     private ScrollViewer? _previousScrollViewer;
     private WinoDayTimelineCanvas? _previousCanvas;
@@ -183,7 +183,7 @@ public partial class WinoCalendarControl : Control
         scrollViewer.ViewChanging -= ScrollViewChanging;
     }
 
-    private void ScrollViewChanging(object sender, ScrollViewerViewChangingEventArgs e)
+    private void ScrollViewChanging(object? sender, ScrollViewerViewChangingEventArgs e)
         => ScrollPositionChanging?.Invoke(this, EventArgs.Empty);
 
     private void CalendarSizeChanged(object sender, SizeChangedEventArgs e)
@@ -233,10 +233,10 @@ public partial class WinoCalendarControl : Control
         }
     }
 
-    private void ActiveTimelineCellUnselected(object sender, TimelineCellUnselectedArgs e)
+    private void ActiveTimelineCellUnselected(object? sender, TimelineCellUnselectedArgs e)
         => TimelineCellUnselected?.Invoke(this, e);
 
-    private void ActiveTimelineCellSelected(object sender, TimelineCellSelectedArgs e)
+    private void ActiveTimelineCellSelected(object? sender, TimelineCellSelectedArgs e)
         => TimelineCellSelected?.Invoke(this, e);
 
     public void NavigateToDay(DateTime dateTime) => InternalFlipView?.NavigateToDay(dateTime);
@@ -289,6 +289,6 @@ public partial class WinoCalendarControl : Control
 
     public CalendarItemControl GetCalendarItemControl(CalendarItemViewModel calendarItemViewModel)
     {
-        return this.FindDescendants<CalendarItemControl>().FirstOrDefault(a => a.CalendarItem == calendarItemViewModel);
+        return this.FindDescendants<CalendarItemControl>().FirstOrDefault(a => a.CalendarItem == calendarItemViewModel)!;
     }
 }

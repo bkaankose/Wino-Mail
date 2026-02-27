@@ -8,7 +8,7 @@ namespace Wino.Calendar.Controls;
 public partial class DayHeaderControl : Control
 {
     private const string PART_DayHeaderTextBlock = nameof(PART_DayHeaderTextBlock);
-    private TextBlock HeaderTextblock;
+    private TextBlock? HeaderTextblock;
 
     public DayHeaderDisplayType DisplayType
     {

@@ -26,7 +26,7 @@ public sealed partial class CalendarPage : CalendarPageAbstract,
         ViewModel.DetailsShowCalendarItemChanged += CalendarItemDetailContextChanged;
     }
 
-    private void CalendarItemDetailContextChanged(object sender, EventArgs e)
+    private void CalendarItemDetailContextChanged(object? sender, EventArgs e)
     {
         if (ViewModel.DisplayDetailsCalendarItemViewModel != null)
         {

@@ -45,9 +45,9 @@ public class NewThemeService : INewThemeService
     private static string _snowflakeThemeId = "e143ddde-2e28-4846-9d98-dad63d6505f1";
     private static string _gardenThemeId = "698e4466-f88c-4799-9c61-f0ea1308ed49";
 
-    public event EventHandler<ApplicationElementTheme> ElementThemeChanged;
-    public event EventHandler<string> AccentColorChanged;
-    public event EventHandler<WindowBackdropType> BackdropChanged;
+    public event EventHandler<ApplicationElementTheme>? ElementThemeChanged;
+    public event EventHandler<string>? AccentColorChanged;
+    public event EventHandler<WindowBackdropType>? BackdropChanged;
 
     private const string AccentColorKey = nameof(AccentColorKey);
     private const string CurrentApplicationThemeKey = nameof(CurrentApplicationThemeKey);
@@ -125,7 +125,7 @@ public class NewThemeService : INewThemeService
         }
     }
 
-    private string accentColor;
+    private string accentColor = string.Empty;
 
     public string AccentColor
     {
@@ -218,7 +218,7 @@ public class NewThemeService : INewThemeService
 
         try
         {
-            Microsoft.UI.Xaml.Media.SystemBackdrop backdrop = backdropType switch
+            Microsoft.UI.Xaml.Media.SystemBackdrop? backdrop = backdropType switch
             {
                 WindowBackdropType.Mica => new MicaBackdrop() { Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.Base },
                 WindowBackdropType.MicaAlt => new MicaBackdrop() { Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.BaseAlt },
@@ -385,7 +385,7 @@ public class NewThemeService : INewThemeService
             return;
         }
 
-        AppThemeBase applyingTheme = null;
+        AppThemeBase? applyingTheme = null;
 
         var controlThemeList = new List<AppThemeBase>(preDefinedThemes);
 
@@ -416,13 +416,19 @@ public class NewThemeService : INewThemeService
             }
         }
 
+        if (applyingTheme == null)
+        {
+            Debug.WriteLine($"Theme with ID {currentApplicationThemeId} not found, skipping theme application");
+            return;
+        }
+
         try
         {
             var existingThemeDictionary = _applicationResourceManager.GetLastResource();
 
-            if (existingThemeDictionary != null && existingThemeDictionary.TryGetValue("ThemeName", out object themeNameString))
+            if (existingThemeDictionary != null && existingThemeDictionary.TryGetValue("ThemeName", out object? themeNameString))
             {
-                var themeName = themeNameString.ToString();
+                var themeName = themeNameString?.ToString();
 
                 // Applying different theme.
                 if (themeName != applyingTheme.ThemeName)
@@ -430,6 +436,10 @@ public class NewThemeService : INewThemeService
                     var resourceDictionaryContent = await applyingTheme.GetThemeResourceDictionaryContentAsync();
 
                     var resourceDictionary = XamlReader.Load(resourceDictionaryContent) as ResourceDictionary;
+                    if (resourceDictionary == null)
+                    {
+                        return;
+                    }
 
                     // Custom themes require special attention for background image because 
                     // they share the same base theme resource dictionary.
@@ -561,7 +571,7 @@ public class NewThemeService : INewThemeService
         return results;
     }
 
-    private async Task<CustomThemeMetadata> GetCustomMetadataAsync(IStorageFile file)
+    private async Task<CustomThemeMetadata?> GetCustomMetadataAsync(IStorageFile file)
     {
         var fileContent = await FileIO.ReadTextAsync(file);
 

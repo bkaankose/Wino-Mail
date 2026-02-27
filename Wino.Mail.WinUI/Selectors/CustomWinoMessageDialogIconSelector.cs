@@ -7,14 +7,14 @@ namespace Wino.Mail.WinUI.Selectors;
 
 public partial class CustomWinoMessageDialogIconSelector : DataTemplateSelector
 {
-    public DataTemplate InfoIconTemplate { get; set; }
-    public DataTemplate WarningIconTemplate { get; set; }
-    public DataTemplate QuestionIconTemplate { get; set; }
-    public DataTemplate ErrorIconTemplate { get; set; }
+    public DataTemplate InfoIconTemplate { get; set; } = null!;
+    public DataTemplate WarningIconTemplate { get; set; } = null!;
+    public DataTemplate QuestionIconTemplate { get; set; } = null!;
+    public DataTemplate ErrorIconTemplate { get; set; } = null!;
 
     protected override DataTemplate SelectTemplateCore(object item, DependencyObject container)
     {
-        if (item == null) return null;
+        if (item == null) return InfoIconTemplate;
 
         if (item is WinoCustomMessageDialogIcon icon)
         {
@@ -32,6 +32,6 @@ public partial class CustomWinoMessageDialogIconSelector : DataTemplateSelector
                     throw new Exception("Unknown custom message dialog icon.");
             }
         }
-        return base.SelectTemplateCore(item, container);
+        return base.SelectTemplateCore(item, container) ?? InfoIconTemplate;
     }
 }

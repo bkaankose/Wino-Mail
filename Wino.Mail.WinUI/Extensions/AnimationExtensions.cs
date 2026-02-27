@@ -76,7 +76,7 @@ public static class AnimationExtensions
 
     public static void Animate(this DependencyObject target, double? from, double to,
       string propertyPath, int duration = 400, int startTime = 0,
-      EasingFunctionBase easing = null, Action completed = null, bool enableDependentAnimation = false)
+      EasingFunctionBase? easing = null, Action? completed = null, bool enableDependentAnimation = false)
     {
         if (easing == null)
         {

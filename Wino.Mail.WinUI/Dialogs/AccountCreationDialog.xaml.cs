@@ -10,7 +10,7 @@ namespace Wino.Dialogs;
 public sealed partial class AccountCreationDialog : ContentDialog, IAccountCreationDialog
 {
     private TaskCompletionSource<bool> dialogOpened = new TaskCompletionSource<bool>();
-    public CancellationTokenSource CancellationTokenSource { get; private set; }
+    public CancellationTokenSource? CancellationTokenSource { get; private set; }
 
     public AccountCreationDialogState State
     {
@@ -41,7 +41,7 @@ public sealed partial class AccountCreationDialog : ContentDialog, IAccountCreat
         // Unregister from closing event.
         Closing -= DialogClosing;
 
-        if (cancel && !CancellationTokenSource.IsCancellationRequested)
+        if (cancel && CancellationTokenSource != null && !CancellationTokenSource.IsCancellationRequested)
         {
             CancellationTokenSource.Cancel();
         }

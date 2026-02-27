@@ -18,7 +18,7 @@ public partial class WinoCalendarView : Control
     public static readonly DependencyProperty HighlightedDateRangeProperty = DependencyProperty.Register(nameof(HighlightedDateRange), typeof(DateRange), typeof(WinoCalendarView), new PropertyMetadata(null, new PropertyChangedCallback(OnHighlightedDateRangeChanged)));
     public static readonly DependencyProperty VisibleDateBackgroundProperty = DependencyProperty.Register(nameof(VisibleDateBackground), typeof(Brush), typeof(WinoCalendarView), new PropertyMetadata(null, new PropertyChangedCallback(OnPropertiesChanged)));
     public static readonly DependencyProperty DateClickedCommandProperty = DependencyProperty.Register(nameof(DateClickedCommand), typeof(ICommand), typeof(WinoCalendarView), new PropertyMetadata(null));
-    public static readonly DependencyProperty TodayBackgroundColorProperty = DependencyProperty.Register(nameof(TodayBackgroundColor), typeof(Color), typeof(WinoCalendarView), new PropertyMetadata(null));
+    public static readonly DependencyProperty TodayBackgroundColorProperty = DependencyProperty.Register(nameof(TodayBackgroundColor), typeof(Color), typeof(WinoCalendarView), new PropertyMetadata(new Color()));
 
     public Color TodayBackgroundColor
     {
@@ -30,30 +30,30 @@ public partial class WinoCalendarView : Control
     /// Gets or sets the command to execute when a date is picked.
     /// Unused.
     /// </summary>
-    public ICommand DateClickedCommand
+    public ICommand? DateClickedCommand
     {
-        get { return (ICommand)GetValue(DateClickedCommandProperty); }
+        get { return (ICommand?)GetValue(DateClickedCommandProperty); }
         set { SetValue(DateClickedCommandProperty, value); }
     }
 
     /// <summary>
     /// Gets or sets the highlighted range of dates.
     /// </summary>
-    public DateRange HighlightedDateRange
+    public DateRange? HighlightedDateRange
     {
-        get { return (DateRange)GetValue(HighlightedDateRangeProperty); }
+        get { return (DateRange?)GetValue(HighlightedDateRangeProperty); }
         set { SetValue(HighlightedDateRangeProperty, value); }
     }
 
-    public Brush VisibleDateBackground
+    public Brush? VisibleDateBackground
     {
-        get { return (Brush)GetValue(VisibleDateBackgroundProperty); }
+        get { return (Brush?)GetValue(VisibleDateBackgroundProperty); }
         set { SetValue(VisibleDateBackgroundProperty, value); }
     }
 
 
 
-    private CalendarView CalendarView;
+    private CalendarView? CalendarView;
 
     public WinoCalendarView()
     {
@@ -67,6 +67,7 @@ public partial class WinoCalendarView : Control
         CalendarView = GetTemplateChild(PART_CalendarView) as CalendarView;
 
         Guard.IsNotNull(CalendarView, nameof(CalendarView));
+        if (CalendarView == null) return;
 
         CalendarView.SelectedDatesChanged -= InternalCalendarViewSelectionChanged;
         CalendarView.SelectedDatesChanged += InternalCalendarViewSelectionChanged;
@@ -92,7 +93,7 @@ public partial class WinoCalendarView : Control
         }
 
         // Reset selection, we don't show selected dates but react to them.
-        CalendarView.SelectedDates.Clear();
+        CalendarView?.SelectedDates.Clear();
     }
 
     private static void OnPropertiesChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -107,7 +108,7 @@ public partial class WinoCalendarView : Control
 
     // Changing selected dates will trigger the selection changed event.
     // It will behave like user clicked the date.
-    public void GoToDay(DateTime dateTime) => CalendarView.SelectedDates.Add(dateTime);
+    public void GoToDay(DateTime dateTime) => CalendarView?.SelectedDates.Add(dateTime);
 
     private static void OnHighlightedDateRangeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {

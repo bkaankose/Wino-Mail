@@ -21,7 +21,7 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
     private static readonly HttpClient _httpClient = new();
     private bool _isInitialized = false;
 
-    private ConcurrentDictionary<string, (string graviton, string favicon)> _cache;
+    private ConcurrentDictionary<string, (string? graviton, string? favicon)> _cache = [];
     private readonly ConcurrentDictionary<string, Task> _requests = [];
 
     private static readonly List<string> _excludedFaviconDomains = [
@@ -43,7 +43,7 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
         "rediffmail.com"
         ];
 
-    public async ValueTask<string> GetThumbnailAsync(string email, bool awaitLoad = false)
+    public async ValueTask<string?> GetThumbnailAsync(string email, bool awaitLoad = false)
     {
         if (string.IsNullOrWhiteSpace(email))
             return null;
@@ -55,8 +55,8 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
         {
             var thumbnailsList = await _databaseService.Connection.Table<Thumbnail>().ToListAsync();
 
-            _cache = new ConcurrentDictionary<string, (string graviton, string favicon)>(
-                thumbnailsList.ToDictionary(x => x.Domain, x => (x.Gravatar, x.Favicon)));
+            _cache = new ConcurrentDictionary<string, (string? graviton, string? favicon)>(
+                thumbnailsList.ToDictionary(x => x.Domain, x => ((string?)x.Gravatar, (string?)x.Favicon)));
             _isInitialized = true;
         }
 
@@ -84,7 +84,7 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
         await _databaseService.Connection.DeleteAllAsync<Thumbnail>();
     }
 
-    private async ValueTask<(string gravatar, string favicon)> GetThumbnailInternal(string email, bool awaitLoad)
+    private async ValueTask<(string? gravatar, string? favicon)> GetThumbnailInternal(string email, bool awaitLoad)
     {
         if (_cache.TryGetValue(email, out var cached))
             return cached;
@@ -136,7 +136,7 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
         WeakReferenceMessenger.Default.Send(new ThumbnailAdded(email));
     }
 
-    private static async Task<string> GetGravatarBase64(string email)
+    private static async Task<string?> GetGravatarBase64(string email)
     {
         try
         {
@@ -156,7 +156,7 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
         return null;
     }
 
-    private static async Task<string> GetFaviconBase64(string email)
+    private static async Task<string?> GetFaviconBase64(string email)
     {
         try
         {

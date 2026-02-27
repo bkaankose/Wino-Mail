@@ -215,7 +215,12 @@ public class NotificationBuilder : INotificationBuilder
                 XmlDocument badgeXml = BadgeUpdateManager.GetTemplateContent(BadgeTemplateType.BadgeNumber);
 
                 // Set the value of the badge in the XML to our number
-                XmlElement badgeElement = badgeXml.SelectSingleNode("/badge") as XmlElement;
+                XmlElement? badgeElement = badgeXml.SelectSingleNode("/badge") as XmlElement;
+                if (badgeElement == null)
+                {
+                    badgeUpdater.Clear();
+                    return;
+                }
                 badgeElement.SetAttribute("value", totalUnreadCount.ToString());
 
                 // Create the badge notification

@@ -17,7 +17,7 @@ public class SmimeCertificateService : ISmimeCertificateService
     /// private key and at least one extension. The store is opened in read-only mode.</remarks>
     /// <returns>An enumerable collection of <see cref="X509Certificate2"/> objects representing the personal certificates that
     /// meet the specified criteria. If no matching certificates are found, the collection will be empty.</returns>
-    public IEnumerable<X509Certificate2> GetCertificates(StoreName storeName = StoreName.My, StoreLocation storeLocation = StoreLocation.CurrentUser, string emailAddress = null)
+    public IEnumerable<X509Certificate2> GetCertificates(StoreName storeName = StoreName.My, StoreLocation storeLocation = StoreLocation.CurrentUser, string? emailAddress = null)
     {
         using var store = new X509Store(storeName, storeLocation);
         store.Open(OpenFlags.ReadOnly);
@@ -26,7 +26,7 @@ public class SmimeCertificateService : ISmimeCertificateService
     }
 
 
-    public void ImportCertificate(string fileExtension, byte[] rawData, string password = null, StoreName storeName = StoreName.My, StoreLocation storeLocation = StoreLocation.CurrentUser)
+    public void ImportCertificate(string fileExtension, byte[] rawData, string? password = null, StoreName storeName = StoreName.My, StoreLocation storeLocation = StoreLocation.CurrentUser)
     {
         X509Certificate2Collection collection = [];
 

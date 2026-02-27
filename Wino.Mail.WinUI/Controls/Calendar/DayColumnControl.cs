@@ -18,11 +18,11 @@ public partial class DayColumnControl : Control
     private const string TodayState = nameof(TodayState);
     private const string NotTodayState = nameof(NotTodayState);
 
-    private TextBlock HeaderDateDayText;
-    private TextBlock ColumnHeaderText;
-    private Border IsTodayBorder;
-    private ItemsControl AllDayItemsControl;
-    private CalendarEventCollection _boundEventsCollection;
+    private TextBlock? HeaderDateDayText;
+    private TextBlock? ColumnHeaderText;
+    private Border? IsTodayBorder;
+    private ItemsControl? AllDayItemsControl;
+    private CalendarEventCollection? _boundEventsCollection;
 
     public CalendarDayModel DayModel
     {
@@ -97,7 +97,7 @@ public partial class DayColumnControl : Control
         _boundEventsCollection = null;
     }
 
-    private void EventsCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+    private void EventsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         UpdateEventItemsSource();
     }

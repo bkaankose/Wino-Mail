@@ -17,7 +17,7 @@ public class PrintDialogViewModel : INotifyPropertyChanged
     private bool _isCustomPageRange = false;
     private WebView2PrintSettingsModel _printSettings = new();
 
-    public event PropertyChangedEventHandler PropertyChanged;
+    public event PropertyChangedEventHandler? PropertyChanged;
 
     public PrintDialogViewModel()
     {
@@ -208,7 +208,7 @@ public class PrintDialogViewModel : INotifyPropertyChanged
     /// Initializes the dialog with the provided print settings.
     /// </summary>
     /// <param name="printSettings">The initial print settings.</param>
-    public void Initialize(WebView2PrintSettingsModel printSettings = null)
+    public void Initialize(WebView2PrintSettingsModel printSettings = default!)
     {
         if (printSettings != null)
         {
@@ -237,7 +237,7 @@ public class PrintDialogViewModel : INotifyPropertyChanged
         }
     }
 
-    private void OnPrintSettingsChanged(object sender, PropertyChangedEventArgs e)
+    private void OnPrintSettingsChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(WebView2PrintSettingsModel.ScaleFactor))
         {

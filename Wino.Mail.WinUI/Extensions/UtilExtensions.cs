@@ -22,9 +22,9 @@ public static class UtilExtensions
         {
             var child = VisualTreeHelper.GetChild(parent, i);
 
-            if (child is FrameworkElement)
+            if (child is FrameworkElement frameworkElement)
             {
-                list.Add(child as FrameworkElement);
+                list.Add(frameworkElement);
             }
 
             list.AddRange(Children(child));
@@ -33,20 +33,13 @@ public static class UtilExtensions
         return list;
     }
 
-    public static T GetChildByName<T>(this DependencyObject parent, string name)
+    public static T? GetChildByName<T>(this DependencyObject parent, string name) where T : class
     {
         var childControls = Children(parent);
         var controls = childControls.OfType<FrameworkElement>();
 
-        if (controls == null)
-        {
-            return default(T);
-        }
-
         var control = controls
-            .Where(x => x.Name.Equals(name))
-            .Cast<T>()
-            .First();
+            .FirstOrDefault(x => x.Name.Equals(name)) as T;
 
         return control;
     }

@@ -100,7 +100,10 @@ public class NavigationService : NavigationServiceBase, INavigationService
 
         if (frameType == NavigationReferenceFrame.ShellFrame) return shellWindow.GetMainFrame();
 
-        return WinoVisualTreeHelper.GetChildObject<Frame>(mainFrame.Content as UIElement, frameType.ToString());
+        var contentRoot = mainFrame.Content as UIElement;
+        if (contentRoot == null) return mainFrame;
+
+        return WinoVisualTreeHelper.GetChildObject<Frame>(contentRoot, frameType.ToString()) ?? mainFrame;
     }
 
     public bool ChangeApplicationMode(WinoApplicationMode mode)
