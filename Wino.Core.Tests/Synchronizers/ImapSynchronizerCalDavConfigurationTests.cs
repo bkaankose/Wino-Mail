@@ -89,7 +89,7 @@ public class ImapSynchronizerCalDavConfigurationTests
 
     private static ImapSynchronizer CreateSynchronizer(string appDataFolder,
                                                        CustomServerInformation serverInformation,
-                                                       IAutoDiscoveryService autoDiscoveryService = null)
+                                                       IAutoDiscoveryService? autoDiscoveryService = null)
     {
         var account = new MailAccount
         {
