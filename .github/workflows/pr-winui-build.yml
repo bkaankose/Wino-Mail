@@ -38,7 +38,7 @@ jobs:
         run: dotnet restore Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config -p:Platform=${{ matrix.platform }} -p:RuntimeIdentifier=${{ matrix.rid }}
 
       - name: Build WinUI project
-        run: dotnet build Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configuration Release --no-restore -p:Platform=${{ matrix.platform }} -p:RuntimeIdentifier=${{ matrix.rid }}
+        run: dotnet build Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configuration Release --no-restore -p:Platform=${{ matrix.platform }} -p:RuntimeIdentifier=${{ matrix.rid }} -p:GenerateAppxPackageOnBuild=false -p:AppxPackageSigningEnabled=false
 
   core-tests:
     name: Run Core tests
