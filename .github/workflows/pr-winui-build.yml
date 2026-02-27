@@ -10,10 +10,20 @@ on:
 
 jobs:
   build-winui:
-    name: Build project
+    name: Build project (${{ matrix.platform }})
     if: github.event.pull_request.draft == false
     runs-on: windows-latest
     continue-on-error: ${{ contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association) }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: x86
+            rid: win-x86
+          - platform: x64
+            rid: win-x64
+          - platform: ARM64
+            rid: win-arm64
 
     steps:
       - name: Checkout repository
@@ -25,10 +35,10 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Restore WinUI project dependencies
-        run: dotnet restore Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config
+        run: dotnet restore Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config -p:Platform=${{ matrix.platform }} -p:RuntimeIdentifier=${{ matrix.rid }}
 
       - name: Build WinUI project
-        run: dotnet build Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configuration Release --no-restore
+        run: dotnet build Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configuration Release --no-restore -p:Platform=${{ matrix.platform }} -p:RuntimeIdentifier=${{ matrix.rid }}
 
   core-tests:
     name: Run Core tests
