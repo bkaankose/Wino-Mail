@@ -25,6 +25,8 @@ public partial class AccountCalendarStateService : ObservableRecipient,
     IRecipient<CalendarListDeleted>,
     IRecipient<AccountRemovedMessage>
 {
+    private readonly object _calendarStateLock = new();
+
     public IDispatcher? Dispatcher { get; set; }
 
     public event EventHandler<GroupedAccountCalendarViewModel>? CollectiveAccountGroupSelectionStateChanged;
@@ -43,9 +45,13 @@ public partial class AccountCalendarStateService : ObservableRecipient,
     {
         get
         {
-            return _internalGroupedAccountCalendars
-                .SelectMany(a => a.AccountCalendars)
-                .Where(b => b.IsChecked);
+            lock (_calendarStateLock)
+            {
+                return _internalGroupedAccountCalendars
+                    .SelectMany(a => a.AccountCalendars)
+                    .Where(b => b.IsChecked)
+                    .ToList();
+            }
         }
     }
 
@@ -53,8 +59,12 @@ public partial class AccountCalendarStateService : ObservableRecipient,
     {
         get
         {
-            return _internalGroupedAccountCalendars
-                .SelectMany(a => a.AccountCalendars);
+            lock (_calendarStateLock)
+            {
+                return _internalGroupedAccountCalendars
+                    .SelectMany(a => a.AccountCalendars)
+                    .ToList();
+            }
         }
     }
 
@@ -84,109 +94,124 @@ public partial class AccountCalendarStateService : ObservableRecipient,
 
     public void AddGroupedAccountCalendar(GroupedAccountCalendarViewModel groupedAccountCalendar)
     {
-        groupedAccountCalendar.CalendarSelectionStateChanged += SingleCalendarSelectionStateChanged;
-        groupedAccountCalendar.CollectiveSelectionStateChanged += SingleGroupCalendarCollectiveStateChanged;
-
-        _internalGroupedAccountCalendars.Add(groupedAccountCalendar);
-
-        // Maintain the grouped calendars collection
-        var group = _internalGroupedCalendars.FirstOrDefault<ObservableGroup<MailAccount, AccountCalendarViewModel>>(g => g.Key.Id == groupedAccountCalendar.Account.Id);
-        if (group == null)
+        lock (_calendarStateLock)
         {
-            _internalGroupedCalendars.Add(new ObservableGroup<MailAccount, AccountCalendarViewModel>(groupedAccountCalendar.Account, groupedAccountCalendar.AccountCalendars));
-        }
-        else
-        {
-            foreach (var calendar in groupedAccountCalendar.AccountCalendars)
+            groupedAccountCalendar.CalendarSelectionStateChanged += SingleCalendarSelectionStateChanged;
+            groupedAccountCalendar.CollectiveSelectionStateChanged += SingleGroupCalendarCollectiveStateChanged;
+
+            _internalGroupedAccountCalendars.Add(groupedAccountCalendar);
+
+            // Maintain the grouped calendars collection
+            var group = _internalGroupedCalendars.FirstOrDefault<ObservableGroup<MailAccount, AccountCalendarViewModel>>(g => g.Key.Id == groupedAccountCalendar.Account.Id);
+            if (group == null)
             {
-                group.Add(calendar);
+                _internalGroupedCalendars.Add(new ObservableGroup<MailAccount, AccountCalendarViewModel>(groupedAccountCalendar.Account, groupedAccountCalendar.AccountCalendars));
+            }
+            else
+            {
+                foreach (var calendar in groupedAccountCalendar.AccountCalendars)
+                {
+                    group.Add(calendar);
+                }
             }
         }
     }
 
     public void RemoveGroupedAccountCalendar(GroupedAccountCalendarViewModel groupedAccountCalendar)
     {
-        groupedAccountCalendar.CalendarSelectionStateChanged -= SingleCalendarSelectionStateChanged;
-        groupedAccountCalendar.CollectiveSelectionStateChanged -= SingleGroupCalendarCollectiveStateChanged;
-
-        _internalGroupedAccountCalendars.Remove(groupedAccountCalendar);
-
-        // Maintain the grouped calendars collection
-        var group = _internalGroupedCalendars.FirstOrDefault<ObservableGroup<MailAccount, AccountCalendarViewModel>>(g => g.Key.Id == groupedAccountCalendar.Account.Id);
-        if (group != null)
+        lock (_calendarStateLock)
         {
-            foreach (var calendar in groupedAccountCalendar.AccountCalendars.ToList())
-            {
-                group.Remove(calendar);
-            }
+            groupedAccountCalendar.CalendarSelectionStateChanged -= SingleCalendarSelectionStateChanged;
+            groupedAccountCalendar.CollectiveSelectionStateChanged -= SingleGroupCalendarCollectiveStateChanged;
 
-            if (group.Count == 0)
+            _internalGroupedAccountCalendars.Remove(groupedAccountCalendar);
+
+            // Maintain the grouped calendars collection
+            var group = _internalGroupedCalendars.FirstOrDefault<ObservableGroup<MailAccount, AccountCalendarViewModel>>(g => g.Key.Id == groupedAccountCalendar.Account.Id);
+            if (group != null)
             {
-                _internalGroupedCalendars.Remove(group);
+                foreach (var calendar in groupedAccountCalendar.AccountCalendars.ToList())
+                {
+                    group.Remove(calendar);
+                }
+
+                if (group.Count == 0)
+                {
+                    _internalGroupedCalendars.Remove(group);
+                }
             }
         }
     }
 
     public void ClearGroupedAccountCalendars()
     {
-        while (_internalGroupedAccountCalendars.Any())
+        lock (_calendarStateLock)
         {
-            RemoveGroupedAccountCalendar(_internalGroupedAccountCalendars[0]);
+            while (_internalGroupedAccountCalendars.Any())
+            {
+                RemoveGroupedAccountCalendar(_internalGroupedAccountCalendars[0]);
+            }
         }
     }
 
     public void AddAccountCalendar(AccountCalendarViewModel accountCalendar)
     {
-        // Find the group that this calendar belongs to.
-        var group = _internalGroupedAccountCalendars.FirstOrDefault(g => g.Account.Id == accountCalendar.Account.Id);
-
-        if (group == null)
+        lock (_calendarStateLock)
         {
-            // If the group doesn't exist, create it.
-            group = new GroupedAccountCalendarViewModel(accountCalendar.Account, new[] { accountCalendar });
-            AddGroupedAccountCalendar(group);
-        }
-        else
-        {
-            group.AccountCalendars.Add(accountCalendar);
+            // Find the group that this calendar belongs to.
+            var group = _internalGroupedAccountCalendars.FirstOrDefault(g => g.Account.Id == accountCalendar.Account.Id);
 
-            // Maintain the grouped calendars collection
-            var calendarGroup = _internalGroupedCalendars.FirstOrDefault<ObservableGroup<MailAccount, AccountCalendarViewModel>>(g => g.Key.Id == accountCalendar.Account.Id);
-            if (calendarGroup == null)
+            if (group == null)
             {
-                _internalGroupedCalendars.Add(new ObservableGroup<MailAccount, AccountCalendarViewModel>(accountCalendar.Account, new[] { accountCalendar }));
+                // If the group doesn't exist, create it.
+                group = new GroupedAccountCalendarViewModel(accountCalendar.Account, new[] { accountCalendar });
+                AddGroupedAccountCalendar(group);
             }
             else
             {
-                calendarGroup.Add(accountCalendar);
+                group.AccountCalendars.Add(accountCalendar);
+
+                // Maintain the grouped calendars collection
+                var calendarGroup = _internalGroupedCalendars.FirstOrDefault<ObservableGroup<MailAccount, AccountCalendarViewModel>>(g => g.Key.Id == accountCalendar.Account.Id);
+                if (calendarGroup == null)
+                {
+                    _internalGroupedCalendars.Add(new ObservableGroup<MailAccount, AccountCalendarViewModel>(accountCalendar.Account, new[] { accountCalendar }));
+                }
+                else
+                {
+                    calendarGroup.Add(accountCalendar);
+                }
             }
         }
     }
 
     public void RemoveAccountCalendar(AccountCalendarViewModel accountCalendar)
     {
-        var group = _internalGroupedAccountCalendars.FirstOrDefault(g => g.Account.Id == accountCalendar.Account.Id);
-
-        // We don't expect but just in case.
-        if (group == null) return;
-
-        group.AccountCalendars.Remove(accountCalendar);
-
-        // Maintain the grouped calendars collection
-        var calendarGroup = _internalGroupedCalendars.FirstOrDefault<ObservableGroup<MailAccount, AccountCalendarViewModel>>(g => g.Key.Id == accountCalendar.Account.Id);
-        if (calendarGroup != null)
+        lock (_calendarStateLock)
         {
-            calendarGroup.Remove(accountCalendar);
+            var group = _internalGroupedAccountCalendars.FirstOrDefault(g => g.Account.Id == accountCalendar.Account.Id);
 
-            if (calendarGroup.Count == 0)
+            // We don't expect but just in case.
+            if (group == null) return;
+
+            group.AccountCalendars.Remove(accountCalendar);
+
+            // Maintain the grouped calendars collection
+            var calendarGroup = _internalGroupedCalendars.FirstOrDefault<ObservableGroup<MailAccount, AccountCalendarViewModel>>(g => g.Key.Id == accountCalendar.Account.Id);
+            if (calendarGroup != null)
             {
-                _internalGroupedCalendars.Remove(calendarGroup);
-            }
-        }
+                calendarGroup.Remove(accountCalendar);
 
-        if (group.AccountCalendars.Count == 0)
-        {
-            RemoveGroupedAccountCalendar(group);
+                if (calendarGroup.Count == 0)
+                {
+                    _internalGroupedCalendars.Remove(calendarGroup);
+                }
+            }
+
+            if (group.AccountCalendars.Count == 0)
+            {
+                RemoveGroupedAccountCalendar(group);
+            }
         }
     }
 
@@ -289,7 +314,11 @@ public partial class AccountCalendarStateService : ObservableRecipient,
         {
             await Dispatcher.ExecuteOnUIThread(() =>
             {
-                var groupedAccount = _internalGroupedAccountCalendars.FirstOrDefault(a => a.Account.Id == removedAccountId);
+                GroupedAccountCalendarViewModel? groupedAccount;
+                lock (_calendarStateLock)
+                {
+                    groupedAccount = _internalGroupedAccountCalendars.FirstOrDefault(a => a.Account.Id == removedAccountId);
+                }
 
                 if (groupedAccount != null)
                 {
@@ -299,7 +328,11 @@ public partial class AccountCalendarStateService : ObservableRecipient,
         }
         else
         {
-            var groupedAccount = _internalGroupedAccountCalendars.FirstOrDefault(a => a.Account.Id == removedAccountId);
+            GroupedAccountCalendarViewModel? groupedAccount;
+            lock (_calendarStateLock)
+            {
+                groupedAccount = _internalGroupedAccountCalendars.FirstOrDefault(a => a.Account.Id == removedAccountId);
+            }
 
             if (groupedAccount != null)
             {

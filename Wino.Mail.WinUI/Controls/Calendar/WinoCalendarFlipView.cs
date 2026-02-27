@@ -49,6 +49,8 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView
 
     internal event EventHandler<ProgrammaticNavigationCompletedEventArgs>? ProgrammaticNavigationCompleted;
 
+    private INotifyCollectionChanged? _trackedItemsSource;
+
     public WinoCalendarFlipView()
     {
         RegisterPropertyChangedCallback(ItemsSourceProperty, new DependencyPropertyChangedCallback(OnItemsSourceChanged));
@@ -64,10 +66,19 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView
 
     private void RegisterItemsSourceChange()
     {
-        if (GetItemsSource() is INotifyCollectionChanged notifyCollectionChanged)
+        if (_trackedItemsSource != null)
         {
-            notifyCollectionChanged.CollectionChanged += ItemsSourceUpdated;
+            _trackedItemsSource.CollectionChanged -= ItemsSourceUpdated;
         }
+
+        _trackedItemsSource = GetItemsSource();
+
+        if (_trackedItemsSource != null)
+        {
+            _trackedItemsSource.CollectionChanged += ItemsSourceUpdated;
+        }
+
+        UpdateIdleState();
     }
 
     protected override void OnSelectedItemChanged(object oldValue, object newValue)
@@ -92,7 +103,13 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView
 
     private void ItemsSourceUpdated(object sender, NotifyCollectionChangedEventArgs e)
     {
-        IsIdle = e.Action == NotifyCollectionChangedAction.Reset || e.Action == NotifyCollectionChangedAction.Replace;
+        UpdateIdleState();
+    }
+
+    private void UpdateIdleState()
+    {
+        var itemsSource = GetItemsSource();
+        IsIdle = itemsSource == null || itemsSource.Count == 0;
     }
 
     private void UpdateActiveElements()

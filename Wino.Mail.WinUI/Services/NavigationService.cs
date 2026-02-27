@@ -35,6 +35,21 @@ public class NavigationService : NavigationServiceBase, INavigationService
         WinoPage.ComposePage
     };
 
+    private static readonly WinoPage[] MailOnlyPages =
+    [
+        WinoPage.MailListPage,
+        WinoPage.MailRenderingPage,
+        WinoPage.ComposePage,
+        WinoPage.IdlePage,
+        WinoPage.WelcomePage
+    ];
+
+    private static readonly WinoPage[] CalendarOnlyPages =
+    [
+        WinoPage.CalendarPage,
+        WinoPage.EventDetailsPage
+    ];
+
     public NavigationService(IStatePersistanceService statePersistanceService)
     {
         _statePersistanceService = statePersistanceService;
@@ -140,9 +155,17 @@ public class NavigationService : NavigationServiceBase, INavigationService
         var pageType = GetPageType(page);
         if (pageType == null) return false;
 
-        var currentApplicationMode = GetCoreFrame(NavigationReferenceFrame.ShellFrame)?.Content?.GetType() == typeof(MailAppShell)
-            ? WinoApplicationMode.Mail
-            : WinoApplicationMode.Calendar;
+        var currentApplicationMode = _statePersistanceService.ApplicationMode;
+
+        if (currentApplicationMode == WinoApplicationMode.Calendar && IsMailOnlyPage(page))
+        {
+            return false;
+        }
+
+        if (currentApplicationMode == WinoApplicationMode.Mail && IsCalendarOnlyPage(page))
+        {
+            return false;
+        }
 
         _statePersistanceService.IsReadingMail = _renderingPageTypes.Contains(page);
         _statePersistanceService.IsEventDetailsVisible = page == WinoPage.EventDetailsPage;
@@ -247,6 +270,12 @@ public class NavigationService : NavigationServiceBase, INavigationService
 
         return false;
     }
+
+    private static bool IsMailOnlyPage(WinoPage page)
+        => MailOnlyPages.Contains(page);
+
+    private static bool IsCalendarOnlyPage(WinoPage page)
+        => CalendarOnlyPages.Contains(page);
 
     private static LoadCalendarMessage CreateLoadCalendarMessage(CalendarPageNavigationArgs args)
     {

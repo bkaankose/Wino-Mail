@@ -222,8 +222,15 @@ public partial class WinoCalendarControl : Control
 
     private void UpdateIdleState()
     {
-        InternalFlipView.Opacity = IsFlipIdle ? 0 : 1;
-        IdleGrid.Visibility = IsFlipIdle ? Visibility.Visible : Visibility.Collapsed;
+        if (InternalFlipView != null)
+        {
+            InternalFlipView.Opacity = IsFlipIdle ? 0 : 1;
+        }
+
+        if (IdleGrid != null)
+        {
+            IdleGrid.Visibility = IsFlipIdle ? Visibility.Visible : Visibility.Collapsed;
+        }
     }
 
     private void ActiveTimelineCellUnselected(object sender, TimelineCellUnselectedArgs e)
