@@ -1,0 +1,53 @@
+name: PR WinUI Build
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+
+jobs:
+  build-winui-and-core-tests:
+    if: github.event.pull_request.draft == false
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore WinUI project dependencies
+        run: dotnet restore Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config
+
+      - name: Build WinUI project
+        run: dotnet build Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configuration Release --no-restore
+
+      - name: Restore Core test projects
+        shell: pwsh
+        run: |
+          $coreTests = Get-ChildItem -Path . -Recurse -Filter "*Core*.Tests.csproj" | ForEach-Object { $_.FullName }
+          if (-not $coreTests) {
+            throw "No Core test projects were found."
+          }
+
+          foreach ($project in $coreTests) {
+            dotnet restore $project --configfile nuget.config
+          }
+
+      - name: Run Core test projects
+        shell: pwsh
+        run: |
+          $coreTests = Get-ChildItem -Path . -Recurse -Filter "*Core*.Tests.csproj" | ForEach-Object { $_.FullName }
+          if (-not $coreTests) {
+            throw "No Core test projects were found."
+          }
+
+          foreach ($project in $coreTests) {
+            dotnet test $project --configuration Release --no-restore --verbosity normal
+          }
