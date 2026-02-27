@@ -90,6 +90,19 @@
 				</uap:Protocol>
 			</uap:Extension>
 
+			<!-- Protocol activation: webcal -->
+			<uap:Extension Category="windows.protocol">
+				<uap:Protocol Name="webcal">
+					<uap:DisplayName>Calendar Protocol</uap:DisplayName>
+				</uap:Protocol>
+			</uap:Extension>
+
+			<uap:Extension Category="windows.protocol">
+				<uap:Protocol Name="webcals">
+					<uap:DisplayName>Calendar Protocol (Secure)</uap:DisplayName>
+				</uap:Protocol>
+			</uap:Extension>
+
 			<!-- File Assosication: EML -->
 			<uap:Extension Category="windows.fileTypeAssociation">
 				<uap:FileTypeAssociation Name="eml">
@@ -99,47 +112,17 @@
 					</uap:SupportedFileTypes>
 				</uap:FileTypeAssociation>
 			</uap:Extension>
+
+			<!-- File Association: ICS -->
+			<uap:Extension Category="windows.fileTypeAssociation">
+				<uap:FileTypeAssociation Name="ics">
+					<uap:Logo>Assets\AppEntries\CalendarAssets\Square44x44Logo.png</uap:Logo>
+					<uap:SupportedFileTypes>
+						<uap:FileType>.ics</uap:FileType>
+					</uap:SupportedFileTypes>
+				</uap:FileTypeAssociation>
+			</uap:Extension>
 		</Extensions>
-    </Application>
-
-    <Application Id="CalendarApp"
-      Executable="$targetnametoken$.exe"
-      EntryPoint="$targetentrypoint$"
-      uap10:Parameters="--mode=calendar">
-      <uap:VisualElements
-        DisplayName="Wino Calendar"
-        Description="Wino.Mail.WinUI.Calendar"
-        BackgroundColor="transparent"
-        Square150x150Logo="Assets\AppEntries\CalendarAssets\Square150x150Logo.png"
-        Square44x44Logo="Assets\AppEntries\CalendarAssets\Square44x44Logo.png">
-        <uap:DefaultTile Wide310x150Logo="Assets\AppEntries\CalendarAssets\Wide310x150Logo.png"  Square71x71Logo="Assets\AppEntries\CalendarAssets\SmallTile.png" Square310x310Logo="Assets\AppEntries\CalendarAssets\LargeTile.png"/>
-        <uap:SplashScreen Image="Assets\AppEntries\CalendarAssets\SplashScreen.png" />
-      </uap:VisualElements>
-
-      <Extensions>
-        <!-- Protocol activation: webcal -->
-        <uap:Extension Category="windows.protocol">
-          <uap:Protocol Name="webcal">
-            <uap:DisplayName>Calendar Protocol</uap:DisplayName>
-          </uap:Protocol>
-        </uap:Extension>
-
-        <uap:Extension Category="windows.protocol">
-          <uap:Protocol Name="webcals">
-            <uap:DisplayName>Calendar Protocol (Secure)</uap:DisplayName>
-          </uap:Protocol>
-        </uap:Extension>
-
-        <!-- File Association: ICS -->
-        <uap:Extension Category="windows.fileTypeAssociation">
-          <uap:FileTypeAssociation Name="ics">
-            <uap:Logo>Assets\AppEntries\CalendarAssets\Square44x44Logo.png</uap:Logo>
-            <uap:SupportedFileTypes>
-              <uap:FileType>.ics</uap:FileType>
-            </uap:SupportedFileTypes>
-          </uap:FileTypeAssociation>
-        </uap:Extension>
-      </Extensions>
     </Application>
   </Applications>
 

@@ -21,7 +21,6 @@ namespace Wino.Mail.WinUI.Services;
 public class NotificationBuilder : INotificationBuilder
 {
     private const string MailApplicationId = "App";
-    private const string CalendarApplicationId = "CalendarApp";
 
     private readonly IAccountService _accountService;
     private readonly IFolderService _folderService;
@@ -326,8 +325,8 @@ public class NotificationBuilder : INotificationBuilder
 
     private static string GetAppUserModelId(ToastTargetApp targetApp)
     {
-        var appId = targetApp == ToastTargetApp.Mail ? MailApplicationId : CalendarApplicationId;
-        return $"{Package.Current.Id.FamilyName}!{appId}";
+        _ = targetApp;
+        return $"{Package.Current.Id.FamilyName}!{MailApplicationId}";
     }
 
     private enum ToastTargetApp

@@ -38,6 +38,7 @@ public partial class App : WinoApplication,
     IRecipient<NewCalendarSynchronizationRequested>
 {
     private const int InboxSyncsPerFullSync = 20;
+    private const string ToggleDefaultModeLaunchArgument = "--mode=toggle-default";
     private ISynchronizationManager? _synchronizationManager;
     private IPreferencesService? _preferencesService;
     private IAccountService? _accountService;
@@ -136,7 +137,7 @@ public partial class App : WinoApplication,
     {
         base.OnLaunched(args);
 
-        // Always register notification callbacks for both app entries (Mail and Calendar).
+        // Always register notification callbacks.
         TryRegisterAppNotifications();
 
         // Initialize required services regardless of launch activation type.
@@ -429,7 +430,14 @@ public partial class App : WinoApplication,
         if (activationArgs.Kind == ExtendedActivationKind.Launch &&
             activationArgs.Data is ILaunchActivatedEventArgs launchArgs)
         {
-            shellWindow.HandleAppActivation(launchArgs.Arguments, launchArgs.TileId, Environment.CommandLine);
+            var launchArguments = launchArgs.Arguments;
+
+            if (Program.TryConsumeCurrentProcessAlternateModeOverride())
+            {
+                launchArguments = AppendLaunchArgument(launchArguments, ToggleDefaultModeLaunchArgument);
+            }
+
+            shellWindow.HandleAppActivation(launchArguments, launchArgs.TileId, Environment.CommandLine);
             return;
         }
 
@@ -662,7 +670,14 @@ public partial class App : WinoApplication,
                     if (args.Kind == ExtendedActivationKind.Launch &&
                         args.Data is ILaunchActivatedEventArgs launchArgs)
                     {
-                        shellWindow.HandleAppActivation(launchArgs.Arguments, launchArgs.TileId);
+                        var launchArguments = launchArgs.Arguments;
+
+                        if (Program.TryConsumeRedirectedAlternateModeOverride())
+                        {
+                            launchArguments = AppendLaunchArgument(launchArguments, ToggleDefaultModeLaunchArgument);
+                        }
+
+                        shellWindow.HandleAppActivation(launchArguments, launchArgs.TileId);
                     }
                     else if (TryResolveActivationMode(args, _preferencesService?.DefaultApplicationMode ?? WinoApplicationMode.Mail, out var redirectedMode))
                     {
@@ -679,6 +694,13 @@ public partial class App : WinoApplication,
 
     private static string GetModeLaunchArgument(WinoApplicationMode mode)
         => mode == WinoApplicationMode.Calendar ? "--mode=calendar" : "--mode=mail";
+
+    private static string AppendLaunchArgument(string? launchArguments, string launchArgument)
+    {
+        return string.IsNullOrWhiteSpace(launchArguments)
+            ? launchArgument
+            : $"{launchArguments} {launchArgument}";
+    }
 
     private static bool TryResolveActivationMode(AppActivationArguments activationArgs, WinoApplicationMode defaultMode, out WinoApplicationMode mode)
     {

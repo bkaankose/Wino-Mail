@@ -7,24 +7,31 @@ internal static class AppModeActivationResolver
 {
     public static WinoApplicationMode Resolve(string? launchArguments, string? tileId, string? appId, WinoApplicationMode defaultMode = WinoApplicationMode.Mail)
     {
-        if (TryResolveFromText(launchArguments, out var mode))
+        if (TryResolveFromText(launchArguments, defaultMode, out var mode))
             return mode;
 
-        if (TryResolveFromText(tileId, out mode))
+        if (TryResolveFromText(tileId, defaultMode, out mode))
             return mode;
 
-        if (TryResolveFromText(appId, out mode))
+        if (TryResolveFromText(appId, defaultMode, out mode))
             return mode;
 
         return defaultMode;
     }
 
-    private static bool TryResolveFromText(string? value, out WinoApplicationMode mode)
+    private static bool TryResolveFromText(string? value, WinoApplicationMode defaultMode, out WinoApplicationMode mode)
     {
-        mode = WinoApplicationMode.Mail;
+        mode = defaultMode;
 
         if (string.IsNullOrWhiteSpace(value))
             return false;
+
+        if (Contains(value, "--mode=toggle-default") ||
+            Contains(value, "mode=toggle-default"))
+        {
+            mode = GetOpposite(defaultMode);
+            return true;
+        }
 
         if (Contains(value, "wino-calendar") ||
             Contains(value, "--mode=calendar") ||
@@ -54,4 +61,9 @@ internal static class AppModeActivationResolver
 
     private static bool EqualsToken(string source, string token)
         => string.Equals(source.Trim(), token, StringComparison.OrdinalIgnoreCase);
+
+    private static WinoApplicationMode GetOpposite(WinoApplicationMode defaultMode)
+        => defaultMode == WinoApplicationMode.Mail
+            ? WinoApplicationMode.Calendar
+            : WinoApplicationMode.Mail;
 }

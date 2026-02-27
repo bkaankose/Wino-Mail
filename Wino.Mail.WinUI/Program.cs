@@ -11,6 +11,13 @@ namespace Wino.Mail.WinUI;
 
 public class Program
 {
+    private const string SingleInstanceKey = "WinoMailSingleInstance";
+    private const string ForceAlternateModeSignalEventName = "Local\\WinoMailForceAlternateMode";
+    private const int VkControl = 0x11;
+
+    private static bool _forceAlternateModeOnLaunch;
+    private static EventWaitHandle? _forceAlternateModeSignalHandle;
+
     [STAThread]
     static int Main(string[] args)
     {
@@ -35,15 +42,24 @@ public class Program
     {
         bool isRedirect = false;
         AppActivationArguments args = AppInstance.GetCurrent().GetActivatedEventArgs();
-        AppInstance keyInstance = AppInstance.FindOrRegisterForKey("WinoMailSingleInstance");
+        _forceAlternateModeOnLaunch = args.Kind == ExtendedActivationKind.Launch && IsCtrlKeyDown();
+
+        AppInstance keyInstance = AppInstance.FindOrRegisterForKey(SingleInstanceKey);
 
         if (keyInstance.IsCurrent)
         {
+            EnsureAlternateModeOverrideSignalHandle();
             keyInstance.Activated += OnActivated;
         }
         else
         {
             isRedirect = true;
+
+            if (_forceAlternateModeOnLaunch)
+            {
+                SignalForceAlternateMode();
+            }
+
             RedirectActivationTo(args, keyInstance);
         }
 
@@ -66,7 +82,82 @@ public class Program
     [DllImport("user32.dll")]
     static extern bool SetForegroundWindow(IntPtr hWnd);
 
+    [DllImport("user32.dll")]
+    private static extern short GetAsyncKeyState(int vKey);
+
     private static IntPtr redirectEventHandle = IntPtr.Zero;
+
+    public static bool TryConsumeCurrentProcessAlternateModeOverride()
+    {
+        if (!_forceAlternateModeOnLaunch)
+            return false;
+
+        _forceAlternateModeOnLaunch = false;
+        return true;
+    }
+
+    public static bool TryConsumeRedirectedAlternateModeOverride()
+    {
+        try
+        {
+            if (_forceAlternateModeSignalHandle != null)
+            {
+                return _forceAlternateModeSignalHandle.WaitOne(0);
+            }
+
+            if (!EventWaitHandle.TryOpenExisting(ForceAlternateModeSignalEventName, out EventWaitHandle? signal))
+                return false;
+
+            using (signal)
+            {
+                return signal.WaitOne(0);
+            }
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsCtrlKeyDown() => (GetAsyncKeyState(VkControl) & 0x8000) != 0;
+
+    private static void EnsureAlternateModeOverrideSignalHandle()
+    {
+        if (_forceAlternateModeSignalHandle != null)
+            return;
+
+        try
+        {
+            _forceAlternateModeSignalHandle = new EventWaitHandle(false, EventResetMode.AutoReset, ForceAlternateModeSignalEventName);
+        }
+        catch
+        {
+            _forceAlternateModeSignalHandle = null;
+        }
+    }
+
+    private static void SignalForceAlternateMode()
+    {
+        try
+        {
+            if (EventWaitHandle.TryOpenExisting(ForceAlternateModeSignalEventName, out EventWaitHandle? signal))
+            {
+                using (signal)
+                {
+                    signal.Set();
+                }
+
+                return;
+            }
+
+            using EventWaitHandle fallbackSignal = new(false, EventResetMode.AutoReset, ForceAlternateModeSignalEventName);
+            fallbackSignal.Set();
+        }
+        catch
+        {
+            // Ignore signaling failures and continue with normal activation redirection.
+        }
+    }
 
     // Do the redirection on another thread, and use a non-blocking
     // wait method to wait for the redirection to complete.
