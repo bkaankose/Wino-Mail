@@ -207,6 +207,23 @@
                         </Button.Flyout>
                     </Button>
 
+                    <Border
+                        Width="1"
+                        Height="24"
+                        Margin="4,0"
+                        VerticalAlignment="Center"
+                        Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                    <!--  Test Notification  -->
+                    <Button
+                        Command="{x:Bind ViewModel.CreateTestNotificationCommand}"
+                        Style="{StaticResource TransparentActionButtonStyle}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <coreControls:WinoFontIcon FontSize="16" Icon="Reminder" />
+                            <TextBlock VerticalAlignment="Center" Text="Test notification" />
+                        </StackPanel>
+                    </Button>
+
                     <!--  Edit Series  -->
                     <Border
                         Width="1"

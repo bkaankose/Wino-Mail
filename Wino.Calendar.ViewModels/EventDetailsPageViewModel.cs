@@ -31,6 +31,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     private readonly IWinoRequestDelegator _winoRequestDelegator;
     private readonly INavigationService _navigationService;
     private readonly IUnderlyingThemeService _underlyingThemeService;
+    private readonly INotificationBuilder _notificationBuilder;
 
     public CalendarSettings CurrentSettings { get; }
     public INativeAppService NativeAppService => _nativeAppService;
@@ -143,7 +144,8 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
                                      IMailDialogService dialogService,
                                      IWinoRequestDelegator winoRequestDelegator,
                                      INavigationService navigationService,
-                                     IUnderlyingThemeService underlyingThemeService)
+                                     IUnderlyingThemeService underlyingThemeService,
+                                     INotificationBuilder notificationBuilder)
     {
         _calendarService = calendarService;
         _nativeAppService = nativeAppService;
@@ -152,6 +154,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         _winoRequestDelegator = winoRequestDelegator;
         _navigationService = navigationService;
         _underlyingThemeService = underlyingThemeService;
+        _notificationBuilder = notificationBuilder;
 
         CurrentSettings = _preferencesService.GetCurrentCalendarSettings();
         IsDarkWebviewRenderer = _underlyingThemeService.IsUnderlyingThemeDark();
@@ -464,6 +467,24 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
             return Task.CompletedTask;
 
         return _nativeAppService.LaunchUriAsync(new Uri(CurrentEvent.CalendarItem.HtmlLink));
+    }
+
+    [RelayCommand]
+    private Task CreateTestNotificationAsync()
+    {
+        if (CurrentEvent?.CalendarItem == null)
+            return Task.CompletedTask;
+
+        var reminderDurationInSeconds = Reminders?
+            .Where(x => x.DurationInSeconds > 0)
+            .OrderByDescending(x => x.DurationInSeconds)
+            .Select(x => x.DurationInSeconds)
+            .FirstOrDefault() ?? 0;
+
+        if (reminderDurationInSeconds <= 0)
+            reminderDurationInSeconds = Math.Max(_preferencesService.DefaultReminderDurationInSeconds, 30 * 60);
+
+        return _notificationBuilder.CreateCalendarReminderNotificationAsync(CurrentEvent.CalendarItem, reminderDurationInSeconds);
     }
 
     [RelayCommand]

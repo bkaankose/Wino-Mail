@@ -186,8 +186,15 @@ public partial class App : WinoApplication,
         }
     }
 
-    private async void AppNotificationInvoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args)
-        => await HandleToastActivationAsync(args);
+    private void AppNotificationInvoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args)
+    {
+        // AppNotification callbacks are not guaranteed to run on the UI thread.
+        // Marshal toast handling to the window dispatcher before touching window APIs.
+        if (MainWindow?.DispatcherQueue?.TryEnqueue(() => _ = HandleToastActivationAsync(args)) == true)
+            return;
+
+        _ = HandleToastActivationAsync(args);
+    }
 
     private void TryRegisterAppNotifications()
     {
@@ -255,7 +262,7 @@ public partial class App : WinoApplication,
         var calendarService = Services.GetRequiredService<ICalendarService>();
         var navigationService = Services.GetRequiredService<INavigationService>();
 
-        var calendarItem = await calendarService.GetCalendarItemAsync(calendarItemId).ConfigureAwait(false);
+        var calendarItem = await calendarService.GetCalendarItemAsync(calendarItemId);
         if (calendarItem == null)
             return;
 
@@ -311,10 +318,10 @@ public partial class App : WinoApplication,
         var mailService = Services.GetRequiredService<IMailService>();
         var navigationService = Services.GetRequiredService<INavigationService>();
 
-        var account = await mailService.GetMailAccountByUniqueIdAsync(mailItemUniqueId).ConfigureAwait(false);
+        var account = await mailService.GetMailAccountByUniqueIdAsync(mailItemUniqueId);
         if (account == null) return;
 
-        var mailItem = await mailService.GetSingleMailItemAsync(mailItemUniqueId).ConfigureAwait(false);
+        var mailItem = await mailService.GetSingleMailItemAsync(mailItemUniqueId);
         if (mailItem == null) return;
 
         var message = new AccountMenuItemExtended(mailItem.AssignedFolder.Id, mailItem);

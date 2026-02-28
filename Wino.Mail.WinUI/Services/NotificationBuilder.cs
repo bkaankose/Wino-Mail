@@ -7,8 +7,8 @@ using Microsoft.Toolkit.Uwp.Notifications;
 using Serilog;
 using Windows.Data.Xml.Dom;
 using Windows.UI.Notifications;
-using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -323,12 +323,13 @@ public class NotificationBuilder : INotificationBuilder
                     string.Format(Translator.CalendarReminder_SnoozeMinutesOption, snoozeMinutes)));
             }
 
-            builder.AddInput(selectionBox);
-            builder.AddButton(new ToastButtonSnooze()
-                .SetSelectionBoxId(Constants.ToastCalendarSnoozeDurationInputId)
+            builder.AddToastInput(selectionBox);
+            var snoozeButton = new ToastButtonSnooze();
+            snoozeButton.SelectionBoxId = Constants.ToastCalendarSnoozeDurationInputId;
+            builder.AddButton(snoozeButton)
                 .AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarSnoozeAction)
                 .AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString())
-                .AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar));
+                .AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar);
         }
 
         builder.AddButton(new ToastButtonDismiss());
