@@ -37,6 +37,18 @@ public class ContactService : BaseDatabaseService, IContactService
     public Task<AccountContact> GetAddressInformationByAddressAsync(string address)
         => Connection.Table<AccountContact>().FirstOrDefaultAsync(a => a.Address == address);
 
+    public Task<List<AccountContact>> GetContactsByAddressesAsync(IEnumerable<string> addresses)
+    {
+        var addressList = addresses?.Where(a => !string.IsNullOrEmpty(a)).Distinct().ToList();
+        if (addressList == null || addressList.Count == 0)
+            return Task.FromResult(new List<AccountContact>());
+
+        var placeholders = string.Join(",", addressList.Select(_ => "?"));
+        return Connection.QueryAsync<AccountContact>(
+            $"SELECT * FROM AccountContact WHERE Address IN ({placeholders})",
+            addressList.Cast<object>().ToArray());
+    }
+
     public async Task SaveAddressInformationAsync(MimeMessage message)
     {
         if (message == null) return;
