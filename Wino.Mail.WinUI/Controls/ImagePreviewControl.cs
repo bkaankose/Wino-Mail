@@ -293,6 +293,7 @@ public sealed partial class ImagePreviewControl : PersonPicture
                 return;
 
             DisplayName = displayName;
+            Initials = null;
             ProfilePicture = null;
         }).ConfigureAwait(false);
     }
@@ -304,6 +305,7 @@ public sealed partial class ImagePreviewControl : PersonPicture
             if (!IsActiveRefresh(refreshVersion, cancellationToken))
                 return;
 
+            Initials = string.Empty;
             ProfilePicture = bitmapImage;
         }).ConfigureAwait(false);
     }
