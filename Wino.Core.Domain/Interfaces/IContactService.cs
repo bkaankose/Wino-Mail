@@ -11,6 +11,7 @@ public interface IContactService
 {
     Task<List<AccountContact>> GetAddressInformationAsync(string queryText);
     Task<AccountContact> GetAddressInformationByAddressAsync(string address);
+    Task<List<AccountContact>> GetContactsByAddressesAsync(IEnumerable<string> addresses);
     Task SaveAddressInformationAsync(MimeMessage message);
     Task SaveAddressInformationAsync(IEnumerable<AccountContact> contacts);
     Task<AccountContact> CreateNewContactAsync(string address, string displayName);

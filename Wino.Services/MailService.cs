@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -324,91 +323,163 @@ public class MailService : BaseDatabaseService, IMailService
 
     public async Task<List<MailCopy>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default)
     {
-        List<MailCopy> mails = null;
+        List<MailCopy> mails;
 
-        // If user performs an online search, mail copies are passed to options.
         if (options.PreFetchMailCopies != null)
         {
             mails = ApplyOptionsToPreFetchedMails(options);
         }
         else
         {
-            // If not just do the query.
             var (query, parameters) = BuildMailFetchQuery(options);
             mails = await Connection.QueryAsync<MailCopy>(query, parameters);
         }
 
-        ConcurrentDictionary<Guid, MailItemFolder> folderCache = new();
-        ConcurrentDictionary<Guid, MailAccount> accountCache = new();
-        ConcurrentDictionary<string, AccountContact> contactCache = new();
-
-        // Populate Folder Assignment for each single mail, to be able later group by "MailAccountId".
-        // This is needed to execute threading strategy by account type.
-        // Avoid DBs calls as possible, storing info in a dictionary.
-        foreach (var mail in mails)
-        {
-            await LoadAssignedPropertiesWithCacheAsync(mail, folderCache, accountCache, contactCache).ConfigureAwait(false);
-        }
-
-        // Remove items that has no assigned account or folder.
-        mails.RemoveAll(a => a.AssignedAccount == null || a.AssignedFolder == null);
+        if (mails.Count == 0)
+            return mails;
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        // If CreateThreads is false, just return the mails as-is
-        if (!options.CreateThreads)
+        // Pre-load all data needed for property assignment in as few DB round-trips as possible.
+        // 1. Seed the folder cache directly from the options folders - these cover the vast majority
+        //    of mails in a normal folder view and require zero extra DB calls.
+        var folderCache = options.Folders
+            .OfType<MailItemFolder>()
+            .ToDictionary(f => f.Id);
+
+        // 2. Load all accounts in one call (typically 1-5 accounts) instead of N per-mail lookups.
+        var allAccounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
+        var accountCache = allAccounts.ToDictionary(a => a.Id);
+
+        // 3. Fetch any folders not already in the cache (rare for normal views, common for merged inboxes
+        //    that include Sent/Draft copies belonging to different folder objects).
+        var uncachedFolderIds = mails
+            .Select(m => m.FolderId)
+            .Distinct()
+            .Where(id => !folderCache.ContainsKey(id))
+            .ToList();
+
+        if (uncachedFolderIds.Count > 0)
         {
-            return [.. mails];
+            var folders = await Task.WhenAll(
+                uncachedFolderIds.Select(id => _folderService.GetFolderAsync(id))).ConfigureAwait(false);
+
+            foreach (var f in folders.Where(f => f != null))
+                folderCache[f.Id] = f;
         }
 
-        // Include other mails in the same threads - batch process to reduce DB calls
-        var expandedMails = new List<MailCopy>(mails);
+        // 4. Batch-fetch all sender contacts in a single SQL IN(...) query instead of one query per mail.
+        var uniqueAddresses = mails
+            .Where(m => !string.IsNullOrEmpty(m.FromAddress))
+            .Select(m => m.FromAddress)
+            .Distinct()
+            .ToList();
+
+        var contactList = await _contactService.GetContactsByAddressesAsync(uniqueAddresses).ConfigureAwait(false);
+        var contactCache = contactList.ToDictionary(c => c.Address);
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // 5. Assign all properties synchronously from the pre-loaded in-memory caches - no DB calls here.
+        AssignPropertiesFromCaches(mails, folderCache, accountCache, contactCache);
+        mails.RemoveAll(m => m.AssignedAccount == null || m.AssignedFolder == null);
+
+        if (!options.CreateThreads || mails.Count == 0)
+            return [.. mails];
+
+        // 6. Expand threads: one batch query for all sibling mails across all threads.
         var uniqueThreadIds = mails
             .Where(m => !string.IsNullOrEmpty(m.ThreadId))
             .Select(m => m.ThreadId)
             .Distinct()
             .ToList();
 
-        if (uniqueThreadIds.Count > 0)
+        if (uniqueThreadIds.Count == 0)
+            return [.. mails];
+
+        var existingMailIds = mails.Select(m => m.Id).ToHashSet();
+        var threadMails = await GetMailsByThreadIdsAsync(uniqueThreadIds, existingMailIds).ConfigureAwait(false);
+
+        if (threadMails?.Count > 0)
         {
-            // Get all thread mails in a single DB call
-            var existingMailIds = expandedMails.Select(m => m.Id).ToHashSet();
-            var allThreadMails = await GetMailsByThreadIdsAsync(uniqueThreadIds, existingMailIds).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
 
-            if (allThreadMails?.Count > 0)
+            // Load any folders that thread mails belong to but are not yet cached.
+            var newFolderIds = threadMails
+                .Select(m => m.FolderId)
+                .Distinct()
+                .Where(id => !folderCache.ContainsKey(id))
+                .ToList();
+
+            if (newFolderIds.Count > 0)
             {
-                // Process thread mails in parallel to improve performance
-                var tasks = allThreadMails.Select(async threadMail =>
-                {
-                    await LoadAssignedPropertiesWithCacheAsync(threadMail, folderCache, accountCache, contactCache).ConfigureAwait(false);
-                    return threadMail;
-                });
+                var newFolders = await Task.WhenAll(
+                    newFolderIds.Select(id => _folderService.GetFolderAsync(id))).ConfigureAwait(false);
 
-                var processedThreadMails = await Task.WhenAll(tasks).ConfigureAwait(false);
-
-                // Filter out items with no assigned account or folder
-                var validThreadMails = processedThreadMails.Where(m => m.AssignedAccount != null && m.AssignedFolder != null);
-
-                expandedMails.AddRange(validThreadMails);
+                foreach (var f in newFolders.Where(f => f != null))
+                    folderCache[f.Id] = f;
             }
 
-            cancellationToken.ThrowIfCancellationRequested();
+            // Batch-fetch contacts for any new senders in thread mails.
+            var newAddresses = threadMails
+                .Where(m => !string.IsNullOrEmpty(m.FromAddress) && !contactCache.ContainsKey(m.FromAddress))
+                .Select(m => m.FromAddress)
+                .Distinct()
+                .ToList();
+
+            if (newAddresses.Count > 0)
+            {
+                var newContacts = await _contactService.GetContactsByAddressesAsync(newAddresses).ConfigureAwait(false);
+                foreach (var c in newContacts.Where(c => c != null))
+                    contactCache[c.Address] = c;
+            }
+
+            AssignPropertiesFromCaches(threadMails, folderCache, accountCache, contactCache);
+            mails.AddRange(threadMails.Where(m => m.AssignedAccount != null && m.AssignedFolder != null));
         }
 
-        return [.. expandedMails];
+        cancellationToken.ThrowIfCancellationRequested();
+        return [.. mails];
     }
 
-    private async Task<List<MailCopy>> GetMailsByThreadIdAsync(string threadId, HashSet<string> excludeMailIds)
+    /// <summary>
+    /// Assigns AssignedFolder, AssignedAccount, and SenderContact to each mail from pre-loaded
+    /// in-memory dictionaries. No DB calls are made here.
+    /// </summary>
+    private void AssignPropertiesFromCaches(
+        List<MailCopy> mails,
+        Dictionary<Guid, MailItemFolder> folderCache,
+        Dictionary<Guid, MailAccount> accountCache,
+        Dictionary<string, AccountContact> contactCache)
     {
-        if (string.IsNullOrEmpty(threadId))
-            return [];
+        foreach (var mail in mails)
+        {
+            if (!folderCache.TryGetValue(mail.FolderId, out var folder))
+                continue;
 
-        var placeholders = string.Join(",", excludeMailIds.Select(_ => "?"));
-        var sql = $"SELECT MailCopy.* FROM MailCopy WHERE ThreadId = ? AND Id NOT IN ({placeholders})";
-        var parameters = new List<object> { threadId };
-        parameters.AddRange(excludeMailIds.Cast<object>());
+            if (!accountCache.TryGetValue(folder.MailAccountId, out var account))
+                continue;
 
-        return await Connection.QueryAsync<MailCopy>(sql, parameters.ToArray());
+            mail.AssignedFolder = folder;
+            mail.AssignedAccount = account;
+
+            // Self-sent mails (e.g. Sent folder): construct contact from account meta
+            // to get the up-to-date profile picture without a DB roundtrip.
+            if (!string.IsNullOrEmpty(mail.FromAddress) && mail.FromAddress == account.Address)
+            {
+                mail.SenderContact = new AccountContact
+                {
+                    Address = account.Address,
+                    Name = account.SenderName,
+                    Base64ContactPicture = account.Base64ProfilePictureData
+                };
+            }
+            else
+            {
+                contactCache.TryGetValue(mail.FromAddress ?? string.Empty, out var contact);
+                mail.SenderContact = contact ?? CreateUnknownContact(mail.FromName, mail.FromAddress);
+            }
+        }
     }
 
     private async Task<List<MailCopy>> GetMailsByThreadIdsAsync(List<string> threadIds, HashSet<string> excludeMailIds)
@@ -417,61 +488,22 @@ public class MailService : BaseDatabaseService, IMailService
             return [];
 
         var threadPlaceholders = string.Join(",", threadIds.Select(_ => "?"));
-        var excludePlaceholders = string.Join(",", excludeMailIds.Select(_ => "?"));
-        var sql = $"SELECT MailCopy.* FROM MailCopy WHERE ThreadId IN ({threadPlaceholders}) AND Id NOT IN ({excludePlaceholders})";
         var parameters = new List<object>();
         parameters.AddRange(threadIds.Cast<object>());
-        parameters.AddRange(excludeMailIds.Cast<object>());
+
+        string sql;
+        if (excludeMailIds.Count > 0)
+        {
+            var excludePlaceholders = string.Join(",", excludeMailIds.Select(_ => "?"));
+            sql = $"SELECT MailCopy.* FROM MailCopy WHERE ThreadId IN ({threadPlaceholders}) AND Id NOT IN ({excludePlaceholders})";
+            parameters.AddRange(excludeMailIds.Cast<object>());
+        }
+        else
+        {
+            sql = $"SELECT MailCopy.* FROM MailCopy WHERE ThreadId IN ({threadPlaceholders})";
+        }
 
         return await Connection.QueryAsync<MailCopy>(sql, parameters.ToArray()).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// This method should used for operations with multiple mailItems. Don't use this for single mail items.
-    /// Called method should provide own instances for caches.
-    /// </summary>
-    private async Task LoadAssignedPropertiesWithCacheAsync(MailCopy mail, ConcurrentDictionary<Guid, MailItemFolder> folderCache, ConcurrentDictionary<Guid, MailAccount> accountCache, ConcurrentDictionary<string, AccountContact> contactCache)
-    {
-        if (mail is MailCopy mailCopy)
-        {
-            var isFolderCached = folderCache.TryGetValue(mailCopy.FolderId, out MailItemFolder folderAssignment);
-            MailAccount accountAssignment = null;
-            if (!isFolderCached)
-            {
-                folderAssignment = await _folderService.GetFolderAsync(mailCopy.FolderId).ConfigureAwait(false);
-                folderCache.TryAdd(mailCopy.FolderId, folderAssignment);
-            }
-
-            if (folderAssignment != null)
-            {
-                var isAccountCached = accountCache.TryGetValue(folderAssignment.MailAccountId, out accountAssignment);
-                if (!isAccountCached)
-                {
-                    accountAssignment = await _accountService.GetAccountAsync(folderAssignment.MailAccountId).ConfigureAwait(false);
-
-                    accountCache.TryAdd(folderAssignment.MailAccountId, accountAssignment);
-                }
-            }
-
-            AccountContact contactAssignment = null;
-
-            bool isContactCached = !string.IsNullOrEmpty(mailCopy.FromAddress) &&
-                contactCache.TryGetValue(mailCopy.FromAddress, out contactAssignment);
-
-            if (!isContactCached && accountAssignment != null)
-            {
-                contactAssignment = await GetSenderContactForAccountAsync(accountAssignment, mailCopy.FromAddress).ConfigureAwait(false);
-
-                if (contactAssignment != null)
-                {
-                    contactCache.TryAdd(mailCopy.FromAddress, contactAssignment);
-                }
-            }
-
-            mailCopy.AssignedFolder = folderAssignment;
-            mailCopy.AssignedAccount = accountAssignment;
-            mailCopy.SenderContact = contactAssignment ?? CreateUnknownContact(mailCopy.FromName, mailCopy.FromAddress);
-        }
     }
 
     private static AccountContact CreateUnknownContact(string fromName, string fromAddress)
@@ -1407,14 +1439,19 @@ public class MailService : BaseDatabaseService, IMailService
         var mailCopies = await Connection.QueryAsync<MailCopy>(sql, mailCopyIds.Cast<object>().ToArray());
         if (mailCopies?.Count == 0) return [];
 
-        ConcurrentDictionary<Guid, MailItemFolder> folderCache = new();
-        ConcurrentDictionary<Guid, MailAccount> accountCache = new();
-        ConcurrentDictionary<string, AccountContact> contactCache = new();
+        var folderIds = mailCopies.Select(m => m.FolderId).Distinct().ToList();
+        var folderTasks = folderIds.Select(id => _folderService.GetFolderAsync(id));
+        var folders = await Task.WhenAll(folderTasks).ConfigureAwait(false);
+        var folderCache = folders.Where(f => f != null).ToDictionary(f => f.Id);
 
-        foreach (var mail in mailCopies)
-        {
-            await LoadAssignedPropertiesWithCacheAsync(mail, folderCache, accountCache, contactCache).ConfigureAwait(false);
-        }
+        var allAccounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
+        var accountCache = allAccounts.ToDictionary(a => a.Id);
+
+        var addresses = mailCopies.Where(m => !string.IsNullOrEmpty(m.FromAddress)).Select(m => m.FromAddress).Distinct().ToList();
+        var contactList = await _contactService.GetContactsByAddressesAsync(addresses).ConfigureAwait(false);
+        var contactCache = contactList.ToDictionary(c => c.Address);
+
+        AssignPropertiesFromCaches(mailCopies, folderCache, accountCache, contactCache);
 
         return mailCopies;
     }
