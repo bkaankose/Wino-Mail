@@ -41,6 +41,8 @@ public class InMemoryDatabaseService : IDatabaseService
         await Connection.CreateTableAsync<MailAccountPreferences>();
         await Connection.CreateTableAsync<MailAccountAlias>();
         await Connection.CreateTableAsync<Thumbnail>();
+        await Connection.CreateTableAsync<ContactGroup>();
+        await Connection.CreateTableAsync<ContactGroupMember>();
         await Connection.CreateTableAsync<KeyboardShortcut>();
         await Connection.CreateTableAsync<AccountCalendar>();
         await Connection.CreateTableAsync<CalendarEventAttendee>();

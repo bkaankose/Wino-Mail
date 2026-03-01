@@ -146,6 +146,9 @@ public partial class App : WinoApplication,
         // Note: Theme service is initialized separately after window creation.
         await InitializeServicesAsync();
 
+        // Migrate existing base64 contact pictures to file system (one-time, no-op on subsequent starts).
+        await Services.GetRequiredService<IContactPictureFileService>().MigrateBase64PicturesAsync();
+
         _synchronizationManager = Services.GetRequiredService<ISynchronizationManager>();
         _preferencesService = Services.GetRequiredService<IPreferencesService>();
         _accountService = Services.GetRequiredService<IAccountService>();

@@ -141,6 +141,7 @@
     <Content Include="AppThemes\Nighty.xaml" />
     <Content Include="AppThemes\Snowflake.xaml" />
     <Content Include="AppThemes\TestTheme.xaml" />
+    <Content Include="Assets\ReleaseNotes\vnext.md" />
     <Content Include="Assets\Wino_Icon.ico" />
     <Content Include="BackgroundImages\Acrylic.jpg" />
     <Content Include="BackgroundImages\Clouds.jpg" />
