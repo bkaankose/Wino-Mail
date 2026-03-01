@@ -19,7 +19,8 @@
     FocusVisualSecondaryBrush="{StaticResource SystemControlFocusVisualSecondaryBrush}"
     FocusVisualSecondaryThickness="1"
     PointerEntered="ControlPointerEntered"
-    PointerExited="ControlPointerExited">
+    PointerExited="ControlPointerExited"
+    Unloaded="OnUnloaded">
 
     <UserControl.Resources>
         <Style
@@ -59,7 +60,8 @@
                 Background="Transparent"
                 BorderBrush="Transparent"
                 BorderThickness="0.5"
-                CornerRadius="4" />
+                CornerRadius="4"
+                SizeChanged="RootContainerVisualWrapperSizeChanged" />
 
             <Grid x:Name="MainContentContainer">
                 <Grid.ColumnDefinitions>
@@ -247,7 +249,7 @@
                                     Height="3"
                                     HorizontalAlignment="Right"
                                     VerticalAlignment="Bottom"
-                                    IsActive="{x:Bind MailItemInformation.IsBusy, Mode=OneWay}" />
+                                    IsActive="{x:Bind ActionItem.IsBusy, Mode=OneWay, FallbackValue=False}" />
                             </StackPanel>
                         </Grid>
                     </Grid>

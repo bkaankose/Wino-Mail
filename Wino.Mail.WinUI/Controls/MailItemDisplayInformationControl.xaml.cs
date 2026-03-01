@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Linq;
 using System.Numerics;
 using CommunityToolkit.WinUI;
@@ -26,6 +27,8 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
     private Compositor? _compositor;
     private Visual? _contentVisual;
     private ScalarKeyFrameAnimation? _opacityAnimation;
+    private SpriteVisual? _leftBackgroundVisual;
+    private INotifyPropertyChanged? _actionItemPropertySource;
 
     [GeneratedDependencyProperty(DefaultValue = MailListDisplayMode.Spacious)]
     public partial MailListDisplayMode DisplayMode { get; set; }
@@ -83,16 +86,14 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
 
         var compositor = this.Visual().Compositor;
 
-        var leftBackgroundVisual = compositor.CreateSpriteVisual();
-        RootContainerVisualWrapper.SetChildVisual(leftBackgroundVisual);
+        _leftBackgroundVisual = compositor.CreateSpriteVisual();
+        RootContainerVisualWrapper.SetChildVisual(_leftBackgroundVisual);
         MainContentContainer.EnableImplicitAnimation(VisualPropertyType.Offset, 400);
 
         RootContainer.EnableImplicitAnimation(VisualPropertyType.Offset, 400);
         ContentGrid.EnableImplicitAnimation(VisualPropertyType.Offset, 400);
         ContentStackpanel.EnableImplicitAnimation(VisualPropertyType.Offset, 400);
         IconsContainer.EnableImplicitAnimation(VisualPropertyType.Offset, 400);
-
-        RootContainerVisualWrapper.SizeChanged += (s, e) => leftBackgroundVisual.Size = e.NewSize.ToVector2();
 
         // Initialize shimmer effect compositor
         _compositor = this.Visual().Compositor;
@@ -103,6 +104,23 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
         if (ActionItem == null && MailItemInformation is IMailListItem mailListItem)
         {
             ActionItem = mailListItem;
+        }
+
+        UpdateBusyAnimationState();
+    }
+
+    partial void OnActionItemPropertyChanged(DependencyPropertyChangedEventArgs e)
+    {
+        if (_actionItemPropertySource != null)
+        {
+            _actionItemPropertySource.PropertyChanged -= ActionItemPropertyChanged;
+            _actionItemPropertySource = null;
+        }
+
+        if (e.NewValue is INotifyPropertyChanged propertyChangedSource)
+        {
+            _actionItemPropertySource = propertyChangedSource;
+            _actionItemPropertySource.PropertyChanged += ActionItemPropertyChanged;
         }
 
         UpdateBusyAnimationState();
@@ -144,13 +162,40 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
 
     private void UpdateBusyAnimationState()
     {
-        if (MailItemInformation?.IsBusy == true)
+        if (ActionItem?.IsBusy == true)
         {
             StartBusyAnimation();
             return;
         }
 
         StopBusyAnimation();
+    }
+
+    private void ActionItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(IMailListItem.IsBusy))
+        {
+            UpdateBusyAnimationState();
+        }
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        if (_actionItemPropertySource != null)
+        {
+            _actionItemPropertySource.PropertyChanged -= ActionItemPropertyChanged;
+            _actionItemPropertySource = null;
+        }
+
+        StopBusyAnimation();
+    }
+
+    private void RootContainerVisualWrapperSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (_leftBackgroundVisual != null)
+        {
+            _leftBackgroundVisual.Size = e.NewSize.ToVector2();
+        }
     }
 
     private void ControlPointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
