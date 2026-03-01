@@ -28,6 +28,7 @@ namespace Wino.Services;
 public class NavigationService : NavigationServiceBase, INavigationService
 {
     private readonly IStatePersistanceService _statePersistanceService;
+    private readonly IDispatcher _dispatcher;
 
     private WinoPage[] _renderingPageTypes = new WinoPage[]
     {
@@ -50,9 +51,34 @@ public class NavigationService : NavigationServiceBase, INavigationService
         WinoPage.EventDetailsPage
     ];
 
-    public NavigationService(IStatePersistanceService statePersistanceService)
+    public NavigationService(IStatePersistanceService statePersistanceService, IDispatcher dispatcher)
     {
         _statePersistanceService = statePersistanceService;
+        _dispatcher = dispatcher;
+    }
+
+    private bool IsOnNavigationThread()
+        => _dispatcher is WinUIDispatcher winUiDispatcher && winUiDispatcher.HasThreadAccess;
+
+    private T ExecuteOnNavigationThread<T>(Func<T> action)
+    {
+        if (IsOnNavigationThread())
+            return action();
+
+        T result = default!;
+        _dispatcher.ExecuteOnUIThread(() => result = action()).GetAwaiter().GetResult();
+        return result;
+    }
+
+    private void ExecuteOnNavigationThread(Action action)
+    {
+        if (IsOnNavigationThread())
+        {
+            action();
+            return;
+        }
+
+        _dispatcher.ExecuteOnUIThread(action).GetAwaiter().GetResult();
     }
 
     public Type? GetPageType(WinoPage winoPage)
@@ -94,6 +120,9 @@ public class NavigationService : NavigationServiceBase, INavigationService
     }
 
     public Frame GetCoreFrame(NavigationReferenceFrame frameType)
+        => ExecuteOnNavigationThread(() => GetCoreFrameInternal(frameType));
+
+    private Frame GetCoreFrameInternal(NavigationReferenceFrame frameType)
     {
         if (WinoApplication.MainWindow is not IWinoShellWindow shellWindow) throw new ArgumentException("MainWindow must implement IWinoShellWindow");
         if (shellWindow.GetMainFrame() is not Frame mainFrame) throw new ArgumentException("MainFrame cannot be null.");
@@ -107,8 +136,11 @@ public class NavigationService : NavigationServiceBase, INavigationService
     }
 
     public bool ChangeApplicationMode(WinoApplicationMode mode)
+        => ExecuteOnNavigationThread(() => ChangeApplicationModeInternal(mode));
+
+    private bool ChangeApplicationModeInternal(WinoApplicationMode mode)
     {
-        var coreFrame = GetCoreFrame(NavigationReferenceFrame.ShellFrame);
+        var coreFrame = GetCoreFrameInternal(NavigationReferenceFrame.ShellFrame);
 
         if (coreFrame == null) return false;
 
@@ -154,6 +186,12 @@ public class NavigationService : NavigationServiceBase, INavigationService
                          object? parameter = null,
                          NavigationReferenceFrame frame = NavigationReferenceFrame.InnerShellFrame,
                          NavigationTransitionType transition = NavigationTransitionType.None)
+        => ExecuteOnNavigationThread(() => NavigateInternal(page, parameter, frame, transition));
+
+    private bool NavigateInternal(WinoPage page,
+                                  object? parameter = null,
+                                  NavigationReferenceFrame frame = NavigationReferenceFrame.InnerShellFrame,
+                                  NavigationTransitionType transition = NavigationTransitionType.None)
     {
         var pageType = GetPageType(page);
         if (pageType == null) return false;
@@ -173,7 +211,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
         _statePersistanceService.IsReadingMail = _renderingPageTypes.Contains(page);
         _statePersistanceService.IsEventDetailsVisible = page == WinoPage.EventDetailsPage;
 
-        Frame innerShellFrame = GetCoreFrame(NavigationReferenceFrame.InnerShellFrame);
+        Frame innerShellFrame = GetCoreFrameInternal(NavigationReferenceFrame.InnerShellFrame);
 
         if (innerShellFrame != null)
         {
@@ -227,8 +265,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
                 // This page must be opened in the Frame placed in MailListingPage.
                 if (isMailListingPageActive && frame == NavigationReferenceFrame.RenderingFrame)
                 {
-                    var listingFrame = GetCoreFrame(NavigationReferenceFrame.RenderingFrame);
-
+                    var listingFrame = GetCoreFrameInternal(NavigationReferenceFrame.RenderingFrame);
                     if (listingFrame == null) return false;
 
                     // Active page is mail list page and we are opening a mail item.
@@ -294,6 +331,9 @@ public class NavigationService : NavigationServiceBase, INavigationService
     }
 
     public void GoBack(Core.Domain.Enums.NavigationTransitionEffect slideEffect = Core.Domain.Enums.NavigationTransitionEffect.FromRight)
+        => ExecuteOnNavigationThread(() => GoBackInternal(slideEffect));
+
+    private void GoBackInternal(Core.Domain.Enums.NavigationTransitionEffect slideEffect = Core.Domain.Enums.NavigationTransitionEffect.FromRight)
     {
         // Check if we're navigating within ManageAccountsPage (applies to both modes)
         // Check if we're navigating within SettingsPage (applies to both modes)
@@ -304,7 +344,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
             return;
         }
 
-        var innerShellFrame = GetCoreFrame(NavigationReferenceFrame.InnerShellFrame);
+        var innerShellFrame = GetCoreFrameInternal(NavigationReferenceFrame.InnerShellFrame);
 
         if (_statePersistanceService.ApplicationMode == WinoApplicationMode.Calendar && innerShellFrame?.CanGoBack == true)
         {

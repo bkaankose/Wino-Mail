@@ -31,6 +31,7 @@ using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 using Wino.Services;
+using WinUIEx;
 namespace Wino.Mail.WinUI;
 
 public partial class App : WinoApplication,
@@ -186,8 +187,13 @@ public partial class App : WinoApplication,
         }
     }
 
-    private async void AppNotificationInvoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args)
-        => await HandleToastActivationAsync(args);
+    private void AppNotificationInvoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args)
+    {
+        if (MainWindow?.DispatcherQueue?.TryEnqueue(() => _ = HandleToastActivationAsync(args)) == true)
+            return;
+
+        _ = HandleToastActivationAsync(args);
+    }
 
     private void TryRegisterAppNotifications()
     {
@@ -247,7 +253,7 @@ public partial class App : WinoApplication,
         var calendarService = Services.GetRequiredService<ICalendarService>();
         var navigationService = Services.GetRequiredService<INavigationService>();
 
-        var calendarItem = await calendarService.GetCalendarItemAsync(calendarItemId).ConfigureAwait(false);
+        var calendarItem = await calendarService.GetCalendarItemAsync(calendarItemId);
         if (calendarItem == null)
             return;
 
@@ -259,8 +265,7 @@ public partial class App : WinoApplication,
         }
         else
         {
-            MainWindow?.BringToFront();
-            MainWindow?.Activate();
+            EnsureMainWindowVisibleAndForeground();
         }
 
         navigationService.ChangeApplicationMode(Core.Domain.Enums.WinoApplicationMode.Calendar);
@@ -276,10 +281,10 @@ public partial class App : WinoApplication,
         var mailService = Services.GetRequiredService<IMailService>();
         var navigationService = Services.GetRequiredService<INavigationService>();
 
-        var account = await mailService.GetMailAccountByUniqueIdAsync(mailItemUniqueId).ConfigureAwait(false);
+        var account = await mailService.GetMailAccountByUniqueIdAsync(mailItemUniqueId);
         if (account == null) return;
 
-        var mailItem = await mailService.GetSingleMailItemAsync(mailItemUniqueId).ConfigureAwait(false);
+        var mailItem = await mailService.GetSingleMailItemAsync(mailItemUniqueId);
         if (mailItem == null) return;
 
         var message = new AccountMenuItemExtended(mailItem.AssignedFolder.Id, mailItem);
@@ -300,7 +305,7 @@ public partial class App : WinoApplication,
             // App is already running - send message and bring window to front.
             navigationService.ChangeApplicationMode(Core.Domain.Enums.WinoApplicationMode.Mail);
             WeakReferenceMessenger.Default.Send(message);
-            MainWindow?.BringToFront();
+            EnsureMainWindowVisibleAndForeground();
         }
     }
 
@@ -418,6 +423,7 @@ public partial class App : WinoApplication,
         LogActivation("Creating main window.");
 
         MainWindow = new ShellWindow();
+        InitializeNavigationDispatcher();
 
         var nativeAppService = Services.GetRequiredService<INativeAppService>();
         nativeAppService.GetCoreWindowHwnd = () => WinRT.Interop.WindowNative.GetWindowHandle(MainWindow);
@@ -448,6 +454,27 @@ public partial class App : WinoApplication,
         }
 
         shellWindow.HandleAppActivation(args?.Arguments, GetCurrentLaunchTileId(), Environment.CommandLine);
+    }
+
+    private void InitializeNavigationDispatcher()
+    {
+        if (MainWindow == null)
+            return;
+
+        if (Services.GetService<IDispatcher>() is WinUIDispatcher dispatcher)
+        {
+            dispatcher.Initialize(MainWindow.DispatcherQueue);
+        }
+    }
+
+    private void EnsureMainWindowVisibleAndForeground()
+    {
+        if (MainWindow == null)
+            return;
+
+        MainWindow.Show();
+        MainWindow.BringToFront();
+        MainWindow.Activate();
     }
 
     private void RegisterRecipients()
