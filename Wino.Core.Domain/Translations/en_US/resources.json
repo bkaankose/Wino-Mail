@@ -983,5 +983,8 @@
     "CalendarAccountSettings_DefaultShowAs": "Default Show As Status",
     "CalendarAccountSettings_DefaultShowAsDescription": "Default availability status for new events created with this account",
     "CalendarAccountSettings_PrimaryCalendar": "Primary Calendar",
-    "CalendarAccountSettings_PrimaryCalendarDescription": "Mark this calendar as the primary calendar for the account"
+    "CalendarAccountSettings_PrimaryCalendarDescription": "Mark this calendar as the primary calendar for the account",
+    "WhatIsNew_GetStartedButton": "Get Started",
+    "WhatIsNew_MigrationNotification_Title": "Wino Mail Updated",
+    "WhatIsNew_MigrationNotification_Message": "Open the app to complete the update and see what's new."
 }

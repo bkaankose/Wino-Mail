@@ -40,4 +40,10 @@ public interface INotificationBuilder
     /// Creates a calendar reminder toast for the specified calendar item.
     /// </summary>
     Task CreateCalendarReminderNotificationAsync(CalendarItem calendarItem, long reminderDurationInSeconds);
+
+    /// <summary>
+    /// Shows a notification that a migration is required for the new app version.
+    /// Synchronization is stopped and the user is prompted to open the app.
+    /// </summary>
+    void CreateMigrationRequiredNotification();
 }

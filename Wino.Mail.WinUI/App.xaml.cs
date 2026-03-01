@@ -22,6 +22,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Domain.Models.Updates;
 using Wino.Mail.Services;
 using Wino.Mail.ViewModels;
 using Wino.Mail.WinUI.Activation;
@@ -153,9 +154,18 @@ public partial class App : WinoApplication,
         _preferencesService = Services.GetRequiredService<IPreferencesService>();
         _accountService = Services.GetRequiredService<IAccountService>();
 
+        // Check whether the new version requires a migration before starting sync.
+        var updateManager = Services.GetRequiredService<IUpdateManager>();
+        var updateNotes = await updateManager.GetLatestUpdateNotesAsync();
+        bool hasPendingMigration = updateNotes.HasMigrations && updateManager.HasPendingMigrations();
+
         _preferencesService.PreferenceChanged -= PreferencesServiceChanged;
         _preferencesService.PreferenceChanged += PreferencesServiceChanged;
-        RestartAutoSynchronizationLoop();
+
+        // Hold off sync loop when a migration is required in startup-task (tray-only) mode.
+        // In foreground mode the sync loop starts normally; the ViewModel dialog handles migrations before sync kicks in.
+        if (!hasPendingMigration || !IsStartupTaskLaunch())
+            RestartAutoSynchronizationLoop();
 
         // Check if launched from toast notification.
         if (IsNotificationActivation(out AppNotificationActivatedEventArgs toastArgs))
@@ -179,12 +189,21 @@ public partial class App : WinoApplication,
         // Otherwise, activate the window normally.
         if (isStartupTaskLaunch)
         {
-            LogActivation("Launched by startup task. Window created but hidden (system tray only).");
-            // Window is created but not activated. User can show it from system tray.
+            if (hasPendingMigration)
+            {
+                // Notify the user to open the app to complete the update before sync can resume.
+                Services.GetRequiredService<INotificationBuilder>().CreateMigrationRequiredNotification();
+                LogActivation("Migration required for new version. Sync skipped. User notified via toast.");
+            }
+            else
+            {
+                LogActivation("Launched by startup task. Window created but hidden (system tray only).");
+            }
         }
         else
         {
             // Normal launch - show and activate the window.
+            // The What's New dialog is shown from MailAppShellViewModel.OnNavigatedTo once XamlRoot is ready.
             MainWindow?.Activate();
             LogActivation("Window created and activated.");
         }
@@ -222,6 +241,13 @@ public partial class App : WinoApplication,
     {
         var toastArguments = ToastArguments.Parse(toastArgs.Argument);
 
+        // Check migration notification activation first.
+        if (toastArguments.Contains(Constants.ToastMigrationRequiredKey))
+        {
+            await HandleMigrationToastActivationAsync();
+            return;
+        }
+
         // Check calendar reminder toast activation first.
         if (toastArguments.TryGetValue(Constants.ToastCalendarActionKey, out string calendarAction) &&
             calendarAction == Constants.ToastCalendarNavigateAction &&
@@ -249,6 +275,29 @@ public partial class App : WinoApplication,
                 await HandleToastActionAsync(action, mailItemUniqueId);
             }
         }
+    }
+
+    /// <summary>
+    /// Handles activation from the migration-required toast notification.
+    /// Opens the app so the shell ViewModel can show the What's New dialog and run migrations.
+    /// </summary>
+    private async Task HandleMigrationToastActivationAsync()
+    {
+        LogActivation("Handling migration toast activation.");
+
+        if (!IsAppRunning())
+        {
+            await CreateAndActivateWindow(null!);
+        }
+        else
+        {
+            EnsureMainWindowVisibleAndForeground();
+        }
+
+        // The MailAppShellViewModel.OnNavigatedTo will detect ShouldShowUpdateNotes() == true
+        // and display the What's New dialog (including running migrations) once the XamlRoot is ready.
+        // Restart sync in case it was blocked.
+        RestartAutoSynchronizationLoop();
     }
 
     private async Task HandleCalendarToastNavigationAsync(Guid calendarItemId)

@@ -317,6 +317,20 @@ public class NotificationBuilder : INotificationBuilder
         return Task.CompletedTask;
     }
 
+    public void CreateMigrationRequiredNotification()
+    {
+        var builder = new ToastContentBuilder();
+        builder.SetToastScenario(ToastScenario.Default);
+
+        builder.AddText(Translator.WhatIsNew_MigrationNotification_Title);
+        builder.AddText(Translator.WhatIsNew_MigrationNotification_Message);
+
+        builder.AddArgument(Constants.ToastMigrationRequiredKey, bool.TrueString);
+        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
+
+        ShowToast(builder);
+    }
+
     private static void ShowToast(ToastContentBuilder builder, string? tag = null)
     {
         var toastNotification = new ToastNotification(builder.GetToastContent().GetXml());

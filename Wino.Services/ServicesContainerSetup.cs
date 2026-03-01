@@ -29,5 +29,6 @@ public static class ServicesContainerSetup
         services.AddSingleton<IContactPictureFileService, ContactPictureFileService>();
 
         services.AddTransient<ICalDavClient, CalDavClient>();
+        services.AddSingleton<IUpdateManager, UpdateManager>();
     }
 }

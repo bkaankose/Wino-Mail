@@ -19,6 +19,7 @@ public static class Constants
     public const string ToastModeKey = nameof(ToastModeKey);
     public const string ToastModeMail = nameof(ToastModeMail);
     public const string ToastModeCalendar = nameof(ToastModeCalendar);
+    public const string ToastMigrationRequiredKey = nameof(ToastMigrationRequiredKey);
 
     public const string ClientLogFile = "Client_.log";
     public const string ServerLogFile = "Server_.log";

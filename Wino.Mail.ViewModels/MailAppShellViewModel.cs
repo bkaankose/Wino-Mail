@@ -78,6 +78,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private readonly IMailDialogService _dialogService;
     private readonly IMimeFileService _mimeFileService;
     private readonly IWebView2RuntimeValidatorService _webView2RuntimeValidatorService;
+    private readonly IUpdateManager _updateManager;
 
     private readonly INativeAppService _nativeAppService;
     private readonly IMailService _mailService;
@@ -100,7 +101,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                              IStatePersistanceService statePersistanceService,
                              IConfigurationService configurationService,
                              IStartupBehaviorService startupBehaviorService,
-                             IWebView2RuntimeValidatorService webView2RuntimeValidatorService)
+                             IWebView2RuntimeValidatorService webView2RuntimeValidatorService,
+                             IUpdateManager updateManager)
     {
         StatePersistenceService = statePersistanceService;
 
@@ -121,6 +123,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         _notificationBuilder = notificationBuilder;
         _winoRequestDelegator = winoRequestDelegator;
         _webView2RuntimeValidatorService = webView2RuntimeValidatorService;
+        _updateManager = updateManager;
     }
 
     protected override void OnDispatcherAssigned()
@@ -251,6 +254,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             await ForceAllAccountSynchronizationsAsync();
         }
 
+        await ShowWhatIsNewIfNeededAsync();
         await MakeSureEnableStartupLaunchAsync();
     }
 
@@ -262,6 +266,19 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         {
             await ExecuteUIThread(() => _notificationBuilder.CreateWebView2RuntimeMissingNotification());
         }
+    }
+
+    private async Task ShowWhatIsNewIfNeededAsync()
+    {
+        if (!_updateManager.ShouldShowUpdateNotes())
+            return;
+
+        var notes = await _updateManager.GetLatestUpdateNotesAsync();
+
+        if (notes.Sections.Count == 0)
+            return;
+
+        await _dialogService.ShowWhatIsNewDialogAsync(notes);
     }
 
     private async Task MakeSureEnableStartupLaunchAsync()
