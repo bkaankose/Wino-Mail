@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI agent when working with code in this repository.
 
 ## Project Overview
 
@@ -12,14 +12,14 @@ Wino Mail is a native Windows mail client (Windows 10 1809+ / Windows 11) replac
 # Open solution
 # WinoMail.slnx is the main solution file (VS 2022+)
 
-# Build from command line
-dotnet build WinoMail.slnx -c Debug
+# Build WinUI project (Debug x64)
+dotnet restore Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config -p:Platform=x64 -p:RuntimeIdentifier=win-x64 && dotnet build Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false
 
-# Run tests
-dotnet test Wino.Core.Tests/Wino.Core.Tests.csproj
+# Run tests (Debug x64)
+dotnet test Wino.Core.Tests/Wino.Core.Tests.csproj -c Debug /p:Platform=x64
 
-# Build specific platform
-dotnet build WinoMail.slnx -c Debug /p:Platform=x64
+# Copilot CLI build command (Debug x64)
+dotnet restore Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config -p:Platform=x64 -p:RuntimeIdentifier=win-x64 && dotnet build Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false
 ```
 
 **Prerequisites:** Visual Studio 2022+ with ".NET desktop development" workload, .NET SDK 10+
@@ -130,3 +130,5 @@ private string searchQuery = string.Empty;
 - Wrap async operations in try-catch
 - Log errors via IWinoLogger
 - In ViewModels, update all UI-bound properties/collections via `ExecuteUIThread(...)` (especially after awaited calls and any use of `ConfigureAwait(false)`).
+
+
