@@ -19,6 +19,7 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     private readonly string _threadId;
     private readonly HashSet<Guid> _uniqueIdSet = [];
     private MailItemViewModel _cachedLatestMailViewModel;
+    private int _suspendChildPropertyNotificationsCount;
 
     [ObservableProperty]
     [NotifyPropertyChangedRecipients]
@@ -202,6 +203,23 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
         _threadId = threadId;
     }
 
+    internal void SuspendChildPropertyNotifications() => _suspendChildPropertyNotificationsCount++;
+
+    internal void ResumeChildPropertyNotifications()
+    {
+        if (_suspendChildPropertyNotificationsCount > 0)
+        {
+            _suspendChildPropertyNotificationsCount--;
+        }
+    }
+
+    private void RefreshLatestMailCache()
+    {
+        _cachedLatestMailViewModel = ThreadEmails
+            .OrderByDescending(static item => item.MailCopy.CreationDate)
+            .FirstOrDefault();
+    }
+
     /// <summary>
     /// Adds an email to this thread
     /// </summary>
@@ -225,9 +243,9 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
         ThreadEmails.Insert(insertIndex, email);
         email.PropertyChanged += ThreadEmailPropertyChanged;
         _uniqueIdSet.Add(email.MailCopy.UniqueId);
-        _cachedLatestMailViewModel = ThreadEmails[0];
+        RefreshLatestMailCache();
         OnPropertyChanged(nameof(EmailCount));
-        NotifyMailItemUpdated(email);
+        NotifyMailItemUpdated(email, MailCopyChangeFlags.All);
     }
 
     /// <summary>
@@ -239,9 +257,9 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
         {
             email.PropertyChanged -= ThreadEmailPropertyChanged;
             _uniqueIdSet.Remove(email.MailCopy.UniqueId);
-            _cachedLatestMailViewModel = ThreadEmails.Count > 0 ? ThreadEmails[0] : null;
+            RefreshLatestMailCache();
             OnPropertyChanged(nameof(EmailCount));
-            NotifyMailItemUpdated(email);
+            NotifyMailItemUpdated(email, MailCopyChangeFlags.All);
         }
     }
 
@@ -256,51 +274,190 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
 
     private void ThreadEmailPropertyChanged(object sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(MailItemViewModel.IsSelected) || e.PropertyName == nameof(MailItemViewModel.IsDisplayedInThread))
+        if (_suspendChildPropertyNotificationsCount > 0)
             return;
 
-        if (e.PropertyName == nameof(MailItemViewModel.IsRead))
+        if (sender is not MailItemViewModel updatedMailItem)
+            return;
+
+        if (e.PropertyName == nameof(MailItemViewModel.IsSelected) ||
+            e.PropertyName == nameof(MailItemViewModel.IsDisplayedInThread) ||
+            e.PropertyName == nameof(MailItemViewModel.IsBusy))
         {
-            OnPropertyChanged(nameof(IsRead));
             return;
         }
 
-        NotifyMailItemUpdated(sender as MailItemViewModel);
+        if (e.PropertyName == nameof(MailItemViewModel.ThumbnailUpdatedEvent))
+        {
+            if (ReferenceEquals(updatedMailItem, latestMailViewModel))
+            {
+                OnPropertyChanged(nameof(ThumbnailUpdatedEvent));
+            }
+
+            return;
+        }
+
+        var changedFlags = string.IsNullOrEmpty(e.PropertyName)
+            ? MailCopyChangeFlags.All
+            : MailItemViewModel.GetChangeFlagsForProperty(e.PropertyName);
+
+        if (changedFlags == MailCopyChangeFlags.None)
+        {
+            NotifyMailItemUpdated(updatedMailItem, MailCopyChangeFlags.All);
+            return;
+        }
+
+        NotifyMailItemUpdated(updatedMailItem, changedFlags);
     }
+
     /// <summary>
     /// Notifies that a mail item within this thread has been updated.
-    /// This raises PropertyChanged for all thread-level computed properties that depend on child items.
     /// </summary>
     /// <param name="updatedMailItem">The mail item that was updated (can be null to refresh all).</param>
-    public void NotifyMailItemUpdated(MailItemViewModel updatedMailItem)
+    /// <param name="changedFlags">Set of changed child fields.</param>
+    public void NotifyMailItemUpdated(MailItemViewModel updatedMailItem, MailCopyChangeFlags changedFlags = MailCopyChangeFlags.All)
     {
-        // Raise PropertyChanged for all computed properties that depend on ThreadEmails contents
-        OnPropertyChanged(nameof(Subject));
-        OnPropertyChanged(nameof(FromName));
-        OnPropertyChanged(nameof(CreationDate));
-        OnPropertyChanged(nameof(FromAddress));
-        OnPropertyChanged(nameof(PreviewText));
-        OnPropertyChanged(nameof(HasAttachments));
-        OnPropertyChanged(nameof(IsCalendarEvent));
-        OnPropertyChanged(nameof(IsFlagged));
-        OnPropertyChanged(nameof(IsFocused));
-        OnPropertyChanged(nameof(IsRead));
-        OnPropertyChanged(nameof(IsDraft));
-        OnPropertyChanged(nameof(DraftId));
-        OnPropertyChanged(nameof(Id));
-        OnPropertyChanged(nameof(Importance));
-        OnPropertyChanged(nameof(ThreadId));
-        OnPropertyChanged(nameof(MessageId));
-        OnPropertyChanged(nameof(References));
-        OnPropertyChanged(nameof(InReplyTo));
-        OnPropertyChanged(nameof(FileId));
-        OnPropertyChanged(nameof(FolderId));
-        OnPropertyChanged(nameof(UniqueId));
-        OnPropertyChanged(nameof(Base64ContactPicture));
-        OnPropertyChanged(nameof(SenderContact));
-        OnPropertyChanged(nameof(ThumbnailUpdatedEvent));
-        OnPropertyChanged(nameof(SortingDate));
-        OnPropertyChanged(nameof(SortingName));
+        if (changedFlags == MailCopyChangeFlags.None)
+            return;
+
+        var previousLatest = latestMailViewModel;
+
+        if (changedFlags == MailCopyChangeFlags.All ||
+            (changedFlags & MailCopyChangeFlags.CreationDate) != 0 ||
+            previousLatest == null ||
+            !ThreadEmails.Contains(previousLatest))
+        {
+            RefreshLatestMailCache();
+        }
+
+        var currentLatest = latestMailViewModel;
+        var latestChanged = !ReferenceEquals(previousLatest, currentLatest);
+
+        var updatesDisplayedLatest = changedFlags == MailCopyChangeFlags.All ||
+                                     updatedMailItem == null ||
+                                     latestChanged ||
+                                     ReferenceEquals(updatedMailItem, previousLatest) ||
+                                     ReferenceEquals(updatedMailItem, currentLatest);
+
+        var changedProperties = new List<string>(10);
+
+        void Queue(string propertyName)
+        {
+            if (!changedProperties.Contains(propertyName))
+            {
+                changedProperties.Add(propertyName);
+            }
+        }
+
+        if (updatesDisplayedLatest)
+        {
+            if (changedFlags == MailCopyChangeFlags.All || latestChanged)
+            {
+                Queue(nameof(Subject));
+                Queue(nameof(FromName));
+                Queue(nameof(CreationDate));
+                Queue(nameof(FromAddress));
+                Queue(nameof(PreviewText));
+                Queue(nameof(IsFocused));
+                Queue(nameof(DraftId));
+                Queue(nameof(Id));
+                Queue(nameof(Importance));
+                Queue(nameof(ThreadId));
+                Queue(nameof(MessageId));
+                Queue(nameof(References));
+                Queue(nameof(InReplyTo));
+                Queue(nameof(FileId));
+                Queue(nameof(FolderId));
+                Queue(nameof(UniqueId));
+                Queue(nameof(Base64ContactPicture));
+                Queue(nameof(SenderContact));
+                Queue(nameof(ThumbnailUpdatedEvent));
+                Queue(nameof(SortingDate));
+                Queue(nameof(SortingName));
+            }
+            else
+            {
+                if ((changedFlags & MailCopyChangeFlags.Subject) != 0)
+                    Queue(nameof(Subject));
+
+                if ((changedFlags & MailCopyChangeFlags.FromName) != 0)
+                {
+                    Queue(nameof(FromName));
+                    Queue(nameof(SortingName));
+                }
+
+                if ((changedFlags & MailCopyChangeFlags.CreationDate) != 0)
+                {
+                    Queue(nameof(CreationDate));
+                    Queue(nameof(SortingDate));
+                }
+
+                if ((changedFlags & MailCopyChangeFlags.FromAddress) != 0)
+                    Queue(nameof(FromAddress));
+
+                if ((changedFlags & MailCopyChangeFlags.PreviewText) != 0)
+                    Queue(nameof(PreviewText));
+
+                if ((changedFlags & MailCopyChangeFlags.IsFocused) != 0)
+                    Queue(nameof(IsFocused));
+
+                if ((changedFlags & MailCopyChangeFlags.DraftId) != 0)
+                    Queue(nameof(DraftId));
+
+                if ((changedFlags & MailCopyChangeFlags.Id) != 0)
+                    Queue(nameof(Id));
+
+                if ((changedFlags & MailCopyChangeFlags.Importance) != 0)
+                    Queue(nameof(Importance));
+
+                if ((changedFlags & MailCopyChangeFlags.ThreadId) != 0)
+                    Queue(nameof(ThreadId));
+
+                if ((changedFlags & MailCopyChangeFlags.MessageId) != 0)
+                    Queue(nameof(MessageId));
+
+                if ((changedFlags & MailCopyChangeFlags.References) != 0)
+                    Queue(nameof(References));
+
+                if ((changedFlags & MailCopyChangeFlags.InReplyTo) != 0)
+                    Queue(nameof(InReplyTo));
+
+                if ((changedFlags & MailCopyChangeFlags.FileId) != 0)
+                    Queue(nameof(FileId));
+
+                if ((changedFlags & MailCopyChangeFlags.FolderId) != 0)
+                    Queue(nameof(FolderId));
+
+                if ((changedFlags & MailCopyChangeFlags.UniqueId) != 0)
+                    Queue(nameof(UniqueId));
+
+                if ((changedFlags & MailCopyChangeFlags.SenderContact) != 0)
+                {
+                    Queue(nameof(Base64ContactPicture));
+                    Queue(nameof(SenderContact));
+                }
+            }
+        }
+
+        if ((changedFlags & MailCopyChangeFlags.HasAttachments) != 0 || changedFlags == MailCopyChangeFlags.All)
+            Queue(nameof(HasAttachments));
+
+        if ((changedFlags & MailCopyChangeFlags.ItemType) != 0 || changedFlags == MailCopyChangeFlags.All)
+            Queue(nameof(IsCalendarEvent));
+
+        if ((changedFlags & MailCopyChangeFlags.IsFlagged) != 0 || changedFlags == MailCopyChangeFlags.All)
+            Queue(nameof(IsFlagged));
+
+        if ((changedFlags & MailCopyChangeFlags.IsRead) != 0 || changedFlags == MailCopyChangeFlags.All)
+            Queue(nameof(IsRead));
+
+        if ((changedFlags & MailCopyChangeFlags.IsDraft) != 0 || changedFlags == MailCopyChangeFlags.All)
+            Queue(nameof(IsDraft));
+
+        foreach (var changedProperty in changedProperties)
+        {
+            OnPropertyChanged(changedProperty);
+        }
     }
 
     /// <summary>

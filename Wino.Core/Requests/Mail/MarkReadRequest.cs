@@ -30,7 +30,7 @@ public record MarkReadRequest(MailCopy Item, bool IsRead) : MailRequestBase(Item
 
         Item.IsRead = IsRead;
 
-        WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item, MailUpdateSource.ClientUpdated));
+        WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item, MailUpdateSource.ClientUpdated, MailCopyChangeFlags.IsRead));
     }
 
     public override void RevertUIChanges()
@@ -40,7 +40,7 @@ public record MarkReadRequest(MailCopy Item, bool IsRead) : MailRequestBase(Item
 
         Item.IsRead = !IsRead;
 
-        WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item, MailUpdateSource.ClientReverted));
+        WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item, MailUpdateSource.ClientReverted, MailCopyChangeFlags.IsRead));
     }
 }
 

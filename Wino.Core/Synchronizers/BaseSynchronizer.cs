@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -129,6 +130,8 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
     }
 
     public bool HasPendingOperation(Guid mailUniqueId) => _pendingMailOperationIds.ContainsKey(mailUniqueId);
+
+    public IReadOnlyCollection<Guid> GetPendingOperationUniqueIds() => _pendingMailOperationIds.Keys.ToArray();
 
     public bool HasPendingCalendarOperation(Guid calendarItemId) => _pendingCalendarOperationIds.ContainsKey(calendarItemId);
 

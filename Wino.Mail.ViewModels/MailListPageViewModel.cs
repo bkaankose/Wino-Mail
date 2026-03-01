@@ -599,6 +599,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }
 
         var viewModels = await PrepareMailViewModelsAsync(items).ConfigureAwait(false);
+        var pendingOperationUniqueIds = await GetPendingOperationUniqueIdsForActiveFolderAccountsAsync().ConfigureAwait(false);
+        ApplyPendingOperationBusyStates(viewModels, pendingOperationUniqueIds);
 
         await MailCollection.AddRangeAsync(viewModels, false);
         await ExecuteUIThread(() => { IsInitializingFolder = false; });
@@ -792,9 +794,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }
     }
 
-    protected override async void OnMailUpdated(MailCopy updatedMail, MailUpdateSource source)
+    protected override async void OnMailUpdated(MailCopy updatedMail, MailUpdateSource source, MailCopyChangeFlags changedProperties)
     {
-        base.OnMailUpdated(updatedMail, source);
+        base.OnMailUpdated(updatedMail, source, changedProperties);
 
         try
         {
@@ -810,7 +812,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 return;
             }
 
-            await MailCollection.UpdateMailCopy(updatedMail, source);
+            await MailCollection.UpdateMailCopy(updatedMail, source, changedProperties);
         }
         finally
         {
@@ -948,6 +950,48 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }, cancellationToken).ConfigureAwait(false);
     }
 
+    private async Task<HashSet<Guid>> GetPendingOperationUniqueIdsForActiveFolderAccountsAsync(CancellationToken cancellationToken = default)
+    {
+        var pendingOperationUniqueIds = new HashSet<Guid>();
+
+        var accountIds = ActiveFolder?.HandlingFolders?
+            .Select(folder => folder.MailAccountId)
+            .Where(accountId => accountId != Guid.Empty)
+            .Distinct()
+            .ToList();
+
+        if (accountIds == null || accountIds.Count == 0)
+            return pendingOperationUniqueIds;
+
+        foreach (var accountId in accountIds)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(accountId).ConfigureAwait(false);
+
+            if (synchronizer == null)
+                continue;
+
+            foreach (var uniqueId in synchronizer.GetPendingOperationUniqueIds())
+            {
+                pendingOperationUniqueIds.Add(uniqueId);
+            }
+        }
+
+        return pendingOperationUniqueIds;
+    }
+
+    private static void ApplyPendingOperationBusyStates(IEnumerable<MailItemViewModel> viewModels, HashSet<Guid> pendingOperationUniqueIds)
+    {
+        if (viewModels == null || pendingOperationUniqueIds == null || pendingOperationUniqueIds.Count == 0)
+            return;
+
+        foreach (var viewModel in viewModels)
+        {
+            viewModel.IsBusy = pendingOperationUniqueIds.Contains(viewModel.MailCopy.UniqueId);
+        }
+    }
+
     [RelayCommand]
     private async Task PerformOnlineSearchAsync()
     {
@@ -1076,6 +1120,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 // Just create VMs and do bulk insert.
 
                 var viewModels = await PrepareMailViewModelsAsync(items, cancellationToken).ConfigureAwait(false);
+                var pendingOperationUniqueIds = await GetPendingOperationUniqueIdsForActiveFolderAccountsAsync(cancellationToken).ConfigureAwait(false);
+                ApplyPendingOperationBusyStates(viewModels, pendingOperationUniqueIds);
 
                 await MailCollection.AddRangeAsync(viewModels, clearIdCache: true);
 

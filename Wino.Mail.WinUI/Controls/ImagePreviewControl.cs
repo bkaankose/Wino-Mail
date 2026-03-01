@@ -95,6 +95,8 @@ public sealed partial class ImagePreviewControl : PersonPicture
         if (string.IsNullOrEmpty(e.PropertyName)
             || e.PropertyName == nameof(IMailItemDisplayInformation.Base64ContactPicture)
             || e.PropertyName == nameof(IMailItemDisplayInformation.SenderContact)
+            || e.PropertyName == nameof(IMailItemDisplayInformation.FromName)
+            || e.PropertyName == nameof(IMailItemDisplayInformation.FromAddress)
             || e.PropertyName == nameof(IMailItemDisplayInformation.ThumbnailUpdatedEvent))
         {
             RequestRefresh();

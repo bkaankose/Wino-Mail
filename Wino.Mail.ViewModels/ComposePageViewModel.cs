@@ -840,9 +840,9 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         _dialogService.InfoBarMessage(Translator.Info_InvalidAddressTitle, string.Format(Translator.Info_InvalidAddressMessage, address), InfoBarMessageType.Warning);
     }
 
-    protected override async void OnMailUpdated(MailCopy updatedMail, MailUpdateSource source)
+    protected override async void OnMailUpdated(MailCopy updatedMail, MailUpdateSource source, MailCopyChangeFlags changedProperties)
     {
-        base.OnMailUpdated(updatedMail, source);
+        base.OnMailUpdated(updatedMail, source, changedProperties);
 
         if (CurrentMailDraftItem == null) return;
 
@@ -850,7 +850,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         {
             await ExecuteUIThread(async () =>
             {
-                CurrentMailDraftItem.UpdateFrom(updatedMail);
+                CurrentMailDraftItem.UpdateFrom(updatedMail, changedProperties);
                 await UpdatePendingOperationStateAsync();
                 NotifyComposeActionStateChanged();
             });

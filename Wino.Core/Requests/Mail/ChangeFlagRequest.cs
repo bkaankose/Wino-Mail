@@ -31,7 +31,7 @@ public record ChangeFlagRequest(MailCopy Item, bool IsFlagged) : MailRequestBase
 
         Item.IsFlagged = IsFlagged;
 
-        WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item, MailUpdateSource.ClientUpdated));
+        WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item, MailUpdateSource.ClientUpdated, MailCopyChangeFlags.IsFlagged));
     }
 
     public override void RevertUIChanges()
@@ -41,7 +41,7 @@ public record ChangeFlagRequest(MailCopy Item, bool IsFlagged) : MailRequestBase
 
         Item.IsFlagged = !IsFlagged;
 
-        WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item, MailUpdateSource.ClientReverted));
+        WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item, MailUpdateSource.ClientReverted, MailCopyChangeFlags.IsFlagged));
     }
 }
 

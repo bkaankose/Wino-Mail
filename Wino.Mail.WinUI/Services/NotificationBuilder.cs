@@ -243,6 +243,10 @@ public class NotificationBuilder : INotificationBuilder
         {
             ToastNotificationManager.History.Remove(mailUniqueId.ToString(), null);
         }
+        catch (ArgumentException)
+        {
+            // Notification does not exists. Ignore.
+        }
         catch (Exception ex)
         {
             Log.Error(ex, $"Failed to remove notification for mail {mailUniqueId}");

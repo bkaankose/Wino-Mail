@@ -753,21 +753,29 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     /// </summary>
     /// <param name="updatedMailCopy">Updated mail copy.</param>
     /// <returns></returns>
-    public Task UpdateMailCopy(MailCopy updatedMailCopy, MailUpdateSource mailUpdateSource)
+    public Task UpdateMailCopy(MailCopy updatedMailCopy, MailUpdateSource mailUpdateSource, MailCopyChangeFlags changedProperties = MailCopyChangeFlags.None)
     {
         return ExecuteUIThread(() =>
         {
             var itemContainer = GetMailItemContainer(updatedMailCopy.UniqueId);
 
             if (itemContainer == null) return;
+            MailCopyChangeFlags appliedChanges = MailCopyChangeFlags.None;
 
             if (itemContainer.ItemViewModel != null)
             {
                 UpdateUniqueIdHashes(itemContainer.ItemViewModel, false);
 
-                // Update the MailCopy using UpdateFrom to properly notify all XAML bindings
-                // This maintains reference integrity and ensures PropertyChanged is raised for all properties
-                itemContainer.ItemViewModel.UpdateFrom(updatedMailCopy);
+                itemContainer.ThreadViewModel?.SuspendChildPropertyNotifications();
+
+                try
+                {
+                    appliedChanges = itemContainer.ItemViewModel.UpdateFrom(updatedMailCopy, changedProperties);
+                }
+                finally
+                {
+                    itemContainer.ThreadViewModel?.ResumeChildPropertyNotifications();
+                }
 
                 // Mark the item view model as busy until the network operation is completed.
                 itemContainer.ItemViewModel.IsBusy = mailUpdateSource == MailUpdateSource.ClientUpdated;
@@ -781,8 +789,10 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
                 }
             }
 
-            // Trigger thread property notifications if this item is in a thread
-            itemContainer.ThreadViewModel?.NotifyMailItemUpdated(itemContainer.ItemViewModel);
+            if (itemContainer.ThreadViewModel != null && appliedChanges != MailCopyChangeFlags.None)
+            {
+                itemContainer.ThreadViewModel.NotifyMailItemUpdated(itemContainer.ItemViewModel, appliedChanges);
+            }
         });
     }
 
