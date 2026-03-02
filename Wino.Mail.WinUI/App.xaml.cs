@@ -200,9 +200,6 @@ public partial class App : WinoApplication,
         _ = HandleToastActivationAsync(args);
     }
 
-        _ = HandleToastActivationAsync(args);
-    }
-
     private void TryRegisterAppNotifications()
     {
         var notificationManager = AppNotificationManager.Default;

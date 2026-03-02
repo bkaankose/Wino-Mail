@@ -38,6 +38,8 @@ public sealed partial class MailAppShell : MailAppShellAbstract,
     IRecipient<CreateNewMailWithMultipleAccountsRequested>,
     IRecipient<InfoBarMessageRequested>
 {
+    public Frame GetShellFrame() => InnerShellFrame;
+
     [GeneratedDependencyProperty]
     public partial UIElement? TopShellContent { get; set; }
 

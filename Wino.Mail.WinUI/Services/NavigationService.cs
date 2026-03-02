@@ -129,6 +129,19 @@ public class NavigationService : NavigationServiceBase, INavigationService
 
         if (frameType == NavigationReferenceFrame.ShellFrame) return shellWindow.GetMainFrame();
 
+        if (frameType == NavigationReferenceFrame.InnerShellFrame)
+        {
+            if (mainFrame.Content is MailAppShell mailAppShell)
+            {
+                return mailAppShell.GetShellFrame();
+            }
+
+            if (mainFrame.Content is CalendarAppShell calendarAppShell)
+            {
+                return calendarAppShell.GetShellFrame();
+            }
+        }
+
         var contentRoot = mainFrame.Content as UIElement;
         if (contentRoot == null) return mainFrame;
 

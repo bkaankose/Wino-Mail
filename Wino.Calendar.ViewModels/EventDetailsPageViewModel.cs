@@ -145,7 +145,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
                                      IMailDialogService dialogService,
                                      IWinoRequestDelegator winoRequestDelegator,
                                      INavigationService navigationService,
-                                     INotificationBuilder notificationBuilder)
+                                     INotificationBuilder notificationBuilder,
                                      IUnderlyingThemeService underlyingThemeService,
                                      IContactService contactService)
     {
@@ -262,8 +262,6 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
 
     private async Task LoadAttendeesAsync(Guid calendarItemId, CalendarItem calendarItem)
     {
-        CurrentEvent.Attendees.Clear();
-
         var attendees = await _calendarService.GetAttendeesAsync(calendarItemId);
 
         // Resolve contacts for all attendees in a single batch DB query.
@@ -288,10 +286,12 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         var organizer = attendees.FirstOrDefault(a => a.IsOrganizer);
         var nonOrganizerAttendees = attendees.Where(a => !a.IsOrganizer).ToList();
 
+        var attendeesForUi = new List<CalendarEventAttendee>();
+
         // If the organizer is in the list, add them first
         if (organizer != null)
         {
-            CurrentEvent.Attendees.Add(organizer);
+            attendeesForUi.Add(organizer);
         }
         else if (!string.IsNullOrEmpty(calendarItem.OrganizerEmail))
         {
@@ -309,14 +309,27 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
             if (contactLookup.TryGetValue(calendarItem.OrganizerEmail, out var organizerContact))
                 organizerAttendee.ResolvedContact = organizerContact;
 
-            CurrentEvent.Attendees.Add(organizerAttendee);
+            attendeesForUi.Add(organizerAttendee);
         }
 
         // Add all other attendees after the organizer
         foreach (var item in nonOrganizerAttendees)
         {
-            CurrentEvent.Attendees.Add(item);
+            attendeesForUi.Add(item);
         }
+
+        await ExecuteUIThread(() =>
+        {
+            if (CurrentEvent == null)
+                return;
+
+            CurrentEvent.Attendees.Clear();
+
+            foreach (var attendee in attendeesForUi)
+            {
+                CurrentEvent.Attendees.Add(attendee);
+            }
+        });
     }
 
     private async Task LoadAttachmentsAsync(Guid calendarItemId)
