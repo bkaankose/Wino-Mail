@@ -8,12 +8,12 @@ namespace Wino.Mail.ViewModels;
 
 public partial class WelcomePageViewModel : MailBaseViewModel
 {
-    public const string VersionFile = "1102.md";
+    public const string VersionFile = "vnext.md";
     private readonly IMailDialogService _dialogService;
     private readonly IFileService _fileService;
 
     [ObservableProperty]
-    private string currentVersionNotes;
+    public partial string CurrentVersionNotes { get; set; } = string.Empty;
 
     public WelcomePageViewModel(IMailDialogService dialogService, IFileService fileService)
     {

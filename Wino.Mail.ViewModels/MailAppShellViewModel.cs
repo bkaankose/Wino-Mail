@@ -969,6 +969,35 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         }
     }
 
+    private bool IsAccountCurrentlyLoaded(Guid accountId)
+    {
+        return latestSelectedAccountMenuItem?.HoldingAccounts?.Any(a => a.Id == accountId) == true;
+    }
+
+    private async Task RefreshLoadedAccountFolderStructureAsync(Guid accountId)
+    {
+        if (!IsAccountCurrentlyLoaded(accountId) || latestSelectedAccountMenuItem == null)
+            return;
+
+        var selectedFolderId = (SelectedMenuItem as IBaseFolderMenuItem)?.HandlingFolders
+            ?.FirstOrDefault(a => a.MailAccountId == accountId)?.Id;
+
+        var folders = await _folderService.GetAccountFoldersForDisplayAsync(latestSelectedAccountMenuItem);
+
+        await MenuItems.ReplaceFoldersAsync(folders);
+        await UpdateUnreadItemCountAsync();
+
+        if (selectedFolderId.HasValue &&
+            MenuItems.TryGetFolderMenuItem(selectedFolderId.Value, out IBaseFolderMenuItem selectedFolderMenuItem))
+        {
+            await NavigateFolderAsync(selectedFolderMenuItem);
+        }
+        else
+        {
+            await NavigateInboxAsync(latestSelectedAccountMenuItem);
+        }
+    }
+
     public async void Receive(RefreshUnreadCountsMessage message)
         => await UpdateUnreadItemCountAsync();
 
@@ -980,13 +1009,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     public async void Receive(AccountFolderConfigurationUpdated message)
     {
-        // Reloading of folders is needed to re-create folder tree if the account is loaded.
-
-        if (MenuItems.TryGetAccountMenuItem(message.AccountId, out IAccountMenuItem accountMenuItem) &&
-            latestSelectedAccountMenuItem == accountMenuItem)
-        {
-            await ChangeLoadedAccountAsync(accountMenuItem, true);
-        }
+        await RefreshLoadedAccountFolderStructureAsync(message.AccountId);
     }
 
     public async void Receive(MergedInboxRenamed message)
@@ -1055,7 +1078,10 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         if (wasSelected && latestSelectedAccountMenuItem != null)
         {
             await NavigateInboxAsync(latestSelectedAccountMenuItem);
+            return;
         }
+
+        await RefreshLoadedAccountFolderStructureAsync(folder.MailAccountId);
     }
 
     protected override void OnFolderSynchronizationEnabled(IMailItemFolder mailItemFolder)

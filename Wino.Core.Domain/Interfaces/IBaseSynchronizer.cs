@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -29,6 +30,11 @@ public interface IBaseSynchronizer
     /// </summary>
     /// <param name="mailUniqueId">Mail unique id to check.</param>
     bool HasPendingOperation(Guid mailUniqueId);
+
+    /// <summary>
+    /// Returns mail unique ids that currently have queued or executing operations.
+    /// </summary>
+    IReadOnlyCollection<Guid> GetPendingOperationUniqueIds();
 
     /// <summary>
     /// Returns whether there is an in-progress (queued or currently executing) operation for the given calendar item id.

@@ -100,6 +100,7 @@ _dialogService.InfoBarMessage(Translator.Info_MissingFolderTitle, message);
 - **NEVER** create IValueConverter classes or add them to Converters.xaml
 - **NEVER** use BoolToVisibilityConverter - WinUI 3 SDK automatically converts bool to Visibility
 - Direct binding: `Visibility="{x:Bind IsVisible, Mode=OneWay}"`
+- Register control events (for example `Loaded`, `Unloaded`, `SizeChanged`, `PointerEntered`) in XAML markup, not with `+=` in `.xaml.cs`.
 
 ### XamlHelpers for Complex Conversions
 - **ALWAYS** use XamlHelpers static methods instead of converters

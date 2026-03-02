@@ -71,6 +71,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
     private bool _isCalDavDiscoveryAttempted;
     private readonly IImapCalendarOperationHandler _localCalendarOperationHandler;
     private readonly IImapCalendarOperationHandler _calDavCalendarOperationHandler;
+    private bool _isFolderStructureChanged;
 
     public ImapSynchronizer(MailAccount account,
                             IImapChangeProcessor imapChangeProcessor,
@@ -557,6 +558,8 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
         try
         {
+            _isFolderStructureChanged = false;
+
             // Set indeterminate progress initially
             UpdateSyncProgress(0, 0, "Synchronizing...");
 
@@ -565,6 +568,11 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             if (shouldDoFolderSync)
             {
                 await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
+
+                if (_isFolderStructureChanged)
+                {
+                    WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+                }
             }
 
             if (options.Type != MailSynchronizationType.FoldersOnly)
@@ -1018,7 +1026,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
             if (insertedFolders.Any() || deletedFolders.Any() || updatedFolders.Any())
             {
-                WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+                _isFolderStructureChanged = true;
             }
         }
         catch (Exception ex)

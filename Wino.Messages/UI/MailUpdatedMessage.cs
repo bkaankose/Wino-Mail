@@ -3,4 +3,4 @@ using Wino.Core.Domain.Enums;
 
 namespace Wino.Messaging.UI;
 
-public record MailUpdatedMessage(MailCopy UpdatedMail, MailUpdateSource Source) : UIMessageBase<MailUpdatedMessage>;
+public record MailUpdatedMessage(MailCopy UpdatedMail, MailUpdateSource Source, MailCopyChangeFlags ChangedProperties = MailCopyChangeFlags.None) : UIMessageBase<MailUpdatedMessage>;

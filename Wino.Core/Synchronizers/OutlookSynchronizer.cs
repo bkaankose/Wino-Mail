@@ -41,6 +41,7 @@ using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.Synchronizers.Mail;
 
@@ -112,6 +113,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     private readonly IOutlookChangeProcessor _outlookChangeProcessor;
     private readonly GraphServiceClient _graphClient;
     private readonly IOutlookSynchronizerErrorHandlerFactory _errorHandlingFactory;
+    private bool _isFolderStructureChanged;
 
     private readonly SemaphoreSlim _concurrentDownloadSemaphore = new(10); // Limit to 10 concurrent downloads
 
@@ -990,6 +992,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         if (IsResourceDeleted(folder.AdditionalData))
         {
             await _outlookChangeProcessor.DeleteFolderAsync(Account.Id, folder.Id).ConfigureAwait(false);
+            _isFolderStructureChanged = true;
         }
         else
         {
@@ -1022,6 +1025,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             item.ShowUnreadCount = item.SpecialFolderType != SpecialFolderType.Deleted || item.SpecialFolderType != SpecialFolderType.Other;
 
             await _outlookChangeProcessor.InsertFolderAsync(item).ConfigureAwait(false);
+            _isFolderStructureChanged = true;
         }
 
         return true;
@@ -1118,6 +1122,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
     private async Task SynchronizeFoldersAsync(CancellationToken cancellationToken = default)
     {
+        _isFolderStructureChanged = false;
+
         var specialFolderInfo = await GetSpecialFolderIdsAsync(cancellationToken).ConfigureAwait(false);
         var graphFolders = await GetDeltaFoldersAsync(cancellationToken).ConfigureAwait(false);
 
@@ -1128,6 +1134,11 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         await iterator.IterateAsync();
 
         await UpdateDeltaSynchronizationIdentifierAsync(iterator.Deltalink).ConfigureAwait(false);
+
+        if (_isFolderStructureChanged)
+        {
+            WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+        }
     }
 
     private async Task<T> DeserializeGraphBatchResponseAsync<T>(BatchResponseContentCollection collection, string requestId, CancellationToken cancellationToken = default) where T : IParsable, new()

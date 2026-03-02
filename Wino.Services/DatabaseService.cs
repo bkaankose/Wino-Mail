@@ -51,6 +51,8 @@ public class DatabaseService : IDatabaseService
             Connection.CreateTableAsync<MailItemFolder>(),
             Connection.CreateTableAsync<MailAccount>(),
             Connection.CreateTableAsync<AccountContact>(),
+            Connection.CreateTableAsync<ContactGroup>(),
+            Connection.CreateTableAsync<ContactGroupMember>(),
             Connection.CreateTableAsync<CustomServerInformation>(),
             Connection.CreateTableAsync<AccountSignature>(),
             Connection.CreateTableAsync<MergedInbox>(),
@@ -124,6 +126,15 @@ public class DatabaseService : IDatabaseService
         {
             await Connection
                 .ExecuteAsync($"ALTER TABLE {nameof(CalendarItem)} ADD COLUMN {nameof(CalendarItem.SnoozedUntil)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
+        var contactColumns = await Connection.GetTableInfoAsync(nameof(AccountContact)).ConfigureAwait(false);
+
+        if (!contactColumns.Any(c => c.Name == nameof(AccountContact.ContactPictureFileId)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(AccountContact)} ADD COLUMN {nameof(AccountContact.ContactPictureFileId)} TEXT NULL")
                 .ConfigureAwait(false);
         }
     }

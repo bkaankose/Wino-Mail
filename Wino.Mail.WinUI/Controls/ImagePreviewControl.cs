@@ -23,7 +23,7 @@ namespace Wino.Controls;
 /// </summary>
 public sealed partial class ImagePreviewControl : PersonPicture
 {
-    private sealed record RefreshSnapshot(string DisplayName, string Address, string Base64Picture);
+    private sealed record RefreshSnapshot(string DisplayName, string Address, Guid? ContactPictureFileId, string Base64Picture);
 
     private static readonly TimeSpan RefreshDebounceDuration = TimeSpan.FromMilliseconds(40);
 
@@ -32,6 +32,7 @@ public sealed partial class ImagePreviewControl : PersonPicture
 
     private readonly IThumbnailService? _thumbnailService;
     private readonly IPreferencesService? _preferencesService;
+    private readonly IContactPictureFileService? _contactPictureFileService;
     private INotifyPropertyChanged? _mailItemInformationPropertySource;
     private CancellationTokenSource? _refreshCancellationTokenSource;
     private CancellationTokenSource? _scheduledRefreshCancellationTokenSource;
@@ -45,6 +46,7 @@ public sealed partial class ImagePreviewControl : PersonPicture
         {
             _thumbnailService = App.Current.Services.GetService<IThumbnailService>();
             _preferencesService = App.Current.Services.GetService<IPreferencesService>();
+            _contactPictureFileService = App.Current.Services.GetService<IContactPictureFileService>();
         }
         catch
         {
@@ -95,6 +97,8 @@ public sealed partial class ImagePreviewControl : PersonPicture
         if (string.IsNullOrEmpty(e.PropertyName)
             || e.PropertyName == nameof(IMailItemDisplayInformation.Base64ContactPicture)
             || e.PropertyName == nameof(IMailItemDisplayInformation.SenderContact)
+            || e.PropertyName == nameof(IMailItemDisplayInformation.FromName)
+            || e.PropertyName == nameof(IMailItemDisplayInformation.FromAddress)
             || e.PropertyName == nameof(IMailItemDisplayInformation.ThumbnailUpdatedEvent))
         {
             RequestRefresh();
@@ -185,7 +189,26 @@ public sealed partial class ImagePreviewControl : PersonPicture
 
             await ApplyInitialVisualStateAsync(snapshot.DisplayName, refreshVersion, cancellationToken).ConfigureAwait(false);
 
-            // 1) Explicit contact picture.
+            // Skip all picture loading if the user has disabled sender pictures.
+            if (_preferencesService?.IsShowSenderPicturesEnabled == false)
+                return;
+
+            // 1) File-based contact picture (preferred — native WIC decode, no base64 overhead).
+            if (snapshot.ContactPictureFileId.HasValue && _contactPictureFileService != null)
+            {
+                var filePath = _contactPictureFileService.GetContactPicturePath(snapshot.ContactPictureFileId.Value);
+                if (!string.IsNullOrEmpty(filePath))
+                {
+                    var fileBitmap = await CreateBitmapFromFileAsync(filePath, cancellationToken).ConfigureAwait(false);
+                    if (fileBitmap != null)
+                    {
+                        await ApplyProfilePictureAsync(fileBitmap, refreshVersion, cancellationToken).ConfigureAwait(false);
+                        return;
+                    }
+                }
+            }
+
+            // 2) Legacy base64 contact picture (used until migration completes or for fallback).
             if (!string.IsNullOrWhiteSpace(snapshot.Base64Picture))
             {
                 var localBitmap = await CreateBitmapFromBase64Async(snapshot.Base64Picture, cancellationToken).ConfigureAwait(false);
@@ -196,7 +219,7 @@ public sealed partial class ImagePreviewControl : PersonPicture
                 }
             }
 
-            // 2) Gravatar lookup through thumbnail service (if enabled).
+            // 3) Gravatar lookup through thumbnail service (if enabled).
             if (_preferencesService?.IsGravatarEnabled == true &&
                 _thumbnailService != null &&
                 !string.IsNullOrWhiteSpace(snapshot.Address) &&
@@ -217,7 +240,7 @@ public sealed partial class ImagePreviewControl : PersonPicture
                 }
             }
 
-            // 3) Initials fallback is already in place via DisplayName + ProfilePicture = null.
+            // 4) Initials fallback is already in place via DisplayName + ProfilePicture = null.
         }
         catch (OperationCanceledException)
         {
@@ -240,8 +263,9 @@ public sealed partial class ImagePreviewControl : PersonPicture
             var address = ResolveAddress();
             var displayName = ResolveDisplayName(address);
             var base64Picture = ResolveBase64Picture();
+            var contactPictureFileId = MailItemInformation?.SenderContact?.ContactPictureFileId;
 
-            return new RefreshSnapshot(displayName, address, base64Picture);
+            return new RefreshSnapshot(displayName, address, contactPictureFileId, base64Picture);
         }).ConfigureAwait(false);
     }
 
@@ -291,6 +315,7 @@ public sealed partial class ImagePreviewControl : PersonPicture
                 return;
 
             DisplayName = displayName;
+            Initials = null;
             ProfilePicture = null;
         }).ConfigureAwait(false);
     }
@@ -302,6 +327,7 @@ public sealed partial class ImagePreviewControl : PersonPicture
             if (!IsActiveRefresh(refreshVersion, cancellationToken))
                 return;
 
+            Initials = string.Empty;
             ProfilePicture = bitmapImage;
         }).ConfigureAwait(false);
     }
@@ -367,6 +393,31 @@ public sealed partial class ImagePreviewControl : PersonPicture
         }
 
         return await completion.Task.ConfigureAwait(false);
+    }
+
+    private async Task<BitmapImage?> CreateBitmapFromFileAsync(string filePath, CancellationToken cancellationToken)
+    {
+        byte[] bytes;
+        try
+        {
+            bytes = await File.ReadAllBytesAsync(filePath, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            return null;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return await ExecuteOnUiThreadAsync(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            using var memoryStream = new MemoryStream(bytes);
+            var bitmapImage = new BitmapImage();
+            bitmapImage.SetSource(memoryStream.AsRandomAccessStream());
+            return bitmapImage;
+        }).ConfigureAwait(false);
     }
 
     private async Task<BitmapImage?> CreateBitmapFromBase64Async(string base64, CancellationToken cancellationToken)

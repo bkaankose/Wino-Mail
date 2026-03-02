@@ -33,6 +33,11 @@ public interface IMailListItem : IMailHashContainer, IMailListItemSorting, INoti
     bool IsSelected { get; set; }
 
     /// <summary>
+    /// Gets whether this item is currently processing a network operation.
+    /// </summary>
+    bool IsBusy { get; }
+
+    /// <summary>
     /// Gets all selected mail items within this list item.
     /// For MailItemViewModel: returns itself if IsSelected is true, otherwise empty
     /// For ThreadMailItemViewModel: returns all selected emails within the thread

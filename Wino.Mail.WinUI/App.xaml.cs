@@ -31,6 +31,7 @@ using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 using Wino.Services;
+using WinUIEx;
 namespace Wino.Mail.WinUI;
 
 public partial class App : WinoApplication,
@@ -145,6 +146,9 @@ public partial class App : WinoApplication,
         // Note: Theme service is initialized separately after window creation.
         await InitializeServicesAsync();
 
+        // Migrate existing base64 contact pictures to file system (one-time, no-op on subsequent starts).
+        await Services.GetRequiredService<IContactPictureFileService>().MigrateBase64PicturesAsync();
+
         _synchronizationManager = Services.GetRequiredService<ISynchronizationManager>();
         _preferencesService = Services.GetRequiredService<IPreferencesService>();
         _accountService = Services.GetRequiredService<IAccountService>();
@@ -192,6 +196,9 @@ public partial class App : WinoApplication,
         // Marshal toast handling to the window dispatcher before touching window APIs.
         if (MainWindow?.DispatcherQueue?.TryEnqueue(() => _ = HandleToastActivationAsync(args)) == true)
             return;
+
+        _ = HandleToastActivationAsync(args);
+    }
 
         _ = HandleToastActivationAsync(args);
     }
@@ -274,8 +281,7 @@ public partial class App : WinoApplication,
         }
         else
         {
-            MainWindow?.BringToFront();
-            MainWindow?.Activate();
+            EnsureMainWindowVisibleAndForeground();
         }
 
         navigationService.ChangeApplicationMode(Core.Domain.Enums.WinoApplicationMode.Calendar);
@@ -342,7 +348,7 @@ public partial class App : WinoApplication,
             // App is already running - send message and bring window to front.
             navigationService.ChangeApplicationMode(Core.Domain.Enums.WinoApplicationMode.Mail);
             WeakReferenceMessenger.Default.Send(message);
-            MainWindow?.BringToFront();
+            EnsureMainWindowVisibleAndForeground();
         }
     }
 
@@ -460,6 +466,7 @@ public partial class App : WinoApplication,
         LogActivation("Creating main window.");
 
         MainWindow = new ShellWindow();
+        InitializeNavigationDispatcher();
 
         var nativeAppService = Services.GetRequiredService<INativeAppService>();
         nativeAppService.GetCoreWindowHwnd = () => WinRT.Interop.WindowNative.GetWindowHandle(MainWindow);
@@ -490,6 +497,27 @@ public partial class App : WinoApplication,
         }
 
         shellWindow.HandleAppActivation(args?.Arguments, GetCurrentLaunchTileId(), Environment.CommandLine);
+    }
+
+    private void InitializeNavigationDispatcher()
+    {
+        if (MainWindow == null)
+            return;
+
+        if (Services.GetService<IDispatcher>() is WinUIDispatcher dispatcher)
+        {
+            dispatcher.Initialize(MainWindow.DispatcherQueue);
+        }
+    }
+
+    private void EnsureMainWindowVisibleAndForeground()
+    {
+        if (MainWindow == null)
+            return;
+
+        MainWindow.Show();
+        MainWindow.BringToFront();
+        MainWindow.Activate();
     }
 
     private void RegisterRecipients()

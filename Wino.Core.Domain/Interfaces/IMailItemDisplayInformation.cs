@@ -22,7 +22,6 @@ public interface IMailItemDisplayInformation : INotifyPropertyChanged
     DateTime CreationDate { get; }
     string Base64ContactPicture { get; }
     bool ThumbnailUpdatedEvent { get; }
-    bool IsBusy { get; }
     bool IsThreadExpanded { get; }
     AccountContact SenderContact { get; }
 }

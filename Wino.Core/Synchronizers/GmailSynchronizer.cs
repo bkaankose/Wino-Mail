@@ -96,6 +96,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
     // Keeping a reference for quick access to the virtual archive folder.
     private Guid? archiveFolderId;
+    private bool _isFolderStructureChanged;
 
     public GmailSynchronizer(MailAccount account,
                              IGmailAuthenticator authenticator,
@@ -161,6 +162,8 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         try
         {
+            _isFolderStructureChanged = false;
+
             // Make sure that virtual archive folder exists before all.
             if (!archiveFolderId.HasValue)
                 await InitializeArchiveFolderAsync().ConfigureAwait(false);
@@ -176,6 +179,11 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             catch (GoogleApiException googleException) when (googleException.Message.Contains("Mail service not enabled"))
             {
                 throw new GmailServiceDisabledException();
+            }
+
+            if (_isFolderStructureChanged)
+            {
+                WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
             }
 
             _logger.Information("Synchronizing folders for {Name} is completed", Account.Name);
@@ -696,12 +704,18 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             };
 
             await _gmailChangeProcessor.InsertFolderAsync(archiveFolder).ConfigureAwait(false);
+            _isFolderStructureChanged = true;
 
             // Migration-> User might've already have another special folder for Archive.
             // We must remove that type assignment.
             // This code can be removed after sometime.
 
             var otherArchiveFolders = localFolders.Where(a => a.SpecialFolderType == SpecialFolderType.Archive && a.Id != archiveFolderId.Value).ToList();
+
+            if (otherArchiveFolders.Any())
+            {
+                _isFolderStructureChanged = true;
+            }
 
             foreach (var otherArchiveFolder in otherArchiveFolders)
             {
@@ -803,7 +817,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         if (insertedFolders.Any() || deletedFolders.Any() || updatedFolders.Any())
         {
-            WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+            _isFolderStructureChanged = true;
         }
     }
 

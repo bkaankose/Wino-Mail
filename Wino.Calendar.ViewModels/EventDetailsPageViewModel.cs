@@ -32,6 +32,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     private readonly INavigationService _navigationService;
     private readonly IUnderlyingThemeService _underlyingThemeService;
     private readonly INotificationBuilder _notificationBuilder;
+    private readonly IContactService _contactService;
 
     public CalendarSettings CurrentSettings { get; }
     public INativeAppService NativeAppService => _nativeAppService;
@@ -144,8 +145,9 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
                                      IMailDialogService dialogService,
                                      IWinoRequestDelegator winoRequestDelegator,
                                      INavigationService navigationService,
-                                     IUnderlyingThemeService underlyingThemeService,
                                      INotificationBuilder notificationBuilder)
+                                     IUnderlyingThemeService underlyingThemeService,
+                                     IContactService contactService)
     {
         _calendarService = calendarService;
         _nativeAppService = nativeAppService;
@@ -155,6 +157,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         _navigationService = navigationService;
         _underlyingThemeService = underlyingThemeService;
         _notificationBuilder = notificationBuilder;
+        _contactService = contactService;
 
         CurrentSettings = _preferencesService.GetCurrentCalendarSettings();
         IsDarkWebviewRenderer = _underlyingThemeService.IsUnderlyingThemeDark();
@@ -263,6 +266,24 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
 
         var attendees = await _calendarService.GetAttendeesAsync(calendarItemId);
 
+        // Resolve contacts for all attendees in a single batch DB query.
+        var emails = attendees
+            .Where(a => !string.IsNullOrEmpty(a.Email))
+            .Select(a => a.Email)
+            .ToList();
+
+        if (!string.IsNullOrEmpty(calendarItem.OrganizerEmail))
+            emails.Add(calendarItem.OrganizerEmail);
+
+        var contacts = await _contactService.GetContactsByAddressesAsync(emails).ConfigureAwait(false);
+        var contactLookup = contacts.ToDictionary(c => c.Address, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var attendee in attendees)
+        {
+            if (!string.IsNullOrEmpty(attendee.Email) && contactLookup.TryGetValue(attendee.Email, out var contact))
+                attendee.ResolvedContact = contact;
+        }
+
         // Separate organizer from other attendees to ensure organizer is always first
         var organizer = attendees.FirstOrDefault(a => a.IsOrganizer);
         var nonOrganizerAttendees = attendees.Where(a => !a.IsOrganizer).ToList();
@@ -284,6 +305,10 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
                 IsOrganizer = true,
                 AttendenceStatus = AttendeeStatus.Accepted
             };
+
+            if (contactLookup.TryGetValue(calendarItem.OrganizerEmail, out var organizerContact))
+                organizerAttendee.ResolvedContact = organizerContact;
+
             CurrentEvent.Attendees.Add(organizerAttendee);
         }
 

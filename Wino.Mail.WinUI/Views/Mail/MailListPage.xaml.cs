@@ -123,7 +123,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         ViewModel.ExecuteHoverActionCommand.Execute(e);
     }
 
-    private void FolderPivotChanged(object sender, SelectionChangedEventArgs e)
+    private async void FolderPivotChanged(object sender, SelectionChangedEventArgs e)
     {
         foreach (var addedItem in e.AddedItems)
         {
@@ -143,6 +143,11 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
         SelectAllCheckbox.IsChecked = false;
         SelectionModeToggle.IsChecked = false;
+
+        if (ViewModel.MailCollection.SelectedItemsCount > 0)
+        {
+            await ViewModel.MailCollection.UnselectAllAsync();
+        }
 
         UpdateSelectAllButtonStatus();
         ViewModel.SelectedPivotChangedCommand.Execute(null);

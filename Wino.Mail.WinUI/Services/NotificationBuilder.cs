@@ -244,7 +244,11 @@ public class NotificationBuilder : INotificationBuilder
     {
         try
         {
-            ToastNotificationManager.History.Remove(mailUniqueId.ToString());
+            ToastNotificationManager.History.Remove(mailUniqueId.ToString(), null);
+        }
+        catch (ArgumentException)
+        {
+            // Notification does not exists. Ignore.
         }
         catch (Exception ex)
         {

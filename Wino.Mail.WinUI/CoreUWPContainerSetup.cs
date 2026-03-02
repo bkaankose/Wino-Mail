@@ -14,6 +14,8 @@ public static class CoreUWPContainerSetup
     public static void RegisterCoreUWPServices(this IServiceCollection services)
     {
         services.AddSingleton<IApplicationResourceManager<ResourceDictionary>, ApplicationResourceManager>();
+        services.AddSingleton<WinUIDispatcher>();
+        services.AddSingleton<IDispatcher>(provider => provider.GetRequiredService<WinUIDispatcher>());
 
         services.AddSingleton<IUnderlyingThemeService, UnderlyingThemeService>();
         services.AddSingleton<INativeAppService, NativeAppService>();
