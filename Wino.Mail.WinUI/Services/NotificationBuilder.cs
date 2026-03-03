@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Toolkit.Uwp.Notifications;
+using Microsoft.UI.Xaml;
 using Serilog;
 using Windows.Data.Xml.Dom;
 using Windows.UI.Notifications;
@@ -12,6 +14,7 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Messaging.UI;
 
@@ -20,21 +23,29 @@ namespace Wino.Mail.WinUI.Services;
 public class NotificationBuilder : INotificationBuilder
 {
     private const string MailApplicationId = "App";
+    private const string NotificationIconRootUri = "ms-appx:///Assets/NotificationIcons/";
+    private static readonly int[] SupportedIconScales = [100, 125, 150, 200, 400];
 
     private readonly IAccountService _accountService;
     private readonly IFolderService _folderService;
     private readonly IMailService _mailService;
     private readonly IThumbnailService _thumbnailService;
+    private readonly IPreferencesService _preferencesService;
+    private readonly IUnderlyingThemeService _underlyingThemeService;
 
     public NotificationBuilder(IAccountService accountService,
                                IFolderService folderService,
                                IMailService mailService,
-                               IThumbnailService thumbnailService)
+                               IThumbnailService thumbnailService,
+                               IPreferencesService preferencesService,
+                               IUnderlyingThemeService underlyingThemeService)
     {
         _accountService = accountService;
         _folderService = folderService;
         _mailService = mailService;
         _thumbnailService = thumbnailService;
+        _preferencesService = preferencesService;
+        _underlyingThemeService = underlyingThemeService;
 
         WeakReferenceMessenger.Default.Register<MailReadStatusChanged>(this, (r, msg) =>
         {
@@ -156,12 +167,12 @@ public class NotificationBuilder : INotificationBuilder
     private ToastButton GetDismissButton()
         => new ToastButton()
         .SetDismissActivation()
-        .SetImageUri(new Uri("ms-appx:///Assets/NotificationIcons/dismiss.png"));
+        .SetImageUri(GetNotificationIconUri("dismiss"));
 
-    private static ToastButton GetArchiveButton(Guid mailUniqueId)
+    private ToastButton GetArchiveButton(Guid mailUniqueId)
         => new ToastButton()
         .SetContent(Translator.MailOperation_Archive)
-        .SetImageUri(new Uri("ms-appx:///Assets/NotificationIcons/archive.png"))
+        .SetImageUri(GetNotificationIconUri("mail-archive"))
         .AddArgument(Constants.ToastMailUniqueIdKey, mailUniqueId.ToString())
         .AddArgument(Constants.ToastActionKey, MailOperation.Archive)
         .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail)
@@ -170,16 +181,16 @@ public class NotificationBuilder : INotificationBuilder
     private ToastButton GetDeleteButton(Guid mailUniqueId)
         => new ToastButton()
         .SetContent(Translator.MailOperation_Delete)
-        .SetImageUri(new Uri("ms-appx:///Assets/NotificationIcons/delete.png"))
+        .SetImageUri(GetNotificationIconUri("mail-delete"))
         .AddArgument(Constants.ToastMailUniqueIdKey, mailUniqueId.ToString())
         .AddArgument(Constants.ToastActionKey, MailOperation.SoftDelete)
         .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail)
         .SetBackgroundActivation();
 
-    private static ToastButton GetMarkAsReadButton(Guid mailUniqueId)
+    private ToastButton GetMarkAsReadButton(Guid mailUniqueId)
         => new ToastButton()
         .SetContent(Translator.MailOperation_MarkAsRead)
-        .SetImageUri(new System.Uri("ms-appx:///Assets/NotificationIcons/markread.png"))
+        .SetImageUri(GetNotificationIconUri("mail-markread"))
         .AddArgument(Constants.ToastMailUniqueIdKey, mailUniqueId.ToString())
         .AddArgument(Constants.ToastActionKey, MailOperation.MarkAsRead)
         .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail)
@@ -290,11 +301,9 @@ public class NotificationBuilder : INotificationBuilder
         var builder = new ToastContentBuilder();
         builder.SetToastScenario(ToastScenario.Reminder);
 
-        var localStart = calendarItem.LocalStartDate;
-        var reminderMinutes = (int)Math.Max(0, reminderDurationInSeconds / 60);
-        var reminderContext = reminderMinutes > 0
-            ? $"Starts in {reminderMinutes} minute{(reminderMinutes == 1 ? string.Empty : "s")}"
-            : "Starting now";
+        var localStart = calendarItem.GetLocalStartDate();
+        var nowLocal = DateTime.Now;
+        var reminderContext = GetCalendarReminderContext(localStart, nowLocal);
 
         builder.AddText(calendarItem.Title);
         builder.AddText($"{reminderContext} - {localStart:g}");
@@ -305,7 +314,54 @@ public class NotificationBuilder : INotificationBuilder
         builder.AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarNavigateAction);
         builder.AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString());
         builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar);
-        builder.AddButton(GetDismissButton());
+
+        var allowedSnoozeMinutes = CalendarReminderSnoozeOptions.GetAllowedSnoozeMinutes(
+            reminderDurationInSeconds,
+            _preferencesService.DefaultReminderDurationInSeconds);
+
+        if (allowedSnoozeMinutes.Count > 0)
+        {
+            var preferredSnoozeMinutes = _preferencesService.DefaultSnoozeDurationInMinutes;
+            var defaultSnoozeMinutes = allowedSnoozeMinutes.Contains(preferredSnoozeMinutes)
+                ? preferredSnoozeMinutes
+                : allowedSnoozeMinutes[0];
+
+            var selectionBox = new ToastSelectionBox(Constants.ToastCalendarSnoozeDurationInputId)
+            {
+                DefaultSelectionBoxItemId = defaultSnoozeMinutes.ToString()
+            };
+
+            foreach (var snoozeMinutes in allowedSnoozeMinutes)
+            {
+                selectionBox.Items.Add(new ToastSelectionBoxItem(
+                    snoozeMinutes.ToString(),
+                    string.Format(Translator.CalendarReminder_SnoozeMinutesOption, snoozeMinutes)));
+            }
+
+            builder.AddToastInput(selectionBox);
+            var snoozeButton = new ToastButton()
+                .SetContent(Translator.CalendarReminder_SnoozeAction)
+                .SetImageUri(GetNotificationIconUri("calendar-snooze"))
+                .SetBackgroundActivation();
+
+            builder.AddButton(snoozeButton)
+                .AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarSnoozeAction)
+                .AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString())
+                .AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar);
+        }
+
+        builder.AddButton(new ToastButton()
+            .SetDismissActivation()
+            .SetImageUri(GetNotificationIconUri("dismiss")));
+
+        if (Uri.TryCreate(calendarItem.HtmlLink, UriKind.Absolute, out var joinUri))
+        {
+            builder.AddButton(new ToastButton()
+                .SetContent(Translator.CalendarEventDetails_JoinOnline)
+                .SetImageUri(GetNotificationIconUri("calendar-join"))
+                .SetProtocolActivation(joinUri));
+        }
+
         builder.AddAudio(new ToastAudio()
         {
             Src = new Uri("ms-winsoundevent:Notification.Reminder")
@@ -315,6 +371,36 @@ public class NotificationBuilder : INotificationBuilder
         ShowToast(builder, tag);
 
         return Task.CompletedTask;
+    }
+
+    private static string GetCalendarReminderContext(DateTime localStart, DateTime nowLocal)
+    {
+        var delta = localStart - nowLocal;
+        var absDelta = delta.Duration();
+
+        if (absDelta < TimeSpan.FromMinutes(1))
+            return delta.TotalSeconds >= 0 ? Translator.CalendarReminder_StartingNow : Translator.CalendarReminder_StartedNow;
+
+        if (delta.TotalSeconds > 0)
+        {
+            if (delta.TotalHours >= 1)
+            {
+                var hours = Math.Max(1, (int)Math.Floor(delta.TotalHours));
+                return string.Format(Translator.CalendarReminder_StartsInHours, hours);
+            }
+
+            var minutes = Math.Max(1, (int)Math.Floor(delta.TotalMinutes));
+            return string.Format(Translator.CalendarReminder_StartsInMinutes, minutes);
+        }
+
+        if (absDelta.TotalHours >= 1)
+        {
+            var hoursAgo = Math.Max(1, (int)Math.Floor(absDelta.TotalHours));
+            return string.Format(Translator.CalendarReminder_StartedHoursAgo, hoursAgo);
+        }
+
+        var minutesAgo = Math.Max(1, (int)Math.Floor(absDelta.TotalMinutes));
+        return string.Format(Translator.CalendarReminder_StartedMinutesAgo, minutesAgo);
     }
 
     private static void ShowToast(ToastContentBuilder builder, string? tag = null)
@@ -328,5 +414,26 @@ public class NotificationBuilder : INotificationBuilder
 
         var notifier = ToastNotificationManager.CreateToastNotifier();
         notifier.Show(toastNotification);
+    }
+
+    private Uri GetNotificationIconUri(string iconName)
+    {
+        var theme = _underlyingThemeService.IsUnderlyingThemeDark() ? "dark" : "light";
+        var scale = GetClosestAvailableScale();
+        return new($"{NotificationIconRootUri}{iconName}.theme-{theme}.scale-{scale}.png");
+    }
+
+    private static int GetClosestAvailableScale()
+    {
+        var rasterScale = 1.0;
+
+        if (WinoApplication.MainWindow?.Content is FrameworkElement rootElement &&
+            rootElement.XamlRoot != null)
+        {
+            rasterScale = rootElement.XamlRoot.RasterizationScale;
+        }
+
+        var requestedScale = (int)Math.Round(rasterScale * 100);
+        return SupportedIconScales.OrderBy(s => Math.Abs(s - requestedScale)).First();
     }
 }

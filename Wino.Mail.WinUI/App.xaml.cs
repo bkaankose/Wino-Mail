@@ -192,6 +192,8 @@ public partial class App : WinoApplication,
 
     private void AppNotificationInvoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args)
     {
+        // AppNotification callbacks are not guaranteed to run on the UI thread.
+        // Marshal toast handling to the window dispatcher before touching window APIs.
         if (MainWindow?.DispatcherQueue?.TryEnqueue(() => _ = HandleToastActivationAsync(args)) == true)
             return;
 
@@ -224,12 +226,20 @@ public partial class App : WinoApplication,
 
         // Check calendar reminder toast activation first.
         if (toastArguments.TryGetValue(Constants.ToastCalendarActionKey, out string calendarAction) &&
-            calendarAction == Constants.ToastCalendarNavigateAction &&
             toastArguments.TryGetValue(Constants.ToastCalendarItemIdKey, out string calendarItemIdString) &&
             Guid.TryParse(calendarItemIdString, out Guid calendarItemId))
         {
-            await HandleCalendarToastNavigationAsync(calendarItemId);
-            return;
+            if (calendarAction == Constants.ToastCalendarNavigateAction)
+            {
+                await HandleCalendarToastNavigationAsync(calendarItemId);
+                return;
+            }
+
+            if (calendarAction == Constants.ToastCalendarSnoozeAction)
+            {
+                await HandleCalendarToastSnoozeAsync(toastArgs, calendarItemId);
+                return;
+            }
         }
 
         // Check if this is a navigation toast (user clicked the notification).
@@ -273,6 +283,33 @@ public partial class App : WinoApplication,
 
         navigationService.ChangeApplicationMode(Core.Domain.Enums.WinoApplicationMode.Calendar);
         navigationService.Navigate(WinoPage.EventDetailsPage, target);
+    }
+
+    private async Task HandleCalendarToastSnoozeAsync(AppNotificationActivatedEventArgs toastArgs, Guid calendarItemId)
+    {
+        if (!TryGetSnoozeDurationMinutes(toastArgs, out var snoozeDurationMinutes))
+            return;
+
+        var calendarService = Services.GetRequiredService<ICalendarService>();
+        var snoozedUntilLocal = DateTime.Now.AddMinutes(snoozeDurationMinutes);
+
+        await calendarService.SnoozeCalendarItemAsync(calendarItemId, snoozedUntilLocal).ConfigureAwait(false);
+    }
+
+    private static bool TryGetSnoozeDurationMinutes(AppNotificationActivatedEventArgs toastArgs, out int snoozeDurationMinutes)
+    {
+        snoozeDurationMinutes = 0;
+
+        if (toastArgs.UserInput == null ||
+            !toastArgs.UserInput.TryGetValue(Constants.ToastCalendarSnoozeDurationInputId, out var selectedValue) ||
+            selectedValue == null)
+        {
+            return false;
+        }
+
+        var selectedText = selectedValue.ToString();
+
+        return int.TryParse(selectedText, out snoozeDurationMinutes) && snoozeDurationMinutes > 0;
     }
 
     /// <summary>

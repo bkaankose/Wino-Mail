@@ -120,6 +120,15 @@ public class DatabaseService : IDatabaseService
                 .ConfigureAwait(false);
         }
 
+        var calendarItemColumns = await Connection.GetTableInfoAsync(nameof(CalendarItem)).ConfigureAwait(false);
+
+        if (!calendarItemColumns.Any(c => c.Name == nameof(CalendarItem.SnoozedUntil)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CalendarItem)} ADD COLUMN {nameof(CalendarItem.SnoozedUntil)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
         var contactColumns = await Connection.GetTableInfoAsync(nameof(AccountContact)).ConfigureAwait(false);
 
         if (!contactColumns.Any(c => c.Name == nameof(AccountContact.ContactPictureFileId)))

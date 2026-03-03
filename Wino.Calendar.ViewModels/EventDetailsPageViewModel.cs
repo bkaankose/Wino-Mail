@@ -31,6 +31,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     private readonly IWinoRequestDelegator _winoRequestDelegator;
     private readonly INavigationService _navigationService;
     private readonly IUnderlyingThemeService _underlyingThemeService;
+    private readonly INotificationBuilder _notificationBuilder;
     private readonly IContactService _contactService;
 
     public CalendarSettings CurrentSettings { get; }
@@ -144,6 +145,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
                                      IMailDialogService dialogService,
                                      IWinoRequestDelegator winoRequestDelegator,
                                      INavigationService navigationService,
+                                     INotificationBuilder notificationBuilder,
                                      IUnderlyingThemeService underlyingThemeService,
                                      IContactService contactService)
     {
@@ -154,6 +156,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         _winoRequestDelegator = winoRequestDelegator;
         _navigationService = navigationService;
         _underlyingThemeService = underlyingThemeService;
+        _notificationBuilder = notificationBuilder;
         _contactService = contactService;
 
         CurrentSettings = _preferencesService.GetCurrentCalendarSettings();
@@ -259,8 +262,6 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
 
     private async Task LoadAttendeesAsync(Guid calendarItemId, CalendarItem calendarItem)
     {
-        CurrentEvent.Attendees.Clear();
-
         var attendees = await _calendarService.GetAttendeesAsync(calendarItemId);
 
         // Resolve contacts for all attendees in a single batch DB query.
@@ -285,10 +286,12 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         var organizer = attendees.FirstOrDefault(a => a.IsOrganizer);
         var nonOrganizerAttendees = attendees.Where(a => !a.IsOrganizer).ToList();
 
+        var attendeesForUi = new List<CalendarEventAttendee>();
+
         // If the organizer is in the list, add them first
         if (organizer != null)
         {
-            CurrentEvent.Attendees.Add(organizer);
+            attendeesForUi.Add(organizer);
         }
         else if (!string.IsNullOrEmpty(calendarItem.OrganizerEmail))
         {
@@ -306,14 +309,27 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
             if (contactLookup.TryGetValue(calendarItem.OrganizerEmail, out var organizerContact))
                 organizerAttendee.ResolvedContact = organizerContact;
 
-            CurrentEvent.Attendees.Add(organizerAttendee);
+            attendeesForUi.Add(organizerAttendee);
         }
 
         // Add all other attendees after the organizer
         foreach (var item in nonOrganizerAttendees)
         {
-            CurrentEvent.Attendees.Add(item);
+            attendeesForUi.Add(item);
         }
+
+        await ExecuteUIThread(() =>
+        {
+            if (CurrentEvent == null)
+                return;
+
+            CurrentEvent.Attendees.Clear();
+
+            foreach (var attendee in attendeesForUi)
+            {
+                CurrentEvent.Attendees.Add(attendee);
+            }
+        });
     }
 
     private async Task LoadAttachmentsAsync(Guid calendarItemId)
@@ -489,6 +505,24 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
             return Task.CompletedTask;
 
         return _nativeAppService.LaunchUriAsync(new Uri(CurrentEvent.CalendarItem.HtmlLink));
+    }
+
+    [RelayCommand]
+    private Task CreateTestNotificationAsync()
+    {
+        if (CurrentEvent?.CalendarItem == null)
+            return Task.CompletedTask;
+
+        var reminderDurationInSeconds = Reminders?
+            .Where(x => x.DurationInSeconds > 0)
+            .OrderByDescending(x => x.DurationInSeconds)
+            .Select(x => x.DurationInSeconds)
+            .FirstOrDefault() ?? 0;
+
+        if (reminderDurationInSeconds <= 0)
+            reminderDurationInSeconds = Math.Max(_preferencesService.DefaultReminderDurationInSeconds, 30 * 60);
+
+        return _notificationBuilder.CreateCalendarReminderNotificationAsync(CurrentEvent.CalendarItem, reminderDurationInSeconds);
     }
 
     [RelayCommand]

@@ -284,6 +284,12 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SaveProperty(propertyName: nameof(DefaultReminderDurationInSeconds), value);
     }
 
+    public int DefaultSnoozeDurationInMinutes
+    {
+        get => _configurationService.Get(nameof(DefaultSnoozeDurationInMinutes), 5);
+        set => SaveProperty(propertyName: nameof(DefaultSnoozeDurationInMinutes), value);
+    }
+
     public int EmailSyncIntervalMinutes
     {
         get => _configurationService.Get(nameof(EmailSyncIntervalMinutes), 3);

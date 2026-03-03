@@ -138,6 +138,7 @@ public class CalendarItem : ICalendarItem
     // TODO
     public string CustomEventColorHex { get; set; }
     public string HtmlLink { get; set; }
+    public DateTime? SnoozedUntil { get; set; }
     public CalendarItemStatus Status { get; set; }
     public CalendarItemVisibility Visibility { get; set; }
 

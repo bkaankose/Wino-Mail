@@ -222,6 +222,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// </summary>
     long DefaultReminderDurationInSeconds { get; set; }
 
+    /// <summary>
+    /// Setting: Default snooze duration in minutes for calendar reminder notifications.
+    /// </summary>
+    int DefaultSnoozeDurationInMinutes { get; set; }
+
     CalendarSettings GetCurrentCalendarSettings();
 
     #endregion
