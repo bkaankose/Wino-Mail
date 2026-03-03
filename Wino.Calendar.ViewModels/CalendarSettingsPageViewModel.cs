@@ -50,6 +50,12 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
     [ObservableProperty]
     public partial int SelectedDefaultReminderIndex { get; set; }
 
+    [ObservableProperty]
+    public partial List<string> SnoozeOptions { get; set; } = [];
+
+    [ObservableProperty]
+    public partial int SelectedDefaultSnoozeIndex { get; set; }
+
     public IPreferencesService PreferencesService { get; }
     private readonly ICalendarService _calendarService;
     private readonly IAccountService _accountService;
@@ -108,6 +114,15 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
             SelectedDefaultReminderIndex = index >= 0 ? index + 1 : 0;
         }
 
+        var supportedSnoozeMinutes = CalendarReminderSnoozeOptions.GetSupportedSnoozeMinutes().ToArray();
+        foreach (var snoozeMinutes in supportedSnoozeMinutes)
+        {
+            SnoozeOptions.Add(string.Format(Translator.CalendarReminder_SnoozeMinutesOption, snoozeMinutes));
+        }
+
+        var selectedSnoozeIndex = Array.IndexOf(supportedSnoozeMinutes, preferencesService.DefaultSnoozeDurationInMinutes);
+        SelectedDefaultSnoozeIndex = selectedSnoozeIndex >= 0 ? selectedSnoozeIndex : 0;
+
         _isLoaded = true;
 
         // Load accounts with calendar support
@@ -147,6 +162,7 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
     partial void OnWorkingDayStartIndexChanged(int value) => SaveSettings();
     partial void OnWorkingDayEndIndexChanged(int value) => SaveSettings();
     partial void OnSelectedDefaultReminderIndexChanged(int value) => SaveSettings();
+    partial void OnSelectedDefaultSnoozeIndexChanged(int value) => SaveSettings();
 
     public void SaveSettings()
     {
@@ -203,6 +219,13 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
             var predefinedMinutes = _calendarService.GetPredefinedReminderMinutes();
             var minutes = predefinedMinutes[SelectedDefaultReminderIndex - 1];
             PreferencesService.DefaultReminderDurationInSeconds = minutes * 60;
+        }
+
+        var supportedSnoozeMinutes = CalendarReminderSnoozeOptions.GetSupportedSnoozeMinutes();
+        if (supportedSnoozeMinutes.Count > 0)
+        {
+            var selectedIndex = Math.Clamp(SelectedDefaultSnoozeIndex, 0, supportedSnoozeMinutes.Count - 1);
+            PreferencesService.DefaultSnoozeDurationInMinutes = supportedSnoozeMinutes[selectedIndex];
         }
 
         Messenger.Send(new CalendarSettingsUpdatedMessage());

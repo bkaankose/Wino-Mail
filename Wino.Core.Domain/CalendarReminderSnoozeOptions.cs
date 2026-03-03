@@ -8,6 +8,9 @@ public static class CalendarReminderSnoozeOptions
 {
     private static readonly int[] SupportedSnoozeMinutes = [5, 10, 15, 30];
 
+    public static IReadOnlyList<int> GetSupportedSnoozeMinutes()
+        => SupportedSnoozeMinutes;
+
     public static IReadOnlyList<int> GetAllowedSnoozeMinutes(long reminderDurationInSeconds, long defaultReminderDurationInSeconds)
     {
         var reminderMinutes = (int)Math.Max(0, reminderDurationInSeconds / 60);
