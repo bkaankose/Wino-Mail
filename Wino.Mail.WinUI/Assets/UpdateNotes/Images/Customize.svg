@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="cu-palette" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FDF4FF"/>
+      <stop offset="100%" stop-color="#F3E8FF"/>
+    </linearGradient>
+    <linearGradient id="cu-handle" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#A78BFA"/>
+      <stop offset="100%" stop-color="#7C3AED"/>
+    </linearGradient>
+    <filter id="cu-shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="7" flood-color="#7C3AED" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+
+  <!-- Palette body -->
+  <path d="M64 12 C38 12 18 30 18 54 C18 68 26 76 36 80 C46 84 46 92 50 98 C54 104 60 108 68 106 C82 104 110 88 110 60 C110 34 90 12 64 12 Z"
+        fill="url(#cu-palette)" filter="url(#cu-shadow)"/>
+
+  <!-- Palette thumb hole -->
+  <circle cx="78" cy="96" r="10" fill="#E9D5FF"/>
+  <circle cx="78" cy="96" r="6" fill="white" opacity="0.6"/>
+
+  <!-- Color swatches -->
+  <!-- Red -->
+  <circle cx="38" cy="44" r="11" fill="#F87171"/>
+  <circle cx="38" cy="44" r="11" fill="white" opacity="0.15"/>
+
+  <!-- Orange -->
+  <circle cx="62" cy="28" r="11" fill="#FB923C"/>
+  <circle cx="62" cy="28" r="11" fill="white" opacity="0.15"/>
+
+  <!-- Blue -->
+  <circle cx="87" cy="34" r="11" fill="#60A5FA"/>
+  <circle cx="87" cy="34" r="11" fill="white" opacity="0.15"/>
+
+  <!-- Green -->
+  <circle cx="100" cy="56" r="11" fill="#4ADE80"/>
+  <circle cx="100" cy="56" r="11" fill="white" opacity="0.15"/>
+
+  <!-- Purple -->
+  <circle cx="92" cy="80" r="11" fill="#A78BFA"/>
+  <circle cx="92" cy="80" r="11" fill="white" opacity="0.15"/>
+
+  <!-- Brush -->
+  <rect x="22" y="72" width="8" height="36" rx="4" fill="url(#cu-handle)" transform="rotate(-40 26 90)"/>
+  <path d="M8 110 C8 110 14 106 18 112 C16 116 10 116 8 110 Z" fill="#F87171"/>
+  <path d="M10 112 C10 112 14 109 17 113" fill="none" stroke="#FCA5A5" stroke-width="1.5" stroke-linecap="round"/>
+</svg>

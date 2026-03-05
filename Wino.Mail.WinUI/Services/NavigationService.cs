@@ -13,6 +13,7 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Interfaces;
+using Wino.Mail.WinUI.Models;
 using Wino.Mail.WinUI.Services;
 using Wino.Mail.WinUI.Views.Calendar;
 using Wino.Messaging.Client.Mails;
@@ -29,6 +30,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
 {
     private readonly IStatePersistanceService _statePersistanceService;
     private readonly IDispatcher _dispatcher;
+    private readonly IWinoWindowManager _windowManager;
 
     private WinoPage[] _renderingPageTypes = new WinoPage[]
     {
@@ -42,7 +44,8 @@ public class NavigationService : NavigationServiceBase, INavigationService
         WinoPage.MailRenderingPage,
         WinoPage.ComposePage,
         WinoPage.IdlePage,
-        WinoPage.WelcomePage
+        WinoPage.WelcomePage,
+        WinoPage.WelcomePageV2
     ];
 
     private static readonly WinoPage[] CalendarOnlyPages =
@@ -51,10 +54,11 @@ public class NavigationService : NavigationServiceBase, INavigationService
         WinoPage.EventDetailsPage
     ];
 
-    public NavigationService(IStatePersistanceService statePersistanceService, IDispatcher dispatcher)
+    public NavigationService(IStatePersistanceService statePersistanceService, IDispatcher dispatcher, IWinoWindowManager windowManager)
     {
         _statePersistanceService = statePersistanceService;
         _dispatcher = dispatcher;
+        _windowManager = windowManager;
     }
 
     private bool IsOnNavigationThread()
@@ -101,6 +105,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
             WinoPage.MailListPage => typeof(MailListPage),
             WinoPage.SettingsPage => typeof(SettingsPage),
             WinoPage.WelcomePage => typeof(WelcomePage),
+            WinoPage.WelcomePageV2 => typeof(WelcomePageV2),
             WinoPage.SettingOptionsPage => typeof(SettingOptionsPage),
             WinoPage.AppPreferencesPage => typeof(AppPreferencesPage),
             WinoPage.AliasManagementPage => typeof(AliasManagementPage),
@@ -120,19 +125,45 @@ public class NavigationService : NavigationServiceBase, INavigationService
     }
 
     public Frame GetCoreFrame(NavigationReferenceFrame frameType)
-        => ExecuteOnNavigationThread(() => GetCoreFrameInternal(frameType));
+        => ExecuteOnNavigationThread(() => GetCoreFrameInternal(frameType) ?? throw new ArgumentException($"Frame '{frameType}' cannot be resolved."));
 
-    private Frame GetCoreFrameInternal(NavigationReferenceFrame frameType)
+    private Frame? GetCoreFrameInternal(NavigationReferenceFrame frameType, WinoWindowKind? requestedWindowKind = null)
     {
-        if (WinoApplication.MainWindow is not IWinoShellWindow shellWindow) throw new ArgumentException("MainWindow must implement IWinoShellWindow");
-        if (shellWindow.GetMainFrame() is not Frame mainFrame) throw new ArgumentException("MainFrame cannot be null.");
+        if (frameType == NavigationReferenceFrame.ShellFrame)
+        {
+            if (requestedWindowKind.HasValue)
+                return _windowManager.GetPrimaryNavigationFrame(requestedWindowKind.Value);
 
-        if (frameType == NavigationReferenceFrame.ShellFrame) return shellWindow.GetMainFrame();
+            var activeWindow = _windowManager.ActiveWindow;
+            if (activeWindow != null)
+            {
+                var activeShellWindow = _windowManager.GetWindow(WinoWindowKind.Shell);
+                if (ReferenceEquals(activeWindow, activeShellWindow))
+                    return _windowManager.GetPrimaryNavigationFrame(WinoWindowKind.Shell);
 
-        var contentRoot = mainFrame.Content as UIElement;
-        if (contentRoot == null) return mainFrame;
+                var activeWelcomeWindow = _windowManager.GetWindow(WinoWindowKind.Welcome);
+                if (ReferenceEquals(activeWindow, activeWelcomeWindow))
+                    return _windowManager.GetPrimaryNavigationFrame(WinoWindowKind.Welcome);
+            }
 
-        return WinoVisualTreeHelper.GetChildObject<Frame>(contentRoot, frameType.ToString()) ?? mainFrame;
+            return _windowManager.GetPrimaryNavigationFrame(WinoWindowKind.Shell)
+                ?? _windowManager.GetPrimaryNavigationFrame(WinoWindowKind.Welcome);
+        }
+
+        var mainFrame = _windowManager.GetPrimaryNavigationFrame(WinoWindowKind.Shell);
+        if (mainFrame == null)
+            return null;
+
+        var contentRoot = mainFrame.Content as FrameworkElement;
+        if (contentRoot == null) return null;
+
+        // Use FindName first — it works immediately after InitializeComponent(),
+        // before the visual tree is built by the layout pass.
+        if (contentRoot.FindName(frameType.ToString()) is Frame namedFrame)
+            return namedFrame;
+
+        // Fall back to visual tree search for deeply nested frames (e.g. RenderingFrame).
+        return WinoVisualTreeHelper.GetChildObject<Frame>(contentRoot, frameType.ToString());
     }
 
     public bool ChangeApplicationMode(WinoApplicationMode mode)
@@ -211,14 +242,22 @@ public class NavigationService : NavigationServiceBase, INavigationService
         _statePersistanceService.IsReadingMail = _renderingPageTypes.Contains(page);
         _statePersistanceService.IsEventDetailsVisible = page == WinoPage.EventDetailsPage;
 
-        Frame innerShellFrame = GetCoreFrameInternal(NavigationReferenceFrame.InnerShellFrame);
+        Frame? innerShellFrame = GetCoreFrameInternal(NavigationReferenceFrame.InnerShellFrame);
+        if (innerShellFrame == null && frame == NavigationReferenceFrame.ShellFrame)
+        {
+            var requestedFrame = GetCoreFrameInternal(NavigationReferenceFrame.ShellFrame, WinoWindowKind.Welcome);
+            if (requestedFrame == null)
+                return false;
+
+            return requestedFrame.Navigate(pageType, parameter, GetNavigationTransitionInfo(transition));
+        }
 
         if (innerShellFrame != null)
         {
             // Calendar navigations.
             if (currentApplicationMode == WinoApplicationMode.Calendar)
             {
-                var currentFrameType = GetCurrentFrameType(ref innerShellFrame);
+                var currentFrameType = GetCurrentFrameType(innerShellFrame);
 
                 if (page == WinoPage.CalendarPage &&
                     parameter is CalendarPageNavigationArgs calendarNavigationArgs)
@@ -247,7 +286,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
             else
             {
                 // Mail navigations.
-                var currentFrameType = GetCurrentFrameType(ref innerShellFrame);
+                var currentFrameType = GetCurrentFrameType(innerShellFrame);
                 bool isMailListingPageActive = currentFrameType != null && currentFrameType == typeof(MailListPage);
 
                 // Active page is mail list page and we are refreshing the folder.

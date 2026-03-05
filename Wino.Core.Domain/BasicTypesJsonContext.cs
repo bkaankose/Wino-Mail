@@ -10,5 +10,6 @@ namespace Wino.Core.Domain;
 [JsonSerializable(typeof(List<string>))]
 [JsonSerializable(typeof(bool))]
 [JsonSerializable(typeof(UpdateNotes))]
+[JsonSerializable(typeof(UpdateMigration))]
 [JsonSerializable(typeof(List<UpdateNoteSection>))]
 public partial class BasicTypesJsonContext : JsonSerializerContext;

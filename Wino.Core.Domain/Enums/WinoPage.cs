@@ -34,5 +34,6 @@ public enum WinoPage
     CalendarAccountSettingsPage,
     EventDetailsPage,
     SignatureAndEncryptionPage,
-    StoragePage
+    StoragePage,
+    WelcomePageV2
 }

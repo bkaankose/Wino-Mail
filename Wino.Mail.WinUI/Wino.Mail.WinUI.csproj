@@ -98,6 +98,13 @@
   </ItemGroup>
   <ItemGroup>
     <None Remove="Assets\CalendarWide310x150Logo.png" />
+    <None Remove="Assets\UpdateNotes\Images\Calendar.svg" />
+    <None Remove="Assets\UpdateNotes\Images\Security.svg" />
+    <None Remove="Assets\UpdateNotes\Images\Thread.svg" />
+    <None Remove="Assets\UpdateNotes\Images\Notification.svg" />
+    <None Remove="Assets\UpdateNotes\Images\More.svg" />
+    <None Remove="Assets\UpdateNotes\Images\Mail.svg" />
+    <None Remove="Assets\UpdateNotes\Images\Customize.svg" />
     <None Remove="BackgroundImages\Acrylic.jpg" />
     <None Remove="BackgroundImages\Clouds.jpg" />
     <None Remove="BackgroundImages\Forest.jpg" />
@@ -143,6 +150,14 @@
     <Content Include="AppThemes\TestTheme.xaml" />
     <Content Include="Assets\ReleaseNotes\vnext.md" />
     <Content Include="Assets\UpdateNotes\vnext.json" />
+    <Content Include="Assets\UpdateNotes\features.json" />
+    <Content Include="Assets\UpdateNotes\Images\Calendar.svg" />
+    <Content Include="Assets\UpdateNotes\Images\Security.svg" />
+    <Content Include="Assets\UpdateNotes\Images\Thread.svg" />
+    <Content Include="Assets\UpdateNotes\Images\Notification.svg" />
+    <Content Include="Assets\UpdateNotes\Images\More.svg" />
+    <Content Include="Assets\UpdateNotes\Images\Mail.svg" />
+    <Content Include="Assets\UpdateNotes\Images\Customize.svg" />
     <Content Include="Assets\Wino_Icon.ico" />
     <Content Include="BackgroundImages\Acrylic.jpg" />
     <Content Include="BackgroundImages\Clouds.jpg" />

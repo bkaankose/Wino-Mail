@@ -6,12 +6,14 @@ using System.Threading.Tasks;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Updates;
+using Wino.Services.Migrations;
 
 namespace Wino.Services;
 
 public class UpdateManager : IUpdateManager
 {
     private const string UpdateNotesResourcePath = "ms-appx:///Assets/UpdateNotes/vnext.json";
+    private const string FeaturesResourcePath = "ms-appx:///Assets/UpdateNotes/features.json";
     private const string UpdateNotesSeenKeyFormat = "UpdateNotes_{0}_Shown";
     private const string MigrationCompletedKeyFormat = "Migration_{0}_Completed";
 
@@ -21,6 +23,7 @@ public class UpdateManager : IUpdateManager
     private readonly List<IAppMigration> _migrations = [];
 
     private string _versionSeenKey = string.Empty;
+    private UpdateNotes _latestUpdateNotes = new();
 
     public UpdateManager(IFileService fileService,
                          IConfigurationService configurationService,
@@ -29,6 +32,7 @@ public class UpdateManager : IUpdateManager
         _fileService = fileService;
         _configurationService = configurationService;
         _nativeAppService = nativeAppService;
+        _migrations.Add(new VNextDelayMigration());
     }
 
     private string GetVersionSeenKey()
@@ -50,27 +54,61 @@ public class UpdateManager : IUpdateManager
             var json = await _fileService.GetFileContentByApplicationUriAsync(UpdateNotesResourcePath);
 
             if (string.IsNullOrEmpty(json))
-                return new UpdateNotes();
+            {
+                _latestUpdateNotes = new UpdateNotes();
+                return _latestUpdateNotes;
+            }
 
-            return JsonSerializer.Deserialize(json, BasicTypesJsonContext.Default.UpdateNotes) ?? new UpdateNotes();
+            _latestUpdateNotes = JsonSerializer.Deserialize(json, BasicTypesJsonContext.Default.UpdateNotes) ?? new UpdateNotes();
+            return _latestUpdateNotes;
         }
         catch (Exception)
         {
-            return new UpdateNotes();
+            _latestUpdateNotes = new UpdateNotes();
+            return _latestUpdateNotes;
         }
     }
 
+    // T
     public bool ShouldShowUpdateNotes()
         => !_configurationService.Get(GetVersionSeenKey(), false);
+
+    public async Task<List<UpdateNoteSection>> GetFeaturesAsync()
+    {
+        try
+        {
+            var json = await _fileService.GetFileContentByApplicationUriAsync(FeaturesResourcePath);
+
+            if (string.IsNullOrEmpty(json))
+                return [];
+
+            return JsonSerializer.Deserialize(json, BasicTypesJsonContext.Default.ListUpdateNoteSection) ?? [];
+        }
+        catch (Exception)
+        {
+            return [];
+        }
+    }
 
     public void MarkUpdateNotesAsSeen()
         => _configurationService.Set(GetVersionSeenKey(), true);
 
     public bool HasPendingMigrations()
-        => _migrations.Any(m => !_configurationService.Get(string.Format(MigrationCompletedKeyFormat, m.MigrationId), false));
+    {
+        if (!_latestUpdateNotes.HasPendingMigrations)
+            return false;
+
+        return _migrations.Any(m => !_configurationService.Get(string.Format(MigrationCompletedKeyFormat, m.MigrationId), false));
+    }
 
     public async Task RunPendingMigrationsAsync()
     {
+        if (!_latestUpdateNotes.HasPendingMigrations)
+            _latestUpdateNotes = await GetLatestUpdateNotesAsync();
+
+        if (!_latestUpdateNotes.HasPendingMigrations)
+            return;
+
         foreach (var migration in _migrations)
         {
             var key = string.Format(MigrationCompletedKeyFormat, migration.MigrationId);

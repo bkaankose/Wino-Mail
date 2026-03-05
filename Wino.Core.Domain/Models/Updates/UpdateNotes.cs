@@ -5,8 +5,11 @@ namespace Wino.Core.Domain.Models.Updates;
 
 public class UpdateNotes
 {
-    [JsonPropertyName("hasMigrations")]
-    public bool HasMigrations { get; set; }
+    [JsonPropertyName("hasPendingMigrations")]
+    public bool HasPendingMigrations { get; set; }
+
+    [JsonPropertyName("migration")]
+    public UpdateMigration Migration { get; set; } = new();
 
     [JsonPropertyName("sections")]
     public List<UpdateNoteSection> Sections { get; set; } = [];

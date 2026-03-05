@@ -331,6 +331,8 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
         }
     }
 
+    public Task StartAddNewAccountAsync() => AddNewAccountAsync();
+
     private async Task ValidateSpecialImapConnectivityAsync(CustomServerInformation serverInformation)
     {
         var connectivityResult = await SynchronizationManager.Instance

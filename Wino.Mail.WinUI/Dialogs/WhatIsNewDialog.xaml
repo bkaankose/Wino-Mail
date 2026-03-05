@@ -2,11 +2,10 @@
     x:Class="Wino.Dialogs.WhatIsNewDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
-    xmlns:models="using:Wino.Core.Domain.Models.Updates"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch"
     Style="{StaticResource WinoDialogStyle}"
@@ -26,45 +25,42 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <FlipView
-            x:Name="UpdateFlipView"
-            ItemsSource="{x:Bind Sections, Mode=OneTime}"
-            SelectionChanged="OnFlipViewSelectionChanged">
-            <FlipView.ItemTemplate>
-                <DataTemplate x:DataType="models:UpdateNoteSection">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                        <StackPanel Spacing="16" Padding="12,8">
-                            <controls:MarkdownTextBlock
-                                Text="{x:Bind Title, Mode=OneTime}"
-                                HorizontalAlignment="Center" />
-                            <Image
-                                Source="{x:Bind ImageUrl, Mode=OneTime}"
-                                Width="{x:Bind ActualImageWidth, Mode=OneTime}"
-                                Height="{x:Bind ActualImageHeight, Mode=OneTime}"
-                                HorizontalAlignment="Center"
-                                Stretch="Uniform" />
-                            <controls:MarkdownTextBlock
-                                Text="{x:Bind Description, Mode=OneTime}"
-                                HorizontalAlignment="Stretch" />
-                        </StackPanel>
-                    </ScrollViewer>
-                </DataTemplate>
-            </FlipView.ItemTemplate>
-        </FlipView>
+        <controls:UpdateNotesFlipViewControl x:Name="UpdateNotesControl" Sections="{x:Bind Sections, Mode=OneTime}" />
 
-        <PipsPager
-            x:Name="FlipViewPager"
+        <StackPanel
+            x:Name="MigrationPanel"
             Grid.Row="1"
-            HorizontalAlignment="Center"
-            SelectedPageIndex="0"
-            SelectedIndexChanged="OnPipsPagerSelectedIndexChanged" />
+            Spacing="8"
+            Visibility="Collapsed">
+            <TextBlock x:Name="MigrationTitleText" Style="{StaticResource BodyStrongTextBlockStyle}" />
+            <TextBlock x:Name="MigrationDescriptionText" TextWrapping="WrapWholeWords" />
+            <ProgressBar
+                x:Name="MigrationProgressBar"
+                IsIndeterminate="True"
+                Visibility="Collapsed" />
+            <TextBlock
+                x:Name="MigrationErrorText"
+                Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                TextWrapping="WrapWholeWords"
+                Visibility="Collapsed" />
+        </StackPanel>
 
-        <Button
-            x:Name="GetStartedButton"
+        <StackPanel
             Grid.Row="2"
             HorizontalAlignment="Right"
-            Content="{x:Bind domain:Translator.WhatIsNew_GetStartedButton}"
-            Visibility="Collapsed"
-            Click="OnGetStartedClicked" />
+            VerticalAlignment="Center"
+            Orientation="Horizontal"
+            Spacing="8">
+            <Button
+                x:Name="ContinueAnywayButton"
+                Click="OnContinueAnywayClicked"
+                Content="{x:Bind domain:Translator.WhatIsNew_ContinueAnywayButton}"
+                Visibility="Collapsed" />
+            <Button
+                x:Name="GetStartedButton"
+                Click="OnGetStartedClicked"
+                Content="{x:Bind domain:Translator.WhatIsNew_GetStartedButton}"
+                Visibility="Collapsed" />
+        </StackPanel>
     </Grid>
 </ContentDialog>

@@ -291,8 +291,8 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
         UnregisterRecipients();
 
-        // Close the window
-        Close();
+        var windowManager = WinoApplication.Current.Services.GetService<IWinoWindowManager>();
+        windowManager?.CloseAllWindows();
 
         // Exit the application
         Application.Current.Exit();
