@@ -33,19 +33,12 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <!--  App Icon  -->
-                <Border
-                    Width="72"
-                    Height="72"
-                    Background="{ThemeResource AccentFillColorDefaultBrush}"
-                    CornerRadius="16">
-                    <FontIcon
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        FontSize="32"
-                        Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                        Glyph="&#xE715;" />
-                </Border>
+                <Image
+                    Width="96"
+                    Height="96"
+                    VerticalAlignment="Center"
+                    Source="ms-appx:///Assets/AppEntries/MailAssets/Square150x150Logo.scale-100.png"
+                    Stretch="Uniform" />
 
                 <!--  App Info  -->
                 <StackPanel
@@ -65,6 +58,17 @@
                         Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                         Style="{StaticResource CaptionTextBlockStyle}"
                         Text="{x:Bind ViewModel.VersionText, Mode=OneWay}" />
+                    <StackPanel
+                        Margin="0,8,0,0"
+                        Orientation="Horizontal"
+                        Spacing="8">
+                        <HyperlinkButton
+                            Content="{x:Bind ViewModel.WebsiteUrl, Mode=OneWay}"
+                            NavigateUri="{x:Bind ViewModel.WebsiteUrl, Mode=OneWay}" />
+                        <HyperlinkButton
+                            Content="{x:Bind domain:Translator.SettingsPaypal_Title}"
+                            NavigateUri="{x:Bind ViewModel.PaypalUrl, Mode=OneWay}" />
+                    </StackPanel>
                 </StackPanel>
             </Grid>
 

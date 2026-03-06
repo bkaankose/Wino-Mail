@@ -17,9 +17,12 @@
                 </TransitionCollection>
             </StackPanel.ChildrenTransitions>
             <Image
-                Width="50"
-                Height="50"
-                Source="ms-appx:///Images/StoreLogo.png" />
+                Width="128"
+                Height="128"
+                Margin="0,0,0,12"
+                HorizontalAlignment="Center"
+                Source="ms-appx:///Assets/AppEntries/MailAssets/Square150x150Logo.scale-100.png"
+                Stretch="Uniform" />
             <TextBlock
                 Margin="0,6,0,4"
                 HorizontalAlignment="Center"
@@ -31,6 +34,26 @@
                 HorizontalAlignment="Center"
                 Style="{StaticResource BodyTextBlockStyle}"
                 Text="{x:Bind domain:Translator.SettingsAboutWinoDescription}" />
+
+            <controls:SettingsCard
+                Command="{x:Bind ViewModel.NavigateCommand}"
+                CommandParameter="{x:Bind ViewModel.WebsiteUrl}"
+                Description="{x:Bind domain:Translator.SettingsWebsite_Description}"
+                Header="{x:Bind domain:Translator.SettingsWebsite_Title}"
+                IsClickEnabled="True">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Glyph="&#xE774;" />
+                </controls:SettingsCard.HeaderIcon>
+                <controls:SettingsCard.ActionIcon>
+                    <PathIcon
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Data="{StaticResource OpenInNewWindowPathIcon}" />
+                </controls:SettingsCard.ActionIcon>
+            </controls:SettingsCard>
 
             <controls:SettingsCard
                 Command="{x:Bind ViewModel.NavigateCommand}"
@@ -174,7 +197,7 @@
 
             <controls:SettingsCard Header="Wino Mail">
                 <controls:SettingsCard.HeaderIcon>
-                    <BitmapIcon ShowAsMonochrome="False" UriSource="ms-appx:///Images/StoreLogo.png" />
+                    <BitmapIcon ShowAsMonochrome="False" UriSource="ms-appx:///Assets/AppEntries/MailAssets/Square150x150Logo.scale-100.png" />
                 </controls:SettingsCard.HeaderIcon>
                 <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" IsTextSelectionEnabled="True">
                     <Run Text="{x:Bind domain:Translator.SettingsAboutVersion}" /><Run Text="{x:Bind ViewModel.VersionName}" />

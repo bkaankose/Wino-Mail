@@ -16,6 +16,9 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
     private readonly INativeAppService _nativeAppService;
     private readonly IAccountService _accountService;
 
+    public string WebsiteUrl => AppUrls.Website;
+    public string PaypalUrl => AppUrls.Paypal;
+
     [ObservableProperty]
     public partial string VersionText { get; set; } = string.Empty;
 

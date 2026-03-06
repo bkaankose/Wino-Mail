@@ -73,7 +73,6 @@ public sealed partial class ImagePreviewControl : PersonPicture
 
         RequestRefresh();
     }
-
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         RequestRefresh();
@@ -306,7 +305,6 @@ public sealed partial class ImagePreviewControl : PersonPicture
 
         return string.Empty;
     }
-
     private async Task ApplyInitialVisualStateAsync(string displayName, long refreshVersion, CancellationToken cancellationToken)
     {
         await ExecuteOnUiThreadAsync(() =>

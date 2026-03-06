@@ -8,17 +8,23 @@ namespace Wino.Mail.ViewModels.Data;
 
 public partial class AccountContactViewModel : ObservableObject, IMailItemDisplayInformation
 {
+    public AccountContact SourceContact { get; }
     public string Address { get; set; }
     public string Name { get; set; }
+    public Guid? ContactPictureFileId { get; set; }
     public string Base64ContactPicture { get; set; }
     public bool IsRootContact { get; set; }
+    public bool IsOverridden { get; set; }
 
     public AccountContactViewModel(AccountContact contact)
     {
+        SourceContact = contact;
         Address = contact.Address;
         Name = contact.Name;
+        ContactPictureFileId = contact.ContactPictureFileId;
         Base64ContactPicture = contact.Base64ContactPicture;
         IsRootContact = contact.IsRootContact;
+        IsOverridden = contact.IsOverridden;
     }
 
     /// <summary>
@@ -68,7 +74,9 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
     {
         Address = Address,
         Name = Name,
+        ContactPictureFileId = ContactPictureFileId,
         Base64ContactPicture = Base64ContactPicture,
-        IsRootContact = IsRootContact
+        IsRootContact = IsRootContact,
+        IsOverridden = IsOverridden
     };
 }

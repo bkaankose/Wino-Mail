@@ -3,18 +3,20 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:controls="using:Wino.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:listview="using:Wino.Mail.WinUI.Controls.ListView"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewModels="using:Wino.Mail.ViewModels.Data"
     xmlns:toolkitExt="using:CommunityToolkit.WinUI"
     x:Name="root"
     mc:Ignorable="d">
 
     <Page.Resources>
-        <DataTemplate x:Key="ContactTemplate" x:DataType="entities:AccountContact">
+        <DataTemplate x:Key="ContactTemplate" x:DataType="viewModels:AccountContactViewModel">
             <Grid Margin="0,0,0,8" Padding="0,4">
                 <Border
                     Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
@@ -29,12 +31,11 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <PersonPicture
+                    <controls:ImagePreviewControl
                         Grid.Column="0"
                         Width="40"
                         Height="40"
-                        DisplayName="{x:Bind Name, Mode=OneTime, TargetNullValue=''}"
-                        ProfilePicture="{x:Bind helpers:XamlHelpers.Base64ToBitmapImage(Base64ContactPicture), Mode=OneWay}" />
+                        MailItemInformation="{x:Bind Mode=OneWay}" />
 
                     <StackPanel
                         Grid.Column="1"

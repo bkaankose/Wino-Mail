@@ -2,8 +2,8 @@ using System;
 using System.ComponentModel;
 using System.Linq;
 using Microsoft.UI.Xaml.Controls;
-using Wino.Core.Domain.Entities.Shared;
 using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.Data;
 using Wino.Views.Abstract;
 
 namespace Wino.Views.Settings;
@@ -20,7 +20,7 @@ public sealed partial class ContactsPage : ContactsPageAbstract
 
     private void EditContact_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
-        if (sender is Button button && button.CommandParameter is AccountContact contact)
+        if (sender is Button button && button.CommandParameter is AccountContactViewModel contact)
         {
             ViewModel.EditContactCommand.Execute(contact);
         }
@@ -28,7 +28,7 @@ public sealed partial class ContactsPage : ContactsPageAbstract
 
     private void PickContactPhoto_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
-        if (sender is Button button && button.CommandParameter is AccountContact contact)
+        if (sender is Button button && button.CommandParameter is AccountContactViewModel contact)
         {
             ViewModel.PickContactPhotoCommand.Execute(contact);
         }
@@ -36,7 +36,7 @@ public sealed partial class ContactsPage : ContactsPageAbstract
 
     private void DeleteContact_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
-        if (sender is Button button && button.CommandParameter is AccountContact contact)
+        if (sender is Button button && button.CommandParameter is AccountContactViewModel contact)
         {
             ViewModel.DeleteContactCommand.Execute(contact);
         }
@@ -53,7 +53,7 @@ public sealed partial class ContactsPage : ContactsPageAbstract
             return;
         }
 
-        foreach (var removedItem in e.RemovedItems.OfType<AccountContact>())
+        foreach (var removedItem in e.RemovedItems.OfType<AccountContactViewModel>())
         {
             var selectedContact = ViewModel.SelectedContacts.FirstOrDefault(c =>
                 string.Equals(c.Address, removedItem.Address, StringComparison.OrdinalIgnoreCase));
@@ -64,7 +64,7 @@ public sealed partial class ContactsPage : ContactsPageAbstract
             }
         }
 
-        foreach (var addedItem in e.AddedItems.OfType<AccountContact>())
+        foreach (var addedItem in e.AddedItems.OfType<AccountContactViewModel>())
         {
             var alreadySelected = ViewModel.SelectedContacts.Any(c =>
                 string.Equals(c.Address, addedItem.Address, StringComparison.OrdinalIgnoreCase));

@@ -107,9 +107,6 @@
                     </controls:Segmented>
                 </StackPanel>
             </TitleBar.RightHeader>
-            <TitleBar.IconSource>
-                <ImageIconSource ImageSource="/Assets/Wino_Icon.ico" />
-            </TitleBar.IconSource>
         </TitleBar>
 
         <Frame
@@ -127,6 +124,7 @@
             <notifyicon:TaskbarIcon.ContextFlyout>
                 <MenuFlyout AreOpenCloseAnimationsEnabled="False">
                     <MenuFlyoutItem Command="{x:Bind ShowWinoCommand}" Text="{x:Bind domain:Translator.SystemTrayMenu_ShowWino}" />
+                    <MenuFlyoutItem Command="{x:Bind ShowWinoCalendarCommand}" Text="{x:Bind domain:Translator.SystemTrayMenu_ShowWinoCalendar}" />
                     <MenuFlyoutSeparator />
                     <MenuFlyoutItem Command="{x:Bind ExitWinoCommand}" Text="{x:Bind domain:Translator.SystemTrayMenu_ExitWino}" />
                 </MenuFlyout>

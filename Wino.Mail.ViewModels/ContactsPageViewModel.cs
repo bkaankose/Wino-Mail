@@ -12,6 +12,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.ViewModels;
 
@@ -56,8 +57,8 @@ public partial class ContactsPageViewModel : MailBaseViewModel
     public bool CanLoadMoreContacts => HasMoreContacts && !IsLoading && !IsLoadingMore;
     public bool CanDeleteSelectedContacts => SelectedContactsCount > 0;
 
-    public ObservableCollection<AccountContact> Contacts { get; } = new();
-    public ObservableCollection<AccountContact> SelectedContacts { get; } = new();
+    public ObservableCollection<AccountContactViewModel> Contacts { get; } = new();
+    public ObservableCollection<AccountContactViewModel> SelectedContacts { get; } = new();
 
     public ContactsPageViewModel(IContactService contactService, IMailDialogService dialogService)
     {
@@ -150,7 +151,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel
 
                 foreach (var contact in page.Contacts)
                 {
-                    Contacts.Add(contact);
+                    Contacts.Add(new AccountContactViewModel(contact));
                 }
 
                 TotalContactsCount = page.TotalCount;
@@ -217,8 +218,9 @@ public partial class ContactsPageViewModel : MailBaseViewModel
     }
 
     [RelayCommand]
-    private async Task EditContactAsync(AccountContact contact)
+    private async Task EditContactAsync(AccountContactViewModel contactViewModel)
     {
+        var contact = contactViewModel?.SourceContact;
         if (contact == null) return;
 
         var result = await _dialogService.ShowEditContactDialogAsync(contact);
@@ -249,8 +251,9 @@ public partial class ContactsPageViewModel : MailBaseViewModel
     }
 
     [RelayCommand]
-    private async Task DeleteContactAsync(AccountContact contact)
+    private async Task DeleteContactAsync(AccountContactViewModel contactViewModel)
     {
+        var contact = contactViewModel?.SourceContact;
         if (contact == null || contact.IsRootContact)
         {
             _dialogService.InfoBarMessage(
@@ -277,6 +280,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel
         if (SelectedContacts.Count == 0) return;
 
         var deletableContacts = SelectedContacts
+            .Select(c => c?.SourceContact)
             .Where(c => c != null && !c.IsRootContact)
             .GroupBy(c => c.Address, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
@@ -366,8 +370,9 @@ public partial class ContactsPageViewModel : MailBaseViewModel
     }
 
     [RelayCommand]
-    private async Task PickContactPhotoAsync(AccountContact contact)
+    private async Task PickContactPhotoAsync(AccountContactViewModel contactViewModel)
     {
+        var contact = contactViewModel?.SourceContact;
         if (contact == null) return;
 
         try
@@ -410,7 +415,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel
         });
     }
 
-    private static void ReplaceContactByAddress(ObservableCollection<AccountContact> source, AccountContact updatedContact)
+    private static void ReplaceContactByAddress(ObservableCollection<AccountContactViewModel> source, AccountContact updatedContact)
     {
         var index = source
             .Select((item, i) => new { item, i })
@@ -419,7 +424,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel
 
         if (index < 0) return;
 
-        source[index] = CloneContact(updatedContact);
+        source[index] = new AccountContactViewModel(CloneContact(updatedContact));
     }
 
     private static AccountContact CloneContact(AccountContact contact)

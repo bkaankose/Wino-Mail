@@ -49,15 +49,12 @@ public sealed partial class AccountDetailsPage : AccountDetailsPageAbstract
     {
         base.OnNavigatedTo(e);
 
-        if (e.NavigationMode == NavigationMode.New)
+        var targetTabIndex = ViewModel.SelectedTabIndex;
+        if (targetTabIndex < 0 || targetTabIndex >= TabSelector.Items.Count)
         {
-            var targetTabIndex = ViewModel.SelectedTabIndex;
-            if (targetTabIndex < 0 || targetTabIndex >= TabSelector.Items.Count)
-            {
-                targetTabIndex = 1;
-            }
-
-            TabSelector.SelectedItem = TabSelector.Items[targetTabIndex];
+            targetTabIndex = 1;
         }
+
+        TabSelector.SelectedItem = TabSelector.Items[targetTabIndex];
     }
 }

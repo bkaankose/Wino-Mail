@@ -34,6 +34,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     public INavigationService NavigationService { get; } = WinoApplication.Current.Services.GetService<INavigationService>() ?? throw new Exception("NavigationService not registered in DI container.");
 
     public ICommand ShowWinoCommand { get; set; }
+    public ICommand ShowWinoCalendarCommand { get; set; }
     public ICommand ExitWinoCommand { get; set; }
 
     public ObservableCollection<SynchronizationActionItem> SyncActionItems { get; } = new();
@@ -60,7 +61,8 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         // Register global mouse button listener for back button
         RegisterMouseBackButtonListener();
 
-        ShowWinoCommand = new RelayCommand(RestoreFromTray);
+        ShowWinoCommand = new RelayCommand(() => RestoreAndSwitchMode(WinoApplicationMode.Mail));
+        ShowWinoCalendarCommand = new RelayCommand(() => RestoreAndSwitchMode(WinoApplicationMode.Calendar));
         ExitWinoCommand = new RelayCommand(ForceClose);
 
         this.SetIcon("Assets/Wino_Icon.ico");
@@ -279,6 +281,18 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
         this.Show();
         BringToFront();
+    }
+
+    private void RestoreAndSwitchMode(WinoApplicationMode mode)
+    {
+        _currentMode = mode;
+
+        _isApplyingActivationMode = true;
+        AppModeSegmentedControl.SelectedIndex = mode == WinoApplicationMode.Mail ? 0 : 1;
+        _isApplyingActivationMode = false;
+
+        NavigationService.ChangeApplicationMode(mode);
+        RestoreFromTray();
     }
 
     public void ForceClose()
