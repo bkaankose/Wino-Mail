@@ -33,6 +33,7 @@ public enum WinoPage
     CalendarSettingsPage,
     CalendarAccountSettingsPage,
     EventDetailsPage,
+    CalendarEventComposePage,
     SignatureAndEncryptionPage,
     StoragePage,
     WelcomePageV2,

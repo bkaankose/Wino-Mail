@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -9,6 +10,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Calendar.ViewModels.Interfaces;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
@@ -73,7 +75,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
                              ICalendarService calendarService,
                              IAccountCalendarStateService accountCalendarStateService,
                              INavigationService navigationService,
-                             IDialogServiceBase dialogService,
+                             IMailDialogService dialogService,
                              IUpdateManager updateManager)
     {
         _accountService = accountService;
@@ -290,7 +292,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     private DateTime? _navigationDate;
     private readonly IAccountService _accountService;
     private readonly ICalendarService _calendarService;
-    private readonly IDialogServiceBase _dialogService;
+    private readonly IMailDialogService _dialogService;
     private readonly IUpdateManager _updateManager;
 
     #region Commands
@@ -305,6 +307,41 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
     [RelayCommand]
     public void ManageAccounts() => NavigationService.Navigate(WinoPage.AccountManagementPage);
+
+    [RelayCommand]
+    private async Task NewEventAsync()
+    {
+        var availableGroups = AccountCalendarStateService.GroupedAccountCalendars
+            .Where(group => group.AccountCalendars.Count > 0)
+            .Select(group => new CalendarPickerAccountGroup
+            {
+                Account = group.Account,
+                Calendars = group.AccountCalendars.Select(calendar => calendar.AccountCalendar).ToList()
+            })
+            .ToList();
+
+        if (availableGroups.Count == 0)
+        {
+            _dialogService.InfoBarMessage(
+                Translator.CalendarEventCompose_NoCalendarsTitle,
+                Translator.CalendarEventCompose_NoCalendarsMessage,
+                InfoBarMessageType.Warning);
+            return;
+        }
+
+        var pickedCalendar = await _dialogService.ShowSingleCalendarPickerDialogAsync(availableGroups);
+        if (pickedCalendar == null)
+            return;
+
+        var (startDate, endDate) = GetDefaultComposeDateRange();
+
+        NavigationService.Navigate(WinoPage.CalendarEventComposePage, new CalendarEventComposeNavigationArgs
+        {
+            SelectedCalendarId = pickedCalendar.Id,
+            StartDate = startDate,
+            EndDate = endDate
+        });
+    }
 
 
 
@@ -436,4 +473,20 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
     public async void Receive(AccountRemovedMessage message)
         => await InitializeAccountCalendarsAsync();
+
+    private static (DateTime StartDate, DateTime EndDate) GetDefaultComposeDateRange()
+    {
+        var localNow = DateTime.Now;
+        var roundedMinutes = localNow.Minute switch
+        {
+            < 30 => 30,
+            30 when localNow.Second == 0 && localNow.Millisecond == 0 => 30,
+            _ => 60
+        };
+
+        var startDate = new DateTime(localNow.Year, localNow.Month, localNow.Day, localNow.Hour, 0, 0);
+        startDate = roundedMinutes == 60 ? startDate.AddHours(1) : startDate.AddMinutes(roundedMinutes);
+
+        return (startDate, startDate.AddMinutes(30));
+    }
 }

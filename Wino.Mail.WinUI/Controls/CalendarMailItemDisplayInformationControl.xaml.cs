@@ -14,7 +14,6 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
-using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
 
@@ -176,7 +175,7 @@ public sealed partial class CalendarMailItemDisplayInformationControl : UserCont
         }
 
         using var stream = new MemoryStream();
-        calendarMimePart.Content.DecodeTo(stream);
+        calendarMimePart.Content?.DecodeTo(stream);
         var contentBytes = stream.ToArray();
 
         if (contentBytes.Length == 0)
