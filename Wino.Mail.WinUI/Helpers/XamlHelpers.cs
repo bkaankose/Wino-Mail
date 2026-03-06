@@ -39,6 +39,7 @@ public static class XamlHelpers
         };
     }
 
+    public static Visibility BoolToVisibilityConverter(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
     public static Visibility ReverseBoolToVisibilityConverter(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
     public static Visibility ReverseVisibilityConverter(Visibility visibility) => visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
     public static bool ReverseBoolConverter(bool value) => !value;
@@ -129,6 +130,16 @@ public static class XamlHelpers
 
     public static SolidColorBrush GetSolidColorBrushFromHex(string colorHex) => string.IsNullOrEmpty(colorHex) ? new SolidColorBrush(Colors.Transparent) : new SolidColorBrush(colorHex.ToColor());
     public static FontWeight GetFontWeightBySyncState(bool isSyncing) => isSyncing ? FontWeights.SemiBold : FontWeights.Normal;
+
+    public static Brush GetWizardStepBadgeBrush(bool isActive)
+        => isActive
+            ? (Brush)Application.Current.Resources["AccentFillColorDefaultBrush"]
+            : new SolidColorBrush(Color.FromArgb(30, 128, 128, 128));
+
+    public static Brush GetWizardStepNumberForeground(bool isActive)
+        => isActive
+            ? new SolidColorBrush(Colors.White)
+            : (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
     public static FontWeight GetFontWeightByChildSelectedState(bool isChildSelected) => isChildSelected ? FontWeights.SemiBold : FontWeights.Normal;
     public static FontWeight GetFontWeightByReadState(bool isChildSelected) => isChildSelected ? FontWeights.Normal : FontWeights.SemiBold;
     public static Visibility StringToVisibilityConverter(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Collapsed : Visibility.Visible;

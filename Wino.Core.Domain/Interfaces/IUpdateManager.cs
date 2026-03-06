@@ -1,6 +1,6 @@
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Models.Updates;
+using System.Collections.Generic;
 
 namespace Wino.Core.Domain.Interfaces;
 
@@ -18,12 +18,4 @@ public interface IUpdateManager
     /// <summary>Stores a flag in local settings indicating the update notes for the current version have been seen.</summary>
     void MarkUpdateNotesAsSeen();
 
-    /// <summary>Returns true if any registered migration has not yet been completed.</summary>
-    bool HasPendingMigrations();
-
-    /// <summary>Runs all pending migrations in order and marks each as completed in local settings.</summary>
-    Task RunPendingMigrationsAsync();
-
-    /// <summary>Registers migrations to be tracked and executed by this manager.</summary>
-    void RegisterMigrations(IEnumerable<IAppMigration> migrations);
 }

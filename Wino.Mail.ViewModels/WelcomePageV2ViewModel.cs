@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Updates;
@@ -40,6 +42,8 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
     [RelayCommand]
     private void GetStarted()
     {
-        Messenger.Send(new GetStartedFromWelcomeRequested());
+        Messenger.Send(new BreadcrumbNavigationRequested(
+            Translator.WelcomeWizard_Step2Title,
+            WinoPage.ProviderSelectionPage));
     }
 }

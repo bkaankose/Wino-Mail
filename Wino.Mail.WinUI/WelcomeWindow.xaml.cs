@@ -29,9 +29,6 @@ public sealed partial class WelcomeWindow : WindowEx
         Width = 980;
         Height = 720;
 
-        //this.IsResizable = false;
-        //this.IsMaximizable = false;
-
         this.CenterOnScreen();
 
         var themeService = WinoApplication.Current.Services.GetService<INewThemeService>();

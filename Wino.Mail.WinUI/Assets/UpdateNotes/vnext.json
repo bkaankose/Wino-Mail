@@ -1,9 +1,4 @@
 {
-    "hasPendingMigrations": true,
-    "migration": {
-        "titleKey": "WhatIsNew_MigrationPreparing_Title",
-        "descriptionKey": "WhatIsNew_MigrationPreparing_Description"
-    },
     "sections": [
         {
             "title": "# Wino Calendar is here!",

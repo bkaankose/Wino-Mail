@@ -107,6 +107,9 @@
                     </controls:Segmented>
                 </StackPanel>
             </TitleBar.RightHeader>
+            <TitleBar.IconSource>
+                <ImageIconSource ImageSource="/Assets/Wino_Icon.ico" />
+            </TitleBar.IconSource>
         </TitleBar>
 
         <Frame

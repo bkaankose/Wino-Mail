@@ -1,12 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Updates;
-using Wino.Services.Migrations;
 
 namespace Wino.Services;
 
@@ -15,12 +13,10 @@ public class UpdateManager : IUpdateManager
     private const string UpdateNotesResourcePath = "ms-appx:///Assets/UpdateNotes/vnext.json";
     private const string FeaturesResourcePath = "ms-appx:///Assets/UpdateNotes/features.json";
     private const string UpdateNotesSeenKeyFormat = "UpdateNotes_{0}_Shown";
-    private const string MigrationCompletedKeyFormat = "Migration_{0}_Completed";
 
     private readonly IFileService _fileService;
     private readonly IConfigurationService _configurationService;
     private readonly INativeAppService _nativeAppService;
-    private readonly List<IAppMigration> _migrations = [];
 
     private string _versionSeenKey = string.Empty;
     private UpdateNotes _latestUpdateNotes = new();
@@ -32,7 +28,6 @@ public class UpdateManager : IUpdateManager
         _fileService = fileService;
         _configurationService = configurationService;
         _nativeAppService = nativeAppService;
-        _migrations.Add(new VNextDelayMigration());
     }
 
     private string GetVersionSeenKey()
@@ -69,7 +64,6 @@ public class UpdateManager : IUpdateManager
         }
     }
 
-    // T
     public bool ShouldShowUpdateNotes()
         => !_configurationService.Get(GetVersionSeenKey(), false);
 
@@ -92,35 +86,4 @@ public class UpdateManager : IUpdateManager
 
     public void MarkUpdateNotesAsSeen()
         => _configurationService.Set(GetVersionSeenKey(), true);
-
-    public bool HasPendingMigrations()
-    {
-        if (!_latestUpdateNotes.HasPendingMigrations)
-            return false;
-
-        return _migrations.Any(m => !_configurationService.Get(string.Format(MigrationCompletedKeyFormat, m.MigrationId), false));
-    }
-
-    public async Task RunPendingMigrationsAsync()
-    {
-        if (!_latestUpdateNotes.HasPendingMigrations)
-            _latestUpdateNotes = await GetLatestUpdateNotesAsync();
-
-        if (!_latestUpdateNotes.HasPendingMigrations)
-            return;
-
-        foreach (var migration in _migrations)
-        {
-            var key = string.Format(MigrationCompletedKeyFormat, migration.MigrationId);
-
-            if (!_configurationService.Get(key, false))
-            {
-                await migration.ExecuteAsync();
-                _configurationService.Set(key, true);
-            }
-        }
-    }
-
-    public void RegisterMigrations(IEnumerable<IAppMigration> migrations)
-        => _migrations.AddRange(migrations);
 }

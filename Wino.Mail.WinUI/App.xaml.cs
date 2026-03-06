@@ -23,9 +23,9 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Domain.Models.Updates;
 using Wino.Mail.Services;
 using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Activation;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
@@ -42,6 +42,7 @@ public partial class App : WinoApplication,
     IRecipient<NewMailSynchronizationRequested>,
     IRecipient<NewCalendarSynchronizationRequested>,
     IRecipient<AccountCreatedMessage>,
+    IRecipient<AccountRemovedMessage>,
     IRecipient<GetStartedFromWelcomeRequested>
 {
     private const int InboxSyncsPerFullSync = 20;
@@ -146,6 +147,10 @@ public partial class App : WinoApplication,
         services.AddTransient(typeof(AccountManagementViewModel));
         services.AddTransient(typeof(WelcomePageViewModel));
         services.AddTransient(typeof(WelcomePageV2ViewModel));
+        services.AddTransient(typeof(ProviderSelectionPageViewModel));
+        services.AddTransient(typeof(AccountSetupProgressPageViewModel));
+        services.AddTransient(typeof(SpecialImapCredentialsPageViewModel));
+        services.AddSingleton(typeof(WelcomeWizardContext));
 
         services.AddTransient(typeof(ComposePageViewModel));
         services.AddTransient(typeof(IdlePageViewModel));
@@ -218,18 +223,10 @@ public partial class App : WinoApplication,
             return;
         }
 
-        // Check whether the new version requires a migration before starting sync.
-        var updateManager = Services.GetRequiredService<IUpdateManager>();
-        var updateNotes = await updateManager.GetLatestUpdateNotesAsync();
-        bool hasPendingMigration = updateNotes.HasPendingMigrations && updateManager.HasPendingMigrations();
-
         _preferencesService.PreferenceChanged -= PreferencesServiceChanged;
         _preferencesService.PreferenceChanged += PreferencesServiceChanged;
 
-        // Hold off sync loop when a migration is required in startup-task (tray-only) mode.
-        // In foreground mode the sync loop starts normally; the ViewModel dialog handles migrations before sync kicks in.
-        if (!hasPendingMigration || !IsStartupTaskLaunch())
-            RestartAutoSynchronizationLoop();
+        RestartAutoSynchronizationLoop();
 
         // Check if launched from toast notification.
         if (IsNotificationActivation(out AppNotificationActivatedEventArgs toastArgs))
@@ -253,16 +250,7 @@ public partial class App : WinoApplication,
         // Otherwise, activate the window normally.
         if (isStartupTaskLaunch)
         {
-            if (hasPendingMigration)
-            {
-                // Notify the user to open the app to complete the update before sync can resume.
-                Services.GetRequiredService<INotificationBuilder>().CreateMigrationRequiredNotification();
-                LogActivation("Migration required for new version. Sync skipped. User notified via toast.");
-            }
-            else
-            {
-                LogActivation("Launched by startup task. Window created but hidden (system tray only).");
-            }
+            LogActivation("Launched by startup task. Window created but hidden (system tray only).");
         }
         else
         {
@@ -305,13 +293,6 @@ public partial class App : WinoApplication,
     {
         var toastArguments = ToastArguments.Parse(toastArgs.Argument);
 
-        // Check migration notification activation first.
-        if (toastArguments.Contains(Constants.ToastMigrationRequiredKey))
-        {
-            await HandleMigrationToastActivationAsync();
-            return;
-        }
-
         // Check calendar reminder toast activation first.
         if (toastArguments.TryGetValue(Constants.ToastCalendarActionKey, out string calendarAction) &&
             calendarAction == Constants.ToastCalendarNavigateAction &&
@@ -339,29 +320,6 @@ public partial class App : WinoApplication,
                 await HandleToastActionAsync(action, mailItemUniqueId);
             }
         }
-    }
-
-    /// <summary>
-    /// Handles activation from the migration-required toast notification.
-    /// Opens the app so the shell ViewModel can show the What's New dialog and run migrations.
-    /// </summary>
-    private async Task HandleMigrationToastActivationAsync()
-    {
-        LogActivation("Handling migration toast activation.");
-
-        if (!IsAppRunning())
-        {
-            await CreateAndActivateWindow(null!);
-        }
-        else
-        {
-            EnsureMainWindowVisibleAndForeground();
-        }
-
-        // The MailAppShellViewModel.OnNavigatedTo will detect ShouldShowUpdateNotes() == true
-        // and display the What's New dialog (including running migrations) once the XamlRoot is ready.
-        // Restart sync in case it was blocked.
-        RestartAutoSynchronizationLoop();
     }
 
     private async Task HandleCalendarToastNavigationAsync(Guid calendarItemId)
@@ -593,7 +551,7 @@ public partial class App : WinoApplication,
         InitializeNavigationDispatcher();
 
         Services.GetRequiredService<INavigationService>()
-            .Navigate(WinoPage.WelcomePageV2, null, NavigationReferenceFrame.ShellFrame, NavigationTransitionType.None);
+            .Navigate(WinoPage.WelcomeHostPage, null, NavigationReferenceFrame.ShellFrame, NavigationTransitionType.None);
     }
 
     private void InitializeNavigationDispatcher()
@@ -627,6 +585,7 @@ public partial class App : WinoApplication,
         WeakReferenceMessenger.Default.Register<NewMailSynchronizationRequested>(this);
         WeakReferenceMessenger.Default.Register<NewCalendarSynchronizationRequested>(this);
         WeakReferenceMessenger.Default.Register<AccountCreatedMessage>(this);
+        WeakReferenceMessenger.Default.Register<AccountRemovedMessage>(this);
         WeakReferenceMessenger.Default.Register<GetStartedFromWelcomeRequested>(this);
     }
 
@@ -696,6 +655,29 @@ public partial class App : WinoApplication,
             await NewThemeService.ApplyThemeToActiveWindowAsync();
             MainWindow?.Activate();
             RestartAutoSynchronizationLoop();
+        });
+    }
+
+    public void Receive(AccountRemovedMessage message)
+    {
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+
+        // Only handle when ShellWindow is active (not during wizard rollback)
+        if (windowManager.GetWindow(WinoWindowKind.Shell) == null)
+            return;
+
+        MainWindow?.DispatcherQueue?.TryEnqueue(async () =>
+        {
+            var accounts = await _accountService!.GetAccountsAsync();
+            if (accounts.Any()) return;
+
+            // All accounts removed — go back to welcome wizard from step 1
+            Services.GetRequiredService<WelcomeWizardContext>().Reset();
+            StopAutoSynchronizationLoop();
+            CreateWelcomeWindow();
+            windowManager.HideWindow(WinoWindowKind.Shell);
+            await NewThemeService.ApplyThemeToActiveWindowAsync();
+            MainWindow?.Activate();
         });
     }
 

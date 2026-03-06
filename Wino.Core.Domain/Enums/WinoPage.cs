@@ -35,5 +35,9 @@ public enum WinoPage
     EventDetailsPage,
     SignatureAndEncryptionPage,
     StoragePage,
-    WelcomePageV2
+    WelcomePageV2,
+    WelcomeHostPage,
+    ProviderSelectionPage,
+    AccountSetupProgressPage,
+    SpecialImapCredentialsPage
 }

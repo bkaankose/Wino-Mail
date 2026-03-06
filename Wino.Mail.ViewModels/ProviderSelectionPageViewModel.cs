@@ -1,0 +1,122 @@
+using System.Collections.Generic;
+using System.Linq;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.ViewModels.Data;
+using Wino.Mail.ViewModels.Data;
+using Wino.Messaging.Client.Navigation;
+
+namespace Wino.Mail.ViewModels;
+
+public partial class ProviderSelectionPageViewModel : MailBaseViewModel
+{
+    private readonly IProviderService _providerService;
+    private readonly INewThemeService _themeService;
+
+    public WelcomeWizardContext WizardContext { get; }
+
+    public List<IProviderDetail> Providers { get; private set; } = [];
+    public List<AppColorViewModel> AvailableColors { get; private set; } = [];
+
+    [ObservableProperty]
+    public partial IProviderDetail SelectedProvider { get; set; }
+
+    [ObservableProperty]
+    public partial AppColorViewModel SelectedColor { get; set; }
+
+    [ObservableProperty]
+    public partial string AccountName { get; set; }
+
+    [ObservableProperty]
+    public partial bool CanProceed { get; set; }
+
+    public bool IsColorSelected => SelectedColor != null;
+
+    public ProviderSelectionPageViewModel(
+        IProviderService providerService,
+        INewThemeService themeService,
+        WelcomeWizardContext wizardContext)
+    {
+        _providerService = providerService;
+        _themeService = themeService;
+        WizardContext = wizardContext;
+    }
+
+    public override void OnNavigatedTo(NavigationMode mode, object parameters)
+    {
+        base.OnNavigatedTo(mode, parameters);
+
+        Providers = _providerService.GetAvailableProviders();
+        AvailableColors = _themeService.GetAvailableAccountColors()
+            .Select(hex => new AppColorViewModel(hex))
+            .ToList();
+
+        // Restore from wizard context if navigating back
+        if (WizardContext.SelectedProvider != null)
+        {
+            SelectedProvider = Providers.FirstOrDefault(p =>
+                p.Type == WizardContext.SelectedProvider.Type &&
+                p.SpecialImapProvider == WizardContext.SelectedProvider.SpecialImapProvider);
+            AccountName = WizardContext.AccountName;
+
+            if (WizardContext.AccountColorHex != null)
+                SelectedColor = AvailableColors.FirstOrDefault(c => c.Hex == WizardContext.AccountColorHex);
+        }
+
+        Validate();
+    }
+
+    partial void OnSelectedProviderChanged(IProviderDetail value) => Validate();
+    partial void OnAccountNameChanged(string value) => Validate();
+    partial void OnSelectedColorChanged(AppColorViewModel value) => OnPropertyChanged(nameof(IsColorSelected));
+
+    [RelayCommand]
+    private void ClearColor() => SelectedColor = null;
+
+    private void Validate()
+    {
+        CanProceed = SelectedProvider != null && !string.IsNullOrWhiteSpace(AccountName);
+    }
+
+    [RelayCommand]
+    private void Proceed()
+    {
+        if (!CanProceed) return;
+
+        // Persist to wizard context
+        WizardContext.SelectedProvider = SelectedProvider;
+        WizardContext.AccountName = AccountName?.Trim();
+        WizardContext.AccountColorHex = SelectedColor?.Hex ?? string.Empty;
+
+        if (WizardContext.IsGenericImap)
+        {
+            // Navigate to ImapCalDavSettingsPage in wizard mode
+            var context = ImapCalDavSettingsNavigationContext.CreateForWizardMode(
+                WizardContext.BuildAccountCreationDialogResult());
+
+            Messenger.Send(new BreadcrumbNavigationRequested(
+                Translator.ImapCalDavSettingsPage_TitleCreate,
+                WinoPage.ImapCalDavSettingsPage,
+                context));
+        }
+        else if (SelectedProvider.SpecialImapProvider is SpecialImapProvider.iCloud or SpecialImapProvider.Yahoo)
+        {
+            // Navigate to credentials page for special IMAP providers
+            Messenger.Send(new BreadcrumbNavigationRequested(
+                SelectedProvider.Name,
+                WinoPage.SpecialImapCredentialsPage));
+        }
+        else
+        {
+            // OAuth — go directly to progress page
+            Messenger.Send(new BreadcrumbNavigationRequested(
+                Translator.WelcomeWizard_Step3Title,
+                WinoPage.AccountSetupProgressPage));
+        }
+    }
+}

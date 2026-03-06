@@ -45,7 +45,11 @@ public class NavigationService : NavigationServiceBase, INavigationService
         WinoPage.ComposePage,
         WinoPage.IdlePage,
         WinoPage.WelcomePage,
-        WinoPage.WelcomePageV2
+        WinoPage.WelcomePageV2,
+        WinoPage.WelcomeHostPage,
+        WinoPage.ProviderSelectionPage,
+        WinoPage.AccountSetupProgressPage,
+        WinoPage.SpecialImapCredentialsPage
     ];
 
     private static readonly WinoPage[] CalendarOnlyPages =
@@ -116,6 +120,10 @@ public class NavigationService : NavigationServiceBase, INavigationService
             WinoPage.ContactsPage => typeof(ContactsPage),
             WinoPage.SignatureAndEncryptionPage => typeof(SignatureAndEncryptionPage),
             WinoPage.StoragePage => typeof(StoragePage),
+            WinoPage.WelcomeHostPage => typeof(WelcomeHostPage),
+            WinoPage.ProviderSelectionPage => typeof(ProviderSelectionPage),
+            WinoPage.AccountSetupProgressPage => typeof(AccountSetupProgressPage),
+            WinoPage.SpecialImapCredentialsPage => typeof(SpecialImapCredentialsPage),
             WinoPage.CalendarPage => typeof(CalendarPage),
             WinoPage.EventDetailsPage => typeof(EventDetailsPage),
             WinoPage.CalendarSettingsPage => typeof(CalendarSettingsPage),

@@ -4,7 +4,7 @@
     xmlns:xaml="using:Microsoft.UI.Xaml">
 
     <x:String x:Key="ThemeName">Clouds</x:String>
-    <x:String x:Key="ThemeBackgroundImage">ms-appx:///Wino.Mail.WinUI/BackgroundImages/Clouds.jpg</x:String>
+    <x:String x:Key="ThemeBackgroundImage">ms-appx:///BackgroundImages/Clouds.jpg</x:String>
 
     <ImageBrush x:Key="WinoApplicationBackgroundColor" ImageSource="{StaticResource ThemeBackgroundImage}" />
     <SolidColorBrush x:Key="AppBarBackgroundColor">Transparent</SolidColorBrush>

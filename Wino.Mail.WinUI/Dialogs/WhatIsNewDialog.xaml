@@ -22,40 +22,16 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <controls:UpdateNotesFlipViewControl x:Name="UpdateNotesControl" Sections="{x:Bind Sections, Mode=OneTime}" />
 
         <StackPanel
-            x:Name="MigrationPanel"
             Grid.Row="1"
-            Spacing="8"
-            Visibility="Collapsed">
-            <TextBlock x:Name="MigrationTitleText" Style="{StaticResource BodyStrongTextBlockStyle}" />
-            <TextBlock x:Name="MigrationDescriptionText" TextWrapping="WrapWholeWords" />
-            <ProgressBar
-                x:Name="MigrationProgressBar"
-                IsIndeterminate="True"
-                Visibility="Collapsed" />
-            <TextBlock
-                x:Name="MigrationErrorText"
-                Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                TextWrapping="WrapWholeWords"
-                Visibility="Collapsed" />
-        </StackPanel>
-
-        <StackPanel
-            Grid.Row="2"
             HorizontalAlignment="Right"
             VerticalAlignment="Center"
             Orientation="Horizontal"
             Spacing="8">
-            <Button
-                x:Name="ContinueAnywayButton"
-                Click="OnContinueAnywayClicked"
-                Content="{x:Bind domain:Translator.WhatIsNew_ContinueAnywayButton}"
-                Visibility="Collapsed" />
             <Button
                 x:Name="GetStartedButton"
                 Click="OnGetStartedClicked"

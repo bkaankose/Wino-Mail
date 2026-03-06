@@ -78,13 +78,9 @@
                             Text="{x:Bind ViewModel.EmailAddress, Mode=TwoWay}" />
                     </Grid>
 
-                    <PasswordBox
-                        Header="{x:Bind ViewModel.PasswordHeaderText, Mode=OneWay}"
-                        Password="{x:Bind ViewModel.Password, Mode=TwoWay}" />
+                    <PasswordBox Header="{x:Bind ViewModel.PasswordHeaderText, Mode=OneWay}" Password="{x:Bind ViewModel.Password, Mode=TwoWay}" />
 
-                    <CheckBox
-                        Content="{x:Bind ViewModel.EnableCalendarSupportText, Mode=OneWay}"
-                        IsChecked="{x:Bind ViewModel.IsCalendarSupportEnabled, Mode=TwoWay}" />
+                    <CheckBox Content="{x:Bind ViewModel.EnableCalendarSupportText, Mode=OneWay}" IsChecked="{x:Bind ViewModel.IsCalendarSupportEnabled, Mode=TwoWay}" />
 
                     <Button
                         HorizontalAlignment="Left"
@@ -131,18 +127,10 @@
                                     <FontIcon FontSize="14" Glyph="&#xE896;" />
                                     <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.IncomingSectionTitleText, Mode=OneWay}" />
                                 </StackPanel>
-                                <TextBox
-                                    Header="{x:Bind ViewModel.IncomingServerHeaderText, Mode=OneWay}"
-                                    Text="{x:Bind ViewModel.IncomingServer, Mode=TwoWay}" />
-                                <TextBox
-                                    Header="{x:Bind ViewModel.PortHeaderText, Mode=OneWay}"
-                                    Text="{x:Bind ViewModel.IncomingServerPort, Mode=TwoWay}" />
-                                <TextBox
-                                    Header="{x:Bind ViewModel.IncomingUsernameHeaderText, Mode=OneWay}"
-                                    Text="{x:Bind ViewModel.IncomingServerUsername, Mode=TwoWay}" />
-                                <PasswordBox
-                                    Header="{x:Bind ViewModel.IncomingPasswordHeaderText, Mode=OneWay}"
-                                    Password="{x:Bind ViewModel.IncomingServerPassword, Mode=TwoWay}" />
+                                <TextBox Header="{x:Bind ViewModel.IncomingServerHeaderText, Mode=OneWay}" Text="{x:Bind ViewModel.IncomingServer, Mode=TwoWay}" />
+                                <TextBox Header="{x:Bind ViewModel.PortHeaderText, Mode=OneWay}" Text="{x:Bind ViewModel.IncomingServerPort, Mode=TwoWay}" />
+                                <TextBox Header="{x:Bind ViewModel.IncomingUsernameHeaderText, Mode=OneWay}" Text="{x:Bind ViewModel.IncomingServerUsername, Mode=TwoWay}" />
+                                <PasswordBox Header="{x:Bind ViewModel.IncomingPasswordHeaderText, Mode=OneWay}" Password="{x:Bind ViewModel.IncomingServerPassword, Mode=TwoWay}" />
                                 <ComboBox
                                     HorizontalAlignment="Stretch"
                                     Header="{x:Bind ViewModel.ConnectionSecurityHeaderText, Mode=OneWay}"
@@ -167,18 +155,10 @@
                                     <FontIcon FontSize="14" Glyph="&#xE898;" />
                                     <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.OutgoingSectionTitleText, Mode=OneWay}" />
                                 </StackPanel>
-                                <TextBox
-                                    Header="{x:Bind ViewModel.OutgoingServerHeaderText, Mode=OneWay}"
-                                    Text="{x:Bind ViewModel.OutgoingServer, Mode=TwoWay}" />
-                                <TextBox
-                                    Header="{x:Bind ViewModel.PortHeaderText, Mode=OneWay}"
-                                    Text="{x:Bind ViewModel.OutgoingServerPort, Mode=TwoWay}" />
-                                <TextBox
-                                    Header="{x:Bind ViewModel.OutgoingUsernameHeaderText, Mode=OneWay}"
-                                    Text="{x:Bind ViewModel.OutgoingServerUsername, Mode=TwoWay}" />
-                                <PasswordBox
-                                    Header="{x:Bind ViewModel.OutgoingPasswordHeaderText, Mode=OneWay}"
-                                    Password="{x:Bind ViewModel.OutgoingServerPassword, Mode=TwoWay}" />
+                                <TextBox Header="{x:Bind ViewModel.OutgoingServerHeaderText, Mode=OneWay}" Text="{x:Bind ViewModel.OutgoingServer, Mode=TwoWay}" />
+                                <TextBox Header="{x:Bind ViewModel.PortHeaderText, Mode=OneWay}" Text="{x:Bind ViewModel.OutgoingServerPort, Mode=TwoWay}" />
+                                <TextBox Header="{x:Bind ViewModel.OutgoingUsernameHeaderText, Mode=OneWay}" Text="{x:Bind ViewModel.OutgoingServerUsername, Mode=TwoWay}" />
+                                <PasswordBox Header="{x:Bind ViewModel.OutgoingPasswordHeaderText, Mode=OneWay}" Password="{x:Bind ViewModel.OutgoingServerPassword, Mode=TwoWay}" />
                                 <ComboBox
                                     HorizontalAlignment="Stretch"
                                     Header="{x:Bind ViewModel.ConnectionSecurityHeaderText, Mode=OneWay}"
