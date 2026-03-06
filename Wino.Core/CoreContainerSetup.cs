@@ -41,6 +41,7 @@ public static class CoreContainerSetup
         // Register Outlook error handlers
         services.AddTransient<ObjectCannotBeDeletedHandler>();
         services.AddTransient<DeltaTokenExpiredHandler>();
+        services.AddTransient<OutlookRateLimitHandler>();
 
         // Register Gmail error handlers
         services.AddTransient<GmailQuotaExceededHandler>();

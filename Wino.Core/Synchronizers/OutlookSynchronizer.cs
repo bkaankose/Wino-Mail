@@ -18,7 +18,6 @@ using Microsoft.Graph.Models;
 using Microsoft.Graph.Models.ODataErrors;
 using Microsoft.Kiota.Abstractions;
 using Microsoft.Kiota.Abstractions.Authentication;
-using Microsoft.Kiota.Abstractions.Serialization;
 using MimeKit;
 using MoreLinq.Extensions;
 using Serilog;
@@ -1141,77 +1140,81 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         }
     }
 
-    private async Task<T> DeserializeGraphBatchResponseAsync<T>(BatchResponseContentCollection collection, string requestId, CancellationToken cancellationToken = default) where T : IParsable, new()
+    private async Task<OutlookSpecialFolderIdInformation> GetSpecialFolderIdsAsync(CancellationToken cancellationToken)
     {
-        // This deserialization may throw generalException in case of failure.
-        // Bug: https://github.com/microsoftgraph/msgraph-sdk-dotnet/issues/2010
-        // This is a workaround for the bug to retrieve the actual exception.
-        // All generic batch response deserializations must go under this method.
+        var localFolders = await _outlookChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
+        var cachedSpecialFolders = TryGetSpecialFolderIdsFromLocalFolders(localFolders);
 
+        if (cachedSpecialFolders != null)
+        {
+            _logger.Debug("Using cached Outlook special folder ids for {AccountName}", Account.Name);
+            return cachedSpecialFolders;
+        }
+
+        _logger.Information("Cached Outlook special folder ids are incomplete for {AccountName}. Fetching from Microsoft Graph.", Account.Name);
+
+        return new OutlookSpecialFolderIdInformation(
+            await GetWellKnownFolderIdAsync(INBOX_NAME, cancellationToken).ConfigureAwait(false),
+            await GetWellKnownFolderIdAsync(DELETED_NAME, cancellationToken).ConfigureAwait(false),
+            await GetWellKnownFolderIdAsync(JUNK_NAME, cancellationToken).ConfigureAwait(false),
+            await GetWellKnownFolderIdAsync(DRAFTS_NAME, cancellationToken).ConfigureAwait(false),
+            await GetWellKnownFolderIdAsync(SENT_NAME, cancellationToken).ConfigureAwait(false),
+            await GetWellKnownFolderIdAsync(ARCHIVE_NAME, cancellationToken).ConfigureAwait(false));
+    }
+
+    private async Task<string> GetWellKnownFolderIdAsync(string wellKnownFolderName, CancellationToken cancellationToken)
+    {
         try
         {
-            return await collection.GetResponseByIdAsync<T>(requestId);
+            var folder = await _graphClient.Me.MailFolders[wellKnownFolderName]
+                .GetAsync(requestConfiguration =>
+                {
+                    requestConfiguration.QueryParameters.Select = ["id"];
+                }, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+
+            if (string.IsNullOrWhiteSpace(folder?.Id))
+            {
+                throw new SynchronizerException($"Outlook special folder '{wellKnownFolderName}' returned no id.");
+            }
+
+            return folder.Id;
         }
-        catch (ODataError)
+        catch (OperationCanceledException)
         {
             throw;
         }
-        //catch (ServiceException retryAfterException) when (retryAfterException.ResponseStatusCode == 429 && retryAfterException.ResponseHeaders.Contains("Retry-After"))
-        //{
-        //    // This request must be retried after some time.
-        //    var retryAfterValue = retryAfterException.ResponseHeaders.GetValues("Retry-After").FirstOrDefault();
-
-        //    if (int.TryParse(retryAfterValue, out int seconds))
-        //    {
-        //        await Task.Delay(seconds);
-        //    }
-        //}
-        catch (ServiceException serviceException)
+        catch (Exception ex)
         {
-            // TODO: AOT Comaptible inner exception deserialization.
-
-            // Actual exception is hidden inside ServiceException.
-            // ODataError errorResult = await KiotaJsonSerializer.DeserializeAsync<ODataError>(serviceException.RawResponseBody, cancellationToken);
-
-            throw new SynchronizerException("Outlook Error", serviceException);
+            _logger.Warning(ex, "Failed to fetch Outlook special folder id for {FolderName}", wellKnownFolderName);
+            throw;
         }
     }
 
-    private async Task<OutlookSpecialFolderIdInformation> GetSpecialFolderIdsAsync(CancellationToken cancellationToken)
+    private static OutlookSpecialFolderIdInformation TryGetSpecialFolderIdsFromLocalFolders(IEnumerable<MailItemFolder> localFolders)
     {
-        var wellKnownFolderIdBatch = new BatchRequestContentCollection(_graphClient);
-        var folderRequests = new Dictionary<string, RequestInformation>
+        if (localFolders == null)
         {
-            { INBOX_NAME, _graphClient.Me.MailFolders[INBOX_NAME].ToGetRequestInformation((t) => { t.QueryParameters.Select = ["id"]; }) },
-            { SENT_NAME, _graphClient.Me.MailFolders[SENT_NAME].ToGetRequestInformation((t) => { t.QueryParameters.Select = ["id"]; }) },
-            { DELETED_NAME, _graphClient.Me.MailFolders[DELETED_NAME].ToGetRequestInformation((t) => { t.QueryParameters.Select = ["id"]; }) },
-            { JUNK_NAME, _graphClient.Me.MailFolders[JUNK_NAME].ToGetRequestInformation((t) => { t.QueryParameters.Select = ["id"]; }) },
-            { DRAFTS_NAME, _graphClient.Me.MailFolders[DRAFTS_NAME].ToGetRequestInformation((t) => { t.QueryParameters.Select = ["id"]; }) },
-            { ARCHIVE_NAME, _graphClient.Me.MailFolders[ARCHIVE_NAME].ToGetRequestInformation((t) => { t.QueryParameters.Select = ["id"]; }) }
-        };
-
-        var batchIds = new Dictionary<string, string>();
-        foreach (var request in folderRequests)
-        {
-            batchIds[request.Key] = await wellKnownFolderIdBatch.AddBatchRequestStepAsync(request.Value);
+            return null;
         }
 
-        var returnedResponse = await _graphClient.Batch.PostAsync(wellKnownFolderIdBatch, cancellationToken).ConfigureAwait(false);
+        var inboxId = GetSpecialFolderRemoteId(localFolders, SpecialFolderType.Inbox);
+        var deletedId = GetSpecialFolderRemoteId(localFolders, SpecialFolderType.Deleted);
+        var junkId = GetSpecialFolderRemoteId(localFolders, SpecialFolderType.Junk);
+        var draftId = GetSpecialFolderRemoteId(localFolders, SpecialFolderType.Draft);
+        var sentId = GetSpecialFolderRemoteId(localFolders, SpecialFolderType.Sent);
+        var archiveId = GetSpecialFolderRemoteId(localFolders, SpecialFolderType.Archive);
 
-        var folderIds = new Dictionary<string, string>();
-        foreach (var batchId in batchIds)
+        if (new[] { inboxId, deletedId, junkId, draftId, sentId, archiveId }.Any(string.IsNullOrWhiteSpace))
         {
-            folderIds[batchId.Key] = (await DeserializeGraphBatchResponseAsync<MailFolder>(returnedResponse, batchId.Value, cancellationToken)).Id;
+            return null;
         }
 
-        return new OutlookSpecialFolderIdInformation(
-            folderIds[INBOX_NAME],
-            folderIds[DELETED_NAME],
-            folderIds[JUNK_NAME],
-            folderIds[DRAFTS_NAME],
-            folderIds[SENT_NAME],
-            folderIds[ARCHIVE_NAME]);
+        return new OutlookSpecialFolderIdInformation(inboxId, deletedId, junkId, draftId, sentId, archiveId);
     }
+
+    private static string GetSpecialFolderRemoteId(IEnumerable<MailItemFolder> localFolders, SpecialFolderType specialFolderType)
+        => localFolders.FirstOrDefault(folder => folder.SpecialFolderType == specialFolderType && !string.IsNullOrWhiteSpace(folder.RemoteFolderId))?.RemoteFolderId;
 
     private async Task<Microsoft.Graph.Me.MailFolders.Delta.DeltaGetResponse> GetDeltaFoldersAsync(CancellationToken cancellationToken)
     {
@@ -1865,8 +1868,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         // Try to handle the error with registered handlers
         var handled = await _errorHandlingFactory.HandleErrorAsync(errorContext);
 
-        // If not handled by any specific handler, revert UI changes and add to error list
-        if (!handled)
+        // Transient errors still need to bubble so the request can be retried or surfaced to the caller.
+        if (!handled || errorContext.Severity == SynchronizerErrorSeverity.Transient)
         {
             bundle.UIChangeRequest?.RevertUIChanges();
             Debug.WriteLine(errorString);

@@ -8,8 +8,10 @@ public class OutlookSynchronizerErrorHandlingFactory : SynchronizerErrorHandling
 {
     public OutlookSynchronizerErrorHandlingFactory(ObjectCannotBeDeletedHandler objectCannotBeDeleted,
                                                  EntityNotFoundHandler entityNotFoundHandler,
-                                                 DeltaTokenExpiredHandler deltaTokenExpiredHandler)
+                                                 DeltaTokenExpiredHandler deltaTokenExpiredHandler,
+                                                 OutlookRateLimitHandler outlookRateLimitHandler)
     {
+        RegisterHandler(outlookRateLimitHandler);
         RegisterHandler(objectCannotBeDeleted);
         RegisterHandler(entityNotFoundHandler);
         RegisterHandler(deltaTokenExpiredHandler);
