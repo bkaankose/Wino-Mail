@@ -748,6 +748,8 @@
     "SettingsOptions_MailSection": "Mail",
     "SettingsOptions_CalendarSection": "Calendar",
     "SettingsOptions_MoreComingSoon": "More options coming soon",
+    "SettingsOptions_HeroDescription": "Customize your Wino Mail experience",
+    "SettingsOptions_AccountsSummary": "{0} account(s) configured",
     "SettingsPaneLengthReset_Description": "Reset the size of the mail list to original if you have issues with it.",
     "SettingsPaneLengthReset_Title": "Reset Mail List Size",
     "SettingsPaypal_Description": "Show much more love ❤️ All donations are appreciated.",

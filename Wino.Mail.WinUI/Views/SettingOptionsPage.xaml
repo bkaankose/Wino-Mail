@@ -13,16 +13,17 @@
     mc:Ignorable="d">
 
     <ScrollViewer Padding="0,0,16,0" VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="0,8,0,24" Spacing="16">
+        <StackPanel Margin="0,8,0,24" Spacing="4">
             <StackPanel.ChildrenTransitions>
                 <TransitionCollection>
                     <EntranceThemeTransition FromVerticalOffset="50" IsStaggeringEnabled="True" />
                 </TransitionCollection>
             </StackPanel.ChildrenTransitions>
 
-            <!--  Hero Account Card - Prominent at top  -->
+            <!--  Hero Banner - Windows 11 style  -->
             <Grid
-                Padding="20"
+                Margin="0,0,0,12"
+                Padding="24,28"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
@@ -30,36 +31,55 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
+                <!--  App Icon  -->
                 <Border
-                    Width="56"
-                    Height="56"
-                    CornerRadius="28">
+                    Width="72"
+                    Height="72"
+                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                    CornerRadius="16">
                     <FontIcon
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
-                        FontSize="24"
-                        Foreground="{ThemeResource TextOnAccentAAFillColorDisabledBrush}"
-                        Glyph="&#xE77B;" />
+                        FontSize="32"
+                        Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                        Glyph="&#xE715;" />
                 </Border>
 
+                <!--  App Info  -->
                 <StackPanel
                     Grid.Column="1"
-                    Margin="16,0,0,0"
+                    Margin="20,0,0,0"
                     VerticalAlignment="Center"
-                    Spacing="2">
-                    <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind domain:Translator.SettingsManageAccountSettings_Title}" />
+                    Spacing="4">
+                    <TextBlock
+                        Style="{StaticResource TitleTextBlockStyle}"
+                        Text="Wino Mail" />
                     <TextBlock
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource BodyTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.SettingsOptions_HeroDescription}" />
+                    <TextBlock
+                        Margin="0,2,0,0"
+                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                         Style="{StaticResource CaptionTextBlockStyle}"
-                        Text="{x:Bind domain:Translator.SettingsManageAccountSettings_Description}" />
+                        Text="{x:Bind ViewModel.VersionText, Mode=OneWay}" />
                 </StackPanel>
+            </Grid>
 
+            <!--  Account Management Card  -->
+            <controls:SettingsCard
+                Margin="0,0,0,12"
+                Click="SettingOptionClicked"
+                Description="{x:Bind ViewModel.AccountSummaryText, Mode=OneWay}"
+                Header="{x:Bind domain:Translator.SettingsManageAccountSettings_Title}"
+                IsClickEnabled="True"
+                Tag="{x:Bind enums:WinoPage.AccountManagementPage}">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE77B;" />
+                </controls:SettingsCard.HeaderIcon>
                 <Button
-                    Grid.Column="2"
-                    VerticalAlignment="Center"
                     Click="SettingOptionClicked"
                     Style="{StaticResource AccentButtonStyle}"
                     Tag="{x:Bind enums:WinoPage.AccountManagementPage}">
@@ -68,454 +88,135 @@
                         <FontIcon FontSize="12" Glyph="&#xE76C;" />
                     </StackPanel>
                 </Button>
-            </Grid>
+            </controls:SettingsCard>
 
-            <!--  General Settings Card  -->
-            <Grid
-                Padding="20"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="8">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
+            <!--  General Section  -->
+            <TextBlock
+                Margin="1,8,0,4"
+                Style="{StaticResource BodyStrongTextBlockStyle}"
+                Text="{x:Bind domain:Translator.SettingsOptions_GeneralSection}" />
 
-                <!--  General Header  -->
-                <StackPanel
-                    Margin="0,0,0,16"
-                    Orientation="Horizontal"
-                    Spacing="12">
-                    <Border
-                        Width="40"
-                        Height="40"
-                        Background="{ThemeResource SystemFillColorNeutralBackgroundBrush}"
-                        CornerRadius="8">
-                        <FontIcon
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            FontSize="18"
-                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                            Glyph="&#xE713;" />
-                    </Border>
-                    <TextBlock
-                        VerticalAlignment="Center"
-                        Style="{StaticResource SubtitleTextBlockStyle}"
-                        Text="{x:Bind domain:Translator.SettingsOptions_GeneralSection}" />
-                </StackPanel>
+            <controls:SettingsCard
+                Click="SettingOptionClicked"
+                Description="{x:Bind domain:Translator.SettingsAppPreferences_Description}"
+                Header="{x:Bind domain:Translator.SettingsAppPreferences_Title}"
+                IsClickEnabled="True"
+                Tag="{x:Bind enums:WinoPage.AppPreferencesPage}">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE770;" />
+                </controls:SettingsCard.HeaderIcon>
+            </controls:SettingsCard>
 
-                <!--  General Options  -->
-                <StackPanel Grid.Row="1" Spacing="2">
-                    <Button
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Stretch"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        Click="SettingOptionClicked"
-                        CornerRadius="4"
-                        Tag="{x:Bind enums:WinoPage.AppPreferencesPage}">
-                        <Grid Padding="4,10" ColumnSpacing="12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <FontIcon
-                                VerticalAlignment="Center"
-                                FontSize="16"
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Glyph="&#xE770;" />
-                            <TextBlock
-                                Grid.Column="1"
-                                VerticalAlignment="Center"
-                                Text="{x:Bind domain:Translator.SettingsAppPreferences_Title}" />
-                            <FontIcon
-                                Grid.Column="2"
-                                VerticalAlignment="Center"
-                                FontSize="12"
-                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                Glyph="&#xE76C;" />
-                        </Grid>
-                    </Button>
+            <controls:SettingsCard
+                Click="SettingOptionClicked"
+                Description="{x:Bind domain:Translator.SettingsLanguageTime_Description}"
+                Header="{x:Bind domain:Translator.SettingsLanguageTime_Title}"
+                IsClickEnabled="True"
+                Tag="{x:Bind enums:WinoPage.LanguageTimePage}">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE775;" />
+                </controls:SettingsCard.HeaderIcon>
+            </controls:SettingsCard>
 
-                    <Button
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Stretch"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        Click="SettingOptionClicked"
-                        CornerRadius="4"
-                        Tag="{x:Bind enums:WinoPage.LanguageTimePage}">
-                        <Grid Padding="4,10" ColumnSpacing="12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <FontIcon
-                                VerticalAlignment="Center"
-                                FontSize="16"
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Glyph="&#xE775;" />
-                            <TextBlock
-                                Grid.Column="1"
-                                VerticalAlignment="Center"
-                                Text="{x:Bind domain:Translator.SettingsLanguageTime_Title}" />
-                            <FontIcon
-                                Grid.Column="2"
-                                VerticalAlignment="Center"
-                                FontSize="12"
-                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                Glyph="&#xE76C;" />
-                        </Grid>
-                    </Button>
+            <controls:SettingsCard
+                Click="SettingOptionClicked"
+                Description="{x:Bind domain:Translator.SettingsPersonalization_Description}"
+                Header="{x:Bind domain:Translator.SettingsPersonalization_Title}"
+                IsClickEnabled="True"
+                Tag="{x:Bind enums:WinoPage.PersonalizationPage}">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE771;" />
+                </controls:SettingsCard.HeaderIcon>
+            </controls:SettingsCard>
 
-                    <Button
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Stretch"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        Click="SettingOptionClicked"
-                        CornerRadius="4"
-                        Tag="{x:Bind enums:WinoPage.PersonalizationPage}">
-                        <Grid Padding="4,10" ColumnSpacing="12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <FontIcon
-                                VerticalAlignment="Center"
-                                FontSize="16"
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Glyph="&#xE771;" />
-                            <TextBlock
-                                Grid.Column="1"
-                                VerticalAlignment="Center"
-                                Text="{x:Bind domain:Translator.SettingsPersonalization_Title}" />
-                            <FontIcon
-                                Grid.Column="2"
-                                VerticalAlignment="Center"
-                                FontSize="12"
-                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                Glyph="&#xE76C;" />
-                        </Grid>
-                    </Button>
+            <controls:SettingsCard
+                Click="SettingOptionClicked"
+                Description="{x:Bind domain:Translator.SettingsAbout_Description}"
+                Header="{x:Bind domain:Translator.SettingsAbout_Title}"
+                IsClickEnabled="True"
+                Tag="{x:Bind enums:WinoPage.AboutPage}">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE946;" />
+                </controls:SettingsCard.HeaderIcon>
+            </controls:SettingsCard>
 
-                    <Button
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Stretch"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        Click="SettingOptionClicked"
-                        CornerRadius="4"
-                        Tag="{x:Bind enums:WinoPage.AboutPage}">
-                        <Grid Padding="4,10" ColumnSpacing="12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <FontIcon
-                                VerticalAlignment="Center"
-                                FontSize="16"
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Glyph="&#xE946;" />
-                            <TextBlock
-                                Grid.Column="1"
-                                VerticalAlignment="Center"
-                                Text="{x:Bind domain:Translator.SettingsAbout_Title}" />
-                            <FontIcon
-                                Grid.Column="2"
-                                VerticalAlignment="Center"
-                                FontSize="12"
-                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                Glyph="&#xE76C;" />
-                        </Grid>
-                    </Button>
-                </StackPanel>
-            </Grid>
+            <!--  Mail Section  -->
+            <TextBlock
+                Margin="1,16,0,4"
+                Style="{StaticResource BodyStrongTextBlockStyle}"
+                Text="{x:Bind domain:Translator.SettingsOptions_MailSection}" />
 
-            <!--  Two-Column Layout for Mail & Calendar  -->
-            <Grid ColumnSpacing="16">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+            <controls:SettingsCard
+                Click="SettingOptionClicked"
+                Description="{x:Bind domain:Translator.Settings_KeyboardShortcuts_Description}"
+                Header="{x:Bind domain:Translator.Settings_KeyboardShortcuts_Title}"
+                IsClickEnabled="True"
+                Tag="{x:Bind enums:WinoPage.KeyboardShortcutsPage}">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE765;" />
+                </controls:SettingsCard.HeaderIcon>
+            </controls:SettingsCard>
 
-                <!--  Mail Settings Card  -->
-                <Grid
-                    Grid.Column="0"
-                    Padding="20"
-                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1"
-                    CornerRadius="8">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
+            <controls:SettingsCard
+                Click="SettingOptionClicked"
+                Description="{x:Bind domain:Translator.SettingsMessageList_Description}"
+                Header="{x:Bind domain:Translator.SettingsMessageList_Title}"
+                IsClickEnabled="True"
+                Tag="{x:Bind enums:WinoPage.MessageListPage}">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE8C4;" />
+                </controls:SettingsCard.HeaderIcon>
+            </controls:SettingsCard>
 
-                    <!--  Mail Header  -->
-                    <StackPanel
-                        Margin="0,0,0,16"
-                        Orientation="Horizontal"
-                        Spacing="12">
-                        <Border
-                            Width="40"
-                            Height="40"
-                            Background="{ThemeResource SystemFillColorNeutralBackgroundBrush}"
-                            CornerRadius="8">
-                            <FontIcon
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                FontSize="18"
-                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                Glyph="&#xE715;" />
-                        </Border>
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            Style="{StaticResource SubtitleTextBlockStyle}"
-                            Text="{x:Bind domain:Translator.SettingsOptions_MailSection}" />
-                    </StackPanel>
+            <controls:SettingsCard
+                Click="SettingOptionClicked"
+                Description="{x:Bind domain:Translator.SettingsReadComposePane_Description}"
+                Header="{x:Bind domain:Translator.SettingsReadComposePane_Title}"
+                IsClickEnabled="True"
+                Tag="{x:Bind enums:WinoPage.ReadComposePanePage}">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE8BD;" />
+                </controls:SettingsCard.HeaderIcon>
+            </controls:SettingsCard>
 
-                    <!--  Mail Options  -->
-                    <StackPanel Grid.Row="1" Spacing="2">
-                        <Button
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Stretch"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Click="SettingOptionClicked"
-                            CornerRadius="4"
-                            Tag="{x:Bind enums:WinoPage.KeyboardShortcutsPage}">
-                            <Grid Padding="4,10" ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <FontIcon
-                                    VerticalAlignment="Center"
-                                    FontSize="16"
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Glyph="&#xE765;" />
-                                <TextBlock
-                                    Grid.Column="1"
-                                    VerticalAlignment="Center"
-                                    Text="{x:Bind domain:Translator.Settings_KeyboardShortcuts_Title}" />
-                                <FontIcon
-                                    Grid.Column="2"
-                                    VerticalAlignment="Center"
-                                    FontSize="12"
-                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                    Glyph="&#xE76C;" />
-                            </Grid>
-                        </Button>
+            <controls:SettingsCard
+                Click="SettingOptionClicked"
+                Description="{x:Bind domain:Translator.SettingsSignatureAndEncryption_Description}"
+                Header="{x:Bind domain:Translator.SettingsSignatureAndEncryption_Title}"
+                IsClickEnabled="True"
+                Tag="{x:Bind enums:WinoPage.SignatureAndEncryptionPage}">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE8D7;" />
+                </controls:SettingsCard.HeaderIcon>
+            </controls:SettingsCard>
 
-                        <Button
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Stretch"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Click="SettingOptionClicked"
-                            CornerRadius="4"
-                            Tag="{x:Bind enums:WinoPage.MessageListPage}">
-                            <Grid Padding="4,10" ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <FontIcon
-                                    VerticalAlignment="Center"
-                                    FontSize="16"
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Glyph="&#xE8C4;" />
-                                <TextBlock
-                                    Grid.Column="1"
-                                    VerticalAlignment="Center"
-                                    Text="{x:Bind domain:Translator.SettingsMessageList_Title}" />
-                                <FontIcon
-                                    Grid.Column="2"
-                                    VerticalAlignment="Center"
-                                    FontSize="12"
-                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                    Glyph="&#xE76C;" />
-                            </Grid>
-                        </Button>
+            <controls:SettingsCard
+                Click="SettingOptionClicked"
+                Description="{x:Bind domain:Translator.SettingsStorage_Description}"
+                Header="{x:Bind domain:Translator.SettingsStorage_Title}"
+                IsClickEnabled="True"
+                Tag="{x:Bind enums:WinoPage.StoragePage}">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE81C;" />
+                </controls:SettingsCard.HeaderIcon>
+            </controls:SettingsCard>
 
-                        <Button
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Stretch"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Click="SettingOptionClicked"
-                            CornerRadius="4"
-                            Tag="{x:Bind enums:WinoPage.ReadComposePanePage}">
-                            <Grid Padding="4,10" ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <FontIcon
-                                    VerticalAlignment="Center"
-                                    FontSize="16"
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Glyph="&#xE8BD;" />
-                                <TextBlock
-                                    Grid.Column="1"
-                                    VerticalAlignment="Center"
-                                    Text="{x:Bind domain:Translator.SettingsReadComposePane_Title}" />
-                                <FontIcon
-                                    Grid.Column="2"
-                                    VerticalAlignment="Center"
-                                    FontSize="12"
-                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                    Glyph="&#xE76C;" />
-                            </Grid>
-                        </Button>
+            <!--  Calendar Section  -->
+            <TextBlock
+                Margin="1,16,0,4"
+                Style="{StaticResource BodyStrongTextBlockStyle}"
+                Text="{x:Bind domain:Translator.SettingsOptions_CalendarSection}" />
 
-                        <Button
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Stretch"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Click="SettingOptionClicked"
-                            CornerRadius="4"
-                            Tag="{x:Bind enums:WinoPage.SignatureAndEncryptionPage}">
-                            <Grid Padding="4,10" ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <FontIcon
-                                    VerticalAlignment="Center"
-                                    FontSize="16"
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Glyph="&#xE8D7;" />
-                                <TextBlock
-                                    Grid.Column="1"
-                                    VerticalAlignment="Center"
-                                    Text="{x:Bind domain:Translator.SettingsSignatureAndEncryption_Title}" />
-                                <FontIcon
-                                    Grid.Column="2"
-                                    VerticalAlignment="Center"
-                                    FontSize="12"
-                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                    Glyph="&#xE76C;" />
-                            </Grid>
-                        </Button>
-
-                        <Button
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Stretch"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Click="SettingOptionClicked"
-                            CornerRadius="4"
-                            Tag="{x:Bind enums:WinoPage.StoragePage}">
-                            <Grid Padding="4,10" ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <FontIcon
-                                    VerticalAlignment="Center"
-                                    FontSize="16"
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Glyph="&#xE81C;" />
-                                <TextBlock
-                                    Grid.Column="1"
-                                    VerticalAlignment="Center"
-                                    Text="{x:Bind domain:Translator.SettingsStorage_Title}" />
-                                <FontIcon
-                                    Grid.Column="2"
-                                    VerticalAlignment="Center"
-                                    FontSize="12"
-                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                    Glyph="&#xE76C;" />
-                            </Grid>
-                        </Button>
-                    </StackPanel>
-                </Grid>
-
-                <!--  Calendar Settings Card  -->
-                <Grid
-                    Grid.Column="1"
-                    Padding="20"
-                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1"
-                    CornerRadius="8">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-
-                    <!--  Calendar Header  -->
-                    <StackPanel
-                        Margin="0,0,0,16"
-                        Orientation="Horizontal"
-                        Spacing="12">
-                        <Border
-                            Width="40"
-                            Height="40"
-                            Background="{ThemeResource SystemFillColorNeutralBackgroundBrush}"
-                            CornerRadius="8">
-                            <FontIcon
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                FontSize="18"
-                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                Glyph="&#xE787;" />
-                        </Border>
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            Style="{StaticResource SubtitleTextBlockStyle}"
-                            Text="{x:Bind domain:Translator.SettingsOptions_CalendarSection}" />
-                    </StackPanel>
-
-                    <!--  Calendar Options  -->
-                    <StackPanel Grid.Row="1" Spacing="2">
-                        <Button
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Stretch"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Click="SettingOptionClicked"
-                            CornerRadius="4"
-                            Tag="{x:Bind enums:WinoPage.CalendarSettingsPage}">
-                            <Grid Padding="4,10" ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <FontIcon
-                                    VerticalAlignment="Center"
-                                    FontSize="16"
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Glyph="&#xE8BF;" />
-                                <TextBlock
-                                    Grid.Column="1"
-                                    VerticalAlignment="Center"
-                                    Text="{x:Bind domain:Translator.SettingsCalendarSettings_Title}" />
-                                <FontIcon
-                                    Grid.Column="2"
-                                    VerticalAlignment="Center"
-                                    FontSize="12"
-                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                    Glyph="&#xE76C;" />
-                            </Grid>
-                        </Button>
-                    </StackPanel>
-                </Grid>
-            </Grid>
+            <controls:SettingsCard
+                Click="SettingOptionClicked"
+                Description="{x:Bind domain:Translator.SettingsCalendarSettings_Description}"
+                Header="{x:Bind domain:Translator.SettingsCalendarSettings_Title}"
+                IsClickEnabled="True"
+                Tag="{x:Bind enums:WinoPage.CalendarSettingsPage}">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE787;" />
+                </controls:SettingsCard.HeaderIcon>
+            </controls:SettingsCard>
         </StackPanel>
     </ScrollViewer>
 </abstract:SettingOptionsPageAbstract>

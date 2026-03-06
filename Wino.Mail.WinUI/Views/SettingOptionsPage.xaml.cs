@@ -1,3 +1,4 @@
+using CommunityToolkit.WinUI.Controls;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Enums;
@@ -17,6 +18,7 @@ public sealed partial class SettingOptionsPage : SettingOptionsPageAbstract
         WinoPage? page = sender switch
         {
             Button button when button.Tag is WinoPage p => p,
+            SettingsCard card when card.Tag is WinoPage p => p,
             _ => null
         };
 
