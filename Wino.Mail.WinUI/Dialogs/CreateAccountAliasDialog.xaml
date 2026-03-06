@@ -19,12 +19,14 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind domain:Translator.CreateAccountAliasDialog_Description}" />
+        <TextBlock
+            Style="{ThemeResource BodyTextBlockStyle}"
+            Text="{x:Bind domain:Translator.CreateAccountAliasDialog_Description}" />
 
         <StackPanel
             Grid.Row="1"
-            Margin="0,20"
-            Spacing="8">
+            Margin="0,16"
+            Spacing="12">
             <TextBox
                 x:Name="AliasTextBox"
                 Header="{x:Bind domain:Translator.CreateAccountAliasDialog_AliasAddress}"
@@ -37,4 +39,3 @@
         </StackPanel>
     </Grid>
 </ContentDialog>
-

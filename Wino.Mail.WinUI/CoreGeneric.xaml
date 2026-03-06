@@ -69,7 +69,10 @@
             <Style
                 x:Key="WinoDialogStyle"
                 BasedOn="{StaticResource DefaultContentDialogStyle}"
-                TargetType="ContentDialog" />
+                TargetType="ContentDialog">
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="Padding" Value="24" />
+            </Style>
 
             <!--  Wino Navigation View Item  -->
             <Style TargetType="coreControls:WinoNavigationViewItem">

@@ -7,10 +7,8 @@
     xmlns:dialogs="using:Wino.Dialogs"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     Closing="DialogClosing"
-    CornerRadius="8"
+    Style="{StaticResource WinoDialogStyle}"
     mc:Ignorable="d">
-
-    <!--  ContentDialogs do not support VSM.  -->
 
     <controls:AccountCreationDialogControl
         VerticalAlignment="Center"

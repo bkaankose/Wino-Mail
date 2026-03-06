@@ -24,7 +24,7 @@
         </Grid.RowDefinitions>
 
         <!--  Mail Operation  -->
-        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+        <StackPanel Grid.Row="0" Margin="0,0,0,20">
             <TextBlock
                 Margin="0,0,0,4"
                 Style="{ThemeResource BodyStrongTextBlockStyle}"
@@ -44,7 +44,7 @@
         </StackPanel>
 
         <!--  Key Input  -->
-        <StackPanel Grid.Row="1" Margin="0,0,0,16">
+        <StackPanel Grid.Row="1" Margin="0,0,0,20">
             <TextBlock
                 Margin="0,0,0,4"
                 Style="{ThemeResource BodyStrongTextBlockStyle}"
@@ -56,31 +56,44 @@
                 PreviewKeyDown="KeyInputTextBox_PreviewKeyDown" />
             <TextBlock
                 Margin="0,4,0,0"
-                Opacity="0.7"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                 Style="{ThemeResource CaptionTextBlockStyle}"
                 Text="{x:Bind domain:Translator.KeyboardShortcuts_FocusArea}" />
         </StackPanel>
 
         <!--  Modifiers  -->
-        <StackPanel Grid.Row="2" Margin="0,0,0,16">
+        <StackPanel Grid.Row="2" Margin="0,0,0,20">
             <TextBlock
                 Margin="0,0,0,8"
                 Style="{ThemeResource BodyStrongTextBlockStyle}"
                 Text="{x:Bind domain:Translator.KeyboardShortcuts_Modifiers}" />
-            <StackPanel Orientation="Horizontal" Spacing="16">
-                <CheckBox Content="Ctrl" IsChecked="{x:Bind IsControlPressed, Mode=TwoWay}" />
-                <CheckBox Content="Alt" IsChecked="{x:Bind IsAltPressed, Mode=TwoWay}" />
-                <CheckBox Content="Shift" IsChecked="{x:Bind IsShiftPressed, Mode=TwoWay}" />
-                <CheckBox Content="Win" IsChecked="{x:Bind IsWindowsPressed, Mode=TwoWay}" />
-            </StackPanel>
+            <Border
+                Padding="16,12"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="6">
+                <StackPanel Orientation="Horizontal" Spacing="16">
+                    <CheckBox Content="Ctrl" IsChecked="{x:Bind IsControlPressed, Mode=TwoWay}" />
+                    <CheckBox Content="Alt" IsChecked="{x:Bind IsAltPressed, Mode=TwoWay}" />
+                    <CheckBox Content="Shift" IsChecked="{x:Bind IsShiftPressed, Mode=TwoWay}" />
+                    <CheckBox Content="Win" IsChecked="{x:Bind IsWindowsPressed, Mode=TwoWay}" />
+                </StackPanel>
+            </Border>
         </StackPanel>
 
         <!--  Error Message  -->
-        <TextBlock
-            x:Name="ErrorTextBlock"
+        <Border
+            x:Name="ErrorBorder"
             Grid.Row="3"
-            Foreground="{ThemeResource SystemErrorTextColor}"
-            Style="{ThemeResource CaptionTextBlockStyle}"
-            Visibility="Collapsed" />
+            Padding="12,8"
+            Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+            CornerRadius="4"
+            Visibility="Collapsed">
+            <TextBlock
+                x:Name="ErrorTextBlock"
+                Foreground="{ThemeResource SystemErrorTextColor}"
+                Style="{ThemeResource CaptionTextBlockStyle}" />
+        </Border>
     </Grid>
 </ContentDialog>

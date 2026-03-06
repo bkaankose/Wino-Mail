@@ -21,11 +21,11 @@
 
     <ContentDialog.Resources>
         <Style TargetType="ComboBox">
-            <Setter Property="Width" Value="100" />
+            <Setter Property="Width" Value="140" />
         </Style>
     </ContentDialog.Resources>
     <ScrollViewer>
-        <Grid RowSpacing="12">
+        <Grid RowSpacing="16">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
@@ -41,7 +41,7 @@
                     Text="{x:Bind domain:Translator.SystemFolderConfigDialog_MessageSecondLine}" />
             </TextBlock>
 
-            <StackPanel Grid.Row="1" Spacing="6">
+            <StackPanel Grid.Row="1" Spacing="8">
                 <controls1:SettingsCard
                     x:Name="SentCard"
                     Description="{x:Bind domain:Translator.SystemFolderConfigDialog_SentFolderDescription}"
@@ -92,9 +92,15 @@
                     <ComboBox ItemsSource="{x:Bind AvailableFolders}" SelectedItem="{x:Bind Junk, Mode=TwoWay}" />
                 </controls1:SettingsCard>
 
-                <TextBlock x:Name="ValidationErrorTextBlock" Foreground="{StaticResource SystemErrorTextColor}" />
+                <Border
+                    x:Name="ValidationErrorBorder"
+                    Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+                    CornerRadius="4"
+                    Padding="12,8"
+                    Visibility="Collapsed">
+                    <TextBlock x:Name="ValidationErrorTextBlock" Foreground="{StaticResource SystemErrorTextColor}" />
+                </Border>
             </StackPanel>
         </Grid>
     </ScrollViewer>
 </ContentDialog>
-

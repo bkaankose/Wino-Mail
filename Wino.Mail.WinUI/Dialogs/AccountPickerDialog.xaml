@@ -11,14 +11,28 @@
     Style="{StaticResource WinoDialogStyle}"
     mc:Ignorable="d">
 
+    <ContentDialog.Resources>
+        <x:Double x:Key="ContentDialogMinWidth">360</x:Double>
+    </ContentDialog.Resources>
+
     <ListView
+        Margin="0,8,0,0"
         IsItemClickEnabled="True"
         ItemClick="AccountClicked"
         ItemsSource="{x:Bind AvailableAccounts}"
         SelectionMode="None">
+        <ListView.ItemContainerStyle>
+            <Style BasedOn="{StaticResource DefaultListViewItemStyle}" TargetType="ListViewItem">
+                <Setter Property="Padding" Value="12,10" />
+                <Setter Property="CornerRadius" Value="4" />
+                <Setter Property="Margin" Value="0,2" />
+            </Style>
+        </ListView.ItemContainerStyle>
         <ListView.ItemTemplate>
             <DataTemplate x:DataType="shared:MailAccount">
-                <TextBlock Text="{x:Bind Address}" />
+                <TextBlock
+                    Style="{ThemeResource BodyTextBlockStyle}"
+                    Text="{x:Bind Address}" />
             </DataTemplate>
         </ListView.ItemTemplate>
     </ListView>

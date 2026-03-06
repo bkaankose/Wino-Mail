@@ -22,22 +22,31 @@
 
     <ContentDialog.Resources>
         <DataTemplate x:Key="NewMailProviderTemplate" x:DataType="accounts:ProviderDetail">
-            <Grid Margin="0,8" Padding="6">
+            <Grid
+                Margin="0,4"
+                Padding="12,10"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="6">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <Image
-                    Width="35"
-                    Height="35"
+                    Width="32"
+                    Height="32"
                     Source="{x:Bind ProviderImage}" />
                 <StackPanel
                     Grid.Column="1"
                     Margin="12,0"
                     VerticalAlignment="Center"
                     Spacing="2">
-                    <TextBlock FontWeight="Bold" Text="{x:Bind Name}" />
-                    <TextBlock Text="{x:Bind Description}" />
+                    <TextBlock Style="{ThemeResource BodyStrongTextBlockStyle}" Text="{x:Bind Name}" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{ThemeResource CaptionTextBlockStyle}"
+                        Text="{x:Bind Description}" />
                 </StackPanel>
             </Grid>
         </DataTemplate>
@@ -95,11 +104,20 @@
                 ItemTemplate="{StaticResource NewMailProviderTemplate}"
                 ItemsSource="{x:Bind Providers}"
                 SelectedItem="{x:Bind SelectedMailProvider, Mode=TwoWay}"
-                SelectionMode="Single" />
+                SelectionMode="Single">
+                <ListView.ItemContainerStyle>
+                    <Style BasedOn="{StaticResource DefaultListViewItemStyle}" TargetType="ListViewItem">
+                        <Setter Property="Margin" Value="0,2" />
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="CornerRadius" Value="6" />
+                    </Style>
+                </ListView.ItemContainerStyle>
+            </ListView>
         </Grid>
 
         <!--  Known special IMAP login details.  -->
-        <Grid RowSpacing="12" Visibility="{x:Bind IsSpecialImapServerPartVisible, Mode=OneWay}">
+        <Grid RowSpacing="16" Visibility="{x:Bind IsSpecialImapServerPartVisible, Mode=OneWay}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />

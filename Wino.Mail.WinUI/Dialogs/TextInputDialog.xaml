@@ -21,8 +21,11 @@
         <x:Double x:Key="ContentDialogMaxHeight">756</x:Double>
     </ContentDialog.Resources>
 
-    <StackPanel Spacing="12">
-        <TextBlock x:Name="DialogDescription" TextWrapping="Wrap" />
+    <StackPanel Spacing="16">
+        <TextBlock
+            x:Name="DialogDescription"
+            Style="{ThemeResource BodyTextBlockStyle}"
+            TextWrapping="Wrap" />
         <TextBox x:Name="FolderTextBox" Text="{x:Bind CurrentInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
     </StackPanel>
 </ContentDialog>

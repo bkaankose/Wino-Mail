@@ -46,6 +46,7 @@ public sealed partial class SystemFolderConfigurationDialog : ContentDialog
     private void SaveClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
         ValidationErrorTextBlock!.Text = string.Empty;
+        ValidationErrorBorder.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
 
         var allSpecialFolders = new List<MailItemFolder?>()
         {
@@ -57,6 +58,9 @@ public sealed partial class SystemFolderConfigurationDialog : ContentDialog
 
         if (new HashSet<Guid>(allSpecialFolders.Where(a => a != null).Select(x => x!.Id)).Count != allSpecialFolders.Where(a => a != null).Count())
             ValidationErrorTextBlock!.Text = Translator.SystemFolderConfigDialogValidation_DuplicateSystemFolders;
+
+        if (!string.IsNullOrEmpty(ValidationErrorTextBlock!.Text))
+            ValidationErrorBorder.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
 
         // Check if we can save.
         if (string.IsNullOrEmpty(ValidationErrorTextBlock!.Text))

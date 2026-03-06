@@ -19,10 +19,19 @@
     </ContentDialog.Resources>
 
     <ScrollViewer HorizontalScrollBarVisibility="Disabled" HorizontalScrollMode="Disabled">
-        <TextBlock
-            MaxWidth="1000"
-            IsTextSelectionEnabled="True"
-            Text="{x:Bind MessageSource, Mode=OneWay}"
-            TextWrapping="Wrap" />
+        <Border
+            Padding="16"
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="6">
+            <TextBlock
+                MaxWidth="1000"
+                FontFamily="Consolas"
+                FontSize="12"
+                IsTextSelectionEnabled="True"
+                Text="{x:Bind MessageSource, Mode=OneWay}"
+                TextWrapping="Wrap" />
+        </Border>
     </ScrollViewer>
 </ContentDialog>

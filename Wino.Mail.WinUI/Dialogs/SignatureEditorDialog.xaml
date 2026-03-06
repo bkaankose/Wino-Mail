@@ -28,7 +28,7 @@
         <x:Double x:Key="ContentDialogMaxWidth">1200</x:Double>
     </ContentDialog.Resources>
 
-    <Grid Margin="0,20,0,0" RowSpacing="30">
+    <Grid Margin="0,8,0,0" RowSpacing="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" MaxHeight="400" />
@@ -255,10 +255,10 @@
             </CommandBar>
             <Border
                 Grid.Row="1"
-                Margin="0,6,0,0"
+                Margin="0,8,0,0"
                 BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
-                CornerRadius="3">
+                CornerRadius="6">
                 <controls2:WebViewEditorControl x:Name="WebViewEditor" />
             </Border>
         </Grid>

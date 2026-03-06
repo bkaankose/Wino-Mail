@@ -35,7 +35,8 @@ public sealed partial class CustomThemeBuilderDialog : ContentDialog
         }
         catch (Exception exception)
         {
-            ErrorTextBlock.Text = exception.Message;
+            ErrorInfoBar.Message = exception.Message;
+            ErrorInfoBar.IsOpen = true;
         }
         finally
         {

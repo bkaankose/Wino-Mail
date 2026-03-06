@@ -25,8 +25,12 @@
         <x:Double x:Key="ContentDialogMaxHeight">756</x:Double>
     </ContentDialog.Resources>
 
-    <StackPanel Spacing="6">
-        <TextBlock x:Name="ErrorTextBlock" Foreground="Gold" />
+    <StackPanel Spacing="8">
+        <muxc:InfoBar
+            x:Name="ErrorInfoBar"
+            IsClosable="False"
+            IsOpen="False"
+            Severity="Warning" />
 
         <controls:SettingsCard Description="{x:Bind domain:Translator.CustomThemeBuilder_ThemeNameDescription}" Header="{x:Bind domain:Translator.CustomThemeBuilder_ThemeNameTitle}">
             <controls:SettingsCard.HeaderIcon>
@@ -63,6 +67,7 @@
                                 x:Name="PreviewAccentColorGrid"
                                 Width="20"
                                 Height="20"
+                                CornerRadius="4"
                                 Background="{ThemeResource SystemAccentColor}" />
                         </StackPanel>
                     </Button.Content>

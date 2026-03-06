@@ -26,11 +26,14 @@
         <DataTemplate x:Key="FolderStructureMenuFlyoutItemTemplate" x:DataType="folders:IMailItemFolder">
             <TreeViewItem IsExpanded="True" ItemsSource="{x:Bind ChildFolders}">
                 <StackPanel
-                    Height="32"
+                    Height="36"
                     Orientation="Horizontal"
-                    Spacing="12">
+                    Spacing="14">
                     <coreControls:WinoFontIcon FontSize="20" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(SpecialFolderType)}" />
-                    <TextBlock VerticalAlignment="Center" Text="{x:Bind FolderName}" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Style="{ThemeResource BodyTextBlockStyle}"
+                        Text="{x:Bind FolderName}" />
                 </StackPanel>
             </TreeViewItem>
         </DataTemplate>
@@ -42,11 +45,17 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TextBlock
-            x:Name="InvalidFolderText"
+        <Border
             Margin="0,0,0,6"
-            Foreground="{ThemeResource InfoBarWarningSeverityIconBackground}"
-            Visibility="Collapsed" />
+            Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
+            CornerRadius="4"
+            Padding="12,8"
+            Visibility="Collapsed"
+            x:Name="InvalidFolderBorder">
+            <TextBlock
+                x:Name="InvalidFolderText"
+                Foreground="{ThemeResource InfoBarWarningSeverityIconBackground}" />
+        </Border>
 
         <TreeView
             x:Name="FolderTreeView"

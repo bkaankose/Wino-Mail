@@ -45,7 +45,7 @@ public sealed partial class MoveMailDialog : ContentDialog
             if (!SelectedFolder.IsMoveTarget)
             {
                 // Warn users for only proper mail folders. Not ghost folders.
-                InvalidFolderText.Visibility = Visibility.Visible;
+                InvalidFolderBorder.Visibility = Visibility.Visible;
                 InvalidFolderText.Text = string.Format(Translator.MoveMailDialog_InvalidFolderMessage, SelectedFolder.FolderName);
 
                 if (FolderTreeView.SelectedItem != null)

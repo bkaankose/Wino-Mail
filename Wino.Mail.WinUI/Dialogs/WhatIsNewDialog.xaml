@@ -18,7 +18,7 @@
         <x:Double x:Key="ContentDialogMaxHeight">700</x:Double>
     </ContentDialog.Resources>
 
-    <Grid RowSpacing="12">
+    <Grid RowSpacing="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
@@ -36,6 +36,7 @@
                 x:Name="GetStartedButton"
                 Click="OnGetStartedClicked"
                 Content="{x:Bind domain:Translator.WhatIsNew_GetStartedButton}"
+                Style="{StaticResource AccentButtonStyle}"
                 Visibility="Collapsed" />
         </StackPanel>
     </Grid>

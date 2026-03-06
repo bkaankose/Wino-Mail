@@ -17,7 +17,7 @@
     Style="{StaticResource WinoDialogStyle}"
     mc:Ignorable="d">
 
-    <StackPanel Margin="20" Spacing="16">
+    <StackPanel Spacing="20">
 
         <!--  Printer Selection  -->
         <ComboBox
@@ -46,9 +46,21 @@
 
         <!--  Print Options  -->
         <StackPanel Spacing="8">
-            <TextBlock Text="Options" />
-            <CheckBox Content="Print backgrounds" IsChecked="{x:Bind PrintSettings.ShouldPrintBackgrounds, Mode=TwoWay}" />
-            <CheckBox Content="Print headers and footers" IsChecked="{x:Bind PrintSettings.ShouldPrintHeaderAndFooter, Mode=TwoWay}" />
+            <TextBlock
+                Margin="0,0,0,8"
+                Style="{ThemeResource BodyStrongTextBlockStyle}"
+                Text="Options" />
+            <Border
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Padding="16,12">
+                <StackPanel Spacing="8">
+                    <CheckBox Content="Print backgrounds" IsChecked="{x:Bind PrintSettings.ShouldPrintBackgrounds, Mode=TwoWay}" />
+                    <CheckBox Content="Print headers and footers" IsChecked="{x:Bind PrintSettings.ShouldPrintHeaderAndFooter, Mode=TwoWay}" />
+                </StackPanel>
+            </Border>
         </StackPanel>
     </StackPanel>
 </ContentDialog>

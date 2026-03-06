@@ -48,7 +48,7 @@ public sealed partial class KeyboardShortcutDialog : ContentDialog
     private void SaveClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
         // Clear any previous error
-        ErrorTextBlock.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+        ErrorBorder.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
 
         // Validate input
         if (string.IsNullOrWhiteSpace(KeyInputTextBox.Text))
@@ -75,7 +75,7 @@ public sealed partial class KeyboardShortcutDialog : ContentDialog
     private void KeyInputTextBox_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
         // Clear error when user starts typing
-        ErrorTextBlock.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+        ErrorBorder.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
 
         var key = e.Key.ToString();
 
@@ -111,7 +111,7 @@ public sealed partial class KeyboardShortcutDialog : ContentDialog
     private void ShowError(string message)
     {
         ErrorTextBlock.Text = message;
-        ErrorTextBlock.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+        ErrorBorder.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
     }
 
     private static List<MailOperationViewModel> GetAvailableMailOperations()
