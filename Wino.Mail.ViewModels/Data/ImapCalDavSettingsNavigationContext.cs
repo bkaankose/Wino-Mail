@@ -9,7 +9,8 @@ namespace Wino.Mail.ViewModels.Data;
 public enum ImapCalDavSettingsPageMode
 {
     Create,
-    Edit
+    Edit,
+    Wizard
 }
 
 public sealed class ImapCalDavSettingsNavigationContext
@@ -35,6 +36,16 @@ public sealed class ImapCalDavSettingsNavigationContext
             Mode = ImapCalDavSettingsPageMode.Edit,
             AccountId = accountId
         };
+
+    public static ImapCalDavSettingsNavigationContext CreateForWizardMode(
+        AccountCreationDialogResult accountCreationDialogResult)
+        => new()
+        {
+            Mode = ImapCalDavSettingsPageMode.Wizard,
+            AccountCreationDialogResult = accountCreationDialogResult
+        };
+
+    public bool IsWizardMode => Mode == ImapCalDavSettingsPageMode.Wizard;
 }
 
 public sealed class ImapCalDavSetupResult

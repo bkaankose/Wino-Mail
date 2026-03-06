@@ -72,10 +72,14 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
                              IAccountService accountService,
                              ICalendarService calendarService,
                              IAccountCalendarStateService accountCalendarStateService,
-                             INavigationService navigationService)
+                             INavigationService navigationService,
+                             IDialogServiceBase dialogService,
+                             IUpdateManager updateManager)
     {
         _accountService = accountService;
         _calendarService = calendarService;
+        _dialogService = dialogService;
+        _updateManager = updateManager;
 
         AccountCalendarStateService = accountCalendarStateService;
         AccountCalendarStateService.AccountCalendarSelectionStateChanged += UpdateAccountCalendarRequested;
@@ -123,7 +127,22 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
         await InitializeAccountCalendarsAsync();
 
+        await ShowWhatIsNewIfNeededAsync();
+
         TodayClicked();
+    }
+
+    private async Task ShowWhatIsNewIfNeededAsync()
+    {
+        if (!_updateManager.ShouldShowUpdateNotes())
+            return;
+
+        var notes = await _updateManager.GetLatestUpdateNotesAsync();
+
+        if (notes.Sections.Count == 0)
+            return;
+
+        await _dialogService.ShowWhatIsNewDialogAsync(notes);
     }
 
     private async void AccountCalendarStateCollectivelyChanged(object sender, GroupedAccountCalendarViewModel e)
@@ -271,6 +290,8 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     private DateTime? _navigationDate;
     private readonly IAccountService _accountService;
     private readonly ICalendarService _calendarService;
+    private readonly IDialogServiceBase _dialogService;
+    private readonly IUpdateManager _updateManager;
 
     #region Commands
 

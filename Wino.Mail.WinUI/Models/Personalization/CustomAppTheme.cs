@@ -24,7 +24,7 @@ public class CustomAppTheme : AppThemeBase
 
     public override async Task<string> GetThemeResourceDictionaryContentAsync()
     {
-        var customAppThemeFile = await StorageFile.GetFileFromApplicationUriAsync(new Uri("ms-appx:///Wino.Mail.WinUI/AppThemes/Custom.xaml"));
+        var customAppThemeFile = await StorageFile.GetFileFromApplicationUriAsync(new Uri("ms-appx:///AppThemes/Custom.xaml"));
         return await FileIO.ReadTextAsync(customAppThemeFile);
     }
 }

@@ -23,11 +23,11 @@ public class PreDefinedAppTheme : AppThemeBase
     public override AppThemeType AppThemeType => AppThemeType.PreDefined;
 
     public override string GetBackgroundPreviewImagePath()
-        => $"ms-appx:///Wino.Mail.WinUI/BackgroundImages/{ThemeName}.jpg";
+        => $"ms-appx:///BackgroundImages/{ThemeName}.jpg";
 
     public override async Task<string> GetThemeResourceDictionaryContentAsync()
     {
-        var xamlDictionaryFile = await StorageFile.GetFileFromApplicationUriAsync(new Uri($"ms-appx://AppThemes/{ThemeName}.xaml"));
+        var xamlDictionaryFile = await StorageFile.GetFileFromApplicationUriAsync(new Uri($"ms-appx:///AppThemes/{ThemeName}.xaml"));
         return await FileIO.ReadTextAsync(xamlDictionaryFile);
     }
 }

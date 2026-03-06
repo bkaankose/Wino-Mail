@@ -37,4 +37,10 @@ public interface INewThemeService : IInitializeAsync
 
     // Backdrop management
     List<BackdropTypeWrapper> GetAvailableBackdropTypes();
+
+    /// <summary>
+    /// Re-applies the current theme (backdrop, root theme, accent, caption colors)
+    /// to the currently active window. Use after a window transition.
+    /// </summary>
+    Task ApplyThemeToActiveWindowAsync();
 }

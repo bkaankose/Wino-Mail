@@ -21,13 +21,17 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Mail.Services;
 using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Activation;
 using Wino.Mail.WinUI.Interfaces;
+using Wino.Mail.WinUI.Models;
 using Wino.Mail.WinUI.Services;
 using Wino.Messaging.Client.Accounts;
+using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 using Wino.Services;
@@ -36,13 +40,17 @@ namespace Wino.Mail.WinUI;
 
 public partial class App : WinoApplication,
     IRecipient<NewMailSynchronizationRequested>,
-    IRecipient<NewCalendarSynchronizationRequested>
+    IRecipient<NewCalendarSynchronizationRequested>,
+    IRecipient<AccountCreatedMessage>,
+    IRecipient<AccountRemovedMessage>,
+    IRecipient<GetStartedFromWelcomeRequested>
 {
     private const int InboxSyncsPerFullSync = 20;
     private const string ToggleDefaultModeLaunchArgument = "--mode=toggle-default";
     private ISynchronizationManager? _synchronizationManager;
     private IPreferencesService? _preferencesService;
     private IAccountService? _accountService;
+    private bool _windowManagerConfigured;
     private CancellationTokenSource? _autoSynchronizationLoopCts;
     private readonly SemaphoreSlim _autoSynchronizationSemaphore = new(1, 1);
     private readonly Dictionary<Guid, int> _inboxSyncCounters = [];
@@ -55,6 +63,52 @@ public partial class App : WinoApplication,
         CryptographyContext.Register(typeof(WindowsSecureMimeContext));
 
         RegisterRecipients();
+    }
+
+    private void EnsureWindowManagerConfigured()
+    {
+        if (_windowManagerConfigured)
+            return;
+
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        windowManager.ActiveWindowChanged -= OnActiveWindowChanged;
+        windowManager.ActiveWindowChanged += OnActiveWindowChanged;
+        windowManager.WindowRemoved -= OnManagedWindowRemoved;
+        windowManager.WindowRemoved += OnManagedWindowRemoved;
+
+        var nativeAppService = Services.GetRequiredService<INativeAppService>();
+        nativeAppService.GetCoreWindowHwnd = () =>
+        {
+            var window = windowManager.ActiveWindow
+                         ?? windowManager.GetWindow(WinoWindowKind.Shell)
+                         ?? windowManager.GetWindow(WinoWindowKind.Welcome)
+                         ?? MainWindow;
+
+            return window == null
+                ? IntPtr.Zero
+                : WinRT.Interop.WindowNative.GetWindowHandle(window);
+        };
+
+        _windowManagerConfigured = true;
+    }
+
+    private void OnActiveWindowChanged(object? sender, WindowEx? window)
+    {
+        if (window == null)
+            return;
+
+        MainWindow = window;
+        InitializeNavigationDispatcher();
+    }
+
+    private void OnManagedWindowRemoved(object? sender, WindowEx window)
+    {
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        MainWindow = windowManager.ActiveWindow
+                     ?? windowManager.GetWindow(WinoWindowKind.Shell)
+                     ?? windowManager.GetWindow(WinoWindowKind.Welcome);
+
+        InitializeNavigationDispatcher();
     }
 
     public bool IsNotificationActivation(out AppNotificationActivatedEventArgs args)
@@ -92,6 +146,11 @@ public partial class App : WinoApplication,
         services.AddTransient(typeof(MailRenderingPageViewModel));
         services.AddTransient(typeof(AccountManagementViewModel));
         services.AddTransient(typeof(WelcomePageViewModel));
+        services.AddTransient(typeof(WelcomePageV2ViewModel));
+        services.AddTransient(typeof(ProviderSelectionPageViewModel));
+        services.AddTransient(typeof(AccountSetupProgressPageViewModel));
+        services.AddTransient(typeof(SpecialImapCredentialsPageViewModel));
+        services.AddSingleton(typeof(WelcomeWizardContext));
 
         services.AddTransient(typeof(ComposePageViewModel));
         services.AddTransient(typeof(IdlePageViewModel));
@@ -152,9 +211,21 @@ public partial class App : WinoApplication,
         _synchronizationManager = Services.GetRequiredService<ISynchronizationManager>();
         _preferencesService = Services.GetRequiredService<IPreferencesService>();
         _accountService = Services.GetRequiredService<IAccountService>();
+        EnsureWindowManagerConfigured();
+
+        var hasAnyAccount = (await _accountService.GetAccountsAsync()).Any();
+        if (!IsStartupTaskLaunch() && !hasAnyAccount)
+        {
+            CreateWelcomeWindow();
+            await NewThemeService.InitializeAsync();
+            MainWindow?.Activate();
+            LogActivation("Welcome window created and activated.");
+            return;
+        }
 
         _preferencesService.PreferenceChanged -= PreferencesServiceChanged;
         _preferencesService.PreferenceChanged += PreferencesServiceChanged;
+
         RestartAutoSynchronizationLoop();
 
         // Check if launched from toast notification.
@@ -180,11 +251,11 @@ public partial class App : WinoApplication,
         if (isStartupTaskLaunch)
         {
             LogActivation("Launched by startup task. Window created but hidden (system tray only).");
-            // Window is created but not activated. User can show it from system tray.
         }
         else
         {
             // Normal launch - show and activate the window.
+            // The What's New dialog is shown from MailAppShellViewModel.OnNavigatedTo once XamlRoot is ready.
             MainWindow?.Activate();
             LogActivation("Window created and activated.");
         }
@@ -450,8 +521,17 @@ public partial class App : WinoApplication,
         // Initialize theme service after window is created.
         await NewThemeService.InitializeAsync();
 
-        MainWindow?.Activate();
+        if (MainWindow != null)
+            Services.GetRequiredService<IWinoWindowManager>().ActivateWindow(MainWindow);
+
         LogActivation("Window created and activated.");
+    }
+
+    public Task OpenManageAccountsFromWelcomeAsync()
+    {
+        Services.GetRequiredService<INavigationService>()
+            .Navigate(WinoPage.ManageAccountsPage, null, NavigationReferenceFrame.ShellFrame, NavigationTransitionType.DrillIn);
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -462,14 +542,14 @@ public partial class App : WinoApplication,
     {
         LogActivation("Creating main window.");
 
-        MainWindow = new ShellWindow();
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        MainWindow = windowManager.CreateWindow(WinoWindowKind.Shell, () => new ShellWindow());
         InitializeNavigationDispatcher();
-
-        var nativeAppService = Services.GetRequiredService<INativeAppService>();
-        nativeAppService.GetCoreWindowHwnd = () => WinRT.Interop.WindowNative.GetWindowHandle(MainWindow);
 
         if (MainWindow is not IWinoShellWindow shellWindow)
             throw new ArgumentException("MainWindow must implement IWinoShellWindow");
+
+        windowManager.SetPrimaryNavigationFrame(WinoWindowKind.Shell, shellWindow.GetMainFrame());
 
         var activationArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
 
@@ -496,6 +576,21 @@ public partial class App : WinoApplication,
         shellWindow.HandleAppActivation(args?.Arguments, GetCurrentLaunchTileId(), Environment.CommandLine);
     }
 
+    private void CreateWelcomeWindow()
+    {
+        LogActivation("Creating welcome window.");
+
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        MainWindow = windowManager.CreateWindow(WinoWindowKind.Welcome, () => new WelcomeWindow());
+        if (MainWindow is WelcomeWindow welcomeWindow)
+            windowManager.SetPrimaryNavigationFrame(WinoWindowKind.Welcome, welcomeWindow.GetRootFrame());
+
+        InitializeNavigationDispatcher();
+
+        Services.GetRequiredService<INavigationService>()
+            .Navigate(WinoPage.WelcomeHostPage, null, NavigationReferenceFrame.ShellFrame, NavigationTransitionType.None);
+    }
+
     private void InitializeNavigationDispatcher()
     {
         if (MainWindow == null)
@@ -509,18 +604,26 @@ public partial class App : WinoApplication,
 
     private void EnsureMainWindowVisibleAndForeground()
     {
-        if (MainWindow == null)
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        var currentWindow = windowManager.ActiveWindow
+                            ?? windowManager.GetWindow(WinoWindowKind.Shell)
+                            ?? windowManager.GetWindow(WinoWindowKind.Welcome)
+                            ?? MainWindow;
+
+        if (currentWindow == null)
             return;
 
-        MainWindow.Show();
-        MainWindow.BringToFront();
-        MainWindow.Activate();
+        MainWindow = currentWindow;
+        windowManager.ActivateWindow(currentWindow);
     }
 
     private void RegisterRecipients()
     {
         WeakReferenceMessenger.Default.Register<NewMailSynchronizationRequested>(this);
         WeakReferenceMessenger.Default.Register<NewCalendarSynchronizationRequested>(this);
+        WeakReferenceMessenger.Default.Register<AccountCreatedMessage>(this);
+        WeakReferenceMessenger.Default.Register<AccountRemovedMessage>(this);
+        WeakReferenceMessenger.Default.Register<GetStartedFromWelcomeRequested>(this);
     }
 
     public async void Receive(NewMailSynchronizationRequested message)
@@ -571,6 +674,64 @@ public partial class App : WinoApplication,
                 Translator.Exception_FailedToSynchronizeFolders,
                 InfoBarMessageType.Error);
         }
+    }
+
+    public void Receive(AccountCreatedMessage message)
+    {
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+
+        // Only transition when the account was created from the WelcomeWindow.
+        if (windowManager.GetWindow(WinoWindowKind.Welcome) == null)
+            return;
+
+        MainWindow?.DispatcherQueue?.TryEnqueue(async () =>
+        {
+            // Create and activate ShellWindow — ActiveWindowChanged fires and rebinds the dispatcher.
+            CreateWindow(null);
+            windowManager.HideWindow(WinoWindowKind.Welcome);
+            await NewThemeService.ApplyThemeToActiveWindowAsync();
+            MainWindow?.Activate();
+            RestartAutoSynchronizationLoop();
+        });
+    }
+
+    public void Receive(AccountRemovedMessage message)
+    {
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+
+        // Only handle when ShellWindow is active (not during wizard rollback)
+        if (windowManager.GetWindow(WinoWindowKind.Shell) == null)
+            return;
+
+        MainWindow?.DispatcherQueue?.TryEnqueue(async () =>
+        {
+            var accounts = await _accountService!.GetAccountsAsync();
+            if (accounts.Any()) return;
+
+            // All accounts removed — go back to welcome wizard from step 1
+            Services.GetRequiredService<WelcomeWizardContext>().Reset();
+            StopAutoSynchronizationLoop();
+            CreateWelcomeWindow();
+            windowManager.HideWindow(WinoWindowKind.Shell);
+            await NewThemeService.ApplyThemeToActiveWindowAsync();
+            MainWindow?.Activate();
+        });
+    }
+
+    public void Receive(GetStartedFromWelcomeRequested message)
+    {
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+
+        if (windowManager.GetWindow(WinoWindowKind.Welcome) == null)
+            return;
+
+        MainWindow?.DispatcherQueue?.TryEnqueue(async () =>
+        {
+            CreateWindow(null);
+            windowManager.HideWindow(WinoWindowKind.Welcome);
+            await NewThemeService.ApplyThemeToActiveWindowAsync();
+            MainWindow?.Activate();
+        });
     }
 
     private static string GetSynchronizationFailureMessage(MailSynchronizationType synchronizationType, string? exceptionMessage)

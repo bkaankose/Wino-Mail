@@ -1,0 +1,152 @@
+<abstract:WelcomePageV2Abstract
+    x:Class="Wino.Views.WelcomePageV2"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:Wino.Core.Domain.Models.Updates"
+    mc:Ignorable="d">
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <Grid
+            MaxWidth="900"
+            Margin="0,48,0,40"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            RowSpacing="32">
+
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!--  Brand  -->
+            <StackPanel HorizontalAlignment="Center" Spacing="4">
+                <Image
+                    Width="128"
+                    Height="128"
+                    Margin="0,0,0,12"
+                    HorizontalAlignment="Center"
+                    Source="ms-appx:///Assets/AppEntries/MailAssets/Square150x150Logo.scale-100.png"
+                    Stretch="Uniform" />
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    FontSize="28"
+                    FontWeight="SemiBold"
+                    Text="{x:Bind domain:Translator.WelcomeWindow_Title}" />
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource BodyTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.WelcomeWindow_AppDescription}" />
+            </StackPanel>
+
+            <!--  FlipView  -->
+            <Grid
+                Grid.Row="1"
+                MaxHeight="300"
+                VerticalAlignment="Center">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Border
+                    Padding="0"
+                    VerticalAlignment="Center"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12">
+                    <FlipView
+                        x:Name="UpdateFlipView"
+                        MinHeight="200"
+                        Background="Transparent"
+                        ItemsSource="{x:Bind ViewModel.UpdateSections, Mode=OneWay}"
+                        SelectionChanged="OnFlipViewSelectionChanged">
+                        <FlipView.ItemTemplate>
+                            <DataTemplate x:DataType="models:UpdateNoteSection">
+                                <Grid Padding="48,40" ColumnSpacing="40">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <!--  Illustration  -->
+                                    <Border Height="160" CornerRadius="8">
+                                        <Image
+                                            Width="{x:Bind ActualImageWidth, Mode=OneTime}"
+                                            Height="{x:Bind ActualImageHeight, Mode=OneTime}"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Source="{x:Bind ImageUrl, Mode=OneTime}"
+                                            Stretch="Uniform" />
+                                    </Border>
+
+                                    <!--  Content  -->
+                                    <StackPanel
+                                        Grid.Column="1"
+                                        VerticalAlignment="Center"
+                                        Spacing="8">
+                                        <controls:MarkdownTextBlock Text="{x:Bind Title, Mode=OneTime}" />
+                                        <controls:MarkdownTextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind Description, Mode=OneTime}" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </FlipView.ItemTemplate>
+                    </FlipView>
+                </Border>
+
+                <!--  PipsPager  -->
+                <PipsPager
+                    x:Name="FlipViewPager"
+                    Grid.Row="1"
+                    Margin="0,16,0,0"
+                    HorizontalAlignment="Center"
+                    NumberOfPages="{x:Bind ViewModel.UpdateSections.Count, Mode=OneWay}"
+                    SelectedIndexChanged="OnPipsPagerSelectedIndexChanged"
+                    SelectedPageIndex="0" />
+            </Grid>
+
+            <!--  Divider  -->
+            <Border
+                Grid.Row="2"
+                Height="1"
+                HorizontalAlignment="Stretch"
+                Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+            <!--  Get Started  -->
+            <StackPanel
+                Grid.Row="3"
+                MaxWidth="600"
+                HorizontalAlignment="Center"
+                Spacing="8">
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource BodyTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.WelcomeWindow_GetStartedDescription}" />
+
+                <Button
+                    MinWidth="240"
+                    Padding="12,10"
+                    HorizontalAlignment="Center"
+                    Command="{x:Bind ViewModel.GetStartedCommand}"
+                    Style="{StaticResource AccentButtonStyle}">
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        FontSize="14"
+                        FontWeight="SemiBold"
+                        Text="{x:Bind domain:Translator.WelcomeWindow_GetStartedButton}" />
+                </Button>
+            </StackPanel>
+
+        </Grid>
+    </ScrollViewer>
+
+</abstract:WelcomePageV2Abstract>

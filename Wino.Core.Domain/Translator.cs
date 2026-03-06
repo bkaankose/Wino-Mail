@@ -7,4 +7,7 @@ namespace Wino.Core.Domain;
 /// All translations generated automatically by the source generator.
 /// </summary>
 [TranslatorGen]
-public partial class Translator;
+public partial class Translator
+{
+    public static string GetTranslatedString(string key) => Resources.GetTranslatedString(key);
+}

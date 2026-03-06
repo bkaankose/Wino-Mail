@@ -62,6 +62,7 @@ public class NewThemeService : INewThemeService
     private readonly IConfigurationService _configurationService;
     private readonly IUnderlyingThemeService _underlyingThemeService;
     private readonly IApplicationResourceManager<ResourceDictionary> _applicationResourceManager;
+    private readonly IWinoWindowManager _windowManager;
 
     private List<AppThemeBase> preDefinedThemes { get; set; } = new List<AppThemeBase>()
     {
@@ -75,11 +76,13 @@ public class NewThemeService : INewThemeService
 
     public NewThemeService(IConfigurationService configurationService,
                           IUnderlyingThemeService underlyingThemeService,
-                          IApplicationResourceManager<ResourceDictionary> applicationResourceManager)
+                          IApplicationResourceManager<ResourceDictionary> applicationResourceManager,
+                          IWinoWindowManager windowManager)
     {
         _configurationService = configurationService;
         _underlyingThemeService = underlyingThemeService;
         _applicationResourceManager = applicationResourceManager;
+        _windowManager = windowManager;
     }
 
     /// <summary>
@@ -89,11 +92,17 @@ public class NewThemeService : INewThemeService
     {
         get
         {
-            return GetShellRootContent().RequestedTheme.ToWinoElementTheme();
+            var rootContent = TryGetShellRootContent();
+            if (rootContent == null)
+                return _configurationService.Get(UnderlyingThemeService.SelectedAppThemeKey, ApplicationElementTheme.Default);
+
+            return rootContent.RequestedTheme.ToWinoElementTheme();
         }
         set
         {
-            GetShellRootContent().RequestedTheme = value.ToWindowsElementTheme();
+            var rootContent = TryGetShellRootContent();
+            if (rootContent != null)
+                rootContent.RequestedTheme = value.ToWindowsElementTheme();
 
             _configurationService.Set(UnderlyingThemeService.SelectedAppThemeKey, value);
 
@@ -115,9 +124,10 @@ public class NewThemeService : INewThemeService
 
             _configurationService.Set(CurrentApplicationThemeKey, value);
 
-            if (WinoApplication.MainWindow != null)
+            var window = GetThemeWindow();
+            if (window != null)
             {
-                WinoApplication.MainWindow.DispatcherQueue.TryEnqueue(async () =>
+                window.DispatcherQueue.TryEnqueue(async () =>
                 {
                     await ApplyCustomThemeAsync(false);
                 });
@@ -154,9 +164,10 @@ public class NewThemeService : INewThemeService
             currentBackdropType = value;
             _configurationService.Set(WindowBackdropTypeKey, (int)value);
 
-            if (WinoApplication.MainWindow != null)
+            var window = GetThemeWindow();
+            if (window != null)
             {
-                WinoApplication.MainWindow.DispatcherQueue.TryEnqueue(() =>
+                window.DispatcherQueue.TryEnqueue(() =>
                 {
                     ApplyBackdrop(value);
                 });
@@ -176,7 +187,17 @@ public class NewThemeService : INewThemeService
         }
     }
 
-    public FrameworkElement GetShellRootContent() => (WinoApplication.MainWindow as IWinoShellWindow)?.GetRootContent() ?? throw new Exception("No root content found");
+    public FrameworkElement GetShellRootContent()
+    {
+        var window = GetThemeWindow();
+        if (window is IWinoShellWindow shellWindow)
+            return shellWindow.GetRootContent();
+
+        if (window?.Content is FrameworkElement frameworkElement)
+            return frameworkElement;
+
+        throw new Exception("No root content found");
+    }
 
     private bool isInitialized = false;
 
@@ -210,9 +231,9 @@ public class NewThemeService : INewThemeService
 
     public void ApplyBackdrop(WindowBackdropType backdropType)
     {
-        if (WinoApplication.MainWindow is not WindowEx windowEx)
+        if (GetThemeWindow() is not WindowEx windowEx)
         {
-            Debug.WriteLine("MainWindow is not WindowEx, cannot apply backdrop");
+            Debug.WriteLine("No active WindowEx found, cannot apply backdrop");
             return;
         }
 
@@ -267,7 +288,7 @@ public class NewThemeService : INewThemeService
 
     private void NotifyThemeUpdate()
     {
-        if (GetShellRootContent() is not UIElement rootContent) return;
+        if (TryGetShellRootContent() is not UIElement rootContent) return;
 
         _ = rootContent.DispatcherQueue.EnqueueAsync(() =>
         {
@@ -283,9 +304,12 @@ public class NewThemeService : INewThemeService
 
     public void UpdateSystemCaptionButtonColors()
     {
-        GetShellRootContent().DispatcherQueue.TryEnqueue(() =>
+        var rootContent = TryGetShellRootContent();
+        if (rootContent == null) return;
+
+        rootContent.DispatcherQueue.TryEnqueue(() =>
         {
-            if (WinoApplication.MainWindow is not WindowEx mainWindow) return;
+            if (GetThemeWindow() is not WindowEx mainWindow) return;
 
             var titleBar = mainWindow.AppWindow.TitleBar;
             if (titleBar == null) return;
@@ -353,8 +377,7 @@ public class NewThemeService : INewThemeService
 
     private void RefreshThemeResource()
     {
-        var mainApplicationFrame = GetShellRootContent();
-
+        var mainApplicationFrame = TryGetShellRootContent();
         if (mainApplicationFrame == null) return;
 
         if (mainApplicationFrame.RequestedTheme == ElementTheme.Dark)
@@ -647,5 +670,27 @@ public class NewThemeService : INewThemeService
             new BackdropTypeWrapper(WindowBackdropType.AcrylicBase, "Acrylic Base"),
             new BackdropTypeWrapper(WindowBackdropType.AcrylicThin, "Acrylic Thin")
         };
+    }
+
+    private WindowEx? GetThemeWindow() => _windowManager.ActiveWindow ?? WinoApplication.MainWindow;
+
+    private FrameworkElement? TryGetShellRootContent()
+    {
+        var window = GetThemeWindow();
+        if (window == null)
+            return null;
+
+        if (window is IWinoShellWindow shellWindow)
+            return shellWindow.GetRootContent();
+
+        return window.Content as FrameworkElement;
+    }
+
+    public async Task ApplyThemeToActiveWindowAsync()
+    {
+        ApplyBackdrop(currentBackdropType);
+        RootTheme = _configurationService.Get(UnderlyingThemeService.SelectedAppThemeKey, ApplicationElementTheme.Default);
+        await ApplyCustomThemeAsync(false);
+        UpdateSystemCaptionButtonColors();
     }
 }

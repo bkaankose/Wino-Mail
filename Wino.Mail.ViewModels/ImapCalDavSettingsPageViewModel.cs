@@ -25,6 +25,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     private readonly ICalDavClient _calDavClient;
     private readonly IAccountService _accountService;
     private readonly IMailDialogService _mailDialogService;
+    private readonly WelcomeWizardContext _wizardContext;
 
     private ImapCalDavSettingsPageMode _pageMode;
     private Guid _editingAccountId;
@@ -256,12 +257,14 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     public ImapCalDavSettingsPageViewModel(IAutoDiscoveryService autoDiscoveryService,
                                            ICalDavClient calDavClient,
                                            IAccountService accountService,
-                                           IMailDialogService mailDialogService)
+                                           IMailDialogService mailDialogService,
+                                           WelcomeWizardContext wizardContext)
     {
         _autoDiscoveryService = autoDiscoveryService;
         _calDavClient = calDavClient;
         _accountService = accountService;
         _mailDialogService = mailDialogService;
+        _wizardContext = wizardContext;
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -278,7 +281,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         _localOnlyInfoShown = false;
         SelectedSetupTabIndex = 0;
 
-        if (_pageMode == ImapCalDavSettingsPageMode.Create)
+        if (_pageMode == ImapCalDavSettingsPageMode.Create || _pageMode == ImapCalDavSettingsPageMode.Wizard)
         {
             PageTitle = Translator.ImapCalDavSettingsPage_TitleCreate;
             ApplyCreateContextDefaults(context.AccountCreationDialogResult);
@@ -300,6 +303,8 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
         base.OnNavigatedFrom(mode, parameters);
     }
+
+    public bool IsWizardMode => _pageMode == ImapCalDavSettingsPageMode.Wizard;
 
     [RelayCommand]
     private async Task AutoDiscoverSettingsAsync()
@@ -407,6 +412,12 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                 IsCalDavValidationSucceeded = false;
             }
 
+            if (_pageMode == ImapCalDavSettingsPageMode.Wizard)
+            {
+                CompleteWizardFlow(serverInformation);
+                return;
+            }
+
             if (_pageMode == ImapCalDavSettingsPageMode.Create)
             {
                 CompleteCreateFlow(serverInformation);
@@ -434,6 +445,22 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         }
 
         Messenger.Send(new BackBreadcrumNavigationRequested());
+    }
+
+    private void CompleteWizardFlow(CustomServerInformation serverInformation)
+    {
+        serverInformation.Id = Guid.NewGuid();
+        serverInformation.AccountId = Guid.Empty;
+
+        _wizardContext.ImapCalDavSetupResult = new ImapCalDavSetupResult
+        {
+            DisplayName = DisplayName.Trim(),
+            EmailAddress = EmailAddress.Trim(),
+            IsCalendarAccessGranted = serverInformation.CalendarSupportMode != ImapCalendarSupportMode.Disabled,
+            ServerInformation = serverInformation
+        };
+
+        Messenger.Send(new BreadcrumbNavigationRequested(Translator.WelcomeWizard_Step3Title, WinoPage.AccountSetupProgressPage));
     }
 
     [RelayCommand]

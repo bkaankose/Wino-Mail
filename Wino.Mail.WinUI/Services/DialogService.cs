@@ -27,9 +27,9 @@ public class DialogService : DialogServiceBase, IMailDialogService
 {
     public DialogService(INewThemeService themeService,
                          IConfigurationService configurationService,
-                         IApplicationResourceManager<ResourceDictionary> applicationResourceManager) : base(themeService, configurationService, applicationResourceManager)
+                         IApplicationResourceManager<ResourceDictionary> applicationResourceManager,
+                         IUpdateManager updateManager) : base(themeService, configurationService, applicationResourceManager, updateManager)
     {
-
     }
 
     public async Task<ICreateAccountAliasDialog> ShowCreateAccountAliasDialogAsync()

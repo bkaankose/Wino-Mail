@@ -16,6 +16,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Common;
 using Wino.Core.Domain.Models.Printing;
+using Wino.Core.Domain.Models.Updates;
 using Wino.Dialogs;
 using Wino.Mail.WinUI.Dialogs;
 using Wino.Mail.WinUI.Extensions;
@@ -30,14 +31,16 @@ public class DialogServiceBase : IDialogServiceBase
 
     protected INewThemeService ThemeService { get; }
     protected IConfigurationService ConfigurationService { get; }
+    protected IUpdateManager UpdateManager { get; }
 
     protected IApplicationResourceManager<ResourceDictionary> ApplicationResourceManager { get; }
 
-    public DialogServiceBase(INewThemeService themeService, IConfigurationService configurationService, IApplicationResourceManager<ResourceDictionary> applicationResourceManager)
+    public DialogServiceBase(INewThemeService themeService, IConfigurationService configurationService, IApplicationResourceManager<ResourceDictionary> applicationResourceManager, IUpdateManager updateManager)
     {
         ThemeService = themeService;
         ConfigurationService = configurationService;
         ApplicationResourceManager = applicationResourceManager;
+        UpdateManager = updateManager;
     }
 
     protected XamlRoot? GetXamlRoot()
@@ -354,5 +357,15 @@ public class DialogServiceBase : IDialogServiceBase
             Log.Error(ex, "Error showing print dialog");
             return null!;
         }
+    }
+
+    public async Task ShowWhatIsNewDialogAsync(UpdateNotes notes)
+    {
+        var dialog = new WhatIsNewDialog(notes, UpdateManager)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(dialog);
     }
 }

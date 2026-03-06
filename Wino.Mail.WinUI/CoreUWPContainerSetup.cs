@@ -18,6 +18,7 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<IDispatcher>(provider => provider.GetRequiredService<WinUIDispatcher>());
 
         services.AddSingleton<IUnderlyingThemeService, UnderlyingThemeService>();
+        services.AddSingleton<IWinoWindowManager, WinoWindowManager>();
         services.AddSingleton<INativeAppService, NativeAppService>();
         services.AddSingleton<IStoreManagementService, StoreManagementService>();
         services.AddSingleton<IPreferencesService, PreferencesService>();
@@ -48,6 +49,7 @@ public static class CoreUWPContainerSetup
         services.AddTransient(typeof(AboutPageViewModel));
         services.AddTransient(typeof(SettingsPageViewModel));
         services.AddTransient(typeof(ManageAccountsPagePageViewModel));
+        services.AddTransient(typeof(WelcomeHostPageViewModel));
         services.AddTransient(typeof(KeyboardShortcutsPageViewModel));
     }
 }

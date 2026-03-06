@@ -10,45 +10,57 @@
 
     <ScrollViewer>
         <StackPanel
-            MaxWidth="1040"
-            Padding="24,20,24,24"
-            Spacing="16">
+            MaxWidth="860"
+            Padding="36,28,36,36"
+            HorizontalAlignment="Center"
+            Spacing="24">
+
+            <!--  Page Header  -->
             <StackPanel Spacing="4">
                 <TextBlock
-                    FontSize="30"
+                    FontSize="28"
                     FontWeight="SemiBold"
                     Text="{x:Bind ViewModel.PageTitle, Mode=OneWay}" />
                 <TextBlock
-                    Opacity="0.85"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource BodyTextBlockStyle}"
                     Text="{x:Bind ViewModel.SubtitleText, Mode=OneWay}"
                     TextWrapping="WrapWholeWords" />
                 <TextBlock
-                    Opacity="0.85"
+                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
                     Text="{x:Bind ViewModel.ProviderHint, Mode=OneWay}"
-                    TextWrapping="WrapWholeWords" />
+                    TextWrapping="WrapWholeWords"
+                    Visibility="{x:Bind ViewModel.HasProviderHint, Mode=OneWay}" />
             </StackPanel>
 
+            <!--  Setup Mode Selector  -->
             <SelectorBar x:Name="SetupModeSelector" SelectionChanged="OnSetupModeSelectionChanged">
                 <SelectorBarItem Icon="Library" Text="{x:Bind ViewModel.BasicTabText, Mode=OneWay}" />
                 <SelectorBarItem Icon="Setting" Text="{x:Bind ViewModel.AdvancedTabText, Mode=OneWay}" />
             </SelectorBar>
 
+            <!--  Basic Setup Card  -->
             <Border
-                Padding="16"
+                Padding="20"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
-                CornerRadius="12"
+                CornerRadius="8"
                 Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsAdvancedSetupSelected), Mode=OneWay}">
-                <StackPanel Spacing="12">
-                    <TextBlock
-                        FontSize="19"
-                        FontWeight="SemiBold"
-                        Text="{x:Bind ViewModel.BasicSectionTitleText, Mode=OneWay}" />
-                    <TextBlock
-                        Opacity="0.75"
-                        Text="{x:Bind ViewModel.BasicSectionDescriptionText, Mode=OneWay}"
-                        TextWrapping="WrapWholeWords" />
+                <StackPanel Spacing="16">
+                    <StackPanel Spacing="2">
+                        <TextBlock
+                            FontSize="16"
+                            FontWeight="SemiBold"
+                            Text="{x:Bind ViewModel.BasicSectionTitleText, Mode=OneWay}" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind ViewModel.BasicSectionDescriptionText, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+
                     <Grid ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -65,103 +77,146 @@
                             PlaceholderText="{x:Bind ViewModel.EmailAddressPlaceholderText, Mode=OneWay}"
                             Text="{x:Bind ViewModel.EmailAddress, Mode=TwoWay}" />
                     </Grid>
+
                     <PasswordBox Header="{x:Bind ViewModel.PasswordHeaderText, Mode=OneWay}" Password="{x:Bind ViewModel.Password, Mode=TwoWay}" />
+
                     <CheckBox Content="{x:Bind ViewModel.EnableCalendarSupportText, Mode=OneWay}" IsChecked="{x:Bind ViewModel.IsCalendarSupportEnabled, Mode=TwoWay}" />
+
                     <Button
                         HorizontalAlignment="Left"
                         Command="{x:Bind ViewModel.AutoDiscoverSettingsCommand}"
-                        Content="{x:Bind ViewModel.AutoDiscoverButtonText, Mode=OneWay}" />
+                        Content="{x:Bind ViewModel.AutoDiscoverButtonText, Mode=OneWay}"
+                        Style="{ThemeResource AccentButtonStyle}" />
                 </StackPanel>
             </Border>
 
+            <!--  Advanced Setup Card  -->
             <Border
-                Padding="16"
+                Padding="20"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
-                CornerRadius="12"
+                CornerRadius="8"
                 Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsBasicSetupSelected), Mode=OneWay}">
-                <StackPanel Spacing="14">
-                    <TextBlock
-                        FontSize="19"
-                        FontWeight="SemiBold"
-                        Text="{x:Bind ViewModel.AdvancedSectionTitleText, Mode=OneWay}" />
-                    <TextBlock
-                        Opacity="0.75"
-                        Text="{x:Bind ViewModel.AdvancedSectionDescriptionText, Mode=OneWay}"
-                        TextWrapping="WrapWholeWords" />
+                <StackPanel Spacing="20">
+                    <StackPanel Spacing="2">
+                        <TextBlock
+                            FontSize="16"
+                            FontWeight="SemiBold"
+                            Text="{x:Bind ViewModel.AdvancedSectionTitleText, Mode=OneWay}" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind ViewModel.AdvancedSectionDescriptionText, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
 
-                    <Grid ColumnSpacing="18">
+                    <Grid ColumnSpacing="24">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
 
-                        <StackPanel Spacing="8">
-                            <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.IncomingSectionTitleText, Mode=OneWay}" />
-                            <TextBox Header="{x:Bind ViewModel.IncomingServerHeaderText, Mode=OneWay}" Text="{x:Bind ViewModel.IncomingServer, Mode=TwoWay}" />
-                            <TextBox Header="{x:Bind ViewModel.PortHeaderText, Mode=OneWay}" Text="{x:Bind ViewModel.IncomingServerPort, Mode=TwoWay}" />
-                            <TextBox Header="{x:Bind ViewModel.IncomingUsernameHeaderText, Mode=OneWay}" Text="{x:Bind ViewModel.IncomingServerUsername, Mode=TwoWay}" />
-                            <PasswordBox Header="{x:Bind ViewModel.IncomingPasswordHeaderText, Mode=OneWay}" Password="{x:Bind ViewModel.IncomingServerPassword, Mode=TwoWay}" />
-                            <ComboBox
-                                Header="{x:Bind ViewModel.ConnectionSecurityHeaderText, Mode=OneWay}"
-                                ItemsSource="{x:Bind ViewModel.AvailableConnectionSecurityDisplayNames}"
-                                SelectedIndex="{x:Bind ViewModel.SelectedIncomingServerConnectionSecurityIndex, Mode=TwoWay}" />
-                            <ComboBox
-                                Header="{x:Bind ViewModel.AuthenticationMethodHeaderText, Mode=OneWay}"
-                                ItemsSource="{x:Bind ViewModel.AvailableAuthenticationMethodDisplayNames}"
-                                SelectedIndex="{x:Bind ViewModel.SelectedIncomingServerAuthenticationMethodIndex, Mode=TwoWay}" />
-                        </StackPanel>
+                        <!--  Incoming (IMAP) Settings  -->
+                        <Border
+                            Padding="16"
+                            Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                            CornerRadius="6">
+                            <StackPanel Spacing="10">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon FontSize="14" Glyph="&#xE896;" />
+                                    <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.IncomingSectionTitleText, Mode=OneWay}" />
+                                </StackPanel>
+                                <TextBox Header="{x:Bind ViewModel.IncomingServerHeaderText, Mode=OneWay}" Text="{x:Bind ViewModel.IncomingServer, Mode=TwoWay}" />
+                                <TextBox Header="{x:Bind ViewModel.PortHeaderText, Mode=OneWay}" Text="{x:Bind ViewModel.IncomingServerPort, Mode=TwoWay}" />
+                                <TextBox Header="{x:Bind ViewModel.IncomingUsernameHeaderText, Mode=OneWay}" Text="{x:Bind ViewModel.IncomingServerUsername, Mode=TwoWay}" />
+                                <PasswordBox Header="{x:Bind ViewModel.IncomingPasswordHeaderText, Mode=OneWay}" Password="{x:Bind ViewModel.IncomingServerPassword, Mode=TwoWay}" />
+                                <ComboBox
+                                    HorizontalAlignment="Stretch"
+                                    Header="{x:Bind ViewModel.ConnectionSecurityHeaderText, Mode=OneWay}"
+                                    ItemsSource="{x:Bind ViewModel.AvailableConnectionSecurityDisplayNames}"
+                                    SelectedIndex="{x:Bind ViewModel.SelectedIncomingServerConnectionSecurityIndex, Mode=TwoWay}" />
+                                <ComboBox
+                                    HorizontalAlignment="Stretch"
+                                    Header="{x:Bind ViewModel.AuthenticationMethodHeaderText, Mode=OneWay}"
+                                    ItemsSource="{x:Bind ViewModel.AvailableAuthenticationMethodDisplayNames}"
+                                    SelectedIndex="{x:Bind ViewModel.SelectedIncomingServerAuthenticationMethodIndex, Mode=TwoWay}" />
+                            </StackPanel>
+                        </Border>
 
-                        <StackPanel Grid.Column="1" Spacing="8">
-                            <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.OutgoingSectionTitleText, Mode=OneWay}" />
-                            <TextBox Header="{x:Bind ViewModel.OutgoingServerHeaderText, Mode=OneWay}" Text="{x:Bind ViewModel.OutgoingServer, Mode=TwoWay}" />
-                            <TextBox Header="{x:Bind ViewModel.PortHeaderText, Mode=OneWay}" Text="{x:Bind ViewModel.OutgoingServerPort, Mode=TwoWay}" />
-                            <TextBox Header="{x:Bind ViewModel.OutgoingUsernameHeaderText, Mode=OneWay}" Text="{x:Bind ViewModel.OutgoingServerUsername, Mode=TwoWay}" />
-                            <PasswordBox Header="{x:Bind ViewModel.OutgoingPasswordHeaderText, Mode=OneWay}" Password="{x:Bind ViewModel.OutgoingServerPassword, Mode=TwoWay}" />
-                            <ComboBox
-                                Header="{x:Bind ViewModel.ConnectionSecurityHeaderText, Mode=OneWay}"
-                                ItemsSource="{x:Bind ViewModel.AvailableConnectionSecurityDisplayNames}"
-                                SelectedIndex="{x:Bind ViewModel.SelectedOutgoingServerConnectionSecurityIndex, Mode=TwoWay}" />
-                            <ComboBox
-                                Header="{x:Bind ViewModel.AuthenticationMethodHeaderText, Mode=OneWay}"
-                                ItemsSource="{x:Bind ViewModel.AvailableAuthenticationMethodDisplayNames}"
-                                SelectedIndex="{x:Bind ViewModel.SelectedOutgoingServerAuthenticationMethodIndex, Mode=TwoWay}" />
-                        </StackPanel>
+                        <!--  Outgoing (SMTP) Settings  -->
+                        <Border
+                            Grid.Column="1"
+                            Padding="16"
+                            Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                            CornerRadius="6">
+                            <StackPanel Spacing="10">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon FontSize="14" Glyph="&#xE898;" />
+                                    <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.OutgoingSectionTitleText, Mode=OneWay}" />
+                                </StackPanel>
+                                <TextBox Header="{x:Bind ViewModel.OutgoingServerHeaderText, Mode=OneWay}" Text="{x:Bind ViewModel.OutgoingServer, Mode=TwoWay}" />
+                                <TextBox Header="{x:Bind ViewModel.PortHeaderText, Mode=OneWay}" Text="{x:Bind ViewModel.OutgoingServerPort, Mode=TwoWay}" />
+                                <TextBox Header="{x:Bind ViewModel.OutgoingUsernameHeaderText, Mode=OneWay}" Text="{x:Bind ViewModel.OutgoingServerUsername, Mode=TwoWay}" />
+                                <PasswordBox Header="{x:Bind ViewModel.OutgoingPasswordHeaderText, Mode=OneWay}" Password="{x:Bind ViewModel.OutgoingServerPassword, Mode=TwoWay}" />
+                                <ComboBox
+                                    HorizontalAlignment="Stretch"
+                                    Header="{x:Bind ViewModel.ConnectionSecurityHeaderText, Mode=OneWay}"
+                                    ItemsSource="{x:Bind ViewModel.AvailableConnectionSecurityDisplayNames}"
+                                    SelectedIndex="{x:Bind ViewModel.SelectedOutgoingServerConnectionSecurityIndex, Mode=TwoWay}" />
+                                <ComboBox
+                                    HorizontalAlignment="Stretch"
+                                    Header="{x:Bind ViewModel.AuthenticationMethodHeaderText, Mode=OneWay}"
+                                    ItemsSource="{x:Bind ViewModel.AvailableAuthenticationMethodDisplayNames}"
+                                    SelectedIndex="{x:Bind ViewModel.SelectedOutgoingServerAuthenticationMethodIndex, Mode=TwoWay}" />
+                            </StackPanel>
+                        </Border>
                     </Grid>
                 </StackPanel>
             </Border>
 
+            <!--  Calendar Settings Card  -->
             <Border
-                Padding="16"
+                Padding="20"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
-                CornerRadius="12">
-                <StackPanel Spacing="12">
-                    <TextBlock
-                        FontSize="19"
-                        FontWeight="SemiBold"
-                        Text="{x:Bind ViewModel.CalendarSectionTitleText, Mode=OneWay}" />
-                    <TextBlock
-                        Opacity="0.75"
-                        Text="{x:Bind ViewModel.CalendarSectionDescriptionText, Mode=OneWay}"
-                        TextWrapping="WrapWholeWords" />
+                CornerRadius="8">
+                <StackPanel Spacing="16">
+                    <StackPanel Spacing="2">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon FontSize="16" Glyph="&#xE787;" />
+                            <TextBlock
+                                FontSize="16"
+                                FontWeight="SemiBold"
+                                Text="{x:Bind ViewModel.CalendarSectionTitleText, Mode=OneWay}" />
+                        </StackPanel>
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind ViewModel.CalendarSectionDescriptionText, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+
                     <ComboBox
+                        HorizontalAlignment="Stretch"
                         Header="{x:Bind ViewModel.CalendarModeHeaderText, Mode=OneWay}"
                         IsEnabled="{x:Bind ViewModel.IsCalendarModeSelectionVisible, Mode=OneWay}"
                         ItemsSource="{x:Bind ViewModel.AvailableCalendarSupportModeTitles}"
                         SelectedIndex="{x:Bind ViewModel.SelectedCalendarSupportModeIndex, Mode=TwoWay}" />
+
                     <TextBlock
-                        Opacity="0.8"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
                         Text="{x:Bind ViewModel.SelectedCalendarSupportDescription, Mode=OneWay}"
                         TextWrapping="WrapWholeWords" />
-                    <Button
-                        HorizontalAlignment="Left"
+
+                    <HyperlinkButton
                         Command="{x:Bind ViewModel.ShowLocalCalendarExplanationCommand}"
                         Content="{x:Bind ViewModel.LocalCalendarLearnMoreText, Mode=OneWay}"
                         IsEnabled="{x:Bind ViewModel.IsLocalCalendarModeSelected, Mode=OneWay}" />
-                    <Grid ColumnSpacing="12">
+
+                    <Grid ColumnSpacing="12" Visibility="{x:Bind ViewModel.IsCalDavSettingsVisible, Mode=OneWay}">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="2*" />
                             <ColumnDefinition Width="*" />
@@ -169,22 +224,22 @@
                         <TextBox
                             Grid.Column="0"
                             Header="{x:Bind ViewModel.CalDavServiceUrlHeaderText, Mode=OneWay}"
-                            IsEnabled="{x:Bind ViewModel.IsCalDavSettingsVisible, Mode=OneWay}"
                             Text="{x:Bind ViewModel.CalDavServiceUrl, Mode=TwoWay}" />
                         <TextBox
                             Grid.Column="1"
                             Header="{x:Bind ViewModel.CalDavUsernameHeaderText, Mode=OneWay}"
-                            IsEnabled="{x:Bind ViewModel.IsCalDavSettingsVisible, Mode=OneWay}"
                             Text="{x:Bind ViewModel.CalDavUsername, Mode=TwoWay}" />
                     </Grid>
+
                     <PasswordBox
                         Header="{x:Bind ViewModel.CalDavPasswordHeaderText, Mode=OneWay}"
-                        IsEnabled="{x:Bind ViewModel.IsCalDavSettingsVisible, Mode=OneWay}"
-                        Password="{x:Bind ViewModel.CalDavPassword, Mode=TwoWay}" />
+                        Password="{x:Bind ViewModel.CalDavPassword, Mode=TwoWay}"
+                        Visibility="{x:Bind ViewModel.IsCalDavSettingsVisible, Mode=OneWay}" />
                 </StackPanel>
             </Border>
 
-            <Grid ColumnSpacing="8">
+            <!--  Action Bar  -->
+            <Grid Margin="0,4,0,0" ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
