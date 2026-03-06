@@ -64,6 +64,11 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
         Bindings.Update();
 
+        if (ViewModel.ActiveFolder != null)
+        {
+            ViewModel.StatePersistenceService.CoreWindowTitle = $"{ViewModel.ActiveFolder.AssignedAccountName} - {ViewModel.ActiveFolder.FolderName}";
+        }
+
         ViewModel.MailCollection.ItemSelectionChanged += WinoMailCollectionSelectionChanged;
         MailListView.MailDragStateChanged += MailListViewMailDragStateChanged;
 

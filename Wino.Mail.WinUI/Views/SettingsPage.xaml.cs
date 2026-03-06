@@ -52,6 +52,8 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
                     break;
             }
         }
+
+        UpdateWindowTitle();
     }
 
     public override void OnLanguageChanged()
@@ -65,6 +67,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         if (settingsHeader == null) return;
 
         settingsHeader.Title = Translator.MenuSettings;
+        UpdateWindowTitle();
     }
 
     protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
@@ -105,6 +108,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         PageHistory.ForEach(a => a.IsActive = false);
 
         PageHistory.Add(new BreadcrumbNavigationItemViewModel(message, true));
+        UpdateWindowTitle();
     }
 
     private void SettingsFrameNavigated(object sender, NavigationEventArgs e)
@@ -136,6 +140,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
             // Update back button visibility after navigation
             ViewModel.StatePersistenceService.IsSettingsNavigating = SettingsFrame.CanGoBack;
+            UpdateWindowTitle();
         }
     }
 
@@ -153,5 +158,13 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
     public void Receive(BackBreadcrumNavigationRequested message)
     {
         GoBackFrame(message.SlideEffect);
+    }
+
+    private void UpdateWindowTitle()
+    {
+        var activeTitle = PageHistory.LastOrDefault()?.Title;
+        ViewModel.StatePersistenceService.CoreWindowTitle = string.IsNullOrWhiteSpace(activeTitle)
+            ? Translator.MenuSettings
+            : activeTitle;
     }
 }

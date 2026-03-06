@@ -47,6 +47,7 @@ public sealed partial class ManageAccountsPage : ManageAccountsPageAbstract,
         var accountManagementPageType = ViewModel.NavigationService.GetPageType(WinoPage.AccountManagementPage);
 
         AccountPagesFrame.Navigate(accountManagementPageType, null, new SuppressNavigationTransitionInfo());
+        UpdateWindowTitle();
     }
 
     protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
@@ -77,6 +78,7 @@ public sealed partial class ManageAccountsPage : ManageAccountsPageAbstract,
         PageHistory.ForEach(a => a.IsActive = false);
 
         PageHistory.Add(new BreadcrumbNavigationItemViewModel(message, true));
+        UpdateWindowTitle();
     }
 
     private void AccountPagesFrameNavigated(object sender, NavigationEventArgs e)
@@ -108,6 +110,7 @@ public sealed partial class ManageAccountsPage : ManageAccountsPageAbstract,
 
             // Update back button visibility after navigation
             ViewModel.StatePersistenceService.IsManageAccountsNavigating = AccountPagesFrame.CanGoBack;
+            UpdateWindowTitle();
         }
     }
 
@@ -136,6 +139,7 @@ public sealed partial class ManageAccountsPage : ManageAccountsPageAbstract,
         DispatcherQueue.TryEnqueue(() =>
         {
             activePage.Title = message.Account.Name;
+            UpdateWindowTitle();
         });
     }
 
@@ -147,5 +151,14 @@ public sealed partial class ManageAccountsPage : ManageAccountsPageAbstract,
         if (activePage == null) return;
 
         activePage.Title = message.NewName;
+        UpdateWindowTitle();
+    }
+
+    private void UpdateWindowTitle()
+    {
+        var activeTitle = PageHistory.LastOrDefault()?.Title;
+        ViewModel.StatePersistenceService.CoreWindowTitle = string.IsNullOrWhiteSpace(activeTitle)
+            ? Translator.MenuManageAccounts
+            : activeTitle;
     }
 }

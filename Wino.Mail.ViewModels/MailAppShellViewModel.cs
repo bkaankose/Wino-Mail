@@ -454,6 +454,11 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         StatePersistenceService.CoreWindowTitle = $"{folder.AssignedAccountName} - {folder.FolderName}";
     }
 
+    private void UpdateWindowTitle(string title)
+    {
+        StatePersistenceService.CoreWindowTitle = title;
+    }
+
     private async Task NavigateSpecialFolderAsync(MailAccount account, SpecialFolderType specialFolderType, bool extendAccountMenu)
     {
         try
@@ -636,14 +641,17 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         else if (clickedMenuItem is SettingsItem)
         {
             NavigationService.Navigate(WinoPage.SettingsPage, parameter, NavigationReferenceFrame.InnerShellFrame, NavigationTransitionType.None);
+            UpdateWindowTitle(Translator.MenuSettings);
         }
         else if (clickedMenuItem is ManageAccountsMenuItem)
         {
             NavigationService.Navigate(WinoPage.ManageAccountsPage, parameter, NavigationReferenceFrame.InnerShellFrame, NavigationTransitionType.None);
+            UpdateWindowTitle(Translator.MenuManageAccounts);
         }
         else if (clickedMenuItem is ContactsMenuItem)
         {
             NavigationService.Navigate(WinoPage.ContactsPage, parameter, NavigationReferenceFrame.InnerShellFrame, NavigationTransitionType.None);
+            UpdateWindowTitle(Translator.ContactsPage_Title);
         }
         else if (clickedMenuItem is IAccountMenuItem clickedAccountMenuItem)
         {
