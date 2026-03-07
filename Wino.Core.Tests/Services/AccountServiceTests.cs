@@ -99,6 +99,7 @@ public class AccountServiceTests : IAsyncLifetime
 
         var authenticationProvider = new Mock<IAuthenticationProvider>();
         var mimeFileService = new Mock<IMimeFileService>();
+        var contactPictureFileService = new Mock<IContactPictureFileService>();
 
         var preferencesService = new Mock<IPreferencesService>();
         preferencesService.SetupProperty(a => a.StartupEntityId);
@@ -108,6 +109,7 @@ public class AccountServiceTests : IAsyncLifetime
             signatureService.Object,
             authenticationProvider.Object,
             mimeFileService.Object,
-            preferencesService.Object);
+            preferencesService.Object,
+            contactPictureFileService.Object);
     }
 }

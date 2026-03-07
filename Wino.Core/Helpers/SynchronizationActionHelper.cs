@@ -5,6 +5,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 
@@ -44,6 +45,22 @@ public static class SynchronizationActionHelper
         foreach (var folderRequest in folderRequests)
         {
             var description = GetFolderActionDescription(folderRequest);
+
+            if (description != null)
+            {
+                items.Add(new SynchronizationActionItem
+                {
+                    AccountId = accountId,
+                    AccountName = accountName,
+                    Description = description
+                });
+            }
+        }
+
+        var calendarRequests = requests.OfType<ICalendarActionRequest>();
+        foreach (var calendarRequest in calendarRequests)
+        {
+            var description = GetCalendarActionDescription(calendarRequest);
 
             if (description != null)
             {
@@ -104,6 +121,15 @@ public static class SynchronizationActionHelper
             MarkFolderAsReadRequest => Translator.SyncAction_MarkingFolderAsRead,
             DeleteFolderRequest => Translator.FolderOperation_Delete,
             CreateSubFolderRequest => Translator.FolderOperation_CreateSubFolder,
+            _ => null
+        };
+    }
+
+    private static string GetCalendarActionDescription(ICalendarActionRequest request)
+    {
+        return request switch
+        {
+            CreateCalendarEventRequest => Translator.SyncAction_CreatingEvent,
             _ => null
         };
     }

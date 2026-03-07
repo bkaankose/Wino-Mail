@@ -2276,55 +2276,49 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
     public override List<IRequestBundle<IClientServiceRequest>> CreateCalendarEvent(CreateCalendarEventRequest request)
     {
-        var calendarItem = request.Item;
-        var attendees = request.Attendees;
+        var calendarItem = request.PreparedItem;
+        var attendees = request.PreparedEvent.Attendees;
+        var reminders = request.PreparedEvent.Reminders;
+        var calendar = request.AssignedCalendar;
 
-        // Get the calendar for this event
-        var calendar = calendarItem.AssignedCalendar;
-        if (calendar == null)
-        {
-            throw new InvalidOperationException("Calendar item must have an assigned calendar");
-        }
-
-        // Convert CalendarItem to Google Event
         var googleEvent = new Event
         {
+            Id = calendarItem.Id.ToString("N").ToLowerInvariant(),
             Summary = calendarItem.Title,
             Description = calendarItem.Description,
             Location = calendarItem.Location,
-            Status = calendarItem.Status == CalendarItemStatus.Accepted ? "confirmed" : "tentative"
+            Status = calendarItem.Status == CalendarItemStatus.Accepted ? "confirmed" : "tentative",
+            Transparency = calendarItem.ShowAs == CalendarItemShowAs.Free ? "transparent" : "opaque"
         };
 
-        // Set start and end time
         if (calendarItem.IsAllDayEvent)
         {
-            // All-day events use Date instead of DateTime
             googleEvent.Start = new EventDateTime
             {
-                Date = calendarItem.StartDate.ToString("yyyy-MM-dd")
-            };
-            googleEvent.End = new EventDateTime
-            {
-                Date = calendarItem.EndDate.ToString("yyyy-MM-dd")
-            };
-        }
-        else
-        {
-            // Regular events with time
-            googleEvent.Start = new EventDateTime
-            {
-                DateTimeDateTimeOffset = new DateTimeOffset(calendarItem.StartDate, TimeSpan.Zero),
+                Date = calendarItem.StartDate.ToString("yyyy-MM-dd"),
                 TimeZone = calendarItem.StartTimeZone
             };
             googleEvent.End = new EventDateTime
             {
-                DateTimeDateTimeOffset = new DateTimeOffset(calendarItem.EndDate, TimeSpan.Zero),
+                Date = calendarItem.EndDate.ToString("yyyy-MM-dd"),
+                TimeZone = calendarItem.EndTimeZone
+            };
+        }
+        else
+        {
+            googleEvent.Start = new EventDateTime
+            {
+                DateTimeDateTimeOffset = new DateTimeOffset(calendarItem.StartDate, ResolveOffset(calendarItem.StartDate, calendarItem.StartTimeZone)),
+                TimeZone = calendarItem.StartTimeZone
+            };
+            googleEvent.End = new EventDateTime
+            {
+                DateTimeDateTimeOffset = new DateTimeOffset(calendarItem.EndDate, ResolveOffset(calendarItem.EndDate, calendarItem.EndTimeZone ?? calendarItem.StartTimeZone)),
                 TimeZone = calendarItem.EndTimeZone
             };
         }
 
-        // Add attendees if any
-        if (attendees != null && attendees.Count > 0)
+        if (attendees.Count > 0)
         {
             googleEvent.Attendees = attendees.Select(a => new EventAttendee
             {
@@ -2334,8 +2328,32 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             }).ToList();
         }
 
-        // Create the insert request
+        if (reminders.Count > 0)
+        {
+            googleEvent.Reminders = new Event.RemindersData
+            {
+                UseDefault = false,
+                Overrides = reminders.Select(reminder => new EventReminder
+                {
+                    Method = reminder.ReminderType == CalendarItemReminderType.Email ? "email" : "popup",
+                    Minutes = (int)Math.Max(0, reminder.DurationInSeconds / 60)
+                }).ToList()
+            };
+        }
+
+        if (!string.IsNullOrWhiteSpace(calendarItem.Recurrence))
+        {
+            googleEvent.Recurrence = calendarItem.Recurrence
+                .Split(Wino.Core.Domain.Constants.CalendarEventRecurrenceRuleSeperator, StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => line.Trim())
+                .Where(line => !string.IsNullOrWhiteSpace(line))
+                .ToList();
+        }
+
         var insertRequest = _calendarService.Events.Insert(googleEvent, calendar.RemoteCalendarId);
+        insertRequest.SendUpdates = attendees.Count > 0
+            ? Google.Apis.Calendar.v3.EventsResource.InsertRequest.SendUpdatesEnum.All
+            : Google.Apis.Calendar.v3.EventsResource.InsertRequest.SendUpdatesEnum.None;
 
         return [new HttpRequestBundle<IClientServiceRequest>(insertRequest, request)];
     }
@@ -2350,7 +2368,8 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             throw new InvalidOperationException("Calendar item must have an assigned calendar");
         }
 
-        if (string.IsNullOrEmpty(calendarItem.RemoteEventId))
+        var remoteEventId = calendarItem.RemoteEventId.GetProviderRemoteEventId();
+        if (string.IsNullOrEmpty(remoteEventId))
         {
             throw new InvalidOperationException("Cannot accept event without remote event ID");
         }
@@ -2375,7 +2394,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                     ResponseStatus = "accepted"
                 }
             }
-        }, calendar.RemoteCalendarId, calendarItem.RemoteEventId);
+        }, calendar.RemoteCalendarId, remoteEventId);
 
         // Send updates to other attendees if there's a message
         patchRequest.SendUpdates = !string.IsNullOrEmpty(request.ResponseMessage)
@@ -2395,7 +2414,8 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             throw new InvalidOperationException("Calendar item must have an assigned calendar");
         }
 
-        if (string.IsNullOrEmpty(calendarItem.RemoteEventId))
+        var remoteEventId = calendarItem.RemoteEventId.GetProviderRemoteEventId();
+        if (string.IsNullOrEmpty(remoteEventId))
         {
             throw new InvalidOperationException("Cannot decline event without remote event ID");
         }
@@ -2413,7 +2433,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                     Comment = request.ResponseMessage
                 }
             }
-        }, calendar.RemoteCalendarId, calendarItem.RemoteEventId);
+        }, calendar.RemoteCalendarId, remoteEventId);
 
         patchRequest.SendUpdates = !string.IsNullOrEmpty(request.ResponseMessage)
             ? Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All
@@ -2432,7 +2452,8 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             throw new InvalidOperationException("Calendar item must have an assigned calendar");
         }
 
-        if (string.IsNullOrEmpty(calendarItem.RemoteEventId))
+        var remoteEventId = calendarItem.RemoteEventId.GetProviderRemoteEventId();
+        if (string.IsNullOrEmpty(remoteEventId))
         {
             throw new InvalidOperationException("Cannot tentatively accept event without remote event ID");
         }
@@ -2450,7 +2471,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                     Comment = request.ResponseMessage
                 }
             }
-        }, calendar.RemoteCalendarId, calendarItem.RemoteEventId);
+        }, calendar.RemoteCalendarId, remoteEventId);
 
         patchRequest.SendUpdates = !string.IsNullOrEmpty(request.ResponseMessage)
             ? Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All
@@ -2471,7 +2492,8 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             throw new InvalidOperationException("Calendar item must have an assigned calendar");
         }
 
-        if (string.IsNullOrEmpty(calendarItem.RemoteEventId))
+        var remoteEventId = calendarItem.RemoteEventId.GetProviderRemoteEventId();
+        if (string.IsNullOrEmpty(remoteEventId))
         {
             throw new InvalidOperationException("Cannot update event without remote event ID");
         }
@@ -2530,7 +2552,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         }
 
         // Update the event using Google Calendar API
-        var updateRequest = _calendarService.Events.Update(googleEvent, calendar.RemoteCalendarId, calendarItem.RemoteEventId);
+        var updateRequest = _calendarService.Events.Update(googleEvent, calendar.RemoteCalendarId, remoteEventId);
 
         // Send notifications to attendees if the event has attendees
         updateRequest.SendUpdates = (attendees != null && attendees.Count > 0)
@@ -2551,13 +2573,13 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             throw new InvalidOperationException("Calendar item must have an assigned calendar");
         }
 
-        if (string.IsNullOrEmpty(calendarItem.RemoteEventId))
+        var remoteEventId = calendarItem.RemoteEventId.GetProviderRemoteEventId();
+        if (string.IsNullOrEmpty(remoteEventId))
         {
             throw new InvalidOperationException("Cannot delete event without remote event ID");
         }
 
-        // Delete the event using Google Calendar API
-        var deleteRequest = _calendarService.Events.Delete(calendar.RemoteCalendarId, calendarItem.RemoteEventId);
+        var deleteRequest = _calendarService.Events.Delete(calendar.RemoteCalendarId, remoteEventId);
 
         // Send cancellation notifications to attendees
         deleteRequest.SendUpdates = Google.Apis.Calendar.v3.EventsResource.DeleteRequest.SendUpdatesEnum.All;
@@ -2575,5 +2597,20 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         _peopleService.Dispose();
         _calendarService.Dispose();
         _googleHttpClient.Dispose();
+    }
+
+    private static TimeSpan ResolveOffset(DateTime dateTime, string timeZoneId)
+    {
+        if (string.IsNullOrWhiteSpace(timeZoneId))
+            return TimeSpan.Zero;
+
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId).GetUtcOffset(dateTime);
+        }
+        catch
+        {
+            return TimeSpan.Zero;
+        }
     }
 }

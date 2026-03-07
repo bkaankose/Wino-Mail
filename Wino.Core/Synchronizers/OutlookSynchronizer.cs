@@ -27,6 +27,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
@@ -34,6 +35,7 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
 using Wino.Core.Http;
+using Wino.Core.Helpers;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Misc;
 using Wino.Core.Requests.Bundles;
@@ -1634,11 +1636,12 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         try
         {
             var calendar = calendarItem.AssignedCalendar;
+            var remoteEventId = calendarItem.RemoteEventId.GetProviderRemoteEventId();
 
             // First, get the attachment metadata to retrieve contentBytes for FileAttachment
             var attachmentItem = await _graphClient.Me
                 .Calendars[calendar.RemoteCalendarId]
-                .Events[calendarItem.RemoteEventId]
+                .Events[remoteEventId]
                 .Attachments[attachment.RemoteAttachmentId]
                 .GetAsync(cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
@@ -1879,9 +1882,6 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
     private async Task HandleSuccessfulResponseAsync(IRequestBundle<RequestInformation> bundle, HttpResponseMessage response)
     {
-        if (bundle?.UIChangeRequest is not CreateDraftRequest createDraftRequest)
-            return;
-
         try
         {
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -1889,24 +1889,95 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                 return;
 
             var json = JsonNode.Parse(content);
-            var createdDraftId = json?["id"]?.GetValue<string>();
-            if (string.IsNullOrWhiteSpace(createdDraftId))
+            if (bundle?.UIChangeRequest is CreateDraftRequest createDraftRequest)
+            {
+                var createdDraftId = json?["id"]?.GetValue<string>();
+                if (string.IsNullOrWhiteSpace(createdDraftId))
+                    return;
+
+                var createdConversationId = json?["conversationId"]?.GetValue<string>();
+                var localDraft = createDraftRequest.DraftPreperationRequest.CreatedLocalDraftCopy;
+
+                await _outlookChangeProcessor.MapLocalDraftAsync(
+                    Account.Id,
+                    localDraft.UniqueId,
+                    createdDraftId,
+                    createdConversationId,
+                    createdConversationId).ConfigureAwait(false);
                 return;
+            }
 
-            var createdConversationId = json?["conversationId"]?.GetValue<string>();
-            var localDraft = createDraftRequest.DraftPreperationRequest.CreatedLocalDraftCopy;
+            if (bundle?.UIChangeRequest is CreateCalendarEventRequest createCalendarEventRequest)
+            {
+                var createdEventId = json?["id"]?.GetValue<string>();
+                if (string.IsNullOrWhiteSpace(createdEventId))
+                    return;
 
-            await _outlookChangeProcessor.MapLocalDraftAsync(
-                Account.Id,
-                localDraft.UniqueId,
-                createdDraftId,
-                createdConversationId,
-                createdConversationId).ConfigureAwait(false);
+                await UploadCalendarEventAttachmentsAsync(createCalendarEventRequest, createdEventId, CancellationToken.None).ConfigureAwait(false);
+            }
         }
         catch (Exception ex)
         {
-            // Draft mapping is best-effort here. Delta sync mapping remains as fallback.
-            _logger.Debug(ex, "Failed to map Outlook draft from create-draft response.");
+            _logger.Debug(ex, "Failed to process Outlook create response.");
+        }
+    }
+
+    private async Task UploadCalendarEventAttachmentsAsync(CreateCalendarEventRequest request, string remoteEventId, CancellationToken cancellationToken)
+    {
+        var attachments = request.ComposeResult.Attachments ?? [];
+        if (attachments.Count == 0)
+            return;
+
+        var remoteCalendarId = request.AssignedCalendar.RemoteCalendarId;
+
+        foreach (var attachment in attachments.Where(a => !string.IsNullOrWhiteSpace(a.FilePath) && File.Exists(a.FilePath)))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var contentBytes = await File.ReadAllBytesAsync(attachment.FilePath, cancellationToken).ConfigureAwait(false);
+            var contentType = MimeTypes.GetMimeType(attachment.FileName ?? attachment.FilePath);
+
+            var fileAttachment = new FileAttachment
+            {
+                Name = attachment.FileName,
+                ContentType = contentType,
+                ContentBytes = contentBytes
+            };
+
+            if (contentBytes.Length <= SimpleAttachmentUploadLimitBytes)
+            {
+                await _graphClient.Me.Calendars[remoteCalendarId].Events[remoteEventId].Attachments.PostAsync(fileAttachment, cancellationToken: cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
+            if (contentBytes.Length > MaximumUploadSessionAttachmentSizeBytes)
+            {
+                var attachmentSizeMb = contentBytes.LongLength / (1024d * 1024d);
+                var maximumSizeMb = MaximumUploadSessionAttachmentSizeBytes / (1024d * 1024d);
+
+                throw new InvalidOperationException(
+                    $"Attachment '{attachment.FileName}' is {attachmentSizeMb:F1} MB, which exceeds Outlook's upload limit of {maximumSizeMb:F0} MB per attachment.");
+            }
+
+            var sessionBody = new Microsoft.Graph.Me.Calendars.Item.Events.Item.Attachments.CreateUploadSession.CreateUploadSessionPostRequestBody
+            {
+                AttachmentItem = new AttachmentItem
+                {
+                    AttachmentType = AttachmentType.File,
+                    ContentType = contentType,
+                    Name = attachment.FileName,
+                    Size = contentBytes.LongLength
+                }
+            };
+
+            var uploadSession = await _graphClient.Me.Calendars[remoteCalendarId].Events[remoteEventId].Attachments.CreateUploadSession.PostAsync(sessionBody, cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            if (uploadSession?.UploadUrl == null)
+            {
+                throw new InvalidOperationException($"Failed to create upload session for attachment '{attachment.FileName}'.");
+            }
+
+            await UploadAttachmentInChunksAsync(uploadSession.UploadUrl, contentBytes, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -2370,52 +2441,51 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
     public override List<IRequestBundle<RequestInformation>> CreateCalendarEvent(CreateCalendarEventRequest request)
     {
-        var calendarItem = request.Item;
-        var attendees = request.Attendees;
+        var calendarItem = request.PreparedItem;
+        var attendees = request.PreparedEvent.Attendees;
+        var reminders = request.PreparedEvent.Reminders;
+        var calendar = request.AssignedCalendar;
 
-        // Get the calendar for this event
-        var calendar = calendarItem.AssignedCalendar;
-        if (calendar == null)
-        {
-            throw new InvalidOperationException("Calendar item must have an assigned calendar");
-        }
-
-        // Convert CalendarItem to Outlook Event
         var outlookEvent = new Microsoft.Graph.Models.Event
         {
             Subject = calendarItem.Title,
             Body = new Microsoft.Graph.Models.ItemBody
             {
-                ContentType = Microsoft.Graph.Models.BodyType.Text,
+                ContentType = Microsoft.Graph.Models.BodyType.Html,
                 Content = calendarItem.Description
             },
             Location = new Microsoft.Graph.Models.Location
             {
                 DisplayName = calendarItem.Location
-            }
+            },
+            ShowAs = calendarItem.ShowAs switch
+            {
+                CalendarItemShowAs.Free => Microsoft.Graph.Models.FreeBusyStatus.Free,
+                CalendarItemShowAs.Tentative => Microsoft.Graph.Models.FreeBusyStatus.Tentative,
+                CalendarItemShowAs.Busy => Microsoft.Graph.Models.FreeBusyStatus.Busy,
+                CalendarItemShowAs.OutOfOffice => Microsoft.Graph.Models.FreeBusyStatus.Oof,
+                CalendarItemShowAs.WorkingElsewhere => Microsoft.Graph.Models.FreeBusyStatus.WorkingElsewhere,
+                _ => Microsoft.Graph.Models.FreeBusyStatus.Busy
+            },
+            TransactionId = calendarItem.Id.ToString("N")
         };
 
-        // Set start and end time using DateTimeTimeZone
         if (calendarItem.IsAllDayEvent)
         {
-            // All-day events
             outlookEvent.IsAllDay = true;
             outlookEvent.Start = new Microsoft.Graph.Models.DateTimeTimeZone
             {
                 DateTime = calendarItem.StartDate.ToString("yyyy-MM-dd"),
-                TimeZone = "UTC"
+                TimeZone = calendarItem.StartTimeZone ?? TimeZoneInfo.Local.Id
             };
             outlookEvent.End = new Microsoft.Graph.Models.DateTimeTimeZone
             {
                 DateTime = calendarItem.EndDate.ToString("yyyy-MM-dd"),
-                TimeZone = "UTC"
+                TimeZone = calendarItem.EndTimeZone ?? calendarItem.StartTimeZone ?? TimeZoneInfo.Local.Id
             };
         }
         else
         {
-            // Regular events with time
-            // StartDate and EndDate are stored in the event's timezone
-            // We preserve the timezone information during creation
             outlookEvent.IsAllDay = false;
             outlookEvent.Start = new Microsoft.Graph.Models.DateTimeTimeZone
             {
@@ -2429,8 +2499,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             };
         }
 
-        // Add attendees if any
-        if (attendees != null && attendees.Count > 0)
+        if (attendees.Count > 0)
         {
             outlookEvent.Attendees = attendees.Select(a => new Microsoft.Graph.Models.Attendee
             {
@@ -2443,7 +2512,23 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             }).ToList();
         }
 
-        // Create the event using Graph API
+        if (reminders.Count > 0)
+        {
+            var reminder = reminders
+                .OrderBy(reminder => reminder.DurationInSeconds)
+                .FirstOrDefault(reminder => reminder.ReminderType == CalendarItemReminderType.Popup)
+                ?? reminders.OrderBy(reminder => reminder.DurationInSeconds).First();
+
+            outlookEvent.IsReminderOn = true;
+            outlookEvent.ReminderMinutesBeforeStart = (int)Math.Max(0, reminder.DurationInSeconds / 60);
+        }
+
+        var recurrence = CalendarRecurrenceMapper.CreateOutlookRecurrence(calendarItem);
+        if (recurrence != null)
+        {
+            outlookEvent.Recurrence = recurrence;
+        }
+
         var createRequest = _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events.ToPostRequestInformation(outlookEvent);
 
         return [new HttpRequestBundle<RequestInformation>(createRequest, request)];
@@ -2459,12 +2544,13 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             throw new InvalidOperationException("Calendar item must have an assigned calendar");
         }
 
-        if (string.IsNullOrEmpty(calendarItem.RemoteEventId))
+        var remoteEventId = calendarItem.RemoteEventId.GetProviderRemoteEventId();
+        if (string.IsNullOrEmpty(remoteEventId))
         {
             throw new InvalidOperationException("Cannot accept event without remote event ID");
         }
 
-        var acceptRequestInfo = _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events[calendarItem.RemoteEventId].Accept.ToPostRequestInformation(new Microsoft.Graph.Me.Calendars.Item.Events.Item.Accept.AcceptPostRequestBody
+        var acceptRequestInfo = _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events[remoteEventId].Accept.ToPostRequestInformation(new Microsoft.Graph.Me.Calendars.Item.Events.Item.Accept.AcceptPostRequestBody
         {
             Comment = request.ResponseMessage,
             SendResponse = !string.IsNullOrEmpty(request.ResponseMessage)
@@ -2485,12 +2571,13 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             throw new InvalidOperationException("Calendar item must have an assigned calendar");
         }
 
-        if (string.IsNullOrEmpty(calendarItem.RemoteEventId))
+        var remoteEventId = calendarItem.RemoteEventId.GetProviderRemoteEventId();
+        if (string.IsNullOrEmpty(remoteEventId))
         {
             throw new InvalidOperationException("Cannot decline event without remote event ID");
         }
 
-        var declineRequestInfo = _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events[calendarItem.RemoteEventId].Decline.ToPostRequestInformation(new Microsoft.Graph.Me.Calendars.Item.Events.Item.Decline.DeclinePostRequestBody
+        var declineRequestInfo = _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events[remoteEventId].Decline.ToPostRequestInformation(new Microsoft.Graph.Me.Calendars.Item.Events.Item.Decline.DeclinePostRequestBody
         {
             Comment = responseMessage,
             SendResponse = !string.IsNullOrEmpty(responseMessage)
@@ -2509,12 +2596,13 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             throw new InvalidOperationException("Calendar item must have an assigned calendar");
         }
 
-        if (string.IsNullOrEmpty(calendarItem.RemoteEventId))
+        var remoteEventId = calendarItem.RemoteEventId.GetProviderRemoteEventId();
+        if (string.IsNullOrEmpty(remoteEventId))
         {
             throw new InvalidOperationException("Cannot tentatively accept event without remote event ID");
         }
 
-        var tentativelyAcceptRequestInfo = _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events[calendarItem.RemoteEventId].TentativelyAccept.ToPostRequestInformation(new Microsoft.Graph.Me.Calendars.Item.Events.Item.TentativelyAccept.TentativelyAcceptPostRequestBody
+        var tentativelyAcceptRequestInfo = _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events[remoteEventId].TentativelyAccept.ToPostRequestInformation(new Microsoft.Graph.Me.Calendars.Item.Events.Item.TentativelyAccept.TentativelyAcceptPostRequestBody
         {
             Comment = request.ResponseMessage,
             SendResponse = !string.IsNullOrEmpty(request.ResponseMessage)
@@ -2608,7 +2696,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         }
 
         // Update the event using Graph API
-        var updateRequest = _graphClient.Me.Events[calendarItem.RemoteEventId].ToPatchRequestInformation(outlookEvent);
+        var updateRequest = _graphClient.Me.Events[calendarItem.RemoteEventId.GetProviderRemoteEventId()].ToPatchRequestInformation(outlookEvent);
 
         return [new HttpRequestBundle<RequestInformation>(updateRequest, request)];
     }
@@ -2624,13 +2712,13 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             throw new InvalidOperationException("Calendar item must have an assigned calendar");
         }
 
-        if (string.IsNullOrEmpty(calendarItem.RemoteEventId))
+        var remoteEventId = calendarItem.RemoteEventId.GetProviderRemoteEventId();
+        if (string.IsNullOrEmpty(remoteEventId))
         {
             throw new InvalidOperationException("Cannot delete event without remote event ID");
         }
 
-        // Delete the event using Graph API
-        var deleteRequest = _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events[calendarItem.RemoteEventId].ToDeleteRequestInformation();
+        var deleteRequest = _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events[remoteEventId].ToDeleteRequestInformation();
 
         return [new HttpRequestBundle<RequestInformation>(deleteRequest, request)];
     }

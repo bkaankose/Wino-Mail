@@ -1,4 +1,5 @@
-﻿using Wino.Core.Domain.Entities.Calendar;
+using System;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 
@@ -68,5 +69,6 @@ public interface IFolderActionRequest : IRequestBase
 public interface ICalendarActionRequest : IRequestBase
 {
     CalendarItem Item { get; }
+    Guid? LocalCalendarItemId { get; }
     CalendarSynchronizerOperation Operation { get; }
 }

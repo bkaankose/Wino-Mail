@@ -128,9 +128,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
     public async Task DeleteCalendarItemAsync(string calendarRemoteEventId, Guid calendarId)
     {
-        var calendarItem = await Connection.FindWithQueryAsync<CalendarItem>(
-            "SELECT * FROM CalendarItem WHERE CalendarId = ? AND RemoteEventId = ?",
-            calendarId, calendarRemoteEventId);
+        var calendarItem = await FindCalendarItemByRemoteEventIdAsync(calendarId, calendarRemoteEventId).ConfigureAwait(false);
 
         if (calendarItem == null) return;
 
@@ -244,9 +242,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
     public async Task<CalendarItem> GetCalendarItemAsync(Guid accountCalendarId, string remoteEventId)
     {
-        var calendarItem = await Connection.FindWithQueryAsync<CalendarItem>(
-            "SELECT * FROM CalendarItem WHERE CalendarId = ? AND RemoteEventId = ?",
-            accountCalendarId, remoteEventId);
+        var calendarItem = await FindCalendarItemByRemoteEventIdAsync(accountCalendarId, remoteEventId).ConfigureAwait(false);
 
         await LoadAssignedCalendarAsync(calendarItem);
 
@@ -480,6 +476,20 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
     private static DateTime MaxDateTime(DateTime first, DateTime second)
         => first >= second ? first : second;
+
+    private Task<CalendarItem> FindCalendarItemByRemoteEventIdAsync(Guid calendarId, string remoteEventId)
+    {
+        if (string.IsNullOrWhiteSpace(remoteEventId))
+            return Task.FromResult<CalendarItem>(null);
+
+        var providerRemoteEventId = remoteEventId.GetProviderRemoteEventId();
+
+        return Connection.FindWithQueryAsync<CalendarItem>(
+            "SELECT * FROM CalendarItem WHERE CalendarId = ? AND (RemoteEventId = ? OR RemoteEventId LIKE ?)",
+            calendarId,
+            providerRemoteEventId,
+            $"{providerRemoteEventId}::%");
+    }
 
     private sealed class CalendarReminderCandidate
     {

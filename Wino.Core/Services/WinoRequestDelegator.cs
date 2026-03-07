@@ -27,16 +27,19 @@ public class WinoRequestDelegator : IWinoRequestDelegator
     private readonly IFolderService _folderService;
     private readonly IMailDialogService _dialogService;
     private readonly IAccountService _accountService;
+    private readonly ICalendarService _calendarService;
 
     public WinoRequestDelegator(IWinoRequestProcessor winoRequestProcessor,
                                 IFolderService folderService,
                                 IMailDialogService dialogService,
-                                IAccountService accountService)
+                                IAccountService accountService,
+                                ICalendarService calendarService)
     {
         _winoRequestProcessor = winoRequestProcessor;
         _folderService = folderService;
         _dialogService = dialogService;
         _accountService = accountService;
+        _calendarService = calendarService;
     }
 
     public async Task ExecuteAsync(MailOperationPreperationRequest request)
@@ -159,9 +162,12 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
     public async Task ExecuteAsync(CalendarOperationPreparationRequest calendarPreparationRequest)
     {
+        if (calendarPreparationRequest == null)
+            return;
+
         IRequestBase request = calendarPreparationRequest.Operation switch
         {
-            CalendarSynchronizerOperation.CreateEvent => new CreateCalendarEventRequest(calendarPreparationRequest.CalendarItem, calendarPreparationRequest.Attendees),
+            CalendarSynchronizerOperation.CreateEvent => await CreateCalendarEventRequestAsync(calendarPreparationRequest).ConfigureAwait(false),
             CalendarSynchronizerOperation.DeleteEvent => new DeleteCalendarEventRequest(calendarPreparationRequest.CalendarItem),
             CalendarSynchronizerOperation.AcceptEvent => new AcceptEventRequest(calendarPreparationRequest.CalendarItem, calendarPreparationRequest.ResponseMessage),
             CalendarSynchronizerOperation.DeclineEvent => CreateDeclineRequest(calendarPreparationRequest.CalendarItem, calendarPreparationRequest.ResponseMessage),
@@ -174,8 +180,31 @@ public class WinoRequestDelegator : IWinoRequestDelegator
             _ => throw new NotImplementedException($"Calendar operation {calendarPreparationRequest.Operation} is not implemented yet.")
         };
 
-        await QueueRequestAsync(request, calendarPreparationRequest.CalendarItem.AssignedCalendar.AccountId);
-        await QueueCalendarSynchronizationAsync(calendarPreparationRequest.CalendarItem.AssignedCalendar.AccountId);
+        if (request == null)
+            return;
+
+        var accountId = calendarPreparationRequest.Operation == CalendarSynchronizerOperation.CreateEvent
+            ? calendarPreparationRequest.ComposeResult.AccountId
+            : calendarPreparationRequest.CalendarItem.AssignedCalendar.AccountId;
+        var accountName = calendarPreparationRequest.Operation == CalendarSynchronizerOperation.CreateEvent
+            ? null
+            : calendarPreparationRequest.CalendarItem.AssignedCalendar.MailAccount?.Name;
+
+        await QueueRequestAsync(request, accountId);
+        await SendSyncActionsAddedAsync([request], accountId, accountName);
+        await QueueCalendarSynchronizationAsync(accountId);
+    }
+
+    private async Task<IRequestBase> CreateCalendarEventRequestAsync(CalendarOperationPreparationRequest calendarPreparationRequest)
+    {
+        var composeResult = calendarPreparationRequest.ComposeResult
+                            ?? throw new InvalidOperationException("Create event requests require a compose result.");
+        var assignedCalendar = await _calendarService.GetAccountCalendarAsync(composeResult.CalendarId).ConfigureAwait(false);
+
+        if (assignedCalendar == null)
+            throw new InvalidOperationException($"Calendar {composeResult.CalendarId} could not be resolved.");
+
+        return new CreateCalendarEventRequest(composeResult, assignedCalendar);
     }
 
     private IRequestBase CreateDeclineRequest(CalendarItem calendarItem, string responseMessage)

@@ -33,6 +33,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
     private readonly IContactService _contactService;
     private readonly IPreferencesService _preferencesService;
     private readonly IUnderlyingThemeService _underlyingThemeService;
+    private readonly IWinoRequestDelegator _winoRequestDelegator;
     private readonly CalendarEventComposeResultValidator _composeResultValidator = new();
 
     public Func<Task<string>> GetHtmlNotesAsync { get; set; }
@@ -110,7 +111,8 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
                                              IMailDialogService dialogService,
                                              IContactService contactService,
                                              IPreferencesService preferencesService,
-                                             IUnderlyingThemeService underlyingThemeService)
+                                             IUnderlyingThemeService underlyingThemeService,
+                                             IWinoRequestDelegator winoRequestDelegator)
     {
         _accountService = accountService;
         _calendarService = calendarService;
@@ -119,6 +121,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
         _contactService = contactService;
         _preferencesService = preferencesService;
         _underlyingThemeService = underlyingThemeService;
+        _winoRequestDelegator = winoRequestDelegator;
 
         CurrentSettings = _preferencesService.GetCurrentCalendarSettings();
         IsDarkWebviewRenderer = _underlyingThemeService.IsUnderlyingThemeDark();
@@ -289,6 +292,10 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
         }
 
         LastCreatedResult = createdResult;
+
+        await _winoRequestDelegator.ExecuteAsync(new CalendarOperationPreparationRequest(
+            CalendarSynchronizerOperation.CreateEvent,
+            ComposeResult: createdResult));
 
         _navigationService.GoBack();
     }
@@ -505,6 +512,12 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
 
     private void UpdateRecurrenceSummary()
     {
+        if (!HasInitializedComposeDateRange())
+        {
+            RecurrenceSummary = string.Empty;
+            return;
+        }
+
         var effectiveStart = GetEffectiveStartDateTime();
         var effectiveEnd = GetEffectiveEndDateTime();
         var selectedDays = WeekdayOptions
@@ -522,6 +535,16 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
             SelectedRecurrenceFrequencyOption?.Frequency ?? CalendarItemRecurrenceFrequency.Weekly,
             selectedDays,
             RecurrenceEndDate);
+    }
+
+    private bool HasInitializedComposeDateRange()
+    {
+        if (StartDate == default)
+        {
+            return false;
+        }
+
+        return !IsAllDay || AllDayEndDate != default;
     }
 
     private string BuildRecurrenceRule()

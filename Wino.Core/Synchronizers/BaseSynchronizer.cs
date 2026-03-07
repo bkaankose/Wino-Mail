@@ -144,7 +144,10 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
 
         if (request is ICalendarActionRequest calendarActionRequest)
         {
-            _pendingCalendarOperationIds.TryAdd(calendarActionRequest.Item.Id, 0);
+            if (calendarActionRequest.LocalCalendarItemId.HasValue)
+            {
+                _pendingCalendarOperationIds.TryAdd(calendarActionRequest.LocalCalendarItemId.Value, 0);
+            }
         }
     }
 
@@ -157,7 +160,10 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
 
         if (request is ICalendarActionRequest calendarActionRequest)
         {
-            _pendingCalendarOperationIds.TryRemove(calendarActionRequest.Item.Id, out _);
+            if (calendarActionRequest.LocalCalendarItemId.HasValue)
+            {
+                _pendingCalendarOperationIds.TryRemove(calendarActionRequest.LocalCalendarItemId.Value, out _);
+            }
         }
     }
 

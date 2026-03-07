@@ -17,6 +17,7 @@ using Wino.Calendar.ViewModels.Messages;
 using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Calendar.CalendarTypeStrategies;
@@ -271,36 +272,31 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         {
             var startDate = IsAllDay ? SelectedQuickEventDate.Value.Date : QuickEventStartTime;
             var endDate = IsAllDay ? SelectedQuickEventDate.Value.Date.AddDays(1) : QuickEventEndTime;
-            var durationSeconds = (endDate - startDate).TotalSeconds;
-
-            // Get the user's current timezone from the system
-            var currentTimeZone = TimeZoneInfo.Local.Id;
-
-            var calendarItem = new CalendarItem
+            var composeResult = new CalendarEventComposeResult
             {
-                Id = Guid.NewGuid(),
                 CalendarId = SelectedQuickEventAccountCalendar.Id,
-                StartDate = startDate,
-                DurationInSeconds = durationSeconds,
-                StartTimeZone = currentTimeZone,
-                EndTimeZone = currentTimeZone,
-                CreatedAt = DateTime.UtcNow,
-                Description = string.Empty,
-                Location = Location ?? string.Empty,
+                AccountId = SelectedQuickEventAccountCalendar.Account.Id,
                 Title = EventName,
+                Location = Location ?? string.Empty,
+                HtmlNotes = string.Empty,
+                StartDate = startDate,
+                EndDate = endDate,
+                IsAllDay = IsAllDay,
+                TimeZoneId = TimeZoneInfo.Local.Id,
                 ShowAs = SelectedQuickEventAccountCalendar.DefaultShowAs,
-                IsHidden = false,
-                AssignedCalendar = SelectedQuickEventAccountCalendar
+                SelectedReminders = [],
+                Attendees = [],
+                Attachments = [],
+                Recurrence = string.Empty,
+                RecurrenceSummary = string.Empty
             };
 
             // Close dialog first
             IsQuickEventDialogOpen = false;
 
-            // Save to local database first
-            // await _calendarService.CreateNewCalendarItemAsync(calendarItem, null);
-
-            // Queue the request via delegator
-            var preparationRequest = new CalendarOperationPreparationRequest(CalendarSynchronizerOperation.CreateEvent, calendarItem, null);
+            var preparationRequest = new CalendarOperationPreparationRequest(
+                CalendarSynchronizerOperation.CreateEvent,
+                ComposeResult: composeResult);
             await _winoRequestDelegator.ExecuteAsync(preparationRequest);
         }
         catch (Exception ex)
@@ -969,19 +965,9 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
     private static bool TryExtractClientItemIdFromRemoteEventId(string remoteEventId, out Guid clientItemId)
     {
-        clientItemId = Guid.Empty;
-
-        if (string.IsNullOrWhiteSpace(remoteEventId))
-            return false;
-
-        var uid = remoteEventId.Split(new[] { "::" }, StringSplitOptions.None)[0];
-        const string calDavPrefix = "caldav-";
-
-        if (!uid.StartsWith(calDavPrefix, StringComparison.OrdinalIgnoreCase))
-            return false;
-
-        var guidPart = uid[calDavPrefix.Length..];
-        return Guid.TryParseExact(guidPart, "N", out clientItemId) || Guid.TryParse(guidPart, out clientItemId);
+        var trackingId = remoteEventId.GetClientTrackingId();
+        clientItemId = trackingId ?? Guid.Empty;
+        return trackingId.HasValue;
     }
 
     private void RemoveCalendarItemEverywhere(Guid calendarItemId)

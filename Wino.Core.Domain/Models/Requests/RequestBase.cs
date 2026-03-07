@@ -32,6 +32,7 @@ public abstract record FolderRequestBase(MailItemFolder Folder, FolderSynchroniz
 
 public abstract record CalendarRequestBase(CalendarItem Item) : RequestBase<CalendarSynchronizerOperation>, ICalendarActionRequest
 {
+    public virtual Guid? LocalCalendarItemId => Item?.Id;
 }
 
 public class BatchCollection<TRequestType> : List<TRequestType>, IUIChangeRequest where TRequestType : IUIChangeRequest

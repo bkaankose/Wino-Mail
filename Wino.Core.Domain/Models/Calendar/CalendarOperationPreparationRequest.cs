@@ -15,8 +15,9 @@ namespace Wino.Core.Domain.Models.Calendar;
 /// <param name="OriginalAttendees">Original attendees list before update (for revert capability).</param>
 public record CalendarOperationPreparationRequest(
     CalendarSynchronizerOperation Operation,
-    CalendarItem CalendarItem,
-    List<CalendarEventAttendee> Attendees,
+    CalendarItem CalendarItem = null,
+    List<CalendarEventAttendee> Attendees = null,
     string ResponseMessage = null,
     CalendarItem OriginalItem = null,
-    List<CalendarEventAttendee> OriginalAttendees = null);
+    List<CalendarEventAttendee> OriginalAttendees = null,
+    CalendarEventComposeResult ComposeResult = null);

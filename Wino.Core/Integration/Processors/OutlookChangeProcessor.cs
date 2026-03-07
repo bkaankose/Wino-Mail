@@ -8,6 +8,7 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Extensions;
 using Wino.Services;
 using Reminder = Wino.Core.Domain.Entities.Calendar.Reminder;
@@ -64,7 +65,7 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
         var durationInSeconds = (eventEndDateTimeOffset - eventStartDateTimeOffset).TotalSeconds;
 
         // Store dates as UTC in the database
-        savingItem.RemoteEventId = calendarEvent.Id;
+        savingItem.RemoteEventId = calendarEvent.Id.WithClientTrackingId(calendarEvent.TransactionId.GetClientTrackingId());
         savingItem.StartDate = eventStartDateTimeOffset.UtcDateTime;
         savingItem.DurationInSeconds = durationInSeconds;
 
