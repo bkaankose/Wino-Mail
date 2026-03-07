@@ -10,7 +10,8 @@
 		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 	</PropertyGroup>
 	<ItemGroup>
-	  <PackageReference Include="TimePeriodLibrary.NET" />
+		<PackageReference Include="TimePeriodLibrary.NET" />
+		<PackageReference Include="EmailValidation" />
 	</ItemGroup>
 
 	<ItemGroup>

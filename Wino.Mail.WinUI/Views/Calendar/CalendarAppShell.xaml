@@ -82,10 +82,10 @@
                         VerticalAlignment="Center"
                         HorizontalContentAlignment="Left"
                         Background="Transparent"
+                        DisplayType="{x:Bind ViewModel.StatePersistenceService.CalendarDisplayType, Mode=OneWay}"
                         FontSize="14"
                         FontWeight="Normal"
                         IsHitTestVisible="False"
-                        DisplayType="{x:Bind ViewModel.StatePersistenceService.CalendarDisplayType, Mode=OneWay}"
                         ItemsSource="{x:Bind ViewModel.DateNavigationHeaderItems}"
                         SelectedIndex="{x:Bind ViewModel.SelectedDateNavigationHeaderIndex, Mode=OneWay}">
                         <FlipView.ItemTemplate>
@@ -150,13 +150,36 @@
                 <Grid Padding="0,0,0,6">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
+                    <Button
+                        Margin="10,12,10,0"
+                        Padding="4,12"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Left"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        Command="{x:Bind ViewModel.NewEventCommand}">
+                        <StackPanel
+                            HorizontalAlignment="Center"
+                            Orientation="Horizontal"
+                            Spacing="8">
+                            <coreControls:WinoFontIcon FontSize="16" Icon="NewMail" />
+                            <TextBlock
+                                Margin="10,-2,0,0"
+                                VerticalAlignment="Center"
+                                FontSize="16"
+                                Style="{StaticResource FlyoutPickerTitleTextBlockStyle}"
+                                Text="{x:Bind domain:Translator.CalendarEventCompose_NewEventButton}" />
+                        </StackPanel>
+                    </Button>
+
                     <calendarControls:WinoCalendarView
                         x:Name="CalendarView"
-                        Grid.Row="0"
+                        Grid.Row="1"
                         Margin="0,12,0,0"
                         HorizontalAlignment="Center"
                         DateClickedCommand="{x:Bind ViewModel.DateClickedCommand}"
@@ -167,7 +190,7 @@
                     <!--  Account Calendars Host  -->
                     <ListView
                         x:Name="CalendarHostListView"
-                        Grid.Row="1"
+                        Grid.Row="2"
                         ItemsSource="{x:Bind ViewModel.AccountCalendarStateService.GroupedAccountCalendars}"
                         SelectionMode="None">
                         <ListView.Header>
@@ -261,13 +284,16 @@
 
                     <!--  Menu Items  -->
                     <ListView
-                        Grid.Row="2"
+                        Grid.Row="3"
                         ItemTemplateSelector="{StaticResource NavigationMenuTemplateSelector}"
                         SelectedIndex="{x:Bind ViewModel.SelectedMenuItemIndex, Mode=TwoWay}">
                         <ListView.Items>
                             <ListViewItem>
                                 <StackPanel Orientation="Horizontal" Spacing="12">
-                                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="16" Glyph="&#xE77B;" />
+                                    <FontIcon
+                                        FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                        FontSize="16"
+                                        Glyph="&#xE77B;" />
 
                                     <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.MenuManageAccounts}" />
                                 </StackPanel>

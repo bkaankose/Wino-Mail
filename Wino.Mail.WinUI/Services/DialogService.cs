@@ -6,12 +6,14 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Mail.WinUI.Extensions;
@@ -120,6 +122,18 @@ public class DialogService : DialogServiceBase, IMailDialogService
         await HandleDialogPresentationAsync(accountPicker);
 
         return accountPicker.PickedAccount ?? null!;
+    }
+
+    public async Task<AccountCalendar> ShowSingleCalendarPickerDialogAsync(List<CalendarPickerAccountGroup> availableCalendarGroups)
+    {
+        var calendarPicker = new SingleCalendarPickerDialog(availableCalendarGroups)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(calendarPicker);
+
+        return calendarPicker.PickedCalendar ?? null!;
     }
 
     public async Task<AccountSignature> ShowSignatureEditorDialog(AccountSignature? signatureModel = null)

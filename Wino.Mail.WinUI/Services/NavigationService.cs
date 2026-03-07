@@ -55,7 +55,8 @@ public class NavigationService : NavigationServiceBase, INavigationService
     private static readonly WinoPage[] CalendarOnlyPages =
     [
         WinoPage.CalendarPage,
-        WinoPage.EventDetailsPage
+        WinoPage.EventDetailsPage,
+        WinoPage.CalendarEventComposePage
     ];
 
     public NavigationService(IStatePersistanceService statePersistanceService, IDispatcher dispatcher, IWinoWindowManager windowManager)
@@ -126,6 +127,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
             WinoPage.SpecialImapCredentialsPage => typeof(SpecialImapCredentialsPage),
             WinoPage.CalendarPage => typeof(CalendarPage),
             WinoPage.EventDetailsPage => typeof(EventDetailsPage),
+            WinoPage.CalendarEventComposePage => typeof(CalendarEventComposePage),
             WinoPage.CalendarSettingsPage => typeof(CalendarSettingsPage),
             WinoPage.CalendarAccountSettingsPage => typeof(CalendarAccountSettingsPage),
             _ => null,
@@ -248,7 +250,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
         }
 
         _statePersistanceService.IsReadingMail = _renderingPageTypes.Contains(page);
-        _statePersistanceService.IsEventDetailsVisible = page == WinoPage.EventDetailsPage;
+        _statePersistanceService.IsEventDetailsVisible = page == WinoPage.EventDetailsPage || page == WinoPage.CalendarEventComposePage;
 
         Frame? innerShellFrame = GetCoreFrameInternal(NavigationReferenceFrame.InnerShellFrame);
         if (innerShellFrame == null && frame == NavigationReferenceFrame.ShellFrame)

@@ -14,6 +14,7 @@
     xmlns:interactivity="using:Microsoft.Xaml.Interactivity"
     xmlns:interfaces="using:Wino.Core.Domain.Interfaces"
     xmlns:local="using:Wino.Views"
+    xmlns:mailViewModels="using:Wino.Mail.ViewModels"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:ui="using:CommunityToolkit.WinUI"
@@ -50,7 +51,7 @@
                             VerticalAlignment="Center"
                             Checked="SyncFolderToggled"
                             IsChecked="{x:Bind IsSynchronizationEnabled, Mode=OneWay}"
-                            Tag="{Binding}"
+                            Tag="{x:Bind}"
                             Unchecked="SyncFolderToggled"
                             Visibility="{x:Bind IsMoveTarget}" />
 
@@ -61,7 +62,7 @@
                             VerticalAlignment="Center"
                             Checked="UnreadBadgeCheckboxToggled"
                             IsChecked="{x:Bind ShowUnreadCount, Mode=OneWay}"
-                            Tag="{Binding}"
+                            Tag="{x:Bind}"
                             Unchecked="UnreadBadgeCheckboxToggled"
                             Visibility="{x:Bind IsMoveTarget}" />
                     </Grid>
@@ -296,27 +297,72 @@
                 Visibility="Collapsed">
                 <StackPanel MaxWidth="900" Spacing="12">
 
+                    <controls:SettingsCard Description="{x:Bind domain:Translator.CalendarAccountSettings_PrimaryCalendarDescription, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarAccountSettings_PrimaryCalendar, Mode=OneTime}">
+                        <controls:SettingsCard.HeaderIcon>
+                            <FontIcon Glyph="&#xE735;" />
+                        </controls:SettingsCard.HeaderIcon>
+                        <ComboBox ItemsSource="{x:Bind ViewModel.AccountCalendars, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.SelectedPrimaryCalendar, Mode=TwoWay}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="calendar:AccountCalendar">
+                                    <TextBlock Text="{x:Bind Name}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </controls:SettingsCard>
+
                     <!--  Calendars List  -->
-                    <ItemsControl ItemsSource="{x:Bind ViewModel.AccountCalendars, Mode=OneWay}">
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.AccountCalendarSettingsItems, Mode=OneWay}">
                         <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="calendar:AccountCalendar">
-                                <controls:SettingsCard
-                                    Margin="0,0,0,4"
-                                    ActionIcon="{ui:FontIcon Glyph=&#xE974;}"
-                                    Click="CalendarItemClicked"
-                                    CommandParameter="{x:Bind}"
+                            <DataTemplate x:DataType="mailViewModels:AccountCalendarSettingsItemViewModel">
+                                <controls:SettingsExpander
+                                    Margin="0,0,0,8"
                                     Description="{x:Bind TimeZone, Mode=OneWay}"
                                     Header="{x:Bind Name, Mode=OneWay}"
-                                    IsClickEnabled="True">
-                                    <controls:SettingsCard.HeaderIcon>
-                                        <FontIcon Glyph="&#xE163;" />
-                                    </controls:SettingsCard.HeaderIcon>
-                                    <Border
-                                        Width="32"
-                                        Height="32"
-                                        Background="{x:Bind BackgroundColorHex, Mode=OneWay}"
-                                        CornerRadius="4" />
-                                </controls:SettingsCard>
+                                    IsExpanded="False">
+                                    <controls:SettingsExpander.HeaderIcon>
+                                        <SymbolIcon Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}" Symbol="Calendar" />
+                                    </controls:SettingsExpander.HeaderIcon>
+                                    <controls:SettingsExpander.Items>
+
+                                        <controls:SettingsCard Description="{x:Bind domain:Translator.CalendarAccountSettings_AccountColorDescription, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarAccountSettings_AccountColor, Mode=OneTime}">
+                                            <controls:SettingsCard.HeaderIcon>
+                                                <FontIcon Glyph="&#xE790;" />
+                                            </controls:SettingsCard.HeaderIcon>
+                                            <Border
+                                                Width="32"
+                                                Height="32"
+                                                Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}"
+                                                CornerRadius="4" />
+                                        </controls:SettingsCard>
+
+                                        <controls:SettingsCard Description="{x:Bind domain:Translator.CalendarAccountSettings_SyncEnabledDescription, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarAccountSettings_SyncEnabled, Mode=OneTime}">
+                                            <controls:SettingsCard.HeaderIcon>
+                                                <FontIcon Glyph="&#xE895;" />
+                                            </controls:SettingsCard.HeaderIcon>
+                                            <ToggleSwitch
+                                                IsOn="{x:Bind IsSynchronizationEnabled, Mode=OneWay}"
+                                                Tag="{x:Bind}"
+                                                Toggled="CalendarSynchronizationToggled" />
+                                        </controls:SettingsCard>
+
+                                        <controls:SettingsCard Description="{x:Bind domain:Translator.CalendarAccountSettings_DefaultShowAsDescription, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarAccountSettings_DefaultShowAs, Mode=OneTime}">
+                                            <controls:SettingsCard.HeaderIcon>
+                                                <FontIcon Glyph="&#xE163;" />
+                                            </controls:SettingsCard.HeaderIcon>
+                                            <ComboBox
+                                                ItemsSource="{x:Bind ShowAsOptions, Mode=OneWay}"
+                                                SelectedItem="{x:Bind SelectedShowAsOption, Mode=OneWay}"
+                                                SelectionChanged="CalendarShowAsSelectionChanged"
+                                                Tag="{x:Bind}">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate x:DataType="mailViewModels:AccountCalendarShowAsOption">
+                                                        <TextBlock Text="{x:Bind DisplayText}" />
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                        </controls:SettingsCard>
+                                    </controls:SettingsExpander.Items>
+                                </controls:SettingsExpander>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>

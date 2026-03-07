@@ -179,9 +179,14 @@
                         <ComboBox
                             Width="150"
                             VerticalAlignment="Center"
-                            DisplayMemberPath="DisplayText"
                             ItemsSource="{x:Bind ViewModel.ShowAsOptions}"
-                            SelectedItem="{x:Bind ViewModel.SelectedShowAsOption, Mode=TwoWay}" />
+                            SelectedItem="{x:Bind ViewModel.SelectedShowAsOption, Mode=TwoWay}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="calendarViewModels:ShowAsOption">
+                                    <TextBlock Text="{x:Bind DisplayText}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
                     </StackPanel>
 
                     <!--  Reminder  -->

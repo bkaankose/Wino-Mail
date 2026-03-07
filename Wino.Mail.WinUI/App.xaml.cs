@@ -171,6 +171,7 @@ public partial class App : WinoApplication,
         services.AddTransient(typeof(CalendarSettingsPageViewModel));
         services.AddTransient(typeof(CalendarAccountSettingsPageViewModel));
         services.AddTransient(typeof(EventDetailsPageViewModel));
+        services.AddTransient(typeof(CalendarEventComposePageViewModel));
     }
 
     #endregion

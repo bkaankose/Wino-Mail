@@ -9,7 +9,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="controls:WebViewEditorControl">
-                        <Grid CornerRadius="3">
+                        <Grid CornerRadius="{StaticResource ControlCornerRadius}">
                             <Grid Background="White" Visibility="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=IsEditorDarkMode, Mode=OneWay, Converter={StaticResource ReverseBooleanToVisibilityConverter}}" />
                             <WebView2 x:Name="WebView" />
                         </Grid>

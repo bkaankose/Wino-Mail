@@ -314,7 +314,44 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     [RelayCommand]
     private void MoreDetails()
     {
-        // TODO: Navigate to advanced event creation  page with existing parameters.
+        if (SelectedQuickEventDate == null)
+            return;
+
+        var startDate = SelectedQuickEventDate.Value.Date.AddHours(9);
+        var endDate = startDate.AddMinutes(30);
+
+        if (!IsAllDay)
+        {
+            var selectedStartTime = CurrentSettings.GetTimeSpan(SelectedStartTimeString);
+            var selectedEndTime = CurrentSettings.GetTimeSpan(SelectedEndTimeString);
+
+            if (selectedStartTime.HasValue)
+            {
+                startDate = SelectedQuickEventDate.Value.Date.Add(selectedStartTime.Value);
+            }
+
+            if (selectedEndTime.HasValue)
+            {
+                endDate = SelectedQuickEventDate.Value.Date.Add(selectedEndTime.Value);
+            }
+        }
+        else
+        {
+            startDate = SelectedQuickEventDate.Value.Date;
+            endDate = SelectedQuickEventDate.Value.Date.AddDays(1);
+        }
+
+        IsQuickEventDialogOpen = false;
+
+        _navigationService.Navigate(WinoPage.CalendarEventComposePage, new CalendarEventComposeNavigationArgs
+        {
+            SelectedCalendarId = SelectedQuickEventAccountCalendar?.Id,
+            Title = EventName ?? string.Empty,
+            Location = Location ?? string.Empty,
+            IsAllDay = IsAllDay,
+            StartDate = startDate,
+            EndDate = endDate
+        });
     }
 
     public void SelectQuickEventTimeRange(TimeSpan startTime, TimeSpan endTime)

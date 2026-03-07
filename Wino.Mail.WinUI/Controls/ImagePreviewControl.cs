@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI;
 
@@ -29,6 +30,15 @@ public sealed partial class ImagePreviewControl : PersonPicture
 
     [GeneratedDependencyProperty]
     public partial IMailItemDisplayInformation? MailItemInformation { get; set; }
+
+    [GeneratedDependencyProperty]
+    public partial AccountContact? PreviewContact { get; set; }
+
+    [GeneratedDependencyProperty]
+    public partial string? Address { get; set; }
+
+    [GeneratedDependencyProperty]
+    public partial string? DisplayNameOverride { get; set; }
 
     private readonly IThumbnailService? _thumbnailService;
     private readonly IPreferencesService? _preferencesService;
@@ -73,6 +83,11 @@ public sealed partial class ImagePreviewControl : PersonPicture
 
         RequestRefresh();
     }
+
+    partial void OnPreviewContactPropertyChanged(DependencyPropertyChangedEventArgs e) => RequestRefresh();
+    partial void OnAddressPropertyChanged(DependencyPropertyChangedEventArgs e) => RequestRefresh();
+    partial void OnDisplayNameOverridePropertyChanged(DependencyPropertyChangedEventArgs e) => RequestRefresh();
+
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         RequestRefresh();
@@ -262,7 +277,7 @@ public sealed partial class ImagePreviewControl : PersonPicture
             var address = ResolveAddress();
             var displayName = ResolveDisplayName(address);
             var base64Picture = ResolveBase64Picture();
-            var contactPictureFileId = MailItemInformation?.SenderContact?.ContactPictureFileId;
+            var contactPictureFileId = PreviewContact?.ContactPictureFileId ?? MailItemInformation?.SenderContact?.ContactPictureFileId;
 
             return new RefreshSnapshot(displayName, address, contactPictureFileId, base64Picture);
         }).ConfigureAwait(false);
@@ -270,6 +285,12 @@ public sealed partial class ImagePreviewControl : PersonPicture
 
     private string ResolveAddress()
     {
+        if (!string.IsNullOrWhiteSpace(PreviewContact?.Address))
+            return PreviewContact.Address.Trim();
+
+        if (!string.IsNullOrWhiteSpace(Address))
+            return Address.Trim();
+
         if (MailItemInformation == null)
             return string.Empty;
 
@@ -285,6 +306,12 @@ public sealed partial class ImagePreviewControl : PersonPicture
 
     private string ResolveDisplayName(string resolvedAddress)
     {
+        if (!string.IsNullOrWhiteSpace(PreviewContact?.Name))
+            return PreviewContact.Name.Trim();
+
+        if (!string.IsNullOrWhiteSpace(DisplayNameOverride))
+            return DisplayNameOverride.Trim();
+
         var contactName = MailItemInformation?.SenderContact?.Name;
         if (!string.IsNullOrWhiteSpace(contactName))
             return contactName.Trim();
@@ -297,6 +324,9 @@ public sealed partial class ImagePreviewControl : PersonPicture
 
     private string ResolveBase64Picture()
     {
+        if (!string.IsNullOrWhiteSpace(PreviewContact?.Base64ContactPicture))
+            return PreviewContact.Base64ContactPicture;
+
         if (!string.IsNullOrWhiteSpace(MailItemInformation?.SenderContact?.Base64ContactPicture))
             return MailItemInformation.SenderContact.Base64ContactPicture;
 

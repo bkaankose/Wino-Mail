@@ -120,6 +120,40 @@ public class DialogServiceBase : IDialogServiceBase
         return returnList;
     }
 
+    public async Task<List<PickedFileMetadata>> PickFilesMetadataAsync(params object[] typeFilters)
+    {
+        var returnList = new List<PickedFileMetadata>();
+        var picker = new FileOpenPicker
+        {
+            ViewMode = PickerViewMode.Thumbnail,
+            SuggestedStartLocation = PickerLocationId.Desktop
+        };
+
+        foreach (var filter in typeFilters)
+        {
+            picker.FileTypeFilter.Add(filter.ToString());
+        }
+
+        var mainWindow = WinoApplication.MainWindow;
+        if (mainWindow == null) return returnList;
+
+        nint windowHandle = WindowNative.GetWindowHandle(mainWindow);
+        InitializeWithWindow.Initialize(picker, windowHandle);
+
+        var files = await picker.PickMultipleFilesAsync();
+        if (files == null) return returnList;
+
+        foreach (var file in files)
+        {
+            StorageApplicationPermissions.FutureAccessList.Add(file);
+
+            var basicProperties = await file.GetBasicPropertiesAsync();
+            returnList.Add(new PickedFileMetadata(file.Path, (long)basicProperties.Size));
+        }
+
+        return returnList;
+    }
+
     private async Task<StorageFile?> PickFileAsync(params object[] typeFilters)
     {
         var picker = new FileOpenPicker

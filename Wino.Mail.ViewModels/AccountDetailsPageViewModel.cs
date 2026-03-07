@@ -7,8 +7,8 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -33,6 +33,11 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     public MailAccount Account { get; set; }
     public ObservableCollection<IMailItemFolder> CurrentFolders { get; set; } = [];
     public ObservableCollection<AccountCalendar> AccountCalendars { get; set; } = [];
+    public ObservableCollection<AccountCalendarSettingsItemViewModel> AccountCalendarSettingsItems { get; } = [];
+    public ObservableCollection<AccountCalendarShowAsOption> ShowAsOptions { get; } = [];
+
+    [ObservableProperty]
+    public partial AccountCalendar SelectedPrimaryCalendar { get; set; }
 
     [ObservableProperty]
     public partial int SelectedTabIndex { get; set; } = 1; // Default to Mail tab
@@ -70,6 +75,12 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         _folderService = folderService;
         _calendarService = calendarService;
         _statePersistanceService = statePersistanceService;
+
+        ShowAsOptions.Add(new AccountCalendarShowAsOption(CalendarItemShowAs.Free, Translator.CalendarShowAs_Free));
+        ShowAsOptions.Add(new AccountCalendarShowAsOption(CalendarItemShowAs.Tentative, Translator.CalendarShowAs_Tentative));
+        ShowAsOptions.Add(new AccountCalendarShowAsOption(CalendarItemShowAs.Busy, Translator.CalendarShowAs_Busy));
+        ShowAsOptions.Add(new AccountCalendarShowAsOption(CalendarItemShowAs.OutOfOffice, Translator.CalendarShowAs_OutOfOffice));
+        ShowAsOptions.Add(new AccountCalendarShowAsOption(CalendarItemShowAs.WorkingElsewhere, Translator.CalendarShowAs_WorkingElsewhere));
     }
 
     [RelayCommand]
@@ -164,21 +175,41 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     private async Task LoadAccountCalendarsAsync()
     {
         var calendars = await _calendarService.GetAccountCalendarsAsync(Account.Id);
-        
-        AccountCalendars.Clear();
-        foreach (var calendar in calendars)
+
+        await ExecuteUIThread(() =>
         {
-            AccountCalendars.Add(calendar);
-        }
+            AccountCalendars.Clear();
+            AccountCalendarSettingsItems.Clear();
+
+            foreach (var calendar in calendars)
+            {
+                AccountCalendars.Add(calendar);
+                AccountCalendarSettingsItems.Add(new AccountCalendarSettingsItemViewModel(calendar, ShowAsOptions));
+            }
+        });
+
+        SelectedPrimaryCalendar = AccountCalendars.FirstOrDefault(calendar => calendar.IsPrimary) ?? AccountCalendars.FirstOrDefault();
     }
 
-    [RelayCommand]
-    private void CalendarItemClicked(AccountCalendar calendar)
-    {
-        if (calendar == null) return;
+    public AccountCalendarShowAsOption GetShowAsOption(CalendarItemShowAs showAs)
+        => ShowAsOptions.FirstOrDefault(option => option.ShowAs == showAs) ?? ShowAsOptions.First();
 
-        // Navigate to calendar settings page with breadcrumb
-        Messenger.Send(new BreadcrumbNavigationRequested(calendar.Name, WinoPage.CalendarAccountSettingsPage, calendar));
+    public async Task UpdateCalendarSynchronizationAsync(AccountCalendar calendar, bool isEnabled)
+    {
+        if (calendar == null || calendar.IsSynchronizationEnabled == isEnabled)
+            return;
+
+        calendar.IsSynchronizationEnabled = isEnabled;
+        await _calendarService.UpdateAccountCalendarAsync(calendar);
+    }
+
+    public async Task UpdateCalendarDefaultShowAsAsync(AccountCalendar calendar, AccountCalendarShowAsOption option)
+    {
+        if (calendar == null || option == null || calendar.DefaultShowAs == option.ShowAs)
+            return;
+
+        calendar.DefaultShowAs = option.ShowAs;
+        await _calendarService.UpdateAccountCalendarAsync(calendar);
     }
 
     protected override async void OnPropertyChanged(PropertyChangedEventArgs e)
@@ -209,6 +240,50 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
                 Account.Preferences.IsTaskbarBadgeEnabled = IsTaskbarBadgeEnabled;
                 await _accountService.UpdateAccountAsync(Account);
                 break;
+            case nameof(SelectedPrimaryCalendar) when SelectedPrimaryCalendar != null:
+                foreach (var calendar in AccountCalendars)
+                {
+                    calendar.IsPrimary = calendar.Id == SelectedPrimaryCalendar.Id;
+                }
+
+                await _calendarService.SetPrimaryCalendarAsync(Account.Id, SelectedPrimaryCalendar.Id);
+                break;
         }
+    }
+}
+
+public sealed class AccountCalendarShowAsOption
+{
+    public CalendarItemShowAs ShowAs { get; }
+    public string DisplayText { get; }
+
+    public AccountCalendarShowAsOption(CalendarItemShowAs showAs, string displayText)
+    {
+        ShowAs = showAs;
+        DisplayText = displayText;
+    }
+}
+
+public partial class AccountCalendarSettingsItemViewModel : ObservableObject
+{
+    public AccountCalendar Calendar { get; }
+    public ObservableCollection<AccountCalendarShowAsOption> ShowAsOptions { get; }
+
+    public string Name => Calendar.Name;
+    public string TimeZone => Calendar.TimeZone;
+    public string BackgroundColorHex => Calendar.BackgroundColorHex;
+
+    [ObservableProperty]
+    public partial bool IsSynchronizationEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial AccountCalendarShowAsOption SelectedShowAsOption { get; set; }
+
+    public AccountCalendarSettingsItemViewModel(AccountCalendar calendar, ObservableCollection<AccountCalendarShowAsOption> showAsOptions)
+    {
+        Calendar = calendar;
+        ShowAsOptions = showAsOptions;
+        IsSynchronizationEnabled = calendar.IsSynchronizationEnabled;
+        SelectedShowAsOption = showAsOptions.FirstOrDefault(option => option.ShowAs == calendar.DefaultShowAs) ?? showAsOptions.FirstOrDefault();
     }
 }

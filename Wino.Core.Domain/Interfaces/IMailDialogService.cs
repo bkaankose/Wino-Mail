@@ -2,10 +2,12 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
 
 namespace Wino.Core.Domain.Interfaces;
@@ -18,6 +20,7 @@ public interface IMailDialogService : IDialogServiceBase
     // Custom dialogs
     Task<IMailItemFolder> ShowMoveMailFolderDialogAsync(List<IMailItemFolder> availableFolders);
     Task<MailAccount> ShowAccountPickerDialogAsync(List<MailAccount> availableAccounts);
+    Task<AccountCalendar> ShowSingleCalendarPickerDialogAsync(List<CalendarPickerAccountGroup> availableCalendarGroups);
 
     /// <summary>
     /// Displays a dialog to the user for reordering accounts.

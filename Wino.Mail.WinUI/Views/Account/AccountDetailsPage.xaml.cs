@@ -1,8 +1,8 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
-using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Models.Folders;
+using Wino.Mail.ViewModels;
 using Wino.Views.Abstract;
 
 namespace Wino.Views;
@@ -37,11 +37,21 @@ public sealed partial class AccountDetailsPage : AccountDetailsPageAbstract
         }
     }
 
-    private void CalendarItemClicked(object sender, RoutedEventArgs e)
+    private async void CalendarSynchronizationToggled(object sender, RoutedEventArgs e)
     {
-        if (sender is CommunityToolkit.WinUI.Controls.SettingsCard settingsCard && settingsCard.CommandParameter is AccountCalendar calendar)
+        if (sender is ToggleSwitch { Tag: AccountCalendarSettingsItemViewModel calendarItem } toggleSwitch)
         {
-            ViewModel.CalendarItemClickedCommand?.Execute(calendar);
+            calendarItem.IsSynchronizationEnabled = toggleSwitch.IsOn;
+            await ViewModel.UpdateCalendarSynchronizationAsync(calendarItem.Calendar, toggleSwitch.IsOn);
+        }
+    }
+
+    private async void CalendarShowAsSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox { Tag: AccountCalendarSettingsItemViewModel calendarItem, SelectedItem: AccountCalendarShowAsOption option })
+        {
+            calendarItem.SelectedShowAsOption = option;
+            await ViewModel.UpdateCalendarDefaultShowAsAsync(calendarItem.Calendar, option);
         }
     }
 

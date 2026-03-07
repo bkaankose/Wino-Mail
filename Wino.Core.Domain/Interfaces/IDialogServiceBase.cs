@@ -29,6 +29,7 @@ public interface IDialogServiceBase
     Task<AccountCreationDialogResult> ShowAccountProviderSelectionDialogAsync(List<IProviderDetail> availableProviders);
     IAccountCreationDialog GetAccountCreationDialog(AccountCreationDialogResult accountCreationDialogResult);
     Task<List<SharedFile>> PickFilesAsync(params object[] typeFilters);
+    Task<List<PickedFileMetadata>> PickFilesMetadataAsync(params object[] typeFilters);
     Task<string> PickFilePathAsync(string saveFileName);
     Task<WebView2PrintSettingsModel> ShowPrintDialogAsync(WebView2PrintSettingsModel initialSettings = null);
 
