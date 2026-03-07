@@ -242,12 +242,19 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
         {
             foreach (var file in pickedFiles)
             {
-                if (Attachments.Any(existing => existing.FilePath.Equals(file.FullFilePath, StringComparison.OrdinalIgnoreCase)))
-                    continue;
-
-                Attachments.Add(new CalendarComposeAttachmentViewModel(file.FileName, file.FullFilePath, file.FileExtension, file.Size));
+                TryAddAttachment(file.FileName, file.FullFilePath, file.FileExtension, file.Size);
             }
         });
+    }
+
+    public bool TryAddAttachment(string filePath, long size)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+            return false;
+
+        var fileName = Path.GetFileName(filePath);
+        var fileExtension = Path.GetExtension(filePath);
+        return TryAddAttachment(fileName, filePath, fileExtension, size);
     }
 
     [RelayCommand]
@@ -638,6 +645,18 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
     private void AttachmentsCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
     {
         OnPropertyChanged(nameof(HasAttachments));
+    }
+
+    private bool TryAddAttachment(string fileName, string filePath, string fileExtension, long size)
+    {
+        if (string.IsNullOrWhiteSpace(filePath) ||
+            Attachments.Any(existing => existing.FilePath.Equals(filePath, StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        Attachments.Add(new CalendarComposeAttachmentViewModel(fileName, filePath, fileExtension, size));
+        return true;
     }
 
 }

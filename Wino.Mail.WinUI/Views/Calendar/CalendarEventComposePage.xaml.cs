@@ -9,7 +9,10 @@ using EmailValidation;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
+using Windows.Storage;
+using Wino.Core.Domain;
 using Wino.Messaging.Client.Shell;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Mail.WinUI.Views.Abstract;
@@ -142,6 +145,42 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
         if (e.ClickedItem is AccountCalendarViewModel calendar)
         {
             ViewModel.SelectedCalendar = calendar;
+        }
+    }
+
+    private void AttachmentsPane_DragOver(object sender, DragEventArgs e)
+    {
+        e.AcceptedOperation = e.DataView.Contains(StandardDataFormats.StorageItems)
+            ? DataPackageOperation.Copy
+            : DataPackageOperation.None;
+
+        if (e.AcceptedOperation == DataPackageOperation.Copy)
+        {
+            e.DragUIOverride.Caption = Translator.ComposerAttachmentsDragDropAttach_Message;
+            e.DragUIOverride.IsCaptionVisible = true;
+            e.DragUIOverride.IsGlyphVisible = true;
+            e.DragUIOverride.IsContentVisible = true;
+        }
+    }
+
+    private void AttachmentsPane_DragLeave(object sender, DragEventArgs e)
+    {
+    }
+
+    private async void AttachmentsPane_Drop(object sender, DragEventArgs e)
+    {
+        if (!e.DataView.Contains(StandardDataFormats.StorageItems))
+        {
+            return;
+        }
+
+        var storageItems = await e.DataView.GetStorageItemsAsync();
+        var files = storageItems.OfType<StorageFile>();
+
+        foreach (var file in files)
+        {
+            var basicProperties = await file.GetBasicPropertiesAsync();
+            await ViewModel.ExecuteUIThread(() => ViewModel.TryAddAttachment(file.Path, (long)basicProperties.Size));
         }
     }
 

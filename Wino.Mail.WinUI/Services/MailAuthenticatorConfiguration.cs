@@ -33,6 +33,7 @@ public class MailAuthenticatorConfiguration : IAuthenticatorConfig
         "https://www.googleapis.com/auth/calendar",
         "https://www.googleapis.com/auth/calendar.events",
         "https://www.googleapis.com/auth/calendar.settings.readonly",
+        "https://www.googleapis.com/auth/drive.file",
     ];
 
     public string GmailTokenStoreIdentifier => "WinoMailGmailTokenStore";

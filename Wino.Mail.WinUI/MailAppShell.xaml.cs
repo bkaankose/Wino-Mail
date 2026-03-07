@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml;
@@ -18,7 +17,6 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Extensions;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls;
@@ -35,8 +33,7 @@ namespace Wino.Views;
 public sealed partial class MailAppShell : MailAppShellAbstract,
     IRecipient<AccountMenuItemExtended>,
     IRecipient<NavigateMailFolderEvent>,
-    IRecipient<CreateNewMailWithMultipleAccountsRequested>,
-    IRecipient<InfoBarMessageRequested>
+    IRecipient<CreateNewMailWithMultipleAccountsRequested>
 {
     public Frame GetShellFrame() => InnerShellFrame;
 
@@ -306,33 +303,6 @@ public sealed partial class MailAppShell : MailAppShellAbstract,
         }
     }
 
-    /// <summary>
-    /// InfoBar message is requested.
-    /// </summary>
-    public async void Receive(InfoBarMessageRequested message)
-    {
-        await DispatcherQueue.EnqueueAsync(async () =>
-        {
-            if (string.IsNullOrEmpty(message.ActionButtonTitle) || message.Action == null)
-            {
-                ShellInfoBar.ActionButton = null;
-            }
-            else
-            {
-                ShellInfoBar.ActionButton = new Button()
-                {
-                    Content = message.ActionButtonTitle,
-                    Command = new RelayCommand(message.Action)
-                };
-            }
-
-            ShellInfoBar.Message = message.Message;
-            ShellInfoBar.Title = message.Title;
-            ShellInfoBar.Severity = message.Severity.AsMUXCInfoBarSeverity();
-            ShellInfoBar.IsOpen = true;
-        });
-    }
-
     private void NavigationViewDisplayModeChanged(NavigationView sender, NavigationViewDisplayModeChangedEventArgs args)
     {
         if (args.DisplayMode == NavigationViewDisplayMode.Minimal)
@@ -349,7 +319,6 @@ public sealed partial class MailAppShell : MailAppShellAbstract,
     {
         base.RegisterRecipients();
 
-        WeakReferenceMessenger.Default.Register<InfoBarMessageRequested>(this);
         WeakReferenceMessenger.Default.Register<AccountMenuItemExtended>(this);
         WeakReferenceMessenger.Default.Register<CreateNewMailWithMultipleAccountsRequested>(this);
         WeakReferenceMessenger.Default.Register<NavigateMailFolderEvent>(this);
@@ -359,7 +328,6 @@ public sealed partial class MailAppShell : MailAppShellAbstract,
     {
         base.UnregisterRecipients();
 
-        WeakReferenceMessenger.Default.Unregister<InfoBarMessageRequested>(this);
         WeakReferenceMessenger.Default.Unregister<AccountMenuItemExtended>(this);
         WeakReferenceMessenger.Default.Unregister<CreateNewMailWithMultipleAccountsRequested>(this);
         WeakReferenceMessenger.Default.Unregister<NavigateMailFolderEvent>(this);

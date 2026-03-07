@@ -27,12 +27,17 @@ let stateSyncQueued = false;
 let imageInputBound = false;
 let inlineFontsPluginRegistered = false;
 let lastKnownRange = null;
+let availableTextColors = [];
+let availableHighlightColors = [];
 
-function initializeJodit(fonts, defaultComposerFont, defaultComposerFontSize, defaultReaderFont, defaultReaderFontSize) {
+function initializeJodit(fonts, defaultComposerFont, defaultComposerFontSize, defaultReaderFont, defaultReaderFontSize, textColors, highlightColors) {
     if (editor) {
         scheduleStateSync();
         return true;
     }
+
+    availableTextColors = Array.isArray(textColors) ? textColors.map(normalizeColor).filter(Boolean) : [];
+    availableHighlightColors = Array.isArray(highlightColors) ? highlightColors.map(normalizeColor).filter(Boolean) : [];
 
     const fontsWithFallbackObject = fonts.reduce((acc, font) => {
         acc[`'${font}',Arial,sans-serif`] = font;
@@ -445,8 +450,8 @@ function buildEditorState() {
         fontFamily: normalizeFontFamily(style.fontFamily),
         fontSize: fontSize,
         paragraphStyle: normalizeParagraphTag(blockElement),
-        textColor: normalizeColor(style.color),
-        highlightColor: normalizeColor(style.backgroundColor),
+        textColor: snapColorToPalette(resolveEditorColorValue(selectionElement, 'color', style.color), availableTextColors),
+        highlightColor: snapColorToPalette(resolveEditorColorValue(selectionElement, 'backgroundColor', style.backgroundColor), availableHighlightColors),
         lineHeight: normalizeLineHeight(blockStyle.lineHeight, fontSize),
         linkUrl: linkElement ? linkElement.getAttribute('href') || '' : '',
         selectedText: selection && isSelectionInsideEditor() ? selection.toString() : ''
@@ -632,6 +637,94 @@ function normalizeColor(value) {
 
     const [, red, green, blue] = rgbaMatch;
     return `#${toHex(red)}${toHex(green)}${toHex(blue)}`;
+}
+
+function snapColorToPalette(value, palette) {
+    const normalizedColor = normalizeColor(value);
+    if (!normalizedColor) {
+        return '';
+    }
+
+    if (!Array.isArray(palette) || palette.length === 0) {
+        return normalizedColor;
+    }
+
+    if (palette.includes(normalizedColor)) {
+        return normalizedColor;
+    }
+
+    const targetRgb = hexToRgb(normalizedColor);
+    if (!targetRgb) {
+        return normalizedColor;
+    }
+
+    let nearestColor = palette[0];
+    let nearestDistance = Number.MAX_SAFE_INTEGER;
+
+    palette.forEach(candidate => {
+        const candidateRgb = hexToRgb(candidate);
+        if (!candidateRgb) {
+            return;
+        }
+
+        const distance = getColorDistance(targetRgb, candidateRgb);
+        if (distance < nearestDistance) {
+            nearestColor = candidate;
+            nearestDistance = distance;
+        }
+    });
+
+    return nearestColor;
+}
+
+function hexToRgb(value) {
+    const normalized = normalizeColor(value);
+    if (!normalized || !normalized.startsWith('#') || normalized.length !== 7) {
+        return null;
+    }
+
+    return {
+        red: parseInt(normalized.slice(1, 3), 16),
+        green: parseInt(normalized.slice(3, 5), 16),
+        blue: parseInt(normalized.slice(5, 7), 16)
+    };
+}
+
+function getColorDistance(left, right) {
+    const redDiff = left.red - right.red;
+    const greenDiff = left.green - right.green;
+    const blueDiff = left.blue - right.blue;
+    return (redDiff * redDiff) + (greenDiff * greenDiff) + (blueDiff * blueDiff);
+}
+
+function resolveEditorColorValue(selectionElement, propertyName, computedValue) {
+    if (!editor || !editor.editor) {
+        return '';
+    }
+
+    const darkReaderAttributeName = propertyName === 'backgroundColor'
+        ? 'data-darkreader-inline-bgcolor'
+        : 'data-darkreader-inline-color';
+
+    let currentElement = selectionElement;
+    while (currentElement) {
+        if (currentElement.style && currentElement.style[propertyName]) {
+            return currentElement.style[propertyName];
+        }
+
+        const darkReaderValue = currentElement.getAttribute && currentElement.getAttribute(darkReaderAttributeName);
+        if (darkReaderValue) {
+            return darkReaderValue;
+        }
+
+        if (currentElement === editor.editor) {
+            break;
+        }
+
+        currentElement = currentElement.parentElement;
+    }
+
+    return '';
 }
 
 function toHex(value) {

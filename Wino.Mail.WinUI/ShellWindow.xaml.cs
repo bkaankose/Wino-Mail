@@ -14,6 +14,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Extensions;
 using Wino.Mail.WinUI.Activation;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Messaging.Client.Shell;
@@ -25,6 +26,7 @@ namespace Wino.Mail.WinUI;
 
 public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     IRecipient<ApplicationThemeChanged>,
+    IRecipient<InfoBarMessageRequested>,
     IRecipient<TitleBarShellContentUpdated>,
     IRecipient<SynchronizationActionsAdded>,
     IRecipient<SynchronizationActionsCompleted>
@@ -186,6 +188,30 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         UpdateTitleBarColors(message.IsUnderlyingThemeDark);
     }
 
+    public void Receive(InfoBarMessageRequested message)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (string.IsNullOrEmpty(message.ActionButtonTitle) || message.Action == null)
+            {
+                ShellInfoBar.ActionButton = null;
+            }
+            else
+            {
+                ShellInfoBar.ActionButton = new Button()
+                {
+                    Content = message.ActionButtonTitle,
+                    Command = new RelayCommand(message.Action)
+                };
+            }
+
+            ShellInfoBar.Message = message.Message;
+            ShellInfoBar.Title = message.Title;
+            ShellInfoBar.Severity = message.Severity.AsMUXCInfoBarSeverity();
+            ShellInfoBar.IsOpen = true;
+        });
+    }
+
     public void Receive(SynchronizationActionsAdded message)
     {
         DispatcherQueue.TryEnqueue(() =>
@@ -316,6 +342,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     {
         WeakReferenceMessenger.Default.Register<TitleBarShellContentUpdated>(this);
         WeakReferenceMessenger.Default.Register<ApplicationThemeChanged>(this);
+        WeakReferenceMessenger.Default.Register<InfoBarMessageRequested>(this);
         WeakReferenceMessenger.Default.Register<SynchronizationActionsAdded>(this);
         WeakReferenceMessenger.Default.Register<SynchronizationActionsCompleted>(this);
     }
@@ -324,6 +351,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     {
         WeakReferenceMessenger.Default.Unregister<TitleBarShellContentUpdated>(this);
         WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
+        WeakReferenceMessenger.Default.Unregister<InfoBarMessageRequested>(this);
         WeakReferenceMessenger.Default.Unregister<SynchronizationActionsAdded>(this);
         WeakReferenceMessenger.Default.Unregister<SynchronizationActionsCompleted>(this);
     }

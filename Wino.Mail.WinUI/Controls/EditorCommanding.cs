@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
@@ -97,16 +98,33 @@ public sealed record class EditorTableCommandArgs(
 
 public sealed record class EditorColorOption(string Name, string Value)
 {
-    public SolidColorBrush Brush => new(ParseColor(Value));
+    public SolidColorBrush Brush => new(ParseColorValue(Value));
 
-    private static Color ParseColor(string? value)
+    public static Color ParseColorValue(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
             return Colors.Transparent;
         }
 
-        var hex = value.Trim().TrimStart('#');
+        var normalizedValue = value.Trim();
+
+        if (string.Equals(normalizedValue, "transparent", StringComparison.OrdinalIgnoreCase))
+        {
+            return Colors.Transparent;
+        }
+
+        if (TryParseRgbColor(normalizedValue, out var rgbColor))
+        {
+            return rgbColor;
+        }
+
+        if (TryParseNamedColor(normalizedValue, out var namedColor))
+        {
+            return namedColor;
+        }
+
+        var hex = normalizedValue.TrimStart('#');
         if (hex.Length == 6)
         {
             hex = $"FF{hex}";
@@ -122,6 +140,76 @@ public sealed record class EditorColorOption(string Name, string Value)
             (byte)((argb >> 16) & 0xFF),
             (byte)((argb >> 8) & 0xFF),
             (byte)(argb & 0xFF));
+    }
+
+    private static bool TryParseRgbColor(string value, out Color color)
+    {
+        color = Colors.Transparent;
+
+        var isRgba = value.StartsWith("rgba(", StringComparison.OrdinalIgnoreCase);
+        var isRgb = value.StartsWith("rgb(", StringComparison.OrdinalIgnoreCase);
+        if (!isRgb && !isRgba)
+        {
+            return false;
+        }
+
+        var startIndex = value.IndexOf('(');
+        var endIndex = value.LastIndexOf(')');
+        if (startIndex < 0 || endIndex <= startIndex)
+        {
+            return false;
+        }
+
+        var segments = value[(startIndex + 1)..endIndex]
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+        if ((isRgb && segments.Length != 3) || (isRgba && segments.Length != 4))
+        {
+            return false;
+        }
+
+        if (!byte.TryParse(segments[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var red) ||
+            !byte.TryParse(segments[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var green) ||
+            !byte.TryParse(segments[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var blue))
+        {
+            return false;
+        }
+
+        byte alpha = 255;
+        if (isRgba)
+        {
+            if (!double.TryParse(segments[3], NumberStyles.Float, CultureInfo.InvariantCulture, out var alphaValue))
+            {
+                return false;
+            }
+
+            alpha = alphaValue <= 1d
+                ? (byte)Math.Clamp(Math.Round(alphaValue * 255d), 0d, 255d)
+                : (byte)Math.Clamp(Math.Round(alphaValue), 0d, 255d);
+        }
+
+        color = Color.FromArgb(alpha, red, green, blue);
+        return true;
+    }
+
+    private static bool TryParseNamedColor(string value, out Color color)
+    {
+        color = value.ToLowerInvariant() switch
+        {
+            "black" => Colors.Black,
+            "white" => Colors.White,
+            "gray" or "grey" => Colors.Gray,
+            "red" => Colors.Red,
+            "orange" => Colors.Orange,
+            "yellow" => Colors.Yellow,
+            "green" => Colors.Green,
+            "blue" => Colors.Blue,
+            "purple" => Colors.Purple,
+            "pink" => Colors.Pink,
+            _ => Colors.Transparent
+        };
+
+        return !color.Equals(Colors.Transparent) || string.Equals(value, "transparent", StringComparison.OrdinalIgnoreCase);
     }
 }
 

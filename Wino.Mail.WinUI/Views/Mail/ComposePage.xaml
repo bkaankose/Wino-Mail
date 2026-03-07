@@ -25,47 +25,6 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-        <DataTemplate x:Key="TokenBoxTemplate" x:DataType="entities:AccountContact">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <ToolTipService.ToolTip>
-                    <ToolTip Content="{x:Bind Address}" />
-                </ToolTipService.ToolTip>
-
-                <!--  TODO: Display contact info.  -->
-                <!--<Grid.ContextFlyout>
-                    <MenuFlyout Placement="RightEdgeAlignedBottom">
-                        <MenuFlyoutItem Text="{x:Bind domain:Translator.ViewContactDetails}" />
-                    </MenuFlyout>
-                </Grid.ContextFlyout>-->
-
-                <Viewbox Width="24">
-                    <controls:ImagePreviewControl PreviewContact="{x:Bind}" />
-                </Viewbox>
-
-                <TextBlock
-                    Grid.Column="1"
-                    Margin="6,0,8,0"
-                    VerticalAlignment="Center"
-                    Text="{x:Bind Name}" />
-            </Grid>
-        </DataTemplate>
-        <DataTemplate x:Key="SuggestionBoxTemplate" x:DataType="entities:AccountContact">
-            <Grid Margin="0,12" ColumnSpacing="6">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <controls:ImagePreviewControl PreviewContact="{x:Bind}" />
-                <TextBlock Grid.Column="1">
-                    <Run FontWeight="SemiBold" Text="{x:Bind Name}" /><LineBreak /><Run Text="{x:Bind Address}" />
-                </TextBlock>
-            </Grid>
-        </DataTemplate>
-
         <!--  Attachment Template  -->
         <!--  Margin -8 0 is used to remove the padding from the ListViewItem  -->
         <DataTemplate x:Key="ComposerFileAttachmentTemplate" x:DataType="data:MailAttachmentViewModel">
@@ -186,13 +145,7 @@
                                 Visibility="{x:Bind ViewModel.IsDraftBusy, Mode=OneWay}">
                                 <ProgressRing IsActive="True" />
                             </AppBarButton>
-
-                            <AppBarButton Command="{x:Bind ViewModel.DiscardCommand}" Label="{x:Bind domain:Translator.Buttons_Discard}">
-                                <AppBarButton.Icon>
-                                    <coreControls:WinoFontIcon Icon="Delete" />
-                                </AppBarButton.Icon>
-                            </AppBarButton>
-                                                        <AppBarToggleButton
+                            <AppBarToggleButton
                                 x:Name="EditorThemeToggleButton"
                                 IsChecked="{x:Bind WebViewEditor.IsEditorDarkMode, Mode=TwoWay}"
                                 Label=""
@@ -201,6 +154,12 @@
                                     <coreControls:WinoFontIcon Icon="DarkEditor" />
                                 </AppBarToggleButton.Icon>
                             </AppBarToggleButton>
+                            <AppBarButton Command="{x:Bind ViewModel.DiscardCommand}" Label="{x:Bind domain:Translator.Buttons_Discard}">
+                                <AppBarButton.Icon>
+                                    <coreControls:WinoFontIcon Icon="Delete" />
+                                </AppBarButton.Icon>
+                            </AppBarButton>
+
                             <AppBarButton
                                 Command="{x:Bind ViewModel.SendCommand}"
                                 Label="{x:Bind domain:Translator.Buttons_Send}"
@@ -226,7 +185,7 @@
                             <AppBarButton
                                 x:Name="FilesButton"
                                 Command="{x:Bind ViewModel.AttachFilesCommand}"
-                                Label="{x:Bind domain:Translator.Files}">
+                                LabelPosition="Collapsed">
                                 <AppBarButton.Icon>
                                     <PathIcon Data="{StaticResource AttachPathIcon}" />
                                 </AppBarButton.Icon>
@@ -388,11 +347,11 @@
                             ItemsSource="{x:Bind ViewModel.ToItems, Mode=OneTime}"
                             LostFocus="AddressBoxLostFocus"
                             PlaceholderText="{x:Bind domain:Translator.ComposerToPlaceholder}"
-                            SuggestedItemTemplate="{StaticResource SuggestionBoxTemplate}"
+                            SuggestedItemTemplate="{StaticResource ContactSuggestionTemplate}"
                             Tag="ToBox"
                             TokenDelimiter=";"
                             TokenItemAdding="TokenItemAdding"
-                            TokenItemTemplate="{StaticResource TokenBoxTemplate}" />
+                            TokenItemTemplate="{StaticResource ContactTokenTemplate}" />
 
                         <Button
                             x:Name="CCBCCShowButton"
@@ -430,11 +389,11 @@
                         ItemsSource="{x:Bind ViewModel.CCItems, Mode=OneTime}"
                         LostFocus="AddressBoxLostFocus"
                         PlaceholderText="{x:Bind domain:Translator.ComposerToPlaceholder}"
-                        SuggestedItemTemplate="{StaticResource SuggestionBoxTemplate}"
+                        SuggestedItemTemplate="{StaticResource ContactSuggestionTemplate}"
                         Tag="CCBox"
                         TokenDelimiter=";"
                         TokenItemAdding="TokenItemAdding"
-                        TokenItemTemplate="{StaticResource TokenBoxTemplate}"
+                        TokenItemTemplate="{StaticResource ContactTokenTemplate}"
                         Visibility="{x:Bind ViewModel.IsCCBCCVisible, Mode=OneWay}" />
 
                     <TextBlock
@@ -453,11 +412,11 @@
                         ItemsSource="{x:Bind ViewModel.BCCItems, Mode=OneTime}"
                         LostFocus="AddressBoxLostFocus"
                         PlaceholderText="{x:Bind domain:Translator.ComposerToPlaceholder}"
-                        SuggestedItemTemplate="{StaticResource SuggestionBoxTemplate}"
+                        SuggestedItemTemplate="{StaticResource ContactSuggestionTemplate}"
                         Tag="BCCBox"
                         TokenDelimiter=";"
                         TokenItemAdding="TokenItemAdding"
-                        TokenItemTemplate="{StaticResource TokenBoxTemplate}"
+                        TokenItemTemplate="{StaticResource ContactTokenTemplate}"
                         Visibility="{x:Bind ViewModel.IsCCBCCVisible, Mode=OneWay}" />
 
                     <!--  Subject  -->

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
@@ -392,7 +393,9 @@ public sealed partial class WebViewEditorControl : Control, IDisposable, IEditor
             JsonSerializer.Serialize(_preferencesService.ComposerFont, BasicTypesJsonContext.Default.String),
             JsonSerializer.Serialize(_preferencesService.ComposerFontSize, BasicTypesJsonContext.Default.Int32),
             JsonSerializer.Serialize(_preferencesService.ReaderFont, BasicTypesJsonContext.Default.String),
-            JsonSerializer.Serialize(_preferencesService.ReaderFontSize, BasicTypesJsonContext.Default.Int32));
+            JsonSerializer.Serialize(_preferencesService.ReaderFontSize, BasicTypesJsonContext.Default.Int32),
+            JsonSerializer.Serialize(DefaultTextColors.Select(option => option.Value).Where(value => !string.IsNullOrWhiteSpace(value)).ToList(), BasicTypesJsonContext.Default.ListString),
+            JsonSerializer.Serialize(DefaultHighlightColors.Select(option => option.Value).Where(value => !string.IsNullOrWhiteSpace(value)).ToList(), BasicTypesJsonContext.Default.ListString));
 
         UpdateCapabilities(BuildCapabilities(fonts));
         _editorReadyTask.TrySetResult(true);

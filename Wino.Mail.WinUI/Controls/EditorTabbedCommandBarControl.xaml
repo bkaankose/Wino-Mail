@@ -11,29 +11,47 @@
     mc:Ignorable="d">
 
     <UserControl.Resources>
-        <Style x:Key="CompactComboBoxStyle" TargetType="ComboBox">
-            <Setter Property="MinWidth" Value="88" />
-            <Setter Property="MaxWidth" Value="136" />
+        <Style
+            x:Key="CompactComboBoxStyle"
+            BasedOn="{StaticResource DefaultComboBoxStyle}"
+            TargetType="ComboBox">
+            <Setter Property="MinWidth" Value="72" />
+            <Setter Property="MaxWidth" Value="132" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="4,0,0,0" />
         </Style>
 
         <Style x:Key="CompactPickerContainerStyle" TargetType="AppBarElementContainer">
             <Setter Property="MinWidth" Value="0" />
-            <Setter Property="Margin" Value="0" />
+            <Setter Property="Margin" Value="0,8,0,0" />
+        </Style>
+
+        <Style x:Key="CompactPickerBorderStyle" TargetType="Border">
+            <!--<Setter Property="Background" Value="{ThemeResource ControlFillColorSecondaryBrush}" />-->
+            <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="Margin" Value="4,0" />
         </Style>
 
         <DataTemplate x:Key="ColorOptionTemplate" x:DataType="mail:EditorColorOption">
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <Grid Width="14" Height="14">
                     <Rectangle
+                        Fill="{x:Bind Brush}"
                         RadiusX="3"
                         RadiusY="3"
-                        Fill="{x:Bind Brush}"
                         Stroke="{ThemeResource TextFillColorSecondaryBrush}"
                         StrokeThickness="1" />
                 </Grid>
                 <TextBlock VerticalAlignment="Center" Text="{x:Bind Name}" />
             </StackPanel>
         </DataTemplate>
+
     </UserControl.Resources>
 
     <toolkit:TabbedCommandBar>
@@ -41,6 +59,12 @@
             <SolidColorBrush x:Key="TabContentContentBorderBackground" Color="Transparent" />
             <SolidColorBrush x:Key="TabContentContentBorderBorderBrush" Color="Transparent" />
             <Thickness x:Key="TabContentBorderBorderThickness">0</Thickness>
+            <Style BasedOn="{StaticResource DefaultAppBarToggleButtonStyle}" TargetType="AppBarToggleButton">
+                <Setter Property="Width" Value="50" />
+            </Style>
+            <Style BasedOn="{StaticResource DefaultAppBarButtonStyle}" TargetType="AppBarButton">
+                <Setter Property="Width" Value="50" />
+            </Style>
         </toolkit:TabbedCommandBar.Resources>
 
         <toolkit:TabbedCommandBar.PaneCustomContent>
@@ -49,25 +73,41 @@
 
         <toolkit:TabbedCommandBar.MenuItems>
             <toolkit:TabbedCommandBarItem DefaultLabelPosition="Collapsed" Header="Format">
-                <AppBarToggleButton x:Name="BoldButton" Click="BoldButton_Click" Label="Bold" ToolTipService.ToolTip="Bold (Ctrl+B)">
+                <AppBarToggleButton
+                    x:Name="BoldButton"
+                    Click="BoldButton_Click"
+                    Label="Bold"
+                    ToolTipService.ToolTip="Bold (Ctrl+B)">
                     <AppBarToggleButton.Icon>
                         <PathIcon Data="{StaticResource BoldPathIcon}" />
                     </AppBarToggleButton.Icon>
                 </AppBarToggleButton>
 
-                <AppBarToggleButton x:Name="ItalicButton" Click="ItalicButton_Click" Label="Italic" ToolTipService.ToolTip="Italic (Ctrl+I)">
+                <AppBarToggleButton
+                    x:Name="ItalicButton"
+                    Click="ItalicButton_Click"
+                    Label="Italic"
+                    ToolTipService.ToolTip="Italic (Ctrl+I)">
                     <AppBarToggleButton.Icon>
                         <PathIcon Data="{StaticResource ItalicPathIcon}" />
                     </AppBarToggleButton.Icon>
                 </AppBarToggleButton>
 
-                <AppBarToggleButton x:Name="UnderlineButton" Click="UnderlineButton_Click" Label="Underline" ToolTipService.ToolTip="Underline (Ctrl+U)">
+                <AppBarToggleButton
+                    x:Name="UnderlineButton"
+                    Click="UnderlineButton_Click"
+                    Label="Underline"
+                    ToolTipService.ToolTip="Underline (Ctrl+U)">
                     <AppBarToggleButton.Icon>
                         <PathIcon Data="{StaticResource UnderlinePathIcon}" />
                     </AppBarToggleButton.Icon>
                 </AppBarToggleButton>
 
-                <AppBarToggleButton x:Name="StrikeButton" Click="StrikeButton_Click" Label="Strikethrough" ToolTipService.ToolTip="Strikethrough">
+                <AppBarToggleButton
+                    x:Name="StrikeButton"
+                    Click="StrikeButton_Click"
+                    Label="Strikethrough"
+                    ToolTipService.ToolTip="Strikethrough">
                     <AppBarToggleButton.Icon>
                         <PathIcon Data="{StaticResource StrikePathIcon}" />
                     </AppBarToggleButton.Icon>
@@ -75,139 +115,254 @@
 
                 <AppBarSeparator />
 
-                <AppBarToggleButton x:Name="BulletListButton" Click="BulletListButton_Click" Label="Bullets" ToolTipService.ToolTip="Bulleted list">
+                <AppBarToggleButton
+                    x:Name="BulletListButton"
+                    Click="BulletListButton_Click"
+                    Label="Bullets"
+                    ToolTipService.ToolTip="Bulleted list">
                     <AppBarToggleButton.Icon>
                         <PathIcon Data="{StaticResource BulletedListPathIcon}" />
                     </AppBarToggleButton.Icon>
                 </AppBarToggleButton>
 
-                <AppBarToggleButton x:Name="OrderedListButton" Click="OrderedListButton_Click" Label="Numbered list" ToolTipService.ToolTip="Numbered list">
+                <AppBarToggleButton
+                    x:Name="OrderedListButton"
+                    Click="OrderedListButton_Click"
+                    Label="Numbered list"
+                    ToolTipService.ToolTip="Numbered list">
                     <AppBarToggleButton.Icon>
                         <PathIcon Data="{StaticResource OrderedListPathIcon}" />
                     </AppBarToggleButton.Icon>
                 </AppBarToggleButton>
 
-                <AppBarButton x:Name="OutdentButton" Click="OutdentButton_Click" Label="Outdent" ToolTipService.ToolTip="Outdent">
+                <AppBarButton
+                    x:Name="OutdentButton"
+                    Click="OutdentButton_Click"
+                    Label="Outdent"
+                    ToolTipService.ToolTip="Outdent">
                     <AppBarButton.Icon>
                         <PathIcon Data="{StaticResource DecreaseIndentPathIcon}" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 
-                <AppBarButton x:Name="IndentButton" Click="IndentButton_Click" Label="Indent" ToolTipService.ToolTip="Indent">
+                <AppBarButton
+                    x:Name="IndentButton"
+                    Click="IndentButton_Click"
+                    Label="Indent"
+                    ToolTipService.ToolTip="Indent">
                     <AppBarButton.Icon>
                         <PathIcon Data="{StaticResource IncreaseIndentPathIcon}" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 
                 <AppBarElementContainer Style="{StaticResource CompactPickerContainerStyle}" ToolTipService.ToolTip="Text alignment">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <PathIcon
-                            Width="14"
-                            Height="14"
-                            VerticalAlignment="Center"
-                            Data="{StaticResource AlignLeftPathIcon}" />
-                        <ComboBox
-                            x:Name="AlignmentComboBox"
-                            Style="{StaticResource CompactComboBoxStyle}"
-                            MinWidth="108"
-                            SelectionChanged="AlignmentComboBox_SelectionChanged" />
-                    </StackPanel>
+                    <Border Style="{StaticResource CompactPickerBorderStyle}">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="32" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <PathIcon
+                                Width="14"
+                                Height="14"
+                                Margin="10,0,0,0"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Data="{StaticResource AlignLeftPathIcon}"
+                                Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                            <ComboBox
+                                x:Name="AlignmentComboBox"
+                                Grid.Column="1"
+                                MinWidth="94"
+                                SelectionChanged="AlignmentComboBox_SelectionChanged"
+                                Style="{StaticResource CompactComboBoxStyle}" />
+                        </Grid>
+                    </Border>
                 </AppBarElementContainer>
 
                 <AppBarElementContainer Style="{StaticResource CompactPickerContainerStyle}" ToolTipService.ToolTip="Font family">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <FontIcon VerticalAlignment="Center" FontSize="14" Glyph="&#xE8D2;" />
-                        <ComboBox
-                            x:Name="FontFamilyComboBox"
-                            Style="{StaticResource CompactComboBoxStyle}"
-                            MinWidth="120"
-                            PlaceholderText="Font"
-                            SelectionChanged="FontFamilyComboBox_SelectionChanged" />
-                    </StackPanel>
-                </AppBarElementContainer>
-
-                <AppBarElementContainer Style="{StaticResource CompactPickerContainerStyle}" ToolTipService.ToolTip="Font size">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="12" />
-                        <ComboBox
-                            x:Name="FontSizeComboBox"
-                            Style="{StaticResource CompactComboBoxStyle}"
-                            MinWidth="80"
-                            PlaceholderText="Size"
-                            SelectionChanged="FontSizeComboBox_SelectionChanged" />
-                    </StackPanel>
+                    <Border Style="{StaticResource CompactPickerBorderStyle}">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="32" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon
+                                Margin="10,0,0,0"
+                                VerticalAlignment="Center"
+                                FontSize="14"
+                                Glyph="&#xE8D2;" />
+                            <ComboBox
+                                x:Name="FontFamilyComboBox"
+                                Grid.Column="1"
+                                MinWidth="110"
+                                PlaceholderText="Font"
+                                SelectionChanged="FontFamilyComboBox_SelectionChanged"
+                                Style="{StaticResource CompactComboBoxStyle}" />
+                            <ComboBox
+                                x:Name="FontSizeComboBox"
+                                Grid.Column="2"
+                                MinWidth="72"
+                                HorizontalContentAlignment="Center"
+                                PlaceholderText="Size"
+                                SelectionChanged="FontSizeComboBox_SelectionChanged"
+                                Style="{StaticResource CompactComboBoxStyle}" />
+                        </Grid>
+                    </Border>
                 </AppBarElementContainer>
 
                 <AppBarElementContainer Style="{StaticResource CompactPickerContainerStyle}" ToolTipService.ToolTip="Paragraph style">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <PathIcon
-                            Width="14"
-                            Height="14"
-                            VerticalAlignment="Center"
-                            Data="{StaticResource ParagraphPathIcon}" />
-                        <ComboBox
-                            x:Name="ParagraphStyleComboBox"
-                            Style="{StaticResource CompactComboBoxStyle}"
-                            MinWidth="110"
-                            DisplayMemberPath="Name"
-                            PlaceholderText="Paragraph"
-                            SelectionChanged="ParagraphStyleComboBox_SelectionChanged" />
-                    </StackPanel>
+                    <Border Style="{StaticResource CompactPickerBorderStyle}">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="32" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <PathIcon
+                                Width="14"
+                                Height="14"
+                                Margin="10,0,0,0"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Data="{StaticResource ParagraphPathIcon}"
+                                Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                            <ComboBox
+                                x:Name="ParagraphStyleComboBox"
+                                Grid.Column="1"
+                                MinWidth="104"
+                                DisplayMemberPath="Name"
+                                PlaceholderText="Paragraph"
+                                SelectionChanged="ParagraphStyleComboBox_SelectionChanged"
+                                Style="{StaticResource CompactComboBoxStyle}" />
+                        </Grid>
+                    </Border>
                 </AppBarElementContainer>
 
                 <AppBarElementContainer Style="{StaticResource CompactPickerContainerStyle}" ToolTipService.ToolTip="Text color">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="A" />
-                        <ComboBox
-                            x:Name="TextColorComboBox"
-                            Style="{StaticResource CompactComboBoxStyle}"
-                            MinWidth="116"
-                            ItemTemplate="{StaticResource ColorOptionTemplate}"
-                            PlaceholderText="Text"
-                            SelectionChanged="TextColorComboBox_SelectionChanged" />
-                    </StackPanel>
+                    <Border Style="{StaticResource CompactPickerBorderStyle}">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="32" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Grid
+                                Width="18"
+                                Height="18"
+                                Margin="8,0,0,0"
+                                VerticalAlignment="Center">
+                                <Rectangle
+                                    Fill="{x:Bind SelectedTextColorBrush, Mode=OneWay}"
+                                    RadiusX="4"
+                                    RadiusY="4"
+                                    Stroke="{ThemeResource TextFillColorSecondaryBrush}"
+                                    StrokeThickness="1" />
+                                <TextBlock
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    FontSize="11"
+                                    FontWeight="SemiBold"
+                                    Text="A" />
+                            </Grid>
+                            <ComboBox
+                                x:Name="TextColorComboBox"
+                                Grid.Column="1"
+                                MinWidth="104"
+                                ItemTemplate="{StaticResource ColorOptionTemplate}"
+                                PlaceholderText="Text"
+                                SelectionChanged="TextColorComboBox_SelectionChanged"
+                                Style="{StaticResource CompactComboBoxStyle}" />
+                        </Grid>
+                    </Border>
                 </AppBarElementContainer>
 
                 <AppBarElementContainer Style="{StaticResource CompactPickerContainerStyle}" ToolTipService.ToolTip="Highlight color">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <FontIcon VerticalAlignment="Center" FontSize="14" Glyph="&#xE7C3;" />
-                        <ComboBox
-                            x:Name="HighlightColorComboBox"
-                            Style="{StaticResource CompactComboBoxStyle}"
-                            MinWidth="122"
-                            ItemTemplate="{StaticResource ColorOptionTemplate}"
-                            PlaceholderText="Highlight"
-                            SelectionChanged="HighlightColorComboBox_SelectionChanged" />
-                    </StackPanel>
+                    <Border Style="{StaticResource CompactPickerBorderStyle}">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="32" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Grid
+                                Width="18"
+                                Height="18"
+                                Margin="8,0,0,0"
+                                VerticalAlignment="Center">
+                                <Rectangle
+                                    Fill="{x:Bind SelectedHighlightColorBrush, Mode=OneWay}"
+                                    RadiusX="4"
+                                    RadiusY="4"
+                                    Stroke="{ThemeResource TextFillColorSecondaryBrush}"
+                                    StrokeThickness="1" />
+                                <Rectangle
+                                    Width="10"
+                                    Height="2"
+                                    Margin="0,0,0,3"
+                                    VerticalAlignment="Bottom"
+                                    Fill="{ThemeResource TextFillColorPrimaryBrush}" />
+                            </Grid>
+                            <ComboBox
+                                x:Name="HighlightColorComboBox"
+                                Grid.Column="1"
+                                MinWidth="108"
+                                ItemTemplate="{StaticResource ColorOptionTemplate}"
+                                PlaceholderText="Highlight"
+                                SelectionChanged="HighlightColorComboBox_SelectionChanged"
+                                Style="{StaticResource CompactComboBoxStyle}" />
+                        </Grid>
+                    </Border>
                 </AppBarElementContainer>
 
                 <AppBarElementContainer Style="{StaticResource CompactPickerContainerStyle}" ToolTipService.ToolTip="Line height">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <FontIcon VerticalAlignment="Center" FontSize="14" Glyph="&#xE8C8;" />
-                        <ComboBox
-                            x:Name="LineHeightComboBox"
-                            Style="{StaticResource CompactComboBoxStyle}"
-                            MinWidth="86"
-                            PlaceholderText="Line"
-                            SelectionChanged="LineHeightComboBox_SelectionChanged" />
-                    </StackPanel>
+                    <Border Style="{StaticResource CompactPickerBorderStyle}">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="32" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon
+                                Margin="9,0,0,0"
+                                VerticalAlignment="Center"
+                                FontSize="14"
+                                Glyph="&#xE8C8;" />
+                            <ComboBox
+                                x:Name="LineHeightComboBox"
+                                Grid.Column="1"
+                                MinWidth="72"
+                                PlaceholderText="Line"
+                                SelectionChanged="LineHeightComboBox_SelectionChanged"
+                                Style="{StaticResource CompactComboBoxStyle}" />
+                        </Grid>
+                    </Border>
                 </AppBarElementContainer>
             </toolkit:TabbedCommandBarItem>
 
             <toolkit:TabbedCommandBarItem DefaultLabelPosition="Collapsed" Header="Insert">
-                <AppBarButton x:Name="ImageButton" Click="ImageButton_Click" Label="Image" ToolTipService.ToolTip="Insert image">
+                <AppBarButton
+                    x:Name="ImageButton"
+                    Click="ImageButton_Click"
+                    Label="Image"
+                    ToolTipService.ToolTip="Insert image">
                     <AppBarButton.Icon>
                         <PathIcon Data="{StaticResource AddPhotoPathIcon}" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 
-                <AppBarButton x:Name="EmojiButton" Click="EmojiButton_Click" Label="Emoji" ToolTipService.ToolTip="Insert emoji">
+                <AppBarButton
+                    x:Name="EmojiButton"
+                    Click="EmojiButton_Click"
+                    Label="Emoji"
+                    ToolTipService.ToolTip="Insert emoji">
                     <AppBarButton.Icon>
                         <PathIcon Data="{StaticResource EmojiPathIcon}" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 
-                <AppBarButton x:Name="LinkButton" Click="LinkButton_Click" Label="Link" ToolTipService.ToolTip="Insert or edit link">
+                <AppBarButton
+                    x:Name="LinkButton"
+                    Click="LinkButton_Click"
+                    Label="Link"
+                    ToolTipService.ToolTip="Insert or edit link">
                     <AppBarButton.Icon>
                         <PathIcon Data="{StaticResource AddLinkPathIcon}" />
                     </AppBarButton.Icon>
@@ -224,7 +379,11 @@
                     </AppBarButton.Icon>
                 </AppBarButton>
 
-                <AppBarButton x:Name="TableButton" Click="TableButton_Click" Label="Table" ToolTipService.ToolTip="Insert table">
+                <AppBarButton
+                    x:Name="TableButton"
+                    Click="TableButton_Click"
+                    Label="Table"
+                    ToolTipService.ToolTip="Insert table">
                     <AppBarButton.Icon>
                         <FontIcon Glyph="&#xE14C;" />
                     </AppBarButton.Icon>
@@ -236,13 +395,21 @@
             </toolkit:TabbedCommandBarItem>
 
             <toolkit:TabbedCommandBarItem DefaultLabelPosition="Collapsed" Header="Options">
-                <AppBarToggleButton x:Name="BuiltInToolbarButton" Click="BuiltInToolbarButton_Click" Label="Web toolbar" ToolTipService.ToolTip="Toggle built-in web toolbar">
+                <AppBarToggleButton
+                    x:Name="BuiltInToolbarButton"
+                    Click="BuiltInToolbarButton_Click"
+                    Label="Web toolbar"
+                    ToolTipService.ToolTip="Toggle built-in web toolbar">
                     <AppBarToggleButton.Icon>
                         <PathIcon Data="{StaticResource WebviewToolBarPathIcon}" />
                     </AppBarToggleButton.Icon>
                 </AppBarToggleButton>
 
-                <AppBarToggleButton x:Name="SpellCheckButton" Click="SpellCheckButton_Click" Label="Spell check" ToolTipService.ToolTip="Toggle spell check">
+                <AppBarToggleButton
+                    x:Name="SpellCheckButton"
+                    Click="SpellCheckButton_Click"
+                    Label="Spell check"
+                    ToolTipService.ToolTip="Toggle spell check">
                     <AppBarToggleButton.Icon>
                         <FontIcon Glyph="&#xEA53;" />
                     </AppBarToggleButton.Icon>

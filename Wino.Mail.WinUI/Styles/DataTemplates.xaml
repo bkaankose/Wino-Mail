@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:animatedvisuals="using:Microsoft.UI.Xaml.Controls.AnimatedVisuals"
+    xmlns:controls="using:Wino.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:coreSelectors="using:Wino.Mail.WinUI.Selectors"
     xmlns:coreViewModelData="using:Wino.Core.ViewModels.Data"
@@ -13,6 +14,7 @@
     xmlns:menu="using:Wino.Core.Domain.MenuItems"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:personalization="using:Wino.Mail.WinUI.Models.Personalization"
+    xmlns:shared="using:Wino.Core.Domain.Entities.Shared"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
     xmlns:winuiControls="using:CommunityToolkit.WinUI.Controls">
 
@@ -218,6 +220,53 @@
         <Setter Property="FontSize" Value="16" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
+
+    <DataTemplate x:Key="ContactTokenTemplate" x:DataType="shared:IContactDisplayItem">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <ToolTipService.ToolTip>
+                <ToolTip Content="{x:Bind Address}" />
+            </ToolTipService.ToolTip>
+
+            <Viewbox Width="24">
+                <controls:ImagePreviewControl
+                    Address="{x:Bind Address}"
+                    DisplayNameOverride="{x:Bind DisplayName}"
+                    PreviewContact="{x:Bind PreviewContact}" />
+            </Viewbox>
+
+            <TextBlock
+                Grid.Column="1"
+                Margin="6,0,8,0"
+                VerticalAlignment="Center"
+                Text="{x:Bind DisplayName}" />
+        </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ContactSuggestionTemplate" x:DataType="shared:IContactDisplayItem">
+        <Grid Margin="0,12" ColumnSpacing="6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <controls:ImagePreviewControl
+                Width="40"
+                Height="40"
+                Address="{x:Bind Address}"
+                DisplayNameOverride="{x:Bind DisplayName}"
+                PreviewContact="{x:Bind PreviewContact}" />
+
+            <TextBlock Grid.Column="1">
+                <Run FontWeight="SemiBold" Text="{x:Bind DisplayName}" />
+                <LineBreak />
+                <Run Text="{x:Bind Address}" />
+            </TextBlock>
+        </Grid>
+    </DataTemplate>
 
     <!--#endregion-->
 

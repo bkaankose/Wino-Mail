@@ -29,16 +29,6 @@
             <Setter Property="CornerRadius" Value="4" />
         </Style>
 
-        <DataTemplate x:Key="AttendeeSuggestionTemplate" x:DataType="shared:AccountContact">
-            <StackPanel Padding="8,4" Orientation="Vertical">
-                <TextBlock FontWeight="SemiBold" Text="{x:Bind Name}" />
-                <TextBlock FontSize="12" Text="{x:Bind Address}" />
-            </StackPanel>
-        </DataTemplate>
-
-        <DataTemplate x:Key="AttendeeTokenTemplate" x:DataType="data:CalendarComposeAttendeeViewModel">
-            <TextBlock Text="{x:Bind DisplayName}" />
-        </DataTemplate>
     </Page.Resources>
 
     <Grid>
@@ -60,9 +50,7 @@
                 </Grid.ColumnDefinitions>
 
                 <!--  Left: Calendar, Show As, Reminder  -->
-                <StackPanel
-                    Orientation="Horizontal"
-                    Spacing="12">
+                <StackPanel Orientation="Horizontal" Spacing="12">
 
                     <!--  Calendar  -->
                     <StackPanel
@@ -410,10 +398,10 @@
                             ItemsSource="{x:Bind ViewModel.Attendees, Mode=OneWay}"
                             LostFocus="AddressBoxLostFocus"
                             PlaceholderText="{x:Bind domain:Translator.CalendarEventDetails_InviteSomeone}"
-                            SuggestedItemTemplate="{StaticResource AttendeeSuggestionTemplate}"
+                            SuggestedItemTemplate="{StaticResource ContactSuggestionTemplate}"
                             TokenDelimiter=";"
                             TokenItemAdding="TokenItemAdding"
-                            TokenItemTemplate="{StaticResource AttendeeTokenTemplate}" />
+                            TokenItemTemplate="{StaticResource ContactTokenTemplate}" />
 
                         <ListView
                             Margin="-8,0,-8,-8"
@@ -475,10 +463,15 @@
 
                 <!--  Attachments Pane  -->
                 <Border
+                    x:Name="AttachmentsPane"
                     Margin="0,8,0,0"
+                    AllowDrop="True"
                     Padding="16"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     CornerRadius="{StaticResource ControlCornerRadius}"
+                    DragLeave="AttachmentsPane_DragLeave"
+                    DragOver="AttachmentsPane_DragOver"
+                    Drop="AttachmentsPane_Drop"
                     Visibility="{x:Bind AttachmentsToggle.IsChecked, Mode=OneWay}">
                     <StackPanel Spacing="8">
                         <Button
@@ -487,21 +480,21 @@
                             Style="{StaticResource TransparentActionButtonStyle}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <coreControls:WinoFontIcon FontSize="14" Icon="AttachmentNew" />
-                                <TextBlock Text="{x:Bind domain:Translator.CalendarEventCompose_AddAttachment}" />
+                                <TextBlock FontSize="18" FontWeight="SemiBold" Text="+" />
                             </StackPanel>
                         </Button>
 
-                        <ListView
+                        <GridView
                             Margin="-8,0,-8,-8"
                             ItemsSource="{x:Bind ViewModel.Attachments, Mode=OneWay}"
                             SelectionMode="None">
-                            <ListView.ItemContainerStyle>
-                                <Style TargetType="ListViewItem">
+                            <!--<ListView.ItemContainerStyle>
+                                <Style BasedOn="{StaticResource DefaultListViewItemStyle}" TargetType="ListViewItem">
                                     <Setter Property="Padding" Value="8,4" />
                                     <Setter Property="MinHeight" Value="0" />
                                 </Style>
-                            </ListView.ItemContainerStyle>
-                            <ListView.ItemTemplate>
+                            </ListView.ItemContainerStyle>-->
+                            <GridView.ItemTemplate>
                                 <DataTemplate x:DataType="data:CalendarComposeAttachmentViewModel">
                                     <Grid Height="44" ColumnSpacing="8">
                                         <Grid.ColumnDefinitions>
@@ -536,12 +529,15 @@
                                             Click="RemoveAttachmentClicked"
                                             Style="{StaticResource TransparentActionButtonStyle}"
                                             Tag="{x:Bind}">
-                                            <coreControls:WinoFontIcon FontSize="12" Icon="Delete" />
+                                            <coreControls:WinoFontIcon
+                                                FontSize="20"
+                                                Foreground="{ThemeResource DeleteBrush}"
+                                                Icon="Delete" />
                                         </Button>
                                     </Grid>
                                 </DataTemplate>
-                            </ListView.ItemTemplate>
-                        </ListView>
+                            </GridView.ItemTemplate>
+                        </GridView>
                     </StackPanel>
                 </Border>
 
@@ -560,7 +556,7 @@
                 <mailControls:EditorTabbedCommandBarControl CommandTarget="{x:Bind NotesEditor}" />
                 <mailControls:WebViewEditorControl
                     x:Name="NotesEditor"
-                    MinHeight="600"
+                    MinHeight="500"
                     IsEditorDarkMode="{x:Bind ViewModel.IsDarkWebviewRenderer, Mode=OneWay}" />
             </StackPanel>
         </ScrollViewer>

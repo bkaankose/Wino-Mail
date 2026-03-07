@@ -28,6 +28,15 @@ dotnet restore Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config 
 
 **Platforms:** x86, x64, ARM64
 
+## Efficient Workflow
+
+- Start with targeted symbol or file search before reading full files
+- Prefer one focused task per thread; use a new thread for unrelated follow-up work
+- Keep verification narrow: build only the affected project, not the full solution, unless cross-project changes require it
+- After the first restore, prefer `--no-restore` builds unless package or project references changed
+- Summarize long build logs and inspect only the files named in diagnostics instead of loading large logs into context
+- When the prompt already names likely files, types, or symbols, start there instead of re-mapping the repository
+
 ## Architecture
 
 ### Solution Structure
@@ -130,6 +139,7 @@ private string searchQuery = string.Empty;
 - String interpolation over string.Format
 - Wrap async operations in try-catch
 - Log errors via IWinoLogger
+- For dependency properties in WinUI code, always prefer `[GeneratedDependencyProperty]` from CommunityToolkit over manual `DependencyProperty.Register(...)` declarations.
 - In ViewModels, update all UI-bound properties/collections via `ExecuteUIThread(...)` (especially after awaited calls and any use of `ConfigureAwait(false)`).
 - In `EventDetailsPageViewModel.LoadAttendeesAsync`, never mutate `CurrentEvent.Attendees` outside `ExecuteUIThread(...)`.
 

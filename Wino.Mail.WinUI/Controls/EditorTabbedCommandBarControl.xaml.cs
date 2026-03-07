@@ -2,63 +2,42 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
+using Windows.UI;
 
 namespace Wino.Mail.Controls;
 
 public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditorCommandControl
 {
-    public static readonly DependencyProperty CommandTargetProperty = DependencyProperty.Register(
-        nameof(CommandTarget),
-        typeof(IEditorCommandTarget),
-        typeof(EditorTabbedCommandBarControl),
-        new PropertyMetadata(null, OnCommandTargetChanged));
+    [GeneratedDependencyProperty]
+    public partial IEditorCommandTarget? CommandTarget { get; set; }
 
-    public static readonly DependencyProperty PaneCustomContentProperty = DependencyProperty.Register(
-        nameof(PaneCustomContent),
-        typeof(object),
-        typeof(EditorTabbedCommandBarControl),
-        new PropertyMetadata(null));
+    [GeneratedDependencyProperty]
+    public partial object? PaneCustomContent { get; set; }
 
-    public static readonly DependencyProperty InsertCustomContentProperty = DependencyProperty.Register(
-        nameof(InsertCustomContent),
-        typeof(object),
-        typeof(EditorTabbedCommandBarControl),
-        new PropertyMetadata(null));
+    [GeneratedDependencyProperty]
+    public partial object? InsertCustomContent { get; set; }
 
-    public static readonly DependencyProperty OptionsCustomContentProperty = DependencyProperty.Register(
-        nameof(OptionsCustomContent),
-        typeof(object),
-        typeof(EditorTabbedCommandBarControl),
-        new PropertyMetadata(null));
+    [GeneratedDependencyProperty]
+    public partial object? OptionsCustomContent { get; set; }
+
+    [GeneratedDependencyProperty]
+    public partial EditorColorOption? SelectedTextColorOption { get; set; }
+
+    [GeneratedDependencyProperty]
+    public partial EditorColorOption? SelectedHighlightColorOption { get; set; }
 
     private bool _isApplyingState;
     private IEditorCommandTarget? _subscribedTarget;
+    private static readonly SolidColorBrush TransparentBrush = new(EditorColorOption.ParseColorValue(null));
+    private IReadOnlyList<EditorColorOption> _textColorOptions = Array.Empty<EditorColorOption>();
+    private IReadOnlyList<EditorColorOption> _highlightColorOptions = Array.Empty<EditorColorOption>();
 
-    public IEditorCommandTarget? CommandTarget
-    {
-        get => (IEditorCommandTarget?)GetValue(CommandTargetProperty);
-        set => SetValue(CommandTargetProperty, value);
-    }
-
-    public object? PaneCustomContent
-    {
-        get => GetValue(PaneCustomContentProperty);
-        set => SetValue(PaneCustomContentProperty, value);
-    }
-
-    public object? InsertCustomContent
-    {
-        get => GetValue(InsertCustomContentProperty);
-        set => SetValue(InsertCustomContentProperty, value);
-    }
-
-    public object? OptionsCustomContent
-    {
-        get => GetValue(OptionsCustomContentProperty);
-        set => SetValue(OptionsCustomContentProperty, value);
-    }
+    public Brush SelectedTextColorBrush => SelectedTextColorOption?.Brush ?? TransparentBrush;
+    public Brush SelectedHighlightColorBrush => SelectedHighlightColorOption?.Brush ?? TransparentBrush;
 
     public EditorTabbedCommandBarControl()
     {
@@ -104,11 +83,14 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         _subscribedTarget = null;
     }
 
-    private static void OnCommandTargetChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    partial void OnCommandTargetChanged(IEditorCommandTarget? newValue)
     {
-        var control = (EditorTabbedCommandBarControl)d;
-        control.AttachCommandTarget((IEditorCommandTarget?)e.NewValue);
+        AttachCommandTarget(newValue);
     }
+
+    partial void OnSelectedTextColorOptionChanged(EditorColorOption? newValue) => Bindings.Update();
+
+    partial void OnSelectedHighlightColorOptionChanged(EditorColorOption? newValue) => Bindings.Update();
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
@@ -136,8 +118,10 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         FontSizeComboBox.ItemsSource = capabilities.FontSizes;
         AlignmentComboBox.ItemsSource = capabilities.Alignments;
         ParagraphStyleComboBox.ItemsSource = capabilities.ParagraphStyles;
-        TextColorComboBox.ItemsSource = capabilities.TextColors;
-        HighlightColorComboBox.ItemsSource = capabilities.HighlightColors;
+        _textColorOptions = capabilities.TextColors;
+        _highlightColorOptions = capabilities.HighlightColors;
+        TextColorComboBox.ItemsSource = _textColorOptions;
+        HighlightColorComboBox.ItemsSource = _highlightColorOptions;
         LineHeightComboBox.ItemsSource = capabilities.LineHeights;
     }
 
@@ -163,8 +147,10 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         FontSizeComboBox.SelectedItem = MatchValueItem<int>(FontSizeComboBox.ItemsSource, state.FontSize);
         LineHeightComboBox.SelectedItem = MatchStringItem(LineHeightComboBox.ItemsSource, state.LineHeight);
         ParagraphStyleComboBox.SelectedItem = MatchParagraphItem(state.ParagraphStyle);
-        TextColorComboBox.SelectedItem = MatchColorItem(TextColorComboBox.ItemsSource, state.TextColor);
-        HighlightColorComboBox.SelectedItem = MatchColorItem(HighlightColorComboBox.ItemsSource, state.HighlightColor);
+        SelectedTextColorOption = ResolveColorOption(_textColorOptions, state.TextColor);
+        SelectedHighlightColorOption = ResolveColorOption(_highlightColorOptions, state.HighlightColor);
+        TextColorComboBox.SelectedItem = SelectedTextColorOption;
+        HighlightColorComboBox.SelectedItem = SelectedHighlightColorOption;
 
         _isApplyingState = false;
     }
@@ -207,14 +193,54 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         return styles.FirstOrDefault(item => string.Equals(item.Tag, tag, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static object? MatchColorItem(object? itemsSource, string? value)
+    private static EditorColorOption? MatchColorItem(IEnumerable<EditorColorOption> colors, string? value)
     {
-        if (itemsSource is not IEnumerable<EditorColorOption> colors)
+        var normalizedValue = value ?? string.Empty;
+        var matchedByValue = colors.FirstOrDefault(item => string.Equals(item.Value, normalizedValue, StringComparison.OrdinalIgnoreCase));
+        if (matchedByValue != null)
         {
-            return null;
+            return matchedByValue;
         }
 
-        return colors.FirstOrDefault(item => string.Equals(item.Value, value ?? string.Empty, StringComparison.OrdinalIgnoreCase));
+        var targetColor = EditorColorOption.ParseColorValue(value);
+        return colors.FirstOrDefault(item => item.Brush.Color.Equals(targetColor));
+    }
+
+    private static EditorColorOption? ResolveColorOption(IEnumerable<EditorColorOption> colors, string? value)
+    {
+        var colorOptions = colors.ToList();
+        var matchedColor = MatchColorItem(colors, value);
+        if (matchedColor != null)
+        {
+            return matchedColor;
+        }
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return colorOptions.FirstOrDefault(item => string.IsNullOrWhiteSpace(item.Value));
+        }
+
+        var targetColor = EditorColorOption.ParseColorValue(value);
+        var selectableColors = colorOptions
+            .Where(item => !string.IsNullOrWhiteSpace(item.Value))
+            .ToList();
+
+        if (selectableColors.Count == 0)
+        {
+            return colorOptions.FirstOrDefault();
+        }
+
+        return selectableColors
+            .OrderBy(item => GetColorDistance(item.Brush.Color, targetColor))
+            .First();
+    }
+
+    private static int GetColorDistance(Color left, Color right)
+    {
+        var redDiff = left.R - right.R;
+        var greenDiff = left.G - right.G;
+        var blueDiff = left.B - right.B;
+        return (redDiff * redDiff) + (greenDiff * greenDiff) + (blueDiff * blueDiff);
     }
 
     private async Task ExecuteAsync(EditorCommand command)
@@ -281,22 +307,26 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
 
     private async void TextColorComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_isApplyingState || TextColorComboBox.SelectedItem is not EditorColorOption color)
+        SelectedTextColorOption = TextColorComboBox.SelectedItem as EditorColorOption;
+
+        if (_isApplyingState || SelectedTextColorOption == null)
         {
             return;
         }
 
-        await ExecuteAsync(EditorCommand.SetTextColor(color.Value));
+        await ExecuteAsync(EditorCommand.SetTextColor(SelectedTextColorOption.Value));
     }
 
     private async void HighlightColorComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_isApplyingState || HighlightColorComboBox.SelectedItem is not EditorColorOption color)
+        SelectedHighlightColorOption = HighlightColorComboBox.SelectedItem as EditorColorOption;
+
+        if (_isApplyingState || SelectedHighlightColorOption == null)
         {
             return;
         }
 
-        await ExecuteAsync(EditorCommand.SetHighlightColor(color.Value));
+        await ExecuteAsync(EditorCommand.SetHighlightColor(SelectedHighlightColorOption.Value));
     }
 
     private async void LineHeightComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -412,6 +442,7 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
             await ExecuteAsync(EditorCommand.InsertTable(new EditorTableCommandArgs((int)Math.Max(1, rowsBox.Value), (int)Math.Max(1, columnsBox.Value))));
         }
     }
+
 }
 
 
