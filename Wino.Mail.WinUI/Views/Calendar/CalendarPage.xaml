@@ -14,6 +14,7 @@
     xmlns:local="using:Wino.Calendar.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:controls="using:Wino.Controls"
     xmlns:shared="using:Wino.Core.Domain.Entities.Shared"
     mc:Ignorable="d">
 
@@ -338,10 +339,10 @@
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
 
-                            <muxc:PersonPicture
+                            <controls:ImagePreviewControl
                                 Width="46"
                                 Height="46"
-                                DisplayName="BK" />
+                                DisplayNameOverride="{x:Bind ViewModel.DisplayDetailsCalendarItemViewModel.CalendarItem.OrganizerDisplayName, Mode=OneWay}" />
 
                             <StackPanel
                                 Grid.Column="1"

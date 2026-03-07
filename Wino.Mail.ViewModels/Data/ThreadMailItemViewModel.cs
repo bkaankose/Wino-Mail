@@ -155,7 +155,7 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     /// </summary>
     public Guid UniqueId => latestMailViewModel?.UniqueId ?? Guid.Empty;
 
-    public string Base64ContactPicture => latestMailViewModel?.MailCopy?.SenderContact?.Base64ContactPicture ?? string.Empty;
+    public Guid? ContactPictureFileId => latestMailViewModel?.MailCopy?.SenderContact?.ContactPictureFileId;
 
     public bool ThumbnailUpdatedEvent => latestMailViewModel?.ThumbnailUpdatedEvent ?? false;
 
@@ -188,7 +188,7 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     [NotifyPropertyChangedFor(nameof(FileId))]
     [NotifyPropertyChangedFor(nameof(FolderId))]
     [NotifyPropertyChangedFor(nameof(UniqueId))]
-    [NotifyPropertyChangedFor(nameof(Base64ContactPicture))]
+    [NotifyPropertyChangedFor(nameof(ContactPictureFileId))]
     [NotifyPropertyChangedFor(nameof(SenderContact))]
     public partial ObservableCollection<MailItemViewModel> ThreadEmails { get; set; } = [];
 
@@ -369,7 +369,7 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
                 Queue(nameof(FileId));
                 Queue(nameof(FolderId));
                 Queue(nameof(UniqueId));
-                Queue(nameof(Base64ContactPicture));
+                Queue(nameof(ContactPictureFileId));
                 Queue(nameof(SenderContact));
                 Queue(nameof(ThumbnailUpdatedEvent));
                 Queue(nameof(SortingDate));
@@ -433,7 +433,7 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
 
                 if ((changedFlags & MailCopyChangeFlags.SenderContact) != 0)
                 {
-                    Queue(nameof(Base64ContactPicture));
+                    Queue(nameof(ContactPictureFileId));
                     Queue(nameof(SenderContact));
                 }
             }

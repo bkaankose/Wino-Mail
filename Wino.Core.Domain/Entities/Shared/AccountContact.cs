@@ -27,16 +27,8 @@ public class AccountContact : IEquatable<AccountContact>
     /// <summary>
     /// File ID for the contact picture stored on disk.
     /// The actual file lives at {ApplicationDataFolderPath}/contacts/{ContactPictureFileId}.jpg.
-    /// Preferred over Base64ContactPicture — allows native BitmapImage file loading and avoids SQLite bloat.
     /// </summary>
     public Guid? ContactPictureFileId { get; set; }
-
-    /// <summary>
-    /// Legacy base64 encoded profile image of the contact.
-    /// For user-set contact pictures: migrate to file storage via ContactPictureFileId instead.
-    /// Still used for OAuth account profile pictures (MailAccount.Base64ProfilePictureData).
-    /// </summary>
-    public string Base64ContactPicture { get; set; }
 
     /// <summary>
     /// All registered accounts have their contacts registered as root.

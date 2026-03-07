@@ -20,7 +20,7 @@ public interface IMailItemDisplayInformation : INotifyPropertyChanged
     bool IsCalendarEvent { get; }
     bool IsFlagged { get; }
     DateTime CreationDate { get; }
-    string Base64ContactPicture { get; }
+    Guid? ContactPictureFileId { get; }
     bool ThumbnailUpdatedEvent { get; }
     bool IsThreadExpanded { get; }
     AccountContact SenderContact { get; }

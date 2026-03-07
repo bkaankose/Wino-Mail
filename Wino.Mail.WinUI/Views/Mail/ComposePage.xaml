@@ -43,7 +43,7 @@
                 </Grid.ContextFlyout>-->
 
                 <Viewbox Width="24">
-                    <PersonPicture DisplayName="{x:Bind Name, Mode=OneTime}" />
+                    <controls:ImagePreviewControl PreviewContact="{x:Bind}" />
                 </Viewbox>
 
                 <TextBlock
@@ -59,7 +59,7 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                    <PersonPicture DisplayName="{x:Bind Name, Mode=OneTime}" />
+                    <controls:ImagePreviewControl PreviewContact="{x:Bind}" />
                 <TextBlock Grid.Column="1">
                     <Run FontWeight="SemiBold" Text="{x:Bind Name}" /><LineBreak /><Run Text="{x:Bind Address}" />
                 </TextBlock>

@@ -22,6 +22,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel
 
     private readonly IContactService _contactService;
     private readonly IMailDialogService _dialogService;
+    private readonly IContactPictureFileService _contactPictureFileService;
 
     private CancellationTokenSource _searchDebounceCancellationTokenSource;
     private int _currentOffset = 0;
@@ -60,10 +61,11 @@ public partial class ContactsPageViewModel : MailBaseViewModel
     public ObservableCollection<AccountContactViewModel> Contacts { get; } = new();
     public ObservableCollection<AccountContactViewModel> SelectedContacts { get; } = new();
 
-    public ContactsPageViewModel(IContactService contactService, IMailDialogService dialogService)
+    public ContactsPageViewModel(IContactService contactService, IMailDialogService dialogService, IContactPictureFileService contactPictureFileService)
     {
         _contactService = contactService;
         _dialogService = dialogService;
+        _contactPictureFileService = contactPictureFileService;
 
         Contacts.CollectionChanged += ContactsCollectionChanged;
     }
@@ -195,9 +197,9 @@ public partial class ContactsPageViewModel : MailBaseViewModel
         {
             var newContact = await _contactService.CreateNewContactAsync(result.Address, result.Name);
 
-            if (!string.IsNullOrEmpty(result.Base64ContactPicture))
+            if (result.ContactPictureFileId.HasValue)
             {
-                newContact.Base64ContactPicture = result.Base64ContactPicture;
+                newContact.ContactPictureFileId = result.ContactPictureFileId;
                 await _contactService.UpdateContactAsync(newContact);
             }
 
@@ -230,7 +232,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel
         try
         {
             contact.Name = result.Name;
-            contact.Base64ContactPicture = result.Base64ContactPicture;
+            contact.ContactPictureFileId = result.ContactPictureFileId;
             contact.IsOverridden = result.IsOverridden;
 
             await _contactService.UpdateContactAsync(contact);
@@ -382,9 +384,14 @@ public partial class ContactsPageViewModel : MailBaseViewModel
             if (files?.Any() == true)
             {
                 var file = files.First();
-                var base64Image = Convert.ToBase64String(file.Data);
 
-                contact.Base64ContactPicture = base64Image;
+                if (contact.ContactPictureFileId.HasValue)
+                    await _contactPictureFileService.DeleteContactPictureAsync(contact.ContactPictureFileId.Value);
+
+                contact.ContactPictureFileId = await _contactPictureFileService
+                    .SaveContactPictureAsync(file.Data)
+                    .ConfigureAwait(false);
+
                 await _contactService.UpdateContactAsync(contact);
                 await RefreshContactInUiAsync(contact);
 
@@ -432,7 +439,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel
         {
             Address = contact.Address,
             Name = contact.Name,
-            Base64ContactPicture = contact.Base64ContactPicture,
+            ContactPictureFileId = contact.ContactPictureFileId,
             IsRootContact = contact.IsRootContact,
             IsOverridden = contact.IsOverridden
         };

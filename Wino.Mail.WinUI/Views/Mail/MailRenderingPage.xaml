@@ -151,7 +151,10 @@
     </Page.Resources>
 
     <!--  Attachments and WebView2  -->
-    <Grid x:Name="RendererGridFrame" RowSpacing="7">
+    <Grid
+        x:Name="RendererGridFrame"
+        Margin="0,2,0,0"
+        RowSpacing="7">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />

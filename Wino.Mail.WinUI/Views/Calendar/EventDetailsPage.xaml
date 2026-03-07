@@ -8,6 +8,7 @@
     xmlns:calendarHelpers="using:Wino.Calendar.Helpers"
     xmlns:calendarViewModels="using:Wino.Calendar.ViewModels"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:controls="using:Wino.Controls"
     xmlns:ctControls="using:CommunityToolkit.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Calendar.ViewModels.Data"
@@ -453,10 +454,11 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
 
-                                        <PersonPicture
+                                        <controls:ImagePreviewControl
                                             Width="40"
                                             Height="40"
-                                            DisplayName="{x:Bind Name}" />
+                                            Address="{x:Bind Email}"
+                                            DisplayNameOverride="{x:Bind Name}" />
 
                                         <Grid Grid.Column="1" RowSpacing="4">
                                             <Grid.RowDefinitions>

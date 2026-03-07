@@ -35,7 +35,7 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
     [NotifyPropertyChangedFor(nameof(FileId))]
     [NotifyPropertyChangedFor(nameof(FolderId))]
     [NotifyPropertyChangedFor(nameof(UniqueId))]
-    [NotifyPropertyChangedFor(nameof(Base64ContactPicture))]
+    [NotifyPropertyChangedFor(nameof(ContactPictureFileId))]
     [NotifyPropertyChangedFor(nameof(SenderContact))]
     public partial MailCopy MailCopy { get; set; } = mailCopy;
 
@@ -191,10 +191,14 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
         set => SetProperty(MailCopy.UniqueId, value, MailCopy, (u, n) => u.UniqueId = n);
     }
 
-    public string Base64ContactPicture
+    public Guid? ContactPictureFileId
     {
-        get => MailCopy.SenderContact?.Base64ContactPicture ?? string.Empty;
-        set => SetProperty(MailCopy.SenderContact.Base64ContactPicture, value, MailCopy, (u, n) => u.SenderContact.Base64ContactPicture = n);
+        get => MailCopy.SenderContact?.ContactPictureFileId;
+        set => SetProperty(MailCopy.SenderContact?.ContactPictureFileId, value, MailCopy, (u, n) =>
+        {
+            if (u.SenderContact != null)
+                u.SenderContact.ContactPictureFileId = n;
+        });
     }
 
     public DateTime SortingDate => CreationDate;
@@ -236,7 +240,7 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
             nameof(FileId) => MailCopyChangeFlags.FileId,
             nameof(FolderId) => MailCopyChangeFlags.FolderId,
             nameof(UniqueId) => MailCopyChangeFlags.UniqueId,
-            nameof(Base64ContactPicture) or nameof(SenderContact) => MailCopyChangeFlags.SenderContact,
+            nameof(ContactPictureFileId) or nameof(SenderContact) => MailCopyChangeFlags.SenderContact,
             _ => MailCopyChangeFlags.None
         };
     }
@@ -398,7 +402,7 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
 
         if ((changedFlags & MailCopyChangeFlags.SenderContact) != 0)
         {
-            Queue(nameof(Base64ContactPicture));
+            Queue(nameof(ContactPictureFileId));
             Queue(nameof(SenderContact));
         }
 

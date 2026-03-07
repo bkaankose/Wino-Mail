@@ -42,6 +42,7 @@ public class AccountService : BaseDatabaseService, IAccountService
     private readonly IAuthenticationProvider _authenticationProvider;
     private readonly IMimeFileService _mimeFileService;
     private readonly IPreferencesService _preferencesService;
+    private readonly IContactPictureFileService _contactPictureFileService;
 
     private readonly ILogger _logger = Log.ForContext<AccountService>();
 
@@ -49,12 +50,14 @@ public class AccountService : BaseDatabaseService, IAccountService
                           ISignatureService signatureService,
                           IAuthenticationProvider authenticationProvider,
                           IMimeFileService mimeFileService,
-                          IPreferencesService preferencesService) : base(databaseService)
+                          IPreferencesService preferencesService,
+                          IContactPictureFileService contactPictureFileService) : base(databaseService)
     {
         _signatureService = signatureService;
         _authenticationProvider = authenticationProvider;
         _mimeFileService = mimeFileService;
         _preferencesService = preferencesService;
+        _contactPictureFileService = contactPictureFileService;
     }
 
 
@@ -399,11 +402,19 @@ public class AccountService : BaseDatabaseService, IAccountService
             }
             // Forcefully add or update a contact data with the provided information.
 
+            var existingContact = await Connection.Table<AccountContact>()
+                .FirstOrDefaultAsync(a => a.Address == account.Address)
+                .ConfigureAwait(false);
+
+            var contactPictureFileId = await SaveProfilePictureAsync(
+                account.Base64ProfilePictureData,
+                existingContact?.ContactPictureFileId).ConfigureAwait(false);
+
             var accountContact = new AccountContact()
             {
                 Address = account.Address,
                 Name = account.SenderName,
-                Base64ContactPicture = account.Base64ProfilePictureData,
+                ContactPictureFileId = contactPictureFileId,
                 IsRootContact = true
             };
 
@@ -411,6 +422,35 @@ public class AccountService : BaseDatabaseService, IAccountService
 
             await UpdateAccountAsync(account).ConfigureAwait(false);
         }
+    }
+
+    private async Task<Guid?> SaveProfilePictureAsync(string base64ProfilePictureData, Guid? existingFileId)
+    {
+        if (string.IsNullOrWhiteSpace(base64ProfilePictureData))
+        {
+            if (existingFileId.HasValue)
+                await _contactPictureFileService.DeleteContactPictureAsync(existingFileId.Value).ConfigureAwait(false);
+
+            return null;
+        }
+
+        byte[] bytes;
+        try
+        {
+            bytes = Convert.FromBase64String(base64ProfilePictureData);
+        }
+        catch (FormatException ex)
+        {
+            _logger.Warning(ex, "Failed to decode account profile picture for contact migration.");
+            return existingFileId;
+        }
+
+        var newFileId = await _contactPictureFileService.SaveContactPictureAsync(bytes).ConfigureAwait(false);
+
+        if (existingFileId.HasValue)
+            await _contactPictureFileService.DeleteContactPictureAsync(existingFileId.Value).ConfigureAwait(false);
+
+        return newFileId;
     }
 
     public async Task<MailAccount> GetAccountAsync(Guid accountId)

@@ -341,7 +341,7 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         public bool IsCalendarEvent { get; } = false;
         public bool IsFlagged { get; } = false;
         public DateTime CreationDate { get; } = DateTime.Now;
-        public string Base64ContactPicture { get; } = string.Empty;
+        public Guid? ContactPictureFileId { get; } = null;
         public bool ThumbnailUpdatedEvent { get; } = false;
         public bool IsBusy { get; } = false;
         public bool IsThreadExpanded { get; } = false;

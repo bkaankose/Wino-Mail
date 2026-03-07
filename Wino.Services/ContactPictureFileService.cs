@@ -13,6 +13,12 @@ namespace Wino.Services;
 /// </summary>
 public class ContactPictureFileService : BaseDatabaseService, IContactPictureFileService
 {
+    private sealed class LegacyAccountContactPictureRow
+    {
+        public string Address { get; set; }
+        public string Base64ContactPicture { get; set; }
+    }
+
     private const string ContactsSubFolder = "contacts";
 
     private readonly string _contactPicturesFolder;
@@ -52,8 +58,8 @@ public class ContactPictureFileService : BaseDatabaseService, IContactPictureFil
         try
         {
             var contacts = await Connection
-                .QueryAsync<AccountContact>(
-                    "SELECT * FROM AccountContact WHERE Base64ContactPicture IS NOT NULL AND ContactPictureFileId IS NULL")
+                .QueryAsync<LegacyAccountContactPictureRow>(
+                    "SELECT Address, Base64ContactPicture FROM AccountContact WHERE Base64ContactPicture IS NOT NULL AND ContactPictureFileId IS NULL")
                 .ConfigureAwait(false);
 
             foreach (var contact in contacts)
@@ -67,10 +73,10 @@ public class ContactPictureFileService : BaseDatabaseService, IContactPictureFil
                     var bytes = Convert.FromBase64String(base64);
                     var fileId = await SaveContactPictureAsync(bytes).ConfigureAwait(false);
 
-                    contact.ContactPictureFileId = fileId;
-                    contact.Base64ContactPicture = null;
-
-                    await Connection.UpdateAsync(contact, typeof(AccountContact)).ConfigureAwait(false);
+                    await Connection.ExecuteAsync(
+                        "UPDATE AccountContact SET ContactPictureFileId = ?, Base64ContactPicture = NULL WHERE Address = ?",
+                        fileId,
+                        contact.Address).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {

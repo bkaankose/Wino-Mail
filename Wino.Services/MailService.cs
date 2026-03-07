@@ -465,14 +465,21 @@ public class MailService : BaseDatabaseService, IMailService
 
             // Self-sent mails (e.g. Sent folder): construct contact from account meta
             // to get the up-to-date profile picture without a DB roundtrip.
-            if (!string.IsNullOrEmpty(mail.FromAddress) && mail.FromAddress == account.Address)
+            if (!string.IsNullOrEmpty(mail.FromAddress) &&
+                string.Equals(mail.FromAddress, account.Address, StringComparison.OrdinalIgnoreCase))
             {
-                mail.SenderContact = new AccountContact
+                if (contactCache.TryGetValue(mail.FromAddress, out var ownContact))
                 {
-                    Address = account.Address,
-                    Name = account.SenderName,
-                    Base64ContactPicture = account.Base64ProfilePictureData
-                };
+                    mail.SenderContact = ownContact;
+                }
+                else
+                {
+                    mail.SenderContact = new AccountContact
+                    {
+                        Address = account.Address,
+                        Name = account.SenderName
+                    };
+                }
             }
             else
             {
@@ -543,14 +550,25 @@ public class MailService : BaseDatabaseService, IMailService
     private Task<AccountContact> GetSenderContactForAccountAsync(MailAccount account, string fromAddress)
     {
         // Make sure to return the latest up to date contact information for the original account.
-        if (fromAddress == account.Address)
+        if (string.Equals(fromAddress, account.Address, StringComparison.OrdinalIgnoreCase))
         {
-            return Task.FromResult(new AccountContact() { Address = account.Address, Name = account.SenderName, Base64ContactPicture = account.Base64ProfilePictureData });
+            return GetOwnSenderContactAsync(account);
         }
         else
         {
             return _contactService.GetAddressInformationByAddressAsync(fromAddress);
         }
+    }
+
+    private async Task<AccountContact> GetOwnSenderContactAsync(MailAccount account)
+    {
+        var contact = await _contactService.GetAddressInformationByAddressAsync(account.Address).ConfigureAwait(false);
+
+        return contact ?? new AccountContact
+        {
+            Address = account.Address,
+            Name = account.SenderName
+        };
     }
 
     private async Task LoadAssignedPropertiesAsync(MailCopy mailCopy)

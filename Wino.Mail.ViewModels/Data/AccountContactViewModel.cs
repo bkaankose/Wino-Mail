@@ -12,7 +12,6 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
     public string Address { get; set; }
     public string Name { get; set; }
     public Guid? ContactPictureFileId { get; set; }
-    public string Base64ContactPicture { get; set; }
     public bool IsRootContact { get; set; }
     public bool IsOverridden { get; set; }
 
@@ -22,7 +21,6 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
         Address = contact.Address;
         Name = contact.Name;
         ContactPictureFileId = contact.ContactPictureFileId;
-        Base64ContactPicture = contact.Base64ContactPicture;
         IsRootContact = contact.IsRootContact;
         IsOverridden = contact.IsOverridden;
     }
@@ -75,7 +73,6 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
         Address = Address,
         Name = Name,
         ContactPictureFileId = ContactPictureFileId,
-        Base64ContactPicture = Base64ContactPicture,
         IsRootContact = IsRootContact,
         IsOverridden = IsOverridden
     };

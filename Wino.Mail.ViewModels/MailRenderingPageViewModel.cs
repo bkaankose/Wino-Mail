@@ -125,9 +125,6 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     public partial string FromName { get; set; }
 
     [ObservableProperty]
-    public partial string ContactPicture { get; set; }
-
-    [ObservableProperty]
     public partial IMailItemDisplayInformation CurrentMailItemDisplayInformation { get; set; }
 
     [ObservableProperty]
@@ -496,8 +493,6 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
             // Use the received date from MailCopy if available, otherwise fall back to the sent date from MIME message
             CreationDate = initializedMailItemViewModel?.MailCopy.CreationDate ?? message.Date.DateTime;
-
-            ContactPicture = initializedMailItemViewModel?.MailCopy.SenderContact?.Base64ContactPicture;
 
             // Automatically disable images for Junk folder to prevent pixel tracking.
             // This can only work for selected mail item rendering, not for EML file rendering.

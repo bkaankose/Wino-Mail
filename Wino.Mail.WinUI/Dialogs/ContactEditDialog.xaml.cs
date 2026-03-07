@@ -61,11 +61,6 @@ public sealed partial class ContactEditDialog : ContentDialog
                     RemovePhotoButton.Visibility = Visibility.Visible;
                 }
             }
-            else if (!string.IsNullOrEmpty(_contact.Base64ContactPicture))
-            {
-                LoadContactPhotoFromBase64(_contact.Base64ContactPicture);
-                RemovePhotoButton.Visibility = Visibility.Visible;
-            }
             else
             {
                 ContactPhotoPersonPicture.DisplayName = _contact.Name ?? string.Empty;
@@ -101,9 +96,7 @@ public sealed partial class ContactEditDialog : ContentDialog
                 }
                 else
                 {
-                    // Fallback to legacy base64 when service is unavailable (e.g. design-time).
-                    _contact.Base64ContactPicture = Convert.ToBase64String(file.Data);
-                    LoadContactPhotoFromBase64(_contact.Base64ContactPicture);
+                    LoadContactPhoto(file.Data);
                 }
 
                 RemovePhotoButton.Visibility = Visibility.Visible;
@@ -121,7 +114,6 @@ public sealed partial class ContactEditDialog : ContentDialog
             _ = _contactPictureFileService.DeleteContactPictureAsync(_contact.ContactPictureFileId.Value);
 
         _contact.ContactPictureFileId = null;
-        _contact.Base64ContactPicture = null;
         ContactPhotoPersonPicture.ProfilePicture = null;
         ContactPhotoPersonPicture.DisplayName = ContactNameTextBox.Text;
         RemovePhotoButton.Visibility = Visibility.Collapsed;
@@ -143,11 +135,10 @@ public sealed partial class ContactEditDialog : ContentDialog
         }
     }
 
-    private void LoadContactPhotoFromBase64(string base64String)
+    private void LoadContactPhoto(byte[] imageBytes)
     {
         try
         {
-            var imageBytes = Convert.FromBase64String(base64String);
             using var stream = new MemoryStream(imageBytes);
             var bitmap = new BitmapImage();
             bitmap.SetSource(stream.AsRandomAccessStream());

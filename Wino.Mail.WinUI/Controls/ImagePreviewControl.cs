@@ -18,13 +18,13 @@ namespace Wino.Controls;
 /// <summary>
 /// Contact avatar control built on top of PersonPicture.
 /// Priority:
-/// 1) AccountContact/Base64 picture
+/// 1) AccountContact file-based picture
 /// 2) Gravatar thumbnail (if enabled)
 /// 3) Initials from display name fallback
 /// </summary>
 public sealed partial class ImagePreviewControl : PersonPicture
 {
-    private sealed record RefreshSnapshot(string DisplayName, string Address, Guid? ContactPictureFileId, string Base64Picture);
+    private sealed record RefreshSnapshot(string DisplayName, string Address, Guid? ContactPictureFileId);
 
     private static readonly TimeSpan RefreshDebounceDuration = TimeSpan.FromMilliseconds(40);
 
@@ -109,7 +109,7 @@ public sealed partial class ImagePreviewControl : PersonPicture
     {
         // Refresh only for fields that affect avatar image or initials.
         if (string.IsNullOrEmpty(e.PropertyName)
-            || e.PropertyName == nameof(IMailItemDisplayInformation.Base64ContactPicture)
+            || e.PropertyName == nameof(IMailItemDisplayInformation.ContactPictureFileId)
             || e.PropertyName == nameof(IMailItemDisplayInformation.SenderContact)
             || e.PropertyName == nameof(IMailItemDisplayInformation.FromName)
             || e.PropertyName == nameof(IMailItemDisplayInformation.FromAddress)
@@ -222,18 +222,7 @@ public sealed partial class ImagePreviewControl : PersonPicture
                 }
             }
 
-            // 2) Legacy base64 contact picture (used until migration completes or for fallback).
-            if (!string.IsNullOrWhiteSpace(snapshot.Base64Picture))
-            {
-                var localBitmap = await CreateBitmapFromBase64Async(snapshot.Base64Picture, cancellationToken).ConfigureAwait(false);
-                if (localBitmap != null)
-                {
-                    await ApplyProfilePictureAsync(localBitmap, refreshVersion, cancellationToken).ConfigureAwait(false);
-                    return;
-                }
-            }
-
-            // 3) Gravatar lookup through thumbnail service (if enabled).
+            // 2) Gravatar lookup through thumbnail service (if enabled).
             if (_preferencesService?.IsGravatarEnabled == true &&
                 _thumbnailService != null &&
                 !string.IsNullOrWhiteSpace(snapshot.Address) &&
@@ -254,7 +243,7 @@ public sealed partial class ImagePreviewControl : PersonPicture
                 }
             }
 
-            // 4) Initials fallback is already in place via DisplayName + ProfilePicture = null.
+            // 3) Initials fallback is already in place via DisplayName + ProfilePicture = null.
         }
         catch (OperationCanceledException)
         {
@@ -276,10 +265,11 @@ public sealed partial class ImagePreviewControl : PersonPicture
 
             var address = ResolveAddress();
             var displayName = ResolveDisplayName(address);
-            var base64Picture = ResolveBase64Picture();
-            var contactPictureFileId = PreviewContact?.ContactPictureFileId ?? MailItemInformation?.SenderContact?.ContactPictureFileId;
+            var contactPictureFileId = PreviewContact?.ContactPictureFileId
+                                       ?? MailItemInformation?.SenderContact?.ContactPictureFileId
+                                       ?? MailItemInformation?.ContactPictureFileId;
 
-            return new RefreshSnapshot(displayName, address, contactPictureFileId, base64Picture);
+            return new RefreshSnapshot(displayName, address, contactPictureFileId);
         }).ConfigureAwait(false);
     }
 
@@ -320,20 +310,6 @@ public sealed partial class ImagePreviewControl : PersonPicture
             return MailItemInformation.FromName.Trim();
 
         return resolvedAddress.Trim();
-    }
-
-    private string ResolveBase64Picture()
-    {
-        if (!string.IsNullOrWhiteSpace(PreviewContact?.Base64ContactPicture))
-            return PreviewContact.Base64ContactPicture;
-
-        if (!string.IsNullOrWhiteSpace(MailItemInformation?.SenderContact?.Base64ContactPicture))
-            return MailItemInformation.SenderContact.Base64ContactPicture;
-
-        if (!string.IsNullOrWhiteSpace(MailItemInformation?.Base64ContactPicture))
-            return MailItemInformation.Base64ContactPicture;
-
-        return string.Empty;
     }
     private async Task ApplyInitialVisualStateAsync(string displayName, long refreshVersion, CancellationToken cancellationToken)
     {
