@@ -507,55 +507,21 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
     {
         var effectiveStart = GetEffectiveStartDateTime();
         var effectiveEnd = GetEffectiveEndDateTime();
-        var timeSummary = IsAllDay
-            ? Translator.CalendarItemAllDay
-            : string.Format(
-                CultureInfo.CurrentCulture,
-                Translator.CalendarEventCompose_TimeRangeSummary,
-                effectiveStart.ToString(CurrentSettings.DayHeaderDisplayType == DayHeaderDisplayType.TwentyFourHour ? "HH:mm" : "h:mm tt", CultureInfo.CurrentCulture),
-                effectiveEnd.ToString(CurrentSettings.DayHeaderDisplayType == DayHeaderDisplayType.TwentyFourHour ? "HH:mm" : "h:mm tt", CultureInfo.CurrentCulture));
-
-        if (!IsRecurring)
-        {
-            RecurrenceSummary = string.Format(
-                CultureInfo.CurrentCulture,
-                Translator.CalendarEventCompose_SingleOccurrenceSummary,
-                effectiveStart.ToString("dddd yyyy-MM-dd", CultureInfo.CurrentCulture),
-                timeSummary);
-            return;
-        }
-
-        var frequencyLabel = SelectedRecurrenceFrequencyOption?.PluralLabel(SelectedRecurrenceInterval)
-                             ?? Translator.CalendarEventCompose_FrequencyWeekPlural;
-
         var selectedDays = WeekdayOptions
             .Where(option => option.IsSelected)
-            .Select(option => option.FullDayName)
+            .Select(option => option.DayOfWeek)
             .ToList();
 
-        var weekdaySummary = selectedDays.Count == 0
-            ? string.Empty
-            : string.Format(
-                CultureInfo.CurrentCulture,
-                Translator.CalendarEventCompose_WeekdaySummary,
-                string.Join(", ", selectedDays));
-
-        var untilSummary = RecurrenceEndDate.HasValue
-            ? string.Format(
-                CultureInfo.CurrentCulture,
-                Translator.CalendarEventCompose_UntilSummary,
-                RecurrenceEndDate.Value.ToString("ddd yyyy-MM-dd", CultureInfo.CurrentCulture))
-            : string.Empty;
-
-        RecurrenceSummary = string.Format(
-            CultureInfo.CurrentCulture,
-            Translator.CalendarEventCompose_RecurringSummary,
+        RecurrenceSummary = CalendarRecurrenceSummaryFormatter.BuildSummary(
+            IsRecurring,
+            effectiveStart,
+            effectiveEnd,
+            IsAllDay,
+            CurrentSettings,
             SelectedRecurrenceInterval,
-            frequencyLabel,
-            weekdaySummary,
-            timeSummary,
-            effectiveStart.ToString("dddd yyyy-MM-dd", CultureInfo.CurrentCulture),
-            untilSummary).Trim();
+            SelectedRecurrenceFrequencyOption?.Frequency ?? CalendarItemRecurrenceFrequency.Weekly,
+            selectedDays,
+            RecurrenceEndDate);
     }
 
     private string BuildRecurrenceRule()
@@ -707,3 +673,5 @@ public partial class CalendarComposeWeekdayOption : ObservableObject
         Label = label;
     }
 }
+
+

@@ -1,0 +1,259 @@
+<UserControl
+    x:Class="Wino.Mail.Controls.EditorTabbedCommandBarControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mail="using:Wino.Mail.Controls"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
+    x:Name="Root"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <Style x:Key="CompactComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="MinWidth" Value="88" />
+            <Setter Property="MaxWidth" Value="136" />
+        </Style>
+
+        <Style x:Key="CompactPickerContainerStyle" TargetType="AppBarElementContainer">
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Margin" Value="0" />
+        </Style>
+
+        <DataTemplate x:Key="ColorOptionTemplate" x:DataType="mail:EditorColorOption">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Grid Width="14" Height="14">
+                    <Rectangle
+                        RadiusX="3"
+                        RadiusY="3"
+                        Fill="{x:Bind Brush}"
+                        Stroke="{ThemeResource TextFillColorSecondaryBrush}"
+                        StrokeThickness="1" />
+                </Grid>
+                <TextBlock VerticalAlignment="Center" Text="{x:Bind Name}" />
+            </StackPanel>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <toolkit:TabbedCommandBar>
+        <toolkit:TabbedCommandBar.Resources>
+            <SolidColorBrush x:Key="TabContentContentBorderBackground" Color="Transparent" />
+            <SolidColorBrush x:Key="TabContentContentBorderBorderBrush" Color="Transparent" />
+            <Thickness x:Key="TabContentBorderBorderThickness">0</Thickness>
+        </toolkit:TabbedCommandBar.Resources>
+
+        <toolkit:TabbedCommandBar.PaneCustomContent>
+            <ContentPresenter Content="{x:Bind PaneCustomContent, Mode=OneWay}" />
+        </toolkit:TabbedCommandBar.PaneCustomContent>
+
+        <toolkit:TabbedCommandBar.MenuItems>
+            <toolkit:TabbedCommandBarItem DefaultLabelPosition="Collapsed" Header="Format">
+                <AppBarToggleButton x:Name="BoldButton" Click="BoldButton_Click" Label="Bold" ToolTipService.ToolTip="Bold (Ctrl+B)">
+                    <AppBarToggleButton.Icon>
+                        <PathIcon Data="{StaticResource BoldPathIcon}" />
+                    </AppBarToggleButton.Icon>
+                </AppBarToggleButton>
+
+                <AppBarToggleButton x:Name="ItalicButton" Click="ItalicButton_Click" Label="Italic" ToolTipService.ToolTip="Italic (Ctrl+I)">
+                    <AppBarToggleButton.Icon>
+                        <PathIcon Data="{StaticResource ItalicPathIcon}" />
+                    </AppBarToggleButton.Icon>
+                </AppBarToggleButton>
+
+                <AppBarToggleButton x:Name="UnderlineButton" Click="UnderlineButton_Click" Label="Underline" ToolTipService.ToolTip="Underline (Ctrl+U)">
+                    <AppBarToggleButton.Icon>
+                        <PathIcon Data="{StaticResource UnderlinePathIcon}" />
+                    </AppBarToggleButton.Icon>
+                </AppBarToggleButton>
+
+                <AppBarToggleButton x:Name="StrikeButton" Click="StrikeButton_Click" Label="Strikethrough" ToolTipService.ToolTip="Strikethrough">
+                    <AppBarToggleButton.Icon>
+                        <PathIcon Data="{StaticResource StrikePathIcon}" />
+                    </AppBarToggleButton.Icon>
+                </AppBarToggleButton>
+
+                <AppBarSeparator />
+
+                <AppBarToggleButton x:Name="BulletListButton" Click="BulletListButton_Click" Label="Bullets" ToolTipService.ToolTip="Bulleted list">
+                    <AppBarToggleButton.Icon>
+                        <PathIcon Data="{StaticResource BulletedListPathIcon}" />
+                    </AppBarToggleButton.Icon>
+                </AppBarToggleButton>
+
+                <AppBarToggleButton x:Name="OrderedListButton" Click="OrderedListButton_Click" Label="Numbered list" ToolTipService.ToolTip="Numbered list">
+                    <AppBarToggleButton.Icon>
+                        <PathIcon Data="{StaticResource OrderedListPathIcon}" />
+                    </AppBarToggleButton.Icon>
+                </AppBarToggleButton>
+
+                <AppBarButton x:Name="OutdentButton" Click="OutdentButton_Click" Label="Outdent" ToolTipService.ToolTip="Outdent">
+                    <AppBarButton.Icon>
+                        <PathIcon Data="{StaticResource DecreaseIndentPathIcon}" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+
+                <AppBarButton x:Name="IndentButton" Click="IndentButton_Click" Label="Indent" ToolTipService.ToolTip="Indent">
+                    <AppBarButton.Icon>
+                        <PathIcon Data="{StaticResource IncreaseIndentPathIcon}" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+
+                <AppBarElementContainer Style="{StaticResource CompactPickerContainerStyle}" ToolTipService.ToolTip="Text alignment">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <PathIcon
+                            Width="14"
+                            Height="14"
+                            VerticalAlignment="Center"
+                            Data="{StaticResource AlignLeftPathIcon}" />
+                        <ComboBox
+                            x:Name="AlignmentComboBox"
+                            Style="{StaticResource CompactComboBoxStyle}"
+                            MinWidth="108"
+                            SelectionChanged="AlignmentComboBox_SelectionChanged" />
+                    </StackPanel>
+                </AppBarElementContainer>
+
+                <AppBarElementContainer Style="{StaticResource CompactPickerContainerStyle}" ToolTipService.ToolTip="Font family">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon VerticalAlignment="Center" FontSize="14" Glyph="&#xE8D2;" />
+                        <ComboBox
+                            x:Name="FontFamilyComboBox"
+                            Style="{StaticResource CompactComboBoxStyle}"
+                            MinWidth="120"
+                            PlaceholderText="Font"
+                            SelectionChanged="FontFamilyComboBox_SelectionChanged" />
+                    </StackPanel>
+                </AppBarElementContainer>
+
+                <AppBarElementContainer Style="{StaticResource CompactPickerContainerStyle}" ToolTipService.ToolTip="Font size">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="12" />
+                        <ComboBox
+                            x:Name="FontSizeComboBox"
+                            Style="{StaticResource CompactComboBoxStyle}"
+                            MinWidth="80"
+                            PlaceholderText="Size"
+                            SelectionChanged="FontSizeComboBox_SelectionChanged" />
+                    </StackPanel>
+                </AppBarElementContainer>
+
+                <AppBarElementContainer Style="{StaticResource CompactPickerContainerStyle}" ToolTipService.ToolTip="Paragraph style">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <PathIcon
+                            Width="14"
+                            Height="14"
+                            VerticalAlignment="Center"
+                            Data="{StaticResource ParagraphPathIcon}" />
+                        <ComboBox
+                            x:Name="ParagraphStyleComboBox"
+                            Style="{StaticResource CompactComboBoxStyle}"
+                            MinWidth="110"
+                            DisplayMemberPath="Name"
+                            PlaceholderText="Paragraph"
+                            SelectionChanged="ParagraphStyleComboBox_SelectionChanged" />
+                    </StackPanel>
+                </AppBarElementContainer>
+
+                <AppBarElementContainer Style="{StaticResource CompactPickerContainerStyle}" ToolTipService.ToolTip="Text color">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="A" />
+                        <ComboBox
+                            x:Name="TextColorComboBox"
+                            Style="{StaticResource CompactComboBoxStyle}"
+                            MinWidth="116"
+                            ItemTemplate="{StaticResource ColorOptionTemplate}"
+                            PlaceholderText="Text"
+                            SelectionChanged="TextColorComboBox_SelectionChanged" />
+                    </StackPanel>
+                </AppBarElementContainer>
+
+                <AppBarElementContainer Style="{StaticResource CompactPickerContainerStyle}" ToolTipService.ToolTip="Highlight color">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon VerticalAlignment="Center" FontSize="14" Glyph="&#xE7C3;" />
+                        <ComboBox
+                            x:Name="HighlightColorComboBox"
+                            Style="{StaticResource CompactComboBoxStyle}"
+                            MinWidth="122"
+                            ItemTemplate="{StaticResource ColorOptionTemplate}"
+                            PlaceholderText="Highlight"
+                            SelectionChanged="HighlightColorComboBox_SelectionChanged" />
+                    </StackPanel>
+                </AppBarElementContainer>
+
+                <AppBarElementContainer Style="{StaticResource CompactPickerContainerStyle}" ToolTipService.ToolTip="Line height">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon VerticalAlignment="Center" FontSize="14" Glyph="&#xE8C8;" />
+                        <ComboBox
+                            x:Name="LineHeightComboBox"
+                            Style="{StaticResource CompactComboBoxStyle}"
+                            MinWidth="86"
+                            PlaceholderText="Line"
+                            SelectionChanged="LineHeightComboBox_SelectionChanged" />
+                    </StackPanel>
+                </AppBarElementContainer>
+            </toolkit:TabbedCommandBarItem>
+
+            <toolkit:TabbedCommandBarItem DefaultLabelPosition="Collapsed" Header="Insert">
+                <AppBarButton x:Name="ImageButton" Click="ImageButton_Click" Label="Image" ToolTipService.ToolTip="Insert image">
+                    <AppBarButton.Icon>
+                        <PathIcon Data="{StaticResource AddPhotoPathIcon}" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+
+                <AppBarButton x:Name="EmojiButton" Click="EmojiButton_Click" Label="Emoji" ToolTipService.ToolTip="Insert emoji">
+                    <AppBarButton.Icon>
+                        <PathIcon Data="{StaticResource EmojiPathIcon}" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+
+                <AppBarButton x:Name="LinkButton" Click="LinkButton_Click" Label="Link" ToolTipService.ToolTip="Insert or edit link">
+                    <AppBarButton.Icon>
+                        <PathIcon Data="{StaticResource AddLinkPathIcon}" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+
+                <AppBarButton
+                    x:Name="RemoveLinkButton"
+                    Click="RemoveLinkButton_Click"
+                    Label="Remove link"
+                    ToolTipService.ToolTip="Remove link"
+                    Visibility="Collapsed">
+                    <AppBarButton.Icon>
+                        <SymbolIcon Symbol="Remove" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+
+                <AppBarButton x:Name="TableButton" Click="TableButton_Click" Label="Table" ToolTipService.ToolTip="Insert table">
+                    <AppBarButton.Icon>
+                        <FontIcon Glyph="&#xE14C;" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+
+                <AppBarElementContainer ToolTipService.ToolTip="Insert actions">
+                    <ContentPresenter Content="{x:Bind InsertCustomContent, Mode=OneWay}" />
+                </AppBarElementContainer>
+            </toolkit:TabbedCommandBarItem>
+
+            <toolkit:TabbedCommandBarItem DefaultLabelPosition="Collapsed" Header="Options">
+                <AppBarToggleButton x:Name="BuiltInToolbarButton" Click="BuiltInToolbarButton_Click" Label="Web toolbar" ToolTipService.ToolTip="Toggle built-in web toolbar">
+                    <AppBarToggleButton.Icon>
+                        <PathIcon Data="{StaticResource WebviewToolBarPathIcon}" />
+                    </AppBarToggleButton.Icon>
+                </AppBarToggleButton>
+
+                <AppBarToggleButton x:Name="SpellCheckButton" Click="SpellCheckButton_Click" Label="Spell check" ToolTipService.ToolTip="Toggle spell check">
+                    <AppBarToggleButton.Icon>
+                        <FontIcon Glyph="&#xEA53;" />
+                    </AppBarToggleButton.Icon>
+                </AppBarToggleButton>
+
+                <AppBarElementContainer ToolTipService.ToolTip="Composer options">
+                    <ContentPresenter Content="{x:Bind OptionsCustomContent, Mode=OneWay}" />
+                </AppBarElementContainer>
+            </toolkit:TabbedCommandBarItem>
+        </toolkit:TabbedCommandBar.MenuItems>
+    </toolkit:TabbedCommandBar>
+</UserControl>
+
+

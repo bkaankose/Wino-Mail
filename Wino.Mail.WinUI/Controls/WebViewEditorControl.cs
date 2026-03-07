@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using CommunityToolkit.WinUI;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,13 +13,50 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Reader;
-using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI;
+using Wino.Mail.WinUI.Extensions;
 
 namespace Wino.Mail.Controls;
 
-public sealed partial class WebViewEditorControl : Control, IDisposable
+public sealed partial class WebViewEditorControl : Control, IDisposable, IEditorCommandTarget
 {
+    private const string PART_WebView = "WebView";
+
+    private static readonly IReadOnlyList<int> DefaultFontSizes = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36];
+    private static readonly IReadOnlyList<EditorColorOption> DefaultTextColors =
+    [
+        new("Default", string.Empty),
+        new("Black", "#000000"),
+        new("Gray", "#666666"),
+        new("Red", "#c62828"),
+        new("Orange", "#ef6c00"),
+        new("Yellow", "#f9a825"),
+        new("Green", "#2e7d32"),
+        new("Blue", "#1565c0"),
+        new("Purple", "#6a1b9a")
+    ];
+    private static readonly IReadOnlyList<EditorColorOption> DefaultHighlightColors =
+    [
+        new("None", string.Empty),
+        new("Yellow", "#fff59d"),
+        new("Green", "#c8e6c9"),
+        new("Blue", "#bbdefb"),
+        new("Pink", "#f8bbd0"),
+        new("Orange", "#ffe0b2")
+    ];
+    private static readonly IReadOnlyList<EditorParagraphStyleOption> DefaultParagraphStyles =
+    [
+        new("Paragraph", "div"),
+        new("Heading 1", "h1"),
+        new("Heading 2", "h2"),
+        new("Heading 3", "h3"),
+        new("Quote", "blockquote"),
+        new("Code", "pre")
+    ];
+    private static readonly IReadOnlyList<string> DefaultLineHeights = ["normal", "1", "1.15", "1.5", "2"];
+    private static readonly IReadOnlyList<EditorTextAlignment> DefaultAlignments =
+        [EditorTextAlignment.Left, EditorTextAlignment.Center, EditorTextAlignment.Right, EditorTextAlignment.Justify];
+
     private readonly INativeAppService _nativeAppService = App.Current.Services.GetService<INativeAppService>()!;
     private readonly IFontService _fontService = App.Current.Services.GetService<IFontService>()!;
     private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>()!;
@@ -27,150 +65,158 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
     public partial bool IsEditorDarkMode { get; set; }
     async partial void OnIsEditorDarkModeChanged(bool newValue)
     {
+        UpdateState(GetCurrentStateOrDefault() with { IsDarkMode = newValue });
         await UpdateEditorThemeAsync();
     }
 
     [GeneratedDependencyProperty]
-    public partial bool IsEditorBold { get; set; }
-    private bool _isEditorBoldInternal;
-    async partial void OnIsEditorBoldChanged(bool newValue)
-    {
-        if (newValue != _isEditorBoldInternal)
-        {
-            await _chromium.ExecuteScriptFunctionSafeAsync("editor.execCommand", JsonSerializer.Serialize("bold", BasicTypesJsonContext.Default.String));
-        }
-    }
-
-    [GeneratedDependencyProperty]
-    public partial bool IsEditorItalic { get; set; }
-    private bool _isEditorItalicInternal;
-    async partial void OnIsEditorItalicChanged(bool newValue)
-    {
-        if (newValue != _isEditorItalicInternal)
-        {
-            await _chromium.ExecuteScriptFunctionSafeAsync("editor.execCommand", JsonSerializer.Serialize("italic", BasicTypesJsonContext.Default.String));
-        }
-    }
-
-    [GeneratedDependencyProperty]
-    public partial bool IsEditorUnderline { get; set; }
-    private bool _isEditorUnderlineInternal;
-    async partial void OnIsEditorUnderlineChanged(bool newValue)
-    {
-        if (newValue != _isEditorUnderlineInternal)
-        {
-            await _chromium.ExecuteScriptFunctionSafeAsync("editor.execCommand", JsonSerializer.Serialize("underline", BasicTypesJsonContext.Default.String));
-        }
-    }
-
-    [GeneratedDependencyProperty]
-    public partial bool IsEditorStrikethrough { get; set; }
-    private bool _isEditorStrikethroughInternal;
-    async partial void OnIsEditorStrikethroughChanged(bool newValue)
-    {
-        if (newValue != _isEditorStrikethroughInternal)
-        {
-            await _chromium.ExecuteScriptFunctionSafeAsync("editor.execCommand", JsonSerializer.Serialize("strikethrough", BasicTypesJsonContext.Default.String));
-        }
-    }
-
-    [GeneratedDependencyProperty]
-    public partial bool IsEditorOl { get; set; }
-    private bool _isEditorOlInternal;
-    async partial void OnIsEditorOlChanged(bool newValue)
-    {
-        if (newValue != _isEditorOlInternal)
-        {
-            await _chromium.ExecuteScriptFunctionSafeAsync("editor.execCommand", JsonSerializer.Serialize("insertorderedlist", BasicTypesJsonContext.Default.String));
-        }
-    }
-
-    [GeneratedDependencyProperty]
-    public partial bool IsEditorUl { get; set; }
-    private bool _isEditorUlInternal;
-    async partial void OnIsEditorUlChanged(bool newValue)
-    {
-        if (newValue != _isEditorUlInternal)
-        {
-            await _chromium.ExecuteScriptFunctionSafeAsync("editor.execCommand", JsonSerializer.Serialize("insertunorderedlist", BasicTypesJsonContext.Default.String));
-        }
-    }
-
-    [GeneratedDependencyProperty(DefaultValue = true)]
-    public partial bool IsEditorIndentEnabled { get; private set; }
-
-    [GeneratedDependencyProperty]
-    public partial bool IsEditorOutdentEnabled { get; private set; }
-
-    [GeneratedDependencyProperty]
-    public partial int EditorAlignmentSelectedIndex { get; set; }
-    private int _editorAlignmentSelectedIndexInternal;
-    async partial void OnEditorAlignmentSelectedIndexChanged(int newValue)
-    {
-        if (newValue != _editorAlignmentSelectedIndexInternal)
-        {
-            var alignmentAction = newValue switch
-            {
-                0 => "justifyleft",
-                1 => "justifycenter",
-                2 => "justifyright",
-                3 => "justifyfull",
-                _ => throw new ArgumentOutOfRangeException(nameof(newValue))
-            };
-
-            await _chromium.ExecuteScriptFunctionSafeAsync("editor.execCommand", JsonSerializer.Serialize(alignmentAction, BasicTypesJsonContext.Default.String));
-        }
-    }
-
-    [GeneratedDependencyProperty]
     public partial bool IsEditorWebViewEditor { get; set; }
-
     async partial void OnIsEditorWebViewEditorChanged(bool newValue)
     {
-        await _chromium.ExecuteScriptFunctionSafeAsync("toggleToolbar", JsonSerializer.Serialize(newValue, BasicTypesJsonContext.Default.Boolean));
+        UpdateState(GetCurrentStateOrDefault() with { IsBuiltInToolbarVisible = newValue });
+        await ApplyBuiltInToolbarVisibilityAsync();
     }
 
-    private const string PART_WebView = "WebView";
-    private WebView2 _chromium = null!;
+    private WebView2? _chromium;
     private bool _disposedValue;
     private bool? _lastAppliedDarkTheme;
     private readonly TaskCompletionSource<bool> _domLoadedTask = new();
+    private readonly TaskCompletionSource<bool> _editorReadyTask = new();
+    private readonly object _editorInitializationLock = new();
+    private Task? _editorInitializationTask;
+
+    public event EventHandler<EditorState>? StateChanged;
+    public event EventHandler<EditorCapabilities>? CapabilitiesChanged;
+
+    public EditorState CurrentState { get; private set; }
+    public EditorCapabilities Capabilities { get; private set; }
 
     public WebViewEditorControl()
     {
-        this.DefaultStyleKey = typeof(WebViewEditorControl);
+        DefaultStyleKey = typeof(WebViewEditorControl);
 
         IsEditorDarkMode = WinoApplication.Current.UnderlyingThemeService.IsUnderlyingThemeDark();
+        Capabilities = BuildCapabilities(_fontService.GetFonts());
+        CurrentState = CreateDefaultState();
     }
 
     protected override async void OnApplyTemplate()
     {
         base.OnApplyTemplate();
 
-        _chromium = (GetTemplateChild(PART_WebView) as WebView2)!;
+        var newWebView = GetTemplateChild(PART_WebView) as WebView2;
+        if (newWebView == null)
+        {
+            return;
+        }
 
-        await InitializeComponent();
+        if (_chromium != null && !ReferenceEquals(_chromium, newWebView))
+        {
+            DetachChromium(_chromium, closeWebView: false);
+        }
+
+        _chromium = newWebView;
+        await InitializeWebViewAsync();
     }
 
-    private async Task InitializeComponent()
+    public async Task ExecuteCommandAsync(EditorCommand command)
     {
-        WebViewExtensions.EnsureWebView2Environment();
+        ObjectDisposedException.ThrowIf(_disposedValue, this);
+        await EnsureEditorReadyAsync();
 
-        _chromium.CoreWebView2Initialized -= ChromiumInitialized;
-        _chromium.CoreWebView2Initialized += ChromiumInitialized;
+        if (_chromium == null)
+        {
+            return;
+        }
 
-        await _chromium.EnsureCoreWebView2Async();
+        switch (command.Kind)
+        {
+            case EditorCommandKind.ToggleBold:
+                await ExecuteEditorCommandAsync("bold");
+                break;
+            case EditorCommandKind.ToggleItalic:
+                await ExecuteEditorCommandAsync("italic");
+                break;
+            case EditorCommandKind.ToggleUnderline:
+                await ExecuteEditorCommandAsync("underline");
+                break;
+            case EditorCommandKind.ToggleStrikethrough:
+                await ExecuteEditorCommandAsync("strikethrough");
+                break;
+            case EditorCommandKind.ToggleOrderedList:
+                await ExecuteEditorCommandAsync("insertorderedlist");
+                break;
+            case EditorCommandKind.ToggleUnorderedList:
+                await ExecuteEditorCommandAsync("insertunorderedlist");
+                break;
+            case EditorCommandKind.Indent:
+                await ExecuteEditorCommandAsync("indent");
+                break;
+            case EditorCommandKind.Outdent:
+                await ExecuteEditorCommandAsync("outdent");
+                break;
+            case EditorCommandKind.SetAlignment when command.Value is EditorTextAlignment alignment:
+                await ExecuteEditorCommandAsync(alignment switch
+                {
+                    EditorTextAlignment.Left => "justifyleft",
+                    EditorTextAlignment.Center => "justifycenter",
+                    EditorTextAlignment.Right => "justifyright",
+                    EditorTextAlignment.Justify => "justifyfull",
+                    _ => "justifyleft"
+                });
+                break;
+            case EditorCommandKind.SetFontFamily when command.Value is string fontFamily:
+                await _chromium.ExecuteScriptFunctionSafeAsync("setFontFamily", JsonSerializer.Serialize(fontFamily, BasicTypesJsonContext.Default.String));
+                break;
+            case EditorCommandKind.SetFontSize when command.Value is int fontSize:
+                await _chromium.ExecuteScriptFunctionSafeAsync("setFontSize", JsonSerializer.Serialize(fontSize, BasicTypesJsonContext.Default.Int32));
+                break;
+            case EditorCommandKind.SetParagraphStyle when command.Value is string paragraphStyle:
+                await _chromium.ExecuteScriptFunctionSafeAsync("setParagraphStyle", JsonSerializer.Serialize(paragraphStyle, BasicTypesJsonContext.Default.String));
+                break;
+            case EditorCommandKind.SetTextColor when command.Value is string textColor:
+                await _chromium.ExecuteScriptFunctionSafeAsync("setTextColor", JsonSerializer.Serialize(textColor, BasicTypesJsonContext.Default.String));
+                break;
+            case EditorCommandKind.SetHighlightColor when command.Value is string highlightColor:
+                await _chromium.ExecuteScriptFunctionSafeAsync("setHighlightColor", JsonSerializer.Serialize(highlightColor, BasicTypesJsonContext.Default.String));
+                break;
+            case EditorCommandKind.SetLineHeight when command.Value is string lineHeight:
+                await _chromium.ExecuteScriptFunctionSafeAsync("setLineHeight", JsonSerializer.Serialize(lineHeight, BasicTypesJsonContext.Default.String));
+                break;
+            case EditorCommandKind.InsertImage:
+                await ShowImagePickerAsync();
+                return;
+            case EditorCommandKind.InsertLink when command.Value is EditorLinkCommandArgs linkArgs:
+                await _chromium.ExecuteScriptFunctionSafeAsync("upsertLink", SerializeLinkArgs(linkArgs));
+                break;
+            case EditorCommandKind.RemoveLink:
+                await _chromium.ExecuteScriptFunctionSafeAsync("removeLink");
+                break;
+            case EditorCommandKind.InsertEmoji:
+                await ShowEmojiPickerAsync();
+                return;
+            case EditorCommandKind.InsertTable when command.Value is EditorTableCommandArgs tableArgs:
+                await _chromium.ExecuteScriptFunctionSafeAsync("insertTableHtml", SerializeTableArgs(tableArgs));
+                break;
+            case EditorCommandKind.ToggleBuiltInToolbar when command.Value is bool isToolbarVisible:
+                IsEditorWebViewEditor = isToolbarVisible;
+                return;
+            case EditorCommandKind.ToggleTheme when command.Value is bool isDarkMode:
+                IsEditorDarkMode = isDarkMode;
+                return;
+            case EditorCommandKind.ToggleSpellCheck when command.Value is bool isSpellCheckEnabled:
+                await _chromium.ExecuteScriptFunctionSafeAsync("setSpellCheck", JsonSerializer.Serialize(isSpellCheckEnabled, BasicTypesJsonContext.Default.Boolean));
+                break;
+            default:
+                throw new InvalidOperationException($"Unsupported editor command: {command.Kind}");
+        }
+
+        await RefreshStateAsync();
     }
 
-    public async void EditorIndentAsync()
-    {
-        await _chromium.ExecuteScriptFunctionSafeAsync("editor.execCommand", JsonSerializer.Serialize("indent", BasicTypesJsonContext.Default.String));
-    }
+    public async Task EditorIndentAsync() => await ExecuteCommandAsync(EditorCommand.Indent());
 
-    public async void EditorOutdentAsync()
-    {
-        await _chromium.ExecuteScriptFunctionSafeAsync("editor.execCommand", JsonSerializer.Serialize("outdent", BasicTypesJsonContext.Default.String));
-    }
+    public async Task EditorOutdentAsync() => await ExecuteCommandAsync(EditorCommand.Outdent());
 
     public void ToggleEditorTheme()
     {
@@ -179,98 +225,77 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
 
     public async Task<string?> GetHtmlBodyAsync()
     {
-        var editorContent = await _chromium.ExecuteScriptFunctionSafeAsync("GetHTMLContent");
+        await EnsureEditorReadyAsync();
 
+        if (_chromium == null)
+        {
+            return null;
+        }
+
+        var editorContent = await _chromium.ExecuteScriptFunctionSafeAsync("GetHTMLContent");
         return JsonSerializer.Deserialize(editorContent, BasicTypesJsonContext.Default.String);
+    }
+
+    public async Task ShowImagePickerAsync()
+    {
+        await EnsureEditorReadyAsync();
+        if (_chromium != null)
+        {
+            await _chromium.ExecuteScriptFunctionSafeAsync("imageInput.click");
+        }
     }
 
     public async void ShowImagePicker()
     {
-        await _chromium.ExecuteScriptFunctionSafeAsync("imageInput.click");
+        await ShowImagePickerAsync();
     }
 
     public async Task InsertImagesAsync(List<ImageInfo> images)
     {
-        await _chromium.ExecuteScriptFunctionSafeAsync("insertImages", JsonSerializer.Serialize(images, DomainModelsJsonContext.Default.ListImageInfo));
+        await EnsureEditorReadyAsync();
+        if (_chromium != null)
+        {
+            await _chromium.ExecuteScriptFunctionSafeAsync("insertImages", JsonSerializer.Serialize(images, DomainModelsJsonContext.Default.ListImageInfo));
+            await RefreshStateAsync();
+        }
+    }
+
+    public async Task ShowEmojiPickerAsync()
+    {
+        CoreInputView.GetForCurrentView().TryShow(CoreInputViewKind.Emoji);
+        await FocusEditorAsync(focusControlAsWell: true);
     }
 
     public async void ShowEmojiPicker()
     {
-        CoreInputView.GetForCurrentView().TryShow(CoreInputViewKind.Emoji);
-
-        await FocusEditorAsync(focusControlAsWell: true);
+        await ShowEmojiPickerAsync();
     }
 
-    public WebView2 GetUnderlyingWebView() => _chromium;
+    public WebView2 GetUnderlyingWebView() => _chromium!;
 
     public async Task RenderHtmlAsync(string htmlBody)
     {
-        await _domLoadedTask.Task;
+        await EnsureEditorReadyAsync();
 
-        await UpdateEditorThemeAsync();
-        await InitializeEditorAsync();
-
-        await _chromium.ExecuteScriptFunctionAsync("RenderHTML", parameters: JsonSerializer.Serialize(string.IsNullOrEmpty(htmlBody) ? " " : htmlBody, BasicTypesJsonContext.Default.String));
-    }
-
-    private async Task<string> InitializeEditorAsync()
-    {
-        var fonts = _fontService.GetFonts();
-        var composerFont = _preferencesService.ComposerFont;
-        int composerFontSize = _preferencesService.ComposerFontSize;
-        var readerFont = _preferencesService.ReaderFont;
-        int readerFontSize = _preferencesService.ReaderFontSize;
-        return await _chromium.ExecuteScriptFunctionAsync("initializeJodit",
-            JsonSerializer.Serialize(fonts, BasicTypesJsonContext.Default.ListString),
-            JsonSerializer.Serialize(composerFont, BasicTypesJsonContext.Default.String),
-            JsonSerializer.Serialize(composerFontSize, BasicTypesJsonContext.Default.Int32),
-            JsonSerializer.Serialize(readerFont, BasicTypesJsonContext.Default.String),
-            JsonSerializer.Serialize(readerFontSize, BasicTypesJsonContext.Default.Int32));
-    }
-
-    private async void ChromiumInitialized(WebView2 sender, CoreWebView2InitializedEventArgs args)
-    {
-        var editorBundlePath = (await _nativeAppService.GetEditorBundlePathAsync()).Replace("editor.html", string.Empty);
-
-        _chromium.CoreWebView2.SetVirtualHostNameToFolderMapping("app.editor", editorBundlePath, CoreWebView2HostResourceAccessKind.Allow);
-        _chromium.Source = new Uri("https://app.editor/editor.html");
-
-        _chromium.CoreWebView2.DOMContentLoaded -= DomLoaded;
-        _chromium.CoreWebView2.DOMContentLoaded += DomLoaded;
-
-        _chromium.CoreWebView2.WebMessageReceived -= ScriptMessageReceived;
-        _chromium.CoreWebView2.WebMessageReceived += ScriptMessageReceived;
-    }
-
-    public async Task UpdateEditorThemeAsync(bool force = false)
-    {
-        await _domLoadedTask.Task;
-
-        var isDark = IsEditorDarkMode;
-
-        if (!force && _lastAppliedDarkTheme == isDark) return;
-
-        _lastAppliedDarkTheme = isDark;
-
-        if (isDark)
+        if (_chromium == null)
         {
-            _chromium.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Dark;
-            await _chromium.ExecuteScriptFunctionSafeAsync("SetDarkEditor");
+            return;
         }
-        else
-        {
-            _chromium.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Light;
-            await _chromium.ExecuteScriptFunctionSafeAsync("SetLightEditor");
-        }
+
+        await _chromium.ExecuteScriptFunctionAsync("RenderHTML", JsonSerializer.Serialize(string.IsNullOrEmpty(htmlBody) ? " " : htmlBody, BasicTypesJsonContext.Default.String));
+        await RefreshStateAsync();
     }
 
-    /// <summary>
-    /// Places the cursor in the composer.
-    /// </summary>
-    /// <param name="focusControlAsWell">Whether control itself should be focused as well or not.</param>
     public async Task FocusEditorAsync(bool focusControlAsWell)
     {
-        await _chromium.ExecuteScriptSafeAsync("editor.selection.setCursorIn(editor.editor.firstChild, true)");
+        await EnsureEditorReadyAsync();
+
+        if (_chromium == null)
+        {
+            return;
+        }
+
+        await _chromium.ExecuteScriptSafeAsync("focusEditor();");
 
         if (focusControlAsWell)
         {
@@ -279,66 +304,392 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
         }
     }
 
-    private void ScriptMessageReceived(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs args)
+    public async Task UpdateEditorThemeAsync(bool force = false)
     {
-        var change = JsonSerializer.Deserialize(args.WebMessageAsJson, DomainModelsJsonContext.Default.WebViewMessage);
+        if (_chromium?.CoreWebView2 == null)
+        {
+            return;
+        }
 
-        if (change == null) return;
+        if (!_editorReadyTask.Task.IsCompleted)
+        {
+            return;
+        }
 
-        if (change.Type == "bold")
+        var isDark = IsEditorDarkMode;
+        if (!force && _lastAppliedDarkTheme == isDark)
         {
-            _isEditorBoldInternal = change.Value == "true";
-            IsEditorBold = _isEditorBoldInternal;
+            return;
         }
-        else if (change.Type == "italic")
+
+        _lastAppliedDarkTheme = isDark;
+        _chromium.CoreWebView2.Profile.PreferredColorScheme = isDark
+            ? CoreWebView2PreferredColorScheme.Dark
+            : CoreWebView2PreferredColorScheme.Light;
+
+        await _chromium.ExecuteScriptFunctionSafeAsync(isDark ? "SetDarkEditor" : "SetLightEditor");
+        UpdateState(CurrentState with { IsDarkMode = isDark });
+    }
+
+    private async Task InitializeWebViewAsync()
+    {
+        if (_chromium == null)
         {
-            _isEditorItalicInternal = change.Value == "true";
-            IsEditorItalic = _isEditorItalicInternal;
+            return;
         }
-        else if (change.Type == "underline")
+
+        WebViewExtensions.EnsureWebView2Environment();
+        _chromium.CoreWebView2Initialized -= ChromiumInitialized;
+        _chromium.CoreWebView2Initialized += ChromiumInitialized;
+        await _chromium.EnsureCoreWebView2Async();
+    }
+
+    private Task EnsureEditorReadyAsync()
+    {
+        if (_chromium == null || _disposedValue)
         {
-            _isEditorUnderlineInternal = change.Value == "true";
-            IsEditorUnderline = _isEditorUnderlineInternal;
+            return Task.CompletedTask;
         }
-        else if (change.Type == "strikethrough")
+
+        return EnsureEditorReadyCoreAsync();
+    }
+
+    private async Task EnsureEditorReadyCoreAsync()
+    {
+        await EnsureEditorInitializedAsync();
+        await _editorReadyTask.Task;
+    }
+
+    private Task EnsureEditorInitializedAsync()
+    {
+        lock (_editorInitializationLock)
         {
-            _isEditorStrikethroughInternal = change.Value == "true";
-            IsEditorStrikethrough = _isEditorStrikethroughInternal;
-        }
-        else if (change.Type == "ol")
-        {
-            _isEditorOlInternal = change.Value == "true";
-            IsEditorOl = _isEditorOlInternal;
-        }
-        else if (change.Type == "ul")
-        {
-            _isEditorUlInternal = change.Value == "true";
-            IsEditorUl = _isEditorUlInternal;
-        }
-        else if (change.Type == "indent")
-        {
-            IsEditorIndentEnabled = change.Value != "disabled";
-        }
-        else if (change.Type == "outdent")
-        {
-            IsEditorOutdentEnabled = change.Value != "disabled";
-        }
-        else if (change.Type == "alignment")
-        {
-            var parsedValue = change.Value switch
-            {
-                "jodit-icon_left" => 0,
-                "jodit-icon_center" => 1,
-                "jodit-icon_right" => 2,
-                "jodit-icon_justify" => 3,
-                _ => 0
-            };
-            _editorAlignmentSelectedIndexInternal = parsedValue;
-            EditorAlignmentSelectedIndex = _editorAlignmentSelectedIndexInternal;
+            _editorInitializationTask ??= EnsureEditorInitializedCoreAsync();
+            return _editorInitializationTask;
         }
     }
 
-    private void DomLoaded(CoreWebView2 sender, CoreWebView2DOMContentLoadedEventArgs args) => _domLoadedTask.TrySetResult(true);
+    private async Task EnsureEditorInitializedCoreAsync()
+    {
+        if (_chromium == null || _disposedValue)
+        {
+            _editorReadyTask.TrySetResult(true);
+            return;
+        }
+
+        await _domLoadedTask.Task;
+
+        if (_chromium == null || _disposedValue)
+        {
+            _editorReadyTask.TrySetResult(true);
+            return;
+        }
+
+        var fonts = _fontService.GetFonts();
+        await _chromium.ExecuteScriptFunctionAsync(
+            "initializeJodit",
+            JsonSerializer.Serialize(fonts, BasicTypesJsonContext.Default.ListString),
+            JsonSerializer.Serialize(_preferencesService.ComposerFont, BasicTypesJsonContext.Default.String),
+            JsonSerializer.Serialize(_preferencesService.ComposerFontSize, BasicTypesJsonContext.Default.Int32),
+            JsonSerializer.Serialize(_preferencesService.ReaderFont, BasicTypesJsonContext.Default.String),
+            JsonSerializer.Serialize(_preferencesService.ReaderFontSize, BasicTypesJsonContext.Default.Int32));
+
+        UpdateCapabilities(BuildCapabilities(fonts));
+        _editorReadyTask.TrySetResult(true);
+
+        await UpdateEditorThemeAsync(force: true);
+        await ApplyBuiltInToolbarVisibilityAsync(force: true);
+        await RefreshStateAsync();
+    }
+
+    private async Task ExecuteEditorCommandAsync(string command)
+    {
+        if (_chromium != null)
+        {
+            await _chromium.ExecuteScriptFunctionSafeAsync("executeEditorCommand", JsonSerializer.Serialize(command, BasicTypesJsonContext.Default.String));
+        }
+    }
+
+    private async Task ApplyBuiltInToolbarVisibilityAsync(bool force = false)
+    {
+        if (_chromium == null)
+        {
+            return;
+        }
+
+        if (!_editorReadyTask.Task.IsCompleted)
+        {
+            return;
+        }
+
+        await _chromium.ExecuteScriptFunctionSafeAsync("toggleToolbar", JsonSerializer.Serialize(IsEditorWebViewEditor, BasicTypesJsonContext.Default.Boolean));
+        UpdateState(CurrentState with { IsBuiltInToolbarVisible = IsEditorWebViewEditor });
+    }
+
+    private async Task RefreshStateAsync()
+    {
+        if (_chromium == null || !_editorReadyTask.Task.IsCompleted)
+        {
+            return;
+        }
+
+        var stateResult = await _chromium.ExecuteScriptFunctionSafeAsync("getEditorState");
+        if (string.IsNullOrWhiteSpace(stateResult))
+        {
+            return;
+        }
+
+        var snapshot = DeserializeStateSnapshot(stateResult);
+        if (snapshot != null)
+        {
+            UpdateState(MapState(snapshot));
+        }
+    }
+
+    private void ChromiumInitialized(WebView2 sender, CoreWebView2InitializedEventArgs args)
+    {
+        if (args.Exception != null || _chromium?.CoreWebView2 == null)
+        {
+            return;
+        }
+
+        _ = ConfigureChromiumAsync();
+    }
+
+    private async Task ConfigureChromiumAsync()
+    {
+        if (_chromium?.CoreWebView2 == null)
+        {
+            return;
+        }
+
+        var editorBundlePath = (await _nativeAppService.GetEditorBundlePathAsync()).Replace("editor.html", string.Empty, StringComparison.OrdinalIgnoreCase);
+        _chromium.CoreWebView2.SetVirtualHostNameToFolderMapping("app.editor", editorBundlePath, CoreWebView2HostResourceAccessKind.Allow);
+        _chromium.CoreWebView2.DOMContentLoaded -= DomLoaded;
+        _chromium.CoreWebView2.DOMContentLoaded += DomLoaded;
+        _chromium.CoreWebView2.WebMessageReceived -= ScriptMessageReceived;
+        _chromium.CoreWebView2.WebMessageReceived += ScriptMessageReceived;
+        _chromium.Source = new Uri("https://app.editor/editor.html");
+    }
+
+    private void DomLoaded(CoreWebView2 sender, CoreWebView2DOMContentLoadedEventArgs args)
+    {
+        _domLoadedTask.TrySetResult(true);
+        _ = EnsureEditorInitializedAsync();
+    }
+
+    private void ScriptMessageReceived(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs args)
+    {
+        using var document = JsonDocument.Parse(args.WebMessageAsJson);
+        if (!document.RootElement.TryGetProperty("type", out var typeElement) ||
+            !string.Equals(typeElement.GetString(), "state", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (document.RootElement.TryGetProperty("state", out var stateElement))
+        {
+            var snapshot = DeserializeStateSnapshot(stateElement);
+            if (snapshot != null)
+            {
+                UpdateState(MapState(snapshot));
+            }
+        }
+    }
+
+    private EditorState MapState(EditorStateSnapshot snapshot)
+    {
+        return new EditorState
+        {
+            IsBold = snapshot.IsBold,
+            IsItalic = snapshot.IsItalic,
+            IsUnderline = snapshot.IsUnderline,
+            IsStrikethrough = snapshot.IsStrikethrough,
+            IsOrderedList = snapshot.IsOrderedList,
+            IsUnorderedList = snapshot.IsUnorderedList,
+            CanIndent = snapshot.CanIndent,
+            CanOutdent = snapshot.CanOutdent,
+            HasSelection = snapshot.HasSelection,
+            IsDarkMode = IsEditorDarkMode,
+            IsBuiltInToolbarVisible = IsEditorWebViewEditor,
+            IsSpellCheckEnabled = snapshot.IsSpellCheckEnabled,
+            Alignment = ParseAlignment(snapshot.Alignment),
+            FontFamily = string.IsNullOrWhiteSpace(snapshot.FontFamily) ? _preferencesService.ComposerFont : snapshot.FontFamily,
+            FontSize = snapshot.FontSize ?? _preferencesService.ComposerFontSize,
+            ParagraphStyle = string.IsNullOrWhiteSpace(snapshot.ParagraphStyle) ? "div" : snapshot.ParagraphStyle,
+            TextColor = snapshot.TextColor ?? string.Empty,
+            HighlightColor = snapshot.HighlightColor ?? string.Empty,
+            LineHeight = string.IsNullOrWhiteSpace(snapshot.LineHeight) ? "normal" : snapshot.LineHeight,
+            LinkUrl = snapshot.LinkUrl,
+            SelectedText = snapshot.SelectedText
+        };
+    }
+
+    private static EditorTextAlignment ParseAlignment(string? alignment)
+    {
+        return alignment?.ToLowerInvariant() switch
+        {
+            "center" => EditorTextAlignment.Center,
+            "right" => EditorTextAlignment.Right,
+            "justify" => EditorTextAlignment.Justify,
+            _ => EditorTextAlignment.Left
+        };
+    }
+
+    private static string SerializeLinkArgs(EditorLinkCommandArgs args)
+    {
+        var url = JsonSerializer.Serialize(args.Url, BasicTypesJsonContext.Default.String);
+        var text = JsonSerializer.Serialize(args.Text, BasicTypesJsonContext.Default.String);
+        var openInNewWindow = JsonSerializer.Serialize(args.OpenInNewWindow, BasicTypesJsonContext.Default.Boolean);
+        return $"{{\"url\":{url},\"text\":{text},\"openInNewWindow\":{openInNewWindow}}}";
+    }
+
+    private static string SerializeTableArgs(EditorTableCommandArgs args)
+    {
+        var rows = JsonSerializer.Serialize(args.Rows, BasicTypesJsonContext.Default.Int32);
+        var columns = JsonSerializer.Serialize(args.Columns, BasicTypesJsonContext.Default.Int32);
+        return $"{{\"rows\":{rows},\"columns\":{columns}}}";
+    }
+
+    private static EditorStateSnapshot? DeserializeStateSnapshot(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        return DeserializeStateSnapshot(document.RootElement);
+    }
+
+    private static EditorStateSnapshot? DeserializeStateSnapshot(JsonElement element)
+    {
+        if (element.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+        {
+            return null;
+        }
+
+        return new EditorStateSnapshot
+        {
+            IsBold = GetBoolean(element, "bold"),
+            IsItalic = GetBoolean(element, "italic"),
+            IsUnderline = GetBoolean(element, "underline"),
+            IsStrikethrough = GetBoolean(element, "strikethrough"),
+            IsOrderedList = GetBoolean(element, "orderedList"),
+            IsUnorderedList = GetBoolean(element, "unorderedList"),
+            CanIndent = GetBoolean(element, "canIndent", true),
+            CanOutdent = GetBoolean(element, "canOutdent"),
+            HasSelection = GetBoolean(element, "hasSelection"),
+            IsSpellCheckEnabled = GetBoolean(element, "isSpellCheckEnabled", true),
+            Alignment = GetString(element, "alignment"),
+            FontFamily = GetString(element, "fontFamily"),
+            FontSize = GetNullableInt32(element, "fontSize"),
+            ParagraphStyle = GetString(element, "paragraphStyle"),
+            TextColor = GetString(element, "textColor"),
+            HighlightColor = GetString(element, "highlightColor"),
+            LineHeight = GetString(element, "lineHeight"),
+            LinkUrl = GetString(element, "linkUrl"),
+            SelectedText = GetString(element, "selectedText")
+        };
+    }
+
+    private static bool GetBoolean(JsonElement element, string propertyName, bool defaultValue = false)
+    {
+        if (element.TryGetProperty(propertyName, out var valueElement) && valueElement.ValueKind is JsonValueKind.True or JsonValueKind.False)
+        {
+            return valueElement.GetBoolean();
+        }
+
+        return defaultValue;
+    }
+
+    private static int? GetNullableInt32(JsonElement element, string propertyName)
+    {
+        if (element.TryGetProperty(propertyName, out var valueElement) && valueElement.ValueKind == JsonValueKind.Number && valueElement.TryGetInt32(out var value))
+        {
+            return value;
+        }
+
+        return null;
+    }
+
+    private static string? GetString(JsonElement element, string propertyName)
+    {
+        if (element.TryGetProperty(propertyName, out var valueElement) && valueElement.ValueKind == JsonValueKind.String)
+        {
+            return valueElement.GetString();
+        }
+
+        return null;
+    }
+
+    private static EditorCapabilities BuildCapabilities(IReadOnlyList<string> fonts)
+    {
+        return new EditorCapabilities
+        {
+            Fonts = fonts,
+            FontSizes = DefaultFontSizes,
+            TextColors = DefaultTextColors,
+            HighlightColors = DefaultHighlightColors,
+            ParagraphStyles = DefaultParagraphStyles,
+            LineHeights = DefaultLineHeights,
+            Alignments = DefaultAlignments
+        };
+    }
+
+    private EditorState GetCurrentStateOrDefault()
+    {
+        return CurrentState ?? CreateDefaultState();
+    }
+
+    private EditorState CreateDefaultState()
+    {
+        return new EditorState
+        {
+            IsDarkMode = IsEditorDarkMode,
+            IsBuiltInToolbarVisible = IsEditorWebViewEditor,
+            IsSpellCheckEnabled = true,
+            FontFamily = _preferencesService.ComposerFont,
+            FontSize = _preferencesService.ComposerFontSize,
+            ParagraphStyle = "div",
+            TextColor = string.Empty,
+            HighlightColor = string.Empty,
+            LineHeight = "normal"
+        };
+    }
+
+    private void UpdateState(EditorState newState)
+    {
+        if (newState == CurrentState)
+        {
+            return;
+        }
+
+        CurrentState = newState;
+        StateChanged?.Invoke(this, CurrentState);
+    }
+
+    private void UpdateCapabilities(EditorCapabilities newCapabilities)
+    {
+        if (newCapabilities == Capabilities)
+        {
+            return;
+        }
+
+        Capabilities = newCapabilities;
+        CapabilitiesChanged?.Invoke(this, Capabilities);
+    }
+
+    private void DetachChromium(WebView2 chromium, bool closeWebView)
+    {
+        chromium.CoreWebView2Initialized -= ChromiumInitialized;
+
+        if (chromium.CoreWebView2 != null)
+        {
+            chromium.CoreWebView2.DOMContentLoaded -= DomLoaded;
+            chromium.CoreWebView2.WebMessageReceived -= ScriptMessageReceived;
+        }
+
+        if (closeWebView)
+        {
+            chromium.Close();
+        }
+    }
 
     private void Dispose(bool disposing)
     {
@@ -346,24 +697,95 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
         {
             if (disposing && _chromium != null)
             {
-                _chromium.CoreWebView2Initialized -= ChromiumInitialized;
-
-                if (_chromium.CoreWebView2 != null)
-                {
-                    _chromium.CoreWebView2.DOMContentLoaded -= DomLoaded;
-                    _chromium.CoreWebView2.WebMessageReceived -= ScriptMessageReceived;
-                }
-
-                _chromium.Close();
+                DetachChromium(_chromium, closeWebView: true);
+                _chromium = null;
             }
+
             _disposedValue = true;
         }
     }
 
     public void Dispose()
     {
-        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
+
+    private sealed class EditorWebMessage
+    {
+        [JsonPropertyName("type")]
+        public string? Type { get; set; }
+
+        [JsonPropertyName("state")]
+        public EditorStateSnapshot? State { get; set; }
+    }
+
+    private sealed class EditorStateSnapshot
+    {
+        [JsonPropertyName("bold")]
+        public bool IsBold { get; set; }
+
+        [JsonPropertyName("italic")]
+        public bool IsItalic { get; set; }
+
+        [JsonPropertyName("underline")]
+        public bool IsUnderline { get; set; }
+
+        [JsonPropertyName("strikethrough")]
+        public bool IsStrikethrough { get; set; }
+
+        [JsonPropertyName("orderedList")]
+        public bool IsOrderedList { get; set; }
+
+        [JsonPropertyName("unorderedList")]
+        public bool IsUnorderedList { get; set; }
+
+        [JsonPropertyName("canIndent")]
+        public bool CanIndent { get; set; }
+
+        [JsonPropertyName("canOutdent")]
+        public bool CanOutdent { get; set; }
+
+        [JsonPropertyName("hasSelection")]
+        public bool HasSelection { get; set; }
+
+        [JsonPropertyName("isSpellCheckEnabled")]
+        public bool IsSpellCheckEnabled { get; set; } = true;
+
+        [JsonPropertyName("alignment")]
+        public string? Alignment { get; set; }
+
+        [JsonPropertyName("fontFamily")]
+        public string? FontFamily { get; set; }
+
+        [JsonPropertyName("fontSize")]
+        public int? FontSize { get; set; }
+
+        [JsonPropertyName("paragraphStyle")]
+        public string? ParagraphStyle { get; set; }
+
+        [JsonPropertyName("textColor")]
+        public string? TextColor { get; set; }
+
+        [JsonPropertyName("highlightColor")]
+        public string? HighlightColor { get; set; }
+
+        [JsonPropertyName("lineHeight")]
+        public string? LineHeight { get; set; }
+
+        [JsonPropertyName("linkUrl")]
+        public string? LinkUrl { get; set; }
+
+        [JsonPropertyName("selectedText")]
+        public string? SelectedText { get; set; }
+    }
 }
+
+
+
+
+
+
+
+
+

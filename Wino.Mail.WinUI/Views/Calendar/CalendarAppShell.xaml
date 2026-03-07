@@ -272,14 +272,6 @@
                                 </muxc:Expander>
                             </DataTemplate>
                         </ListView.ItemTemplate>
-                        <ListView.Footer>
-                            <Button
-                                Margin="14,0"
-                                HorizontalAlignment="Stretch"
-                                VerticalAlignment="Bottom"
-                                Command="{x:Bind ViewModel.SyncCommand}"
-                                Content="Test Sync" />
-                        </ListView.Footer>
                     </ListView>
 
                     <!--  Menu Items  -->

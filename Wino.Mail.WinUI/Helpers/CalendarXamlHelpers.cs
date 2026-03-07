@@ -1,4 +1,5 @@
-﻿using System.Linq;
+using System;
+using System.Linq;
 using System.Text.RegularExpressions;
 using Ical.Net.CalendarComponents;
 using Ical.Net.DataTypes;
@@ -17,9 +18,6 @@ public static class CalendarXamlHelpers
     public static CalendarItemViewModel GetFirstAllDayEvent(CalendarEventCollection collection)
         => collection.AllDayEvents.OfType<CalendarItemViewModel>().FirstOrDefault()!;
 
-    /// <summary>
-    /// Returns full date + duration info in Event Details page details title.
-    /// </summary>
     public static string GetEventDetailsDateString(CalendarItemViewModel calendarItemViewModel, CalendarSettings settings)
     {
         if (calendarItemViewModel == null || settings == null) return string.Empty;
@@ -34,18 +32,17 @@ public static class CalendarXamlHelpers
         {
             return $"{start.ToString($"dd MMMM ddd {timeFormat}", settings.CultureInfo)} - {end.ToString($"dd MMMM ddd {timeFormat}", settings.CultureInfo)}";
         }
-        else
-        {
-            return $"{start.ToString(dateFormat, settings.CultureInfo)} - {end.ToString(timeFormat, settings.CultureInfo)}";
-        }
+
+        return $"{start.ToString(dateFormat, settings.CultureInfo)} - {end.ToString(timeFormat, settings.CultureInfo)}";
     }
 
-    public static string GetRecurrenceString(CalendarItemViewModel calendarItemViewModel)
+    public static string GetRecurrenceString(CalendarItemViewModel calendarItemViewModel, CalendarSettings settings)
     {
-        // TODO: This is incorrect. 
-        if (calendarItemViewModel == null || string.IsNullOrEmpty(calendarItemViewModel.CalendarItem.Recurrence)) return string.Empty;
+        if (calendarItemViewModel == null || string.IsNullOrEmpty(calendarItemViewModel.CalendarItem.Recurrence))
+        {
+            return string.Empty;
+        }
 
-        // Parse recurrence rules
         var calendarEvent = new CalendarEvent
         {
             Start = new CalDateTime(calendarItemViewModel.StartDate),
@@ -53,44 +50,50 @@ public static class CalendarXamlHelpers
         };
 
         var recurrenceLines = Regex.Split(calendarItemViewModel.CalendarItem.Recurrence, Constants.CalendarEventRecurrenceRuleSeperator);
-
-        foreach (var line in recurrenceLines)
+        foreach (var line in recurrenceLines.Where(line => !string.IsNullOrWhiteSpace(line)))
         {
             calendarEvent.RecurrenceRules.Add(new RecurrencePattern(line));
         }
 
-        if (calendarEvent.RecurrenceRules == null || !calendarEvent.RecurrenceRules.Any())
+        var recurrenceRule = calendarEvent.RecurrenceRules.FirstOrDefault();
+        if (recurrenceRule == null)
         {
-            return "No recurrence pattern.";
+            return string.Empty;
         }
 
-        var recurrenceRule = calendarEvent.RecurrenceRules.First();
-        var daysOfWeek = string.Join(", ", recurrenceRule.ByDay.Select(day => day.DayOfWeek.ToString()));
-        string timeZone = calendarEvent.DtStart.TzId ?? "UTC";
+        var frequency = MapFrequency(recurrenceRule.Frequency.ToString());
+        if (!frequency.HasValue)
+        {
+            return string.Empty;
+        }
 
-        return $"Every {daysOfWeek}, effective {calendarEvent.DtStart.Value.ToShortDateString()} " +
-               $"from {calendarEvent.DtStart.Value.ToShortTimeString()} to {calendarEvent.DtEnd.Value.ToShortTimeString()} " +
-               $"{timeZone}.";
+        return CalendarRecurrenceSummaryFormatter.BuildSummary(
+            isRecurring: true,
+            effectiveStart: calendarItemViewModel.Period.Start,
+            effectiveEnd: calendarItemViewModel.Period.End,
+            isAllDay: calendarItemViewModel.IsAllDayEvent,
+            settings: settings,
+            interval: recurrenceRule.Interval <= 0 ? 1 : recurrenceRule.Interval,
+            frequency: frequency.Value,
+            daysOfWeek: recurrenceRule.ByDay?.Select(day => day.DayOfWeek).ToList() ?? [],
+            recurrenceEndDate: recurrenceRule.Until == default ? null : new DateTimeOffset(recurrenceRule.Until));
     }
 
     public static string GetDetailsPopupDurationString(CalendarItemViewModel calendarItemViewModel, CalendarSettings settings)
     {
         if (calendarItemViewModel == null || settings == null) return string.Empty;
 
-        // Single event in a day.
         if (!calendarItemViewModel.IsAllDayEvent && !calendarItemViewModel.IsMultiDayEvent)
         {
             return $"{calendarItemViewModel.Period.Start.ToString("d", settings.CultureInfo)} {settings.GetTimeString(calendarItemViewModel.Period.Duration)}";
         }
-        else if (calendarItemViewModel.IsMultiDayEvent)
+
+        if (calendarItemViewModel.IsMultiDayEvent)
         {
             return $"{calendarItemViewModel.Period.Start.ToString("d", settings.CultureInfo)} - {calendarItemViewModel.Period.End.ToString("d", settings.CultureInfo)}";
         }
-        else
-        {
-            // All day event.
-            return $"{calendarItemViewModel.Period.Start.ToString("d", settings.CultureInfo)} ({Translator.CalendarItemAllDay})";
-        }
+
+        return $"{calendarItemViewModel.Period.Start.ToString("d", settings.CultureInfo)} ({Translator.CalendarItemAllDay})";
     }
 
     public static PopupPlacementMode GetDesiredPlacementModeForEventsDetailsPopup(
@@ -99,21 +102,14 @@ public static class CalendarXamlHelpers
     {
         if (calendarItemViewModel == null) return PopupPlacementMode.Auto;
 
-        // All and/or multi day events always go to the top of the screen.
         if (calendarItemViewModel.IsAllDayEvent || calendarItemViewModel.IsMultiDayEvent) return PopupPlacementMode.Bottom;
 
         return XamlHelpers.GetPlaccementModeForCalendarType(calendarDisplayType);
     }
 
-    /// <summary>
-    /// Returns true if the calendar item has an online meeting link.
-    /// </summary>
     public static bool HasOnlineMeetingLink(CalendarItemViewModel calendarItemViewModel)
         => calendarItemViewModel != null && !string.IsNullOrEmpty(calendarItemViewModel.CalendarItem?.HtmlLink);
 
-    /// <summary>
-    /// Returns the text representation of an attendee's status.
-    /// </summary>
     public static string GetAttendeeStatusText(AttendeeStatus status)
     {
         return status switch
@@ -126,13 +122,21 @@ public static class CalendarXamlHelpers
         };
     }
 
-    /// <summary>
-    /// Returns visibility for attendee status badge.
-    /// Always shows status for all attendees.
-    /// </summary>
     public static Microsoft.UI.Xaml.Visibility GetAttendeeStatusVisibility(AttendeeStatus status)
     {
-        // Always show status
         return Microsoft.UI.Xaml.Visibility.Visible;
     }
+
+    private static CalendarItemRecurrenceFrequency? MapFrequency(string frequency)
+    {
+        return frequency.ToUpperInvariant() switch
+        {
+            "DAILY" => CalendarItemRecurrenceFrequency.Daily,
+            "WEEKLY" => CalendarItemRecurrenceFrequency.Weekly,
+            "MONTHLY" => CalendarItemRecurrenceFrequency.Monthly,
+            "YEARLY" => CalendarItemRecurrenceFrequency.Yearly,
+            _ => null
+        };
+    }
 }
+

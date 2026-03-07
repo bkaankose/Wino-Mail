@@ -187,6 +187,9 @@ public class NavigationService : NavigationServiceBase, INavigationService
 
         // Update the application mode in state persistence service
         _statePersistanceService.ApplicationMode = mode;
+        _statePersistanceService.CoreWindowTitle = mode == WinoApplicationMode.Calendar
+            ? "Wino Calendar"
+            : "Wino Mail";
 
         var targetPageType = mode == WinoApplicationMode.Mail ? typeof(MailAppShell) : typeof(CalendarAppShell);
         var currentPageType = coreFrame.Content?.GetType();

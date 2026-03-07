@@ -59,7 +59,7 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                    <controls:ImagePreviewControl PreviewContact="{x:Bind}" />
+                <controls:ImagePreviewControl PreviewContact="{x:Bind}" />
                 <TextBlock Grid.Column="1">
                     <Run FontWeight="SemiBold" Text="{x:Bind Name}" /><LineBreak /><Run Text="{x:Bind Address}" />
                 </TextBlock>
@@ -173,13 +173,8 @@
                 </Grid.RowDefinitions>
 
                 <!--  Format  -->
-                <toolkit:TabbedCommandBar>
-                    <toolkit:TabbedCommandBar.Resources>
-                        <SolidColorBrush x:Key="TabContentContentBorderBackground" Color="Transparent" />
-                        <SolidColorBrush x:Key="TabContentContentBorderBorderBrush" Color="Transparent" />
-                        <Thickness x:Key="TabContentBorderBorderThickness">0</Thickness>
-                    </toolkit:TabbedCommandBar.Resources>
-                    <toolkit:TabbedCommandBar.PaneCustomContent>
+                <controls1:EditorTabbedCommandBarControl CommandTarget="{x:Bind WebViewEditor}">
+                    <controls1:EditorTabbedCommandBarControl.PaneCustomContent>
                         <toolkit:TabbedCommandBarItem
                             CommandAlignment="Right"
                             IsDynamicOverflowEnabled="True"
@@ -192,35 +187,20 @@
                                 <ProgressRing IsActive="True" />
                             </AppBarButton>
 
-                            <AppBarButton
-                                Width="Auto"
-                                MinWidth="40"
-                                Click="{x:Bind WebViewEditor.ToggleEditorTheme}"
-                                LabelPosition="Collapsed"
-                                ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_LightTheme}"
-                                Visibility="{x:Bind WebViewEditor.IsEditorDarkMode, Mode=OneWay}">
-                                <AppBarButton.Icon>
-                                    <coreControls:WinoFontIcon Icon="LightEditor" />
-                                </AppBarButton.Icon>
-                            </AppBarButton>
-
-                            <AppBarButton
-                                Width="Auto"
-                                MinWidth="40"
-                                Click="{x:Bind WebViewEditor.ToggleEditorTheme}"
-                                LabelPosition="Collapsed"
-                                ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_DarkTheme}"
-                                Visibility="{x:Bind WebViewEditor.IsEditorDarkMode, Mode=OneWay, Converter={StaticResource ReverseBooleanToVisibilityConverter}}">
-                                <AppBarButton.Icon>
-                                    <coreControls:WinoFontIcon Icon="DarkEditor" />
-                                </AppBarButton.Icon>
-                            </AppBarButton>
-
                             <AppBarButton Command="{x:Bind ViewModel.DiscardCommand}" Label="{x:Bind domain:Translator.Buttons_Discard}">
                                 <AppBarButton.Icon>
                                     <coreControls:WinoFontIcon Icon="Delete" />
                                 </AppBarButton.Icon>
                             </AppBarButton>
+                                                        <AppBarToggleButton
+                                x:Name="EditorThemeToggleButton"
+                                IsChecked="{x:Bind WebViewEditor.IsEditorDarkMode, Mode=TwoWay}"
+                                Label=""
+                                ToolTipService.ToolTip="Toggle editor dark mode">
+                                <AppBarToggleButton.Icon>
+                                    <coreControls:WinoFontIcon Icon="DarkEditor" />
+                                </AppBarToggleButton.Icon>
+                            </AppBarToggleButton>
                             <AppBarButton
                                 Command="{x:Bind ViewModel.SendCommand}"
                                 Label="{x:Bind domain:Translator.Buttons_Send}"
@@ -239,161 +219,10 @@
                                 </AppBarButton.Icon>
                             </AppBarButton>
                         </toolkit:TabbedCommandBarItem>
-                    </toolkit:TabbedCommandBar.PaneCustomContent>
-                    <toolkit:TabbedCommandBar.MenuItems>
-                        <toolkit:TabbedCommandBarItem DefaultLabelPosition="Collapsed" Header="{x:Bind domain:Translator.EditorToolbarOption_Format}">
-                            <AppBarToggleButton
-                                Width="Auto"
-                                MinWidth="40"
-                                IsChecked="{x:Bind WebViewEditor.IsEditorBold, Mode=TwoWay}"
-                                Label="{x:Bind domain:Translator.Composer_Bold}">
-                                <AppBarToggleButton.Icon>
-                                    <PathIcon Data="{StaticResource BoldPathIcon}" />
-                                </AppBarToggleButton.Icon>
-                            </AppBarToggleButton>
-                            <AppBarToggleButton
-                                Width="Auto"
-                                MinWidth="40"
-                                IsChecked="{x:Bind WebViewEditor.IsEditorItalic, Mode=TwoWay}"
-                                Label="{x:Bind domain:Translator.Composer_Italic}">
-                                <AppBarToggleButton.Icon>
-                                    <PathIcon Data="{StaticResource ItalicPathIcon}" />
-                                </AppBarToggleButton.Icon>
-                            </AppBarToggleButton>
-                            <AppBarToggleButton
-                                Width="Auto"
-                                MinWidth="40"
-                                IsChecked="{x:Bind WebViewEditor.IsEditorUnderline, Mode=TwoWay}"
-                                Label="{x:Bind domain:Translator.Composer_Underline}">
-                                <AppBarToggleButton.Icon>
-                                    <PathIcon Data="{StaticResource UnderlinePathIcon}" />
-                                </AppBarToggleButton.Icon>
-                            </AppBarToggleButton>
-                            <AppBarToggleButton
-                                Width="Auto"
-                                MinWidth="40"
-                                IsChecked="{x:Bind WebViewEditor.IsEditorStrikethrough, Mode=TwoWay}"
-                                Label="{x:Bind domain:Translator.Composer_Stroke}">
-                                <AppBarToggleButton.Icon>
-                                    <PathIcon Data="{StaticResource StrikePathIcon}" />
-                                </AppBarToggleButton.Icon>
-                            </AppBarToggleButton>
+                    </controls1:EditorTabbedCommandBarControl.PaneCustomContent>
 
-                            <AppBarSeparator />
-
-                            <AppBarToggleButton
-                                Width="Auto"
-                                MinWidth="40"
-                                IsChecked="{x:Bind WebViewEditor.IsEditorUl, Mode=TwoWay}"
-                                Label="{x:Bind domain:Translator.Composer_BulletList}">
-                                <AppBarToggleButton.Icon>
-                                    <PathIcon Data="{StaticResource BulletedListPathIcon}" />
-                                </AppBarToggleButton.Icon>
-                            </AppBarToggleButton>
-
-                            <AppBarToggleButton
-                                Width="Auto"
-                                MinWidth="40"
-                                IsChecked="{x:Bind WebViewEditor.IsEditorOl, Mode=TwoWay}"
-                                Label="{x:Bind domain:Translator.Composer_OrderedList}">
-                                <AppBarToggleButton.Icon>
-                                    <PathIcon Data="{StaticResource OrderedListPathIcon}" />
-                                </AppBarToggleButton.Icon>
-                            </AppBarToggleButton>
-
-                            <AppBarSeparator />
-
-                            <AppBarButton
-                                Width="Auto"
-                                MinWidth="40"
-                                Click="{x:Bind WebViewEditor.EditorOutdentAsync}"
-                                IsEnabled="{x:Bind WebViewEditor.IsEditorOutdentEnabled, Mode=OneWay}"
-                                Label="{x:Bind domain:Translator.Composer_Outdent}">
-                                <AppBarButton.Content>
-                                    <Viewbox Width="16">
-                                        <PathIcon Data="{StaticResource DecreaseIndentPathIcon}" />
-                                    </Viewbox>
-                                </AppBarButton.Content>
-                            </AppBarButton>
-
-                            <AppBarButton
-                                Width="Auto"
-                                MinWidth="40"
-                                Click="{x:Bind WebViewEditor.EditorIndentAsync}"
-                                IsEnabled="{x:Bind WebViewEditor.IsEditorIndentEnabled, Mode=OneWay}"
-                                Label="{x:Bind domain:Translator.Composer_Indent}">
-                                <AppBarButton.Content>
-                                    <Viewbox Width="16">
-                                        <PathIcon Data="{StaticResource IncreaseIndentPathIcon}" />
-                                    </Viewbox>
-                                </AppBarButton.Content>
-                            </AppBarButton>
-
-                            <AppBarElementContainer
-                                Width="Auto"
-                                MinWidth="40"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center">
-                                <ComboBox
-                                    x:Name="AlignmentListView"
-                                    VerticalAlignment="Center"
-                                    Background="Transparent"
-                                    BorderBrush="Transparent"
-                                    SelectedIndex="{x:Bind WebViewEditor.EditorAlignmentSelectedIndex, Mode=TwoWay}">
-                                    <ComboBoxItem IsSelected="True" Tag="left">
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <Viewbox Width="16">
-                                                <PathIcon Data="{StaticResource AlignLeftPathIcon}" />
-                                            </Viewbox>
-                                            <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Left}" />
-                                        </StackPanel>
-                                    </ComboBoxItem>
-
-                                    <ComboBoxItem Tag="center">
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <Viewbox Width="16">
-                                                <PathIcon Data="{StaticResource AlignCenterPathIcon}" />
-                                            </Viewbox>
-                                            <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Center}" />
-                                        </StackPanel>
-                                    </ComboBoxItem>
-
-                                    <ComboBoxItem Tag="right">
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <Viewbox Width="16">
-                                                <PathIcon Data="{StaticResource AlignRightPathIcon}" />
-                                            </Viewbox>
-                                            <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Right}" />
-                                        </StackPanel>
-                                    </ComboBoxItem>
-
-                                    <ComboBoxItem Tag="justify">
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <Viewbox Width="16">
-                                                <PathIcon Data="{StaticResource AlignJustifyPathIcon}" />
-                                            </Viewbox>
-                                            <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Justify}" />
-                                        </StackPanel>
-                                    </ComboBoxItem>
-                                </ComboBox>
-                            </AppBarElementContainer>
-
-                            <AppBarSeparator />
-
-                            <AppBarToggleButton
-                                Width="Auto"
-                                MinWidth="40"
-                                IsChecked="{x:Bind WebViewEditor.IsEditorWebViewEditor, Mode=TwoWay}"
-                                Label="{x:Bind domain:Translator.EditorTooltip_WebViewEditor}"
-                                ToolTipService.ToolTip="{x:Bind domain:Translator.EditorTooltip_WebViewEditor}">
-                                <AppBarToggleButton.Icon>
-                                    <PathIcon Data="{StaticResource WebviewToolBarPathIcon}" />
-                                </AppBarToggleButton.Icon>
-                            </AppBarToggleButton>
-                        </toolkit:TabbedCommandBarItem>
-
-                        <!--  Insert  -->
-                        <toolkit:TabbedCommandBarItem Header="{x:Bind domain:Translator.EditorToolbarOption_Insert}">
+                    <controls1:EditorTabbedCommandBarControl.InsertCustomContent>
+                        <StackPanel Orientation="Horizontal">
                             <AppBarButton
                                 x:Name="FilesButton"
                                 Command="{x:Bind ViewModel.AttachFilesCommand}"
@@ -402,113 +231,98 @@
                                     <PathIcon Data="{StaticResource AttachPathIcon}" />
                                 </AppBarButton.Icon>
                             </AppBarButton>
+                        </StackPanel>
+                    </controls1:EditorTabbedCommandBarControl.InsertCustomContent>
 
-                            <AppBarButton Click="{x:Bind WebViewEditor.ShowImagePicker}" Label="{x:Bind domain:Translator.Photos}">
-                                <AppBarButton.Icon>
-                                    <PathIcon Data="{StaticResource AddPhotoPathIcon}" />
-                                </AppBarButton.Icon>
-                            </AppBarButton>
-
-                            <AppBarButton Click="{x:Bind WebViewEditor.ShowEmojiPicker}" Label="{x:Bind domain:Translator.Emoji}">
-                                <AppBarButton.Icon>
-                                    <PathIcon Data="{StaticResource EmojiPathIcon}" />
-                                </AppBarButton.Icon>
-                            </AppBarButton>
-                        </toolkit:TabbedCommandBarItem>
-
-                        <!--  Options  -->
-                        <toolkit:TabbedCommandBarItem Header="{x:Bind domain:Translator.EditorToolbarOption_Options}">
-                            <AppBarElementContainer>
-                                <ToggleSplitButton x:Name="ImportanceSplitButton" IsChecked="{x:Bind ViewModel.IsImportanceSelected, Mode=TwoWay}">
+                    <controls1:EditorTabbedCommandBarControl.OptionsCustomContent>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ToggleSplitButton x:Name="ImportanceSplitButton" IsChecked="{x:Bind ViewModel.IsImportanceSelected, Mode=TwoWay}">
+                                <ToggleSplitButton.Content>
                                     <Viewbox Width="16" Height="16">
                                         <SymbolIcon x:Name="ImportanceSplitButtonContent" Symbol="Important" />
                                     </Viewbox>
-                                    <ToggleSplitButton.Flyout>
-                                        <Flyout x:Name="ImportanceFlyout" Placement="Bottom">
-                                            <StackPanel Orientation="Horizontal">
-                                                <StackPanel.Resources>
-                                                    <Style TargetType="Button">
-                                                        <Setter Property="Padding" Value="4" />
-                                                        <Setter Property="MinWidth" Value="0" />
-                                                        <Setter Property="MinHeight" Value="0" />
-                                                        <Setter Property="Margin" Value="6" />
-                                                        <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
-                                                    </Style>
-                                                </StackPanel.Resources>
-                                                <Button Click="ImportanceClicked">
-                                                    <Button.Tag>
-                                                        <mailkit:MessageImportance>High</mailkit:MessageImportance>
-                                                    </Button.Tag>
-                                                    <SymbolIcon Symbol="Important" />
-                                                </Button>
-                                                <Button Click="ImportanceClicked">
-                                                    <Button.Tag>
-                                                        <mailkit:MessageImportance>Low</mailkit:MessageImportance>
-                                                    </Button.Tag>
-                                                    <SymbolIcon Symbol="Priority" />
-                                                </Button>
-                                            </StackPanel>
-                                        </Flyout>
-                                    </ToggleSplitButton.Flyout>
-                                </ToggleSplitButton>
-                            </AppBarElementContainer>
-                            <AppBarElementContainer>
-                                <muxc:ToggleSplitButton
-                                    x:Name="SignatureToggleButton"
-                                    Margin="8,0,0,0"
-                                    IsChecked="{x:Bind ViewModel.IsSmimeSignatureEnabled, Mode=TwoWay}"
-                                    IsEnabled="{x:Bind ViewModel.AreCertificatesAvailable, Mode=OneWay}"
-                                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_EnableSmimeSignature}">
-                                    <muxc:ToggleSplitButton.Content>
-                                        <Viewbox
-                                            Width="16"
-                                            Height="16"
-                                            Margin="0,0,4,0">
-                                            <PathIcon Data="M15 18c.835.629 1.875 1.001 3 1.001a4.978 4.978 0 0 0 3-.999v3.246a.75.75 0 0 1-1.09.67l-.09-.055L18 20.591l-1.82 1.272a.75.75 0 0 1-1.172-.51l-.007-.105L15 18.001Zm4.25-14.996a2.75 2.75 0 0 1 2.745 2.582l.005.168.001 5.246a5.027 5.027 0 0 0-1.5-1.331L20.5 5.754a1.25 1.25 0 0 0-1.122-1.244l-.128-.006H4.75a1.25 1.25 0 0 0-1.244 1.122l-.006.128v9.5c0 .647.492 1.18 1.122 1.243l.128.007h8.92c.1.172.21.338.33.496v1.004H4.75a2.75 2.75 0 0 1-2.745-2.583L2 15.254v-9.5a2.75 2.75 0 0 1 2.582-2.745l.168-.005h14.5ZM18 10A4 4 0 1 1 18 18 4 4 0 0 1 18 10Zm-6.75 2.5a.75.75 0 0 1 .102 1.493L11.25 14h-4.5a.75.75 0 0 1-.102-1.493l.102-.007h4.5Zm6-5.5a.75.75 0 0 1 .102 1.493l-.102.007H6.75a.75.75 0 0 1-.102-1.493L6.75 7h10.5Z" />
-                                        </Viewbox>
-                                    </muxc:ToggleSplitButton.Content>
-                                    <muxc:ToggleSplitButton.Flyout>
-                                        <Flyout Placement="Bottom">
-                                            <ListView
-                                                Width="320"
-                                                ItemsSource="{x:Bind ViewModel.AvailableCertificates, Mode=OneWay}"
-                                                SelectedItem="{x:Bind ViewModel.SelectedSigningCertificate, Mode=TwoWay}">
-                                                <ListView.ItemTemplate>
-                                                    <DataTemplate xmlns:x509="using:System.Security.Cryptography.X509Certificates" x:DataType="x509:X509Certificate2">
-                                                        <StackPanel Padding="8,4" Orientation="Vertical">
-                                                            <TextBlock FontWeight="SemiBold" Text="{x:Bind Subject}" />
-                                                            <TextBlock FontSize="12" Text="{x:Bind Issuer}" />
-                                                            <TextBlock>
-                                                                <Run Text="{x:Bind domain:Translator.Composer_CertificateExpires, Mode=OneTime}" />
-                                                                <Run Text="{x:Bind NotAfter, Mode=OneTime}" />
-                                                            </TextBlock>
-                                                        </StackPanel>
-                                                    </DataTemplate>
-                                                </ListView.ItemTemplate>
-                                            </ListView>
-                                        </Flyout>
-                                    </muxc:ToggleSplitButton.Flyout>
-                                </muxc:ToggleSplitButton>
-                            </AppBarElementContainer>
-                            <AppBarElementContainer>
-                                <ToggleButton
-                                    x:Name="EncryptionToggleButton"
-                                    Margin="8,0,0,0"
-                                    IsChecked="{x:Bind ViewModel.IsSmimeEncryptionEnabled, Mode=TwoWay}"
-                                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_EnableSmimeEncryption}">
-                                    <ToggleButton.Content>
-                                        <Viewbox
-                                            Width="16"
-                                            Height="16"
-                                            Margin="0,0,4,0">
-                                            <PathIcon Data="M12 2a4 4 0 0 1 4 4v2h1.75A2.25 2.25 0 0 1 20 10.25v9.5A2.25 2.25 0 0 1 17.75 22H6.25A2.25 2.25 0 0 1 4 19.75v-9.5A2.25 2.25 0 0 1 6.25 8H8V6a4 4 0 0 1 4-4Zm5.75 7.5H6.25a.75.75 0 0 0-.75.75v9.5c0 .414.336.75.75.75h11.5a.75.75 0 0 0 .75-.75v-9.5a.75.75 0 0 0-.75-.75Zm-5.75 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0-10A2.5 2.5 0 0 0 9.5 6v2h5V6A2.5 2.5 0 0 0 12 3.5Z" />
-                                        </Viewbox>
-                                    </ToggleButton.Content>
-                                </ToggleButton>
-                            </AppBarElementContainer>
-                        </toolkit:TabbedCommandBarItem>
-                    </toolkit:TabbedCommandBar.MenuItems>
-                </toolkit:TabbedCommandBar>
+                                </ToggleSplitButton.Content>
+                                <ToggleSplitButton.Flyout>
+                                    <Flyout x:Name="ImportanceFlyout" Placement="Bottom">
+                                        <StackPanel Orientation="Horizontal">
+                                            <StackPanel.Resources>
+                                                <Style TargetType="Button">
+                                                    <Setter Property="Padding" Value="4" />
+                                                    <Setter Property="MinWidth" Value="0" />
+                                                    <Setter Property="MinHeight" Value="0" />
+                                                    <Setter Property="Margin" Value="6" />
+                                                    <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
+                                                </Style>
+                                            </StackPanel.Resources>
+                                            <Button Click="ImportanceClicked">
+                                                <Button.Tag>
+                                                    <mailkit:MessageImportance>High</mailkit:MessageImportance>
+                                                </Button.Tag>
+                                                <SymbolIcon Symbol="Important" />
+                                            </Button>
+                                            <Button Click="ImportanceClicked">
+                                                <Button.Tag>
+                                                    <mailkit:MessageImportance>Low</mailkit:MessageImportance>
+                                                </Button.Tag>
+                                                <SymbolIcon Symbol="Priority" />
+                                            </Button>
+                                        </StackPanel>
+                                    </Flyout>
+                                </ToggleSplitButton.Flyout>
+                            </ToggleSplitButton>
+                            <muxc:ToggleSplitButton
+                                x:Name="SignatureToggleButton"
+                                Margin="8,0,0,0"
+                                IsChecked="{x:Bind ViewModel.IsSmimeSignatureEnabled, Mode=TwoWay}"
+                                IsEnabled="{x:Bind ViewModel.AreCertificatesAvailable, Mode=OneWay}"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_EnableSmimeSignature}">
+                                <muxc:ToggleSplitButton.Content>
+                                    <Viewbox
+                                        Width="16"
+                                        Height="16"
+                                        Margin="0,0,4,0">
+                                        <PathIcon Data="M15 18c.835.629 1.875 1.001 3 1.001a4.978 4.978 0 0 0 3-.999v3.246a.75.75 0 0 1-1.09.67l-.09-.055L18 20.591l-1.82 1.272a.75.75 0 0 1-1.172-.51l-.007-.105L15 18.001Zm4.25-14.996a2.75 2.75 0 0 1 2.745 2.582l.005.168.001 5.246a5.027 5.027 0 0 0-1.5-1.331L20.5 5.754a1.25 1.25 0 0 0-1.122-1.244l-.128-.006H4.75a1.25 1.25 0 0 0-1.244 1.122l-.006.128v9.5c0 .647.492 1.18 1.122 1.243l.128.007h8.92c.1.172.21.338.33.496v1.004H4.75a2.75 2.75 0 0 1-2.745-2.583L2 15.254v-9.5a2.75 2.75 0 0 1 2.582-2.745l.168-.005h14.5ZM18 10A4 4 0 1 1 18 18 4 4 0 0 1 18 10Zm-6.75 2.5a.75.75 0 0 1 .102 1.493L11.25 14h-4.5a.75.75 0 0 1-.102-1.493l.102-.007h4.5Zm6-5.5a.75.75 0 0 1 .102 1.493l-.102.007H6.75a.75.75 0 0 1-.102-1.493L6.75 7h10.5Z" />
+                                    </Viewbox>
+                                </muxc:ToggleSplitButton.Content>
+                                <muxc:ToggleSplitButton.Flyout>
+                                    <Flyout Placement="Bottom">
+                                        <ListView
+                                            Width="320"
+                                            ItemsSource="{x:Bind ViewModel.AvailableCertificates, Mode=OneWay}"
+                                            SelectedItem="{x:Bind ViewModel.SelectedSigningCertificate, Mode=TwoWay}">
+                                            <ListView.ItemTemplate>
+                                                <DataTemplate xmlns:x509="using:System.Security.Cryptography.X509Certificates" x:DataType="x509:X509Certificate2">
+                                                    <StackPanel Padding="8,4" Orientation="Vertical">
+                                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind Subject}" />
+                                                        <TextBlock FontSize="12" Text="{x:Bind Issuer}" />
+                                                        <TextBlock>
+                                                            <Run Text="{x:Bind domain:Translator.Composer_CertificateExpires, Mode=OneTime}" />
+                                                            <Run Text="{x:Bind NotAfter, Mode=OneTime}" />
+                                                        </TextBlock>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ListView.ItemTemplate>
+                                        </ListView>
+                                    </Flyout>
+                                </muxc:ToggleSplitButton.Flyout>
+                            </muxc:ToggleSplitButton>
+                            <ToggleButton
+                                x:Name="EncryptionToggleButton"
+                                Margin="8,0,0,0"
+                                IsChecked="{x:Bind ViewModel.IsSmimeEncryptionEnabled, Mode=TwoWay}"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_EnableSmimeEncryption}">
+                                <ToggleButton.Content>
+                                    <Viewbox
+                                        Width="16"
+                                        Height="16"
+                                        Margin="0,0,4,0">
+                                        <PathIcon Data="M12 2a4 4 0 0 1 4 4v2h1.75A2.25 2.25 0 0 1 20 10.25v9.5A2.25 2.25 0 0 1 17.75 22H6.25A2.25 2.25 0 0 1 4 19.75v-9.5A2.25 2.25 0 0 1 6.25 8H8V6a4 4 0 0 1 4-4Zm5.75 7.5H6.25a.75.75 0 0 0-.75.75v9.5c0 .414.336.75.75.75h11.5a.75.75 0 0 0 .75-.75v-9.5a.75.75 0 0 0-.75-.75Zm-5.75 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0-10A2.5 2.5 0 0 0 9.5 6v2h5V6A2.5 2.5 0 0 0 12 3.5Z" />
+                                    </Viewbox>
+                                </ToggleButton.Content>
+                            </ToggleButton>
+                        </StackPanel>
+                    </controls1:EditorTabbedCommandBarControl.OptionsCustomContent>
+                </controls1:EditorTabbedCommandBarControl>
 
                 <!--  Mime Info  -->
                 <Grid
@@ -779,3 +593,5 @@
 
 
 </abstract:ComposePageAbstract>
+
+

@@ -57,17 +57,6 @@
             </selectors:RsvpStatusIconTemplateSelector.CancelledTemplate>
         </selectors:RsvpStatusIconTemplateSelector>
 
-        <Style
-            x:Key="TransparentActionButtonStyle"
-            BasedOn="{StaticResource DefaultButtonStyle}"
-            TargetType="Button">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="12,8" />
-            <Setter Property="MinWidth" Value="0" />
-            <Setter Property="MinHeight" Value="0" />
-        </Style>
-
         <Style x:Key="ActionBarElementContainerStackStyle" TargetType="StackPanel">
             <Setter Property="Spacing" Value="6" />
             <Setter Property="Padding" Value="10,0,4,0" />
@@ -407,7 +396,7 @@
                             <TextBlock
                                 Grid.Column="1"
                                 VerticalAlignment="Center"
-                                Text="{x:Bind calendarHelpers:CalendarXamlHelpers.GetRecurrenceString(ViewModel.CurrentEvent), Mode=OneWay}"
+                                Text="{x:Bind calendarHelpers:CalendarXamlHelpers.GetRecurrenceString(ViewModel.CurrentEvent, ViewModel.CurrentSettings), Mode=OneWay}"
                                 TextWrapping="Wrap" />
                         </Grid>
 
@@ -670,3 +659,4 @@
         </VisualStateManager.VisualStateGroups>
     </Grid>
 </abstract:EventDetailsPageAbstract>
+

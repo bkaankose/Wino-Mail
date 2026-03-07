@@ -93,10 +93,11 @@ private string searchQuery = string.Empty;
 
 ## Localization
 
-1. Add English strings ONLY to `Wino.Core.Domain/Translations/en_US/resources.json`
+1. Add English strings ONLY to Wino.Core.Domain/Translations/en_US/resources.json
 2. Build project - source generators create Translator properties
-3. Use `Translator.{PropertyName}` in code/XAML
-4. **NEVER** edit other language files - Crowdin manages translations
+3. Use Translator.{PropertyName} in code/XAML
+4. NEVER edit any resources.json file outside Wino.Core.Domain/Translations/en_US/resources.json
+5. Treat all non-en_US translation files as managed externally and leave them untouched, even when adding new localization keys
 
 ## Storage
 
@@ -131,5 +132,6 @@ private string searchQuery = string.Empty;
 - Log errors via IWinoLogger
 - In ViewModels, update all UI-bound properties/collections via `ExecuteUIThread(...)` (especially after awaited calls and any use of `ConfigureAwait(false)`).
 - In `EventDetailsPageViewModel.LoadAttendeesAsync`, never mutate `CurrentEvent.Attendees` outside `ExecuteUIThread(...)`.
+
 
 
