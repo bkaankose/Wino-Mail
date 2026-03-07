@@ -227,6 +227,16 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// </summary>
     int DefaultSnoozeDurationInMinutes { get; set; }
 
+    /// <summary>
+    /// Setting: How the New Event button chooses a calendar.
+    /// </summary>
+    NewEventButtonBehavior NewEventButtonBehavior { get; set; }
+
+    /// <summary>
+    /// Setting: Default calendar used when New Event is configured to always use a specific calendar.
+    /// </summary>
+    Guid? DefaultNewEventCalendarId { get; set; }
+
     CalendarSettings GetCurrentCalendarSettings();
 
     #endregion

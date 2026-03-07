@@ -137,6 +137,14 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
         }
     }
 
+    private void ComposeCalendarClicked(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is AccountCalendarViewModel calendar)
+        {
+            ViewModel.SelectedCalendar = calendar;
+        }
+    }
+
     public void Receive(ApplicationThemeChanged message)
     {
         ViewModel.IsDarkWebviewRenderer = message.IsUnderlyingThemeDark;

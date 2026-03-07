@@ -1,20 +1,17 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using CommunityToolkit.Mvvm.Messaging;
+using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Translations;
 using Wino.Core.ViewModels;
-using Wino.Messaging.Client.Calendar;
-using Wino.Messaging.Client.Navigation;
 
 namespace Wino.Calendar.ViewModels;
 
@@ -56,12 +53,21 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
     [ObservableProperty]
     public partial int SelectedDefaultSnoozeIndex { get; set; }
 
+    public ObservableCollection<MailAccount> Accounts { get; } = [];
+    public ObservableCollection<CalendarNewEventBehaviorOption> NewEventBehaviorOptions { get; } = [];
+    public ObservableCollection<AccountCalendarViewModel> AvailableNewEventCalendars { get; } = [];
+
+    [ObservableProperty]
+    public partial CalendarNewEventBehaviorOption SelectedNewEventBehaviorOption { get; set; }
+
+    [ObservableProperty]
+    public partial AccountCalendarViewModel SelectedNewEventCalendar { get; set; }
+
+    public bool ShouldShowSpecificNewEventCalendar => SelectedNewEventBehaviorOption?.Behavior == NewEventButtonBehavior.AlwaysUseSpecificCalendar;
+
     public IPreferencesService PreferencesService { get; }
     private readonly ICalendarService _calendarService;
     private readonly IAccountService _accountService;
-
-    public ObservableCollection<MailAccount> Accounts { get; } = new ObservableCollection<MailAccount>();
-
     private readonly bool _isLoaded = false;
 
     public CalendarSettingsPageViewModel(IPreferencesService preferencesService, ICalendarService calendarService, IAccountService accountService)
@@ -71,10 +77,8 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
         _accountService = accountService;
 
         var currentLanguageLanguageCode = WinoTranslationDictionary.GetLanguageFileNameRelativePath(preferencesService.CurrentLanguage);
-
         var cultureInfo = new CultureInfo(currentLanguageLanguageCode);
 
-        // Populate the day names list
         for (var i = 0; i < 7; i++)
         {
             DayNames.Add(cultureInfo.DateTimeFormat.DayNames[i]);
@@ -89,7 +93,6 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
         WorkingDayStartIndex = DayNames.IndexOf(cultureInfo.DateTimeFormat.GetDayName(preferencesService.WorkingDayStart));
         WorkingDayEndIndex = DayNames.IndexOf(cultureInfo.DateTimeFormat.GetDayName(preferencesService.WorkingDayEnd));
 
-        // Initialize reminder options
         var predefinedMinutes = _calendarService.GetPredefinedReminderMinutes();
         ReminderOptions.Add("None");
         foreach (var minutes in predefinedMinutes)
@@ -102,10 +105,9 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
             ReminderOptions.Add(displayText);
         }
 
-        // Set selected index based on current default reminder setting
         if (preferencesService.DefaultReminderDurationInSeconds == 0)
         {
-            SelectedDefaultReminderIndex = 0; // None
+            SelectedDefaultReminderIndex = 0;
         }
         else
         {
@@ -123,35 +125,47 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
         var selectedSnoozeIndex = Array.IndexOf(supportedSnoozeMinutes, preferencesService.DefaultSnoozeDurationInMinutes);
         SelectedDefaultSnoozeIndex = selectedSnoozeIndex >= 0 ? selectedSnoozeIndex : 0;
 
+        NewEventBehaviorOptions.Add(new CalendarNewEventBehaviorOption(NewEventButtonBehavior.AskEachTime, Translator.CalendarSettings_NewEventBehavior_AskEachTime));
+        NewEventBehaviorOptions.Add(new CalendarNewEventBehaviorOption(NewEventButtonBehavior.AlwaysUseSpecificCalendar, Translator.CalendarSettings_NewEventBehavior_AlwaysUseSpecificCalendar));
+        SelectedNewEventBehaviorOption = NewEventBehaviorOptions.FirstOrDefault(option => option.Behavior == preferencesService.NewEventButtonBehavior)
+                                         ?? NewEventBehaviorOptions.First();
+
         _isLoaded = true;
 
-        // Load accounts with calendar support
         LoadAccountsAsync();
     }
 
     private async void LoadAccountsAsync()
     {
-        var accounts = await _accountService.GetAccountsAsync();
-        
+        var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
+        var calendarsByAccount = new List<(MailAccount Account, List<AccountCalendarViewModel> Calendars)>();
+
+        foreach (var account in accounts)
+        {
+            var calendars = await _calendarService.GetAccountCalendarsAsync(account.Id).ConfigureAwait(false);
+            calendarsByAccount.Add((account, calendars.Select(calendar => new AccountCalendarViewModel(account, calendar)).ToList()));
+        }
+
         await Dispatcher.ExecuteOnUIThread(() =>
         {
             Accounts.Clear();
+            AvailableNewEventCalendars.Clear();
+
             foreach (var account in accounts)
             {
                 Accounts.Add(account);
             }
-        });
-    }
 
-    [RelayCommand]
-    private void NavigateToAccountSettings(MailAccount account)
-    {
-        if (account == null) return;
-        
-        Messenger.Send(new BreadcrumbNavigationRequested(
-            string.Format(Translator.CalendarAccountSettings_Description, account.Name),
-            WinoPage.CalendarAccountSettingsPage,
-            account.Id));
+            foreach (var accountCalendars in calendarsByAccount)
+            {
+                foreach (var calendar in accountCalendars.Calendars)
+                {
+                    AvailableNewEventCalendars.Add(calendar);
+                }
+            }
+
+            ApplyStoredNewEventCalendarPreference();
+        });
     }
 
     partial void OnCellHourHeightChanged(double oldValue, double newValue) => SaveSettings();
@@ -163,10 +177,17 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
     partial void OnWorkingDayEndIndexChanged(int value) => SaveSettings();
     partial void OnSelectedDefaultReminderIndexChanged(int value) => SaveSettings();
     partial void OnSelectedDefaultSnoozeIndexChanged(int value) => SaveSettings();
+    partial void OnSelectedNewEventBehaviorOptionChanged(CalendarNewEventBehaviorOption value)
+    {
+        OnPropertyChanged(nameof(ShouldShowSpecificNewEventCalendar));
+        SaveSettings();
+    }
+    partial void OnSelectedNewEventCalendarChanged(AccountCalendarViewModel value) => SaveSettings();
 
     public void SaveSettings()
     {
-        if (!_isLoaded) return;
+        if (!_isLoaded)
+            return;
 
         PreferencesService.FirstDayOfWeek = SelectedFirstDayOfWeekIndex switch
         {
@@ -209,10 +230,9 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
         PreferencesService.WorkingHourEnd = WorkingHourEnd;
         PreferencesService.HourHeight = CellHourHeight;
 
-        // Save default reminder setting
         if (SelectedDefaultReminderIndex == 0)
         {
-            PreferencesService.DefaultReminderDurationInSeconds = 0; // None
+            PreferencesService.DefaultReminderDurationInSeconds = 0;
         }
         else
         {
@@ -228,6 +248,47 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
             PreferencesService.DefaultSnoozeDurationInMinutes = supportedSnoozeMinutes[selectedIndex];
         }
 
-        Messenger.Send(new CalendarSettingsUpdatedMessage());
+        var newEventBehavior = SelectedNewEventBehaviorOption?.Behavior ?? NewEventButtonBehavior.AskEachTime;
+        if (newEventBehavior == NewEventButtonBehavior.AlwaysUseSpecificCalendar && SelectedNewEventCalendar != null)
+        {
+            PreferencesService.NewEventButtonBehavior = NewEventButtonBehavior.AlwaysUseSpecificCalendar;
+            PreferencesService.DefaultNewEventCalendarId = SelectedNewEventCalendar.Id;
+        }
+        else
+        {
+            PreferencesService.NewEventButtonBehavior = NewEventButtonBehavior.AskEachTime;
+            PreferencesService.DefaultNewEventCalendarId = null;
+        }
+    }
+
+    private void ApplyStoredNewEventCalendarPreference()
+    {
+        var configuredCalendarId = PreferencesService.DefaultNewEventCalendarId;
+        var configuredCalendar = configuredCalendarId.HasValue
+            ? AvailableNewEventCalendars.FirstOrDefault(calendar => calendar.Id == configuredCalendarId.Value)
+            : null;
+
+        if (PreferencesService.NewEventButtonBehavior == NewEventButtonBehavior.AlwaysUseSpecificCalendar && configuredCalendar == null)
+        {
+            SelectedNewEventBehaviorOption = NewEventBehaviorOptions.First(option => option.Behavior == NewEventButtonBehavior.AskEachTime);
+            SelectedNewEventCalendar = null;
+            return;
+        }
+
+        SelectedNewEventCalendar = configuredCalendar
+                                   ?? AvailableNewEventCalendars.FirstOrDefault(calendar => calendar.IsPrimary)
+                                   ?? AvailableNewEventCalendars.FirstOrDefault();
+    }
+}
+
+public sealed class CalendarNewEventBehaviorOption
+{
+    public NewEventButtonBehavior Behavior { get; }
+    public string DisplayText { get; }
+
+    public CalendarNewEventBehaviorOption(NewEventButtonBehavior behavior, string displayText)
+    {
+        Behavior = behavior;
+        DisplayText = displayText;
     }
 }

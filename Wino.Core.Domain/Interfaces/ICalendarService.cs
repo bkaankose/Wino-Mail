@@ -18,6 +18,7 @@ public interface ICalendarService
     Task DeleteAccountCalendarAsync(AccountCalendar accountCalendar);
     Task InsertAccountCalendarAsync(AccountCalendar accountCalendar);
     Task UpdateAccountCalendarAsync(AccountCalendar accountCalendar);
+    Task SetPrimaryCalendarAsync(Guid accountId, Guid accountCalendarId);
     Task CreateNewCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees);
 
     /// <summary>

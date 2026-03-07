@@ -290,6 +290,18 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SaveProperty(propertyName: nameof(DefaultSnoozeDurationInMinutes), value);
     }
 
+    public NewEventButtonBehavior NewEventButtonBehavior
+    {
+        get => _configurationService.Get(nameof(NewEventButtonBehavior), NewEventButtonBehavior.AskEachTime);
+        set => SetPropertyAndSave(nameof(NewEventButtonBehavior), value);
+    }
+
+    public Guid? DefaultNewEventCalendarId
+    {
+        get => _configurationService.Get<Guid?>(nameof(DefaultNewEventCalendarId), null);
+        set => SetPropertyAndSave(nameof(DefaultNewEventCalendarId), value);
+    }
+
     public int EmailSyncIntervalMinutes
     {
         get => _configurationService.Get(nameof(EmailSyncIntervalMinutes), 3);

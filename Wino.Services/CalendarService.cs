@@ -54,9 +54,39 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
     public async Task UpdateAccountCalendarAsync(AccountCalendar accountCalendar)
     {
+        if (accountCalendar.IsPrimary)
+        {
+            await Connection.ExecuteAsync(
+                "UPDATE AccountCalendar SET IsPrimary = 0 WHERE AccountId = ? AND Id != ?",
+                accountCalendar.AccountId,
+                accountCalendar.Id);
+        }
+
         await Connection.UpdateAsync(accountCalendar, typeof(AccountCalendar));
 
         WeakReferenceMessenger.Default.Send(new CalendarListUpdated(accountCalendar));
+    }
+
+    public async Task SetPrimaryCalendarAsync(Guid accountId, Guid accountCalendarId)
+    {
+        await Connection.RunInTransactionAsync(connection =>
+        {
+            connection.Execute(
+                "UPDATE AccountCalendar SET IsPrimary = 0 WHERE AccountId = ?",
+                accountId);
+
+            connection.Execute(
+                "UPDATE AccountCalendar SET IsPrimary = 1 WHERE AccountId = ? AND Id = ?",
+                accountId,
+                accountCalendarId);
+        });
+
+        var calendars = await GetAccountCalendarsAsync(accountId).ConfigureAwait(false);
+
+        foreach (var calendar in calendars)
+        {
+            WeakReferenceMessenger.Default.Send(new CalendarListUpdated(calendar));
+        }
     }
 
     public async Task DeleteAccountCalendarAsync(AccountCalendar accountCalendar)

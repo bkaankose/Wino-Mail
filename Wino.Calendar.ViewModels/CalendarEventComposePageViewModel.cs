@@ -6,18 +6,20 @@ using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Net.Mail;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using EmailValidation;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Validation;
 using Wino.Core.ViewModels;
 
 namespace Wino.Calendar.ViewModels;
@@ -31,10 +33,12 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
     private readonly IContactService _contactService;
     private readonly IPreferencesService _preferencesService;
     private readonly IUnderlyingThemeService _underlyingThemeService;
+    private readonly CalendarEventComposeResultValidator _composeResultValidator = new();
 
     public Func<Task<string>> GetHtmlNotesAsync { get; set; }
 
     public ObservableCollection<AccountCalendarViewModel> AvailableCalendars { get; } = [];
+    public ObservableCollection<GroupedAccountCalendarViewModel> AvailableCalendarGroups { get; } = [];
     public ObservableCollection<CalendarComposeAttendeeViewModel> Attendees { get; } = [];
     public ObservableCollection<CalendarComposeAttachmentViewModel> Attachments { get; } = [];
     public ObservableCollection<ShowAsOption> ShowAsOptions { get; } = [];
@@ -97,6 +101,8 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
     public CalendarSettings CurrentSettings { get; }
     public string TimePickerClockIdentifier => CurrentSettings.DayHeaderDisplayType == DayHeaderDisplayType.TwentyFourHour ? "24HourClock" : "12HourClock";
     public bool HasAttachments => Attachments.Count > 0;
+    public string SelectedCalendarDisplayText => SelectedCalendar?.Name ?? Translator.CalendarEventCompose_SelectCalendar;
+    public string SelectedCalendarAccountText => SelectedCalendar?.Account?.Address ?? string.Empty;
 
     public CalendarEventComposePageViewModel(IAccountService accountService,
                                              ICalendarService calendarService,
@@ -169,11 +175,13 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
 
     partial void OnSelectedCalendarChanged(AccountCalendarViewModel value)
     {
-        if (value == null || SelectedShowAsOption != null)
+        if (value == null)
             return;
 
         SelectedShowAsOption = ShowAsOptions.FirstOrDefault(option => option.ShowAs == value.DefaultShowAs)
                                ?? ShowAsOptions.FirstOrDefault();
+        OnPropertyChanged(nameof(SelectedCalendarDisplayText));
+        OnPropertyChanged(nameof(SelectedCalendarAccountText));
     }
 
     partial void OnIsAllDayChanged(bool value)
@@ -263,36 +271,24 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
     [RelayCommand]
     private async Task CreateAsync()
     {
-        if (!await ValidateAsync())
-            return;
-
         var uniqueAttendees = Attendees
             .GroupBy(attendee => attendee.Email, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
             .ToList();
 
-        var htmlNotes = GetHtmlNotesAsync == null ? string.Empty : await GetHtmlNotesAsync();
-        var effectiveStart = GetEffectiveStartDateTime();
-        var effectiveEnd = GetEffectiveEndDateTime();
+        var createdResult = await BuildResultAsync(uniqueAttendees);
 
-        LastCreatedResult = new CalendarEventComposeResult
+        try
         {
-            CalendarId = SelectedCalendar!.Id,
-            AccountId = SelectedCalendar.Account.Id,
-            Title = Title.Trim(),
-            Location = Location?.Trim() ?? string.Empty,
-            HtmlNotes = htmlNotes,
-            StartDate = effectiveStart,
-            EndDate = effectiveEnd,
-            IsAllDay = IsAllDay,
-            TimeZoneId = TimeZoneInfo.Local.Id,
-            ShowAs = SelectedShowAsOption?.ShowAs ?? SelectedCalendar.DefaultShowAs,
-            SelectedReminders = BuildSelectedReminders(),
-            Attendees = BuildAttendees(uniqueAttendees),
-            Attachments = Attachments.Select(attachment => attachment.ToDraftModel()).ToList(),
-            Recurrence = BuildRecurrenceRule(),
-            RecurrenceSummary = RecurrenceSummary
-        };
+            _composeResultValidator.Validate(createdResult);
+        }
+        catch (CalendarEventComposeValidationException ex)
+        {
+            ShowValidationMessage(ex.Message);
+            return;
+        }
+
+        LastCreatedResult = createdResult;
 
         _navigationService.GoBack();
     }
@@ -307,7 +303,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
 
     public async Task<CalendarComposeAttendeeViewModel> GetAttendeeAsync(string tokenText)
     {
-        if (!IsValidEmailAddress(tokenText))
+        if (!EmailValidator.Validate(tokenText))
             return null;
 
         var existing = Attendees.Any(attendee => attendee.Email.Equals(tokenText, StringComparison.OrdinalIgnoreCase));
@@ -359,25 +355,37 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
     private async Task LoadAvailableCalendarsAsync()
     {
         var accountCalendars = new List<AccountCalendarViewModel>();
+        var groupedCalendars = new List<GroupedAccountCalendarViewModel>();
         var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
 
         foreach (var account in accounts)
         {
             var calendars = await _calendarService.GetAccountCalendarsAsync(account.Id).ConfigureAwait(false);
+            var viewModels = calendars
+                .Select(calendar => new AccountCalendarViewModel(account, calendar))
+                .ToList();
 
-            foreach (var calendar in calendars)
+            accountCalendars.AddRange(viewModels);
+
+            if (viewModels.Count > 0)
             {
-                accountCalendars.Add(new AccountCalendarViewModel(account, calendar));
+                groupedCalendars.Add(new GroupedAccountCalendarViewModel(account, viewModels));
             }
         }
 
         await ExecuteUIThread(() =>
         {
             AvailableCalendars.Clear();
+            AvailableCalendarGroups.Clear();
 
             foreach (var calendar in accountCalendars.OrderBy(calendar => calendar.Account.Name).ThenBy(calendar => calendar.Name))
             {
                 AvailableCalendars.Add(calendar);
+            }
+
+            foreach (var group in groupedCalendars.OrderBy(group => group.Account.Name))
+            {
+                AvailableCalendarGroups.Add(group);
             }
         });
     }
@@ -424,68 +432,35 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
         AllDayEndDate = new DateTimeOffset((isAllDay ? endDate.Date : startDate.Date.AddDays(1)));
     }
 
-    private async Task<bool> ValidateAsync()
+    private async Task<CalendarEventComposeResult> BuildResultAsync(List<CalendarComposeAttendeeViewModel> uniqueAttendees)
     {
-        if (SelectedCalendar == null)
-        {
-            ShowValidationMessage(Translator.CalendarEventCompose_ValidationMissingCalendar);
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(Title))
-        {
-            ShowValidationMessage(Translator.CalendarEventCompose_ValidationMissingTitle);
-            return false;
-        }
-
-        if (IsAllDay)
-        {
-            if (AllDayEndDate.Date <= StartDate.Date)
-            {
-                ShowValidationMessage(Translator.CalendarEventCompose_ValidationInvalidAllDayRange);
-                return false;
-            }
-        }
-        else if (GetEffectiveEndDateTime() <= GetEffectiveStartDateTime())
-        {
-            ShowValidationMessage(Translator.CalendarEventCompose_ValidationInvalidTimeRange);
-            return false;
-        }
-
         if (RecurrenceEndDate.HasValue && RecurrenceEndDate.Value.Date < StartDate.Date)
         {
-            ShowValidationMessage(Translator.CalendarEventCompose_ValidationInvalidRecurrenceEnd);
-            return false;
+            throw new CalendarEventComposeValidationException(Translator.CalendarEventCompose_ValidationInvalidRecurrenceEnd);
         }
 
-        var missingAttachments = Attachments
-            .Where(attachment => !File.Exists(attachment.FilePath))
-            .Select(attachment => attachment.FileName)
-            .ToList();
+        var htmlNotes = GetHtmlNotesAsync == null ? string.Empty : await GetHtmlNotesAsync();
+        var effectiveStart = GetEffectiveStartDateTime();
+        var effectiveEnd = GetEffectiveEndDateTime();
 
-        if (missingAttachments.Count > 0)
+        return new CalendarEventComposeResult
         {
-            ShowValidationMessage(string.Format(Translator.CalendarEventCompose_ValidationMissingAttachment, string.Join(", ", missingAttachments)));
-            return false;
-        }
-
-        var normalizedAttendees = Attendees
-            .Where(attendee => !string.IsNullOrWhiteSpace(attendee.Email))
-            .Select(attendee => attendee.Email.Trim())
-            .ToList();
-
-        if (normalizedAttendees.Any(address => !IsValidEmailAddress(address)))
-        {
-            ShowValidationMessage(Translator.CalendarEventCompose_ValidationInvalidAttendee);
-            return false;
-        }
-
-        if (GetHtmlNotesAsync != null)
-        {
-            await GetHtmlNotesAsync();
-        }
-
-        return true;
+            CalendarId = SelectedCalendar?.Id ?? Guid.Empty,
+            AccountId = SelectedCalendar?.Account.Id ?? Guid.Empty,
+            Title = Title.Trim(),
+            Location = Location?.Trim() ?? string.Empty,
+            HtmlNotes = htmlNotes,
+            StartDate = effectiveStart,
+            EndDate = effectiveEnd,
+            IsAllDay = IsAllDay,
+            TimeZoneId = TimeZoneInfo.Local.Id,
+            ShowAs = SelectedShowAsOption?.ShowAs ?? SelectedCalendar?.DefaultShowAs ?? CalendarItemShowAs.Busy,
+            SelectedReminders = BuildSelectedReminders(),
+            Attendees = BuildAttendees(uniqueAttendees),
+            Attachments = Attachments.Select(attachment => attachment.ToDraftModel()).ToList(),
+            Recurrence = BuildRecurrenceRule(),
+            RecurrenceSummary = RecurrenceSummary
+        };
     }
 
     private List<Reminder> BuildSelectedReminders()
@@ -676,18 +651,6 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
         OnPropertyChanged(nameof(HasAttachments));
     }
 
-    private static bool IsValidEmailAddress(string address)
-    {
-        try
-        {
-            var parsedAddress = new MailAddress(address);
-            return parsedAddress.Address.Equals(address, StringComparison.OrdinalIgnoreCase);
-        }
-        catch
-        {
-            return false;
-        }
-    }
 }
 
 public partial class CalendarComposeFrequencyOption : ObservableObject

@@ -157,6 +157,7 @@
                     <coreControls:WinoFontIcon Icon="NewMail" />
                 </muxc:NavigationViewItem.Icon>
                 <TextBlock
+                    Margin="0,-2,0,0"
                     VerticalAlignment="Center"
                     FontSize="16"
                     Style="{StaticResource FlyoutPickerTitleTextBlockStyle}"

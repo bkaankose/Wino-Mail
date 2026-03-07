@@ -35,9 +35,6 @@ public partial class CalendarAccountSettingsPageViewModel : CalendarBaseViewMode
     [ObservableProperty]
     public partial bool IsSyncEnabled { get; set; }
 
-    [ObservableProperty]
-    public partial bool IsPrimaryCalendar { get; set; }
-
     public ObservableCollection<ShowAsOption> ShowAsOptions { get; } = new ObservableCollection<ShowAsOption>();
 
     [ObservableProperty]
@@ -82,7 +79,6 @@ public partial class CalendarAccountSettingsPageViewModel : CalendarBaseViewMode
         // Initialize properties from AccountCalendar
         AccountColorHex = AccountCalendar.BackgroundColorHex ?? "#0078D4";
         IsSyncEnabled = AccountCalendar.IsSynchronizationEnabled;
-        IsPrimaryCalendar = AccountCalendar.IsPrimary;
         SelectedDefaultShowAsOption = ShowAsOptions.FirstOrDefault(o => o.ShowAs == AccountCalendar.DefaultShowAs) ?? ShowAsOptions[2];
     }
 
@@ -100,15 +96,6 @@ public partial class CalendarAccountSettingsPageViewModel : CalendarBaseViewMode
         if (AccountCalendar != null)
         {
             AccountCalendar.IsSynchronizationEnabled = value;
-            SaveChangesAsync();
-        }
-    }
-
-    partial void OnIsPrimaryCalendarChanged(bool value)
-    {
-        if (AccountCalendar != null)
-        {
-            AccountCalendar.IsPrimary = value;
             SaveChangesAsync();
         }
     }
