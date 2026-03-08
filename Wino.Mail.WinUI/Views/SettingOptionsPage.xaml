@@ -14,11 +14,14 @@
 
     <ScrollViewer Padding="0,0,16,0" VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="0,8,0,24" Spacing="4">
-            <StackPanel.ChildrenTransitions>
+            <!--<StackPanel.ChildrenTransitions>
                 <TransitionCollection>
-                    <EntranceThemeTransition FromVerticalOffset="50" IsStaggeringEnabled="True" />
+                    <PopupThemeTransition />
+            -->
+            <!--<EntranceThemeTransition FromVerticalOffset="50" IsStaggeringEnabled="True" />-->
+            <!--
                 </TransitionCollection>
-            </StackPanel.ChildrenTransitions>
+            </StackPanel.ChildrenTransitions>-->
 
             <!--  Hero Banner - Windows 11 style  -->
             <Grid
@@ -46,9 +49,7 @@
                     Margin="20,0,0,0"
                     VerticalAlignment="Center"
                     Spacing="4">
-                    <TextBlock
-                        Style="{StaticResource TitleTextBlockStyle}"
-                        Text="Wino Mail" />
+                    <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Wino Mail" />
                     <TextBlock
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         Style="{StaticResource BodyTextBlockStyle}"
@@ -62,12 +63,8 @@
                         Margin="0,8,0,0"
                         Orientation="Horizontal"
                         Spacing="8">
-                        <HyperlinkButton
-                            Content="{x:Bind ViewModel.WebsiteUrl, Mode=OneWay}"
-                            NavigateUri="{x:Bind ViewModel.WebsiteUrl, Mode=OneWay}" />
-                        <HyperlinkButton
-                            Content="{x:Bind domain:Translator.SettingsPaypal_Title}"
-                            NavigateUri="{x:Bind ViewModel.PaypalUrl, Mode=OneWay}" />
+                        <HyperlinkButton Content="{x:Bind ViewModel.WebsiteUrl, Mode=OneWay}" NavigateUri="{x:Bind ViewModel.WebsiteUrl, Mode=OneWay}" />
+                        <HyperlinkButton Content="{x:Bind domain:Translator.SettingsPaypal_Title}" NavigateUri="{x:Bind ViewModel.PaypalUrl, Mode=OneWay}" />
                     </StackPanel>
                 </StackPanel>
             </Grid>
@@ -191,6 +188,17 @@
                 Tag="{x:Bind enums:WinoPage.SignatureAndEncryptionPage}">
                 <controls:SettingsCard.HeaderIcon>
                     <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE8D7;" />
+                </controls:SettingsCard.HeaderIcon>
+            </controls:SettingsCard>
+
+            <controls:SettingsCard
+                Click="SettingOptionClicked"
+                Description="{x:Bind domain:Translator.SettingsEmailTemplates_Description}"
+                Header="{x:Bind domain:Translator.SettingsEmailTemplates_Title}"
+                IsClickEnabled="True"
+                Tag="{x:Bind enums:WinoPage.EmailTemplatesPage}">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE70F;" />
                 </controls:SettingsCard.HeaderIcon>
             </controls:SettingsCard>
 

@@ -23,6 +23,7 @@ public static class ServicesContainerSetup
         services.AddTransient<IAccountService, AccountService>();
         services.AddTransient<IContactService, ContactService>();
         services.AddTransient<ISignatureService, SignatureService>();
+        services.AddTransient<IEmailTemplateService, EmailTemplateService>();
         services.AddTransient<IContextMenuItemService, ContextMenuItemService>();
         services.AddTransient<ISpecialImapProviderConfigResolver, SpecialImapProviderConfigResolver>();
         services.AddTransient<IKeyboardShortcutService, KeyboardShortcutService>();

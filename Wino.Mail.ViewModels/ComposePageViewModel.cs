@@ -130,6 +130,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
     public bool AreCertificatesAvailable => AvailableCertificates.Count > 0;
 
+    public ObservableCollection<EmailTemplate> AvailableEmailTemplates { get; } = [];
     public ObservableCollection<MailAttachmentViewModel> IncludedAttachments { get; set; } = [];
     public ObservableCollection<MailAccount> Accounts { get; set; } = [];
     public ObservableCollection<AccountContact> ToItems { get; set; } = [];
@@ -148,6 +149,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     private readonly IFileService _fileService;
     private readonly IFolderService _folderService;
     private readonly IAccountService _accountService;
+    private readonly IEmailTemplateService _emailTemplateService;
     private readonly IWinoRequestDelegator _worker;
     public readonly IFontService FontService;
     public readonly IPreferencesService PreferencesService;
@@ -161,6 +163,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                                 INativeAppService nativeAppService,
                                 IFolderService folderService,
                                 IAccountService accountService,
+                                IEmailTemplateService emailTemplateService,
                                 IWinoRequestDelegator worker,
                                 IContactService contactService,
                                 IFontService fontService,
@@ -178,6 +181,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         _mimeFileService = mimeFileService;
         _fileService = fileService;
         _accountService = accountService;
+        _emailTemplateService = emailTemplateService;
         _worker = worker;
         _smimeCertificateService = smimeCertificateService;
 
@@ -520,6 +524,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
             CurrentMailDraftItem = mailItem;
 
             await UpdatePendingOperationStateAsync();
+            await LoadEmailTemplatesAsync();
             await TryPrepareComposeAsync(true);
         }
     }
@@ -539,7 +544,23 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         // Set the new draft item and prepare it.
         CurrentMailDraftItem = message.MailItemViewModel;
         await UpdatePendingOperationStateAsync();
+        await LoadEmailTemplatesAsync();
         await TryPrepareComposeAsync(true);
+    }
+
+    private async Task LoadEmailTemplatesAsync()
+    {
+        var templates = await _emailTemplateService.GetEmailTemplatesAsync().ConfigureAwait(false);
+
+        await ExecuteUIThread(() =>
+        {
+            AvailableEmailTemplates.Clear();
+
+            foreach (var template in templates)
+            {
+                AvailableEmailTemplates.Add(template);
+            }
+        });
     }
 
     public async void Receive(SynchronizationActionsAdded message)

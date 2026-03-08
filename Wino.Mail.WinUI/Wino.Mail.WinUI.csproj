@@ -375,6 +375,12 @@
     <Page Update="Views\Settings\AppPreferencesPage.xaml">
       <SubType>Designer</SubType>
     </Page>
+    <Page Update="Views\Settings\CreateEmailTemplatePage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Settings\EmailTemplatesPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
     <Page Update="Views\Settings\EditAccountDetailsPage.xaml">
       <SubType>Designer</SubType>
     </Page>

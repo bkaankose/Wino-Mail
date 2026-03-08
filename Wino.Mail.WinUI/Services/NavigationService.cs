@@ -120,6 +120,8 @@ public class NavigationService : NavigationServiceBase, INavigationService
             WinoPage.KeyboardShortcutsPage => typeof(KeyboardShortcutsPage),
             WinoPage.ContactsPage => typeof(ContactsPage),
             WinoPage.SignatureAndEncryptionPage => typeof(SignatureAndEncryptionPage),
+            WinoPage.EmailTemplatesPage => typeof(EmailTemplatesPage),
+            WinoPage.CreateEmailTemplatePage => typeof(CreateEmailTemplatePage),
             WinoPage.StoragePage => typeof(StoragePage),
             WinoPage.WelcomeHostPage => typeof(WelcomeHostPage),
             WinoPage.ProviderSelectionPage => typeof(ProviderSelectionPage),

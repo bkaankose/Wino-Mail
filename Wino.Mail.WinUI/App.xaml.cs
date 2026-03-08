@@ -167,6 +167,8 @@ public partial class App : WinoApplication,
         services.AddTransient(typeof(AliasManagementPageViewModel));
         services.AddTransient(typeof(ContactsPageViewModel));
         services.AddTransient(typeof(SignatureAndEncryptionPageViewModel));
+        services.AddTransient(typeof(EmailTemplatesPageViewModel));
+        services.AddTransient(typeof(CreateEmailTemplatePageViewModel));
         services.AddTransient(typeof(CalendarPageViewModel));
         services.AddTransient(typeof(CalendarSettingsPageViewModel));
         services.AddTransient(typeof(CalendarAccountSettingsPageViewModel));

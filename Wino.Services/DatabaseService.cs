@@ -56,6 +56,7 @@ public class DatabaseService : IDatabaseService
             Connection.CreateTableAsync<ContactGroupMember>(),
             Connection.CreateTableAsync<CustomServerInformation>(),
             Connection.CreateTableAsync<AccountSignature>(),
+            Connection.CreateTableAsync<EmailTemplate>(),
             Connection.CreateTableAsync<MergedInbox>(),
             Connection.CreateTableAsync<MailAccountPreferences>(),
             Connection.CreateTableAsync<MailAccountAlias>(),
@@ -200,6 +201,7 @@ SET {nameof(KeyboardShortcut.Action)} =
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailAccount_Order ON MailAccount([Order])").ConfigureAwait(false);
 
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_AccountSignature_MailAccountId ON AccountSignature(MailAccountId)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_EmailTemplate_Name ON EmailTemplate(Name)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailAccountAlias_AccountId ON MailAccountAlias(AccountId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailAccountAlias_AccountId_AliasAddress ON MailAccountAlias(AccountId, AliasAddress)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_MailAccountPreferences_AccountId ON MailAccountPreferences(AccountId)").ConfigureAwait(false);

@@ -138,6 +138,21 @@
                             CommandAlignment="Right"
                             IsDynamicOverflowEnabled="True"
                             OverflowButtonAlignment="Left">
+                            <AppBarElementContainer Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.AvailableEmailTemplates.Count), Mode=OneWay}">
+                                <ComboBox
+                                    x:Name="EmailTemplatesComboBox"
+                                    MinWidth="220"
+                                    Margin="0,8,8,0"
+                                    ItemsSource="{x:Bind ViewModel.AvailableEmailTemplates, Mode=OneWay}"
+                                    PlaceholderText="{x:Bind domain:Translator.Composer_EmailTemplatesPlaceholder}"
+                                    SelectionChanged="EmailTemplateSelectionChanged">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="mail:EmailTemplate">
+                                            <TextBlock Text="{x:Bind Name}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </AppBarElementContainer>
                             <AppBarButton
                                 MinWidth="40"
                                 HorizontalContentAlignment="Center"
@@ -145,9 +160,7 @@
                                 Visibility="{x:Bind ViewModel.IsDraftBusy, Mode=OneWay}">
                                 <ProgressRing IsActive="True" />
                             </AppBarButton>
-                            <AppBarButton
-                                Click="ToggleEditorThemeClicked"
-                                ToolTipService.ToolTip="{x:Bind GetEditorThemeToolTip(WebViewEditor.IsEditorDarkMode), Mode=OneWay}">
+                            <AppBarButton Click="ToggleEditorThemeClicked" ToolTipService.ToolTip="{x:Bind GetEditorThemeToolTip(WebViewEditor.IsEditorDarkMode), Mode=OneWay}">
                                 <AppBarButton.Icon>
                                     <coreControls:WinoFontIcon Icon="{x:Bind GetEditorThemeIcon(WebViewEditor.IsEditorDarkMode), Mode=OneWay}" />
                                 </AppBarButton.Icon>

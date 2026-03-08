@@ -35,6 +35,8 @@ public enum WinoPage
     EventDetailsPage,
     CalendarEventComposePage,
     SignatureAndEncryptionPage,
+    EmailTemplatesPage,
+    CreateEmailTemplatePage,
     StoragePage,
     WelcomePageV2,
     WelcomeHostPage,

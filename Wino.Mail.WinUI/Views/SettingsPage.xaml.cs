@@ -50,6 +50,9 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
                 case WinoPage.StoragePage:
                     WeakReferenceMessenger.Default.Send(new BreadcrumbNavigationRequested(Translator.SettingsStorage_Title, WinoPage.StoragePage));
                     break;
+                case WinoPage.EmailTemplatesPage:
+                    WeakReferenceMessenger.Default.Send(new BreadcrumbNavigationRequested(Translator.SettingsEmailTemplates_Title, WinoPage.EmailTemplatesPage));
+                    break;
             }
         }
 

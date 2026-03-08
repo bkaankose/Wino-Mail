@@ -18,6 +18,7 @@ using Windows.Foundation;
 using Windows.Storage;
 using Windows.UI.Core.Preview;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Mail.ViewModels.Data;
@@ -51,6 +52,15 @@ public sealed partial class ComposePage : ComposePageAbstract,
     private void ToggleEditorThemeClicked(object sender, RoutedEventArgs e)
     {
         WebViewEditor.ToggleEditorTheme();
+    }
+
+    private async void EmailTemplateSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is not ComboBox comboBox || comboBox.SelectedItem is not EmailTemplate template)
+            return;
+
+        await WebViewEditor.RenderHtmlAsync(template.HtmlContent);
+        comboBox.SelectedItem = null;
     }
 
     private async void GlobalFocusManagerGotFocus(object? sender, FocusManagerGotFocusEventArgs e)
