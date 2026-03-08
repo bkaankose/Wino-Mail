@@ -164,6 +164,7 @@ public partial class App : WinoApplication,
         services.AddTransient(typeof(MergedAccountDetailsPageViewModel));
         services.AddTransient(typeof(LanguageTimePageViewModel));
         services.AddTransient(typeof(AppPreferencesPageViewModel));
+        services.AddTransient(typeof(StoragePageViewModel));
         services.AddTransient(typeof(AliasManagementPageViewModel));
         services.AddTransient(typeof(ContactsPageViewModel));
         services.AddTransient(typeof(SignatureAndEncryptionPageViewModel));
