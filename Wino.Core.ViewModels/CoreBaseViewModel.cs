@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Navigation;
 
 namespace Wino.Core.ViewModels;
@@ -39,6 +40,8 @@ public class CoreBaseViewModel : ObservableRecipient, INavigationAware
     }
 
     public virtual void OnPageLoaded() { }
+
+    public virtual Task KeyboardShortcutHook(KeyboardShortcutTriggerDetails args) => Task.CompletedTask;
 
     public Task ExecuteUIThread(Action action)
     {

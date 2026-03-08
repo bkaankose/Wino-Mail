@@ -37,21 +37,23 @@ public interface IKeyboardShortcutService
     Task DeleteKeyboardShortcutAsync(Guid shortcutId);
 
     /// <summary>
-    /// Gets the mail operation for the given key combination.
+    /// Gets the keyboard shortcut for the given key combination in a specific mode.
     /// </summary>
+    /// <param name="mode">The application mode to search within.</param>
     /// <param name="key">The pressed key.</param>
     /// <param name="modifierKeys">The modifier keys pressed.</param>
-    /// <returns>The mail operation if found, otherwise null.</returns>
-    Task<MailOperation?> GetMailOperationForKeyAsync(string key, ModifierKeys modifierKeys);
+    /// <returns>The matching shortcut if found, otherwise null.</returns>
+    Task<KeyboardShortcut> GetShortcutForKeyAsync(WinoApplicationMode mode, string key, ModifierKeys modifierKeys);
 
     /// <summary>
     /// Checks if a key combination is already assigned to another shortcut.
     /// </summary>
+    /// <param name="mode">The application mode to check within.</param>
     /// <param name="key">The key to check.</param>
     /// <param name="modifierKeys">The modifier keys to check.</param>
     /// <param name="excludeShortcutId">Optional ID to exclude from the check (for updates).</param>
     /// <returns>True if the combination is already used, false otherwise.</returns>
-    Task<bool> IsKeyCombinationInUseAsync(string key, ModifierKeys modifierKeys, Guid? excludeShortcutId = null);
+    Task<bool> IsKeyCombinationInUseAsync(WinoApplicationMode mode, string key, ModifierKeys modifierKeys, Guid? excludeShortcutId = null);
 
     /// <summary>
     /// Creates default keyboard shortcuts for common mail operations.

@@ -22,6 +22,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
+using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Extensions;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
@@ -41,6 +42,15 @@ public sealed partial class ComposePage : ComposePageAbstract,
     public ComposePage()
     {
         InitializeComponent();
+    }
+
+    public WinoIconGlyph GetEditorThemeIcon(bool isDarkMode) => isDarkMode ? WinoIconGlyph.LightEditor : WinoIconGlyph.DarkEditor;
+
+    public string GetEditorThemeToolTip(bool isDarkMode) => isDarkMode ? Translator.Composer_LightTheme : Translator.Composer_DarkTheme;
+
+    private void ToggleEditorThemeClicked(object sender, RoutedEventArgs e)
+    {
+        WebViewEditor.ToggleEditorTheme();
     }
 
     private async void GlobalFocusManagerGotFocus(object? sender, FocusManagerGotFocusEventArgs e)

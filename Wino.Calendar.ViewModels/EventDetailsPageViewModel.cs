@@ -15,6 +15,7 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Services;
 using Wino.Core.ViewModels;
@@ -496,6 +497,15 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         {
             Debug.WriteLine($"Error deleting calendar event: {ex.Message}");
         }
+    }
+
+    public override async Task KeyboardShortcutHook(KeyboardShortcutTriggerDetails args)
+    {
+        if (args.Handled || args.Mode != WinoApplicationMode.Calendar || args.Action != KeyboardShortcutAction.Delete)
+            return;
+
+        await DeleteAsync();
+        args.Handled = true;
     }
 
     [RelayCommand]

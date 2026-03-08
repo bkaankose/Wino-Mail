@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -14,6 +15,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
@@ -43,6 +45,7 @@ public sealed partial class MailAppShell : MailAppShellAbstract,
     public MailAppShell() : base()
     {
         InitializeComponent();
+        PreviewKeyDown += OnPreviewKeyDown;
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
@@ -313,6 +316,100 @@ public sealed partial class MailAppShell : MailAppShellAbstract,
         {
             InnerShellFrame.Margin = new Thickness(0);
         }
+    }
+
+    private async void OnPreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.KeyStatus.RepeatCount > 1 || ShouldIgnoreShortcut())
+            return;
+
+        var key = NormalizeKey(e.Key);
+        if (string.IsNullOrEmpty(key))
+            return;
+
+        var shortcutService = WinoApplication.Current.Services.GetRequiredService<IKeyboardShortcutService>();
+        var shortcut = await shortcutService.GetShortcutForKeyAsync(WinoApplicationMode.Mail, key, GetCurrentModifierKeys());
+
+        if (shortcut == null)
+            return;
+
+        var details = new KeyboardShortcutTriggerDetails
+        {
+            ShortcutId = shortcut.Id,
+            Mode = shortcut.Mode,
+            Action = shortcut.Action,
+            Key = shortcut.Key,
+            ModifierKeys = shortcut.ModifierKeys,
+            Sender = sender,
+            Origin = FocusManager.GetFocusedElement(XamlRoot)
+        };
+
+        await ViewModel.KeyboardShortcutHook(details);
+
+        if (InnerShellFrame.Content is BasePage activePage && activePage.AssociatedViewModel != null)
+        {
+            await activePage.AssociatedViewModel.KeyboardShortcutHook(details);
+        }
+
+        if (details.Handled)
+        {
+            e.Handled = true;
+        }
+    }
+
+    private bool ShouldIgnoreShortcut()
+    {
+        var focusedElement = FocusManager.GetFocusedElement(XamlRoot);
+
+        if (focusedElement is TextBox or AutoSuggestBox or PasswordBox or RichEditBox or ComboBox)
+            return true;
+
+        if (focusedElement is FrameworkElement frameworkElement)
+        {
+            var typeName = frameworkElement.GetType().Name;
+            if (typeName.Contains("WebView", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static ModifierKeys GetCurrentModifierKeys()
+    {
+        var modifiers = ModifierKeys.None;
+
+        if (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))
+            modifiers |= ModifierKeys.Control;
+        if (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Menu).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))
+            modifiers |= ModifierKeys.Alt;
+        if (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Shift).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))
+            modifiers |= ModifierKeys.Shift;
+        if (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.LeftWindows).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down) ||
+            Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.RightWindows).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))
+        {
+            modifiers |= ModifierKeys.Windows;
+        }
+
+        return modifiers;
+    }
+
+    private static string NormalizeKey(Windows.System.VirtualKey key)
+    {
+        return key switch
+        {
+            Windows.System.VirtualKey.Control or
+            Windows.System.VirtualKey.LeftControl or
+            Windows.System.VirtualKey.RightControl or
+            Windows.System.VirtualKey.Menu or
+            Windows.System.VirtualKey.LeftMenu or
+            Windows.System.VirtualKey.RightMenu or
+            Windows.System.VirtualKey.Shift or
+            Windows.System.VirtualKey.LeftShift or
+            Windows.System.VirtualKey.RightShift or
+            Windows.System.VirtualKey.LeftWindows or
+            Windows.System.VirtualKey.RightWindows => string.Empty,
+            _ => key.ToString()
+        };
     }
 
     protected override void RegisterRecipients()

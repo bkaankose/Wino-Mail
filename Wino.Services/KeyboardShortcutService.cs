@@ -10,7 +10,7 @@ using Wino.Services.Extensions;
 namespace Wino.Services;
 
 /// <summary>
-/// Service for managing keyboard shortcuts for mail operations.
+/// Service for managing keyboard shortcuts for mail and calendar actions.
 /// </summary>
 public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutService
 {
@@ -24,7 +24,7 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
     public async Task<IEnumerable<KeyboardShortcut>> GetKeyboardShortcutsAsync()
     {
         return await Connection.QueryAsync<KeyboardShortcut>(
-            "SELECT * FROM KeyboardShortcut ORDER BY MailOperation");
+            "SELECT * FROM KeyboardShortcut ORDER BY Mode, Action");
     }
 
     /// <summary>
@@ -33,7 +33,7 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
     public async Task<IEnumerable<KeyboardShortcut>> GetEnabledKeyboardShortcutsAsync()
     {
         return await Connection.QueryAsync<KeyboardShortcut>(
-            "SELECT * FROM KeyboardShortcut WHERE IsEnabled = ? ORDER BY MailOperation",
+            "SELECT * FROM KeyboardShortcut WHERE IsEnabled = ? ORDER BY Mode, Action",
             true);
     }
 
@@ -65,34 +65,33 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
     }
 
     /// <summary>
-    /// Gets the mail operation for the given key combination.
+    /// Gets the shortcut for the given key combination.
     /// </summary>
-    public async Task<MailOperation?> GetMailOperationForKeyAsync(string key, ModifierKeys modifierKeys)
+    public async Task<KeyboardShortcut> GetShortcutForKeyAsync(WinoApplicationMode mode, string key, ModifierKeys modifierKeys)
     {
-        const string query = "SELECT * FROM KeyboardShortcut WHERE Key = ? AND ModifierKeys = ? AND IsEnabled = ? LIMIT 1";
-        var shortcut = await Connection.FindWithQueryAsync<KeyboardShortcut>(query, key, (int)modifierKeys, 1);
-        return shortcut?.MailOperation;
+        const string query = "SELECT * FROM KeyboardShortcut WHERE Mode = ? AND Key = ? AND ModifierKeys = ? AND IsEnabled = ? LIMIT 1";
+        return await Connection.FindWithQueryAsync<KeyboardShortcut>(query, (int)mode, key, (int)modifierKeys, 1);
     }
 
     /// <summary>
     /// Checks if a key combination is already assigned to another shortcut.
     /// </summary>
-    public async Task<bool> IsKeyCombinationInUseAsync(string key, ModifierKeys modifierKeys, Guid? excludeShortcutId = null)
+    public async Task<bool> IsKeyCombinationInUseAsync(WinoApplicationMode mode, string key, ModifierKeys modifierKeys, Guid? excludeShortcutId = null)
     {
         string query;
         KeyboardShortcut shortcut;
-        
+
         if (excludeShortcutId.HasValue)
         {
-            query = "SELECT * FROM KeyboardShortcut WHERE Key = ? AND ModifierKeys = ? AND Id != ? LIMIT 1";
-            shortcut = await Connection.FindWithQueryAsync<KeyboardShortcut>(query, key, (int)modifierKeys, excludeShortcutId.Value);
+            query = "SELECT * FROM KeyboardShortcut WHERE Mode = ? AND Key = ? AND ModifierKeys = ? AND Id != ? LIMIT 1";
+            shortcut = await Connection.FindWithQueryAsync<KeyboardShortcut>(query, (int)mode, key, (int)modifierKeys, excludeShortcutId.Value);
         }
         else
         {
-            query = "SELECT * FROM KeyboardShortcut WHERE Key = ? AND ModifierKeys = ? LIMIT 1";
-            shortcut = await Connection.FindWithQueryAsync<KeyboardShortcut>(query, key, (int)modifierKeys);
+            query = "SELECT * FROM KeyboardShortcut WHERE Mode = ? AND Key = ? AND ModifierKeys = ? LIMIT 1";
+            shortcut = await Connection.FindWithQueryAsync<KeyboardShortcut>(query, (int)mode, key, (int)modifierKeys);
         }
-        
+
         return shortcut != null;
     }
 
@@ -106,7 +105,7 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
         foreach (var shortcut in defaultShortcuts)
         {
             // Only create if it doesn't exist already
-            var exists = await IsKeyCombinationInUseAsync(shortcut.Key, shortcut.ModifierKeys);
+            var exists = await IsKeyCombinationInUseAsync(shortcut.Mode, shortcut.Key, shortcut.ModifierKeys);
             if (!exists)
             {
                 await SaveKeyboardShortcutAsync(shortcut);
@@ -138,15 +137,17 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
                 Id = Guid.NewGuid(),
                 Key = "Delete",
                 ModifierKeys = ModifierKeys.None,
-                MailOperation = MailOperation.SoftDelete,
+                Mode = WinoApplicationMode.Mail,
+                Action = KeyboardShortcutAction.Delete,
                 IsEnabled = true
             },
             new KeyboardShortcut
             {
                 Id = Guid.NewGuid(),
-                Key = "Delete",
-                ModifierKeys = ModifierKeys.Shift,
-                MailOperation = MailOperation.HardDelete,
+                Key = "N",
+                ModifierKeys = ModifierKeys.Control,
+                Mode = WinoApplicationMode.Mail,
+                Action = KeyboardShortcutAction.NewMail,
                 IsEnabled = true
             },
             new KeyboardShortcut
@@ -154,7 +155,8 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
                 Id = Guid.NewGuid(),
                 Key = "A",
                 ModifierKeys = ModifierKeys.Control,
-                MailOperation = MailOperation.Archive,
+                Mode = WinoApplicationMode.Mail,
+                Action = KeyboardShortcutAction.ToggleArchive,
                 IsEnabled = true
             },
             new KeyboardShortcut
@@ -162,15 +164,8 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
                 Id = Guid.NewGuid(),
                 Key = "R",
                 ModifierKeys = ModifierKeys.Control,
-                MailOperation = MailOperation.MarkAsRead,
-                IsEnabled = true
-            },
-            new KeyboardShortcut
-            {
-                Id = Guid.NewGuid(),
-                Key = "U",
-                ModifierKeys = ModifierKeys.Control,
-                MailOperation = MailOperation.MarkAsUnread,
+                Mode = WinoApplicationMode.Mail,
+                Action = KeyboardShortcutAction.ToggleReadUnread,
                 IsEnabled = true
             },
             new KeyboardShortcut
@@ -178,23 +173,8 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
                 Id = Guid.NewGuid(),
                 Key = "F",
                 ModifierKeys = ModifierKeys.Control,
-                MailOperation = MailOperation.SetFlag,
-                IsEnabled = true
-            },
-            new KeyboardShortcut
-            {
-                Id = Guid.NewGuid(),
-                Key = "F",
-                ModifierKeys = ModifierKeys.Control | ModifierKeys.Shift,
-                MailOperation = MailOperation.ClearFlag,
-                IsEnabled = true
-            },
-            new KeyboardShortcut
-            {
-                Id = Guid.NewGuid(),
-                Key = "J",
-                ModifierKeys = ModifierKeys.Control,
-                MailOperation = MailOperation.MoveToJunk,
+                Mode = WinoApplicationMode.Mail,
+                Action = KeyboardShortcutAction.ToggleFlag,
                 IsEnabled = true
             },
             new KeyboardShortcut
@@ -202,7 +182,35 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
                 Id = Guid.NewGuid(),
                 Key = "M",
                 ModifierKeys = ModifierKeys.Control,
-                MailOperation = MailOperation.Move,
+                Mode = WinoApplicationMode.Mail,
+                Action = KeyboardShortcutAction.Move,
+                IsEnabled = true
+            },
+            new KeyboardShortcut
+            {
+                Id = Guid.NewGuid(),
+                Key = "R",
+                ModifierKeys = ModifierKeys.Control,
+                Mode = WinoApplicationMode.Mail,
+                Action = KeyboardShortcutAction.Reply,
+                IsEnabled = true
+            },
+            new KeyboardShortcut
+            {
+                Id = Guid.NewGuid(),
+                Key = "R",
+                ModifierKeys = ModifierKeys.Control | ModifierKeys.Shift,
+                Mode = WinoApplicationMode.Mail,
+                Action = KeyboardShortcutAction.ReplyAll,
+                IsEnabled = true
+            },
+            new KeyboardShortcut
+            {
+                Id = Guid.NewGuid(),
+                Key = "Enter",
+                ModifierKeys = ModifierKeys.Control,
+                Mode = WinoApplicationMode.Mail,
+                Action = KeyboardShortcutAction.Send,
                 IsEnabled = true
             }
         };

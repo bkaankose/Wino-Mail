@@ -37,11 +37,14 @@ public partial class BasePage : Page, IRecipient<LanguageChanged>
     /// Unregister message recipients for this page. Override to unregister specific message types.
     /// </summary>
     protected virtual void UnregisterRecipients() { }
+
+    public virtual CoreBaseViewModel? AssociatedViewModel => null;
 }
 
 public abstract class BasePage<T> : BasePage where T : CoreBaseViewModel
 {
     public T ViewModel { get; } = WinoApplication.Current.Services.GetService<T>() ?? throw new ArgumentException($"Can't resolve '{typeof(T)}' as view model.");
+    public override CoreBaseViewModel AssociatedViewModel => ViewModel;
 
     protected BasePage()
     {

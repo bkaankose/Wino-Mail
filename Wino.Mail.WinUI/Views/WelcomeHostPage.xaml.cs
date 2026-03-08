@@ -3,8 +3,8 @@ using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
-using MoreLinq;
 using Wino.Core.Domain.Enums;
+using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Views.Abstract;
 using Wino.Messaging.Client.Navigation;
@@ -45,16 +45,7 @@ public sealed partial class WelcomeHostPage : WelcomeHostPageAbstract,
 
     public void Receive(BreadcrumbNavigationRequested message)
     {
-        var pageType = ViewModel.NavigationService.GetPageType(message.PageType);
-        if (pageType == null) return;
-
-        WizardFrame.Navigate(pageType, message.Parameter, new SlideNavigationTransitionInfo
-        {
-            Effect = SlideNavigationTransitionEffect.FromRight
-        });
-
-        PageHistory.ForEach(a => a.IsActive = false);
-        PageHistory.Add(new BreadcrumbNavigationItemViewModel(message, isActive: true, stepNumber: PageHistory.Count + 1));
+        BreadcrumbNavigationHelper.Navigate(WizardFrame, PageHistory, message, ViewModel.NavigationService.GetPageType);
     }
 
     public void Receive(BackBreadcrumNavigationRequested message)
@@ -64,33 +55,11 @@ public sealed partial class WelcomeHostPage : WelcomeHostPageAbstract,
 
     private void GoBackFrame()
     {
-        if (!WizardFrame.CanGoBack) return;
-
-        PageHistory.RemoveAt(PageHistory.Count - 1);
-        WizardFrame.GoBack(new SlideNavigationTransitionInfo
-        {
-            Effect = SlideNavigationTransitionEffect.FromLeft
-        });
-
-        if (PageHistory.Count > 0)
-        {
-            PageHistory.ForEach(a => a.IsActive = false);
-            PageHistory[PageHistory.Count - 1].IsActive = true;
-        }
+        BreadcrumbNavigationHelper.GoBack(WizardFrame, PageHistory, NavigationTransitionEffect.FromLeft);
     }
 
     private void BreadItemClicked(Microsoft.UI.Xaml.Controls.BreadcrumbBar sender, Microsoft.UI.Xaml.Controls.BreadcrumbBarItemClickedEventArgs args)
     {
-        var clickedItem = PageHistory[args.Index];
-        var currentActive = PageHistory.FirstOrDefault(a => a.IsActive);
-
-        // Only allow navigating backwards (clicking items before current)
-        if (currentActive == null || args.Index >= PageHistory.IndexOf(currentActive))
-            return;
-
-        while (PageHistory.FirstOrDefault(a => a.IsActive) != clickedItem && WizardFrame.CanGoBack)
-        {
-            GoBackFrame();
-        }
+        BreadcrumbNavigationHelper.NavigateTo(WizardFrame, PageHistory, args.Index);
     }
 }

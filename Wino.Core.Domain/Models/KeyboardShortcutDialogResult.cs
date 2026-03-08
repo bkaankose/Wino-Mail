@@ -13,6 +13,11 @@ public class KeyboardShortcutDialogResult
     public bool IsSuccess { get; set; }
 
     /// <summary>
+    /// The application mode selected by the user.
+    /// </summary>
+    public WinoApplicationMode Mode { get; set; } = WinoApplicationMode.Mail;
+
+    /// <summary>
     /// The key combination entered by the user.
     /// </summary>
     public string Key { get; set; } = string.Empty;
@@ -23,21 +28,22 @@ public class KeyboardShortcutDialogResult
     public ModifierKeys ModifierKeys { get; set; }
 
     /// <summary>
-    /// The mail operation selected by the user.
+    /// The shortcut action selected by the user.
     /// </summary>
-    public MailOperation MailOperation { get; set; }
+    public KeyboardShortcutAction Action { get; set; }
 
     /// <summary>
     /// Creates a successful result.
     /// </summary>
-    public static KeyboardShortcutDialogResult Success(string key, ModifierKeys modifierKeys, MailOperation mailOperation)
+    public static KeyboardShortcutDialogResult Success(WinoApplicationMode mode, string key, ModifierKeys modifierKeys, KeyboardShortcutAction action)
     {
         return new KeyboardShortcutDialogResult
         {
             IsSuccess = true,
+            Mode = mode,
             Key = key,
             ModifierKeys = modifierKeys,
-            MailOperation = mailOperation
+            Action = action
         };
     }
 

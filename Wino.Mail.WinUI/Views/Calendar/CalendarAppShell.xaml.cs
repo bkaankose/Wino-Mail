@@ -1,6 +1,12 @@
-﻿using CommunityToolkit.Mvvm.Messaging;
+using System;
+using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models;
 using Wino.Mail.Views.Abstract;
 using Wino.Messaging.Client.Calendar;
 
@@ -17,14 +23,13 @@ public sealed partial class CalendarAppShell : CalendarAppShellAbstract,
     public CalendarAppShell()
     {
         InitializeComponent();
+        PreviewKeyDown += OnPreviewKeyDown;
 
-        // Window.Current.SetTitleBar(DragArea);
         ManageCalendarDisplayType(ViewModel.StatePersistenceService.CalendarDisplayType);
     }
 
     private void ManageCalendarDisplayType(Core.Domain.Enums.CalendarDisplayType displayType)
     {
-        // Go to different states based on the display type.
         if (displayType == Core.Domain.Enums.CalendarDisplayType.Month)
         {
             VisualStateManager.GoToState(this, STATE_VerticalCalendar, false);
@@ -44,12 +49,6 @@ public sealed partial class CalendarAppShell : CalendarAppShellAbstract,
         ManageCalendarDisplayType(message.NewDisplayType);
     }
 
-    //private void ShellFrameContentNavigated(object sender, Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
-    //    => RealAppBar.ShellFrameContent = (e.Content as BasePage).ShellContent;
-
-    //private void AppBarBackButtonClicked(Core.UWP.Controls.WinoAppTitleBar sender, RoutedEventArgs args)
-    //    => ViewModel.NavigationService.GoBack();
-
     protected override void RegisterRecipients()
     {
         base.RegisterRecipients();
@@ -62,5 +61,99 @@ public sealed partial class CalendarAppShell : CalendarAppShellAbstract,
         base.UnregisterRecipients();
 
         WeakReferenceMessenger.Default.Unregister<CalendarDisplayTypeChangedMessage>(this);
+    }
+
+    private async void OnPreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.KeyStatus.RepeatCount > 1 || ShouldIgnoreShortcut())
+            return;
+
+        var key = NormalizeKey(e.Key);
+        if (string.IsNullOrEmpty(key))
+            return;
+
+        var shortcutService = WinoApplication.Current.Services.GetRequiredService<IKeyboardShortcutService>();
+        var shortcut = await shortcutService.GetShortcutForKeyAsync(WinoApplicationMode.Calendar, key, GetCurrentModifierKeys());
+
+        if (shortcut == null)
+            return;
+
+        var details = new KeyboardShortcutTriggerDetails
+        {
+            ShortcutId = shortcut.Id,
+            Mode = shortcut.Mode,
+            Action = shortcut.Action,
+            Key = shortcut.Key,
+            ModifierKeys = shortcut.ModifierKeys,
+            Sender = sender,
+            Origin = FocusManager.GetFocusedElement(XamlRoot)
+        };
+
+        await ViewModel.KeyboardShortcutHook(details);
+
+        if (InnerShellFrame.Content is BasePage activePage && activePage.AssociatedViewModel != null)
+        {
+            await activePage.AssociatedViewModel.KeyboardShortcutHook(details);
+        }
+
+        if (details.Handled)
+        {
+            e.Handled = true;
+        }
+    }
+
+    private bool ShouldIgnoreShortcut()
+    {
+        var focusedElement = FocusManager.GetFocusedElement(XamlRoot);
+
+        if (focusedElement is TextBox or AutoSuggestBox or PasswordBox or RichEditBox or ComboBox)
+            return true;
+
+        if (focusedElement is FrameworkElement frameworkElement)
+        {
+            var typeName = frameworkElement.GetType().Name;
+            if (typeName.Contains("WebView", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static ModifierKeys GetCurrentModifierKeys()
+    {
+        var modifiers = ModifierKeys.None;
+
+        if (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))
+            modifiers |= ModifierKeys.Control;
+        if (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Menu).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))
+            modifiers |= ModifierKeys.Alt;
+        if (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Shift).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))
+            modifiers |= ModifierKeys.Shift;
+        if (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.LeftWindows).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down) ||
+            Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.RightWindows).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))
+        {
+            modifiers |= ModifierKeys.Windows;
+        }
+
+        return modifiers;
+    }
+
+    private static string NormalizeKey(Windows.System.VirtualKey key)
+    {
+        return key switch
+        {
+            Windows.System.VirtualKey.Control or
+            Windows.System.VirtualKey.LeftControl or
+            Windows.System.VirtualKey.RightControl or
+            Windows.System.VirtualKey.Menu or
+            Windows.System.VirtualKey.LeftMenu or
+            Windows.System.VirtualKey.RightMenu or
+            Windows.System.VirtualKey.Shift or
+            Windows.System.VirtualKey.LeftShift or
+            Windows.System.VirtualKey.RightShift or
+            Windows.System.VirtualKey.LeftWindows or
+            Windows.System.VirtualKey.RightWindows => string.Empty,
+            _ => key.ToString()
+        };
     }
 }

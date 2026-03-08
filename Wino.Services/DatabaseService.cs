@@ -5,6 +5,7 @@ using SQLite;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Services;
@@ -74,6 +75,8 @@ public class DatabaseService : IDatabaseService
 
     private async Task EnsureSchemaUpgradesAsync()
     {
+        await EnsureKeyboardShortcutSchemaAsync().ConfigureAwait(false);
+
         var folderColumns = await Connection.GetTableInfoAsync(nameof(MailItemFolder)).ConfigureAwait(false);
 
         if (!folderColumns.Any(c => c.Name == nameof(MailItemFolder.HighestKnownUid)))
@@ -136,6 +139,44 @@ public class DatabaseService : IDatabaseService
             await Connection
                 .ExecuteAsync($"ALTER TABLE {nameof(AccountContact)} ADD COLUMN {nameof(AccountContact.ContactPictureFileId)} TEXT NULL")
                 .ConfigureAwait(false);
+        }
+    }
+
+    private async Task EnsureKeyboardShortcutSchemaAsync()
+    {
+        var keyboardShortcutColumns = await Connection.GetTableInfoAsync(nameof(KeyboardShortcut)).ConfigureAwait(false);
+
+        if (!keyboardShortcutColumns.Any(c => c.Name == nameof(KeyboardShortcut.Mode)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(KeyboardShortcut)} ADD COLUMN {nameof(KeyboardShortcut.Mode)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
+
+        if (!keyboardShortcutColumns.Any(c => c.Name == nameof(KeyboardShortcut.Action)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(KeyboardShortcut)} ADD COLUMN {nameof(KeyboardShortcut.Action)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+
+            await Connection.ExecuteAsync($@"
+UPDATE {nameof(KeyboardShortcut)}
+SET {nameof(KeyboardShortcut.Action)} =
+    CASE
+        WHEN MailOperation = {(int)MailOperation.Archive} THEN {(int)KeyboardShortcutAction.ToggleArchive}
+        WHEN MailOperation = {(int)MailOperation.UnArchive} THEN {(int)KeyboardShortcutAction.ToggleArchive}
+        WHEN MailOperation = {(int)MailOperation.SoftDelete} THEN {(int)KeyboardShortcutAction.Delete}
+        WHEN MailOperation = {(int)MailOperation.HardDelete} THEN {(int)KeyboardShortcutAction.Delete}
+        WHEN MailOperation = {(int)MailOperation.Move} THEN {(int)KeyboardShortcutAction.Move}
+        WHEN MailOperation = {(int)MailOperation.SetFlag} THEN {(int)KeyboardShortcutAction.ToggleFlag}
+        WHEN MailOperation = {(int)MailOperation.ClearFlag} THEN {(int)KeyboardShortcutAction.ToggleFlag}
+        WHEN MailOperation = {(int)MailOperation.MarkAsRead} THEN {(int)KeyboardShortcutAction.ToggleReadUnread}
+        WHEN MailOperation = {(int)MailOperation.MarkAsUnread} THEN {(int)KeyboardShortcutAction.ToggleReadUnread}
+        WHEN MailOperation = {(int)MailOperation.Reply} THEN {(int)KeyboardShortcutAction.Reply}
+        WHEN MailOperation = {(int)MailOperation.ReplyAll} THEN {(int)KeyboardShortcutAction.ReplyAll}
+        WHEN MailOperation = {(int)MailOperation.Forward} THEN {(int)KeyboardShortcutAction.Reply}
+        ELSE {(int)KeyboardShortcutAction.None}
+    END").ConfigureAwait(false);
         }
     }
 

@@ -16,6 +16,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Folders;
+using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
@@ -933,6 +934,18 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
         var draftPreparationRequest = new DraftPreparationRequest(account, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason);
         await _winoRequestDelegator.ExecuteAsync(draftPreparationRequest);
+    }
+
+    public override async Task KeyboardShortcutHook(KeyboardShortcutTriggerDetails args)
+    {
+        if (args.Handled || args.Mode != WinoApplicationMode.Mail)
+            return;
+
+        if (args.Action == KeyboardShortcutAction.NewMail)
+        {
+            await HandleCreateNewMailAsync();
+            args.Handled = true;
+        }
     }
 
 

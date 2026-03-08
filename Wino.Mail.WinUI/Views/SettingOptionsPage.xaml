@@ -221,6 +221,17 @@
                     <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE787;" />
                 </controls:SettingsCard.HeaderIcon>
             </controls:SettingsCard>
+
+            <controls:SettingsCard
+                Click="SettingOptionClicked"
+                Description="{x:Bind domain:Translator.Settings_KeyboardShortcuts_Description}"
+                Header="{x:Bind domain:Translator.Settings_KeyboardShortcuts_Title}"
+                IsClickEnabled="True"
+                Tag="{x:Bind enums:WinoPage.KeyboardShortcutsPage}">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE765;" />
+                </controls:SettingsCard.HeaderIcon>
+            </controls:SettingsCard>
         </StackPanel>
     </ScrollViewer>
 </abstract:SettingOptionsPageAbstract>

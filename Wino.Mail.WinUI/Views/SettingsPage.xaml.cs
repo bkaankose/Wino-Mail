@@ -3,9 +3,9 @@ using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
-using MoreLinq;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
+using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
 using Wino.Views.Abstract;
@@ -35,7 +35,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         SettingsFrame.Navigate(typeof(SettingOptionsPage), null, new SuppressNavigationTransitionInfo());
 
         var initialRequest = new BreadcrumbNavigationRequested(Translator.MenuSettings, WinoPage.SettingOptionsPage);
-        PageHistory.Add(new BreadcrumbNavigationItemViewModel(initialRequest, true));
+        PageHistory.Add(new BreadcrumbNavigationItemViewModel(initialRequest, true, backStackDepth: SettingsFrame.BackStack.Count + 1));
 
         if (e.Parameter is WinoPage parameterPage)
         {
@@ -99,15 +99,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
     void IRecipient<BreadcrumbNavigationRequested>.Receive(BreadcrumbNavigationRequested message)
     {
-        var pageType = ViewModel.NavigationService.GetPageType(message.PageType);
-
-        if (pageType == null) return;
-
-        SettingsFrame.Navigate(pageType, message.Parameter, new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromRight });
-
-        PageHistory.ForEach(a => a.IsActive = false);
-
-        PageHistory.Add(new BreadcrumbNavigationItemViewModel(message, true));
+        BreadcrumbNavigationHelper.Navigate(SettingsFrame, PageHistory, message, ViewModel.NavigationService.GetPageType);
         UpdateWindowTitle();
     }
 
@@ -119,40 +111,20 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
     private void GoBackFrame(Core.Domain.Enums.NavigationTransitionEffect slideEffect)
     {
-        if (SettingsFrame.CanGoBack)
-        {
-            PageHistory.RemoveAt(PageHistory.Count - 1);
+        if (!BreadcrumbNavigationHelper.GoBack(SettingsFrame, PageHistory, slideEffect))
+            return;
 
-            var winuiEffect = slideEffect switch
-            {
-                Core.Domain.Enums.NavigationTransitionEffect.FromLeft => Microsoft.UI.Xaml.Media.Animation.SlideNavigationTransitionEffect.FromLeft,
-                _ => Microsoft.UI.Xaml.Media.Animation.SlideNavigationTransitionEffect.FromRight,
-            };
-
-            SettingsFrame.GoBack(new SlideNavigationTransitionInfo() { Effect = winuiEffect });
-
-            // Set the new last item as active
-            if (PageHistory.Count > 0)
-            {
-                PageHistory.ForEach(a => a.IsActive = false);
-                PageHistory[PageHistory.Count - 1].IsActive = true;
-            }
-
-            // Update back button visibility after navigation
-            ViewModel.StatePersistenceService.IsSettingsNavigating = SettingsFrame.CanGoBack;
-            UpdateWindowTitle();
-        }
+        ViewModel.StatePersistenceService.IsSettingsNavigating = SettingsFrame.CanGoBack;
+        UpdateWindowTitle();
     }
 
     private void BreadItemClicked(Microsoft.UI.Xaml.Controls.BreadcrumbBar sender, Microsoft.UI.Xaml.Controls.BreadcrumbBarItemClickedEventArgs args)
     {
-        var clickedPageHistory = PageHistory[args.Index];
+        if (!BreadcrumbNavigationHelper.NavigateTo(SettingsFrame, PageHistory, args.Index))
+            return;
 
-        // Trigger GoBack repeatedly until we reach the clicked breadcrumb item
-        while (PageHistory.FirstOrDefault(a => a.IsActive) != clickedPageHistory)
-        {
-            ViewModel.NavigationService.GoBack();
-        }
+        ViewModel.StatePersistenceService.IsSettingsNavigating = SettingsFrame.CanGoBack;
+        UpdateWindowTitle();
     }
 
     public void Receive(BackBreadcrumNavigationRequested message)

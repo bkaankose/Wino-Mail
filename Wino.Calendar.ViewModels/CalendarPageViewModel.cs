@@ -14,6 +14,7 @@ using Serilog;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Calendar.ViewModels.Messages;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
@@ -21,6 +22,7 @@ using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Calendar.CalendarTypeStrategies;
+using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Calendar;
@@ -135,6 +137,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     private readonly INativeAppService _nativeAppService;
     private readonly IPreferencesService _preferencesService;
     private readonly IWinoRequestDelegator _winoRequestDelegator;
+    private readonly IMailDialogService _dialogService;
 
     // Store latest rendered options.
     private CalendarDisplayType _currentDisplayType;
@@ -156,7 +159,8 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
                                  INativeAppService nativeAppService,
                                  IAccountCalendarStateService accountCalendarStateService,
                                  IPreferencesService preferencesService,
-                                 IWinoRequestDelegator winoRequestDelegator)
+                                 IWinoRequestDelegator winoRequestDelegator,
+                                 IMailDialogService dialogService)
     {
         StatePersistanceService = statePersistanceService;
         AccountCalendarStateService = accountCalendarStateService;
@@ -167,12 +171,42 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         _nativeAppService = nativeAppService;
         _preferencesService = preferencesService;
         _winoRequestDelegator = winoRequestDelegator;
+        _dialogService = dialogService;
 
         AccountCalendarStateService.AccountCalendarSelectionStateChanged += UpdateAccountCalendarRequested;
         AccountCalendarStateService.CollectiveAccountGroupSelectionStateChanged += AccountCalendarStateCollectivelyChanged;
 
         // We don't register on navigation here. This page is cached.
         RegisterRecipients();
+    }
+
+    public override async Task KeyboardShortcutHook(KeyboardShortcutTriggerDetails args)
+    {
+        if (args.Handled || args.Mode != WinoApplicationMode.Calendar || args.Action != KeyboardShortcutAction.Delete)
+            return;
+
+        if (DisplayDetailsCalendarItemViewModel?.CalendarItem == null)
+            return;
+
+        if (DisplayDetailsCalendarItemViewModel.CalendarItem.IsRecurringParent)
+        {
+            var confirmed = await _dialogService.ShowConfirmationDialogAsync(
+                Translator.DialogMessage_DeleteRecurringSeriesMessage,
+                Translator.DialogMessage_DeleteRecurringSeriesTitle,
+                Translator.Buttons_Delete);
+
+            if (!confirmed)
+                return;
+        }
+
+        var preparationRequest = new CalendarOperationPreparationRequest(
+            CalendarSynchronizerOperation.DeleteEvent,
+            DisplayDetailsCalendarItemViewModel.CalendarItem,
+            null);
+
+        await _winoRequestDelegator.ExecuteAsync(preparationRequest);
+        DisplayDetailsCalendarItemViewModel = null;
+        args.Handled = true;
     }
 
     protected override void RegisterRecipients()

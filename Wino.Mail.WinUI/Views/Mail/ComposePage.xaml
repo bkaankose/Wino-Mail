@@ -145,14 +145,13 @@
                                 Visibility="{x:Bind ViewModel.IsDraftBusy, Mode=OneWay}">
                                 <ProgressRing IsActive="True" />
                             </AppBarButton>
-                            <AppBarToggleButton
-                                x:Name="EditorThemeToggleButton"
-                                IsChecked="{x:Bind WebViewEditor.IsEditorDarkMode, Mode=TwoWay}"
-                                ToolTipService.ToolTip="Toggle editor dark mode">
-                                <AppBarToggleButton.Icon>
-                                    <coreControls:WinoFontIcon Icon="DarkEditor" />
-                                </AppBarToggleButton.Icon>
-                            </AppBarToggleButton>
+                            <AppBarButton
+                                Click="ToggleEditorThemeClicked"
+                                ToolTipService.ToolTip="{x:Bind GetEditorThemeToolTip(WebViewEditor.IsEditorDarkMode), Mode=OneWay}">
+                                <AppBarButton.Icon>
+                                    <coreControls:WinoFontIcon Icon="{x:Bind GetEditorThemeIcon(WebViewEditor.IsEditorDarkMode), Mode=OneWay}" />
+                                </AppBarButton.Icon>
+                            </AppBarButton>
                             <AppBarButton Command="{x:Bind ViewModel.DiscardCommand}" Label="{x:Bind domain:Translator.Buttons_Discard}">
                                 <AppBarButton.Icon>
                                     <coreControls:WinoFontIcon Icon="Delete" />

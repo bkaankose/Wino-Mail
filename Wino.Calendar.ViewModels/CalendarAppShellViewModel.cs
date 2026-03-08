@@ -17,6 +17,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.ViewModels;
@@ -391,6 +392,18 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
             StartDate = startDate,
             EndDate = endDate
         });
+    }
+
+    public override async Task KeyboardShortcutHook(KeyboardShortcutTriggerDetails args)
+    {
+        if (args.Handled || args.Mode != WinoApplicationMode.Calendar)
+            return;
+
+        if (args.Action == KeyboardShortcutAction.NewEvent)
+        {
+            await NewEventAsync();
+            args.Handled = true;
+        }
     }
 
 

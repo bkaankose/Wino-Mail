@@ -70,7 +70,7 @@ public partial class KeyboardShortcutsPageViewModel : CoreBaseViewModel
             try
             {
                 // Check if key combination is already in use
-                var isInUse = await _keyboardShortcutService.IsKeyCombinationInUseAsync(result.Key, result.ModifierKeys, null);
+                var isInUse = await _keyboardShortcutService.IsKeyCombinationInUseAsync(result.Mode, result.Key, result.ModifierKeys, null);
                 if (isInUse)
                 {
                     await _dialogService.ShowMessageAsync(Translator.KeyboardShortcuts_ShortcutInUse, Translator.GeneralTitle_Error, WinoCustomMessageDialogIcon.Error);
@@ -80,9 +80,10 @@ public partial class KeyboardShortcutsPageViewModel : CoreBaseViewModel
                 // Create new shortcut
                 var shortcut = new KeyboardShortcut
                 {
+                    Mode = result.Mode,
                     Key = result.Key,
                     ModifierKeys = result.ModifierKeys,
-                    MailOperation = result.MailOperation,
+                    Action = result.Action,
                     IsEnabled = true
                 };
 
@@ -116,7 +117,7 @@ public partial class KeyboardShortcutsPageViewModel : CoreBaseViewModel
             try
             {
                 // Check if key combination is already in use (excluding current shortcut)
-                var isInUse = await _keyboardShortcutService.IsKeyCombinationInUseAsync(result.Key, result.ModifierKeys, shortcut.Id);
+                var isInUse = await _keyboardShortcutService.IsKeyCombinationInUseAsync(result.Mode, result.Key, result.ModifierKeys, shortcut.Id);
                 if (isInUse)
                 {
                     await _dialogService.ShowMessageAsync(Translator.KeyboardShortcuts_ShortcutInUse, Translator.GeneralTitle_Error, WinoCustomMessageDialogIcon.Error);
@@ -125,9 +126,10 @@ public partial class KeyboardShortcutsPageViewModel : CoreBaseViewModel
 
                 // Update existing shortcut
                 var updatedShortcut = shortcut.ToEntity();
+                updatedShortcut.Mode = result.Mode;
                 updatedShortcut.Key = result.Key;
                 updatedShortcut.ModifierKeys = result.ModifierKeys;
-                updatedShortcut.MailOperation = result.MailOperation;
+                updatedShortcut.Action = result.Action;
 
                 await _keyboardShortcutService.SaveKeyboardShortcutAsync(updatedShortcut);
                 await LoadShortcutsAsync();

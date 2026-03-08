@@ -470,8 +470,8 @@
                 <Border
                     x:Name="AttachmentsPane"
                     Margin="0,8,0,0"
-                    AllowDrop="True"
                     Padding="16"
+                    AllowDrop="True"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     CornerRadius="{StaticResource ControlCornerRadius}"
                     DragLeave="AttachmentsPane_DragLeave"
@@ -487,7 +487,10 @@
                             Style="{StaticResource TransparentActionButtonStyle}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <coreControls:WinoFontIcon FontSize="14" Icon="AttachmentNew" />
-                                <TextBlock FontSize="18" FontWeight="SemiBold" Text="+" />
+                                <TextBlock
+                                    FontSize="18"
+                                    FontWeight="SemiBold"
+                                    Text="+" />
                             </StackPanel>
                         </Button>
 
@@ -560,7 +563,20 @@
                     <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.CalendarEventCompose_Notes}" />
                 </StackPanel>
                 <!--  Notes Editor  -->
-                <mailControls:EditorTabbedCommandBarControl CommandTarget="{x:Bind NotesEditor}" />
+                <mailControls:EditorTabbedCommandBarControl CommandTarget="{x:Bind NotesEditor}">
+                    <mailControls:EditorTabbedCommandBarControl.PaneCustomContent>
+                        <toolkit:TabbedCommandBarItem
+                            CommandAlignment="Right"
+                            IsDynamicOverflowEnabled="True"
+                            OverflowButtonAlignment="Left">
+                            <AppBarButton Click="ToggleNotesEditorThemeClicked" ToolTipService.ToolTip="{x:Bind GetEditorThemeToolTip(NotesEditor.IsEditorDarkMode), Mode=OneWay}">
+                                <AppBarButton.Icon>
+                                    <coreControls:WinoFontIcon Icon="{x:Bind GetEditorThemeIcon(NotesEditor.IsEditorDarkMode), Mode=OneWay}" />
+                                </AppBarButton.Icon>
+                            </AppBarButton>
+                        </toolkit:TabbedCommandBarItem>
+                    </mailControls:EditorTabbedCommandBarControl.PaneCustomContent>
+                </mailControls:EditorTabbedCommandBarControl>
                 <mailControls:WebViewEditorControl
                     x:Name="NotesEditor"
                     MinHeight="500"

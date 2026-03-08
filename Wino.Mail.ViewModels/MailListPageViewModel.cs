@@ -18,6 +18,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
+using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
@@ -72,6 +73,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private readonly IAccountService _accountService;
     private readonly IMailDialogService _mailDialogService;
     private readonly IMailService _mailService;
+    private readonly IMimeFileService _mimeFileService;
     private readonly INotificationBuilder _notificationBuilder;
     private readonly IFolderService _folderService;
     private readonly IContextMenuItemService _contextMenuItemService;
@@ -165,6 +167,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  IAccountService accountService,
                                  IMailDialogService mailDialogService,
                                  IMailService mailService,
+                                 IMimeFileService mimeFileService,
                                  IStatePersistanceService statePersistenceService,
                                  INotificationBuilder notificationBuilder,
                                  IFolderService folderService,
@@ -179,6 +182,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         _accountService = accountService;
         _mailDialogService = mailDialogService;
         _mailService = mailService;
+        _mimeFileService = mimeFileService;
         _folderService = folderService;
         _contextMenuItemService = contextMenuItemService;
         _winoRequestDelegator = winoRequestDelegator;
@@ -609,6 +613,87 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     #endregion
 
     public Task ExecuteMailOperationAsync(MailOperationPreperationRequest package) => _winoRequestDelegator.ExecuteAsync(package);
+
+    public override async Task KeyboardShortcutHook(KeyboardShortcutTriggerDetails args)
+    {
+        if (args.Handled || args.Mode != WinoApplicationMode.Mail)
+            return;
+
+        var targetItems = GetShortcutTargetItems().ToList();
+
+        switch (args.Action)
+        {
+            case KeyboardShortcutAction.ToggleReadUnread:
+                if (!targetItems.Any()) return;
+                await ExecuteMailOperationAsync(new MailOperationPreperationRequest(MailOperation.MarkAsRead, targetItems.Select(x => x.MailCopy), true));
+                args.Handled = true;
+                break;
+            case KeyboardShortcutAction.ToggleFlag:
+                if (!targetItems.Any()) return;
+                await ExecuteMailOperationAsync(new MailOperationPreperationRequest(MailOperation.SetFlag, targetItems.Select(x => x.MailCopy), true));
+                args.Handled = true;
+                break;
+            case KeyboardShortcutAction.ToggleArchive:
+                if (!targetItems.Any()) return;
+                await ExecuteMailOperationAsync(new MailOperationPreperationRequest(MailOperation.Archive, targetItems.Select(x => x.MailCopy), true));
+                args.Handled = true;
+                break;
+            case KeyboardShortcutAction.Delete:
+                if (!targetItems.Any()) return;
+                await ExecuteMailOperationAsync(new MailOperationPreperationRequest(MailOperation.SoftDelete, targetItems.Select(x => x.MailCopy)));
+                args.Handled = true;
+                break;
+            case KeyboardShortcutAction.Move:
+                if (!targetItems.Any()) return;
+                await ExecuteMailOperationAsync(new MailOperationPreperationRequest(MailOperation.Move, targetItems.Select(x => x.MailCopy)));
+                args.Handled = true;
+                break;
+            case KeyboardShortcutAction.Reply:
+                await CreateReplyDraftAsync(DraftCreationReason.Reply);
+                args.Handled = true;
+                break;
+            case KeyboardShortcutAction.ReplyAll:
+                await CreateReplyDraftAsync(DraftCreationReason.ReplyAll);
+                args.Handled = true;
+                break;
+        }
+    }
+
+    private IEnumerable<MailItemViewModel> GetShortcutTargetItems()
+    {
+        if (MailCollection.SelectedItemsCount > 0)
+            return MailCollection.SelectedItems.OfType<MailItemViewModel>();
+
+        if (_activeMailItem != null)
+            return [_activeMailItem];
+
+        return [];
+    }
+
+    private async Task CreateReplyDraftAsync(DraftCreationReason reason)
+    {
+        var targetMail = GetShortcutTargetItems().FirstOrDefault();
+        if (targetMail?.MailCopy == null || targetMail.MailCopy.FileId == Guid.Empty)
+            return;
+
+        var mimeInformation = await _mimeFileService.GetMimeMessageInformationAsync(targetMail.MailCopy.FileId, targetMail.MailCopy.AssignedAccount.Id);
+        if (mimeInformation?.MimeMessage == null)
+            return;
+
+        var draftOptions = new DraftCreationOptions
+        {
+            Reason = reason,
+            ReferencedMessage = new ReferencedMessage
+            {
+                MimeMessage = mimeInformation.MimeMessage,
+                MailCopy = targetMail.MailCopy
+            }
+        };
+
+        var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(targetMail.MailCopy.AssignedAccount.Id, draftOptions).ConfigureAwait(false);
+        var draftPreparationRequest = new DraftPreparationRequest(targetMail.MailCopy.AssignedAccount, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason, targetMail.MailCopy);
+        await _winoRequestDelegator.ExecuteAsync(draftPreparationRequest);
+    }
 
     public IEnumerable<MailOperationMenuItem> GetAvailableMailActions(IEnumerable<MailItemViewModel> contextMailItems)
         => _contextMenuItemService.GetMailItemContextMenuActions(contextMailItems.Select(a => a.MailCopy));

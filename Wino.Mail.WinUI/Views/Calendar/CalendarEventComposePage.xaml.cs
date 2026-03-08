@@ -15,6 +15,7 @@ using Windows.Storage;
 using Wino.Core.Domain;
 using Wino.Messaging.Client.Shell;
 using Wino.Calendar.ViewModels.Data;
+using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Views.Abstract;
 
 namespace Wino.Calendar.Views;
@@ -27,6 +28,15 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
     public CalendarEventComposePage()
     {
         InitializeComponent();
+    }
+
+    public WinoIconGlyph GetEditorThemeIcon(bool isDarkMode) => isDarkMode ? WinoIconGlyph.LightEditor : WinoIconGlyph.DarkEditor;
+
+    public string GetEditorThemeToolTip(bool isDarkMode) => isDarkMode ? Translator.Composer_LightTheme : Translator.Composer_DarkTheme;
+
+    private void ToggleNotesEditorThemeClicked(object sender, RoutedEventArgs e)
+    {
+        NotesEditor.ToggleEditorTheme();
     }
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)

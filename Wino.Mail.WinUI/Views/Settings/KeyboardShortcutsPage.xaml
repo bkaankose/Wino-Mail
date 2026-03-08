@@ -52,18 +52,27 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
                             <StackPanel Grid.Column="0">
                                 <TextBlock
                                     Margin="0,0,0,4"
                                     Style="{ThemeResource BodyStrongTextBlockStyle}"
-                                    Text="{x:Bind MailOperationDisplayName}" />
+                                    Text="{x:Bind ActionDisplayName}" />
                                 <TextBlock
                                     Opacity="0.8"
                                     Style="{ThemeResource CaptionTextBlockStyle}"
                                     Text="{x:Bind DisplayName}" />
                             </StackPanel>
+
+                            <TextBlock
+                                Grid.Column="1"
+                                Margin="8,0"
+                                VerticalAlignment="Center"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{ThemeResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ModeDisplayName}" />
 
                             <Button
                                 Grid.Column="2"
@@ -73,7 +82,7 @@
                                 Content="&#xE70F;"
                                 FontFamily="Segoe MDL2 Assets"
                                 Style="{ThemeResource SubtleButtonStyle}"
-                                ToolTipService.ToolTip="Edit" />
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Edit}" />
 
                             <Button
                                 Grid.Column="3"
@@ -83,7 +92,7 @@
                                 Content="&#xE74D;"
                                 FontFamily="Segoe MDL2 Assets"
                                 Style="{ThemeResource SubtleButtonStyle}"
-                                ToolTipService.ToolTip="Delete" />
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Delete}" />
                         </Grid>
                     </Border>
                 </DataTemplate>

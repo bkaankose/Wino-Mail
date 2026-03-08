@@ -15,9 +15,10 @@ public partial class KeyboardShortcutViewModel : ObservableObject
     public partial bool IsEnabled { get; set; }
 
     public Guid Id { get; }
+    public WinoApplicationMode Mode { get; }
     public string Key { get; }
     public ModifierKeys ModifierKeys { get; }
-    public MailOperation MailOperation { get; }
+    public KeyboardShortcutAction Action { get; }
     public DateTime CreatedAt { get; }
 
     public string DisplayName
@@ -38,25 +39,30 @@ public partial class KeyboardShortcutViewModel : ObservableObject
         }
     }
 
-    public string MailOperationDisplayName
+    public string ModeDisplayName => Mode switch
+    {
+        WinoApplicationMode.Mail => Translator.KeyboardShortcuts_ModeMail,
+        WinoApplicationMode.Calendar => Translator.KeyboardShortcuts_ModeCalendar,
+        _ => Mode.ToString()
+    };
+
+    public string ActionDisplayName
     {
         get
         {
-            return MailOperation switch
+            return Action switch
             {
-                MailOperation.Archive => Translator.MailOperation_Archive,
-                MailOperation.UnArchive => Translator.MailOperation_Unarchive,
-                MailOperation.SoftDelete => Translator.MailOperation_Delete,
-                MailOperation.Move => Translator.MailOperation_Move,
-                MailOperation.MoveToJunk => Translator.MailOperation_MoveJunk,
-                MailOperation.SetFlag => Translator.MailOperation_SetFlag,
-                MailOperation.ClearFlag => Translator.MailOperation_ClearFlag,
-                MailOperation.MarkAsRead => Translator.MailOperation_MarkAsRead,
-                MailOperation.MarkAsUnread => Translator.MailOperation_MarkAsUnread,
-                MailOperation.Reply => Translator.MailOperation_Reply,
-                MailOperation.ReplyAll => Translator.MailOperation_ReplyAll,
-                MailOperation.Forward => Translator.MailOperation_Forward,
-                _ => MailOperation.ToString()
+                KeyboardShortcutAction.NewMail => Translator.MenuNewMail,
+                KeyboardShortcutAction.ToggleReadUnread => Translator.KeyboardShortcuts_ActionToggleReadUnread,
+                KeyboardShortcutAction.ToggleFlag => Translator.KeyboardShortcuts_ActionToggleFlag,
+                KeyboardShortcutAction.ToggleArchive => Translator.KeyboardShortcuts_ActionToggleArchive,
+                KeyboardShortcutAction.Delete => Translator.Buttons_Delete,
+                KeyboardShortcutAction.Move => Translator.MailOperation_Move,
+                KeyboardShortcutAction.Reply => Translator.MailOperation_Reply,
+                KeyboardShortcutAction.ReplyAll => Translator.MailOperation_ReplyAll,
+                KeyboardShortcutAction.Send => Translator.Buttons_Send,
+                KeyboardShortcutAction.NewEvent => Translator.CalendarEventCompose_NewEventButton,
+                _ => Action.ToString()
             };
         }
     }
@@ -64,9 +70,10 @@ public partial class KeyboardShortcutViewModel : ObservableObject
     public KeyboardShortcutViewModel(KeyboardShortcut shortcut)
     {
         Id = shortcut.Id;
+        Mode = shortcut.Mode;
         Key = shortcut.Key;
         ModifierKeys = shortcut.ModifierKeys;
-        MailOperation = shortcut.MailOperation;
+        Action = shortcut.Action;
         CreatedAt = shortcut.CreatedAt;
         IsEnabled = shortcut.IsEnabled;
     }
@@ -76,9 +83,10 @@ public partial class KeyboardShortcutViewModel : ObservableObject
         return new KeyboardShortcut
         {
             Id = Id,
+            Mode = Mode,
             Key = Key,
             ModifierKeys = ModifierKeys,
-            MailOperation = MailOperation,
+            Action = Action,
             CreatedAt = CreatedAt,
             IsEnabled = IsEnabled
         };

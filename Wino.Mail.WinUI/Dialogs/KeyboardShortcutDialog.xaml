@@ -21,22 +21,40 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!--  Mail Operation  -->
+        <StackPanel Grid.Row="1" Margin="0,0,0,20">
+            <TextBlock
+                Margin="0,0,0,8"
+                Style="{ThemeResource BodyStrongTextBlockStyle}"
+                Text="{x:Bind domain:Translator.KeyboardShortcuts_Mode}" />
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <RadioButton
+                    Content="{x:Bind domain:Translator.KeyboardShortcuts_ModeMail}"
+                    GroupName="ShortcutMode"
+                    IsChecked="{x:Bind IsMailModeSelected, Mode=TwoWay}" />
+                <RadioButton
+                    Content="{x:Bind domain:Translator.KeyboardShortcuts_ModeCalendar}"
+                    GroupName="ShortcutMode"
+                    IsChecked="{x:Bind IsCalendarModeSelected, Mode=TwoWay}" />
+            </StackPanel>
+        </StackPanel>
+
+        <!--  Action  -->
         <StackPanel Grid.Row="0" Margin="0,0,0,20">
             <TextBlock
                 Margin="0,0,0,4"
                 Style="{ThemeResource BodyStrongTextBlockStyle}"
-                Text="{x:Bind domain:Translator.KeyboardShortcuts_MailoperationAction}" />
+                Text="{x:Bind domain:Translator.KeyboardShortcuts_Action}" />
             <ComboBox
-                x:Name="MailOperationComboBox"
+                x:Name="ActionComboBox"
                 HorizontalAlignment="Stretch"
-                ItemsSource="{x:Bind AvailableMailOperations}"
-                SelectedItem="{x:Bind SelectedMailOperation, Mode=TwoWay}">
+                ItemsSource="{x:Bind AvailableActions}"
+                SelectedItem="{x:Bind SelectedAction, Mode=TwoWay}">
                 <ComboBox.ItemTemplate>
 
-                    <DataTemplate x:DataType="data:MailOperationViewModel">
+                    <DataTemplate x:DataType="data:KeyboardShortcutActionViewModel">
                         <TextBlock Text="{x:Bind DisplayName}" />
                     </DataTemplate>
                 </ComboBox.ItemTemplate>
@@ -44,7 +62,7 @@
         </StackPanel>
 
         <!--  Key Input  -->
-        <StackPanel Grid.Row="1" Margin="0,0,0,20">
+        <StackPanel Grid.Row="2" Margin="0,0,0,20">
             <TextBlock
                 Margin="0,0,0,4"
                 Style="{ThemeResource BodyStrongTextBlockStyle}"
@@ -61,31 +79,10 @@
                 Text="{x:Bind domain:Translator.KeyboardShortcuts_FocusArea}" />
         </StackPanel>
 
-        <!--  Modifiers  -->
-        <StackPanel Grid.Row="2" Margin="0,0,0,20">
-            <TextBlock
-                Margin="0,0,0,8"
-                Style="{ThemeResource BodyStrongTextBlockStyle}"
-                Text="{x:Bind domain:Translator.KeyboardShortcuts_Modifiers}" />
-            <Border
-                Padding="16,12"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="6">
-                <StackPanel Orientation="Horizontal" Spacing="16">
-                    <CheckBox Content="Ctrl" IsChecked="{x:Bind IsControlPressed, Mode=TwoWay}" />
-                    <CheckBox Content="Alt" IsChecked="{x:Bind IsAltPressed, Mode=TwoWay}" />
-                    <CheckBox Content="Shift" IsChecked="{x:Bind IsShiftPressed, Mode=TwoWay}" />
-                    <CheckBox Content="Win" IsChecked="{x:Bind IsWindowsPressed, Mode=TwoWay}" />
-                </StackPanel>
-            </Border>
-        </StackPanel>
-
         <!--  Error Message  -->
         <Border
             x:Name="ErrorBorder"
-            Grid.Row="3"
+            Grid.Row="4"
             Padding="12,8"
             Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
             CornerRadius="4"

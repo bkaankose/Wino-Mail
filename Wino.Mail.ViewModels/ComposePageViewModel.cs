@@ -18,6 +18,7 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Extensions;
 using Wino.Core.Services;
@@ -37,6 +38,18 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     private static readonly TimeSpan LocalDraftRetryGracePeriod = TimeSpan.FromSeconds(15);
 
     public Func<Task<string>> GetHTMLBodyFunction;
+
+    public override async Task KeyboardShortcutHook(KeyboardShortcutTriggerDetails args)
+    {
+        if (args.Handled || args.Mode != WinoApplicationMode.Mail)
+            return;
+
+        if (args.Action == KeyboardShortcutAction.Send)
+        {
+            await SendAsync();
+            args.Handled = true;
+        }
+    }
 
     // When we send the message or discard it, we need to block the mime update
     // Update is triggered when we leave the page.

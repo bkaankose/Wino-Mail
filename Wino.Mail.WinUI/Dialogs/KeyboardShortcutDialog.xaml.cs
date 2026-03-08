@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Models;
 using Wino.Core.ViewModels.Data;
 
@@ -13,35 +14,51 @@ public sealed partial class KeyboardShortcutDialog : ContentDialog
 {
     public KeyboardShortcutDialogResult Result { get; private set; } = KeyboardShortcutDialogResult.Canceled();
 
-    public List<MailOperationViewModel> AvailableMailOperations { get; }
+    public List<KeyboardShortcutActionViewModel> AvailableActions { get; private set; } = [];
 
-    public MailOperationViewModel SelectedMailOperation { get; set; }
-    public bool IsControlPressed { get; set; }
-    public bool IsAltPressed { get; set; }
-    public bool IsShiftPressed { get; set; }
-    public bool IsWindowsPressed { get; set; }
+    public KeyboardShortcutActionViewModel SelectedAction { get; set; } = null!;
+    public WinoApplicationMode SelectedMode { get; set; } = WinoApplicationMode.Mail;
+    public bool IsMailModeSelected
+    {
+        get => SelectedMode == WinoApplicationMode.Mail;
+        set
+        {
+            if (!value || SelectedMode == WinoApplicationMode.Mail) return;
+            SelectedMode = WinoApplicationMode.Mail;
+            RefreshAvailableActions();
+        }
+    }
+
+    public bool IsCalendarModeSelected
+    {
+        get => SelectedMode == WinoApplicationMode.Calendar;
+        set
+        {
+            if (!value || SelectedMode == WinoApplicationMode.Calendar) return;
+            SelectedMode = WinoApplicationMode.Calendar;
+            RefreshAvailableActions();
+        }
+    }
+
+    private ModifierKeys _modifierKeys;
+    private string _key = string.Empty;
 
     public KeyboardShortcutDialog()
     {
         InitializeComponent();
-        AvailableMailOperations = GetAvailableMailOperations();
-        SelectedMailOperation = AvailableMailOperations.FirstOrDefault()!;
+        RefreshAvailableActions();
     }
 
     public KeyboardShortcutDialog(KeyboardShortcut existingShortcut) : this()
     {
         if (existingShortcut != null)
         {
-            KeyInputTextBox.Text = existingShortcut.Key;
-            SelectedMailOperation = AvailableMailOperations.FirstOrDefault(x => x.Operation == existingShortcut.MailOperation)!;
-
-            var modifiers = existingShortcut.ModifierKeys;
-            IsControlPressed = modifiers.HasFlag(ModifierKeys.Control);
-            IsAltPressed = modifiers.HasFlag(ModifierKeys.Alt);
-            IsShiftPressed = modifiers.HasFlag(ModifierKeys.Shift);
-            IsWindowsPressed = modifiers.HasFlag(ModifierKeys.Windows);
-
-            Title = "Edit Keyboard Shortcut";
+            SelectedMode = existingShortcut.Mode;
+            _modifierKeys = existingShortcut.ModifierKeys;
+            _key = existingShortcut.Key;
+            RefreshAvailableActions(existingShortcut.Action);
+            KeyInputTextBox.Text = BuildDisplayString(_key, _modifierKeys);
+            Title = Translator.KeyboardShortcuts_EditTitle;
         }
     }
 
@@ -51,61 +68,47 @@ public sealed partial class KeyboardShortcutDialog : ContentDialog
         ErrorBorder.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
 
         // Validate input
-        if (string.IsNullOrWhiteSpace(KeyInputTextBox.Text))
+        if (string.IsNullOrWhiteSpace(_key))
         {
-            ShowError("Please enter a key for the shortcut.");
+            ShowError(Translator.KeyboardShortcuts_EnterKey);
             args.Cancel = true;
             return;
         }
 
-        if (SelectedMailOperation == null || SelectedMailOperation.Operation == MailOperation.None)
+        if (SelectedAction == null || SelectedAction.Action == KeyboardShortcutAction.None)
         {
-            ShowError("Please select a mail operation for the shortcut.");
+            ShowError(Translator.KeyboardShortcuts_SelectOperation);
             args.Cancel = true;
             return;
         }
 
-        // Get modifier keys
-        var modifierKeys = GetSelectedModifierKeys();
-
-        // Create successful result
-        Result = KeyboardShortcutDialogResult.Success(KeyInputTextBox.Text, modifierKeys, SelectedMailOperation.Operation);
+        Result = KeyboardShortcutDialogResult.Success(SelectedMode, _key, _modifierKeys, SelectedAction.Action);
     }
 
     private void KeyInputTextBox_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        // Clear error when user starts typing
         ErrorBorder.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
 
-        var key = e.Key.ToString();
+        _modifierKeys = GetCurrentModifierKeys();
+        var key = NormalizeKey(e.Key);
 
-        // Update modifier states based on current key press
-        IsControlPressed = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
-        IsAltPressed = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Menu).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
-        IsShiftPressed = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Shift).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
-        IsWindowsPressed = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.LeftWindows).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down) ||
-                          Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.RightWindows).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
-
-        // Set the key (ignore modifier keys themselves)
-        if (key != "Control" && key != "Menu" && key != "Shift" && key != "LeftWindows" && key != "RightWindows")
+        if (!string.IsNullOrEmpty(key))
         {
-            KeyInputTextBox.Text = key;
+            _key = key;
         }
 
-        // Prevent the key from being processed further
-        // e.Handled = true;
+        KeyInputTextBox.Text = string.IsNullOrEmpty(_key)
+            ? BuildDisplayString(string.Empty, _modifierKeys)
+            : BuildDisplayString(_key, _modifierKeys);
+
+        e.Handled = true;
     }
 
-    private ModifierKeys GetSelectedModifierKeys()
+    private void RefreshAvailableActions(KeyboardShortcutAction selectedAction = KeyboardShortcutAction.None)
     {
-        var modifiers = ModifierKeys.None;
-
-        if (IsControlPressed) modifiers |= ModifierKeys.Control;
-        if (IsAltPressed) modifiers |= ModifierKeys.Alt;
-        if (IsShiftPressed) modifiers |= ModifierKeys.Shift;
-        if (IsWindowsPressed) modifiers |= ModifierKeys.Windows;
-
-        return modifiers;
+        AvailableActions = GetAvailableActions(SelectedMode);
+        SelectedAction = AvailableActions.FirstOrDefault(x => x.Action == selectedAction) ?? AvailableActions.FirstOrDefault()!;
+        Bindings.Update();
     }
 
     private void ShowError(string message)
@@ -114,32 +117,91 @@ public sealed partial class KeyboardShortcutDialog : ContentDialog
         ErrorBorder.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
     }
 
-    private static List<MailOperationViewModel> GetAvailableMailOperations()
+    private static List<KeyboardShortcutActionViewModel> GetAvailableActions(WinoApplicationMode mode)
     {
-        var operations = new List<MailOperationViewModel>();
-
-        // Add commonly used mail operations that make sense for keyboard shortcuts
-        var validOperations = new[]
+        KeyboardShortcutAction[] actions = mode switch
         {
-            MailOperation.Archive,
-            MailOperation.UnArchive,
-            MailOperation.SoftDelete,
-            MailOperation.Move,
-            MailOperation.MoveToJunk,
-            MailOperation.SetFlag,
-            MailOperation.ClearFlag,
-            MailOperation.MarkAsRead,
-            MailOperation.MarkAsUnread,
-            MailOperation.Reply,
-            MailOperation.ReplyAll,
-            MailOperation.Forward
+            WinoApplicationMode.Mail =>
+            [
+                KeyboardShortcutAction.NewMail,
+                KeyboardShortcutAction.ToggleReadUnread,
+                KeyboardShortcutAction.ToggleFlag,
+                KeyboardShortcutAction.ToggleArchive,
+                KeyboardShortcutAction.Delete,
+                KeyboardShortcutAction.Move,
+                KeyboardShortcutAction.Reply,
+                KeyboardShortcutAction.ReplyAll,
+                KeyboardShortcutAction.Send
+            ],
+            WinoApplicationMode.Calendar =>
+            [
+                KeyboardShortcutAction.NewEvent,
+                KeyboardShortcutAction.Delete
+            ],
+            _ => []
         };
 
-        foreach (var operation in validOperations)
+        return actions
+            .Select(action => new KeyboardShortcutActionViewModel(mode, action))
+            .ToList();
+    }
+
+    private static ModifierKeys GetCurrentModifierKeys()
+    {
+        var modifiers = ModifierKeys.None;
+
+        if (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))
+            modifiers |= ModifierKeys.Control;
+
+        if (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Menu).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))
+            modifiers |= ModifierKeys.Alt;
+
+        if (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Shift).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))
+            modifiers |= ModifierKeys.Shift;
+
+        if (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.LeftWindows).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down) ||
+            Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.RightWindows).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))
         {
-            operations.Add(new MailOperationViewModel(operation));
+            modifiers |= ModifierKeys.Windows;
         }
 
-        return operations.OrderBy(x => x.DisplayName).ToList();
+        return modifiers;
+    }
+
+    private static string NormalizeKey(Windows.System.VirtualKey key)
+    {
+        return key switch
+        {
+            Windows.System.VirtualKey.Control or
+            Windows.System.VirtualKey.LeftControl or
+            Windows.System.VirtualKey.RightControl or
+            Windows.System.VirtualKey.Menu or
+            Windows.System.VirtualKey.LeftMenu or
+            Windows.System.VirtualKey.RightMenu or
+            Windows.System.VirtualKey.Shift or
+            Windows.System.VirtualKey.LeftShift or
+            Windows.System.VirtualKey.RightShift or
+            Windows.System.VirtualKey.LeftWindows or
+            Windows.System.VirtualKey.RightWindows => string.Empty,
+            _ => key.ToString()
+        };
+    }
+
+    private static string BuildDisplayString(string key, ModifierKeys modifierKeys)
+    {
+        var parts = new List<string>();
+
+        if (modifierKeys.HasFlag(ModifierKeys.Control))
+            parts.Add("Ctrl");
+        if (modifierKeys.HasFlag(ModifierKeys.Alt))
+            parts.Add("Alt");
+        if (modifierKeys.HasFlag(ModifierKeys.Shift))
+            parts.Add("Shift");
+        if (modifierKeys.HasFlag(ModifierKeys.Windows))
+            parts.Add("Win");
+        if (!string.IsNullOrEmpty(key))
+            parts.Add(key);
+
+        return string.Join("+", parts);
     }
 }

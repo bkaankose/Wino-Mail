@@ -13,6 +13,11 @@ public class KeyboardShortcut
     public Guid Id { get; set; }
 
     /// <summary>
+    /// The application mode this shortcut applies to.
+    /// </summary>
+    public WinoApplicationMode Mode { get; set; } = WinoApplicationMode.Mail;
+
+    /// <summary>
     /// The key combination string (e.g., "D", "Delete", "F1").
     /// </summary>
     public string Key { get; set; }
@@ -23,9 +28,9 @@ public class KeyboardShortcut
     public ModifierKeys ModifierKeys { get; set; }
 
     /// <summary>
-    /// The mail operation this shortcut triggers.
+    /// The shortcut action this shortcut triggers.
     /// </summary>
-    public MailOperation MailOperation { get; set; }
+    public KeyboardShortcutAction Action { get; set; }
 
     /// <summary>
     /// Whether this shortcut is enabled.
@@ -55,6 +60,6 @@ public class KeyboardShortcut
                 modifierText += "Win+";
 
             return modifierText + Key;
-        } 
+        }
     }
 }
