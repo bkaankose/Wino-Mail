@@ -16,9 +16,10 @@ public sealed partial class AccountDetailsPage : AccountDetailsPageAbstract
         NavigationCacheMode = NavigationCacheMode.Enabled;
     }
 
-    private void OnTabSelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs e)
+    private void OnTabSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        ViewModel.SelectedTabIndex = TabSelector.SelectedItem == null ? 1 : TabSelector.Items.IndexOf(TabSelector.SelectedItem);
+        if (TabSelector.SelectedItem != null)
+            ViewModel.SelectedTabIndex = TabSelector.Items.IndexOf(TabSelector.SelectedItem);
     }
 
     private async void SyncFolderToggled(object sender, RoutedEventArgs e)
@@ -62,7 +63,7 @@ public sealed partial class AccountDetailsPage : AccountDetailsPageAbstract
         var targetTabIndex = ViewModel.SelectedTabIndex;
         if (targetTabIndex < 0 || targetTabIndex >= TabSelector.Items.Count)
         {
-            targetTabIndex = 1;
+            targetTabIndex = 0;
         }
 
         TabSelector.SelectedItem = TabSelector.Items[targetTabIndex];

@@ -16,8 +16,8 @@ using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Mail.WinUI.Services;
 using Wino.Mail.WinUI.Views.Calendar;
-using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Calendar;
+using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Navigation;
 using Wino.Views;
 using Wino.Views.Account;
@@ -115,7 +115,6 @@ public class NavigationService : NavigationServiceBase, INavigationService
             WinoPage.AppPreferencesPage => typeof(AppPreferencesPage),
             WinoPage.AliasManagementPage => typeof(AliasManagementPage),
             WinoPage.LanguageTimePage => typeof(LanguageTimePage),
-            WinoPage.EditAccountDetailsPage => typeof(EditAccountDetailsPage),
             WinoPage.ImapCalDavSettingsPage => typeof(ImapCalDavSettingsPage),
             WinoPage.KeyboardShortcutsPage => typeof(KeyboardShortcutsPage),
             WinoPage.ContactsPage => typeof(ContactsPage),

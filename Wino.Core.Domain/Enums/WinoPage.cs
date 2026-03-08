@@ -26,7 +26,6 @@ public enum WinoPage
     AppPreferencesPage,
     SettingOptionsPage,
     AliasManagementPage,
-    EditAccountDetailsPage,
     ImapCalDavSettingsPage,
     KeyboardShortcutsPage,
     CalendarPage,

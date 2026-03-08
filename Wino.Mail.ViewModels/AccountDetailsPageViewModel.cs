@@ -12,9 +12,11 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Services;
+using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Navigation;
@@ -28,9 +30,12 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     private readonly IFolderService _folderService;
     private readonly ICalendarService _calendarService;
     private readonly IStatePersistanceService _statePersistanceService;
+    private readonly INewThemeService _themeService;
+    private readonly IImapTestService _imapTestService;
     private bool isLoaded = false;
 
-    public MailAccount Account { get; set; }
+    [ObservableProperty]
+    public partial MailAccount Account { get; set; }
     public ObservableCollection<IMailItemFolder> CurrentFolders { get; set; } = [];
     public ObservableCollection<AccountCalendar> AccountCalendars { get; set; } = [];
     public ObservableCollection<AccountCalendarSettingsItemViewModel> AccountCalendarSettingsItems { get; } = [];
@@ -40,7 +45,35 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     public partial AccountCalendar SelectedPrimaryCalendar { get; set; }
 
     [ObservableProperty]
-    public partial int SelectedTabIndex { get; set; } = 1; // Default to Mail tab
+    public partial int SelectedTabIndex { get; set; } = 0; // Default to Mail tab
+
+    [ObservableProperty]
+    public partial string AccountName { get; set; }
+
+    [ObservableProperty]
+    public partial string SenderName { get; set; }
+
+    [ObservableProperty]
+    public partial AppColorViewModel SelectedColor { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsImapServer))]
+    public partial CustomServerInformation ServerInformation { get; set; }
+
+    [ObservableProperty]
+    public partial List<AppColorViewModel> AvailableColors { get; set; }
+
+    [ObservableProperty]
+    public partial int SelectedIncomingServerConnectionSecurityIndex { get; set; }
+
+    [ObservableProperty]
+    public partial int SelectedIncomingServerAuthenticationMethodIndex { get; set; }
+
+    [ObservableProperty]
+    public partial int SelectedOutgoingServerConnectionSecurityIndex { get; set; }
+
+    [ObservableProperty]
+    public partial int SelectedOutgoingServerAuthenticationMethodIndex { get; set; }
 
     // Mail-related properties
     [ObservableProperty]
@@ -62,19 +95,50 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     private bool isTaskbarBadgeEnabled;
 
     public bool IsFocusedInboxSupportedForAccount => Account != null && Account.Preferences.IsFocusedInboxEnabled != null;
+    public bool IsImapServer => ServerInformation != null;
+    public string ProviderIconPath => Account?.SpecialImapProvider != SpecialImapProvider.None
+        ? $"ms-appx:///Assets/Providers/{Account.SpecialImapProvider}.png"
+        : $"ms-appx:///Assets/Providers/{Account?.ProviderType}.png";
+    public string Address => Account?.Address ?? string.Empty;
+
+    public List<ImapAuthenticationMethodModel> AvailableAuthenticationMethods { get; } =
+    [
+        new ImapAuthenticationMethodModel(Core.Domain.Enums.ImapAuthenticationMethod.Auto, Translator.ImapAuthenticationMethod_Auto),
+        new ImapAuthenticationMethodModel(Core.Domain.Enums.ImapAuthenticationMethod.None, Translator.ImapAuthenticationMethod_None),
+        new ImapAuthenticationMethodModel(Core.Domain.Enums.ImapAuthenticationMethod.NormalPassword, Translator.ImapAuthenticationMethod_Plain),
+        new ImapAuthenticationMethodModel(Core.Domain.Enums.ImapAuthenticationMethod.EncryptedPassword, Translator.ImapAuthenticationMethod_EncryptedPassword),
+        new ImapAuthenticationMethodModel(Core.Domain.Enums.ImapAuthenticationMethod.Ntlm, Translator.ImapAuthenticationMethod_Ntlm),
+        new ImapAuthenticationMethodModel(Core.Domain.Enums.ImapAuthenticationMethod.CramMd5, Translator.ImapAuthenticationMethod_CramMD5),
+        new ImapAuthenticationMethodModel(Core.Domain.Enums.ImapAuthenticationMethod.DigestMd5, Translator.ImapAuthenticationMethod_DigestMD5)
+    ];
+
+    public List<ImapConnectionSecurityModel> AvailableConnectionSecurities { get; set; } =
+    [
+        new ImapConnectionSecurityModel(Core.Domain.Enums.ImapConnectionSecurity.Auto, Translator.ImapConnectionSecurity_Auto),
+        new ImapConnectionSecurityModel(Core.Domain.Enums.ImapConnectionSecurity.SslTls, Translator.ImapConnectionSecurity_SslTls),
+        new ImapConnectionSecurityModel(Core.Domain.Enums.ImapConnectionSecurity.StartTls, Translator.ImapConnectionSecurity_StartTls),
+        new ImapConnectionSecurityModel(Core.Domain.Enums.ImapConnectionSecurity.None, Translator.ImapConnectionSecurity_None)
+    ];
 
 
     public AccountDetailsPageViewModel(IMailDialogService dialogService,
         IAccountService accountService,
         IFolderService folderService,
         ICalendarService calendarService,
-        IStatePersistanceService statePersistanceService)
+        IStatePersistanceService statePersistanceService,
+        INewThemeService themeService,
+        IImapTestService imapTestService)
     {
         _dialogService = dialogService;
         _accountService = accountService;
         _folderService = folderService;
         _calendarService = calendarService;
         _statePersistanceService = statePersistanceService;
+        _themeService = themeService;
+        _imapTestService = imapTestService;
+
+        var colorHexList = _themeService.GetAvailableAccountColors();
+        AvailableColors = colorHexList.Select(a => new AppColorViewModel(a)).ToList();
 
         ShowAsOptions.Add(new AccountCalendarShowAsOption(CalendarItemShowAs.Free, Translator.CalendarShowAs_Free));
         ShowAsOptions.Add(new AccountCalendarShowAsOption(CalendarItemShowAs.Tentative, Translator.CalendarShowAs_Tentative));
@@ -95,41 +159,28 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     private void EditAliases()
         => Messenger.Send(new BreadcrumbNavigationRequested(Translator.SettingsManageAliases_Title, WinoPage.AliasManagementPage, Account.Id));
 
-    public Task FolderSyncToggledAsync(IMailItemFolder folderStructure, bool isEnabled)
-        => _folderService.ChangeFolderSynchronizationStateAsync(folderStructure.Id, isEnabled);
-
-    public Task FolderShowUnreadToggled(IMailItemFolder folderStructure, bool isEnabled)
-        => _folderService.ChangeFolderShowUnreadCountStateAsync(folderStructure.Id, isEnabled);
-
     [RelayCommand]
-    private void EditAccountDetails()
+    private async Task SaveChangesAsync()
     {
-        if (Account?.ProviderType == MailProviderType.IMAP4)
-        {
-            var context = ImapCalDavSettingsNavigationContext.CreateForEditMode(Account.Id);
-            Messenger.Send(new BreadcrumbNavigationRequested(Translator.ImapCalDavSettingsPage_TitleEdit, WinoPage.ImapCalDavSettingsPage, context));
-            return;
-        }
+        await UpdateAccountAsync();
 
-        Messenger.Send(new BreadcrumbNavigationRequested(Translator.SettingsEditAccountDetails_Title, WinoPage.EditAccountDetailsPage, Account));
+        _dialogService.InfoBarMessage(Translator.EditAccountDetailsPage_SaveSuccess_Title, Translator.EditAccountDetailsPage_SaveSuccess_Message, InfoBarMessageType.Success);
     }
 
     [RelayCommand]
-    private async Task DeleteAccount()
+    private async Task DeleteAccountAsync()
     {
         if (Account == null)
             return;
 
         var confirmation = await _dialogService.ShowConfirmationDialogAsync(Translator.DialogMessage_DeleteAccountConfirmationTitle,
-                                                                           string.Format(Translator.DialogMessage_DeleteAccountConfirmationMessage, Account.Name),
-                                                                           Translator.Buttons_Delete);
+                                                                            string.Format(Translator.DialogMessage_DeleteAccountConfirmationMessage, Account.Name),
+                                                                            Translator.Buttons_Delete);
 
         if (!confirmation)
             return;
 
-
         await SynchronizationManager.Instance.DestroySynchronizerAsync(Account.Id);
-
         await _accountService.DeleteAccountAsync(Account);
 
         _dialogService.InfoBarMessage(Translator.Info_AccountDeletedTitle, string.Format(Translator.Info_AccountDeletedMessage, Account.Name), InfoBarMessageType.Success);
@@ -137,6 +188,44 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         Messenger.Send(new BackBreadcrumNavigationRequested());
     }
 
+    [RelayCommand]
+    private async Task ValidateImapSettingsAsync()
+    {
+        try
+        {
+            await _imapTestService.TestImapConnectionAsync(ServerInformation, true);
+            _dialogService.InfoBarMessage(Translator.IMAPSetupDialog_ValidationSuccess_Title, Translator.IMAPSetupDialog_ValidationSuccess_Message, InfoBarMessageType.Success);
+        }
+        catch (Exception ex)
+        {
+            _dialogService.InfoBarMessage(Translator.IMAPSetupDialog_ValidationFailed_Title, ex.Message, InfoBarMessageType.Error);
+        }
+    }
+
+    [RelayCommand]
+    private async Task UpdateCustomServerInformationAsync()
+    {
+        if (ServerInformation != null)
+        {
+            ServerInformation.IncomingAuthenticationMethod = AvailableAuthenticationMethods[SelectedIncomingServerAuthenticationMethodIndex].ImapAuthenticationMethod;
+            ServerInformation.IncomingServerSocketOption = AvailableConnectionSecurities[SelectedIncomingServerConnectionSecurityIndex].ImapConnectionSecurity;
+
+            ServerInformation.OutgoingAuthenticationMethod = AvailableAuthenticationMethods[SelectedOutgoingServerAuthenticationMethodIndex].ImapAuthenticationMethod;
+            ServerInformation.OutgoingServerSocketOption = AvailableConnectionSecurities[SelectedOutgoingServerConnectionSecurityIndex].ImapConnectionSecurity;
+
+            Account.ServerInformation = ServerInformation;
+        }
+
+        await _accountService.UpdateAccountCustomServerInformationAsync(Account.ServerInformation);
+
+        _dialogService.InfoBarMessage(Translator.IMAPSetupDialog_SaveImapSuccess_Title, Translator.IMAPSetupDialog_SaveImapSuccess_Message, InfoBarMessageType.Success);
+    }
+
+    public Task FolderSyncToggledAsync(IMailItemFolder folderStructure, bool isEnabled)
+        => _folderService.ChangeFolderSynchronizationStateAsync(folderStructure.Id, isEnabled);
+
+    public Task FolderShowUnreadToggled(IMailItemFolder folderStructure, bool isEnabled)
+        => _folderService.ChangeFolderShowUnreadCountStateAsync(folderStructure.Id, isEnabled);
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
     {
@@ -145,6 +234,9 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         if (parameters is Guid accountId)
         {
             Account = await _accountService.GetAccountAsync(accountId);
+            AccountName = Account.Name;
+            SenderName = Account.SenderName;
+            ServerInformation = Account.ServerInformation;
 
             IsFocusedInboxEnabled = Account.Preferences.IsFocusedInboxEnabled.GetValueOrDefault();
             AreNotificationsEnabled = Account.Preferences.IsNotificationsEnabled;
@@ -154,9 +246,24 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
             IsAppendMessageSettinEnabled = Account.Preferences.ShouldAppendMessagesToSentFolder;
             IsTaskbarBadgeEnabled = Account.Preferences.IsTaskbarBadgeEnabled;
 
-            OnPropertyChanged(nameof(IsFocusedInboxSupportedForAccount));
+            if (!string.IsNullOrEmpty(Account.AccountColorHex))
+            {
+                SelectedColor = AvailableColors.FirstOrDefault(a => a.Hex == Account.AccountColorHex);
+            }
+            else
+            {
+                SelectedColor = null;
+            }
 
-            SelectedTabIndex = _statePersistanceService.ApplicationMode == WinoApplicationMode.Calendar ? 2 : 1;
+            if (ServerInformation != null)
+            {
+                SelectedIncomingServerAuthenticationMethodIndex = AvailableAuthenticationMethods.FindIndex(a => a.ImapAuthenticationMethod == ServerInformation.IncomingAuthenticationMethod);
+                SelectedIncomingServerConnectionSecurityIndex = AvailableConnectionSecurities.FindIndex(a => a.ImapConnectionSecurity == ServerInformation.IncomingServerSocketOption);
+                SelectedOutgoingServerAuthenticationMethodIndex = AvailableAuthenticationMethods.FindIndex(a => a.ImapAuthenticationMethod == ServerInformation.OutgoingAuthenticationMethod);
+                SelectedOutgoingServerConnectionSecurityIndex = AvailableConnectionSecurities.FindIndex(a => a.ImapConnectionSecurity == ServerInformation.OutgoingServerSocketOption);
+            }
+
+            SelectedTabIndex = _statePersistanceService.ApplicationMode == WinoApplicationMode.Calendar ? 1 : 0;
 
             var folderStructures = (await _folderService.GetFolderStructureForAccountAsync(Account.Id, true)).Folders;
 
@@ -170,6 +277,15 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
             isLoaded = true;
         }
+    }
+
+    private Task UpdateAccountAsync()
+    {
+        Account.Name = AccountName;
+        Account.SenderName = SenderName;
+        Account.AccountColorHex = SelectedColor?.Hex ?? string.Empty;
+
+        return _accountService.UpdateAccountAsync(Account);
     }
 
     private async Task LoadAccountCalendarsAsync()
@@ -210,6 +326,25 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
         calendar.DefaultShowAs = option.ShowAs;
         await _calendarService.UpdateAccountCalendarAsync(calendar);
+    }
+
+    [RelayCommand]
+    private void ResetColor()
+        => SelectedColor = null;
+
+    partial void OnSelectedColorChanged(AppColorViewModel oldValue, AppColorViewModel newValue)
+    {
+        if (Account != null)
+        {
+            _ = UpdateAccountAsync();
+        }
+    }
+
+    partial void OnAccountChanged(MailAccount value)
+    {
+        OnPropertyChanged(nameof(IsFocusedInboxSupportedForAccount));
+        OnPropertyChanged(nameof(ProviderIconPath));
+        OnPropertyChanged(nameof(Address));
     }
 
     protected override async void OnPropertyChanged(PropertyChangedEventArgs e)
