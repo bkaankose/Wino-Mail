@@ -26,7 +26,7 @@
         <Grid Grid.RowSpan="2" Background="{ThemeResource WinoApplicationBackgroundColor}" />
         <TitleBar
             x:Name="ShellTitleBar"
-            Title="{x:Bind StatePersistanceService.CoreWindowTitle, Mode=OneWay}"
+            Title="{x:Bind StatePersistanceService.AppModeTitle, Mode=OneWay}"
             Margin="-2"
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
@@ -34,7 +34,8 @@
             Background="Transparent"
             IsBackButtonVisible="{x:Bind StatePersistanceService.IsBackButtonVisible, Mode=OneWay}"
             IsPaneToggleButtonVisible="True"
-            PaneToggleRequested="PaneButtonClicked">
+            PaneToggleRequested="PaneButtonClicked"
+            Subtitle="{x:Bind StatePersistanceService.CoreWindowTitle, Mode=OneWay}">
             <TitleBar.RightHeader>
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <!--  Sync Status Button  -->

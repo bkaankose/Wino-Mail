@@ -150,6 +150,7 @@
     "CalendarEventCompose_PickCalendarTitle": "Pick a calendar",
     "CalendarEventCompose_Recurring": "Recurring",
     "CalendarEventCompose_RecurringSummary": "Occurs every {0} {1}{2} {3} effective {4}{5}",
+    "CalendarEventCompose_RecurringSummarySmart": "Occurs {0}{1} {2} effective {3}{4}",
     "CalendarEventCompose_RepeatEvery": "Repeat every",
     "CalendarEventCompose_SelectCalendar": "Select calendar",
     "CalendarEventCompose_SingleOccurrenceSummary": "Occurs on {0} {1}",

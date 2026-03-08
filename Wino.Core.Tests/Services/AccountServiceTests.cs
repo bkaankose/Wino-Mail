@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using FluentAssertions;
 using Moq;
 using Wino.Core.Domain;
@@ -5,6 +7,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Misc;
 using Wino.Core.Tests.Helpers;
 using Wino.Services;
 using Xunit;
@@ -49,6 +52,7 @@ public class AccountServiceTests : IAsyncLifetime
         calendars.Should().HaveCount(1);
         calendars[0].IsPrimary.Should().BeTrue();
         calendars[0].Name.Should().Be(Translator.AccountDetailsPage_TabCalendar);
+        ColorHelpers.GetFlatColorPalette().Should().Contain(calendars[0].BackgroundColorHex);
     }
 
     [Fact]
@@ -70,6 +74,49 @@ public class AccountServiceTests : IAsyncLifetime
             .ToListAsync();
 
         calendars.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task CreateAccountAsync_ImapLocalOnly_AssignsDistinctCalendarColorsAcrossAccounts()
+    {
+        var firstAccountId = Guid.NewGuid();
+        var secondAccountId = Guid.NewGuid();
+
+        await _accountService.CreateAccountAsync(
+            CreateImapAccount(firstAccountId),
+            new CustomServerInformation
+            {
+                Id = Guid.NewGuid(),
+                AccountId = firstAccountId,
+                CalendarSupportMode = ImapCalendarSupportMode.LocalOnly
+            });
+
+        await _accountService.CreateAccountAsync(
+            CreateImapAccount(secondAccountId),
+            new CustomServerInformation
+            {
+                Id = Guid.NewGuid(),
+                AccountId = secondAccountId,
+                CalendarSupportMode = ImapCalendarSupportMode.LocalOnly
+            });
+
+        var calendars = await _databaseService.Connection.Table<Wino.Core.Domain.Entities.Calendar.AccountCalendar>()
+            .OrderBy(a => a.AccountId)
+            .ToListAsync();
+
+        calendars.Should().HaveCount(2);
+        calendars.Select(a => a.BackgroundColorHex).Should().OnlyHaveUniqueItems();
+        calendars.Should().OnlyContain(a => ColorHelpers.GetFlatColorPalette().Contains(a.BackgroundColorHex));
+    }
+
+    [Fact]
+    public void FlatCalendarPalette_ProvidesAtLeastFiftyDistinctColors()
+    {
+        ColorHelpers.GetFlatColorPalette()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count()
+            .Should()
+            .BeGreaterThanOrEqualTo(50);
     }
 
     private static MailAccount CreateImapAccount(Guid accountId)

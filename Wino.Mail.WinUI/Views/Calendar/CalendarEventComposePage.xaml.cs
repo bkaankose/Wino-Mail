@@ -155,6 +155,7 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
         if (e.ClickedItem is AccountCalendarViewModel calendar)
         {
             ViewModel.SelectedCalendar = calendar;
+            CalendarSelectionFlyout.Hide();
         }
     }
 

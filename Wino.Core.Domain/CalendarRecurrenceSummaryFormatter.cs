@@ -77,7 +77,7 @@ public static class CalendarRecurrenceSummaryFormatter
 
         return string.Format(
             culture,
-            Translator.GetTranslatedString("CalendarEventCompose_RecurringSummarySmart"),
+            Translator.CalendarEventCompose_RecurringSummarySmart,
             cadenceSummary,
             weekdaySummary,
             timeSummary,

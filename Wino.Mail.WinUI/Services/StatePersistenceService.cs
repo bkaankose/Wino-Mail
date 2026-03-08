@@ -13,6 +13,7 @@ public class StatePersistenceService : ObservableObject, IStatePersistanceServic
 
     private const string OpenPaneLengthKey = nameof(OpenPaneLengthKey);
     private const string MailListPaneLengthKey = nameof(MailListPaneLengthKey);
+    private const string AppModeTitleKey = nameof(AppModeTitle);
 
     private readonly IConfigurationService _configurationService;
 
@@ -22,6 +23,7 @@ public class StatePersistenceService : ObservableObject, IStatePersistanceServic
 
         _openPaneLength = _configurationService.Get(OpenPaneLengthKey, 320d);
         _mailListPaneLength = _configurationService.Get(MailListPaneLengthKey, 420d);
+        _appModeTitle = _configurationService.Get(AppModeTitleKey, "Wino Mail");
         _calendarDisplayType = EnsureValidCalendarDisplayType(_configurationService.Get(nameof(CalendarDisplayType), CalendarDisplayType.Week));
         _dayDisplayCount = _configurationService.Get(nameof(DayDisplayCount), 1);
 
@@ -144,6 +146,21 @@ public class StatePersistenceService : ObservableObject, IStatePersistanceServic
         }
     }
 
+    private string _appModeTitle;
+
+    public string AppModeTitle
+    {
+        get => _appModeTitle;
+        set
+        {
+            if (SetProperty(ref _appModeTitle, value))
+            {
+                _configurationService.Set(AppModeTitleKey, value);
+                UpdateAppWindowTitle();
+            }
+        }
+    }
+
     private double _openPaneLength;
     public double OpenPaneLength
     {
@@ -200,9 +217,14 @@ public class StatePersistenceService : ObservableObject, IStatePersistanceServic
 
     private void UpdateAppCoreWindowTitle()
     {
+        OnPropertyChanged(nameof(CoreWindowTitle));
+    }
+
+    private void UpdateAppWindowTitle()
+    {
         if (WinoApplication.MainWindow != null)
         {
-            WinoApplication.MainWindow.Title = CoreWindowTitle;
+            WinoApplication.MainWindow.Title = AppModeTitle;
         }
     }
 

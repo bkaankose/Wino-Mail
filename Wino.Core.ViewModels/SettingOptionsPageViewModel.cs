@@ -15,8 +15,9 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
 {
     private readonly INativeAppService _nativeAppService;
     private readonly IAccountService _accountService;
+    private readonly IStoreRatingService _storeRatingService;
 
-    public string WebsiteUrl => AppUrls.Website;
+    public string GitHubUrl => AppUrls.GitHub;
     public string PaypalUrl => AppUrls.Paypal;
 
     [ObservableProperty]
@@ -28,10 +29,13 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
     [ObservableProperty]
     public partial int AccountCount { get; set; }
 
-    public SettingOptionsPageViewModel(INativeAppService nativeAppService, IAccountService accountService)
+    public SettingOptionsPageViewModel(INativeAppService nativeAppService,
+                                       IAccountService accountService,
+                                       IStoreRatingService storeRatingService)
     {
         _nativeAppService = nativeAppService;
         _accountService = accountService;
+        _storeRatingService = storeRatingService;
     }
 
     public override void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -85,5 +89,20 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
 
             Messenger.Send(new BreadcrumbNavigationRequested(pageTitle, pageType));
         }
+    }
+
+    [RelayCommand]
+    private async Task NavigateExternalAsync(object target)
+    {
+        if (target is not string stringTarget || string.IsNullOrWhiteSpace(stringTarget))
+            return;
+
+        if (stringTarget == "Store")
+        {
+            await _storeRatingService.LaunchStorePageForReviewAsync();
+            return;
+        }
+
+        await _nativeAppService.LaunchUriAsync(new Uri(stringTarget));
     }
 }

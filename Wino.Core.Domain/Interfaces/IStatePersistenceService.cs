@@ -19,6 +19,11 @@ public interface IStatePersistanceService : INotifyPropertyChanged
     string CoreWindowTitle { get; set; }
 
     /// <summary>
+    /// App mode title shown in the title bar.
+    /// </summary>
+    string AppModeTitle { get; set; }
+
+    /// <summary>
     /// When only reader page is visible in small sized window.
     /// </summary>
     bool IsReaderNarrowed { get; set; }

@@ -68,7 +68,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         ExitWinoCommand = new RelayCommand(ForceClose);
 
         this.SetIcon("Assets/Wino_Icon.ico");
-        Title = "Wino Mail";
+        Title = StatePersistanceService.AppModeTitle;
 
         SystemTrayIcon.ForceCreate();
     }
@@ -122,6 +122,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         AppModeSegmentedControl.SelectedIndex = targetMode == WinoApplicationMode.Mail ? 0 : 1;
         _isApplyingActivationMode = false;
 
+        StatePersistanceService.AppModeTitle = GetAppModeTitle(targetMode);
         NavigationService.ChangeApplicationMode(targetMode);
     }
 
@@ -317,6 +318,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         AppModeSegmentedControl.SelectedIndex = mode == WinoApplicationMode.Mail ? 0 : 1;
         _isApplyingActivationMode = false;
 
+        StatePersistanceService.AppModeTitle = GetAppModeTitle(mode);
         NavigationService.ChangeApplicationMode(mode);
         RestoreFromTray();
     }
@@ -371,4 +373,9 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         _currentMode = selectedMode;
         NavigationService.ChangeApplicationMode(selectedMode);
     }
+
+    private static string GetAppModeTitle(WinoApplicationMode mode)
+        => mode == WinoApplicationMode.Calendar
+            ? "Wino Calendar"
+            : "Wino Mail";
 }

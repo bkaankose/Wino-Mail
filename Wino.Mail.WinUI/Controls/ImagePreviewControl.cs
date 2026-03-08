@@ -331,6 +331,7 @@ public sealed partial class ImagePreviewControl : PersonPicture
             if (!IsActiveRefresh(refreshVersion, cancellationToken))
                 return;
 
+            DisplayName = string.Empty;
             Initials = string.Empty;
             ProfilePicture = bitmapImage;
         }).ConfigureAwait(false);

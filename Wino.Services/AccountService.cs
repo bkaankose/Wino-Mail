@@ -12,6 +12,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Misc;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.UI;
@@ -20,22 +21,6 @@ namespace Wino.Services;
 
 public class AccountService : BaseDatabaseService, IAccountService
 {
-    private static readonly string[] DefaultCalendarFlatColors =
-    [
-        "#B91C1C",
-        "#15803D",
-        "#0E7490",
-        "#1D4ED8",
-        "#7C3AED",
-        "#C026D3",
-        "#EC4899",
-        "#F97316",
-        "#EAB308",
-        "#22C55E",
-        "#06B6D4",
-        "#60A5FA"
-    ];
-
     public IAuthenticator ExternalAuthenticationAuthenticator { get; set; }
 
     private readonly ISignatureService _signatureService;
@@ -657,20 +642,20 @@ public class AccountService : BaseDatabaseService, IAccountService
             IsExtended = true,
             RemoteCalendarId = string.Empty,
             TimeZone = string.Empty,
-            BackgroundColorHex = GetDefaultCalendarFlatColor(accountId),
+            BackgroundColorHex = await GetNextDistinctCalendarColorAsync().ConfigureAwait(false),
             TextColorHex = "#FFFFFF"
         };
 
         await Connection.InsertAsync(localCalendar, typeof(AccountCalendar)).ConfigureAwait(false);
     }
 
-    private static string GetDefaultCalendarFlatColor(Guid accountId)
+    private async Task<string> GetNextDistinctCalendarColorAsync()
     {
-        var bytes = accountId.ToByteArray();
-        var hash = BitConverter.ToUInt32(bytes, 0);
-        var index = (int)(hash % (uint)DefaultCalendarFlatColors.Length);
+        var usedColors = await Connection.Table<AccountCalendar>()
+            .ToListAsync()
+            .ConfigureAwait(false);
 
-        return DefaultCalendarFlatColors[index];
+        return CalendarColorPalette.GetDistinctColor(usedColors.Select(a => a.BackgroundColorHex));
     }
 
     public async Task UpdateAccountOrdersAsync(Dictionary<Guid, int> accountIdOrderPair)

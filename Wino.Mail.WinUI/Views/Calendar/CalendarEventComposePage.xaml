@@ -63,7 +63,9 @@
                             HorizontalContentAlignment="Left"
                             Style="{StaticResource DefaultButtonStyle}">
                             <Button.Flyout>
-                                <Flyout Placement="BottomEdgeAlignedLeft">
+                                <Flyout
+                                    x:Name="CalendarSelectionFlyout"
+                                    Placement="BottomEdgeAlignedLeft">
                                     <ScrollViewer MaxHeight="360">
                                         <ItemsControl ItemsSource="{x:Bind ViewModel.AvailableCalendarGroups, Mode=OneWay}">
                                             <ItemsControl.ItemTemplate>
