@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Toolkit.Uwp.Notifications;
-using Microsoft.UI.Xaml;
 using Serilog;
 using Windows.Data.Xml.Dom;
 using Windows.UI.Notifications;
@@ -24,28 +23,24 @@ public class NotificationBuilder : INotificationBuilder
 {
     private const string MailApplicationId = "App";
     private const string NotificationIconRootUri = "ms-appx:///Assets/NotificationIcons/";
-    private static readonly int[] SupportedIconScales = [100, 125, 150, 200, 400];
 
     private readonly IAccountService _accountService;
     private readonly IFolderService _folderService;
     private readonly IMailService _mailService;
     private readonly IThumbnailService _thumbnailService;
     private readonly IPreferencesService _preferencesService;
-    private readonly IUnderlyingThemeService _underlyingThemeService;
 
     public NotificationBuilder(IAccountService accountService,
                                IFolderService folderService,
                                IMailService mailService,
                                IThumbnailService thumbnailService,
-                               IPreferencesService preferencesService,
-                               IUnderlyingThemeService underlyingThemeService)
+                               IPreferencesService preferencesService)
     {
         _accountService = accountService;
         _folderService = folderService;
         _mailService = mailService;
         _thumbnailService = thumbnailService;
         _preferencesService = preferencesService;
-        _underlyingThemeService = underlyingThemeService;
 
         WeakReferenceMessenger.Default.Register<MailReadStatusChanged>(this, (r, msg) =>
         {
@@ -431,23 +426,8 @@ public class NotificationBuilder : INotificationBuilder
 
     private Uri GetNotificationIconUri(string iconName)
     {
-        var theme = _underlyingThemeService.IsUnderlyingThemeDark() ? "dark" : "light";
-        var scale = GetClosestAvailableScale();
-        return new($"{NotificationIconRootUri}{iconName}.theme-{theme}.scale-{scale}.png");
-    }
-
-    private static int GetClosestAvailableScale()
-    {
-        var rasterScale = 1.0;
-
-        if (WinoApplication.MainWindow?.Content is FrameworkElement rootElement &&
-            rootElement.XamlRoot != null)
-        {
-            rasterScale = rootElement.XamlRoot.RasterizationScale;
-        }
-
-        var requestedScale = (int)Math.Round(rasterScale * 100);
-        return SupportedIconScales.OrderBy(s => Math.Abs(s - requestedScale)).First();
+        // Keep the URI unqualified so Windows resolves the best matching theme/scale asset from the package.
+        return new($"{NotificationIconRootUri}{iconName}.png");
     }
 }
 
