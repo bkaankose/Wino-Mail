@@ -271,10 +271,20 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     {
         RefreshSettings();
 
-        if (mode == NavigationMode.Back) return;
+        if (mode == NavigationMode.Back)
+        {
+            _ = RefreshVisibleRangesAsync();
+            return;
+        }
 
         // Automatically select the first primary calendar for quick event dialog.
         SelectedQuickEventAccountCalendar = AccountCalendarStateService.ActiveCalendars.FirstOrDefault(a => a.IsPrimary);
+    }
+
+    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    {
+        // CalendarPage is cached and should continue processing calendar item messages
+        // while details/compose pages are active on top of it.
     }
 
     [RelayCommand]

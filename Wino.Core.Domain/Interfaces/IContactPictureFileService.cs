@@ -23,11 +23,4 @@ public interface IContactPictureFileService
     /// Deletes the picture file for the given file ID if it exists.
     /// </summary>
     Task DeleteContactPictureAsync(Guid fileId);
-
-    /// <summary>
-    /// One-time startup migration: reads AccountContact rows where Base64ContactPicture is set
-    /// but ContactPictureFileId is null, writes the picture bytes to disk, updates the DB row,
-    /// and clears the Base64ContactPicture column.
-    /// </summary>
-    Task MigrateBase64PicturesAsync();
 }
