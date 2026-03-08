@@ -17,7 +17,7 @@ public interface IDatabaseService : IInitializeAsync
 
 public class DatabaseService : IDatabaseService
 {
-    private const string DatabaseName = "Wino180.db";
+    private const string DatabaseName = "Wino200.db";
 
     private bool _isInitialized = false;
     private readonly IApplicationConfiguration _folderConfiguration;
