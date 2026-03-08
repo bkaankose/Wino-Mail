@@ -15,6 +15,7 @@ public partial class NavigationMenuTemplateSelector : DataTemplateSelector
     public DataTemplate MergedAccountMoreExpansionItemTemplate { get; set; } = null!;
     public DataTemplate FolderMenuTemplate { get; set; } = null!;
     public DataTemplate SettingsItemTemplate { get; set; } = null!;
+    public DataTemplate StoreUpdateItemTemplate { get; set; } = null!;
     public DataTemplate MoreItemsFolderTemplate { get; set; } = null!;
     public DataTemplate RatingItemTemplate { get; set; } = null!;
     public DataTemplate CreateNewFolderTemplate { get; set; } = null!;
@@ -32,6 +33,8 @@ public partial class NavigationMenuTemplateSelector : DataTemplateSelector
             return ContactsMenuItemTemplate;
         else if (item is SettingsItem)
             return SettingsItemTemplate;
+        else if (item is StoreUpdateMenuItem)
+            return StoreUpdateItemTemplate;
         else if (item is SeperatorItem)
             return SeperatorTemplate;
         else if (item is AccountMenuItem)
@@ -55,3 +58,5 @@ public partial class NavigationMenuTemplateSelector : DataTemplateSelector
         return MenuItemTemplate;
     }
 }
+
+

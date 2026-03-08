@@ -308,6 +308,11 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SetPropertyAndSave(nameof(EmailSyncIntervalMinutes), value);
     }
 
+    public bool IsStoreUpdateNotificationsEnabled
+    {
+        get => _configurationService.Get(nameof(IsStoreUpdateNotificationsEnabled), true);
+        set => SetPropertyAndSave(nameof(IsStoreUpdateNotificationsEnabled), value);
+    }
     public WinoApplicationMode DefaultApplicationMode
     {
         get
@@ -357,3 +362,5 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         return daysOfWeek;
     }
 }
+
+

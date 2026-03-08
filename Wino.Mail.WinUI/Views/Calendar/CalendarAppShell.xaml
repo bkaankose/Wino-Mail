@@ -304,6 +304,12 @@
                                     <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.MenuSettings}" />
                                 </StackPanel>
                             </ListViewItem>
+                            <ListViewItem Visibility="{x:Bind ViewModel.IsStoreUpdateItemVisible, Mode=OneWay}">
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE896;" />
+                                    <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.MenuUpdateAvailable}" />
+                                </StackPanel>
+                            </ListViewItem>
                         </ListView.Items>
                     </ListView>
                 </Grid>
@@ -396,5 +402,7 @@
         </VisualStateManager.VisualStateGroups>
     </Grid>
 </abstract:CalendarAppShellAbstract>
+
+
 
 

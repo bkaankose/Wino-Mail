@@ -599,6 +599,7 @@
     "MenuNewMail": "New Mail",
     "MenuRate": "Rate Wino",
     "MenuSettings": "Settings",
+    "MenuUpdateAvailable": "Update Available",
     "MergedAccountCommonFolderArchive": "Archive",
     "MergedAccountCommonFolderDraft": "Draft",
     "MergedAccountCommonFolderInbox": "Inbox",
@@ -622,6 +623,8 @@
     "Notifications_MultipleNotificationsTitle": "New Mail",
     "Notifications_WinoUpdatedMessage": "Checkout new version {0}",
     "Notifications_WinoUpdatedTitle": "Wino Mail has been updated.",
+    "Notifications_StoreUpdateAvailableTitle": "Update available",
+    "Notifications_StoreUpdateAvailableMessage": "A newer version of Wino Mail is ready to install from Microsoft Store.",
     "OnlineSearchFailed_Message": "Failed to perform search\n{0}\n\nListing offline mails.",
     "OnlineSearchTry_Line1": "Can't find what you are looking for?",
     "OnlineSearchTry_Line2": "Try online search.",
@@ -700,6 +703,8 @@
     "SettingsAppPreferences_StartupBehavior_FatalError": "Fatal error occurred while changing the startup mode for Wino Mail.",
     "SettingsAppPreferences_StartupBehavior_Title": "Start minimized on Windows startup",
     "SettingsAppPreferences_Title": "App Preferences",
+    "SettingsAppPreferences_StoreUpdateNotifications_Title": "Store update notifications",
+    "SettingsAppPreferences_StoreUpdateNotifications_Description": "Show notifications and footer actions when a Microsoft Store update is available.",
     "SettingsAutoSelectNextItem_Description": "Select the next item after you delete or move a mail.",
     "SettingsAutoSelectNextItem_Title": "Auto select next item",
     "SettingsAvailableThemes_Description": "Select a theme from Wino's own collection for your taste or apply your own themes.",
@@ -1117,3 +1122,5 @@
     "AccountSetup_TryAgainButton": "Try Again",
     "ImapCalDavSettings_AutoDiscoveryFailed": "Auto-discovery failed. Please enter settings manually in the Advanced tab."
 }
+
+

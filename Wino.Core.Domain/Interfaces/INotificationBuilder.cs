@@ -37,7 +37,13 @@ public interface INotificationBuilder
     void CreateWebView2RuntimeMissingNotification();
 
     /// <summary>
+    /// Shows a notification when a Microsoft Store update is available.
+    /// </summary>
+    void CreateStoreUpdateNotification();
+
+    /// <summary>
     /// Creates a calendar reminder toast for the specified calendar item.
     /// </summary>
     Task CreateCalendarReminderNotificationAsync(CalendarItem calendarItem, long reminderDurationInSeconds);
 }
+

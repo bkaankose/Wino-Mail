@@ -62,6 +62,14 @@
             </coreControls:WinoNavigationViewItem.Icon>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
+    <!--  Store Update Item  -->
+    <DataTemplate x:Key="StoreUpdateItemTemplate" x:DataType="menu:StoreUpdateMenuItem">
+        <coreControls:WinoNavigationViewItem Content="{x:Bind domain:Translator.MenuUpdateAvailable}" DataContext="{x:Bind}">
+            <muxc:NavigationViewItem.Icon>
+                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE896;" />
+            </muxc:NavigationViewItem.Icon>
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
 
     <!--  Rating Item  -->
     <DataTemplate x:Key="RatingItemTemplate" x:DataType="menu:RateMenuItem">
@@ -271,3 +279,7 @@
     <!--#endregion-->
 
 </ResourceDictionary>
+
+
+
+

@@ -31,6 +31,7 @@ public static class CoreUWPContainerSetup
         services.AddTransient<IConfigurationService, ConfigurationService>();
         services.AddTransient<IFileService, FileService>();
         services.AddTransient<IStoreRatingService, StoreRatingService>();
+        services.AddSingleton<IStoreUpdateService, StoreUpdateService>();
         services.AddTransient<IKeyPressService, KeyPressService>();
         services.AddTransient<IWebView2RuntimeValidatorService, WebView2RuntimeValidatorService>();
         services.AddTransient<INotificationBuilder, NotificationBuilder>();
@@ -53,3 +54,5 @@ public static class CoreUWPContainerSetup
         services.AddTransient(typeof(KeyboardShortcutsPageViewModel));
     }
 }
+
+

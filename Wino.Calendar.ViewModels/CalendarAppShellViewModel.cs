@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -67,6 +67,9 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
     public bool IsVerticalCalendar => StatePersistenceService.CalendarDisplayType == CalendarDisplayType.Month;
 
+    [ObservableProperty]
+    private bool isStoreUpdateItemVisible;
+
     // For updating account calendars asynchronously.
     private SemaphoreSlim _accountCalendarUpdateSemaphoreSlim = new(1);
 
@@ -77,12 +80,14 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
                              IAccountCalendarStateService accountCalendarStateService,
                              INavigationService navigationService,
                              IMailDialogService dialogService,
-                             IUpdateManager updateManager)
+                             IUpdateManager updateManager,
+                             IStoreUpdateService storeUpdateService)
     {
         _accountService = accountService;
         _calendarService = calendarService;
         _dialogService = dialogService;
         _updateManager = updateManager;
+        _storeUpdateService = storeUpdateService;
 
         AccountCalendarStateService = accountCalendarStateService;
         AccountCalendarStateService.AccountCalendarSelectionStateChanged += UpdateAccountCalendarRequested;
@@ -100,6 +105,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         base.OnDispatcherAssigned();
 
         AccountCalendarStateService.Dispatcher = Dispatcher;
+        _ = RefreshFooterItemsAsync(false);
     }
 
     private void PrefefencesChanged(object sender, string e)
@@ -115,9 +121,22 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         }
     }
 
+    private async void PreferencesServiceChanged(object sender, string e)
+    {
+        if (e == nameof(IPreferencesService.IsStoreUpdateNotificationsEnabled))
+        {
+            await RefreshFooterItemsAsync(false);
+        }
+    }
+
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
+
+        PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
+        PreferencesService.PreferenceChanged += PreferencesServiceChanged;
+
+        await RefreshFooterItemsAsync(mode == NavigationMode.New);
 
         // Preserve the existing calendar shell frame state when the user switches
         // between Mail and Calendar modes. Back/forward restoration should not
@@ -141,6 +160,13 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         TodayClicked();
     }
 
+    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    {
+        base.OnNavigatedFrom(mode, parameters);
+
+        PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
+    }
+
     private async Task ShowWhatIsNewIfNeededAsync()
     {
         if (!_updateManager.ShouldShowUpdateNotes())
@@ -152,6 +178,22 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
             return;
 
         await _dialogService.ShowWhatIsNewDialogAsync(notes);
+    }
+
+    private async Task RefreshFooterItemsAsync(bool showNotification)
+    {
+        await _storeUpdateService.RefreshAvailabilityAsync(showNotification).ConfigureAwait(false);
+
+        await ExecuteUIThread(() =>
+        {
+            IsStoreUpdateItemVisible = _storeUpdateService.HasAvailableUpdate && PreferencesService.IsStoreUpdateNotificationsEnabled;
+        });
+    }
+
+    private async Task StartStoreUpdateAsync()
+    {
+        await _storeUpdateService.StartUpdateAsync().ConfigureAwait(false);
+        await RefreshFooterItemsAsync(false).ConfigureAwait(false);
     }
 
     private async void AccountCalendarStateCollectivelyChanged(object sender, GroupedAccountCalendarViewModel e)
@@ -211,40 +253,34 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
     private void ForceNavigateCalendarDate()
     {
-        if (SelectedMenuItemIndex == -1)
+        var args = new CalendarPageNavigationArgs()
         {
-            var args = new CalendarPageNavigationArgs()
-            {
-                NavigationDate = _navigationDate ?? DateTime.Now.Date
-            };
+            NavigationDate = _navigationDate ?? DateTime.Now.Date
+        };
 
-            // Already on calendar. Just navigate.
-            NavigationService.Navigate(WinoPage.CalendarPage, args);
-
-            _navigationDate = null;
-        }
-        else
-        {
-            SelectedMenuItemIndex = -1;
-        }
+        NavigationService.Navigate(WinoPage.CalendarPage, args);
+        _navigationDate = null;
     }
 
     partial void OnSelectedMenuItemIndexChanged(int oldValue, int newValue)
     {
-        switch (newValue)
+        if (newValue < 0)
+            return;
+
+        if (newValue == 0)
         {
-            case -1:
-                ForceNavigateCalendarDate();
-                break;
-            case 0:
-                NavigationService.Navigate(WinoPage.ManageAccountsPage);
-                break;
-            case 1:
-                NavigationService.Navigate(WinoPage.SettingsPage);
-                break;
-            default:
-                break;
+            NavigationService.Navigate(WinoPage.ManageAccountsPage);
         }
+        else if (newValue == 1)
+        {
+            NavigationService.Navigate(WinoPage.SettingsPage);
+        }
+        else if (IsStoreUpdateItemVisible && newValue == 2)
+        {
+            _ = StartStoreUpdateAsync();
+        }
+
+        SelectedMenuItemIndex = -1;
     }
 
     [RelayCommand]
@@ -301,6 +337,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     private readonly ICalendarService _calendarService;
     private readonly IMailDialogService _dialogService;
     private readonly IUpdateManager _updateManager;
+    private readonly IStoreUpdateService _storeUpdateService;
 
     #region Commands
 
@@ -476,7 +513,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     public async void Receive(CalendarEnableStatusChangedMessage message)
         => await ExecuteUIThread(() => IsCalendarEnabled = message.IsEnabled);
 
-    public void Receive(NavigateManageAccountsRequested message) => SelectedMenuItemIndex = 1;
+    public void Receive(NavigateManageAccountsRequested message) => SelectedMenuItemIndex = 0;
 
     public void Receive(CalendarDisplayTypeChangedMessage message)
     {
@@ -539,3 +576,12 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         return (startDate, startDate.AddMinutes(30));
     }
 }
+
+
+
+
+
+
+
+
+

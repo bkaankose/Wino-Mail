@@ -1,4 +1,4 @@
-﻿namespace Wino.Core.Domain;
+namespace Wino.Core.Domain;
 
 public static class Constants
 {
@@ -21,6 +21,8 @@ public static class Constants
     public const string ToastModeKey = nameof(ToastModeKey);
     public const string ToastModeMail = nameof(ToastModeMail);
     public const string ToastModeCalendar = nameof(ToastModeCalendar);
+    public const string ToastStoreUpdateActionKey = nameof(ToastStoreUpdateActionKey);
+    public const string ToastStoreUpdateActionInstall = nameof(ToastStoreUpdateActionInstall);
     public const string ClientLogFile = "Client_.log";
     public const string ServerLogFile = "Server_.log";
     public const string LogArchiveFileName = "WinoLogs.zip";
@@ -28,3 +30,4 @@ public static class Constants
     public const string WinoMailIdentiifer = nameof(WinoMailIdentiifer);
     public const string WinoCalendarIdentifier = nameof(WinoCalendarIdentifier);
 }
+

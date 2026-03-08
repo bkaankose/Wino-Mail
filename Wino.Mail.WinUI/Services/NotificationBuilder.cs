@@ -293,6 +293,19 @@ public class NotificationBuilder : INotificationBuilder
         ShowToast(builder);
     }
 
+    public void CreateStoreUpdateNotification()
+    {
+        var builder = new ToastContentBuilder();
+        builder.SetToastScenario(ToastScenario.Default);
+
+        builder.AddText(Translator.Notifications_StoreUpdateAvailableTitle);
+        builder.AddText(Translator.Notifications_StoreUpdateAvailableMessage);
+        builder.AddArgument(Constants.ToastStoreUpdateActionKey, Constants.ToastStoreUpdateActionInstall);
+        builder.AddButton(GetDismissButton());
+
+        ShowToast(builder, "store-update-available");
+    }
+
     public Task CreateCalendarReminderNotificationAsync(CalendarItem calendarItem, long reminderDurationInSeconds)
     {
         if (calendarItem == null)
@@ -437,3 +450,4 @@ public class NotificationBuilder : INotificationBuilder
         return SupportedIconScales.OrderBy(s => Math.Abs(s - requestedScale)).First();
     }
 }
+

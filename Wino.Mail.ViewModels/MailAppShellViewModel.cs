@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -55,6 +55,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private readonly SettingsItem SettingsItem = new SettingsItem();
     private readonly ManageAccountsMenuItem ManageAccountsMenuItem = new ManageAccountsMenuItem();
     private readonly ContactsMenuItem ContactsMenuItem = new ContactsMenuItem();
+    private readonly StoreUpdateMenuItem StoreUpdateMenuItem = new StoreUpdateMenuItem();
 
     public IMenuItem CreateMailMenuItem = new NewMailMenuItem();
 
@@ -79,6 +80,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private readonly IMimeFileService _mimeFileService;
     private readonly IWebView2RuntimeValidatorService _webView2RuntimeValidatorService;
     private readonly IUpdateManager _updateManager;
+    private readonly IStoreUpdateService _storeUpdateService;
 
     private readonly INativeAppService _nativeAppService;
     private readonly IMailService _mailService;
@@ -102,7 +104,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                              IConfigurationService configurationService,
                              IStartupBehaviorService startupBehaviorService,
                              IWebView2RuntimeValidatorService webView2RuntimeValidatorService,
-                             IUpdateManager updateManager)
+                             IUpdateManager updateManager,
+                             IStoreUpdateService storeUpdateService)
     {
         StatePersistenceService = statePersistanceService;
 
@@ -124,6 +127,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         _winoRequestDelegator = winoRequestDelegator;
         _webView2RuntimeValidatorService = webView2RuntimeValidatorService;
         _updateManager = updateManager;
+        _storeUpdateService = storeUpdateService;
     }
 
     protected override void OnDispatcherAssigned()
@@ -142,8 +146,10 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         return _contextMenuItemService.GetFolderContextMenuActions(folder);
     }
 
-    private async Task CreateFooterItemsAsync()
+    private async Task CreateFooterItemsAsync(bool showNotification = false)
     {
+        await _storeUpdateService.RefreshAvailabilityAsync(showNotification).ConfigureAwait(false);
+
         await ExecuteUIThread(() =>
         {
             // TODO: Selected footer item container still remains selected after re-creation.
@@ -159,6 +165,12 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
             FooterItems.Add(ContactsMenuItem);
             FooterItems.Add(ManageAccountsMenuItem);
+
+            if (_storeUpdateService.HasAvailableUpdate && PreferencesService.IsStoreUpdateNotificationsEnabled)
+            {
+                FooterItems.Add(StoreUpdateMenuItem);
+            }
+
             FooterItems.Add(SettingsItem);
         });
     }
@@ -223,9 +235,20 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         }
     }
 
+    private async void PreferencesServiceChanged(object sender, string e)
+    {
+        if (e == nameof(IPreferencesService.IsStoreUpdateNotificationsEnabled))
+        {
+            await CreateFooterItemsAsync();
+        }
+    }
+
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
+
+        PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
+        PreferencesService.PreferenceChanged += PreferencesServiceChanged;
 
         if (mode == NavigationMode.Back)
         {
@@ -243,7 +266,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             return;
         }
 
-        await CreateFooterItemsAsync();
+        await CreateFooterItemsAsync(true);
 
         await RecreateMenuItemsAsync();
         await ProcessLaunchOptionsAsync();
@@ -266,6 +289,13 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         {
             await ExecuteUIThread(() => _notificationBuilder.CreateWebView2RuntimeMissingNotification());
         }
+    }
+
+    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    {
+        base.OnNavigatedFrom(mode, parameters);
+
+        PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
     }
 
     private async Task ShowWhatIsNewIfNeededAsync()
@@ -637,6 +667,11 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         {
             // Don't navigate to merged account if it's already selected. Preserve user's already selected folder.
             await ChangeLoadedAccountAsync(clickedMergedAccountMenuItem, true);
+        }
+        else if (clickedMenuItem is StoreUpdateMenuItem)
+        {
+            await _storeUpdateService.StartUpdateAsync().ConfigureAwait(false);
+            await CreateFooterItemsAsync().ConfigureAwait(false);
         }
         else if (clickedMenuItem is SettingsItem)
         {
@@ -1051,7 +1086,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     public async void Receive(LanguageChanged message)
     {
-        await CreateFooterItemsAsync();
+        await CreateFooterItemsAsync(true);
         await RecreateMenuItemsAsync();
         await RestoreSelectedAccountAfterMenuRefreshAsync(false);
     }
@@ -1245,3 +1280,10 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         });
     }
 }
+
+
+
+
+
+
+

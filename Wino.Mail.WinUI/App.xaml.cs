@@ -296,6 +296,13 @@ public partial class App : WinoApplication,
     {
         var toastArguments = ToastArguments.Parse(toastArgs.Argument);
 
+        if (toastArguments.TryGetValue(Constants.ToastStoreUpdateActionKey, out string storeUpdateAction) &&
+            storeUpdateAction == Constants.ToastStoreUpdateActionInstall)
+        {
+            await HandleStoreUpdateToastAsync();
+            return;
+        }
+
         // Check calendar reminder toast activation first.
         if (toastArguments.TryGetValue(Constants.ToastCalendarActionKey, out string calendarAction) &&
             toastArguments.TryGetValue(Constants.ToastCalendarItemIdKey, out string calendarItemIdString) &&
@@ -331,6 +338,21 @@ public partial class App : WinoApplication,
                 await HandleToastActionAsync(action, mailItemUniqueId);
             }
         }
+    }
+
+    private async Task HandleStoreUpdateToastAsync()
+    {
+        if (!IsAppRunning())
+        {
+            await CreateAndActivateWindow(null!);
+        }
+        else
+        {
+            EnsureMainWindowVisibleAndForeground();
+        }
+
+        var storeUpdateService = Services.GetRequiredService<IStoreUpdateService>();
+        await storeUpdateService.StartUpdateAsync();
     }
 
     private async Task HandleCalendarToastNavigationAsync(Guid calendarItemId)
@@ -997,3 +1019,5 @@ public partial class App : WinoApplication,
         return null;
     }
 }
+
+

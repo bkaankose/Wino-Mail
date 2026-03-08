@@ -387,7 +387,8 @@
             NewMailTemplate="{StaticResource CreateNewMailTemplate}"
             RatingItemTemplate="{StaticResource RatingItemTemplate}"
             SeperatorTemplate="{StaticResource SeperatorTemplate}"
-            SettingsItemTemplate="{StaticResource SettingsItemTemplate}" />
+            SettingsItemTemplate="{StaticResource SettingsItemTemplate}"
+            StoreUpdateItemTemplate="{StaticResource StoreUpdateItemTemplate}" />
     </Page.Resources>
 
     <Grid
@@ -477,3 +478,5 @@
 
     </Grid>
 </abstract:MailAppShellAbstract>
+
+

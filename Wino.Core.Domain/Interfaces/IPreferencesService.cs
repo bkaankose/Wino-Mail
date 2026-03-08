@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
@@ -56,6 +56,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// Setting: Default application mode to open when activation does not specify one.
     /// </summary>
     WinoApplicationMode DefaultApplicationMode { get; set; }
+
+    /// <summary>
+    /// Setting: Whether Microsoft Store update notifications should be shown.
+    /// </summary>
+    bool IsStoreUpdateNotificationsEnabled { get; set; }
 
     #endregion
 
@@ -241,3 +246,4 @@ public interface IPreferencesService : INotifyPropertyChanged
 
     #endregion
 }
+
