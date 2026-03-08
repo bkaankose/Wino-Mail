@@ -56,6 +56,7 @@
     <PackageVersion Include="CommunityToolkit.WinUI.Notifications" Version="7.1.2" />
     <PackageVersion Include="Google.Apis.Auth" Version="1.73.0" />
     <PackageVersion Include="Google.Apis.Calendar.v3" Version="1.73.0.4063" />
+    <PackageVersion Include="Google.Apis.Drive.v3" Version="1.73.0.4068" />
     <PackageVersion Include="Google.Apis.Gmail.v1" Version="1.73.0.4029" />
     <PackageVersion Include="Google.Apis.PeopleService.v1" Version="1.72.0.3973" />
     <PackageVersion Include="HtmlKit" Version="1.2.0" />

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text.Json.Serialization;
@@ -9,12 +10,14 @@ using System.Web;
 using CommunityToolkit.Mvvm.Messaging;
 using Google;
 using Google.Apis.Calendar.v3.Data;
+using Google.Apis.Drive.v3;
 using Google.Apis.Gmail.v1;
 using Google.Apis.Gmail.v1.Data;
 using Google.Apis.Http;
 using Google.Apis.PeopleService.v1;
 using Google.Apis.Requests;
 using Google.Apis.Services;
+using Google.Apis.Upload;
 using MailKit;
 using Microsoft.IdentityModel.Tokens;
 using MimeKit;
@@ -42,12 +45,15 @@ using Wino.Core.Requests.Mail;
 using Wino.Messaging.UI;
 using Wino.Services;
 using CalendarService = Google.Apis.Calendar.v3.CalendarService;
+using DriveFile = Google.Apis.Drive.v3.Data.File;
+using DriveService = Google.Apis.Drive.v3.DriveService;
 
 namespace Wino.Core.Synchronizers.Mail;
 
 [JsonSerializable(typeof(Message))]
 [JsonSerializable(typeof(Label))]
 [JsonSerializable(typeof(Draft))]
+[JsonSerializable(typeof(Event))]
 public partial class GmailSynchronizerJsonContext : JsonSerializerContext;
 
 /// <summary>
@@ -88,6 +94,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     private readonly ConfigurableHttpClient _googleHttpClient;
     private readonly GmailService _gmailService;
     private readonly CalendarService _calendarService;
+    private readonly DriveService _driveService;
     private readonly PeopleServiceService _peopleService;
 
     private readonly IGmailChangeProcessor _gmailChangeProcessor;
@@ -114,6 +121,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         _gmailService = new GmailService(initializer);
         _peopleService = new PeopleServiceService(initializer);
         _calendarService = new CalendarService(initializer);
+        _driveService = new DriveService(initializer);
 
         _gmailChangeProcessor = gmailChangeProcessor;
         _gmailSynchronizerErrorHandlerFactory = gmailSynchronizerErrorHandlerFactory;
@@ -1689,6 +1697,15 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         {
             // TODO: Handle new Gmail Label added or updated.
         }
+        else if (bundle is HttpRequestBundle<IClientServiceRequest, Event> eventBundle && eventBundle.Request is CreateCalendarEventRequest createCalendarEventRequest)
+        {
+            var createdEvent = await eventBundle.DeserializeBundleAsync(httpResponseMessage, GmailSynchronizerJsonContext.Default.Event, cancellationToken).ConfigureAwait(false);
+
+            if (createdEvent == null || string.IsNullOrWhiteSpace(createdEvent.Id))
+                return;
+
+            await UploadCalendarEventAttachmentsAsync(createCalendarEventRequest, createdEvent, cancellationToken).ConfigureAwait(false);
+        }
         else if (bundle is HttpRequestBundle<IClientServiceRequest, Draft> draftBundle && draftBundle.Request is CreateDraftRequest createDraftRequest)
         {
             // New draft mail is created.
@@ -2355,7 +2372,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             ? Google.Apis.Calendar.v3.EventsResource.InsertRequest.SendUpdatesEnum.All
             : Google.Apis.Calendar.v3.EventsResource.InsertRequest.SendUpdatesEnum.None;
 
-        return [new HttpRequestBundle<IClientServiceRequest>(insertRequest, request)];
+        return [new HttpRequestBundle<IClientServiceRequest, Event>(insertRequest, request)];
     }
 
     public override List<IRequestBundle<IClientServiceRequest>> AcceptEvent(AcceptEventRequest request)
@@ -2596,7 +2613,82 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         _gmailService.Dispose();
         _peopleService.Dispose();
         _calendarService.Dispose();
+        _driveService.Dispose();
         _googleHttpClient.Dispose();
+    }
+
+    private async Task UploadCalendarEventAttachmentsAsync(CreateCalendarEventRequest request, Event createdEvent, CancellationToken cancellationToken)
+    {
+        var composeAttachments = request.ComposeResult.Attachments ?? [];
+        if (composeAttachments.Count == 0)
+            return;
+
+        if (composeAttachments.Count > 25)
+            throw new InvalidOperationException("Google Calendar supports at most 25 attachments per event.");
+
+        var eventAttachments = createdEvent.Attachments?
+            .Where(attachment => attachment != null && !string.IsNullOrWhiteSpace(attachment.FileUrl))
+            .ToList() ?? [];
+
+        foreach (var attachment in composeAttachments.Where(a => !string.IsNullOrWhiteSpace(a.FilePath) && File.Exists(a.FilePath)))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            eventAttachments.Add(await UploadAttachmentToDriveAsync(attachment, cancellationToken).ConfigureAwait(false));
+        }
+
+        if (eventAttachments.Count == 0)
+            return;
+
+        var patchRequest = _calendarService.Events.Patch(new Event
+        {
+            Attachments = eventAttachments
+        }, request.AssignedCalendar.RemoteCalendarId, createdEvent.Id);
+
+        patchRequest.SupportsAttachments = true;
+        patchRequest.SendUpdates = Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
+
+        await patchRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<EventAttachment> UploadAttachmentToDriveAsync(
+        Wino.Core.Domain.Models.Calendar.CalendarEventComposeAttachmentDraft attachment,
+        CancellationToken cancellationToken)
+    {
+        var fileName = string.IsNullOrWhiteSpace(attachment.FileName)
+            ? Path.GetFileName(attachment.FilePath)
+            : attachment.FileName;
+        var contentType = MimeTypes.GetMimeType(fileName);
+
+        await using var fileStream = File.OpenRead(attachment.FilePath);
+
+        var uploadRequest = _driveService.Files.Create(new DriveFile
+        {
+            Name = fileName,
+            MimeType = contentType
+        }, fileStream, contentType);
+        uploadRequest.Fields = "id,name,mimeType,webViewLink";
+
+        var uploadProgress = await uploadRequest.UploadAsync(cancellationToken).ConfigureAwait(false);
+
+        if (uploadProgress.Status != UploadStatus.Completed)
+        {
+            throw new InvalidOperationException(
+                $"Failed to upload '{fileName}' to Google Drive. Upload status: {uploadProgress.Status}.");
+        }
+
+        var uploadedFile = uploadRequest.ResponseBody;
+        if (uploadedFile == null || string.IsNullOrWhiteSpace(uploadedFile.Id) || string.IsNullOrWhiteSpace(uploadedFile.WebViewLink))
+        {
+            throw new InvalidOperationException($"Google Drive did not return a valid attachment link for '{fileName}'.");
+        }
+
+        return new EventAttachment
+        {
+            FileId = uploadedFile.Id,
+            FileUrl = uploadedFile.WebViewLink,
+            MimeType = uploadedFile.MimeType ?? contentType,
+            Title = uploadedFile.Name ?? fileName
+        };
     }
 
     private static TimeSpan ResolveOffset(DateTime dateTime, string timeZoneId)

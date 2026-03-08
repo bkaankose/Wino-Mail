@@ -119,9 +119,13 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     {
         base.OnNavigatedTo(mode, parameters);
 
-        // Account list may have changed while this shell was inactive.
-        if (mode == NavigationMode.Back)
+        // Preserve the existing calendar shell frame state when the user switches
+        // between Mail and Calendar modes. Back/forward restoration should not
+        // force a new CalendarPage navigation, otherwise pages like
+        // CalendarEventComposePage get dropped from the inner frame stack.
+        if (mode != NavigationMode.New)
         {
+            UpdateDateNavigationHeaderItems();
             await InitializeAccountCalendarsAsync();
             ValidateConfiguredNewEventCalendar();
             return;

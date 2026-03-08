@@ -327,8 +327,13 @@
                             <TextBlock
                                 Grid.Column="4"
                                 VerticalAlignment="Center"
-                                Text="{x:Bind domain:Translator.CalendarEventCompose_ForWeekdays}" />
-                            <ItemsControl Grid.Column="5" ItemsSource="{x:Bind ViewModel.WeekdayOptions}">
+                                Text="{x:Bind domain:Translator.CalendarEventCompose_ForWeekdays}"
+                                Visibility="{x:Bind ViewModel.IsDailyRecurrenceSelected, Mode=OneWay}" />
+                            <ItemsControl
+                                Grid.Column="5"
+                                IsEnabled="{x:Bind ViewModel.IsDailyRecurrenceSelected, Mode=OneWay}"
+                                ItemsSource="{x:Bind ViewModel.WeekdayOptions}"
+                                Visibility="{x:Bind ViewModel.IsDailyRecurrenceSelected, Mode=OneWay}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <StackPanel Orientation="Horizontal" Spacing="4" />
@@ -472,11 +477,13 @@
                     DragLeave="AttachmentsPane_DragLeave"
                     DragOver="AttachmentsPane_DragOver"
                     Drop="AttachmentsPane_Drop"
+                    ToolTipService.ToolTip="{x:Bind ViewModel.AttachmentsDisabledTooltipText, Mode=OneWay}"
                     Visibility="{x:Bind AttachmentsToggle.IsChecked, Mode=OneWay}">
                     <StackPanel Spacing="8">
                         <Button
                             HorizontalAlignment="Left"
                             Command="{x:Bind ViewModel.AddAttachmentsCommand}"
+                            IsEnabled="{x:Bind ViewModel.CanAddAttachments, Mode=OneWay}"
                             Style="{StaticResource TransparentActionButtonStyle}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <coreControls:WinoFontIcon FontSize="14" Icon="AttachmentNew" />

@@ -148,7 +148,6 @@
                             <AppBarToggleButton
                                 x:Name="EditorThemeToggleButton"
                                 IsChecked="{x:Bind WebViewEditor.IsEditorDarkMode, Mode=TwoWay}"
-                                Label=""
                                 ToolTipService.ToolTip="Toggle editor dark mode">
                                 <AppBarToggleButton.Icon>
                                     <coreControls:WinoFontIcon Icon="DarkEditor" />

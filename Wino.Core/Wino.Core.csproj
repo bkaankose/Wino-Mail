@@ -15,6 +15,7 @@
 		<PackageReference Include="CommunityToolkit.Diagnostics" />
 		<PackageReference Include="CommunityToolkit.Mvvm" />
 		<PackageReference Include="Google.Apis.Calendar.v3" />
+		<PackageReference Include="Google.Apis.Drive.v3" />
 		<PackageReference Include="Google.Apis.Gmail.v1" />
 		<PackageReference Include="Google.Apis.PeopleService.v1" />
 		<PackageReference Include="HtmlAgilityPack" />

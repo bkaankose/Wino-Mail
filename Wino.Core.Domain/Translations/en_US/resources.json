@@ -126,6 +126,7 @@
     "CalendarAttendeeStatus_Tentative": "Tentative",
     "CalendarEventDetails_Attachments": "Attachments",
     "CalendarEventCompose_AddAttachment": "Add attachment",
+    "CalendarEventCompose_AttachmentsNotSupportedForCalDav": "Attachments are not supported for CalDAV calendars.",
     "CalendarEventCompose_AllDay": "All Day",
     "CalendarEventCompose_EndDate": "End date",
     "CalendarEventCompose_EndTime": "End time",

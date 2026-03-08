@@ -150,6 +150,12 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
 
     private void AttachmentsPane_DragOver(object sender, DragEventArgs e)
     {
+        if (!ViewModel.CanAddAttachments)
+        {
+            e.AcceptedOperation = DataPackageOperation.None;
+            return;
+        }
+
         e.AcceptedOperation = e.DataView.Contains(StandardDataFormats.StorageItems)
             ? DataPackageOperation.Copy
             : DataPackageOperation.None;
@@ -169,7 +175,7 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
 
     private async void AttachmentsPane_Drop(object sender, DragEventArgs e)
     {
-        if (!e.DataView.Contains(StandardDataFormats.StorageItems))
+        if (!ViewModel.CanAddAttachments || !e.DataView.Contains(StandardDataFormats.StorageItems))
         {
             return;
         }

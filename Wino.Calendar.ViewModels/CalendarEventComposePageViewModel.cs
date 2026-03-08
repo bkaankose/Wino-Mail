@@ -102,8 +102,15 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
     public CalendarSettings CurrentSettings { get; }
     public string TimePickerClockIdentifier => CurrentSettings.DayHeaderDisplayType == DayHeaderDisplayType.TwentyFourHour ? "24HourClock" : "12HourClock";
     public bool HasAttachments => Attachments.Count > 0;
+    public bool IsSelectedCalendarCalDav => SelectedCalendar?.Account?.ProviderType == MailProviderType.IMAP4 &&
+                                            SelectedCalendar.Account.ServerInformation?.CalendarSupportMode == ImapCalendarSupportMode.CalDav;
+    public bool CanAddAttachments => !IsSelectedCalendarCalDav;
+    public string AttachmentsDisabledTooltipText => IsSelectedCalendarCalDav
+        ? Translator.CalendarEventCompose_AttachmentsNotSupportedForCalDav
+        : string.Empty;
     public string SelectedCalendarDisplayText => SelectedCalendar?.Name ?? Translator.CalendarEventCompose_SelectCalendar;
     public string SelectedCalendarAccountText => SelectedCalendar?.Account?.Address ?? string.Empty;
+    public bool IsDailyRecurrenceSelected => SelectedRecurrenceFrequencyOption?.Frequency == CalendarItemRecurrenceFrequency.Daily;
 
     public CalendarEventComposePageViewModel(IAccountService accountService,
                                              ICalendarService calendarService,
@@ -183,6 +190,15 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
 
         SelectedShowAsOption = ShowAsOptions.FirstOrDefault(option => option.ShowAs == value.DefaultShowAs)
                                ?? ShowAsOptions.FirstOrDefault();
+
+        if (IsSelectedCalendarCalDav && Attachments.Count > 0)
+        {
+            Attachments.Clear();
+        }
+
+        OnPropertyChanged(nameof(IsSelectedCalendarCalDav));
+        OnPropertyChanged(nameof(CanAddAttachments));
+        OnPropertyChanged(nameof(AttachmentsDisabledTooltipText));
         OnPropertyChanged(nameof(SelectedCalendarDisplayText));
         OnPropertyChanged(nameof(SelectedCalendarAccountText));
     }
@@ -228,12 +244,19 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
         UpdateRecurrenceSummary();
     }
     partial void OnSelectedRecurrenceIntervalChanged(int value) => UpdateRecurrenceSummary();
-    partial void OnSelectedRecurrenceFrequencyOptionChanged(CalendarComposeFrequencyOption value) => UpdateRecurrenceSummary();
+    partial void OnSelectedRecurrenceFrequencyOptionChanged(CalendarComposeFrequencyOption value)
+    {
+        OnPropertyChanged(nameof(IsDailyRecurrenceSelected));
+        UpdateRecurrenceSummary();
+    }
     partial void OnRecurrenceEndDateChanged(DateTimeOffset? value) => UpdateRecurrenceSummary();
 
     [RelayCommand]
     private async Task AddAttachmentsAsync()
     {
+        if (!CanAddAttachments)
+            return;
+
         var pickedFiles = await _dialogService.PickFilesMetadataAsync("*");
         if (pickedFiles.Count == 0)
             return;
@@ -471,7 +494,9 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
             ShowAs = SelectedShowAsOption?.ShowAs ?? SelectedCalendar?.DefaultShowAs ?? CalendarItemShowAs.Busy,
             SelectedReminders = BuildSelectedReminders(),
             Attendees = BuildAttendees(uniqueAttendees),
-            Attachments = Attachments.Select(attachment => attachment.ToDraftModel()).ToList(),
+            Attachments = CanAddAttachments
+                ? Attachments.Select(attachment => attachment.ToDraftModel()).ToList()
+                : [],
             Recurrence = BuildRecurrenceRule(),
             RecurrenceSummary = RecurrenceSummary
         };
@@ -527,10 +552,12 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
 
         var effectiveStart = GetEffectiveStartDateTime();
         var effectiveEnd = GetEffectiveEndDateTime();
-        var selectedDays = WeekdayOptions
-            .Where(option => option.IsSelected)
-            .Select(option => option.DayOfWeek)
-            .ToList();
+        var selectedDays = IsDailyRecurrenceSelected
+            ? WeekdayOptions
+                .Where(option => option.IsSelected)
+                .Select(option => option.DayOfWeek)
+                .ToList()
+            : [];
 
         RecurrenceSummary = CalendarRecurrenceSummaryFormatter.BuildSummary(
             IsRecurring,
@@ -565,10 +592,12 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
             $"INTERVAL={SelectedRecurrenceInterval}"
         };
 
-        var selectedDays = WeekdayOptions
-            .Where(option => option.IsSelected)
-            .Select(option => option.RuleValue)
-            .ToList();
+        var selectedDays = IsDailyRecurrenceSelected
+            ? WeekdayOptions
+                .Where(option => option.IsSelected)
+                .Select(option => option.RuleValue)
+                .ToList()
+            : [];
 
         if (selectedDays.Count > 0)
         {
@@ -649,7 +678,8 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
 
     private bool TryAddAttachment(string fileName, string filePath, string fileExtension, long size)
     {
-        if (string.IsNullOrWhiteSpace(filePath) ||
+        if (!CanAddAttachments ||
+            string.IsNullOrWhiteSpace(filePath) ||
             Attachments.Any(existing => existing.FilePath.Equals(filePath, StringComparison.OrdinalIgnoreCase)))
         {
             return false;

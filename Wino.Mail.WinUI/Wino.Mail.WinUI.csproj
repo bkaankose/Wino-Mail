@@ -33,6 +33,7 @@
 
 <ItemGroup>
 	<TrimmerRootAssembly Include="Google.Apis.Auth" />
+	<TrimmerRootAssembly Include="Google.Apis.Drive.v3" />
 	<TrimmerRootAssembly Include="Google.Apis.Gmail.v1" />
 </ItemGroup>
 
