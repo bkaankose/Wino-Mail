@@ -1,0 +1,19 @@
+<svg width="1200" height="520" viewBox="0 0 1200 520" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Wino Mail vNext highlights">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1e3a8a"/>
+      <stop offset="100%" stop-color="#0ea5e9"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="520" fill="url(#bg)" rx="24"/>
+  <text x="60" y="100" fill="white" font-size="56" font-family="Segoe UI, Arial" font-weight="700">Wino Mail vNext</text>
+  <text x="60" y="150" fill="#dbeafe" font-size="30" font-family="Segoe UI, Arial">Major improvements shipped this cycle</text>
+
+  <g fill="white" font-family="Segoe UI, Arial" font-size="29">
+    <text x="70" y="240">📅  Calendar compose, reminders, snooze, and CalDAV reliability</text>
+    <text x="70" y="295">👥  Contact management improvements and account integration</text>
+    <text x="70" y="350">🔄  Synchronizer resilience (Outlook/Gmail/IMAP/CalDAV)</text>
+    <text x="70" y="405">✉️  Editor, drafts, and large-attachment send pipeline upgrades</text>
+    <text x="70" y="460">⚡  Faster data access, indexing, and better test/CI coverage</text>
+  </g>
+</svg>
