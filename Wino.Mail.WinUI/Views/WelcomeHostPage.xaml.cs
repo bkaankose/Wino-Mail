@@ -29,10 +29,7 @@ public sealed partial class WelcomeHostPage : WelcomeHostPageAbstract,
         WeakReferenceMessenger.Default.Register<BreadcrumbNavigationRequested>(this);
         WeakReferenceMessenger.Default.Register<BackBreadcrumNavigationRequested>(this);
 
-        // Navigate to the welcome/get-started page without adding it to the wizard breadcrumb.
-        // Breadcrumb steps only start after the user clicks "Get Started".
-        var welcomePageType = ViewModel.NavigationService.GetPageType(WinoPage.WelcomePageV2);
-        WizardFrame.Navigate(welcomePageType, null, new SuppressNavigationTransitionInfo());
+        ResetWizard();
     }
 
     protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
@@ -51,6 +48,18 @@ public sealed partial class WelcomeHostPage : WelcomeHostPageAbstract,
     public void Receive(BackBreadcrumNavigationRequested message)
     {
         GoBackFrame();
+    }
+
+    public void ResetWizard()
+    {
+        PageHistory.Clear();
+        WizardFrame.BackStack.Clear();
+        WizardFrame.ForwardStack.Clear();
+
+        // Navigate to the welcome/get-started page without adding it to the wizard breadcrumb.
+        // Breadcrumb steps only start after the user clicks "Get Started".
+        var welcomePageType = ViewModel.NavigationService.GetPageType(WinoPage.WelcomePageV2);
+        WizardFrame.Navigate(welcomePageType, null, new SuppressNavigationTransitionInfo());
     }
 
     private void GoBackFrame()

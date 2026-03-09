@@ -427,7 +427,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     {
         if (PreferencesService.StartupEntityId == null)
         {
-            NavigationService.Navigate(WinoPage.WelcomePage);
+            NavigateToWelcomeWizard();
         }
         else
         {
@@ -451,8 +451,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             }
             else
             {
-                // Fallback to welcome page if startup entity is not found.
-                NavigationService.Navigate(WinoPage.WelcomePage);
+                // Fallback to the welcome wizard if startup entity is not found.
+                NavigateToWelcomeWizard();
             }
         }
     }
@@ -1038,9 +1038,16 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         else
         {
             await ExecuteUIThread(() => SelectedMenuItem = null);
-            NavigationService.Navigate(WinoPage.WelcomePage);
+            NavigateToWelcomeWizard();
         }
     }
+
+    private void NavigateToWelcomeWizard()
+        => NavigationService.Navigate(
+            WinoPage.WelcomeHostPage,
+            null,
+            NavigationReferenceFrame.ShellFrame,
+            NavigationTransitionType.None);
 
     private bool IsAccountCurrentlyLoaded(Guid accountId)
     {

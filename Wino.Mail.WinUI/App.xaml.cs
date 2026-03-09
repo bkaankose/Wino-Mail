@@ -35,6 +35,7 @@ using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 using Wino.Services;
+using Wino.Views;
 using WinUIEx;
 namespace Wino.Mail.WinUI;
 
@@ -145,7 +146,6 @@ public partial class App : WinoApplication,
         services.AddTransient(typeof(MailListPageViewModel));
         services.AddTransient(typeof(MailRenderingPageViewModel));
         services.AddTransient(typeof(AccountManagementViewModel));
-        services.AddTransient(typeof(WelcomePageViewModel));
         services.AddTransient(typeof(WelcomePageV2ViewModel));
         services.AddTransient(typeof(ProviderSelectionPageViewModel));
         services.AddTransient(typeof(AccountSetupProgressPageViewModel));
@@ -606,12 +606,22 @@ public partial class App : WinoApplication,
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
         MainWindow = windowManager.CreateWindow(WinoWindowKind.Welcome, () => new WelcomeWindow());
         if (MainWindow is WelcomeWindow welcomeWindow)
-            windowManager.SetPrimaryNavigationFrame(WinoWindowKind.Welcome, welcomeWindow.GetRootFrame());
+        {
+            var rootFrame = welcomeWindow.GetRootFrame();
+            windowManager.SetPrimaryNavigationFrame(WinoWindowKind.Welcome, rootFrame);
+
+            if (rootFrame.Content is WelcomeHostPage welcomeHostPage)
+            {
+                welcomeHostPage.ResetWizard();
+            }
+            else
+            {
+                Services.GetRequiredService<INavigationService>()
+                    .Navigate(WinoPage.WelcomeHostPage, null, NavigationReferenceFrame.ShellFrame, NavigationTransitionType.None);
+            }
+        }
 
         InitializeNavigationDispatcher();
-
-        Services.GetRequiredService<INavigationService>()
-            .Navigate(WinoPage.WelcomeHostPage, null, NavigationReferenceFrame.ShellFrame, NavigationTransitionType.None);
     }
 
     private void InitializeNavigationDispatcher()
