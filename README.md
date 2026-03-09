@@ -1,20 +1,18 @@
 <p align="center">
   <a href="https://apps.microsoft.com/detail/Wino%20Mail/9NCRCVJC50WL?launch=true&mode=full">
-    <img src="https://www.winomail.app/images/wino_logo.png" width="90" height="90" alt="Wino Mail logo">
+    <img src="https://www.winomail.app/images/v2/Logo.png" width="90" height="90" alt="Wino Mail logo">
   </a>
 
   <h3 align="center">Wino Mail</h3>
 
   <p align="center">
-    Native mail and calendar client for Windows device families.
+    Native mail and calendar client for Windows.
   </p>
 </p>
 
 <br>
 
 ![Wino Mail screenshot](https://user-images.githubusercontent.com/12009960/232114528-2d2c8e3c-dbe7-429a-94e0-6aecc73bdf70.png)
-
-![Wino Mail vNext highlights](docs/readme-assets/vnext-highlights.svg)
 
 ## Motivation
 
@@ -30,8 +28,6 @@ Wino vNext focuses on making Mail, Calendar, and Contacts feel like one cohesive
 - ✉️ **Compose and drafts:** Refined editor/toolbar architecture, better rendering pipeline, Gmail draft support, and large Outlook attachment upload sessions.
 - ⚡ **Performance and quality:** Faster mail fetching with batched DB queries and caching, SQLite indexing/foreign key enforcement, and broader test + CI coverage.
 - 🎨 **WinUI polish:** Improved onboarding/startup, settings and dialogs refresh, notification routing fixes, and keyboard/navigation quality-of-life improvements.
-
-![Wino Mail feature pillars](docs/readme-assets/feature-pillars.svg)
 
 ## Features
 
