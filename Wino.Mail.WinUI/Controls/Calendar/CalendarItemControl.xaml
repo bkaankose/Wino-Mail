@@ -80,9 +80,9 @@
 
         <muxc:ProgressRing
             x:Name="BusyRing"
+            Grid.Column="2"
             Width="14"
             Height="14"
-            Grid.Column="2"
             Margin="0,2,2,0"
             HorizontalAlignment="Right"
             VerticalAlignment="Top"

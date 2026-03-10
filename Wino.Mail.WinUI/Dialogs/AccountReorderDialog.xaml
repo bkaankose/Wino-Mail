@@ -49,9 +49,7 @@
                         Grid.Column="2"
                         VerticalAlignment="Center"
                         Spacing="2">
-                        <TextBlock
-                            Style="{ThemeResource BodyStrongTextBlockStyle}"
-                            Text="{x:Bind StartupEntityTitle}" />
+                        <TextBlock Style="{ThemeResource BodyStrongTextBlockStyle}" Text="{x:Bind StartupEntityTitle}" />
                         <TextBlock
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             Style="{ThemeResource CaptionTextBlockStyle}"
@@ -86,9 +84,7 @@
                         Grid.Column="2"
                         VerticalAlignment="Center"
                         Spacing="2">
-                        <TextBlock
-                            Style="{ThemeResource BodyStrongTextBlockStyle}"
-                            Text="{x:Bind StartupEntityTitle}" />
+                        <TextBlock Style="{ThemeResource BodyStrongTextBlockStyle}" Text="{x:Bind StartupEntityTitle}" />
                         <TextBlock
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             Style="{ThemeResource CaptionTextBlockStyle}"

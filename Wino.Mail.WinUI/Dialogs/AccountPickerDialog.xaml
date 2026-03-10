@@ -30,9 +30,7 @@
         </ListView.ItemContainerStyle>
         <ListView.ItemTemplate>
             <DataTemplate x:DataType="shared:MailAccount">
-                <TextBlock
-                    Style="{ThemeResource BodyTextBlockStyle}"
-                    Text="{x:Bind Address}" />
+                <TextBlock Style="{ThemeResource BodyTextBlockStyle}" Text="{x:Bind Address}" />
             </DataTemplate>
         </ListView.ItemTemplate>
     </ListView>

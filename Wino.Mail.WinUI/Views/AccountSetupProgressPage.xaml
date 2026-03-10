@@ -103,9 +103,7 @@
                 Severity="Success" />
 
             <!--  Failure InfoBar + Buttons  -->
-            <StackPanel
-                Spacing="12"
-                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsSetupFailed), Mode=OneWay}">
+            <StackPanel Spacing="12" Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsSetupFailed), Mode=OneWay}">
                 <winuiControls:InfoBar
                     IsClosable="False"
                     IsOpen="True"
@@ -116,9 +114,7 @@
                     HorizontalAlignment="Center"
                     Orientation="Horizontal"
                     Spacing="8">
-                    <Button
-                        Command="{x:Bind ViewModel.GoBackCommand}"
-                        Content="{x:Bind domain:Translator.AccountSetup_GoBackButton}" />
+                    <Button Command="{x:Bind ViewModel.GoBackCommand}" Content="{x:Bind domain:Translator.AccountSetup_GoBackButton}" />
                     <Button
                         Command="{x:Bind ViewModel.TryAgainCommand}"
                         Content="{x:Bind domain:Translator.AccountSetup_TryAgainButton}"

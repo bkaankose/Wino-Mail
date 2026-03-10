@@ -62,8 +62,6 @@
             </winuiControls:BreadcrumbBar>
         </Border>
 
-        <Frame
-            x:Name="WizardFrame"
-            Grid.Row="1" />
+        <Frame x:Name="WizardFrame" Grid.Row="1" />
     </Grid>
 </abstract:WelcomeHostPageAbstract>

@@ -16,6 +16,7 @@ using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Navigation;
@@ -39,6 +40,9 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     public IStatePersistanceService StatePersistenceService { get; }
     public IAccountCalendarStateService AccountCalendarStateService { get; }
     public INavigationService NavigationService { get; }
+
+    public MenuItemCollection MenuItems { get; private set; }
+    public MenuItemCollection FooterItems { get; private set; }
 
     [ObservableProperty]
     private int _selectedMenuItemIndex = -1;
@@ -70,6 +74,11 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
     [ObservableProperty]
     private bool isStoreUpdateItemVisible;
+
+    private readonly ManageAccountsMenuItem _manageAccountsMenuItem = new();
+    private readonly SettingsItem _settingsItem = new();
+    private readonly StoreUpdateMenuItem _storeUpdateMenuItem = new();
+    private readonly NewMailMenuItem _newEventMenuItem = new();
 
     // For updating account calendars asynchronously.
     private SemaphoreSlim _accountCalendarUpdateSemaphoreSlim = new(1);
@@ -106,6 +115,9 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         base.OnDispatcherAssigned();
 
         AccountCalendarStateService.Dispatcher = Dispatcher;
+        MenuItems = new MenuItemCollection(Dispatcher);
+        FooterItems = new MenuItemCollection(Dispatcher);
+        MenuItems.Add(_newEventMenuItem);
         _ = RefreshFooterItemsAsync(false);
     }
 
@@ -183,11 +195,9 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
     private async Task RefreshFooterItemsAsync(bool showNotification)
     {
-        await _storeUpdateService.RefreshAvailabilityAsync(showNotification).ConfigureAwait(false);
-
         await ExecuteUIThread(() =>
         {
-            IsStoreUpdateItemVisible = _storeUpdateService.HasAvailableUpdate && PreferencesService.IsStoreUpdateNotificationsEnabled;
+            FooterItems.Clear();
         });
     }
 
@@ -263,26 +273,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         _navigationDate = null;
     }
 
-    partial void OnSelectedMenuItemIndexChanged(int oldValue, int newValue)
-    {
-        if (newValue < 0)
-            return;
-
-        if (newValue == 0)
-        {
-            NavigationService.Navigate(WinoPage.ManageAccountsPage);
-        }
-        else if (newValue == 1)
-        {
-            NavigationService.Navigate(WinoPage.SettingsPage);
-        }
-        else if (IsStoreUpdateItemVisible && newValue == 2)
-        {
-            _ = StartStoreUpdateAsync();
-        }
-
-        SelectedMenuItemIndex = -1;
-    }
+    partial void OnSelectedMenuItemIndexChanged(int oldValue, int newValue) { }
 
     [RelayCommand]
     private async Task Sync()
@@ -352,6 +343,25 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
     [RelayCommand]
     public void ManageAccounts() => NavigationService.Navigate(WinoPage.AccountManagementPage);
+
+    public async Task HandleNavigationItemInvokedAsync(IMenuItem menuItem)
+    {
+        switch (menuItem)
+        {
+            case NewMailMenuItem:
+                await NewEventAsync().ConfigureAwait(false);
+                break;
+            case ManageAccountsMenuItem:
+                NavigationService.Navigate(WinoPage.ManageAccountsPage);
+                break;
+            case SettingsItem:
+                NavigationService.Navigate(WinoPage.SettingsPage);
+                break;
+            case StoreUpdateMenuItem:
+                await StartStoreUpdateAsync().ConfigureAwait(false);
+                break;
+        }
+    }
 
     [RelayCommand]
     private async Task NewEventAsync()
@@ -521,12 +531,15 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         return new DateTime(dominantKey.Year, dominantKey.Month, 1).ToString("Y", cultureInfo);
     }
 
-    partial void OnHighlightedDateRangeChanged(DateRange value) => UpdateDateNavigationHeaderItems();
+    partial void OnHighlightedDateRangeChanged(DateRange value)
+    {
+        UpdateDateNavigationHeaderItems();
+    }
 
     public async void Receive(CalendarEnableStatusChangedMessage message)
         => await ExecuteUIThread(() => IsCalendarEnabled = message.IsEnabled);
 
-    public void Receive(NavigateManageAccountsRequested message) => SelectedMenuItemIndex = 0;
+    public void Receive(NavigateManageAccountsRequested message) => NavigationService.Navigate(WinoPage.ManageAccountsPage);
 
     public void Receive(CalendarDisplayTypeChangedMessage message)
     {

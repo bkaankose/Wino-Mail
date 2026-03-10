@@ -7,8 +7,8 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:mailControls="using:Wino.Mail.Controls"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
     <Grid RowSpacing="12">
@@ -19,14 +19,20 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <controls:SettingsCard Grid.Row="0" Header="{x:Bind domain:Translator.SettingsEmailTemplates_NameTitle}" IsClickEnabled="False">
+        <controls:SettingsCard
+            Grid.Row="0"
+            Header="{x:Bind domain:Translator.SettingsEmailTemplates_NameTitle}"
+            IsClickEnabled="False">
             <TextBox
                 x:Name="TemplateNameTextBox"
                 PlaceholderText="{x:Bind domain:Translator.SettingsEmailTemplates_NamePlaceholder}"
                 Text="{x:Bind ViewModel.TemplateName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
         </controls:SettingsCard>
 
-        <controls:SettingsCard Grid.Row="1" Header="{x:Bind domain:Translator.SettingsEmailTemplates_DescriptionTitle}" IsClickEnabled="False">
+        <controls:SettingsCard
+            Grid.Row="1"
+            Header="{x:Bind domain:Translator.SettingsEmailTemplates_DescriptionTitle}"
+            IsClickEnabled="False">
             <TextBox
                 AcceptsReturn="True"
                 PlaceholderText="{x:Bind domain:Translator.SettingsEmailTemplates_DescriptionPlaceholder}"

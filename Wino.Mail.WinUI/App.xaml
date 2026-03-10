@@ -26,6 +26,7 @@
 
                 <styles:WinoExpanderStyle />
                 <styles:WinoCalendarResources />
+                <ResourceDictionary Source="Styles/CalendarShellNavigationViewStyle.xaml" />
                 <ResourceDictionary Source="AppThemes/Default.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>

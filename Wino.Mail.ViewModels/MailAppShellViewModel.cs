@@ -149,30 +149,9 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     private async Task CreateFooterItemsAsync(bool showNotification = false)
     {
-        await _storeUpdateService.RefreshAvailabilityAsync(showNotification).ConfigureAwait(false);
-
         await ExecuteUIThread(() =>
         {
-            // TODO: Selected footer item container still remains selected after re-creation.
-            // To reproduce, go settings and change the language.
-
-            foreach (var item in FooterItems)
-            {
-                item.IsExpanded = false;
-                item.IsSelected = false;
-            }
-
             FooterItems.Clear();
-
-            FooterItems.Add(ContactsMenuItem);
-            FooterItems.Add(ManageAccountsMenuItem);
-
-            if (_storeUpdateService.HasAvailableUpdate && PreferencesService.IsStoreUpdateNotificationsEnabled)
-            {
-                FooterItems.Add(StoreUpdateMenuItem);
-            }
-
-            FooterItems.Add(SettingsItem);
         });
     }
 
@@ -668,26 +647,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         {
             // Don't navigate to merged account if it's already selected. Preserve user's already selected folder.
             await ChangeLoadedAccountAsync(clickedMergedAccountMenuItem, true);
-        }
-        else if (clickedMenuItem is StoreUpdateMenuItem)
-        {
-            await _storeUpdateService.StartUpdateAsync().ConfigureAwait(false);
-            await CreateFooterItemsAsync().ConfigureAwait(false);
-        }
-        else if (clickedMenuItem is SettingsItem)
-        {
-            NavigationService.Navigate(WinoPage.SettingsPage, parameter, NavigationReferenceFrame.InnerShellFrame, NavigationTransitionType.None);
-            UpdateWindowTitle(Translator.MenuSettings);
-        }
-        else if (clickedMenuItem is ManageAccountsMenuItem)
-        {
-            NavigationService.Navigate(WinoPage.ManageAccountsPage, parameter, NavigationReferenceFrame.InnerShellFrame, NavigationTransitionType.None);
-            UpdateWindowTitle(Translator.MenuManageAccounts);
-        }
-        else if (clickedMenuItem is ContactsMenuItem)
-        {
-            NavigationService.Navigate(WinoPage.ContactsPage, parameter, NavigationReferenceFrame.InnerShellFrame, NavigationTransitionType.None);
-            UpdateWindowTitle(Translator.ContactsPage_Title);
         }
         else if (clickedMenuItem is IAccountMenuItem clickedAccountMenuItem)
         {

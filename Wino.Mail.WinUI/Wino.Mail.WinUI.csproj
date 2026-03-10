@@ -115,6 +115,7 @@
     <None Remove="BackgroundImages\Snowflake.jpg" />
     <None Remove="Controls\ListView\WinoListViewStyles.xaml" />
     <None Remove="ShellWindow.xaml" />
+    <None Remove="Styles\CalendarShellNavigationViewStyle.xaml" />
     <None Remove="Styles\CalendarThemeResources.xaml" />
     <None Remove="Styles\DayHeaderControl.xaml" />
     <None Remove="Styles\WinoCalendarResources.xaml" />
@@ -342,6 +343,11 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Views\Mail\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Styles\CalendarShellNavigationViewStyle.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
   </ItemGroup>
   <ItemGroup>
     <Page Update="Views\Calendar\CalendarSettingsPage.xaml">

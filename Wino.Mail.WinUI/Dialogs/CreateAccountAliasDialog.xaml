@@ -19,9 +19,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <TextBlock
-            Style="{ThemeResource BodyTextBlockStyle}"
-            Text="{x:Bind domain:Translator.CreateAccountAliasDialog_Description}" />
+        <TextBlock Style="{ThemeResource BodyTextBlockStyle}" Text="{x:Bind domain:Translator.CreateAccountAliasDialog_Description}" />
 
         <StackPanel
             Grid.Row="1"

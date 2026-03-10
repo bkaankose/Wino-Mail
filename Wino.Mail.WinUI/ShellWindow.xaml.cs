@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using CommunityToolkit.WinUI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -37,12 +36,12 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     public ICommand ShowWinoCommand { get; set; }
     public ICommand ShowWinoCalendarCommand { get; set; }
+    public ICommand ShowWinoContactsCommand { get; set; }
+    public ICommand RestoreCurrentModeCommand { get; set; }
     public ICommand ExitWinoCommand { get; set; }
 
     public ObservableCollection<SynchronizationActionItem> SyncActionItems { get; } = new();
     private bool _calendarReminderServerStartAttempted;
-    private bool _isApplyingActivationMode;
-    private WinoApplicationMode _currentMode = WinoApplicationMode.Mail;
 
     public ShellWindow()
     {
@@ -65,6 +64,8 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
         ShowWinoCommand = new RelayCommand(() => RestoreAndSwitchMode(WinoApplicationMode.Mail));
         ShowWinoCalendarCommand = new RelayCommand(() => RestoreAndSwitchMode(WinoApplicationMode.Calendar));
+        ShowWinoContactsCommand = new RelayCommand(() => RestoreAndSwitchMode(WinoApplicationMode.Contacts));
+        RestoreCurrentModeCommand = new RelayCommand(() => RestoreAndSwitchMode(StatePersistanceService.ApplicationMode));
         ExitWinoCommand = new RelayCommand(ForceClose);
 
         this.SetIcon("Assets/Wino_Icon.ico");
@@ -116,13 +117,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     public void HandleAppActivation(string? launchArguments, string? tileId = null, string? appId = null)
     {
         var targetMode = AppModeActivationResolver.Resolve(launchArguments, tileId, appId, PreferencesService.DefaultApplicationMode);
-        _currentMode = targetMode;
-
-        _isApplyingActivationMode = true;
-        AppModeSegmentedControl.SelectedIndex = targetMode == WinoApplicationMode.Mail ? 0 : 1;
-        _isApplyingActivationMode = false;
-
-        StatePersistanceService.AppModeTitle = GetAppModeTitle(targetMode);
         NavigationService.ChangeApplicationMode(targetMode);
     }
 
@@ -312,13 +306,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     private void RestoreAndSwitchMode(WinoApplicationMode mode)
     {
-        _currentMode = mode;
-
-        _isApplyingActivationMode = true;
-        AppModeSegmentedControl.SelectedIndex = mode == WinoApplicationMode.Mail ? 0 : 1;
-        _isApplyingActivationMode = false;
-
-        StatePersistanceService.AppModeTitle = GetAppModeTitle(mode);
         NavigationService.ChangeApplicationMode(mode);
         RestoreFromTray();
     }
@@ -358,24 +345,4 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WeakReferenceMessenger.Default.Unregister<SynchronizationActionsCompleted>(this);
     }
 
-    private void SegmentedChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_isApplyingActivationMode || sender is not Segmented segmentedControl)
-            return;
-
-        var selectedMode = segmentedControl.SelectedIndex == 1
-            ? WinoApplicationMode.Calendar
-            : WinoApplicationMode.Mail;
-
-        if (selectedMode == _currentMode)
-            return;
-
-        _currentMode = selectedMode;
-        NavigationService.ChangeApplicationMode(selectedMode);
-    }
-
-    private static string GetAppModeTitle(WinoApplicationMode mode)
-        => mode == WinoApplicationMode.Calendar
-            ? "Wino Calendar"
-            : "Wino Mail";
 }

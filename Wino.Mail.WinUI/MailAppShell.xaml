@@ -375,9 +375,7 @@
 
         <coreSelectors:NavigationMenuTemplateSelector
             x:Key="NavigationMenuTemplateSelector"
-            AccountManagementTemplate="{StaticResource ManageAccountsTemplate}"
             ClickableAccountMenuTemplate="{StaticResource ClickableAccountMenuTemplate}"
-            ContactsMenuItemTemplate="{StaticResource ContactsTemplate}"
             FixAuthenticationIssueTemplate="{StaticResource FixAuthenticationIssueTemplate}"
             FixMissingFolderConfigTemplate="{StaticResource FixMissingFolderConfig}"
             FolderMenuTemplate="{StaticResource FolderMenuTemplate}"
@@ -387,7 +385,6 @@
             NewMailTemplate="{StaticResource CreateNewMailTemplate}"
             RatingItemTemplate="{StaticResource RatingItemTemplate}"
             SeperatorTemplate="{StaticResource SeperatorTemplate}"
-            SettingsItemTemplate="{StaticResource SettingsItemTemplate}"
             StoreUpdateItemTemplate="{StaticResource StoreUpdateItemTemplate}" />
     </Page.Resources>
 
@@ -402,11 +399,11 @@
             Grid.Row="1"
             Grid.ColumnSpan="3"
             Margin="-1,-1,0,0"
+            Style="{StaticResource CalendarShellNavigationViewStyle}"
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
             AlwaysShowHeader="True"
             DisplayModeChanged="NavigationViewDisplayModeChanged"
-            FooterMenuItemsSource="{x:Bind ViewModel.FooterItems, Mode=OneWay}"
             IsBackButtonVisible="Collapsed"
             IsPaneOpen="{x:Bind ViewModel.PreferencesService.IsNavigationPaneOpened, Mode=TwoWay}"
             IsPaneToggleButtonVisible="False"

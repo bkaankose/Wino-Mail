@@ -19,10 +19,12 @@ using Wino.Mail.WinUI.Views.Calendar;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Navigation;
+using Wino.Mail.WinUI.Views.Contacts;
 using Wino.Views;
 using Wino.Views.Account;
 using Wino.Views.Mail;
 using Wino.Views.Settings;
+using Microsoft.UI.Xaml.Media.Animation;
 
 namespace Wino.Services;
 
@@ -56,6 +58,11 @@ public class NavigationService : NavigationServiceBase, INavigationService
         WinoPage.CalendarPage,
         WinoPage.EventDetailsPage,
         WinoPage.CalendarEventComposePage
+    ];
+
+    private static readonly WinoPage[] ContactsOnlyPages =
+    [
+        WinoPage.ContactsPage
     ];
 
     public NavigationService(IStatePersistanceService statePersistanceService, IDispatcher dispatcher, IWinoWindowManager windowManager)
@@ -184,15 +191,20 @@ public class NavigationService : NavigationServiceBase, INavigationService
 
         if (coreFrame == null) return false;
 
+        var currentMode = _statePersistanceService.ApplicationMode;
+
         // Update the application mode in state persistence service
         _statePersistanceService.ApplicationMode = mode;
-        _statePersistanceService.AppModeTitle = mode == WinoApplicationMode.Calendar
-            ? "Wino Calendar"
-            : "Wino Mail";
+        _statePersistanceService.AppModeTitle = GetApplicationModeTitle(mode);
 
-        var targetPageType = mode == WinoApplicationMode.Mail ? typeof(MailAppShell) : typeof(CalendarAppShell);
+        var targetPageType = mode switch
+        {
+            WinoApplicationMode.Calendar => typeof(CalendarAppShell),
+            WinoApplicationMode.Contacts => typeof(ContactsAppShell),
+            _ => typeof(MailAppShell)
+        };
         var currentPageType = coreFrame.Content?.GetType();
-        var transitionInfo = GetNavigationTransitionInfo(NavigationTransitionType.DrillIn);
+        var transitionInfo = GetApplicationModeTransitionInfo(currentMode, mode);
 
         // If already on the target page, do nothing
         if (currentPageType == targetPageType)
@@ -241,12 +253,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
 
         var currentApplicationMode = _statePersistanceService.ApplicationMode;
 
-        if (currentApplicationMode == WinoApplicationMode.Calendar && IsMailOnlyPage(page))
-        {
-            return false;
-        }
-
-        if (currentApplicationMode == WinoApplicationMode.Mail && IsCalendarOnlyPage(page))
+        if (!IsPageAllowedInMode(currentApplicationMode, page))
         {
             return false;
         }
@@ -367,6 +374,47 @@ public class NavigationService : NavigationServiceBase, INavigationService
 
     private static bool IsCalendarOnlyPage(WinoPage page)
         => CalendarOnlyPages.Contains(page);
+
+    private static bool IsContactsOnlyPage(WinoPage page)
+        => ContactsOnlyPages.Contains(page);
+
+    private static bool IsPageAllowedInMode(WinoApplicationMode mode, WinoPage page)
+        => mode switch
+        {
+            WinoApplicationMode.Mail => !IsCalendarOnlyPage(page) && !IsContactsOnlyPage(page),
+            WinoApplicationMode.Calendar => !IsMailOnlyPage(page) && !IsContactsOnlyPage(page),
+            WinoApplicationMode.Contacts => !IsMailOnlyPage(page) && !IsCalendarOnlyPage(page),
+            _ => true
+        };
+
+    private static string GetApplicationModeTitle(WinoApplicationMode mode)
+        => mode switch
+        {
+            WinoApplicationMode.Calendar => "Wino Calendar",
+            WinoApplicationMode.Contacts => "Wino Contacts",
+            _ => "Wino Mail"
+        };
+
+    private static NavigationTransitionInfo GetApplicationModeTransitionInfo(WinoApplicationMode currentMode, WinoApplicationMode targetMode)
+    {
+        var slideEffect = IsNextMode(currentMode, targetMode)
+            ? SlideNavigationTransitionEffect.FromRight
+            : SlideNavigationTransitionEffect.FromLeft;
+
+        return new SlideNavigationTransitionInfo
+        {
+            Effect = slideEffect
+        };
+    }
+
+    private static bool IsNextMode(WinoApplicationMode currentMode, WinoApplicationMode targetMode)
+        => currentMode switch
+        {
+            WinoApplicationMode.Mail => targetMode == WinoApplicationMode.Calendar,
+            WinoApplicationMode.Calendar => targetMode == WinoApplicationMode.Contacts,
+            WinoApplicationMode.Contacts => targetMode == WinoApplicationMode.Mail,
+            _ => false
+        };
 
     private static LoadCalendarMessage CreateLoadCalendarMessage(CalendarPageNavigationArgs args)
     {

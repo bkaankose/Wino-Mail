@@ -952,6 +952,7 @@
     "SystemFolderConfigSetupSuccess_Title": "System Folders Setup",
     "SystemTrayMenu_ShowWino": "Open Wino Mail",
     "SystemTrayMenu_ShowWinoCalendar": "Open Wino Calendar",
+    "SystemTrayMenu_ShowWinoContacts": "Open Wino Contacts",
     "SystemTrayMenu_ExitWino": "Exit",
     "TestingImapConnectionMessage": "Testing server connection...",
     "TitleBarServerDisconnectedButton_Description": "Wino is disconnected from the network. Click reconnect to restore connection.",

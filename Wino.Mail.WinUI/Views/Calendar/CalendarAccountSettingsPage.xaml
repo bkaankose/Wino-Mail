@@ -19,9 +19,7 @@
 
         <!--  Page Header  -->
         <StackPanel Grid.Row="0" Spacing="4">
-            <TextBlock
-                Style="{StaticResource TitleTextBlockStyle}"
-                Text="{x:Bind domain:Translator.CalendarAccountSettings_Title, Mode=OneTime}" />
+            <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="{x:Bind domain:Translator.CalendarAccountSettings_Title, Mode=OneTime}" />
             <TextBlock
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                 Style="{StaticResource BodyTextBlockStyle}"
@@ -34,9 +32,7 @@
             <StackPanel MaxWidth="900" Spacing="4">
 
                 <!--  Account Color  -->
-                <controls:SettingsCard
-                    Description="{x:Bind domain:Translator.CalendarAccountSettings_AccountColorDescription, Mode=OneTime}"
-                    Header="{x:Bind domain:Translator.CalendarAccountSettings_AccountColor, Mode=OneTime}">
+                <controls:SettingsCard Description="{x:Bind domain:Translator.CalendarAccountSettings_AccountColorDescription, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarAccountSettings_AccountColor, Mode=OneTime}">
                     <controls:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE790;" />
                     </controls:SettingsCard.HeaderIcon>
@@ -48,9 +44,7 @@
                 </controls:SettingsCard>
 
                 <!--  Enable Synchronization  -->
-                <controls:SettingsCard
-                    Description="{x:Bind domain:Translator.CalendarAccountSettings_SyncEnabledDescription, Mode=OneTime}"
-                    Header="{x:Bind domain:Translator.CalendarAccountSettings_SyncEnabled, Mode=OneTime}">
+                <controls:SettingsCard Description="{x:Bind domain:Translator.CalendarAccountSettings_SyncEnabledDescription, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarAccountSettings_SyncEnabled, Mode=OneTime}">
                     <controls:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE895;" />
                     </controls:SettingsCard.HeaderIcon>
@@ -58,9 +52,7 @@
                 </controls:SettingsCard>
 
                 <!--  Default Show As Status  -->
-                <controls:SettingsCard
-                    Description="{x:Bind domain:Translator.CalendarAccountSettings_DefaultShowAsDescription, Mode=OneTime}"
-                    Header="{x:Bind domain:Translator.CalendarAccountSettings_DefaultShowAs, Mode=OneTime}">
+                <controls:SettingsCard Description="{x:Bind domain:Translator.CalendarAccountSettings_DefaultShowAsDescription, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarAccountSettings_DefaultShowAs, Mode=OneTime}">
                     <controls:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE163;" />
                     </controls:SettingsCard.HeaderIcon>

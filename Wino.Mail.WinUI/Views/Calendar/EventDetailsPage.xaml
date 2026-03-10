@@ -7,8 +7,8 @@
     xmlns:calendar="using:Wino.Core.Domain.Entities.Calendar"
     xmlns:calendarHelpers="using:Wino.Calendar.Helpers"
     xmlns:calendarViewModels="using:Wino.Calendar.ViewModels"
-    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:controls="using:Wino.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:ctControls="using:CommunityToolkit.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Calendar.ViewModels.Data"
@@ -210,9 +210,7 @@
                         Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
                     <!--  Test Notification  -->
-                    <Button
-                        Command="{x:Bind ViewModel.CreateTestNotificationCommand}"
-                        Style="{StaticResource TransparentActionButtonStyle}">
+                    <Button Command="{x:Bind ViewModel.CreateTestNotificationCommand}" Style="{StaticResource TransparentActionButtonStyle}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <coreControls:WinoFontIcon FontSize="16" Icon="Reminder" />
                             <TextBlock VerticalAlignment="Center" Text="Test notification" />

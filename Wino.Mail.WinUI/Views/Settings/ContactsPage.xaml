@@ -10,8 +10,8 @@
     xmlns:helpers="using:Wino.Helpers"
     xmlns:listview="using:Wino.Mail.WinUI.Controls.ListView"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:viewModels="using:Wino.Mail.ViewModels.Data"
     xmlns:toolkitExt="using:CommunityToolkit.WinUI"
+    xmlns:viewModels="using:Wino.Mail.ViewModels.Data"
     x:Name="root"
     mc:Ignorable="d">
 

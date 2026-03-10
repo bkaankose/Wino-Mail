@@ -94,9 +94,9 @@
 
                 <Border
                     x:Name="ValidationErrorBorder"
+                    Padding="12,8"
                     Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
                     CornerRadius="4"
-                    Padding="12,8"
                     Visibility="Collapsed">
                     <TextBlock x:Name="ValidationErrorTextBlock" Foreground="{StaticResource SystemErrorTextColor}" />
                 </Border>

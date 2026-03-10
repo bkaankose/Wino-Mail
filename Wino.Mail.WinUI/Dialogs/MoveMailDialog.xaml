@@ -46,15 +46,13 @@
         </Grid.RowDefinitions>
 
         <Border
+            x:Name="InvalidFolderBorder"
             Margin="0,0,0,6"
+            Padding="12,8"
             Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
             CornerRadius="4"
-            Padding="12,8"
-            Visibility="Collapsed"
-            x:Name="InvalidFolderBorder">
-            <TextBlock
-                x:Name="InvalidFolderText"
-                Foreground="{ThemeResource InfoBarWarningSeverityIconBackground}" />
+            Visibility="Collapsed">
+            <TextBlock x:Name="InvalidFolderText" Foreground="{ThemeResource InfoBarWarningSeverityIconBackground}" />
         </Border>
 
         <TreeView

@@ -7,6 +7,7 @@
     xmlns:calendarControls="using:Wino.Calendar.Controls"
     xmlns:calendarHelpers="using:Wino.Calendar.Helpers"
     xmlns:collections="using:CommunityToolkit.Mvvm.Collections"
+    xmlns:controls="using:Wino.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Calendar.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
@@ -14,7 +15,6 @@
     xmlns:local="using:Wino.Calendar.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
-    xmlns:controls="using:Wino.Controls"
     xmlns:shared="using:Wino.Core.Domain.Entities.Shared"
     mc:Ignorable="d">
 

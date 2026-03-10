@@ -42,11 +42,11 @@
                 Style="{ThemeResource BodyStrongTextBlockStyle}"
                 Text="{x:Bind domain:Translator.ContactEditDialog_PhotoSection, Mode=OneTime}" />
             <Border
+                Padding="16"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
-                CornerRadius="6"
-                Padding="16">
+                CornerRadius="6">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />

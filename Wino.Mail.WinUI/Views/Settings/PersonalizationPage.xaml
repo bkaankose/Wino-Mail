@@ -27,24 +27,21 @@
             <controls1:MailItemDisplayInformationControl
                 DisplayMode="Compact"
                 MailItemInformation="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailItemInformation}"
-                ShowPreviewText="False"
-                />
+                ShowPreviewText="False" />
         </DataTemplate>
 
         <DataTemplate x:Key="MediumDisplayModePreviewTemplate" x:DataType="enums:MailListDisplayMode">
             <controls1:MailItemDisplayInformationControl
                 DisplayMode="Medium"
                 MailItemInformation="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailItemInformation}"
-                ShowPreviewText="True"
-                />
+                ShowPreviewText="True" />
         </DataTemplate>
 
         <DataTemplate x:Key="SpaciousDisplayModePreviewTemplate" x:DataType="enums:MailListDisplayMode">
             <controls1:MailItemDisplayInformationControl
                 DisplayMode="Spacious"
                 MailItemInformation="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailItemInformation}"
-                ShowPreviewText="True"
-                />
+                ShowPreviewText="True" />
         </DataTemplate>
 
         <mailSelectors:MailItemDisplayModePreviewTemplateSelector

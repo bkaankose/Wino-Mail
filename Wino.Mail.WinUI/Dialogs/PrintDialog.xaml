@@ -51,11 +51,11 @@
                 Style="{ThemeResource BodyStrongTextBlockStyle}"
                 Text="Options" />
             <Border
+                Padding="16,12"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
-                CornerRadius="6"
-                Padding="16,12">
+                CornerRadius="6">
                 <StackPanel Spacing="8">
                     <CheckBox Content="Print backgrounds" IsChecked="{x:Bind PrintSettings.ShouldPrintBackgrounds, Mode=TwoWay}" />
                     <CheckBox Content="Print headers and footers" IsChecked="{x:Bind PrintSettings.ShouldPrintHeaderAndFooter, Mode=TwoWay}" />

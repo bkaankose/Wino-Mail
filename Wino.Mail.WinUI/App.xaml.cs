@@ -954,7 +954,12 @@ public partial class App : WinoApplication,
     }
 
     private static string GetModeLaunchArgument(WinoApplicationMode mode)
-        => mode == WinoApplicationMode.Calendar ? "--mode=calendar" : "--mode=mail";
+        => mode switch
+        {
+            WinoApplicationMode.Calendar => "--mode=calendar",
+            WinoApplicationMode.Contacts => "--mode=contacts",
+            _ => "--mode=mail"
+        };
 
     private static string AppendLaunchArgument(string? launchArguments, string launchArgument)
     {

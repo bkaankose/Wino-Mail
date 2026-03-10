@@ -43,6 +43,16 @@ internal static class AppModeActivationResolver
             return true;
         }
 
+        if (Contains(value, "wino-contacts") ||
+            Contains(value, "--mode=contacts") ||
+            Contains(value, "mode=contacts") ||
+            Contains(value, "contactsapp") ||
+            EqualsToken(value, "contacts"))
+        {
+            mode = WinoApplicationMode.Contacts;
+            return true;
+        }
+
         if (Contains(value, "wino-mail") ||
             Contains(value, "--mode=mail") ||
             Contains(value, "mode=mail") ||
@@ -63,7 +73,10 @@ internal static class AppModeActivationResolver
         => string.Equals(source.Trim(), token, StringComparison.OrdinalIgnoreCase);
 
     private static WinoApplicationMode GetOpposite(WinoApplicationMode defaultMode)
-        => defaultMode == WinoApplicationMode.Mail
-            ? WinoApplicationMode.Calendar
-            : WinoApplicationMode.Mail;
+        => defaultMode switch
+        {
+            WinoApplicationMode.Mail => WinoApplicationMode.Calendar,
+            WinoApplicationMode.Calendar => WinoApplicationMode.Mail,
+            _ => WinoApplicationMode.Mail
+        };
 }

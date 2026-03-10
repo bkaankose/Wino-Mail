@@ -1,9 +1,11 @@
 using System;
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Navigation;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
@@ -24,8 +26,14 @@ public sealed partial class CalendarAppShell : CalendarAppShellAbstract,
     {
         InitializeComponent();
         PreviewKeyDown += OnPreviewKeyDown;
+        Loaded += OnLoaded;
 
         ManageCalendarDisplayType(ViewModel.StatePersistenceService.CalendarDisplayType);
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        UpdateNavigationPaneLayout(navigationView.DisplayMode);
     }
 
     private void ManageCalendarDisplayType(Core.Domain.Enums.CalendarDisplayType displayType)
@@ -44,9 +52,38 @@ public sealed partial class CalendarAppShell : CalendarAppShellAbstract,
 
     private void NextDateClicked(object sender, RoutedEventArgs e) => WeakReferenceMessenger.Default.Send(new GoNextDateRequestedMessage());
 
+    private async void NavigationViewItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
+    {
+        if (args.InvokedItemContainer is FrameworkElement { DataContext: IMenuItem menuItem })
+        {
+            await ViewModel.HandleNavigationItemInvokedAsync(menuItem);
+        }
+    }
+
+    private void NavigationViewDisplayModeChanged(NavigationView sender, NavigationViewDisplayModeChangedEventArgs args)
+        => UpdateNavigationPaneLayout(args.DisplayMode);
+
+    private void UpdateNavigationPaneLayout(NavigationViewDisplayMode displayMode)
+    {
+        var paneContentVisibility = displayMode == NavigationViewDisplayMode.Expanded && navigationView.IsPaneOpen
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        PaneCustomContent.Visibility = paneContentVisibility;
+
+        Debug.WriteLine($"NavigationView display mode changed to {displayMode}. Pane custom content visibility set to {paneContentVisibility}.");
+    }
+
     public void Receive(CalendarDisplayTypeChangedMessage message)
     {
         ManageCalendarDisplayType(message.NewDisplayType);
+    }
+
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        base.OnNavigatedFrom(e);
+
+        Bindings.StopTracking();
     }
 
     protected override void RegisterRecipients()

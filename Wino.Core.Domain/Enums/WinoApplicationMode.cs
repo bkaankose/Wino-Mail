@@ -3,5 +3,6 @@
 public enum WinoApplicationMode
 {
     Mail,
-    Calendar
+    Calendar,
+    Contacts
 }

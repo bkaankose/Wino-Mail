@@ -67,8 +67,8 @@
                                 x:Name="PreviewAccentColorGrid"
                                 Width="20"
                                 Height="20"
-                                CornerRadius="4"
-                                Background="{ThemeResource SystemAccentColor}" />
+                                Background="{ThemeResource SystemAccentColor}"
+                                CornerRadius="4" />
                         </StackPanel>
                     </Button.Content>
                     <Button.Flyout>

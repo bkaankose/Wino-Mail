@@ -26,11 +26,11 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="entities:EmailTemplate">
                         <controls:SettingsCard
+                            Margin="0,0,0,4"
                             Click="TemplateClicked"
                             Description="{x:Bind Description}"
                             Header="{x:Bind Name}"
                             IsClickEnabled="True"
-                            Margin="0,0,0,4"
                             Tag="{x:Bind}">
                             <controls:SettingsCard.HeaderIcon>
                                 <FontIcon Glyph="&#xE70F;" />

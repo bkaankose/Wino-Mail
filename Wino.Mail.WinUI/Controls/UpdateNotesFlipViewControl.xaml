@@ -22,18 +22,14 @@
                 <DataTemplate x:DataType="models:UpdateNoteSection">
                     <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                         <StackPanel Padding="8" Spacing="12">
-                            <controls:MarkdownTextBlock
-                                HorizontalAlignment="Center"
-                                Text="{x:Bind Title, Mode=OneTime}" />
+                            <controls:MarkdownTextBlock HorizontalAlignment="Center" Text="{x:Bind Title, Mode=OneTime}" />
                             <Image
                                 Width="{x:Bind ActualImageWidth, Mode=OneTime}"
                                 Height="{x:Bind ActualImageHeight, Mode=OneTime}"
                                 HorizontalAlignment="Center"
                                 Source="{x:Bind ImageUrl, Mode=OneTime}"
                                 Stretch="Uniform" />
-                            <controls:MarkdownTextBlock
-                                HorizontalAlignment="Stretch"
-                                Text="{x:Bind Description, Mode=OneTime}" />
+                            <controls:MarkdownTextBlock HorizontalAlignment="Stretch" Text="{x:Bind Description, Mode=OneTime}" />
                         </StackPanel>
                     </ScrollViewer>
                 </DataTemplate>
@@ -44,7 +40,7 @@
             x:Name="FlipViewPager"
             Grid.Row="1"
             HorizontalAlignment="Center"
-            SelectedPageIndex="0"
-            SelectedIndexChanged="OnPipsPagerSelectedIndexChanged" />
+            SelectedIndexChanged="OnPipsPagerSelectedIndexChanged"
+            SelectedPageIndex="0" />
     </Grid>
 </UserControl>
