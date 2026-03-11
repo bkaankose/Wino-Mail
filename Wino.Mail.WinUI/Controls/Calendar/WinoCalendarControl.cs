@@ -13,7 +13,7 @@ using Wino.Helpers;
 
 namespace Wino.Calendar.Controls;
 
-public partial class WinoCalendarControl : Control
+public partial class WinoCalendarControl : Control, IDisposable
 {
     private const string PART_WinoFlipView = nameof(PART_WinoFlipView);
     private const string PART_IdleGrid = nameof(PART_IdleGrid);
@@ -92,6 +92,12 @@ public partial class WinoCalendarControl : Control
 
     partial void OnIsFlipIdleChanged(bool newValue)
         => UpdateIdleState();
+
+    partial void OnDayRangesChanged(ObservableCollection<DayRangeRenderModel>? newValue)
+        => EnsureStableSelection();
+
+    partial void OnSelectedFlipViewDayRangeChanged(DayRangeRenderModel? newValue)
+        => EnsureStableSelection();
 
     partial void OnActiveScrollViewerPropertyChanged(DependencyPropertyChangedEventArgs e)
     {
@@ -200,6 +206,23 @@ public partial class WinoCalendarControl : Control
         if (InternalFlipView != null)
         {
             InternalFlipView.ProgrammaticNavigationCompleted -= InternalFlipViewProgrammaticNavigationCompleted;
+
+            if (InternalFlipView is IDisposable disposableFlipView)
+            {
+                disposableFlipView.Dispose();
+            }
+        }
+
+        if (_previousScrollViewer != null)
+        {
+            DeregisterScrollChanges(_previousScrollViewer);
+            _previousScrollViewer = null;
+        }
+
+        if (_previousCanvas != null)
+        {
+            DeregisterCanvas(_previousCanvas);
+            _previousCanvas = null;
         }
 
         InternalFlipView = GetTemplateChild(PART_WinoFlipView) as WinoCalendarFlipView;
@@ -213,6 +236,7 @@ public partial class WinoCalendarControl : Control
         UpdateIdleState();
         ManageCalendarOrientation();
         ManageDisplayType();
+        EnsureStableSelection();
     }
 
     private void InternalFlipViewProgrammaticNavigationCompleted(object? sender, ProgrammaticNavigationCompletedEventArgs e)
@@ -230,6 +254,33 @@ public partial class WinoCalendarControl : Control
         if (IdleGrid != null)
         {
             IdleGrid.Visibility = IsFlipIdle ? Visibility.Visible : Visibility.Collapsed;
+        }
+    }
+
+    private void EnsureStableSelection()
+    {
+        if (InternalFlipView == null || DayRanges == null || DayRanges.Count == 0)
+            return;
+
+        var targetIndex = SelectedFlipViewIndex;
+
+        if (SelectedFlipViewDayRange != null)
+        {
+            var selectedRangeIndex = DayRanges.IndexOf(SelectedFlipViewDayRange);
+            if (selectedRangeIndex >= 0)
+            {
+                targetIndex = selectedRangeIndex;
+            }
+        }
+
+        if (targetIndex < 0 || targetIndex >= DayRanges.Count)
+        {
+            targetIndex = 0;
+        }
+
+        if (InternalFlipView.SelectedIndex != targetIndex)
+        {
+            InternalFlipView.SelectedIndex = targetIndex;
         }
     }
 
@@ -290,5 +341,41 @@ public partial class WinoCalendarControl : Control
     public CalendarItemControl GetCalendarItemControl(CalendarItemViewModel calendarItemViewModel)
     {
         return this.FindDescendants<CalendarItemControl>().FirstOrDefault(a => a.CalendarItem == calendarItemViewModel)!;
+    }
+
+    public void Dispose()
+    {
+        SizeChanged -= CalendarSizeChanged;
+
+        if (_previousScrollViewer != null)
+        {
+            DeregisterScrollChanges(_previousScrollViewer);
+            _previousScrollViewer = null;
+        }
+
+        if (_previousCanvas != null)
+        {
+            DeregisterCanvas(_previousCanvas);
+            _previousCanvas = null;
+        }
+
+        if (InternalFlipView != null)
+        {
+            InternalFlipView.ProgrammaticNavigationCompleted -= InternalFlipViewProgrammaticNavigationCompleted;
+
+            if (InternalFlipView is IDisposable disposableFlipView)
+            {
+                disposableFlipView.Dispose();
+            }
+
+            InternalFlipView = null;
+        }
+
+        IdleGrid = null;
+        ActiveCanvas = null;
+        ActiveScrollViewer = null;
+        TimelineCellSelected = null;
+        TimelineCellUnselected = null;
+        ScrollPositionChanging = null;
     }
 }

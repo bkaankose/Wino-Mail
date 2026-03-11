@@ -13,6 +13,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
 using Windows.Foundation;
 using Wino.Calendar.Controls;
+using Wino.Calendar.Views;
 using Wino.Calendar.ViewModels;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
@@ -31,6 +32,9 @@ using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
+using Wino.Views.Mail;
+using Wino.Views;
+using Wino.Views.Settings;
 
 namespace Wino.Mail.WinUI.Views;
 
@@ -51,6 +55,11 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     {
         InitializeComponent();
 
+        var pageDispatcher = new WinUIDispatcher(DispatcherQueue);
+        ViewModel.MailClient.Dispatcher = pageDispatcher;
+        ViewModel.CalendarClient.Dispatcher = pageDispatcher;
+        ViewModel.GetClient(WinoApplicationMode.Contacts).Dispatcher = pageDispatcher;
+
         ViewModel.MailClient.PropertyChanged += MailClientPropertyChanged;
         ViewModel.CalendarClient.PropertyChanged += CalendarClientPropertyChanged;
         ViewModel.StatePersistenceService.StatePropertyChanged += StatePersistenceServiceChanged;
@@ -66,29 +75,21 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     public Frame GetShellFrame() => InnerShellFrame;
 
-    public void ActivateMode(WinoApplicationMode mode, bool isInitialActivation)
+    public void ActivateMode(WinoApplicationMode mode, ShellModeActivationContext activationContext)
     {
         if (_activeMode == mode && InnerShellFrame.Content != null)
             return;
 
         DeactivateCurrentMode();
+        ResetShellModeNavigationState();
 
         _activeMode = mode;
         ViewModel.SetCurrentMode(mode);
 
         RefreshNavigationViewBindings(syncMailSelection: mode != WinoApplicationMode.Mail);
 
-        //InnerShellFrame.IsNavigationStackEnabled = mode == WinoApplicationMode.Calendar;
-        //InnerShellFrame.BackStack.Clear();
-        //InnerShellFrame.ForwardStack.Clear();
-
         ApplyModeLayout();
         UpdateTitleBarSubtitle();
-
-        var activationContext = new ShellModeActivationContext
-        {
-            IsInitialActivation = isInitialActivation
-        };
 
         ViewModel.CurrentClient.Activate(activationContext);
 
@@ -110,7 +111,10 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
         if (_activeMode == null)
         {
-            ActivateMode(ViewModel.StatePersistenceService.ApplicationMode, true);
+            ActivateMode(ViewModel.StatePersistenceService.ApplicationMode, new ShellModeActivationContext
+            {
+                IsInitialActivation = true
+            });
         }
     }
 
@@ -133,16 +137,30 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     {
         if (_activeMode == WinoApplicationMode.Mail)
         {
+            WeakReferenceMessenger.Default.Send(new ClearMailSelectionsRequested());
+            WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
+            ViewModel.StatePersistenceService.IsReadingMail = false;
             ViewModel.MailClient.Deactivate();
         }
         else if (_activeMode == WinoApplicationMode.Calendar)
         {
+            ViewModel.StatePersistenceService.IsEventDetailsVisible = false;
             ViewModel.CalendarClient.Deactivate();
         }
         else if (_activeMode == WinoApplicationMode.Contacts)
         {
             ViewModel.CurrentClient.Deactivate();
         }
+
+        DynamicPageShellContentPresenter.Content = null;
+    }
+
+    private void ResetShellModeNavigationState()
+    {
+        ViewModel.StatePersistenceService.IsManageAccountsNavigating = false;
+        ViewModel.StatePersistenceService.IsSettingsNavigating = false;
+        InnerShellFrame.BackStack.Clear();
+        InnerShellFrame.ForwardStack.Clear();
     }
 
     private void ApplyTitleBarContent()

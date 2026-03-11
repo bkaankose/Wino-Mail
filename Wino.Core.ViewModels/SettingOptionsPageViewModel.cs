@@ -59,21 +59,13 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
     }
 
     [RelayCommand]
-    private void GoAccountSettings() => Messenger.Send<NavigateManageAccountsRequested>();
-
-    [RelayCommand]
     public void NavigateSubDetail(object type)
     {
         if (type is WinoPage pageType)
         {
-            if (pageType == WinoPage.AccountManagementPage)
-            {
-                GoAccountSettings();
-                return;
-            }
-
             string pageTitle = pageType switch
             {
+                WinoPage.ManageAccountsPage => Translator.SettingsManageAccountSettings_Title,
                 WinoPage.PersonalizationPage => Translator.SettingsPersonalization_Title,
                 WinoPage.AboutPage => Translator.SettingsAbout_Title,
                 WinoPage.MessageListPage => Translator.SettingsMessageList_Title,

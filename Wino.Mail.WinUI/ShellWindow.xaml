@@ -93,7 +93,7 @@
         <Frame
             x:Name="MainShellFrame"
             Grid.Row="1"
-            CacheSize="2"
+            CacheSize="0"
             Navigated="MainFrameNavigated" />
 
         <coreControls:WinoInfoBar

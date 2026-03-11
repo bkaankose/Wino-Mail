@@ -31,6 +31,9 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         // Register for frame navigation events to track back button visibility
         SettingsFrame.Navigated -= SettingsFrameNavigated;
         SettingsFrame.Navigated += SettingsFrameNavigated;
+        PageHistory.Clear();
+        SettingsFrame.BackStack.Clear();
+        SettingsFrame.ForwardStack.Clear();
 
         SettingsFrame.Navigate(typeof(SettingOptionsPage), null, new SuppressNavigationTransitionInfo());
 
@@ -52,6 +55,10 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
                     break;
                 case WinoPage.EmailTemplatesPage:
                     WeakReferenceMessenger.Default.Send(new BreadcrumbNavigationRequested(Translator.SettingsEmailTemplates_Title, WinoPage.EmailTemplatesPage));
+                    break;
+                case WinoPage.ManageAccountsPage:
+                case WinoPage.AccountManagementPage:
+                    WeakReferenceMessenger.Default.Send(new BreadcrumbNavigationRequested(Translator.SettingsManageAccountSettings_Title, WinoPage.ManageAccountsPage));
                     break;
             }
         }

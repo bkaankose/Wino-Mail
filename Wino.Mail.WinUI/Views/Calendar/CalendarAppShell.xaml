@@ -17,6 +17,8 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:menu="using:Wino.Core.Domain.MenuItems"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    Loaded="OnLoaded"
+    PreviewKeyDown="OnPreviewKeyDown"
     mc:Ignorable="d">
 
     <Page.Resources>
@@ -312,7 +314,7 @@
                 <Frame
                     x:Name="InnerShellFrame"
                     Padding="0,0,7,7"
-                    CacheSize="2"
+                    CacheSize="0"
                     IsNavigationStackEnabled="True">
                     <Frame.ContentTransitions>
                         <TransitionCollection>

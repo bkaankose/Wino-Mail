@@ -7,6 +7,6 @@ public abstract class CalendarPageAbstract : BasePage<CalendarPageViewModel>
 {
     protected CalendarPageAbstract()
     {
-        NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Enabled;
+        NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Disabled;
     }
 }

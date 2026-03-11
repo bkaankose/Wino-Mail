@@ -7,6 +7,6 @@ public abstract class MailAppShellAbstract : BasePage<MailAppShellViewModel>
 {
     protected MailAppShellAbstract()
     {
-        NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Enabled;
+        NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Disabled;
     }
 }

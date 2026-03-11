@@ -69,5 +69,5 @@ public interface IShellHost
 {
     bool HasShellContent { get; }
 
-    void ActivateMode(WinoApplicationMode mode, bool isInitialActivation);
+    void ActivateMode(WinoApplicationMode mode, ShellModeActivationContext activationContext);
 }

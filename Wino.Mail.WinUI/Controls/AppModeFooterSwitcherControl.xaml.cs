@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain;
 
 namespace Wino.Mail.WinUI.Controls;
 
@@ -43,6 +44,13 @@ public sealed partial class AppModeFooterSwitcherControl : UserControl
     {
         if (_isUpdatingSelection)
             return;
+
+        if (ModeSegmentedControl.SelectedIndex == 3)
+        {
+            _navigationService.Navigate(WinoPage.SettingsPage);
+            UpdateSelection(_statePersistenceService.ApplicationMode);
+            return;
+        }
 
         var selectedMode = ModeSegmentedControl.SelectedIndex switch
         {

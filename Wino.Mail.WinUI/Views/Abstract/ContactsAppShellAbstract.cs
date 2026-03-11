@@ -4,6 +4,6 @@ public abstract class ContactsAppShellAbstract : BasePage
 {
     protected ContactsAppShellAbstract()
     {
-        NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Enabled;
+        NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Disabled;
     }
 }

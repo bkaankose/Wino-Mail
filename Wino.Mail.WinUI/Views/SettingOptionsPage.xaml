@@ -108,12 +108,11 @@
                             Grid.Column="2"
                             Command="{x:Bind ViewModel.NavigateExternalCommand}"
                             CommandParameter="Store"
-                            Style="{StaticResource AccentButtonStyle}"
                             ToolTipService.ToolTip="{x:Bind domain:Translator.SettingsStore_Title}">
                             <Viewbox Width="18" Height="18">
                                 <Path
                                     Data="F1 M 19.003906 3.251953 L 19.003906 15.947266 C 19.003906 16.357422 18.920898 16.748047 18.754883 17.119141 C 18.588867 17.490234 18.367512 17.814127 18.09082 18.09082 C 17.814127 18.367514 17.490234 18.588867 17.119141 18.754883 C 16.748047 18.920898 16.357422 19.003906 15.947266 19.003906 L 3.056641 19.003906 C 2.646484 19.003906 2.255859 18.920898 1.884766 18.754883 C 1.513672 18.588867 1.189779 18.367514 0.913086 18.09082 C 0.636393 17.814127 0.415039 17.490234 0.249023 17.119141 C 0.083008 16.748047 0 16.357422 0 15.947266 L 0 3.251953 C 0 3.076172 0.032552 2.913412 0.097656 2.763672 C 0.16276 2.613934 0.252279 2.482098 0.366211 2.368164 C 0.480143 2.254232 0.611979 2.164715 0.761719 2.099609 C 0.911458 2.034506 1.074219 2.001953 1.25 2.001953 L 4.003906 2.001953 L 4.003906 0.996094 C 4.003906 0.859375 4.029948 0.730795 4.082031 0.610352 C 4.134114 0.48991 4.205729 0.384115 4.296875 0.292969 C 4.388021 0.201824 4.493815 0.130209 4.614258 0.078125 C 4.7347 0.026043 4.863281 0 5 0 L 14.003906 0 C 14.140624 0 14.269205 0.026043 14.389648 0.078125 C 14.510091 0.130209 14.615885 0.201824 14.707031 0.292969 C 14.798177 0.384115 14.869791 0.48991 14.921875 0.610352 C 14.973957 0.730795 14.999999 0.859375 15 0.996094 L 15 2.001953 L 17.753906 2.001953 C 17.923176 2.001953 18.084309 2.034506 18.237305 2.099609 C 18.390299 2.164715 18.523762 2.254232 18.637695 2.368164 C 18.751627 2.482098 18.841145 2.615561 18.90625 2.768555 C 18.971354 2.921551 19.003906 3.082684 19.003906 3.251953 Z M 14.003906 0.996094 L 5 0.996094 L 5 2.001953 L 14.003906 2.001953 Z M 5 10 L 9.003906 10 L 9.003906 5.996094 L 5 5.996094 Z M 10 10 L 14.003906 10 L 14.003906 5.996094 L 10 5.996094 Z M 5 15 L 9.003906 15 L 9.003906 10.996094 L 5 10.996094 Z M 10 15 L 14.003906 15 L 14.003906 10.996094 L 10 10.996094 Z "
-                                    Fill="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                    Fill="{ThemeResource TextFillColorPrimaryBrush}"
                                     Stretch="Uniform" />
                             </Viewbox>
                         </Button>
@@ -128,14 +127,14 @@
                 Description="{x:Bind ViewModel.AccountSummaryText, Mode=OneWay}"
                 Header="{x:Bind domain:Translator.SettingsManageAccountSettings_Title}"
                 IsClickEnabled="True"
-                Tag="{x:Bind enums:WinoPage.AccountManagementPage}">
+                Tag="{x:Bind enums:WinoPage.ManageAccountsPage}">
                 <controls:SettingsCard.HeaderIcon>
                     <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE77B;" />
                 </controls:SettingsCard.HeaderIcon>
                 <Button
                     Click="SettingOptionClicked"
                     Style="{StaticResource AccentButtonStyle}"
-                    Tag="{x:Bind enums:WinoPage.AccountManagementPage}">
+                    Tag="{x:Bind enums:WinoPage.ManageAccountsPage}">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <TextBlock Text="{x:Bind domain:Translator.Buttons_Manage}" />
                         <FontIcon FontSize="12" Glyph="&#xE76C;" />

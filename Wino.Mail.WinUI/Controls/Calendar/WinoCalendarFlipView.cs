@@ -10,7 +10,7 @@ using Wino.Core.Domain.Models.Calendar;
 
 namespace Wino.Calendar.Controls;
 
-public partial class WinoCalendarFlipView : CustomCalendarFlipView
+public partial class WinoCalendarFlipView : CustomCalendarFlipView, IDisposable
 {
     public static readonly DependencyProperty IsIdleProperty = DependencyProperty.Register(nameof(IsIdle), typeof(bool), typeof(WinoCalendarFlipView), new PropertyMetadata(true));
     public static readonly DependencyProperty ActiveCanvasProperty = DependencyProperty.Register(nameof(ActiveCanvas), typeof(WinoDayTimelineCanvas), typeof(WinoCalendarFlipView), new PropertyMetadata(null));
@@ -50,10 +50,11 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView
     internal event EventHandler<ProgrammaticNavigationCompletedEventArgs>? ProgrammaticNavigationCompleted;
 
     private INotifyCollectionChanged? _trackedItemsSource;
+    private readonly long _itemsSourceCallbackToken;
 
     public WinoCalendarFlipView()
     {
-        RegisterPropertyChangedCallback(ItemsSourceProperty, new DependencyPropertyChangedCallback(OnItemsSourceChanged));
+        _itemsSourceCallbackToken = RegisterPropertyChangedCallback(ItemsSourceProperty, new DependencyPropertyChangedCallback(OnItemsSourceChanged));
     }
 
     private static void OnItemsSourceChanged(DependencyObject d, DependencyProperty e)
@@ -207,6 +208,18 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView
 
     private ObservableRangeCollection<DayRangeRenderModel>? GetItemsSource()
         => ItemsSource as ObservableRangeCollection<DayRangeRenderModel>;
+
+    public void Dispose()
+    {
+        if (_trackedItemsSource != null)
+        {
+            _trackedItemsSource.CollectionChanged -= ItemsSourceUpdated;
+            _trackedItemsSource = null;
+        }
+
+        UnregisterPropertyChangedCallback(ItemsSourceProperty, _itemsSourceCallbackToken);
+        ProgrammaticNavigationCompleted = null;
+    }
 }
 
 internal sealed class ProgrammaticNavigationCompletedEventArgs : EventArgs

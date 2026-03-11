@@ -25,8 +25,6 @@ public sealed partial class CalendarAppShell : CalendarAppShellAbstract,
     public CalendarAppShell()
     {
         InitializeComponent();
-        PreviewKeyDown += OnPreviewKeyDown;
-        Loaded += OnLoaded;
 
         ManageCalendarDisplayType(ViewModel.StatePersistenceService.CalendarDisplayType);
     }
@@ -82,6 +80,14 @@ public sealed partial class CalendarAppShell : CalendarAppShellAbstract,
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         base.OnNavigatedFrom(e);
+
+        InnerShellFrame.BackStack.Clear();
+        InnerShellFrame.ForwardStack.Clear();
+
+        if (InnerShellFrame.Content is IDisposable disposableContent)
+        {
+            disposableContent.Dispose();
+        }
 
         Bindings.StopTracking();
     }

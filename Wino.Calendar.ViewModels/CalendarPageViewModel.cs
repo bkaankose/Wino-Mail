@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Diagnostics;
@@ -20,9 +21,9 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Calendar.CalendarTypeStrategies;
-using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Calendar;
@@ -37,7 +38,8 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     IRecipient<CalendarItemTappedMessage>,
     IRecipient<CalendarItemDoubleTappedMessage>,
     IRecipient<CalendarItemRightTappedMessage>,
-    IRecipient<AccountRemovedMessage>
+    IRecipient<AccountRemovedMessage>,
+    IDisposable
 {
     #region Quick Event Creation
 
@@ -145,6 +147,9 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
     private SemaphoreSlim _calendarLoadingSemaphore = new(1);
     private bool isLoadMoreBlocked = false;
+    private bool _subscriptionsAttached;
+    private CancellationTokenSource _pageLifetimeCts = new();
+    private long _pageLifetimeVersion;
 
     [ObservableProperty]
     private CalendarSettings _currentSettings;
@@ -173,11 +178,6 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         _winoRequestDelegator = winoRequestDelegator;
         _dialogService = dialogService;
 
-        AccountCalendarStateService.AccountCalendarSelectionStateChanged += UpdateAccountCalendarRequested;
-        AccountCalendarStateService.CollectiveAccountGroupSelectionStateChanged += AccountCalendarStateCollectivelyChanged;
-
-        // We don't register on navigation here. This page is cached.
-        RegisterRecipients();
     }
 
     public override async Task KeyboardShortcutHook(KeyboardShortcutTriggerDetails args)
@@ -228,15 +228,35 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         Messenger.Register<AccountRemovedMessage>(this);
     }
 
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+
+        Messenger.Unregister<LoadCalendarMessage>(this);
+        Messenger.Unregister<CalendarSettingsUpdatedMessage>(this);
+        Messenger.Unregister<CalendarItemTappedMessage>(this);
+        Messenger.Unregister<CalendarItemDoubleTappedMessage>(this);
+        Messenger.Unregister<CalendarItemRightTappedMessage>(this);
+        Messenger.Unregister<AccountRemovedMessage>(this);
+    }
+
     private void AccountCalendarStateCollectivelyChanged(object sender, GroupedAccountCalendarViewModel e)
-        => FilterActiveCalendars(DayRanges);
+        => _ = FilterActiveCalendarsAsync(DayRanges);
 
     private void UpdateAccountCalendarRequested(object sender, AccountCalendarViewModel e)
-        => FilterActiveCalendars(DayRanges);
+        => _ = FilterActiveCalendarsAsync(DayRanges);
 
-    private async void FilterActiveCalendars(IEnumerable<DayRangeRenderModel> dayRangeRenderModels)
+    private async Task FilterActiveCalendarsAsync(IEnumerable<DayRangeRenderModel> dayRangeRenderModels)
     {
-        await ExecuteUIThread(() =>
+        await FilterActiveCalendarsAsync(dayRangeRenderModels, CurrentPageLifetimeVersion).ConfigureAwait(false);
+    }
+
+    private async Task FilterActiveCalendarsAsync(IEnumerable<DayRangeRenderModel> dayRangeRenderModels, long lifetimeVersion)
+    {
+        if (dayRangeRenderModels == null || !IsPageActive(lifetimeVersion))
+            return;
+
+        await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () =>
         {
             var days = dayRangeRenderModels.SelectMany(a => a.CalendarDays);
 
@@ -269,10 +289,15 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
     public override void OnNavigatedTo(NavigationMode mode, object parameters)
     {
+        ResetPageLifetime();
+        base.OnNavigatedTo(mode, parameters);
+        AttachSubscriptions();
         RefreshSettings();
+        IsCalendarEnabled = true;
 
-        if (mode == NavigationMode.Back)
+        if (mode == NavigationMode.Back && DayRanges.Count > 0)
         {
+            RestoreVisibleState();
             _ = RefreshVisibleRangesAsync();
             return;
         }
@@ -283,8 +308,197 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
     public override void OnNavigatedFrom(NavigationMode mode, object parameters)
     {
-        // CalendarPage is cached and should continue processing calendar item messages
-        // while details/compose pages are active on top of it.
+        base.OnNavigatedFrom(mode, parameters);
+
+        if (StatePersistanceService.ApplicationMode == WinoApplicationMode.Calendar)
+        {
+            CancelPendingOperations();
+            DetachSubscriptions();
+            return;
+        }
+
+        CleanupForShellDeactivation();
+    }
+
+    private void AttachSubscriptions()
+    {
+        if (_subscriptionsAttached)
+            return;
+
+        AccountCalendarStateService.AccountCalendarSelectionStateChanged += UpdateAccountCalendarRequested;
+        AccountCalendarStateService.CollectiveAccountGroupSelectionStateChanged += AccountCalendarStateCollectivelyChanged;
+        _subscriptionsAttached = true;
+    }
+
+    private void DetachSubscriptions()
+    {
+        if (!_subscriptionsAttached)
+            return;
+
+        AccountCalendarStateService.AccountCalendarSelectionStateChanged -= UpdateAccountCalendarRequested;
+        AccountCalendarStateService.CollectiveAccountGroupSelectionStateChanged -= AccountCalendarStateCollectivelyChanged;
+        _subscriptionsAttached = false;
+    }
+
+    private void ReleasePageState()
+    {
+        DetachSubscriptions();
+
+        DisplayDetailsCalendarItemViewModel = null;
+        SelectedQuickEventAccountCalendar = null;
+        SelectedQuickEventDate = null;
+        SelectedDayRange = null;
+        SelectedDateRangeIndex = 0;
+        IsQuickEventDialogOpen = false;
+        DayRanges = [];
+        HourSelectionStrings = [];
+    }
+
+    public void Dispose()
+    {
+        CleanupForShellDeactivation();
+    }
+
+    public void CleanupForShellDeactivation()
+    {
+        CancelPendingOperations();
+        ReleasePageState();
+        GC.SuppressFinalize(this);
+    }
+
+    public bool RestoreVisibleState()
+    {
+        IsCalendarEnabled = true;
+
+        if (DayRanges.Count == 0)
+        {
+            SelectedDayRange = null;
+            SelectedDateRangeIndex = -1;
+            return false;
+        }
+
+        var targetIndex = SelectedDateRangeIndex;
+
+        if (SelectedDayRange != null)
+        {
+            var existingSelectedRangeIndex = DayRanges.IndexOf(SelectedDayRange);
+            if (existingSelectedRangeIndex >= 0)
+            {
+                targetIndex = existingSelectedRangeIndex;
+            }
+        }
+
+        if (targetIndex < 0 || targetIndex >= DayRanges.Count)
+        {
+            targetIndex = 0;
+        }
+
+        SelectedDateRangeIndex = targetIndex;
+        SelectedDayRange = DayRanges[targetIndex];
+
+        return true;
+    }
+
+    public DateTime GetRestoreDate()
+    {
+        if (SelectedDayRange != null)
+        {
+            return SelectedDayRange.CalendarRenderOptions.DateRange.StartDate;
+        }
+
+        if (DayRanges.Count == 0)
+        {
+            return DateTime.Now.Date;
+        }
+
+        var targetIndex = SelectedDateRangeIndex;
+        if (targetIndex < 0 || targetIndex >= DayRanges.Count)
+        {
+            targetIndex = 0;
+        }
+
+        return DayRanges[targetIndex].CalendarRenderOptions.DateRange.StartDate;
+    }
+
+    private long CurrentPageLifetimeVersion => Interlocked.Read(ref _pageLifetimeVersion);
+
+    private bool IsPageActive(long lifetimeVersion)
+        => lifetimeVersion == CurrentPageLifetimeVersion && !_pageLifetimeCts.IsCancellationRequested;
+
+    private bool IsCurrentPageActive => !_pageLifetimeCts.IsCancellationRequested;
+
+    private void ResetPageLifetime()
+    {
+        CancelPendingOperations();
+        _pageLifetimeCts = new CancellationTokenSource();
+        Interlocked.Increment(ref _pageLifetimeVersion);
+    }
+
+    private void CancelPendingOperations()
+    {
+        if (!_pageLifetimeCts.IsCancellationRequested)
+        {
+            _pageLifetimeCts.Cancel();
+        }
+    }
+
+    private async Task<bool> WaitForCalendarLoadingLockAsync(long lifetimeVersion)
+    {
+        if (!IsPageActive(lifetimeVersion))
+            return false;
+
+        var cancellationToken = _pageLifetimeCts.Token;
+
+        try
+        {
+            await _calendarLoadingSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+            return IsPageActive(lifetimeVersion);
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
+        }
+        catch (ObjectDisposedException)
+        {
+            return false;
+        }
+    }
+
+    private void ReleaseCalendarLoadingLock()
+    {
+        try
+        {
+            _calendarLoadingSemaphore.Release();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (SemaphoreFullException)
+        {
+        }
+    }
+
+    private async Task ExecuteUIThreadIfActiveAsync(long lifetimeVersion, Action action)
+    {
+        if (action == null || !IsPageActive(lifetimeVersion))
+            return;
+
+        try
+        {
+            await ExecuteUIThread(() =>
+            {
+                if (IsPageActive(lifetimeVersion))
+                {
+                    action();
+                }
+            }).ConfigureAwait(false);
+        }
+        catch (COMException) when (!IsPageActive(lifetimeVersion))
+        {
+        }
+        catch (ObjectDisposedException) when (!IsPageActive(lifetimeVersion))
+        {
+        }
     }
 
     [RelayCommand]
@@ -492,21 +706,27 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
     public async void Receive(LoadCalendarMessage message)
     {
-        await _calendarLoadingSemaphore.WaitAsync();
+        var lifetimeVersion = CurrentPageLifetimeVersion;
+        var hasLoadingLock = await WaitForCalendarLoadingLockAsync(lifetimeVersion).ConfigureAwait(false);
+
+        if (!hasLoadingLock)
+            return;
 
         try
         {
-            await ExecuteUIThread(() => IsCalendarEnabled = false);
+            await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () => IsCalendarEnabled = false).ConfigureAwait(false);
 
-            if (ShouldResetDayRanges(message))
-            {
-                Debug.WriteLine("Will reset day ranges.");
-                await ClearDayRangeModelsAsync();
-            }
-            else if (ShouldScrollToItem(message))
+            if (!IsPageActive(lifetimeVersion))
+                return;
+
+            if (!ShouldResetDayRanges(message) && ShouldScrollToItem(message))
             {
                 // Scroll to the selected date.
-                Messenger.Send(new ScrollToDateMessage(message.DisplayDate));
+                if (IsPageActive(lifetimeVersion))
+                {
+                    Messenger.Send(new ScrollToDateMessage(message.DisplayDate));
+                }
+
                 Debug.WriteLine("Scrolling to selected date.");
                 return;
             }
@@ -516,10 +736,23 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             // This will replace the whole collection because the user initiated a new render.
             await RenderDatesAsync(message.CalendarInitInitiative,
                                    message.DisplayDate,
-                                   CalendarLoadDirection.Replace);
+                                   CalendarLoadDirection.Replace,
+                                   lifetimeVersion).ConfigureAwait(false);
 
             // Scroll to the current hour.
-            Messenger.Send(new ScrollToHourMessage(TimeSpan.FromHours(DateTime.Now.Hour)));
+            if (IsPageActive(lifetimeVersion))
+            {
+                Messenger.Send(new ScrollToHourMessage(TimeSpan.FromHours(DateTime.Now.Hour)));
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (COMException) when (!IsPageActive(lifetimeVersion))
+        {
+        }
+        catch (ObjectDisposedException) when (!IsPageActive(lifetimeVersion))
+        {
         }
         catch (Exception ex)
         {
@@ -528,55 +761,88 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         }
         finally
         {
-            _calendarLoadingSemaphore.Release();
+            ReleaseCalendarLoadingLock();
 
-            await ExecuteUIThread(() => IsCalendarEnabled = true);
+            await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () => IsCalendarEnabled = true).ConfigureAwait(false);
         }
     }
 
 
-    private async Task AddDayRangeModelAsync(DayRangeRenderModel dayRangeRenderModel)
+    private async Task AddDayRangeModelAsync(DayRangeRenderModel dayRangeRenderModel, long lifetimeVersion)
     {
         if (dayRangeRenderModel == null) return;
 
-        await ExecuteUIThread(() =>
+        await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () =>
         {
             DayRanges.Add(dayRangeRenderModel);
         });
     }
 
-    private async Task InsertDayRangeModelAsync(DayRangeRenderModel dayRangeRenderModel, int index)
+    private async Task InsertDayRangeModelAsync(DayRangeRenderModel dayRangeRenderModel, int index, long lifetimeVersion)
     {
         if (dayRangeRenderModel == null) return;
 
-        await ExecuteUIThread(() =>
+        await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () =>
         {
             DayRanges.Insert(index, dayRangeRenderModel);
         });
     }
 
-    private async Task RemoveDayRangeModelAsync(DayRangeRenderModel dayRangeRenderModel)
+    private async Task RemoveDayRangeModelAsync(DayRangeRenderModel dayRangeRenderModel, long lifetimeVersion)
     {
         if (dayRangeRenderModel == null) return;
 
-        await ExecuteUIThread(() =>
+        await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () =>
         {
             DayRanges.Remove(dayRangeRenderModel);
         });
     }
 
-    private async Task ClearDayRangeModelsAsync()
+    private async Task ClearDayRangeModelsAsync(long lifetimeVersion)
     {
-        await ExecuteUIThread(() =>
+        await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () =>
         {
             DayRanges.Clear();
         });
     }
 
+    private async Task ReplaceDayRangeModelsAsync(IEnumerable<DayRangeRenderModel> dayRangeRenderModels, DateTime displayDate, long lifetimeVersion)
+    {
+        var renderModels = dayRangeRenderModels?.ToList() ?? [];
+
+        await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () =>
+        {
+            DayRanges.ReplaceRange(renderModels);
+
+            if (renderModels.Count == 0)
+            {
+                SelectedDayRange = null;
+                SelectedDateRangeIndex = -1;
+                return;
+            }
+
+            var selectedIndex = renderModels.FindIndex(model =>
+                displayDate >= model.CalendarRenderOptions.DateRange.StartDate &&
+                displayDate <= model.CalendarRenderOptions.DateRange.EndDate);
+
+            if (selectedIndex < 0)
+            {
+                selectedIndex = 0;
+            }
+
+            SelectedDateRangeIndex = selectedIndex;
+            SelectedDayRange = renderModels[selectedIndex];
+        });
+    }
+
     private async Task RenderDatesAsync(CalendarInitInitiative calendarInitInitiative,
                                         DateTime? loadingDisplayDate = null,
-                                        CalendarLoadDirection calendarLoadDirection = CalendarLoadDirection.Replace)
+                                        CalendarLoadDirection calendarLoadDirection = CalendarLoadDirection.Replace,
+                                        long lifetimeVersion = 0)
     {
+        if (!IsPageActive(lifetimeVersion))
+            return;
+
         isLoadMoreBlocked = calendarLoadDirection == CalendarLoadDirection.Replace;
 
         // This is the part we arrange the flip view calendar logic.
@@ -643,11 +909,17 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         // Dates are loaded. Now load the events for them.
         foreach (var renderModel in renderModels)
         {
-            await InitializeCalendarEventsForDayRangeAsync(renderModel).ConfigureAwait(false);
+            await InitializeCalendarEventsForDayRangeAsync(renderModel, lifetimeVersion).ConfigureAwait(false);
+
+            if (!IsPageActive(lifetimeVersion))
+                return;
         }
 
         // Filter by active calendars. This is a quick operation, and things are not on the UI yet.
-        FilterActiveCalendars(renderModels);
+        await FilterActiveCalendarsAsync(renderModels, lifetimeVersion).ConfigureAwait(false);
+
+        if (!IsPageActive(lifetimeVersion))
+            return;
 
         CalendarLoadDirection animationDirection = calendarLoadDirection;
 
@@ -655,29 +927,26 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
         if (calendarLoadDirection == CalendarLoadDirection.Replace)
         {
-            // New date ranges are being replaced.
-            // We must preserve existing selection if any, add the items before/after the current one, remove the current one.
-            // This will make sure the new dates are animated in the correct direction.
-
             isLoadMoreBlocked = true;
+            await ReplaceDayRangeModelsAsync(renderModels, displayDate, lifetimeVersion).ConfigureAwait(false);
+            isLoadMoreBlocked = false;
 
-            // Remove all other dates except this one.
-            var rangesToRemove = DayRanges.Where(a => a != SelectedDayRange).ToList();
-
-            foreach (var range in rangesToRemove)
+            if (calendarInitInitiative == CalendarInitInitiative.User)
             {
-                await RemoveDayRangeModelAsync(range);
+                _currentDisplayType = StatePersistanceService.CalendarDisplayType;
+                _displayDayCount = StatePersistanceService.DayDisplayCount;
+
+                Messenger.Send(new ScrollToDateMessage(displayDate));
             }
 
-            animationDirection = displayDate <= SelectedDayRange?.CalendarRenderOptions.DateRange.StartDate ?
-                CalendarLoadDirection.Previous : CalendarLoadDirection.Next;
+            return;
         }
 
         if (animationDirection == CalendarLoadDirection.Next)
         {
             foreach (var item in renderModels)
             {
-                await AddDayRangeModelAsync(item);
+                await AddDayRangeModelAsync(item, lifetimeVersion);
             }
         }
         else if (animationDirection == CalendarLoadDirection.Previous)
@@ -690,7 +959,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             // Insert each render model in reverse order.
             for (int i = renderModels.Count - 1; i >= 0; i--)
             {
-                await InsertDayRangeModelAsync(renderModels[i], 0);
+                await InsertDayRangeModelAsync(renderModels[i], 0, lifetimeVersion);
             }
         }
 
@@ -723,12 +992,15 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         }
     }
 
-    private async Task InitializeCalendarEventsForDayRangeAsync(DayRangeRenderModel dayRangeRenderModel)
+    private async Task InitializeCalendarEventsForDayRangeAsync(DayRangeRenderModel dayRangeRenderModel, long lifetimeVersion)
     {
+        if (!IsPageActive(lifetimeVersion))
+            return;
+
         // Clear all events first for all days.
         foreach (var day in dayRangeRenderModel.CalendarDays)
         {
-            await ExecuteUIThread(() =>
+            await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () =>
             {
                 day.EventsCollection.Clear();
             });
@@ -739,6 +1011,9 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
         foreach (var calendarViewModel in AccountCalendarStateService.AllCalendars)
         {
+            if (!IsPageActive(lifetimeVersion))
+                return;
+
             // Check all the events for the given date range and calendar.
             // Then find the day representation for all the events returned, and add to the collection.
 
@@ -746,13 +1021,16 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
             foreach (var @event in events)
             {
+                if (!IsPageActive(lifetimeVersion))
+                    return;
+
                 // Find the days that the event falls into.
                 var allDaysForEvent = dayRangeRenderModel.CalendarDays.Where(a => a.Period.OverlapsWith(@event.Period));
 
                 foreach (var calendarDay in allDaysForEvent)
                 {
                     var calendarItemViewModel = new CalendarItemViewModel(@event);
-                    await ExecuteUIThread(() =>
+                    await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () =>
                     {
                         calendarDay.EventsCollection.AddCalendarItem(calendarItemViewModel);
                     });
@@ -763,21 +1041,33 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
     private async Task RefreshVisibleRangesAsync()
     {
+        var lifetimeVersion = CurrentPageLifetimeVersion;
+        var hasLoadingLock = false;
+
         try
         {
-            await _calendarLoadingSemaphore.WaitAsync().ConfigureAwait(false);
+            hasLoadingLock = await WaitForCalendarLoadingLockAsync(lifetimeVersion).ConfigureAwait(false);
+
+            if (!hasLoadingLock)
+                return;
 
             if (DayRanges == null || DayRanges.Count == 0)
                 return;
 
             RefreshSettings();
-
-            foreach (var dayRange in DayRanges)
-            {
-                await InitializeCalendarEventsForDayRangeAsync(dayRange).ConfigureAwait(false);
-            }
-
-            FilterActiveCalendars(DayRanges);
+            await RenderDatesAsync(CalendarInitInitiative.User,
+                                   GetRestoreDate(),
+                                   CalendarLoadDirection.Replace,
+                                   lifetimeVersion).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (COMException) when (!IsPageActive(lifetimeVersion))
+        {
+        }
+        catch (ObjectDisposedException) when (!IsPageActive(lifetimeVersion))
+        {
         }
         catch (Exception ex)
         {
@@ -785,7 +1075,10 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         }
         finally
         {
-            _calendarLoadingSemaphore.Release();
+            if (hasLoadingLock)
+            {
+                ReleaseCalendarLoadingLock();
+            }
         }
     }
 
@@ -891,9 +1184,15 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
     private async Task LoadMoreAsync()
     {
+        var lifetimeVersion = CurrentPageLifetimeVersion;
+        var hasLoadingLock = false;
+
         try
         {
-            await _calendarLoadingSemaphore.WaitAsync();
+            hasLoadingLock = await WaitForCalendarLoadingLockAsync(lifetimeVersion).ConfigureAwait(false);
+
+            if (!hasLoadingLock)
+                return;
 
             // Depending on the selected index, we'll load more dates.
             // Day ranges may change while the async update is in progress.
@@ -902,20 +1201,33 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
             if (SelectedDateRangeIndex == 0)
             {
-                await RenderDatesAsync(CalendarInitInitiative.App, calendarLoadDirection: CalendarLoadDirection.Previous);
+                await RenderDatesAsync(CalendarInitInitiative.App, calendarLoadDirection: CalendarLoadDirection.Previous, lifetimeVersion: lifetimeVersion);
             }
             else if (SelectedDateRangeIndex == DayRanges.Count - 1)
             {
-                await RenderDatesAsync(CalendarInitInitiative.App, calendarLoadDirection: CalendarLoadDirection.Next);
+                await RenderDatesAsync(CalendarInitInitiative.App, calendarLoadDirection: CalendarLoadDirection.Next, lifetimeVersion: lifetimeVersion);
             }
         }
-        catch (Exception)
+        catch (OperationCanceledException)
         {
+        }
+        catch (COMException) when (!IsPageActive(lifetimeVersion))
+        {
+        }
+        catch (ObjectDisposedException) when (!IsPageActive(lifetimeVersion))
+        {
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine(ex);
             Debugger.Break();
         }
         finally
         {
-            _calendarLoadingSemaphore.Release();
+            if (hasLoadingLock)
+            {
+                ReleaseCalendarLoadingLock();
+            }
         }
     }
 
@@ -1042,9 +1354,14 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
     public async void Receive(AccountRemovedMessage message)
     {
+        var lifetimeVersion = CurrentPageLifetimeVersion;
+
+        if (!IsPageActive(lifetimeVersion))
+            return;
+
         var removedAccountId = message.Account.Id;
 
-        await ExecuteUIThread(() =>
+        await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () =>
         {
             foreach (var dayRange in DayRanges)
             {
@@ -1066,6 +1383,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     protected override async void OnCalendarItemDeleted(CalendarItem calendarItem)
     {
         base.OnCalendarItemDeleted(calendarItem);
+        var lifetimeVersion = CurrentPageLifetimeVersion;
 
         Debug.WriteLine($"Calendar item deleted: {calendarItem.Id}");
 
@@ -1080,7 +1398,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         }
 
         // Remove the event and its occurrences from all visible date ranges.
-        await ExecuteUIThread(() =>
+        await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () =>
         {
             foreach (var dayRange in DayRanges)
             {
@@ -1097,6 +1415,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     protected override async void OnCalendarItemUpdated(CalendarItem calendarItem, CalendarItemUpdateSource source)
     {
         base.OnCalendarItemUpdated(calendarItem, source);
+        var lifetimeVersion = CurrentPageLifetimeVersion;
         Debug.WriteLine($"Calendar item updated: {calendarItem.Id}");
 
         // Local-only calendar operations are persisted immediately without real network I/O.
@@ -1128,7 +1447,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             .Where(a => a.Period.OverlapsWith(calendarItem.Period))
             .ToList();
 
-        await ExecuteUIThread(() =>
+        await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () =>
         {
             if (source == CalendarItemUpdateSource.ClientUpdated)
             {
@@ -1178,12 +1497,13 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             }
         });
 
-        FilterActiveCalendars(DayRanges);
+        await FilterActiveCalendarsAsync(DayRanges).ConfigureAwait(false);
     }
 
     protected override async void OnCalendarItemAdded(CalendarItem calendarItem)
     {
         base.OnCalendarItemAdded(calendarItem);
+        var lifetimeVersion = CurrentPageLifetimeVersion;
         Debug.WriteLine($"Calendar item added: {calendarItem.Id}");
 
         // Series master events should not be visible on the UI.
@@ -1209,7 +1529,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             {
                 Debug.WriteLine($"Mapped pending busy item {pendingMatch.Id} with synced server event {calendarItem.Id}.");
 
-                await ExecuteUIThread(() =>
+                await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () =>
                 {
                     RemoveCalendarItemEverywhere(pendingMatch.Id);
                 });
@@ -1230,17 +1550,19 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
                 IsBusy = string.IsNullOrEmpty(calendarItem.RemoteEventId)
             };
 
-            await ExecuteUIThread(() =>
+            await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () =>
             {
                 calendarDay.EventsCollection.AddCalendarItem(calendarItemViewModel);
             });
         }
 
-        FilterActiveCalendars(DayRanges);
+        await FilterActiveCalendarsAsync(DayRanges).ConfigureAwait(false);
     }
 
     private async Task RestoreVisibleRecurringSeriesInstancesAsync(CalendarItem recurringParent)
     {
+        var lifetimeVersion = CurrentPageLifetimeVersion;
+
         if (DayRanges.DisplayRange == null || recurringParent?.AssignedCalendar == null)
             return;
 
@@ -1254,7 +1576,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         if (!recurringChildren.Any())
             return;
 
-        await ExecuteUIThread(() =>
+        await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () =>
         {
             foreach (var child in recurringChildren)
             {
@@ -1277,6 +1599,6 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             }
         });
 
-        FilterActiveCalendars(DayRanges);
+        await FilterActiveCalendarsAsync(DayRanges).ConfigureAwait(false);
     }
 }

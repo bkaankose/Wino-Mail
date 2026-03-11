@@ -215,7 +215,10 @@ public class NavigationService : NavigationServiceBase, INavigationService
 
         if (coreFrame.Content is IShellHost shell)
         {
-            shell.ActivateMode(mode, isInitialShellNavigation);
+            shell.ActivateMode(mode, new ShellModeActivationContext
+            {
+                IsInitialActivation = isInitialShellNavigation
+            });
             return true;
         }
 

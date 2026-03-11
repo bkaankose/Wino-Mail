@@ -30,7 +30,6 @@ namespace Wino.Mail.ViewModels;
 
 public partial class MailAppShellViewModel : MailBaseViewModel,
     IMailShellClient,
-    IRecipient<NavigateManageAccountsRequested>,
     IRecipient<MailtoProtocolMessageRequested>,
     IRecipient<RefreshUnreadCountsMessage>,
     IRecipient<AccountsMenuRefreshRequested>,
@@ -232,31 +231,19 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         base.OnNavigatedTo(mode, parameters);
 
         var activationContext = parameters as ShellModeActivationContext;
-        var isModeResetActivation = activationContext != null;
         var shouldRunStartupFlows = activationContext?.IsInitialActivation ?? true;
+        var hasExistingMenuItems = MenuItems?.Any() == true;
 
         PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
         PreferencesService.PreferenceChanged += PreferencesServiceChanged;
 
-        if (mode == NavigationMode.Back && !isModeResetActivation)
-        {
-            // Preserve current mail/folder selection and active rendering page when
-            // switching back from Calendar mode. Recreating menu/folder state here
-            // causes a folder reload, which clears selection and disposes reader page.
-            // Rehydrate only if menu state is unexpectedly empty.
-            if (MenuItems?.Any() != true || FooterItems?.Any() != true)
-            {
-                await CreateFooterItemsAsync();
-                await RecreateMenuItemsAsync();
-                await RestoreSelectedAccountAfterMenuRefreshAsync(false);
-            }
-
-            return;
-        }
-
         await CreateFooterItemsAsync(true);
 
-        await RecreateMenuItemsAsync();
+        if (!hasExistingMenuItems)
+        {
+            await RecreateMenuItemsAsync();
+        }
+
         await ProcessLaunchOptionsAsync();
         await ValidateWebView2RuntimeAsync();
 
@@ -934,8 +921,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         accountMenuItem.UpdateAccount(accountModel);
     }
 
-    public void Receive(NavigateManageAccountsRequested message) => SelectedMenuItem = ManageAccountsMenuItem;
-
     public async void Receive(MailtoProtocolMessageRequested message)
     {
         var accounts = await _accountService.GetAccountsAsync();
@@ -1173,7 +1158,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         Messenger.Register<AccountCreatedMessage>(this);
         Messenger.Register<AccountRemovedMessage>(this);
         Messenger.Register<AccountUpdatedMessage>(this);
-        Messenger.Register<NavigateManageAccountsRequested>(this);
         Messenger.Register<MailtoProtocolMessageRequested>(this);
         Messenger.Register<RefreshUnreadCountsMessage>(this);
         Messenger.Register<AccountsMenuRefreshRequested>(this);
@@ -1192,7 +1176,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         Messenger.Unregister<AccountCreatedMessage>(this);
         Messenger.Unregister<AccountRemovedMessage>(this);
         Messenger.Unregister<AccountUpdatedMessage>(this);
-        Messenger.Unregister<NavigateManageAccountsRequested>(this);
         Messenger.Unregister<MailtoProtocolMessageRequested>(this);
         Messenger.Unregister<RefreshUnreadCountsMessage>(this);
         Messenger.Unregister<AccountsMenuRefreshRequested>(this);

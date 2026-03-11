@@ -6,6 +6,6 @@ public abstract class WinoAppShellAbstract : BasePage<WinoAppShellViewModel>
 {
     protected WinoAppShellAbstract()
     {
-        NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Enabled;
+        NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Disabled;
     }
 }

@@ -26,6 +26,24 @@ public sealed partial class CalendarPage : CalendarPageAbstract,
         ViewModel.DetailsShowCalendarItemChanged += CalendarItemDetailContextChanged;
     }
 
+    protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
+    {
+        base.OnNavigatingFrom(e);
+
+        ViewModel.DetailsShowCalendarItemChanged -= CalendarItemDetailContextChanged;
+        QuickEventPopupDialog.IsOpen = false;
+        EventDetailsPopup.IsOpen = false;
+        EventDetailsPopup.PlacementTarget = null;
+        CalendarControl.ResetTimelineSelection();
+
+        if (CalendarControl is IDisposable disposableCalendarControl)
+        {
+            disposableCalendarControl.Dispose();
+        }
+
+        Bindings.StopTracking();
+    }
+
     private void CalendarItemDetailContextChanged(object? sender, EventArgs e)
     {
         if (ViewModel.DisplayDetailsCalendarItemViewModel != null)
@@ -59,16 +77,29 @@ public sealed partial class CalendarPage : CalendarPageAbstract,
         WeakReferenceMessenger.Default.Unregister<GoPreviousDateRequestedMessage>(this);
     }
 
-    public void Receive(ScrollToHourMessage message) => CalendarControl.NavigateToHour(message.TimeSpan);
-    public void Receive(ScrollToDateMessage message) => CalendarControl.NavigateToDay(message.Date);
-    public void Receive(GoNextDateRequestedMessage message) => CalendarControl.GoNextRange();
-    public void Receive(GoPreviousDateRequestedMessage message) => CalendarControl.GoPreviousRange();
+    public void Receive(ScrollToHourMessage message) => DispatcherQueue.TryEnqueue(() => CalendarControl.NavigateToHour(message.TimeSpan));
+    public void Receive(ScrollToDateMessage message) => DispatcherQueue.TryEnqueue(() => CalendarControl.NavigateToDay(message.Date));
+    public void Receive(GoNextDateRequestedMessage message) => DispatcherQueue.TryEnqueue(() => CalendarControl.GoNextRange());
+    public void Receive(GoPreviousDateRequestedMessage message) => DispatcherQueue.TryEnqueue(() => CalendarControl.GoPreviousRange());
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
 
-        if (e.NavigationMode == NavigationMode.Back) return;
+        if (e.NavigationMode == NavigationMode.Back)
+        {
+            if (ViewModel.RestoreVisibleState())
+            {
+                var restoreDate = ViewModel.GetRestoreDate();
+                DispatcherQueue.TryEnqueue(() => CalendarControl.NavigateToDay(restoreDate));
+            }
+            else
+            {
+                WeakReferenceMessenger.Default.Send(new LoadCalendarMessage(DateTime.Now.Date, CalendarInitInitiative.App));
+            }
+
+            return;
+        }
 
         if (e.Parameter is CalendarPageNavigationArgs args)
         {

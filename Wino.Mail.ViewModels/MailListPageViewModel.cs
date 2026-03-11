@@ -17,8 +17,8 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models;
+using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
@@ -198,30 +198,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         SelectedSortingOption = SortingOptions[0];
 
         MailListLength = statePersistenceService.MailListPaneLength;
-
-        //_selectionChangedThrottler = new ThrottledEventHandler(100, () =>
-        //{
-        //    _ = ExecuteUIThread(() =>
-        //    {
-        //        if (MailCollection.SelectedVisibleCount == 1)
-        //        {
-        //            ActiveMailItemChanged(MailCollection.SelectedVisibleItems.ElementAt(0));
-        //        }
-        //        else
-        //        {
-        //            // At this point, either we don't have any item selected 
-        //            // or we have multiple item selected. In either case
-        //            // there should be no active item.
-
-        //            ActiveMailItemChanged(null);
-        //        }
-
-        //        NotifyItemSelected();
-        //        SetupTopBarActions();
-        //    });
-
-        //    ThrottledSelectionChanged?.Invoke(this, EventArgs.Empty);
-        //});
     }
 
     public override void OnNavigatedTo(NavigationMode mode, object parameters)

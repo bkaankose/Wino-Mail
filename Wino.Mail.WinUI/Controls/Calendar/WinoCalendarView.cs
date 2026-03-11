@@ -10,7 +10,7 @@ using Wino.Helpers;
 
 namespace Wino.Calendar.Controls;
 
-public partial class WinoCalendarView : Control
+public partial class WinoCalendarView : Control, IDisposable
 {
     private const string PART_DayViewItemBorder = nameof(PART_DayViewItemBorder);
     private const string PART_CalendarView = nameof(PART_CalendarView);
@@ -54,6 +54,7 @@ public partial class WinoCalendarView : Control
 
 
     private CalendarView? CalendarView;
+    private long _displayModeCallbackToken = -1;
 
     public WinoCalendarView()
     {
@@ -63,6 +64,17 @@ public partial class WinoCalendarView : Control
     protected override void OnApplyTemplate()
     {
         base.OnApplyTemplate();
+
+        if (CalendarView != null)
+        {
+            CalendarView.SelectedDatesChanged -= InternalCalendarViewSelectionChanged;
+
+            if (_displayModeCallbackToken != -1)
+            {
+                CalendarView.UnregisterPropertyChangedCallback(CalendarView.DisplayModeProperty, _displayModeCallbackToken);
+                _displayModeCallbackToken = -1;
+            }
+        }
 
         CalendarView = GetTemplateChild(PART_CalendarView) as CalendarView;
 
@@ -78,7 +90,7 @@ public partial class WinoCalendarView : Control
         // Everytime display mode changes, update the visible date range backgrounds.
         // If users go back from year -> month -> day, we need to update the visible date range backgrounds.
 
-        CalendarView.RegisterPropertyChangedCallback(CalendarView.DisplayModeProperty, (s, e) => UpdateVisibleDateRangeBackgrounds());
+        _displayModeCallbackToken = CalendarView.RegisterPropertyChangedCallback(CalendarView.DisplayModeProperty, (s, e) => UpdateVisibleDateRangeBackgrounds());
     }
 
     private void InternalCalendarViewSelectionChanged(CalendarView sender, CalendarViewSelectedDatesChangedEventArgs args)
@@ -146,5 +158,21 @@ public partial class WinoCalendarView : Control
                 border.Background = null;
             }
         }
+    }
+
+    public void Dispose()
+    {
+        if (CalendarView == null)
+            return;
+
+        CalendarView.SelectedDatesChanged -= InternalCalendarViewSelectionChanged;
+
+        if (_displayModeCallbackToken != -1)
+        {
+            CalendarView.UnregisterPropertyChangedCallback(CalendarView.DisplayModeProperty, _displayModeCallbackToken);
+            _displayModeCallbackToken = -1;
+        }
+
+        CalendarView = null;
     }
 }

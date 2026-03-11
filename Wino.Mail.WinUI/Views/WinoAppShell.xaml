@@ -644,6 +644,7 @@
                 <!--  Main Content  -->
                 <Frame
                     x:Name="InnerShellFrame"
+                    CacheSize="0"
                     Padding="0,0,7,7"
                     IsNavigationStackEnabled="True"
                     Navigated="ShellFrameContentNavigated">

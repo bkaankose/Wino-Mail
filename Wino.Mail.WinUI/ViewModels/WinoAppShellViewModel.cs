@@ -78,18 +78,6 @@ public sealed class WinoAppShellViewModel : CoreBaseViewModel, IShellViewModel
         }
     }
 
-    protected override void OnDispatcherAssigned()
-    {
-        base.OnDispatcherAssigned();
-
-        foreach (var client in _shellClients.Values)
-        {
-            client.Dispatcher = Dispatcher;
-        }
-
-        OnPropertyChanged(nameof(CurrentMenuItems));
-    }
-
     public override void OnNavigatedTo(Core.Domain.Models.Navigation.NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);

@@ -2,6 +2,7 @@
     x:Class="Wino.Mail.WinUI.Controls.AppModeFooterSwitcherControl"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:animatedvisuals="using:Microsoft.UI.Xaml.Controls.AnimatedVisuals"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:domain="using:Wino.Core.Domain"
     Loaded="ControlLoaded"
@@ -25,6 +26,11 @@
             <controls:SegmentedItem ToolTipService.ToolTip="{x:Bind domain:Translator.ContactsPage_Title, Mode=OneWay}">
                 <controls:SegmentedItem.Icon>
                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE716;" />
+                </controls:SegmentedItem.Icon>
+            </controls:SegmentedItem>
+            <controls:SegmentedItem ToolTipService.ToolTip="{x:Bind domain:Translator.MenuSettings, Mode=OneWay}">
+                <controls:SegmentedItem.Icon>
+                    <SymbolIcon Symbol="Setting" />
                 </controls:SegmentedItem.Icon>
             </controls:SegmentedItem>
         </controls:Segmented>

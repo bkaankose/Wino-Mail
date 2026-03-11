@@ -4,8 +4,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Microsoft.UI.Xaml.Controls"
     xmlns:local="using:Wino.Mail.WinUI.Styles"
-    xmlns:winoControls="using:Wino.Mail.WinUI.Controls"
-    xmlns:primitives="using:Microsoft.UI.Xaml.Controls.Primitives">
+    xmlns:primitives="using:Microsoft.UI.Xaml.Controls.Primitives"
+    xmlns:winoControls="using:Wino.Mail.WinUI.Controls">
 
     <Style x:Key="CalendarShellNavigationViewStyle" TargetType="controls:NavigationView">
         <Setter Property="PaneToggleButtonStyle" Value="{StaticResource PaneToggleButtonStyle}" />

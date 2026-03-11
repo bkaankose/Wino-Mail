@@ -49,6 +49,7 @@ public partial class CustomCalendarFlipView : FlipView
         HideButton(PreviousButtonVertical);
         HideButton(NextButtonVertical);
 
+        SelectionChanged -= FlipViewSelectionChanged;
         SelectionChanged += FlipViewSelectionChanged;
     }
 

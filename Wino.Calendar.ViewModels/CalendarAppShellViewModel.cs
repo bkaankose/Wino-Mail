@@ -23,7 +23,6 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Calendar;
-using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 
@@ -33,7 +32,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     ICalendarShellClient,
     IRecipient<VisibleDateRangeChangedMessage>,
     IRecipient<CalendarEnableStatusChangedMessage>,
-    IRecipient<NavigateManageAccountsRequested>,
     IRecipient<CalendarDisplayTypeChangedMessage>,
     IRecipient<AccountRemovedMessage>
 {
@@ -94,6 +92,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
     // For updating account calendars asynchronously.
     private SemaphoreSlim _accountCalendarUpdateSemaphoreSlim = new(1);
+    private bool _runtimeSubscriptionsAttached;
 
     public CalendarAppShellViewModel(IPreferencesService preferencesService,
                              IStatePersistanceService statePersistanceService,
@@ -101,25 +100,24 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
                              ICalendarService calendarService,
                              IAccountCalendarStateService accountCalendarStateService,
                              INavigationService navigationService,
+                             CalendarPageViewModel calendarPageViewModel,
                              IMailDialogService dialogService,
                              IUpdateManager updateManager,
                              IStoreUpdateService storeUpdateService)
     {
         _accountService = accountService;
         _calendarService = calendarService;
+        _calendarPageViewModel = calendarPageViewModel;
         _dialogService = dialogService;
         _updateManager = updateManager;
         _storeUpdateService = storeUpdateService;
 
         AccountCalendarStateService = accountCalendarStateService;
-        AccountCalendarStateService.AccountCalendarSelectionStateChanged += UpdateAccountCalendarRequested;
-        AccountCalendarStateService.CollectiveAccountGroupSelectionStateChanged += AccountCalendarStateCollectivelyChanged;
 
         NavigationService = navigationService;
         PreferencesService = preferencesService;
 
         StatePersistenceService = statePersistanceService;
-        StatePersistenceService.StatePropertyChanged += PrefefencesChanged;
     }
 
     protected override void OnDispatcherAssigned()
@@ -157,27 +155,15 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
+        AttachRuntimeSubscriptions();
 
         var activationContext = parameters as ShellModeActivationContext;
-        var isModeResetActivation = activationContext != null;
         var shouldRunStartupFlows = activationContext?.IsInitialActivation ?? true;
 
         PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
         PreferencesService.PreferenceChanged += PreferencesServiceChanged;
 
         await RefreshFooterItemsAsync(mode == NavigationMode.New);
-
-        // Preserve the existing calendar shell frame state when the user switches
-        // between Mail and Calendar modes. Back/forward restoration should not
-        // force a new CalendarPage navigation, otherwise pages like
-        // CalendarEventComposePage get dropped from the inner frame stack.
-        if (mode != NavigationMode.New && !isModeResetActivation)
-        {
-            UpdateDateNavigationHeaderItems();
-            await InitializeAccountCalendarsAsync();
-            ValidateConfiguredNewEventCalendar();
-            return;
-        }
 
         UpdateDateNavigationHeaderItems();
 
@@ -196,7 +182,38 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     {
         base.OnNavigatedFrom(mode, parameters);
 
+        DetachRuntimeSubscriptions();
         PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
+        _ = ExecuteUIThread(() =>
+        {
+            DateNavigationHeaderItems.Clear();
+            AccountCalendarStateService.ClearGroupedAccountCalendars();
+            HighlightedDateRange = null;
+            SelectedDateNavigationHeaderIndex = -1;
+        });
+        _calendarPageViewModel.CleanupForShellDeactivation();
+    }
+
+    private void AttachRuntimeSubscriptions()
+    {
+        if (_runtimeSubscriptionsAttached)
+            return;
+
+        AccountCalendarStateService.AccountCalendarSelectionStateChanged += UpdateAccountCalendarRequested;
+        AccountCalendarStateService.CollectiveAccountGroupSelectionStateChanged += AccountCalendarStateCollectivelyChanged;
+        StatePersistenceService.StatePropertyChanged += PrefefencesChanged;
+        _runtimeSubscriptionsAttached = true;
+    }
+
+    private void DetachRuntimeSubscriptions()
+    {
+        if (!_runtimeSubscriptionsAttached)
+            return;
+
+        AccountCalendarStateService.AccountCalendarSelectionStateChanged -= UpdateAccountCalendarRequested;
+        AccountCalendarStateService.CollectiveAccountGroupSelectionStateChanged -= AccountCalendarStateCollectivelyChanged;
+        StatePersistenceService.StatePropertyChanged -= PrefefencesChanged;
+        _runtimeSubscriptionsAttached = false;
     }
 
     private async Task ShowWhatIsNewIfNeededAsync()
@@ -346,6 +363,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     private DateTime? _navigationDate;
     private readonly IAccountService _accountService;
     private readonly ICalendarService _calendarService;
+    private readonly CalendarPageViewModel _calendarPageViewModel;
     private readonly IMailDialogService _dialogService;
     private readonly IUpdateManager _updateManager;
     private readonly IStoreUpdateService _storeUpdateService;
@@ -455,7 +473,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
         Messenger.Register<VisibleDateRangeChangedMessage>(this);
         Messenger.Register<CalendarEnableStatusChangedMessage>(this);
-        Messenger.Register<NavigateManageAccountsRequested>(this);
         Messenger.Register<CalendarDisplayTypeChangedMessage>(this);
         Messenger.Register<AccountRemovedMessage>(this);
     }
@@ -466,7 +483,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
         Messenger.Unregister<VisibleDateRangeChangedMessage>(this);
         Messenger.Unregister<CalendarEnableStatusChangedMessage>(this);
-        Messenger.Unregister<NavigateManageAccountsRequested>(this);
         Messenger.Unregister<CalendarDisplayTypeChangedMessage>(this);
         Messenger.Unregister<AccountRemovedMessage>(this);
     }
@@ -557,8 +573,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
     public async void Receive(CalendarEnableStatusChangedMessage message)
         => await ExecuteUIThread(() => IsCalendarEnabled = message.IsEnabled);
-
-    public void Receive(NavigateManageAccountsRequested message) => NavigationService.Navigate(WinoPage.ManageAccountsPage);
 
     public void Receive(CalendarDisplayTypeChangedMessage message)
     {
