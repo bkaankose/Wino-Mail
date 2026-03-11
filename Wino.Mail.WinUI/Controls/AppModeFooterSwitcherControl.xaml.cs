@@ -19,9 +19,6 @@ public sealed partial class AppModeFooterSwitcherControl : UserControl
         _navigationService = WinoApplication.Current.Services.GetRequiredService<INavigationService>();
 
         InitializeComponent();
-
-        Loaded += ControlLoaded;
-        Unloaded += ControlUnloaded;
     }
 
     private void ControlLoaded(object sender, RoutedEventArgs e)
@@ -34,7 +31,6 @@ public sealed partial class AppModeFooterSwitcherControl : UserControl
     {
         _statePersistenceService.StatePropertyChanged -= StatePropertyChanged;
     }
-
     private void StatePropertyChanged(object? sender, string propertyName)
     {
         if (propertyName != nameof(IStatePersistanceService.ApplicationMode))

@@ -30,6 +30,7 @@ using Wino.Messaging.UI;
 namespace Wino.Calendar.ViewModels;
 
 public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
+    ICalendarShellClient,
     IRecipient<VisibleDateRangeChangedMessage>,
     IRecipient<CalendarEnableStatusChangedMessage>,
     IRecipient<NavigateManageAccountsRequested>,
@@ -40,6 +41,17 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     public IStatePersistanceService StatePersistenceService { get; }
     public IAccountCalendarStateService AccountCalendarStateService { get; }
     public INavigationService NavigationService { get; }
+    public WinoApplicationMode Mode => WinoApplicationMode.Calendar;
+    public bool HandlesNavigationSelection => false;
+    System.Collections.IEnumerable ICalendarShellClient.GroupedAccountCalendars => AccountCalendarStateService.GroupedAccountCalendars;
+    System.Collections.IEnumerable ICalendarShellClient.DateNavigationHeaderItems => DateNavigationHeaderItems;
+    object IShellClient.SelectedMenuItem
+    {
+        get => null;
+        set { }
+    }
+    System.Windows.Input.ICommand ICalendarShellClient.TodayClickedCommand => TodayClickedCommand;
+    System.Windows.Input.ICommand ICalendarShellClient.DateClickedCommand => DateClickedCommand;
 
     public MenuItemCollection MenuItems { get; private set; }
     public MenuItemCollection FooterItems { get; private set; }
@@ -78,7 +90,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     private readonly ManageAccountsMenuItem _manageAccountsMenuItem = new();
     private readonly SettingsItem _settingsItem = new();
     private readonly StoreUpdateMenuItem _storeUpdateMenuItem = new();
-    private readonly NewMailMenuItem _newEventMenuItem = new();
+    private readonly NewCalendarEventMenuItem _newEventMenuItem = new();
 
     // For updating account calendars asynchronously.
     private SemaphoreSlim _accountCalendarUpdateSemaphoreSlim = new(1);
@@ -146,6 +158,10 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     {
         base.OnNavigatedTo(mode, parameters);
 
+        var activationContext = parameters as ShellModeActivationContext;
+        var isModeResetActivation = activationContext != null;
+        var shouldRunStartupFlows = activationContext?.IsInitialActivation ?? true;
+
         PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
         PreferencesService.PreferenceChanged += PreferencesServiceChanged;
 
@@ -155,7 +171,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         // between Mail and Calendar modes. Back/forward restoration should not
         // force a new CalendarPage navigation, otherwise pages like
         // CalendarEventComposePage get dropped from the inner frame stack.
-        if (mode != NavigationMode.New)
+        if (mode != NavigationMode.New && !isModeResetActivation)
         {
             UpdateDateNavigationHeaderItems();
             await InitializeAccountCalendarsAsync();
@@ -168,7 +184,10 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         await InitializeAccountCalendarsAsync();
         ValidateConfiguredNewEventCalendar();
 
-        await ShowWhatIsNewIfNeededAsync();
+        if (shouldRunStartupFlows)
+        {
+            await ShowWhatIsNewIfNeededAsync();
+        }
 
         TodayClicked();
     }
@@ -601,6 +620,18 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
         return (startDate, startDate.AddMinutes(30));
     }
+
+    void IShellClient.Activate(ShellModeActivationContext activationContext)
+        => OnNavigatedTo(NavigationMode.New, activationContext);
+
+    void IShellClient.Deactivate()
+        => OnNavigatedFrom(NavigationMode.New, null!);
+
+    Task IShellClient.HandleNavigationItemInvokedAsync(IMenuItem menuItem)
+        => menuItem == null ? Task.CompletedTask : HandleNavigationItemInvokedAsync(menuItem);
+
+    Task IShellClient.HandleNavigationSelectionChangedAsync(IMenuItem menuItem)
+        => Task.CompletedTask;
 }
 
 

@@ -15,11 +15,11 @@ using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Mail.WinUI.Services;
+using Wino.Mail.WinUI.Views;
 using Wino.Mail.WinUI.Views.Calendar;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Navigation;
-using Wino.Mail.WinUI.Views.Contacts;
 using Wino.Views;
 using Wino.Views.Account;
 using Wino.Views.Mail;
@@ -33,6 +33,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
     private readonly IStatePersistanceService _statePersistanceService;
     private readonly IDispatcher _dispatcher;
     private readonly IWinoWindowManager _windowManager;
+    private NavigationTransitionInfo? _pendingInnerShellTransition;
 
     private WinoPage[] _renderingPageTypes = new WinoPage[]
     {
@@ -192,48 +193,33 @@ public class NavigationService : NavigationServiceBase, INavigationService
         if (coreFrame == null) return false;
 
         var currentMode = _statePersistanceService.ApplicationMode;
+        var isInitialShellNavigation = coreFrame.Content is not IShellHost;
 
         // Update the application mode in state persistence service
         _statePersistanceService.ApplicationMode = mode;
         _statePersistanceService.AppModeTitle = GetApplicationModeTitle(mode);
 
-        var targetPageType = mode switch
-        {
-            WinoApplicationMode.Calendar => typeof(CalendarAppShell),
-            WinoApplicationMode.Contacts => typeof(ContactsAppShell),
-            _ => typeof(MailAppShell)
-        };
-        var currentPageType = coreFrame.Content?.GetType();
-        var transitionInfo = GetApplicationModeTransitionInfo(currentMode, mode);
-
-        // If already on the target page, do nothing
-        if (currentPageType == targetPageType)
+        if (coreFrame.Content is IShellHost activeShell && activeShell.HasShellContent && currentMode == mode)
             return true;
 
-        // Check if we can go back to the target page
-        if (coreFrame.CanGoBack && coreFrame.BackStack.Count > 0)
+        _pendingInnerShellTransition = isInitialShellNavigation
+            ? null
+            : GetApplicationModeTransitionInfo(currentMode, mode);
+
+        if (coreFrame.Content is not IShellHost)
         {
-            var previousPage = coreFrame.BackStack[coreFrame.BackStack.Count - 1];
-            if (previousPage.SourcePageType == targetPageType)
-            {
-                coreFrame.GoBack(transitionInfo);
-                return true;
-            }
+            coreFrame.BackStack.Clear();
+            coreFrame.ForwardStack.Clear();
+            coreFrame.Navigate(typeof(WinoAppShell), null, new SuppressNavigationTransitionInfo());
         }
 
-        // Check if we can go forward to the target page
-        if (coreFrame.CanGoForward && coreFrame.ForwardStack.Count > 0)
+        if (coreFrame.Content is IShellHost shell)
         {
-            var nextPage = coreFrame.ForwardStack[coreFrame.ForwardStack.Count - 1];
-            if (nextPage.SourcePageType == targetPageType)
-            {
-                coreFrame.GoForward();
-                return true;
-            }
+            shell.ActivateMode(mode, isInitialShellNavigation);
+            return true;
         }
 
-        // Navigate to the target page only if it's not in the navigation stack
-        coreFrame.Navigate(targetPageType, null, transitionInfo);
+        _pendingInnerShellTransition = null;
         return true;
     }
 
@@ -300,7 +286,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
                     }
                 }
 
-                return innerShellFrame.Navigate(pageType, parameter);
+                return NavigateInnerShellFrame(innerShellFrame, pageType, parameter, transition);
             }
             else
             {
@@ -318,13 +304,13 @@ public class NavigationService : NavigationServiceBase, INavigationService
                     return true;
                 }
 
-                var transitionInfo = GetNavigationTransitionInfo(transition);
-
                 // This page must be opened in the Frame placed in MailListingPage.
                 if (isMailListingPageActive && frame == NavigationReferenceFrame.RenderingFrame)
                 {
                     var listingFrame = GetCoreFrameInternal(NavigationReferenceFrame.RenderingFrame);
                     if (listingFrame == null) return false;
+
+                    var transitionInfo = GetNavigationTransitionInfo(transition);
 
                     // Active page is mail list page and we are opening a mail item.
                     // No navigation needed, just refresh the rendered mail item.
@@ -361,7 +347,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
 
                 if ((currentFrameType != null && currentFrameType != pageType) || currentFrameType == null)
                 {
-                    return innerShellFrame.Navigate(pageType, parameter, transitionInfo);
+                    return NavigateInnerShellFrame(innerShellFrame, pageType, parameter, transition);
                 }
             }
         }
@@ -427,6 +413,24 @@ public class NavigationService : NavigationServiceBase, INavigationService
             : CalendarInitInitiative.User;
 
         return new LoadCalendarMessage(targetDate, initiative);
+    }
+
+    private bool NavigateInnerShellFrame(Frame frame, Type pageType, object? parameter, NavigationTransitionType transition)
+    {
+        var transitionInfo = ConsumeInnerShellTransitionOrDefault(transition);
+        return frame.Navigate(pageType, parameter, transitionInfo);
+    }
+
+    private NavigationTransitionInfo ConsumeInnerShellTransitionOrDefault(NavigationTransitionType transition)
+    {
+        if (_pendingInnerShellTransition != null)
+        {
+            var transitionInfo = _pendingInnerShellTransition;
+            _pendingInnerShellTransition = null;
+            return transitionInfo;
+        }
+
+        return GetNavigationTransitionInfo(transition);
     }
 
     public void GoBack(Core.Domain.Enums.NavigationTransitionEffect slideEffect = Core.Domain.Enums.NavigationTransitionEffect.FromRight)

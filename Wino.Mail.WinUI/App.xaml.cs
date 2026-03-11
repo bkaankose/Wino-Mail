@@ -24,6 +24,7 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Mail.Services;
+using Wino.Mail.WinUI.ViewModels;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Activation;
@@ -142,6 +143,13 @@ public partial class App : WinoApplication,
     {
         services.AddSingleton(typeof(MailAppShellViewModel));
         services.AddSingleton(typeof(CalendarAppShellViewModel));
+        services.AddSingleton(typeof(ContactsShellClient));
+        services.AddSingleton(typeof(WinoAppShellViewModel));
+        services.AddSingleton<IMailShellClient>(serviceProvider => serviceProvider.GetRequiredService<MailAppShellViewModel>());
+        services.AddSingleton<ICalendarShellClient>(serviceProvider => serviceProvider.GetRequiredService<CalendarAppShellViewModel>());
+        services.AddSingleton<IShellClient>(serviceProvider => serviceProvider.GetRequiredService<MailAppShellViewModel>());
+        services.AddSingleton<IShellClient>(serviceProvider => serviceProvider.GetRequiredService<CalendarAppShellViewModel>());
+        services.AddSingleton<IShellClient>(serviceProvider => serviceProvider.GetRequiredService<ContactsShellClient>());
 
         services.AddTransient(typeof(MailListPageViewModel));
         services.AddTransient(typeof(MailRenderingPageViewModel));

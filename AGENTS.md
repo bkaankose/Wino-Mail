@@ -142,6 +142,8 @@ private string searchQuery = string.Empty;
 - For dependency properties in WinUI code, always prefer `[GeneratedDependencyProperty]` from CommunityToolkit over manual `DependencyProperty.Register(...)` declarations.
 - In ViewModels, update all UI-bound properties/collections via `ExecuteUIThread(...)` (especially after awaited calls and any use of `ConfigureAwait(false)`).
 - In `EventDetailsPageViewModel.LoadAttendeesAsync`, never mutate `CurrentEvent.Attendees` outside `ExecuteUIThread(...)`.
+- Never create pure C# controls or controls that heavily manipulate UI structure from `.cs` files. Define controls in XAML and keep UI composition in XAML.
+- For XAML-backed controls and pages, wire framework events like `Loaded`, `Unloaded`, and input events from XAML, not by subscribing in constructors in `.xaml.cs`.
 
 
 

@@ -20,7 +20,7 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-        <DataTemplate x:Key="CalendarNewEventTemplate" x:DataType="menu:NewMailMenuItem">
+        <DataTemplate x:Key="CalendarNewEventTemplate" x:DataType="menu:NewCalendarEventMenuItem">
             <coreControls:WinoNavigationViewItem
                 Height="50"
                 DataContext="{x:Bind}"
@@ -73,6 +73,7 @@
 
         <coreSelectors:NavigationMenuTemplateSelector
             x:Key="NavigationMenuTemplateSelector"
+            CalendarNewEventTemplate="{StaticResource CalendarNewEventTemplate}"
             NewMailTemplate="{StaticResource CalendarNewEventTemplate}"
             RatingItemTemplate="{StaticResource RatingItemTemplate}"
             SeperatorTemplate="{StaticResource SeperatorTemplate}" />

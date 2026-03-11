@@ -29,6 +29,7 @@ using Wino.Messaging.UI;
 namespace Wino.Mail.ViewModels;
 
 public partial class MailAppShellViewModel : MailBaseViewModel,
+    IMailShellClient,
     IRecipient<NavigateManageAccountsRequested>,
     IRecipient<MailtoProtocolMessageRequested>,
     IRecipient<RefreshUnreadCountsMessage>,
@@ -67,6 +68,9 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     public IStatePersistanceService StatePersistenceService { get; }
     public IPreferencesService PreferencesService { get; }
     public INavigationService NavigationService { get; }
+    public WinoApplicationMode Mode => WinoApplicationMode.Mail;
+    public bool HandlesNavigationSelection => true;
+    public IMenuItem CreatePrimaryMenuItem => CreateMailMenuItem;
 
     private readonly IFolderService _folderService;
     private readonly IConfigurationService _configurationService;
@@ -227,10 +231,14 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     {
         base.OnNavigatedTo(mode, parameters);
 
+        var activationContext = parameters as ShellModeActivationContext;
+        var isModeResetActivation = activationContext != null;
+        var shouldRunStartupFlows = activationContext?.IsInitialActivation ?? true;
+
         PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
         PreferencesService.PreferenceChanged += PreferencesServiceChanged;
 
-        if (mode == NavigationMode.Back)
+        if (mode == NavigationMode.Back && !isModeResetActivation)
         {
             // Preserve current mail/folder selection and active rendering page when
             // switching back from Calendar mode. Recreating menu/folder state here
@@ -252,13 +260,16 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         await ProcessLaunchOptionsAsync();
         await ValidateWebView2RuntimeAsync();
 
-        if (!Debugger.IsAttached)
+        if (shouldRunStartupFlows && !Debugger.IsAttached)
         {
             await ForceAllAccountSynchronizationsAsync();
         }
 
-        await ShowWhatIsNewIfNeededAsync();
-        await MakeSureEnableStartupLaunchAsync();
+        if (shouldRunStartupFlows)
+        {
+            await ShowWhatIsNewIfNeededAsync();
+            await MakeSureEnableStartupLaunchAsync();
+        }
     }
 
     private async Task ValidateWebView2RuntimeAsync()
@@ -1258,6 +1269,18 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             }
         });
     }
+
+    void IShellClient.Activate(ShellModeActivationContext activationContext)
+        => OnNavigatedTo(NavigationMode.New, activationContext);
+
+    void IShellClient.Deactivate()
+        => OnNavigatedFrom(NavigationMode.New, null!);
+
+    Task IShellClient.HandleNavigationItemInvokedAsync(IMenuItem menuItem)
+        => MenuItemInvokedOrSelectedAsync(menuItem);
+
+    Task IShellClient.HandleNavigationSelectionChangedAsync(IMenuItem menuItem)
+        => menuItem == null ? Task.CompletedTask : MenuItemInvokedOrSelectedAsync(menuItem);
 }
 
 

@@ -16,9 +16,9 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Extensions;
 using Wino.Mail.WinUI.Activation;
 using Wino.Mail.WinUI.Interfaces;
+using Wino.Mail.WinUI.Views;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
-using Wino.Views;
 using WinUIEx;
 
 namespace Wino.Mail.WinUI;
@@ -139,12 +139,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
             _ = StartCalendarReminderServerAsync();
         }
 
-        // Mail shell has shell content only for mail list page
-        // Thus, we check if the current content is MailAppShell
-
-        if (sender is Frame mainFrame && mainFrame.Content is MailAppShell mailAppShellPage)
-            ShellTitleBar.Content = mailAppShellPage.TopShellContent;
-        else if (e.Content is BasePage basePage)
+        if (e.Content is BasePage basePage)
             ShellTitleBar.Content = basePage.ShellContent;
     }
 
@@ -172,9 +167,9 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     public void Receive(TitleBarShellContentUpdated message)
     {
-        if (MainShellFrame.Content is MailAppShell shellPage)
+        if (MainShellFrame.Content is WinoAppShell shellPage)
         {
-            ShellTitleBar.Content = shellPage.TopShellContent;
+            ShellTitleBar.Content = shellPage.ShellContent;
         }
     }
 
