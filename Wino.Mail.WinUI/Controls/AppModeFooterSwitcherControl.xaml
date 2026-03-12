@@ -1,38 +1,32 @@
-<UserControl
+<controls:Segmented
     x:Class="Wino.Mail.WinUI.Controls.AppModeFooterSwitcherControl"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:animatedvisuals="using:Microsoft.UI.Xaml.Controls.AnimatedVisuals"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:domain="using:Wino.Core.Domain"
+    Padding="0"
+    HorizontalAlignment="Stretch"
     Loaded="ControlLoaded"
+    SelectionChanged="ModeSegmentedControlSelectionChanged"
     Unloaded="ControlUnloaded">
-
-    <Grid>
-        <controls:Segmented
-            x:Name="ModeSegmentedControl"
-            HorizontalAlignment="Stretch"
-            SelectionChanged="ModeSegmentedControlSelectionChanged">
-            <controls:SegmentedItem ToolTipService.ToolTip="{x:Bind domain:Translator.KeyboardShortcuts_ModeMail, Mode=OneWay}">
-                <controls:SegmentedItem.Icon>
-                    <SymbolIcon Symbol="Mail" />
-                </controls:SegmentedItem.Icon>
-            </controls:SegmentedItem>
-            <controls:SegmentedItem ToolTipService.ToolTip="{x:Bind domain:Translator.KeyboardShortcuts_ModeCalendar, Mode=OneWay}">
-                <controls:SegmentedItem.Icon>
-                    <SymbolIcon Symbol="Calendar" />
-                </controls:SegmentedItem.Icon>
-            </controls:SegmentedItem>
-            <controls:SegmentedItem ToolTipService.ToolTip="{x:Bind domain:Translator.ContactsPage_Title, Mode=OneWay}">
-                <controls:SegmentedItem.Icon>
-                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE716;" />
-                </controls:SegmentedItem.Icon>
-            </controls:SegmentedItem>
-            <controls:SegmentedItem ToolTipService.ToolTip="{x:Bind domain:Translator.MenuSettings, Mode=OneWay}">
-                <controls:SegmentedItem.Icon>
-                    <SymbolIcon Symbol="Setting" />
-                </controls:SegmentedItem.Icon>
-            </controls:SegmentedItem>
-        </controls:Segmented>
-    </Grid>
-</UserControl>
+    <controls:SegmentedItem Padding="0" ToolTipService.ToolTip="{x:Bind domain:Translator.KeyboardShortcuts_ModeMail, Mode=OneWay}">
+        <controls:SegmentedItem.Icon>
+            <SymbolIcon Symbol="Mail" />
+        </controls:SegmentedItem.Icon>
+    </controls:SegmentedItem>
+    <controls:SegmentedItem Padding="0" ToolTipService.ToolTip="{x:Bind domain:Translator.KeyboardShortcuts_ModeCalendar, Mode=OneWay}">
+        <controls:SegmentedItem.Icon>
+            <SymbolIcon Symbol="Calendar" />
+        </controls:SegmentedItem.Icon>
+    </controls:SegmentedItem>
+    <controls:SegmentedItem Padding="0" ToolTipService.ToolTip="{x:Bind domain:Translator.ContactsPage_Title, Mode=OneWay}">
+        <controls:SegmentedItem.Icon>
+            <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE716;" />
+        </controls:SegmentedItem.Icon>
+    </controls:SegmentedItem>
+    <controls:SegmentedItem Padding="0" ToolTipService.ToolTip="{x:Bind domain:Translator.MenuSettings, Mode=OneWay}">
+        <controls:SegmentedItem.Icon>
+            <SymbolIcon Symbol="Setting" />
+        </controls:SegmentedItem.Icon>
+    </controls:SegmentedItem>
+</controls:Segmented>

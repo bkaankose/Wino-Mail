@@ -11,17 +11,17 @@
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:coreConverters="using:Wino.Mail.WinUI.Converters"
     xmlns:coreSelectors="using:Wino.Mail.WinUI.Selectors"
-    xmlns:data="using:Wino.Calendar.ViewModels.Data"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:data="using:Wino.Calendar.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:menu="using:Wino.Core.Domain.MenuItems"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    x:Name="Root"
     Loaded="OnLoaded"
     PreviewKeyDown="OnPreviewKeyDown"
-    x:Name="Root"
     mc:Ignorable="d">
 
     <Page.Resources>
@@ -425,8 +425,8 @@
             <ContentPresenter x:Name="DynamicPageShellContentPresenter" />
             <Grid
                 x:Name="CalendarShellContentRoot"
-                Visibility="Collapsed"
-                ColumnSpacing="12">
+                ColumnSpacing="12"
+                Visibility="Collapsed">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
@@ -468,8 +468,7 @@
                             Background="Transparent"
                             FontSize="14"
                             FontWeight="Normal"
-                            IsHitTestVisible="False"
-                            >
+                            IsHitTestVisible="False">
                             <FlipView.ItemTemplate>
                                 <DataTemplate x:DataType="x:String">
                                     <TextBlock
@@ -504,13 +503,11 @@
         Padding="0"
         ColumnSpacing="0"
         RowSpacing="0">
-
         <muxc:NavigationView
             x:Name="navigationView"
             Grid.Row="1"
             Grid.ColumnSpan="3"
             Margin="-1,-1,0,0"
-            Style="{StaticResource CalendarShellNavigationViewStyle}"
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
             AlwaysShowHeader="True"
@@ -527,14 +524,18 @@
             PaneDisplayMode="Auto"
             PaneOpening="NavigationPaneOpening"
             ScrollViewer.VerticalScrollBarVisibility="Hidden"
-            SelectionChanged="MenuSelectionChanged">
+            SelectionChanged="MenuSelectionChanged"
+            Style="{StaticResource CalendarShellNavigationViewStyle}">
             <muxc:NavigationView.ContentTransitions>
                 <TransitionCollection>
                     <AddDeleteThemeTransition />
                 </TransitionCollection>
             </muxc:NavigationView.ContentTransitions>
             <muxc:NavigationView.PaneCustomContent>
-                <Grid x:Name="PaneCustomContent" Padding="0,0,0,6" Visibility="Collapsed">
+                <Grid
+                    x:Name="PaneCustomContent"
+                    Padding="0,0,0,6"
+                    Visibility="Collapsed">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
@@ -639,13 +640,13 @@
                     IsHitTestVisible="{x:Bind navigationView.IsPaneOpen, Mode=OneWay}"
                     IsTabStop="False"
                     Maximum="1000"
-                    Minimum="116" />
+                    Minimum="160" />
 
                 <!--  Main Content  -->
                 <Frame
                     x:Name="InnerShellFrame"
-                    CacheSize="0"
                     Padding="0,0,7,7"
+                    CacheSize="0"
                     IsNavigationStackEnabled="True"
                     Navigated="ShellFrameContentNavigated">
                     <Frame.ContentTransitions>

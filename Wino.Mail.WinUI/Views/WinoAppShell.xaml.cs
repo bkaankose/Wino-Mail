@@ -439,6 +439,16 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private void CalendarClientPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (!DispatcherQueue.HasThreadAccess)
+        {
+            var enqueued = DispatcherQueue.TryEnqueue(() => CalendarClientPropertyChanged(sender, e));
+
+            if (!enqueued)
+                throw new InvalidOperationException("Could not marshal calendar property changes onto the UI thread.");
+
+            return;
+        }
+
         if (e.PropertyName == nameof(ICalendarShellClient.DateNavigationHeaderItems))
         {
             DayHeaderNavigationItemsFlipView.ItemsSource = ViewModel.CalendarClient.DateNavigationHeaderItems;

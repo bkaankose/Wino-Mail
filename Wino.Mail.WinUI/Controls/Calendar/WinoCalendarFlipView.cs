@@ -115,10 +115,16 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView, IDisposable
 
     private void UpdateActiveElements()
     {
+        var itemsSource = GetItemsSource();
+
         if (SelectedIndex < 0)
         {
-            ActiveCanvas = null;
-            ActiveVerticalScrollViewer = null;
+            if (itemsSource == null || itemsSource.Count == 0)
+            {
+                ActiveCanvas = null;
+                ActiveVerticalScrollViewer = null;
+            }
+
             return;
         }
 
@@ -130,9 +136,7 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView, IDisposable
         }
         else
         {
-            // Container not ready yet - will be updated when OnContainerPrepared is called
-            ActiveCanvas = null;
-            ActiveVerticalScrollViewer = null;
+            // Container not ready yet - keep the current active elements until OnContainerPrepared updates them.
         }
     }
 

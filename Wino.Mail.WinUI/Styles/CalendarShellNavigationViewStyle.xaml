@@ -7,6 +7,10 @@
     xmlns:primitives="using:Microsoft.UI.Xaml.Controls.Primitives"
     xmlns:winoControls="using:Wino.Mail.WinUI.Controls">
 
+    <ItemsPanelTemplate x:Key="FooterAppModeSwitcherVerticalItemsPanelTemplate">
+        <StackPanel Orientation="Vertical" />
+    </ItemsPanelTemplate>
+
     <Style x:Key="CalendarShellNavigationViewStyle" TargetType="controls:NavigationView">
         <Setter Property="PaneToggleButtonStyle" Value="{StaticResource PaneToggleButtonStyle}" />
         <Setter Property="IsTabStop" Value="False" />
@@ -396,12 +400,13 @@
                                                 VerticalContentAlignment="Stretch"
                                                 IsTabStop="False" />
                                             <Border
+                                                x:Name="FooterAppModeSwitcherBorder"
                                                 Grid.Row="3"
                                                 Margin="8,8,8,12"
                                                 Padding="8"
                                                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                                 CornerRadius="{ThemeResource OverlayCornerRadius}">
-                                                <winoControls:AppModeFooterSwitcherControl />
+                                                <winoControls:AppModeFooterSwitcherControl x:Name="FooterAppModeSwitcher" />
                                             </Border>
                                         </Grid>
                                     </Grid>
@@ -525,6 +530,13 @@
                                         <Setter Target="PaneAutoSuggestBoxPresenter.Visibility" Value="Collapsed" />
                                         <Setter Target="PaneAutoSuggestButton.Visibility" Value="Visible" />
                                         <Setter Target="PaneCustomContentBorder.Visibility" Value="Collapsed" />
+                                        <Setter Target="FooterAppModeSwitcher.ItemsPanel" Value="{StaticResource FooterAppModeSwitcherVerticalItemsPanelTemplate}" />
+                                        <Setter Target="FooterAppModeSwitcher.Orientation" Value="Vertical" />
+                                        <Setter Target="FooterAppModeSwitcherBorder.Margin" Value="0" />
+                                        <Setter Target="FooterAppModeSwitcherBorder.Padding" Value="0" />
+                                        <Setter Target="FooterAppModeSwitcherBorder.Background" Value="Transparent" />
+                                        <Setter Target="FooterAppModeSwitcher.BorderThickness" Value="0" />
+                                        <Setter Target="FooterAppModeSwitcher.Background" Value="Transparent" />
                                     </VisualState.Setters>
                                 </VisualState>
                             </VisualStateGroup>
