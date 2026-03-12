@@ -54,6 +54,7 @@ public sealed class WinoAppShellViewModel : CoreBaseViewModel, IShellViewModel
                 OnPropertyChanged(nameof(IsMailMode));
                 OnPropertyChanged(nameof(IsCalendarMode));
                 OnPropertyChanged(nameof(IsContactsMode));
+                OnPropertyChanged(nameof(IsSettingsMode));
                 OnPropertyChanged(nameof(SelectedMenuItem));
             }
         }
@@ -63,6 +64,7 @@ public sealed class WinoAppShellViewModel : CoreBaseViewModel, IShellViewModel
     public bool IsMailMode => CurrentMode == WinoApplicationMode.Mail;
     public bool IsCalendarMode => CurrentMode == WinoApplicationMode.Calendar;
     public bool IsContactsMode => CurrentMode == WinoApplicationMode.Contacts;
+    public bool IsSettingsMode => CurrentMode == WinoApplicationMode.Settings;
     public MenuItemCollection? CurrentMenuItems => CurrentClient.MenuItems;
 
     public object? SelectedMenuItem

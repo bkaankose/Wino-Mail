@@ -44,6 +44,7 @@ public partial class KeyboardShortcutViewModel : ObservableObject
         WinoApplicationMode.Mail => Translator.KeyboardShortcuts_ModeMail,
         WinoApplicationMode.Calendar => Translator.KeyboardShortcuts_ModeCalendar,
         WinoApplicationMode.Contacts => Translator.ContactsPage_Title,
+        WinoApplicationMode.Settings => Translator.MenuSettings,
         _ => Mode.ToString()
     };
 

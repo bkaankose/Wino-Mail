@@ -81,7 +81,10 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <controls:SettingsExpander Description="{x:Bind ViewModel.Address, Mode=OneWay}" Header="{x:Bind ViewModel.AccountName, Mode=OneWay}">
+            <controls:SettingsExpander
+                Description="{x:Bind ViewModel.Address, Mode=OneWay}"
+                Header="{x:Bind ViewModel.AccountName, Mode=OneWay}"
+                IsExpanded="True">
                 <controls:SettingsExpander.HeaderIcon>
                     <BitmapIcon ShowAsMonochrome="False" UriSource="{x:Bind ViewModel.ProviderIconPath, Mode=OneWay}" />
                 </controls:SettingsExpander.HeaderIcon>

@@ -1147,7 +1147,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     public async void Receive(NavigateAppPreferencesRequested message)
     {
-        await MenuItemInvokedOrSelectedAsync(SettingsItem, WinoPage.AppPreferencesPage);
+        NavigationService.Navigate(WinoPage.SettingsPage, WinoPage.AppPreferencesPage);
     }
 
     protected override void RegisterRecipients()

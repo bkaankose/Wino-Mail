@@ -8,6 +8,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.Settings;
 using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
@@ -64,6 +65,32 @@ public class NavigationService : NavigationServiceBase, INavigationService
     private static readonly WinoPage[] ContactsOnlyPages =
     [
         WinoPage.ContactsPage
+    ];
+
+    private static readonly WinoPage[] SettingsOnlyPages =
+    [
+        WinoPage.SettingsPage,
+        WinoPage.SettingOptionsPage,
+        WinoPage.ManageAccountsPage,
+        WinoPage.AccountManagementPage,
+        WinoPage.AccountDetailsPage,
+        WinoPage.MergedAccountDetailsPage,
+        WinoPage.SignatureManagementPage,
+        WinoPage.AboutPage,
+        WinoPage.PersonalizationPage,
+        WinoPage.MessageListPage,
+        WinoPage.ReadComposePanePage,
+        WinoPage.LanguageTimePage,
+        WinoPage.AppPreferencesPage,
+        WinoPage.AliasManagementPage,
+        WinoPage.ImapCalDavSettingsPage,
+        WinoPage.KeyboardShortcutsPage,
+        WinoPage.SignatureAndEncryptionPage,
+        WinoPage.EmailTemplatesPage,
+        WinoPage.CreateEmailTemplatePage,
+        WinoPage.StoragePage,
+        WinoPage.CalendarSettingsPage,
+        WinoPage.CalendarAccountSettingsPage
     ];
 
     public NavigationService(IStatePersistanceService statePersistanceService, IDispatcher dispatcher, IWinoWindowManager windowManager)
@@ -186,7 +213,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
     public bool ChangeApplicationMode(WinoApplicationMode mode)
         => ExecuteOnNavigationThread(() => ChangeApplicationModeInternal(mode));
 
-    private bool ChangeApplicationModeInternal(WinoApplicationMode mode)
+    private bool ChangeApplicationModeInternal(WinoApplicationMode mode, object? activationParameter = null)
     {
         var coreFrame = GetCoreFrameInternal(NavigationReferenceFrame.ShellFrame);
 
@@ -217,7 +244,8 @@ public class NavigationService : NavigationServiceBase, INavigationService
         {
             shell.ActivateMode(mode, new ShellModeActivationContext
             {
-                IsInitialActivation = isInitialShellNavigation
+                IsInitialActivation = isInitialShellNavigation,
+                Parameter = activationParameter
             });
             return true;
         }
@@ -237,9 +265,15 @@ public class NavigationService : NavigationServiceBase, INavigationService
                                   NavigationReferenceFrame frame = NavigationReferenceFrame.InnerShellFrame,
                                   NavigationTransitionType transition = NavigationTransitionType.None)
     {
-        if (page is WinoPage.ManageAccountsPage or WinoPage.AccountManagementPage)
+        if (TryGetSettingsActivationTarget(page, parameter, out var settingsTarget))
         {
-            return NavigateInternal(WinoPage.SettingsPage, WinoPage.ManageAccountsPage, frame, transition);
+            if (_statePersistanceService.ApplicationMode != WinoApplicationMode.Settings)
+            {
+                return ChangeApplicationModeInternal(WinoApplicationMode.Settings, settingsTarget);
+            }
+
+            page = WinoPage.SettingsPage;
+            parameter = settingsTarget;
         }
 
         var pageType = GetPageType(page);
@@ -372,12 +406,16 @@ public class NavigationService : NavigationServiceBase, INavigationService
     private static bool IsContactsOnlyPage(WinoPage page)
         => ContactsOnlyPages.Contains(page);
 
+    private static bool IsSettingsOnlyPage(WinoPage page)
+        => SettingsOnlyPages.Contains(page);
+
     private static bool IsPageAllowedInMode(WinoApplicationMode mode, WinoPage page)
         => mode switch
         {
-            WinoApplicationMode.Mail => !IsCalendarOnlyPage(page) && !IsContactsOnlyPage(page),
-            WinoApplicationMode.Calendar => !IsMailOnlyPage(page) && !IsContactsOnlyPage(page),
-            WinoApplicationMode.Contacts => !IsMailOnlyPage(page) && !IsCalendarOnlyPage(page),
+            WinoApplicationMode.Mail => !IsCalendarOnlyPage(page) && !IsContactsOnlyPage(page) && !IsSettingsOnlyPage(page),
+            WinoApplicationMode.Calendar => !IsMailOnlyPage(page) && !IsContactsOnlyPage(page) && !IsSettingsOnlyPage(page),
+            WinoApplicationMode.Contacts => !IsMailOnlyPage(page) && !IsCalendarOnlyPage(page) && !IsSettingsOnlyPage(page),
+            WinoApplicationMode.Settings => IsSettingsOnlyPage(page),
             _ => true
         };
 
@@ -386,6 +424,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
         {
             WinoApplicationMode.Calendar => "Wino Calendar",
             WinoApplicationMode.Contacts => "Wino Contacts",
+            WinoApplicationMode.Settings => "Wino Settings",
             _ => "Wino Mail"
         };
 
@@ -406,9 +445,27 @@ public class NavigationService : NavigationServiceBase, INavigationService
         {
             WinoApplicationMode.Mail => targetMode == WinoApplicationMode.Calendar,
             WinoApplicationMode.Calendar => targetMode == WinoApplicationMode.Contacts,
-            WinoApplicationMode.Contacts => targetMode == WinoApplicationMode.Mail,
+            WinoApplicationMode.Contacts => targetMode == WinoApplicationMode.Settings,
+            WinoApplicationMode.Settings => targetMode == WinoApplicationMode.Mail,
             _ => false
         };
+
+    private static bool TryGetSettingsActivationTarget(WinoPage page, object? parameter, out WinoPage targetPage)
+    {
+        targetPage = WinoPage.SettingOptionsPage;
+
+        if (page == WinoPage.SettingsPage)
+        {
+            targetPage = parameter as WinoPage? ?? WinoPage.SettingOptionsPage;
+            return true;
+        }
+
+        if (!IsSettingsOnlyPage(page))
+            return false;
+
+        targetPage = SettingsNavigationInfoProvider.GetRootPage(page);
+        return true;
+    }
 
     private static LoadCalendarMessage CreateLoadCalendarMessage(CalendarPageNavigationArgs args)
     {

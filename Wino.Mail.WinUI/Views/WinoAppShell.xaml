@@ -425,6 +425,8 @@
             NewMailTemplate="{StaticResource CreateNewMailTemplate}"
             RatingItemTemplate="{StaticResource RatingItemTemplate}"
             SeperatorTemplate="{StaticResource SeperatorTemplate}"
+            SettingsShellPageItemTemplate="{StaticResource SettingsShellPageItemTemplate}"
+            SettingsShellSectionItemTemplate="{StaticResource SettingsShellSectionItemTemplate}"
             StoreUpdateItemTemplate="{StaticResource StoreUpdateItemTemplate}" />
 
         <Style

@@ -84,7 +84,8 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
         [
             Translator.SettingsAppPreferences_ApplicationMode_Mail,
             Translator.SettingsAppPreferences_ApplicationMode_Calendar,
-            Translator.ContactsPage_Title
+            Translator.ContactsPage_Title,
+            Translator.MenuSettings
         ];
 
         SelectedDefaultSearchMode = SearchModes[(int)PreferencesService.DefaultSearchMode];

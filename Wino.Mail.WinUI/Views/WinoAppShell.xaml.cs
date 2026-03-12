@@ -50,6 +50,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     private const string StateDefaultShellContent = "DefaultShellContentState";
     private const string StateEventDetailsContent = "EventDetailsContentState";
     private WinoApplicationMode? _activeMode;
+    private bool _isSyncingNavigationViewSelection;
 
     public WinoAppShell()
     {
@@ -59,9 +60,11 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         ViewModel.MailClient.Dispatcher = pageDispatcher;
         ViewModel.CalendarClient.Dispatcher = pageDispatcher;
         ViewModel.GetClient(WinoApplicationMode.Contacts).Dispatcher = pageDispatcher;
+        ViewModel.GetClient(WinoApplicationMode.Settings).Dispatcher = pageDispatcher;
 
         ViewModel.MailClient.PropertyChanged += MailClientPropertyChanged;
         ViewModel.CalendarClient.PropertyChanged += CalendarClientPropertyChanged;
+        ViewModel.PropertyChanged += ViewModelPropertyChanged;
         ViewModel.StatePersistenceService.StatePropertyChanged += StatePersistenceServiceChanged;
         CalendarTypeSelector.RegisterPropertyChangedCallback(WinoCalendarTypeSelectorControl.SelectedTypeProperty, CalendarTypeSelectorSelectedTypeChanged);
 
@@ -151,6 +154,10 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         {
             ViewModel.CurrentClient.Deactivate();
         }
+        else if (_activeMode == WinoApplicationMode.Settings)
+        {
+            ViewModel.CurrentClient.Deactivate();
+        }
 
         DynamicPageShellContentPresenter.Content = null;
     }
@@ -229,12 +236,9 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     private void RefreshNavigationViewBindings(bool syncMailSelection = true)
     {
         navigationView.MenuItemsSource = ViewModel.CurrentMenuItems;
-
-        navigationView.SelectionChanged -= MenuSelectionChanged;
-        navigationView.SelectedItem = ViewModel.CurrentClient.HandlesNavigationSelection && syncMailSelection
+        SetNavigationViewSelectedItem(ViewModel.CurrentClient.HandlesNavigationSelection && syncMailSelection
             ? ViewModel.SelectedMenuItem
-            : null;
-        navigationView.SelectionChanged += MenuSelectionChanged;
+            : null);
     }
 
     private void UpdateEventDetailsVisualState()
@@ -262,6 +266,9 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private async void NavigationViewItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
     {
+        if (_isSyncingNavigationViewSelection)
+            return;
+
         if (ViewModel.IsCalendarMode)
         {
             if (args.InvokedItemContainer is FrameworkElement { DataContext: IMenuItem menuItem })
@@ -283,7 +290,13 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private async void MenuSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
-        if (!ViewModel.IsMailMode)
+        if (_isSyncingNavigationViewSelection)
+            return;
+
+        if (!ViewModel.CurrentClient.HandlesNavigationSelection)
+            return;
+
+        if (ReferenceEquals(args.SelectedItem, ViewModel.SelectedMenuItem))
             return;
 
         if (args.SelectedItem is IMenuItem invokedMenuItem)
@@ -306,7 +319,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
             {
                 foundMenuItem.Expand();
                 await ViewModel.MailClient.NavigateFolderAsync(foundMenuItem);
-                navigationView.SelectedItem = foundMenuItem;
+                SetNavigationViewSelectedItem(foundMenuItem);
 
                 if (message.NavigateMailItem != null)
                 {
@@ -327,7 +340,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
                 {
                     accountFolderMenuItem.Expand();
                     await ViewModel.MailClient.NavigateFolderAsync(accountFolderMenuItem);
-                    navigationView.SelectedItem = accountFolderMenuItem;
+                    SetNavigationViewSelectedItem(accountFolderMenuItem);
                     WeakReferenceMessenger.Default.Send(new MailItemNavigationRequested(message.NavigateMailItem.UniqueId, ScrollToItem: true));
                 }
             }
@@ -345,9 +358,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
             ViewModel.NavigationService.Navigate(WinoPage.MailListPage, navigateFolderArgs, NavigationReferenceFrame.InnerShellFrame);
 
-            navigationView.SelectionChanged -= MenuSelectionChanged;
-            navigationView.SelectedItem = message.BaseFolderMenuItem;
-            navigationView.SelectionChanged += MenuSelectionChanged;
+            SetNavigationViewSelectedItem(message.BaseFolderMenuItem);
         }
         else
         {
@@ -430,9 +441,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     {
         if (e.PropertyName == nameof(IShellClient.SelectedMenuItem) && ViewModel.IsMailMode)
         {
-            navigationView.SelectionChanged -= MenuSelectionChanged;
-            navigationView.SelectedItem = ViewModel.MailClient.SelectedMenuItem;
-            navigationView.SelectionChanged += MenuSelectionChanged;
+            SetNavigationViewSelectedItem(ViewModel.MailClient.SelectedMenuItem);
         }
     }
 
@@ -464,6 +473,30 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         {
             CalendarView.HighlightedDateRange = ViewModel.CalendarClient.HighlightedDateRange;
             UpdateTitleBarSubtitle();
+        }
+    }
+
+    private void ViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(ViewModel.SelectedMenuItem) || !ViewModel.CurrentClient.HandlesNavigationSelection)
+            return;
+
+        SetNavigationViewSelectedItem(ViewModel.SelectedMenuItem);
+    }
+
+    private void SetNavigationViewSelectedItem(object? item)
+    {
+        if (ReferenceEquals(navigationView.SelectedItem, item))
+            return;
+
+        _isSyncingNavigationViewSelection = true;
+        try
+        {
+            navigationView.SelectedItem = item;
+        }
+        finally
+        {
+            _isSyncingNavigationViewSelection = false;
         }
     }
 

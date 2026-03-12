@@ -19,6 +19,7 @@
             RowSpacing="20">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
@@ -43,7 +44,15 @@
                 </winuiControls:BreadcrumbBar.ItemTemplate>
             </winuiControls:BreadcrumbBar>
 
-            <Frame x:Name="SettingsFrame" Grid.Row="1" />
+            <TextBlock
+                Grid.Row="1"
+                Margin="0,-4,0,4"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource BodyStrongTextBlockStyle}"
+                Text="{x:Bind ViewModel.CurrentDescription, Mode=OneWay}"
+                TextWrapping="WrapWholeWords" />
+
+            <Frame x:Name="SettingsFrame" Grid.Row="2" />
         </Grid>
     </Border>
 </abstract:SettingsPageAbstract>

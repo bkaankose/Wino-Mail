@@ -64,17 +64,11 @@ public sealed partial class AppModeFooterSwitcherControl : Segmented
         if (_isUpdatingSelection)
             return;
 
-        if (SelectedIndex == 3)
-        {
-            _navigationService.Navigate(WinoPage.SettingsPage);
-            UpdateSelection(_statePersistenceService.ApplicationMode);
-            return;
-        }
-
         var selectedMode = SelectedIndex switch
         {
             1 => WinoApplicationMode.Calendar,
             2 => WinoApplicationMode.Contacts,
+            3 => WinoApplicationMode.Settings,
             _ => WinoApplicationMode.Mail
         };
 
@@ -91,6 +85,7 @@ public sealed partial class AppModeFooterSwitcherControl : Segmented
         {
             WinoApplicationMode.Calendar => 1,
             WinoApplicationMode.Contacts => 2,
+            WinoApplicationMode.Settings => 3,
             _ => 0
         };
         _isUpdatingSelection = false;

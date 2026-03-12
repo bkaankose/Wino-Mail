@@ -9,18 +9,17 @@
     xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     x:Name="root"
-    Title="{x:Bind domain:Translator.SettingsOptions_Title}"
+    Title="{x:Bind domain:Translator.SettingsHome_Title}"
     mc:Ignorable="d">
 
     <ScrollViewer Padding="0,0,16,0" VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="0,8,0,24" Spacing="4">
+        <StackPanel Margin="0,8,0,24" Spacing="12">
             <StackPanel.ChildrenTransitions>
                 <TransitionCollection>
                     <EntranceThemeTransition FromVerticalOffset="50" IsStaggeringEnabled="True" />
                 </TransitionCollection>
             </StackPanel.ChildrenTransitions>
 
-            <!--  Hero Banner - Windows 11 style  -->
             <Grid
                 Margin="0,0,0,12"
                 Padding="24,28"
@@ -33,8 +32,6 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-
-                <!--  App Info  -->
                 <Grid
                     Grid.Column="1"
                     Margin="8,0,0,0"
@@ -43,6 +40,7 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
+
                     <StackPanel
                         VerticalAlignment="Center"
                         Orientation="Horizontal"
@@ -120,7 +118,6 @@
                 </Grid>
             </Grid>
 
-            <!--  Account Management Card  -->
             <controls:SettingsCard
                 Margin="0,0,0,12"
                 Click="SettingOptionClicked"
@@ -140,134 +137,6 @@
                         <FontIcon FontSize="12" Glyph="&#xE76C;" />
                     </StackPanel>
                 </Button>
-            </controls:SettingsCard>
-
-            <!--  General Section  -->
-            <TextBlock
-                Margin="1,8,0,4"
-                Style="{StaticResource BodyStrongTextBlockStyle}"
-                Text="{x:Bind domain:Translator.SettingsOptions_GeneralSection}" />
-
-            <controls:SettingsCard
-                Click="SettingOptionClicked"
-                Description="{x:Bind domain:Translator.SettingsAppPreferences_Description}"
-                Header="{x:Bind domain:Translator.SettingsAppPreferences_Title}"
-                IsClickEnabled="True"
-                Tag="{x:Bind enums:WinoPage.AppPreferencesPage}">
-                <controls:SettingsCard.HeaderIcon>
-                    <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE770;" />
-                </controls:SettingsCard.HeaderIcon>
-            </controls:SettingsCard>
-
-            <controls:SettingsCard
-                Click="SettingOptionClicked"
-                Description="{x:Bind domain:Translator.SettingsLanguageTime_Description}"
-                Header="{x:Bind domain:Translator.SettingsLanguageTime_Title}"
-                IsClickEnabled="True"
-                Tag="{x:Bind enums:WinoPage.LanguageTimePage}">
-                <controls:SettingsCard.HeaderIcon>
-                    <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE775;" />
-                </controls:SettingsCard.HeaderIcon>
-            </controls:SettingsCard>
-
-            <controls:SettingsCard
-                Click="SettingOptionClicked"
-                Description="{x:Bind domain:Translator.SettingsPersonalization_Description}"
-                Header="{x:Bind domain:Translator.SettingsPersonalization_Title}"
-                IsClickEnabled="True"
-                Tag="{x:Bind enums:WinoPage.PersonalizationPage}">
-                <controls:SettingsCard.HeaderIcon>
-                    <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE771;" />
-                </controls:SettingsCard.HeaderIcon>
-            </controls:SettingsCard>
-
-            <controls:SettingsCard
-                Click="SettingOptionClicked"
-                Description="{x:Bind domain:Translator.SettingsAbout_Description}"
-                Header="{x:Bind domain:Translator.SettingsAbout_Title}"
-                IsClickEnabled="True"
-                Tag="{x:Bind enums:WinoPage.AboutPage}">
-                <controls:SettingsCard.HeaderIcon>
-                    <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE946;" />
-                </controls:SettingsCard.HeaderIcon>
-            </controls:SettingsCard>
-
-            <!--  Mail Section  -->
-            <TextBlock
-                Margin="1,16,0,4"
-                Style="{StaticResource BodyStrongTextBlockStyle}"
-                Text="{x:Bind domain:Translator.SettingsOptions_MailSection}" />
-
-            <controls:SettingsCard
-                Click="SettingOptionClicked"
-                Description="{x:Bind domain:Translator.Settings_KeyboardShortcuts_Description}"
-                Header="{x:Bind domain:Translator.Settings_KeyboardShortcuts_Title}"
-                IsClickEnabled="True"
-                Tag="{x:Bind enums:WinoPage.KeyboardShortcutsPage}">
-                <controls:SettingsCard.HeaderIcon>
-                    <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE765;" />
-                </controls:SettingsCard.HeaderIcon>
-            </controls:SettingsCard>
-
-            <controls:SettingsCard
-                Click="SettingOptionClicked"
-                Description="{x:Bind domain:Translator.SettingsMessageList_Description}"
-                Header="{x:Bind domain:Translator.SettingsMessageList_Title}"
-                IsClickEnabled="True"
-                Tag="{x:Bind enums:WinoPage.MessageListPage}">
-                <controls:SettingsCard.HeaderIcon>
-                    <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE8C4;" />
-                </controls:SettingsCard.HeaderIcon>
-            </controls:SettingsCard>
-
-            <controls:SettingsCard
-                Click="SettingOptionClicked"
-                Description="{x:Bind domain:Translator.SettingsReadComposePane_Description}"
-                Header="{x:Bind domain:Translator.SettingsReadComposePane_Title}"
-                IsClickEnabled="True"
-                Tag="{x:Bind enums:WinoPage.ReadComposePanePage}">
-                <controls:SettingsCard.HeaderIcon>
-                    <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE8BD;" />
-                </controls:SettingsCard.HeaderIcon>
-            </controls:SettingsCard>
-
-            <controls:SettingsCard
-                Click="SettingOptionClicked"
-                Description="{x:Bind domain:Translator.SettingsSignatureAndEncryption_Description}"
-                Header="{x:Bind domain:Translator.SettingsSignatureAndEncryption_Title}"
-                IsClickEnabled="True"
-                Tag="{x:Bind enums:WinoPage.SignatureAndEncryptionPage}">
-                <controls:SettingsCard.HeaderIcon>
-                    <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE8D7;" />
-                </controls:SettingsCard.HeaderIcon>
-            </controls:SettingsCard>
-
-            <controls:SettingsCard
-                Click="SettingOptionClicked"
-                Description="{x:Bind domain:Translator.SettingsStorage_Description}"
-                Header="{x:Bind domain:Translator.SettingsStorage_Title}"
-                IsClickEnabled="True"
-                Tag="{x:Bind enums:WinoPage.StoragePage}">
-                <controls:SettingsCard.HeaderIcon>
-                    <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE81C;" />
-                </controls:SettingsCard.HeaderIcon>
-            </controls:SettingsCard>
-
-            <!--  Calendar Section  -->
-            <TextBlock
-                Margin="1,16,0,4"
-                Style="{StaticResource BodyStrongTextBlockStyle}"
-                Text="{x:Bind domain:Translator.SettingsOptions_CalendarSection}" />
-
-            <controls:SettingsCard
-                Click="SettingOptionClicked"
-                Description="{x:Bind domain:Translator.SettingsCalendarSettings_Description}"
-                Header="{x:Bind domain:Translator.SettingsCalendarSettings_Title}"
-                IsClickEnabled="True"
-                Tag="{x:Bind enums:WinoPage.CalendarSettingsPage}">
-                <controls:SettingsCard.HeaderIcon>
-                    <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE787;" />
-                </controls:SettingsCard.HeaderIcon>
             </controls:SettingsCard>
         </StackPanel>
     </ScrollViewer>

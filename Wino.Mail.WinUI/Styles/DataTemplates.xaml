@@ -53,6 +53,39 @@
             </coreControls:WinoNavigationViewItem.Icon>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
+
+    <DataTemplate x:Key="SettingsShellPageItemTemplate" x:DataType="menu:SettingsShellPageMenuItem">
+        <coreControls:WinoNavigationViewItem
+            Content="{x:Bind Title}"
+            DataContext="{x:Bind}">
+            <muxc:NavigationViewItem.Icon>
+                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="{x:Bind Glyph}" />
+            </muxc:NavigationViewItem.Icon>
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
+    <DataTemplate x:Key="SettingsShellSectionItemTemplate" x:DataType="menu:SettingsShellSectionMenuItem">
+        <coreControls:WinoNavigationViewItem
+            Margin="0,10,0,2"
+            HorizontalContentAlignment="Center"
+            DataContext="{x:Bind}"
+            IsEnabled="False"
+            SelectsOnInvoked="False">
+            <muxc:NavigationViewItem.Icon>
+                <FontIcon
+                    FontFamily="{StaticResource SymbolThemeFontFamily}"
+                    FontSize="12"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Glyph="{x:Bind Glyph}" />
+            </muxc:NavigationViewItem.Icon>
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="{x:Bind Title}"
+                TextWrapping="NoWrap" />
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
     <!--  Store Update Item  -->
     <DataTemplate x:Key="StoreUpdateItemTemplate" x:DataType="menu:StoreUpdateMenuItem">
         <coreControls:WinoNavigationViewItem Content="{x:Bind domain:Translator.MenuUpdateAvailable}" DataContext="{x:Bind}">

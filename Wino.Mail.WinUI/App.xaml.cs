@@ -144,12 +144,14 @@ public partial class App : WinoApplication,
         services.AddSingleton(typeof(MailAppShellViewModel));
         services.AddSingleton(typeof(CalendarAppShellViewModel));
         services.AddSingleton(typeof(ContactsShellClient));
+        services.AddSingleton(typeof(SettingsShellClient));
         services.AddSingleton(typeof(WinoAppShellViewModel));
         services.AddSingleton<IMailShellClient>(serviceProvider => serviceProvider.GetRequiredService<MailAppShellViewModel>());
         services.AddSingleton<ICalendarShellClient>(serviceProvider => serviceProvider.GetRequiredService<CalendarAppShellViewModel>());
         services.AddSingleton<IShellClient>(serviceProvider => serviceProvider.GetRequiredService<MailAppShellViewModel>());
         services.AddSingleton<IShellClient>(serviceProvider => serviceProvider.GetRequiredService<CalendarAppShellViewModel>());
         services.AddSingleton<IShellClient>(serviceProvider => serviceProvider.GetRequiredService<ContactsShellClient>());
+        services.AddSingleton<IShellClient>(serviceProvider => serviceProvider.GetRequiredService<SettingsShellClient>());
 
         services.AddTransient(typeof(MailListPageViewModel));
         services.AddTransient(typeof(MailRenderingPageViewModel));
@@ -966,6 +968,7 @@ public partial class App : WinoApplication,
         {
             WinoApplicationMode.Calendar => "--mode=calendar",
             WinoApplicationMode.Contacts => "--mode=contacts",
+            WinoApplicationMode.Settings => "--mode=settings",
             _ => "--mode=mail"
         };
 

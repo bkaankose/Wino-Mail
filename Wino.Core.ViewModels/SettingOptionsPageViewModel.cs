@@ -7,6 +7,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.Settings;
 using Wino.Messaging.Client.Navigation;
 
 namespace Wino.Core.ViewModels;
@@ -63,23 +64,8 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
     {
         if (type is WinoPage pageType)
         {
-            string pageTitle = pageType switch
-            {
-                WinoPage.ManageAccountsPage => Translator.SettingsManageAccountSettings_Title,
-                WinoPage.PersonalizationPage => Translator.SettingsPersonalization_Title,
-                WinoPage.AboutPage => Translator.SettingsAbout_Title,
-                WinoPage.MessageListPage => Translator.SettingsMessageList_Title,
-                WinoPage.ReadComposePanePage => Translator.SettingsReadComposePane_Title,
-                WinoPage.LanguageTimePage => Translator.SettingsLanguageTime_Title,
-                WinoPage.AppPreferencesPage => Translator.SettingsAppPreferences_Title,
-                WinoPage.CalendarSettingsPage => Translator.SettingsCalendarSettings_Title,
-                WinoPage.SignatureAndEncryptionPage => Translator.SettingsSignatureAndEncryption_Title,
-                WinoPage.KeyboardShortcutsPage => Translator.Settings_KeyboardShortcuts_Title,
-                WinoPage.StoragePage => Translator.SettingsStorage_Title,
-                _ => throw new NotImplementedException()
-            };
-
-            Messenger.Send(new BreadcrumbNavigationRequested(pageTitle, pageType));
+            var pageInfo = SettingsNavigationInfoProvider.GetInfo(pageType, AccountSummaryText);
+            Messenger.Send(new BreadcrumbNavigationRequested(pageInfo.Title, pageType));
         }
     }
 

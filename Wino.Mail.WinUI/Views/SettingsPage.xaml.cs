@@ -1,10 +1,12 @@
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Settings;
 using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
@@ -17,6 +19,7 @@ namespace Wino.Views;
 public sealed partial class SettingsPage : SettingsPageAbstract, 
     IRecipient<BreadcrumbNavigationRequested>,
     IRecipient<BackBreadcrumNavigationRequested>,
+    IRecipient<SettingsRootNavigationRequested>,
     IRecipient<MergedInboxRenamed>,
     IRecipient<AccountUpdatedMessage>
 {
@@ -34,39 +37,9 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         // Register for frame navigation events to track back button visibility
         SettingsFrame.Navigated -= SettingsFrameNavigated;
         SettingsFrame.Navigated += SettingsFrameNavigated;
-        PageHistory.Clear();
-        SettingsFrame.BackStack.Clear();
-        SettingsFrame.ForwardStack.Clear();
 
-        SettingsFrame.Navigate(typeof(SettingOptionsPage), null, new SuppressNavigationTransitionInfo());
-
-        var initialRequest = new BreadcrumbNavigationRequested(Translator.MenuSettings, WinoPage.SettingOptionsPage);
-        PageHistory.Add(new BreadcrumbNavigationItemViewModel(initialRequest, true, backStackDepth: SettingsFrame.BackStack.Count + 1));
-
-        if (e.Parameter is WinoPage parameterPage)
-        {
-            switch (parameterPage)
-            {
-                case WinoPage.AppPreferencesPage:
-                    NavigateBreadcrumb(new BreadcrumbNavigationRequested(Translator.SettingsAppPreferences_Title, WinoPage.AppPreferencesPage));
-                    break;
-                case WinoPage.PersonalizationPage:
-                    NavigateBreadcrumb(new BreadcrumbNavigationRequested(Translator.SettingsPersonalization_Title, WinoPage.PersonalizationPage));
-                    break;
-                case WinoPage.StoragePage:
-                    NavigateBreadcrumb(new BreadcrumbNavigationRequested(Translator.SettingsStorage_Title, WinoPage.StoragePage));
-                    break;
-                case WinoPage.EmailTemplatesPage:
-                    NavigateBreadcrumb(new BreadcrumbNavigationRequested(Translator.SettingsEmailTemplates_Title, WinoPage.EmailTemplatesPage));
-                    break;
-                case WinoPage.ManageAccountsPage:
-                case WinoPage.AccountManagementPage:
-                    NavigateBreadcrumb(new BreadcrumbNavigationRequested(Translator.SettingsManageAccountSettings_Title, WinoPage.ManageAccountsPage));
-                    break;
-            }
-        }
-
-        UpdateWindowTitle();
+        var initialPage = e.Parameter as WinoPage? ?? WinoPage.SettingOptionsPage;
+        NavigateToRootPage(initialPage);
     }
 
     public override void OnLanguageChanged()
@@ -88,6 +61,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
             manageAccountsEntry.Title = Translator.SettingsManageAccountSettings_Title;
         }
 
+        _ = RefreshCurrentPageStateAsync();
         UpdateWindowTitle();
     }
 
@@ -108,6 +82,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
         WeakReferenceMessenger.Default.Register<BreadcrumbNavigationRequested>(this);
         WeakReferenceMessenger.Default.Register<BackBreadcrumNavigationRequested>(this);
+        WeakReferenceMessenger.Default.Register<SettingsRootNavigationRequested>(this);
         WeakReferenceMessenger.Default.Register<MergedInboxRenamed>(this);
         WeakReferenceMessenger.Default.Register<AccountUpdatedMessage>(this);
     }
@@ -118,6 +93,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
         WeakReferenceMessenger.Default.Unregister<BreadcrumbNavigationRequested>(this);
         WeakReferenceMessenger.Default.Unregister<BackBreadcrumNavigationRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<SettingsRootNavigationRequested>(this);
         WeakReferenceMessenger.Default.Unregister<MergedInboxRenamed>(this);
         WeakReferenceMessenger.Default.Unregister<AccountUpdatedMessage>(this);
     }
@@ -129,8 +105,8 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
     private void SettingsFrameNavigated(object sender, NavigationEventArgs e)
     {
-        // Update back button visibility based on whether we can go back within the frame
-        ViewModel.StatePersistenceService.IsSettingsNavigating = SettingsFrame.CanGoBack;
+        UpdateBackNavigationState();
+        _ = RefreshCurrentPageStateAsync();
     }
 
     private void GoBackFrame(Core.Domain.Enums.NavigationTransitionEffect slideEffect)
@@ -138,7 +114,8 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         if (!BreadcrumbNavigationHelper.GoBack(SettingsFrame, PageHistory, slideEffect))
             return;
 
-        ViewModel.StatePersistenceService.IsSettingsNavigating = SettingsFrame.CanGoBack;
+        UpdateBackNavigationState();
+        _ = RefreshCurrentPageStateAsync();
         UpdateWindowTitle();
     }
 
@@ -147,13 +124,23 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         if (!BreadcrumbNavigationHelper.NavigateTo(SettingsFrame, PageHistory, args.Index))
             return;
 
-        ViewModel.StatePersistenceService.IsSettingsNavigating = SettingsFrame.CanGoBack;
+        UpdateBackNavigationState();
+        _ = RefreshCurrentPageStateAsync();
         UpdateWindowTitle();
     }
 
     public void Receive(BackBreadcrumNavigationRequested message)
     {
         GoBackFrame(message.SlideEffect);
+    }
+
+    public void Receive(SettingsRootNavigationRequested message)
+    {
+        var currentRootPage = SettingsNavigationInfoProvider.GetRootPage(PageHistory.LastOrDefault()?.Request.PageType ?? WinoPage.SettingOptionsPage);
+        if (message.PageType != WinoPage.SettingOptionsPage && currentRootPage == message.PageType)
+            return;
+
+        NavigateToRootPage(message.PageType);
     }
 
     public void Receive(AccountUpdatedMessage message)
@@ -166,6 +153,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         DispatcherQueue.TryEnqueue(() =>
         {
             activePage.Title = message.Account.Name;
+            _ = RefreshCurrentPageStateAsync();
             UpdateWindowTitle();
         });
     }
@@ -180,6 +168,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         DispatcherQueue.TryEnqueue(() =>
         {
             activePage.Title = message.NewName;
+            _ = RefreshCurrentPageStateAsync();
             UpdateWindowTitle();
         });
     }
@@ -189,7 +178,41 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         if (!BreadcrumbNavigationHelper.Navigate(SettingsFrame, PageHistory, message, ViewModel.NavigationService.GetPageType))
             return;
 
+        UpdateBackNavigationState();
+        _ = RefreshCurrentPageStateAsync();
         UpdateWindowTitle();
+    }
+
+    private void NavigateToRootPage(WinoPage targetPage)
+    {
+        PageHistory.Clear();
+        SettingsFrame.BackStack.Clear();
+        SettingsFrame.ForwardStack.Clear();
+
+        NavigateBreadcrumb(new BreadcrumbNavigationRequested(Translator.MenuSettings, WinoPage.SettingOptionsPage));
+
+        if (targetPage != WinoPage.SettingOptionsPage)
+        {
+            NavigateBreadcrumb(new BreadcrumbNavigationRequested(
+                SettingsNavigationInfoProvider.GetPageTitle(targetPage),
+                targetPage));
+            return;
+        }
+
+        UpdateWindowTitle();
+    }
+
+    private void UpdateBackNavigationState()
+    {
+        ViewModel.StatePersistenceService.IsSettingsNavigating = PageHistory.Count > 1 && SettingsFrame.CanGoBack;
+    }
+
+    private async Task RefreshCurrentPageStateAsync()
+    {
+        var activePage = PageHistory.LastOrDefault()?.Request.PageType ?? WinoPage.SettingOptionsPage;
+        var rootPage = SettingsNavigationInfoProvider.GetRootPage(activePage);
+        await ViewModel.UpdateActivePageAsync(rootPage);
+        WeakReferenceMessenger.Default.Send(new ActiveSettingsPageChanged(rootPage));
     }
 
     private void UpdateWindowTitle()

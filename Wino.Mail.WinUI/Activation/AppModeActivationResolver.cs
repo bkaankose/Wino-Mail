@@ -53,6 +53,16 @@ internal static class AppModeActivationResolver
             return true;
         }
 
+        if (Contains(value, "wino-settings") ||
+            Contains(value, "--mode=settings") ||
+            Contains(value, "mode=settings") ||
+            Contains(value, "settingsapp") ||
+            EqualsToken(value, "settings"))
+        {
+            mode = WinoApplicationMode.Settings;
+            return true;
+        }
+
         if (Contains(value, "wino-mail") ||
             Contains(value, "--mode=mail") ||
             Contains(value, "mode=mail") ||
