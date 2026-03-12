@@ -85,7 +85,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     [ObservableProperty]
     private bool isStoreUpdateItemVisible;
 
-    private readonly ManageAccountsMenuItem _manageAccountsMenuItem = new();
     private readonly SettingsItem _settingsItem = new();
     private readonly StoreUpdateMenuItem _storeUpdateMenuItem = new();
     private readonly NewCalendarEventMenuItem _newEventMenuItem = new();
@@ -378,18 +377,12 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         ForceNavigateCalendarDate();
     }
 
-    [RelayCommand]
-    public void ManageAccounts() => NavigationService.Navigate(WinoPage.AccountManagementPage);
-
     public async Task HandleNavigationItemInvokedAsync(IMenuItem menuItem)
     {
         switch (menuItem)
         {
             case NewMailMenuItem:
                 await NewEventAsync().ConfigureAwait(false);
-                break;
-            case ManageAccountsMenuItem:
-                NavigationService.Navigate(WinoPage.ManageAccountsPage);
                 break;
             case SettingsItem:
                 NavigationService.Navigate(WinoPage.SettingsPage);

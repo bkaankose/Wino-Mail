@@ -39,15 +39,6 @@
             </coreControls:WinoNavigationViewItem>
         </DataTemplate>
 
-        <DataTemplate x:Key="CalendarManageAccountsTemplate" x:DataType="menu:ManageAccountsMenuItem">
-            <coreControls:WinoNavigationViewItem DataContext="{x:Bind}" SelectsOnInvoked="False">
-                <muxc:NavigationViewItem.Icon>
-                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE77B;" />
-                </muxc:NavigationViewItem.Icon>
-                <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.MenuManageAccounts}" />
-            </coreControls:WinoNavigationViewItem>
-        </DataTemplate>
-
         <DataTemplate x:Key="CalendarSettingsItemTemplate" x:DataType="menu:SettingsItem">
             <coreControls:WinoNavigationViewItem DataContext="{x:Bind}" SelectsOnInvoked="False">
                 <coreControls:WinoNavigationViewItem.Icon>

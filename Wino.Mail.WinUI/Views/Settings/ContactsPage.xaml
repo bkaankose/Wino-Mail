@@ -106,11 +106,6 @@
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
             <StackPanel>
                 <TextBlock
                     FontSize="28"
@@ -118,16 +113,6 @@
                     Text="{x:Bind domain:Translator.ContactsPage_Title, Mode=OneTime}" />
                 <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind domain:Translator.ContactsPage_Subtitle, Mode=OneTime}" />
             </StackPanel>
-
-            <Button
-                Grid.Column="1"
-                Command="{x:Bind ViewModel.AddContactCommand}"
-                Style="{StaticResource AccentButtonStyle}">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <FontIcon FontSize="14" Glyph="&#xE710;" />
-                    <TextBlock Text="{x:Bind domain:Translator.ContactAction_Add, Mode=OneTime}" />
-                </StackPanel>
-            </Button>
         </Grid>
 
         <Grid Grid.Row="1" ColumnSpacing="8">

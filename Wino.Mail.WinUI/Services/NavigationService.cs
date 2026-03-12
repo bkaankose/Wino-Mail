@@ -106,7 +106,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
             WinoPage.AccountDetailsPage => typeof(AccountDetailsPage),
             WinoPage.MergedAccountDetailsPage => typeof(MergedAccountDetailsPage),
             WinoPage.AccountManagementPage => typeof(AccountManagementPage),
-            WinoPage.ManageAccountsPage => typeof(ManageAccountsPage),
+            WinoPage.ManageAccountsPage => typeof(AccountManagementPage),
             WinoPage.SignatureManagementPage => typeof(SignatureManagementPage),
             WinoPage.AboutPage => typeof(AboutPage),
             WinoPage.PersonalizationPage => typeof(PersonalizationPage),
@@ -237,6 +237,11 @@ public class NavigationService : NavigationServiceBase, INavigationService
                                   NavigationReferenceFrame frame = NavigationReferenceFrame.InnerShellFrame,
                                   NavigationTransitionType transition = NavigationTransitionType.None)
     {
+        if (page is WinoPage.ManageAccountsPage or WinoPage.AccountManagementPage)
+        {
+            return NavigateInternal(WinoPage.SettingsPage, WinoPage.ManageAccountsPage, frame, transition);
+        }
+
         var pageType = GetPageType(page);
         if (pageType == null) return false;
 
@@ -441,11 +446,8 @@ public class NavigationService : NavigationServiceBase, INavigationService
 
     private void GoBackInternal(Core.Domain.Enums.NavigationTransitionEffect slideEffect = Core.Domain.Enums.NavigationTransitionEffect.FromRight)
     {
-        // Check if we're navigating within ManageAccountsPage (applies to both modes)
-        // Check if we're navigating within SettingsPage (applies to both modes)
-        if (_statePersistanceService.IsManageAccountsNavigating || _statePersistanceService.IsSettingsNavigating)
+        if (_statePersistanceService.IsSettingsNavigating)
         {
-            // Send message to ManageAccountsPage to go back within its AccountPagesFrame
             WeakReferenceMessenger.Default.Send(new BackBreadcrumNavigationRequested(slideEffect));
             return;
         }

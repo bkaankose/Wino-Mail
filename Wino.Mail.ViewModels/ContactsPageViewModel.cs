@@ -7,16 +7,19 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.ViewModels.Data;
+using Wino.Messaging.Client.Contacts;
 
 namespace Wino.Mail.ViewModels;
 
-public partial class ContactsPageViewModel : MailBaseViewModel
+public partial class ContactsPageViewModel : MailBaseViewModel,
+    IRecipient<NewContactRequested>
 {
     private const int ContactPageSize = 50;
 
@@ -96,6 +99,9 @@ public partial class ContactsPageViewModel : MailBaseViewModel
 
     private async void ContactsCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
         => await ExecuteUIThread(() => { OnPropertyChanged(nameof(IsEmpty)); });
+
+    void IRecipient<NewContactRequested>.Receive(NewContactRequested message)
+        => _ = AddContactAsync();
 
     [RelayCommand]
     private async Task ReloadContactsAsync()
@@ -217,6 +223,20 @@ public partial class ContactsPageViewModel : MailBaseViewModel
                 string.Format(Translator.ContactInfoBar_FailedToAddContact, ex.Message),
                 InfoBarMessageType.Error);
         }
+    }
+
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+
+        Messenger.Register<NewContactRequested>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+
+        Messenger.Unregister<NewContactRequested>(this);
     }
 
     [RelayCommand]

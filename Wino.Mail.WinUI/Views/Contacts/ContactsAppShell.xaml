@@ -5,14 +5,16 @@
     xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls">
-
-    <Grid x:Name="RootGrid" Padding="0" ColumnSpacing="0" RowSpacing="0">
+    <Grid
+        x:Name="RootGrid"
+        Padding="0"
+        ColumnSpacing="0"
+        RowSpacing="0">
         <muxc:NavigationView
             x:Name="navigationView"
             Grid.Row="1"
             Grid.ColumnSpan="3"
             Margin="-1,-1,0,0"
-            Style="{StaticResource CalendarShellNavigationViewStyle}"
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
             AlwaysShowHeader="True"
@@ -25,7 +27,8 @@
             IsTitleBarAutoPaddingEnabled="False"
             OpenPaneLength="{x:Bind StatePersistenceService.OpenPaneLength, Mode=TwoWay}"
             PaneDisplayMode="Auto"
-            ScrollViewer.VerticalScrollBarVisibility="Hidden">
+            ScrollViewer.VerticalScrollBarVisibility="Hidden"
+            Style="{StaticResource CalendarShellNavigationViewStyle}">
             <Grid>
                 <Frame
                     x:Name="InnerShellFrame"

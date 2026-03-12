@@ -26,15 +26,6 @@
 
     <!--#region Navigation Menu Templates-->
 
-    <!--  Manage Accounts etc. Other navigatable.  -->
-    <DataTemplate x:Key="ManageAccountsTemplate" x:DataType="menu:ManageAccountsMenuItem">
-        <coreControls:WinoNavigationViewItem Content="{x:Bind domain:Translator.MenuManageAccounts}" DataContext="{x:Bind}">
-            <muxc:NavigationViewItem.Icon>
-                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE77B;" />
-            </muxc:NavigationViewItem.Icon>
-        </coreControls:WinoNavigationViewItem>
-    </DataTemplate>
-
     <DataTemplate x:Key="ContactsTemplate" x:DataType="menu:ContactsMenuItem">
         <coreControls:WinoNavigationViewItem Content="{x:Bind domain:Translator.ContactsPage_Title}" DataContext="{x:Bind}">
             <muxc:NavigationViewItem.Icon>

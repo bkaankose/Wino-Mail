@@ -8,7 +8,6 @@ public partial class NavigationMenuTemplateSelector : DataTemplateSelector
 {
     public DataTemplate MenuItemTemplate { get; set; } = null!;
     public DataTemplate ContactsMenuItemTemplate { get; set; } = null!;
-    public DataTemplate AccountManagementTemplate { get; set; } = null!;
     public DataTemplate ClickableAccountMenuTemplate { get; set; } = null!;
     public DataTemplate MergedAccountTemplate { get; set; } = null!;
     public DataTemplate MergedAccountFolderTemplate { get; set; } = null!;
@@ -21,6 +20,7 @@ public partial class NavigationMenuTemplateSelector : DataTemplateSelector
     public DataTemplate CreateNewFolderTemplate { get; set; } = null!;
     public DataTemplate SeperatorTemplate { get; set; } = null!;
     public DataTemplate NewMailTemplate { get; set; } = null!;
+    public DataTemplate NewContactTemplate { get; set; } = null!;
     public DataTemplate CalendarNewEventTemplate { get; set; } = null!;
     public DataTemplate CategoryItemsTemplate { get; set; } = null!;
     public DataTemplate FixAuthenticationIssueTemplate { get; set; } = null!;
@@ -30,6 +30,8 @@ public partial class NavigationMenuTemplateSelector : DataTemplateSelector
     {
         if (item is NewCalendarEventMenuItem)
             return CalendarNewEventTemplate;
+        else if (item is NewContactMenuItem)
+            return NewContactTemplate;
         else if (item is NewMailMenuItem)
             return NewMailTemplate;
         else if (item is ContactsMenuItem)
@@ -43,8 +45,6 @@ public partial class NavigationMenuTemplateSelector : DataTemplateSelector
         else if (item is AccountMenuItem)
             // Merged inbox account menu items must be nested.
             return ClickableAccountMenuTemplate;
-        else if (item is ManageAccountsMenuItem)
-            return AccountManagementTemplate;
         else if (item is RateMenuItem)
             return RatingItemTemplate;
         else if (item is MergedAccountMenuItem)

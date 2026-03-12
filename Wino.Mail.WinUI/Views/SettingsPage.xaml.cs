@@ -8,6 +8,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
+using Wino.Messaging.UI;
 using Wino.Views.Abstract;
 using Wino.Views.Settings;
 
@@ -15,7 +16,9 @@ namespace Wino.Views;
 
 public sealed partial class SettingsPage : SettingsPageAbstract, 
     IRecipient<BreadcrumbNavigationRequested>,
-    IRecipient<BackBreadcrumNavigationRequested>
+    IRecipient<BackBreadcrumNavigationRequested>,
+    IRecipient<MergedInboxRenamed>,
+    IRecipient<AccountUpdatedMessage>
 {
     public ObservableCollection<BreadcrumbNavigationItemViewModel> PageHistory { get; set; } = [];
 
@@ -45,20 +48,20 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
             switch (parameterPage)
             {
                 case WinoPage.AppPreferencesPage:
-                    WeakReferenceMessenger.Default.Send(new BreadcrumbNavigationRequested(Translator.SettingsAppPreferences_Title, WinoPage.AppPreferencesPage));
+                    NavigateBreadcrumb(new BreadcrumbNavigationRequested(Translator.SettingsAppPreferences_Title, WinoPage.AppPreferencesPage));
                     break;
                 case WinoPage.PersonalizationPage:
-                    WeakReferenceMessenger.Default.Send(new BreadcrumbNavigationRequested(Translator.SettingsPersonalization_Title, WinoPage.PersonalizationPage));
+                    NavigateBreadcrumb(new BreadcrumbNavigationRequested(Translator.SettingsPersonalization_Title, WinoPage.PersonalizationPage));
                     break;
                 case WinoPage.StoragePage:
-                    WeakReferenceMessenger.Default.Send(new BreadcrumbNavigationRequested(Translator.SettingsStorage_Title, WinoPage.StoragePage));
+                    NavigateBreadcrumb(new BreadcrumbNavigationRequested(Translator.SettingsStorage_Title, WinoPage.StoragePage));
                     break;
                 case WinoPage.EmailTemplatesPage:
-                    WeakReferenceMessenger.Default.Send(new BreadcrumbNavigationRequested(Translator.SettingsEmailTemplates_Title, WinoPage.EmailTemplatesPage));
+                    NavigateBreadcrumb(new BreadcrumbNavigationRequested(Translator.SettingsEmailTemplates_Title, WinoPage.EmailTemplatesPage));
                     break;
                 case WinoPage.ManageAccountsPage:
                 case WinoPage.AccountManagementPage:
-                    WeakReferenceMessenger.Default.Send(new BreadcrumbNavigationRequested(Translator.SettingsManageAccountSettings_Title, WinoPage.ManageAccountsPage));
+                    NavigateBreadcrumb(new BreadcrumbNavigationRequested(Translator.SettingsManageAccountSettings_Title, WinoPage.ManageAccountsPage));
                     break;
             }
         }
@@ -77,6 +80,14 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         if (settingsHeader == null) return;
 
         settingsHeader.Title = Translator.MenuSettings;
+        var manageAccountsEntry = PageHistory.FirstOrDefault(a =>
+            a.Request.PageType == WinoPage.ManageAccountsPage || a.Request.PageType == WinoPage.AccountManagementPage);
+
+        if (manageAccountsEntry != null)
+        {
+            manageAccountsEntry.Title = Translator.SettingsManageAccountSettings_Title;
+        }
+
         UpdateWindowTitle();
     }
 
@@ -97,6 +108,8 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
         WeakReferenceMessenger.Default.Register<BreadcrumbNavigationRequested>(this);
         WeakReferenceMessenger.Default.Register<BackBreadcrumNavigationRequested>(this);
+        WeakReferenceMessenger.Default.Register<MergedInboxRenamed>(this);
+        WeakReferenceMessenger.Default.Register<AccountUpdatedMessage>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -105,12 +118,13 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
         WeakReferenceMessenger.Default.Unregister<BreadcrumbNavigationRequested>(this);
         WeakReferenceMessenger.Default.Unregister<BackBreadcrumNavigationRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<MergedInboxRenamed>(this);
+        WeakReferenceMessenger.Default.Unregister<AccountUpdatedMessage>(this);
     }
 
     void IRecipient<BreadcrumbNavigationRequested>.Receive(BreadcrumbNavigationRequested message)
     {
-        BreadcrumbNavigationHelper.Navigate(SettingsFrame, PageHistory, message, ViewModel.NavigationService.GetPageType);
-        UpdateWindowTitle();
+        NavigateBreadcrumb(message);
     }
 
     private void SettingsFrameNavigated(object sender, NavigationEventArgs e)
@@ -140,6 +154,42 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
     public void Receive(BackBreadcrumNavigationRequested message)
     {
         GoBackFrame(message.SlideEffect);
+    }
+
+    public void Receive(AccountUpdatedMessage message)
+    {
+        var activePage = PageHistory.LastOrDefault(a => a.Request.PageType == WinoPage.AccountDetailsPage);
+
+        if (activePage == null)
+            return;
+
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            activePage.Title = message.Account.Name;
+            UpdateWindowTitle();
+        });
+    }
+
+    public void Receive(MergedInboxRenamed message)
+    {
+        var activePage = PageHistory.LastOrDefault(a => a.Request.PageType == WinoPage.MergedAccountDetailsPage);
+
+        if (activePage == null)
+            return;
+
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            activePage.Title = message.NewName;
+            UpdateWindowTitle();
+        });
+    }
+
+    private void NavigateBreadcrumb(BreadcrumbNavigationRequested message)
+    {
+        if (!BreadcrumbNavigationHelper.Navigate(SettingsFrame, PageHistory, message, ViewModel.NavigationService.GetPageType))
+            return;
+
+        UpdateWindowTitle();
     }
 
     private void UpdateWindowTitle()

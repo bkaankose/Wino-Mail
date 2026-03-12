@@ -157,7 +157,6 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private void ResetShellModeNavigationState()
     {
-        ViewModel.StatePersistenceService.IsManageAccountsNavigating = false;
         ViewModel.StatePersistenceService.IsSettingsNavigating = false;
         InnerShellFrame.BackStack.Clear();
         InnerShellFrame.ForwardStack.Clear();
@@ -187,7 +186,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
         if (ViewModel.IsCalendarMode)
         {
-            ViewModel.StatePersistenceService.CoreWindowTitle = ViewModel.StatePersistenceService.AppModeTitle;
+            ViewModel.StatePersistenceService.CoreWindowTitle = string.Empty;
             return;
         }
 
@@ -490,16 +489,29 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private void UpdateNavigationPaneLayout(NavigationViewDisplayMode displayMode)
     {
-        if (ViewModel.IsCalendarMode)
+        if (displayMode == NavigationViewDisplayMode.Expanded && navigationView.IsPaneOpen)
         {
-            PaneCustomContent.Visibility = displayMode == NavigationViewDisplayMode.Expanded && navigationView.IsPaneOpen
-                ? Visibility.Visible
-                : Visibility.Collapsed;
+            if (ViewModel.IsCalendarMode)
+            {
+                PaneCustomContent.Visibility = Visibility.Visible;
+                CalendarPaneContent.Visibility = Visibility.Visible;
+                ContactsPaneContent.Visibility = Visibility.Collapsed;
+                InnerShellFrame.Margin = new Thickness(0);
+                return;
+            }
 
-            InnerShellFrame.Margin = new Thickness(0);
-            return;
+            if (ViewModel.IsContactsMode)
+            {
+                PaneCustomContent.Visibility = Visibility.Visible;
+                CalendarPaneContent.Visibility = Visibility.Collapsed;
+                ContactsPaneContent.Visibility = Visibility.Visible;
+                InnerShellFrame.Margin = new Thickness(0);
+                return;
+            }
         }
 
+        CalendarPaneContent.Visibility = Visibility.Collapsed;
+        ContactsPaneContent.Visibility = Visibility.Collapsed;
         PaneCustomContent.Visibility = Visibility.Collapsed;
         InnerShellFrame.Margin = displayMode == NavigationViewDisplayMode.Minimal
             ? new Thickness(7, 0, 0, 0)

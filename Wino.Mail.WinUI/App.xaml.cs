@@ -561,7 +561,7 @@ public partial class App : WinoApplication,
     public Task OpenManageAccountsFromWelcomeAsync()
     {
         Services.GetRequiredService<INavigationService>()
-            .Navigate(WinoPage.ManageAccountsPage, null, NavigationReferenceFrame.ShellFrame, NavigationTransitionType.DrillIn);
+            .Navigate(WinoPage.SettingsPage, WinoPage.ManageAccountsPage, NavigationReferenceFrame.ShellFrame, NavigationTransitionType.DrillIn);
         return Task.CompletedTask;
     }
 

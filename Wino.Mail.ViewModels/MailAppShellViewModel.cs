@@ -54,7 +54,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     public MenuItemCollection MenuItems { get; set; }
 
     private readonly SettingsItem SettingsItem = new SettingsItem();
-    private readonly ManageAccountsMenuItem ManageAccountsMenuItem = new ManageAccountsMenuItem();
     private readonly ContactsMenuItem ContactsMenuItem = new ContactsMenuItem();
     private readonly StoreUpdateMenuItem StoreUpdateMenuItem = new StoreUpdateMenuItem();
 
@@ -820,7 +819,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
                 if (isManageAccountClicked)
                 {
-                    SelectedMenuItem = ManageAccountsMenuItem;
+                    NavigationService.Navigate(WinoPage.SettingsPage, WinoPage.ManageAccountsPage);
                 }
 
                 return;
