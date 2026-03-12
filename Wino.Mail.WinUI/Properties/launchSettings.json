@@ -3,7 +3,7 @@
     "Wino.Mail.WinUI (Package)": {
       "commandName": "MsixPackage",
       "doNotLaunchApp": false,
-      "nativeDebugging": true
+      "nativeDebugging": false
     },
     "Wino.Mail.WinUI (Unpackaged)": {
       "commandName": "Project"
