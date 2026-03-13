@@ -19,6 +19,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
@@ -35,6 +36,7 @@ using Wino.Messaging.Client.Shell;
 using Wino.Views.Mail;
 using Wino.Views;
 using Wino.Views.Settings;
+using Windows.System;
 
 namespace Wino.Mail.WinUI.Views;
 
@@ -258,9 +260,27 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         }
     }
 
+    private async void NewCalendarEventNavigationItemTapped(object sender, TappedRoutedEventArgs e)
+    {
+        e.Handled = true;
+        await InvokeNewCalendarEventAsync();
+    }
+
+    private async void NewCalendarEventNavigationItemKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key is not (VirtualKey.Enter or VirtualKey.Space))
+            return;
+
+        e.Handled = true;
+        await InvokeNewCalendarEventAsync();
+    }
+
     private void PreviousDateClicked(object sender, RoutedEventArgs e) => WeakReferenceMessenger.Default.Send(new GoPreviousDateRequestedMessage());
 
     private void NextDateClicked(object sender, RoutedEventArgs e) => WeakReferenceMessenger.Default.Send(new GoNextDateRequestedMessage());
+
+    private Task InvokeNewCalendarEventAsync()
+        => ViewModel.CalendarClient.HandleNavigationItemInvokedAsync(new NewCalendarEventMenuItem());
 
     public void Receive(CalendarDisplayTypeChangedMessage message) => ManageCalendarDisplayType(message.NewDisplayType);
 

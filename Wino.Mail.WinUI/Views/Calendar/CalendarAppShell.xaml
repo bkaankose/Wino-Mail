@@ -22,23 +22,6 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-        <DataTemplate x:Key="CalendarNewEventTemplate" x:DataType="menu:NewCalendarEventMenuItem">
-            <coreControls:WinoNavigationViewItem
-                Height="50"
-                DataContext="{x:Bind}"
-                SelectsOnInvoked="False">
-                <muxc:NavigationViewItem.Icon>
-                    <coreControls:WinoFontIcon Icon="NewMail" />
-                </muxc:NavigationViewItem.Icon>
-                <TextBlock
-                    Margin="0,-2,0,0"
-                    VerticalAlignment="Center"
-                    FontSize="16"
-                    Style="{StaticResource FlyoutPickerTitleTextBlockStyle}"
-                    Text="{x:Bind domain:Translator.CalendarEventCompose_NewEventButton}" />
-            </coreControls:WinoNavigationViewItem>
-        </DataTemplate>
-
         <DataTemplate x:Key="CalendarSettingsItemTemplate" x:DataType="menu:SettingsItem">
             <coreControls:WinoNavigationViewItem DataContext="{x:Bind}" SelectsOnInvoked="False">
                 <coreControls:WinoNavigationViewItem.Icon>
@@ -66,8 +49,6 @@
 
         <coreSelectors:NavigationMenuTemplateSelector
             x:Key="NavigationMenuTemplateSelector"
-            CalendarNewEventTemplate="{StaticResource CalendarNewEventTemplate}"
-            NewMailTemplate="{StaticResource CalendarNewEventTemplate}"
             RatingItemTemplate="{StaticResource RatingItemTemplate}"
             SeperatorTemplate="{StaticResource SeperatorTemplate}" />
 
@@ -204,13 +185,34 @@
                 <Grid x:Name="PaneCustomContent" Padding="0,0,0,6">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
+                    <coreControls:WinoNavigationViewItem
+                        x:Name="NewCalendarEventNavigationItem"
+                        Grid.Row="0"
+                        Height="50"
+                        Margin="0,0,0,12"
+                        AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_NewEventButton, Mode=OneTime}"
+                        IsTabStop="True"
+                        KeyDown="NewCalendarEventNavigationItemKeyDown"
+                        SelectsOnInvoked="False"
+                        Tapped="NewCalendarEventNavigationItemTapped">
+                        <muxc:NavigationViewItem.Icon>
+                            <coreControls:WinoFontIcon Icon="NewMail" />
+                        </muxc:NavigationViewItem.Icon>
+                        <TextBlock
+                            Margin="0,-2,0,0"
+                            VerticalAlignment="Center"
+                            FontSize="16"
+                            Style="{StaticResource FlyoutPickerTitleTextBlockStyle}"
+                            Text="{x:Bind domain:Translator.CalendarEventCompose_NewEventButton, Mode=OneTime}" />
+                    </coreControls:WinoNavigationViewItem>
+
                     <calendarControls:WinoCalendarView
                         x:Name="CalendarView"
-                        Grid.Row="0"
-                        Margin="0,12,0,0"
+                        Grid.Row="1"
                         HorizontalAlignment="Center"
                         DateClickedCommand="{x:Bind ViewModel.DateClickedCommand}"
                         HighlightedDateRange="{x:Bind ViewModel.HighlightedDateRange, Mode=OneWay}"
@@ -219,7 +221,7 @@
                     <!--  Account Calendars Host  -->
                     <ListView
                         x:Name="CalendarHostListView"
-                        Grid.Row="1"
+                        Grid.Row="2"
                         ItemsSource="{x:Bind ViewModel.AccountCalendarStateService.GroupedAccountCalendars}"
                         SelectionMode="None">
                         <ListView.Header>

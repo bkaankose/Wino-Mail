@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
@@ -8,9 +9,11 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models;
 using Wino.Mail.Views.Abstract;
 using Wino.Messaging.Client.Calendar;
+using Windows.System;
 
 namespace Wino.Mail.WinUI.Views.Calendar;
 
@@ -50,6 +53,21 @@ public sealed partial class CalendarAppShell : CalendarAppShellAbstract,
 
     private void NextDateClicked(object sender, RoutedEventArgs e) => WeakReferenceMessenger.Default.Send(new GoNextDateRequestedMessage());
 
+    private async void NewCalendarEventNavigationItemTapped(object sender, TappedRoutedEventArgs e)
+    {
+        e.Handled = true;
+        await InvokeNewCalendarEventAsync();
+    }
+
+    private async void NewCalendarEventNavigationItemKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key is not (VirtualKey.Enter or VirtualKey.Space))
+            return;
+
+        e.Handled = true;
+        await InvokeNewCalendarEventAsync();
+    }
+
     private async void NavigationViewItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
     {
         if (args.InvokedItemContainer is FrameworkElement { DataContext: IMenuItem menuItem })
@@ -60,6 +78,9 @@ public sealed partial class CalendarAppShell : CalendarAppShellAbstract,
 
     private void NavigationViewDisplayModeChanged(NavigationView sender, NavigationViewDisplayModeChangedEventArgs args)
         => UpdateNavigationPaneLayout(args.DisplayMode);
+
+    private Task InvokeNewCalendarEventAsync()
+        => ViewModel.HandleNavigationItemInvokedAsync(new NewCalendarEventMenuItem());
 
     private void UpdateNavigationPaneLayout(NavigationViewDisplayMode displayMode)
     {

@@ -87,7 +87,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
     private readonly SettingsItem _settingsItem = new();
     private readonly StoreUpdateMenuItem _storeUpdateMenuItem = new();
-    private readonly NewCalendarEventMenuItem _newEventMenuItem = new();
 
     // For updating account calendars asynchronously.
     private SemaphoreSlim _accountCalendarUpdateSemaphoreSlim = new(1);
@@ -126,7 +125,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         AccountCalendarStateService.Dispatcher = Dispatcher;
         MenuItems = new MenuItemCollection(Dispatcher);
         FooterItems = new MenuItemCollection(Dispatcher);
-        MenuItems.Add(_newEventMenuItem);
         _ = RefreshFooterItemsAsync(false);
     }
 

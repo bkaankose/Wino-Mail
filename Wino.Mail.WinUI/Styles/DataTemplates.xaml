@@ -55,9 +55,7 @@
     </DataTemplate>
 
     <DataTemplate x:Key="SettingsShellPageItemTemplate" x:DataType="menu:SettingsShellPageMenuItem">
-        <coreControls:WinoNavigationViewItem
-            Content="{x:Bind Title}"
-            DataContext="{x:Bind}">
+        <coreControls:WinoNavigationViewItem Content="{x:Bind Title}" DataContext="{x:Bind}">
             <muxc:NavigationViewItem.Icon>
                 <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="{x:Bind Glyph}" />
             </muxc:NavigationViewItem.Icon>

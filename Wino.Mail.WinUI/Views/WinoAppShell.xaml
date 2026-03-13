@@ -377,23 +377,6 @@
             </coreControls:WinoNavigationViewItem>
         </DataTemplate>
 
-        <DataTemplate x:Key="CalendarNewEventTemplate" x:DataType="menu:NewCalendarEventMenuItem">
-            <coreControls:WinoNavigationViewItem
-                Height="50"
-                DataContext="{x:Bind}"
-                SelectsOnInvoked="False">
-                <muxc:NavigationViewItem.Icon>
-                    <coreControls:WinoFontIcon Icon="NewMail" />
-                </muxc:NavigationViewItem.Icon>
-                <TextBlock
-                    Margin="0,-2,0,0"
-                    VerticalAlignment="Center"
-                    FontSize="16"
-                    Style="{StaticResource FlyoutPickerTitleTextBlockStyle}"
-                    Text="{x:Bind domain:Translator.CalendarEventCompose_NewEventButton}" />
-            </coreControls:WinoNavigationViewItem>
-        </DataTemplate>
-
         <DataTemplate x:Key="NewContactTemplate" x:DataType="menu:NewContactMenuItem">
             <coreControls:WinoNavigationViewItem
                 Height="50"
@@ -413,7 +396,6 @@
 
         <coreSelectors:NavigationMenuTemplateSelector
             x:Key="NavigationMenuTemplateSelector"
-            CalendarNewEventTemplate="{StaticResource CalendarNewEventTemplate}"
             ClickableAccountMenuTemplate="{StaticResource ClickableAccountMenuTemplate}"
             FixAuthenticationIssueTemplate="{StaticResource FixAuthenticationIssueTemplate}"
             FixMissingFolderConfigTemplate="{StaticResource FixMissingFolderConfig}"
@@ -556,24 +538,43 @@
                     x:Name="PaneCustomContent"
                     Padding="0,0,0,6"
                     Visibility="Collapsed">
-                    <Grid
-                        x:Name="CalendarPaneContent"
-                        Visibility="Collapsed">
+                    <Grid x:Name="CalendarPaneContent" Visibility="Collapsed">
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
+                        <coreControls:WinoNavigationViewItem
+                            x:Name="NewCalendarEventNavigationItem"
+                            Grid.Row="0"
+                            Height="50"
+                            Margin="0,0,0,12"
+                            AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_NewEventButton, Mode=OneTime}"
+                            IsTabStop="True"
+                            KeyDown="NewCalendarEventNavigationItemKeyDown"
+                            SelectsOnInvoked="False"
+                            Tapped="NewCalendarEventNavigationItemTapped">
+                            <muxc:NavigationViewItem.Icon>
+                                <coreControls:WinoFontIcon Icon="NewMail" />
+                            </muxc:NavigationViewItem.Icon>
+                            <TextBlock
+                                Margin="0,-2,0,0"
+                                VerticalAlignment="Center"
+                                FontSize="16"
+                                Style="{StaticResource FlyoutPickerTitleTextBlockStyle}"
+                                Text="{x:Bind domain:Translator.CalendarEventCompose_NewEventButton, Mode=OneTime}" />
+                        </coreControls:WinoNavigationViewItem>
+
                         <calendarControls:WinoCalendarView
                             x:Name="CalendarView"
-                            Grid.Row="0"
-                            Margin="0,12,0,0"
+                            Grid.Row="1"
                             HorizontalAlignment="Center"
                             TodayBackgroundColor="{ThemeResource SystemAccentColor}" />
 
                         <ListView
                             x:Name="CalendarHostListView"
-                            Grid.Row="1"
+                            Grid.Row="2"
                             SelectionMode="None">
                             <ListView.Header>
                                 <TextBlock
@@ -651,8 +652,8 @@
                     <StackPanel
                         x:Name="ContactsPaneContent"
                         Margin="20,20,16,0"
-                        Visibility="Collapsed"
-                        Spacing="6">
+                        Spacing="6"
+                        Visibility="Collapsed">
                         <TextBlock
                             FontSize="16"
                             FontWeight="SemiBold"

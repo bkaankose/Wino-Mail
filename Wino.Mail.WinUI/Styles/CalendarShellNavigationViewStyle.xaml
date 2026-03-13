@@ -347,14 +347,18 @@
                                                 </Button.Resources>
                                             </Button>
                                         </Grid>
-
+                                        <ContentControl
+                                            x:Name="PaneCustomContentBorder"
+                                            Grid.Row="4"
+                                            HorizontalContentAlignment="Stretch"
+                                            VerticalContentAlignment="Stretch"
+                                            IsTabStop="False" />
                                         <!--  "Non header" content  -->
                                         <Grid x:Name="ItemsContainerGrid" Grid.Row="6">
                                             <Grid.RowDefinitions>
-                                                <!--  Custom pane custom content  -->
-                                                <RowDefinition Height="Auto" />
-                                                <!--  MenuItems  -->
                                                 <RowDefinition Height="*" />
+                                                <!--  MenuItems  -->
+                                                <RowDefinition Height="Auto" />
                                                 <!--  Separator if overflow  -->
                                                 <RowDefinition Height="Auto" />
                                                 <!--  PaneFooter  -->
@@ -365,7 +369,6 @@
                                             <controls:ItemsRepeaterScrollHost HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                                                 <ScrollViewer
                                                     x:Name="MenuItemsScrollViewer"
-                                                    VerticalAlignment="Top"
                                                     TabNavigation="Local"
                                                     VerticalScrollBarVisibility="Auto">
                                                     <!--  Left nav ItemsRepeater  -->
@@ -386,12 +389,6 @@
                                                 HorizontalAlignment="Stretch"
                                                 VerticalAlignment="Center"
                                                 Visibility="Collapsed" />
-                                            <ContentControl
-                                                x:Name="PaneCustomContentBorder"
-                                                Grid.Row="1"
-                                                HorizontalContentAlignment="Stretch"
-                                                VerticalContentAlignment="Stretch"
-                                                IsTabStop="False" />
                                             <!--  PaneFooter  -->
                                             <ContentControl
                                                 x:Name="FooterContentBorder"
@@ -400,6 +397,7 @@
                                                 HorizontalContentAlignment="Stretch"
                                                 VerticalContentAlignment="Stretch"
                                                 IsTabStop="False" />
+
                                             <Border
                                                 x:Name="FooterAppModeSwitcherBorder"
                                                 Grid.Row="3"
@@ -409,6 +407,20 @@
                                                 CornerRadius="{ThemeResource OverlayCornerRadius}">
                                                 <winoControls:AppModeFooterSwitcherControl x:Name="FooterAppModeSwitcher" />
                                             </Border>
+
+                                            <!--  FooterItems - Disabled  -->
+                                            <controls:ItemsRepeaterScrollHost Grid.Row="3" Visibility="Collapsed">
+                                                <ScrollViewer
+                                                    x:Name="FooterItemsScrollViewer"
+                                                    VerticalAnchorRatio="1"
+                                                    VerticalScrollBarVisibility="Auto">
+                                                    <controls:ItemsRepeater x:Name="FooterMenuItemsHost" AutomationProperties.AccessibilityView="Content">
+                                                        <controls:ItemsRepeater.Layout>
+                                                            <controls:StackLayout />
+                                                        </controls:ItemsRepeater.Layout>
+                                                    </controls:ItemsRepeater>
+                                                </ScrollViewer>
+                                            </controls:ItemsRepeaterScrollHost>
                                         </Grid>
                                     </Grid>
                                 </SplitView.Pane>
