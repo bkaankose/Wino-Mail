@@ -213,14 +213,37 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         }
     }
 
-    private IMailListItem FindThreadableItem(string threadId)
+    private IMailListItem FindThreadableItem(string threadId, Guid? excludedUniqueId = null, IMailListItem excludedItem = null)
     {
         if (string.IsNullOrEmpty(threadId) || !_threadIdToItemsMap.TryGetValue(threadId, out var items))
         {
             return null;
         }
 
-        return items.FirstOrDefault();
+        foreach (var item in items)
+        {
+            if (ReferenceEquals(item, excludedItem))
+            {
+                continue;
+            }
+
+            if (excludedUniqueId.HasValue)
+            {
+                if (item is MailItemViewModel mailItem && mailItem.MailCopy.UniqueId == excludedUniqueId.Value)
+                {
+                    continue;
+                }
+
+                if (item is ThreadMailItemViewModel threadItem && threadItem.HasUniqueId(excludedUniqueId.Value))
+                {
+                    continue;
+                }
+            }
+
+            return item;
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -380,7 +403,8 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     {
         if (item.MailCopy.UniqueId == addedItem.UniqueId)
         {
-            await UpdateExistingItemAsync(item, addedItem);
+            var existingItemContainer = GetMailItemContainer(addedItem.UniqueId);
+            await UpdateExistingItemAsync(existingItemContainer, addedItem);
         }
         else
         {
@@ -419,7 +443,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
             var existingItemContainer = GetMailItemContainer(addedItem.UniqueId);
             if (existingItemContainer?.ItemViewModel != null)
             {
-                await UpdateExistingItemAsync(existingItemContainer.ItemViewModel, addedItem);
+                await UpdateExistingItemAsync(existingItemContainer, addedItem);
                 return;
             }
         }
@@ -478,16 +502,83 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         await InsertItemInternalAsync(groupKey, newMailItem);
     }
 
-    private async Task UpdateExistingItemAsync(MailItemViewModel existingItem, MailCopy updatedItem)
+    private async Task ReinsertUpdatedItemAsync(MailCopy updatedItem, bool isSelected, bool isBusy)
     {
-        UpdateUniqueIdHashes(existingItem, false);
+        await RemoveAsync(updatedItem);
+        await AddAsync(updatedItem);
+
+        var updatedContainer = GetMailItemContainer(updatedItem.UniqueId);
+        if (updatedContainer?.ItemViewModel == null)
+        {
+            return;
+        }
 
         await ExecuteUIThread(() =>
         {
-            existingItem.UpdateFrom(updatedItem);
+            updatedContainer.ItemViewModel.IsSelected = isSelected;
+            updatedContainer.ItemViewModel.IsBusy = isBusy;
+        });
+    }
+
+    private async Task UpdateExistingItemAsync(MailItemContainer itemContainer,
+                                               MailCopy updatedItem,
+                                               MailUpdateSource mailUpdateSource = MailUpdateSource.Server,
+                                               MailCopyChangeFlags changeHint = MailCopyChangeFlags.None)
+    {
+        if (itemContainer?.ItemViewModel == null)
+        {
+            return;
+        }
+
+        var existingItem = itemContainer.ItemViewModel;
+        var threadOwner = itemContainer.ThreadViewModel as IMailListItem ?? existingItem;
+        var wasSelected = existingItem.IsSelected;
+        MailCopyChangeFlags appliedChanges = MailCopyChangeFlags.None;
+
+        await ExecuteUIThread(() =>
+        {
+            UpdateUniqueIdHashes(existingItem, false);
+            UpdateThreadIdCache(threadOwner, false);
+
+            itemContainer.ThreadViewModel?.SuspendChildPropertyNotifications();
+
+            try
+            {
+                appliedChanges = existingItem.UpdateFrom(updatedItem, changeHint);
+            }
+            finally
+            {
+                itemContainer.ThreadViewModel?.ResumeChildPropertyNotifications();
+            }
+
+            existingItem.IsBusy = mailUpdateSource == MailUpdateSource.ClientUpdated;
+
+            UpdateUniqueIdHashes(existingItem, true);
+            UpdateThreadIdCache(threadOwner, true);
+
+            if (itemContainer.ThreadViewModel != null)
+            {
+                _uniqueIdToThreadMap[existingItem.MailCopy.UniqueId] = itemContainer.ThreadViewModel;
+            }
+            else
+            {
+                _uniqueIdToThreadMap.TryRemove(existingItem.MailCopy.UniqueId, out _);
+            }
         });
 
-        UpdateUniqueIdHashes(existingItem, true);
+        if ((appliedChanges & MailCopyChangeFlags.ThreadId) != 0)
+        {
+            await ReinsertUpdatedItemAsync(updatedItem, wasSelected, existingItem.IsBusy);
+            return;
+        }
+
+        if (itemContainer.ThreadViewModel != null && appliedChanges != MailCopyChangeFlags.None)
+        {
+            await ExecuteUIThread(() =>
+            {
+                itemContainer.ThreadViewModel.NotifyMailItemUpdated(existingItem, appliedChanges);
+            });
+        }
     }
 
     /// <summary>
@@ -755,45 +846,14 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     /// <returns></returns>
     public Task UpdateMailCopy(MailCopy updatedMailCopy, MailUpdateSource mailUpdateSource, MailCopyChangeFlags changedProperties = MailCopyChangeFlags.None)
     {
-        return ExecuteUIThread(() =>
+        var itemContainer = GetMailItemContainer(updatedMailCopy.UniqueId);
+
+        if (itemContainer?.ItemViewModel == null)
         {
-            var itemContainer = GetMailItemContainer(updatedMailCopy.UniqueId);
+            return Task.CompletedTask;
+        }
 
-            if (itemContainer == null) return;
-            MailCopyChangeFlags appliedChanges = MailCopyChangeFlags.None;
-
-            if (itemContainer.ItemViewModel != null)
-            {
-                UpdateUniqueIdHashes(itemContainer.ItemViewModel, false);
-
-                itemContainer.ThreadViewModel?.SuspendChildPropertyNotifications();
-
-                try
-                {
-                    appliedChanges = itemContainer.ItemViewModel.UpdateFrom(updatedMailCopy, changedProperties);
-                }
-                finally
-                {
-                    itemContainer.ThreadViewModel?.ResumeChildPropertyNotifications();
-                }
-
-                // Mark the item view model as busy until the network operation is completed.
-                itemContainer.ItemViewModel.IsBusy = mailUpdateSource == MailUpdateSource.ClientUpdated;
-
-                UpdateUniqueIdHashes(itemContainer.ItemViewModel, true);
-
-                // Keep thread membership cache in sync for items rendered inside thread containers.
-                if (itemContainer.ThreadViewModel != null)
-                {
-                    _uniqueIdToThreadMap[itemContainer.ItemViewModel.MailCopy.UniqueId] = itemContainer.ThreadViewModel;
-                }
-            }
-
-            if (itemContainer.ThreadViewModel != null && appliedChanges != MailCopyChangeFlags.None)
-            {
-                itemContainer.ThreadViewModel.NotifyMailItemUpdated(itemContainer.ItemViewModel, appliedChanges);
-            }
-        });
+        return UpdateExistingItemAsync(itemContainer, updatedMailCopy, mailUpdateSource, changedProperties);
     }
 
     public MailItemViewModel GetFirst() => AllItems.ElementAtOrDefault(0);

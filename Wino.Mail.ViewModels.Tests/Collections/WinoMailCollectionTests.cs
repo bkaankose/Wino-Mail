@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
@@ -112,6 +113,48 @@ public class WinoMailCollectionTests
         threadItems.Should().Contain(item => item.ThreadId == "thread-c" && item.EmailCount == 2);
     }
 
+    [Fact]
+    public async Task UpdateMailCopy_ShouldMergeExistingSingles_WhenThreadIdChangesToMatch()
+    {
+        var sut = CreateCollection();
+        var first = CreateMailCopy(threadId: "shared-thread", creationDate: DateTime.UtcNow.AddMinutes(-1));
+        var second = CreateMailCopy(threadId: string.Empty, creationDate: DateTime.UtcNow);
+
+        await sut.AddAsync(first);
+        await sut.AddAsync(second);
+
+        var updatedSecond = CloneMailCopy(second);
+        updatedSecond.ThreadId = "shared-thread";
+
+        await sut.UpdateMailCopy(updatedSecond, MailUpdateSource.Server, MailCopyChangeFlags.ThreadId);
+
+        var items = FlattenItems(sut);
+        var threadItem = items.Should().ContainSingle().Which.Should().BeOfType<ThreadMailItemViewModel>().Subject;
+        threadItem.EmailCount.Should().Be(2);
+        threadItem.GetContainingIds().Should().BeEquivalentTo([first.UniqueId, second.UniqueId]);
+    }
+
+    [Fact]
+    public async Task AddAsync_ShouldThreadWithUpdatedItem_WhenThreadIdWasSetByPriorUpdate()
+    {
+        var sut = CreateCollection();
+        var existing = CreateMailCopy(threadId: string.Empty, creationDate: DateTime.UtcNow.AddMinutes(-1));
+        var incoming = CreateMailCopy(threadId: "shared-thread", creationDate: DateTime.UtcNow);
+
+        await sut.AddAsync(existing);
+
+        var updatedExisting = CloneMailCopy(existing);
+        updatedExisting.ThreadId = "shared-thread";
+
+        await sut.UpdateMailCopy(updatedExisting, MailUpdateSource.Server, MailCopyChangeFlags.ThreadId);
+        await sut.AddAsync(incoming);
+
+        var items = FlattenItems(sut);
+        var threadItem = items.Should().ContainSingle().Which.Should().BeOfType<ThreadMailItemViewModel>().Subject;
+        threadItem.EmailCount.Should().Be(2);
+        threadItem.GetContainingIds().Should().BeEquivalentTo([existing.UniqueId, incoming.UniqueId]);
+    }
+
     private static WinoMailCollection CreateCollection() => new()
     {
         CoreDispatcher = new ImmediateDispatcher()
@@ -144,6 +187,35 @@ public class WinoMailCollectionTests
             PreviewText = "Preview",
             FileId = Guid.NewGuid(),
             FolderId = Guid.NewGuid()
+        };
+
+    private static MailCopy CloneMailCopy(MailCopy source)
+        => new()
+        {
+            UniqueId = source.UniqueId,
+            Id = source.Id,
+            FolderId = source.FolderId,
+            ThreadId = source.ThreadId,
+            MessageId = source.MessageId,
+            References = source.References,
+            InReplyTo = source.InReplyTo,
+            FromName = source.FromName,
+            FromAddress = source.FromAddress,
+            Subject = source.Subject,
+            PreviewText = source.PreviewText,
+            CreationDate = source.CreationDate,
+            Importance = source.Importance,
+            IsRead = source.IsRead,
+            IsFlagged = source.IsFlagged,
+            IsFocused = source.IsFocused,
+            HasAttachments = source.HasAttachments,
+            ItemType = source.ItemType,
+            DraftId = source.DraftId,
+            IsDraft = source.IsDraft,
+            FileId = source.FileId,
+            SenderContact = source.SenderContact,
+            AssignedAccount = source.AssignedAccount,
+            AssignedFolder = source.AssignedFolder
         };
 
     private sealed class ImmediateDispatcher : IDispatcher

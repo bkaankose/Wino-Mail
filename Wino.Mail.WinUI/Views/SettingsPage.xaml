@@ -16,7 +16,7 @@
             MaxWidth="900"
             Padding="20"
             HorizontalAlignment="Stretch"
-            RowSpacing="20">
+            RowSpacing="4">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />

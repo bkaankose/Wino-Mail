@@ -74,4 +74,5 @@ public interface IStatePersistanceService : INotifyPropertyChanged
     /// Setting: Calendar display count for the day view.
     /// </summary>
     int DayDisplayCount { get; set; }
+
 }

@@ -1,7 +1,10 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using CommunityToolkit.WinUI.Controls;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Settings;
+using Wino.Core.ViewModels.Data;
+using Wino.Mail.ViewModels.Data;
 using Wino.Views.Abstract;
 
 namespace Wino.Views.Settings;
@@ -17,7 +20,7 @@ public sealed partial class SettingOptionsPage : SettingOptionsPageAbstract
     {
         WinoPage? page = sender switch
         {
-            Button button when button.Tag is WinoPage p => p,
+            FrameworkElement element when element.Tag is WinoPage p => p,
             _ => null
         };
 
@@ -25,6 +28,27 @@ public sealed partial class SettingOptionsPage : SettingOptionsPageAbstract
         {
             ViewModel.NavigateSubDetailCommand.Execute(page.Value);
         }
+    }
+
+    private void AccountSettingClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is SettingsCard settingsCard && settingsCard.CommandParameter is AccountProviderDetailViewModel account)
+        {
+            ViewModel.NavigateToAccount(account);
+        }
+    }
+
+    private void MergedAccountSettingClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is SettingsCard settingsCard && settingsCard.CommandParameter is MergedAccountProviderDetailViewModel account)
+        {
+            ViewModel.NavigateToAccount(account);
+        }
+    }
+
+    private void AddAccountSettingClicked(object sender, RoutedEventArgs e)
+    {
+        ViewModel.NavigateToAddAccount();
     }
 
     private void SettingsSearchTextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
