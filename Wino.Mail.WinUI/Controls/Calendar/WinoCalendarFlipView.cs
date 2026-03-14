@@ -51,6 +51,8 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView, IDisposable
 
     private INotifyCollectionChanged? _trackedItemsSource;
     private readonly long _itemsSourceCallbackToken;
+    private FrameworkElement? _pendingActiveElementContainer;
+    private bool _isActiveElementResolutionPending;
 
     public WinoCalendarFlipView()
     {
@@ -119,6 +121,8 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView, IDisposable
 
         if (SelectedIndex < 0)
         {
+            CancelPendingActiveElementResolution();
+
             if (itemsSource == null || itemsSource.Count == 0)
             {
                 ActiveCanvas = null;
@@ -128,15 +132,93 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView, IDisposable
             return;
         }
 
-        // Get container from index - respects virtualization
-        if (ContainerFromIndex(SelectedIndex) is FlipViewItem container)
+        if (TryResolveActiveElements())
         {
-            ActiveCanvas = container.FindDescendant<WinoDayTimelineCanvas>();
-            ActiveVerticalScrollViewer = container.FindDescendant<ScrollViewer>();
+            CancelPendingActiveElementResolution();
         }
         else
         {
-            // Container not ready yet - keep the current active elements until OnContainerPrepared updates them.
+            ScheduleActiveElementResolution();
+        }
+    }
+
+    private bool TryResolveActiveElements()
+    {
+        if (SelectedIndex < 0)
+        {
+            return false;
+        }
+
+        if (ContainerFromIndex(SelectedIndex) is not FlipViewItem container)
+        {
+            return false;
+        }
+
+        var activeCanvas = container.FindDescendant<WinoDayTimelineCanvas>();
+        var activeVerticalScrollViewer = container.FindDescendant<ScrollViewer>();
+
+        if (activeCanvas == null && activeVerticalScrollViewer == null)
+        {
+            return false;
+        }
+
+        ActiveCanvas = activeCanvas;
+        ActiveVerticalScrollViewer = activeVerticalScrollViewer;
+
+        return true;
+    }
+
+    private void ScheduleActiveElementResolution()
+    {
+        if (ContainerFromIndex(SelectedIndex) is FrameworkElement container &&
+            !ReferenceEquals(_pendingActiveElementContainer, container))
+        {
+            if (_pendingActiveElementContainer != null)
+            {
+                _pendingActiveElementContainer.Loaded -= PendingActiveElementContainerLoaded;
+            }
+
+            _pendingActiveElementContainer = container;
+            _pendingActiveElementContainer.Loaded += PendingActiveElementContainerLoaded;
+        }
+
+        if (_isActiveElementResolutionPending)
+        {
+            return;
+        }
+
+        _isActiveElementResolutionPending = true;
+        LayoutUpdated += FlipViewLayoutUpdated;
+
+        DispatcherQueue.TryEnqueue(RetryActiveElementResolution);
+    }
+
+    private void RetryActiveElementResolution()
+    {
+        if (TryResolveActiveElements())
+        {
+            CancelPendingActiveElementResolution();
+        }
+    }
+
+    private void PendingActiveElementContainerLoaded(object sender, RoutedEventArgs e)
+        => RetryActiveElementResolution();
+
+    private void FlipViewLayoutUpdated(object? sender, object e)
+        => RetryActiveElementResolution();
+
+    private void CancelPendingActiveElementResolution()
+    {
+        if (_pendingActiveElementContainer != null)
+        {
+            _pendingActiveElementContainer.Loaded -= PendingActiveElementContainerLoaded;
+            _pendingActiveElementContainer = null;
+        }
+
+        if (_isActiveElementResolutionPending)
+        {
+            LayoutUpdated -= FlipViewLayoutUpdated;
+            _isActiveElementResolutionPending = false;
         }
     }
 
@@ -215,6 +297,8 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView, IDisposable
 
     public void Dispose()
     {
+        CancelPendingActiveElementResolution();
+
         if (_trackedItemsSource != null)
         {
             _trackedItemsSource.CollectionChanged -= ItemsSourceUpdated;
