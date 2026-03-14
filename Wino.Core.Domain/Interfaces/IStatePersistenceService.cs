@@ -45,9 +45,9 @@ public interface IStatePersistanceService : INotifyPropertyChanged
     bool IsEventDetailsVisible { get; set; }
 
     /// <summary>
-    /// Whether SettingsPage has navigated to a sub-page and can go back.
+    /// Whether the current application mode has an active backstack that can be navigated.
     /// </summary>
-    bool IsSettingsNavigating { get; set; }
+    bool HasCurrentModeBackStack { get; set; }
 
     /// <summary>
     /// Setting: Opened pane length for the navigation view.

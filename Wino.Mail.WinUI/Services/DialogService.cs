@@ -124,7 +124,7 @@ public class DialogService : DialogServiceBase, IMailDialogService
         return accountPicker.PickedAccount ?? null!;
     }
 
-    public async Task<AccountCalendar> ShowSingleCalendarPickerDialogAsync(List<CalendarPickerAccountGroup> availableCalendarGroups)
+    public async Task<AccountCalendarPickingResult> ShowSingleCalendarPickerDialogAsync(List<CalendarPickerAccountGroup> availableCalendarGroups)
     {
         var calendarPicker = new SingleCalendarPickerDialog(availableCalendarGroups)
         {
@@ -133,7 +133,7 @@ public class DialogService : DialogServiceBase, IMailDialogService
 
         await HandleDialogPresentationAsync(calendarPicker);
 
-        return calendarPicker.PickedCalendar ?? null!;
+        return new AccountCalendarPickingResult(calendarPicker.PickedCalendar, calendarPicker.ShouldNavigateToCalendarSettings);
     }
 
     public async Task<AccountSignature> ShowSignatureEditorDialog(AccountSignature? signatureModel = null)

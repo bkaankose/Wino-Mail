@@ -71,7 +71,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         SettingsFrame.Navigated -= SettingsFrameNavigated;
 
         // Reset navigation state when leaving SettingsPage
-        ViewModel.StatePersistenceService.IsSettingsNavigating = false;
+        ViewModel.StatePersistenceService.HasCurrentModeBackStack = false;
 
         base.OnNavigatingFrom(e);
     }
@@ -202,9 +202,23 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         UpdateWindowTitle();
     }
 
+    public void ResetForModeSwitch()
+    {
+        while (PageHistory.Count > 1 && SettingsFrame.CanGoBack)
+        {
+            if (!BreadcrumbNavigationHelper.GoBack(SettingsFrame, PageHistory, Core.Domain.Enums.NavigationTransitionEffect.FromRight))
+                break;
+        }
+
+        SettingsFrame.ForwardStack.Clear();
+        UpdateBackNavigationState();
+        _ = RefreshCurrentPageStateAsync();
+        UpdateWindowTitle();
+    }
+
     private void UpdateBackNavigationState()
     {
-        ViewModel.StatePersistenceService.IsSettingsNavigating = PageHistory.Count > 1 && SettingsFrame.CanGoBack;
+        ViewModel.StatePersistenceService.HasCurrentModeBackStack = PageHistory.Count > 1 && SettingsFrame.CanGoBack;
     }
 
     private async Task RefreshCurrentPageStateAsync()

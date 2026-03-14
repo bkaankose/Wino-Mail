@@ -722,6 +722,7 @@ public partial class App : WinoApplication,
     public void Receive(AccountCreatedMessage message)
     {
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        var navigationService = Services.GetRequiredService<INavigationService>();
 
         // Only transition when the account was created from the WelcomeWindow.
         if (windowManager.GetWindow(WinoWindowKind.Welcome) == null)
@@ -732,6 +733,7 @@ public partial class App : WinoApplication,
             // Create and activate ShellWindow — ActiveWindowChanged fires and rebinds the dispatcher.
             CreateWindow(null);
             windowManager.HideWindow(WinoWindowKind.Welcome);
+            navigationService.ChangeApplicationMode(Core.Domain.Enums.WinoApplicationMode.Mail);
             await NewThemeService.ApplyThemeToActiveWindowAsync();
             MainWindow?.Activate();
             RestartAutoSynchronizationLoop();

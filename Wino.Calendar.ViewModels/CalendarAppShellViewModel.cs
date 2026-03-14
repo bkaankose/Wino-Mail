@@ -416,7 +416,15 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
                 return;
             }
 
-            pickedCalendar = await _dialogService.ShowSingleCalendarPickerDialogAsync(availableGroups);
+            var pickingResult = await _dialogService.ShowSingleCalendarPickerDialogAsync(availableGroups);
+
+            if (pickingResult.ShouldNavigateToCalendarSettings)
+            {
+                NavigationService.Navigate(WinoPage.CalendarSettingsPage);
+                return;
+            }
+
+            pickedCalendar = pickingResult.PickedCalendar;
         }
 
         if (pickedCalendar == null)

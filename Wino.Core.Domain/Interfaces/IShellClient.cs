@@ -36,6 +36,7 @@ public interface IMailShellClient : IShellClient
     IMenuItem CreatePrimaryMenuItem { get; }
 
     IEnumerable<FolderOperationMenuItem> GetFolderContextMenuActions(IBaseFolderMenuItem folder);
+    Task HandleAccountCreatedAsync(MailAccount createdAccount);
     Task NavigateFolderAsync(IBaseFolderMenuItem baseFolderMenuItem, TaskCompletionSource<bool>? folderInitAwaitTask = null);
     Task ChangeLoadedAccountAsync(IAccountMenuItem clickedBaseAccountMenuItem, bool navigateInbox = true);
     Task PerformFolderOperationAsync(FolderOperation operation, IBaseFolderMenuItem folderMenuItem);

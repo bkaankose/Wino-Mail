@@ -33,6 +33,7 @@ using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
+using Wino.Messaging.UI;
 using Wino.Views.Mail;
 using Wino.Views;
 using Wino.Views.Settings;
@@ -45,7 +46,8 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     IRecipient<AccountMenuItemExtended>,
     IRecipient<NavigateMailFolderEvent>,
     IRecipient<CreateNewMailWithMultipleAccountsRequested>,
-    IRecipient<CalendarDisplayTypeChangedMessage>
+    IRecipient<CalendarDisplayTypeChangedMessage>,
+    IRecipient<AccountCreatedMessage>
 {
     private const string StateHorizontalCalendar = "HorizontalCalendar";
     private const string StateVerticalCalendar = "VerticalCalendar";
@@ -97,6 +99,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         UpdateTitleBarSubtitle();
 
         ViewModel.CurrentClient.Activate(activationContext);
+        ResetShellModeNavigationState();
 
         ApplyTitleBarContent();
     }
@@ -158,6 +161,11 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         }
         else if (_activeMode == WinoApplicationMode.Settings)
         {
+            if (InnerShellFrame.Content is SettingsPage settingsPage)
+            {
+                settingsPage.ResetForModeSwitch();
+            }
+
             ViewModel.CurrentClient.Deactivate();
         }
 
@@ -166,7 +174,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private void ResetShellModeNavigationState()
     {
-        ViewModel.StatePersistenceService.IsSettingsNavigating = false;
+        ViewModel.StatePersistenceService.HasCurrentModeBackStack = false;
         InnerShellFrame.BackStack.Clear();
         InnerShellFrame.ForwardStack.Clear();
     }
@@ -283,6 +291,15 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         => ViewModel.CalendarClient.HandleNavigationItemInvokedAsync(new NewCalendarEventMenuItem());
 
     public void Receive(CalendarDisplayTypeChangedMessage message) => ManageCalendarDisplayType(message.NewDisplayType);
+
+    public void Receive(AccountCreatedMessage message)
+    {
+        _ = DispatcherQueue.EnqueueAsync(async () =>
+        {
+            ViewModel.NavigationService.ChangeApplicationMode(WinoApplicationMode.Mail);
+            await ViewModel.MailClient.HandleAccountCreatedAsync(message.Account);
+        });
+    }
 
     private async void NavigationViewItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
     {
@@ -758,6 +775,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         WeakReferenceMessenger.Default.Register<CreateNewMailWithMultipleAccountsRequested>(this);
         WeakReferenceMessenger.Default.Register<NavigateMailFolderEvent>(this);
         WeakReferenceMessenger.Default.Register<CalendarDisplayTypeChangedMessage>(this);
+        WeakReferenceMessenger.Default.Register<AccountCreatedMessage>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -768,5 +786,6 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         WeakReferenceMessenger.Default.Unregister<CreateNewMailWithMultipleAccountsRequested>(this);
         WeakReferenceMessenger.Default.Unregister<NavigateMailFolderEvent>(this);
         WeakReferenceMessenger.Default.Unregister<CalendarDisplayTypeChangedMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<AccountCreatedMessage>(this);
     }
 }

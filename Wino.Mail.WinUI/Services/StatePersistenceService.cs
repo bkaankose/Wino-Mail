@@ -34,8 +34,8 @@ public class StatePersistenceService : ObservableObject, IStatePersistanceServic
 
     public bool IsBackButtonVisible =>
         ApplicationMode == WinoApplicationMode.Mail
-            ? (IsReadingMail && IsReaderNarrowed) || IsSettingsNavigating
-            : IsEventDetailsVisible || IsSettingsNavigating;
+            ? (IsReadingMail && IsReaderNarrowed) || HasCurrentModeBackStack
+            : IsEventDetailsVisible || HasCurrentModeBackStack;
 
     private WinoApplicationMode applicationMode = WinoApplicationMode.Mail;
 
@@ -68,14 +68,14 @@ public class StatePersistenceService : ObservableObject, IStatePersistanceServic
         }
     }
 
-    private bool isSettingsNavigating;
+    private bool hasCurrentModeBackStack;
 
-    public bool IsSettingsNavigating
+    public bool HasCurrentModeBackStack
     {
-        get => isSettingsNavigating;
+        get => hasCurrentModeBackStack;
         set
         {
-            if (SetProperty(ref isSettingsNavigating, value))
+            if (SetProperty(ref hasCurrentModeBackStack, value))
             {
                 OnPropertyChanged(nameof(IsBackButtonVisible));
             }

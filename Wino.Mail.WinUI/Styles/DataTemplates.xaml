@@ -64,23 +64,51 @@
 
     <DataTemplate x:Key="SettingsShellSectionItemTemplate" x:DataType="menu:SettingsShellSectionMenuItem">
         <coreControls:WinoNavigationViewItem
-            Margin="0,10,0,2"
-            HorizontalContentAlignment="Center"
+            Margin="0,12,0,4"
+            HorizontalContentAlignment="Stretch"
             DataContext="{x:Bind}"
             IsEnabled="False"
             SelectsOnInvoked="False">
-            <muxc:NavigationViewItem.Icon>
-                <FontIcon
-                    FontFamily="{StaticResource SymbolThemeFontFamily}"
-                    FontSize="12"
+            <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border
+                    Width="24"
+                    Height="24"
+                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                    BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12">
+                    <FontIcon
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontFamily="{StaticResource SymbolThemeFontFamily}"
+                        FontSize="12"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Glyph="{x:Bind Glyph}" />
+                </Border>
+
+                <TextBlock
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    CharacterSpacing="40"
+                    FontWeight="SemiBold"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Glyph="{x:Bind Glyph}" />
-            </muxc:NavigationViewItem.Icon>
-            <TextBlock
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Style="{StaticResource CaptionTextBlockStyle}"
-                Text="{x:Bind Title}"
-                TextWrapping="NoWrap" />
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind Title}"
+                    TextWrapping="NoWrap" />
+
+                <Border
+                    Grid.Column="2"
+                    Height="1"
+                    Margin="2,0,0,0"
+                    VerticalAlignment="Center"
+                    Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+            </Grid>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 

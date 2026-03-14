@@ -25,49 +25,62 @@
         </Style>
     </ContentDialog.Resources>
 
-    <ScrollViewer Margin="0,8,0,0">
-        <ItemsControl ItemsSource="{x:Bind AvailableGroups}">
-            <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="calendar:CalendarPickerAccountGroup">
-                    <StackPanel Margin="0,0,0,12" Spacing="6">
-                        <TextBlock FontWeight="SemiBold">
-                            <Run Text="{x:Bind Account.Name}" />
-                            <Run Text=" (" />
-                            <Run Text="{x:Bind Account.Address}" />
-                            <Run Text=")" />
-                        </TextBlock>
+    <StackPanel Margin="0,8,0,0" Spacing="12">
+        <TextBlock
+            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+            Text="{x:Bind domain:Translator.CalendarEventCompose_DefaultCalendarHint, Mode=OneWay}"
+            TextWrapping="WrapWholeWords" />
 
-                        <ListView
-                            IsItemClickEnabled="True"
-                            ItemClick="CalendarClicked"
-                            ItemContainerStyle="{StaticResource CalendarPickerListItemStyle}"
-                            ItemsSource="{x:Bind Calendars}"
-                            SelectionMode="None">
-                            <ListView.ItemTemplate>
-                                <DataTemplate x:DataType="sharedCalendar:AccountCalendar">
-                                    <Grid ColumnSpacing="10">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
+        <HyperlinkButton
+            HorizontalAlignment="Left"
+            Click="OpenCalendarSettingsClicked"
+            Content="{x:Bind domain:Translator.CalendarEventCompose_DefaultCalendarSettingsLink, Mode=OneWay}"
+            Padding="0" />
 
-                                        <Ellipse
-                                            Width="14"
-                                            Height="14"
-                                            VerticalAlignment="Center"
-                                            Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}" />
+        <ScrollViewer MaxHeight="400">
+            <ItemsControl ItemsSource="{x:Bind AvailableGroups}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="calendar:CalendarPickerAccountGroup">
+                        <StackPanel Margin="0,0,0,12" Spacing="6">
+                            <TextBlock FontWeight="SemiBold">
+                                <Run Text="{x:Bind Account.Name}" />
+                                <Run Text=" (" />
+                                <Run Text="{x:Bind Account.Address}" />
+                                <Run Text=")" />
+                            </TextBlock>
 
-                                        <TextBlock
-                                            Grid.Column="1"
-                                            VerticalAlignment="Center"
-                                            Text="{x:Bind Name}" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ListView.ItemTemplate>
-                        </ListView>
-                    </StackPanel>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
-    </ScrollViewer>
+                            <ListView
+                                IsItemClickEnabled="True"
+                                ItemClick="CalendarClicked"
+                                ItemContainerStyle="{StaticResource CalendarPickerListItemStyle}"
+                                ItemsSource="{x:Bind Calendars}"
+                                SelectionMode="None">
+                                <ListView.ItemTemplate>
+                                    <DataTemplate x:DataType="sharedCalendar:AccountCalendar">
+                                        <Grid ColumnSpacing="10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <Ellipse
+                                                Width="14"
+                                                Height="14"
+                                                VerticalAlignment="Center"
+                                                Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}" />
+
+                                            <TextBlock
+                                                Grid.Column="1"
+                                                VerticalAlignment="Center"
+                                                Text="{x:Bind Name}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </StackPanel>
 </ContentDialog>

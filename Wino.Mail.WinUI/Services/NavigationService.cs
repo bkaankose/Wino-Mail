@@ -247,6 +247,8 @@ public class NavigationService : NavigationServiceBase, INavigationService
                 IsInitialActivation = isInitialShellNavigation,
                 Parameter = activationParameter
             });
+
+            ResetCurrentModeBackStackState();
             return true;
         }
 
@@ -323,6 +325,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
                     if (innerShellFrame.CanGoBack && lastBackStackEntry?.SourcePageType == pageType)
                     {
                         innerShellFrame.GoBack();
+                        UpdateCurrentModeBackStackState(innerShellFrame);
                         WeakReferenceMessenger.Default.Send(loadCalendarMessage);
                         return true;
                     }
@@ -483,7 +486,14 @@ public class NavigationService : NavigationServiceBase, INavigationService
     private bool NavigateInnerShellFrame(Frame frame, Type pageType, object? parameter, NavigationTransitionType transition)
     {
         var transitionInfo = ConsumeInnerShellTransitionOrDefault(transition);
-        return frame.Navigate(pageType, parameter, transitionInfo);
+        var navigationResult = frame.Navigate(pageType, parameter, transitionInfo);
+
+        if (navigationResult)
+        {
+            UpdateCurrentModeBackStackState(frame);
+        }
+
+        return navigationResult;
     }
 
     private NavigationTransitionInfo ConsumeInnerShellTransitionOrDefault(NavigationTransitionType transition)
@@ -503,36 +513,67 @@ public class NavigationService : NavigationServiceBase, INavigationService
 
     private void GoBackInternal(Core.Domain.Enums.NavigationTransitionEffect slideEffect = Core.Domain.Enums.NavigationTransitionEffect.FromRight)
     {
-        if (_statePersistanceService.IsSettingsNavigating)
+        var innerShellFrame = GetCoreFrameInternal(NavigationReferenceFrame.InnerShellFrame);
+
+        if (_statePersistanceService.ApplicationMode == WinoApplicationMode.Settings &&
+            _statePersistanceService.HasCurrentModeBackStack)
         {
             WeakReferenceMessenger.Default.Send(new BackBreadcrumNavigationRequested(slideEffect));
             return;
         }
 
-        var innerShellFrame = GetCoreFrameInternal(NavigationReferenceFrame.InnerShellFrame);
+        if (_statePersistanceService.ApplicationMode == WinoApplicationMode.Settings &&
+            innerShellFrame?.Content is SettingsPage)
+        {
+            return;
+        }
 
         if (_statePersistanceService.ApplicationMode == WinoApplicationMode.Calendar && innerShellFrame?.CanGoBack == true)
         {
             innerShellFrame.GoBack();
+            UpdateCurrentModeBackStackState(innerShellFrame);
 
             // Calendar mode: Navigate back from EventDetailsPage
             _statePersistanceService.IsEventDetailsVisible = false;
         }
-        else
+        else if (_statePersistanceService.ApplicationMode == WinoApplicationMode.Mail)
         {
             if (_statePersistanceService.IsReadingMail && _statePersistanceService.IsReaderNarrowed)
             {
                 // Mail mode: Clear selections and dispose rendering frame
                 _statePersistanceService.IsReadingMail = false;
+                _statePersistanceService.HasCurrentModeBackStack = false;
 
                 WeakReferenceMessenger.Default.Send(new ClearMailSelectionsRequested());
                 WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
             }
-            else if (innerShellFrame != null && innerShellFrame.CanGoBack)
-            {
-                innerShellFrame.GoBack();
-            }
         }
+        else
+        {
+            UpdateCurrentModeBackStackState(innerShellFrame);
+        }
+    }
+
+    private void ResetCurrentModeBackStackState()
+    {
+        var innerShellFrame = GetCoreFrameInternal(NavigationReferenceFrame.InnerShellFrame);
+
+        if (innerShellFrame != null)
+        {
+            innerShellFrame.BackStack.Clear();
+            innerShellFrame.ForwardStack.Clear();
+        }
+
+        _statePersistanceService.HasCurrentModeBackStack = false;
+    }
+
+    private void UpdateCurrentModeBackStackState(Frame? innerShellFrame)
+    {
+        if (_statePersistanceService.ApplicationMode == WinoApplicationMode.Settings)
+            return;
+
+        _statePersistanceService.HasCurrentModeBackStack = _statePersistanceService.ApplicationMode == WinoApplicationMode.Calendar &&
+                                                           innerShellFrame?.CanGoBack == true;
     }
 
     // Standalone EML viewer.

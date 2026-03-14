@@ -3,43 +3,85 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
-    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:settingsModels="using:Wino.Core.Domain.Models.Settings"
     x:Name="root"
     Title="{x:Bind domain:Translator.SettingsHome_Title}"
     mc:Ignorable="d">
 
     <ScrollViewer Padding="0,0,16,0" VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="0,8,0,24" Spacing="12">
+        <StackPanel Margin="0,8,0,24" Spacing="16">
             <StackPanel.ChildrenTransitions>
                 <TransitionCollection>
                     <EntranceThemeTransition FromVerticalOffset="50" IsStaggeringEnabled="True" />
                 </TransitionCollection>
             </StackPanel.ChildrenTransitions>
 
-            <Grid
-                Margin="0,0,0,12"
-                Padding="24,28"
+            <Border
+                Padding="24"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 CornerRadius="8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+                <StackPanel Spacing="8">
+                    <AutoSuggestBox
+                        x:Name="SettingsSearchBox"
+                        ItemsSource="{x:Bind ViewModel.SearchSuggestions, Mode=OneWay}"
+                        PlaceholderText="{x:Bind domain:Translator.SettingsHome_SearchPlaceholder, Mode=OneTime}"
+                        QueryIcon="Find"
+                        QuerySubmitted="SettingsSearchQuerySubmitted"
+                        SuggestionChosen="SettingsSearchSuggestionChosen"
+                        Text="{x:Bind ViewModel.SearchQuery, Mode=TwoWay}"
+                        TextChanged="SettingsSearchTextChanged">
+                        <AutoSuggestBox.ItemTemplate>
+                            <DataTemplate x:DataType="settingsModels:SettingsNavigationItemInfo">
+                                <Grid Padding="0,4" ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
 
-                <Grid
-                    Grid.Column="1"
-                    Margin="8,0,0,0"
-                    VerticalAlignment="Center"
-                    ColumnSpacing="12">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
+                                    <FontIcon
+                                        VerticalAlignment="Top"
+                                        FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                        Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                        Glyph="{x:Bind Glyph}" />
+
+                                    <StackPanel Grid.Column="1" Spacing="2">
+                                        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind Title}" />
+                                        <TextBlock
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                            Text="{x:Bind Description}"
+                                            TextWrapping="WrapWholeWords" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </AutoSuggestBox.ItemTemplate>
+                    </AutoSuggestBox>
+
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.SettingsHome_SearchExamples, Mode=OneTime}"
+                        TextWrapping="WrapWholeWords" />
+                </StackPanel>
+            </Border>
+
+            <Border
+                Padding="24,20"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+                <Grid ColumnSpacing="16" RowSpacing="16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
 
                     <StackPanel
                         VerticalAlignment="Center"
@@ -65,14 +107,11 @@
                     </StackPanel>
 
                     <StackPanel
-                        Grid.RowSpan="2"
-                        Grid.Column="2"
-                        Margin="0,12,0,0"
+                        Grid.Column="1"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Center"
                         Orientation="Horizontal"
                         Spacing="12">
-
                         <Button
                             Command="{x:Bind ViewModel.NavigateExternalCommand}"
                             CommandParameter="{x:Bind ViewModel.PaypalUrl, Mode=OneWay}"
@@ -87,23 +126,19 @@
                         </Button>
 
                         <Button
-                            Grid.Column="1"
                             Command="{x:Bind ViewModel.NavigateExternalCommand}"
                             CommandParameter="{x:Bind ViewModel.GitHubUrl, Mode=OneWay}"
                             Style="{StaticResource DefaultButtonStyle}"
                             ToolTipService.ToolTip="{x:Bind domain:Translator.SettingsAboutGithub_Title}">
-                            <StackPanel HorizontalAlignment="Center" Spacing="6">
-                                <Viewbox Width="18" Height="18">
-                                    <Path
-                                        Data="m 12.2135 0 c -6.7538 0 -12.2135 5.5 -12.2135 12.3042 c 0 5.439 3.4983 10.043 8.3513 11.6725 c 0.6067 0.1225 0.829 -0.2647 0.829 -0.5905 c 0 -0.2853 -0.02 -1.263 -0.02 -2.2817 c -3.3975 0.7335 -4.105 -1.4668 -4.105 -1.4668 c -0.546 -1.426 -1.355 -1.7925 -1.355 -1.7925 c -1.112 -0.7538 0.081 -0.7538 0.081 -0.7538 c 1.2335 0.0815 1.8807 1.263 1.8807 1.263 c 1.0918 1.874 2.851 1.3445 3.5587 1.0185 c 0.101 -0.7945 0.4247 -1.3445 0.7685 -1.65 c -2.7097 -0.2853 -5.5607 -1.3445 -5.5607 -6.0708 c 0 -1.3445 0.485 -2.4445 1.2535 -3.3 c -0.1212 -0.3055 -0.546 -1.5687 0.1215 -3.2595 c 0 0 1.0313 -0.326 3.3565 1.263 a 11.7425 11.7425 90 0 1 3.0535 -0.4075 c 1.0313 0 2.0825 0.1428 3.0533 0.4075 c 2.3255 -1.589 3.3567 -1.263 3.3567 -1.263 c 0.6675 1.6908 0.2425 2.954 0.1212 3.2595 c 0.7888 0.8555 1.2538 1.9555 1.2538 3.3 c 0 4.7263 -2.851 5.765 -5.581 6.0708 c 0.445 0.387 0.829 1.1202 0.829 2.2815 c 0 1.65 -0.02 2.9743 -0.02 3.3815 c 0 0.326 0.2225 0.7132 0.829 0.591 c 4.853 -1.63 8.3513 -6.2338 8.3513 -11.6728 c 0.02 -6.8043 -5.4598 -12.3043 -12.1933 -12.3043 z"
-                                        Fill="{ThemeResource TextFillColorPrimaryBrush}"
-                                        Stretch="Uniform" />
-                                </Viewbox>
-                            </StackPanel>
+                            <Viewbox Width="18" Height="18">
+                                <Path
+                                    Data="m 12.2135 0 c -6.7538 0 -12.2135 5.5 -12.2135 12.3042 c 0 5.439 3.4983 10.043 8.3513 11.6725 c 0.6067 0.1225 0.829 -0.2647 0.829 -0.5905 c 0 -0.2853 -0.02 -1.263 -0.02 -2.2817 c -3.3975 0.7335 -4.105 -1.4668 -4.105 -1.4668 c -0.546 -1.426 -1.355 -1.7925 -1.355 -1.7925 c -1.112 -0.7538 0.081 -0.7538 0.081 -0.7538 c 1.2335 0.0815 1.8807 1.263 1.8807 1.263 c 1.0918 1.874 2.851 1.3445 3.5587 1.0185 c 0.101 -0.7945 0.4247 -1.3445 0.7685 -1.65 c -2.7097 -0.2853 -5.5607 -1.3445 -5.5607 -6.0708 c 0 -1.3445 0.485 -2.4445 1.2535 -3.3 c -0.1212 -0.3055 -0.546 -1.5687 0.1215 -3.2595 c 0 0 1.0313 -0.326 3.3565 1.263 a 11.7425 11.7425 90 0 1 3.0535 -0.4075 c 1.0313 0 2.0825 0.1428 3.0533 0.4075 c 2.3255 -1.589 3.3567 -1.263 3.3567 -1.263 c 0.6675 1.6908 0.2425 2.954 0.1212 3.2595 c 0.7888 0.8555 1.2538 1.9555 1.2538 3.3 c 0 4.7263 -2.851 5.765 -5.581 6.0708 c 0.445 0.387 0.829 1.1202 0.829 2.2815 c 0 1.65 -0.02 2.9743 -0.02 3.3815 c 0 0.326 0.2225 0.7132 0.829 0.591 c 4.853 -1.63 8.3513 -6.2338 8.3513 -11.6728 c 0.02 -6.8043 -5.4598 -12.3043 -12.1933 -12.3043 z"
+                                    Fill="{ThemeResource TextFillColorPrimaryBrush}"
+                                    Stretch="Uniform" />
+                            </Viewbox>
                         </Button>
 
                         <Button
-                            Grid.Column="2"
                             Command="{x:Bind ViewModel.NavigateExternalCommand}"
                             CommandParameter="Store"
                             ToolTipService.ToolTip="{x:Bind domain:Translator.SettingsStore_Title}">
@@ -116,28 +151,102 @@
                         </Button>
                     </StackPanel>
                 </Grid>
-            </Grid>
+            </Border>
 
-            <controls:SettingsCard
-                Margin="0,0,0,12"
-                Click="SettingOptionClicked"
-                Description="{x:Bind ViewModel.AccountSummaryText, Mode=OneWay}"
-                Header="{x:Bind domain:Translator.SettingsManageAccountSettings_Title}"
-                IsClickEnabled="True"
-                Tag="{x:Bind enums:WinoPage.ManageAccountsPage}">
-                <controls:SettingsCard.HeaderIcon>
-                    <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE77B;" />
-                </controls:SettingsCard.HeaderIcon>
+            <StackPanel Spacing="12">
                 <Button
+                    HorizontalContentAlignment="Stretch"
                     Click="SettingOptionClicked"
-                    Style="{StaticResource AccentButtonStyle}"
                     Tag="{x:Bind enums:WinoPage.ManageAccountsPage}">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="{x:Bind domain:Translator.Buttons_Manage}" />
-                        <FontIcon FontSize="12" Glyph="&#xE76C;" />
-                    </StackPanel>
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <FontIcon
+                            VerticalAlignment="Center"
+                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                            Glyph="&#xE77B;" />
+
+                        <StackPanel Grid.Column="1" Spacing="2">
+                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.SettingsManageAccountSettings_Title, Mode=OneTime}" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ViewModel.AccountSummaryText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                        </StackPanel>
+
+                        <FontIcon
+                            Grid.Column="2"
+                            VerticalAlignment="Center"
+                            Glyph="&#xE76C;" />
+                    </Grid>
                 </Button>
-            </controls:SettingsCard>
+
+                <Button
+                    HorizontalContentAlignment="Stretch"
+                    Click="SettingOptionClicked"
+                    Tag="{x:Bind enums:WinoPage.StoragePage}">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <FontIcon
+                            VerticalAlignment="Center"
+                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                            Glyph="&#xE74C;" />
+
+                        <StackPanel Grid.Column="1" Spacing="2">
+                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.SettingsStorage_Title, Mode=OneTime}" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ViewModel.StorageSummaryText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                        </StackPanel>
+
+                        <FontIcon
+                            Grid.Column="2"
+                            VerticalAlignment="Center"
+                            Glyph="&#xE76C;" />
+                    </Grid>
+                </Button>
+            </StackPanel>
+
+            <Border
+                Padding="24"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+                <StackPanel Spacing="10">
+                    <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="{x:Bind domain:Translator.SettingsHome_Resources_Title, Mode=OneTime}" />
+                    <StackPanel Spacing="2">
+                        <HyperlinkButton
+                            Command="{x:Bind ViewModel.NavigateExternalCommand}"
+                            CommandParameter="{x:Bind ViewModel.WebsiteUrl, Mode=OneWay}"
+                            Content="{x:Bind domain:Translator.SettingsWebsite_Title}" />
+                        <HyperlinkButton
+                            Command="{x:Bind ViewModel.NavigateExternalCommand}"
+                            CommandParameter="{x:Bind ViewModel.PrivacyPolicyUrl, Mode=OneWay}"
+                            Content="{x:Bind domain:Translator.SettingsPrivacyPolicy_Title}" />
+                        <HyperlinkButton
+                            Command="{x:Bind ViewModel.NavigateExternalCommand}"
+                            CommandParameter="{x:Bind ViewModel.GitHubUrl, Mode=OneWay}"
+                            Content="{x:Bind domain:Translator.SettingsAboutGithub_Title}" />
+                        <HyperlinkButton
+                            Command="{x:Bind ViewModel.NavigateExternalCommand}"
+                            CommandParameter="Store"
+                            Content="{x:Bind domain:Translator.SettingsStore_Title}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
         </StackPanel>
     </ScrollViewer>
 </abstract:SettingOptionsPageAbstract>

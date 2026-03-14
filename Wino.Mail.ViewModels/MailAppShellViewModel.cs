@@ -40,8 +40,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     IRecipient<NavigateAppPreferencesRequested>,
     IRecipient<AccountFolderConfigurationUpdated>,
     IRecipient<AccountRemovedMessage>,
-    IRecipient<AccountUpdatedMessage>,
-    IRecipient<AccountCreatedMessage>
+    IRecipient<AccountUpdatedMessage>
 {
     #region Menu Items
 
@@ -1154,7 +1153,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     {
         base.RegisterRecipients();
 
-        Messenger.Register<AccountCreatedMessage>(this);
         Messenger.Register<AccountRemovedMessage>(this);
         Messenger.Register<AccountUpdatedMessage>(this);
         Messenger.Register<MailtoProtocolMessageRequested>(this);
@@ -1172,7 +1170,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     {
         base.UnregisterRecipients();
 
-        Messenger.Unregister<AccountCreatedMessage>(this);
         Messenger.Unregister<AccountRemovedMessage>(this);
         Messenger.Unregister<AccountUpdatedMessage>(this);
         Messenger.Unregister<MailtoProtocolMessageRequested>(this);
@@ -1198,14 +1195,17 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         await RestoreSelectedAccountAfterMenuRefreshAsync(false);
     }
 
-    public async void Receive(AccountCreatedMessage message)
+    public async Task HandleAccountCreatedAsync(MailAccount createdAccount)
     {
-        var createdAccount = message.Account;
         latestSelectedAccountMenuItem = null;
 
         await RecreateMenuItemsAsync();
 
-        if (!MenuItems.TryGetAccountMenuItem(createdAccount.Id, out IAccountMenuItem createdMenuItem)) return;
+        if (!MenuItems.TryGetAccountMenuItem(createdAccount.Id, out IAccountMenuItem createdMenuItem))
+        {
+            Log.Warning("Created account {AccountId} could not be found in menu items after refresh.", createdAccount.Id);
+            return;
+        }
 
         await ChangeLoadedAccountAsync(createdMenuItem);
 

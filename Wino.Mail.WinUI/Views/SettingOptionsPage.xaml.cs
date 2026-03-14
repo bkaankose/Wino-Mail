@@ -1,7 +1,7 @@
-using CommunityToolkit.WinUI.Controls;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Settings;
 using Wino.Views.Abstract;
 
 namespace Wino.Views.Settings;
@@ -18,7 +18,6 @@ public sealed partial class SettingOptionsPage : SettingOptionsPageAbstract
         WinoPage? page = sender switch
         {
             Button button when button.Tag is WinoPage p => p,
-            SettingsCard card when card.Tag is WinoPage p => p,
             _ => null
         };
 
@@ -26,5 +25,29 @@ public sealed partial class SettingOptionsPage : SettingOptionsPageAbstract
         {
             ViewModel.NavigateSubDetailCommand.Execute(page.Value);
         }
+    }
+
+    private void SettingsSearchTextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+    {
+        if (args.Reason == AutoSuggestionBoxTextChangeReason.UserInput || string.IsNullOrWhiteSpace(sender.Text))
+        {
+            ViewModel.UpdateSearchSuggestions(sender.Text);
+        }
+    }
+
+    private void SettingsSearchSuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)
+    {
+        if (args.SelectedItem is SettingsNavigationItemInfo selectedSetting)
+        {
+            ViewModel.SearchQuery = selectedSetting.Title;
+        }
+    }
+
+    private void SettingsSearchQuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
+    {
+        var selectedSetting = args.ChosenSuggestion as SettingsNavigationItemInfo
+                              ?? ViewModel.GetBestSearchSuggestion(args.QueryText);
+
+        ViewModel.NavigateToSetting(selectedSetting);
     }
 }

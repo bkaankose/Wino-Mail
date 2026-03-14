@@ -20,7 +20,7 @@ public interface IMailDialogService : IDialogServiceBase
     // Custom dialogs
     Task<IMailItemFolder> ShowMoveMailFolderDialogAsync(List<IMailItemFolder> availableFolders);
     Task<MailAccount> ShowAccountPickerDialogAsync(List<MailAccount> availableAccounts);
-    Task<AccountCalendar> ShowSingleCalendarPickerDialogAsync(List<CalendarPickerAccountGroup> availableCalendarGroups);
+    Task<AccountCalendarPickingResult> ShowSingleCalendarPickerDialogAsync(List<CalendarPickerAccountGroup> availableCalendarGroups);
 
     /// <summary>
     /// Displays a dialog to the user for reordering accounts.
