@@ -8,6 +8,10 @@ on:
       - reopened
       - ready_for_review
 
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   build-winui:
     name: Build project (${{ matrix.platform }})
@@ -33,6 +37,9 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+          source-url: https://nuget.pkg.github.com/bkaankose/index.json
+        env:
+          NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Restore WinUI project dependencies
         run: dotnet restore Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config -p:Platform=${{ matrix.platform }} -p:RuntimeIdentifier=${{ matrix.rid }}
@@ -54,6 +61,9 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+          source-url: https://nuget.pkg.github.com/bkaankose/index.json
+        env:
+          NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Restore Core test projects
         shell: pwsh

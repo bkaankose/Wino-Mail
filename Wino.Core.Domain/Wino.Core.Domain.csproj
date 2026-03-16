@@ -60,9 +60,7 @@
 		<PackageReference Include="MailKit" />
 		<PackageReference Include="sqlite-net-pcl" />
 		<PackageReference Include="TimePeriodLibrary.NET" />
-	</ItemGroup>
-	<ItemGroup>
-		<ProjectReference Include="..\Wino.Mail.Contracts\Wino.Mail.Contracts.csproj" />
+		<PackageReference Include="Wino.Mail.Contracts" />
 	</ItemGroup>
 	<ItemGroup>
 		<Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
