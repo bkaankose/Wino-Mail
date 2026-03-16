@@ -226,6 +226,7 @@
   </ItemGroup>
   <ItemGroup>
 	<ProjectReference Include="..\Wino.Calendar.ViewModels\Wino.Calendar.ViewModels.csproj" />
+	<ProjectReference Include="..\Wino.Mail.Contracts\Wino.Mail.Contracts.csproj" />
 	<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
 	<ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
 	<ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />

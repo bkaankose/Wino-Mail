@@ -86,6 +86,68 @@
                             </Flyout>
                         </Button.Flyout>
                     </Button>
+                    <Button
+                        x:Name="WinoAccountButton"
+                        Background="Transparent"
+                        BorderBrush="Transparent">
+                        <Button.Flyout>
+                            <Flyout Placement="Bottom">
+                                <Grid MinWidth="320" MaxWidth="360">
+                                    <StackPanel
+                                        x:Name="WinoAccountSignedOutView"
+                                        Spacing="12">
+                                        <TextBlock
+                                            Style="{StaticResource BodyStrongTextBlockStyle}"
+                                            Text="{x:Bind domain:Translator.WinoAccount_Titlebar_SignedOutTitle}" />
+                                        <TextBlock
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Text="{x:Bind domain:Translator.WinoAccount_Titlebar_SignedOutDescription}"
+                                            TextWrapping="WrapWholeWords" />
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <Button
+                                                Click="RegisterWinoAccountClicked"
+                                                Content="{x:Bind domain:Translator.WinoAccount_RegisterButton_Action}" />
+                                            <Button
+                                                Click="LoginWinoAccountClicked"
+                                                Content="{x:Bind domain:Translator.WinoAccount_LoginButton_Action}" />
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <StackPanel
+                                        x:Name="WinoAccountSignedInView"
+                                        Spacing="12"
+                                        Visibility="Collapsed">
+                                        <StackPanel Orientation="Horizontal" Spacing="12">
+                                            <PersonPicture
+                                                x:Name="WinoAccountFlyoutPicture"
+                                                Width="40"
+                                                Height="40"
+                                                Initials="W" />
+                                            <StackPanel Spacing="2">
+                                                <TextBlock
+                                                    x:Name="WinoAccountFlyoutEmailText"
+                                                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                                                    TextWrapping="WrapWholeWords" />
+                                                <TextBlock
+                                                    x:Name="WinoAccountFlyoutStatusText"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    TextWrapping="WrapWholeWords" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <Button
+                                            HorizontalAlignment="Left"
+                                            Click="SignOutWinoAccountClicked"
+                                            Content="{x:Bind domain:Translator.WinoAccount_SignOutButton_Action}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Flyout>
+                        </Button.Flyout>
+                        <PersonPicture
+                            x:Name="WinoAccountButtonPicture"
+                            Width="30"
+                            Height="30"
+                            Initials="W" />
+                    </Button>
                 </StackPanel>
             </TitleBar.RightHeader>
         </TitleBar>

@@ -255,6 +255,7 @@ public partial class App : WinoApplication,
         // Initialize theme service after window creation.
         // Theme service requires the window to exist to properly load and apply themes.
         await NewThemeService.InitializeAsync();
+        await LoadInitialWinoAccountAsync();
         LogActivation("Theme service initialized.");
 
         // If startup task launch, keep window hidden (system tray only).
@@ -824,6 +825,17 @@ public partial class App : WinoApplication,
         _autoSynchronizationLoopCts.Cancel();
         _autoSynchronizationLoopCts.Dispose();
         _autoSynchronizationLoopCts = null;
+    }
+
+    private async Task LoadInitialWinoAccountAsync()
+    {
+        var winoAccountProfileService = Services.GetRequiredService<IWinoAccountProfileService>();
+        var winoAccount = await winoAccountProfileService.GetActiveAccountAsync().ConfigureAwait(false);
+
+        if (winoAccount != null)
+        {
+            WeakReferenceMessenger.Default.Send(new WinoAccountSignedInMessage(winoAccount));
+        }
     }
 
     private async Task RunAutoSynchronizationLoopAsync(TimeSpan interval, CancellationToken cancellationToken)

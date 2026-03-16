@@ -50,6 +50,7 @@ public class InMemoryDatabaseService : IDatabaseService
         await Connection.CreateTableAsync<CalendarAttachment>();
         await Connection.CreateTableAsync<Reminder>();
         await Connection.CreateTableAsync<MailInvitationCalendarMapping>();
+        await Connection.CreateTableAsync<WinoAccount>();
     }
 
     public async ValueTask DisposeAsync()

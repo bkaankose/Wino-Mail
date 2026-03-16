@@ -1,4 +1,5 @@
-﻿using System;
+#nullable enable
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
@@ -41,7 +42,7 @@ public interface IMailDialogService : IDialogServiceBase
     /// Presents a dialog to the user for signature creation/modification.
     /// </summary>
     /// <returns>Signature information. Null if canceled.</returns>
-    Task<AccountSignature> ShowSignatureEditorDialog(AccountSignature signatureModel = null);
+    Task<AccountSignature> ShowSignatureEditorDialog(AccountSignature? signatureModel = null);
 
     /// <summary>
     /// Presents a dialog to the user for account alias creation/modification.
@@ -59,7 +60,7 @@ public interface IMailDialogService : IDialogServiceBase
     /// </summary>
     /// <param name="existingShortcut">Existing shortcut to edit, or null for new shortcut.</param>
     /// <returns>Dialog result with shortcut information.</returns>
-#pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
+#pragma warning disable CS8625
     Task<KeyboardShortcutDialogResult> ShowKeyboardShortcutDialogAsync(KeyboardShortcut existingShortcut = null);
 #pragma warning restore CS8625
 
@@ -68,5 +69,9 @@ public interface IMailDialogService : IDialogServiceBase
     /// </summary>
     /// <param name="contact">Existing contact to edit, or null for new contact.</param>
     /// <returns>Contact information. Null if canceled.</returns>
-    Task<AccountContact> ShowEditContactDialogAsync(AccountContact contact = null);
+    Task<AccountContact?> ShowEditContactDialogAsync(AccountContact? contact = null);
+
+    Task<WinoAccount?> ShowWinoAccountRegistrationDialogAsync();
+
+    Task<WinoAccount?> ShowWinoAccountLoginDialogAsync();
 }

@@ -44,6 +44,11 @@
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
+    <Project Path="Wino.Mail.Contracts/Wino.Mail.Contracts.csproj">
+      <Platform Solution="*|arm64" Project="Any CPU" />
+      <Platform Solution="*|x64" Project="Any CPU" />
+      <Platform Solution="*|x86" Project="Any CPU" />
+    </Project>
     <Project Path="Wino.Messages/Wino.Messaging.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />

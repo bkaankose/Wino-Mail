@@ -27,6 +27,8 @@ public static class ServicesContainerSetup
         services.AddTransient<IContextMenuItemService, ContextMenuItemService>();
         services.AddTransient<ISpecialImapProviderConfigResolver, SpecialImapProviderConfigResolver>();
         services.AddTransient<IKeyboardShortcutService, KeyboardShortcutService>();
+        services.AddSingleton<IWinoAccountApiClient, WinoAccountApiClient>();
+        services.AddTransient<IWinoAccountProfileService, WinoAccountProfileService>();
         services.AddSingleton<IContactPictureFileService, ContactPictureFileService>();
 
         services.AddTransient<ICalDavClient, CalDavClient>();

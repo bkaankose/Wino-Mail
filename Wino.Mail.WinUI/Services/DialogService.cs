@@ -27,11 +27,15 @@ namespace Wino.Services;
 
 public class DialogService : DialogServiceBase, IMailDialogService
 {
+    private readonly IWinoAccountProfileService _winoAccountProfileService;
+
     public DialogService(INewThemeService themeService,
                          IConfigurationService configurationService,
                          IApplicationResourceManager<ResourceDictionary> applicationResourceManager,
-                         IUpdateManager updateManager) : base(themeService, configurationService, applicationResourceManager, updateManager)
+                         IUpdateManager updateManager,
+                         IWinoAccountProfileService winoAccountProfileService) : base(themeService, configurationService, applicationResourceManager, updateManager)
     {
+        _winoAccountProfileService = winoAccountProfileService;
     }
 
     public async Task<ICreateAccountAliasDialog> ShowCreateAccountAliasDialogAsync()
@@ -212,5 +216,33 @@ public class DialogService : DialogServiceBase, IMailDialogService
         }
 
         return null;
+    }
+
+    public async Task<WinoAccount?> ShowWinoAccountRegistrationDialogAsync()
+    {
+        var dialog = new WinoAccountRegistrationDialog(_winoAccountProfileService)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        var result = await HandleDialogPresentationAsync(dialog);
+
+        return result == ContentDialogResult.Primary
+            ? dialog.Result
+            : null;
+    }
+
+    public async Task<WinoAccount?> ShowWinoAccountLoginDialogAsync()
+    {
+        var dialog = new WinoAccountLoginDialog(_winoAccountProfileService)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        var result = await HandleDialogPresentationAsync(dialog);
+
+        return result == ContentDialogResult.Primary
+            ? dialog.Result
+            : null;
     }
 }

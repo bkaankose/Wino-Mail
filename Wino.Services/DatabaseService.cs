@@ -67,8 +67,8 @@ public class DatabaseService : IDatabaseService
             Connection.CreateTableAsync<CalendarItem>(),
             Connection.CreateTableAsync<CalendarAttachment>(),
             Connection.CreateTableAsync<Reminder>(),
-            Connection.CreateTableAsync<MailInvitationCalendarMapping>()
-            );
+            Connection.CreateTableAsync<MailInvitationCalendarMapping>(),
+            Connection.CreateTableAsync<WinoAccount>());
 
         await EnsureSchemaUpgradesAsync().ConfigureAwait(false);
         await EnsureIndexesAsync().ConfigureAwait(false);
@@ -206,6 +206,7 @@ SET {nameof(KeyboardShortcut.Action)} =
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailAccountAlias_AccountId_AliasAddress ON MailAccountAlias(AccountId, AliasAddress)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_MailAccountPreferences_AccountId ON MailAccountPreferences(AccountId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_CustomServerInformation_AccountId ON CustomServerInformation(AccountId)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_WinoAccount_Email ON WinoAccount(Email)").ConfigureAwait(false);
 
         // Calendar indexes
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_AccountCalendar_AccountId ON AccountCalendar(AccountId)").ConfigureAwait(false);
