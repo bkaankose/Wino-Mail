@@ -409,6 +409,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     private async void RegisterWinoAccountClicked(object sender, RoutedEventArgs e)
     {
+        WinoAccountFlyout.Hide();
         var account = await MailDialogService.ShowWinoAccountRegistrationDialogAsync();
         if (account != null)
         {
@@ -421,6 +422,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     private async void LoginWinoAccountClicked(object sender, RoutedEventArgs e)
     {
+        WinoAccountFlyout.Hide();
         var account = await MailDialogService.ShowWinoAccountLoginDialogAsync();
         if (account != null)
         {

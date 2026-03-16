@@ -91,7 +91,9 @@
                         Background="Transparent"
                         BorderBrush="Transparent">
                         <Button.Flyout>
-                            <Flyout Placement="Bottom">
+                            <Flyout
+                                x:Name="WinoAccountFlyout"
+                                Placement="Bottom">
                                 <Grid MinWidth="320" MaxWidth="360">
                                     <StackPanel
                                         x:Name="WinoAccountSignedOutView"
