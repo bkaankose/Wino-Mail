@@ -44,12 +44,12 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     #region Quick Event Creation
 
     [ObservableProperty]
-    private bool _isQuickEventDialogOpen;
+    public partial bool IsQuickEventDialogOpen { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SelectedQuickEventAccountCalendarName))]
     [NotifyCanExecuteChangedFor(nameof(SaveQuickEventCommand))]
-    private AccountCalendarViewModel _selectedQuickEventAccountCalendar;
+    public partial AccountCalendarViewModel SelectedQuickEventAccountCalendar { get; set; }
 
     public string SelectedQuickEventAccountCalendarName
     {
@@ -60,41 +60,62 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     }
 
     [ObservableProperty]
-    private List<string> _hourSelectionStrings;
+    public partial List<string> HourSelectionStrings { get; set; }
 
     // To be able to revert the values when the user enters an invalid time.
     private string _previousSelectedStartTimeString;
     private string _previousSelectedEndTimeString;
 
     [ObservableProperty]
-    private DateTime? _selectedQuickEventDate;
-
-    [ObservableProperty]
-    private bool _isAllDay;
+    [NotifyCanExecuteChangedFor(nameof(SaveQuickEventCommand))]
+    public partial DateTime? SelectedQuickEventDate { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveQuickEventCommand))]
-    private string _selectedStartTimeString;
+    public partial bool IsAllDay { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveQuickEventCommand))]
-    private string _selectedEndTimeString;
-
-    [ObservableProperty]
-    private string _location;
+    public partial string SelectedStartTimeString { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveQuickEventCommand))]
-    private string _eventName;
+    public partial string SelectedEndTimeString { get; set; }
+
+    [ObservableProperty]
+    public partial string Location { get; set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SaveQuickEventCommand))]
+    public partial string EventName { get; set; }
 
     public DateTime QuickEventStartTime => SelectedQuickEventDate.Value.Date.Add(CurrentSettings.GetTimeSpan(SelectedStartTimeString).Value);
     public DateTime QuickEventEndTime => SelectedQuickEventDate.Value.Date.Add(CurrentSettings.GetTimeSpan(SelectedEndTimeString).Value);
 
-    public bool CanSaveQuickEvent => SelectedQuickEventAccountCalendar != null &&
-                                    !string.IsNullOrWhiteSpace(EventName) &&
-                                    !string.IsNullOrWhiteSpace(SelectedStartTimeString) &&
-                                    !string.IsNullOrWhiteSpace(SelectedEndTimeString) &&
-                                    QuickEventEndTime > QuickEventStartTime;
+    public bool CanSaveQuickEvent
+    {
+        get
+        {
+            if (SelectedQuickEventAccountCalendar == null ||
+                SelectedQuickEventDate == null ||
+                string.IsNullOrWhiteSpace(EventName) ||
+                string.IsNullOrWhiteSpace(SelectedStartTimeString) ||
+                string.IsNullOrWhiteSpace(SelectedEndTimeString))
+            {
+                return false;
+            }
+
+            var startTime = CurrentSettings.GetTimeSpan(SelectedStartTimeString);
+            var endTime = CurrentSettings.GetTimeSpan(SelectedEndTimeString);
+
+            if (!startTime.HasValue || !endTime.HasValue)
+            {
+                return false;
+            }
+
+            return IsAllDay || endTime > startTime;
+        }
+    }
 
     #endregion
 
@@ -152,7 +173,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     private long _pageLifetimeVersion;
 
     [ObservableProperty]
-    private CalendarSettings _currentSettings;
+    public partial CalendarSettings CurrentSettings { get; set; }
 
     public IStatePersistanceService StatePersistanceService { get; }
     public IAccountCalendarStateService AccountCalendarStateService { get; }
@@ -1129,6 +1150,8 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     {
         if (value)
         {
+            _previousSelectedStartTimeString = SelectedStartTimeString;
+            _previousSelectedEndTimeString = SelectedEndTimeString;
             SelectedStartTimeString = HourSelectionStrings.FirstOrDefault();
             SelectedEndTimeString = HourSelectionStrings.FirstOrDefault();
         }
@@ -1147,7 +1170,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         {
             SelectedStartTimeString = _previousSelectedStartTimeString;
         }
-        else if (IsAllDay)
+        else if (!IsAllDay)
         {
             _previousSelectedStartTimeString = newValue;
         }
@@ -1159,9 +1182,9 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
         if (parsedTime == null)
         {
-            SelectedEndTimeString = _previousSelectedStartTimeString;
+            SelectedEndTimeString = _previousSelectedEndTimeString;
         }
-        else if (IsAllDay)
+        else if (!IsAllDay)
         {
             _previousSelectedEndTimeString = newValue;
         }

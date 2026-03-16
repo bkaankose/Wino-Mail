@@ -303,6 +303,8 @@ public class NavigationService : NavigationServiceBase, INavigationService
 
         if (innerShellFrame != null)
         {
+            PruneInnerShellBackStackForMode(innerShellFrame, currentApplicationMode);
+
             // Calendar navigations.
             if (currentApplicationMode == WinoApplicationMode.Calendar)
             {
@@ -514,29 +516,42 @@ public class NavigationService : NavigationServiceBase, INavigationService
     private void GoBackInternal(Core.Domain.Enums.NavigationTransitionEffect slideEffect = Core.Domain.Enums.NavigationTransitionEffect.FromRight)
     {
         var innerShellFrame = GetCoreFrameInternal(NavigationReferenceFrame.InnerShellFrame);
+        var currentApplicationMode = _statePersistanceService.ApplicationMode;
 
-        if (_statePersistanceService.ApplicationMode == WinoApplicationMode.Settings &&
+        if (currentApplicationMode == WinoApplicationMode.Settings &&
             _statePersistanceService.HasCurrentModeBackStack)
         {
             WeakReferenceMessenger.Default.Send(new BackBreadcrumNavigationRequested(slideEffect));
             return;
         }
 
-        if (_statePersistanceService.ApplicationMode == WinoApplicationMode.Settings &&
+        if (currentApplicationMode == WinoApplicationMode.Settings &&
             innerShellFrame?.Content is SettingsPage)
         {
             return;
         }
 
-        if (_statePersistanceService.ApplicationMode == WinoApplicationMode.Calendar && innerShellFrame?.CanGoBack == true)
+        if (innerShellFrame != null)
         {
-            innerShellFrame.GoBack();
-            UpdateCurrentModeBackStackState(innerShellFrame);
+            PruneInnerShellBackStackForMode(innerShellFrame, currentApplicationMode);
+        }
+
+        if (currentApplicationMode == WinoApplicationMode.Calendar)
+        {
+            if (innerShellFrame?.CanGoBack == true)
+            {
+                innerShellFrame.GoBack();
+                UpdateCurrentModeBackStackState(innerShellFrame);
+            }
+            else if (innerShellFrame != null && innerShellFrame.Content?.GetType() != typeof(CalendarPage))
+            {
+                NavigateToCalendarRoot(innerShellFrame);
+            }
 
             // Calendar mode: Navigate back from EventDetailsPage
             _statePersistanceService.IsEventDetailsVisible = false;
         }
-        else if (_statePersistanceService.ApplicationMode == WinoApplicationMode.Mail)
+        else if (currentApplicationMode == WinoApplicationMode.Mail)
         {
             if (_statePersistanceService.IsReadingMail && _statePersistanceService.IsReaderNarrowed)
             {
@@ -574,6 +589,51 @@ public class NavigationService : NavigationServiceBase, INavigationService
 
         _statePersistanceService.HasCurrentModeBackStack = _statePersistanceService.ApplicationMode == WinoApplicationMode.Calendar &&
                                                            innerShellFrame?.CanGoBack == true;
+    }
+
+    private void PruneInnerShellBackStackForMode(Frame frame, WinoApplicationMode mode)
+    {
+        for (int i = frame.BackStack.Count - 1; i >= 0; i--)
+        {
+            var backStackEntry = frame.BackStack[i];
+
+            if (!IsPageTypeAllowedInMode(mode, backStackEntry.SourcePageType))
+            {
+                frame.BackStack.RemoveAt(i);
+            }
+        }
+    }
+
+    private bool IsPageTypeAllowedInMode(WinoApplicationMode mode, Type? pageType)
+    {
+        if (pageType == null)
+            return false;
+
+        foreach (var page in Enum.GetValues<WinoPage>())
+        {
+            if (page == WinoPage.None)
+                continue;
+
+            if (GetPageType(page) == pageType)
+                return IsPageAllowedInMode(mode, page);
+        }
+
+        return false;
+    }
+
+    private void NavigateToCalendarRoot(Frame frame)
+    {
+        if (!frame.Navigate(typeof(CalendarPage), new CalendarPageNavigationArgs
+        {
+            RequestDefaultNavigation = true
+        }, GetNavigationTransitionInfo(NavigationTransitionType.None)))
+        {
+            return;
+        }
+
+        frame.BackStack.Clear();
+        frame.ForwardStack.Clear();
+        UpdateCurrentModeBackStackState(frame);
     }
 
     // Standalone EML viewer.
