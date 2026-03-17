@@ -372,6 +372,9 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WinoAccountSignedOutView.Visibility = isSignedIn ? Visibility.Collapsed : Visibility.Visible;
         WinoAccountSignedInView.Visibility = isSignedIn ? Visibility.Visible : Visibility.Collapsed;
 
+        WinoAccountButtonPicture.Visibility = isSignedIn ? Visibility.Visible : Visibility.Collapsed;
+        WinoAccountSignedOutIcon.Visibility = isSignedIn ? Visibility.Collapsed : Visibility.Visible;
+
         var initials = GetInitials(account?.Email);
 
         WinoAccountButtonPicture.Initials = initials;

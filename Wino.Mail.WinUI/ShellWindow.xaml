@@ -146,11 +146,25 @@
                                 </Grid>
                             </Flyout>
                         </Button.Flyout>
-                        <PersonPicture
-                            x:Name="WinoAccountButtonPicture"
-                            Width="30"
-                            Height="30"
-                            Initials="W" />
+                        <Grid>
+                            <PersonPicture
+                                x:Name="WinoAccountButtonPicture"
+                                Width="30"
+                                Height="30"
+                                Initials="W"
+                                Visibility="Collapsed" />
+                            <Border
+                                x:Name="WinoAccountSignedOutIcon"
+                                Width="30"
+                                Height="30"
+                                Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                CornerRadius="15">
+                                <FontIcon
+                                    FontSize="16"
+                                    Foreground="White"
+                                    Glyph="&#xE77B;" />
+                            </Border>
+                        </Grid>
                     </Button>
                 </StackPanel>
             </TitleBar.RightHeader>
