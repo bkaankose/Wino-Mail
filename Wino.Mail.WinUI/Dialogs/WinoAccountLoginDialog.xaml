@@ -19,65 +19,218 @@
     </ContentDialog.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Spacing="16">
+        <StackPanel Spacing="20">
+
+            <!--  Hero illustration area  -->
             <Border
-                Padding="14"
-                Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
-                CornerRadius="16">
-                <Grid ColumnSpacing="12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <FontIcon
-                        FontSize="18"
-                        Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                        Glyph="&#xE8D7;" />
-                    <StackPanel Grid.Column="1" Spacing="4">
-                        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.WinoAccount_LoginDialog_BenefitsTitle}" />
-                        <TextBlock
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Text="{x:Bind domain:Translator.WinoAccount_LoginDialog_BenefitsDescription}"
-                            TextWrapping="WrapWholeWords" />
-                    </StackPanel>
-                </Grid>
+                Height="140"
+                CornerRadius="12">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Offset="0" Color="#1A6EE7B7" />
+                        <GradientStop Offset="0.5" Color="#2038BDF8" />
+                        <GradientStop Offset="1" Color="#1A818CF8" />
+                    </LinearGradientBrush>
+                </Border.Background>
+                <Canvas>
+                    <!--  Background decorative circles  -->
+                    <Ellipse
+                        Canvas.Left="340"
+                        Canvas.Top="-20"
+                        Width="100"
+                        Height="100"
+                        Opacity="0.15">
+                        <Ellipse.Fill>
+                            <RadialGradientBrush>
+                                <GradientStop Offset="0" Color="#38BDF8" />
+                                <GradientStop Offset="1" Color="Transparent" />
+                            </RadialGradientBrush>
+                        </Ellipse.Fill>
+                    </Ellipse>
+                    <Ellipse
+                        Canvas.Left="20"
+                        Canvas.Top="80"
+                        Width="80"
+                        Height="80"
+                        Opacity="0.1">
+                        <Ellipse.Fill>
+                            <RadialGradientBrush>
+                                <GradientStop Offset="0" Color="#6EE7B7" />
+                                <GradientStop Offset="1" Color="Transparent" />
+                            </RadialGradientBrush>
+                        </Ellipse.Fill>
+                    </Ellipse>
+
+                    <!--  Shield with lock illustration  -->
+                    <Canvas Canvas.Left="190" Canvas.Top="16">
+                        <!--  Shield shape  -->
+                        <Path
+                            Data="M46 4 L82 18 L82 48 C82 66 65 80 46 84 C27 80 10 66 10 48 L10 18 Z"
+                            Opacity="0.9">
+                            <Path.Fill>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Offset="0" Color="#6EE7B7" />
+                                    <GradientStop Offset="1" Color="#059669" />
+                                </LinearGradientBrush>
+                            </Path.Fill>
+                        </Path>
+                        <!--  Inner shield  -->
+                        <Path
+                            Data="M46 12 L76 24 L76 48 C76 64 62 76 46 80 C30 76 16 64 16 48 L16 24 Z"
+                            Opacity="0.5">
+                            <Path.Fill>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                    <GradientStop Offset="0" Color="#A7F3D0" />
+                                    <GradientStop Offset="1" Color="#34D399" />
+                                </LinearGradientBrush>
+                            </Path.Fill>
+                        </Path>
+                        <!--  Lock body  -->
+                        <Rectangle
+                            Canvas.Left="32"
+                            Canvas.Top="44"
+                            Width="28"
+                            Height="20"
+                            Fill="White"
+                            RadiusX="5"
+                            RadiusY="5" />
+                        <!--  Lock shackle  -->
+                        <Path
+                            Data="M38 44 L38 38 A8 8 0 0 1 54 38 L54 44"
+                            Stroke="White"
+                            StrokeEndLineCap="Round"
+                            StrokeStartLineCap="Round"
+                            StrokeThickness="4"
+                            Fill="Transparent" />
+                        <!--  Keyhole  -->
+                        <Ellipse
+                            Canvas.Left="42"
+                            Canvas.Top="49"
+                            Width="8"
+                            Height="8"
+                            Fill="#059669" />
+                        <Rectangle
+                            Canvas.Left="44"
+                            Canvas.Top="55"
+                            Width="4"
+                            Height="6"
+                            Fill="#059669"
+                            RadiusX="2"
+                            RadiusY="2" />
+                    </Canvas>
+
+                    <!--  Decorative sparkles  -->
+                    <Ellipse
+                        Canvas.Left="150"
+                        Canvas.Top="30"
+                        Width="6"
+                        Height="6"
+                        Fill="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                        Opacity="0.5" />
+                    <Ellipse
+                        Canvas.Left="320"
+                        Canvas.Top="50"
+                        Width="5"
+                        Height="5"
+                        Fill="#6EE7B7"
+                        Opacity="0.6" />
+                    <Ellipse
+                        Canvas.Left="130"
+                        Canvas.Top="100"
+                        Width="4"
+                        Height="4"
+                        Fill="#38BDF8"
+                        Opacity="0.4" />
+                    <Ellipse
+                        Canvas.Left="360"
+                        Canvas.Top="100"
+                        Width="4"
+                        Height="4"
+                        Fill="#A78BFA"
+                        Opacity="0.5" />
+                </Canvas>
             </Border>
 
-            <Border
-                Padding="14"
-                Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
-                BorderBrush="{ThemeResource TextFillColorDisabledBrush}"
-                BorderThickness="1"
-                CornerRadius="16">
-                <Grid ColumnSpacing="12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <FontIcon
-                        FontSize="18"
-                        Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                        Glyph="&#xE946;" />
-                    <StackPanel Grid.Column="1" Spacing="4">
-                        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.WinoAccount_LoginDialog_DifferenceTitle}" />
-                        <TextBlock
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Text="{x:Bind domain:Translator.WinoAccount_LoginDialog_DifferenceDescription}"
-                            TextWrapping="WrapWholeWords" />
-                    </StackPanel>
-                </Grid>
-            </Border>
+            <!--  Benefits cards  -->
+            <StackPanel Spacing="8">
+                <Border
+                    Padding="14"
+                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                    CornerRadius="12">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border
+                            Width="36"
+                            Height="36"
+                            Background="{ThemeResource AccentFillColorDefaultBrush}"
+                            CornerRadius="8"
+                            Opacity="0.15" />
+                        <FontIcon
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            FontSize="16"
+                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                            Glyph="&#xE8D7;" />
+                        <StackPanel Grid.Column="1" Spacing="2">
+                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.WinoAccount_LoginDialog_BenefitsTitle}" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind domain:Translator.WinoAccount_LoginDialog_BenefitsDescription}"
+                                TextWrapping="WrapWholeWords" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
 
+                <Border
+                    Padding="14"
+                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                    CornerRadius="12">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border
+                            Width="36"
+                            Height="36"
+                            Background="{ThemeResource AccentFillColorDefaultBrush}"
+                            CornerRadius="8"
+                            Opacity="0.15" />
+                        <FontIcon
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            FontSize="16"
+                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                            Glyph="&#xE946;" />
+                        <StackPanel Grid.Column="1" Spacing="2">
+                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.WinoAccount_LoginDialog_DifferenceTitle}" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind domain:Translator.WinoAccount_LoginDialog_DifferenceDescription}"
+                                TextWrapping="WrapWholeWords" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </StackPanel>
+
+            <!--  Input fields  -->
             <StackPanel Spacing="12">
                 <TextBox
                     x:Name="EmailTextBox"
                     Header="{x:Bind domain:Translator.WinoAccount_EmailLabel}"
+                    KeyDown="EmailTextBox_KeyDown"
                     PlaceholderText="{x:Bind domain:Translator.WinoAccount_EmailPlaceholder}"
                     TextChanging="InputChanged" />
 
                 <PasswordBox
                     x:Name="PasswordBox"
                     Header="{x:Bind domain:Translator.WinoAccount_PasswordLabel}"
+                    KeyDown="PasswordBox_KeyDown"
                     PasswordChanged="InputChanged" />
             </StackPanel>
 

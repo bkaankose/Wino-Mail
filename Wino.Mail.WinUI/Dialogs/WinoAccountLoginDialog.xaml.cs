@@ -1,5 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Windows.System;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
@@ -34,6 +36,25 @@ public sealed partial class WinoAccountLoginDialog : ContentDialog
 
         try
         {
+            await PerformLoginAsync();
+        }
+        finally
+        {
+            deferral.Complete();
+        }
+    }
+
+    private async System.Threading.Tasks.Task PerformLoginAsync()
+    {
+        var validationError = ValidateInput();
+        if (!string.IsNullOrWhiteSpace(validationError))
+        {
+            ShowError(validationError);
+            return;
+        }
+
+        try
+        {
             SetBusyState(true);
             HideError();
 
@@ -46,13 +67,11 @@ public sealed partial class WinoAccountLoginDialog : ContentDialog
             }
 
             Result = result.Account;
-            args.Cancel = false;
             Hide();
         }
         finally
         {
             SetBusyState(false);
-            deferral.Complete();
         }
     }
 
@@ -69,6 +88,24 @@ public sealed partial class WinoAccountLoginDialog : ContentDialog
         }
 
         return string.Empty;
+    }
+
+    private void EmailTextBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Enter)
+        {
+            PasswordBox.Focus(FocusState.Programmatic);
+            e.Handled = true;
+        }
+    }
+
+    private async void PasswordBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Enter)
+        {
+            e.Handled = true;
+            await PerformLoginAsync();
+        }
     }
 
     private void InputChanged(TextBox sender, TextBoxTextChangingEventArgs args) => HideError();

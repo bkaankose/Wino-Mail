@@ -1,6 +1,8 @@
 using System;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Windows.System;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
@@ -35,6 +37,25 @@ public sealed partial class WinoAccountRegistrationDialog : ContentDialog
 
         try
         {
+            await PerformRegistrationAsync();
+        }
+        finally
+        {
+            deferral.Complete();
+        }
+    }
+
+    private async System.Threading.Tasks.Task PerformRegistrationAsync()
+    {
+        var validationError = ValidateInput();
+        if (!string.IsNullOrWhiteSpace(validationError))
+        {
+            ShowError(validationError);
+            return;
+        }
+
+        try
+        {
             SetBusyState(true);
             HideError();
 
@@ -47,13 +68,11 @@ public sealed partial class WinoAccountRegistrationDialog : ContentDialog
             }
 
             Result = result.Account;
-            args.Cancel = false;
             Hide();
         }
         finally
         {
             SetBusyState(false);
-            deferral.Complete();
         }
     }
 
@@ -75,6 +94,33 @@ public sealed partial class WinoAccountRegistrationDialog : ContentDialog
         }
 
         return string.Empty;
+    }
+
+    private void EmailTextBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Enter)
+        {
+            PasswordBox.Focus(FocusState.Programmatic);
+            e.Handled = true;
+        }
+    }
+
+    private void PasswordBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Enter)
+        {
+            ConfirmPasswordBox.Focus(FocusState.Programmatic);
+            e.Handled = true;
+        }
+    }
+
+    private async void ConfirmPasswordBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Enter)
+        {
+            e.Handled = true;
+            await PerformRegistrationAsync();
+        }
     }
 
     private void InputChanged(TextBox sender, TextBoxTextChangingEventArgs args) => HideError();
