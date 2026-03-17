@@ -313,6 +313,13 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         get => _configurationService.Get(nameof(IsStoreUpdateNotificationsEnabled), true);
         set => SetPropertyAndSave(nameof(IsStoreUpdateNotificationsEnabled), value);
     }
+
+    public bool IsWinoAccountButtonHidden
+    {
+        get => _configurationService.Get(nameof(IsWinoAccountButtonHidden), false);
+        set => SetPropertyAndSave(nameof(IsWinoAccountButtonHidden), value);
+    }
+
     public WinoApplicationMode DefaultApplicationMode
     {
         get

@@ -718,6 +718,8 @@
     "SettingsAppPreferences_StartupBehavior_FatalError": "Fatal error occurred while changing the startup mode for Wino Mail.",
     "SettingsAppPreferences_StartupBehavior_Title": "Start minimized on Windows startup",
     "SettingsAppPreferences_Title": "App Preferences",
+    "SettingsAppPreferences_HideWinoAccountButton_Title": "Hide Wino account button in title bar",
+    "SettingsAppPreferences_HideWinoAccountButton_Description": "Hide the title bar profile button that opens the Wino account flyout.",
     "SettingsAppPreferences_StoreUpdateNotifications_Title": "Store update notifications",
     "SettingsAppPreferences_StoreUpdateNotifications_Description": "Show notifications and footer actions when a Microsoft Store update is available.",
     "SettingsAutoSelectNextItem_Description": "Select the next item after you delete or move a mail.",

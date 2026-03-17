@@ -62,6 +62,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// </summary>
     bool IsStoreUpdateNotificationsEnabled { get; set; }
 
+    /// <summary>
+    /// Setting: Whether the Wino account profile button in the shell title bar should be hidden.
+    /// </summary>
+    bool IsWinoAccountButtonHidden { get; set; }
+
     #endregion
 
     #region Mail
@@ -246,4 +251,3 @@ public interface IPreferencesService : INotifyPropertyChanged
 
     #endregion
 }
-
