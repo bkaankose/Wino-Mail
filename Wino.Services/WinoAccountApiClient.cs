@@ -34,7 +34,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 
         _httpClient = new HttpClient(handler)
         {
-            BaseAddress = new Uri("https://localhost:7204/")
+            BaseAddress = new Uri("https://api.winomail.app/")
         };
         _ownsHttpClient = true;
     }
