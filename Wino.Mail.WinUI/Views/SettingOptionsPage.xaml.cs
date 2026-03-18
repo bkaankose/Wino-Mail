@@ -51,6 +51,11 @@ public sealed partial class SettingOptionsPage : SettingOptionsPageAbstract
         ViewModel.NavigateToAddAccount();
     }
 
+    private void WinoAccountManagementClicked(object sender, RoutedEventArgs e)
+    {
+        ViewModel.NavigateToWinoAccountManagementCommand.Execute(null);
+    }
+
     private void SettingsSearchTextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
     {
         if (args.Reason == AutoSuggestionBoxTextChangeReason.UserInput || string.IsNullOrWhiteSpace(sender.Text))

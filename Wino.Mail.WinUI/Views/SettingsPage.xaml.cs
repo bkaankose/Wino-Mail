@@ -61,6 +61,13 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
             manageAccountsEntry.Title = Translator.SettingsManageAccountSettings_Title;
         }
 
+        var winoAccountEntry = PageHistory.FirstOrDefault(a => a.Request.PageType == WinoPage.WinoAccountManagementPage);
+
+        if (winoAccountEntry != null)
+        {
+            winoAccountEntry.Title = Translator.WinoAccount_SettingsSection_Title;
+        }
+
         _ = RefreshCurrentPageStateAsync();
         UpdateWindowTitle();
     }

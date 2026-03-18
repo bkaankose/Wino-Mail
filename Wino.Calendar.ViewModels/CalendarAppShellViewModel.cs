@@ -91,6 +91,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     // For updating account calendars asynchronously.
     private SemaphoreSlim _accountCalendarUpdateSemaphoreSlim = new(1);
     private bool _runtimeSubscriptionsAttached;
+    private bool _hasRegisteredPersistentRecipients;
 
     public CalendarAppShellViewModel(IPreferencesService preferencesService,
                              IStatePersistanceService statePersistanceService,
@@ -151,7 +152,12 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
     {
-        base.OnNavigatedTo(mode, parameters);
+        if (!_hasRegisteredPersistentRecipients)
+        {
+            RegisterRecipients();
+            _hasRegisteredPersistentRecipients = true;
+        }
+
         AttachRuntimeSubscriptions();
 
         var activationContext = parameters as ShellModeActivationContext;
@@ -177,8 +183,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
     public override void OnNavigatedFrom(NavigationMode mode, object parameters)
     {
-        base.OnNavigatedFrom(mode, parameters);
-
         DetachRuntimeSubscriptions();
         PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
         _ = ExecuteUIThread(() =>

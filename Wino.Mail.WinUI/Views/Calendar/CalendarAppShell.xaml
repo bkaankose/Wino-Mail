@@ -180,6 +180,8 @@
             MenuItemsSource="{x:Bind ViewModel.MenuItems, Mode=OneWay}"
             OpenPaneLength="{x:Bind ViewModel.StatePersistenceService.OpenPaneLength, Mode=TwoWay}"
             PaneDisplayMode="Auto"
+            PaneOpened="NavigationPaneOpened"
+            PaneClosed="NavigationPaneClosed"
             Style="{StaticResource CalendarShellNavigationViewStyle}">
             <muxc:NavigationView.PaneCustomContent>
                 <Grid x:Name="PaneCustomContent" Padding="0,0,0,6">

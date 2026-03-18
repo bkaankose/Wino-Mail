@@ -525,6 +525,8 @@
             OpenPaneLength="{x:Bind ViewModel.StatePersistenceService.OpenPaneLength, Mode=TwoWay}"
             PaneDisplayMode="Auto"
             PaneOpening="NavigationPaneOpening"
+            PaneOpened="NavigationPaneOpened"
+            PaneClosed="NavigationPaneClosed"
             ScrollViewer.VerticalScrollBarVisibility="Hidden"
             SelectionChanged="MenuSelectionChanged"
             Style="{StaticResource CalendarShellNavigationViewStyle}">

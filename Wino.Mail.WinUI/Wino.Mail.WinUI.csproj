@@ -98,6 +98,7 @@
     <Content Remove="Assets\AppEntries\CalendarAssets\Square44x44Logo.altform-unplated_targetsize-24.png" />
   </ItemGroup>
   <ItemGroup>
+    <None Remove="Assets\AIPackIcon.png" />
     <None Remove="Assets\CalendarWide310x150Logo.png" />
     <None Remove="Assets\UpdateNotes\Images\Calendar.svg" />
     <None Remove="Assets\UpdateNotes\Images\Security.svg" />

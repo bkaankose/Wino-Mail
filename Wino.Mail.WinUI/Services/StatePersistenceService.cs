@@ -35,7 +35,7 @@ public class StatePersistenceService : ObservableObject, IStatePersistanceServic
     public bool IsBackButtonVisible =>
         ApplicationMode == WinoApplicationMode.Mail
             ? (IsReadingMail && IsReaderNarrowed) || HasCurrentModeBackStack
-            : IsEventDetailsVisible || HasCurrentModeBackStack;
+            : HasCurrentModeBackStack;
 
     private WinoApplicationMode applicationMode = WinoApplicationMode.Mail;
 

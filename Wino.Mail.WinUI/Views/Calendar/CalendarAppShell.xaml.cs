@@ -79,6 +79,12 @@ public sealed partial class CalendarAppShell : CalendarAppShellAbstract,
     private void NavigationViewDisplayModeChanged(NavigationView sender, NavigationViewDisplayModeChangedEventArgs args)
         => UpdateNavigationPaneLayout(args.DisplayMode);
 
+    private void NavigationPaneOpened(NavigationView sender, object args)
+        => UpdateNavigationPaneLayout(sender.DisplayMode);
+
+    private void NavigationPaneClosed(NavigationView sender, object args)
+        => UpdateNavigationPaneLayout(sender.DisplayMode);
+
     private Task InvokeNewCalendarEventAsync()
         => ViewModel.HandleNavigationItemInvokedAsync(new NewCalendarEventMenuItem());
 

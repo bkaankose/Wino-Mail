@@ -20,6 +20,8 @@ public partial class SettingsShellClient(INavigationService navigationService) :
     IRecipient<ActiveSettingsPageChanged>,
     IRecipient<LanguageChanged>
 {
+    private bool _hasRegisteredPersistentRecipients;
+
     public WinoApplicationMode Mode => WinoApplicationMode.Settings;
     public MenuItemCollection? MenuItems { get; private set; }
 
@@ -37,18 +39,22 @@ public partial class SettingsShellClient(INavigationService navigationService) :
 
     public void Activate(ShellModeActivationContext activationContext)
     {
+        if (!_hasRegisteredPersistentRecipients)
+        {
+            RegisterRecipients();
+            _hasRegisteredPersistentRecipients = true;
+        }
+
         RebuildMenuItems();
 
         var targetPage = activationContext.Parameter as WinoPage? ?? WinoPage.SettingOptionsPage;
         SetSelectedRootPage(SettingsNavigationInfoProvider.GetRootPage(targetPage));
-        OnNavigatedTo(NavigationMode.New, activationContext);
 
         navigationService.Navigate(WinoPage.SettingsPage, targetPage, NavigationReferenceFrame.InnerShellFrame);
     }
 
     public void Deactivate()
     {
-        OnNavigatedFrom(NavigationMode.New, null!);
     }
 
     public Task HandleNavigationItemInvokedAsync(IMenuItem? menuItem)

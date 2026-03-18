@@ -471,6 +471,12 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         }
     }
 
+    private void NavigationPaneOpened(NavigationView sender, object args)
+        => UpdateNavigationPaneLayout(sender.DisplayMode);
+
+    private void NavigationPaneClosed(NavigationView sender, object args)
+        => UpdateNavigationPaneLayout(sender.DisplayMode);
+
     private void NavigationViewDisplayModeChanged(NavigationView sender, NavigationViewDisplayModeChangedEventArgs args)
         => UpdateNavigationPaneLayout(args.DisplayMode);
 

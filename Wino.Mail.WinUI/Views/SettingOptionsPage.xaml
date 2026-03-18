@@ -80,22 +80,18 @@
                 </TransitionCollection>
             </StackPanel.ChildrenTransitions>
 
-            <!--  About hero card.  -->
+            <!--  App About hero card  -->
             <Border
                 Padding="24,20"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 CornerRadius="8">
-                <Grid ColumnSpacing="16" RowSpacing="16">
+                <Grid ColumnSpacing="16">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
 
                     <StackPanel
                         VerticalAlignment="Center"
@@ -108,12 +104,8 @@
                             Source="ms-appx:///Assets/AppEntries/MailAssets/Square150x150Logo.scale-100.png"
                             Stretch="Uniform" />
                         <StackPanel VerticalAlignment="Center">
+                            <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Wino Mail" />
                             <TextBlock
-                                VerticalAlignment="Center"
-                                Style="{StaticResource TitleTextBlockStyle}"
-                                Text="Wino Mail" />
-                            <TextBlock
-                                VerticalAlignment="Top"
                                 Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                                 Style="{StaticResource CaptionTextBlockStyle}"
                                 Text="{x:Bind ViewModel.VersionText, Mode=OneWay}" />
@@ -138,7 +130,6 @@
                                     Stretch="Uniform" />
                             </Viewbox>
                         </Button>
-
                         <Button
                             Command="{x:Bind ViewModel.NavigateExternalCommand}"
                             CommandParameter="{x:Bind ViewModel.GitHubUrl, Mode=OneWay}"
@@ -151,7 +142,6 @@
                                     Stretch="Uniform" />
                             </Viewbox>
                         </Button>
-
                         <Button
                             Command="{x:Bind ViewModel.NavigateExternalCommand}"
                             CommandParameter="Store"
@@ -166,6 +156,106 @@
                     </StackPanel>
                 </Grid>
             </Border>
+
+            <!--  Loading indicator  -->
+            <ProgressRing
+                x:Name="WinoAccountBusyRing"
+                Width="24"
+                Height="24"
+                HorizontalAlignment="Center"
+                x:Load="{x:Bind ViewModel.IsWinoAccountBusy, Mode=OneWay}"
+                IsActive="True" />
+
+            <!--  Wino Account: Signed-out state  -->
+            <controls:SettingsCard
+                x:Name="SignedOutCard"
+                Description="{x:Bind domain:Translator.SettingsHome_WinoAccount_SignedOutDescription}"
+                Header="{x:Bind domain:Translator.SettingsHome_WinoAccount_Title}"
+                x:Load="{x:Bind ViewModel.IsWinoAccountSignedOut, Mode=OneWay}">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE77B;" />
+                </controls:SettingsCard.HeaderIcon>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button
+                        Command="{x:Bind ViewModel.WinoAccountSignInCommand}"
+                        Content="{x:Bind domain:Translator.Buttons_SignIn}"
+                        Style="{StaticResource AccentButtonStyle}" />
+                    <Button Command="{x:Bind ViewModel.WinoAccountRegisterCommand}" Content="{x:Bind domain:Translator.Buttons_CreateAccount}" />
+                </StackPanel>
+            </controls:SettingsCard>
+
+            <!--  Wino Account: Signed-in state  -->
+            <controls:SettingsExpander
+                x:Name="SignedInExpander"
+                Description="{x:Bind ViewModel.WinoAccountStatusText, Mode=OneWay}"
+                Header="{x:Bind ViewModel.WinoAccountEmail, Mode=OneWay}"
+                x:Load="{x:Bind ViewModel.IsWinoAccountSignedIn, Mode=OneWay}">
+                <controls:SettingsExpander.HeaderIcon>
+                    <FontIcon Glyph="&#xE77B;" />
+                </controls:SettingsExpander.HeaderIcon>
+                <Button
+                    Command="{x:Bind ViewModel.WinoAccountSignOutCommand}"
+                    Content="{x:Bind domain:Translator.WinoAccount_SignOutButton_Action}" />
+
+                <controls:SettingsExpander.Items>
+                    <!--  AI Pack active (with progress bar)  -->
+                    <controls:SettingsCard
+                        x:Name="AiPackActiveCard"
+                        Description="{x:Bind ViewModel.AiUsageSummary, Mode=OneWay}"
+                        Header="{x:Bind domain:Translator.SettingsHome_AiPack_Title}"
+                        x:Load="{x:Bind ViewModel.CanShowAiUsage, Mode=OneWay}">
+                        <controls:SettingsCard.HeaderIcon>
+                            <ImageIcon Source="ms-appx:///Assets/AIPackIcon.png" />
+                        </controls:SettingsCard.HeaderIcon>
+                        <StackPanel MinWidth="200" Spacing="4">
+                            <ProgressBar
+                                Height="8"
+                                Maximum="100"
+                                Value="{x:Bind ViewModel.AiUsagePercent, Mode=OneWay}" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ViewModel.AiBillingPeriodSummary, Mode=OneWay}" />
+                        </StackPanel>
+                    </controls:SettingsCard>
+
+                    <!--  AI Pack not purchased  -->
+                    <controls:SettingsCard
+                        x:Name="AiPackBuyCard"
+                        Description="{x:Bind domain:Translator.WinoAccount_Management_AiPackBuyDescription}"
+                        Header="{x:Bind domain:Translator.SettingsHome_AiPack_Title}"
+                        x:Load="{x:Bind ViewModel.CanShowBuyAiPack, Mode=OneWay}">
+                        <controls:SettingsCard.HeaderIcon>
+                            <ImageIcon Source="ms-appx:///Assets/AIPackIcon.png" />
+                        </controls:SettingsCard.HeaderIcon>
+                        <Button
+                            Command="{x:Bind ViewModel.OpenBuyAiPackPageCommand}"
+                            Content="{x:Bind domain:Translator.Buttons_Purchase}"
+                            Style="{StaticResource AccentButtonStyle}" />
+                    </controls:SettingsCard>
+
+                    <!--  Settings sync  -->
+                    <controls:SettingsCard
+                        Click="WinoAccountManagementClicked"
+                        Description="{x:Bind domain:Translator.SettingsHome_SettingsSync_Description}"
+                        Header="{x:Bind domain:Translator.SettingsHome_SettingsSync_Title}"
+                        IsClickEnabled="True">
+                        <controls:SettingsCard.HeaderIcon>
+                            <FontIcon Glyph="&#xE895;" />
+                        </controls:SettingsCard.HeaderIcon>
+                    </controls:SettingsCard>
+
+                    <!--  Manage Wino Account  -->
+                    <controls:SettingsCard
+                        Click="WinoAccountManagementClicked"
+                        Header="{x:Bind domain:Translator.SettingsHome_WinoAccount_ManageLink}"
+                        IsClickEnabled="True">
+                        <controls:SettingsCard.HeaderIcon>
+                            <FontIcon Glyph="&#xE713;" />
+                        </controls:SettingsCard.HeaderIcon>
+                    </controls:SettingsCard>
+                </controls:SettingsExpander.Items>
+            </controls:SettingsExpander>
 
 
             <Border

@@ -30,6 +30,7 @@ namespace Wino.Mail.ViewModels;
 
 public partial class MailAppShellViewModel : MailBaseViewModel,
     IMailShellClient,
+    IRecipient<AccountCreatedMessage>,
     IRecipient<MailtoProtocolMessageRequested>,
     IRecipient<RefreshUnreadCountsMessage>,
     IRecipient<AccountsMenuRefreshRequested>,
@@ -86,6 +87,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     private readonly INativeAppService _nativeAppService;
     private readonly IMailService _mailService;
+    private bool _hasRegisteredPersistentRecipients;
 
     private readonly SemaphoreSlim accountInitFolderUpdateSlim = new SemaphoreSlim(1);
 
@@ -226,7 +228,11 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
     {
-        base.OnNavigatedTo(mode, parameters);
+        if (!_hasRegisteredPersistentRecipients)
+        {
+            RegisterRecipients();
+            _hasRegisteredPersistentRecipients = true;
+        }
 
         var activationContext = parameters as ShellModeActivationContext;
         var shouldRunStartupFlows = activationContext?.IsInitialActivation ?? true;
@@ -269,8 +275,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     public override void OnNavigatedFrom(NavigationMode mode, object parameters)
     {
-        base.OnNavigatedFrom(mode, parameters);
-
         PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
     }
 
@@ -1155,6 +1159,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
         Messenger.Register<AccountRemovedMessage>(this);
         Messenger.Register<AccountUpdatedMessage>(this);
+        Messenger.Register<AccountCreatedMessage>(this);
         Messenger.Register<MailtoProtocolMessageRequested>(this);
         Messenger.Register<RefreshUnreadCountsMessage>(this);
         Messenger.Register<AccountsMenuRefreshRequested>(this);
@@ -1172,6 +1177,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
         Messenger.Unregister<AccountRemovedMessage>(this);
         Messenger.Unregister<AccountUpdatedMessage>(this);
+        Messenger.Unregister<AccountCreatedMessage>(this);
         Messenger.Unregister<MailtoProtocolMessageRequested>(this);
         Messenger.Unregister<RefreshUnreadCountsMessage>(this);
         Messenger.Unregister<AccountsMenuRefreshRequested>(this);
@@ -1194,6 +1200,9 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         await RecreateMenuItemsAsync();
         await RestoreSelectedAccountAfterMenuRefreshAsync(false);
     }
+
+    public async void Receive(AccountCreatedMessage message)
+        => await HandleAccountCreatedAsync(message.Account);
 
     public async Task HandleAccountCreatedAsync(MailAccount createdAccount)
     {

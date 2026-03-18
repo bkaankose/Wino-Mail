@@ -16,13 +16,19 @@ using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.Models.Translations;
 using Wino.Core.Extensions;
 using Wino.Core.ViewModels.Data;
+using Wino.Mail.Api.Contracts.Ai;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.ViewModels;
 
-public partial class SettingOptionsPageViewModel : CoreBaseViewModel
+public partial class SettingOptionsPageViewModel : CoreBaseViewModel,
+    IRecipient<WinoAccountSignedInMessage>,
+    IRecipient<WinoAccountSignedOutMessage>
 {
+    private const string BuyAiPackUrl = "https://example.com/wino-ai-pack";
+
     private readonly INativeAppService _nativeAppService;
     private readonly IAccountService _accountService;
     private readonly IMimeStorageService _mimeStorageService;
@@ -31,6 +37,9 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
     private readonly INewThemeService _newThemeService;
     private readonly IPreferencesService _preferencesService;
     private readonly IProviderService _providerService;
+    private readonly IWinoAccountProfileService _profileService;
+    private readonly IWinoAccountApiClient _apiClient;
+    private readonly IMailDialogService _dialogService;
     private bool _isInitializingSettings;
     private bool _isAppearanceSelectionPaused;
 
@@ -82,6 +91,43 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
     [ObservableProperty]
     public partial bool UseAccentColor { get; set; }
 
+    // Wino Account hero card properties
+
+    [ObservableProperty]
+    public partial bool IsWinoAccountBusy { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsWinoAccountSignedOut))]
+    [NotifyPropertyChangedFor(nameof(CanShowBuyAiPack))]
+    public partial bool IsWinoAccountSignedIn { get; set; }
+
+    [ObservableProperty]
+    public partial string WinoAccountEmail { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string WinoAccountStatusText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanShowAiUsage))]
+    [NotifyPropertyChangedFor(nameof(CanShowBuyAiPack))]
+    public partial bool HasAiPack { get; set; }
+
+    [ObservableProperty]
+    public partial string AiPackStateText { get; set; } = Translator.WinoAccount_Management_AiPackInactive;
+
+    [ObservableProperty]
+    public partial string AiUsageSummary { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string AiBillingPeriodSummary { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial double AiUsagePercent { get; set; }
+
+    public bool IsWinoAccountSignedOut => !IsWinoAccountSignedIn;
+    public bool CanShowAiUsage => HasAiPack;
+    public bool CanShowBuyAiPack => IsWinoAccountSignedIn && !HasAiPack;
+
     public SettingOptionsPageViewModel(INativeAppService nativeAppService,
                                         IAccountService accountService,
                                         IMimeStorageService mimeStorageService,
@@ -89,7 +135,10 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
                                           ITranslationService translationService,
                                           INewThemeService newThemeService,
                                           IPreferencesService preferencesService,
-                                         IProviderService providerService)
+                                         IProviderService providerService,
+                                         IWinoAccountProfileService profileService,
+                                         IWinoAccountApiClient apiClient,
+                                         IMailDialogService dialogService)
     {
         _nativeAppService = nativeAppService;
         _accountService = accountService;
@@ -99,6 +148,9 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
         _newThemeService = newThemeService;
         _preferencesService = preferencesService;
         _providerService = providerService;
+        _profileService = profileService;
+        _apiClient = apiClient;
+        _dialogService = dialogService;
     }
 
     public override void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -112,6 +164,7 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
         InitializeQuickSettings();
 
         _ = LoadDashboardAsync();
+        _ = LoadWinoAccountAsync();
     }
 
     public void UpdateSearchSuggestions(string query)
@@ -363,6 +416,181 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
     private async Task ApplyLanguageAsync(AppLanguageModel language)
     {
         await _translationService.InitializeLanguageAsync(language.Language);
+    }
+
+    // Wino Account message recipients
+
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+
+        Messenger.Register<WinoAccountSignedInMessage>(this);
+        Messenger.Register<WinoAccountSignedOutMessage>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+
+        Messenger.Unregister<WinoAccountSignedInMessage>(this);
+        Messenger.Unregister<WinoAccountSignedOutMessage>(this);
+    }
+
+    public void Receive(WinoAccountSignedInMessage message)
+        => _ = LoadWinoAccountAsync();
+
+    public void Receive(WinoAccountSignedOutMessage message)
+        => _ = ResetWinoAccountStateAsync();
+
+    // Wino Account hero card commands and helpers
+
+    [RelayCommand]
+    private async Task WinoAccountRegisterAsync()
+    {
+        var account = await _dialogService.ShowWinoAccountRegistrationDialogAsync();
+        if (account == null) return;
+
+        _dialogService.InfoBarMessage(Translator.GeneralTitle_Info,
+                                      string.Format(Translator.WinoAccount_RegisterSuccessMessage, account.Email),
+                                      InfoBarMessageType.Success);
+        await LoadWinoAccountAsync();
+    }
+
+    [RelayCommand]
+    private async Task WinoAccountSignInAsync()
+    {
+        var account = await _dialogService.ShowWinoAccountLoginDialogAsync();
+        if (account == null) return;
+
+        _dialogService.InfoBarMessage(Translator.GeneralTitle_Info,
+                                      string.Format(Translator.WinoAccount_LoginSuccessMessage, account.Email),
+                                      InfoBarMessageType.Success);
+        await LoadWinoAccountAsync();
+    }
+
+    [RelayCommand]
+    private async Task WinoAccountSignOutAsync()
+    {
+        var account = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
+        if (account == null) return;
+
+        await _profileService.SignOutAsync().ConfigureAwait(false);
+
+        _dialogService.InfoBarMessage(Translator.GeneralTitle_Info,
+                                      string.Format(Translator.WinoAccount_SignOut_SuccessMessage, account.Email),
+                                      InfoBarMessageType.Success);
+        await ResetWinoAccountStateAsync();
+    }
+
+    [RelayCommand]
+    private async Task OpenBuyAiPackPageAsync() => await _nativeAppService.LaunchUriAsync(new Uri(BuyAiPackUrl));
+
+    [RelayCommand]
+    private void NavigateToWinoAccountManagement()
+        => NavigateSubDetail(WinoPage.WinoAccountManagementPage);
+
+    private async Task LoadWinoAccountAsync()
+    {
+        await ExecuteUIThread(() => IsWinoAccountBusy = true);
+
+        try
+        {
+            var account = await EnsureAuthenticatedAccountAsync().ConfigureAwait(false);
+            if (account == null)
+            {
+                await ResetWinoAccountStateAsync();
+                return;
+            }
+
+            var currentUserResponse = await _apiClient.GetCurrentUserAsync().ConfigureAwait(false);
+            var aiStatusResponse = await _apiClient.GetAiStatusAsync().ConfigureAwait(false);
+
+            var resolvedEmail = currentUserResponse.IsSuccess && currentUserResponse.Result != null
+                ? currentUserResponse.Result.Email
+                : account.Email;
+
+            var resolvedStatus = currentUserResponse.IsSuccess && currentUserResponse.Result != null
+                ? currentUserResponse.Result.AccountStatus
+                : account.AccountStatus;
+
+            await ExecuteUIThread(() =>
+            {
+                IsWinoAccountSignedIn = true;
+                WinoAccountEmail = resolvedEmail;
+                WinoAccountStatusText = string.Format(Translator.WinoAccount_Management_StatusLabel, resolvedStatus);
+            });
+
+            UpdateAiPackState(aiStatusResponse.IsSuccess ? aiStatusResponse.Result : null);
+        }
+        catch
+        {
+            await ResetWinoAccountStateAsync();
+        }
+        finally
+        {
+            await ExecuteUIThread(() => IsWinoAccountBusy = false);
+        }
+    }
+
+    private async Task ResetWinoAccountStateAsync()
+    {
+        await ExecuteUIThread(() =>
+        {
+            IsWinoAccountSignedIn = false;
+            WinoAccountEmail = string.Empty;
+            WinoAccountStatusText = string.Empty;
+            HasAiPack = false;
+            AiPackStateText = Translator.WinoAccount_Management_AiPackInactive;
+            AiUsageSummary = string.Empty;
+            AiBillingPeriodSummary = string.Empty;
+            AiUsagePercent = 0;
+        });
+    }
+
+    private async Task<WinoAccount> EnsureAuthenticatedAccountAsync()
+    {
+        var account = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
+        if (account == null) return null;
+
+        if (account.AccessTokenExpiresAtUtc <= DateTime.UtcNow.AddMinutes(1))
+        {
+            var refreshResult = await _profileService.RefreshAsync().ConfigureAwait(false);
+            if (!refreshResult.IsSuccess) return null;
+
+            account = refreshResult.Account ?? await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
+        }
+
+        return account != null && !string.IsNullOrWhiteSpace(account.AccessToken) ? account : null;
+    }
+
+    private void UpdateAiPackState(AiStatusResultDto aiStatus)
+    {
+        var hasAiPack = aiStatus?.HasAiPack == true;
+        var usageText = Translator.WinoAccount_Management_AiPackUnknownUsage;
+        var billingText = string.Empty;
+        var usagePercent = 0d;
+
+        if (hasAiPack && aiStatus?.Used is int used && aiStatus.MonthlyLimit is int limit && aiStatus.Remaining is int remaining)
+        {
+            usageText = string.Format(Translator.WinoAccount_Management_AiPackUsage, used, limit, remaining);
+            usagePercent = limit > 0 ? (double)used / limit * 100 : 0;
+        }
+
+        if (hasAiPack && aiStatus?.CurrentPeriodStartUtc is DateTimeOffset periodStart && aiStatus.CurrentPeriodEndUtc is DateTimeOffset periodEnd)
+        {
+            billingText = string.Format(Translator.WinoAccount_Management_AiPackBillingPeriod, periodStart.LocalDateTime, periodEnd.LocalDateTime);
+        }
+
+        _ = ExecuteUIThread(() =>
+        {
+            HasAiPack = hasAiPack;
+            AiPackStateText = hasAiPack
+                ? Translator.WinoAccount_Management_AiPackActive
+                : Translator.WinoAccount_Management_AiPackInactive;
+            AiUsageSummary = hasAiPack ? usageText : string.Empty;
+            AiBillingPeriodSummary = hasAiPack ? billingText : string.Empty;
+            AiUsagePercent = usagePercent;
+        });
     }
 
     [RelayCommand]

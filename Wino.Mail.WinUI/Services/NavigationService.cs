@@ -89,6 +89,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
         WinoPage.EmailTemplatesPage,
         WinoPage.CreateEmailTemplatePage,
         WinoPage.StoragePage,
+        WinoPage.WinoAccountManagementPage,
         WinoPage.CalendarSettingsPage,
         WinoPage.CalendarAccountSettingsPage
     ];
@@ -155,6 +156,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
             WinoPage.EmailTemplatesPage => typeof(EmailTemplatesPage),
             WinoPage.CreateEmailTemplatePage => typeof(CreateEmailTemplatePage),
             WinoPage.StoragePage => typeof(StoragePage),
+            WinoPage.WinoAccountManagementPage => typeof(WinoAccountManagementPage),
             WinoPage.WelcomeHostPage => typeof(WelcomeHostPage),
             WinoPage.ProviderSelectionPage => typeof(ProviderSelectionPage),
             WinoPage.AccountSetupProgressPage => typeof(AccountSetupProgressPage),
