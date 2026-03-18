@@ -84,6 +84,20 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     public Task<ApiEnvelope<AiStatusResultDto>> GetAiStatusAsync(CancellationToken cancellationToken = default)
         => SendAuthorizedRequestAsync("api/v1/ai/status", WinoAccountApiJsonContext.Default.ApiEnvelopeAiStatusResultDto, cancellationToken);
 
+    public Task<ApiEnvelope<string>> CreateCheckoutSessionAsync(string productId, CancellationToken cancellationToken = default)
+    {
+        var endpoint = productId switch
+        {
+            "ai-pack-monthly" => "api/v1/billing/ai-pack/checkout-session",
+            "unlimited-accounts" => "api/v1/billing/unlimited-accounts/checkout-session",
+            _ => string.Empty
+        };
+
+        return string.IsNullOrWhiteSpace(endpoint)
+            ? Task.FromResult(ApiEnvelope<string>.Failure("UnknownProduct"))
+            : SendAuthorizedRequestAsync(HttpMethod.Post, endpoint, WinoAccountApiJsonContext.Default.ApiEnvelopeString, cancellationToken);
+    }
+
     public async Task<string?> GetSettingsAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -150,11 +164,14 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         }
     }
 
-    private async Task<ApiEnvelope<TResponse>> SendAuthorizedRequestAsync<TResponse>(string endpoint, JsonTypeInfo<ApiEnvelope<TResponse>> typeInfo, CancellationToken cancellationToken)
+    private Task<ApiEnvelope<TResponse>> SendAuthorizedRequestAsync<TResponse>(string endpoint, JsonTypeInfo<ApiEnvelope<TResponse>> typeInfo, CancellationToken cancellationToken)
+        => SendAuthorizedRequestAsync(HttpMethod.Get, endpoint, typeInfo, cancellationToken);
+
+    private async Task<ApiEnvelope<TResponse>> SendAuthorizedRequestAsync<TResponse>(HttpMethod method, string endpoint, JsonTypeInfo<ApiEnvelope<TResponse>> typeInfo, CancellationToken cancellationToken)
     {
         try
         {
-            using var request = await CreateAuthorizedRequestAsync(HttpMethod.Get, endpoint).ConfigureAwait(false);
+            using var request = await CreateAuthorizedRequestAsync(method, endpoint).ConfigureAwait(false);
             if (request == null)
                 return ApiEnvelope<TResponse>.Failure("MissingAccessToken");
 
@@ -217,5 +234,6 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(ApiEnvelope<AuthResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<AuthUserDto>))]
 [JsonSerializable(typeof(ApiEnvelope<AiStatusResultDto>))]
+[JsonSerializable(typeof(ApiEnvelope<string>))]
 [JsonSerializable(typeof(ApiEnvelope<JsonElement>))]
 internal sealed partial class WinoAccountApiJsonContext : JsonSerializerContext;

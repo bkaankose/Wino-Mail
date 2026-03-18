@@ -16,6 +16,7 @@ public interface IWinoAccountApiClient
     Task<ApiEnvelope<JsonElement>> LogoutAsync(string refreshToken, CancellationToken cancellationToken = default);
     Task<ApiEnvelope<AuthUserDto>> GetCurrentUserAsync(CancellationToken cancellationToken = default);
     Task<ApiEnvelope<AiStatusResultDto>> GetAiStatusAsync(CancellationToken cancellationToken = default);
+    Task<ApiEnvelope<string>> CreateCheckoutSessionAsync(string productId, CancellationToken cancellationToken = default);
     Task<string?> GetSettingsAsync(CancellationToken cancellationToken = default);
     Task<bool> SaveSettingsAsync(string settingsJson, CancellationToken cancellationToken = default);
 }

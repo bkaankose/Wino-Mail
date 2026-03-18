@@ -67,6 +67,17 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// </summary>
     bool IsWinoAccountButtonHidden { get; set; }
 
+    /// <summary>
+    /// Serializes the current syncable preferences snapshot.
+    /// </summary>
+    string ExportPreferences();
+
+    /// <summary>
+    /// Deserializes and applies a preferences snapshot.
+    /// Returns the applied and failed property counts.
+    /// </summary>
+    (int appliedCount, int failedCount) ImportPreferences(string settingsJson);
+
     #endregion
 
     #region Mail

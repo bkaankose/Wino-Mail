@@ -6,6 +6,7 @@
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     Title="{x:Bind domain:Translator.WinoAccount_RegisterDialog_Title}"
+    FullSizeDesired="True"
     PrimaryButtonClick="RegisterClicked"
     PrimaryButtonStyle="{ThemeResource AccentButtonStyle}"
     PrimaryButtonText="{x:Bind domain:Translator.WinoAccount_RegisterDialog_PrimaryButton}"
@@ -16,15 +17,14 @@
     <ContentDialog.Resources>
         <x:Double x:Key="ContentDialogMinWidth">560</x:Double>
         <x:Double x:Key="ContentDialogMaxWidth">560</x:Double>
+        <x:Double x:Key="ContentDialogMaxHeight">900</x:Double>
     </ContentDialog.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Spacing="20">
 
             <!--  Hero illustration area  -->
-            <Border
-                Height="140"
-                CornerRadius="12">
+            <Border Height="140" CornerRadius="12">
                 <Border.Background>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                         <GradientStop Offset="0" Color="#1A818CF8" />
@@ -99,9 +99,7 @@
                             Height="28"
                             Fill="White" />
                         <!--  Person body  -->
-                        <Path
-                            Data="M28 68 A20 16 0 0 1 68 68"
-                            Fill="White" />
+                        <Path Data="M28 68 A20 16 0 0 1 68 68" Fill="White" />
 
                         <!--  Plus badge  -->
                         <Ellipse
@@ -239,6 +237,12 @@
                 </Border>
             </StackPanel>
 
+            <TextBlock
+                x:Name="ErrorTextBlock"
+                Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                TextWrapping="WrapWholeWords"
+                Visibility="Collapsed" />
+
             <!--  Input fields  -->
             <StackPanel Spacing="12">
                 <TextBox
@@ -266,9 +270,7 @@
                 Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
                 CornerRadius="12">
                 <StackPanel Spacing="10">
-                    <TextBlock
-                        Style="{StaticResource BodyStrongTextBlockStyle}"
-                        Text="{x:Bind domain:Translator.WinoAccount_RegisterDialog_PrivacyTitle}" />
+                    <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.WinoAccount_RegisterDialog_PrivacyTitle}" />
                     <TextBlock
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         Style="{StaticResource CaptionTextBlockStyle}"
@@ -281,8 +283,8 @@
                     <CheckBox
                         x:Name="PrivacyPolicyCheckBox"
                         Checked="InputChanged"
-                        Unchecked="InputChanged"
-                        Content="{x:Bind domain:Translator.WinoAccount_RegisterDialog_PrivacyCheckbox}" />
+                        Content="{x:Bind domain:Translator.WinoAccount_RegisterDialog_PrivacyCheckbox}"
+                        Unchecked="InputChanged" />
                 </StackPanel>
             </Border>
 
@@ -292,12 +294,6 @@
                 Height="20"
                 HorizontalAlignment="Left"
                 IsActive="False"
-                Visibility="Collapsed" />
-
-            <TextBlock
-                x:Name="ErrorTextBlock"
-                Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                TextWrapping="WrapWholeWords"
                 Visibility="Collapsed" />
         </StackPanel>
     </ScrollViewer>

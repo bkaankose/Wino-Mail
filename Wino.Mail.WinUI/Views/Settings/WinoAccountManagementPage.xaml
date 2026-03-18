@@ -74,6 +74,99 @@
                             Style="{StaticResource AccentButtonStyle}" />
                         <Button Command="{x:Bind ViewModel.RegisterCommand}" Content="{x:Bind domain:Translator.Buttons_CreateAccount}" />
                     </StackPanel>
+
+                    <TextBlock
+                        Margin="0,16,0,4"
+                        HorizontalAlignment="Center"
+                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackSectionHeader}" />
+
+                    <controls:SettingsCard
+                        MaxWidth="520"
+                        Description="{x:Bind domain:Translator.WinoAccount_Management_AiPackPromoDescription}">
+                        <controls:SettingsCard.HeaderIcon>
+                            <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE945;" />
+                        </controls:SettingsCard.HeaderIcon>
+                        <controls:SettingsCard.Header>
+                            <StackPanel Spacing="8">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackPromoTitle}" />
+                                    <Border
+                                        Padding="8,2"
+                                        Background="{ThemeResource SystemAccentColor}"
+                                        CornerRadius="4">
+                                        <TextBlock
+                                            FontSize="10"
+                                            FontWeight="Bold"
+                                            Foreground="White"
+                                            Text="PRO" />
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock
+                                    MaxWidth="400"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackPromoDescription}"
+                                    TextWrapping="WrapWholeWords" />
+                                <StackPanel Orientation="Horizontal" Spacing="16">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <FontIcon
+                                            FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                            FontSize="12"
+                                            Glyph="&#xE8C1;" />
+                                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureTranslate}" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <FontIcon
+                                            FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                            FontSize="12"
+                                            Glyph="&#xE70F;" />
+                                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureRewrite}" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <FontIcon
+                                            FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                            FontSize="12"
+                                            Glyph="&#xE8FD;" />
+                                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureSummarize}" />
+                                    </StackPanel>
+                                </StackPanel>
+                                <Border
+                                    Padding="12,8"
+                                    Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
+                                    CornerRadius="8">
+                                    <TextBlock
+                                        Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="{x:Bind domain:Translator.WinoAccount_Management_PurchaseRequiresSignIn}"
+                                        TextWrapping="WrapWholeWords" />
+                                </Border>
+                                <StackPanel
+                                    Margin="0,4,0,0"
+                                    Orientation="Horizontal"
+                                    Spacing="12">
+                                    <Button
+                                        Command="{x:Bind ViewModel.BuyAiPackCommand}"
+                                        Content="{x:Bind domain:Translator.Buttons_Purchase}"
+                                        IsEnabled="{x:Bind ViewModel.CanBuyAiPack, Mode=OneWay}"
+                                        Style="{StaticResource AccentButtonStyle}" />
+                                    <ProgressRing
+                                        Width="18"
+                                        Height="18"
+                                        IsActive="True"
+                                        Visibility="{x:Bind ViewModel.IsAiPackCheckoutInProgress, Mode=OneWay}" />
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}">
+                                        <Run Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackPromoPrice}" />
+                                        <Run Text=" · " />
+                                        <Run Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackPromoRequests}" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </StackPanel>
+                        </controls:SettingsCard.Header>
+                    </controls:SettingsCard>
                 </StackPanel>
             </StackPanel>
 
@@ -181,9 +274,15 @@
                                 Orientation="Horizontal"
                                 Spacing="12">
                                 <Button
-                                    Command="{x:Bind ViewModel.OpenBuyPageCommand}"
-                                    Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackGetButton}"
+                                    Command="{x:Bind ViewModel.BuyAiPackCommand}"
+                                    Content="{x:Bind domain:Translator.Buttons_Purchase}"
+                                    IsEnabled="{x:Bind ViewModel.CanBuyAiPack, Mode=OneWay}"
                                     Style="{StaticResource AccentButtonStyle}" />
+                                <ProgressRing
+                                    Width="18"
+                                    Height="18"
+                                    IsActive="True"
+                                    Visibility="{x:Bind ViewModel.IsAiPackCheckoutInProgress, Mode=OneWay}" />
                                 <TextBlock
                                     VerticalAlignment="Center"
                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"

@@ -6,6 +6,7 @@ using Serilog;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Mail.Api.Contracts.Ai;
 using Wino.Mail.Api.Contracts.Auth;
 using Wino.Mail.Api.Contracts.Common;
 using Wino.Messaging.UI;
@@ -53,11 +54,20 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
         var account = await GetActiveAccountAsync().ConfigureAwait(false);
         if (account == null || string.IsNullOrWhiteSpace(account.RefreshToken))
         {
+            _logger.Warning("Wino account token refresh skipped because there is no active account or refresh token.");
             return WinoAccountOperationResult.Failure(ApiErrorCodes.RefreshTokenInvalid);
         }
 
+        _logger.Information("Refreshing Wino account token for {Email}", account.Email);
         var response = await _apiClient.RefreshAsync(account.RefreshToken, cancellationToken).ConfigureAwait(false);
-        return await PersistResponseAsync(response).ConfigureAwait(false);
+        var result = await PersistResponseAsync(response).ConfigureAwait(false);
+
+        if (!result.IsSuccess)
+        {
+            _logger.Warning("Wino account token refresh failed for {Email}. Error code: {ErrorCode}", account.Email, result.ErrorCode);
+        }
+
+        return result;
     }
 
     public async Task<WinoAccount?> GetActiveAccountAsync()
@@ -66,8 +76,88 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
         return account;
     }
 
+    public async Task<WinoAccount?> GetAuthenticatedAccountAsync(CancellationToken cancellationToken = default)
+    {
+        var account = await GetActiveAccountAsync().ConfigureAwait(false);
+
+        if (account == null)
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(account.AccessToken))
+        {
+            _logger.Warning("Wino account {Email} is missing an access token.", account.Email);
+            return null;
+        }
+
+        if (account.AccessTokenExpiresAtUtc > DateTime.UtcNow.AddMinutes(1))
+        {
+            return account;
+        }
+
+        var refreshResult = await RefreshAsync(cancellationToken).ConfigureAwait(false);
+        if (!refreshResult.IsSuccess)
+        {
+            return null;
+        }
+
+        return refreshResult.Account ?? await GetActiveAccountAsync().ConfigureAwait(false);
+    }
+
     public async Task<bool> HasActiveAccountAsync()
         => await Connection.Table<WinoAccount>().CountAsync().ConfigureAwait(false) > 0;
+
+    public async Task<ApiEnvelope<AuthUserDto>> GetCurrentUserAsync(CancellationToken cancellationToken = default)
+    {
+        var account = await GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false);
+        if (account == null)
+        {
+            return ApiEnvelope<AuthUserDto>.Failure("MissingAccessToken");
+        }
+
+        var response = await _apiClient.GetCurrentUserAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccess)
+        {
+            _logger.Warning("Failed to load Wino account profile for {Email}. Error code: {ErrorCode}", account.Email, response.ErrorCode);
+        }
+
+        return response;
+    }
+
+    public async Task<ApiEnvelope<AiStatusResultDto>> GetAiStatusAsync(CancellationToken cancellationToken = default)
+    {
+        var account = await GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false);
+        if (account == null)
+        {
+            return ApiEnvelope<AiStatusResultDto>.Failure("MissingAccessToken");
+        }
+
+        var response = await _apiClient.GetAiStatusAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccess)
+        {
+            _logger.Warning("Failed to load AI status for Wino account {Email}. Error code: {ErrorCode}", account.Email, response.ErrorCode);
+        }
+
+        return response;
+    }
+
+    public async Task<ApiEnvelope<string>> CreateCheckoutSessionAsync(string productId, CancellationToken cancellationToken = default)
+    {
+        var account = await GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false);
+        if (account == null)
+        {
+            return ApiEnvelope<string>.Failure("MissingAccessToken");
+        }
+
+        var response = await _apiClient.CreateCheckoutSessionAsync(productId, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccess)
+        {
+            _logger.Warning("Failed to create checkout session for product {ProductId} and Wino account {Email}. Error code: {ErrorCode}", productId, account.Email, response.ErrorCode);
+        }
+
+        return response;
+    }
 
     public async Task SignOutAsync(CancellationToken cancellationToken = default)
     {
@@ -101,6 +191,7 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
     {
         if (!response.IsSuccess || response.Result == null)
         {
+            _logger.Warning("Wino account operation failed. Error code: {ErrorCode}", response.ErrorCode);
             return WinoAccountOperationResult.Failure(response.ErrorCode);
         }
 

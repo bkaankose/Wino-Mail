@@ -38,7 +38,6 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel,
     private readonly IPreferencesService _preferencesService;
     private readonly IProviderService _providerService;
     private readonly IWinoAccountProfileService _profileService;
-    private readonly IWinoAccountApiClient _apiClient;
     private readonly IMailDialogService _dialogService;
     private bool _isInitializingSettings;
     private bool _isAppearanceSelectionPaused;
@@ -136,7 +135,6 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel,
                                           IPreferencesService preferencesService,
                                          IProviderService providerService,
                                          IWinoAccountProfileService profileService,
-                                         IWinoAccountApiClient apiClient,
                                          IMailDialogService dialogService)
     {
         _nativeAppService = nativeAppService;
@@ -148,7 +146,6 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel,
         _preferencesService = preferencesService;
         _providerService = providerService;
         _profileService = profileService;
-        _apiClient = apiClient;
         _dialogService = dialogService;
     }
 
@@ -494,15 +491,15 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel,
 
         try
         {
-            var account = await EnsureAuthenticatedAccountAsync().ConfigureAwait(false);
+            var account = await _profileService.GetAuthenticatedAccountAsync().ConfigureAwait(false);
             if (account == null)
             {
                 await ResetWinoAccountStateAsync();
                 return;
             }
 
-            var currentUserResponse = await _apiClient.GetCurrentUserAsync().ConfigureAwait(false);
-            var aiStatusResponse = await _apiClient.GetAiStatusAsync().ConfigureAwait(false);
+            var currentUserResponse = await _profileService.GetCurrentUserAsync().ConfigureAwait(false);
+            var aiStatusResponse = await _profileService.GetAiStatusAsync().ConfigureAwait(false);
 
             var resolvedEmail = currentUserResponse.IsSuccess && currentUserResponse.Result != null
                 ? currentUserResponse.Result.Email
@@ -544,22 +541,6 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel,
             AiBillingPeriodSummary = string.Empty;
             AiUsagePercent = 0;
         });
-    }
-
-    private async Task<WinoAccount> EnsureAuthenticatedAccountAsync()
-    {
-        var account = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
-        if (account == null) return null;
-
-        if (account.AccessTokenExpiresAtUtc <= DateTime.UtcNow.AddMinutes(1))
-        {
-            var refreshResult = await _profileService.RefreshAsync().ConfigureAwait(false);
-            if (!refreshResult.IsSuccess) return null;
-
-            account = refreshResult.Account ?? await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
-        }
-
-        return account != null && !string.IsNullOrWhiteSpace(account.AccessToken) ? account : null;
     }
 
     private void UpdateAiPackState(AiStatusResultDto aiStatus)

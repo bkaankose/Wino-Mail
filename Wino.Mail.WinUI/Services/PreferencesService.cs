@@ -3,6 +3,10 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
+using System.Reflection;
+using System.Text;
+using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -43,6 +47,59 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
             LoadStyles = RenderStyles,
             RenderPlaintextLinks = RenderPlaintextLinks
         };
+
+    public string ExportPreferences()
+    {
+        var settings = new Dictionary<string, object?>(StringComparer.Ordinal);
+
+        foreach (var property in GetSyncablePreferenceProperties())
+        {
+            settings[property.Name] = property.GetValue(this);
+        }
+
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+
+            foreach (var setting in settings)
+            {
+                WritePreferenceValue(writer, setting.Key, setting.Value);
+            }
+
+            writer.WriteEndObject();
+        }
+
+        return Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    public (int appliedCount, int failedCount) ImportPreferences(string settingsJson)
+    {
+        using var document = JsonDocument.Parse(settingsJson);
+        var rootElement = document.RootElement;
+        var appliedCount = 0;
+        var failedCount = 0;
+
+        foreach (var property in GetSyncablePreferenceProperties())
+        {
+            if (!rootElement.TryGetProperty(property.Name, out var value) || value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+            {
+                continue;
+            }
+
+            try
+            {
+                property.SetValue(this, ReadPreferenceValue(property.PropertyType, value));
+                appliedCount++;
+            }
+            catch (Exception)
+            {
+                failedCount++;
+            }
+        }
+
+        return (appliedCount, failedCount);
+    }
 
     public MailListDisplayMode MailItemDisplayMode
     {
@@ -367,6 +424,122 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         }
 
         return daysOfWeek;
+    }
+
+    private static void WritePreferenceValue(Utf8JsonWriter writer, string propertyName, object? value)
+    {
+        if (value == null)
+        {
+            writer.WriteNull(propertyName);
+            return;
+        }
+
+        switch (value)
+        {
+            case string stringValue:
+                writer.WriteString(propertyName, stringValue);
+                return;
+            case bool boolValue:
+                writer.WriteBoolean(propertyName, boolValue);
+                return;
+            case int intValue:
+                writer.WriteNumber(propertyName, intValue);
+                return;
+            case long longValue:
+                writer.WriteNumber(propertyName, longValue);
+                return;
+            case double doubleValue:
+                writer.WriteNumber(propertyName, doubleValue);
+                return;
+            case float floatValue:
+                writer.WriteNumber(propertyName, floatValue);
+                return;
+            case Guid guidValue:
+                writer.WriteString(propertyName, guidValue);
+                return;
+            case TimeSpan timeSpanValue:
+                writer.WriteString(propertyName, timeSpanValue.ToString("c", CultureInfo.InvariantCulture));
+                return;
+        }
+
+        var valueType = Nullable.GetUnderlyingType(value.GetType()) ?? value.GetType();
+        if (valueType.IsEnum)
+        {
+            writer.WriteString(propertyName, value.ToString());
+            return;
+        }
+
+        writer.WriteString(propertyName, Convert.ToString(value, CultureInfo.InvariantCulture));
+    }
+
+    private static object? ReadPreferenceValue(Type propertyType, JsonElement value)
+    {
+        var targetType = Nullable.GetUnderlyingType(propertyType) ?? propertyType;
+
+        if (value.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (targetType == typeof(string))
+        {
+            return value.GetString() ?? string.Empty;
+        }
+
+        if (targetType == typeof(bool))
+        {
+            return value.GetBoolean();
+        }
+
+        if (targetType == typeof(int))
+        {
+            return value.GetInt32();
+        }
+
+        if (targetType == typeof(long))
+        {
+            return value.GetInt64();
+        }
+
+        if (targetType == typeof(double))
+        {
+            return value.GetDouble();
+        }
+
+        if (targetType == typeof(float))
+        {
+            return value.GetSingle();
+        }
+
+        if (targetType == typeof(Guid))
+        {
+            return Guid.Parse(value.GetString() ?? string.Empty);
+        }
+
+        if (targetType == typeof(TimeSpan))
+        {
+            return TimeSpan.Parse(value.GetString() ?? string.Empty, CultureInfo.InvariantCulture);
+        }
+
+        if (targetType.IsEnum)
+        {
+            return Enum.Parse(targetType, value.GetString() ?? string.Empty, true);
+        }
+
+        return Convert.ChangeType(value.GetString(), targetType, CultureInfo.InvariantCulture);
+    }
+
+    private static IEnumerable<PropertyInfo> GetSyncablePreferenceProperties()
+    {
+        foreach (var property in typeof(IPreferencesService).GetProperties(BindingFlags.Instance | BindingFlags.Public))
+        {
+            if (!property.CanRead || !property.CanWrite || property.GetIndexParameters().Length > 0)
+            {
+                continue;
+            }
+
+            yield return property;
+        }
     }
 }
 

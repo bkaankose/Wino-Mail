@@ -130,6 +130,7 @@ private string searchQuery = string.Empty;
 - Editing UWP project files instead of WinUI equivalents
 - Hardcoding strings instead of using Translator
 - Forgetting to unregister Messenger recipients (memory leaks)
+- Putting authentication validation, token refresh, account API calls, settings serialization/deserialization, or preference-application logic into ViewModels instead of the corresponding service
 
 ## Code Style
 
@@ -141,6 +142,7 @@ private string searchQuery = string.Empty;
 - Log errors via IWinoLogger
 - For dependency properties in WinUI code, always prefer `[GeneratedDependencyProperty]` from CommunityToolkit over manual `DependencyProperty.Register(...)` declarations.
 - In ViewModels, update all UI-bound properties/collections via `ExecuteUIThread(...)` (especially after awaited calls and any use of `ConfigureAwait(false)`).
+- ViewModels should only handle UI interaction/state and delegate business logic to services; account-management work belongs in `WinoAccountProfileService`, and preferences import/export/apply logic belongs in `PreferencesService`.
 - In `EventDetailsPageViewModel.LoadAttendeesAsync`, never mutate `CurrentEvent.Attendees` outside `ExecuteUIThread(...)`.
 - Never create pure C# controls or controls that heavily manipulate UI structure from `.cs` files. Define controls in XAML and keep UI composition in XAML.
 - Never subscribe to framework events like `Loaded`, `Unloaded`, or input events from constructors in `.xaml.cs` for XAML-backed controls and pages; wire them directly in XAML instead.

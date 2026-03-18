@@ -1,15 +1,10 @@
 #nullable enable
 using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -17,17 +12,18 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.Api.Contracts.Ai;
 using Wino.Mail.Api.Contracts.Auth;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.ViewModels;
 
-public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel
+public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
+    IRecipient<WinoAccountSignedInMessage>,
+    IRecipient<WinoAccountSignedOutMessage>
 {
-    private const string BuyAiPackUrl = "https://example.com/wino-ai-pack";
+    private const string AiPackProductId = "ai-pack-monthly";
     private const string ManageAiPackUrl = "https://example.com/wino-ai-pack/manage";
 
     private readonly IWinoAccountProfileService _profileService;
-    private readonly IWinoAccountApiClient _apiClient;
-    private readonly IPreferencesService _preferencesService;
     private readonly IMailDialogService _dialogService;
     private readonly INativeAppService _nativeAppService;
 
@@ -80,19 +76,20 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel
     [ObservableProperty]
     public partial string AiUsageResetText { get; set; } = string.Empty;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanBuyAiPack))]
+    public partial bool IsAiPackCheckoutInProgress { get; set; }
+
     public bool IsSignedOut => !IsSignedIn;
     public bool CanShowAiUsage => HasAiPack;
     public bool CanShowBuyAiPack => IsSignedIn && !HasAiPack;
+    public bool CanBuyAiPack => !IsAiPackCheckoutInProgress;
 
     public WinoAccountManagementPageViewModel(IWinoAccountProfileService profileService,
-                                              IWinoAccountApiClient apiClient,
-                                              IPreferencesService preferencesService,
                                               IMailDialogService dialogService,
                                               INativeAppService nativeAppService)
     {
         _profileService = profileService;
-        _apiClient = apiClient;
-        _preferencesService = preferencesService;
         _dialogService = dialogService;
         _nativeAppService = nativeAppService;
     }
@@ -115,8 +112,6 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel
         _dialogService.InfoBarMessage(Translator.GeneralTitle_Info,
                                       string.Format(Translator.WinoAccount_RegisterSuccessMessage, account.Email),
                                       InfoBarMessageType.Success);
-
-        await LoadAsync();
     }
 
     [RelayCommand]
@@ -131,8 +126,6 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel
         _dialogService.InfoBarMessage(Translator.GeneralTitle_Info,
                                       string.Format(Translator.WinoAccount_LoginSuccessMessage, account.Email),
                                       InfoBarMessageType.Success);
-
-        await LoadAsync();
     }
 
     [RelayCommand]
@@ -152,142 +145,94 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel
         _dialogService.InfoBarMessage(Translator.GeneralTitle_Info,
                                       string.Format(Translator.WinoAccount_SignOut_SuccessMessage, account.Email),
                                       InfoBarMessageType.Success);
-
-        await ResetSignedOutStateAsync();
     }
 
     [RelayCommand]
-    private async Task OpenBuyPageAsync() => await _nativeAppService.LaunchUriAsync(new Uri(BuyAiPackUrl));
+    private async Task BuyAiPackAsync()
+    {
+        if (IsAiPackCheckoutInProgress)
+        {
+            return;
+        }
+
+        var account = await _profileService.GetAuthenticatedAccountAsync().ConfigureAwait(false);
+
+        if (account == null)
+        {
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Warning,
+                                          Translator.WinoAccount_Management_PurchaseRequiresSignIn,
+                                          InfoBarMessageType.Warning);
+            return;
+        }
+
+        await ExecuteUIThread(() => IsAiPackCheckoutInProgress = true);
+
+        try
+        {
+            var checkoutSession = await _profileService.CreateCheckoutSessionAsync(AiPackProductId).ConfigureAwait(false);
+
+            if (!checkoutSession.IsSuccess || string.IsNullOrWhiteSpace(checkoutSession.Result))
+            {
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
+                                              Translator.WinoAccount_Management_PurchaseStartFailed,
+                                              InfoBarMessageType.Error);
+                return;
+            }
+
+            var isLaunched = await _nativeAppService.LaunchUriAsync(new Uri(checkoutSession.Result)).ConfigureAwait(false);
+
+            if (!isLaunched)
+            {
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
+                                              Translator.WinoAccount_Management_PurchaseStartFailed,
+                                              InfoBarMessageType.Error);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception)
+        {
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
+                                          Translator.WinoAccount_Management_PurchaseStartFailed,
+                                          InfoBarMessageType.Error);
+        }
+        finally
+        {
+            await ExecuteUIThread(() => IsAiPackCheckoutInProgress = false);
+        }
+    }
 
     [RelayCommand]
     private async Task ManageAiPackAsync() => await _nativeAppService.LaunchUriAsync(new Uri(ManageAiPackUrl));
 
     [RelayCommand]
-    private async Task ExportSettingsAsync()
-    {
-        string settingsJson;
-
-        try
-        {
-            if (await EnsureAuthenticatedAccountAsync().ConfigureAwait(false) == null)
-            {
-                return;
-            }
-
-            var settings = CollectPreferencesSnapshot();
-            if (settings.Count == 0)
-            {
-                _dialogService.InfoBarMessage(Translator.GeneralTitle_Warning,
-                                              Translator.WinoAccount_Management_EmptyExport,
-                                              InfoBarMessageType.Warning);
-                return;
-            }
-
-            settingsJson = SerializePreferencesSnapshot(settings);
-
-            if (string.IsNullOrWhiteSpace(settingsJson) || settingsJson == "{}")
-            {
-                _dialogService.InfoBarMessage(Translator.GeneralTitle_Warning,
-                                              Translator.WinoAccount_Management_EmptyExport,
-                                              InfoBarMessageType.Warning);
-                return;
-            }
-        }
-        catch (Exception)
-        {
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
-                                          Translator.WinoAccount_Management_SerializeFailed,
-                                          InfoBarMessageType.Error);
-            return;
-        }
-
-        try
-        {
-            if (await EnsureAuthenticatedAccountAsync().ConfigureAwait(false) == null)
-            {
-                return;
-            }
-
-            var isSaved = await _apiClient.SaveSettingsAsync(settingsJson).ConfigureAwait(false);
-
-            if (!isSaved)
-            {
-                _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
-                                              Translator.WinoAccount_Management_ActionFailed,
-                                              InfoBarMessageType.Error);
-                return;
-            }
-
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Info,
-                                          Translator.WinoAccount_Management_ExportSucceeded,
-                                          InfoBarMessageType.Success);
-        }
-        catch (Exception)
-        {
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
-                                          Translator.WinoAccount_Management_ActionFailed,
-                                          InfoBarMessageType.Error);
-        }
-    }
+    private Task ExportSettingsAsync() => Task.CompletedTask;
 
     [RelayCommand]
-    private async Task ImportSettingsAsync()
+    private Task ImportSettingsAsync() => Task.CompletedTask;
+
+    protected override void RegisterRecipients()
     {
-        try
-        {
-            if (await EnsureAuthenticatedAccountAsync().ConfigureAwait(false) == null)
-            {
-                return;
-            }
+        base.RegisterRecipients();
 
-            var settingsJson = await _apiClient.GetSettingsAsync().ConfigureAwait(false);
-
-            if (string.IsNullOrWhiteSpace(settingsJson))
-            {
-                _dialogService.InfoBarMessage(Translator.GeneralTitle_Warning,
-                                              Translator.WinoAccount_Management_NoRemoteSettings,
-                                              InfoBarMessageType.Warning);
-                return;
-            }
-
-            using var document = JsonDocument.Parse(settingsJson);
-            if (document.RootElement.ValueKind != JsonValueKind.Object || !document.RootElement.EnumerateObject().Any())
-            {
-                _dialogService.InfoBarMessage(Translator.GeneralTitle_Warning,
-                                              Translator.WinoAccount_Management_ImportEmpty,
-                                              InfoBarMessageType.Warning);
-                return;
-            }
-
-            var (appliedCount, failedCount) = ApplyPreferencesSnapshot(document.RootElement);
-
-            if (appliedCount == 0)
-            {
-                _dialogService.InfoBarMessage(Translator.GeneralTitle_Warning,
-                                              Translator.WinoAccount_Management_ImportEmpty,
-                                              InfoBarMessageType.Warning);
-                return;
-            }
-
-            if (failedCount > 0)
-            {
-                _dialogService.InfoBarMessage(Translator.GeneralTitle_Warning,
-                                              string.Format(Translator.WinoAccount_Management_ImportPartial, appliedCount, failedCount),
-                                              InfoBarMessageType.Warning);
-                return;
-            }
-
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Info,
-                                          string.Format(Translator.WinoAccount_Management_ImportSucceeded, appliedCount),
-                                          InfoBarMessageType.Success);
-        }
-        catch (Exception)
-        {
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
-                                          Translator.WinoAccount_Management_ActionFailed,
-                                          InfoBarMessageType.Error);
-        }
+        Messenger.Register<WinoAccountSignedInMessage>(this);
+        Messenger.Register<WinoAccountSignedOutMessage>(this);
     }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+
+        Messenger.Unregister<WinoAccountSignedInMessage>(this);
+        Messenger.Unregister<WinoAccountSignedOutMessage>(this);
+    }
+
+    public void Receive(WinoAccountSignedInMessage message)
+        => _ = LoadAsync();
+
+    public void Receive(WinoAccountSignedOutMessage message)
+        => _ = ResetSignedOutStateAsync();
 
     private async Task LoadAsync()
     {
@@ -295,7 +240,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel
 
         try
         {
-            var account = await EnsureAuthenticatedAccountAsync().ConfigureAwait(false);
+            var account = await _profileService.GetAuthenticatedAccountAsync().ConfigureAwait(false);
 
             if (account == null)
             {
@@ -303,8 +248,8 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel
                 return;
             }
 
-            var currentUserResponse = await _apiClient.GetCurrentUserAsync().ConfigureAwait(false);
-            var aiStatusResponse = await _apiClient.GetAiStatusAsync().ConfigureAwait(false);
+            var currentUserResponse = await _profileService.GetCurrentUserAsync().ConfigureAwait(false);
+            var aiStatusResponse = await _profileService.GetAiStatusAsync().ConfigureAwait(false);
 
             var resolvedUser = currentUserResponse.IsSuccess && currentUserResponse.Result != null
                 ? currentUserResponse.Result
@@ -359,32 +304,8 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel
             AiUsageLimit = 1;
             AiUsagePercentage = 0;
             AiUsageResetText = string.Empty;
+            IsAiPackCheckoutInProgress = false;
         });
-    }
-
-    private async Task<WinoAccount?> EnsureAuthenticatedAccountAsync()
-    {
-        var account = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
-        if (account == null)
-        {
-            return null;
-        }
-
-        if (account.AccessTokenExpiresAtUtc <= DateTime.UtcNow.AddMinutes(1))
-        {
-            var refreshResult = await _profileService.RefreshAsync().ConfigureAwait(false);
-
-            if (!refreshResult.IsSuccess)
-            {
-                return null;
-            }
-
-            account = refreshResult.Account ?? await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
-        }
-
-        return account != null && !string.IsNullOrWhiteSpace(account.AccessToken)
-            ? account
-            : null;
     }
 
     private void UpdateAiPackState(AiStatusResultDto? aiStatus)
@@ -449,177 +370,5 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel
         return displayName.Length > 0
             ? displayName[..1].ToUpper(CultureInfo.CurrentCulture)
             : string.Empty;
-    }
-
-    private Dictionary<string, object?> CollectPreferencesSnapshot()
-    {
-        var settings = new Dictionary<string, object?>(StringComparer.Ordinal);
-
-        foreach (var property in GetSyncablePreferenceProperties())
-        {
-            settings[property.Name] = property.GetValue(_preferencesService);
-        }
-
-        return settings;
-    }
-
-    private static string SerializePreferencesSnapshot(Dictionary<string, object?> settings)
-    {
-        using var stream = new MemoryStream();
-        using (var writer = new Utf8JsonWriter(stream))
-        {
-            writer.WriteStartObject();
-
-            foreach (var setting in settings)
-            {
-                WritePreferenceValue(writer, setting.Key, setting.Value);
-            }
-
-            writer.WriteEndObject();
-        }
-
-        return Encoding.UTF8.GetString(stream.ToArray());
-    }
-
-    private (int appliedCount, int failedCount) ApplyPreferencesSnapshot(JsonElement rootElement)
-    {
-        var appliedCount = 0;
-        var failedCount = 0;
-
-        foreach (var property in GetSyncablePreferenceProperties())
-        {
-            if (!rootElement.TryGetProperty(property.Name, out var value) || value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
-            {
-                continue;
-            }
-
-            try
-            {
-                property.SetValue(_preferencesService, ReadPreferenceValue(property.PropertyType, value));
-                appliedCount++;
-            }
-            catch (Exception)
-            {
-                failedCount++;
-            }
-        }
-
-        return (appliedCount, failedCount);
-    }
-
-    private static void WritePreferenceValue(Utf8JsonWriter writer, string propertyName, object? value)
-    {
-        if (value == null)
-        {
-            writer.WriteNull(propertyName);
-            return;
-        }
-
-        switch (value)
-        {
-            case string stringValue:
-                writer.WriteString(propertyName, stringValue);
-                return;
-            case bool boolValue:
-                writer.WriteBoolean(propertyName, boolValue);
-                return;
-            case int intValue:
-                writer.WriteNumber(propertyName, intValue);
-                return;
-            case long longValue:
-                writer.WriteNumber(propertyName, longValue);
-                return;
-            case double doubleValue:
-                writer.WriteNumber(propertyName, doubleValue);
-                return;
-            case float floatValue:
-                writer.WriteNumber(propertyName, floatValue);
-                return;
-            case Guid guidValue:
-                writer.WriteString(propertyName, guidValue);
-                return;
-            case TimeSpan timeSpanValue:
-                writer.WriteString(propertyName, timeSpanValue.ToString("c", CultureInfo.InvariantCulture));
-                return;
-        }
-
-        var valueType = Nullable.GetUnderlyingType(value.GetType()) ?? value.GetType();
-        if (valueType.IsEnum)
-        {
-            writer.WriteString(propertyName, value.ToString());
-            return;
-        }
-
-        writer.WriteString(propertyName, Convert.ToString(value, CultureInfo.InvariantCulture));
-    }
-
-    private static object? ReadPreferenceValue(Type propertyType, JsonElement value)
-    {
-        var targetType = Nullable.GetUnderlyingType(propertyType) ?? propertyType;
-
-        if (value.ValueKind == JsonValueKind.Null)
-        {
-            return null;
-        }
-
-        if (targetType == typeof(string))
-        {
-            return value.GetString() ?? string.Empty;
-        }
-
-        if (targetType == typeof(bool))
-        {
-            return value.GetBoolean();
-        }
-
-        if (targetType == typeof(int))
-        {
-            return value.GetInt32();
-        }
-
-        if (targetType == typeof(long))
-        {
-            return value.GetInt64();
-        }
-
-        if (targetType == typeof(double))
-        {
-            return value.GetDouble();
-        }
-
-        if (targetType == typeof(float))
-        {
-            return value.GetSingle();
-        }
-
-        if (targetType == typeof(Guid))
-        {
-            return Guid.Parse(value.GetString() ?? string.Empty);
-        }
-
-        if (targetType == typeof(TimeSpan))
-        {
-            return TimeSpan.Parse(value.GetString() ?? string.Empty, CultureInfo.InvariantCulture);
-        }
-
-        if (targetType.IsEnum)
-        {
-            return Enum.Parse(targetType, value.GetString() ?? string.Empty, true);
-        }
-
-        return Convert.ChangeType(value.GetString(), targetType, CultureInfo.InvariantCulture);
-    }
-
-    private static IEnumerable<PropertyInfo> GetSyncablePreferenceProperties()
-    {
-        foreach (var property in typeof(IPreferencesService).GetProperties(BindingFlags.Instance | BindingFlags.Public))
-        {
-            if (!property.CanRead || !property.CanWrite || property.GetIndexParameters().Length > 0)
-            {
-                continue;
-            }
-
-            yield return property;
-        }
     }
 }

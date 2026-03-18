@@ -18,6 +18,7 @@ public static class WinoAccountAuthErrorTranslator
             ApiErrorCodes.AccountLocked => Translator.WinoAccount_Error_AccountLocked,
             ApiErrorCodes.AccountBanned => Translator.WinoAccount_Error_AccountBanned,
             ApiErrorCodes.AccountSuspended => Translator.WinoAccount_Error_AccountSuspended,
+            ApiErrorCodes.EmailNotConfirmed => Translator.WinoAccount_Error_EmailNotConfirmed,
             ApiErrorCodes.RefreshTokenInvalid => Translator.WinoAccount_Error_RefreshTokenInvalid,
             ApiErrorCodes.EmailAlreadyRegistered => Translator.WinoAccount_Error_EmailAlreadyRegistered,
             ApiErrorCodes.ExternalLoginEmailRequired => Translator.WinoAccount_Error_ExternalLoginEmailRequired,
