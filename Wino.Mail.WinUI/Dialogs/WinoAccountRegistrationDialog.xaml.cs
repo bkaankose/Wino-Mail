@@ -12,6 +12,7 @@ namespace Wino.Dialogs;
 
 public sealed partial class WinoAccountRegistrationDialog : ContentDialog
 {
+    private const string PrivacyPolicyUrl = "https://www.winomail.app/accounts_policy.html";
     private readonly IWinoAccountProfileService _profileService;
 
     public WinoAccountRegistrationDialog(IWinoAccountProfileService profileService)
@@ -93,6 +94,11 @@ public sealed partial class WinoAccountRegistrationDialog : ContentDialog
             return Translator.WinoAccount_Validation_PasswordMismatch;
         }
 
+        if (PrivacyPolicyCheckBox.IsChecked != true)
+        {
+            return Translator.WinoAccount_Validation_PrivacyConsentRequired;
+        }
+
         return string.Empty;
     }
 
@@ -121,6 +127,11 @@ public sealed partial class WinoAccountRegistrationDialog : ContentDialog
             e.Handled = true;
             await PerformRegistrationAsync();
         }
+    }
+
+    private async void PrivacyPolicyLink_Click(object sender, RoutedEventArgs e)
+    {
+        await Launcher.LaunchUriAsync(new Uri(PrivacyPolicyUrl));
     }
 
     private void InputChanged(TextBox sender, TextBoxTextChangingEventArgs args) => HideError();

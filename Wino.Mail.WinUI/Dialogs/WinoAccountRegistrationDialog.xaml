@@ -261,6 +261,31 @@
                     PasswordChanged="InputChanged" />
             </StackPanel>
 
+            <Border
+                Padding="14"
+                Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                CornerRadius="12">
+                <StackPanel Spacing="10">
+                    <TextBlock
+                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.WinoAccount_RegisterDialog_PrivacyTitle}" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.WinoAccount_RegisterDialog_PrivacyDescription}"
+                        TextWrapping="WrapWholeWords" />
+                    <HyperlinkButton
+                        HorizontalAlignment="Left"
+                        Click="PrivacyPolicyLink_Click"
+                        Content="{x:Bind domain:Translator.WinoAccount_RegisterDialog_PrivacyLinkText}" />
+                    <CheckBox
+                        x:Name="PrivacyPolicyCheckBox"
+                        Checked="InputChanged"
+                        Unchecked="InputChanged"
+                        Content="{x:Bind domain:Translator.WinoAccount_RegisterDialog_PrivacyCheckbox}" />
+                </StackPanel>
+            </Border>
+
             <ProgressRing
                 x:Name="BusyRing"
                 Width="20"
