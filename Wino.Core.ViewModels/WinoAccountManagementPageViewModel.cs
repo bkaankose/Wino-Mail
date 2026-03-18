@@ -23,6 +23,7 @@ namespace Wino.Core.ViewModels;
 public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel
 {
     private const string BuyAiPackUrl = "https://example.com/wino-ai-pack";
+    private const string ManageAiPackUrl = "https://example.com/wino-ai-pack/manage";
 
     private readonly IWinoAccountProfileService _profileService;
     private readonly IWinoAccountApiClient _apiClient;
@@ -37,6 +38,12 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel
     [NotifyPropertyChangedFor(nameof(IsSignedOut))]
     [NotifyPropertyChangedFor(nameof(CanShowBuyAiPack))]
     public partial bool IsSignedIn { get; set; }
+
+    [ObservableProperty]
+    public partial string AccountDisplayName { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string AccountInitials { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial string AccountEmail { get; set; } = string.Empty;
@@ -57,6 +64,21 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel
 
     [ObservableProperty]
     public partial string AiBillingPeriodSummary { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string AiPackRenewalText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial int AiUsageCount { get; set; }
+
+    [ObservableProperty]
+    public partial int AiUsageLimit { get; set; } = 1;
+
+    [ObservableProperty]
+    public partial double AiUsagePercentage { get; set; }
+
+    [ObservableProperty]
+    public partial string AiUsageResetText { get; set; } = string.Empty;
 
     public bool IsSignedOut => !IsSignedIn;
     public bool CanShowAiUsage => HasAiPack;
@@ -136,6 +158,9 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel
 
     [RelayCommand]
     private async Task OpenBuyPageAsync() => await _nativeAppService.LaunchUriAsync(new Uri(BuyAiPackUrl));
+
+    [RelayCommand]
+    private async Task ManageAiPackAsync() => await _nativeAppService.LaunchUriAsync(new Uri(ManageAiPackUrl));
 
     [RelayCommand]
     private async Task ExportSettingsAsync()
@@ -289,6 +314,8 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel
             {
                 IsSignedIn = true;
                 AccountEmail = resolvedUser.Email;
+                AccountDisplayName = ExtractDisplayName(resolvedUser.Email);
+                AccountInitials = ExtractInitials(resolvedUser.Email);
                 AccountStatusText = string.Format(Translator.WinoAccount_Management_StatusLabel, resolvedUser.AccountStatus);
             });
 
@@ -319,12 +346,19 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel
         await ExecuteUIThread(() =>
         {
             IsSignedIn = false;
+            AccountDisplayName = string.Empty;
+            AccountInitials = string.Empty;
             AccountEmail = string.Empty;
             AccountStatusText = string.Empty;
             HasAiPack = false;
             AiPackStateText = Translator.WinoAccount_Management_AiPackInactive;
             AiUsageSummary = string.Empty;
             AiBillingPeriodSummary = string.Empty;
+            AiPackRenewalText = string.Empty;
+            AiUsageCount = 0;
+            AiUsageLimit = 1;
+            AiUsagePercentage = 0;
+            AiUsageResetText = string.Empty;
         });
     }
 
@@ -358,15 +392,25 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel
         var hasAiPack = aiStatus?.HasAiPack == true;
         var usageText = Translator.WinoAccount_Management_AiPackUnknownUsage;
         var billingText = string.Empty;
+        var renewalText = string.Empty;
+        var usageCount = 0;
+        var usageLimit = 1;
+        var usagePercentage = 0d;
+        var resetText = string.Empty;
 
         if (hasAiPack && aiStatus?.Used is int used && aiStatus.MonthlyLimit is int limit && aiStatus.Remaining is int remaining)
         {
             usageText = string.Format(Translator.WinoAccount_Management_AiPackUsage, used, limit, remaining);
+            usageCount = used;
+            usageLimit = limit > 0 ? limit : 1;
+            usagePercentage = (double)used / usageLimit * 100;
         }
 
         if (hasAiPack && aiStatus?.CurrentPeriodStartUtc is DateTimeOffset periodStart && aiStatus.CurrentPeriodEndUtc is DateTimeOffset periodEnd)
         {
             billingText = string.Format(Translator.WinoAccount_Management_AiPackBillingPeriod, periodStart.LocalDateTime, periodEnd.LocalDateTime);
+            renewalText = string.Format(Translator.WinoAccount_Management_AiPackRenews, periodEnd.LocalDateTime);
+            resetText = string.Format(Translator.WinoAccount_Management_AiPackResets, periodEnd.LocalDateTime);
         }
 
         _ = ExecuteUIThread(() =>
@@ -377,7 +421,34 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel
                 : Translator.WinoAccount_Management_AiPackInactive;
             AiUsageSummary = hasAiPack ? usageText : string.Empty;
             AiBillingPeriodSummary = hasAiPack ? billingText : string.Empty;
+            AiPackRenewalText = hasAiPack ? renewalText : string.Empty;
+            AiUsageCount = usageCount;
+            AiUsageLimit = usageLimit;
+            AiUsagePercentage = usagePercentage;
+            AiUsageResetText = hasAiPack ? resetText : string.Empty;
         });
+    }
+
+    private static string ExtractDisplayName(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return string.Empty;
+
+        var atIndex = email.IndexOf('@');
+        var localPart = atIndex > 0 ? email[..atIndex] : email;
+
+        if (localPart.Length == 0)
+            return string.Empty;
+
+        return char.ToUpper(localPart[0], CultureInfo.CurrentCulture) + localPart[1..];
+    }
+
+    private static string ExtractInitials(string email)
+    {
+        var displayName = ExtractDisplayName(email);
+        return displayName.Length > 0
+            ? displayName[..1].ToUpper(CultureInfo.CurrentCulture)
+            : string.Empty;
     }
 
     private Dictionary<string, object?> CollectPreferencesSnapshot()

@@ -108,7 +108,6 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel,
     public partial string WinoAccountStatusText { get; set; } = string.Empty;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanShowAiUsage))]
     [NotifyPropertyChangedFor(nameof(CanShowBuyAiPack))]
     public partial bool HasAiPack { get; set; }
 

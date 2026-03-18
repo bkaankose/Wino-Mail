@@ -12,12 +12,8 @@
 
     <ScrollViewer>
         <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
-            <TextBlock
-                Margin="0,0,0,8"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Style="{StaticResource BodyTextBlockStyle}"
-                Text="{x:Bind domain:Translator.WinoAccount_Management_Description}" />
 
+            <!--  Busy indicator  -->
             <StackPanel
                 x:Name="BusyPanel"
                 HorizontalAlignment="Center"
@@ -30,76 +26,296 @@
                 <TextBlock HorizontalAlignment="Center" Text="{x:Bind domain:Translator.Busy}" />
             </StackPanel>
 
+            <!--  ══════════════════════════════════════  -->
+            <!--  SIGNED-OUT VIEW  -->
+            <!--  ══════════════════════════════════════  -->
             <StackPanel
                 x:Name="SignedOutPanel"
                 x:Load="{x:Bind ViewModel.IsSignedOut, Mode=OneWay}"
                 Spacing="{StaticResource SettingsCardSpacing}">
-                <controls:SettingsCard Description="{x:Bind domain:Translator.WinoAccount_Management_SignedOutDescription}" Header="{x:Bind domain:Translator.WinoAccount_Management_SignedOutTitle}">
-                    <controls:SettingsCard.HeaderIcon>
-                        <SymbolIcon Symbol="Contact" />
-                    </controls:SettingsCard.HeaderIcon>
-                    <StackPanel Orientation="Horizontal" Spacing="12">
+
+                <StackPanel
+                    Padding="0,40,0,40"
+                    HorizontalAlignment="Center"
+                    Spacing="16">
+
+                    <!--  App logo  -->
+                    <Image
+                        Width="64"
+                        Height="64"
+                        HorizontalAlignment="Center"
+                        Source="ms-appx:///Assets/AppEntries/MailAssets/Square150x150Logo.scale-100.png" />
+
+                    <!--  Title  -->
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        FontSize="20"
+                        FontWeight="SemiBold"
+                        Text="{x:Bind domain:Translator.WinoAccount_Management_SignedOutTitle}" />
+
+                    <!--  Description  -->
+                    <TextBlock
+                        MaxWidth="360"
+                        HorizontalAlignment="Center"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource BodyTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.WinoAccount_Management_SignedOutDescription}"
+                        TextAlignment="Center"
+                        TextWrapping="WrapWholeWords" />
+
+                    <!--  Action buttons  -->
+                    <StackPanel
+                        HorizontalAlignment="Center"
+                        Orientation="Horizontal"
+                        Spacing="12">
+                        <Button
+                            Command="{x:Bind ViewModel.SignInCommand}"
+                            Content="{x:Bind domain:Translator.Buttons_SignIn}"
+                            Style="{StaticResource AccentButtonStyle}" />
                         <Button Command="{x:Bind ViewModel.RegisterCommand}" Content="{x:Bind domain:Translator.Buttons_CreateAccount}" />
-                        <Button Command="{x:Bind ViewModel.SignInCommand}" Content="{x:Bind domain:Translator.Buttons_SignIn}" />
                     </StackPanel>
-                </controls:SettingsCard>
+                </StackPanel>
             </StackPanel>
 
+            <!--  ══════════════════════════════════════  -->
+            <!--  SIGNED-IN VIEW  -->
+            <!--  ══════════════════════════════════════  -->
             <StackPanel
                 x:Name="SignedInPanel"
                 x:Load="{x:Bind ViewModel.IsSignedIn, Mode=OneWay}"
                 Spacing="{StaticResource SettingsCardSpacing}">
-                <controls:SettingsCard Description="{x:Bind domain:Translator.WinoAccount_Management_AccountCardDescription}" Header="{x:Bind domain:Translator.WinoAccount_Management_AccountCardTitle}">
-                    <controls:SettingsCard.HeaderIcon>
-                        <SymbolIcon Symbol="Contact" />
-                    </controls:SettingsCard.HeaderIcon>
-                    <StackPanel Spacing="8">
-                        <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.AccountEmail, Mode=OneWay}" />
-                        <TextBlock Text="{x:Bind ViewModel.AccountStatusText, Mode=OneWay}" />
-                        <Button
-                            HorizontalAlignment="Left"
-                            Command="{x:Bind ViewModel.SignOutCommand}"
-                            Content="{x:Bind domain:Translator.WinoAccount_SignOutButton_Action}" />
-                    </StackPanel>
+
+                <!--  ─── Profile section ───  -->
+                <TextBlock
+                    Margin="0,0,0,4"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.WinoAccount_Management_ProfileSectionHeader}" />
+
+                <controls:SettingsCard>
+                    <controls:SettingsCard.Header>
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <PersonPicture
+                                Width="40"
+                                Height="40"
+                                Initials="{x:Bind ViewModel.AccountInitials, Mode=OneWay}" />
+                            <StackPanel VerticalAlignment="Center" Spacing="2">
+                                <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.AccountDisplayName, Mode=OneWay}" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind ViewModel.AccountEmail, Mode=OneWay}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </controls:SettingsCard.Header>
+                    <Border
+                        Padding="12,4"
+                        Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
+                        CornerRadius="12">
+                        <TextBlock
+                            Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind ViewModel.AccountStatusText, Mode=OneWay}" />
+                    </Border>
                 </controls:SettingsCard>
 
-                <controls:SettingsCard Description="{x:Bind domain:Translator.WinoAccount_Management_AiPackCardDescription}" Header="{x:Bind domain:Translator.WinoAccount_Management_AiPackCardTitle}">
+                <!--  ─── AI Pack section ───  -->
+                <TextBlock
+                    Margin="0,12,0,4"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackSectionHeader}" />
 
-                    <StackPanel Spacing="8">
-                        <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.AiPackStateText, Mode=OneWay}" />
-                        <TextBlock
-                            x:Name="CanShowAITextBlock"
-                            x:Load="{x:Bind ViewModel.CanShowAiUsage, Mode=OneWay}"
-                            Text="{x:Bind ViewModel.AiUsageSummary, Mode=OneWay}"
-                            TextWrapping="WrapWholeWords" />
-                        <TextBlock
-                            x:Name="BillingBlock"
-                            x:Load="{x:Bind ViewModel.CanShowAiUsage, Mode=OneWay}"
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Text="{x:Bind ViewModel.AiBillingPeriodSummary, Mode=OneWay}"
-                            TextWrapping="WrapWholeWords" />
-                        <TextBlock
-                            x:Name="CanBuyAIPack"
-                            x:Load="{x:Bind ViewModel.CanShowBuyAiPack, Mode=OneWay}"
-                            Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackBuyDescription}"
-                            TextWrapping="WrapWholeWords" />
-                        <Button
-                            x:Name="OpenBuyPageButton"
-                            HorizontalAlignment="Left"
-                            x:Load="{x:Bind ViewModel.CanShowBuyAiPack, Mode=OneWay}"
-                            Command="{x:Bind ViewModel.OpenBuyPageCommand}"
-                            Content="{x:Bind domain:Translator.Buttons_Purchase}" />
-                    </StackPanel>
+                <!--  AI Pack promo (no AI Pack)  -->
+                <controls:SettingsCard
+                    x:Name="AiPackPromoCard"
+                    x:Load="{x:Bind ViewModel.CanShowBuyAiPack, Mode=OneWay}"
+                    Description="{x:Bind domain:Translator.WinoAccount_Management_AiPackPromoDescription}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE945;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <controls:SettingsCard.Header>
+                        <StackPanel Spacing="8">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackPromoTitle}" />
+                                <Border
+                                    Padding="8,2"
+                                    Background="{ThemeResource SystemAccentColor}"
+                                    CornerRadius="4">
+                                    <TextBlock
+                                        FontSize="10"
+                                        FontWeight="Bold"
+                                        Foreground="White"
+                                        Text="PRO" />
+                                </Border>
+                            </StackPanel>
+                            <TextBlock
+                                MaxWidth="400"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackPromoDescription}"
+                                TextWrapping="WrapWholeWords" />
+                            <StackPanel Orientation="Horizontal" Spacing="16">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <FontIcon
+                                        FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                        FontSize="12"
+                                        Glyph="&#xE8C1;" />
+                                    <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureTranslate}" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <FontIcon
+                                        FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                        FontSize="12"
+                                        Glyph="&#xE70F;" />
+                                    <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureRewrite}" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <FontIcon
+                                        FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                        FontSize="12"
+                                        Glyph="&#xE8FD;" />
+                                    <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureSummarize}" />
+                                </StackPanel>
+                            </StackPanel>
+                            <StackPanel
+                                Margin="0,4,0,0"
+                                Orientation="Horizontal"
+                                Spacing="12">
+                                <Button
+                                    Command="{x:Bind ViewModel.OpenBuyPageCommand}"
+                                    Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackGetButton}"
+                                    Style="{StaticResource AccentButtonStyle}" />
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}">
+                                    <Run Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackPromoPrice}" />
+                                    <Run Text=" · " />
+                                    <Run Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackPromoRequests}" />
+                                </TextBlock>
+                            </StackPanel>
+                        </StackPanel>
+                    </controls:SettingsCard.Header>
                 </controls:SettingsCard>
 
-                <controls:SettingsCard Description="{x:Bind domain:Translator.WinoAccount_Management_SettingsCardDescription}" Header="{x:Bind domain:Translator.WinoAccount_Management_SettingsCardTitle}">
+                <!--  AI Pack active: subscription info  -->
+                <controls:SettingsExpander
+                    x:Name="AiPackActiveCard"
+                    x:Load="{x:Bind ViewModel.HasAiPack, Mode=OneWay}"
+                    IsExpanded="True">
+                    <controls:SettingsExpander.HeaderIcon>
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE945;" />
+                    </controls:SettingsExpander.HeaderIcon>
+                    <controls:SettingsExpander.Header>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackCardTitle}" />
+                            <Border
+                                Padding="8,2"
+                                Background="{ThemeResource SystemAccentColor}"
+                                CornerRadius="4">
+                                <TextBlock
+                                    FontSize="10"
+                                    FontWeight="Bold"
+                                    Foreground="White"
+                                    Text="PRO" />
+                            </Border>
+                        </StackPanel>
+                    </controls:SettingsExpander.Header>
+                    <controls:SettingsExpander.Description>
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackSubscriptionActive}" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text=" · " />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ViewModel.AiPackRenewalText, Mode=OneWay}" />
+                        </StackPanel>
+                    </controls:SettingsExpander.Description>
+                    <HyperlinkButton Command="{x:Bind ViewModel.ManageAiPackCommand}" Content="{x:Bind domain:Translator.Buttons_Manage}" />
+                    <controls:SettingsExpander.Items>
+
+                        <!--  AI Pack active: usage bar  -->
+
+                        <controls:SettingsCard x:Name="AiPackUsageCard" HorizontalContentAlignment="Stretch">
+                            <controls:SettingsCard.Header>
+                                <StackPanel MinWidth="400" Spacing="8">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <TextBlock
+                                            FontSize="24"
+                                            FontWeight="Bold"
+                                            Text="{x:Bind ViewModel.AiUsageCount, Mode=OneWay}" />
+                                        <TextBlock
+                                            Margin="0,0,0,2"
+                                            VerticalAlignment="Bottom"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{StaticResource CaptionTextBlockStyle}">
+                                            <Run Text="/ " />
+                                            <Run Text="{x:Bind ViewModel.AiUsageLimit, Mode=OneWay}" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                    <ProgressBar
+                                        Height="8"
+                                        Maximum="100"
+                                        Value="{x:Bind ViewModel.AiUsagePercentage, Mode=OneWay}" />
+                                    <Grid>
+                                        <TextBlock
+                                            HorizontalAlignment="Left"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                            Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackRequestsUsed}" />
+                                        <TextBlock
+                                            HorizontalAlignment="Right"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                            Text="{x:Bind ViewModel.AiUsageResetText, Mode=OneWay}" />
+                                    </Grid>
+                                </StackPanel>
+                            </controls:SettingsCard.Header>
+                        </controls:SettingsCard>
+                    </controls:SettingsExpander.Items>
+                </controls:SettingsExpander>
+
+
+
+                <!--  ─── Data section ───  -->
+                <TextBlock
+                    Margin="0,12,0,4"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.WinoAccount_Management_DataSectionHeader}" />
+
+                <controls:SettingsCard Description="{x:Bind domain:Translator.WinoAccount_Management_ImportSettingsDescription}" Header="{x:Bind domain:Translator.WinoAccount_Management_ImportSettingsTitle}">
                     <controls:SettingsCard.HeaderIcon>
-                        <SymbolIcon Symbol="Sync" />
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE896;" />
                     </controls:SettingsCard.HeaderIcon>
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <Button Command="{x:Bind ViewModel.ExportSettingsCommand}" Content="{x:Bind domain:Translator.Buttons_Export}" />
-                        <Button Command="{x:Bind ViewModel.ImportSettingsCommand}" Content="{x:Bind domain:Translator.Buttons_Import}" />
-                    </StackPanel>
+                    <Button Command="{x:Bind ViewModel.ImportSettingsCommand}" Content="{x:Bind domain:Translator.Buttons_Browse}" />
+                </controls:SettingsCard>
+
+                <controls:SettingsCard Description="{x:Bind domain:Translator.WinoAccount_Management_ExportSettingsDescription}" Header="{x:Bind domain:Translator.WinoAccount_Management_ExportSettingsTitle}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE898;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <Button Command="{x:Bind ViewModel.ExportSettingsCommand}" Content="{x:Bind domain:Translator.Buttons_Export}" />
+                </controls:SettingsCard>
+
+                <!--  ─── Account actions section ───  -->
+                <TextBlock
+                    Margin="0,12,0,4"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.WinoAccount_Management_AccountActionsSectionHeader}" />
+
+                <controls:SettingsCard
+                    Command="{x:Bind ViewModel.SignOutCommand}"
+                    Description="{x:Bind domain:Translator.WinoAccount_Management_SignOutDescription}"
+                    Header="{x:Bind domain:Translator.WinoAccount_Management_SignOutTitle}"
+                    IsClickEnabled="True">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xF3B1;" />
+                    </controls:SettingsCard.HeaderIcon>
                 </controls:SettingsCard>
             </StackPanel>
         </StackPanel>
