@@ -27,8 +27,8 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     private readonly IDatabaseService _databaseService;
     private readonly bool _ownsHttpClient;
 
-    private const string ApiUrl = "https://localhost:7204/";
-    // private const string ApiUrl = "https://api.winomail.app/";
+    // private const string ApiUrl = "https://localhost:7204/";
+    private const string ApiUrl = "https://api.winomail.app/";
 
     public WinoAccountApiClient(IDatabaseService databaseService, HttpClient? httpClient = null)
     {
