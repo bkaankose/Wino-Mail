@@ -20,6 +20,7 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 {
     private readonly IWinoAccountApiClient _apiClient;
     private readonly IStoreManagementService _storeManagementService;
+    private readonly SemaphoreSlim _billingCallbackLock = new(1, 1);
     private readonly ILogger _logger = Log.ForContext<WinoAccountProfileService>();
 
     public WinoAccountProfileService(IDatabaseService databaseService,
@@ -37,6 +38,7 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
         if (result.IsSuccess && result.Account != null)
         {
+            PublishProfileUpdated(result.Account);
             ReportUIChange(new WinoAccountSignedInMessage(result.Account));
         }
 
@@ -50,6 +52,7 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
         if (result.IsSuccess && result.Account != null)
         {
+            PublishProfileUpdated(result.Account);
             ReportUIChange(new WinoAccountSignedInMessage(result.Account));
         }
 
@@ -72,9 +75,42 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
         if (!result.IsSuccess)
         {
             _logger.Warning("Wino account token refresh failed for {Email}. Error code: {ErrorCode}", account.Email, result.ErrorCode);
+            return result;
+        }
+
+        if (result.Account != null && !AreEquivalentProfiles(account, result.Account))
+        {
+            PublishProfileUpdated(result.Account);
         }
 
         return result;
+    }
+
+    public async Task<WinoAccountOperationResult> RefreshProfileAsync(CancellationToken cancellationToken = default)
+    {
+        var account = await GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false);
+        if (account == null)
+        {
+            return WinoAccountOperationResult.Failure("MissingAccessToken");
+        }
+
+        var response = await _apiClient.GetCurrentUserAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccess || response.Result == null)
+        {
+            _logger.Warning("Failed to refresh Wino account profile for {Email}. Error code: {ErrorCode}", account.Email, response.ErrorCode);
+            return WinoAccountOperationResult.Failure(response.ErrorCode);
+        }
+
+        var refreshedAccount = MergeAccountProfile(account, response.Result);
+        if (AreEquivalentProfiles(account, refreshedAccount))
+        {
+            return WinoAccountOperationResult.Success(account);
+        }
+
+        await PersistAccountAsync(refreshedAccount).ConfigureAwait(false);
+        PublishProfileUpdated(refreshedAccount);
+
+        return WinoAccountOperationResult.Success(refreshedAccount);
     }
 
     public async Task<WinoAccount?> GetActiveAccountAsync()
@@ -193,6 +229,53 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
         return response;
     }
 
+    public async Task<bool> ProcessBillingCallbackAsync(Uri callbackUri, CancellationToken cancellationToken = default)
+    {
+        await _billingCallbackLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            var targetProductType = ResolveProductType(callbackUri);
+            if (targetProductType == null)
+            {
+                _logger.Warning("Billing callback was ignored because productCode is missing or unsupported. Uri: {Uri}", callbackUri);
+                return false;
+            }
+
+            if (await GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false) == null)
+            {
+                _logger.Warning("Billing callback was ignored because there is no authenticated Wino account.");
+                return false;
+            }
+
+            const int maxAttempts = 15;
+
+            for (var attempt = 0; attempt < maxAttempts; attempt++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var refreshResult = await RefreshProfileAsync(cancellationToken).ConfigureAwait(false);
+
+                if (refreshResult.IsSuccess && await HasAddOnAsync(targetProductType.Value, cancellationToken).ConfigureAwait(false))
+                {
+                    ReportUIChange(new WinoAccountAddOnPurchasedMessage(targetProductType.Value));
+                    return true;
+                }
+
+                if (attempt < maxAttempts - 1)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken).ConfigureAwait(false);
+                }
+            }
+
+            return false;
+        }
+        finally
+        {
+            _billingCallbackLock.Release();
+        }
+    }
+
     public async Task SignOutAsync(CancellationToken cancellationToken = default)
     {
         var account = await GetActiveAccountAsync().ConfigureAwait(false);
@@ -217,6 +300,7 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
         if (account != null)
         {
+            ReportUIChange(new WinoAccountProfileDeletedMessage(account));
             ReportUIChange(new WinoAccountSignedOutMessage(account));
         }
     }
@@ -231,11 +315,19 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
         var account = Map(response.Result);
 
-        await Connection.DeleteAllAsync<WinoAccount>().ConfigureAwait(false);
-        await Connection.InsertOrReplaceAsync(account, typeof(WinoAccount)).ConfigureAwait(false);
+        await PersistAccountAsync(account).ConfigureAwait(false);
 
         return WinoAccountOperationResult.Success(account);
     }
+
+    private async Task PersistAccountAsync(WinoAccount account)
+    {
+        await Connection.DeleteAllAsync<WinoAccount>().ConfigureAwait(false);
+        await Connection.InsertOrReplaceAsync(account, typeof(WinoAccount)).ConfigureAwait(false);
+    }
+
+    private void PublishProfileUpdated(WinoAccount account)
+        => ReportUIChange(new WinoAccountProfileUpdatedMessage(account));
 
     private async Task<bool> HasAiPackAsync(CancellationToken cancellationToken)
     {
@@ -264,6 +356,30 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
         return TryGetBooleanProperty(response.Result, "HasUnlimitedAccounts", out var hasUnlimitedAccounts) && hasUnlimitedAccounts;
     }
 
+    private static bool AreEquivalentProfiles(WinoAccount left, WinoAccount right)
+        => left.Id == right.Id &&
+           string.Equals(left.Email, right.Email, StringComparison.Ordinal) &&
+           string.Equals(left.AccountStatus, right.AccountStatus, StringComparison.Ordinal) &&
+           left.HasPassword == right.HasPassword &&
+           left.HasGoogleLogin == right.HasGoogleLogin &&
+           left.HasFacebookLogin == right.HasFacebookLogin;
+
+    private static WinoAccount MergeAccountProfile(WinoAccount existingAccount, AuthUserDto profile)
+        => new()
+        {
+            Id = profile.UserId,
+            Email = profile.Email,
+            AccountStatus = profile.AccountStatus,
+            HasPassword = profile.HasPassword,
+            HasGoogleLogin = profile.HasGoogleLogin,
+            HasFacebookLogin = profile.HasFacebookLogin,
+            AccessToken = existingAccount.AccessToken,
+            AccessTokenExpiresAtUtc = existingAccount.AccessTokenExpiresAtUtc,
+            RefreshToken = existingAccount.RefreshToken,
+            RefreshTokenExpiresAtUtc = existingAccount.RefreshTokenExpiresAtUtc,
+            LastAuthenticatedUtc = existingAccount.LastAuthenticatedUtc
+        };
+
     [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2075", Justification = "The reflected contract property is a stable API field read from a concrete DTO instance.")]
     private static bool TryGetBooleanProperty(object instance, string propertyName, out bool value)
     {
@@ -277,6 +393,44 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
         value = (bool)(property.GetValue(instance) ?? false);
         return true;
+    }
+
+    private static WinoAddOnProductType? ResolveProductType(Uri callbackUri)
+    {
+        var productCode = GetQueryParameter(callbackUri, "productCode");
+        if (string.IsNullOrWhiteSpace(productCode))
+        {
+            return null;
+        }
+
+        return productCode.Trim().ToUpperInvariant() switch
+        {
+            "AI_PACK" => WinoAddOnProductType.AI_PACK,
+            "UNLIMITED_ACCOUNTS" => WinoAddOnProductType.UNLIMITED_ACCOUNTS,
+            _ => null
+        };
+    }
+
+    private static string GetQueryParameter(Uri uri, string key)
+    {
+        var query = uri.Query;
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return string.Empty;
+        }
+
+        foreach (var part in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var pieces = part.Split('=', 2);
+            if (pieces.Length == 0 || !string.Equals(pieces[0], key, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            return pieces.Length > 1 ? Uri.UnescapeDataString(pieces[1]) : string.Empty;
+        }
+
+        return string.Empty;
     }
 
     private static WinoAccount Map(AuthResultDto result)

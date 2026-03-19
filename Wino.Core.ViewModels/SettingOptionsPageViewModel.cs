@@ -24,8 +24,9 @@ using Wino.Messaging.UI;
 namespace Wino.Core.ViewModels;
 
 public partial class SettingOptionsPageViewModel : CoreBaseViewModel,
-    IRecipient<WinoAccountSignedInMessage>,
-    IRecipient<WinoAccountSignedOutMessage>
+    IRecipient<WinoAccountProfileUpdatedMessage>,
+    IRecipient<WinoAccountProfileDeletedMessage>,
+    IRecipient<WinoAccountAddOnPurchasedMessage>
 {
     private const string BuyAiPackUrl = "https://example.com/wino-ai-pack";
 
@@ -420,23 +421,28 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel,
     {
         base.RegisterRecipients();
 
-        Messenger.Register<WinoAccountSignedInMessage>(this);
-        Messenger.Register<WinoAccountSignedOutMessage>(this);
+        Messenger.Register<WinoAccountProfileUpdatedMessage>(this);
+        Messenger.Register<WinoAccountProfileDeletedMessage>(this);
+        Messenger.Register<WinoAccountAddOnPurchasedMessage>(this);
     }
 
     protected override void UnregisterRecipients()
     {
         base.UnregisterRecipients();
 
-        Messenger.Unregister<WinoAccountSignedInMessage>(this);
-        Messenger.Unregister<WinoAccountSignedOutMessage>(this);
+        Messenger.Unregister<WinoAccountProfileUpdatedMessage>(this);
+        Messenger.Unregister<WinoAccountProfileDeletedMessage>(this);
+        Messenger.Unregister<WinoAccountAddOnPurchasedMessage>(this);
     }
 
-    public void Receive(WinoAccountSignedInMessage message)
+    public void Receive(WinoAccountProfileUpdatedMessage message)
         => _ = LoadWinoAccountAsync();
 
-    public void Receive(WinoAccountSignedOutMessage message)
+    public void Receive(WinoAccountProfileDeletedMessage message)
         => _ = ResetWinoAccountStateAsync();
+
+    public void Receive(WinoAccountAddOnPurchasedMessage message)
+        => _ = LoadWinoAccountAsync();
 
     // Wino Account hero card commands and helpers
 

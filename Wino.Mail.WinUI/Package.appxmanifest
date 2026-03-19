@@ -90,6 +90,13 @@
 				</uap:Protocol>
 			</uap:Extension>
 
+			<!-- Protocol activation: Wino deep links -->
+			<uap:Extension Category="windows.protocol">
+				<uap:Protocol Name="wino">
+					<uap:DisplayName>Wino Mail Protocol</uap:DisplayName>
+				</uap:Protocol>
+			</uap:Extension>
+
 			<!-- Protocol activation: webcal -->
 			<uap:Extension Category="windows.protocol">
 				<uap:Protocol Name="webcal">

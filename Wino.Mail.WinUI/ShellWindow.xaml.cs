@@ -31,8 +31,8 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     IRecipient<TitleBarShellContentUpdated>,
     IRecipient<SynchronizationActionsAdded>,
     IRecipient<SynchronizationActionsCompleted>,
-    IRecipient<WinoAccountSignedInMessage>,
-    IRecipient<WinoAccountSignedOutMessage>
+    IRecipient<WinoAccountProfileUpdatedMessage>,
+    IRecipient<WinoAccountProfileDeletedMessage>
 {
     public IStatePersistanceService StatePersistanceService { get; } = WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception("StatePersistanceService not registered in DI container.");
     public IPreferencesService PreferencesService { get; } = WinoApplication.Current.Services.GetService<IPreferencesService>() ?? throw new Exception("PreferencesService not registered in DI container.");
@@ -213,12 +213,12 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         });
     }
 
-    public void Receive(WinoAccountSignedInMessage message)
+    public void Receive(WinoAccountProfileUpdatedMessage message)
     {
         DispatcherQueue.TryEnqueue(() => UpdateWinoAccountState(message.Account));
     }
 
-    public void Receive(WinoAccountSignedOutMessage message)
+    public void Receive(WinoAccountProfileDeletedMessage message)
     {
         DispatcherQueue.TryEnqueue(() => UpdateWinoAccountState(null));
     }
@@ -326,8 +326,8 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WeakReferenceMessenger.Default.Register<InfoBarMessageRequested>(this);
         WeakReferenceMessenger.Default.Register<SynchronizationActionsAdded>(this);
         WeakReferenceMessenger.Default.Register<SynchronizationActionsCompleted>(this);
-        WeakReferenceMessenger.Default.Register<WinoAccountSignedInMessage>(this);
-        WeakReferenceMessenger.Default.Register<WinoAccountSignedOutMessage>(this);
+        WeakReferenceMessenger.Default.Register<WinoAccountProfileUpdatedMessage>(this);
+        WeakReferenceMessenger.Default.Register<WinoAccountProfileDeletedMessage>(this);
     }
 
     private void UnregisterRecipients()
@@ -337,8 +337,8 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WeakReferenceMessenger.Default.Unregister<InfoBarMessageRequested>(this);
         WeakReferenceMessenger.Default.Unregister<SynchronizationActionsAdded>(this);
         WeakReferenceMessenger.Default.Unregister<SynchronizationActionsCompleted>(this);
-        WeakReferenceMessenger.Default.Unregister<WinoAccountSignedInMessage>(this);
-        WeakReferenceMessenger.Default.Unregister<WinoAccountSignedOutMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<WinoAccountProfileUpdatedMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<WinoAccountProfileDeletedMessage>(this);
     }
 
     private void ShowInfoBarMessage(InfoBarMessageRequested message)

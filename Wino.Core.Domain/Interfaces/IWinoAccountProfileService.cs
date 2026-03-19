@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Shared;
@@ -16,6 +17,7 @@ public interface IWinoAccountProfileService
     Task<WinoAccountOperationResult> RegisterAsync(string email, string password, CancellationToken cancellationToken = default);
     Task<WinoAccountOperationResult> LoginAsync(string email, string password, CancellationToken cancellationToken = default);
     Task<WinoAccountOperationResult> RefreshAsync(CancellationToken cancellationToken = default);
+    Task<WinoAccountOperationResult> RefreshProfileAsync(CancellationToken cancellationToken = default);
     Task<WinoAccount?> GetActiveAccountAsync();
     Task<WinoAccount?> GetAuthenticatedAccountAsync(CancellationToken cancellationToken = default);
     Task<bool> HasActiveAccountAsync();
@@ -24,5 +26,6 @@ public interface IWinoAccountProfileService
     Task<ApiEnvelope<AiStatusResultDto>> GetAiStatusAsync(CancellationToken cancellationToken = default);
     Task<ApiEnvelope<CheckoutSessionResultDto>> CreateCheckoutSessionAsync(WinoAddOnProductType productId, CancellationToken cancellationToken = default);
     Task<ApiEnvelope<CustomerPortalResultDto>> CreateCustomerPortalSessionAsync(CancellationToken cancellationToken = default);
+    Task<bool> ProcessBillingCallbackAsync(Uri callbackUri, CancellationToken cancellationToken = default);
     Task SignOutAsync(CancellationToken cancellationToken = default);
 }

@@ -50,6 +50,9 @@ public partial class App : WinoApplication,
 {
     private const int InboxSyncsPerFullSync = 20;
     private const string ToggleDefaultModeLaunchArgument = "--mode=toggle-default";
+    private const string WinoProtocolScheme = "wino";
+    private const string BillingProtocolHost = "billing";
+    private const string BillingSuccessPath = "/success";
     private ISynchronizationManager? _synchronizationManager;
     private IPreferencesService? _preferencesService;
     private IAccountService? _accountService;
@@ -257,7 +260,11 @@ public partial class App : WinoApplication,
         // Initialize theme service after window creation.
         // Theme service requires the window to exist to properly load and apply themes.
         await NewThemeService.InitializeAsync();
+
+        // Wino account loading and activation.
         await LoadInitialWinoAccountAsync();
+        await HandlePostActivationAsync(AppInstance.GetCurrent().GetActivatedEventArgs());
+
         LogActivation("Theme service initialized.");
 
         // If startup task launch, keep window hidden (system tray only).
@@ -836,7 +843,7 @@ public partial class App : WinoApplication,
 
         if (winoAccount != null)
         {
-            WeakReferenceMessenger.Default.Send(new WinoAccountSignedInMessage(winoAccount));
+            WeakReferenceMessenger.Default.Send(new WinoAccountProfileUpdatedMessage(winoAccount));
         }
     }
 
@@ -941,7 +948,7 @@ public partial class App : WinoApplication,
     public void HandleRedirectedActivation(AppActivationArguments args)
     {
         // Dispatch to UI thread since this is called from Program.OnActivated
-        MainWindow?.DispatcherQueue.TryEnqueue(() =>
+        MainWindow?.DispatcherQueue.TryEnqueue(async () =>
         {
             // Handle different activation kinds
             if (args.Kind == ExtendedActivationKind.AppNotification)
@@ -971,6 +978,8 @@ public partial class App : WinoApplication,
                         shellWindow.HandleAppActivation(GetModeLaunchArgument(redirectedMode));
                     }
                 }
+
+                await HandlePostActivationAsync(args);
 
                 // Bring the existing window to front after handling redirected activation.
                 MainWindow?.BringToFront();
@@ -1017,6 +1026,13 @@ public partial class App : WinoApplication,
                 mode = WinoApplicationMode.Mail;
                 return true;
             }
+
+            if (string.Equals(scheme, WinoProtocolScheme, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(protocolArgs.Uri?.Host, BillingProtocolHost, StringComparison.OrdinalIgnoreCase))
+            {
+                mode = WinoApplicationMode.Settings;
+                return true;
+            }
         }
 
         if (activationArgs.Kind == ExtendedActivationKind.File &&
@@ -1059,6 +1075,55 @@ public partial class App : WinoApplication,
         }
 
         return null;
+    }
+
+    private async Task HandlePostActivationAsync(AppActivationArguments activationArgs)
+    {
+        if (await TryHandleBillingProtocolActivationAsync(activationArgs).ConfigureAwait(false))
+        {
+            return;
+        }
+    }
+
+    private async Task<bool> TryHandleBillingProtocolActivationAsync(AppActivationArguments activationArgs)
+    {
+        if (!TryGetBillingCallbackUri(activationArgs, out var callbackUri))
+        {
+            return false;
+        }
+
+        Services.GetRequiredService<INavigationService>().Navigate(
+            WinoPage.SettingsPage,
+            WinoPage.WinoAccountManagementPage,
+            NavigationReferenceFrame.ShellFrame,
+            NavigationTransitionType.None);
+
+        var winoAccountProfileService = Services.GetRequiredService<IWinoAccountProfileService>();
+        await winoAccountProfileService.ProcessBillingCallbackAsync(callbackUri).ConfigureAwait(false);
+        return true;
+    }
+
+    private static bool TryGetBillingCallbackUri(AppActivationArguments activationArgs, out Uri callbackUri)
+    {
+        callbackUri = null!;
+
+        if (activationArgs.Kind != ExtendedActivationKind.Protocol ||
+            activationArgs.Data is not IProtocolActivatedEventArgs protocolArgs ||
+            protocolArgs.Uri == null)
+        {
+            return false;
+        }
+
+        var uri = protocolArgs.Uri;
+        if (!string.Equals(uri.Scheme, WinoProtocolScheme, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(uri.Host, BillingProtocolHost, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(uri.AbsolutePath, BillingSuccessPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        callbackUri = uri;
+        return true;
     }
 }
 

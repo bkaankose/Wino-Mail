@@ -12,15 +12,15 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Mail.Api.Contracts.Billing;
 using Wino.Core.ViewModels.Data;
 using Wino.Messaging.UI;
 
 namespace Wino.Core.ViewModels;
 
 public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
-    IRecipient<WinoAccountSignedInMessage>,
-    IRecipient<WinoAccountSignedOutMessage>
+    IRecipient<WinoAccountProfileUpdatedMessage>,
+    IRecipient<WinoAccountProfileDeletedMessage>,
+    IRecipient<WinoAccountAddOnPurchasedMessage>
 {
     private readonly IWinoAccountProfileService _profileService;
     private readonly IWinoAddOnService _addOnService;
@@ -62,7 +62,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     public override void OnNavigatedTo(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
-        _ = LoadAsync();
+        _ = InitializeAsync();
     }
 
     [RelayCommand]
@@ -220,23 +220,33 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     {
         base.RegisterRecipients();
 
-        Messenger.Register<WinoAccountSignedInMessage>(this);
-        Messenger.Register<WinoAccountSignedOutMessage>(this);
+        Messenger.Register<WinoAccountProfileUpdatedMessage>(this);
+        Messenger.Register<WinoAccountProfileDeletedMessage>(this);
+        Messenger.Register<WinoAccountAddOnPurchasedMessage>(this);
     }
 
     protected override void UnregisterRecipients()
     {
         base.UnregisterRecipients();
 
-        Messenger.Unregister<WinoAccountSignedInMessage>(this);
-        Messenger.Unregister<WinoAccountSignedOutMessage>(this);
+        Messenger.Unregister<WinoAccountProfileUpdatedMessage>(this);
+        Messenger.Unregister<WinoAccountProfileDeletedMessage>(this);
+        Messenger.Unregister<WinoAccountAddOnPurchasedMessage>(this);
     }
 
-    public void Receive(WinoAccountSignedInMessage message)
+    public void Receive(WinoAccountProfileUpdatedMessage message)
         => _ = LoadAsync();
 
-    public void Receive(WinoAccountSignedOutMessage message)
+    public void Receive(WinoAccountProfileDeletedMessage message)
         => _ = LoadAsync();
+
+    public void Receive(WinoAccountAddOnPurchasedMessage message)
+        => _ = HandleAddOnPurchasedAsync();
+
+    private async Task InitializeAsync()
+    {
+        await LoadAsync().ConfigureAwait(false);
+    }
 
     private async Task LoadAsync()
     {
@@ -269,6 +279,15 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         {
             await ExecuteUIThread(() => IsBusy = false);
         }
+    }
+
+    private async Task HandleAddOnPurchasedAsync()
+    {
+        await LoadAsync().ConfigureAwait(false);
+
+        _dialogService.InfoBarMessage(Translator.Info_PurchaseThankYouTitle,
+                                      Translator.Info_PurchaseThankYouMessage,
+                                      InfoBarMessageType.Success);
     }
 
     private async Task ResetStateAsync()

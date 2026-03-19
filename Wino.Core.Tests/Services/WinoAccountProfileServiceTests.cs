@@ -119,6 +119,68 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
         result.ErrorMessage.Should().Be("Password does not match this account.");
     }
 
+    [Fact]
+    public async Task RefreshProfileAsync_ShouldPersistLatestProfileData()
+    {
+        var authResult = CreateAuthResult("first@example.com");
+
+        _apiClient
+            .Setup(x => x.LoginAsync("first@example.com", "pw", default))
+            .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(authResult));
+
+        _apiClient
+            .Setup(x => x.GetCurrentUserAsync(default))
+            .ReturnsAsync(ApiEnvelope<AuthUserDto>.Success(new AuthUserDto(
+                authResult.User.UserId,
+                "updated@example.com",
+                "Premium",
+                authResult.User.HasPassword,
+                authResult.User.HasGoogleLogin,
+                authResult.User.HasFacebookLogin)));
+
+        await _service.LoginAsync("first@example.com", "pw");
+
+        var result = await _service.RefreshProfileAsync();
+
+        result.IsSuccess.Should().BeTrue();
+        result.Account.Should().NotBeNull();
+        result.Account!.Email.Should().Be("updated@example.com");
+        result.Account.AccountStatus.Should().Be("Premium");
+
+        var persisted = await _databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync();
+        persisted.Should().NotBeNull();
+        persisted!.Email.Should().Be("updated@example.com");
+        persisted.AccountStatus.Should().Be("Premium");
+        persisted.AccessToken.Should().Be(authResult.AccessToken);
+        persisted.RefreshToken.Should().Be(authResult.RefreshToken);
+    }
+
+    [Fact]
+    public async Task ProcessBillingCallbackAsync_ShouldConfirmPurchasedAddOn()
+    {
+        var authResult = CreateAuthResult("first@example.com");
+        var callbackUri = new Uri("wino://billing/success?productCode=UNLIMITED_ACCOUNTS");
+
+        _apiClient
+            .Setup(x => x.LoginAsync("first@example.com", "pw", default))
+            .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(authResult));
+
+        _apiClient
+            .Setup(x => x.GetCurrentUserAsync(default))
+            .ReturnsAsync(ApiEnvelope<AuthUserDto>.Success(authResult.User));
+
+        _storeManagementService
+            .Setup(x => x.HasProductAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS))
+            .ReturnsAsync(true);
+
+        await _service.LoginAsync("first@example.com", "pw");
+
+        var processed = await _service.ProcessBillingCallbackAsync(callbackUri);
+
+        processed.Should().BeTrue();
+        _apiClient.Verify(x => x.GetCurrentUserAsync(default), Times.AtLeastOnce);
+    }
+
     private static AuthResultDto CreateAuthResult(string email)
     {
         return new AuthResultDto(
