@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
@@ -47,6 +47,18 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         Translator.HoverActionOption_MoveJunk
     ];
 
+    private readonly List<HoverActionSize> availableHoverActionSizes =
+    [
+        HoverActionSize.Standard,
+        HoverActionSize.Large
+    ];
+
+    public List<string> AvailableHoverActionSizeTranslations { get; set; } =
+    [
+        Translator.HoverActionSize_Standard,
+        Translator.HoverActionSize_Large
+    ];
+
     #region Properties
     private int leftHoverActionIndex;
     public int LeftHoverActionIndex
@@ -86,6 +98,22 @@ public partial class MessageListPageViewModel : MailBaseViewModel
             }
         }
     }
+
+    private int hoverActionSizeIndex;
+    public int HoverActionSizeIndex
+    {
+        get => hoverActionSizeIndex;
+        set
+        {
+            if (value < 0 || value >= availableHoverActionSizes.Count)
+                return;
+
+            if (SetProperty(ref hoverActionSizeIndex, value))
+            {
+                PreferencesService.HoverActionSize = availableHoverActionSizes[value];
+            }
+        }
+    }
     #endregion
 
     public MessageListPageViewModel(IPreferencesService preferencesService, IThumbnailService thumbnailService)
@@ -95,6 +123,7 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         leftHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.LeftHoverAction);
         centerHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.CenterHoverAction);
         rightHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.RightHoverAction);
+        hoverActionSizeIndex = Math.Max(0, availableHoverActionSizes.IndexOf(PreferencesService.HoverActionSize));
         SelectedMarkAsOptionIndex = Array.IndexOf(Enum.GetValues<MailMarkAsOption>(), PreferencesService.MarkAsPreference);
     }
 

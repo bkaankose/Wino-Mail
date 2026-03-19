@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
@@ -150,6 +150,11 @@ public interface IPreferencesService: INotifyPropertyChanged
     /// Setting: Hover action on the right when the mail is hovered over.
     /// </summary>
     MailOperation RightHoverAction { get; set; }
+
+    /// <summary>
+    /// Setting: Hover action icon sizing in the mail list.
+    /// </summary>
+    HoverActionSize HoverActionSize { get; set; }
 
     /// <summary>
     /// Setting: Whether Mailkit Protocol Logger is enabled for ImapTestService or not.
