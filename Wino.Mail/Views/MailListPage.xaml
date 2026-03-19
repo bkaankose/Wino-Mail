@@ -1,4 +1,4 @@
-﻿<abstract:MailListPageAbstract
+<abstract:MailListPageAbstract
     x:Class="Wino.Views.MailListPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -116,6 +116,7 @@
                 IsThumbnailUpdated="{x:Bind ThumbnailUpdatedEvent, Mode=OneWay}"
                 LeftHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.LeftHoverAction, Mode=OneWay}"
                 MailItem="{x:Bind MailCopy, Mode=OneWay}"
+                HoverActionSize="{Binding ElementName=root, Path=ViewModel.PreferencesService.HoverActionSize, Mode=OneWay}"
                 Prefer24HourTimeFormat="{Binding ElementName=root, Path=ViewModel.PreferencesService.Prefer24HourTimeFormat, Mode=OneWay}"
                 RightHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.RightHoverAction, Mode=OneWay}"
                 ShowPreviewText="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=OneWay}" />
@@ -140,6 +141,7 @@
                 IsThumbnailUpdated="{x:Bind ThumbnailUpdatedEvent, Mode=OneWay}"
                 LeftHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.LeftHoverAction, Mode=OneWay}"
                 MailItem="{x:Bind MailCopy, Mode=OneWay}"
+                HoverActionSize="{Binding ElementName=root, Path=ViewModel.PreferencesService.HoverActionSize, Mode=OneWay}"
                 Prefer24HourTimeFormat="{Binding ElementName=root, Path=ViewModel.PreferencesService.Prefer24HourTimeFormat, Mode=OneWay}"
                 RightHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.RightHoverAction, Mode=OneWay}"
                 ShowPreviewText="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=OneWay}" />
@@ -173,6 +175,7 @@
                                 IsThreadExpanderVisible="True"
                                 LeftHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.LeftHoverAction, Mode=OneWay}"
                                 MailItem="{x:Bind MailItem, Mode=OneWay}"
+                                HoverActionSize="{Binding ElementName=root, Path=ViewModel.PreferencesService.HoverActionSize, Mode=OneWay}"
                                 Prefer24HourTimeFormat="{Binding ElementName=root, Path=ViewModel.PreferencesService.Prefer24HourTimeFormat, Mode=OneWay}"
                                 RightHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.RightHoverAction, Mode=OneWay}"
                                 ShowPreviewText="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=OneWay}" />

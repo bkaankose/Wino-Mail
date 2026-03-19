@@ -1,4 +1,4 @@
-﻿{
+{
     "AccountAlias_Column_Alias": "Alias",
     "AccountAlias_Column_IsPrimaryAlias": "Primary",
     "AccountAlias_Column_Verified": "Verified",
@@ -535,6 +535,8 @@
     "SettingsElementTheme_Title": "Element Theme",
     "SettingsElementThemeSelectionDisabled": "Element theme selection is disabled when application theme is selected other than Default.",
     "SettingsEnableHoverActions_Title": "Enable hover actions",
+    "SettingsHoverActionsSize_Description": "Adjust the size of hover action buttons in the mail list.",
+    "SettingsHoverActionsSize_Title": "Hover Actions Size",
     "SettingsEnableIMAPLogs_Description": "Enable this to provide details about IMAP connectivity issuses you had during IMAP server setup.",
     "SettingsEnableIMAPLogs_Title": "Enable IMAP Protocol Logs",
     "SettingsEnableLogs_Description": "I might need logs for crashes to diagnose issues you have opened in GitHub. None of the logs will expose your credentials or sensetive information to public.",
@@ -558,6 +560,8 @@
     "SettingsHoverActionCenter": "Center Action",
     "SettingsHoverActionLeft": "Left Action",
     "SettingsHoverActionRight": "Right Action",
+    "HoverActionSize_Standard": "Standard",
+    "HoverActionSize_Large": "Large",
     "SettingsHoverActions_Description": "Select 3 actions to show up when you hover over the mails with cursor.",
     "SettingsHoverActions_Title": "Hover Actions",
     "SettingsLanguage_Description": "Change display language for Wino.",

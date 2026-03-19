@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -162,6 +162,12 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
     {
         get => _configurationService.Get(nameof(RightHoverAction), MailOperation.SetFlag);
         set => SetPropertyAndSave(nameof(RightHoverAction), value);
+    }
+
+    public HoverActionSize HoverActionSize
+    {
+        get => _configurationService.Get(nameof(HoverActionSize), Core.Domain.Enums.HoverActionSize.Standard);
+        set => SetPropertyAndSave(nameof(HoverActionSize), value);
     }
 
     public bool IsLoggingEnabled

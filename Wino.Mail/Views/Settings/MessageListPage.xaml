@@ -1,4 +1,4 @@
-﻿<abstract:MessageListPageAbstract
+<abstract:MessageListPageAbstract
     x:Class="Wino.Views.Settings.MessageListPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -26,6 +26,16 @@
                     <controls:SettingsCard Header="{x:Bind domain:Translator.SettingsEnableHoverActions_Title}">
                         <controls:SettingsCard.Content>
                             <ToggleSwitch x:Name="HoverEnableToggle" IsOn="{x:Bind ViewModel.PreferencesService.IsHoverActionsEnabled, Mode=TwoWay}" />
+                        </controls:SettingsCard.Content>
+                    </controls:SettingsCard>
+
+                    <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsHoverActionsSize_Description}" Header="{x:Bind domain:Translator.SettingsHoverActionsSize_Title}">
+                        <controls:SettingsCard.Content>
+                            <ComboBox
+                                Width="150"
+                                IsEnabled="{x:Bind HoverEnableToggle.IsOn, Mode=OneWay}"
+                                ItemsSource="{x:Bind ViewModel.AvailableHoverActionSizeTranslations}"
+                                SelectedIndex="{x:Bind ViewModel.HoverActionSizeIndex, Mode=TwoWay}" />
                         </controls:SettingsCard.Content>
                     </controls:SettingsCard>
 
