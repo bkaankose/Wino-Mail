@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Moq;
@@ -120,6 +121,57 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task LoginAsync_ShouldPreserveErrorDetails()
+    {
+        var details = JsonSerializer.SerializeToElement(new EmailConfirmationRequiredDetailsDto(
+            "/api/v1/auth/confirm-email/resend",
+            "ticket",
+            DateTimeOffset.UtcNow.AddMinutes(-2),
+            DateTimeOffset.UtcNow.AddMinutes(8)));
+
+        _apiClient
+            .Setup(x => x.LoginAsync("first@example.com", "pw", default))
+            .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Failure(ApiErrorCodes.EmailNotConfirmed, null, details));
+
+        var result = await _service.LoginAsync("first@example.com", "pw");
+
+        result.IsSuccess.Should().BeFalse();
+        result.ErrorDetails.Should().NotBeNull();
+        JsonSerializer.Deserialize<EmailConfirmationRequiredDetailsDto>(result.ErrorDetails!.Value.GetRawText())!
+            .ResendConfirmationTicket.Should().Be("ticket");
+    }
+
+    [Fact]
+    public async Task RegisterAsync_ShouldNotPersistAccountUntilEmailIsConfirmed()
+    {
+        var authResult = CreateAuthResult("register@example.com");
+
+        _apiClient
+            .Setup(x => x.RegisterAsync("register@example.com", "pw", default))
+            .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(authResult));
+
+        var result = await _service.RegisterAsync("register@example.com", "pw");
+
+        result.IsSuccess.Should().BeTrue();
+        result.Account.Should().NotBeNull();
+
+        var persisted = await _databaseService.Connection.Table<WinoAccount>().ToListAsync();
+        persisted.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ForgotPasswordAsync_ShouldForwardApiResponse()
+    {
+        _apiClient
+            .Setup(x => x.ForgotPasswordAsync("reset@example.com", default))
+            .ReturnsAsync(ApiEnvelope<JsonElement>.Success(default));
+
+        var result = await _service.ForgotPasswordAsync("reset@example.com");
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task RefreshProfileAsync_ShouldPersistLatestProfileData()
     {
         var authResult = CreateAuthResult("first@example.com");
@@ -136,7 +188,8 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
                 "Premium",
                 authResult.User.HasPassword,
                 authResult.User.HasGoogleLogin,
-                authResult.User.HasFacebookLogin)));
+                authResult.User.HasFacebookLogin,
+                authResult.User.HasUnlimitedAccounts)));
 
         await _service.LoginAsync("first@example.com", "pw");
 
@@ -184,7 +237,7 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
     private static AuthResultDto CreateAuthResult(string email)
     {
         return new AuthResultDto(
-            new AuthUserDto(Guid.NewGuid(), email, "Active", true, false, false),
+            new AuthUserDto(Guid.NewGuid(), email, "Active", true, false, false, false),
             "access-token",
             DateTimeOffset.UtcNow.AddMinutes(30),
             "refresh-token",

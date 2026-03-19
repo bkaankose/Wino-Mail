@@ -152,7 +152,9 @@
             </Border>
 
             <!--  Benefits cards  -->
-            <StackPanel Spacing="8">
+            <StackPanel
+                x:Name="BenefitsPanel"
+                Spacing="8">
                 <Border
                     Padding="14"
                     Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
@@ -227,12 +229,31 @@
                     PlaceholderText="{x:Bind domain:Translator.WinoAccount_EmailPlaceholder}"
                     TextChanging="InputChanged" />
 
-                <PasswordBox
-                    x:Name="PasswordBox"
-                    Header="{x:Bind domain:Translator.WinoAccount_PasswordLabel}"
-                    KeyDown="PasswordBox_KeyDown"
-                    PasswordChanged="InputChanged" />
+                <StackPanel x:Name="PasswordPanel">
+                    <PasswordBox
+                        x:Name="PasswordBox"
+                        Header="{x:Bind domain:Translator.WinoAccount_PasswordLabel}"
+                        KeyDown="PasswordBox_KeyDown"
+                        PasswordChanged="InputChanged" />
+                </StackPanel>
+
+                <Border
+                    x:Name="ForgotPasswordInfoPanel"
+                    Padding="14"
+                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                    CornerRadius="12"
+                    Visibility="Collapsed">
+                    <TextBlock
+                        Text="{x:Bind domain:Translator.WinoAccount_ForgotPasswordDialog_Description}"
+                        TextWrapping="WrapWholeWords" />
+                </Border>
             </StackPanel>
+
+            <HyperlinkButton
+                x:Name="ModeToggleButton"
+                HorizontalAlignment="Left"
+                Click="ModeToggleButton_Click"
+                Content="{x:Bind domain:Translator.WinoAccount_LoginDialog_ForgotPasswordLink}" />
 
             <ProgressRing
                 x:Name="BusyRing"

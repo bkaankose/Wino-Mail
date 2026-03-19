@@ -22,6 +22,7 @@ public sealed partial class WinoAccountRegistrationDialog : ContentDialog
     }
 
     public WinoAccount? Result { get; private set; }
+    public string? ConfirmationEmailAddress { get; private set; }
 
     private async void RegisterClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
@@ -68,7 +69,7 @@ public sealed partial class WinoAccountRegistrationDialog : ContentDialog
                 return;
             }
 
-            Result = result.Account;
+            ConfirmationEmailAddress = result.Account.Email;
             Hide();
         }
         finally

@@ -27,6 +27,9 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     private readonly IDatabaseService _databaseService;
     private readonly bool _ownsHttpClient;
 
+    private const string ApiUrl = "https://localhost:7204/";
+    // private const string ApiUrl = "https://api.winomail.app/";
+
     public WinoAccountApiClient(IDatabaseService databaseService, HttpClient? httpClient = null)
     {
         _databaseService = databaseService;
@@ -44,8 +47,9 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 
         _httpClient = new HttpClient(handler)
         {
-            BaseAddress = new Uri("https://api.winomail.app/")
+            BaseAddress = new Uri(ApiUrl)
         };
+
         _ownsHttpClient = true;
     }
 
@@ -57,6 +61,24 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 
     public Task<WinoAccountApiResult<AuthResultDto>> RefreshAsync(string refreshToken, CancellationToken cancellationToken = default)
         => SendAuthRequestAsync("api/v1/auth/refresh", new RefreshRequest(refreshToken), WinoAccountApiJsonContext.Default.RefreshRequest, cancellationToken);
+
+    public Task<ApiEnvelope<EmailConfirmationResendResultDto>> ResendEmailConfirmationAsync(string endpoint, string ticket, CancellationToken cancellationToken = default)
+        => SendAnonymousRequestAsync(
+            HttpMethod.Post,
+            endpoint,
+            new ResendEmailConfirmationRequest(ticket),
+            WinoAccountApiJsonContext.Default.ResendEmailConfirmationRequest,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeEmailConfirmationResendResultDto,
+            cancellationToken);
+
+    public Task<ApiEnvelope<JsonElement>> ForgotPasswordAsync(string email, CancellationToken cancellationToken = default)
+        => SendAnonymousRequestAsync(
+            HttpMethod.Post,
+            "api/v1/auth/forgot-password",
+            new ForgotPasswordRequest(email),
+            WinoAccountApiJsonContext.Default.ForgotPasswordRequest,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeJsonElement,
+            cancellationToken);
 
     public async Task<ApiEnvelope<JsonElement>> LogoutAsync(string refreshToken, CancellationToken cancellationToken = default)
     {
@@ -173,8 +195,9 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 
             var errorCode = envelope?.ErrorCode ?? $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim();
             var errorMessage = ExtractErrorMessage(payload) ?? response.ReasonPhrase;
+            var errorDetails = ExtractDetails(payload);
 
-            return WinoAccountApiResult<AuthResultDto>.Failure(errorCode, errorMessage);
+            return WinoAccountApiResult<AuthResultDto>.Failure(errorCode, errorMessage, errorDetails);
         }
         catch (Exception ex)
         {
@@ -193,6 +216,29 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         {
             using var document = JsonDocument.Parse(payload);
             return TryGetErrorMessage(document.RootElement);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static JsonElement? ExtractDetails(string? payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(payload);
+            if (document.RootElement.ValueKind != JsonValueKind.Object || !document.RootElement.TryGetProperty("details", out var details))
+            {
+                return null;
+            }
+
+            return details.Clone();
         }
         catch (JsonException)
         {
@@ -245,6 +291,35 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 
     private Task<ApiEnvelope<TResponse>> SendAuthorizedRequestAsync<TResponse>(string endpoint, JsonTypeInfo<ApiEnvelope<TResponse>> typeInfo, CancellationToken cancellationToken)
         => SendAuthorizedRequestAsync(HttpMethod.Get, endpoint, typeInfo, cancellationToken);
+
+    private async Task<ApiEnvelope<TResponse>> SendAnonymousRequestAsync<TRequest, TResponse>(HttpMethod method,
+                                                                                               string endpoint,
+                                                                                               TRequest requestBody,
+                                                                                               JsonTypeInfo<TRequest> requestTypeInfo,
+                                                                                               JsonTypeInfo<ApiEnvelope<TResponse>> responseTypeInfo,
+                                                                                               CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(method, endpoint)
+            {
+                Content = JsonContent.Create(requestBody, requestTypeInfo)
+            };
+
+            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
+            var payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            var envelope = string.IsNullOrWhiteSpace(payload)
+                ? null
+                : JsonSerializer.Deserialize(payload, responseTypeInfo);
+
+            return envelope ?? ApiEnvelope<TResponse>.Failure($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim());
+        }
+        catch (Exception ex)
+        {
+            return ApiEnvelope<TResponse>.Failure(ex.Message);
+        }
+    }
 
     private async Task<ApiEnvelope<TResponse>> SendAuthorizedRequestAsync<TResponse>(HttpMethod method, string endpoint, JsonTypeInfo<ApiEnvelope<TResponse>> typeInfo, CancellationToken cancellationToken)
     {
@@ -310,7 +385,10 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(LoginRequest))]
 [JsonSerializable(typeof(RefreshRequest))]
 [JsonSerializable(typeof(LogoutRequest))]
+[JsonSerializable(typeof(ResendEmailConfirmationRequest))]
+[JsonSerializable(typeof(ForgotPasswordRequest))]
 [JsonSerializable(typeof(ApiEnvelope<AuthResultDto>))]
+[JsonSerializable(typeof(ApiEnvelope<EmailConfirmationResendResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<AuthUserDto>))]
 [JsonSerializable(typeof(ApiEnvelope<AiStatusResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<CheckoutSessionResultDto>))]

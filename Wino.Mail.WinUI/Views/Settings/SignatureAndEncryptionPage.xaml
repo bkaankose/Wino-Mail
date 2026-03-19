@@ -17,8 +17,8 @@
                 </TransitionCollection>
             </StackPanel.ChildrenTransitions>
             <controls:SettingsExpander
-                Description="{x:Bind domain:Translator.SettingsSignatureAndEncryption_MyCertificatesDescription, Mode=OneWay}"
-                Header="{x:Bind domain:Translator.SettingsSignatureAndEncryption_MyCertificatesHeader, Mode=OneWay}"
+                Description="{x:Bind domain:Translator.SettingsSignatureAndEncryption_MyCertificatesDescription, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.SettingsSignatureAndEncryption_MyCertificatesHeader, Mode=OneTime}"
                 IsExpanded="True">
                 <controls:SettingsExpander.Items>
                     <controls:SettingsCard>
@@ -44,15 +44,15 @@
                                     <TextBlock
                                         Grid.Column="1"
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Text="{x:Bind domain:Translator.SettingsSignatureAndEncryption_NameColumn, Mode=OneWay}" />
+                                        Text="{x:Bind domain:Translator.SettingsSignatureAndEncryption_NameColumn, Mode=OneTime}" />
                                     <TextBlock
                                         Grid.Column="2"
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Text="{x:Bind domain:Translator.SettingsSignatureAndEncryption_ExpiresColumn, Mode=OneWay}" />
+                                        Text="{x:Bind domain:Translator.SettingsSignatureAndEncryption_ExpiresColumn, Mode=OneTime}" />
                                     <TextBlock
                                         Grid.Column="3"
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Text="{x:Bind domain:Translator.SettingsSignatureAndEncryption_ThumbprintColumn, Mode=OneWay}" />
+                                        Text="{x:Bind domain:Translator.SettingsSignatureAndEncryption_ThumbprintColumn, Mode=OneTime}" />
                                 </Grid>
                             </ListView.Header>
                             <ListView.ItemTemplate>
@@ -96,8 +96,8 @@
                 </controls:SettingsExpander.Items>
             </controls:SettingsExpander>
             <controls:SettingsExpander
-                Description="{x:Bind domain:Translator.SettingsSignatureAndEncryption_RecipientCertificatesDescription, Mode=OneWay}"
-                Header="{x:Bind domain:Translator.SettingsSignatureAndEncryption_RecipientCertificatesHeader, Mode=OneWay}"
+                Description="{x:Bind domain:Translator.SettingsSignatureAndEncryption_RecipientCertificatesDescription, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.SettingsSignatureAndEncryption_RecipientCertificatesHeader, Mode=OneTime}"
                 IsExpanded="False">
                 <controls:SettingsExpander.Items>
                     <!--<StackPanel Padding="12" Spacing="12">-->
@@ -125,15 +125,15 @@
                                     <TextBlock
                                         Grid.Column="1"
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Text="{x:Bind domain:Translator.SettingsSignatureAndEncryption_NameColumn, Mode=OneWay}" />
+                                        Text="{x:Bind domain:Translator.SettingsSignatureAndEncryption_NameColumn, Mode=OneTime}" />
                                     <TextBlock
                                         Grid.Column="2"
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Text="{x:Bind domain:Translator.SettingsSignatureAndEncryption_ExpiresColumn, Mode=OneWay}" />
+                                        Text="{x:Bind domain:Translator.SettingsSignatureAndEncryption_ExpiresColumn, Mode=OneTime}" />
                                     <TextBlock
                                         Grid.Column="3"
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Text="{x:Bind domain:Translator.SettingsSignatureAndEncryption_ThumbprintColumn, Mode=OneWay}" />
+                                        Text="{x:Bind domain:Translator.SettingsSignatureAndEncryption_ThumbprintColumn, Mode=OneTime}" />
                                 </Grid>
                             </ListView.Header>
                             <ListView.ItemTemplate>

@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Reflection;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Serilog;
@@ -34,15 +35,14 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
     public async Task<WinoAccountOperationResult> RegisterAsync(string email, string password, CancellationToken cancellationToken = default)
     {
         var response = await _apiClient.RegisterAsync(email, password, cancellationToken).ConfigureAwait(false);
-        var result = await PersistResponseAsync(response).ConfigureAwait(false);
-
-        if (result.IsSuccess && result.Account != null)
+        if (!response.IsSuccess || response.Result == null)
         {
-            PublishProfileUpdated(result.Account);
-            ReportUIChange(new WinoAccountSignedInMessage(result.Account));
+            _logger.Warning("Wino account registration failed. Error code: {ErrorCode}. Error message: {ErrorMessage}", response.ErrorCode, response.ErrorMessage);
+            return WinoAccountOperationResult.Failure(response.ErrorCode, response.ErrorMessage, response.ErrorDetails);
         }
 
-        return result;
+        // Registration no longer signs the user in locally until the email address is confirmed.
+        return WinoAccountOperationResult.Success(Map(response.Result));
     }
 
     public async Task<WinoAccountOperationResult> LoginAsync(string email, string password, CancellationToken cancellationToken = default)
@@ -58,6 +58,12 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
         return result;
     }
+
+    public Task<ApiEnvelope<EmailConfirmationResendResultDto>> ResendEmailConfirmationAsync(string endpoint, string ticket, CancellationToken cancellationToken = default)
+        => _apiClient.ResendEmailConfirmationAsync(endpoint, ticket, cancellationToken);
+
+    public Task<ApiEnvelope<JsonElement>> ForgotPasswordAsync(string email, CancellationToken cancellationToken = default)
+        => _apiClient.ForgotPasswordAsync(email, cancellationToken);
 
     public async Task<WinoAccountOperationResult> RefreshAsync(CancellationToken cancellationToken = default)
     {
@@ -310,7 +316,7 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
         if (!response.IsSuccess || response.Result == null)
         {
             _logger.Warning("Wino account operation failed. Error code: {ErrorCode}. Error message: {ErrorMessage}", response.ErrorCode, response.ErrorMessage);
-            return WinoAccountOperationResult.Failure(response.ErrorCode, response.ErrorMessage);
+            return WinoAccountOperationResult.Failure(response.ErrorCode, response.ErrorMessage, response.ErrorDetails);
         }
 
         var account = Map(response.Result);

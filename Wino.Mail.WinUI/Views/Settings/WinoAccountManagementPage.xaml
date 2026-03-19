@@ -315,6 +315,16 @@
                         <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xF3B1;" />
                     </controls:SettingsCard.HeaderIcon>
                 </controls:SettingsCard>
+
+                <controls:SettingsCard
+                    Command="{x:Bind ViewModel.ChangePasswordCommand}"
+                    Description="{x:Bind domain:Translator.WinoAccount_ChangePassword_Description}"
+                    Header="{x:Bind domain:Translator.WinoAccount_ChangePassword_Title}"
+                    IsClickEnabled="True">
+                    <!--<controls:SettingsCard.HeaderIcon>
+                        <SymbolIcon Symbol="Permission" />
+                    </controls:SettingsCard.HeaderIcon>-->
+                </controls:SettingsCard>
             </StackPanel>
         </StackPanel>
     </ScrollViewer>

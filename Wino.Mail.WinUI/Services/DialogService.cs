@@ -225,11 +225,16 @@ public class DialogService : DialogServiceBase, IMailDialogService
             RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
         };
 
-        var result = await HandleDialogPresentationAsync(dialog);
+        await HandleDialogPresentationAsync(dialog);
 
-        return result == ContentDialogResult.Primary
-            ? dialog.Result
-            : null;
+        if (!string.IsNullOrWhiteSpace(dialog.ConfirmationEmailAddress))
+        {
+            await ShowMessageAsync(
+                string.Format(Translator.WinoAccount_EmailConfirmationSentDialog_Message, dialog.ConfirmationEmailAddress),
+                Translator.WinoAccount_EmailConfirmationSentDialog_Title);
+        }
+
+        return null;
     }
 
     public async Task<WinoAccount?> ShowWinoAccountLoginDialogAsync()
@@ -241,8 +246,37 @@ public class DialogService : DialogServiceBase, IMailDialogService
 
         var result = await HandleDialogPresentationAsync(dialog);
 
-        return result == ContentDialogResult.Primary
-            ? dialog.Result
-            : null;
+        if (dialog.EmailConfirmationRequiredDetails != null && !string.IsNullOrWhiteSpace(dialog.PendingConfirmationEmailAddress))
+        {
+            var confirmationDialog = new WinoAccountEmailConfirmationRequiredDialog(
+                _winoAccountProfileService,
+                dialog.PendingConfirmationEmailAddress,
+                dialog.EmailConfirmationRequiredDetails)
+            {
+                RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+            };
+
+            await HandleDialogPresentationAsync(confirmationDialog);
+
+            if (confirmationDialog.ResendSucceeded)
+            {
+                await ShowMessageAsync(
+                    string.Format(Translator.WinoAccount_EmailConfirmationResentDialog_Message, dialog.PendingConfirmationEmailAddress),
+                    Translator.WinoAccount_EmailConfirmationResentDialog_Title);
+            }
+
+            return null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(dialog.PasswordResetEmailAddress))
+        {
+            await ShowMessageAsync(
+                string.Format(Translator.WinoAccount_ForgotPasswordDialog_SuccessMessage, dialog.PasswordResetEmailAddress),
+                Translator.WinoAccount_ForgotPasswordDialog_SuccessTitle);
+
+            return null;
+        }
+
+        return dialog.Result;
     }
 }

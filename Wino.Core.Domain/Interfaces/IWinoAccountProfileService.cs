@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Shared;
@@ -18,6 +19,8 @@ public interface IWinoAccountProfileService
     Task<WinoAccountOperationResult> LoginAsync(string email, string password, CancellationToken cancellationToken = default);
     Task<WinoAccountOperationResult> RefreshAsync(CancellationToken cancellationToken = default);
     Task<WinoAccountOperationResult> RefreshProfileAsync(CancellationToken cancellationToken = default);
+    Task<ApiEnvelope<EmailConfirmationResendResultDto>> ResendEmailConfirmationAsync(string endpoint, string ticket, CancellationToken cancellationToken = default);
+    Task<ApiEnvelope<JsonElement>> ForgotPasswordAsync(string email, CancellationToken cancellationToken = default);
     Task<WinoAccount?> GetActiveAccountAsync();
     Task<WinoAccount?> GetAuthenticatedAccountAsync(CancellationToken cancellationToken = default);
     Task<bool> HasActiveAccountAsync();

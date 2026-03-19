@@ -13,6 +13,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.ViewModels.Data;
+using Wino.Mail.Api.Contracts.Common;
 using Wino.Messaging.UI;
 
 namespace Wino.Core.ViewModels;
@@ -111,6 +112,51 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                                       string.Format(Translator.WinoAccount_SignOut_SuccessMessage, account.Email),
                                       InfoBarMessageType.Success);
     }
+
+    [RelayCommand]
+    private async Task ChangePasswordAsync()
+    {
+        var account = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
+        if (account == null)
+        {
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Warning,
+                                          Translator.WinoAccount_SignOut_NoAccountMessage,
+                                          InfoBarMessageType.Warning);
+            return;
+        }
+
+        var shouldContinue = await _dialogService.ShowConfirmationDialogAsync(
+            string.Format(Translator.WinoAccount_ChangePassword_ConfirmationMessage, account.Email),
+            Translator.WinoAccount_ChangePassword_Title,
+            Translator.WinoAccount_ChangePassword_Action).ConfigureAwait(false);
+
+        if (!shouldContinue)
+        {
+            return;
+        }
+
+        var response = await _profileService.ForgotPasswordAsync(account.Email).ConfigureAwait(false);
+        if (!response.IsSuccess)
+        {
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
+                                          TranslateForgotPasswordError(response.ErrorCode),
+                                          InfoBarMessageType.Error);
+            return;
+        }
+
+        _dialogService.InfoBarMessage(Translator.GeneralTitle_Info,
+                                      string.Format(Translator.WinoAccount_ForgotPasswordDialog_SuccessMessage, account.Email),
+                                      InfoBarMessageType.Success);
+    }
+
+    private static string TranslateForgotPasswordError(string? errorCode)
+        => errorCode switch
+        {
+            ApiErrorCodes.EmailNotRegistered => Translator.WinoAccount_Error_EmailNotRegistered,
+            ApiErrorCodes.ValidationFailed => Translator.WinoAccount_Error_ValidationFailed,
+            _ when string.IsNullOrWhiteSpace(errorCode) => Translator.GeneralTitle_Error,
+            _ => errorCode!
+        };
 
     [RelayCommand(CanExecute = nameof(CanPurchaseAddOn))]
     private async Task PurchaseAddOnAsync(WinoAddOnItemViewModel? addOn)
