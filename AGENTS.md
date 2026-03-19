@@ -141,6 +141,7 @@ private string searchQuery = string.Empty;
 - Wrap async operations in try-catch
 - Log errors via IWinoLogger
 - For dependency properties in WinUI code, always prefer `[GeneratedDependencyProperty]` from CommunityToolkit over manual `DependencyProperty.Register(...)` declarations.
+- When a `[RelayCommand]` needs enable/disable logic, prefer the command's `CanExecute` over binding `Button.IsEnabled` in XAML; use `[NotifyCanExecuteChangedFor]` on dependent properties and call `NotifyCanExecuteChanged()` explicitly when non-generated state affects the command.
 - In ViewModels, update all UI-bound properties/collections via `ExecuteUIThread(...)` (especially after awaited calls and any use of `ConfigureAwait(false)`).
 - ViewModels should only handle UI interaction/state and delegate business logic to services; account-management work belongs in `WinoAccountProfileService`, and preferences import/export/apply logic belongs in `PreferencesService`.
 - In `EventDetailsPageViewModel.LoadAttendeesAsync`, never mutate `CurrentEvent.Attendees` outside `ExecuteUIThread(...)`.

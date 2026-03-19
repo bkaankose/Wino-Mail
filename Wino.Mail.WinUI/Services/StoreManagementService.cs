@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Windows.Services.Store;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Store;
 using WinoStorePurchaseResult = Wino.Core.Domain.Enums.StorePurchaseResult;
+using WinoAddOnProductType = Wino.Core.Domain.Enums.WinoAddOnProductType;
 
 namespace Wino.Mail.WinUI.Services;
 
@@ -12,14 +12,14 @@ public class StoreManagementService : IStoreManagementService
 {
     private StoreContext CurrentContext { get; }
 
-    private readonly Dictionary<StoreProductType, string> productIds = new Dictionary<StoreProductType, string>()
+    private readonly Dictionary<WinoAddOnProductType, string> productIds = new Dictionary<WinoAddOnProductType, string>()
     {
-        { StoreProductType.UnlimitedAccounts, "UnlimitedAccounts" }
+        { WinoAddOnProductType.UNLIMITED_ACCOUNTS, "UnlimitedAccounts" }
     };
 
-    private readonly Dictionary<StoreProductType, string> skuIds = new Dictionary<StoreProductType, string>()
+    private readonly Dictionary<WinoAddOnProductType, string> skuIds = new Dictionary<WinoAddOnProductType, string>()
     {
-        { StoreProductType.UnlimitedAccounts, "9P02MXZ42GSM" }
+        { WinoAddOnProductType.UNLIMITED_ACCOUNTS, "9P02MXZ42GSM" }
     };
 
     public StoreManagementService()
@@ -27,9 +27,11 @@ public class StoreManagementService : IStoreManagementService
         CurrentContext = StoreContext.GetDefault();
     }
 
-    public async Task<bool> HasProductAsync(StoreProductType productType)
+    public async Task<bool> HasProductAsync(WinoAddOnProductType productType)
     {
-        var productKey = productIds[productType];
+        if (!productIds.TryGetValue(productType, out var productKey))
+            return false;
+
         var appLicense = await CurrentContext.GetAppLicenseAsync();
 
         if (appLicense == null)
@@ -49,14 +51,15 @@ public class StoreManagementService : IStoreManagementService
         return false;
     }
 
-    public async Task<WinoStorePurchaseResult> PurchaseAsync(StoreProductType productType)
+    public async Task<WinoStorePurchaseResult> PurchaseAsync(WinoAddOnProductType productType)
     {
+        if (!skuIds.TryGetValue(productType, out var productKey))
+            return WinoStorePurchaseResult.NotPurchased;
+
         if (await HasProductAsync(productType))
             return WinoStorePurchaseResult.AlreadyPurchased;
         else
         {
-            var productKey = skuIds[productType];
-
             var result = await CurrentContext.RequestPurchaseAsync(productKey);
 
             switch (result.Status)

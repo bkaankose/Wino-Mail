@@ -9,7 +9,6 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Domain.Models.Store;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
 
@@ -44,6 +43,7 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
     protected IAccountService AccountService { get; }
     protected IProviderService ProviderService { get; }
     protected IStoreManagementService StoreManagementService { get; }
+    protected IWinoAccountProfileService WinoAccountProfileService { get; }
     protected IAuthenticationProvider AuthenticationProvider { get; }
     protected IPreferencesService PreferencesService { get; }
 
@@ -52,6 +52,7 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
                                               IAccountService accountService,
                                               IProviderService providerService,
                                               IStoreManagementService storeManagementService,
+                                              IWinoAccountProfileService winoAccountProfileService,
                                               IAuthenticationProvider authenticationProvider,
                                               IPreferencesService preferencesService)
     {
@@ -60,6 +61,7 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
         AccountService = accountService;
         ProviderService = providerService;
         StoreManagementService = storeManagementService;
+        WinoAccountProfileService = winoAccountProfileService;
         AuthenticationProvider = authenticationProvider;
         PreferencesService = preferencesService;
     }
@@ -75,7 +77,7 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
     [RelayCommand]
     public async Task PurchaseUnlimitedAccountAsync()
     {
-        var purchaseResult = await StoreManagementService.PurchaseAsync(StoreProductType.UnlimitedAccounts);
+        var purchaseResult = await StoreManagementService.PurchaseAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS);
 
         if (purchaseResult == StorePurchaseResult.Succeeded)
             DialogService.InfoBarMessage(Translator.Info_PurchaseThankYouTitle, Translator.Info_PurchaseThankYouMessage, InfoBarMessageType.Success);
@@ -92,14 +94,12 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
 
     public async Task ManageStorePurchasesAsync()
     {
-        await ExecuteUIThread(async () =>
-        {
-            HasUnlimitedAccountProduct = await StoreManagementService.HasProductAsync(StoreProductType.UnlimitedAccounts);
+        var hasUnlimitedAccountProduct = await WinoAccountProfileService.HasAddOnAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS).ConfigureAwait(false);
 
-            if (!HasUnlimitedAccountProduct)
-                IsAccountCreationBlocked = Accounts.Count >= FREE_ACCOUNT_COUNT;
-            else
-                IsAccountCreationBlocked = false;
+        await ExecuteUIThread(() =>
+        {
+            HasUnlimitedAccountProduct = hasUnlimitedAccountProduct;
+            IsAccountCreationBlocked = !hasUnlimitedAccountProduct && Accounts.Count >= FREE_ACCOUNT_COUNT;
         });
     }
 

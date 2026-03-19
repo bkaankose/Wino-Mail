@@ -64,7 +64,7 @@ public sealed partial class WinoAccountRegistrationDialog : ContentDialog
 
             if (!result.IsSuccess || result.Account == null)
             {
-                ShowError(WinoAccountAuthErrorTranslator.Translate(result.ErrorCode));
+                ShowError(WinoAccountAuthErrorTranslator.Format(result.ErrorCode, result.ErrorMessage));
                 return;
             }
 

@@ -37,11 +37,12 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                                       IAccountService accountService,
                                       IProviderService providerService,
                                       IStoreManagementService storeManagementService,
+                                      IWinoAccountProfileService winoAccountProfileService,
                                       IWinoLogger winoLogger,
                                       ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
                                       ICalDavClient calDavClient,
                                       IAuthenticationProvider authenticationProvider,
-                                      IPreferencesService preferencesService) : base(dialogService, navigationService, accountService, providerService, storeManagementService, authenticationProvider, preferencesService)
+                                      IPreferencesService preferencesService) : base(dialogService, navigationService, accountService, providerService, storeManagementService, winoAccountProfileService, authenticationProvider, preferencesService)
     {
         MailDialogService = dialogService;
         _winoLogger = winoLogger;

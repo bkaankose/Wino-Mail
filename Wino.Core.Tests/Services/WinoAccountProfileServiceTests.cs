@@ -3,7 +3,9 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Moq;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Mail.Api.Contracts.Auth;
 using Wino.Mail.Api.Contracts.Common;
 using Wino.Services;
@@ -15,6 +17,7 @@ namespace Wino.Core.Tests.Services;
 public class WinoAccountProfileServiceTests : IAsyncLifetime
 {
     private readonly Mock<IWinoAccountApiClient> _apiClient = new();
+    private readonly Mock<IStoreManagementService> _storeManagementService = new();
     private InMemoryDatabaseService _databaseService = null!;
     private WinoAccountProfileService _service = null!;
 
@@ -22,7 +25,7 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
     {
         _databaseService = new InMemoryDatabaseService();
         await _databaseService.InitializeAsync();
-        _service = new WinoAccountProfileService(_databaseService, _apiClient.Object);
+        _service = new WinoAccountProfileService(_databaseService, _apiClient.Object, _storeManagementService.Object);
     }
 
     public async Task DisposeAsync()
@@ -37,7 +40,7 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
 
         _apiClient
             .Setup(x => x.LoginAsync("first@example.com", "pw", default))
-            .ReturnsAsync(ApiEnvelope<AuthResultDto>.Success(authResult));
+            .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(authResult));
 
         var result = await _service.LoginAsync("first@example.com", "pw");
 
@@ -56,11 +59,11 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
     {
         _apiClient
             .Setup(x => x.LoginAsync("first@example.com", "pw", default))
-            .ReturnsAsync(ApiEnvelope<AuthResultDto>.Success(CreateAuthResult("first@example.com")));
+            .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(CreateAuthResult("first@example.com")));
 
         _apiClient
             .Setup(x => x.LoginAsync("second@example.com", "pw", default))
-            .ReturnsAsync(ApiEnvelope<AuthResultDto>.Success(CreateAuthResult("second@example.com")));
+            .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(CreateAuthResult("second@example.com")));
 
         await _service.LoginAsync("first@example.com", "pw");
         await _service.LoginAsync("second@example.com", "pw");
@@ -77,7 +80,7 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
 
         _apiClient
             .Setup(x => x.LoginAsync("signout@example.com", "pw", default))
-            .ReturnsAsync(ApiEnvelope<AuthResultDto>.Success(authResult));
+            .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(authResult));
 
         _apiClient
             .Setup(x => x.LogoutAsync(authResult.RefreshToken, default))
@@ -88,6 +91,32 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
 
         var persisted = await _databaseService.Connection.Table<WinoAccount>().ToListAsync();
         persisted.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task HasAddOnAsync_ShouldUseLegacyStoreForUnlimitedAccounts()
+    {
+        _storeManagementService
+            .Setup(x => x.HasProductAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS))
+            .ReturnsAsync(true);
+
+        var hasAddOn = await _service.HasAddOnAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS);
+
+        hasAddOn.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task LoginAsync_ShouldPreserveEnvelopeErrorMessage()
+    {
+        _apiClient
+            .Setup(x => x.LoginAsync("first@example.com", "pw", default))
+            .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Failure(ApiErrorCodes.InvalidCredentials, "Password does not match this account."));
+
+        var result = await _service.LoginAsync("first@example.com", "pw");
+
+        result.IsSuccess.Should().BeFalse();
+        result.ErrorCode.Should().Be(ApiErrorCodes.InvalidCredentials);
+        result.ErrorMessage.Should().Be("Password does not match this account.");
     }
 
     private static AuthResultDto CreateAuthResult(string email)

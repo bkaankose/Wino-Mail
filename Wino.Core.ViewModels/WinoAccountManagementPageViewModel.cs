@@ -1,17 +1,19 @@
 #nullable enable
 using System;
-using System.Globalization;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Mail.Api.Contracts.Ai;
-using Wino.Mail.Api.Contracts.Auth;
+using Wino.Mail.Api.Contracts.Billing;
+using Wino.Core.ViewModels.Data;
 using Wino.Messaging.UI;
 
 namespace Wino.Core.ViewModels;
@@ -20,26 +22,19 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     IRecipient<WinoAccountSignedInMessage>,
     IRecipient<WinoAccountSignedOutMessage>
 {
-    private const string AiPackProductId = "ai-pack-monthly";
-    private const string ManageAiPackUrl = "https://example.com/wino-ai-pack/manage";
-
     private readonly IWinoAccountProfileService _profileService;
+    private readonly IWinoAddOnService _addOnService;
     private readonly IMailDialogService _dialogService;
     private readonly INativeAppService _nativeAppService;
+
+    public ObservableCollection<WinoAddOnItemViewModel> AddOns { get; } = [];
 
     [ObservableProperty]
     public partial bool IsBusy { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsSignedOut))]
-    [NotifyPropertyChangedFor(nameof(CanShowBuyAiPack))]
     public partial bool IsSignedIn { get; set; }
-
-    [ObservableProperty]
-    public partial string AccountDisplayName { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string AccountInitials { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial string AccountEmail { get; set; } = string.Empty;
@@ -48,48 +43,18 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     public partial string AccountStatusText { get; set; } = string.Empty;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanShowAiUsage))]
-    [NotifyPropertyChangedFor(nameof(CanShowBuyAiPack))]
-    public partial bool HasAiPack { get; set; }
-
-    [ObservableProperty]
-    public partial string AiPackStateText { get; set; } = Translator.WinoAccount_Management_AiPackInactive;
-
-    [ObservableProperty]
-    public partial string AiUsageSummary { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string AiBillingPeriodSummary { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string AiPackRenewalText { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial int AiUsageCount { get; set; }
-
-    [ObservableProperty]
-    public partial int AiUsageLimit { get; set; } = 1;
-
-    [ObservableProperty]
-    public partial double AiUsagePercentage { get; set; }
-
-    [ObservableProperty]
-    public partial string AiUsageResetText { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanBuyAiPack))]
-    public partial bool IsAiPackCheckoutInProgress { get; set; }
+    [NotifyCanExecuteChangedFor(nameof(PurchaseAddOnCommand))]
+    public partial bool IsCheckoutInProgress { get; set; }
 
     public bool IsSignedOut => !IsSignedIn;
-    public bool CanShowAiUsage => HasAiPack;
-    public bool CanShowBuyAiPack => IsSignedIn && !HasAiPack;
-    public bool CanBuyAiPack => !IsAiPackCheckoutInProgress;
 
     public WinoAccountManagementPageViewModel(IWinoAccountProfileService profileService,
+                                              IWinoAddOnService addOnService,
                                               IMailDialogService dialogService,
                                               INativeAppService nativeAppService)
     {
         _profileService = profileService;
+        _addOnService = addOnService;
         _dialogService = dialogService;
         _nativeAppService = nativeAppService;
     }
@@ -147,16 +112,15 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                                       InfoBarMessageType.Success);
     }
 
-    [RelayCommand]
-    private async Task BuyAiPackAsync()
+    [RelayCommand(CanExecute = nameof(CanPurchaseAddOn))]
+    private async Task PurchaseAddOnAsync(WinoAddOnItemViewModel? addOn)
     {
-        if (IsAiPackCheckoutInProgress)
+        if (addOn == null)
         {
             return;
         }
 
         var account = await _profileService.GetAuthenticatedAccountAsync().ConfigureAwait(false);
-
         if (account == null)
         {
             _dialogService.InfoBarMessage(Translator.GeneralTitle_Warning,
@@ -165,13 +129,17 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             return;
         }
 
-        await ExecuteUIThread(() => IsAiPackCheckoutInProgress = true);
+        await ExecuteUIThread(() =>
+        {
+            IsCheckoutInProgress = true;
+            addOn.IsPurchaseInProgress = true;
+        });
 
         try
         {
-            var checkoutSession = await _profileService.CreateCheckoutSessionAsync(AiPackProductId).ConfigureAwait(false);
+            var checkoutSession = await _profileService.CreateCheckoutSessionAsync(addOn.ProductType).ConfigureAwait(false);
 
-            if (!checkoutSession.IsSuccess || string.IsNullOrWhiteSpace(checkoutSession.Result))
+            if (!checkoutSession.IsSuccess || string.IsNullOrWhiteSpace(checkoutSession.Result?.Url))
             {
                 _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
                                               Translator.WinoAccount_Management_PurchaseStartFailed,
@@ -179,8 +147,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                 return;
             }
 
-            var isLaunched = await _nativeAppService.LaunchUriAsync(new Uri(checkoutSession.Result)).ConfigureAwait(false);
-
+            var isLaunched = await _nativeAppService.LaunchUriAsync(new Uri(checkoutSession.Result.Url)).ConfigureAwait(false);
             if (!isLaunched)
             {
                 _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
@@ -199,12 +166,49 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         }
         finally
         {
-            await ExecuteUIThread(() => IsAiPackCheckoutInProgress = false);
+            await ExecuteUIThread(() =>
+            {
+                IsCheckoutInProgress = false;
+                addOn.IsPurchaseInProgress = false;
+            });
         }
     }
 
+    private bool CanPurchaseAddOn(WinoAddOnItemViewModel? addOn)
+        => addOn != null && !addOn.IsPurchased && !IsCheckoutInProgress;
+
     [RelayCommand]
-    private async Task ManageAiPackAsync() => await _nativeAppService.LaunchUriAsync(new Uri(ManageAiPackUrl));
+    private async Task ManageAiPackAsync()
+    {
+        try
+        {
+            var portalSession = await _profileService.CreateCustomerPortalSessionAsync().ConfigureAwait(false);
+            if (!portalSession.IsSuccess || string.IsNullOrWhiteSpace(portalSession.Result?.Url))
+            {
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
+                                              Translator.WinoAccount_Management_PurchaseStartFailed,
+                                              InfoBarMessageType.Error);
+                return;
+            }
+
+            var isLaunched = await _nativeAppService.LaunchUriAsync(new Uri(portalSession.Result.Url)).ConfigureAwait(false);
+            if (!isLaunched)
+            {
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
+                                              Translator.WinoAccount_Management_PurchaseStartFailed,
+                                              InfoBarMessageType.Error);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception)
+        {
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
+                                          Translator.WinoAccount_Management_PurchaseStartFailed,
+                                          InfoBarMessageType.Error);
+        }
+    }
 
     [RelayCommand]
     private Task ExportSettingsAsync() => Task.CompletedTask;
@@ -232,7 +236,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         => _ = LoadAsync();
 
     public void Receive(WinoAccountSignedOutMessage message)
-        => _ = ResetSignedOutStateAsync();
+        => _ = LoadAsync();
 
     private async Task LoadAsync()
     {
@@ -241,44 +245,25 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         try
         {
             var account = await _profileService.GetAuthenticatedAccountAsync().ConfigureAwait(false);
-
-            if (account == null)
-            {
-                await ResetSignedOutStateAsync();
-                return;
-            }
-
-            var currentUserResponse = await _profileService.GetCurrentUserAsync().ConfigureAwait(false);
-            var aiStatusResponse = await _profileService.GetAiStatusAsync().ConfigureAwait(false);
-
-            var resolvedUser = currentUserResponse.IsSuccess && currentUserResponse.Result != null
-                ? currentUserResponse.Result
-                : new AuthUserDto(account.Id, account.Email, account.AccountStatus, account.HasPassword, account.HasGoogleLogin, account.HasFacebookLogin);
+            var addOns = await _addOnService.GetAvailableAddOnsAsync().ConfigureAwait(false);
 
             await ExecuteUIThread(() =>
             {
-                IsSignedIn = true;
-                AccountEmail = resolvedUser.Email;
-                AccountDisplayName = ExtractDisplayName(resolvedUser.Email);
-                AccountInitials = ExtractInitials(resolvedUser.Email);
-                AccountStatusText = string.Format(Translator.WinoAccount_Management_StatusLabel, resolvedUser.AccountStatus);
+                IsSignedIn = account != null;
+                AccountEmail = account?.Email ?? string.Empty;
+                AccountStatusText = account == null
+                    ? string.Empty
+                    : string.Format(Translator.WinoAccount_Management_StatusLabel, account.AccountStatus);
             });
 
-            UpdateAiPackState(aiStatusResponse.IsSuccess ? aiStatusResponse.Result : null);
-
-            if (!currentUserResponse.IsSuccess || !aiStatusResponse.IsSuccess)
-            {
-                _dialogService.InfoBarMessage(Translator.GeneralTitle_Warning,
-                                              Translator.WinoAccount_Management_LoadFailed,
-                                              InfoBarMessageType.Warning);
-            }
+            await UpdateAddOnsAsync(addOns).ConfigureAwait(false);
         }
         catch (Exception)
         {
             _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
                                           Translator.WinoAccount_Management_LoadFailed,
                                           InfoBarMessageType.Error);
-            await ResetSignedOutStateAsync();
+            await ResetStateAsync().ConfigureAwait(false);
         }
         finally
         {
@@ -286,89 +271,54 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         }
     }
 
-    private async Task ResetSignedOutStateAsync()
+    private async Task ResetStateAsync()
     {
         await ExecuteUIThread(() =>
         {
             IsSignedIn = false;
-            AccountDisplayName = string.Empty;
-            AccountInitials = string.Empty;
             AccountEmail = string.Empty;
             AccountStatusText = string.Empty;
-            HasAiPack = false;
-            AiPackStateText = Translator.WinoAccount_Management_AiPackInactive;
-            AiUsageSummary = string.Empty;
-            AiBillingPeriodSummary = string.Empty;
-            AiPackRenewalText = string.Empty;
-            AiUsageCount = 0;
-            AiUsageLimit = 1;
-            AiUsagePercentage = 0;
-            AiUsageResetText = string.Empty;
-            IsAiPackCheckoutInProgress = false;
+            IsCheckoutInProgress = false;
+            AddOns.Clear();
+            PurchaseAddOnCommand.NotifyCanExecuteChanged();
         });
     }
 
-    private void UpdateAiPackState(AiStatusResultDto? aiStatus)
+    private async Task UpdateAddOnsAsync(IReadOnlyList<WinoAddOnInfo> addOns)
     {
-        var hasAiPack = aiStatus?.HasAiPack == true;
-        var usageText = Translator.WinoAccount_Management_AiPackUnknownUsage;
-        var billingText = string.Empty;
-        var renewalText = string.Empty;
-        var usageCount = 0;
-        var usageLimit = 1;
-        var usagePercentage = 0d;
-        var resetText = string.Empty;
+        var items = addOns.Select(CreateAddOnItem).ToList();
 
-        if (hasAiPack && aiStatus?.Used is int used && aiStatus.MonthlyLimit is int limit && aiStatus.Remaining is int remaining)
+        await ExecuteUIThread(() =>
         {
-            usageText = string.Format(Translator.WinoAccount_Management_AiPackUsage, used, limit, remaining);
-            usageCount = used;
-            usageLimit = limit > 0 ? limit : 1;
-            usagePercentage = (double)used / usageLimit * 100;
-        }
+            AddOns.Clear();
 
-        if (hasAiPack && aiStatus?.CurrentPeriodStartUtc is DateTimeOffset periodStart && aiStatus.CurrentPeriodEndUtc is DateTimeOffset periodEnd)
-        {
-            billingText = string.Format(Translator.WinoAccount_Management_AiPackBillingPeriod, periodStart.LocalDateTime, periodEnd.LocalDateTime);
-            renewalText = string.Format(Translator.WinoAccount_Management_AiPackRenews, periodEnd.LocalDateTime);
-            resetText = string.Format(Translator.WinoAccount_Management_AiPackResets, periodEnd.LocalDateTime);
-        }
+            foreach (var item in items)
+            {
+                AddOns.Add(item);
+            }
 
-        _ = ExecuteUIThread(() =>
-        {
-            HasAiPack = hasAiPack;
-            AiPackStateText = hasAiPack
-                ? Translator.WinoAccount_Management_AiPackActive
-                : Translator.WinoAccount_Management_AiPackInactive;
-            AiUsageSummary = hasAiPack ? usageText : string.Empty;
-            AiBillingPeriodSummary = hasAiPack ? billingText : string.Empty;
-            AiPackRenewalText = hasAiPack ? renewalText : string.Empty;
-            AiUsageCount = usageCount;
-            AiUsageLimit = usageLimit;
-            AiUsagePercentage = usagePercentage;
-            AiUsageResetText = hasAiPack ? resetText : string.Empty;
+            PurchaseAddOnCommand.NotifyCanExecuteChanged();
         });
     }
 
-    private static string ExtractDisplayName(string email)
+    private WinoAddOnItemViewModel CreateAddOnItem(WinoAddOnInfo addOn)
     {
-        if (string.IsNullOrWhiteSpace(email))
-            return string.Empty;
+        var item = new WinoAddOnItemViewModel(addOn.ProductType)
+        {
+            IsPurchased = addOn.IsPurchased,
+            PurchaseCommand = PurchaseAddOnCommand,
+            ManageCommand = ManageAiPackCommand,
+            UsageCount = addOn.UsageCount ?? 0,
+            UsageLimit = addOn.UsageLimit is > 0 ? addOn.UsageLimit.Value : 1,
+            UsagePercentage = addOn.UsagePercentage
+        };
 
-        var atIndex = email.IndexOf('@');
-        var localPart = atIndex > 0 ? email[..atIndex] : email;
+        if (addOn.RenewalDateUtc is DateTimeOffset renewalDateUtc)
+        {
+            item.RenewalText = string.Format(Translator.WinoAccount_Management_AiPackRenews, renewalDateUtc.LocalDateTime);
+            item.UsageResetText = string.Format(Translator.WinoAccount_Management_AiPackResets, renewalDateUtc.LocalDateTime);
+        }
 
-        if (localPart.Length == 0)
-            return string.Empty;
-
-        return char.ToUpper(localPart[0], CultureInfo.CurrentCulture) + localPart[1..];
-    }
-
-    private static string ExtractInitials(string email)
-    {
-        var displayName = ExtractDisplayName(email);
-        return displayName.Length > 0
-            ? displayName[..1].ToUpper(CultureInfo.CurrentCulture)
-            : string.Empty;
+        return item;
     }
 }

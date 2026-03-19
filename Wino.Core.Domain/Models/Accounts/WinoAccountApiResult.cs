@@ -1,23 +1,22 @@
 #nullable enable
-using Wino.Core.Domain.Entities.Shared;
 
 namespace Wino.Core.Domain.Models.Accounts;
 
-public sealed class WinoAccountOperationResult
+public sealed class WinoAccountApiResult<T>
 {
     public bool IsSuccess { get; init; }
     public string? ErrorCode { get; init; }
     public string? ErrorMessage { get; init; }
-    public WinoAccount? Account { get; init; }
+    public T? Result { get; init; }
 
-    public static WinoAccountOperationResult Success(WinoAccount account)
+    public static WinoAccountApiResult<T> Success(T result)
         => new()
         {
             IsSuccess = true,
-            Account = account
+            Result = result
         };
 
-    public static WinoAccountOperationResult Failure(string? errorCode, string? errorMessage = null)
+    public static WinoAccountApiResult<T> Failure(string? errorCode, string? errorMessage = null)
         => new()
         {
             IsSuccess = false,
