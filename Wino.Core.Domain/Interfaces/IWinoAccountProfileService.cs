@@ -22,6 +22,7 @@ public interface IWinoAccountProfileService
     Task<ApiEnvelope<EmailConfirmationResendResultDto>> ResendEmailConfirmationAsync(string endpoint, string ticket, CancellationToken cancellationToken = default);
     Task<ApiEnvelope<JsonElement>> ForgotPasswordAsync(string email, CancellationToken cancellationToken = default);
     Task<WinoAccount?> GetActiveAccountAsync();
+    Task<WinoAccountAddOnSnapshot?> GetCachedAddOnSnapshotAsync();
     Task<WinoAccount?> GetAuthenticatedAccountAsync(CancellationToken cancellationToken = default);
     Task<bool> HasActiveAccountAsync();
     Task<bool> HasAddOnAsync(WinoAddOnProductType productId, CancellationToken cancellationToken = default);

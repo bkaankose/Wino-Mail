@@ -25,6 +25,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 {
     private readonly HttpClient _httpClient;
     private readonly IDatabaseService _databaseService;
+    private readonly SemaphoreSlim _tokenRefreshLock = new(1, 1);
     private readonly bool _ownsHttpClient;
 
     // private const string ApiUrl = "https://localhost:7204/";
@@ -134,11 +135,12 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     {
         try
         {
-            using var request = await CreateAuthorizedRequestAsync(HttpMethod.Get, "api/v1/users/me/settings").ConfigureAwait(false);
-            if (request == null)
-                return null;
+            using var response = await SendAuthorizedAsync(
+                () => CreateAuthorizedRequestAsync(HttpMethod.Get, "api/v1/users/me/settings"),
+                cancellationToken).ConfigureAwait(false);
 
-            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (response == null)
+                return null;
 
             if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
                 return null;
@@ -158,13 +160,16 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     {
         try
         {
-            using var request = await CreateAuthorizedRequestAsync(HttpMethod.Put, "api/v1/users/me/settings").ConfigureAwait(false);
-            if (request == null)
+            using var response = await SendAuthorizedAsync(
+                () => CreateAuthorizedRequestAsync(
+                    HttpMethod.Put,
+                    "api/v1/users/me/settings",
+                    () => new StringContent(settingsJson, Encoding.UTF8, "application/json")),
+                cancellationToken).ConfigureAwait(false);
+
+            if (response == null)
                 return false;
 
-            request.Content = new StringContent(settingsJson, Encoding.UTF8, "application/json");
-
-            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             return response.IsSuccessStatusCode;
         }
         catch
@@ -325,11 +330,12 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     {
         try
         {
-            using var request = await CreateAuthorizedRequestAsync(method, endpoint).ConfigureAwait(false);
-            if (request == null)
-                return ApiEnvelope<TResponse>.Failure("MissingAccessToken");
+            using var response = await SendAuthorizedAsync(
+                () => CreateAuthorizedRequestAsync(method, endpoint),
+                cancellationToken).ConfigureAwait(false);
 
-            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (response == null)
+                return ApiEnvelope<TResponse>.Failure("MissingAccessToken");
 
             var payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             var envelope = string.IsNullOrWhiteSpace(payload)
@@ -344,7 +350,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         }
     }
 
-    private async Task<HttpRequestMessage?> CreateAuthorizedRequestAsync(HttpMethod method, string endpoint)
+    private async Task<HttpRequestMessage?> CreateAuthorizedRequestAsync(HttpMethod method, string endpoint, Func<HttpContent>? contentFactory = null)
     {
         var accessToken = await GetAccessTokenAsync().ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(accessToken))
@@ -352,7 +358,38 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 
         var request = new HttpRequestMessage(method, endpoint);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        request.Content = contentFactory?.Invoke();
         return request;
+    }
+
+    private async Task<HttpResponseMessage?> SendAuthorizedAsync(Func<Task<HttpRequestMessage?>> requestFactory, CancellationToken cancellationToken)
+    {
+        using var initialRequest = await requestFactory().ConfigureAwait(false);
+        if (initialRequest == null)
+        {
+            return null;
+        }
+
+        var response = await _httpClient.SendAsync(initialRequest, cancellationToken).ConfigureAwait(false);
+        if (response.StatusCode != System.Net.HttpStatusCode.Unauthorized)
+        {
+            return response;
+        }
+
+        if (!await TryRefreshAccessTokenAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return response;
+        }
+
+        response.Dispose();
+
+        using var retryRequest = await requestFactory().ConfigureAwait(false);
+        if (retryRequest == null)
+        {
+            return null;
+        }
+
+        return await _httpClient.SendAsync(retryRequest, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<string?> GetAccessTokenAsync()
@@ -360,6 +397,58 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         var account = await _databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false);
         return string.IsNullOrWhiteSpace(account?.AccessToken) ? null : account.AccessToken;
     }
+
+    private async Task<bool> TryRefreshAccessTokenAsync(CancellationToken cancellationToken)
+    {
+        await _tokenRefreshLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            var account = await _databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false);
+            if (account == null || string.IsNullOrWhiteSpace(account.RefreshToken))
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(account.AccessToken) && account.AccessTokenExpiresAtUtc > DateTime.UtcNow.AddMinutes(1))
+            {
+                return true;
+            }
+
+            var refreshResult = await RefreshAsync(account.RefreshToken, cancellationToken).ConfigureAwait(false);
+            if (!refreshResult.IsSuccess || refreshResult.Result == null)
+            {
+                return false;
+            }
+
+            var refreshedAccount = MapAccount(refreshResult.Result, account.LastAuthenticatedUtc);
+
+            await _databaseService.Connection.DeleteAllAsync<WinoAccount>().ConfigureAwait(false);
+            await _databaseService.Connection.InsertOrReplaceAsync(refreshedAccount, typeof(WinoAccount)).ConfigureAwait(false);
+
+            return true;
+        }
+        finally
+        {
+            _tokenRefreshLock.Release();
+        }
+    }
+
+    private static WinoAccount MapAccount(AuthResultDto result, DateTime lastAuthenticatedUtc)
+        => new()
+        {
+            Id = result.User.UserId,
+            Email = result.User.Email,
+            AccountStatus = result.User.AccountStatus,
+            HasPassword = result.User.HasPassword,
+            HasGoogleLogin = result.User.HasGoogleLogin,
+            HasFacebookLogin = result.User.HasFacebookLogin,
+            AccessToken = result.AccessToken,
+            AccessTokenExpiresAtUtc = result.AccessTokenExpiresAtUtc.UtcDateTime,
+            RefreshToken = result.RefreshToken,
+            RefreshTokenExpiresAtUtc = result.RefreshTokenExpiresAtUtc.UtcDateTime,
+            LastAuthenticatedUtc = lastAuthenticatedUtc == default ? DateTime.UtcNow : lastAuthenticatedUtc
+        };
 
     private static bool ValidateCertificate(HttpRequestMessage requestMessage, X509Certificate2? certificate, X509Chain? chain, System.Net.Security.SslPolicyErrors sslPolicyErrors)
     {
@@ -377,6 +466,8 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         {
             _httpClient.Dispose();
         }
+
+        _tokenRefreshLock.Dispose();
     }
 }
 

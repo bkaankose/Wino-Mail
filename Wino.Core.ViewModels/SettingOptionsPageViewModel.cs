@@ -11,6 +11,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Personalization;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.Models.Translations;
@@ -493,10 +494,19 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel,
 
     private async Task LoadWinoAccountAsync()
     {
-        await ExecuteUIThread(() => IsWinoAccountBusy = true);
-
         try
         {
+            var cachedAccount = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
+            var cachedAddOns = await _profileService.GetCachedAddOnSnapshotAsync().ConfigureAwait(false);
+
+            if (cachedAccount != null)
+            {
+                await ApplyWinoAccountStateAsync(cachedAccount.Email, cachedAccount.AccountStatus).ConfigureAwait(false);
+                UpdateAiPackState(cachedAddOns);
+            }
+
+            await ExecuteUIThread(() => IsWinoAccountBusy = cachedAccount == null);
+
             var account = await _profileService.GetAuthenticatedAccountAsync().ConfigureAwait(false);
             if (account == null)
             {
@@ -504,25 +514,23 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel,
                 return;
             }
 
-            var currentUserResponse = await _profileService.GetCurrentUserAsync().ConfigureAwait(false);
             var aiStatusResponse = await _profileService.GetAiStatusAsync().ConfigureAwait(false);
+            var profileRefreshResult = await _profileService.RefreshProfileAsync().ConfigureAwait(false);
 
-            var resolvedEmail = currentUserResponse.IsSuccess && currentUserResponse.Result != null
-                ? currentUserResponse.Result.Email
-                : account.Email;
+            var resolvedAccount = profileRefreshResult.IsSuccess && profileRefreshResult.Account != null
+                ? profileRefreshResult.Account
+                : account;
 
-            var resolvedStatus = currentUserResponse.IsSuccess && currentUserResponse.Result != null
-                ? currentUserResponse.Result.AccountStatus
-                : account.AccountStatus;
+            await ApplyWinoAccountStateAsync(resolvedAccount.Email, resolvedAccount.AccountStatus).ConfigureAwait(false);
 
-            await ExecuteUIThread(() =>
+            if (aiStatusResponse.IsSuccess)
             {
-                IsWinoAccountSignedIn = true;
-                WinoAccountEmail = resolvedEmail;
-                WinoAccountStatusText = string.Format(Translator.WinoAccount_Management_StatusLabel, resolvedStatus);
-            });
-
-            UpdateAiPackState(aiStatusResponse.IsSuccess ? aiStatusResponse.Result : null);
+                UpdateAiPackState(aiStatusResponse.Result);
+            }
+            else
+            {
+                UpdateAiPackState(cachedAddOns);
+            }
         }
         catch
         {
@@ -532,6 +540,16 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel,
         {
             await ExecuteUIThread(() => IsWinoAccountBusy = false);
         }
+    }
+
+    private async Task ApplyWinoAccountStateAsync(string email, string status)
+    {
+        await ExecuteUIThread(() =>
+        {
+            IsWinoAccountSignedIn = true;
+            WinoAccountEmail = email;
+            WinoAccountStatusText = string.Format(Translator.WinoAccount_Management_StatusLabel, status);
+        });
     }
 
     private async Task ResetWinoAccountStateAsync()
@@ -551,20 +569,45 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel,
 
     private void UpdateAiPackState(AiStatusResultDto aiStatus)
     {
-        var hasAiPack = aiStatus?.HasAiPack == true;
+        UpdateAiPackState(
+            aiStatus?.HasAiPack == true,
+            aiStatus?.Used,
+            aiStatus?.MonthlyLimit,
+            aiStatus?.Remaining,
+            aiStatus?.CurrentPeriodStartUtc,
+            aiStatus?.CurrentPeriodEndUtc);
+    }
+
+    private void UpdateAiPackState(WinoAccountAddOnSnapshot addOnSnapshot)
+    {
+        var remaining = addOnSnapshot?.HasAiPack == true && addOnSnapshot.UsageLimit is int limit && addOnSnapshot.UsageCount is int used
+            ? limit - used
+            : (int?)null;
+
+        UpdateAiPackState(
+            addOnSnapshot?.HasAiPack == true,
+            addOnSnapshot?.UsageCount,
+            addOnSnapshot?.UsageLimit,
+            remaining,
+            addOnSnapshot?.BillingPeriodStartUtc,
+            addOnSnapshot?.BillingPeriodEndUtc);
+    }
+
+    private void UpdateAiPackState(bool hasAiPack, int? used, int? limit, int? remaining, DateTimeOffset? periodStart, DateTimeOffset? periodEnd)
+    {
         var usageText = Translator.WinoAccount_Management_AiPackUnknownUsage;
         var billingText = string.Empty;
         var usagePercent = 0d;
 
-        if (hasAiPack && aiStatus?.Used is int used && aiStatus.MonthlyLimit is int limit && aiStatus.Remaining is int remaining)
+        if (hasAiPack && used is int usageCount && limit is int usageLimit && remaining is int remainingCount)
         {
-            usageText = string.Format(Translator.WinoAccount_Management_AiPackUsage, used, limit, remaining);
-            usagePercent = limit > 0 ? (double)used / limit * 100 : 0;
+            usageText = string.Format(Translator.WinoAccount_Management_AiPackUsage, usageCount, usageLimit, remainingCount);
+            usagePercent = usageLimit > 0 ? (double)usageCount / usageLimit * 100 : 0;
         }
 
-        if (hasAiPack && aiStatus?.CurrentPeriodStartUtc is DateTimeOffset periodStart && aiStatus.CurrentPeriodEndUtc is DateTimeOffset periodEnd)
+        if (hasAiPack && periodStart is DateTimeOffset billingStart && periodEnd is DateTimeOffset billingEnd)
         {
-            billingText = string.Format(Translator.WinoAccount_Management_AiPackBillingPeriod, periodStart.LocalDateTime, periodEnd.LocalDateTime);
+            billingText = string.Format(Translator.WinoAccount_Management_AiPackBillingPeriod, billingStart.LocalDateTime, billingEnd.LocalDateTime);
         }
 
         _ = ExecuteUIThread(() =>

@@ -8,5 +8,5 @@ namespace Wino.Core.Domain.Interfaces;
 
 public interface IWinoAddOnService
 {
-    Task<IReadOnlyList<WinoAddOnInfo>> GetAvailableAddOnsAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<WinoAddOnInfo>> GetAvailableAddOnsAsync(bool useCachedDataOnly = false, CancellationToken cancellationToken = default);
 }

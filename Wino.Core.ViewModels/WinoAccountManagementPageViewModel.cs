@@ -296,21 +296,34 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
     private async Task LoadAsync()
     {
-        await ExecuteUIThread(() => IsBusy = true);
-
         try
         {
+            var cachedAccount = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
+            var cachedAddOns = await _addOnService.GetAvailableAddOnsAsync(true).ConfigureAwait(false);
+
+            if (cachedAccount != null)
+            {
+                await ApplyAccountStateAsync(cachedAccount).ConfigureAwait(false);
+            }
+
+            if (cachedAddOns.Count > 0)
+            {
+                await UpdateAddOnsAsync(cachedAddOns).ConfigureAwait(false);
+            }
+
+            await ExecuteUIThread(() => IsBusy = cachedAccount == null && cachedAddOns.Count == 0);
+
             var account = await _profileService.GetAuthenticatedAccountAsync().ConfigureAwait(false);
+            var refreshedProfileResult = account == null
+                ? null
+                : await _profileService.RefreshProfileAsync().ConfigureAwait(false);
             var addOns = await _addOnService.GetAvailableAddOnsAsync().ConfigureAwait(false);
 
-            await ExecuteUIThread(() =>
-            {
-                IsSignedIn = account != null;
-                AccountEmail = account?.Email ?? string.Empty;
-                AccountStatusText = account == null
-                    ? string.Empty
-                    : string.Format(Translator.WinoAccount_Management_StatusLabel, account.AccountStatus);
-            });
+            var resolvedAccount = refreshedProfileResult?.IsSuccess == true && refreshedProfileResult.Account != null
+                ? refreshedProfileResult.Account
+                : account;
+
+            await ApplyAccountStateAsync(resolvedAccount).ConfigureAwait(false);
 
             await UpdateAddOnsAsync(addOns).ConfigureAwait(false);
         }
@@ -325,6 +338,18 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         {
             await ExecuteUIThread(() => IsBusy = false);
         }
+    }
+
+    private async Task ApplyAccountStateAsync(Wino.Core.Domain.Entities.Shared.WinoAccount? account)
+    {
+        await ExecuteUIThread(() =>
+        {
+            IsSignedIn = account != null;
+            AccountEmail = account?.Email ?? string.Empty;
+            AccountStatusText = account == null
+                ? string.Empty
+                : string.Format(Translator.WinoAccount_Management_StatusLabel, account.AccountStatus);
+        });
     }
 
     private async Task HandleAddOnPurchasedAsync()

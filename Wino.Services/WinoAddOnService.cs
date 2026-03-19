@@ -10,12 +10,6 @@ namespace Wino.Services;
 
 public sealed class WinoAddOnService : IWinoAddOnService
 {
-    private static readonly WinoAddOnProductType[] AvailableAddOns =
-    [
-        WinoAddOnProductType.AI_PACK,
-        WinoAddOnProductType.UNLIMITED_ACCOUNTS
-    ];
-
     private readonly IWinoAccountProfileService _profileService;
 
     public WinoAddOnService(IWinoAccountProfileService profileService)
@@ -23,8 +17,15 @@ public sealed class WinoAddOnService : IWinoAddOnService
         _profileService = profileService;
     }
 
-    public async Task<IReadOnlyList<WinoAddOnInfo>> GetAvailableAddOnsAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<WinoAddOnInfo>> GetAvailableAddOnsAsync(bool useCachedDataOnly = false, CancellationToken cancellationToken = default)
     {
+        var cachedSnapshot = await _profileService.GetCachedAddOnSnapshotAsync().ConfigureAwait(false);
+
+        if (useCachedDataOnly)
+        {
+            return BuildAddOnInfos(cachedSnapshot);
+        }
+
         var aiStatusTask = _profileService.GetAiStatusAsync(cancellationToken);
         var hasUnlimitedAccountsTask = _profileService.HasAddOnAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS, cancellationToken);
 
@@ -32,6 +33,15 @@ public sealed class WinoAddOnService : IWinoAddOnService
 
         var aiStatusResponse = await aiStatusTask.ConfigureAwait(false);
         var aiStatus = aiStatusResponse.IsSuccess ? aiStatusResponse.Result : null;
+        var hasUnlimitedAccounts = await hasUnlimitedAccountsTask.ConfigureAwait(false);
+
+        if (aiStatus == null && cachedSnapshot != null)
+        {
+            return BuildAddOnInfos(cachedSnapshot with
+            {
+                HasUnlimitedAccounts = hasUnlimitedAccounts || cachedSnapshot.HasUnlimitedAccounts
+            });
+        }
 
         return
         [
@@ -46,7 +56,31 @@ public sealed class WinoAddOnService : IWinoAddOnService
                 aiStatus?.CurrentPeriodEndUtc),
             new WinoAddOnInfo(
                 WinoAddOnProductType.UNLIMITED_ACCOUNTS,
-                await hasUnlimitedAccountsTask.ConfigureAwait(false))
+                hasUnlimitedAccounts || cachedSnapshot?.HasUnlimitedAccounts == true)
+        ];
+    }
+
+    private static IReadOnlyList<WinoAddOnInfo> BuildAddOnInfos(WinoAccountAddOnSnapshot? snapshot)
+    {
+        if (snapshot == null)
+        {
+            return [];
+        }
+
+        return
+        [
+            new WinoAddOnInfo(
+                WinoAddOnProductType.AI_PACK,
+                snapshot.HasAiPack,
+                snapshot.UsageCount,
+                snapshot.UsageLimit,
+                snapshot.HasAiPack && snapshot.UsageLimit is int limit && limit > 0 && snapshot.UsageCount is int used
+                    ? (double)used / limit * 100
+                    : 0,
+                snapshot.BillingPeriodEndUtc),
+            new WinoAddOnInfo(
+                WinoAddOnProductType.UNLIMITED_ACCOUNTS,
+                snapshot.HasUnlimitedAccounts)
         ];
     }
 }
