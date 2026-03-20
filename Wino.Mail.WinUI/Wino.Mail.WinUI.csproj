@@ -119,10 +119,7 @@
     <None Remove="Styles\CalendarShellNavigationViewStyle.xaml" />
     <None Remove="Styles\CalendarThemeResources.xaml" />
     <None Remove="Styles\DayHeaderControl.xaml" />
-    <None Remove="Styles\WinoCalendarResources.xaml" />
     <None Remove="Styles\WinoCalendarTypeSelectorControl.xaml" />
-    <None Remove="Styles\WinoCalendarView.xaml" />
-    <None Remove="Styles\WinoDayTimelineCanvas.xaml" />
     <None Remove="Views\Calendar\CalendarAppShell.xaml" />
     <None Remove="Views\Calendar\CalendarPage.xaml" />
     <None Remove="Views\Calendar\CalendarSettingsPage.xaml" />
@@ -205,10 +202,8 @@
     <PackageReference Include="CommunityToolkit.WinUI.Controls.TabbedCommandBar" />
     <PackageReference Include="CommunityToolkit.WinUI.Controls.TokenizingTextBox" />
     <PackageReference Include="CommunityToolkit.WinUI.Extensions" />
-    <PackageReference Include="CommunityToolkit.Labs.WinUI.Controls.MarkdownTextBlock" />
 	  
     <PackageReference Include="Microsoft.Graphics.Win2D" />
-    <PackageReference Include="SkiaSharp.Views.WinUI" />
     <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
     <PackageReference Include="Microsoft.WindowsAppSDK" />
@@ -362,16 +357,7 @@
     <Page Update="Styles\DayHeaderControl.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Update="Styles\WinoCalendarResources.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
     <Page Update="Styles\WinoCalendarTypeSelectorControl.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Update="Styles\WinoCalendarView.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Update="Styles\WinoDayTimelineCanvas.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>

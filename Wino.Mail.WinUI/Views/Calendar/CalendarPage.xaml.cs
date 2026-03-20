@@ -1,210 +1,42 @@
-﻿using System;
+using System;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Navigation;
-using Wino.Calendar.Args;
 using Wino.Calendar.Views.Abstract;
-using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Messaging.Client.Calendar;
 
 namespace Wino.Calendar.Views;
 
-public sealed partial class CalendarPage : CalendarPageAbstract,
-    IRecipient<ScrollToDateMessage>,
-    IRecipient<ScrollToHourMessage>,
-    IRecipient<GoNextDateRequestedMessage>,
-    IRecipient<GoPreviousDateRequestedMessage>
+public sealed partial class CalendarPage : CalendarPageAbstract
 {
-    private const int PopupDialogOffset = 12;
-
     public CalendarPage()
     {
         InitializeComponent();
-
-        ViewModel.DetailsShowCalendarItemChanged += CalendarItemDetailContextChanged;
     }
 
     protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
     {
         base.OnNavigatingFrom(e);
-
-        ViewModel.DetailsShowCalendarItemChanged -= CalendarItemDetailContextChanged;
-        QuickEventPopupDialog.IsOpen = false;
-        EventDetailsPopup.IsOpen = false;
-        EventDetailsPopup.PlacementTarget = null;
-        CalendarControl.ResetTimelineSelection();
-
-        if (CalendarControl is IDisposable disposableCalendarControl)
-        {
-            disposableCalendarControl.Dispose();
-        }
-
         Bindings.StopTracking();
     }
-
-    private void CalendarItemDetailContextChanged(object? sender, EventArgs e)
-    {
-        if (ViewModel.DisplayDetailsCalendarItemViewModel != null)
-        {
-            var control = CalendarControl.GetCalendarItemControl(ViewModel.DisplayDetailsCalendarItemViewModel);
-
-            if (control != null)
-            {
-                EventDetailsPopup.PlacementTarget = control;
-            }
-        }
-    }
-
-    protected override void RegisterRecipients()
-    {
-        base.RegisterRecipients();
-
-        WeakReferenceMessenger.Default.Register<ScrollToDateMessage>(this);
-        WeakReferenceMessenger.Default.Register<ScrollToHourMessage>(this);
-        WeakReferenceMessenger.Default.Register<GoNextDateRequestedMessage>(this);
-        WeakReferenceMessenger.Default.Register<GoPreviousDateRequestedMessage>(this);
-    }
-
-    protected override void UnregisterRecipients()
-    {
-        base.UnregisterRecipients();
-
-        WeakReferenceMessenger.Default.Unregister<ScrollToDateMessage>(this);
-        WeakReferenceMessenger.Default.Unregister<ScrollToHourMessage>(this);
-        WeakReferenceMessenger.Default.Unregister<GoNextDateRequestedMessage>(this);
-        WeakReferenceMessenger.Default.Unregister<GoPreviousDateRequestedMessage>(this);
-    }
-
-    public void Receive(ScrollToHourMessage message) => DispatcherQueue.TryEnqueue(() => CalendarControl.NavigateToHour(message.TimeSpan));
-    public void Receive(ScrollToDateMessage message) => DispatcherQueue.TryEnqueue(() => CalendarControl.NavigateToDay(message.Date));
-    public void Receive(GoNextDateRequestedMessage message) => DispatcherQueue.TryEnqueue(() => CalendarControl.GoNextRange());
-    public void Receive(GoPreviousDateRequestedMessage message) => DispatcherQueue.TryEnqueue(() => CalendarControl.GoPreviousRange());
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
 
-        if (e.NavigationMode == NavigationMode.Back)
+        if (e.NavigationMode == NavigationMode.Back && ViewModel.RestoreVisibleState())
         {
-            if (ViewModel.RestoreVisibleState())
-            {
-                var restoreDate = ViewModel.GetRestoreDate();
-                DispatcherQueue.TryEnqueue(() => CalendarControl.NavigateToDay(restoreDate));
-            }
-            else
-            {
-                WeakReferenceMessenger.Default.Send(new LoadCalendarMessage(DateTime.Now.Date, CalendarInitInitiative.App));
-            }
-
             return;
         }
 
-        if (e.Parameter is CalendarPageNavigationArgs args)
+        var anchorDate = DateOnly.FromDateTime(DateTime.Now.Date);
+
+        if (e.Parameter is CalendarPageNavigationArgs args && !args.RequestDefaultNavigation)
         {
-            if (args.RequestDefaultNavigation)
-            {
-                // Go today.
-                WeakReferenceMessenger.Default.Send(new LoadCalendarMessage(DateTime.Now.Date, CalendarInitInitiative.App));
-            }
-            else
-            {
-                // Go specified date.
-                WeakReferenceMessenger.Default.Send(new LoadCalendarMessage(args.NavigationDate, CalendarInitInitiative.User));
-            }
-        }
-    }
-
-    private void CellSelected(object sender, TimelineCellSelectedArgs e)
-    {
-        // Dismiss event details if exists and cancel the selection.
-        // This is to prevent the event details from being displayed when the user clicks somewhere else.
-
-        if (EventDetailsPopup.IsOpen)
-        {
-            CalendarControl.UnselectActiveTimelineCell();
-            ViewModel.DisplayDetailsCalendarItemViewModel = null;
-
-            return;
+            anchorDate = DateOnly.FromDateTime(args.NavigationDate.Date);
         }
 
-        ViewModel.SelectedQuickEventDate = e.ClickedDate;
-
-        TeachingTipPositionerGrid.Width = e.CellSize.Width;
-        TeachingTipPositionerGrid.Height = e.CellSize.Height;
-
-        Canvas.SetLeft(TeachingTipPositionerGrid, e.PositionerPoint.X);
-        Canvas.SetTop(TeachingTipPositionerGrid, e.PositionerPoint.Y);
-
-        // Adjust the start and end time in the flyout.
-        var startTime = ViewModel.SelectedQuickEventDate.Value.TimeOfDay;
-        var endTime = startTime.Add(TimeSpan.FromMinutes(30));
-
-        ViewModel.SelectQuickEventTimeRange(startTime, endTime);
-
-        QuickEventPopupDialog.IsOpen = true;
-    }
-
-    private void CellUnselected(object sender, TimelineCellUnselectedArgs e)
-    {
-        QuickEventPopupDialog.IsOpen = false;
-    }
-
-    private void QuickEventAccountSelectorSelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        QuickEventAccountSelectorFlyout.Hide();
-    }
-
-    private void QuickEventPopupClosed(object sender, object e)
-    {
-        // Reset the timeline selection when the tip is closed.
-        CalendarControl.ResetTimelineSelection();
-    }
-
-    private void PopupPlacementChanged(object sender, object e)
-    {
-        if (sender is Popup senderPopup)
-        {
-            // When the quick event Popup is positioned for different calendar types,
-            // we must adjust the offset to make sure the tip is not hidden and has nice
-            // spacing from the cell.
-
-            switch (senderPopup.ActualPlacement)
-            {
-                case PopupPlacementMode.Top:
-                    senderPopup.VerticalOffset = PopupDialogOffset * -1;
-                    break;
-                case PopupPlacementMode.Bottom:
-                    senderPopup.VerticalOffset = PopupDialogOffset;
-                    break;
-                case PopupPlacementMode.Left:
-                    senderPopup.HorizontalOffset = PopupDialogOffset * -1;
-                    break;
-                case PopupPlacementMode.Right:
-                    senderPopup.HorizontalOffset = PopupDialogOffset;
-                    break;
-                default:
-                    break;
-            }
-        }
-
-    }
-
-    private void StartTimeDurationSubmitted(ComboBox sender, ComboBoxTextSubmittedEventArgs args)
-        => ViewModel.SelectedStartTimeString = args.Text;
-
-    private void EndTimeDurationSubmitted(ComboBox sender, ComboBoxTextSubmittedEventArgs args)
-        => ViewModel.SelectedEndTimeString = args.Text;
-
-    private void EventDetailsPopupClosed(object sender, object e)
-    {
-        ViewModel.DisplayDetailsCalendarItemViewModel = null;
-    }
-
-    private void CalendarScrolling(object sender, EventArgs e)
-    {
-        // In case of scrolling, we must dismiss the event details dialog.
-        ViewModel.DisplayDetailsCalendarItemViewModel = null;
+        var request = new CalendarDisplayRequest(ViewModel.StatePersistanceService.CalendarDisplayType, anchorDate);
+        WeakReferenceMessenger.Default.Send(new LoadCalendarMessage(request));
     }
 }

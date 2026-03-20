@@ -2,7 +2,6 @@
     x:Class="Wino.Mail.WinUI.Controls.UpdateNotesFlipViewControl"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:models="using:Wino.Core.Domain.Models.Updates"
@@ -22,14 +21,21 @@
                 <DataTemplate x:DataType="models:UpdateNoteSection">
                     <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                         <StackPanel Padding="8" Spacing="12">
-                            <controls:MarkdownTextBlock HorizontalAlignment="Center" Text="{x:Bind Title, Mode=OneTime}" />
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                Text="{x:Bind Title, Mode=OneTime}"
+                                TextAlignment="Center"
+                                TextWrapping="WrapWholeWords" />
                             <Image
                                 Width="{x:Bind ActualImageWidth, Mode=OneTime}"
                                 Height="{x:Bind ActualImageHeight, Mode=OneTime}"
                                 HorizontalAlignment="Center"
                                 Source="{x:Bind ImageUrl, Mode=OneTime}"
                                 Stretch="Uniform" />
-                            <controls:MarkdownTextBlock HorizontalAlignment="Stretch" Text="{x:Bind Description, Mode=OneTime}" />
+                            <TextBlock
+                                HorizontalAlignment="Stretch"
+                                Text="{x:Bind Description, Mode=OneTime}"
+                                TextWrapping="WrapWholeWords" />
                         </StackPanel>
                     </ScrollViewer>
                 </DataTemplate>

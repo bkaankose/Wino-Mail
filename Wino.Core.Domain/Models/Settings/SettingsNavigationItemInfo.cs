@@ -40,7 +40,7 @@ public static class SettingsNavigationInfoProvider
                 Translator.WinoAccount_SettingsSection_Title,
                 Translator.WinoAccount_SettingsSection_Description,
                 "\uE77B",
-                searchKeywords: Translator.SettingsSearch_WinoAccount_Keywords),
+                searchKeywords: string.Empty),
             new(null, Translator.SettingsOptions_GeneralSection, string.Empty, "\uE713", isSeparator: true),
             new(WinoPage.AppPreferencesPage,
                 Translator.SettingsAppPreferences_Title,

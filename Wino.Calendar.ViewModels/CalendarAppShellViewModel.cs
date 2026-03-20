@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
@@ -9,16 +10,15 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
 using Wino.Calendar.ViewModels.Data;
-using Wino.Core.Domain.Entities.Calendar;
 using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Collections;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
-using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.ViewModels;
@@ -30,8 +30,6 @@ namespace Wino.Calendar.ViewModels;
 
 public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     ICalendarShellClient,
-    IRecipient<VisibleDateRangeChangedMessage>,
-    IRecipient<CalendarEnableStatusChangedMessage>,
     IRecipient<CalendarDisplayTypeChangedMessage>,
     IRecipient<AccountRemovedMessage>
 {
@@ -41,6 +39,8 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     public INavigationService NavigationService { get; }
     public WinoApplicationMode Mode => WinoApplicationMode.Calendar;
     public bool HandlesNavigationSelection => false;
+    public VisibleDateRange CurrentVisibleRange => _calendarPageViewModel.CurrentVisibleRange;
+    public string VisibleDateRangeText => _calendarPageViewModel.VisibleDateRangeText;
     System.Collections.IEnumerable ICalendarShellClient.GroupedAccountCalendars => AccountCalendarStateService.GroupedAccountCalendars;
     System.Collections.IEnumerable ICalendarShellClient.DateNavigationHeaderItems => DateNavigationHeaderItems;
     object IShellClient.SelectedMenuItem
@@ -50,29 +50,14 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     }
     System.Windows.Input.ICommand ICalendarShellClient.TodayClickedCommand => TodayClickedCommand;
     System.Windows.Input.ICommand ICalendarShellClient.DateClickedCommand => DateClickedCommand;
+    System.Windows.Input.ICommand ICalendarShellClient.PreviousDateRangeCommand => PreviousDateRangeCommand;
+    System.Windows.Input.ICommand ICalendarShellClient.NextDateRangeCommand => NextDateRangeCommand;
 
     public MenuItemCollection MenuItems { get; private set; }
     public MenuItemCollection FooterItems { get; private set; }
 
     [ObservableProperty]
     private int _selectedMenuItemIndex = -1;
-
-    [ObservableProperty]
-    private bool isCalendarEnabled;
-
-
-
-    /// <summary>
-    /// Gets or sets the display date of the calendar.
-    /// </summary>
-    [ObservableProperty]
-    private DateTimeOffset _displayDate;
-
-    /// <summary>
-    /// Gets or sets the highlighted range in the CalendarView and displayed date range in FlipView.
-    /// </summary>
-    [ObservableProperty]
-    private DateRange highlightedDateRange;
 
     [ObservableProperty]
     private ObservableRangeCollection<string> dateNavigationHeaderItems = [];
@@ -87,36 +72,44 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
     private readonly SettingsItem _settingsItem = new();
     private readonly StoreUpdateMenuItem _storeUpdateMenuItem = new();
-
-    // For updating account calendars asynchronously.
-    private SemaphoreSlim _accountCalendarUpdateSemaphoreSlim = new(1);
+    private readonly SemaphoreSlim _accountCalendarUpdateSemaphoreSlim = new(1);
+    private readonly CalendarPageViewModel _calendarPageViewModel;
+    private readonly IMailDialogService _dialogService;
+    private readonly IUpdateManager _updateManager;
+    private readonly IStoreUpdateService _storeUpdateService;
+    private readonly IAccountService _accountService;
+    private readonly ICalendarService _calendarService;
+    private readonly IDateContextProvider _dateContextProvider;
     private bool _runtimeSubscriptionsAttached;
     private bool _hasRegisteredPersistentRecipients;
+    private DateTime? _navigationDate;
 
-    public CalendarAppShellViewModel(IPreferencesService preferencesService,
-                             IStatePersistanceService statePersistanceService,
-                             IAccountService accountService,
-                             ICalendarService calendarService,
-                             IAccountCalendarStateService accountCalendarStateService,
-                             INavigationService navigationService,
-                             CalendarPageViewModel calendarPageViewModel,
-                             IMailDialogService dialogService,
-                             IUpdateManager updateManager,
-                             IStoreUpdateService storeUpdateService)
+    public CalendarAppShellViewModel(
+        IPreferencesService preferencesService,
+        IStatePersistanceService statePersistanceService,
+        IAccountService accountService,
+        ICalendarService calendarService,
+        IAccountCalendarStateService accountCalendarStateService,
+        INavigationService navigationService,
+        CalendarPageViewModel calendarPageViewModel,
+        IMailDialogService dialogService,
+        IUpdateManager updateManager,
+        IStoreUpdateService storeUpdateService,
+        IDateContextProvider dateContextProvider)
     {
+        PreferencesService = preferencesService;
+        StatePersistenceService = statePersistanceService;
+        AccountCalendarStateService = accountCalendarStateService;
+        NavigationService = navigationService;
         _accountService = accountService;
         _calendarService = calendarService;
         _calendarPageViewModel = calendarPageViewModel;
         _dialogService = dialogService;
         _updateManager = updateManager;
         _storeUpdateService = storeUpdateService;
+        _dateContextProvider = dateContextProvider;
 
-        AccountCalendarStateService = accountCalendarStateService;
-
-        NavigationService = navigationService;
-        PreferencesService = preferencesService;
-
-        StatePersistenceService = statePersistanceService;
+        _calendarPageViewModel.PropertyChanged += CalendarPageViewModelPropertyChanged;
     }
 
     protected override void OnDispatcherAssigned()
@@ -129,17 +122,30 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         _ = RefreshFooterItemsAsync(false);
     }
 
+    private void CalendarPageViewModelPropertyChanged(object sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(CalendarPageViewModel.CurrentVisibleRange))
+        {
+            OnPropertyChanged(nameof(CurrentVisibleRange));
+        }
+
+        if (e.PropertyName == nameof(CalendarPageViewModel.CurrentVisibleRange) ||
+            e.PropertyName == nameof(CalendarPageViewModel.VisibleDateRangeText))
+        {
+            OnPropertyChanged(nameof(VisibleDateRangeText));
+            UpdateDateNavigationHeaderItems();
+        }
+    }
+
     private void PrefefencesChanged(object sender, string e)
     {
-        if (e == nameof(StatePersistenceService.CalendarDisplayType))
-        {
-            Messenger.Send(new CalendarDisplayTypeChangedMessage(StatePersistenceService.CalendarDisplayType));
+        if (e != nameof(StatePersistenceService.CalendarDisplayType))
+            return;
 
-            UpdateDateNavigationHeaderItems();
-
-            // Change the calendar.
-            DateClicked(new CalendarViewDayClickedEventArgs(GetDisplayTypeSwitchDate()));
-        }
+        Messenger.Send(new CalendarDisplayTypeChangedMessage(StatePersistenceService.CalendarDisplayType));
+        OnPropertyChanged(nameof(IsVerticalCalendar));
+        UpdateDateNavigationHeaderItems();
+        NavigateCalendarDate(GetDisplayTypeSwitchDate());
     }
 
     private async void PreferencesServiceChanged(object sender, string e)
@@ -167,9 +173,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         PreferencesService.PreferenceChanged += PreferencesServiceChanged;
 
         await RefreshFooterItemsAsync(mode == NavigationMode.New);
-
         UpdateDateNavigationHeaderItems();
-
         await InitializeAccountCalendarsAsync();
         ValidateConfiguredNewEventCalendar();
 
@@ -189,7 +193,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         {
             DateNavigationHeaderItems.Clear();
             AccountCalendarStateService.ClearGroupedAccountCalendars();
-            HighlightedDateRange = null;
             SelectedDateNavigationHeaderIndex = -1;
         });
         _calendarPageViewModel.CleanupForShellDeactivation();
@@ -223,7 +226,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
             return;
 
         var notes = await _updateManager.GetLatestUpdateNotesAsync();
-
         if (notes.Sections.Count == 0)
             return;
 
@@ -246,10 +248,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
     private async void AccountCalendarStateCollectivelyChanged(object sender, GroupedAccountCalendarViewModel e)
     {
-        // When using three-state checkbox, multiple accounts will be selected/unselected at the same time.
-        // Reporting all these changes one by one to the UI is not efficient and may cause problems in the future.
-
-        // Update all calendar states at once.
         try
         {
             await _accountCalendarUpdateSemaphoreSlim.WaitAsync();
@@ -281,15 +279,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         foreach (var account in accounts)
         {
             var accountCalendars = await _calendarService.GetAccountCalendarsAsync(account.Id).ConfigureAwait(false);
-            var calendarViewModels = new List<AccountCalendarViewModel>();
-
-            foreach (var calendar in accountCalendars)
-            {
-                var calendarViewModel = new AccountCalendarViewModel(account, calendar);
-
-                calendarViewModels.Add(calendarViewModel);
-            }
-
+            var calendarViewModels = accountCalendars.Select(calendar => new AccountCalendarViewModel(account, calendar)).ToList();
             var groupedAccountCalendarViewModel = new GroupedAccountCalendarViewModel(account, calendarViewModels);
 
             await Dispatcher.ExecuteOnUIThread(() =>
@@ -299,9 +289,15 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         }
     }
 
+    private void NavigateCalendarDate(DateTime date)
+    {
+        _navigationDate = date.Date;
+        ForceNavigateCalendarDate();
+    }
+
     private void ForceNavigateCalendarDate()
     {
-        var args = new CalendarPageNavigationArgs()
+        var args = new CalendarPageNavigationArgs
         {
             NavigationDate = _navigationDate ?? DateTime.Now.Date
         };
@@ -310,73 +306,56 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         _navigationDate = null;
     }
 
-    partial void OnSelectedMenuItemIndexChanged(int oldValue, int newValue) { }
-
     [RelayCommand]
     private async Task Sync()
     {
-        // Sync all calendars.
         var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
-
         foreach (var account in accounts)
         {
-            var t = new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions()
+            Messenger.Send(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
             {
                 AccountId = account.Id,
                 Type = CalendarSynchronizationType.CalendarEvents
-            });
-
-            Messenger.Send(t);
+            }));
         }
     }
 
-    /// <summary>
-    /// When calendar type switches, we need to navigate to the most ideal date.
-    /// This method returns that date.
-    /// </summary>
     private DateTime GetDisplayTypeSwitchDate()
     {
+        var today = _dateContextProvider.GetToday();
         var settings = PreferencesService.GetCurrentCalendarSettings();
-        switch (StatePersistenceService.CalendarDisplayType)
-        {
-            case CalendarDisplayType.Day:
-                if (HighlightedDateRange.IsInRange(DateTime.Now)) return DateTime.Now.Date;
-
-                return HighlightedDateRange.StartDate;
-            case CalendarDisplayType.Week:
-                if (HighlightedDateRange == null || HighlightedDateRange.IsInRange(DateTime.Now))
-                {
-                    return DateTime.Now.Date.GetWeekStartDateForDate(settings.FirstDayOfWeek);
-                }
-
-                return HighlightedDateRange.StartDate.GetWeekStartDateForDate(settings.FirstDayOfWeek);
-            case CalendarDisplayType.WorkWeek:
-                break;
-            case CalendarDisplayType.Month:
-                break;
-            default:
-                break;
-        }
-
-        return DateTime.Today.Date;
+        var referenceRange = CurrentVisibleRange
+                             ?? CalendarRangeResolver.Resolve(new CalendarDisplayRequest(StatePersistenceService.CalendarDisplayType, today), settings, today);
+        var targetRange = CalendarRangeResolver.ChangeDisplayType(referenceRange, StatePersistenceService.CalendarDisplayType, settings, today);
+        return targetRange.AnchorDate.ToDateTime(TimeOnly.MinValue);
     }
-
-    private DateTime? _navigationDate;
-    private readonly IAccountService _accountService;
-    private readonly ICalendarService _calendarService;
-    private readonly CalendarPageViewModel _calendarPageViewModel;
-    private readonly IMailDialogService _dialogService;
-    private readonly IUpdateManager _updateManager;
-    private readonly IStoreUpdateService _storeUpdateService;
-
-    #region Commands
 
     [RelayCommand]
     private void TodayClicked()
     {
-        _navigationDate = DateTime.Now.Date;
+        NavigateCalendarDate(_dateContextProvider.GetToday().ToDateTime(TimeOnly.MinValue));
+    }
 
-        ForceNavigateCalendarDate();
+    [RelayCommand]
+    private void PreviousDateRange()
+    {
+        NavigateRelativePeriod(-1);
+    }
+
+    [RelayCommand]
+    private void NextDateRange()
+    {
+        NavigateRelativePeriod(1);
+    }
+
+    private void NavigateRelativePeriod(int direction)
+    {
+        var today = _dateContextProvider.GetToday();
+        var settings = PreferencesService.GetCurrentCalendarSettings();
+        var referenceRange = CurrentVisibleRange
+                             ?? CalendarRangeResolver.Resolve(new CalendarDisplayRequest(StatePersistenceService.CalendarDisplayType, today), settings, today);
+        var targetRange = CalendarRangeResolver.Navigate(referenceRange, direction, settings, today);
+        NavigateCalendarDate(targetRange.AnchorDate.ToDateTime(TimeOnly.MinValue));
     }
 
     public async Task HandleNavigationItemInvokedAsync(IMenuItem menuItem)
@@ -421,7 +400,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
             }
 
             var pickingResult = await _dialogService.ShowSingleCalendarPickerDialogAsync(availableGroups);
-
             if (pickingResult.ShouldNavigateToCalendarSettings)
             {
                 NavigationService.Navigate(WinoPage.CalendarSettingsPage);
@@ -456,17 +434,9 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         }
     }
 
-
-
     [RelayCommand]
     private void DateClicked(CalendarViewDayClickedEventArgs clickedDateArgs)
-    {
-        _navigationDate = clickedDateArgs.ClickedDate;
-
-        ForceNavigateCalendarDate();
-    }
-
-    #endregion
+        => NavigateCalendarDate(clickedDateArgs.ClickedDate);
 
     protected override void RegisterRecipients()
     {
@@ -474,8 +444,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
         UnregisterRecipients();
 
-        Messenger.Register<VisibleDateRangeChangedMessage>(this);
-        Messenger.Register<CalendarEnableStatusChangedMessage>(this);
         Messenger.Register<CalendarDisplayTypeChangedMessage>(this);
         Messenger.Register<AccountRemovedMessage>(this);
     }
@@ -484,98 +452,16 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     {
         base.UnregisterRecipients();
 
-        Messenger.Unregister<VisibleDateRangeChangedMessage>(this);
-        Messenger.Unregister<CalendarEnableStatusChangedMessage>(this);
         Messenger.Unregister<CalendarDisplayTypeChangedMessage>(this);
         Messenger.Unregister<AccountRemovedMessage>(this);
     }
 
-    public void Receive(VisibleDateRangeChangedMessage message) => HighlightedDateRange = message.DateRange;
-
-    /// <summary>
-    /// Sets the header navigation items based on visible date range and calendar type.
-    /// </summary>
     private void UpdateDateNavigationHeaderItems()
     {
-        var settings = PreferencesService.GetCurrentCalendarSettings();
-        var cultureInfo = settings.CultureInfo ?? CultureInfo.CurrentUICulture;
-
-        var visibleRange = HighlightedDateRange ?? new DateRange(DateTime.Today, DateTime.Today.AddDays(1));
-        var headerText = GetHeaderText(visibleRange, cultureInfo);
-
-        DateNavigationHeaderItems.ReplaceRange([headerText]);
+        var headerText = VisibleDateRangeText;
+        DateNavigationHeaderItems.ReplaceRange(string.IsNullOrWhiteSpace(headerText) ? [] : [headerText]);
         SelectedDateNavigationHeaderIndex = DateNavigationHeaderItems.Count > 0 ? 0 : -1;
     }
-
-    private string GetHeaderText(DateRange visibleRange, CultureInfo cultureInfo)
-    {
-        var startDate = visibleRange.StartDate.Date;
-        var endDate = visibleRange.EndDate.Date > startDate ? visibleRange.EndDate.Date.AddDays(-1) : startDate;
-
-        switch (StatePersistenceService.CalendarDisplayType)
-        {
-            case CalendarDisplayType.Day:
-                return startDate.ToString("MMMM d, dddd", cultureInfo);
-            case CalendarDisplayType.Week:
-            case CalendarDisplayType.WorkWeek:
-                if (startDate.Month == endDate.Month && startDate.Year == endDate.Year)
-                {
-                    return $"{startDate.ToString("MMMM d", cultureInfo)} - {endDate.ToString("%d", cultureInfo)}";
-                }
-
-                return $"{startDate.ToString("MMMM d", cultureInfo)} - {endDate.ToString("MMMM d", cultureInfo)}";
-            case CalendarDisplayType.Month:
-                return GetDominantMonthHeaderText(startDate, endDate, cultureInfo);
-            default:
-                return startDate.ToString("d", cultureInfo);
-        }
-    }
-
-    private static string GetDominantMonthHeaderText(DateTime startDate, DateTime endDate, CultureInfo cultureInfo)
-    {
-        if (endDate < startDate)
-        {
-            endDate = startDate;
-        }
-
-        var monthDayCounts = new Dictionary<(int Year, int Month), int>();
-
-        for (var day = startDate; day <= endDate; day = day.AddDays(1))
-        {
-            var key = (day.Year, day.Month);
-
-            if (monthDayCounts.TryGetValue(key, out var count))
-            {
-                monthDayCounts[key] = count + 1;
-            }
-            else
-            {
-                monthDayCounts[key] = 1;
-            }
-        }
-
-        var dominantKey = (Year: startDate.Year, Month: startDate.Month);
-        var dominantCount = -1;
-
-        foreach (var pair in monthDayCounts)
-        {
-            if (pair.Value > dominantCount)
-            {
-                dominantCount = pair.Value;
-                dominantKey = pair.Key;
-            }
-        }
-
-        return new DateTime(dominantKey.Year, dominantKey.Month, 1).ToString("Y", cultureInfo);
-    }
-
-    partial void OnHighlightedDateRangeChanged(DateRange value)
-    {
-        UpdateDateNavigationHeaderItems();
-    }
-
-    public async void Receive(CalendarEnableStatusChangedMessage message)
-        => await ExecuteUIThread(() => IsCalendarEnabled = message.IsEnabled);
 
     public void Receive(CalendarDisplayTypeChangedMessage message)
     {
@@ -615,11 +501,11 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         var exists = AccountCalendarStateService.AllCalendars
             .Any(calendar => calendar.Id == PreferencesService.DefaultNewEventCalendarId.Value);
 
-        if (exists)
-            return;
-
-        PreferencesService.NewEventButtonBehavior = NewEventButtonBehavior.AskEachTime;
-        PreferencesService.DefaultNewEventCalendarId = null;
+        if (!exists)
+        {
+            PreferencesService.NewEventButtonBehavior = NewEventButtonBehavior.AskEachTime;
+            PreferencesService.DefaultNewEventCalendarId = null;
+        }
     }
 
     private static (DateTime StartDate, DateTime EndDate) GetDefaultComposeDateRange()
@@ -650,12 +536,3 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     Task IShellClient.HandleNavigationSelectionChangedAsync(IMenuItem menuItem)
         => Task.CompletedTask;
 }
-
-
-
-
-
-
-
-
-

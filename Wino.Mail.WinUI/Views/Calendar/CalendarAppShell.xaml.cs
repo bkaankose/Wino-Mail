@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.ComponentModel;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,6 +12,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Mail.Views.Abstract;
 using Wino.Messaging.Client.Calendar;
 using Windows.System;
@@ -22,6 +24,7 @@ public sealed partial class CalendarAppShell : CalendarAppShellAbstract,
 {
     private const string STATE_HorizontalCalendar = "HorizontalCalendar";
     private const string STATE_VerticalCalendar = "VerticalCalendar";
+    private bool _isSynchronizingVisibleDateRangeCalendar;
 
     public Frame GetShellFrame() => InnerShellFrame;
 
@@ -29,12 +32,14 @@ public sealed partial class CalendarAppShell : CalendarAppShellAbstract,
     {
         InitializeComponent();
 
+        ViewModel.PropertyChanged += ViewModelPropertyChanged;
         ManageCalendarDisplayType(ViewModel.StatePersistenceService.CalendarDisplayType);
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         UpdateNavigationPaneLayout(navigationView.DisplayMode);
+        SynchronizeVisibleDateRangeCalendar();
     }
 
     private void ManageCalendarDisplayType(Core.Domain.Enums.CalendarDisplayType displayType)
@@ -49,14 +54,43 @@ public sealed partial class CalendarAppShell : CalendarAppShellAbstract,
         }
     }
 
-    private void PreviousDateClicked(object sender, RoutedEventArgs e) => WeakReferenceMessenger.Default.Send(new GoPreviousDateRequestedMessage());
+    private void PreviousDateClicked(object sender, RoutedEventArgs e)
+        => ViewModel.PreviousDateRangeCommand.Execute(null);
 
-    private void NextDateClicked(object sender, RoutedEventArgs e) => WeakReferenceMessenger.Default.Send(new GoNextDateRequestedMessage());
+    private void NextDateClicked(object sender, RoutedEventArgs e)
+        => ViewModel.NextDateRangeCommand.Execute(null);
 
     private async void NewCalendarEventNavigationItemTapped(object sender, TappedRoutedEventArgs e)
     {
         e.Handled = true;
         await InvokeNewCalendarEventAsync();
+    }
+
+    private void VisibleDateRangeCalendarViewSelectedDatesChanged(CalendarView sender, CalendarViewSelectedDatesChangedEventArgs args)
+    {
+        if (_isSynchronizingVisibleDateRangeCalendar)
+            return;
+
+        DateTimeOffset? interactedDate = null;
+
+        if (args.AddedDates.Count > 0)
+        {
+            interactedDate = args.AddedDates[0];
+        }
+        else if (args.RemovedDates.Count > 0)
+        {
+            interactedDate = args.RemovedDates[0];
+        }
+
+        if (interactedDate is null)
+            return;
+
+        var clickedArgs = new CalendarViewDayClickedEventArgs(interactedDate.Value.DateTime);
+
+        if (ViewModel.DateClickedCommand.CanExecute(clickedArgs))
+        {
+            ViewModel.DateClickedCommand.Execute(clickedArgs);
+        }
     }
 
     private async void NewCalendarEventNavigationItemKeyDown(object sender, KeyRoutedEventArgs e)
@@ -102,6 +136,15 @@ public sealed partial class CalendarAppShell : CalendarAppShellAbstract,
     public void Receive(CalendarDisplayTypeChangedMessage message)
     {
         ManageCalendarDisplayType(message.NewDisplayType);
+        SynchronizeVisibleDateRangeCalendar();
+    }
+
+    private void ViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(ViewModel.CurrentVisibleRange) or nameof(ViewModel.VisibleDateRangeText))
+        {
+            SynchronizeVisibleDateRangeCalendar();
+        }
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
@@ -225,5 +268,40 @@ public sealed partial class CalendarAppShell : CalendarAppShellAbstract,
             Windows.System.VirtualKey.RightWindows => string.Empty,
             _ => key.ToString()
         };
+    }
+
+    private void SynchronizeVisibleDateRangeCalendar()
+    {
+        if (!DispatcherQueue.HasThreadAccess)
+        {
+            var enqueued = DispatcherQueue.TryEnqueue(SynchronizeVisibleDateRangeCalendar);
+
+            if (!enqueued)
+                throw new InvalidOperationException("Could not marshal visible date range calendar synchronization onto the UI thread.");
+
+            return;
+        }
+
+        _isSynchronizingVisibleDateRangeCalendar = true;
+
+        try
+        {
+            VisibleDateRangeCalendarView.SelectedDates.Clear();
+
+            var currentRange = ViewModel.CurrentVisibleRange;
+            if (currentRange == null)
+                return;
+
+            foreach (var date in currentRange.Dates)
+            {
+                VisibleDateRangeCalendarView.SelectedDates.Add(new DateTimeOffset(date.ToDateTime(TimeOnly.MinValue)));
+            }
+
+            VisibleDateRangeCalendarView.SetDisplayDate(new DateTimeOffset(currentRange.AnchorDate.ToDateTime(TimeOnly.MinValue)));
+        }
+        finally
+        {
+            _isSynchronizingVisibleDateRangeCalendar = false;
+        }
     }
 }

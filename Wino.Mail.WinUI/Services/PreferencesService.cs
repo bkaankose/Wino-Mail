@@ -396,6 +396,8 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
 
         return new CalendarSettings(FirstDayOfWeek,
                                     workingDays,
+                                    WorkingDayStart,
+                                    WorkingDayEnd,
                                     WorkingHourStart,
                                     WorkingHourEnd,
                                     HourHeight,

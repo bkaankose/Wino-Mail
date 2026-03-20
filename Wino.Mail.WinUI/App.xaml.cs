@@ -283,6 +283,8 @@ public partial class App : WinoApplication,
         services.AddTransient<IProviderService, ProviderService>();
         services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();
         services.AddSingleton<IAccountCalendarStateService, AccountCalendarStateService>();
+        services.AddSingleton<IDateContextProvider, SystemDateContextProvider>();
+        services.AddSingleton<ICalendarRangeTextFormatter, CalendarRangeTextFormatter>();
     }
 
     private void RegisterViewModels(IServiceCollection services)

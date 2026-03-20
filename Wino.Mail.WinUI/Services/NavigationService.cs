@@ -474,17 +474,14 @@ public class NavigationService : NavigationServiceBase, INavigationService
         return true;
     }
 
-    private static LoadCalendarMessage CreateLoadCalendarMessage(CalendarPageNavigationArgs args)
+    private LoadCalendarMessage CreateLoadCalendarMessage(CalendarPageNavigationArgs args)
     {
         var targetDate = args.RequestDefaultNavigation
-            ? DateTime.Now.Date
-            : args.NavigationDate;
+            ? DateOnly.FromDateTime(DateTime.Now.Date)
+            : DateOnly.FromDateTime(args.NavigationDate.Date);
 
-        var initiative = args.RequestDefaultNavigation
-            ? CalendarInitInitiative.App
-            : CalendarInitInitiative.User;
-
-        return new LoadCalendarMessage(targetDate, initiative);
+        var displayRequest = new CalendarDisplayRequest(_statePersistanceService.CalendarDisplayType, targetDate);
+        return new LoadCalendarMessage(displayRequest);
     }
 
     private bool NavigateInnerShellFrame(Frame frame, Type pageType, object? parameter, NavigationTransitionType transition)

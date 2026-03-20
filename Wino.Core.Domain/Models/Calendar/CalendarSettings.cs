@@ -7,12 +7,33 @@ namespace Wino.Core.Domain.Models.Calendar;
 
 public record CalendarSettings(DayOfWeek FirstDayOfWeek,
                                List<DayOfWeek> WorkingDays,
+                               DayOfWeek WorkWeekStart,
+                               DayOfWeek WorkWeekEnd,
                                TimeSpan WorkingHourStart,
                                TimeSpan WorkingHourEnd,
                                double HourHeight,
                                DayHeaderDisplayType DayHeaderDisplayType,
                                CultureInfo CultureInfo)
 {
+    public int WorkWeekDayCount
+    {
+        get
+        {
+            var startOffset = GetWeekOffset(WorkWeekStart);
+            var endOffset = GetWeekOffset(WorkWeekEnd);
+
+            if (endOffset < startOffset)
+            {
+                endOffset += 7;
+            }
+
+            return (endOffset - startOffset) + 1;
+        }
+    }
+
+    public int GetWeekOffset(DayOfWeek dayOfWeek)
+        => ((int)dayOfWeek - (int)FirstDayOfWeek + 7) % 7;
+
     public TimeSpan? GetTimeSpan(string selectedTime)
     {
         // Regardless of the format, we need to parse the time to a TimeSpan.

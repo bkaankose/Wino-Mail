@@ -568,11 +568,26 @@
                                 Text="{x:Bind domain:Translator.CalendarEventCompose_NewEventButton, Mode=OneTime}" />
                         </coreControls:WinoNavigationViewItem>
 
-                        <calendarControls:WinoCalendarView
-                            x:Name="CalendarView"
+                        <Border
+                            x:Name="RangeSummaryCard"
                             Grid.Row="1"
-                            HorizontalAlignment="Center"
-                            TodayBackgroundColor="{ThemeResource SystemAccentColor}" />
+                            Margin="16,0,16,12"
+                            Padding="12"
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            CornerRadius="8">
+                            <StackPanel Spacing="12">
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Text="{x:Bind ViewModel.CalendarClient.VisibleDateRangeText, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+
+                                <muxc:CalendarView
+                                    x:Name="VisibleDateRangeCalendarView"
+                                    HorizontalAlignment="Stretch"
+                                    SelectionMode="Multiple"
+                                    SelectedDatesChanged="VisibleDateRangeCalendarViewSelectedDatesChanged" />
+                            </StackPanel>
+                        </Border>
 
                         <ListView
                             x:Name="CalendarHostListView"
@@ -764,7 +779,7 @@
                     <VisualState.Setters>
                         <Setter Target="ShellContentArea.Visibility" Value="Collapsed" />
                         <Setter Target="CalendarTypeSelector.Visibility" Value="Collapsed" />
-                        <Setter Target="CalendarView.IsEnabled" Value="False" />
+                        <Setter Target="RangeSummaryCard.IsEnabled" Value="False" />
                         <Setter Target="CalendarHostListView.IsEnabled" Value="False" />
                     </VisualState.Setters>
                 </VisualState>

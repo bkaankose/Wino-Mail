@@ -1,13 +1,10 @@
-﻿using System;
-using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Calendar;
 
 namespace Wino.Messaging.Client.Calendar;
 
 /// <summary>
-/// Raised when a new calendar range is requested for drawing.
+/// Raised when a new calendar display range is requested.
 /// </summary>
-/// <param name="DisplayType">Type of the calendar.</param>
-/// <param name="DisplayDate">Exact date to highlight.</param>
-/// <param name="DayDisplayCount">How many days to load with Day calendar display type.</param>
-/// <param name="ForceRedraw">Remove all days and force re-render of everything. Used when settings are updated.</param>
-public record LoadCalendarMessage(DateTime DisplayDate, CalendarInitInitiative CalendarInitInitiative, bool ForceRedraw = false);
+/// <param name="DisplayRequest">Display type and anchor date to resolve.</param>
+/// <param name="ForceReload">Force a reload even if the resolved range did not change.</param>
+public record LoadCalendarMessage(CalendarDisplayRequest DisplayRequest, bool ForceReload = false);

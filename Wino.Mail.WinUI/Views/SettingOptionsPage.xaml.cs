@@ -1,6 +1,6 @@
+using CommunityToolkit.WinUI.Controls;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using CommunityToolkit.WinUI.Controls;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Core.ViewModels.Data;
@@ -49,11 +49,6 @@ public sealed partial class SettingOptionsPage : SettingOptionsPageAbstract
     private void AddAccountSettingClicked(object sender, RoutedEventArgs e)
     {
         ViewModel.NavigateToAddAccount();
-    }
-
-    private void WinoAccountManagementClicked(object sender, RoutedEventArgs e)
-    {
-        ViewModel.NavigateToWinoAccountManagementCommand.Execute(null);
     }
 
     private void SettingsSearchTextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)

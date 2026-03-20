@@ -49,9 +49,12 @@ public interface ICalendarShellClient : IShellClient
     IStatePersistanceService StatePersistenceService { get; }
     IEnumerable DateNavigationHeaderItems { get; }
     int SelectedDateNavigationHeaderIndex { get; }
-    DateRange? HighlightedDateRange { get; }
+    VisibleDateRange? CurrentVisibleRange { get; }
+    string VisibleDateRangeText { get; }
     ICommand TodayClickedCommand { get; }
     ICommand DateClickedCommand { get; }
+    ICommand PreviousDateRangeCommand { get; }
+    ICommand NextDateRangeCommand { get; }
     IEnumerable GroupedAccountCalendars { get; }
 }
 

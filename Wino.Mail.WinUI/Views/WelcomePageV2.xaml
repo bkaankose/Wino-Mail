@@ -3,7 +3,6 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
-    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -93,8 +92,13 @@
                                         Grid.Column="1"
                                         VerticalAlignment="Center"
                                         Spacing="8">
-                                        <controls:MarkdownTextBlock Text="{x:Bind Title, Mode=OneTime}" />
-                                        <controls:MarkdownTextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind Description, Mode=OneTime}" />
+                                        <TextBlock
+                                            Text="{x:Bind Title, Mode=OneTime}"
+                                            TextWrapping="WrapWholeWords" />
+                                        <TextBlock
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Text="{x:Bind Description, Mode=OneTime}"
+                                            TextWrapping="WrapWholeWords" />
                                     </StackPanel>
                                 </Grid>
                             </DataTemplate>

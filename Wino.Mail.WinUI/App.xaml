@@ -116,12 +116,9 @@
 
                 <ResourceDictionary Source="Styles/CalendarThemeResources.xaml" />
 
-                <ResourceDictionary Source="Styles/WinoDayTimelineCanvas.xaml" />
-                <ResourceDictionary Source="Styles/WinoCalendarView.xaml" />
                 <ResourceDictionary Source="Styles/WinoCalendarTypeSelectorControl.xaml" />
 
                 <styles:WinoExpanderStyle />
-                <styles:WinoCalendarResources />
                 <ResourceDictionary Source="Styles/CalendarShellNavigationViewStyle.xaml" />
                 <ResourceDictionary Source="AppThemes/Default.xaml" />
             </ResourceDictionary.MergedDictionaries>
