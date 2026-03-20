@@ -9,7 +9,6 @@
     xmlns:helpers="using:Wino.Helpers"
     xmlns:local="using:Wino.Mail.WinUI"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:notifyicon="using:H.NotifyIcon"
     xmlns:syncModels="using:Wino.Core.Domain.Models.Synchronization"
     xmlns:winuiex="using:WinUIEx"
     Title="ShellWindow"
@@ -185,22 +184,5 @@
             VerticalAlignment="Top"
             IsClosable="False"
             IsOpen="False" />
-
-        <notifyicon:TaskbarIcon
-            x:Name="SystemTrayIcon"
-            ContextMenuMode="PopupMenu"
-            DoubleClickCommand="{x:Bind RestoreCurrentModeCommand}"
-            IconSource="/Assets/Wino_Icon.ico"
-            NoLeftClickDelay="True">
-            <notifyicon:TaskbarIcon.ContextFlyout>
-                <MenuFlyout AreOpenCloseAnimationsEnabled="False">
-                    <MenuFlyoutItem Command="{x:Bind ShowWinoCommand}" Text="{x:Bind domain:Translator.SystemTrayMenu_ShowWino}" />
-                    <MenuFlyoutItem Command="{x:Bind ShowWinoCalendarCommand}" Text="{x:Bind domain:Translator.SystemTrayMenu_ShowWinoCalendar}" />
-                    <!--<MenuFlyoutItem Command="{x:Bind ShowWinoContactsCommand}" Text="{x:Bind domain:Translator.SystemTrayMenu_ShowWinoContacts}" />-->
-                    <MenuFlyoutSeparator />
-                    <MenuFlyoutItem Command="{x:Bind ExitWinoCommand}" Text="{x:Bind domain:Translator.SystemTrayMenu_ExitWino}" />
-                </MenuFlyout>
-            </notifyicon:TaskbarIcon.ContextFlyout>
-        </notifyicon:TaskbarIcon>
     </Grid>
 </winuiex:WindowEx>

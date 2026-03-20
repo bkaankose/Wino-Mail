@@ -19,7 +19,7 @@
         <StackPanel
             MaxWidth="480"
             Margin="0,24,0,24"
-            HorizontalAlignment="Center"
+            HorizontalAlignment="Stretch"
             Spacing="20">
 
             <!--  Title  -->
@@ -78,15 +78,14 @@
 
             <!--  Provider List  -->
             <ItemsView
+                HorizontalContentAlignment="Stretch"
                 ItemsSource="{x:Bind ViewModel.Providers, Mode=OneWay}"
                 SelectionChanged="ProviderSelectionChanged"
                 SelectionMode="Single">
-                <ItemsView.Layout>
-                    <UniformGridLayout Orientation="Vertical" />
-                </ItemsView.Layout>
+
                 <ItemsView.ItemTemplate>
                     <DataTemplate x:DataType="interfaces:IProviderDetail">
-                        <ItemContainer Padding="12,10">
+                        <ItemContainer Padding="12,10" HorizontalAlignment="Stretch">
                             <Grid Padding="16" ColumnSpacing="12">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />

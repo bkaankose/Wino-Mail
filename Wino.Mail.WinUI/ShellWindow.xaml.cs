@@ -2,7 +2,6 @@ using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,12 +39,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     private IMailDialogService MailDialogService { get; } = WinoApplication.Current.Services.GetRequiredService<IMailDialogService>();
     private IWinoAccountProfileService WinoAccountProfileService { get; } = WinoApplication.Current.Services.GetRequiredService<IWinoAccountProfileService>();
 
-    public ICommand ShowWinoCommand { get; set; }
-    public ICommand ShowWinoCalendarCommand { get; set; }
-    public ICommand ShowWinoContactsCommand { get; set; }
-    public ICommand RestoreCurrentModeCommand { get; set; }
-    public ICommand ExitWinoCommand { get; set; }
-
     public ObservableCollection<SynchronizationActionItem> SyncActionItems { get; } = new();
     private bool _calendarReminderServerStartAttempted;
 
@@ -68,16 +61,8 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         // Register global mouse button listener for back button
         RegisterMouseBackButtonListener();
 
-        ShowWinoCommand = new RelayCommand(() => RestoreAndSwitchMode(WinoApplicationMode.Mail));
-        ShowWinoCalendarCommand = new RelayCommand(() => RestoreAndSwitchMode(WinoApplicationMode.Calendar));
-        ShowWinoContactsCommand = new RelayCommand(() => RestoreAndSwitchMode(WinoApplicationMode.Contacts));
-        RestoreCurrentModeCommand = new RelayCommand(() => RestoreAndSwitchMode(StatePersistanceService.ApplicationMode));
-        ExitWinoCommand = new RelayCommand(ForceClose);
-
         this.SetIcon("Assets/Wino_Icon.ico");
         Title = StatePersistanceService.AppModeTitle;
-
-        SystemTrayIcon.ForceCreate();
     }
 
     private void ConfigureTitleBar()
@@ -274,49 +259,18 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     private void OnAppWindowClosing(object sender, Microsoft.UI.Windowing.AppWindowClosingEventArgs e)
     {
+        if ((Application.Current as App)?.IsExiting == true)
+            return;
+
         e.Cancel = true;
-        MinimizeToTray();
+        var windowManager = WinoApplication.Current.Services.GetService<IWinoWindowManager>();
+        windowManager?.HideWindow(this);
     }
 
     private void OnWindowClosed(object sender, WindowEventArgs e)
     {
-        SystemTrayIcon?.Dispose();
-    }
-
-    private void MinimizeToTray()
-    {
-        this.Hide();
-        SystemTrayIcon.ForceCreate();
-    }
-
-    private void RestoreFromTray()
-    {
-
-        this.Show();
-        BringToFront();
-    }
-
-    private void RestoreAndSwitchMode(WinoApplicationMode mode)
-    {
-        NavigationService.ChangeApplicationMode(mode);
-        RestoreFromTray();
-    }
-
-    public void ForceClose()
-    {
-        // Unsubscribe from the closing event to avoid infinite loop
         AppWindow.Closing -= OnAppWindowClosing;
-
-        // Clean up system tray
-        SystemTrayIcon?.Dispose();
-
         UnregisterRecipients();
-
-        var windowManager = WinoApplication.Current.Services.GetService<IWinoWindowManager>();
-        windowManager?.CloseAllWindows();
-
-        // Exit the application
-        Application.Current.Exit();
     }
 
     private void RegisterRecipients()

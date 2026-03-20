@@ -1,5 +1,5 @@
-using System;
 using System.Collections.Generic;
+using System;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Toolkit.Uwp.Notifications;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppLifecycle;
 using Microsoft.Windows.AppNotifications;
@@ -57,9 +58,14 @@ public partial class App : WinoApplication,
     private IPreferencesService? _preferencesService;
     private IAccountService? _accountService;
     private bool _windowManagerConfigured;
+    private bool _hasConfiguredAccounts;
+    private bool _isExiting;
     private CancellationTokenSource? _autoSynchronizationLoopCts;
     private readonly SemaphoreSlim _autoSynchronizationSemaphore = new(1, 1);
     private readonly Dictionary<Guid, int> _inboxSyncCounters = [];
+    private NativeTrayIcon? _trayIcon;
+
+    internal bool IsExiting => _isExiting;
 
     public App()
     {
@@ -115,6 +121,142 @@ public partial class App : WinoApplication,
                      ?? windowManager.GetWindow(WinoWindowKind.Welcome);
 
         InitializeNavigationDispatcher();
+    }
+
+    private void EnsureTrayIconCreated()
+    {
+        if (_trayIcon != null)
+            return;
+
+        var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "Wino_Icon.ico");
+        var dispatcherQueue = DispatcherQueue.GetForCurrentThread()
+                             ?? throw new InvalidOperationException("Tray icon must be created on a thread with a DispatcherQueue.");
+
+        _trayIcon = new NativeTrayIcon(
+            dispatcherQueue,
+            iconPath,
+            "Wino Mail",
+            BuildTrayMenu,
+            ActivatePreferredWindowAsync);
+
+        _trayIcon.Create();
+    }
+
+    private IReadOnlyList<NativeTrayIcon.NativeTrayMenuItem> BuildTrayMenu()
+    {
+        List<NativeTrayIcon.NativeTrayMenuItem> items =
+        [
+            new(Translator.SystemTrayMenu_Open, ActivatePreferredWindowAsync, IsDefault: true),
+            new(Translator.SystemTrayMenu_ShowWino, OpenMailFromTrayAsync)
+        ];
+
+        items.Add(new NativeTrayIcon.NativeTrayMenuItem(
+            Translator.SystemTrayMenu_ShowWinoCalendar,
+            OpenCalendarFromTrayAsync));
+        items.Add(new NativeTrayIcon.NativeTrayMenuItem(
+            Translator.SystemTrayMenu_ExitWino,
+            ExitApplicationAsync));
+
+        return items;
+    }
+
+    private Task ActivatePreferredWindowAsync()
+    {
+        if (!_hasConfiguredAccounts)
+            return ActivateWelcomeWindowAsync();
+
+        return ActivateShellWindowAsync(_preferencesService?.DefaultApplicationMode);
+    }
+
+    private Task OpenMailFromTrayAsync()
+        => _hasConfiguredAccounts
+            ? ActivateShellWindowAsync(WinoApplicationMode.Mail)
+            : ActivateWelcomeWindowAsync();
+
+    private Task OpenCalendarFromTrayAsync()
+        => _hasConfiguredAccounts
+            ? ActivateShellWindowAsync(WinoApplicationMode.Calendar)
+            : ActivateWelcomeWindowAsync();
+
+    private async Task ActivateWelcomeWindowAsync()
+    {
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        var welcomeWindow = windowManager.GetWindow(WinoWindowKind.Welcome) as WelcomeWindow;
+
+        if (welcomeWindow == null)
+        {
+            CreateWelcomeWindow();
+            welcomeWindow = MainWindow as WelcomeWindow;
+        }
+
+        if (welcomeWindow == null)
+            return;
+
+        windowManager.HideWindow(WinoWindowKind.Shell);
+        await ActivateWindowAsync(welcomeWindow);
+    }
+
+    private async Task ActivateShellWindowAsync(WinoApplicationMode? mode, IWinoShellWindow? existingShellWindow = null)
+    {
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        var shellWindow = existingShellWindow;
+
+        if (shellWindow == null)
+        {
+            shellWindow = windowManager.GetWindow(WinoWindowKind.Shell) as IWinoShellWindow;
+
+            if (shellWindow == null)
+            {
+                CreateWindow(null);
+                shellWindow = MainWindow as IWinoShellWindow;
+            }
+        }
+
+        if (shellWindow == null)
+            return;
+
+        if (mode.HasValue)
+            shellWindow.HandleAppActivation(GetModeLaunchArgument(mode.Value));
+
+        CloseWelcomeWindowIfPresent();
+        await ActivateWindowAsync((WindowEx)shellWindow);
+    }
+
+    private void CloseWelcomeWindowIfPresent()
+    {
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        if (windowManager.GetWindow(WinoWindowKind.Welcome) is not WelcomeWindow welcomeWindow)
+            return;
+
+        welcomeWindow.AllowClose();
+        welcomeWindow.Close();
+    }
+
+    private async Task ActivateWindowAsync(WindowEx window)
+    {
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        MainWindow = window;
+        windowManager.ActivateWindow(window);
+        await NewThemeService.ApplyThemeToActiveWindowAsync();
+    }
+
+    private Task ExitApplicationAsync()
+    {
+        ExitApplication();
+        return Task.CompletedTask;
+    }
+
+    private void ExitApplication()
+    {
+        if (_isExiting)
+            return;
+
+        _isExiting = true;
+        _trayIcon?.Dispose();
+        _trayIcon = null;
+
+        Services.GetRequiredService<IWinoWindowManager>().CloseAllWindows();
+        Application.Current.Exit();
     }
 
     public bool IsNotificationActivation(out AppNotificationActivatedEventArgs args)
@@ -228,8 +370,10 @@ public partial class App : WinoApplication,
         _accountService = Services.GetRequiredService<IAccountService>();
 
         EnsureWindowManagerConfigured();
+        EnsureTrayIconCreated();
 
         var hasAnyAccount = (await _accountService.GetAccountsAsync()).Any();
+        _hasConfiguredAccounts = hasAnyAccount;
         if (!IsStartupTaskLaunch() && !hasAnyAccount)
         {
             CreateWelcomeWindow();
@@ -254,16 +398,25 @@ public partial class App : WinoApplication,
         // Check if launched by startup task.
         bool isStartupTaskLaunch = IsStartupTaskLaunch();
 
-        // Create the window (needed for system tray icon even in startup task scenario).
-        CreateWindow(args);
+        if (isStartupTaskLaunch && !hasAnyAccount)
+        {
+            CreateWelcomeWindow();
+        }
+        else
+        {
+            CreateWindow(args);
+        }
 
         // Initialize theme service after window creation.
         // Theme service requires the window to exist to properly load and apply themes.
         await NewThemeService.InitializeAsync();
 
-        // Wino account loading and activation.
-        await LoadInitialWinoAccountAsync();
-        await HandlePostActivationAsync(AppInstance.GetCurrent().GetActivatedEventArgs());
+        if (hasAnyAccount)
+        {
+            // Wino account loading and activation.
+            await LoadInitialWinoAccountAsync();
+            await HandlePostActivationAsync(AppInstance.GetCurrent().GetActivatedEventArgs());
+        }
 
         LogActivation("Theme service initialized.");
 
@@ -477,7 +630,7 @@ public partial class App : WinoApplication,
         if (mailItem == null)
         {
             LogActivation("Mail item not found. Exiting.");
-            Application.Current.Exit();
+            ExitApplication();
             return;
         }
 
@@ -504,7 +657,7 @@ public partial class App : WinoApplication,
             if (_synchronizationManager == null)
             {
                 LogActivation("Synchronization manager is not initialized. Exiting.");
-                Application.Current.Exit();
+                ExitApplication();
                 return;
             }
 
@@ -550,7 +703,7 @@ public partial class App : WinoApplication,
             LogActivation("Toast action handling complete. Exiting app.");
 
             // Exit the app after synchronization is complete.
-            Application.Current.Exit();
+            ExitApplication();
         }
     }
 
@@ -731,6 +884,8 @@ public partial class App : WinoApplication,
 
     public void Receive(AccountCreatedMessage message)
     {
+        _hasConfiguredAccounts = true;
+
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
         var navigationService = Services.GetRequiredService<INavigationService>();
 
@@ -742,10 +897,11 @@ public partial class App : WinoApplication,
         {
             // Create and activate ShellWindow — ActiveWindowChanged fires and rebinds the dispatcher.
             CreateWindow(null);
-            windowManager.HideWindow(WinoWindowKind.Welcome);
+            CloseWelcomeWindowIfPresent();
             navigationService.ChangeApplicationMode(Core.Domain.Enums.WinoApplicationMode.Mail);
-            await NewThemeService.ApplyThemeToActiveWindowAsync();
-            MainWindow?.Activate();
+            if (MainWindow != null)
+                await ActivateWindowAsync(MainWindow);
+
             RestartAutoSynchronizationLoop();
         });
     }
@@ -761,15 +917,16 @@ public partial class App : WinoApplication,
         MainWindow?.DispatcherQueue?.TryEnqueue(async () =>
         {
             var accounts = await _accountService!.GetAccountsAsync();
-            if (accounts.Any()) return;
+            _hasConfiguredAccounts = accounts.Any();
+            if (_hasConfiguredAccounts) return;
 
             // All accounts removed — go back to welcome wizard from step 1
             Services.GetRequiredService<WelcomeWizardContext>().Reset();
             StopAutoSynchronizationLoop();
             CreateWelcomeWindow();
             windowManager.HideWindow(WinoWindowKind.Shell);
-            await NewThemeService.ApplyThemeToActiveWindowAsync();
-            MainWindow?.Activate();
+            if (MainWindow != null)
+                await ActivateWindowAsync(MainWindow);
         });
     }
 

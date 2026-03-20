@@ -223,7 +223,6 @@
 	<PackageReference Include="EmailValidation" />
 	<PackageReference Include="System.Drawing.Common" />
 	<PackageReference Include="WinUIEx" />
-	<PackageReference Include="H.NotifyIcon.WinUI" />
 	<PackageReference Include="Wino.Mail.Contracts" />
   </ItemGroup>
   <ItemGroup>
