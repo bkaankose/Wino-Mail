@@ -910,19 +910,37 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             }
         }
 
-        // Create day ranges for each flip item until we reach the total days to load.
-        int totalFlipItemCount = (int)Math.Ceiling((double)flipLoadRange.TotalDays / eachFlipItemCount);
+        List<DateRange> flipItemRanges = [];
 
-        List<DayRangeRenderModel> renderModels = new();
-
-        for (int i = 0; i < totalFlipItemCount; i++)
+        if (calendarLoadDirection == CalendarLoadDirection.Replace &&
+            StatePersistanceService.CalendarDisplayType == CalendarDisplayType.Month)
         {
-            var startDate = flipLoadRange.StartDate.AddDays(i * eachFlipItemCount);
-            var endDate = startDate.AddDays(eachFlipItemCount);
+            var previousRange = strategy.GetPreviousDateRange(flipLoadRange, StatePersistanceService.DayDisplayCount);
+            var nextRange = strategy.GetNextDateRange(flipLoadRange, StatePersistanceService.DayDisplayCount);
 
-            var range = new DateRange(startDate, endDate);
+            flipItemRanges.Add(previousRange);
+            flipItemRanges.Add(flipLoadRange);
+            flipItemRanges.Add(nextRange);
+        }
+        else
+        {
+            // Create day ranges for each flip item until we reach the total days to load.
+            int totalFlipItemCount = (int)Math.Ceiling((double)flipLoadRange.TotalDays / eachFlipItemCount);
+
+            for (int i = 0; i < totalFlipItemCount; i++)
+            {
+                var startDate = flipLoadRange.StartDate.AddDays(i * eachFlipItemCount);
+                var endDate = startDate.AddDays(eachFlipItemCount);
+
+                flipItemRanges.Add(new DateRange(startDate, endDate));
+            }
+        }
+
+        List<DayRangeRenderModel> renderModels = [];
+
+        foreach (var range in flipItemRanges)
+        {
             var renderOptions = new CalendarRenderOptions(range, CurrentSettings);
-
             var dayRangeHeaderModel = new DayRangeRenderModel(renderOptions);
             renderModels.Add(dayRangeHeaderModel);
         }

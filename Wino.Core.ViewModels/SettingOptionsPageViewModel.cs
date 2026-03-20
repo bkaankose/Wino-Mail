@@ -11,26 +11,18 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Personalization;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.Models.Translations;
 using Wino.Core.Extensions;
 using Wino.Core.ViewModels.Data;
-using Wino.Mail.Api.Contracts.Ai;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
-using Wino.Messaging.UI;
 
 namespace Wino.Core.ViewModels;
 
-public partial class SettingOptionsPageViewModel : CoreBaseViewModel,
-    IRecipient<WinoAccountProfileUpdatedMessage>,
-    IRecipient<WinoAccountProfileDeletedMessage>,
-    IRecipient<WinoAccountAddOnPurchasedMessage>
+public partial class SettingOptionsPageViewModel : CoreBaseViewModel
 {
-    private const string BuyAiPackUrl = "https://example.com/wino-ai-pack";
-
     private readonly INativeAppService _nativeAppService;
     private readonly IAccountService _accountService;
     private readonly IMimeStorageService _mimeStorageService;
@@ -39,8 +31,6 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel,
     private readonly INewThemeService _newThemeService;
     private readonly IPreferencesService _preferencesService;
     private readonly IProviderService _providerService;
-    private readonly IWinoAccountProfileService _profileService;
-    private readonly IMailDialogService _dialogService;
     private bool _isInitializingSettings;
     private bool _isAppearanceSelectionPaused;
 
@@ -92,42 +82,6 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel,
     [ObservableProperty]
     public partial bool UseAccentColor { get; set; }
 
-    // Wino Account hero card properties
-
-    [ObservableProperty]
-    public partial bool IsWinoAccountBusy { get; set; }
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsWinoAccountSignedOut))]
-    [NotifyPropertyChangedFor(nameof(CanShowBuyAiPack))]
-    public partial bool IsWinoAccountSignedIn { get; set; }
-
-    [ObservableProperty]
-    public partial string WinoAccountEmail { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string WinoAccountStatusText { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanShowBuyAiPack))]
-    public partial bool HasAiPack { get; set; }
-
-    [ObservableProperty]
-    public partial string AiPackStateText { get; set; } = Translator.WinoAccount_Management_AiPackInactive;
-
-    [ObservableProperty]
-    public partial string AiUsageSummary { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string AiBillingPeriodSummary { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial double AiUsagePercent { get; set; }
-
-    public bool IsWinoAccountSignedOut => !IsWinoAccountSignedIn;
-    public bool CanShowAiUsage => HasAiPack;
-    public bool CanShowBuyAiPack => IsWinoAccountSignedIn && !HasAiPack;
-
     public SettingOptionsPageViewModel(INativeAppService nativeAppService,
                                         IAccountService accountService,
                                         IMimeStorageService mimeStorageService,
@@ -135,9 +89,7 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel,
                                           ITranslationService translationService,
                                           INewThemeService newThemeService,
                                           IPreferencesService preferencesService,
-                                         IProviderService providerService,
-                                         IWinoAccountProfileService profileService,
-                                         IMailDialogService dialogService)
+                                         IProviderService providerService)
     {
         _nativeAppService = nativeAppService;
         _accountService = accountService;
@@ -147,8 +99,6 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel,
         _newThemeService = newThemeService;
         _preferencesService = preferencesService;
         _providerService = providerService;
-        _profileService = profileService;
-        _dialogService = dialogService;
     }
 
     public override void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -162,7 +112,6 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel,
         InitializeQuickSettings();
 
         _ = LoadDashboardAsync();
-        _ = LoadWinoAccountAsync();
     }
 
     public void UpdateSearchSuggestions(string query)
@@ -414,212 +363,6 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel,
     private async Task ApplyLanguageAsync(AppLanguageModel language)
     {
         await _translationService.InitializeLanguageAsync(language.Language);
-    }
-
-    // Wino Account message recipients
-
-    protected override void RegisterRecipients()
-    {
-        base.RegisterRecipients();
-
-        Messenger.Register<WinoAccountProfileUpdatedMessage>(this);
-        Messenger.Register<WinoAccountProfileDeletedMessage>(this);
-        Messenger.Register<WinoAccountAddOnPurchasedMessage>(this);
-    }
-
-    protected override void UnregisterRecipients()
-    {
-        base.UnregisterRecipients();
-
-        Messenger.Unregister<WinoAccountProfileUpdatedMessage>(this);
-        Messenger.Unregister<WinoAccountProfileDeletedMessage>(this);
-        Messenger.Unregister<WinoAccountAddOnPurchasedMessage>(this);
-    }
-
-    public void Receive(WinoAccountProfileUpdatedMessage message)
-        => _ = LoadWinoAccountAsync();
-
-    public void Receive(WinoAccountProfileDeletedMessage message)
-        => _ = ResetWinoAccountStateAsync();
-
-    public void Receive(WinoAccountAddOnPurchasedMessage message)
-        => _ = LoadWinoAccountAsync();
-
-    // Wino Account hero card commands and helpers
-
-    [RelayCommand]
-    private async Task WinoAccountRegisterAsync()
-    {
-        var account = await _dialogService.ShowWinoAccountRegistrationDialogAsync();
-        if (account == null) return;
-
-        _dialogService.InfoBarMessage(Translator.GeneralTitle_Info,
-                                      string.Format(Translator.WinoAccount_RegisterSuccessMessage, account.Email),
-                                      InfoBarMessageType.Success);
-        await LoadWinoAccountAsync();
-    }
-
-    [RelayCommand]
-    private async Task WinoAccountSignInAsync()
-    {
-        var account = await _dialogService.ShowWinoAccountLoginDialogAsync();
-        if (account == null) return;
-
-        _dialogService.InfoBarMessage(Translator.GeneralTitle_Info,
-                                      string.Format(Translator.WinoAccount_LoginSuccessMessage, account.Email),
-                                      InfoBarMessageType.Success);
-        await LoadWinoAccountAsync();
-    }
-
-    [RelayCommand]
-    private async Task WinoAccountSignOutAsync()
-    {
-        var account = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
-        if (account == null) return;
-
-        await _profileService.SignOutAsync().ConfigureAwait(false);
-
-        _dialogService.InfoBarMessage(Translator.GeneralTitle_Info,
-                                      string.Format(Translator.WinoAccount_SignOut_SuccessMessage, account.Email),
-                                      InfoBarMessageType.Success);
-        await ResetWinoAccountStateAsync();
-    }
-
-    [RelayCommand]
-    private async Task OpenBuyAiPackPageAsync() => await _nativeAppService.LaunchUriAsync(new Uri(BuyAiPackUrl));
-
-    [RelayCommand]
-    private void NavigateToWinoAccountManagement()
-        => NavigateSubDetail(WinoPage.WinoAccountManagementPage);
-
-    private async Task LoadWinoAccountAsync()
-    {
-        try
-        {
-            var cachedAccount = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
-            var cachedAddOns = await _profileService.GetCachedAddOnSnapshotAsync().ConfigureAwait(false);
-
-            if (cachedAccount != null)
-            {
-                await ApplyWinoAccountStateAsync(cachedAccount.Email, cachedAccount.AccountStatus).ConfigureAwait(false);
-                UpdateAiPackState(cachedAddOns);
-            }
-
-            await ExecuteUIThread(() => IsWinoAccountBusy = cachedAccount == null);
-
-            var account = await _profileService.GetAuthenticatedAccountAsync().ConfigureAwait(false);
-            if (account == null)
-            {
-                await ResetWinoAccountStateAsync();
-                return;
-            }
-
-            var aiStatusResponse = await _profileService.GetAiStatusAsync().ConfigureAwait(false);
-            var profileRefreshResult = await _profileService.RefreshProfileAsync().ConfigureAwait(false);
-
-            var resolvedAccount = profileRefreshResult.IsSuccess && profileRefreshResult.Account != null
-                ? profileRefreshResult.Account
-                : account;
-
-            await ApplyWinoAccountStateAsync(resolvedAccount.Email, resolvedAccount.AccountStatus).ConfigureAwait(false);
-
-            if (aiStatusResponse.IsSuccess)
-            {
-                UpdateAiPackState(aiStatusResponse.Result);
-            }
-            else
-            {
-                UpdateAiPackState(cachedAddOns);
-            }
-        }
-        catch
-        {
-            await ResetWinoAccountStateAsync();
-        }
-        finally
-        {
-            await ExecuteUIThread(() => IsWinoAccountBusy = false);
-        }
-    }
-
-    private async Task ApplyWinoAccountStateAsync(string email, string status)
-    {
-        await ExecuteUIThread(() =>
-        {
-            IsWinoAccountSignedIn = true;
-            WinoAccountEmail = email;
-            WinoAccountStatusText = string.Format(Translator.WinoAccount_Management_StatusLabel, status);
-        });
-    }
-
-    private async Task ResetWinoAccountStateAsync()
-    {
-        await ExecuteUIThread(() =>
-        {
-            IsWinoAccountSignedIn = false;
-            WinoAccountEmail = string.Empty;
-            WinoAccountStatusText = string.Empty;
-            HasAiPack = false;
-            AiPackStateText = Translator.WinoAccount_Management_AiPackInactive;
-            AiUsageSummary = string.Empty;
-            AiBillingPeriodSummary = string.Empty;
-            AiUsagePercent = 0;
-        });
-    }
-
-    private void UpdateAiPackState(AiStatusResultDto aiStatus)
-    {
-        UpdateAiPackState(
-            aiStatus?.HasAiPack == true,
-            aiStatus?.Used,
-            aiStatus?.MonthlyLimit,
-            aiStatus?.Remaining,
-            aiStatus?.CurrentPeriodStartUtc,
-            aiStatus?.CurrentPeriodEndUtc);
-    }
-
-    private void UpdateAiPackState(WinoAccountAddOnSnapshot addOnSnapshot)
-    {
-        var remaining = addOnSnapshot?.HasAiPack == true && addOnSnapshot.UsageLimit is int limit && addOnSnapshot.UsageCount is int used
-            ? limit - used
-            : (int?)null;
-
-        UpdateAiPackState(
-            addOnSnapshot?.HasAiPack == true,
-            addOnSnapshot?.UsageCount,
-            addOnSnapshot?.UsageLimit,
-            remaining,
-            addOnSnapshot?.BillingPeriodStartUtc,
-            addOnSnapshot?.BillingPeriodEndUtc);
-    }
-
-    private void UpdateAiPackState(bool hasAiPack, int? used, int? limit, int? remaining, DateTimeOffset? periodStart, DateTimeOffset? periodEnd)
-    {
-        var usageText = Translator.WinoAccount_Management_AiPackUnknownUsage;
-        var billingText = string.Empty;
-        var usagePercent = 0d;
-
-        if (hasAiPack && used is int usageCount && limit is int usageLimit && remaining is int remainingCount)
-        {
-            usageText = string.Format(Translator.WinoAccount_Management_AiPackUsage, usageCount, usageLimit, remainingCount);
-            usagePercent = usageLimit > 0 ? (double)usageCount / usageLimit * 100 : 0;
-        }
-
-        if (hasAiPack && periodStart is DateTimeOffset billingStart && periodEnd is DateTimeOffset billingEnd)
-        {
-            billingText = string.Format(Translator.WinoAccount_Management_AiPackBillingPeriod, billingStart.LocalDateTime, billingEnd.LocalDateTime);
-        }
-
-        _ = ExecuteUIThread(() =>
-        {
-            HasAiPack = hasAiPack;
-            AiPackStateText = hasAiPack
-                ? Translator.WinoAccount_Management_AiPackActive
-                : Translator.WinoAccount_Management_AiPackInactive;
-            AiUsageSummary = hasAiPack ? usageText : string.Empty;
-            AiBillingPeriodSummary = hasAiPack ? billingText : string.Empty;
-            AiUsagePercent = usagePercent;
-        });
     }
 
     [RelayCommand]

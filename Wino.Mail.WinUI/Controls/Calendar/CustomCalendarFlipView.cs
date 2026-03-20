@@ -38,10 +38,7 @@ public partial class CustomCalendarFlipView : FlipView
     {
         base.OnApplyTemplate();
 
-        PreviousButtonHorizontal = GetTemplateChild(PART_PreviousButtonHorizontal) as Button;
-        NextButtonHorizontal = GetTemplateChild(PART_NextButtonHorizontal) as Button;
-        PreviousButtonVertical = GetTemplateChild(PART_PreviousButtonVertical) as Button;
-        NextButtonVertical = GetTemplateChild(PART_NextButtonVertical) as Button;
+        RefreshNavigationButtons();
 
         // Hide navigation buttons
         HideButton(PreviousButtonHorizontal);
@@ -78,25 +75,47 @@ public partial class CustomCalendarFlipView : FlipView
 
     public void GoPreviousFlip()
     {
-        var previousButton = DisplayType == CalendarDisplayType.Month
-            ? PreviousButtonVertical ?? PreviousButtonHorizontal
-            : PreviousButtonHorizontal ?? PreviousButtonVertical;
-
-        if (previousButton == null) return;
-
-        var backPeer = new ButtonAutomationPeer(previousButton);
-        backPeer.Invoke();
+        InvokeNavigationButton(PreviousButtonHorizontal, PreviousButtonVertical);
     }
 
     public void GoNextFlip()
     {
-        var nextButton = DisplayType == CalendarDisplayType.Month
-            ? NextButtonVertical ?? NextButtonHorizontal
-            : NextButtonHorizontal ?? NextButtonVertical;
+        InvokeNavigationButton(NextButtonHorizontal, NextButtonVertical);
+    }
 
-        if (nextButton == null) return;
+    private void RefreshNavigationButtons()
+    {
+        PreviousButtonHorizontal = GetTemplateChild(PART_PreviousButtonHorizontal) as Button;
+        NextButtonHorizontal = GetTemplateChild(PART_NextButtonHorizontal) as Button;
+        PreviousButtonVertical = GetTemplateChild(PART_PreviousButtonVertical) as Button;
+        NextButtonVertical = GetTemplateChild(PART_NextButtonVertical) as Button;
+    }
 
-        var nextPeer = new ButtonAutomationPeer(nextButton);
-        nextPeer.Invoke();
+    private void InvokeNavigationButton(Button? primaryButton, Button? secondaryButton)
+    {
+        if (Items == null || Items.Count == 0)
+            return;
+
+        RefreshNavigationButtons();
+
+        var previousIndex = SelectedIndex;
+
+        if (TryInvokeNavigationButton(primaryButton, previousIndex))
+        {
+            return;
+        }
+
+        TryInvokeNavigationButton(secondaryButton, previousIndex);
+    }
+
+    private bool TryInvokeNavigationButton(Button? navigationButton, int previousIndex)
+    {
+        if (navigationButton == null)
+            return false;
+
+        var peer = new ButtonAutomationPeer(navigationButton);
+        peer.Invoke();
+
+        return SelectedIndex != previousIndex;
     }
 }
