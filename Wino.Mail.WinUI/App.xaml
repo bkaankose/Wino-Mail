@@ -20,6 +20,7 @@
                 <ResourceDictionary Source="/Styles/SharedStyles.xaml" />
                 <ResourceDictionary Source="/Styles/IconTemplates.xaml" />
 
+
                 <coreStyles:CustomMessageDialogStyles />
                 <coreStyles:DataTemplates />
 
@@ -109,17 +110,18 @@
                 </ResourceDictionary>
                 <ResourceDictionary Source="ms-appx:///CommunityToolkit.WinUI.Controls.Segmented/Segmented/Segmented.xaml" />
                 <ResourceDictionary Source="Controls/ListView/WinoListViewStyles.xaml" />
-                <ResourceDictionary Source="Styles/ItemContainerStyles.xaml" />
-                <ResourceDictionary Source="Styles/ImagePreviewControl.xaml" />
-                <ResourceDictionary Source="Styles/WebViewEditorControl.xaml" />
+                <ResourceDictionary Source="/Styles/ItemContainerStyles.xaml" />
+                <ResourceDictionary Source="/Styles/ImagePreviewControl.xaml" />
+                <ResourceDictionary Source="/Styles/WebViewEditorControl.xaml" />
                 <ResourceDictionary Source="Controls/ListView/WinoListViewStyles.xaml" />
 
-                <ResourceDictionary Source="Styles/CalendarThemeResources.xaml" />
+                <ResourceDictionary Source="/Styles/CalendarThemeResources.xaml" />
 
-                <ResourceDictionary Source="Styles/WinoCalendarTypeSelectorControl.xaml" />
+                <ResourceDictionary Source="/Styles/WinoCalendarTypeSelectorControl.xaml" />
 
                 <styles:WinoExpanderStyle />
-                <ResourceDictionary Source="Styles/CalendarShellNavigationViewStyle.xaml" />
+                <ResourceDictionary Source="/Styles/CalendarShellNavigationViewStyle.xaml" />
+                <ResourceDictionary Source="/Styles/CalendarViewStyles.xaml" />
                 <ResourceDictionary Source="AppThemes/Default.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>

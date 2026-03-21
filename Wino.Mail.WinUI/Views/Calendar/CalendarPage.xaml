@@ -8,35 +8,5 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Border
-        Margin="4,0,7,7"
-        BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
-        BorderThickness="1"
-        CornerRadius="7">
-        <Grid Padding="24" RowSpacing="12">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-
-            <TextBlock
-                FontSize="20"
-                FontWeight="SemiBold"
-                Text="{x:Bind ViewModel.VisibleDateRangeText, Mode=OneWay}" />
-
-            <TextBlock
-                Grid.Row="1"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Text="{x:Bind domain:Translator.SettingsCalendarSettings_Title, Mode=OneWay}" />
-
-            <Border
-                Grid.Row="2"
-                Padding="20"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                CornerRadius="8">
-                <TextBlock Text="Calendar rendering is temporarily disabled while visible date range loading is being refactored." TextWrapping="WrapWholeWords" />
-            </Border>
-        </Grid>
-    </Border>
+    <Grid />
 </abstract:CalendarPageAbstract>

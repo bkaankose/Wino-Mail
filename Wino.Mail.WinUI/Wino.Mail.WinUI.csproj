@@ -118,6 +118,7 @@
     <None Remove="ShellWindow.xaml" />
     <None Remove="Styles\CalendarShellNavigationViewStyle.xaml" />
     <None Remove="Styles\CalendarThemeResources.xaml" />
+    <None Remove="Styles\CalendarViewStyles.xaml" />
     <None Remove="Styles\DayHeaderControl.xaml" />
     <None Remove="Styles\WinoCalendarTypeSelectorControl.xaml" />
     <None Remove="Views\Calendar\CalendarAppShell.xaml" />
@@ -339,6 +340,11 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Views\Mail\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Styles\CalendarViewStyles.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
   </ItemGroup>
   <ItemGroup>
     <Page Update="Styles\CalendarShellNavigationViewStyle.xaml">

@@ -17,7 +17,6 @@ public sealed partial class CalendarPage : CalendarPageAbstract
     protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
     {
         base.OnNavigatingFrom(e);
-        Bindings.StopTracking();
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)

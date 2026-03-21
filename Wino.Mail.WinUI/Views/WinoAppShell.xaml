@@ -584,8 +584,9 @@
                                 <muxc:CalendarView
                                     x:Name="VisibleDateRangeCalendarView"
                                     HorizontalAlignment="Stretch"
+                                    SelectedDatesChanged="VisibleDateRangeCalendarViewSelectedDatesChanged"
                                     SelectionMode="Multiple"
-                                    SelectedDatesChanged="VisibleDateRangeCalendarViewSelectedDatesChanged" />
+                                    Style="{StaticResource WinoCalendarViewStyle}" />
                             </StackPanel>
                         </Border>
 
