@@ -66,6 +66,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         ViewModel.MailClient.PropertyChanged += MailClientPropertyChanged;
         ViewModel.CalendarClient.PropertyChanged += CalendarClientPropertyChanged;
         ViewModel.PropertyChanged += ViewModelPropertyChanged;
+        ViewModel.PreferencesService.PreferenceChanged += PreferencesServiceChanged;
         ViewModel.StatePersistenceService.StatePropertyChanged += StatePersistenceServiceChanged;
         CalendarTypeSelector.RegisterPropertyChangedCallback(WinoCalendarTypeSelectorControl.SelectedTypeProperty, CalendarTypeSelectorSelectedTypeChanged);
 
@@ -561,6 +562,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
         try
         {
+            VisibleDateRangeCalendarView.FirstDayOfWeek = MapFirstDayOfWeek(ViewModel.PreferencesService.FirstDayOfWeek);
             VisibleDateRangeCalendarView.SelectedDates.Clear();
 
             var currentRange = ViewModel.CalendarClient.CurrentVisibleRange;
@@ -579,6 +581,27 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
             _isSynchronizingVisibleDateRangeCalendar = false;
         }
     }
+
+    private void PreferencesServiceChanged(object? sender, string propertyName)
+    {
+        if (propertyName == nameof(IPreferencesService.FirstDayOfWeek))
+        {
+            SynchronizeVisibleDateRangeCalendar();
+        }
+    }
+
+    private static Windows.Globalization.DayOfWeek MapFirstDayOfWeek(DayOfWeek dayOfWeek)
+        => dayOfWeek switch
+        {
+            DayOfWeek.Sunday => Windows.Globalization.DayOfWeek.Sunday,
+            DayOfWeek.Monday => Windows.Globalization.DayOfWeek.Monday,
+            DayOfWeek.Tuesday => Windows.Globalization.DayOfWeek.Tuesday,
+            DayOfWeek.Wednesday => Windows.Globalization.DayOfWeek.Wednesday,
+            DayOfWeek.Thursday => Windows.Globalization.DayOfWeek.Thursday,
+            DayOfWeek.Friday => Windows.Globalization.DayOfWeek.Friday,
+            DayOfWeek.Saturday => Windows.Globalization.DayOfWeek.Saturday,
+            _ => Windows.Globalization.DayOfWeek.Monday
+        };
 
     private void ViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
