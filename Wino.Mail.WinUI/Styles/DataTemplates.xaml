@@ -8,12 +8,14 @@
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:coreSelectors="using:Wino.Mail.WinUI.Selectors"
     xmlns:coreViewModelData="using:Wino.Core.ViewModels.Data"
+    xmlns:data="using:Wino.Calendar.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:local="using:Wino.Mail.WinUI.Styles"
     xmlns:menu="using:Wino.Core.Domain.MenuItems"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:personalization="using:Wino.Mail.WinUI.Models.Personalization"
+    xmlns:selectors1="using:Wino.Selectors"
     xmlns:shared="using:Wino.Core.Domain.Entities.Shared"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
     xmlns:winuiControls="using:CommunityToolkit.WinUI.Controls">
@@ -325,6 +327,36 @@
             </TextBlock>
         </Grid>
     </DataTemplate>
+
+    <!--  ShowAs Status Stripe Templates  -->
+    <DataTemplate x:Key="FreeStripeTemplate" x:DataType="data:CalendarItemViewModel">
+        <Border Background="#4CAF50" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="TentativeStripeTemplate" x:DataType="data:CalendarItemViewModel">
+        <Border Background="#FFC107" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="BusyStripeTemplate" x:DataType="data:CalendarItemViewModel">
+        <Border Background="#F44336" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="OutOfOfficeStripeTemplate" x:DataType="data:CalendarItemViewModel">
+        <Border Background="#9C27B0" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="WorkingElsewhereStripeTemplate" x:DataType="data:CalendarItemViewModel">
+        <Border Background="#2196F3" />
+    </DataTemplate>
+
+    <!--  ShowAs Status Stripe Selector  -->
+    <selectors1:CalendarItemShowAsStripeTemplateSelector
+        x:Key="ShowAsStripeSelector"
+        BusyTemplate="{StaticResource BusyStripeTemplate}"
+        FreeTemplate="{StaticResource FreeStripeTemplate}"
+        OutOfOfficeTemplate="{StaticResource OutOfOfficeStripeTemplate}"
+        TentativeTemplate="{StaticResource TentativeStripeTemplate}"
+        WorkingElsewhereTemplate="{StaticResource WorkingElsewhereStripeTemplate}" />
 
     <!--#endregion-->
 

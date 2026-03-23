@@ -2,7 +2,9 @@
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:Wino.Mail.WinUI.Styles">
+    xmlns:data="using:Wino.Calendar.ViewModels.Data"
+    xmlns:local="using:Wino.Mail.WinUI.Styles"
+    xmlns:selectors1="using:Wino.Selectors">
 
     <Style x:Key="WinoCalendarViewStyle" TargetType="CalendarView">
         <Setter Property="BlackoutStrikethroughBrush" Value="{ThemeResource CalendarViewBlackoutStrikethroughBrush}" />
@@ -701,34 +703,6 @@
         </Setter>
     </Style>
 
-    <!--<Style x:Name="WinoCalendarViewDayItemStyle" TargetType="CalendarViewDayItem">
-        <Setter Property="MinWidth" Value="20" />
-        <Setter Property="MinHeight" Value="20" />
-        <Setter Property="Margin" Value="1" />
-        <Setter Property="Padding" Value="0,0,0,4" />
-        <Setter Property="BorderBrush" Value="Red" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="UseSystemFocusVisuals" Value="True" />
-        <Setter Property="FocusVisualMargin" Value="-3" />
-    -->
-    <!--<Setter Property="FocusVisualPrimaryBrush" Value="{ThemeResource CalendarViewFocusVisualPrimaryBrush}" />-->
-    <!--
-        <Setter Property="FocusVisualPrimaryThickness" Value="2" />
-    -->
-    <!--<Setter Property="FocusVisualSecondaryBrush" Value="{ThemeResource CalendarViewFocusVisualSecondaryBrush}" />-->
-    <!--
-        <Setter Property="FocusVisualSecondaryThickness" Value="1" />
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="CalendarViewDayItem">
-                    <Grid>
-    -->
-    <!--<TextBlock Text="a" />-->
-    <!--
-                    </Grid>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>-->
+
 
 </ResourceDictionary>

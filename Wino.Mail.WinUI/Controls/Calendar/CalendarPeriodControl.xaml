@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="Wino.Calendar.Controls.CalendarPeriodControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:Wino.Calendar.Controls"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:skia="using:SkiaSharp.Views.Windows"
+    xmlns:viewModels="using:Wino.Calendar.ViewModels.Data"
+    x:Name="Root"
+    Loaded="ControlLoaded"
+    SizeChanged="ControlSizeChanged"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <DataTemplate x:Key="CalendarEventTemplate" x:DataType="viewModels:CalendarItemViewModel">
+            <local:CalendarItemControl CalendarItem="{x:Bind}" />
+        </DataTemplate>
+
+        <DataTemplate x:Key="MonthEventTemplate" x:DataType="viewModels:CalendarItemViewModel">
+            <local:CalendarItemControl
+                Margin="0,2,0,0"
+                CalendarItem="{x:Bind}"
+                IsCustomEventArea="True" />
+        </DataTemplate>
+
+        <DataTemplate x:Key="TimedHeaderTemplate" x:DataType="local:HeaderTextLayout">
+            <TextBlock
+                Width="{x:Bind Width}"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                FontWeight="SemiBold"
+                Text="{x:Bind Text}"
+                TextAlignment="Center" />
+        </DataTemplate>
+
+        <DataTemplate x:Key="MonthHeaderTemplate" x:DataType="local:HeaderTextLayout">
+            <TextBlock
+                Width="{x:Bind Width}"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                FontWeight="SemiBold"
+                Text="{x:Bind Text}"
+                TextAlignment="Center" />
+        </DataTemplate>
+
+        <ItemsPanelTemplate x:Key="HorizontalItemsPanel">
+            <StackPanel Orientation="Horizontal" />
+        </ItemsPanelTemplate>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid x:Name="TimedRoot" Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="44" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Grid x:Name="TimedHeaderHost">
+                <skia:SKXamlCanvas x:Name="TimedHeaderCanvas" PaintSurface="TimedHeaderCanvasPaintSurface" />
+                <ItemsControl
+                    x:Name="TimedHeadersItemsControl"
+                    ItemTemplate="{StaticResource TimedHeaderTemplate}"
+                    ItemsSource="{x:Bind TimedHeaderTexts, Mode=OneWay}">
+                    <ItemsControl.ItemsPanel>
+                        <StaticResource ResourceKey="HorizontalItemsPanel" />
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+            </Grid>
+
+            <ScrollViewer
+                x:Name="TimedScrollViewer"
+                Grid.Row="1"
+                HorizontalScrollBarVisibility="Disabled"
+                VerticalScrollBarVisibility="Auto"
+                VerticalScrollMode="Enabled">
+                <Grid x:Name="TimedViewport" Height="{x:Bind TimelineHeight, Mode=OneWay}">
+                    <skia:SKXamlCanvas x:Name="TimedStructureCanvas" PaintSurface="TimedStructureCanvasPaintSurface" />
+                    <Canvas x:Name="TimedItemsCanvas" />
+                </Grid>
+            </ScrollViewer>
+        </Grid>
+
+        <Grid x:Name="MonthRoot" Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Grid Height="36">
+                <ItemsControl
+                    x:Name="MonthHeadersItemsControl"
+                    VerticalAlignment="Center"
+                    ItemTemplate="{StaticResource MonthHeaderTemplate}"
+                    ItemsSource="{x:Bind MonthHeaderTexts, Mode=OneWay}">
+                    <ItemsControl.ItemsPanel>
+                        <StaticResource ResourceKey="HorizontalItemsPanel" />
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+            </Grid>
+
+            <Grid
+                x:Name="MonthViewport"
+                Grid.Row="1"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch">
+                <skia:SKXamlCanvas x:Name="MonthStructureCanvas" PaintSurface="MonthStructureCanvasPaintSurface" />
+                <Canvas x:Name="MonthCellLabelsCanvas" />
+                <Canvas x:Name="MonthItemsCanvas" />
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

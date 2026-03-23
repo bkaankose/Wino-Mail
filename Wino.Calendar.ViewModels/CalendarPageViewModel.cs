@@ -121,6 +121,9 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     [ObservableProperty]
     public partial bool IsCalendarEnabled { get; set; } = true;
 
+    [ObservableProperty]
+    public partial IReadOnlyList<CalendarItemViewModel> CalendarItems { get; set; } = [];
+
     #endregion
 
     #region Event Details
@@ -321,6 +324,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         VisibleDateRangeText = string.Empty;
         LoadedDateWindow = null;
         _loadedCalendarItems = [];
+        CalendarItems = [];
     }
 
     public void Dispose()
@@ -586,6 +590,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
                 await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () =>
                 {
                     _loadedCalendarItems = loadedItems;
+                    CalendarItems = loadedItems;
                 }).ConfigureAwait(false);
             }
 
