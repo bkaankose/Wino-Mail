@@ -27,6 +27,9 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
     public partial bool Is24HourHeaders { get; set; }
 
     [ObservableProperty]
+    public partial bool IsWorkingHoursEnabled { get; set; }
+
+    [ObservableProperty]
     public partial TimeSpan WorkingHourStart { get; set; }
 
     [ObservableProperty]
@@ -103,6 +106,7 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
         var cultureFirstDayName = cultureInfo.DateTimeFormat.GetDayName(preferencesService.FirstDayOfWeek);
         SelectedFirstDayOfWeekIndex = DayNames.IndexOf(cultureFirstDayName);
         Is24HourHeaders = preferencesService.Prefer24HourTimeFormat;
+        IsWorkingHoursEnabled = preferencesService.IsWorkingHoursEnabled;
         WorkingHourStart = preferencesService.WorkingHourStart;
         WorkingHourEnd = preferencesService.WorkingHourEnd;
         CellHourHeight = preferencesService.HourHeight;
@@ -193,6 +197,7 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
         SaveSettings();
     }
     partial void OnSelectedFirstDayOfWeekIndexChanged(int value) => SaveSettings();
+    partial void OnIsWorkingHoursEnabledChanged(bool value) => SaveSettings();
     partial void OnWorkingHourStartChanged(TimeSpan value) => SaveSettings();
     partial void OnWorkingHourEndChanged(TimeSpan value) => SaveSettings();
     partial void OnWorkingDayStartIndexChanged(int value) => SaveSettings();
@@ -327,6 +332,7 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
         };
 
         PreferencesService.Prefer24HourTimeFormat = Is24HourHeaders;
+        PreferencesService.IsWorkingHoursEnabled = IsWorkingHoursEnabled;
         PreferencesService.WorkingHourStart = WorkingHourStart;
         PreferencesService.WorkingHourEnd = WorkingHourEnd;
         PreferencesService.HourHeight = CellHourHeight;

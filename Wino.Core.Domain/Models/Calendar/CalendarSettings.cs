@@ -7,6 +7,7 @@ namespace Wino.Core.Domain.Models.Calendar;
 
 public record CalendarSettings(DayOfWeek FirstDayOfWeek,
                                List<DayOfWeek> WorkingDays,
+                               bool IsWorkingHoursEnabled,
                                DayOfWeek WorkWeekStart,
                                DayOfWeek WorkWeekEnd,
                                TimeSpan WorkingHourStart,

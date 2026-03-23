@@ -231,6 +231,7 @@ public interface IPreferencesService : INotifyPropertyChanged
     #region Calendar
 
     DayOfWeek FirstDayOfWeek { get; set; }
+    bool IsWorkingHoursEnabled { get; set; }
     TimeSpan WorkingHourStart { get; set; }
     TimeSpan WorkingHourEnd { get; set; }
     DayOfWeek WorkingDayStart { get; set; }

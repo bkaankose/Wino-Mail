@@ -311,6 +311,12 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SaveProperty(propertyName: nameof(HourHeight), value);
     }
 
+    public bool IsWorkingHoursEnabled
+    {
+        get => _configurationService.Get(nameof(IsWorkingHoursEnabled), true);
+        set => SaveProperty(propertyName: nameof(IsWorkingHoursEnabled), value);
+    }
+
     public string CalendarTimedDayHeaderDateFormat
     {
         get => _configurationService.Get(nameof(CalendarTimedDayHeaderDateFormat), "ddd dd");
@@ -319,13 +325,13 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
 
     public TimeSpan WorkingHourStart
     {
-        get => _configurationService.Get(nameof(WorkingHourStart), new TimeSpan(8, 0, 0));
+        get => _configurationService.Get(nameof(WorkingHourStart), new TimeSpan(9, 0, 0));
         set => SaveProperty(propertyName: nameof(WorkingHourStart), value);
     }
 
     public TimeSpan WorkingHourEnd
     {
-        get => _configurationService.Get(nameof(WorkingHourEnd), new TimeSpan(17, 0, 0));
+        get => _configurationService.Get(nameof(WorkingHourEnd), new TimeSpan(18, 0, 0));
         set => SaveProperty(propertyName: nameof(WorkingHourEnd), value);
     }
 
@@ -402,6 +408,7 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
 
         return new CalendarSettings(FirstDayOfWeek,
                                     workingDays,
+                                    IsWorkingHoursEnabled,
                                     WorkingDayStart,
                                     WorkingDayEnd,
                                     WorkingHourStart,

@@ -38,55 +38,71 @@
                         HorizontalContentAlignment="Stretch"
                         VerticalContentAlignment="Stretch"
                         ContentAlignment="Vertical">
-                        <Grid RowSpacing="12">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
+                        <controls:SettingsCard.Content>
+                            <StackPanel Spacing="16">
+                                <StackPanel Spacing="6">
+                                    <TextBlock FontWeight="SemiBold" Text="Highlight working hours" />
+                                    <ToggleSwitch
+                                        IsOn="{x:Bind ViewModel.IsWorkingHoursEnabled, Mode=TwoWay}"
+                                        OffContent="Off"
+                                        OnContent="On" />
+                                </StackPanel>
 
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="50" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock
-                                    VerticalAlignment="Center"
-                                    FontWeight="Bold"
-                                    Text="From" />
-                                <ComboBox
-                                    Grid.Column="1"
-                                    ItemsSource="{x:Bind ViewModel.DayNames, Mode=OneWay}"
-                                    SelectedIndex="{x:Bind ViewModel.WorkingDayStartIndex, Mode=TwoWay}" />
-                                <TimePicker
-                                    x:Name="WorkHourStartPicker"
-                                    Grid.Column="2"
-                                    Margin="12,0"
-                                    Time="{x:Bind ViewModel.WorkingHourStart, Mode=TwoWay}" />
-                            </Grid>
+                                <Grid RowSpacing="12">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
 
-                            <Grid Grid.Row="1">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="50" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock
-                                    VerticalAlignment="Center"
-                                    FontWeight="Bold"
-                                    Text="To" />
-                                <ComboBox
-                                    Grid.Column="1"
-                                    ItemsSource="{x:Bind ViewModel.DayNames, Mode=OneWay}"
-                                    SelectedIndex="{x:Bind ViewModel.WorkingDayEndIndex, Mode=TwoWay}" />
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="50" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock
+                                            VerticalAlignment="Center"
+                                            FontWeight="Bold"
+                                            Text="From" />
+                                        <ComboBox
+                                            Grid.Column="1"
+                                            IsEnabled="{x:Bind ViewModel.IsWorkingHoursEnabled, Mode=OneWay}"
+                                            ItemsSource="{x:Bind ViewModel.DayNames, Mode=OneWay}"
+                                            SelectedIndex="{x:Bind ViewModel.WorkingDayStartIndex, Mode=TwoWay}" />
+                                        <TimePicker
+                                            x:Name="WorkHourStartPicker"
+                                            Grid.Column="2"
+                                            Margin="12,0"
+                                            IsEnabled="{x:Bind ViewModel.IsWorkingHoursEnabled, Mode=OneWay}"
+                                            Time="{x:Bind ViewModel.WorkingHourStart, Mode=TwoWay}" />
+                                    </Grid>
 
-                                <TimePicker
-                                    x:Name="WorkEndStartPicker"
-                                    Grid.Column="2"
-                                    Margin="12,0"
-                                    Time="{x:Bind ViewModel.WorkingHourEnd, Mode=TwoWay}" />
-                            </Grid>
-                        </Grid>
+                                    <Grid Grid.Row="1">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="50" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock
+                                            VerticalAlignment="Center"
+                                            FontWeight="Bold"
+                                            Text="To" />
+                                        <ComboBox
+                                            Grid.Column="1"
+                                            IsEnabled="{x:Bind ViewModel.IsWorkingHoursEnabled, Mode=OneWay}"
+                                            ItemsSource="{x:Bind ViewModel.DayNames, Mode=OneWay}"
+                                            SelectedIndex="{x:Bind ViewModel.WorkingDayEndIndex, Mode=TwoWay}" />
+
+                                        <TimePicker
+                                            x:Name="WorkEndStartPicker"
+                                            Grid.Column="2"
+                                            Margin="12,0"
+                                            IsEnabled="{x:Bind ViewModel.IsWorkingHoursEnabled, Mode=OneWay}"
+                                            Time="{x:Bind ViewModel.WorkingHourEnd, Mode=TwoWay}" />
+                                    </Grid>
+                                </Grid>
+                            </StackPanel>
+                        </controls:SettingsCard.Content>
                     </controls:SettingsCard>
                 </controls:SettingsExpander.Items>
             </controls:SettingsExpander>
@@ -177,6 +193,7 @@
                         </controls:SettingsCard.HeaderIcon>
                         <StackPanel Spacing="8">
                             <ToggleSwitch
+                                HorizontalAlignment="Right"
                                 IsOn="{x:Bind ViewModel.Is24HourHeaders, Mode=TwoWay}"
                                 OffContent="12h"
                                 OnContent="24h" />
@@ -187,19 +204,13 @@
                         </StackPanel>
                     </controls:SettingsCard>
 
-                    <controls:SettingsCard
-                        Description="{x:Bind domain:Translator.CalendarSettings_TimedDayHeaderFormat_Description}"
-                        Header="{x:Bind domain:Translator.CalendarSettings_TimedDayHeaderFormat_Header}">
+                    <controls:SettingsCard Description="{x:Bind domain:Translator.CalendarSettings_TimedDayHeaderFormat_Description}" Header="{x:Bind domain:Translator.CalendarSettings_TimedDayHeaderFormat_Header}">
                         <controls:SettingsCard.HeaderIcon>
                             <FontIcon Glyph="&#xE823;" />
                         </controls:SettingsCard.HeaderIcon>
                         <StackPanel Spacing="8">
-                            <TextBox
-                                PlaceholderText="ddd dd"
-                                Text="{x:Bind ViewModel.TimedDayHeaderDateFormat, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                            <ComboBox
-                                ItemsSource="{x:Bind ViewModel.TimedDayHeaderFormatPresets, Mode=OneWay}"
-                                SelectedIndex="{x:Bind ViewModel.SelectedTimedDayHeaderFormatPresetIndex, Mode=TwoWay}" />
+                            <TextBox PlaceholderText="ddd dd" Text="{x:Bind ViewModel.TimedDayHeaderDateFormat, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <ComboBox ItemsSource="{x:Bind ViewModel.TimedDayHeaderFormatPresets, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedTimedDayHeaderFormatPresetIndex, Mode=TwoWay}" />
                             <TextBlock
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                 Text="{x:Bind ViewModel.TimedDayHeaderFormatPreview, Mode=OneWay}"

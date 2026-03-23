@@ -171,10 +171,11 @@ public class CalendarRangeResolverTests
         return new CalendarSettings(
             firstDayOfWeek,
             [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday],
+            true,
             workWeekStart,
             workWeekEnd,
-            TimeSpan.FromHours(8),
-            TimeSpan.FromHours(17),
+            TimeSpan.FromHours(9),
+            TimeSpan.FromHours(18),
             64,
             DayHeaderDisplayType.TwentyFourHour,
             CultureInfo.GetCultureInfo(cultureName));

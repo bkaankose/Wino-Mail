@@ -402,6 +402,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         var scaleX = (float)(e.Info.Width / timedSurfaceWidth);
         var scaleY = (float)(e.Info.Height / timelineHeight);
         var dayWidth = (float)(_timedLayout.DayWidth * scaleX);
+        var isWorkingHoursEnabled = CalendarSettings?.IsWorkingHoursEnabled == true;
         var workDayStartHour = CalendarSettings?.WorkingHourStart.TotalHours ?? 9d;
         var workDayEndHour = CalendarSettings?.WorkingHourEnd.TotalHours ?? 17d;
         var intervalHeight = (float)(GetTimedGridIntervalHeight() * scaleY);
@@ -410,7 +411,8 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         for (var dayIndex = 0; dayIndex < _timedLayout.VisibleDates.Count; dayIndex++)
         {
             var x = dayIndex * dayWidth;
-            var isWorkingDay = CalendarSettings?.WorkingDays.Contains(_timedLayout.VisibleDates[dayIndex].DayOfWeek) == true;
+            var isWorkingDay = isWorkingHoursEnabled &&
+                               CalendarSettings?.WorkingDays.Contains(_timedLayout.VisibleDates[dayIndex].DayOfWeek) == true;
 
             for (var intervalIndex = 0; intervalIndex < intervalCount; intervalIndex++)
             {
