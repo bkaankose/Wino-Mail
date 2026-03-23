@@ -15,6 +15,9 @@ Wino Mail is a native Windows mail client (Windows 10 1809+ / Windows 11) replac
 # Build WinUI project (Debug x64)
 dotnet restore Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config -p:Platform=x64 -p:RuntimeIdentifier=win-x64 && dotnet build Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false
 
+# Build WinUI project with diagnostic XAML/compiler logging (use when plain build only shows "XamlCompiler.exe exited with code 1")
+dotnet build Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false "/flp:logfile=winui-build.log;verbosity=diagnostic" /bl:winui-build.binlog
+
 # Run tests (Debug x64)
 dotnet test Wino.Core.Tests/Wino.Core.Tests.csproj -c Debug /p:Platform=x64
 
@@ -36,6 +39,7 @@ dotnet restore Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config 
 - After the first restore, prefer `--no-restore` builds unless package or project references changed
 - Summarize long build logs and inspect only the files named in diagnostics instead of loading large logs into context
 - When the prompt already names likely files, types, or symbols, start there instead of re-mapping the repository
+- If a WinUI build only reports `XamlCompiler.exe exited with code 1`, rerun with the diagnostic logging command above and inspect the terminal output plus `winui-build.log` for real `WMC`/`WMC1121`/binding diagnostics before guessing
 
 ## Architecture
 
@@ -99,6 +103,7 @@ private string searchQuery = string.Empty;
 - **NEVER** create IValueConverter classes
 - WinUI 3 auto-converts bool to Visibility: `Visibility="{x:Bind IsVisible, Mode=OneWay}"`
 - Use XamlHelpers for complex conversions: `{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(Prop)}`
+- `x:Bind` does not implicitly convert `double` to `GridLength`; when binding `RowDefinition.Height` or `ColumnDefinition.Width`, use a `XamlHelpers` method such as `DoubleToGridLength(...)`
 
 ## Localization
 

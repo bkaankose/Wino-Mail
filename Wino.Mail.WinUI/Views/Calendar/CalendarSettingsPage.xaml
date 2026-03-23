@@ -175,10 +175,36 @@
                         <controls:SettingsCard.HeaderIcon>
                             <PathIcon Data="F1 M 4.921875 18.75 C 4.433594 18.75 3.966471 18.650717 3.520508 18.452148 C 3.074544 18.25358 2.683919 17.986654 2.348633 17.651367 C 2.013346 17.31608 1.746419 16.925455 1.547852 16.479492 C 1.349284 16.033529 1.25 15.566406 1.25 15.078125 L 1.25 4.921875 C 1.25 4.433594 1.349284 3.966473 1.547852 3.520508 C 1.746419 3.074545 2.013346 2.68392 2.348633 2.348633 C 2.683919 2.013348 3.074544 1.74642 3.520508 1.547852 C 3.966471 1.349285 4.433594 1.25 4.921875 1.25 L 15.078125 1.25 C 15.566406 1.25 16.033527 1.349285 16.479492 1.547852 C 16.925455 1.74642 17.31608 2.013348 17.651367 2.348633 C 17.986652 2.68392 18.25358 3.074545 18.452148 3.520508 C 18.650715 3.966473 18.75 4.433594 18.75 4.921875 L 18.75 15.078125 C 18.75 15.566406 18.650715 16.033529 18.452148 16.479492 C 18.25358 16.925455 17.986652 17.31608 17.651367 17.651367 C 17.31608 17.986654 16.925455 18.25358 16.479492 18.452148 C 16.033527 18.650717 15.566406 18.75 15.078125 18.75 Z M 2.5 10 L 17.5 10 L 17.5 4.951172 C 17.5 4.625651 17.433268 4.314779 17.299805 4.018555 C 17.16634 3.722332 16.987305 3.461914 16.762695 3.237305 C 16.538086 3.012695 16.277668 2.83366 15.981445 2.700195 C 15.685221 2.566732 15.374349 2.5 15.048828 2.5 L 4.951172 2.5 C 4.625651 2.5 4.314778 2.566732 4.018555 2.700195 C 3.722331 2.83366 3.461914 3.012695 3.237305 3.237305 C 3.012695 3.461914 2.833659 3.722332 2.700195 4.018555 C 2.566732 4.314779 2.5 4.625651 2.5 4.951172 Z " />
                         </controls:SettingsCard.HeaderIcon>
-                        <ToggleSwitch
-                            IsOn="{x:Bind ViewModel.Is24HourHeaders, Mode=TwoWay}"
-                            OffContent="12h"
-                            OnContent="24h" />
+                        <StackPanel Spacing="8">
+                            <ToggleSwitch
+                                IsOn="{x:Bind ViewModel.Is24HourHeaders, Mode=TwoWay}"
+                                OffContent="12h"
+                                OnContent="24h" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="{x:Bind ViewModel.TimedHourLabelPreview, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                        </StackPanel>
+                    </controls:SettingsCard>
+
+                    <controls:SettingsCard
+                        Description="{x:Bind domain:Translator.CalendarSettings_TimedDayHeaderFormat_Description}"
+                        Header="{x:Bind domain:Translator.CalendarSettings_TimedDayHeaderFormat_Header}">
+                        <controls:SettingsCard.HeaderIcon>
+                            <FontIcon Glyph="&#xE823;" />
+                        </controls:SettingsCard.HeaderIcon>
+                        <StackPanel Spacing="8">
+                            <TextBox
+                                PlaceholderText="ddd dd"
+                                Text="{x:Bind ViewModel.TimedDayHeaderDateFormat, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <ComboBox
+                                ItemsSource="{x:Bind ViewModel.TimedDayHeaderFormatPresets, Mode=OneWay}"
+                                SelectedIndex="{x:Bind ViewModel.SelectedTimedDayHeaderFormatPresetIndex, Mode=TwoWay}" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="{x:Bind ViewModel.TimedDayHeaderFormatPreview, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                        </StackPanel>
                     </controls:SettingsCard>
                 </controls:SettingsExpander.Items>
             </controls:SettingsExpander>
@@ -289,7 +315,7 @@
                         <StateTrigger IsActive="{x:Bind ViewModel.Is24HourHeaders, Mode=OneWay}" />
                     </VisualState.StateTriggers>
                     <VisualState.Setters>
-                        <Setter Target="WorkStartStartPicker.ClockIdentifier" Value="24HourClock" />
+                        <Setter Target="WorkHourStartPicker.ClockIdentifier" Value="24HourClock" />
                         <Setter Target="WorkEndStartPicker.ClockIdentifier" Value="24HourClock" />
                     </VisualState.Setters>
                 </VisualState>

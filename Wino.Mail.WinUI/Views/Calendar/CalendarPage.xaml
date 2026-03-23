@@ -4,16 +4,224 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Calendar.Views.Abstract"
     xmlns:calendarControls="using:Wino.Calendar.Controls"
+    xmlns:collections="using:CommunityToolkit.Mvvm.Collections"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:data="using:Wino.Calendar.ViewModels.Data"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
+    <Page.Resources>
+        <CollectionViewSource
+            x:Name="GroupedCalendarEnumerableViewSource"
+            IsSourceGrouped="True"
+            Source="{x:Bind ViewModel.AccountCalendarStateService.GroupedCalendars, Mode=OneWay}" />
+    </Page.Resources>
+
     <Grid>
-        <calendarControls:CalendarPeriodControl
-            x:Name="CalendarSurface"
-            IsEnabled="{x:Bind ViewModel.IsCalendarEnabled, Mode=OneWay}"
-            CalendarItems="{x:Bind ViewModel.CalendarItems, Mode=OneWay}"
-            CalendarSettings="{x:Bind ViewModel.CurrentSettings, Mode=OneWay}"
-            VisibleRange="{x:Bind ViewModel.CurrentVisibleRange, Mode=OneWay}" />
+        <Border
+            Margin="4,0,7,7"
+            BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="7">
+            <calendarControls:CalendarPeriodControl
+                x:Name="CalendarSurface"
+                CalendarItems="{x:Bind ViewModel.CalendarItems, Mode=OneWay}"
+                CalendarSettings="{x:Bind ViewModel.CurrentSettings, Mode=OneWay}"
+                EmptySlotTapped="CalendarSurfaceEmptySlotTapped"
+                IsEnabled="{x:Bind ViewModel.IsCalendarEnabled, Mode=OneWay}"
+                VisibleRange="{x:Bind ViewModel.CurrentVisibleRange, Mode=OneWay}" />
+        </Border>
+
+        <Canvas x:Name="CalendarOverlayCanvas" IsHitTestVisible="False">
+            <Grid
+                x:Name="TeachingTipPositionerGrid"
+                Background="Transparent"
+                IsHitTestVisible="False"
+                Visibility="Visible" />
+
+            <Popup
+                x:Name="QuickEventPopupDialog"
+                ActualPlacementChanged="PopupPlacementChanged"
+                Closed="QuickEventPopupClosed"
+                DesiredPlacement="{x:Bind helpers:XamlHelpers.GetPlaccementModeForCalendarType(ViewModel.StatePersistanceService.CalendarDisplayType), Mode=OneWay}"
+                IsLightDismissEnabled="True"
+                IsOpen="{x:Bind ViewModel.IsQuickEventDialogOpen, Mode=TwoWay}"
+                PlacementTarget="{x:Bind TeachingTipPositionerGrid}">
+                <Popup.ChildTransitions>
+                    <TransitionCollection>
+                        <PopupThemeTransition />
+                    </TransitionCollection>
+                </Popup.ChildTransitions>
+
+                <Grid
+                    MinWidth="440"
+                    MaxWidth="520"
+                    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+                    BorderBrush="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedQuickEventAccountCalendar.BackgroundColorHex), Mode=OneWay, TargetNullValue='LightGray'}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    RowSpacing="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Button
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch"
+                        Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedQuickEventAccountCalendar.BackgroundColorHex), Mode=OneWay, TargetNullValue='LightGray'}"
+                        CornerRadius="8,8,0,0">
+                        <Button.Content>
+                            <Grid
+                                Height="36"
+                                Padding="12,0"
+                                ColumnSpacing="10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(ViewModel.SelectedQuickEventAccountCalendar.BackgroundColorHex), Mode=OneWay}"
+                                    Text="{x:Bind ViewModel.SelectedQuickEventAccountCalendar.Account.Name, Mode=OneWay}" />
+
+                                <TextBlock
+                                    Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    FontWeight="SemiBold"
+                                    Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(ViewModel.SelectedQuickEventAccountCalendar.BackgroundColorHex), Mode=OneWay}"
+                                    Text="{x:Bind ViewModel.SelectedQuickEventAccountCalendarName, Mode=OneWay}"
+                                    TextTrimming="CharacterEllipsis" />
+
+                                <FontIcon
+                                    Grid.Column="2"
+                                    VerticalAlignment="Center"
+                                    Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(ViewModel.SelectedQuickEventAccountCalendar.BackgroundColorHex), Mode=OneWay}"
+                                    Glyph="&#xE70D;" />
+                            </Grid>
+                        </Button.Content>
+                        <Button.Flyout>
+                            <Flyout x:Name="QuickEventAccountSelectorFlyout" Placement="Bottom">
+                                <ListView
+                                    MaxHeight="300"
+                                    ItemsSource="{x:Bind GroupedCalendarEnumerableViewSource.View, Mode=OneWay}"
+                                    SelectedItem="{x:Bind ViewModel.SelectedQuickEventAccountCalendar, Mode=TwoWay}"
+                                    SelectionChanged="QuickEventAccountSelectorSelectionChanged">
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate x:DataType="data:AccountCalendarViewModel">
+                                            <StackPanel
+                                                Margin="0,0,16,0"
+                                                Orientation="Horizontal"
+                                                Spacing="8">
+                                                <Ellipse
+                                                    Width="14"
+                                                    Height="14"
+                                                    Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}" />
+                                                <TextBlock VerticalAlignment="Center" Text="{x:Bind Name, Mode=OneWay}" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                    <ListView.GroupStyle>
+                                        <GroupStyle>
+                                            <GroupStyle.HeaderTemplate>
+                                                <DataTemplate x:DataType="collections:IReadOnlyObservableGroup">
+                                                    <TextBlock FontWeight="SemiBold" Text="{x:Bind Key.ToString()}" />
+                                                </DataTemplate>
+                                            </GroupStyle.HeaderTemplate>
+                                        </GroupStyle>
+                                    </ListView.GroupStyle>
+                                </ListView>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+
+                    <Grid
+                        Grid.Row="1"
+                        Padding="12"
+                        RowSpacing="16">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBox
+                                FontSize="16"
+                                PlaceholderText="{x:Bind domain:Translator.QuickEventDialog_EventName}"
+                                Text="{x:Bind ViewModel.EventName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                            <CheckBox
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Content="{x:Bind domain:Translator.QuickEventDialog_IsAllDay}"
+                                IsChecked="{x:Bind ViewModel.IsAllDay, Mode=TwoWay}" />
+                        </Grid>
+
+                        <Grid Grid.Row="1" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <ComboBox
+                                IsEditable="True"
+                                IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsAllDay), Mode=OneWay}"
+                                ItemsSource="{x:Bind ViewModel.HourSelectionStrings, Mode=OneWay}"
+                                SelectedItem="{x:Bind ViewModel.SelectedStartTimeString, Mode=TwoWay}"
+                                TextSubmitted="StartTimeDurationSubmitted" />
+
+                            <TextBlock
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Text="-" />
+
+                            <ComboBox
+                                Grid.Column="2"
+                                IsEditable="True"
+                                IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsAllDay), Mode=OneWay}"
+                                ItemsSource="{x:Bind ViewModel.HourSelectionStrings, Mode=OneWay}"
+                                SelectedItem="{x:Bind ViewModel.SelectedEndTimeString, Mode=TwoWay}"
+                                TextSubmitted="EndTimeDurationSubmitted" />
+                        </Grid>
+
+                        <TextBox
+                            Grid.Row="2"
+                            PlaceholderText="{x:Bind domain:Translator.QuickEventDialog_Location}"
+                            Text="{x:Bind ViewModel.Location, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <Grid Grid.Row="3" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <!--  Command="{x:Bind ViewModel.MoreDetailsCommand}"  -->
+                            <Button HorizontalAlignment="Stretch" Content="{x:Bind domain:Translator.QuickEventDialogMoreDetailsButtonText}" />
+
+                            <Button
+                                Grid.Column="1"
+                                HorizontalAlignment="Stretch"
+                                Command="{x:Bind ViewModel.SaveQuickEventCommand}"
+                                Content="{x:Bind domain:Translator.Buttons_Save}"
+                                Style="{ThemeResource AccentButtonStyle}" />
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </Popup>
+        </Canvas>
     </Grid>
 </abstract:CalendarPageAbstract>

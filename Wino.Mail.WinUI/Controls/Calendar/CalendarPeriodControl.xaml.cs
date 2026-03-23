@@ -12,9 +12,11 @@ using Microsoft.UI.Composition;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using SkiaSharp;
 using SkiaSharp.Views.Windows;
+using Windows.Foundation;
 using Windows.UI;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain.Enums;
@@ -25,6 +27,9 @@ namespace Wino.Calendar.Controls;
 
 public sealed partial class CalendarPeriodControl : UserControl, INotifyPropertyChanged
 {
+    private const double TimedHourColumnWidth = 64d;
+    private const double TimedGridIntervalMinutes = 30d;
+    private const double TimedSelectionIntervalMinutes = 30d;
     private VisibleDateRange _currentRange = new(
         CalendarDisplayType.Month,
         DateOnly.FromDateTime(DateTime.Today),
@@ -62,6 +67,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     public CalendarPeriodControl() => InitializeComponent();
 
     public event PropertyChangedEventHandler? PropertyChanged;
+    public event EventHandler<CalendarEmptySlotTappedEventArgs>? EmptySlotTapped;
 
     private ObservableCollection<HeaderTextLayout> TimedHeaderTextsCollection { get; } = [];
     private ObservableCollection<HeaderTextLayout> MonthHeaderTextsCollection { get; } = [];
@@ -209,20 +215,22 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     {
         TimedRoot.Visibility = Visibility.Visible;
         MonthRoot.Visibility = Visibility.Collapsed;
+        ResetTimedVisualState();
 
-        TimedDayWidth = _currentRange.Dates.Count == 0 ? 0d : ActualWidth / _currentRange.Dates.Count;
-        TimedViewport.Width = ActualWidth;
+        var timedSurfaceWidth = GetTimedSurfaceWidth();
+
+        TimedDayWidth = _currentRange.Dates.Count == 0 ? 0d : timedSurfaceWidth / _currentRange.Dates.Count;
+        TimedScrollContentGrid.Width = ActualWidth;
+        TimedViewport.Width = timedSurfaceWidth;
         TimedViewport.Height = TimelineHeight;
 
-        _timedLayout = TimedCalendarLayoutCalculator.Calculate(_currentRange, CurrentItems, ActualWidth, GetHourHeight());
+        _timedLayout = TimedCalendarLayoutCalculator.Calculate(_currentRange, CurrentItems, timedSurfaceWidth, GetHourHeight());
 
         ReplaceCollection(
             TimedHeaderTextsCollection,
             _timedLayout.VisibleDates.Select(date =>
                 new HeaderTextLayout(
-                    date.ToDateTime(TimeOnly.MinValue).ToString(
-                        string.IsNullOrWhiteSpace(TimedHeaderDateFormat) ? "ddd dd" : TimedHeaderDateFormat,
-                        CalendarSettings!.CultureInfo),
+                    GetTimedHeaderText(date),
                     TimedDayWidth)));
 
         var eventTemplate = (DataTemplate)Resources["CalendarEventTemplate"];
@@ -232,6 +240,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
             item.Template = eventTemplate;
             return item;
         }));
+        RenderHourLabels();
         RenderTimedItems();
 
         TimedHeaderCanvas.Invalidate();
@@ -352,12 +361,14 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         var canvas = e.Surface.Canvas;
         canvas.Clear(SKColors.Transparent);
 
-        if (_timedLayout.VisibleDates.Count == 0 || ActualWidth <= 0)
+        var timedSurfaceWidth = GetTimedSurfaceWidth();
+
+        if (_timedLayout.VisibleDates.Count == 0 || timedSurfaceWidth <= 0)
         {
             return;
         }
 
-        var scaleX = (float)(e.Info.Width / ActualWidth);
+        var scaleX = (float)(e.Info.Width / timedSurfaceWidth);
         var height = e.Info.Height;
         var dayWidth = (float)(_timedLayout.DayWidth * scaleX);
 
@@ -373,41 +384,50 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     private void TimedStructureCanvasPaintSurface(object? sender, SKPaintSurfaceEventArgs e)
     {
         using var linePaint = CreateLinePaint();
+        using var minorLinePaint = CreateMinorLinePaint();
         using var defaultFillPaint = CreateFillPaint(GetDefaultHourBackground());
         using var workFillPaint = CreateFillPaint(GetWorkHourBackground());
         var canvas = e.Surface.Canvas;
         canvas.Clear(SKColors.Transparent);
 
-        if (_timedLayout.VisibleDates.Count == 0 || ActualWidth <= 0)
+        var timedSurfaceWidth = GetTimedSurfaceWidth();
+
+        if (_timedLayout.VisibleDates.Count == 0 || timedSurfaceWidth <= 0)
         {
             return;
         }
 
         var hourHeight = GetHourHeight();
         var timelineHeight = TimedCalendarLayoutCalculator.GetTimelineHeight(hourHeight);
-        var scaleX = (float)(e.Info.Width / ActualWidth);
+        var scaleX = (float)(e.Info.Width / timedSurfaceWidth);
         var scaleY = (float)(e.Info.Height / timelineHeight);
         var dayWidth = (float)(_timedLayout.DayWidth * scaleX);
         var workDayStartHour = CalendarSettings?.WorkingHourStart.TotalHours ?? 9d;
         var workDayEndHour = CalendarSettings?.WorkingHourEnd.TotalHours ?? 17d;
+        var intervalHeight = (float)(GetTimedGridIntervalHeight() * scaleY);
+        var intervalCount = (int)(24d * 60d / TimedGridIntervalMinutes);
 
         for (var dayIndex = 0; dayIndex < _timedLayout.VisibleDates.Count; dayIndex++)
         {
             var x = dayIndex * dayWidth;
+            var isWorkingDay = CalendarSettings?.WorkingDays.Contains(_timedLayout.VisibleDates[dayIndex].DayOfWeek) == true;
 
-            for (var hour = 0; hour < 24; hour++)
+            for (var intervalIndex = 0; intervalIndex < intervalCount; intervalIndex++)
             {
-                var y = (float)(hour * hourHeight * scaleY);
-                var scaledHourHeight = (float)(hourHeight * scaleY);
-                var fillPaint = hour >= workDayStartHour && hour < workDayEndHour ? workFillPaint : defaultFillPaint;
-                canvas.DrawRect(x, y, dayWidth, scaledHourHeight, fillPaint);
+                var intervalStartHour = (intervalIndex * TimedGridIntervalMinutes) / 60d;
+                var y = intervalIndex * intervalHeight;
+                var fillPaint = isWorkingDay && intervalStartHour >= workDayStartHour && intervalStartHour < workDayEndHour
+                    ? workFillPaint
+                    : defaultFillPaint;
+                canvas.DrawRect(x, y, dayWidth, intervalHeight, fillPaint);
             }
         }
 
-        for (var hour = 0; hour <= 24; hour++)
+        for (var intervalIndex = 0; intervalIndex <= intervalCount; intervalIndex++)
         {
-            var y = (float)(hour * hourHeight * scaleY);
-            canvas.DrawLine(0, y, e.Info.Width, y, linePaint);
+            var y = intervalIndex * intervalHeight;
+            var paint = intervalIndex % 2 == 0 ? linePaint : minorLinePaint;
+            canvas.DrawLine(0, y, e.Info.Width, y, paint);
         }
 
         for (var index = 0; index <= _timedLayout.VisibleDates.Count; index++)
@@ -472,6 +492,34 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         }
     }
 
+    private void RenderHourLabels()
+    {
+        HourLabelsCanvas.Children.Clear();
+        HourLabelsCanvas.Height = TimelineHeight;
+
+        var hourHeight = GetHourHeight();
+        var labelWidth = Math.Max(0d, TimedHourColumnWidth - 10d);
+
+        for (var hour = 0; hour <= 24; hour++)
+        {
+            var textBlock = new TextBlock
+            {
+                Width = labelWidth,
+                Text = GetTimedHourLabelText(hour),
+                TextAlignment = TextAlignment.Right,
+                Opacity = 0.72
+            };
+
+            var y = hour == 24
+                ? Math.Max(0d, TimelineHeight - 20d)
+                : Math.Max(0d, (hour * hourHeight) - 10d);
+
+            Canvas.SetLeft(textBlock, 0d);
+            Canvas.SetTop(textBlock, y);
+            HourLabelsCanvas.Children.Add(textBlock);
+        }
+    }
+
     private void RenderTimedItems()
     {
         TimedItemsCanvas.Children.Clear();
@@ -531,6 +579,70 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
             MonthItemsCanvas.Children.Add(presenter);
         }
     }
+
+    private void TimedInteractionLayerTapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (_timedLayout.VisibleDates.Count == 0 || _timedLayout.DayWidth <= 0)
+        {
+            return;
+        }
+
+        var position = e.GetPosition(TimedViewport);
+        var dayIndex = Math.Clamp((int)(position.X / _timedLayout.DayWidth), 0, _timedLayout.VisibleDates.Count - 1);
+        var intervalHeight = GetTimedSelectionIntervalHeight();
+        var slotIndex = Math.Clamp((int)(position.Y / intervalHeight), 0, (int)((24d * 60d / TimedSelectionIntervalMinutes) - 1));
+        var slotStart = TimeSpan.FromMinutes(slotIndex * TimedSelectionIntervalMinutes);
+        var clickedDate = _timedLayout.VisibleDates[dayIndex].ToDateTime(TimeOnly.MinValue).Add(slotStart);
+
+        EmptySlotTapped?.Invoke(
+            this,
+            new CalendarEmptySlotTappedEventArgs(
+                clickedDate,
+                new Point(dayIndex * _timedLayout.DayWidth, slotIndex * intervalHeight),
+                new Size(_timedLayout.DayWidth, intervalHeight)));
+    }
+
+    private void MonthInteractionLayerTapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (_monthLayout.Cells.Count == 0 || _monthLayout.CellWidth <= 0 || _monthLayout.CellHeight <= 0)
+        {
+            return;
+        }
+
+        var position = e.GetPosition(MonthViewport);
+        var column = Math.Clamp((int)(position.X / _monthLayout.CellWidth), 0, MonthCalendarLayoutCalculator.ColumnCount - 1);
+        var row = Math.Clamp((int)(position.Y / _monthLayout.CellHeight), 0, MonthCalendarLayoutCalculator.RowCount - 1);
+        var cellIndex = Math.Clamp((row * MonthCalendarLayoutCalculator.ColumnCount) + column, 0, _monthLayout.Cells.Count - 1);
+        var cell = _monthLayout.Cells[cellIndex];
+
+        EmptySlotTapped?.Invoke(
+            this,
+            new CalendarEmptySlotTappedEventArgs(
+                cell.Date.ToDateTime(TimeOnly.MinValue),
+                new Point(cell.Bounds.X, cell.Bounds.Y),
+                new Size(cell.Bounds.Width, cell.Bounds.Height)));
+    }
+
+    private double GetTimedSurfaceWidth() => Math.Max(0d, ActualWidth - TimedHourColumnWidth);
+
+    private string GetTimedHeaderText(DateOnly date)
+    {
+        if (!string.IsNullOrWhiteSpace(TimedHeaderDateFormat) && CalendarSettings is not null)
+        {
+            try
+            {
+                return date.ToDateTime(TimeOnly.MinValue).ToString(TimedHeaderDateFormat, CalendarSettings.CultureInfo);
+            }
+            catch (FormatException)
+            {
+            }
+        }
+
+        return CalendarSettings?.GetTimedDayHeaderText(date) ?? date.ToDateTime(TimeOnly.MinValue).ToString("ddd dd");
+    }
+
+    private string GetTimedHourLabelText(int hour)
+        => CalendarSettings?.GetTimedHourLabelText(hour) ?? $"{hour:00}:00";
 
     private CalendarTransitionInfo GetTransitionInfo()
     {
@@ -597,11 +709,9 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
     private void RunTimedTransition(CalendarTransitionInfo transition)
     {
-        var headerVisual = ElementCompositionPreview.GetElementVisual(TimedHeaderHost);
         var contentVisual = ElementCompositionPreview.GetElementVisual(TimedScrollViewer);
-        var compositor = headerVisual.Compositor;
+        var compositor = contentVisual.Compositor;
 
-        PrepareAnimatedVisual(headerVisual, TimedHeaderHost);
         PrepareAnimatedVisual(contentVisual, TimedScrollViewer);
 
         switch (transition.Kind)
@@ -616,6 +726,11 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
                 StartTimedRefreshTransition(compositor);
                 break;
         }
+    }
+
+    private void ResetTimedVisualState()
+    {
+        ResetAnimatedElement(TimedScrollViewer);
     }
 
     private static void StartNavigationTransition(Compositor compositor, Visual visual, int direction, double width)
@@ -644,8 +759,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         var signedTravel = direction >= 0 ? travel : -travel;
         var clipInset = (float)Math.Max(18d, Math.Min(64d, width * 0.05d));
 
-        StartTimedElementTransition(compositor, TimedHeaderHost, signedTravel * 0.45f, 0f, 0.78f, TimeSpan.FromMilliseconds(180), direction >= 0 ? 0f : clipInset, direction >= 0 ? clipInset : 0f);
-        StartTimedElementTransition(compositor, TimedScrollViewer, signedTravel, 0f, 0.68f, TimeSpan.FromMilliseconds(240), direction >= 0 ? 0f : clipInset, direction >= 0 ? clipInset : 0f);
+        StartTimedElementTransition(compositor, TimedScrollViewer, signedTravel, 0f, 0.68f, TimeSpan.FromMilliseconds(240), direction >= 0 ? 0f : clipInset, direction >= 0 ? clipInset : 0f, animateScale: false);
     }
 
     private static void StartModeTransition(Compositor compositor, Visual visual)
@@ -672,8 +786,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
     private void StartTimedModeTransition(Compositor compositor)
     {
-        StartTimedElementTransition(compositor, TimedHeaderHost, 0f, 10f, 0f, TimeSpan.FromMilliseconds(180), 0f, 0f);
-        StartTimedElementTransition(compositor, TimedScrollViewer, 0f, 18f, 0f, TimeSpan.FromMilliseconds(240), 0f, 0f);
+        StartTimedElementTransition(compositor, TimedScrollViewer, 0f, 18f, 0f, TimeSpan.FromMilliseconds(240), 0f, 0f, animateScale: false);
     }
 
     private static void StartRefreshTransition(Compositor compositor, Visual visual)
@@ -688,7 +801,6 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
     private void StartTimedRefreshTransition(Compositor compositor)
     {
-        StartOpacityTransition(compositor, ElementCompositionPreview.GetElementVisual(TimedHeaderHost), 0.86f, TimeSpan.FromMilliseconds(140));
         StartOpacityTransition(compositor, ElementCompositionPreview.GetElementVisual(TimedScrollViewer), 0.8f, TimeSpan.FromMilliseconds(160));
     }
 
@@ -700,7 +812,25 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         visual.StopAnimation(nameof(visual.Scale));
     }
 
-    private static void StartTimedElementTransition(Compositor compositor, UIElement target, float offsetX, float offsetY, float startingOpacity, TimeSpan duration, float leftInset, float rightInset)
+    private static void ResetAnimatedElement(UIElement target)
+    {
+        var visual = ElementCompositionPreview.GetElementVisual(target);
+        PrepareAnimatedVisual(visual, target);
+
+        visual.Offset = Vector3.Zero;
+        visual.Opacity = 1f;
+        visual.Scale = new Vector3(1f, 1f, 1f);
+
+        if (visual.Clip is InsetClip clip)
+        {
+            clip.StopAnimation(nameof(clip.LeftInset));
+            clip.StopAnimation(nameof(clip.RightInset));
+            clip.LeftInset = 0f;
+            clip.RightInset = 0f;
+        }
+    }
+
+    private static void StartTimedElementTransition(Compositor compositor, UIElement target, float offsetX, float offsetY, float startingOpacity, TimeSpan duration, float leftInset, float rightInset, bool animateScale = true)
     {
         var visual = ElementCompositionPreview.GetElementVisual(target);
         PrepareAnimatedVisual(visual, target);
@@ -723,11 +853,6 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         opacityAnimation.InsertKeyFrame(1f, 1f, fadeEasing);
         opacityAnimation.Duration = duration;
 
-        var scaleAnimation = compositor.CreateVector3KeyFrameAnimation();
-        scaleAnimation.InsertKeyFrame(0f, new Vector3(0.996f, 0.996f, 1f));
-        scaleAnimation.InsertKeyFrame(1f, new Vector3(1f, 1f, 1f), easing);
-        scaleAnimation.Duration = duration;
-
         var leftInsetAnimation = compositor.CreateScalarKeyFrameAnimation();
         leftInsetAnimation.InsertKeyFrame(1f, 0f, easing);
         leftInsetAnimation.Duration = duration;
@@ -738,7 +863,20 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
         visual.StartAnimation(nameof(visual.Offset), offsetAnimation);
         visual.StartAnimation(nameof(visual.Opacity), opacityAnimation);
-        visual.StartAnimation(nameof(visual.Scale), scaleAnimation);
+
+        if (animateScale)
+        {
+            var scaleAnimation = compositor.CreateVector3KeyFrameAnimation();
+            scaleAnimation.InsertKeyFrame(0f, new Vector3(0.996f, 0.996f, 1f));
+            scaleAnimation.InsertKeyFrame(1f, new Vector3(1f, 1f, 1f), easing);
+            scaleAnimation.Duration = duration;
+            visual.StartAnimation(nameof(visual.Scale), scaleAnimation);
+        }
+        else
+        {
+            visual.Scale = new Vector3(1f, 1f, 1f);
+        }
+
         clip.StartAnimation(nameof(clip.LeftInset), leftInsetAnimation);
         clip.StartAnimation(nameof(clip.RightInset), rightInsetAnimation);
     }
@@ -763,6 +901,18 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         return new SKPaint
         {
             Color = new SKColor(strokeColor.R, strokeColor.G, strokeColor.B, (byte)Math.Max(40, strokeColor.A / 2)),
+            IsAntialias = false,
+            StrokeWidth = 1
+        };
+    }
+
+    private static SKPaint CreateMinorLinePaint()
+    {
+        var strokeColor = GetStrokeColor();
+
+        return new SKPaint
+        {
+            Color = new SKColor(strokeColor.R, strokeColor.G, strokeColor.B, (byte)Math.Max(20, strokeColor.A / 4)),
             IsAntialias = false,
             StrokeWidth = 1
         };
@@ -804,6 +954,12 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
         return new SolidColorBrush(Color.FromArgb(255, 34, 40, 52));
     }
+
+    private static double GetTimedGridIntervalHeight(double hourHeight) => hourHeight * (TimedGridIntervalMinutes / 60d);
+
+    private double GetTimedGridIntervalHeight() => GetTimedGridIntervalHeight(GetHourHeight());
+
+    private double GetTimedSelectionIntervalHeight() => GetHourHeight() * (TimedSelectionIntervalMinutes / 60d);
 
     private double GetHourHeight() => CalendarSettings?.HourHeight ?? 60d;
 

@@ -42,6 +42,12 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
     public partial int WorkingDayEndIndex { get; set; }
 
     [ObservableProperty]
+    public partial string TimedDayHeaderDateFormat { get; set; } = "ddd dd";
+
+    [ObservableProperty]
+    public partial int SelectedTimedDayHeaderFormatPresetIndex { get; set; } = -1;
+
+    [ObservableProperty]
     public partial List<string> ReminderOptions { get; set; } = [];
 
     [ObservableProperty]
@@ -56,6 +62,14 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
     public ObservableCollection<MailAccount> Accounts { get; } = [];
     public ObservableCollection<CalendarNewEventBehaviorOption> NewEventBehaviorOptions { get; } = [];
     public ObservableCollection<AccountCalendarViewModel> AvailableNewEventCalendars { get; } = [];
+    public ObservableCollection<string> TimedDayHeaderFormatPresets { get; } =
+    [
+        "ddd dd",
+        "dddd dd",
+        "ddd d MMM",
+        "dd MMM ddd",
+        "M/d ddd"
+    ];
 
     [ObservableProperty]
     public partial CalendarNewEventBehaviorOption SelectedNewEventBehaviorOption { get; set; }
@@ -68,6 +82,7 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
     public IPreferencesService PreferencesService { get; }
     private readonly ICalendarService _calendarService;
     private readonly IAccountService _accountService;
+    private readonly CultureInfo _calendarCulture;
     private readonly bool _isLoaded = false;
 
     public CalendarSettingsPageViewModel(IPreferencesService preferencesService, ICalendarService calendarService, IAccountService accountService)
@@ -78,6 +93,7 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
 
         var currentLanguageLanguageCode = WinoTranslationDictionary.GetLanguageFileNameRelativePath(preferencesService.CurrentLanguage);
         var cultureInfo = new CultureInfo(currentLanguageLanguageCode);
+        _calendarCulture = cultureInfo;
 
         for (var i = 0; i < 7; i++)
         {
@@ -92,6 +108,8 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
         CellHourHeight = preferencesService.HourHeight;
         WorkingDayStartIndex = DayNames.IndexOf(cultureInfo.DateTimeFormat.GetDayName(preferencesService.WorkingDayStart));
         WorkingDayEndIndex = DayNames.IndexOf(cultureInfo.DateTimeFormat.GetDayName(preferencesService.WorkingDayEnd));
+        TimedDayHeaderDateFormat = preferencesService.CalendarTimedDayHeaderDateFormat;
+        SelectedTimedDayHeaderFormatPresetIndex = TimedDayHeaderFormatPresets.IndexOf(TimedDayHeaderDateFormat);
 
         var predefinedMinutes = _calendarService.GetPredefinedReminderMinutes();
         ReminderOptions.Add("None");
@@ -169,12 +187,52 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
     }
 
     partial void OnCellHourHeightChanged(double oldValue, double newValue) => SaveSettings();
-    partial void OnIs24HourHeadersChanged(bool value) => SaveSettings();
+    partial void OnIs24HourHeadersChanged(bool value)
+    {
+        OnPropertyChanged(nameof(TimedHourLabelPreview));
+        SaveSettings();
+    }
     partial void OnSelectedFirstDayOfWeekIndexChanged(int value) => SaveSettings();
     partial void OnWorkingHourStartChanged(TimeSpan value) => SaveSettings();
     partial void OnWorkingHourEndChanged(TimeSpan value) => SaveSettings();
     partial void OnWorkingDayStartIndexChanged(int value) => SaveSettings();
     partial void OnWorkingDayEndIndexChanged(int value) => SaveSettings();
+    partial void OnTimedDayHeaderDateFormatChanged(string value)
+    {
+        OnPropertyChanged(nameof(TimedDayHeaderFormatPreview));
+        OnPropertyChanged(nameof(TimedHourLabelPreview));
+
+        var normalizedFormat = string.IsNullOrWhiteSpace(value) ? "ddd dd" : value.Trim();
+        var matchingPresetIndex = TimedDayHeaderFormatPresets
+            .Select((format, index) => new { format, index })
+            .Where(item => string.Equals(item.format, normalizedFormat, StringComparison.Ordinal))
+            .Select(item => item.index)
+            .DefaultIfEmpty(-1)
+            .First();
+
+        if (SelectedTimedDayHeaderFormatPresetIndex != matchingPresetIndex)
+        {
+            SelectedTimedDayHeaderFormatPresetIndex = matchingPresetIndex;
+        }
+
+        SaveSettings();
+    }
+    partial void OnSelectedTimedDayHeaderFormatPresetIndexChanged(int value)
+    {
+        if (value < 0 || value >= TimedDayHeaderFormatPresets.Count)
+        {
+            return;
+        }
+
+        var selectedPreset = TimedDayHeaderFormatPresets[value];
+
+        if (string.Equals(TimedDayHeaderDateFormat, selectedPreset, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        TimedDayHeaderDateFormat = selectedPreset;
+    }
     partial void OnSelectedDefaultReminderIndexChanged(int value) => SaveSettings();
     partial void OnSelectedDefaultSnoozeIndexChanged(int value) => SaveSettings();
     partial void OnSelectedNewEventBehaviorOptionChanged(CalendarNewEventBehaviorOption value)
@@ -183,6 +241,49 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
         SaveSettings();
     }
     partial void OnSelectedNewEventCalendarChanged(AccountCalendarViewModel value) => SaveSettings();
+
+    public string TimedDayHeaderFormatPreview
+    {
+        get
+        {
+            var format = string.IsNullOrWhiteSpace(TimedDayHeaderDateFormat) ? "ddd dd" : TimedDayHeaderDateFormat.Trim();
+            var previewDates = new[]
+            {
+                new DateTime(2026, 3, 23),
+                new DateTime(2026, 3, 24),
+                new DateTime(2026, 3, 25)
+            };
+
+            try
+            {
+                return string.Join(" · ", previewDates.Select(date => date.ToString(format, _calendarCulture)));
+            }
+            catch (FormatException)
+            {
+                return string.Join(" · ", previewDates.Select(date => date.ToString("ddd dd", _calendarCulture)));
+            }
+        }
+    }
+
+    public string TimedHourLabelPreview
+    {
+        get
+        {
+            var previewHours = new[] { 0, 9, 14, 24 };
+            return string.Join("  ·  ", previewHours.Select(CurrentSettingsPreviewLabel));
+        }
+    }
+
+    private string CurrentSettingsPreviewLabel(int hour)
+    {
+        if (Is24HourHeaders)
+        {
+            return hour.ToString(_calendarCulture);
+        }
+
+        var displayHour = hour % 24;
+        return DateTime.Today.AddHours(displayHour).ToString("h tt", _calendarCulture);
+    }
 
     public void SaveSettings()
     {
@@ -229,6 +330,7 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
         PreferencesService.WorkingHourStart = WorkingHourStart;
         PreferencesService.WorkingHourEnd = WorkingHourEnd;
         PreferencesService.HourHeight = CellHourHeight;
+        PreferencesService.CalendarTimedDayHeaderDateFormat = TimedDayHeaderDateFormat;
 
         if (SelectedDefaultReminderIndex == 0)
         {

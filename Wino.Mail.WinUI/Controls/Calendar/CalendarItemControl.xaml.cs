@@ -9,8 +9,6 @@ using Microsoft.UI.Xaml.Media;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Calendar.ViewModels.Messages;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Models.Calendar;
-
 namespace Wino.Calendar.Controls;
 
 public sealed partial class CalendarItemControl : UserControl
@@ -96,7 +94,7 @@ public sealed partial class CalendarItemControl : UserControl
 
         if (isSingleTap && CalendarItem != null)
         {
-            WeakReferenceMessenger.Default.Send(new CalendarItemTappedMessage(CalendarItem, null));
+            WeakReferenceMessenger.Default.Send(new CalendarItemTappedMessage(CalendarItem));
         }
     }
 

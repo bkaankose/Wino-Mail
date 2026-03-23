@@ -311,6 +311,12 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SaveProperty(propertyName: nameof(HourHeight), value);
     }
 
+    public string CalendarTimedDayHeaderDateFormat
+    {
+        get => _configurationService.Get(nameof(CalendarTimedDayHeaderDateFormat), "ddd dd");
+        set => SaveProperty(propertyName: nameof(CalendarTimedDayHeaderDateFormat), string.IsNullOrWhiteSpace(value) ? "ddd dd" : value.Trim());
+    }
+
     public TimeSpan WorkingHourStart
     {
         get => _configurationService.Get(nameof(WorkingHourStart), new TimeSpan(8, 0, 0));
@@ -402,7 +408,8 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
                                     WorkingHourEnd,
                                     HourHeight,
                                     Prefer24HourTimeFormat ? DayHeaderDisplayType.TwentyFourHour : DayHeaderDisplayType.TwelveHour,
-                                    new CultureInfo(WinoTranslationDictionary.GetLanguageFileNameRelativePath(CurrentLanguage)));
+                                    new CultureInfo(WinoTranslationDictionary.GetLanguageFileNameRelativePath(CurrentLanguage)),
+                                    CalendarTimedDayHeaderDateFormat);
     }
 
     private List<DayOfWeek> GetDaysBetween(DayOfWeek startDay, DayOfWeek endDay)

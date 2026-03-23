@@ -76,6 +76,7 @@ public static class ControlConstants
         { WinoIconGlyph.CalendarToday, "\uE911" },
         { WinoIconGlyph.CalendarDay, "\uE913" },
         { WinoIconGlyph.CalendarWeek, "\uE914" },
+        { WinoIconGlyph.CalendarWorkWeek, "\uE914" },
         { WinoIconGlyph.CalendarMonth, "\uE91c" },
         { WinoIconGlyph.CalendarYear, "\uE917" },
         { WinoIconGlyph.WeatherBlow, "\uE907" },

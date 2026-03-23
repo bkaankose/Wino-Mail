@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:helpers="using:Wino.Helpers"
     xmlns:local="using:Wino.Calendar.Controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:skia="using:SkiaSharp.Views.Windows"
@@ -53,14 +54,34 @@
     <Grid>
         <Grid x:Name="TimedRoot" Visibility="Collapsed">
             <Grid.RowDefinitions>
-                <RowDefinition Height="44" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="64" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
 
-            <Grid x:Name="TimedHeaderHost">
+            <Border
+                x:Name="TimedHourHeaderHost"
+                Grid.Row="0"
+                Grid.Column="0"
+                Height="44"
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="0,0,1,1" />
+
+            <Grid
+                x:Name="TimedHeaderHost"
+                Grid.Row="0"
+                Grid.ColumnSpan="2"
+                Margin="64,0,0,0"
+                Height="44"
+                Background="{ThemeResource LayerFillColorDefaultBrush}">
                 <skia:SKXamlCanvas x:Name="TimedHeaderCanvas" PaintSurface="TimedHeaderCanvasPaintSurface" />
                 <ItemsControl
                     x:Name="TimedHeadersItemsControl"
+                    HorizontalContentAlignment="Stretch"
                     ItemTemplate="{StaticResource TimedHeaderTemplate}"
                     ItemsSource="{x:Bind TimedHeaderTexts, Mode=OneWay}">
                     <ItemsControl.ItemsPanel>
@@ -69,17 +90,42 @@
                 </ItemsControl>
             </Grid>
 
-            <ScrollViewer
-                x:Name="TimedScrollViewer"
+            <Grid
                 Grid.Row="1"
-                HorizontalScrollBarVisibility="Disabled"
-                VerticalScrollBarVisibility="Auto"
-                VerticalScrollMode="Enabled">
-                <Grid x:Name="TimedViewport" Height="{x:Bind TimelineHeight, Mode=OneWay}">
-                    <skia:SKXamlCanvas x:Name="TimedStructureCanvas" PaintSurface="TimedStructureCanvasPaintSurface" />
-                    <Canvas x:Name="TimedItemsCanvas" />
-                </Grid>
-            </ScrollViewer>
+                Grid.ColumnSpan="2"
+                Background="Transparent">
+                <ScrollViewer
+                    x:Name="TimedScrollViewer"
+                    Background="Transparent"
+                    HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto"
+                    VerticalScrollMode="Enabled">
+                    <Grid x:Name="TimedScrollContentGrid" Height="{x:Bind TimelineHeight, Mode=OneWay}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="64" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Canvas
+                            x:Name="HourLabelsCanvas"
+                            Width="64"
+                            IsHitTestVisible="False" />
+
+                        <Grid
+                            x:Name="TimedViewport"
+                            Grid.Column="1"
+                            Height="{x:Bind TimelineHeight, Mode=OneWay}">
+                            <skia:SKXamlCanvas x:Name="TimedStructureCanvas" PaintSurface="TimedStructureCanvasPaintSurface" />
+                            <Border
+                                x:Name="TimedInteractionLayer"
+                                Background="Transparent"
+                                Tapped="TimedInteractionLayerTapped" />
+                            <Canvas x:Name="TimedItemsCanvas" />
+                        </Grid>
+                    </Grid>
+                </ScrollViewer>
+            </Grid>
+
         </Grid>
 
         <Grid x:Name="MonthRoot" Visibility="Collapsed">
@@ -106,7 +152,11 @@
                 HorizontalAlignment="Stretch"
                 VerticalAlignment="Stretch">
                 <skia:SKXamlCanvas x:Name="MonthStructureCanvas" PaintSurface="MonthStructureCanvasPaintSurface" />
-                <Canvas x:Name="MonthCellLabelsCanvas" />
+                <Border
+                    x:Name="MonthInteractionLayer"
+                    Background="Transparent"
+                    Tapped="MonthInteractionLayerTapped" />
+                <Canvas x:Name="MonthCellLabelsCanvas" IsHitTestVisible="False" />
                 <Canvas x:Name="MonthItemsCanvas" />
             </Grid>
         </Grid>

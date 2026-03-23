@@ -201,7 +201,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
         if (ViewModel.IsCalendarMode)
         {
-            ViewModel.StatePersistenceService.CoreWindowTitle = ViewModel.CalendarClient.VisibleDateRangeText ?? string.Empty;
+            ViewModel.StatePersistenceService.CoreWindowTitle = string.Empty;
             return;
         }
 
