@@ -31,10 +31,13 @@
             VerticalContentAlignment="Stretch"
             BackRequested="BackButtonClicked"
             Background="Transparent"
-            IsBackButtonVisible="{x:Bind StatePersistanceService.IsBackButtonVisible, Mode=OneWay}"
             IsPaneToggleButtonVisible="True"
             PaneToggleRequested="PaneButtonClicked"
             Subtitle="{x:Bind StatePersistanceService.CoreWindowTitle, Mode=OneWay}">
+            <TitleBar.Resources>
+                <HorizontalAlignment x:Key="TitleBarContentHorizontalAlignment">Stretch</HorizontalAlignment>
+                <VerticalAlignment x:Key="TitleBarContentVerticalAlignment">Stretch</VerticalAlignment>
+            </TitleBar.Resources>
             <TitleBar.RightHeader>
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <Button

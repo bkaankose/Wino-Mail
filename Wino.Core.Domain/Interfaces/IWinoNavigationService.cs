@@ -13,5 +13,6 @@ public interface INavigationService
 
     Type GetPageType(WinoPage winoPage);
     bool ChangeApplicationMode(WinoApplicationMode mode);
+    bool CanGoBack();
     void GoBack(NavigationTransitionEffect slideEffect = NavigationTransitionEffect.FromRight);
 }

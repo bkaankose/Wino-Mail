@@ -32,23 +32,12 @@ public class StatePersistenceService : ObservableObject, IStatePersistanceServic
 
     private void ServicePropertyChanged(object? sender, PropertyChangedEventArgs e) => StatePropertyChanged?.Invoke(this, e?.PropertyName ?? string.Empty);
 
-    public bool IsBackButtonVisible =>
-        ApplicationMode == WinoApplicationMode.Mail
-            ? (IsReadingMail && IsReaderNarrowed) || HasCurrentModeBackStack
-            : HasCurrentModeBackStack;
-
     private WinoApplicationMode applicationMode = WinoApplicationMode.Mail;
 
     public WinoApplicationMode ApplicationMode
     {
         get => applicationMode;
-        set
-        {
-            if (SetProperty(ref applicationMode, value))
-            {
-                OnPropertyChanged(nameof(IsBackButtonVisible));
-            }
-        }
+        set => SetProperty(ref applicationMode, value);
     }
 
     private bool isEventDetailsVisible;
@@ -60,24 +49,8 @@ public class StatePersistenceService : ObservableObject, IStatePersistanceServic
         {
             if (SetProperty(ref isEventDetailsVisible, value))
             {
-                OnPropertyChanged(nameof(IsBackButtonVisible));
-
                 IsReaderNarrowed = value;
                 IsReadingMail = value;
-            }
-        }
-    }
-
-    private bool hasCurrentModeBackStack;
-
-    public bool HasCurrentModeBackStack
-    {
-        get => hasCurrentModeBackStack;
-        set
-        {
-            if (SetProperty(ref hasCurrentModeBackStack, value))
-            {
-                OnPropertyChanged(nameof(IsBackButtonVisible));
             }
         }
     }
@@ -87,13 +60,7 @@ public class StatePersistenceService : ObservableObject, IStatePersistanceServic
     public bool IsReadingMail
     {
         get => isReadingMail;
-        set
-        {
-            if (SetProperty(ref isReadingMail, value))
-            {
-                OnPropertyChanged(nameof(IsBackButtonVisible));
-            }
-        }
+        set => SetProperty(ref isReadingMail, value);
     }
 
     private bool shouldShiftMailRenderingDesign;
@@ -109,13 +76,7 @@ public class StatePersistenceService : ObservableObject, IStatePersistanceServic
     public bool IsReaderNarrowed
     {
         get => isReaderNarrowed;
-        set
-        {
-            if (SetProperty(ref isReaderNarrowed, value))
-            {
-                OnPropertyChanged(nameof(IsBackButtonVisible));
-            }
-        }
+        set => SetProperty(ref isReaderNarrowed, value);
     }
 
     private string coreWindowTitle = string.Empty;

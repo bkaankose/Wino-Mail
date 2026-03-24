@@ -77,9 +77,6 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         // Unregister frame navigation event
         SettingsFrame.Navigated -= SettingsFrameNavigated;
 
-        // Reset navigation state when leaving SettingsPage
-        ViewModel.StatePersistenceService.HasCurrentModeBackStack = false;
-
         base.OnNavigatingFrom(e);
     }
 
@@ -225,8 +222,10 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
     private void UpdateBackNavigationState()
     {
-        ViewModel.StatePersistenceService.HasCurrentModeBackStack = PageHistory.Count > 1 && SettingsFrame.CanGoBack;
+        WeakReferenceMessenger.Default.Send(new TitleBarShellContentUpdated());
     }
+
+    public bool CanNavigateBack => PageHistory.Count > 1 && SettingsFrame.CanGoBack;
 
     private async Task RefreshCurrentPageStateAsync()
     {

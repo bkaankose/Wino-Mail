@@ -29,11 +29,6 @@ public interface IStatePersistanceService : INotifyPropertyChanged
     bool IsReaderNarrowed { get; set; }
 
     /// <summary>
-    /// Should display back button on the shell title bar.
-    /// </summary>
-    bool IsBackButtonVisible { get; }
-
-    /// <summary>
     /// Current application mode (Mail or Calendar).
     /// Not persisted to configuration, only kept in memory.
     /// </summary>
@@ -43,11 +38,6 @@ public interface IStatePersistanceService : INotifyPropertyChanged
     /// Whether event details page is visible in Calendar mode.
     /// </summary>
     bool IsEventDetailsVisible { get; set; }
-
-    /// <summary>
-    /// Whether the current application mode has an active backstack that can be navigated.
-    /// </summary>
-    bool HasCurrentModeBackStack { get; set; }
 
     /// <summary>
     /// Setting: Opened pane length for the navigation view.

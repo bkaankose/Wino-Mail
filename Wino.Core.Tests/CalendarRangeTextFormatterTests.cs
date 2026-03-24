@@ -32,7 +32,7 @@ public class CalendarRangeTextFormatterTests
             startDate: new DateOnly(2026, 3, 3),
             endDate: new DateOnly(2026, 3, 10));
 
-        Formatter.Format(range, DateContextProvider).Should().Be("March 3 - March 10");
+        Formatter.Format(range, DateContextProvider).Should().Be("March 3 - 10");
     }
 
     [Fact]

@@ -157,7 +157,6 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private void ResetShellModeNavigationState()
     {
-        ViewModel.StatePersistenceService.HasCurrentModeBackStack = false;
         InnerShellFrame.BackStack.Clear();
         InnerShellFrame.ForwardStack.Clear();
     }

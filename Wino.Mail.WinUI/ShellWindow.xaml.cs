@@ -46,12 +46,14 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     private ICalendarShellClient? _activeCalendarClient;
     private readonly CalendarTitleBarContent _calendarTitleBarContent = new();
     private long _calendarTypeSelectorChangedToken;
+    private bool _isBackButtonVisibilityReady;
 
     public ShellWindow()
     {
         RegisterRecipients();
 
         InitializeComponent();
+        StatePersistanceService.StatePropertyChanged += StatePersistenceServiceChanged;
 
         MinWidth = 420;
         MinHeight = 420;
@@ -138,7 +140,9 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
             _ = StartCalendarReminderServerAsync();
         }
 
+        _isBackButtonVisibilityReady = true;
         ApplyTitleBarContent();
+        RefreshBackButtonVisibility();
     }
 
     private async Task StartCalendarReminderServerAsync()
@@ -166,6 +170,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     public void Receive(TitleBarShellContentUpdated message)
     {
         ApplyTitleBarContent();
+        RefreshBackButtonVisibility();
     }
 
     public void Receive(ApplicationThemeChanged message)
@@ -279,6 +284,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         {
             AttachCalendarClient(null);
             ShellTitleBar.Content = MainShellFrame.Content is BasePage basePage ? basePage.ShellContent : null;
+            RefreshBackButtonVisibility();
             return;
         }
 
@@ -288,10 +294,43 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         {
             RefreshCalendarSelector();
             ShellTitleBar.Content = _calendarTitleBarContent;
+            RefreshBackButtonVisibility();
             return;
         }
 
         ShellTitleBar.Content = shellPage.GetShellFrame().Content is BasePage page ? page.ShellContent : null;
+        RefreshBackButtonVisibility();
+    }
+
+    private void StatePersistenceServiceChanged(object? sender, string propertyName)
+    {
+        if (!DispatcherQueue.HasThreadAccess)
+        {
+            var enqueued = DispatcherQueue.TryEnqueue(() => StatePersistenceServiceChanged(sender, propertyName));
+            if (!enqueued)
+                throw new InvalidOperationException("Could not marshal shell state changes onto the UI thread.");
+
+            return;
+        }
+
+        if (propertyName == nameof(IStatePersistanceService.ApplicationMode) ||
+            propertyName == nameof(IStatePersistanceService.IsReadingMail) ||
+            propertyName == nameof(IStatePersistanceService.IsReaderNarrowed) ||
+            propertyName == nameof(IStatePersistanceService.IsEventDetailsVisible))
+        {
+            RefreshBackButtonVisibility();
+        }
+    }
+
+    private void RefreshBackButtonVisibility()
+    {
+        if (!_isBackButtonVisibilityReady)
+        {
+            ShellTitleBar.IsBackButtonVisible = false;
+            return;
+        }
+
+        ShellTitleBar.IsBackButtonVisible = NavigationService.CanGoBack();
     }
 
     private void AttachCalendarClient(ICalendarShellClient? calendarClient)
@@ -390,6 +429,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     {
         AppWindow.Closing -= OnAppWindowClosing;
         AttachCalendarClient(null);
+        StatePersistanceService.StatePropertyChanged -= StatePersistenceServiceChanged;
         _calendarTitleBarContent.UnregisterSelectedTypeChanged(_calendarTypeSelectorChangedToken);
         _calendarTitleBarContent.PreviousDateRequested -= CalendarTitleBarContentPreviousDateRequested;
         _calendarTitleBarContent.NextDateRequested -= CalendarTitleBarContentNextDateRequested;
