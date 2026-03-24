@@ -80,7 +80,6 @@ public class NavigationService : NavigationServiceBase, INavigationService
         WinoPage.PersonalizationPage,
         WinoPage.MessageListPage,
         WinoPage.ReadComposePanePage,
-        WinoPage.LanguageTimePage,
         WinoPage.AppPreferencesPage,
         WinoPage.AliasManagementPage,
         WinoPage.ImapCalDavSettingsPage,
@@ -91,6 +90,9 @@ public class NavigationService : NavigationServiceBase, INavigationService
         WinoPage.StoragePage,
         WinoPage.WinoAccountManagementPage,
         WinoPage.CalendarSettingsPage,
+        WinoPage.CalendarRenderingSettingsPage,
+        WinoPage.CalendarNotificationSettingsPage,
+        WinoPage.CalendarPreferenceSettingsPage,
         WinoPage.CalendarAccountSettingsPage
     ];
 
@@ -148,7 +150,6 @@ public class NavigationService : NavigationServiceBase, INavigationService
             WinoPage.SettingOptionsPage => typeof(SettingOptionsPage),
             WinoPage.AppPreferencesPage => typeof(AppPreferencesPage),
             WinoPage.AliasManagementPage => typeof(AliasManagementPage),
-            WinoPage.LanguageTimePage => typeof(LanguageTimePage),
             WinoPage.ImapCalDavSettingsPage => typeof(ImapCalDavSettingsPage),
             WinoPage.KeyboardShortcutsPage => typeof(KeyboardShortcutsPage),
             WinoPage.ContactsPage => typeof(ContactsPage),
@@ -164,7 +165,10 @@ public class NavigationService : NavigationServiceBase, INavigationService
             WinoPage.CalendarPage => typeof(CalendarPage),
             WinoPage.EventDetailsPage => typeof(EventDetailsPage),
             WinoPage.CalendarEventComposePage => typeof(CalendarEventComposePage),
-            WinoPage.CalendarSettingsPage => typeof(CalendarSettingsPage),
+            WinoPage.CalendarSettingsPage => typeof(CalendarPreferenceSettingsPage),
+            WinoPage.CalendarRenderingSettingsPage => typeof(CalendarRenderingSettingsPage),
+            WinoPage.CalendarNotificationSettingsPage => typeof(CalendarNotificationSettingsPage),
+            WinoPage.CalendarPreferenceSettingsPage => typeof(CalendarPreferenceSettingsPage),
             WinoPage.CalendarAccountSettingsPage => typeof(CalendarAccountSettingsPage),
             _ => null,
         };

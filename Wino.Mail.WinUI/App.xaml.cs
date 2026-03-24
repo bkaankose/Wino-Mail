@@ -319,7 +319,6 @@ public partial class App : WinoApplication,
         services.AddTransient(typeof(MessageListPageViewModel));
         services.AddTransient(typeof(ReadComposePanePageViewModel));
         services.AddTransient(typeof(MergedAccountDetailsPageViewModel));
-        services.AddTransient(typeof(LanguageTimePageViewModel));
         services.AddTransient(typeof(AppPreferencesPageViewModel));
         services.AddTransient(typeof(StoragePageViewModel));
         services.AddTransient(typeof(WinoAccountManagementPageViewModel));
@@ -329,7 +328,9 @@ public partial class App : WinoApplication,
         services.AddTransient(typeof(EmailTemplatesPageViewModel));
         services.AddTransient(typeof(CreateEmailTemplatePageViewModel));
         services.AddSingleton(typeof(CalendarPageViewModel));
-        services.AddTransient(typeof(CalendarSettingsPageViewModel));
+        services.AddTransient(typeof(CalendarRenderingSettingsPageViewModel));
+        services.AddTransient(typeof(CalendarNotificationSettingsPageViewModel));
+        services.AddTransient(typeof(CalendarPreferenceSettingsPageViewModel));
         services.AddTransient(typeof(CalendarAccountSettingsPageViewModel));
         services.AddTransient(typeof(EventDetailsPageViewModel));
         services.AddTransient(typeof(CalendarEventComposePageViewModel));

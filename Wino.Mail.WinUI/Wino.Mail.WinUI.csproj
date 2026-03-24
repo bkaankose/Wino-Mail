@@ -123,7 +123,6 @@
     <None Remove="Styles\WinoCalendarTypeSelectorControl.xaml" />
     <None Remove="Views\Calendar\CalendarAppShell.xaml" />
     <None Remove="Views\Calendar\CalendarPage.xaml" />
-    <None Remove="Views\Calendar\CalendarSettingsPage.xaml" />
     <None Remove="Views\Calendar\EventDetailsPage.xaml" />
     <None Remove="Views\Settings\ContactsPage.xaml" />
   </ItemGroup>
@@ -320,9 +319,6 @@
     <Page Update="Views\Settings\EmailTemplatesPage.xaml">
       <SubType>Designer</SubType>
     </Page>
-    <Page Update="Views\Settings\LanguageTimePage.xaml">
-      <SubType>Designer</SubType>
-    </Page>
     <Page Update="Views\Settings\MessageListPage.xaml">
       <SubType>Designer</SubType>
     </Page>
@@ -354,11 +350,6 @@
   </ItemGroup>
   <ItemGroup>
     <Page Update="Styles\CalendarShellNavigationViewStyle.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-  </ItemGroup>
-  <ItemGroup>
-    <Page Update="Views\Calendar\CalendarSettingsPage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>

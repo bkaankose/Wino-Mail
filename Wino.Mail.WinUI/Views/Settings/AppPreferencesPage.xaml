@@ -8,10 +8,24 @@
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:translations="using:Wino.Core.Domain.Models.Translations"
     mc:Ignorable="d">
 
     <ScrollViewer>
         <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
+            <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsLanguage_Description}" Header="{x:Bind domain:Translator.SettingsLanguage_Title}">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE775;" />
+                </controls:SettingsCard.HeaderIcon>
+                <ComboBox ItemsSource="{x:Bind ViewModel.AvailableLanguages, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.SelectedLanguage, Mode=TwoWay}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="translations:AppLanguageModel">
+                            <TextBlock Text="{x:Bind DisplayName}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </controls:SettingsCard>
+
             <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsAppPreferences_StartupBehavior_Description}" Header="{x:Bind domain:Translator.SettingsAppPreferences_StartupBehavior_Title}">
                 <ToggleButton
                     x:Name="StartupEnabledToggleButton"

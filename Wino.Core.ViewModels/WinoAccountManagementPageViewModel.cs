@@ -116,7 +116,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     [RelayCommand]
     private async Task ChangePasswordAsync()
     {
-        var account = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
+        var account = await _profileService.GetActiveAccountAsync();
         if (account == null)
         {
             _dialogService.InfoBarMessage(Translator.GeneralTitle_Warning,
@@ -128,14 +128,14 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         var shouldContinue = await _dialogService.ShowConfirmationDialogAsync(
             string.Format(Translator.WinoAccount_ChangePassword_ConfirmationMessage, account.Email),
             Translator.WinoAccount_ChangePassword_Title,
-            Translator.WinoAccount_ChangePassword_Action).ConfigureAwait(false);
+            Translator.WinoAccount_ChangePassword_Action);
 
         if (!shouldContinue)
         {
             return;
         }
 
-        var response = await _profileService.ForgotPasswordAsync(account.Email).ConfigureAwait(false);
+        var response = await _profileService.ForgotPasswordAsync(account.Email);
         if (!response.IsSuccess)
         {
             _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,

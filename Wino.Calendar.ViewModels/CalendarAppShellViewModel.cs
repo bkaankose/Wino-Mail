@@ -402,7 +402,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
             var pickingResult = await _dialogService.ShowSingleCalendarPickerDialogAsync(availableGroups);
             if (pickingResult.ShouldNavigateToCalendarSettings)
             {
-                NavigationService.Navigate(WinoPage.CalendarSettingsPage);
+                NavigationService.Navigate(WinoPage.CalendarPreferenceSettingsPage);
                 return;
             }
 
