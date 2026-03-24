@@ -254,6 +254,15 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
         return response;
     }
 
+    public async Task<ApiEnvelope<AiTextResultDto>> SummarizeAsync(string html, CancellationToken cancellationToken = default)
+        => await ExecuteAiOperationAsync(account => _apiClient.SummarizeAsync(html, cancellationToken), "summarize", cancellationToken).ConfigureAwait(false);
+
+    public async Task<ApiEnvelope<AiTextResultDto>> TranslateAsync(string html, string targetLanguage, CancellationToken cancellationToken = default)
+        => await ExecuteAiOperationAsync(account => _apiClient.TranslateAsync(html, targetLanguage, cancellationToken), "translate", cancellationToken).ConfigureAwait(false);
+
+    public async Task<ApiEnvelope<AiTextResultDto>> RewriteAsync(string html, string mode, CancellationToken cancellationToken = default)
+        => await ExecuteAiOperationAsync(account => _apiClient.RewriteAsync(html, mode, cancellationToken), "rewrite", cancellationToken).ConfigureAwait(false);
+
     public async Task<ApiEnvelope<CheckoutSessionResultDto>> CreateCheckoutSessionAsync(WinoAddOnProductType productId, CancellationToken cancellationToken = default)
     {
         var account = await GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false);
@@ -409,6 +418,30 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
         return response.IsSuccess && response.Result?.HasAiPack == true;
     }
 
+    private async Task<ApiEnvelope<AiTextResultDto>> ExecuteAiOperationAsync(Func<WinoAccount, Task<ApiEnvelope<AiTextResultDto>>> executeAsync,
+                                                                             string operationName,
+                                                                             CancellationToken cancellationToken)
+    {
+        var account = await GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false);
+        if (account == null)
+        {
+            return ApiEnvelope<AiTextResultDto>.Failure("MissingAccessToken");
+        }
+
+        var response = await executeAsync(account).ConfigureAwait(false);
+        if (!response.IsSuccess)
+        {
+            _logger.Warning("Failed to {Operation} HTML with AI for Wino account {Email}. Error code: {ErrorCode}", operationName, account.Email, response.ErrorCode);
+        }
+
+        if (response.Quota != null)
+        {
+            await PersistAddOnCacheAsync(account.Id, Map(response.Quota)).ConfigureAwait(false);
+        }
+
+        return response;
+    }
+
     private async Task<bool> HasUnlimitedAccountsAsync(CancellationToken cancellationToken)
     {
         var cachedSnapshot = await GetCachedAddOnSnapshotAsync().ConfigureAwait(false);
@@ -477,6 +510,17 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
             cache.AiBillingPeriodEndUtc is DateTime periodEndUtc ? new DateTimeOffset(DateTime.SpecifyKind(periodEndUtc, DateTimeKind.Utc)) : null,
             cache.HasUnlimitedAccounts,
             new DateTimeOffset(DateTime.SpecifyKind(cache.LastUpdatedUtc, DateTimeKind.Utc)));
+
+    private static AiStatusResultDto Map(QuotaInfoDto quota)
+        => new(
+            quota.HasAiPack,
+            quota.EntitlementStatus,
+            quota.CurrentPeriodStartUtc,
+            quota.CurrentPeriodEndUtc,
+            quota.MonthlyLimit,
+            quota.Used,
+            quota.Remaining,
+            quota.Product);
 
     private static bool AreEquivalentProfiles(WinoAccount left, WinoAccount right)
         => left.Id == right.Id &&

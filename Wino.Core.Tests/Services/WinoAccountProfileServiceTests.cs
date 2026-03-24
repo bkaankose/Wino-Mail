@@ -7,6 +7,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Mail.Api.Contracts.Ai;
 using Wino.Mail.Api.Contracts.Auth;
 using Wino.Mail.Api.Contracts.Common;
 using Wino.Services;
@@ -26,6 +27,7 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
     {
         _databaseService = new InMemoryDatabaseService();
         await _databaseService.InitializeAsync();
+        await _databaseService.Connection.CreateTableAsync<WinoAccountAddOnCache>();
         _service = new WinoAccountProfileService(_databaseService, _apiClient.Object, _storeManagementService.Object);
     }
 
@@ -232,6 +234,43 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
 
         processed.Should().BeTrue();
         _apiClient.Verify(x => x.GetCurrentUserAsync(default), Times.AtLeastOnce);
+    }
+
+    [Fact]
+    public async Task SummarizeAsync_ShouldPersistQuotaSnapshot()
+    {
+        var authResult = CreateAuthResult("first@example.com");
+
+        _apiClient
+            .Setup(x => x.LoginAsync("first@example.com", "pw", default))
+            .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(authResult));
+
+        _apiClient
+            .Setup(x => x.SummarizeAsync("<p>Hello</p>", default))
+            .ReturnsAsync(ApiEnvelope<AiTextResultDto>.Success(
+                new AiTextResultDto("<p>Summary</p>"),
+                new QuotaInfoDto(
+                    true,
+                    "Active",
+                    DateTimeOffset.UtcNow.AddDays(-1),
+                    DateTimeOffset.UtcNow.AddDays(29),
+                    1000,
+                    4,
+                    996,
+                    new AiPackProductInfoDto("AI_PACK", 1000, 4.99m, "USD", "month"))));
+
+        await _service.LoginAsync("first@example.com", "pw");
+
+        var response = await _service.SummarizeAsync("<p>Hello</p>");
+
+        response.IsSuccess.Should().BeTrue();
+        response.Result?.Html.Should().Be("<p>Summary</p>");
+
+        var cachedSnapshot = await _service.GetCachedAddOnSnapshotAsync();
+        cachedSnapshot.Should().NotBeNull();
+        cachedSnapshot!.HasAiPack.Should().BeTrue();
+        cachedSnapshot.UsageCount.Should().Be(4);
+        cachedSnapshot.UsageLimit.Should().Be(1000);
     }
 
     private static AuthResultDto CreateAuthResult(string email)

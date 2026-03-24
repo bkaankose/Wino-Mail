@@ -110,6 +110,33 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     public Task<ApiEnvelope<AiStatusResultDto>> GetAiStatusAsync(CancellationToken cancellationToken = default)
         => SendAuthorizedRequestAsync("api/v1/ai/status", WinoAccountApiJsonContext.Default.ApiEnvelopeAiStatusResultDto, cancellationToken);
 
+    public Task<ApiEnvelope<AiTextResultDto>> SummarizeAsync(string html, CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync(
+            HttpMethod.Post,
+            "api/v1/ai/summarize",
+            new SummarizeRequest(html),
+            WinoAccountApiJsonContext.Default.SummarizeRequest,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeAiTextResultDto,
+            cancellationToken);
+
+    public Task<ApiEnvelope<AiTextResultDto>> TranslateAsync(string html, string targetLanguage, CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync(
+            HttpMethod.Post,
+            "api/v1/ai/translate",
+            new TranslateRequest(html, targetLanguage),
+            WinoAccountApiJsonContext.Default.TranslateRequest,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeAiTextResultDto,
+            cancellationToken);
+
+    public Task<ApiEnvelope<AiTextResultDto>> RewriteAsync(string html, string mode, CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync(
+            HttpMethod.Post,
+            "api/v1/ai/rewrite",
+            new RewriteRequest(html, mode),
+            WinoAccountApiJsonContext.Default.RewriteRequest,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeAiTextResultDto,
+            cancellationToken);
+
     public Task<ApiEnvelope<CheckoutSessionResultDto>> CreateCheckoutSessionAsync(WinoAddOnProductType productId, CancellationToken cancellationToken = default)
     {
         var endpoint = productId switch
@@ -350,6 +377,40 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         }
     }
 
+    private async Task<ApiEnvelope<TResponse>> SendAuthorizedRequestAsync<TRequest, TResponse>(HttpMethod method,
+                                                                                                string endpoint,
+                                                                                                TRequest requestBody,
+                                                                                                JsonTypeInfo<TRequest> requestTypeInfo,
+                                                                                                JsonTypeInfo<ApiEnvelope<TResponse>> responseTypeInfo,
+                                                                                                CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await SendAuthorizedAsync(
+                () => CreateAuthorizedRequestAsync(
+                    method,
+                    endpoint,
+                    () => JsonContent.Create(requestBody, requestTypeInfo)),
+                cancellationToken).ConfigureAwait(false);
+
+            if (response == null)
+            {
+                return ApiEnvelope<TResponse>.Failure("MissingAccessToken");
+            }
+
+            var payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            var envelope = string.IsNullOrWhiteSpace(payload)
+                ? null
+                : JsonSerializer.Deserialize(payload, responseTypeInfo);
+
+            return envelope ?? ApiEnvelope<TResponse>.Failure($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim());
+        }
+        catch (Exception ex)
+        {
+            return ApiEnvelope<TResponse>.Failure(ex.Message);
+        }
+    }
+
     private async Task<HttpRequestMessage?> CreateAuthorizedRequestAsync(HttpMethod method, string endpoint, Func<HttpContent>? contentFactory = null)
     {
         var accessToken = await GetAccessTokenAsync().ConfigureAwait(false);
@@ -478,10 +539,14 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(LogoutRequest))]
 [JsonSerializable(typeof(ResendEmailConfirmationRequest))]
 [JsonSerializable(typeof(ForgotPasswordRequest))]
+[JsonSerializable(typeof(SummarizeRequest))]
+[JsonSerializable(typeof(TranslateRequest))]
+[JsonSerializable(typeof(RewriteRequest))]
 [JsonSerializable(typeof(ApiEnvelope<AuthResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<EmailConfirmationResendResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<AuthUserDto>))]
 [JsonSerializable(typeof(ApiEnvelope<AiStatusResultDto>))]
+[JsonSerializable(typeof(ApiEnvelope<AiTextResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<CheckoutSessionResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<CustomerPortalResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<JsonElement>))]
