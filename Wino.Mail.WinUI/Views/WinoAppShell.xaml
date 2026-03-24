@@ -409,6 +409,7 @@
             SeperatorTemplate="{StaticResource SeperatorTemplate}"
             SettingsShellPageItemTemplate="{StaticResource SettingsShellPageItemTemplate}"
             SettingsShellSectionItemTemplate="{StaticResource SettingsShellSectionItemTemplate}"
+            WinoAccountSettingsShellPageItemTemplate="{StaticResource SettingsShellWinoAccountItemTemplate}"
             StoreUpdateItemTemplate="{StaticResource StoreUpdateItemTemplate}" />
 
         <Style

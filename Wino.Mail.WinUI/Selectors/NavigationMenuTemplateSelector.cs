@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Wino.Core.Domain;
 using Wino.Core.Domain.MenuItems;
 
 namespace Wino.Mail.WinUI.Selectors;
@@ -16,6 +17,7 @@ public partial class NavigationMenuTemplateSelector : DataTemplateSelector
     public DataTemplate SettingsItemTemplate { get; set; } = null!;
     public DataTemplate SettingsShellPageItemTemplate { get; set; } = null!;
     public DataTemplate SettingsShellSectionItemTemplate { get; set; } = null!;
+    public DataTemplate WinoAccountSettingsShellPageItemTemplate { get; set; } = null!;
     public DataTemplate StoreUpdateItemTemplate { get; set; } = null!;
     public DataTemplate MoreItemsFolderTemplate { get; set; } = null!;
     public DataTemplate RatingItemTemplate { get; set; } = null!;
@@ -40,8 +42,10 @@ public partial class NavigationMenuTemplateSelector : DataTemplateSelector
             return ContactsMenuItemTemplate;
         else if (item is SettingsItem)
             return SettingsItemTemplate;
-        else if (item is SettingsShellPageMenuItem)
-            return SettingsShellPageItemTemplate;
+        else if (item is SettingsShellPageMenuItem settingsShellPageMenuItem)
+            return string.Equals(settingsShellPageMenuItem.Title, Translator.WinoAccount_SettingsSection_Title, System.StringComparison.Ordinal)
+                ? WinoAccountSettingsShellPageItemTemplate
+                : SettingsShellPageItemTemplate;
         else if (item is SettingsShellSectionMenuItem)
             return SettingsShellSectionItemTemplate;
         else if (item is StoreUpdateMenuItem)

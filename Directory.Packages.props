@@ -33,7 +33,7 @@
     <PackageVersion Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.82.1" />
     <PackageVersion Include="Microsoft.NETCore.UniversalWindowsPlatform" Version="6.2.14" />
     <PackageVersion Include="Microsoft.Xaml.Behaviors.WinUI.Managed" Version="3.0.1" />
-    <PackageVersion Include="Wino.Mail.Contracts" Version="1.0.7" />
+    <PackageVersion Include="Wino.Mail.Contracts" Version="1.0.9" />
     <PackageVersion Include="MimeKit" Version="4.15.1" />
     <PackageVersion Include="morelinq" Version="4.4.0" />
     <PackageVersion Include="Nito.AsyncEx" Version="5.1.2" />
