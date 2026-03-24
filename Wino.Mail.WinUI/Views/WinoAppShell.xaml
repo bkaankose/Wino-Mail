@@ -4,7 +4,6 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"
     xmlns:animations="using:CommunityToolkit.WinUI.Animations"
-    xmlns:calendarControls="using:Wino.Calendar.Controls"
     xmlns:communityControls="using:CommunityToolkit.WinUI.Controls"
     xmlns:controls="using:Wino.Controls"
     xmlns:controls1="using:CommunityToolkit.WinUI.Controls"
@@ -409,97 +408,10 @@
             SeperatorTemplate="{StaticResource SeperatorTemplate}"
             SettingsShellPageItemTemplate="{StaticResource SettingsShellPageItemTemplate}"
             SettingsShellSectionItemTemplate="{StaticResource SettingsShellSectionItemTemplate}"
-            WinoAccountSettingsShellPageItemTemplate="{StaticResource SettingsShellWinoAccountItemTemplate}"
-            StoreUpdateItemTemplate="{StaticResource StoreUpdateItemTemplate}" />
+            StoreUpdateItemTemplate="{StaticResource StoreUpdateItemTemplate}"
+            WinoAccountSettingsShellPageItemTemplate="{StaticResource SettingsShellWinoAccountItemTemplate}" />
 
-        <Style
-            x:Key="CalendarNavigationButtonStyle"
-            BasedOn="{StaticResource DefaultButtonStyle}"
-            TargetType="Button">
-            <Setter Property="Margin" Value="0,4,0,0" />
-            <Setter Property="Padding" Value="8,4,8,6" />
-            <Setter Property="CornerRadius" Value="6" />
-            <Setter Property="Width" Value="40" />
-        </Style>
     </Page.Resources>
-
-    <abstract:WinoAppShellAbstract.ShellContent>
-        <Grid Margin="4,0,0,0" Background="Transparent">
-            <ContentPresenter x:Name="DynamicPageShellContentPresenter" />
-            <Grid
-                x:Name="CalendarShellContentRoot"
-                ColumnSpacing="12"
-                Visibility="Collapsed">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <Grid x:Name="ShellContentArea" ColumnSpacing="12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-
-                    <StackPanel
-                        x:Name="NavigationTitleStack"
-                        Grid.Column="0"
-                        Margin="0,0,12,4"
-                        Orientation="Horizontal"
-                        Spacing="6">
-                        <Button
-                            x:Name="PreviousDateButton"
-                            Click="PreviousDateClicked"
-                            Style="{StaticResource CalendarNavigationButtonStyle}">
-                            <PathIcon x:Name="PreviousDateButtonPathIcon" Data="F1 M 8.72 18.599998 C 8.879999 18.733334 9.059999 18.799999 9.26 18.799999 C 9.459999 18.799999 9.633332 18.719999 9.78 18.559999 C 9.926666 18.4 10 18.219999 10 18.019999 C 10 17.82 9.92 17.653332 9.76 17.52 L 4.52 12.559999 L 17.24 12.559999 C 17.453333 12.559999 17.633331 12.486667 17.779999 12.339999 C 17.926666 12.193334 18 12.013333 18 11.799999 C 18 11.586666 17.926666 11.406667 17.779999 11.259999 C 17.633331 11.113333 17.453333 11.039999 17.24 11.039999 L 4.52 11.039999 L 9.76 6.08 C 9.973333 5.893333 10.046666 5.653332 9.98 5.359999 C 9.913333 5.066666 9.74 4.880001 9.46 4.799999 C 9.179999 4.720001 8.933332 4.786667 8.72 5 L 2.32 11.08 C 2.16 11.24 2.053333 11.426666 2 11.639999 C 1.973333 11.746666 1.973333 11.853333 2 11.959999 C 2.053333 12.173333 2.16 12.360001 2.32 12.52 Z " />
-                        </Button>
-
-                        <Button
-                            x:Name="NextDateButton"
-                            Click="NextDateClicked"
-                            Style="{StaticResource CalendarNavigationButtonStyle}">
-                            <PathIcon x:Name="NextDateButtonPathIcon" Data="F1 M 11.28 5 C 11.12 4.866667 10.94 4.806667 10.74 4.82 C 10.539999 4.833334 10.366666 4.913334 10.219999 5.059999 C 10.073333 5.206665 10 5.379999 10 5.58 C 10 5.779999 10.08 5.946667 10.24 6.08 L 15.48 11.039999 L 2.76 11.039999 C 2.546667 11.039999 2.366667 11.113333 2.22 11.259999 C 2.073333 11.406667 2 11.586666 2 11.799999 C 2 12.013333 2.073333 12.193334 2.22 12.339999 C 2.366667 12.486667 2.546667 12.559999 2.76 12.559999 L 15.48 12.559999 L 10.24 17.52 C 10.026667 17.706665 9.953333 17.946667 10.02 18.24 C 10.086666 18.533333 10.259999 18.719999 10.54 18.799999 C 10.82 18.879999 11.066667 18.813334 11.28 18.599998 L 17.68 12.52 C 17.84 12.360001 17.946667 12.173333 18 11.959999 C 18 11.853333 18 11.746666 18 11.639999 C 17.946667 11.426666 17.84 11.24 17.68 11.08 Z " />
-                        </Button>
-
-                        <calendarControls:CustomCalendarFlipView
-                            x:Name="DayHeaderNavigationItemsFlipView"
-                            MaxHeight="30"
-                            Margin="8,4,0,0"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Center"
-                            HorizontalContentAlignment="Left"
-                            Background="Transparent"
-                            FontSize="14"
-                            FontWeight="Normal"
-                            IsHitTestVisible="False">
-                            <FlipView.ItemTemplate>
-                                <DataTemplate x:DataType="x:String">
-                                    <TextBlock
-                                        VerticalAlignment="Center"
-                                        FontSize="18"
-                                        Style="{StaticResource BodyTextBlockStyle}"
-                                        Text="{x:Bind}" />
-                                </DataTemplate>
-                            </FlipView.ItemTemplate>
-                        </calendarControls:CustomCalendarFlipView>
-                    </StackPanel>
-
-                    <AutoSuggestBox
-                        x:Name="SearchBox"
-                        Grid.Column="1"
-                        HorizontalAlignment="Stretch"
-                        VerticalAlignment="Center"
-                        BorderBrush="Transparent"
-                        PlaceholderText="Search" />
-                </Grid>
-
-                <calendarControls:WinoCalendarTypeSelectorControl
-                    x:Name="CalendarTypeSelector"
-                    Grid.Column="1"
-                    HorizontalAlignment="Right" />
-            </Grid>
-        </Grid>
-    </abstract:WinoAppShellAbstract.ShellContent>
 
     <Grid
         x:Name="RootGrid"
@@ -738,26 +650,7 @@
                         <AdaptiveTrigger MinWindowWidth="0" />
                     </VisualState.StateTriggers>
                     <VisualState.Setters>
-                        <Setter Target="NavigationTitleStack.Visibility" Value="Collapsed" />
-                        <Setter Target="SearchBox.(Grid.ColumnSpan)" Value="2" />
                         <Setter Target="navigationView.IsPaneOpen" Value="False" />
-                    </VisualState.Setters>
-                </VisualState>
-            </VisualStateGroup>
-
-            <VisualStateGroup x:Name="CalendarOrientationStates">
-                <VisualState x:Name="HorizontalCalendar" />
-                <VisualState x:Name="VerticalCalendar">
-                    <VisualState.Setters>
-                        <Setter Target="DayHeaderNavigationItemsFlipView.ItemsPanel">
-                            <Setter.Value>
-                                <ItemsPanelTemplate>
-                                    <VirtualizingStackPanel Orientation="Vertical" />
-                                </ItemsPanelTemplate>
-                            </Setter.Value>
-                        </Setter>
-                        <Setter Target="PreviousDateButtonPathIcon.Data" Value="F1 M 3.2 10.52 C 2.986666 10.733333 2.92 10.98 3 11.259999 C 3.08 11.54 3.266666 11.713333 3.56 11.78 C 3.853333 11.846666 4.093333 11.773333 4.28 11.559999 L 9.24 6.32 L 9.24 19.039999 C 9.24 19.253332 9.313333 19.433332 9.46 19.58 C 9.606666 19.726665 9.786666 19.799999 10 19.799999 C 10.213333 19.799999 10.393332 19.726665 10.54 19.58 C 10.686666 19.433332 10.76 19.253332 10.76 19.039999 L 10.76 6.32 L 15.719999 11.559999 C 15.906666 11.773333 16.139999 11.846666 16.42 11.78 C 16.700001 11.713333 16.886665 11.54 16.98 11.259999 C 17.073332 10.98 17.013332 10.733333 16.799999 10.52 L 10.719999 4.119999 C 10.559999 3.959999 10.373333 3.853333 10.16 3.799999 C 10.053333 3.799999 9.946667 3.799999 9.84 3.799999 C 9.626666 3.853333 9.439999 3.959999 9.28 4.119999 Z " />
-                        <Setter Target="NextDateButtonPathIcon.Data" Value="F1 M 16.799999 13.079999 C 16.933332 12.92 16.993332 12.74 16.98 12.539999 C 16.966665 12.34 16.886665 12.166667 16.74 12.02 C 16.593334 11.873333 16.42 11.799999 16.219999 11.799999 C 16.02 11.799999 15.853333 11.879999 15.719999 12.039999 L 10.76 17.279999 L 10.76 4.559999 C 10.76 4.346666 10.686666 4.166668 10.54 4.02 C 10.393332 3.873333 10.213333 3.799999 10 3.799999 C 9.786666 3.799999 9.606666 3.873333 9.46 4.02 C 9.313333 4.166668 9.24 4.346666 9.24 4.559999 L 9.24 17.279999 L 4.28 12.039999 C 4.146667 11.879999 3.98 11.799999 3.78 11.799999 C 3.58 11.799999 3.4 11.873333 3.24 12.02 C 3.08 12.166667 3 12.34 3 12.539999 C 3 12.74 3.066667 12.92 3.2 13.079999 L 9.28 19.48 C 9.439999 19.639999 9.626666 19.746666 9.84 19.799999 C 9.946667 19.799999 10.053333 19.799999 10.16 19.799999 C 10.373333 19.746666 10.559999 19.639999 10.719999 19.48 Z " />
                     </VisualState.Setters>
                 </VisualState>
             </VisualStateGroup>
@@ -766,8 +659,6 @@
                 <VisualState x:Name="DefaultShellContentState" />
                 <VisualState x:Name="EventDetailsContentState">
                     <VisualState.Setters>
-                        <Setter Target="ShellContentArea.Visibility" Value="Collapsed" />
-                        <Setter Target="CalendarTypeSelector.Visibility" Value="Collapsed" />
                         <Setter Target="RangeSummaryCard.IsEnabled" Value="False" />
                         <Setter Target="CalendarHostListView.IsEnabled" Value="False" />
                     </VisualState.Setters>

@@ -92,14 +92,10 @@
                         BorderBrush="Transparent"
                         Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(PreferencesService.IsWinoAccountButtonHidden), Mode=OneWay}">
                         <Button.Flyout>
-                            <Flyout
-                                x:Name="WinoAccountFlyout"
-                                Placement="Bottom">
+                            <Flyout x:Name="WinoAccountFlyout" Placement="Bottom">
                                 <Grid MinWidth="320" MaxWidth="360">
                                     <!--  Signed Out View  -->
-                                    <StackPanel
-                                        x:Name="WinoAccountSignedOutView"
-                                        Spacing="16">
+                                    <StackPanel x:Name="WinoAccountSignedOutView" Spacing="16">
 
                                         <!--  Hero header with gradient and icon  -->
                                         <Border
@@ -162,8 +158,8 @@
                                                         Glyph="&#xE8D7;" />
                                                     <StackPanel Grid.Column="1" Spacing="2">
                                                         <TextBlock
-                                                            Style="{StaticResource CaptionTextBlockStyle}"
                                                             FontWeight="SemiBold"
+                                                            Style="{StaticResource CaptionTextBlockStyle}"
                                                             Text="{x:Bind domain:Translator.WinoAccount_Titlebar_SyncBenefitTitle}" />
                                                         <TextBlock
                                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -196,8 +192,8 @@
                                                         Glyph="&#xE946;" />
                                                     <StackPanel Grid.Column="1" Spacing="2">
                                                         <TextBlock
-                                                            Style="{StaticResource CaptionTextBlockStyle}"
                                                             FontWeight="SemiBold"
+                                                            Style="{StaticResource CaptionTextBlockStyle}"
                                                             Text="{x:Bind domain:Translator.WinoAccount_Titlebar_AddonsBenefitTitle}" />
                                                         <TextBlock
                                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"

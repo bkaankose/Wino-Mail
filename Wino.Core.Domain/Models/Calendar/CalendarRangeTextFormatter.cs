@@ -9,16 +9,23 @@ public sealed class CalendarRangeTextFormatter : ICalendarRangeTextFormatter
     public string Format(VisibleDateRange range, IDateContextProvider dateContextProvider)
     {
         var culture = dateContextProvider.Culture;
-        var startText = FormatDate(range.StartDate, culture);
 
-        if (range.DisplayType == CalendarDisplayType.Day)
+        if (range.DayCount >= 28)
         {
-            return startText;
+            return FormatMonth(range.PrimaryDate, culture);
         }
 
-        return $"{startText} - {FormatDate(range.EndDate, culture)}";
+        if (range.DayCount == 1 || range.DisplayType == CalendarDisplayType.Day)
+        {
+            return FormatDate(range.StartDate, culture);
+        }
+
+        return $"{FormatDate(range.StartDate, culture)} - {FormatDate(range.EndDate, culture)}";
     }
 
     private static string FormatDate(DateOnly date, CultureInfo culture)
-        => date.ToString(culture.DateTimeFormat.ShortDatePattern, culture);
+        => date.ToString(culture.DateTimeFormat.MonthDayPattern, culture);
+
+    private static string FormatMonth(DateOnly date, CultureInfo culture)
+        => date.ToString(culture.DateTimeFormat.YearMonthPattern, culture);
 }

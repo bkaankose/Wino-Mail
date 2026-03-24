@@ -42,7 +42,7 @@ public class CalendarPageViewModelTests
         viewModel.CurrentVisibleRange.EndDate.Should().Be(new DateOnly(2026, 3, 22));
         viewModel.LoadedDateWindow.StartDate.Should().Be(new DateTime(2026, 3, 9));
         viewModel.LoadedDateWindow.EndDate.Should().Be(new DateTime(2026, 3, 30));
-        viewModel.VisibleDateRangeText.Should().Be("3/16/2026 - 3/22/2026");
+        viewModel.VisibleDateRangeText.Should().Be("March 16 - March 22");
 
         requestedPeriod.Should().NotBeNull();
         requestedPeriod!.Start.Should().Be(new DateTime(2026, 3, 9));

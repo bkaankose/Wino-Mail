@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
@@ -15,6 +16,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Extensions;
 using Wino.Mail.WinUI.Activation;
+using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Views;
@@ -41,6 +43,9 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     public ObservableCollection<SynchronizationActionItem> SyncActionItems { get; } = new();
     private bool _calendarReminderServerStartAttempted;
+    private ICalendarShellClient? _activeCalendarClient;
+    private readonly CalendarTitleBarContent _calendarTitleBarContent = new();
+    private long _calendarTypeSelectorChangedToken;
 
     public ShellWindow()
     {
@@ -51,6 +56,9 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         MinWidth = 420;
         MinHeight = 420;
         ConfigureTitleBar();
+        _calendarTypeSelectorChangedToken = _calendarTitleBarContent.RegisterSelectedTypeChanged(CalendarTypeSelectorSelectedTypeChanged);
+        _calendarTitleBarContent.PreviousDateRequested += CalendarTitleBarContentPreviousDateRequested;
+        _calendarTitleBarContent.NextDateRequested += CalendarTitleBarContentNextDateRequested;
 
         // Handle window closing event to minimize to tray instead of closing
         Closed += OnWindowClosed;
@@ -130,8 +138,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
             _ = StartCalendarReminderServerAsync();
         }
 
-        if (e.Content is BasePage basePage)
-            ShellTitleBar.Content = basePage.ShellContent;
+        ApplyTitleBarContent();
     }
 
     private async Task StartCalendarReminderServerAsync()
@@ -158,10 +165,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     public void Receive(TitleBarShellContentUpdated message)
     {
-        if (MainShellFrame.Content is WinoAppShell shellPage)
-        {
-            ShellTitleBar.Content = shellPage.ShellContent;
-        }
+        ApplyTitleBarContent();
     }
 
     public void Receive(ApplicationThemeChanged message)
@@ -257,6 +261,121 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         });
     }
 
+    private void CalendarTypeSelectorSelectedTypeChanged(DependencyObject sender, DependencyProperty dp)
+    {
+        if (_activeCalendarClient == null)
+            return;
+
+        var selectedType = _calendarTitleBarContent.SelectedType;
+        if (_activeCalendarClient.StatePersistenceService.CalendarDisplayType != selectedType)
+        {
+            _activeCalendarClient.StatePersistenceService.CalendarDisplayType = selectedType;
+        }
+    }
+
+    private void ApplyTitleBarContent()
+    {
+        if (MainShellFrame.Content is not WinoAppShell shellPage)
+        {
+            AttachCalendarClient(null);
+            ShellTitleBar.Content = MainShellFrame.Content is BasePage basePage ? basePage.ShellContent : null;
+            return;
+        }
+
+        AttachCalendarClient(shellPage.ViewModel.CalendarClient);
+
+        if (shellPage.ViewModel.IsCalendarMode && !shellPage.ViewModel.StatePersistenceService.IsEventDetailsVisible)
+        {
+            RefreshCalendarSelector();
+            ShellTitleBar.Content = _calendarTitleBarContent;
+            return;
+        }
+
+        ShellTitleBar.Content = shellPage.GetShellFrame().Content is BasePage page ? page.ShellContent : null;
+    }
+
+    private void AttachCalendarClient(ICalendarShellClient? calendarClient)
+    {
+        if (ReferenceEquals(_activeCalendarClient, calendarClient))
+            return;
+
+        if (_activeCalendarClient != null)
+        {
+            _activeCalendarClient.PropertyChanged -= CalendarClientPropertyChanged;
+            _activeCalendarClient.StatePersistenceService.StatePropertyChanged -= CalendarStatePersistenceServiceChanged;
+        }
+
+        _activeCalendarClient = calendarClient;
+
+        if (_activeCalendarClient != null)
+        {
+            _activeCalendarClient.PropertyChanged += CalendarClientPropertyChanged;
+            _activeCalendarClient.StatePersistenceService.StatePropertyChanged += CalendarStatePersistenceServiceChanged;
+        }
+    }
+
+    private void CalendarClientPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (!DispatcherQueue.HasThreadAccess)
+        {
+            var enqueued = DispatcherQueue.TryEnqueue(() => CalendarClientPropertyChanged(sender, e));
+            if (!enqueued)
+                throw new InvalidOperationException("Could not marshal calendar client changes onto the UI thread.");
+
+            return;
+        }
+
+        if (e.PropertyName == nameof(ICalendarShellClient.VisibleDateRangeText))
+        {
+            RefreshCalendarSelector();
+        }
+    }
+
+    private void CalendarStatePersistenceServiceChanged(object? sender, string propertyName)
+    {
+        if (!DispatcherQueue.HasThreadAccess)
+        {
+            var enqueued = DispatcherQueue.TryEnqueue(() => CalendarStatePersistenceServiceChanged(sender, propertyName));
+            if (!enqueued)
+                throw new InvalidOperationException("Could not marshal title bar state changes onto the UI thread.");
+
+            return;
+        }
+
+        if (propertyName == nameof(IStatePersistanceService.CalendarDisplayType) ||
+            propertyName == nameof(IStatePersistanceService.DayDisplayCount))
+        {
+            RefreshCalendarSelector();
+            return;
+        }
+
+        if (propertyName == nameof(IStatePersistanceService.IsEventDetailsVisible))
+        {
+            ApplyTitleBarContent();
+        }
+    }
+
+    private void RefreshCalendarSelector()
+    {
+        if (_activeCalendarClient == null)
+            return;
+
+        _calendarTitleBarContent.VisibleDateRangeText = _activeCalendarClient.VisibleDateRangeText;
+        _calendarTitleBarContent.TodayClickedCommand = _activeCalendarClient.TodayClickedCommand;
+        _calendarTitleBarContent.DisplayDayCount = _activeCalendarClient.StatePersistenceService.DayDisplayCount;
+
+        if (_calendarTitleBarContent.SelectedType != _activeCalendarClient.StatePersistenceService.CalendarDisplayType)
+        {
+            _calendarTitleBarContent.SelectedType = _activeCalendarClient.StatePersistenceService.CalendarDisplayType;
+        }
+    }
+
+    private void CalendarTitleBarContentPreviousDateRequested(object? sender, EventArgs e)
+        => _activeCalendarClient?.PreviousDateRangeCommand.Execute(null);
+
+    private void CalendarTitleBarContentNextDateRequested(object? sender, EventArgs e)
+        => _activeCalendarClient?.NextDateRangeCommand.Execute(null);
+
     private void OnAppWindowClosing(object sender, Microsoft.UI.Windowing.AppWindowClosingEventArgs e)
     {
         if ((Application.Current as App)?.IsExiting == true)
@@ -270,6 +389,10 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     private void OnWindowClosed(object sender, WindowEventArgs e)
     {
         AppWindow.Closing -= OnAppWindowClosing;
+        AttachCalendarClient(null);
+        _calendarTitleBarContent.UnregisterSelectedTypeChanged(_calendarTypeSelectorChangedToken);
+        _calendarTitleBarContent.PreviousDateRequested -= CalendarTitleBarContentPreviousDateRequested;
+        _calendarTitleBarContent.NextDateRequested -= CalendarTitleBarContentNextDateRequested;
         UnregisterRecipients();
     }
 

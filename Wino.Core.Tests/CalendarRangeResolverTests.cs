@@ -115,7 +115,7 @@ public class CalendarRangeResolverTests
     }
 
     [Fact]
-    public void Formatter_Day_UsesSingleDate()
+    public void Formatter_Day_UsesMonthDayPattern()
     {
         var formatter = new CalendarRangeTextFormatter();
         var range = new VisibleDateRange(
@@ -131,11 +131,11 @@ public class CalendarRangeResolverTests
 
         var text = formatter.Format(range, new TestDateContextProvider("en-US", today: new DateOnly(2026, 3, 20)));
 
-        text.Should().Be("3/20/2026");
+        text.Should().Be("March 20");
     }
 
     [Fact]
-    public void Formatter_Range_UsesCultureShortDatePattern()
+    public void Formatter_Range_UsesCultureMonthDayPattern()
     {
         var formatter = new CalendarRangeTextFormatter();
         var range = new VisibleDateRange(
@@ -159,7 +159,7 @@ public class CalendarRangeResolverTests
 
         var text = formatter.Format(range, new TestDateContextProvider("de-DE", today: new DateOnly(2026, 3, 20)));
 
-        text.Should().Be("16.03.2026 - 22.03.2026");
+        text.Should().Be("16. März - 22. März");
     }
 
     private static CalendarSettings CreateSettings(

@@ -13,7 +13,6 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
 using Windows.Foundation;
 using Windows.System;
-using Wino.Calendar.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
@@ -45,8 +44,6 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     IRecipient<CalendarDisplayTypeChangedMessage>,
     IRecipient<AccountCreatedMessage>
 {
-    private const string StateHorizontalCalendar = "HorizontalCalendar";
-    private const string StateVerticalCalendar = "VerticalCalendar";
     private const string StateDefaultShellContent = "DefaultShellContentState";
     private const string StateEventDetailsContent = "EventDetailsContentState";
     private WinoApplicationMode? _activeMode;
@@ -68,12 +65,9 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         ViewModel.PropertyChanged += ViewModelPropertyChanged;
         ViewModel.PreferencesService.PreferenceChanged += PreferencesServiceChanged;
         ViewModel.StatePersistenceService.StatePropertyChanged += StatePersistenceServiceChanged;
-        CalendarTypeSelector.RegisterPropertyChangedCallback(WinoCalendarTypeSelectorControl.SelectedTypeProperty, CalendarTypeSelectorSelectedTypeChanged);
 
         InitializeCalendarControls();
-        ManageCalendarDisplayType(ViewModel.CalendarClient.StatePersistenceService.CalendarDisplayType);
         UpdateEventDetailsVisualState();
-        ApplyTitleBarContent();
     }
 
     public bool HasShellContent => InnerShellFrame.Content != null;
@@ -98,8 +92,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
         ViewModel.CurrentClient.Activate(activationContext);
         ResetShellModeNavigationState();
-
-        ApplyTitleBarContent();
+        NotifyTitleBarContentChanged();
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
@@ -126,17 +119,11 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private void ApplyModeLayout()
     {
-        var isCalendarMode = ViewModel.IsCalendarMode;
-
-        CalendarShellContentRoot.Visibility = isCalendarMode ? Visibility.Visible : Visibility.Collapsed;
-        DynamicPageShellContentPresenter.Visibility = isCalendarMode ? Visibility.Collapsed : Visibility.Visible;
-
         RefreshCalendarControls();
-        ManageCalendarDisplayType(ViewModel.CalendarClient.StatePersistenceService.CalendarDisplayType);
         UpdateEventDetailsVisualState();
         UpdateTitleBarSubtitle();
         UpdateNavigationPaneLayout(navigationView.DisplayMode);
-        ApplyTitleBarContent();
+        NotifyTitleBarContentChanged();
     }
 
     private void DeactivateCurrentMode()
@@ -166,8 +153,6 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
             ViewModel.CurrentClient.Deactivate();
         }
-
-        DynamicPageShellContentPresenter.Content = null;
     }
 
     private void ResetShellModeNavigationState()
@@ -175,20 +160,6 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         ViewModel.StatePersistenceService.HasCurrentModeBackStack = false;
         InnerShellFrame.BackStack.Clear();
         InnerShellFrame.ForwardStack.Clear();
-    }
-
-    private void ApplyTitleBarContent()
-    {
-        if (ViewModel.IsCalendarMode)
-        {
-            CalendarShellContentRoot.Visibility = Visibility.Visible;
-            DynamicPageShellContentPresenter.Visibility = Visibility.Collapsed;
-            return;
-        }
-
-        CalendarShellContentRoot.Visibility = Visibility.Collapsed;
-        DynamicPageShellContentPresenter.Visibility = Visibility.Visible;
-        DynamicPageShellContentPresenter.Content = InnerShellFrame.Content is BasePage page ? page.ShellContent : null;
     }
 
     private void UpdateTitleBarSubtitle()
@@ -208,24 +179,8 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         ViewModel.StatePersistenceService.CoreWindowTitle = string.Empty;
     }
 
-    private void ManageCalendarDisplayType(Core.Domain.Enums.CalendarDisplayType displayType)
-    {
-        DayHeaderNavigationItemsFlipView.DisplayType = displayType;
-
-        if (CalendarTypeSelector.SelectedType != displayType)
-        {
-            CalendarTypeSelector.SelectedType = displayType;
-        }
-
-        VisualStateManager.GoToState(this, displayType == Core.Domain.Enums.CalendarDisplayType.Month
-            ? StateVerticalCalendar
-            : StateHorizontalCalendar, false);
-    }
-
     private void InitializeCalendarControls()
     {
-        CalendarTypeSelector.TodayClickedCommand = ViewModel.CalendarClient.TodayClickedCommand;
-        DayHeaderNavigationItemsFlipView.ItemsSource = ViewModel.CalendarClient.DateNavigationHeaderItems;
         CalendarHostListView.ItemsSource = ViewModel.CalendarClient.GroupedAccountCalendars;
 
         RefreshCalendarControls();
@@ -233,9 +188,6 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private void RefreshCalendarControls()
     {
-        DayHeaderNavigationItemsFlipView.ItemsSource = ViewModel.CalendarClient.DateNavigationHeaderItems;
-        DayHeaderNavigationItemsFlipView.SelectedIndex = ViewModel.CalendarClient.SelectedDateNavigationHeaderIndex;
-        CalendarTypeSelector.DisplayDayCount = ViewModel.CalendarClient.StatePersistenceService.DayDisplayCount;
         CalendarHostListView.ItemsSource = ViewModel.CalendarClient.GroupedAccountCalendars;
         SynchronizeVisibleDateRangeCalendar();
     }
@@ -255,16 +207,6 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
             false);
     }
 
-    private void CalendarTypeSelectorSelectedTypeChanged(DependencyObject sender, DependencyProperty dp)
-    {
-        var selectedType = CalendarTypeSelector.SelectedType;
-
-        if (ViewModel.CalendarClient.StatePersistenceService.CalendarDisplayType != selectedType)
-        {
-            ViewModel.CalendarClient.StatePersistenceService.CalendarDisplayType = selectedType;
-        }
-    }
-
     private async void NewCalendarEventNavigationItemTapped(object sender, TappedRoutedEventArgs e)
     {
         e.Handled = true;
@@ -280,16 +222,10 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         await InvokeNewCalendarEventAsync();
     }
 
-    private void PreviousDateClicked(object sender, RoutedEventArgs e)
-        => ViewModel.CalendarClient.PreviousDateRangeCommand.Execute(null);
-
-    private void NextDateClicked(object sender, RoutedEventArgs e)
-        => ViewModel.CalendarClient.NextDateRangeCommand.Execute(null);
-
     private Task InvokeNewCalendarEventAsync()
         => ViewModel.CalendarClient.HandleNavigationItemInvokedAsync(new NewCalendarEventMenuItem());
 
-    public void Receive(CalendarDisplayTypeChangedMessage message) => ManageCalendarDisplayType(message.NewDisplayType);
+    public void Receive(CalendarDisplayTypeChangedMessage message) => NotifyTitleBarContentChanged();
 
     public void Receive(AccountCreatedMessage message)
     {
@@ -404,7 +340,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private void ShellFrameContentNavigated(object sender, NavigationEventArgs e)
     {
-        ApplyTitleBarContent();
+        NotifyTitleBarContentChanged();
 
         if (ViewModel.IsMailMode)
         {
@@ -496,18 +432,6 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
             if (!enqueued)
                 throw new InvalidOperationException("Could not marshal calendar property changes onto the UI thread.");
 
-            return;
-        }
-
-        if (e.PropertyName == nameof(ICalendarShellClient.DateNavigationHeaderItems))
-        {
-            DayHeaderNavigationItemsFlipView.ItemsSource = ViewModel.CalendarClient.DateNavigationHeaderItems;
-            return;
-        }
-
-        if (e.PropertyName == nameof(ICalendarShellClient.SelectedDateNavigationHeaderIndex))
-        {
-            DayHeaderNavigationItemsFlipView.SelectedIndex = ViewModel.CalendarClient.SelectedDateNavigationHeaderIndex;
             return;
         }
 
@@ -631,21 +555,25 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     {
         if (propertyName == nameof(IStatePersistanceService.CalendarDisplayType))
         {
-            ManageCalendarDisplayType(ViewModel.CalendarClient.StatePersistenceService.CalendarDisplayType);
+            NotifyTitleBarContentChanged();
             return;
         }
 
         if (propertyName == nameof(IStatePersistanceService.DayDisplayCount))
         {
-            CalendarTypeSelector.DisplayDayCount = ViewModel.CalendarClient.StatePersistenceService.DayDisplayCount;
+            NotifyTitleBarContentChanged();
             return;
         }
 
         if (propertyName == nameof(IStatePersistanceService.IsEventDetailsVisible))
         {
             UpdateEventDetailsVisualState();
+            NotifyTitleBarContentChanged();
         }
     }
+
+    private static void NotifyTitleBarContentChanged()
+        => WeakReferenceMessenger.Default.Send(new TitleBarShellContentUpdated());
 
     private void UpdateNavigationPaneLayout(NavigationViewDisplayMode displayMode)
     {
