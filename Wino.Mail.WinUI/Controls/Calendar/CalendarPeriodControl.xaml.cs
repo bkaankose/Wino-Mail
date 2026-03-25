@@ -35,6 +35,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     private const double TimedHourColumnWidth = 64d;
     private const double TimedGridIntervalMinutes = 30d;
     private const double TimedSelectionIntervalMinutes = 30d;
+    private const double TimedItemRightSpacing = 10d;
     private VisibleDateRange _currentRange = new(
         CalendarDisplayType.Month,
         DateOnly.FromDateTime(DateTime.Today),
@@ -77,6 +78,12 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
     [GeneratedDependencyProperty]
     public partial Brush? WorkHourBackground { get; set; }
+
+    [GeneratedDependencyProperty]
+    public partial Brush? SelectedSlotBackground { get; set; }
+
+    [GeneratedDependencyProperty]
+    public partial DateTime? SelectedDateTime { get; set; }
 
     public CalendarPeriodControl()
     {
@@ -153,6 +160,8 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     partial void OnVisibleRangeChanged(VisibleDateRange? newValue) => RequestRefresh();
     partial void OnCalendarSettingsChanged(CalendarSettings? newValue) => RequestRefresh();
     partial void OnTimedHeaderDateFormatChanged(string? newValue) => RequestRefresh();
+    partial void OnSelectedSlotBackgroundChanged(Brush? newValue) => InvalidateStructureCanvases();
+    partial void OnSelectedDateTimeChanged(DateTime? newValue) => InvalidateStructureCanvases();
 
     partial void OnCalendarItemsChanged(IReadOnlyList<CalendarItemViewModel>? newValue)
     {
@@ -229,6 +238,12 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     {
         _refreshPending = true;
         QueueRefresh();
+    }
+
+    private void InvalidateStructureCanvases()
+    {
+        TimedStructureCanvas.Invalidate();
+        MonthStructureCanvas.Invalidate();
     }
 
     private void Refresh()
@@ -461,6 +476,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         using var minorLinePaint = CreateMinorLinePaint();
         using var defaultFillPaint = CreateFillPaint(DefaultHourBackground ?? new SolidColorBrush(Colors.Transparent));
         using var workFillPaint = CreateFillPaint(WorkHourBackground ?? new SolidColorBrush(Colors.Transparent));
+        using var selectedFillPaint = CreateFillPaint(SelectedSlotBackground ?? new SolidColorBrush(Colors.Transparent));
         var canvas = e.Surface.Canvas;
         canvas.Clear(SKColors.Transparent);
 
@@ -499,6 +515,12 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
             }
         }
 
+        var selectedTimedSlotRect = GetSelectedTimedSlotRect(dayWidth, intervalHeight, intervalCount);
+        if (selectedTimedSlotRect.HasValue && selectedFillPaint.Color.Alpha > 0)
+        {
+            canvas.DrawRect(selectedTimedSlotRect.Value, selectedFillPaint);
+        }
+
         for (var intervalIndex = 0; intervalIndex <= intervalCount; intervalIndex++)
         {
             var y = intervalIndex * intervalHeight;
@@ -522,6 +544,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
             Color = new SKColor(0, 120, 215, 26),
             IsAntialias = true
         };
+        using var selectedPaint = CreateFillPaint(SelectedSlotBackground ?? new SolidColorBrush(Colors.Transparent));
 
         var canvas = e.Surface.Canvas;
         canvas.Clear(SKColors.Transparent);
@@ -543,6 +566,12 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
             }
 
             canvas.DrawRect((float)cell.Bounds.X, (float)cell.Bounds.Y, (float)cell.Bounds.Width, (float)cell.Bounds.Height, todayPaint);
+        }
+
+        var selectedMonthCellRect = GetSelectedMonthCellRect();
+        if (selectedMonthCellRect.HasValue && selectedPaint.Color.Alpha > 0)
+        {
+            canvas.DrawRect(selectedMonthCellRect.Value, selectedPaint);
         }
 
         for (var row = 0; row <= MonthCalendarLayoutCalculator.RowCount; row++)
@@ -604,7 +633,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         {
             var presenter = new ContentPresenter
             {
-                Width = item.Bounds.Width,
+                Width = Math.Max(0d, item.Bounds.Width - TimedItemRightSpacing),
                 Height = item.Bounds.Height,
                 Content = item.Item,
                 ContentTemplate = item.Template
@@ -669,12 +698,13 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         var slotIndex = Math.Clamp((int)(position.Y / intervalHeight), 0, (int)((24d * 60d / TimedSelectionIntervalMinutes) - 1));
         var slotStart = TimeSpan.FromMinutes(slotIndex * TimedSelectionIntervalMinutes);
         var clickedDate = _timedLayout.VisibleDates[dayIndex].ToDateTime(TimeOnly.MinValue).Add(slotStart);
+        var anchorPoint = TimedViewport.TransformToVisual(Root).TransformPoint(position);
 
         EmptySlotTapped?.Invoke(
             this,
             new CalendarEmptySlotTappedEventArgs(
                 clickedDate,
-                new Point(dayIndex * _timedLayout.DayWidth, slotIndex * intervalHeight),
+                anchorPoint,
                 new Size(_timedLayout.DayWidth, intervalHeight)));
     }
 
@@ -690,13 +720,73 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         var row = Math.Clamp((int)(position.Y / _monthLayout.CellHeight), 0, MonthCalendarLayoutCalculator.RowCount - 1);
         var cellIndex = Math.Clamp((row * MonthCalendarLayoutCalculator.ColumnCount) + column, 0, _monthLayout.Cells.Count - 1);
         var cell = _monthLayout.Cells[cellIndex];
+        var anchorPoint = MonthViewport.TransformToVisual(Root).TransformPoint(position);
 
         EmptySlotTapped?.Invoke(
             this,
             new CalendarEmptySlotTappedEventArgs(
                 cell.Date.ToDateTime(TimeOnly.MinValue),
-                new Point(cell.Bounds.X, cell.Bounds.Y),
+                anchorPoint,
                 new Size(cell.Bounds.Width, cell.Bounds.Height)));
+    }
+
+    private SKRect? GetSelectedTimedSlotRect(float dayWidth, float intervalHeight, int intervalCount)
+    {
+        if (SelectedDateTime is not DateTime selectedDateTime || _timedLayout.VisibleDates.Count == 0)
+        {
+            return null;
+        }
+
+        var dayIndex = FindVisibleDateIndex(DateOnly.FromDateTime(selectedDateTime));
+        if (dayIndex < 0)
+        {
+            return null;
+        }
+
+        var slotIndex = (int)Math.Floor(selectedDateTime.TimeOfDay.TotalMinutes / TimedSelectionIntervalMinutes);
+        slotIndex = Math.Clamp(slotIndex, 0, intervalCount - 1);
+
+        var x = dayIndex * dayWidth;
+        var y = slotIndex * intervalHeight;
+        return new SKRect(x, y, x + dayWidth, y + intervalHeight);
+    }
+
+    private SKRect? GetSelectedMonthCellRect()
+    {
+        if (SelectedDateTime is not DateTime selectedDateTime)
+        {
+            return null;
+        }
+
+        var selectedDate = DateOnly.FromDateTime(selectedDateTime);
+        foreach (var cell in _monthLayout.Cells)
+        {
+            if (cell.Date != selectedDate)
+            {
+                continue;
+            }
+
+            return new SKRect(
+                (float)cell.Bounds.X,
+                (float)cell.Bounds.Y,
+                (float)(cell.Bounds.X + cell.Bounds.Width),
+                (float)(cell.Bounds.Y + cell.Bounds.Height));
+        }
+
+        return null;
+    }
+
+    private int FindVisibleDateIndex(DateOnly date)
+    {
+        for (var index = 0; index < _timedLayout.VisibleDates.Count; index++)
+        {
+            if (_timedLayout.VisibleDates[index] == date)
+            {
+                return index;
+            }
+        }
+
+        return -1;
     }
 
     private double GetTimedSurfaceWidth() => Math.Max(0d, ActualWidth - TimedHourColumnWidth);

@@ -15,6 +15,7 @@
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#ecf0f1</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush">#B2FCFCFC</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarWorkHourBackgroundBrush">#D9ECEFF1</SolidColorBrush>
+            <SolidColorBrush x:Key="CalendarSelectedHourBackgroundBrush">#4D0078D4</SolidColorBrush>
 
             <local:AcrylicBrush
                 x:Key="WinoApplicationBackgroundColor"
@@ -27,6 +28,7 @@
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#2C2C2C</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush">#662C2C2C</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarWorkHourBackgroundBrush">#992C2C2C</SolidColorBrush>
+            <SolidColorBrush x:Key="CalendarSelectedHourBackgroundBrush">#66399BFF</SolidColorBrush>
 
             <local:AcrylicBrush
                 x:Key="WinoApplicationBackgroundColor"

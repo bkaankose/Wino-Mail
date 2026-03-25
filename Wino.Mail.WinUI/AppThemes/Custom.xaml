@@ -24,6 +24,7 @@
             <Color x:Key="MainCustomThemeColor">#D9FFFFFF</Color>
             <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush" Color="{StaticResource MainCustomThemeColor}" Opacity="0.55" />
             <SolidColorBrush x:Key="CalendarWorkHourBackgroundBrush" Color="{StaticResource MainCustomThemeColor}" Opacity="0.85" />
+            <SolidColorBrush x:Key="CalendarSelectedHourBackgroundBrush">#4D0078D4</SolidColorBrush>
 
             <SolidColorBrush x:Key="AppBarBackgroundColor" Color="{StaticResource MainCustomThemeColor}" />
             <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
@@ -37,6 +38,7 @@
             <Color x:Key="MainCustomThemeColor">#E61F1F1F</Color>
             <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush" Color="{StaticResource MainCustomThemeColor}" Opacity="0.55" />
             <SolidColorBrush x:Key="CalendarWorkHourBackgroundBrush" Color="{StaticResource MainCustomThemeColor}" Opacity="0.85" />
+            <SolidColorBrush x:Key="CalendarSelectedHourBackgroundBrush">#66399BFF</SolidColorBrush>
 
             <!--  Reading Pane Background  -->
             <SolidColorBrush x:Key="ReadingPaneBackgroundColorBrush" Color="{StaticResource MainCustomThemeColor}" />

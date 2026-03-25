@@ -44,6 +44,8 @@
                 DefaultHourBackground="{ThemeResource CalendarDefaultHourBackgroundBrush}"
                 EmptySlotTapped="CalendarSurfaceEmptySlotTapped"
                 IsEnabled="{x:Bind ViewModel.IsCalendarEnabled, Mode=OneWay}"
+                SelectedDateTime="{x:Bind ViewModel.SelectedQuickEventDate, Mode=OneWay}"
+                SelectedSlotBackground="{ThemeResource CalendarSelectedHourBackgroundBrush}"
                 VisibleRange="{x:Bind ViewModel.CurrentVisibleRange, Mode=OneWay}"
                 WorkHourBackground="{ThemeResource CalendarWorkHourBackgroundBrush}" />
         </Border>
@@ -64,7 +66,6 @@
                 Closed="QuickEventPopupClosed"
                 DesiredPlacement="{x:Bind helpers:XamlHelpers.GetPlaccementModeForCalendarType(ViewModel.StatePersistanceService.CalendarDisplayType), Mode=OneWay}"
                 IsLightDismissEnabled="True"
-                IsOpen="{x:Bind ViewModel.IsQuickEventDialogOpen, Mode=TwoWay}"
                 PlacementTarget="{x:Bind TeachingTipPositionerGrid}">
                 <Popup.ChildTransitions>
                     <TransitionCollection>
@@ -226,14 +227,17 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
 
-                            <!--  Command="{x:Bind ViewModel.MoreDetailsCommand}"  -->
-                            <Button HorizontalAlignment="Stretch" Content="{x:Bind domain:Translator.QuickEventDialogMoreDetailsButtonText}" />
+                            <Button
+                                HorizontalAlignment="Stretch"
+                                Click="MoreDetailsClicked"
+                                Content="{x:Bind domain:Translator.QuickEventDialogMoreDetailsButtonText}" />
 
                             <Button
                                 Grid.Column="1"
                                 HorizontalAlignment="Stretch"
-                                Command="{x:Bind ViewModel.SaveQuickEventCommand}"
+                                Click="SaveQuickEventClicked"
                                 Content="{x:Bind domain:Translator.Buttons_Save}"
+                                IsEnabled="{x:Bind ViewModel.CanSaveQuickEvent, Mode=OneWay}"
                                 Style="{ThemeResource AccentButtonStyle}" />
                         </Grid>
                     </Grid>

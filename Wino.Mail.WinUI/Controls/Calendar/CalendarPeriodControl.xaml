@@ -9,7 +9,6 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:skia="using:SkiaSharp.Views.Windows"
     xmlns:viewModels="using:Wino.Calendar.ViewModels.Data"
-
     x:Name="Root"
     SizeChanged="ControlSizeChanged"
     mc:Ignorable="d">
@@ -22,10 +21,7 @@
         </DataTemplate>
 
         <DataTemplate x:Key="MonthEventTemplate" x:DataType="viewModels:CalendarItemViewModel">
-            <local:CalendarItemControl
-                Margin="0,2,0,0"
-                CalendarItem="{x:Bind}"
-                IsCustomEventArea="True" />
+            <local:CalendarItemControl CalendarItem="{x:Bind}" IsCustomEventArea="True" />
         </DataTemplate>
 
         <DataTemplate x:Key="TimedHeaderTemplate" x:DataType="local:HeaderTextLayout">
@@ -77,8 +73,8 @@
                 x:Name="TimedHeaderHost"
                 Grid.Row="0"
                 Grid.ColumnSpan="2"
-                Margin="64,0,0,0"
                 Height="44"
+                Margin="64,0,0,0"
                 Background="{ThemeResource LayerFillColorDefaultBrush}">
                 <skia:SKXamlCanvas x:Name="TimedHeaderCanvas" PaintSurface="TimedHeaderCanvasPaintSurface" />
                 <ItemsControl
@@ -159,7 +155,13 @@
                     Background="Transparent"
                     Tapped="MonthInteractionLayerTapped" />
                 <Canvas x:Name="MonthCellLabelsCanvas" IsHitTestVisible="False" />
-                <Canvas x:Name="MonthItemsCanvas" />
+                <Canvas x:Name="MonthItemsCanvas">
+                    <Canvas.Transitions>
+                        <TransitionCollection>
+                            <AddDeleteThemeTransition />
+                        </TransitionCollection>
+                    </Canvas.Transitions>
+                </Canvas>
             </Grid>
         </Grid>
     </Grid>

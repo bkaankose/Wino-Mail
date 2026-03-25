@@ -6,14 +6,14 @@ namespace Wino.Calendar.Controls;
 
 public sealed class CalendarEmptySlotTappedEventArgs : EventArgs
 {
-    public CalendarEmptySlotTappedEventArgs(DateTime clickedDate, Point positionerPoint, Size cellSize)
+    public CalendarEmptySlotTappedEventArgs(DateTime clickedDate, Point anchorPoint, Size cellSize)
     {
         ClickedDate = clickedDate;
-        PositionerPoint = positionerPoint;
+        AnchorPoint = anchorPoint;
         CellSize = cellSize;
     }
 
     public DateTime ClickedDate { get; }
-    public Point PositionerPoint { get; }
+    public Point AnchorPoint { get; }
     public Size CellSize { get; }
 }

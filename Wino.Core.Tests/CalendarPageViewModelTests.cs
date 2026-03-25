@@ -94,6 +94,67 @@ public class CalendarPageViewModelTests
         calendarService.Verify(service => service.GetCalendarEventsAsync(It.IsAny<IAccountCalendar>(), It.IsAny<ITimePeriod>()), Times.Exactly(2));
     }
 
+    [Fact]
+    public async Task ApplyDisplayRequestAsync_LoadsOnlyActiveCalendars()
+    {
+        var settings = CreateSettings();
+        var preferencesService = CreatePreferencesService(settings);
+        var calendarService = new Mock<ICalendarService>();
+
+        var account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Name = "Primary",
+            SenderName = "Primary",
+            Address = "primary@example.com",
+            ProviderType = MailProviderType.Outlook
+        };
+
+        var visibleCalendar = CreateCalendar(account, "Visible calendar");
+        var hiddenCalendar = CreateCalendar(account, "Hidden calendar");
+        var visibleCalendarViewModel = new AccountCalendarViewModel(account, visibleCalendar);
+        var hiddenCalendarViewModel = new AccountCalendarViewModel(account, hiddenCalendar);
+        hiddenCalendarViewModel.IsChecked = false;
+
+        calendarService
+            .Setup(service => service.GetCalendarEventsAsync(It.Is<IAccountCalendar>(calendar => calendar.Id == visibleCalendar.Id), It.IsAny<ITimePeriod>()))
+            .ReturnsAsync([
+                new CalendarItem
+                {
+                    Id = Guid.NewGuid(),
+                    CalendarId = visibleCalendar.Id,
+                    StartDate = new DateTime(2026, 3, 20, 9, 0, 0),
+                    DurationInSeconds = TimeSpan.FromMinutes(30).TotalSeconds,
+                    Title = "Visible event"
+                }
+            ]);
+
+        calendarService
+            .Setup(service => service.GetCalendarEventsAsync(It.Is<IAccountCalendar>(calendar => calendar.Id == hiddenCalendar.Id), It.IsAny<ITimePeriod>()))
+            .ReturnsAsync([
+                new CalendarItem
+                {
+                    Id = Guid.NewGuid(),
+                    CalendarId = hiddenCalendar.Id,
+                    StartDate = new DateTime(2026, 3, 20, 10, 0, 0),
+                    DurationInSeconds = TimeSpan.FromMinutes(30).TotalSeconds,
+                    Title = "Hidden event"
+                }
+            ]);
+
+        var accountCalendarStateService = new FakeAccountCalendarStateService(
+            [visibleCalendarViewModel, hiddenCalendarViewModel],
+            [visibleCalendarViewModel]);
+
+        var viewModel = CreateViewModel(calendarService.Object, preferencesService.Object, new DateOnly(2026, 3, 20), accountCalendarStateService);
+
+        await viewModel.ApplyDisplayRequestAsync(new CalendarDisplayRequest(CalendarDisplayType.Day, new DateOnly(2026, 3, 20)));
+
+        viewModel.CalendarItems.Should().ContainSingle(item => item.CalendarItem.CalendarId == visibleCalendar.Id);
+        calendarService.Verify(service => service.GetCalendarEventsAsync(It.Is<IAccountCalendar>(calendar => calendar.Id == visibleCalendar.Id), It.IsAny<ITimePeriod>()), Times.Once);
+        calendarService.Verify(service => service.GetCalendarEventsAsync(It.Is<IAccountCalendar>(calendar => calendar.Id == hiddenCalendar.Id), It.IsAny<ITimePeriod>()), Times.Never);
+    }
+
     private static CalendarPageViewModel CreateViewModel(
         ICalendarService calendarService,
         IPreferencesService preferencesService,
@@ -108,24 +169,19 @@ public class CalendarPageViewModelTests
             ProviderType = MailProviderType.Outlook
         };
 
-        var calendar = new AccountCalendar
-        {
-            Id = Guid.NewGuid(),
-            AccountId = account.Id,
-            Name = "Calendar",
-            RemoteCalendarId = "calendar",
-            SynchronizationDeltaToken = string.Empty,
-            TextColorHex = "#000000",
-            BackgroundColorHex = "#ffffff",
-            TimeZone = TimeZoneInfo.Utc.Id,
-            IsExtended = true,
-            IsPrimary = true,
-            IsSynchronizationEnabled = true
-        };
-
+        var calendar = CreateCalendar(account, "Calendar");
         var accountCalendarViewModel = new AccountCalendarViewModel(account, calendar);
         var accountCalendarStateService = new FakeAccountCalendarStateService([accountCalendarViewModel]);
 
+        return CreateViewModel(calendarService, preferencesService, today, accountCalendarStateService);
+    }
+
+    private static CalendarPageViewModel CreateViewModel(
+        ICalendarService calendarService,
+        IPreferencesService preferencesService,
+        DateOnly today,
+        IAccountCalendarStateService accountCalendarStateService)
+    {
         var statePersistenceService = new Mock<IStatePersistanceService>();
         statePersistenceService.SetupAllProperties();
         statePersistenceService.Object.ApplicationMode = WinoApplicationMode.Calendar;
@@ -144,6 +200,22 @@ public class CalendarPageViewModelTests
             new TestDateContextProvider("en-US", today),
             new CalendarRangeTextFormatter());
     }
+
+    private static AccountCalendar CreateCalendar(MailAccount account, string name)
+        => new()
+        {
+            Id = Guid.NewGuid(),
+            AccountId = account.Id,
+            Name = name,
+            RemoteCalendarId = "calendar",
+            SynchronizationDeltaToken = string.Empty,
+            TextColorHex = "#000000",
+            BackgroundColorHex = "#ffffff",
+            TimeZone = TimeZoneInfo.Utc.Id,
+            IsExtended = true,
+            IsPrimary = true,
+            IsSynchronizationEnabled = true
+        };
 
     private static Mock<IPreferencesService> CreatePreferencesService(CalendarSettings settings)
         => CreatePreferencesService(() => settings);
@@ -177,11 +249,13 @@ public class CalendarPageViewModelTests
     private sealed class FakeAccountCalendarStateService : IAccountCalendarStateService
     {
         private readonly List<AccountCalendarViewModel> _calendars;
+        private readonly List<AccountCalendarViewModel> _activeCalendars;
         private readonly ObservableCollection<GroupedAccountCalendarViewModel> _groupedCalendars = [];
 
-        public FakeAccountCalendarStateService(IEnumerable<AccountCalendarViewModel> calendars)
+        public FakeAccountCalendarStateService(IEnumerable<AccountCalendarViewModel> calendars, IEnumerable<AccountCalendarViewModel>? activeCalendars = null)
         {
             _calendars = calendars.ToList();
+            _activeCalendars = (activeCalendars ?? _calendars.Where(calendar => calendar.IsChecked)).ToList();
             GroupedAccountCalendars = new ReadOnlyObservableCollection<GroupedAccountCalendarViewModel>(_groupedCalendars);
         }
 
@@ -206,7 +280,7 @@ public class CalendarPageViewModelTests
             remove { }
         }
 
-        public IEnumerable<AccountCalendarViewModel> ActiveCalendars => _calendars;
+        public IEnumerable<AccountCalendarViewModel> ActiveCalendars => _activeCalendars;
         public IEnumerable<AccountCalendarViewModel> AllCalendars => _calendars;
         public ReadOnlyObservableGroupedCollection<MailAccount, AccountCalendarViewModel> GroupedCalendars { get; set; } = null!;
 

@@ -38,9 +38,6 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     #region Quick Event Creation
 
     [ObservableProperty]
-    public partial bool IsQuickEventDialogOpen { get; set; }
-
-    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SelectedQuickEventAccountCalendarName))]
     [NotifyCanExecuteChangedFor(nameof(SaveQuickEventCommand))]
     public partial AccountCalendarViewModel SelectedQuickEventAccountCalendar { get; set; }
@@ -252,10 +249,16 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     }
 
     private void AccountCalendarStateCollectivelyChanged(object sender, GroupedAccountCalendarViewModel e)
-        => _ = ReloadCurrentVisibleRangeAsync();
+    {
+        EnsureSelectedQuickEventAccountCalendar();
+        _ = ReloadCurrentVisibleRangeAsync();
+    }
 
     private void UpdateAccountCalendarRequested(object sender, AccountCalendarViewModel e)
-        => _ = ReloadCurrentVisibleRangeAsync();
+    {
+        EnsureSelectedQuickEventAccountCalendar();
+        _ = ReloadCurrentVisibleRangeAsync();
+    }
 
     [RelayCommand(CanExecute = nameof(CanJoinOnline))]
     private async Task JoinOnlineAsync()
@@ -273,9 +276,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         AttachSubscriptions();
         RefreshSettings();
         IsCalendarEnabled = true;
-
-        SelectedQuickEventAccountCalendar = AccountCalendarStateService.ActiveCalendars.FirstOrDefault(a => a.IsPrimary)
-                                            ?? AccountCalendarStateService.ActiveCalendars.FirstOrDefault();
+        EnsureSelectedQuickEventAccountCalendar();
     }
 
     public override void OnNavigatedFrom(NavigationMode mode, object parameters)
@@ -318,7 +319,6 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         DisplayDetailsCalendarItemViewModel = null;
         SelectedQuickEventAccountCalendar = null;
         SelectedQuickEventDate = null;
-        IsQuickEventDialogOpen = false;
         HourSelectionStrings = [];
         CurrentVisibleRange = null;
         VisibleDateRangeText = string.Empty;
@@ -469,8 +469,6 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             RecurrenceSummary = string.Empty
         };
 
-        IsQuickEventDialogOpen = false;
-
         var preparationRequest = new CalendarOperationPreparationRequest(
             CalendarSynchronizerOperation.CreateEvent,
             ComposeResult: composeResult);
@@ -506,8 +504,6 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             startDate = SelectedQuickEventDate.Value.Date;
             endDate = SelectedQuickEventDate.Value.Date.AddDays(1);
         }
-
-        IsQuickEventDialogOpen = false;
 
         _navigationService.Navigate(WinoPage.CalendarEventComposePage, new CalendarEventComposeNavigationArgs
         {
@@ -602,6 +598,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
                     CalendarItems = loadedItems;
                 }
 
+                EnsureSelectedQuickEventAccountCalendar();
                 CurrentVisibleRange = visibleRange;
                 LoadedDateWindow = loadedDateWindow;
                 VisibleDateRangeText = _calendarRangeTextFormatter.Format(visibleRange, _dateContextProvider);
@@ -660,7 +657,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         var loadedItems = new Dictionary<Guid, CalendarItemViewModel>();
         var loadPeriod = new TimeRange(loadedDateWindow.StartDate, loadedDateWindow.EndDate);
 
-        foreach (var calendarViewModel in AccountCalendarStateService.AllCalendars)
+        foreach (var calendarViewModel in AccountCalendarStateService.ActiveCalendars)
         {
             if (!IsPageActive(lifetimeVersion))
                 return [];
@@ -711,6 +708,17 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     private bool IsCalendarActive(Guid? calendarId)
         => calendarId.HasValue && AccountCalendarStateService.ActiveCalendars.Any(calendar => calendar.Id == calendarId.Value);
 
+    private void EnsureSelectedQuickEventAccountCalendar()
+    {
+        if (SelectedQuickEventAccountCalendar != null && IsCalendarActive(SelectedQuickEventAccountCalendar.Id))
+        {
+            return;
+        }
+
+        SelectedQuickEventAccountCalendar = AccountCalendarStateService.ActiveCalendars.FirstOrDefault(a => a.IsPrimary)
+                                            ?? AccountCalendarStateService.ActiveCalendars.FirstOrDefault();
+    }
+
     public async void Receive(LoadCalendarMessage message)
         => await ApplyDisplayRequestAsync(message.DisplayRequest, message.ForceReload);
 
@@ -742,9 +750,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             DisplayDetailsCalendarItemViewModel = null;
         }
 
-        SelectedQuickEventAccountCalendar = AccountCalendarStateService.ActiveCalendars.FirstOrDefault(a => a.IsPrimary)
-                                            ?? AccountCalendarStateService.ActiveCalendars.FirstOrDefault();
-
+        EnsureSelectedQuickEventAccountCalendar();
         await ReloadCurrentVisibleRangeAsync().ConfigureAwait(false);
     }
 

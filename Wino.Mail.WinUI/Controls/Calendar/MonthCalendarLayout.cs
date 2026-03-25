@@ -66,7 +66,8 @@ internal static class MonthCalendarLayoutCalculator
 
     private const double CellPadding = 4d;
     private const double DayLabelHeight = 20d;
-    private const double ItemHeight = 18d;
+    private const double RegularItemHeight = 18d;
+    private const double ExpandedItemHeight = 30d;
     private const double ItemGap = 2d;
 
     public static MonthCalendarLayoutResult Calculate(VisibleDateRange range, IEnumerable<CalendarItemViewModel> items, double availableWidth, double availableHeight)
@@ -92,12 +93,13 @@ internal static class MonthCalendarLayoutCalculator
         foreach (var cell in cells)
         {
             var cellItems = GetCellItems(items, cell.Date).ToList();
+            var nextItemY = cell.Bounds.Y + DayLabelHeight + CellPadding;
 
             for (var index = 0; index < cellItems.Count; index++)
             {
-                var y = cell.Bounds.Y + DayLabelHeight + CellPadding + (index * (ItemHeight + ItemGap));
+                var itemHeight = GetItemHeight(cellItems[index]);
 
-                if (y + ItemHeight > cell.Bounds.Y + cell.Bounds.Height - CellPadding)
+                if (nextItemY + itemHeight > cell.Bounds.Y + cell.Bounds.Height - CellPadding)
                 {
                     break;
                 }
@@ -108,9 +110,11 @@ internal static class MonthCalendarLayoutCalculator
                     cell.Date,
                     new LayoutRect(
                         cell.Bounds.X + CellPadding,
-                        y,
+                        nextItemY,
                         Math.Max(0, cell.Bounds.Width - (CellPadding * 2)),
-                        ItemHeight)));
+                        itemHeight)));
+
+                nextItemY += itemHeight + ItemGap;
             }
         }
 
@@ -143,4 +147,9 @@ internal static class MonthCalendarLayoutCalculator
             }
         }
     }
+
+    private static double GetItemHeight(CalendarItemViewModel item)
+        => item.IsAllDayEvent || item.IsMultiDayEvent
+            ? ExpandedItemHeight
+            : RegularItemHeight;
 }

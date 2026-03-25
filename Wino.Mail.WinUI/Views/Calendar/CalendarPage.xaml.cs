@@ -12,6 +12,7 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Navigation;
 using Windows.Foundation;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
 using Wino.Calendar.Controls;
 using Wino.Calendar.Views.Abstract;
 using Wino.Core.Domain.Entities.Calendar;
@@ -30,6 +31,7 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
     private ICalendarShellClient CalendarShellClient { get; } = WinoApplication.Current.Services.GetRequiredService<ICalendarShellClient>();
     private CancellationTokenSource? _searchCancellationTokenSource;
     private long _calendarTypeSelectorChangedToken;
+    private bool _suppressSelectionResetOnPopupClose;
 
     public ObservableCollection<TitleBarSearchSuggestion> SearchSuggestions { get; } = [];
 
@@ -52,6 +54,7 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
 
     protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
     {
+        CloseQuickEventPopup(clearSelection: true);
         base.OnNavigatingFrom(e);
     }
 
@@ -146,21 +149,28 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         }
 
         ViewModel.SelectedQuickEventDate = e.ClickedDate;
+        ViewModel.IsAllDay = ViewModel.CurrentVisibleRange?.DisplayType == CalendarDisplayType.Month;
 
         var transform = CalendarSurface.TransformToVisual(CalendarOverlayCanvas);
-        var canvasPoint = transform.TransformPoint(e.PositionerPoint);
+        var canvasPoint = transform.TransformPoint(e.AnchorPoint);
 
-        TeachingTipPositionerGrid.Width = e.CellSize.Width;
-        TeachingTipPositionerGrid.Height = e.CellSize.Height;
+        TeachingTipPositionerGrid.Width = 1;
+        TeachingTipPositionerGrid.Height = 1;
 
         Canvas.SetLeft(TeachingTipPositionerGrid, canvasPoint.X);
         Canvas.SetTop(TeachingTipPositionerGrid, canvasPoint.Y);
 
-        var startTime = e.ClickedDate.TimeOfDay;
-        var endTime = startTime.Add(TimeSpan.FromMinutes(30));
-        ViewModel.SelectQuickEventTimeRange(startTime, endTime);
+        if (!ViewModel.IsAllDay)
+        {
+            var startTime = e.ClickedDate.TimeOfDay;
+            var endTime = startTime.Add(TimeSpan.FromMinutes(30));
+            ViewModel.SelectQuickEventTimeRange(startTime, endTime);
+        }
 
+        _suppressSelectionResetOnPopupClose = true;
+        QuickEventPopupDialog.IsOpen = false;
         QuickEventPopupDialog.IsOpen = true;
+        _suppressSelectionResetOnPopupClose = false;
     }
 
     private void QuickEventAccountSelectorSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -168,6 +178,10 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
 
     private void QuickEventPopupClosed(object sender, object e)
     {
+        if (!_suppressSelectionResetOnPopupClose)
+        {
+            ViewModel.SelectedQuickEventDate = null;
+        }
     }
 
     private void PopupPlacementChanged(object sender, object e)
@@ -257,6 +271,7 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
 
     private void CalendarPageUnloaded(object sender, RoutedEventArgs e)
     {
+        CloseQuickEventPopup(clearSelection: true);
         CalendarToolbar.UnregisterSelectedTypeChanged(_calendarTypeSelectorChangedToken);
         CalendarToolbar.PreviousDateRequested -= CalendarToolbarPreviousDateRequested;
         CalendarToolbar.NextDateRequested -= CalendarToolbarNextDateRequested;
@@ -266,5 +281,59 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         _searchCancellationTokenSource?.Cancel();
         _searchCancellationTokenSource?.Dispose();
         Unloaded -= CalendarPageUnloaded;
+    }
+
+    private async void SaveQuickEventClicked(object sender, RoutedEventArgs e)
+    {
+        if (!ViewModel.SaveQuickEventCommand.CanExecute(null))
+        {
+            return;
+        }
+
+        _suppressSelectionResetOnPopupClose = true;
+
+        try
+        {
+            QuickEventPopupDialog.IsOpen = false;
+            await ViewModel.SaveQuickEventCommand.ExecuteAsync(null);
+        }
+        finally
+        {
+            _suppressSelectionResetOnPopupClose = false;
+            ViewModel.SelectedQuickEventDate = null;
+        }
+    }
+
+    private void MoreDetailsClicked(object sender, RoutedEventArgs e)
+    {
+        if (!ViewModel.GoToEventComposePageCommand.CanExecute(null))
+        {
+            return;
+        }
+
+        _suppressSelectionResetOnPopupClose = true;
+
+        try
+        {
+            QuickEventPopupDialog.IsOpen = false;
+            ViewModel.GoToEventComposePageCommand.Execute(null);
+        }
+        finally
+        {
+            _suppressSelectionResetOnPopupClose = false;
+            ViewModel.SelectedQuickEventDate = null;
+        }
+    }
+
+    private void CloseQuickEventPopup(bool clearSelection)
+    {
+        _suppressSelectionResetOnPopupClose = !clearSelection;
+        QuickEventPopupDialog.IsOpen = false;
+        _suppressSelectionResetOnPopupClose = false;
+
+        if (clearSelection)
+        {
+            ViewModel.SelectedQuickEventDate = null;
+        }
     }
 }
