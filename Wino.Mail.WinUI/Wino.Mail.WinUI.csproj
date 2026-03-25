@@ -135,7 +135,6 @@
     <Page Remove="AppThemes\Garden.xaml" />
     <Page Remove="AppThemes\Nighty.xaml" />
     <Page Remove="AppThemes\Snowflake.xaml" />
-    <Page Remove="AppThemes\TestTheme.xaml" />
   </ItemGroup>
 
   <ItemGroup>
@@ -147,7 +146,6 @@
     <Content Include="AppThemes\Garden.xaml" />
     <Content Include="AppThemes\Nighty.xaml" />
     <Content Include="AppThemes\Snowflake.xaml" />
-    <Content Include="AppThemes\TestTheme.xaml" />
     <Content Include="Assets\ReleaseNotes\vnext.md" />
     <Content Include="Assets\UpdateNotes\vnext.json" />
     <Content Include="Assets\UpdateNotes\features.json" />

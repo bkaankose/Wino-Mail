@@ -327,7 +327,18 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
             CalendarSynchronizerOperation.CreateEvent,
             ComposeResult: createdResult));
 
-        _navigationService.GoBack();
+        NavigateBackToCalendar(createdResult.StartDate);
+    }
+
+    private void NavigateBackToCalendar(DateTime targetDate)
+    {
+        _navigationService.Navigate(
+            WinoPage.CalendarPage,
+            new CalendarPageNavigationArgs
+            {
+                NavigationDate = targetDate,
+                ForceReload = true
+            });
     }
 
     public async Task<List<AccountContact>> SearchContactsAsync(string queryText)

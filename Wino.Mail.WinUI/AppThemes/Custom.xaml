@@ -22,6 +22,8 @@
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#ecf0f1</SolidColorBrush>
 
             <Color x:Key="MainCustomThemeColor">#D9FFFFFF</Color>
+            <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush" Color="{StaticResource MainCustomThemeColor}" Opacity="0.55" />
+            <SolidColorBrush x:Key="CalendarWorkHourBackgroundBrush" Color="{StaticResource MainCustomThemeColor}" Opacity="0.85" />
 
             <SolidColorBrush x:Key="AppBarBackgroundColor" Color="{StaticResource MainCustomThemeColor}" />
             <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
@@ -33,6 +35,8 @@
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#1f1f1f</SolidColorBrush>
 
             <Color x:Key="MainCustomThemeColor">#E61F1F1F</Color>
+            <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush" Color="{StaticResource MainCustomThemeColor}" Opacity="0.55" />
+            <SolidColorBrush x:Key="CalendarWorkHourBackgroundBrush" Color="{StaticResource MainCustomThemeColor}" Opacity="0.85" />
 
             <!--  Reading Pane Background  -->
             <SolidColorBrush x:Key="ReadingPaneBackgroundColorBrush" Color="{StaticResource MainCustomThemeColor}" />

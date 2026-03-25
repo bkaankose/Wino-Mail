@@ -9,12 +9,14 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:skia="using:SkiaSharp.Views.Windows"
     xmlns:viewModels="using:Wino.Calendar.ViewModels.Data"
+
     x:Name="Root"
-    Loaded="ControlLoaded"
     SizeChanged="ControlSizeChanged"
     mc:Ignorable="d">
 
     <UserControl.Resources>
+
+
         <DataTemplate x:Key="CalendarEventTemplate" x:DataType="viewModels:CalendarItemViewModel">
             <local:CalendarItemControl CalendarItem="{x:Bind}" />
         </DataTemplate>

@@ -569,33 +569,39 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             if (!IsPageActive(lifetimeVersion))
                 return;
 
-            RefreshSettings();
+            var currentSettings = CurrentSettings;
+            if (currentSettings == null)
+            {
+                RefreshSettings();
+                currentSettings = CurrentSettings;
+            }
 
             var today = _dateContextProvider.GetToday();
-            var visibleRange = CalendarRangeResolver.Resolve(request, CurrentSettings, today);
-            var previousRange = CalendarRangeResolver.Navigate(visibleRange, -1, CurrentSettings, today);
-            var nextRange = CalendarRangeResolver.Navigate(visibleRange, 1, CurrentSettings, today);
+            var visibleRange = CalendarRangeResolver.Resolve(request, currentSettings, today);
+            var previousRange = CalendarRangeResolver.Navigate(visibleRange, -1, currentSettings, today);
+            var nextRange = CalendarRangeResolver.Navigate(visibleRange, 1, currentSettings, today);
             var loadedDateWindow = new DateRange(
                 previousRange.StartDate.ToDateTime(TimeOnly.MinValue),
                 nextRange.EndDate.AddDays(1).ToDateTime(TimeOnly.MinValue));
 
             var shouldReload = forceReload || !IsSameVisibleRange(CurrentVisibleRange, visibleRange) || !IsSameDateRange(LoadedDateWindow, loadedDateWindow);
+            List<CalendarItemViewModel> loadedItems = null;
 
             if (shouldReload)
             {
-                var loadedItems = await LoadCalendarItemsAsync(loadedDateWindow, lifetimeVersion).ConfigureAwait(false);
+                loadedItems = await LoadCalendarItemsAsync(loadedDateWindow, lifetimeVersion).ConfigureAwait(false);
                 if (!IsPageActive(lifetimeVersion))
                     return;
-
-                await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () =>
-                {
-                    _loadedCalendarItems = loadedItems;
-                    CalendarItems = loadedItems;
-                }).ConfigureAwait(false);
             }
 
             await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () =>
             {
+                if (loadedItems != null)
+                {
+                    _loadedCalendarItems = loadedItems;
+                    CalendarItems = loadedItems;
+                }
+
                 CurrentVisibleRange = visibleRange;
                 LoadedDateWindow = loadedDateWindow;
                 VisibleDateRangeText = _calendarRangeTextFormatter.Format(visibleRange, _dateContextProvider);

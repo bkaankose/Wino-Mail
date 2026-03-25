@@ -41,9 +41,11 @@
                 x:Name="CalendarSurface"
                 CalendarItems="{x:Bind ViewModel.CalendarItems, Mode=OneWay}"
                 CalendarSettings="{x:Bind ViewModel.CurrentSettings, Mode=OneWay}"
+                DefaultHourBackground="{ThemeResource CalendarDefaultHourBackgroundBrush}"
                 EmptySlotTapped="CalendarSurfaceEmptySlotTapped"
                 IsEnabled="{x:Bind ViewModel.IsCalendarEnabled, Mode=OneWay}"
-                VisibleRange="{x:Bind ViewModel.CurrentVisibleRange, Mode=OneWay}" />
+                VisibleRange="{x:Bind ViewModel.CurrentVisibleRange, Mode=OneWay}"
+                WorkHourBackground="{ThemeResource CalendarWorkHourBackgroundBrush}" />
         </Border>
 
         <Canvas

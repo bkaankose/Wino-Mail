@@ -228,7 +228,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         // If the current event was deleted, navigate back
         if (CurrentEvent?.CalendarItem?.Id == calendarItem.Id || CurrentEvent?.CalendarItem.RecurringCalendarItemId == calendarItem.Id)
         {
-            _navigationService.GoBack();
+            NavigateBackToCalendar(forceReload: true);
         }
     }
 
@@ -453,7 +453,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
 
             await _winoRequestDelegator.ExecuteAsync(preparationRequest);
 
-            _navigationService.GoBack();
+            NavigateBackToCalendar(forceReload: true);
         }
         catch (Exception ex)
         {
@@ -490,13 +490,25 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
 
             await _winoRequestDelegator.ExecuteAsync(preparationRequest);
 
-            // Navigate back after successful deletion
-            _navigationService.GoBack();
+            NavigateBackToCalendar(forceReload: true);
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"Error deleting calendar event: {ex.Message}");
         }
+    }
+
+    private void NavigateBackToCalendar(bool forceReload)
+    {
+        var navigationDate = CurrentEvent?.CalendarItem.LocalStartDate ?? DateTime.Now;
+
+        _navigationService.Navigate(
+            WinoPage.CalendarPage,
+            new CalendarPageNavigationArgs
+            {
+                NavigationDate = navigationDate,
+                ForceReload = forceReload
+            });
     }
 
     public override async Task KeyboardShortcutHook(KeyboardShortcutTriggerDetails args)

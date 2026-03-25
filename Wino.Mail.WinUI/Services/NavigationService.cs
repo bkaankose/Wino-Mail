@@ -487,7 +487,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
             : DateOnly.FromDateTime(args.NavigationDate.Date);
 
         var displayRequest = new CalendarDisplayRequest(_statePersistanceService.CalendarDisplayType, targetDate);
-        return new LoadCalendarMessage(displayRequest);
+        return new LoadCalendarMessage(displayRequest, args.ForceReload);
     }
 
     private bool NavigateInnerShellFrame(Frame frame, Type pageType, object? parameter, NavigationTransitionType transition)

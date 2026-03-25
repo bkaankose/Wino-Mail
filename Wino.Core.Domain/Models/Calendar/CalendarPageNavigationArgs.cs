@@ -13,4 +13,9 @@ public class CalendarPageNavigationArgs
     /// Display the calendar view for the specified date.
     /// </summary>
     public DateTime NavigationDate { get; set; }
+
+    /// <summary>
+    /// Force reloading the calendar data even when the target range does not change.
+    /// </summary>
+    public bool ForceReload { get; set; }
 }

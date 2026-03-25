@@ -3,12 +3,15 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using CommunityToolkit.WinUI;
 using Itenso.TimePeriod;
+using Microsoft.UI;
 using Microsoft.UI.Composition;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
@@ -27,6 +30,8 @@ namespace Wino.Calendar.Controls;
 
 public sealed partial class CalendarPeriodControl : UserControl, INotifyPropertyChanged
 {
+    private static readonly TimeSpan SizeRefreshDebounceInterval = TimeSpan.FromMilliseconds(75);
+    private const double SizeChangeThreshold = 0.5d;
     private const double TimedHourColumnWidth = 64d;
     private const double TimedGridIntervalMinutes = 30d;
     private const double TimedSelectionIntervalMinutes = 30d;
@@ -48,9 +53,12 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     private double _monthCellWidth;
     private double _monthCellHeight;
     private bool _hasPresentedState;
+    private bool _refreshPending = true;
+    private bool _refreshScheduled;
     private CalendarDisplayType _lastDisplayMode = CalendarDisplayType.Month;
     private DateOnly _lastDisplayDate = DateOnly.FromDateTime(DateTime.Today);
     private DayOfWeek _lastFirstDayOfWeek = DayOfWeek.Monday;
+    private readonly DispatcherQueueTimer _sizeRefreshTimer;
 
     [GeneratedDependencyProperty]
     public partial VisibleDateRange? VisibleRange { get; set; }
@@ -64,7 +72,21 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     [GeneratedDependencyProperty]
     public partial string? TimedHeaderDateFormat { get; set; }
 
-    public CalendarPeriodControl() => InitializeComponent();
+    [GeneratedDependencyProperty]
+    public partial Brush? DefaultHourBackground { get; set; }
+
+    [GeneratedDependencyProperty]
+    public partial Brush? WorkHourBackground { get; set; }
+
+    public CalendarPeriodControl()
+    {
+        InitializeComponent();
+
+        _sizeRefreshTimer = DispatcherQueue.CreateTimer();
+        _sizeRefreshTimer.Interval = SizeRefreshDebounceInterval;
+        _sizeRefreshTimer.IsRepeating = false;
+        _sizeRefreshTimer.Tick += SizeRefreshTimerTick;
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
     public event EventHandler<CalendarEmptySlotTappedEventArgs>? EmptySlotTapped;
@@ -128,33 +150,51 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
     public double TimelineHeight => TimedCalendarLayoutCalculator.GetTimelineHeight(GetHourHeight());
 
-    partial void OnVisibleRangeChanged(VisibleDateRange? newValue) => Refresh();
-    partial void OnCalendarSettingsChanged(CalendarSettings? newValue) => Refresh();
-    partial void OnTimedHeaderDateFormatChanged(string? newValue) => Refresh();
+    partial void OnVisibleRangeChanged(VisibleDateRange? newValue) => RequestRefresh();
+    partial void OnCalendarSettingsChanged(CalendarSettings? newValue) => RequestRefresh();
+    partial void OnTimedHeaderDateFormatChanged(string? newValue) => RequestRefresh();
 
     partial void OnCalendarItemsChanged(IReadOnlyList<CalendarItemViewModel>? newValue)
     {
         DetachCurrentItemsSource();
         AttachItemsSource(newValue);
-        Refresh();
+        RequestRefresh();
     }
 
-    private void ControlLoaded(object sender, RoutedEventArgs e)
+    private void ControlSizeChanged(object sender, SizeChangedEventArgs e)
     {
-        AttachItemsSource(CalendarItems);
-        Refresh();
-    }
+        if (!HasMeaningfulSizeChange(e))
+        {
+            return;
+        }
 
-    private void ControlSizeChanged(object sender, SizeChangedEventArgs e) => Refresh();
+        var isLiveResize = _hasPresentedState &&
+                           e.PreviousSize.Width > 0 &&
+                           e.PreviousSize.Height > 0;
+
+        if (isLiveResize)
+        {
+            _refreshPending = true;
+            _sizeRefreshTimer.Stop();
+            _sizeRefreshTimer.Start();
+            return;
+        }
+
+        if (!_refreshPending)
+        {
+            return;
+        }
+
+        QueueRefresh();
+    }
 
     private IEnumerable<CalendarItemViewModel> CurrentItems => CalendarItems ?? [];
 
     private void AttachItemsSource(IReadOnlyList<CalendarItemViewModel>? itemsSource)
     {
-        _observableItemsSource = itemsSource as INotifyCollectionChanged;
-
-        if (_observableItemsSource is not null)
+        if (itemsSource is INotifyCollectionChanged observableItemsSource)
         {
+            _observableItemsSource = observableItemsSource;
             _observableItemsSource.CollectionChanged += ItemsSourceCollectionChanged;
         }
     }
@@ -183,11 +223,17 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         }
     }
 
-    private void ItemsSourceCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) => Refresh();
+    private void ItemsSourceCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) => RequestRefresh();
+
+    private void RequestRefresh()
+    {
+        _refreshPending = true;
+        QueueRefresh();
+    }
 
     private void Refresh()
     {
-        if (!IsLoaded || ActualWidth <= 0 || VisibleRange is null || CalendarSettings is null)
+        if (!_refreshPending || !IsLoaded || ActualWidth <= 0 || VisibleRange is null || CalendarSettings is null)
         {
             return;
         }
@@ -206,9 +252,37 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
         RunTransition(transition);
         _hasPresentedState = true;
+        _refreshPending = false;
         _lastDisplayMode = VisibleRange.DisplayType;
         _lastDisplayDate = VisibleRange.AnchorDate;
         _lastFirstDayOfWeek = CalendarSettings.FirstDayOfWeek;
+
+        Debug.WriteLine($"Refreshed control.");
+    }
+
+    private static bool HasMeaningfulSizeChange(SizeChangedEventArgs e)
+        => Math.Abs(e.NewSize.Width - e.PreviousSize.Width) > SizeChangeThreshold ||
+           Math.Abs(e.NewSize.Height - e.PreviousSize.Height) > SizeChangeThreshold;
+
+    private void QueueRefresh()
+    {
+        if (_refreshScheduled)
+        {
+            return;
+        }
+
+        _refreshScheduled = true;
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            _refreshScheduled = false;
+            Refresh();
+        });
+    }
+
+    private void SizeRefreshTimerTick(DispatcherQueueTimer sender, object args)
+    {
+        sender.Stop();
+        QueueRefresh();
     }
 
     private void RefreshTimedView()
@@ -385,8 +459,8 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     {
         using var linePaint = CreateLinePaint();
         using var minorLinePaint = CreateMinorLinePaint();
-        using var defaultFillPaint = CreateFillPaint(GetDefaultHourBackground());
-        using var workFillPaint = CreateFillPaint(GetWorkHourBackground());
+        using var defaultFillPaint = CreateFillPaint(DefaultHourBackground ?? new SolidColorBrush(Colors.Transparent));
+        using var workFillPaint = CreateFillPaint(WorkHourBackground ?? new SolidColorBrush(Colors.Transparent));
         var canvas = e.Surface.Canvas;
         canvas.Clear(SKColors.Transparent);
 
@@ -935,26 +1009,6 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         return brush is SolidColorBrush solidColorBrush
             ? new SKColor(solidColorBrush.Color.R, solidColorBrush.Color.G, solidColorBrush.Color.B, solidColorBrush.Color.A)
             : SKColors.Transparent;
-    }
-
-    private Brush GetDefaultHourBackground()
-    {
-        if (Application.Current.Resources.TryGetValue("LayerFillColorDefaultBrush", out var resource) && resource is Brush brush)
-        {
-            return brush;
-        }
-
-        return new SolidColorBrush(Color.FromArgb(255, 28, 34, 42));
-    }
-
-    private Brush GetWorkHourBackground()
-    {
-        if (Application.Current.Resources.TryGetValue("SolidBackgroundFillColorBaseBrush", out var resource) && resource is SolidColorBrush solidBrush)
-        {
-            return new SolidColorBrush(Color.FromArgb(64, solidBrush.Color.R, solidBrush.Color.G, solidBrush.Color.B));
-        }
-
-        return new SolidColorBrush(Color.FromArgb(255, 34, 40, 52));
     }
 
     private static double GetTimedGridIntervalHeight(double hourHeight) => hourHeight * (TimedGridIntervalMinutes / 60d);

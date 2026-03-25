@@ -41,7 +41,7 @@
             </TitleBar.Resources>-->
             <TitleBar.Content>
                 <Grid
-                    MinWidth="280"
+                    MinWidth="400"
                     MaxWidth="520"
                     Margin="12,0,16,0">
                     <AutoSuggestBox

@@ -13,10 +13,14 @@
         <ResourceDictionary x:Name="Light">
             <!--  Brushes  -->
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#fdcb6e</SolidColorBrush>
+            <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush">#33FDCB6E</SolidColorBrush>
+            <SolidColorBrush x:Key="CalendarWorkHourBackgroundBrush">#66FDCB6E</SolidColorBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Name="Dark">
             <!--  Brushes  -->
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#5413191F</SolidColorBrush>
+            <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush">#2213191F</SolidColorBrush>
+            <SolidColorBrush x:Key="CalendarWorkHourBackgroundBrush">#5413191F</SolidColorBrush>
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>
