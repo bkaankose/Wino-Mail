@@ -659,7 +659,6 @@
                 <VisualState x:Name="DefaultShellContentState" />
                 <VisualState x:Name="EventDetailsContentState">
                     <VisualState.Setters>
-                        <Setter Target="RangeSummaryCard.IsEnabled" Value="False" />
                         <Setter Target="CalendarHostListView.IsEnabled" Value="False" />
                     </VisualState.Setters>
                 </VisualState>

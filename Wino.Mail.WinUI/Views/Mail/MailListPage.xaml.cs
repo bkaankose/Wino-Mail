@@ -1,4 +1,5 @@
 using System;
+using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -27,6 +28,8 @@ using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls.ListView;
 using Wino.Mail.WinUI.Extensions;
+using Wino.Mail.WinUI.Interfaces;
+using Wino.Mail.WinUI.Models;
 using Wino.MenuFlyouts.Context;
 using Wino.Messaging.Client.Mails;
 using Wino.Views.Abstract;
@@ -44,7 +47,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
     IRecipient<ClearMailSelectionsRequested>,
     IRecipient<ActiveMailItemChangedEvent>,
     IRecipient<SelectMailItemContainerEvent>,
-    IRecipient<DisposeRenderingFrameRequested>
+    IRecipient<DisposeRenderingFrameRequested>,
+    ITitleBarSearchHost
 {
     private const double RENDERING_COLUMN_MIN_WIDTH = 375;
     private const int IDLE_NAVIGATION_DELAY_MS = 120;
@@ -52,6 +56,15 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     private IStatePersistanceService StatePersistenceService { get; } = WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception($"Can't resolve {nameof(KeyPressService)}");
     private IKeyPressService KeyPressService { get; } = WinoApplication.Current.Services.GetService<IKeyPressService>() ?? throw new Exception($"Can't resolve {nameof(KeyPressService)}");
+    public ObservableCollection<TitleBarSearchSuggestion> SearchSuggestions { get; } = [];
+    public string SearchText
+    {
+        get => ViewModel.SearchQuery;
+        set => ViewModel.SearchQuery = value;
+    }
+
+    public string SearchPlaceholderText => Translator.SearchBarPlaceholder;
+
     public MailListPage()
     {
         InitializeComponent();
@@ -460,16 +473,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
         });
     }
 
-    private void SearchBoxFocused(object sender, RoutedEventArgs e)
-    {
-        SearchBar.PlaceholderText = string.Empty;
-    }
-
-    private void SearchBarUnfocused(object sender, RoutedEventArgs e)
-    {
-        SearchBar.PlaceholderText = Translator.SearchBarPlaceholder;
-    }
-
     /// <summary>
     /// Thread header is mail info display control and it can be dragged spearately out of ListView.
     /// We need to prepare a drag package for it from the items inside.
@@ -569,10 +572,9 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
     }
 
-    private async void SearchBar_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+    public async Task OnTitleBarSearchTextChangedAsync()
     {
-        // User clicked 'x' button to clearout the search text.
-        if (args.Reason == AutoSuggestionBoxTextChangeReason.UserInput && string.IsNullOrWhiteSpace(sender.Text))
+        if (string.IsNullOrWhiteSpace(SearchText))
         {
             ViewModel.IsOnlineSearchButtonVisible = false;
             await ViewModel.PerformSearchAsync();
@@ -903,9 +905,19 @@ public sealed partial class MailListPage : MailListPageAbstract,
         await WinoClickItemInternalAsync(e.ClickedItem);
     }
 
-    private void SearchbarQuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
+    public void OnTitleBarSearchSuggestionChosen(TitleBarSearchSuggestion suggestion)
     {
+    }
+
+    public Task OnTitleBarSearchSubmittedAsync(string queryText, TitleBarSearchSuggestion? chosenSuggestion)
+    {
+        SearchText = queryText;
+
         if (ViewModel.PerformSearchCommand.CanExecute(null))
+        {
             ViewModel.PerformSearchCommand.Execute(null);
+        }
+
+        return Task.CompletedTask;
     }
 }

@@ -10,6 +10,7 @@
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:winoControls="using:Wino.Mail.WinUI.Controls"
     mc:Ignorable="d">
 
     <Page.Resources>
@@ -20,7 +21,18 @@
     </Page.Resources>
 
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <winoControls:CalendarTitleBarContent
+            x:Name="CalendarToolbar"
+            Grid.Row="0"
+            Margin="4,0,7,8" />
+
         <Border
+            Grid.Row="1"
             Margin="4,0,7,7"
             BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
@@ -34,7 +46,10 @@
                 VisibleRange="{x:Bind ViewModel.CurrentVisibleRange, Mode=OneWay}" />
         </Border>
 
-        <Canvas x:Name="CalendarOverlayCanvas" IsHitTestVisible="False">
+        <Canvas
+            x:Name="CalendarOverlayCanvas"
+            Grid.RowSpan="2"
+            IsHitTestVisible="False">
             <Grid
                 x:Name="TeachingTipPositionerGrid"
                 Background="Transparent"

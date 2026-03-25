@@ -1,15 +1,30 @@
 using System;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.UI.Xaml.Controls;
+using Wino.Core.Domain;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.WinUI.Interfaces;
+using Wino.Mail.WinUI.Models;
 using Wino.Views.Abstract;
 
 namespace Wino.Views.Settings;
 
-public sealed partial class ContactsPage : ContactsPageAbstract
+public sealed partial class ContactsPage : ContactsPageAbstract, ITitleBarSearchHost
 {
+    public ObservableCollection<TitleBarSearchSuggestion> SearchSuggestions { get; } = [];
+
+    public string SearchText
+    {
+        get => ViewModel.SearchQuery;
+        set => ViewModel.SearchQuery = value;
+    }
+
+    public string SearchPlaceholderText => Translator.ContactsPage_SearchPlaceholder;
+
     public ContactsPage()
     {
         InitializeComponent();
@@ -109,5 +124,23 @@ public sealed partial class ContactsPage : ContactsPageAbstract
         ContactsListView.SelectedItems.Clear();
         ContactsListView.SelectionChanged += ContactsListView_SelectionChanged;
         ViewModel.SelectedContacts.Clear();
+    }
+
+    public Task OnTitleBarSearchTextChangedAsync() => Task.CompletedTask;
+
+    public void OnTitleBarSearchSuggestionChosen(TitleBarSearchSuggestion suggestion)
+    {
+    }
+
+    public Task OnTitleBarSearchSubmittedAsync(string queryText, TitleBarSearchSuggestion? chosenSuggestion)
+    {
+        SearchText = queryText;
+
+        if (ViewModel.ReloadContactsCommand.CanExecute(null))
+        {
+            ViewModel.ReloadContactsCommand.Execute(null);
+        }
+
+        return Task.CompletedTask;
     }
 }

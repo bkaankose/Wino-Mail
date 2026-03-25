@@ -122,11 +122,6 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <AutoSuggestBox
-                PlaceholderText="{x:Bind domain:Translator.ContactsPage_SearchPlaceholder, Mode=OneTime}"
-                QueryIcon="Find"
-                Text="{x:Bind ViewModel.SearchQuery, Mode=TwoWay}" />
-
             <Button
                 Grid.Column="1"
                 Command="{x:Bind ViewModel.ReloadContactsCommand}"

@@ -142,32 +142,6 @@
         </DataTemplate>
     </Page.Resources>
 
-    <wino:BasePage.ShellContent>
-        <Grid HorizontalAlignment="Stretch">
-            <!--  Hidden focus receiver...  -->
-            <TextBox
-                Grid.Column="1"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Bottom"
-                Opacity="0"
-                Visibility="Collapsed" />
-
-            <AutoSuggestBox
-                x:Name="SearchBar"
-                Width="400"
-                Margin="2,0,-2,0"
-                VerticalAlignment="Center"
-                BorderBrush="Transparent"
-                GotFocus="SearchBoxFocused"
-                LostFocus="SearchBarUnfocused"
-                PlaceholderText="{x:Bind domain:Translator.SearchBarPlaceholder}"
-                QueryIcon="Find"
-                QuerySubmitted="SearchbarQuerySubmitted"
-                Text="{x:Bind ViewModel.SearchQuery, Mode=TwoWay}"
-                TextChanged="SearchBar_TextChanged" />
-        </Grid>
-    </wino:BasePage.ShellContent>
-
     <Grid x:Name="RootGrid" Padding="0,2,0,0">
         <Grid.ColumnDefinitions>
             <ColumnDefinition x:Name="MailListColumn" Width="{x:Bind ViewModel.MailListLength, Mode=OneWay, Converter={StaticResource GridLengthConverter}}" />

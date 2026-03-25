@@ -13,14 +13,6 @@ namespace Wino.Mail.WinUI;
 
 public partial class BasePage : Page, IRecipient<LanguageChanged>
 {
-    public UIElement ShellContent
-    {
-        get { return (UIElement)GetValue(ShellContentProperty); }
-        set { SetValue(ShellContentProperty, value); }
-    }
-
-    public static readonly DependencyProperty ShellContentProperty = DependencyProperty.Register(nameof(ShellContent), typeof(UIElement), typeof(BasePage), new PropertyMetadata(null));
-
     public void Receive(LanguageChanged message)
     {
         OnLanguageChanged();

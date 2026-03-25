@@ -1,6 +1,5 @@
 using System;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
@@ -16,9 +15,9 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Extensions;
 using Wino.Mail.WinUI.Activation;
-using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Interfaces;
+using Wino.Mail.WinUI.Models;
 using Wino.Mail.WinUI.Views;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
@@ -43,10 +42,9 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     public ObservableCollection<SynchronizationActionItem> SyncActionItems { get; } = new();
     private bool _calendarReminderServerStartAttempted;
-    private ICalendarShellClient? _activeCalendarClient;
-    private readonly CalendarTitleBarContent _calendarTitleBarContent = new();
-    private long _calendarTypeSelectorChangedToken;
+    private ITitleBarSearchHost? _activeTitleBarSearchHost;
     private bool _isBackButtonVisibilityReady;
+    private bool _isSynchronizingTitleBarSearch;
 
     public ShellWindow()
     {
@@ -58,9 +56,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         MinWidth = 420;
         MinHeight = 420;
         ConfigureTitleBar();
-        _calendarTypeSelectorChangedToken = _calendarTitleBarContent.RegisterSelectedTypeChanged(CalendarTypeSelectorSelectedTypeChanged);
-        _calendarTitleBarContent.PreviousDateRequested += CalendarTitleBarContentPreviousDateRequested;
-        _calendarTitleBarContent.NextDateRequested += CalendarTitleBarContentNextDateRequested;
+        ApplyTitleBarSearchHost();
 
         // Handle window closing event to minimize to tray instead of closing
         Closed += OnWindowClosed;
@@ -141,7 +137,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         }
 
         _isBackButtonVisibilityReady = true;
-        ApplyTitleBarContent();
+        ApplyTitleBarSearchHost();
         RefreshBackButtonVisibility();
     }
 
@@ -169,7 +165,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     public void Receive(TitleBarShellContentUpdated message)
     {
-        ApplyTitleBarContent();
+        ApplyTitleBarSearchHost();
         RefreshBackButtonVisibility();
     }
 
@@ -266,40 +262,10 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         });
     }
 
-    private void CalendarTypeSelectorSelectedTypeChanged(DependencyObject sender, DependencyProperty dp)
+    private void ApplyTitleBarSearchHost()
     {
-        if (_activeCalendarClient == null)
-            return;
-
-        var selectedType = _calendarTitleBarContent.SelectedType;
-        if (_activeCalendarClient.StatePersistenceService.CalendarDisplayType != selectedType)
-        {
-            _activeCalendarClient.StatePersistenceService.CalendarDisplayType = selectedType;
-        }
-    }
-
-    private void ApplyTitleBarContent()
-    {
-        if (MainShellFrame.Content is not WinoAppShell shellPage)
-        {
-            AttachCalendarClient(null);
-            ShellTitleBar.Content = MainShellFrame.Content is BasePage basePage ? basePage.ShellContent : null;
-            RefreshBackButtonVisibility();
-            return;
-        }
-
-        AttachCalendarClient(shellPage.ViewModel.CalendarClient);
-
-        if (shellPage.ViewModel.IsCalendarMode && !shellPage.ViewModel.StatePersistenceService.IsEventDetailsVisible)
-        {
-            RefreshCalendarSelector();
-            ShellTitleBar.Content = _calendarTitleBarContent;
-            RefreshBackButtonVisibility();
-            return;
-        }
-
-        ShellTitleBar.Content = shellPage.GetShellFrame().Content is BasePage page ? page.ShellContent : null;
-        RefreshBackButtonVisibility();
+        _activeTitleBarSearchHost = ResolveActiveTitleBarSearchHost();
+        SynchronizeTitleBarSearchBox();
     }
 
     private void StatePersistenceServiceChanged(object? sender, string propertyName)
@@ -333,87 +299,58 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         ShellTitleBar.IsBackButtonVisible = NavigationService.CanGoBack();
     }
 
-    private void AttachCalendarClient(ICalendarShellClient? calendarClient)
+    private ITitleBarSearchHost? ResolveActiveTitleBarSearchHost()
     {
-        if (ReferenceEquals(_activeCalendarClient, calendarClient))
-            return;
-
-        if (_activeCalendarClient != null)
+        if (MainShellFrame.Content is WinoAppShell shellPage)
         {
-            _activeCalendarClient.PropertyChanged -= CalendarClientPropertyChanged;
-            _activeCalendarClient.StatePersistenceService.StatePropertyChanged -= CalendarStatePersistenceServiceChanged;
+            return shellPage.GetShellFrame().Content as ITitleBarSearchHost;
         }
 
-        _activeCalendarClient = calendarClient;
+        return MainShellFrame.Content as ITitleBarSearchHost;
+    }
 
-        if (_activeCalendarClient != null)
+    private void SynchronizeTitleBarSearchBox()
+    {
+        _isSynchronizingTitleBarSearch = true;
+        try
         {
-            _activeCalendarClient.PropertyChanged += CalendarClientPropertyChanged;
-            _activeCalendarClient.StatePersistenceService.StatePropertyChanged += CalendarStatePersistenceServiceChanged;
+            TitleBarSearchBox.IsEnabled = _activeTitleBarSearchHost != null;
+            TitleBarSearchBox.PlaceholderText = _activeTitleBarSearchHost?.SearchPlaceholderText ?? Translator.SearchBarPlaceholder;
+            TitleBarSearchBox.ItemsSource = _activeTitleBarSearchHost?.SearchSuggestions;
+            TitleBarSearchBox.Text = _activeTitleBarSearchHost?.SearchText ?? string.Empty;
+        }
+        finally
+        {
+            _isSynchronizingTitleBarSearch = false;
         }
     }
 
-    private void CalendarClientPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private async void TitleBarSearchTextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
     {
-        if (!DispatcherQueue.HasThreadAccess)
-        {
-            var enqueued = DispatcherQueue.TryEnqueue(() => CalendarClientPropertyChanged(sender, e));
-            if (!enqueued)
-                throw new InvalidOperationException("Could not marshal calendar client changes onto the UI thread.");
-
+        if (_isSynchronizingTitleBarSearch || _activeTitleBarSearchHost == null)
             return;
-        }
 
-        if (e.PropertyName == nameof(ICalendarShellClient.VisibleDateRangeText))
-        {
-            RefreshCalendarSelector();
-        }
+        _activeTitleBarSearchHost.SearchText = sender.Text;
+        await _activeTitleBarSearchHost.OnTitleBarSearchTextChangedAsync();
     }
 
-    private void CalendarStatePersistenceServiceChanged(object? sender, string propertyName)
+    private void TitleBarSearchSuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)
     {
-        if (!DispatcherQueue.HasThreadAccess)
-        {
-            var enqueued = DispatcherQueue.TryEnqueue(() => CalendarStatePersistenceServiceChanged(sender, propertyName));
-            if (!enqueued)
-                throw new InvalidOperationException("Could not marshal title bar state changes onto the UI thread.");
-
+        if (_activeTitleBarSearchHost == null || args.SelectedItem is not TitleBarSearchSuggestion suggestion)
             return;
-        }
 
-        if (propertyName == nameof(IStatePersistanceService.CalendarDisplayType) ||
-            propertyName == nameof(IStatePersistanceService.DayDisplayCount))
-        {
-            RefreshCalendarSelector();
-            return;
-        }
-
-        if (propertyName == nameof(IStatePersistanceService.IsEventDetailsVisible))
-        {
-            ApplyTitleBarContent();
-        }
+        _activeTitleBarSearchHost.OnTitleBarSearchSuggestionChosen(suggestion);
+        SynchronizeTitleBarSearchBox();
     }
 
-    private void RefreshCalendarSelector()
+    private async void TitleBarSearchQuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
     {
-        if (_activeCalendarClient == null)
+        if (_activeTitleBarSearchHost == null)
             return;
 
-        _calendarTitleBarContent.VisibleDateRangeText = _activeCalendarClient.VisibleDateRangeText;
-        _calendarTitleBarContent.TodayClickedCommand = _activeCalendarClient.TodayClickedCommand;
-        _calendarTitleBarContent.DisplayDayCount = _activeCalendarClient.StatePersistenceService.DayDisplayCount;
-
-        if (_calendarTitleBarContent.SelectedType != _activeCalendarClient.StatePersistenceService.CalendarDisplayType)
-        {
-            _calendarTitleBarContent.SelectedType = _activeCalendarClient.StatePersistenceService.CalendarDisplayType;
-        }
+        await _activeTitleBarSearchHost.OnTitleBarSearchSubmittedAsync(args.QueryText, args.ChosenSuggestion as TitleBarSearchSuggestion);
+        SynchronizeTitleBarSearchBox();
     }
-
-    private void CalendarTitleBarContentPreviousDateRequested(object? sender, EventArgs e)
-        => _activeCalendarClient?.PreviousDateRangeCommand.Execute(null);
-
-    private void CalendarTitleBarContentNextDateRequested(object? sender, EventArgs e)
-        => _activeCalendarClient?.NextDateRangeCommand.Execute(null);
 
     private void OnAppWindowClosing(object sender, Microsoft.UI.Windowing.AppWindowClosingEventArgs e)
     {
@@ -428,11 +365,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     private void OnWindowClosed(object sender, WindowEventArgs e)
     {
         AppWindow.Closing -= OnAppWindowClosing;
-        AttachCalendarClient(null);
         StatePersistanceService.StatePropertyChanged -= StatePersistenceServiceChanged;
-        _calendarTitleBarContent.UnregisterSelectedTypeChanged(_calendarTypeSelectorChangedToken);
-        _calendarTitleBarContent.PreviousDateRequested -= CalendarTitleBarContentPreviousDateRequested;
-        _calendarTitleBarContent.NextDateRequested -= CalendarTitleBarContentNextDateRequested;
         UnregisterRecipients();
     }
 

@@ -182,6 +182,38 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         }
     }
 
+    public async Task<List<CalendarItem>> SearchCalendarItemsAsync(string searchQuery, int limit, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (string.IsNullOrWhiteSpace(searchQuery) || limit <= 0)
+            return [];
+
+        var pattern = $"%{searchQuery.Trim()}%";
+        var results = await Connection.QueryAsync<CalendarItem>(
+            """
+            SELECT *
+            FROM CalendarItem
+            WHERE IsHidden = 0
+              AND (Recurrence IS NULL OR Recurrence = '' OR RecurringCalendarItemId IS NOT NULL)
+              AND (Title LIKE ? OR Description LIKE ? OR Location LIKE ?)
+            ORDER BY StartDate DESC
+            LIMIT ?
+            """,
+            pattern,
+            pattern,
+            pattern,
+            limit).ConfigureAwait(false);
+
+        foreach (var result in results)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await LoadAssignedCalendarAsync(result).ConfigureAwait(false);
+        }
+
+        return results;
+    }
+
     /// <summary>
     /// Retrieves calendar events for a given calendar within the specified time period.
     /// Returns all events (single instances and recurring event occurrences) that overlap with the period.

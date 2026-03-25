@@ -633,6 +633,22 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         return ApplyDisplayRequestAsync(new CalendarDisplayRequest(CurrentVisibleRange.DisplayType, CurrentVisibleRange.AnchorDate), forceReload: true);
     }
 
+    public async Task<IReadOnlyList<CalendarItem>> SearchCalendarItemsAsync(string queryText, int limit, CancellationToken cancellationToken)
+    {
+        var results = await _calendarService.SearchCalendarItemsAsync(queryText, limit, cancellationToken).ConfigureAwait(false);
+        var activeCalendarIds = AccountCalendarStateService.ActiveCalendars.Select(calendar => calendar.Id).ToHashSet();
+
+        return results
+            .Where(result => activeCalendarIds.Contains(result.CalendarId))
+            .ToList();
+    }
+
+    public void OpenCalendarSearchResult(CalendarItem calendarItem)
+    {
+        ArgumentNullException.ThrowIfNull(calendarItem);
+        NavigateEvent(new CalendarItemViewModel(calendarItem), CalendarEventTargetType.Single);
+    }
+
     private async Task<List<CalendarItemViewModel>> LoadCalendarItemsAsync(DateRange loadedDateWindow, long lifetimeVersion)
     {
         var loadedItems = new Dictionary<Guid, CalendarItemViewModel>();

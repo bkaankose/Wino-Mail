@@ -9,6 +9,8 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.WinUI.Interfaces;
+using Wino.Mail.WinUI.Models;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.UI;
 using Wino.Views.Abstract;
@@ -21,9 +23,13 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
     IRecipient<BackBreadcrumNavigationRequested>,
     IRecipient<SettingsRootNavigationRequested>,
     IRecipient<MergedInboxRenamed>,
-    IRecipient<AccountUpdatedMessage>
+    IRecipient<AccountUpdatedMessage>,
+    ITitleBarSearchHost
 {
     public ObservableCollection<BreadcrumbNavigationItemViewModel> PageHistory { get; set; } = [];
+    public ObservableCollection<TitleBarSearchSuggestion> SearchSuggestions { get; } = [];
+    public string SearchText { get; set; } = string.Empty;
+    public string SearchPlaceholderText => Translator.SettingsHome_SearchPlaceholder;
 
     public SettingsPage()
     {
@@ -241,5 +247,37 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         ViewModel.StatePersistenceService.CoreWindowTitle = string.IsNullOrWhiteSpace(activeTitle)
             ? Translator.MenuSettings
             : activeTitle;
+    }
+
+    public Task OnTitleBarSearchTextChangedAsync()
+    {
+        SearchSuggestions.Clear();
+
+        foreach (var item in SettingsNavigationInfoProvider.Search(SearchText, ViewModel.ManageAccountsDescription).Take(6))
+        {
+            SearchSuggestions.Add(new TitleBarSearchSuggestion(item.Title, item.Description, item));
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public void OnTitleBarSearchSuggestionChosen(TitleBarSearchSuggestion suggestion)
+    {
+        SearchText = suggestion.Title;
+    }
+
+    public Task OnTitleBarSearchSubmittedAsync(string queryText, TitleBarSearchSuggestion? chosenSuggestion)
+    {
+        SearchText = queryText;
+
+        var selectedSetting = chosenSuggestion?.Tag as SettingsNavigationItemInfo
+                              ?? SettingsNavigationInfoProvider.Search(queryText, ViewModel.ManageAccountsDescription).FirstOrDefault();
+
+        if (selectedSetting?.PageType is WinoPage pageType)
+        {
+            Receive(new SettingsRootNavigationRequested(pageType));
+        }
+
+        return Task.CompletedTask;
     }
 }

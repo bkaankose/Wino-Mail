@@ -9,6 +9,7 @@
     xmlns:helpers="using:Wino.Helpers"
     xmlns:local="using:Wino.Mail.WinUI"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:searchModels="using:Wino.Mail.WinUI.Models"
     xmlns:syncModels="using:Wino.Core.Domain.Models.Synchronization"
     xmlns:winuiex="using:WinUIEx"
     Title="ShellWindow"
@@ -34,10 +35,39 @@
             IsPaneToggleButtonVisible="True"
             PaneToggleRequested="PaneButtonClicked"
             Subtitle="{x:Bind StatePersistanceService.CoreWindowTitle, Mode=OneWay}">
-            <TitleBar.Resources>
+            <!--<TitleBar.Resources>
                 <HorizontalAlignment x:Key="TitleBarContentHorizontalAlignment">Stretch</HorizontalAlignment>
                 <VerticalAlignment x:Key="TitleBarContentVerticalAlignment">Stretch</VerticalAlignment>
-            </TitleBar.Resources>
+            </TitleBar.Resources>-->
+            <TitleBar.Content>
+                <Grid
+                    MinWidth="280"
+                    MaxWidth="520"
+                    Margin="12,0,16,0">
+                    <AutoSuggestBox
+                        x:Name="TitleBarSearchBox"
+                        VerticalAlignment="Center"
+                        BorderBrush="Transparent"
+                        PlaceholderText="{x:Bind domain:Translator.SearchBarPlaceholder}"
+                        QueryIcon="Find"
+                        QuerySubmitted="TitleBarSearchQuerySubmitted"
+                        SuggestionChosen="TitleBarSearchSuggestionChosen"
+                        TextChanged="TitleBarSearchTextChanged">
+                        <AutoSuggestBox.ItemTemplate>
+                            <DataTemplate x:DataType="searchModels:TitleBarSearchSuggestion">
+                                <StackPanel Padding="0,4">
+                                    <TextBlock Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="{x:Bind Subtitle}"
+                                        TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </AutoSuggestBox.ItemTemplate>
+                    </AutoSuggestBox>
+                </Grid>
+            </TitleBar.Content>
             <TitleBar.RightHeader>
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <Button
