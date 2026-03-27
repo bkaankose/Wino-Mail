@@ -104,6 +104,7 @@ private string searchQuery = string.Empty;
 - WinUI 3 auto-converts bool to Visibility: `Visibility="{x:Bind IsVisible, Mode=OneWay}"`
 - Use XamlHelpers for complex conversions: `{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(Prop)}`
 - `x:Bind` does not implicitly convert `double` to `GridLength`; when binding `RowDefinition.Height` or `ColumnDefinition.Width`, use a `XamlHelpers` method such as `DoubleToGridLength(...)`
+- For `ComboBox` controls in XAML, never use `DisplayMemberPath` or `SelectedValuePath`; use a typed `ItemTemplate` and bind `SelectedItem` explicitly, preferably with `x:Bind`
 
 ## Localization
 

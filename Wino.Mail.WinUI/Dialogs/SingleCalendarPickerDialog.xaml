@@ -28,13 +28,13 @@
     <StackPanel Margin="0,8,0,0" Spacing="12">
         <TextBlock
             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-            Text="{x:Bind domain:Translator.CalendarEventCompose_DefaultCalendarHint, Mode=OneWay}"
+            Text="{x:Bind domain:Translator.CalendarEventCompose_DefaultCalendarHint}"
             TextWrapping="WrapWholeWords" />
 
         <HyperlinkButton
             HorizontalAlignment="Left"
             Click="OpenCalendarSettingsClicked"
-            Content="{x:Bind domain:Translator.CalendarEventCompose_DefaultCalendarSettingsLink, Mode=OneWay}"
+            Content="{x:Bind domain:Translator.CalendarEventCompose_DefaultCalendarSettingsLink}"
             Padding="0" />
 
         <ScrollViewer MaxHeight="400">
@@ -67,7 +67,7 @@
                                                 Width="14"
                                                 Height="14"
                                                 VerticalAlignment="Center"
-                                                Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}" />
+                                                Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex)}" />
 
                                             <TextBlock
                                                 Grid.Column="1"

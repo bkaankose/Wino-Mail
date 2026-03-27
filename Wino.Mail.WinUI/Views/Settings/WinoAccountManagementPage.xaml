@@ -21,23 +21,23 @@
                 </controls:SettingsCard.HeaderIcon>
                 <controls:SettingsCard.Header>
                     <StackPanel Spacing="8">
-                        <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.GetTranslatedString(NameKey), Mode=OneWay}" />
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.GetTranslatedString(NameKey)}" />
                         <TextBlock
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             Style="{StaticResource BodyTextBlockStyle}"
-                            Text="{x:Bind domain:Translator.GetTranslatedString(DescriptionKey), Mode=OneWay}"
+                            Text="{x:Bind domain:Translator.GetTranslatedString(DescriptionKey)}"
                             TextWrapping="WrapWholeWords" />
                         <TextBlock
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="{x:Bind domain:Translator.GetTranslatedString(KeywordsKey), Mode=OneWay}"
+                            Text="{x:Bind domain:Translator.GetTranslatedString(KeywordsKey)}"
                             TextWrapping="WrapWholeWords" />
                         <StackPanel
                             Margin="0,4,0,0"
                             Orientation="Horizontal"
                             Spacing="12">
                             <Button
-                                Command="{x:Bind PurchaseCommand, Mode=OneWay}"
+                                Command="{x:Bind PurchaseCommand}"
                                 CommandParameter="{x:Bind}"
                                 Content="{x:Bind domain:Translator.Buttons_Purchase}"
                                 Style="{StaticResource AccentButtonStyle}" />
@@ -59,7 +59,7 @@
                 </controls:SettingsExpander.HeaderIcon>
                 <controls:SettingsExpander.Header>
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.GetTranslatedString(NameKey), Mode=OneWay}" />
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.GetTranslatedString(NameKey)}" />
                         <Border
                             Padding="8,2"
                             Background="{ThemeResource SystemAccentColor}"
@@ -88,7 +88,7 @@
                             Text="{x:Bind RenewalText, Mode=OneWay}" />
                     </StackPanel>
                 </controls:SettingsExpander.Description>
-                <HyperlinkButton Command="{x:Bind ManageCommand, Mode=OneWay}" Content="{x:Bind domain:Translator.Buttons_Manage}" />
+                <HyperlinkButton Command="{x:Bind ManageCommand}" Content="{x:Bind domain:Translator.Buttons_Manage}" />
                 <controls:SettingsExpander.Items>
                     <controls:SettingsCard HorizontalContentAlignment="Stretch">
                         <controls:SettingsCard.Header>
@@ -137,16 +137,16 @@
                 </controls:SettingsCard.HeaderIcon>
                 <controls:SettingsCard.Header>
                     <StackPanel Spacing="8">
-                        <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.GetTranslatedString(NameKey), Mode=OneWay}" />
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.GetTranslatedString(NameKey)}" />
                         <TextBlock
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             Style="{StaticResource BodyTextBlockStyle}"
-                            Text="{x:Bind domain:Translator.GetTranslatedString(DescriptionKey), Mode=OneWay}"
+                            Text="{x:Bind domain:Translator.GetTranslatedString(DescriptionKey)}"
                             TextWrapping="WrapWholeWords" />
                         <TextBlock
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="{x:Bind domain:Translator.GetTranslatedString(KeywordsKey), Mode=OneWay}"
+                            Text="{x:Bind domain:Translator.GetTranslatedString(KeywordsKey)}"
                             TextWrapping="WrapWholeWords" />
                         <Border
                             Padding="12,4"

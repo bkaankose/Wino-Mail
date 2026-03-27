@@ -14,6 +14,7 @@
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:reader="using:Wino.Core.Domain.Models.Reader"
     xmlns:toolkitExt="using:CommunityToolkit.WinUI"
+    xmlns:x509="using:System.Security.Cryptography.X509Certificates"
     x:Name="root"
     mc:Ignorable="d">
 
@@ -65,18 +66,23 @@
                     Grid.Column="2"
                     Click="SetAliasPrimary_Click"
                     CommandParameter="{x:Bind}"
-                    IsChecked="{x:Bind IsPrimary, Mode=OneWay}" />
+                    IsChecked="{x:Bind IsPrimary}" />
 
 
                 <ComboBox
                     Grid.Column="3"
                     HorizontalAlignment="Center"
-                    DisplayMemberPath="Subject"
                     DropDownClosed="SigningCertificateDropDownClosed"
                     IsEnabled="{x:Bind IsSmimeEncryptionEnabled}"
-                    ItemsSource="{x:Bind Certificates, Mode=OneWay}"
+                    ItemsSource="{x:Bind Certificates}"
                     PlaceholderText="{x:Bind domain:Translator.SettingsSignatureAndEncryption_SigningCertificatePlaceholder}"
-                    SelectedItem="{Binding SelectedSigningCertificate, Mode=TwoWay}" />
+                    SelectedItem="{x:Bind SelectedSigningCertificate, Mode=TwoWay}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="x509:X509Certificate2">
+                            <TextBlock Text="{x:Bind Subject}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
 
                 <CheckBox
                     Grid.Column="4"

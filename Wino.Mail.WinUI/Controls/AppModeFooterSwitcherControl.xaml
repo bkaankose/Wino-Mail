@@ -9,22 +9,22 @@
     Loaded="ControlLoaded"
     SelectionChanged="ModeSegmentedControlSelectionChanged"
     Unloaded="ControlUnloaded">
-    <controls:SegmentedItem Padding="0" ToolTipService.ToolTip="{x:Bind domain:Translator.KeyboardShortcuts_ModeMail, Mode=OneWay}">
+    <controls:SegmentedItem Padding="0" ToolTipService.ToolTip="{x:Bind domain:Translator.KeyboardShortcuts_ModeMail}">
         <controls:SegmentedItem.Icon>
             <SymbolIcon Symbol="Mail" />
         </controls:SegmentedItem.Icon>
     </controls:SegmentedItem>
-    <controls:SegmentedItem Padding="0" ToolTipService.ToolTip="{x:Bind domain:Translator.KeyboardShortcuts_ModeCalendar, Mode=OneWay}">
+    <controls:SegmentedItem Padding="0" ToolTipService.ToolTip="{x:Bind domain:Translator.KeyboardShortcuts_ModeCalendar}">
         <controls:SegmentedItem.Icon>
             <SymbolIcon Symbol="Calendar" />
         </controls:SegmentedItem.Icon>
     </controls:SegmentedItem>
-    <controls:SegmentedItem Padding="0" ToolTipService.ToolTip="{x:Bind domain:Translator.ContactsPage_Title, Mode=OneWay}">
+    <controls:SegmentedItem Padding="0" ToolTipService.ToolTip="{x:Bind domain:Translator.ContactsPage_Title}">
         <controls:SegmentedItem.Icon>
             <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE716;" />
         </controls:SegmentedItem.Icon>
     </controls:SegmentedItem>
-    <controls:SegmentedItem Padding="0" ToolTipService.ToolTip="{x:Bind domain:Translator.MenuSettings, Mode=OneWay}">
+    <controls:SegmentedItem Padding="0" ToolTipService.ToolTip="{x:Bind domain:Translator.MenuSettings}">
         <controls:SegmentedItem.Icon>
             <SymbolIcon Symbol="Setting" />
         </controls:SegmentedItem.Icon>

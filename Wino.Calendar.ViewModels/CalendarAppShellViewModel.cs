@@ -198,6 +198,26 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         _calendarPageViewModel.CleanupForShellDeactivation();
     }
 
+    public void PrepareForShellShutdown()
+    {
+        DetachRuntimeSubscriptions();
+        PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
+
+        if (_hasRegisteredPersistentRecipients)
+        {
+            UnregisterRecipients();
+            _hasRegisteredPersistentRecipients = false;
+        }
+
+        DateNavigationHeaderItems.Clear();
+        SelectedDateNavigationHeaderIndex = -1;
+        SelectedMenuItemIndex = -1;
+        MenuItems?.Clear();
+        FooterItems?.Clear();
+        AccountCalendarStateService.ClearGroupedAccountCalendars();
+        _calendarPageViewModel.CleanupForShellDeactivation();
+    }
+
     private void AttachRuntimeSubscriptions()
     {
         if (_runtimeSubscriptionsAttached)

@@ -23,7 +23,10 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Calendar.ViewModels;
+using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.WinUI.ViewModels;
 using Wino.Mail.WinUI.Controls;
 using Wino.MenuFlyouts;
 using Wino.MenuFlyouts.Context;
@@ -49,6 +52,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     private WinoApplicationMode? _activeMode;
     private bool _isSyncingNavigationViewSelection;
     private bool _isSynchronizingVisibleDateRangeCalendar;
+    private bool _isPreparedForWindowClose;
 
     public WinoAppShell()
     {
@@ -98,8 +102,31 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         base.OnNavigatedFrom(e);
-        DeactivateCurrentMode();
+
+        if (!_isPreparedForWindowClose)
+        {
+            DeactivateCurrentMode();
+            DetachLifetimeSubscriptions();
+        }
+
         Bindings.StopTracking();
+    }
+
+    public void PrepareForWindowClose()
+    {
+        if (_isPreparedForWindowClose)
+            return;
+
+        _isPreparedForWindowClose = true;
+
+        DeactivateAllShellClients();
+        WeakReferenceMessenger.Default.Unregister<LanguageChanged>(this);
+        UnregisterRecipients();
+        DetachLifetimeSubscriptions();
+        Bindings.StopTracking();
+
+        navigationView.MenuItemsSource = null;
+        CalendarHostListView.ItemsSource = null;
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -153,6 +180,44 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
             ViewModel.CurrentClient.Deactivate();
         }
+    }
+
+    private void DeactivateAllShellClients()
+    {
+        ViewModel.StatePersistenceService.IsReadingMail = false;
+        ViewModel.StatePersistenceService.IsEventDetailsVisible = false;
+
+        ViewModel.MailClient.Deactivate();
+        ViewModel.CalendarClient.Deactivate();
+
+        if (ViewModel.GetClient(WinoApplicationMode.Contacts) is ContactsShellClient contactsClient)
+        {
+            contactsClient.PrepareForShellShutdown();
+        }
+
+        if (ViewModel.GetClient(WinoApplicationMode.Settings) is SettingsShellClient settingsClient)
+        {
+            settingsClient.PrepareForShellShutdown();
+        }
+
+        if (ViewModel.MailClient is MailAppShellViewModel mailClient)
+        {
+            mailClient.PrepareForShellShutdown();
+        }
+
+        if (ViewModel.CalendarClient is CalendarAppShellViewModel calendarClient)
+        {
+            calendarClient.PrepareForShellShutdown();
+        }
+    }
+
+    private void DetachLifetimeSubscriptions()
+    {
+        ViewModel.MailClient.PropertyChanged -= MailClientPropertyChanged;
+        ViewModel.CalendarClient.PropertyChanged -= CalendarClientPropertyChanged;
+        ViewModel.PropertyChanged -= ViewModelPropertyChanged;
+        ViewModel.PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
+        ViewModel.StatePersistenceService.StatePropertyChanged -= StatePersistenceServiceChanged;
     }
 
     private void ResetShellModeNavigationState()

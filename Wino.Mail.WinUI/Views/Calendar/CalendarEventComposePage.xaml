@@ -447,7 +447,7 @@
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Text="{x:Bind Email}"
                                                 TextTrimming="CharacterEllipsis"
-                                                Visibility="{x:Bind HasDistinctDisplayName, Mode=OneWay}" />
+                                                Visibility="{x:Bind HasDistinctDisplayName}" />
                                         </StackPanel>
 
                                         <Button

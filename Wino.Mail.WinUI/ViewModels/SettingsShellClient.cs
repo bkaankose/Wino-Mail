@@ -57,6 +57,18 @@ public partial class SettingsShellClient(INavigationService navigationService) :
     {
     }
 
+    public void PrepareForShellShutdown()
+    {
+        if (_hasRegisteredPersistentRecipients)
+        {
+            UnregisterRecipients();
+            _hasRegisteredPersistentRecipients = false;
+        }
+
+        SelectedMenuItem = null;
+        MenuItems?.Clear();
+    }
+
     public Task HandleNavigationItemInvokedAsync(IMenuItem? menuItem)
     {
         if (menuItem is not SettingsShellPageMenuItem settingsMenuItem)

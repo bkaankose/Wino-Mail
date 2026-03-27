@@ -30,7 +30,7 @@
                 FontFamily="Consolas"
                 FontSize="12"
                 IsTextSelectionEnabled="True"
-                Text="{x:Bind MessageSource, Mode=OneWay}"
+                Text="{x:Bind MessageSource}"
                 TextWrapping="Wrap" />
         </Border>
     </ScrollViewer>

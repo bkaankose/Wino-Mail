@@ -34,6 +34,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     IRecipient<WinoAccountProfileUpdatedMessage>,
     IRecipient<WinoAccountProfileDeletedMessage>
 {
+    private bool _allowClose;
     public IStatePersistanceService StatePersistanceService { get; } = WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception("StatePersistanceService not registered in DI container.");
     public IPreferencesService PreferencesService { get; } = WinoApplication.Current.Services.GetService<IPreferencesService>() ?? throw new Exception("PreferencesService not registered in DI container.");
     public INavigationService NavigationService { get; } = WinoApplication.Current.Services.GetService<INavigationService>() ?? throw new Exception("NavigationService not registered in DI container.");
@@ -354,7 +355,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     private void OnAppWindowClosing(object sender, Microsoft.UI.Windowing.AppWindowClosingEventArgs e)
     {
-        if ((Application.Current as App)?.IsExiting == true)
+        if (_allowClose || (Application.Current as App)?.IsExiting == true)
             return;
 
         e.Cancel = true;
@@ -362,10 +363,27 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         windowManager?.HideWindow(this);
     }
 
+    public void PrepareForClose()
+    {
+        if (MainShellFrame.Content is WinoAppShell shellPage)
+        {
+            shellPage.PrepareForWindowClose();
+        }
+
+        _allowClose = true;
+    }
+
     private void OnWindowClosed(object sender, WindowEventArgs e)
     {
+        Closed -= OnWindowClosed;
         AppWindow.Closing -= OnAppWindowClosing;
         StatePersistanceService.StatePropertyChanged -= StatePersistenceServiceChanged;
+
+        if (MainShellFrame.Content is WinoAppShell shellPage)
+        {
+            shellPage.PrepareForWindowClose();
+        }
+
         UnregisterRecipients();
     }
 

@@ -163,7 +163,7 @@
 
             <ComboBox
                 Grid.Row="4"
-                Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_CalendarModeHeader, Mode=OneWay}"
+                Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_CalendarModeHeader}"
                 ItemsSource="{x:Bind CalendarModeOptions, Mode=OneWay}"
                 SelectedIndex="{x:Bind SelectedCalendarModeIndex, Mode=TwoWay}" />
 

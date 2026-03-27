@@ -61,7 +61,7 @@
             CanDragItems="False"
             CanReorderItems="False"
             ItemTemplate="{StaticResource FolderStructureMenuFlyoutItemTemplate}"
-            ItemsSource="{x:Bind FolderList, Mode=OneWay}"
+            ItemsSource="{x:Bind FolderList}"
             SelectedItem="{x:Bind SelectedFolder, Mode=TwoWay}"
             SelectionMode="Single" />
     </Grid>

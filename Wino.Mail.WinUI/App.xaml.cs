@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Toolkit.Uwp.Notifications;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.Windows.AppLifecycle;
 using Microsoft.Windows.AppNotifications;
 using MimeKit.Cryptography;
@@ -192,7 +193,7 @@ public partial class App : WinoApplication,
         if (welcomeWindow == null)
             return;
 
-        windowManager.HideWindow(WinoWindowKind.Shell);
+        CloseShellWindowIfPresent();
         await ActivateWindowAsync(welcomeWindow);
     }
 
@@ -230,6 +231,16 @@ public partial class App : WinoApplication,
 
         welcomeWindow.AllowClose();
         welcomeWindow.Close();
+    }
+
+    private void CloseShellWindowIfPresent()
+    {
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        if (windowManager.GetWindow(WinoWindowKind.Shell) is not ShellWindow shellWindow)
+            return;
+
+        shellWindow.PrepareForClose();
+        shellWindow.Close();
     }
 
     private async Task ActivateWindowAsync(WindowEx window)
@@ -792,8 +803,9 @@ public partial class App : WinoApplication,
             }
             else
             {
-                Services.GetRequiredService<INavigationService>()
-                    .Navigate(WinoPage.WelcomeHostPage, null, NavigationReferenceFrame.ShellFrame, NavigationTransitionType.None);
+                rootFrame.BackStack.Clear();
+                rootFrame.ForwardStack.Clear();
+                rootFrame.Navigate(typeof(WelcomeHostPage), null, new SuppressNavigationTransitionInfo());
             }
         }
 
@@ -926,8 +938,8 @@ public partial class App : WinoApplication,
             // All accounts removed — go back to welcome wizard from step 1
             Services.GetRequiredService<WelcomeWizardContext>().Reset();
             StopAutoSynchronizationLoop();
+            CloseShellWindowIfPresent();
             CreateWelcomeWindow();
-            windowManager.HideWindow(WinoWindowKind.Shell);
             if (MainWindow != null)
                 await ActivateWindowAsync(MainWindow);
         });

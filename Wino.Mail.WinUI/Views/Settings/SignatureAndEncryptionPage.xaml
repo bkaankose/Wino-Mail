@@ -65,17 +65,17 @@
                                             <ColumnDefinition Width="120" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="1" Text="{x:Bind Subject, Mode=OneWay}" />
+                                        <TextBlock Grid.Column="1" Text="{x:Bind Subject}" />
                                         <TextBlock
                                             Grid.Column="2"
                                             FontSize="10"
                                             Foreground="Gray"
-                                            Text="{x:Bind NotAfter, Mode=OneWay}" />
+                                            Text="{x:Bind NotAfter}" />
                                         <TextBlock
                                             Grid.Column="3"
                                             FontSize="10"
                                             Foreground="Gray"
-                                            Text="{x:Bind Thumbprint, Mode=OneWay}" />
+                                            Text="{x:Bind Thumbprint}" />
                                     </Grid>
                                 </DataTemplate>
                             </ListView.ItemTemplate>
@@ -146,17 +146,17 @@
                                             <ColumnDefinition Width="120" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="1" Text="{x:Bind Subject, Mode=OneWay}" />
+                                        <TextBlock Grid.Column="1" Text="{x:Bind Subject}" />
                                         <TextBlock
                                             Grid.Column="2"
                                             FontSize="10"
                                             Foreground="Gray"
-                                            Text="{x:Bind NotAfter, Mode=OneWay}" />
+                                            Text="{x:Bind NotAfter}" />
                                         <TextBlock
                                             Grid.Column="3"
                                             FontSize="10"
                                             Foreground="Gray"
-                                            Text="{x:Bind Thumbprint, Mode=OneWay}" />
+                                            Text="{x:Bind Thumbprint}" />
                                     </Grid>
                                 </DataTemplate>
                             </ListView.ItemTemplate>

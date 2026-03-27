@@ -52,6 +52,10 @@
             </StackPanel>
         </DataTemplate>
 
+        <DataTemplate x:Key="ParagraphStyleOptionTemplate" x:DataType="mail:EditorParagraphStyleOption">
+            <TextBlock Text="{x:Bind Name}" />
+        </DataTemplate>
+
     </UserControl.Resources>
 
     <toolkit:TabbedCommandBar>
@@ -231,7 +235,7 @@
                                 x:Name="ParagraphStyleComboBox"
                                 Grid.Column="1"
                                 MinWidth="104"
-                                DisplayMemberPath="Name"
+                                ItemTemplate="{StaticResource ParagraphStyleOptionTemplate}"
                                 PlaceholderText="Paragraph"
                                 SelectionChanged="ParagraphStyleComboBox_SelectionChanged"
                                 Style="{StaticResource CompactComboBoxStyle}" />

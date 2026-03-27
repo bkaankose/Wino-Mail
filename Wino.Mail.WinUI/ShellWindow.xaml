@@ -143,17 +143,6 @@
                                                 </LinearGradientBrush>
                                             </Border.Background>
                                             <StackPanel Spacing="4">
-                                                <Border
-                                                    Width="40"
-                                                    Height="40"
-                                                    HorizontalAlignment="Left"
-                                                    Background="{ThemeResource AccentFillColorDefaultBrush}"
-                                                    CornerRadius="20">
-                                                    <FontIcon
-                                                        FontSize="18"
-                                                        Foreground="White"
-                                                        Glyph="&#xE77B;" />
-                                                </Border>
                                                 <TextBlock
                                                     Margin="0,8,0,0"
                                                     Style="{StaticResource SubtitleTextBlockStyle}"

@@ -30,7 +30,6 @@ namespace Wino.Mail.ViewModels;
 
 public partial class MailAppShellViewModel : MailBaseViewModel,
     IMailShellClient,
-    IRecipient<AccountCreatedMessage>,
     IRecipient<MailtoProtocolMessageRequested>,
     IRecipient<RefreshUnreadCountsMessage>,
     IRecipient<AccountsMenuRefreshRequested>,
@@ -236,14 +235,14 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
         var activationContext = parameters as ShellModeActivationContext;
         var shouldRunStartupFlows = activationContext?.IsInitialActivation ?? true;
-        var hasExistingMenuItems = MenuItems?.Any() == true;
+        var hasExistingAccountMenuItems = MenuItems?.OfType<IAccountMenuItem>().Any() == true;
 
         PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
         PreferencesService.PreferenceChanged += PreferencesServiceChanged;
 
         await CreateFooterItemsAsync(true);
 
-        if (!hasExistingMenuItems)
+        if (!hasExistingAccountMenuItems)
         {
             await RecreateMenuItemsAsync();
         }
@@ -276,6 +275,24 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     public override void OnNavigatedFrom(NavigationMode mode, object parameters)
     {
         PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
+    }
+
+    public void PrepareForShellShutdown()
+    {
+        PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
+
+        if (_hasRegisteredPersistentRecipients)
+        {
+            UnregisterRecipients();
+            _hasRegisteredPersistentRecipients = false;
+        }
+
+        latestSelectedAccountMenuItem = null;
+        SelectedMenuItem = null;
+
+        MenuItems?.Clear();
+        MenuItems?.Add(CreateMailMenuItem);
+        FooterItems?.Clear();
     }
 
     private async Task ShowWhatIsNewIfNeededAsync()
@@ -1159,7 +1176,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
         Messenger.Register<AccountRemovedMessage>(this);
         Messenger.Register<AccountUpdatedMessage>(this);
-        Messenger.Register<AccountCreatedMessage>(this);
         Messenger.Register<MailtoProtocolMessageRequested>(this);
         Messenger.Register<RefreshUnreadCountsMessage>(this);
         Messenger.Register<AccountsMenuRefreshRequested>(this);
@@ -1177,7 +1193,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
         Messenger.Unregister<AccountRemovedMessage>(this);
         Messenger.Unregister<AccountUpdatedMessage>(this);
-        Messenger.Unregister<AccountCreatedMessage>(this);
         Messenger.Unregister<MailtoProtocolMessageRequested>(this);
         Messenger.Unregister<RefreshUnreadCountsMessage>(this);
         Messenger.Unregister<AccountsMenuRefreshRequested>(this);
@@ -1191,6 +1206,19 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     public async void Receive(AccountRemovedMessage message)
     {
+        var remainingAccounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
+        if (!remainingAccounts.Any())
+        {
+            latestSelectedAccountMenuItem = null;
+            await ExecuteUIThread(() =>
+            {
+                SelectedMenuItem = null;
+                MenuItems?.Clear();
+                MenuItems?.Add(CreateMailMenuItem);
+            });
+            return;
+        }
+
         if (latestSelectedAccountMenuItem?.HoldingAccounts?.Any(a => a.Id == message.Account.Id) == true)
         {
             latestSelectedAccountMenuItem = null;
@@ -1200,9 +1228,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         await RecreateMenuItemsAsync();
         await RestoreSelectedAccountAfterMenuRefreshAsync(false);
     }
-
-    public async void Receive(AccountCreatedMessage message)
-        => await HandleAccountCreatedAsync(message.Account);
 
     public async Task HandleAccountCreatedAsync(MailAccount createdAccount)
     {
