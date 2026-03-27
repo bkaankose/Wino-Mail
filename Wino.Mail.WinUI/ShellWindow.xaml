@@ -311,17 +311,11 @@
                                 Height="30"
                                 Initials="W"
                                 Visibility="Collapsed" />
-                            <Border
+                            <Image
                                 x:Name="WinoAccountSignedOutIcon"
-                                Width="30"
+                                Width="25"
                                 Height="30"
-                                Background="{ThemeResource AccentFillColorDefaultBrush}"
-                                CornerRadius="15">
-                                <FontIcon
-                                    FontSize="16"
-                                    Foreground="White"
-                                    Glyph="&#xE77B;" />
-                            </Border>
+                                Source="/Assets/AppEntries/MailAssets/Square150x150Logo.png" />
                         </Grid>
                     </Button>
                 </StackPanel>
