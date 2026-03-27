@@ -106,7 +106,7 @@
                                 x:Load="{x:Bind MailItemInformation.IsDraft, Mode=OneWay}"
                                 Foreground="{StaticResource DeleteBrush}">
 
-                                <Run Text="[" /><Run Text="{x:Bind domain:Translator.Draft}" /><Run Text="]" /> <Run Text=" " />
+                                <Run Text="[" /><Run Text="{x:Bind domain:Translator.Draft, Mode=OneTime}" /><Run Text="]" /> <Run Text=" " />
                             </TextBlock>
 
                             <!--  Sender  -->
