@@ -85,6 +85,10 @@
                 containerDiv.style.fontSize = size;
             }
 
+            function GetRenderedHtml() {
+                return _htmlString || "";
+            }
+
             function SetLightEditor() {
                 document.documentElement.setAttribute("data-theme", "light");
                 DarkReader.disable();
