@@ -33,8 +33,10 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
         }
         set
         {
-            // When setting from UI (in local time), convert to event's timezone for storage.
-            CalendarItem.StartDate = value.ToTimeZoneFromLocal(CalendarItem.StartTimeZone);
+            // All-day events use floating dates and should not shift across timezones.
+            CalendarItem.StartDate = CalendarItem.IsAllDayEvent
+                ? value.Date
+                : value.ToTimeZoneFromLocal(CalendarItem.StartTimeZone);
         }
     }
 

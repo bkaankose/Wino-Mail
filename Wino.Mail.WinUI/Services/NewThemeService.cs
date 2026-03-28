@@ -189,14 +189,7 @@ public class NewThemeService : INewThemeService
 
     public FrameworkElement GetShellRootContent()
     {
-        var window = GetThemeWindow();
-        if (window is IWinoShellWindow shellWindow)
-            return shellWindow.GetRootContent();
-
-        if (window?.Content is FrameworkElement frameworkElement)
-            return frameworkElement;
-
-        throw new Exception("No root content found");
+        return TryGetShellRootContent() ?? throw new Exception("No root content found");
     }
 
     private bool isInitialized = false;
@@ -680,10 +673,18 @@ public class NewThemeService : INewThemeService
         if (window == null)
             return null;
 
-        if (window is IWinoShellWindow shellWindow)
-            return shellWindow.GetRootContent();
+        try
+        {
+            if (window is IWinoShellWindow shellWindow)
+                return shellWindow.GetRootContent();
 
-        return window.Content as FrameworkElement;
+            return window.Content as FrameworkElement;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Skipping root content lookup for closed window: {ex.Message}");
+            return null;
+        }
     }
 
     public async Task ApplyThemeToActiveWindowAsync()

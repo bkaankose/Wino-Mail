@@ -66,12 +66,14 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
             // We don't have this event yet. Create a new one.
             var eventStartDateTimeOffset = GoogleIntegratorExtensions.GetEventDateTimeOffset(calendarEvent.Start);
             var eventEndDateTimeOffset = GoogleIntegratorExtensions.GetEventDateTimeOffset(calendarEvent.End);
+            var eventStartLocalDateTime = GoogleIntegratorExtensions.GetEventLocalDateTime(calendarEvent.Start);
+            var eventEndLocalDateTime = GoogleIntegratorExtensions.GetEventLocalDateTime(calendarEvent.End);
 
             double totalDurationInSeconds = 0;
 
-            if (eventStartDateTimeOffset != null && eventEndDateTimeOffset != null)
+            if (eventStartLocalDateTime != null && eventEndLocalDateTime != null)
             {
-                totalDurationInSeconds = (eventEndDateTimeOffset.Value - eventStartDateTimeOffset.Value).TotalSeconds;
+                totalDurationInSeconds = (eventEndLocalDateTime.Value - eventStartLocalDateTime.Value).TotalSeconds;
             }
 
             CalendarItem calendarItem = null;
@@ -97,7 +99,7 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                     CreatedAt = DateTimeOffset.UtcNow,
                     Description = calendarEvent.Description ?? parentRecurringEvent.Description,
                     Id = Guid.NewGuid(),
-                    StartDate = eventStartDateTimeOffset.Value.UtcDateTime,
+                    StartDate = eventStartLocalDateTime.Value,
                     DurationInSeconds = totalDurationInSeconds,
                     Location = string.IsNullOrEmpty(calendarEvent.Location) ? parentRecurringEvent.Location : calendarEvent.Location,
 
@@ -136,7 +138,7 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                     CreatedAt = DateTimeOffset.UtcNow,
                     Description = calendarEvent.Description,
                     Id = Guid.NewGuid(),
-                    StartDate = eventStartDateTimeOffset.Value.UtcDateTime,
+                    StartDate = eventStartLocalDateTime.Value,
                     DurationInSeconds = totalDurationInSeconds,
                     Location = calendarEvent.Location,
 

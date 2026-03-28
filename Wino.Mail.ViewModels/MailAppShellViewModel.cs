@@ -87,6 +87,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private readonly INativeAppService _nativeAppService;
     private readonly IMailService _mailService;
     private bool _hasRegisteredPersistentRecipients;
+    private readonly SemaphoreSlim _menuRefreshSemaphore = new(1, 1);
 
     private readonly SemaphoreSlim accountInitFolderUpdateSlim = new SemaphoreSlim(1);
 
@@ -970,13 +971,21 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     private async Task RecreateMenuItemsAsync()
     {
-        await ExecuteUIThread(() =>
+        await _menuRefreshSemaphore.WaitAsync().ConfigureAwait(false);
+        try
         {
-            MenuItems.Clear();
-            MenuItems.Add(CreateMailMenuItem);
-        });
+            await ExecuteUIThread(() =>
+            {
+                MenuItems.Clear();
+                MenuItems.Add(CreateMailMenuItem);
+            });
 
-        await LoadAccountsAsync();
+            await LoadAccountsAsync();
+        }
+        finally
+        {
+            _menuRefreshSemaphore.Release();
+        }
     }
 
     private async Task RestoreSelectedAccountAfterMenuRefreshAsync(bool automaticallyNavigateFirstItem)

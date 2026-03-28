@@ -159,8 +159,11 @@
                 <!--  All-Day template for top area.  -->
                 <VisualState x:Name="AllDayEvent">
                     <VisualState.Setters>
-
+                        <Setter Target="EventTitleTextblock.HorizontalAlignment" Value="Stretch" />
+                        <Setter Target="EventTitleTextblock.HorizontalTextAlignment" Value="Left" />
+                        <Setter Target="EventTitleTextblock.Margin" Value="6,0" />
                         <Setter Target="AttributeStack.VerticalAlignment" Value="Center" />
+                        <Setter Target="AttributeStack.Margin" Value="0,0,4,0" />
                         <Setter Target="MainGrid.MinHeight" Value="30" />
                         <Setter Target="MainBorder.StrokeThickness" Value="0" />
                     </VisualState.Setters>

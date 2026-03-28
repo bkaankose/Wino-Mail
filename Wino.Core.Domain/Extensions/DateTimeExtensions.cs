@@ -78,8 +78,12 @@ public static class DateTimeExtensions
     }
 
     public static DateTime GetLocalStartDate(this CalendarItem calendarItem)
-        => calendarItem.StartDate.ToLocalTimeFromTimeZone(calendarItem.StartTimeZone);
+        => calendarItem.IsAllDayEvent
+            ? calendarItem.StartDate
+            : calendarItem.StartDate.ToLocalTimeFromTimeZone(calendarItem.StartTimeZone);
 
     public static DateTime GetLocalEndDate(this CalendarItem calendarItem)
-        => calendarItem.EndDate.ToLocalTimeFromTimeZone(calendarItem.EndTimeZone);
+        => calendarItem.IsAllDayEvent
+            ? calendarItem.EndDate
+            : calendarItem.EndDate.ToLocalTimeFromTimeZone(calendarItem.EndTimeZone);
 }

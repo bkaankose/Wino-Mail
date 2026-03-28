@@ -335,6 +335,21 @@ public static class OutlookIntegratorExtensions
         }
     }
 
+    public static DateTime GetLocalDateTimeFromDateTimeTimeZone(DateTimeTimeZone dateTimeTimeZone)
+    {
+        if (dateTimeTimeZone == null || string.IsNullOrEmpty(dateTimeTimeZone.DateTime))
+        {
+            throw new ArgumentException("DateTimeTimeZone or DateTime is null or empty.");
+        }
+
+        if (!DateTime.TryParse(dateTimeTimeZone.DateTime, out DateTime parsedDateTime))
+        {
+            throw new ArgumentException("DateTime string is not in a valid format.");
+        }
+
+        return DateTime.SpecifyKind(parsedDateTime, DateTimeKind.Unspecified);
+    }
+
     private static AttendeeStatus GetAttendeeStatus(ResponseType? responseType)
     {
         return responseType switch

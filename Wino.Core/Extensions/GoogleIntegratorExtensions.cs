@@ -180,6 +180,31 @@ public static class GoogleIntegratorExtensions
         return null;
     }
 
+    public static DateTime? GetEventLocalDateTime(EventDateTime calendarEvent)
+    {
+        if (calendarEvent == null)
+        {
+            return null;
+        }
+
+        if (calendarEvent.DateTimeDateTimeOffset != null)
+        {
+            return DateTime.SpecifyKind(calendarEvent.DateTimeDateTimeOffset.Value.DateTime, DateTimeKind.Unspecified);
+        }
+
+        if (calendarEvent.Date != null)
+        {
+            if (DateTime.TryParse(calendarEvent.Date, out DateTime eventDateTime))
+            {
+                return DateTime.SpecifyKind(eventDateTime, DateTimeKind.Unspecified);
+            }
+
+            throw new Exception("Invalid date format in Google Calendar event date.");
+        }
+
+        return null;
+    }
+
     /// <summary>
     /// Extracts the timezone string from EventDateTime.
     /// Returns null for all-day events or if timezone is not specified.

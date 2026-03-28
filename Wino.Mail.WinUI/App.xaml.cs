@@ -239,6 +239,13 @@ public partial class App : WinoApplication,
         if (windowManager.GetWindow(WinoWindowKind.Shell) is not ShellWindow shellWindow)
             return;
 
+        windowManager.HideWindow(shellWindow);
+        if (ReferenceEquals(MainWindow, shellWindow))
+        {
+            MainWindow = null;
+            InitializeNavigationDispatcher();
+        }
+
         shellWindow.PrepareForClose();
         shellWindow.Close();
     }
@@ -748,7 +755,7 @@ public partial class App : WinoApplication,
     /// Creates the main window without activating it.
     /// Used for both normal launch and startup task launch (tray only).
     /// </summary>
-    private void CreateWindow(Microsoft.UI.Xaml.LaunchActivatedEventArgs? args)
+    private void CreateWindow(Microsoft.UI.Xaml.LaunchActivatedEventArgs? args, string? forcedLaunchArguments = null)
     {
         LogActivation("Creating main window.");
 
@@ -760,6 +767,12 @@ public partial class App : WinoApplication,
             throw new ArgumentException("MainWindow must implement IWinoShellWindow");
 
         windowManager.SetPrimaryNavigationFrame(WinoWindowKind.Shell, shellWindow.GetMainFrame());
+
+        if (!string.IsNullOrWhiteSpace(forcedLaunchArguments))
+        {
+            shellWindow.HandleAppActivation(forcedLaunchArguments);
+            return;
+        }
 
         var activationArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
 
@@ -902,7 +915,6 @@ public partial class App : WinoApplication,
         _hasConfiguredAccounts = true;
 
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
-        var navigationService = Services.GetRequiredService<INavigationService>();
 
         // Only transition when the account was created from the WelcomeWindow.
         if (windowManager.GetWindow(WinoWindowKind.Welcome) == null)
@@ -911,11 +923,19 @@ public partial class App : WinoApplication,
         MainWindow?.DispatcherQueue?.TryEnqueue(async () =>
         {
             // Create and activate ShellWindow — ActiveWindowChanged fires and rebinds the dispatcher.
-            CreateWindow(null);
+            CreateWindow(null, GetModeLaunchArgument(WinoApplicationMode.Mail));
             CloseWelcomeWindowIfPresent();
-            navigationService.ChangeApplicationMode(Core.Domain.Enums.WinoApplicationMode.Mail);
             if (MainWindow != null)
                 await ActivateWindowAsync(MainWindow);
+
+            if (message.Account.IsCalendarAccessGranted)
+            {
+                WeakReferenceMessenger.Default.Send(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
+                {
+                    AccountId = message.Account.Id,
+                    Type = CalendarSynchronizationType.CalendarEvents
+                }));
+            }
 
             RestartAutoSynchronizationLoop();
         });

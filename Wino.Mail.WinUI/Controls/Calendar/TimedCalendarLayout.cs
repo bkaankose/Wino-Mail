@@ -29,7 +29,23 @@ internal sealed record TimedCalendarLayoutResult(IReadOnlyList<DateOnly> Visible
 
 internal static class TimedCalendarLayoutCalculator
 {
+    private const double AllDayItemHeight = 28d;
+    private const double AllDayItemGap = 4d;
+    private const double AllDaySectionPadding = 6d;
+
     public static double GetTimelineHeight(double hourHeight) => hourHeight * 24d;
+
+    public static double GetAllDayHeight(int laneCount)
+    {
+        if (laneCount <= 0)
+        {
+            return 0d;
+        }
+
+        return (AllDaySectionPadding * 2d) +
+               (laneCount * AllDayItemHeight) +
+               ((laneCount - 1) * AllDayItemGap);
+    }
 
     public static TimedCalendarLayoutResult Calculate(VisibleDateRange range, IEnumerable<CalendarItemViewModel> items, double availableWidth, double hourHeight)
     {
@@ -79,6 +95,11 @@ internal static class TimedCalendarLayoutCalculator
                 continue;
             }
 
+            if (item.IsAllDayEvent)
+            {
+                continue;
+            }
+
             var localStart = start.LocalDateTime;
             var localEnd = end.LocalDateTime;
 
@@ -99,6 +120,50 @@ internal static class TimedCalendarLayoutCalculator
         }
 
         return segments;
+    }
+
+    public static IReadOnlyList<TimedItemLayout> CalculateAllDayItems(VisibleDateRange range, IEnumerable<CalendarItemViewModel> items, double availableWidth)
+    {
+        var visibleDates = range.Dates;
+        var dayWidth = visibleDates.Count == 0 ? 0d : availableWidth / visibleDates.Count;
+        var layouts = new List<TimedItemLayout>();
+
+        for (var dayIndex = 0; dayIndex < visibleDates.Count; dayIndex++)
+        {
+            var date = visibleDates[dayIndex];
+            var dayItems = BuildAllDayItems(items, date)
+                .OrderBy(item => item.StartDate)
+                .ThenBy(item => item.EndDate)
+                .ThenBy(item => item.Title)
+                .ToList();
+
+            for (var rowIndex = 0; rowIndex < dayItems.Count; rowIndex++)
+            {
+                var y = AllDaySectionPadding + (rowIndex * (AllDayItemHeight + AllDayItemGap));
+                var x = (dayIndex * dayWidth) + 2d;
+                var width = Math.Max(0d, dayWidth - 4d);
+
+                layouts.Add(new TimedItemLayout(
+                    dayItems[rowIndex],
+                    dayIndex,
+                    date,
+                    new LayoutRect(x, y, width, AllDayItemHeight)));
+            }
+        }
+
+        return layouts;
+    }
+
+    public static int GetAllDayLaneCount(IReadOnlyList<DateOnly> visibleDates, IEnumerable<CalendarItemViewModel> items)
+    {
+        var laneCount = 0;
+
+        foreach (var date in visibleDates)
+        {
+            laneCount = Math.Max(laneCount, BuildAllDayItems(items, date).Count);
+        }
+
+        return laneCount;
     }
 
     private static IEnumerable<List<Segment>> BuildClusters(List<Segment> segments)
@@ -128,6 +193,41 @@ internal static class TimedCalendarLayoutCalculator
         }
 
         yield return cluster;
+    }
+
+    private static List<CalendarItemViewModel> BuildAllDayItems(IEnumerable<CalendarItemViewModel> items, DateOnly date)
+    {
+        var dayStart = date.ToDateTime(TimeOnly.MinValue);
+        var dayEnd = dayStart.AddDays(1);
+        var allDayItems = new List<CalendarItemViewModel>();
+
+        foreach (var item in items)
+        {
+            if (!item.IsAllDayEvent)
+            {
+                continue;
+            }
+
+            if (!CalendarItemAccessor.TryGetTimeRange(item, out var start, out var end))
+            {
+                continue;
+            }
+
+            var localStart = start.LocalDateTime;
+            var localEnd = end.LocalDateTime;
+
+            if (localEnd <= localStart)
+            {
+                continue;
+            }
+
+            if (localStart < dayEnd && localEnd > dayStart)
+            {
+                allDayItems.Add(item);
+            }
+        }
+
+        return allDayItems;
     }
 
     private static void AssignColumns(List<Segment> segments)

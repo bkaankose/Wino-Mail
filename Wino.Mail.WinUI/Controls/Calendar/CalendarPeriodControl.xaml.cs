@@ -51,6 +51,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     private MonthCalendarLayoutResult _monthLayout = new(0, 0, [], []);
     private INotifyCollectionChanged? _observableItemsSource;
     private double _timedDayWidth;
+    private double _timedAllDayHeight;
     private double _monthCellWidth;
     private double _monthCellHeight;
     private bool _hasPresentedState;
@@ -101,12 +102,14 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     private ObservableCollection<HeaderTextLayout> TimedHeaderTextsCollection { get; } = [];
     private ObservableCollection<HeaderTextLayout> MonthHeaderTextsCollection { get; } = [];
     private ObservableCollection<TimedItemLayout> TimedItemsCollection { get; } = [];
+    private ObservableCollection<TimedItemLayout> TimedAllDayItemsCollection { get; } = [];
     private ObservableCollection<MonthCellLabelLayout> MonthCellLabelsCollection { get; } = [];
     private ObservableCollection<MonthItemLayout> MonthItemsCollection { get; } = [];
 
     public IEnumerable<HeaderTextLayout> TimedHeaderTexts => TimedHeaderTextsCollection;
     public IEnumerable<HeaderTextLayout> MonthHeaderTexts => MonthHeaderTextsCollection;
     public IEnumerable<TimedItemLayout> TimedItems => TimedItemsCollection;
+    public IEnumerable<TimedItemLayout> TimedAllDayItems => TimedAllDayItemsCollection;
     public IEnumerable<MonthCellLabelLayout> MonthCellLabels => MonthCellLabelsCollection;
     public IEnumerable<MonthItemLayout> MonthItems => MonthItemsCollection;
 
@@ -154,6 +157,24 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
             OnPropertyChanged();
         }
     }
+
+    public double TimedAllDayHeight
+    {
+        get => _timedAllDayHeight;
+        private set
+        {
+            if (_timedAllDayHeight == value)
+            {
+                return;
+            }
+
+            _timedAllDayHeight = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasTimedAllDayItems));
+        }
+    }
+
+    public bool HasTimedAllDayItems => TimedAllDayHeight > 0d;
 
     public double TimelineHeight => TimedCalendarLayoutCalculator.GetTimelineHeight(GetHourHeight());
 
@@ -309,9 +330,14 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         var timedSurfaceWidth = GetTimedSurfaceWidth();
 
         TimedDayWidth = _currentRange.Dates.Count == 0 ? 0d : timedSurfaceWidth / _currentRange.Dates.Count;
+        TimedAllDayHeight = TimedCalendarLayoutCalculator.GetAllDayHeight(
+            TimedCalendarLayoutCalculator.GetAllDayLaneCount(_currentRange.Dates, CurrentItems));
         TimedScrollContentGrid.Width = ActualWidth;
         TimedViewport.Width = timedSurfaceWidth;
         TimedViewport.Height = TimelineHeight;
+        TimedAllDayHost.Width = timedSurfaceWidth;
+        TimedAllDayItemsCanvas.Width = timedSurfaceWidth;
+        TimedAllDayItemsCanvas.Height = TimedAllDayHeight;
 
         _timedLayout = TimedCalendarLayoutCalculator.Calculate(_currentRange, CurrentItems, timedSurfaceWidth, GetHourHeight());
 
@@ -323,6 +349,12 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
                     TimedDayWidth)));
 
         var eventTemplate = (DataTemplate)Resources["CalendarEventTemplate"];
+        ReplaceCollection(TimedAllDayItemsCollection, TimedCalendarLayoutCalculator.CalculateAllDayItems(_currentRange, CurrentItems, timedSurfaceWidth).Select(item =>
+        {
+            PrepareDisplayMetadata(item.Item, item.Date);
+            item.Template = eventTemplate;
+            return item;
+        }));
         ReplaceCollection(TimedItemsCollection, _timedLayout.Items.Select(item =>
         {
             PrepareDisplayMetadata(item.Item, item.Date);
@@ -330,8 +362,10 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
             return item;
         }));
         RenderHourLabels();
+        RenderTimedAllDayItems();
         RenderTimedItems();
 
+        TimedAllDayCanvas.Invalidate();
         TimedHeaderCanvas.Invalidate();
         TimedStructureCanvas.Invalidate();
     }
@@ -453,6 +487,32 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         var timedSurfaceWidth = GetTimedSurfaceWidth();
 
         if (_timedLayout.VisibleDates.Count == 0 || timedSurfaceWidth <= 0)
+        {
+            return;
+        }
+
+        var scaleX = (float)(e.Info.Width / timedSurfaceWidth);
+        var height = e.Info.Height;
+        var dayWidth = (float)(_timedLayout.DayWidth * scaleX);
+
+        for (var index = 1; index < _timedLayout.VisibleDates.Count; index++)
+        {
+            var x = dayWidth * index;
+            canvas.DrawLine(x, 0, x, height, borderPaint);
+        }
+
+        canvas.DrawLine(0, height - 1, e.Info.Width, height - 1, borderPaint);
+    }
+
+    private void TimedAllDayCanvasPaintSurface(object? sender, SKPaintSurfaceEventArgs e)
+    {
+        using var borderPaint = CreateLinePaint();
+        var canvas = e.Surface.Canvas;
+        canvas.Clear(SKColors.Transparent);
+
+        var timedSurfaceWidth = GetTimedSurfaceWidth();
+
+        if (_timedLayout.VisibleDates.Count == 0 || timedSurfaceWidth <= 0 || TimedAllDayHeight <= 0)
         {
             return;
         }
@@ -642,6 +702,26 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
             Canvas.SetLeft(presenter, item.Bounds.X);
             Canvas.SetTop(presenter, item.Bounds.Y);
             TimedItemsCanvas.Children.Add(presenter);
+        }
+    }
+
+    private void RenderTimedAllDayItems()
+    {
+        TimedAllDayItemsCanvas.Children.Clear();
+
+        foreach (var item in TimedAllDayItemsCollection)
+        {
+            var presenter = new ContentPresenter
+            {
+                Width = item.Bounds.Width,
+                Height = item.Bounds.Height,
+                Content = item.Item,
+                ContentTemplate = item.Template
+            };
+
+            Canvas.SetLeft(presenter, item.Bounds.X);
+            Canvas.SetTop(presenter, item.Bounds.Y);
+            TimedAllDayItemsCanvas.Children.Add(presenter);
         }
     }
 
@@ -897,6 +977,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     private void ResetTimedVisualState()
     {
         ResetAnimatedElement(TimedScrollViewer);
+        ResetAnimatedElement(TimedAllDayHost);
     }
 
     private static void StartNavigationTransition(Compositor compositor, Visual visual, int direction, double width)
@@ -926,6 +1007,10 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         var clipInset = (float)Math.Max(18d, Math.Min(64d, width * 0.05d));
 
         StartTimedElementTransition(compositor, TimedScrollViewer, signedTravel, 0f, 0.68f, TimeSpan.FromMilliseconds(240), direction >= 0 ? 0f : clipInset, direction >= 0 ? clipInset : 0f, animateScale: false);
+        if (HasTimedAllDayItems)
+        {
+            StartTimedElementTransition(compositor, TimedAllDayHost, signedTravel, 0f, 0.68f, TimeSpan.FromMilliseconds(240), direction >= 0 ? 0f : clipInset, direction >= 0 ? clipInset : 0f, animateScale: false);
+        }
     }
 
     private static void StartModeTransition(Compositor compositor, Visual visual)
@@ -953,6 +1038,10 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     private void StartTimedModeTransition(Compositor compositor)
     {
         StartTimedElementTransition(compositor, TimedScrollViewer, 0f, 18f, 0f, TimeSpan.FromMilliseconds(240), 0f, 0f, animateScale: false);
+        if (HasTimedAllDayItems)
+        {
+            StartTimedElementTransition(compositor, TimedAllDayHost, 0f, 18f, 0f, TimeSpan.FromMilliseconds(240), 0f, 0f, animateScale: false);
+        }
     }
 
     private static void StartRefreshTransition(Compositor compositor, Visual visual)
@@ -968,6 +1057,10 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     private void StartTimedRefreshTransition(Compositor compositor)
     {
         StartOpacityTransition(compositor, ElementCompositionPreview.GetElementVisual(TimedScrollViewer), 0.8f, TimeSpan.FromMilliseconds(160));
+        if (HasTimedAllDayItems)
+        {
+            StartOpacityTransition(compositor, ElementCompositionPreview.GetElementVisual(TimedAllDayHost), 0.8f, TimeSpan.FromMilliseconds(160));
+        }
     }
 
     private static void PrepareAnimatedVisual(Visual visual, UIElement target)

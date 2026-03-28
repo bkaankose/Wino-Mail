@@ -59,14 +59,15 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
             savingItem = new CalendarItem() { Id = savingItemId };
         }
 
-        DateTimeOffset eventStartDateTimeOffset = OutlookIntegratorExtensions.GetDateTimeOffsetFromDateTimeTimeZone(calendarEvent.Start);
-        DateTimeOffset eventEndDateTimeOffset = OutlookIntegratorExtensions.GetDateTimeOffsetFromDateTimeTimeZone(calendarEvent.End);
+        var eventStartLocalDateTime = OutlookIntegratorExtensions.GetLocalDateTimeFromDateTimeTimeZone(calendarEvent.Start);
+        var eventEndLocalDateTime = OutlookIntegratorExtensions.GetLocalDateTimeFromDateTimeTimeZone(calendarEvent.End);
 
-        var durationInSeconds = (eventEndDateTimeOffset - eventStartDateTimeOffset).TotalSeconds;
+        var durationInSeconds = (eventEndLocalDateTime - eventStartLocalDateTime).TotalSeconds;
 
-        // Store dates as UTC in the database
+        // Store the wall-clock values exactly as Outlook returned them for the event timezone.
+        // Timed events are converted for display later, while all-day events stay as floating dates.
         savingItem.RemoteEventId = calendarEvent.Id.WithClientTrackingId(calendarEvent.TransactionId.GetClientTrackingId());
-        savingItem.StartDate = eventStartDateTimeOffset.UtcDateTime;
+        savingItem.StartDate = eventStartLocalDateTime;
         savingItem.DurationInSeconds = durationInSeconds;
 
         // Store the timezone information from the event

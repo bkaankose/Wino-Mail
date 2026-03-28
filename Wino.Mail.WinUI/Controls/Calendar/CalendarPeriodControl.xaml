@@ -53,6 +53,7 @@
         <Grid x:Name="TimedRoot" Visibility="Collapsed">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
@@ -88,8 +89,29 @@
                 </ItemsControl>
             </Grid>
 
-            <Grid
+            <Border
+                x:Name="TimedAllDayCornerHost"
                 Grid.Row="1"
+                Grid.Column="0"
+                Height="{x:Bind TimedAllDayHeight, Mode=OneWay}"
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="0,0,1,1"
+                Visibility="{x:Bind HasTimedAllDayItems, Mode=OneWay}" />
+
+            <Grid
+                x:Name="TimedAllDayHost"
+                Grid.Row="1"
+                Grid.Column="1"
+                Height="{x:Bind TimedAllDayHeight, Mode=OneWay}"
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                Visibility="{x:Bind HasTimedAllDayItems, Mode=OneWay}">
+                <skia:SKXamlCanvas x:Name="TimedAllDayCanvas" PaintSurface="TimedAllDayCanvasPaintSurface" />
+                <Canvas x:Name="TimedAllDayItemsCanvas" />
+            </Grid>
+
+            <Grid
+                Grid.Row="2"
                 Grid.ColumnSpan="2"
                 Background="Transparent">
                 <ScrollViewer
