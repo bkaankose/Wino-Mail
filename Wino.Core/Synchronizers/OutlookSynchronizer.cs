@@ -1884,6 +1884,18 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     {
         try
         {
+            if (bundle?.UIChangeRequest is MarkReadRequest markReadRequest)
+            {
+                await _outlookChangeProcessor.ChangeMailReadStatusAsync(markReadRequest.Item.Id, markReadRequest.IsRead).ConfigureAwait(false);
+                return;
+            }
+
+            if (bundle?.UIChangeRequest is ChangeFlagRequest changeFlagRequest)
+            {
+                await _outlookChangeProcessor.ChangeFlagStatusAsync(changeFlagRequest.Item.Id, changeFlagRequest.IsFlagged).ConfigureAwait(false);
+                return;
+            }
+
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(content))
                 return;

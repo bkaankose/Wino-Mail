@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
+using Wino.Core.ViewModels.Data;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Mail.ViewModels;
 using Wino.Views.Abstract;
@@ -53,6 +54,14 @@ public sealed partial class AccountDetailsPage : AccountDetailsPageAbstract
         {
             calendarItem.SelectedShowAsOption = option;
             await ViewModel.UpdateCalendarDefaultShowAsAsync(calendarItem.Calendar, option);
+        }
+    }
+
+    private async void CalendarColorItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (sender is GridView { Tag: AccountCalendarSettingsItemViewModel calendarItem } && e.ClickedItem is AppColorViewModel color)
+        {
+            await ViewModel.UpdateCalendarColorAsync(calendarItem, color);
         }
     }
 

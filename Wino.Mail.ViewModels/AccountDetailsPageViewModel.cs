@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Wino.Core.Misc;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
@@ -263,7 +264,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
                 SelectedOutgoingServerConnectionSecurityIndex = AvailableConnectionSecurities.FindIndex(a => a.ImapConnectionSecurity == ServerInformation.OutgoingServerSocketOption);
             }
 
-            SelectedTabIndex = _statePersistanceService.ApplicationMode == WinoApplicationMode.Calendar ? 1 : 0;
+            SelectedTabIndex = _statePersistanceService.ApplicationMode == WinoApplicationMode.Calendar ? 2 : 1;
 
             var folderStructures = (await _folderService.GetFolderStructureForAccountAsync(Account.Id, true)).Folders;
 
@@ -300,7 +301,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
             foreach (var calendar in calendars)
             {
                 AccountCalendars.Add(calendar);
-                AccountCalendarSettingsItems.Add(new AccountCalendarSettingsItemViewModel(calendar, ShowAsOptions));
+                AccountCalendarSettingsItems.Add(new AccountCalendarSettingsItemViewModel(calendar, ShowAsOptions, AvailableColors));
             }
         });
 
@@ -326,6 +327,15 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
         calendar.DefaultShowAs = option.ShowAs;
         await _calendarService.UpdateAccountCalendarAsync(calendar);
+    }
+
+    public async Task UpdateCalendarColorAsync(AccountCalendarSettingsItemViewModel calendarItem, AppColorViewModel color)
+    {
+        if (calendarItem?.Calendar == null || color == null || calendarItem.Calendar.BackgroundColorHex == color.Hex)
+            return;
+
+        calendarItem.SetBackgroundColor(color);
+        await _calendarService.UpdateAccountCalendarAsync(calendarItem.Calendar);
     }
 
     [RelayCommand]
@@ -403,6 +413,7 @@ public partial class AccountCalendarSettingsItemViewModel : ObservableObject
 {
     public AccountCalendar Calendar { get; }
     public ObservableCollection<AccountCalendarShowAsOption> ShowAsOptions { get; }
+    public List<AppColorViewModel> AvailableColors { get; }
 
     public string Name => Calendar.Name;
     public string TimeZone => Calendar.TimeZone;
@@ -414,11 +425,24 @@ public partial class AccountCalendarSettingsItemViewModel : ObservableObject
     [ObservableProperty]
     public partial AccountCalendarShowAsOption SelectedShowAsOption { get; set; }
 
-    public AccountCalendarSettingsItemViewModel(AccountCalendar calendar, ObservableCollection<AccountCalendarShowAsOption> showAsOptions)
+    [ObservableProperty]
+    public partial AppColorViewModel SelectedColor { get; set; }
+
+    public AccountCalendarSettingsItemViewModel(AccountCalendar calendar, ObservableCollection<AccountCalendarShowAsOption> showAsOptions, List<AppColorViewModel> availableColors)
     {
         Calendar = calendar;
         ShowAsOptions = showAsOptions;
+        AvailableColors = availableColors;
         IsSynchronizationEnabled = calendar.IsSynchronizationEnabled;
         SelectedShowAsOption = showAsOptions.FirstOrDefault(option => option.ShowAs == calendar.DefaultShowAs) ?? showAsOptions.FirstOrDefault();
+        SelectedColor = availableColors.FirstOrDefault(color => string.Equals(color.Hex, calendar.BackgroundColorHex, StringComparison.OrdinalIgnoreCase))
+            ?? new AppColorViewModel(calendar.BackgroundColorHex ?? ColorHelpers.GenerateFlatColorHex());
+    }
+
+    public void SetBackgroundColor(AppColorViewModel color)
+    {
+        SelectedColor = color;
+        Calendar.BackgroundColorHex = color.Hex;
+        OnPropertyChanged(nameof(BackgroundColorHex));
     }
 }

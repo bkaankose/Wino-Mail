@@ -12,6 +12,8 @@ namespace Wino.Core.Requests.Mail;
 public record ChangeFlagRequest(MailCopy Item, bool IsFlagged) : MailRequestBase(Item),
     ICustomFolderSynchronizationRequest
 {
+    private readonly bool _originalIsFlagged = Item.IsFlagged;
+
     public List<Guid> SynchronizationFolderIds => [Item.FolderId];
 
     public bool ExcludeMustHaveFolders => true;
@@ -22,7 +24,7 @@ public record ChangeFlagRequest(MailCopy Item, bool IsFlagged) : MailRequestBase
     /// Gets whether this request represents an actual state change.
     /// If the mail is already in the desired flagged state, no change is needed.
     /// </summary>
-    public bool IsNoOp => Item.IsFlagged == IsFlagged;
+    public bool IsNoOp { get; } = Item.IsFlagged == IsFlagged;
 
     public override void ApplyUIChanges()
     {
@@ -39,7 +41,7 @@ public record ChangeFlagRequest(MailCopy Item, bool IsFlagged) : MailRequestBase
         // Skip UI revert if this was a no-op request
         if (IsNoOp) return;
 
-        Item.IsFlagged = !IsFlagged;
+        Item.IsFlagged = _originalIsFlagged;
 
         WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item, MailUpdateSource.ClientReverted, MailCopyChangeFlags.IsFlagged));
     }

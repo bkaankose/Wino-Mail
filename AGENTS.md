@@ -152,6 +152,7 @@ private string searchQuery = string.Empty;
 - ViewModels should only handle UI interaction/state and delegate business logic to services; account-management work belongs in `WinoAccountProfileService`, and preferences import/export/apply logic belongs in `PreferencesService`.
 - In `EventDetailsPageViewModel.LoadAttendeesAsync`, never mutate `CurrentEvent.Attendees` outside `ExecuteUIThread(...)`.
 - Never create pure C# controls or controls that heavily manipulate UI structure from `.cs` files. Define controls in XAML and keep UI composition in XAML.
+- Never add XAML-backed UI controls to `.xaml.cs`. If a view has XAML, all control declarations, flyouts, templates, and visual composition belong in the `.xaml` file; keep `.xaml.cs` limited to event handling and view glue.
 - Never subscribe to framework events like `Loaded`, `Unloaded`, or input events from constructors in `.xaml.cs` for XAML-backed controls and pages; wire them directly in XAML instead.
 - If you use `x:Load` in XAML, always give that `UIElement` an `x:Name`.
 

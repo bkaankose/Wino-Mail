@@ -11,6 +11,8 @@ namespace Wino.Core.Requests.Mail;
 
 public record MarkReadRequest(MailCopy Item, bool IsRead) : MailRequestBase(Item), ICustomFolderSynchronizationRequest
 {
+    private readonly bool _originalIsRead = Item.IsRead;
+
     public List<Guid> SynchronizationFolderIds => [Item.FolderId];
 
     public override MailSynchronizerOperation Operation => MailSynchronizerOperation.MarkRead;
@@ -21,7 +23,7 @@ public record MarkReadRequest(MailCopy Item, bool IsRead) : MailRequestBase(Item
     /// Gets whether this request represents an actual state change.
     /// If the mail is already in the desired read state, no change is needed.
     /// </summary>
-    public bool IsNoOp => Item.IsRead == IsRead;
+    public bool IsNoOp { get; } = Item.IsRead == IsRead;
 
     public override void ApplyUIChanges()
     {
@@ -38,7 +40,7 @@ public record MarkReadRequest(MailCopy Item, bool IsRead) : MailRequestBase(Item
         // Skip UI revert if this was a no-op request
         if (IsNoOp) return;
 
-        Item.IsRead = !IsRead;
+        Item.IsRead = _originalIsRead;
 
         WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item, MailUpdateSource.ClientReverted, MailCopyChangeFlags.IsRead));
     }
