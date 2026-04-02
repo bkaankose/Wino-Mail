@@ -67,7 +67,7 @@
     <DataTemplate x:Key="SettingsShellWinoAccountItemTemplate" x:DataType="menu:SettingsShellPageMenuItem">
         <coreControls:WinoNavigationViewItem Content="{x:Bind Title}" DataContext="{x:Bind}">
             <muxc:NavigationViewItem.Icon>
-                <BitmapIcon UriSource="/Assets/Wino_Icon.ico" />
+                <BitmapIcon ShowAsMonochrome="False" UriSource="/Assets/Wino_Icon.ico" />
                 <!--<FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="{x:Bind Glyph}" />-->
             </muxc:NavigationViewItem.Icon>
         </coreControls:WinoNavigationViewItem>

@@ -33,6 +33,26 @@
                             Text="{x:Bind domain:Translator.GetTranslatedString(KeywordsKey)}"
                             TextWrapping="WrapWholeWords" />
                         <StackPanel
+                            Orientation="Horizontal"
+                            Spacing="8"
+                            Visibility="{x:Bind ShowLoadingState, Mode=OneWay}">
+                            <ProgressRing
+                                Width="18"
+                                Height="18"
+                                IsActive="{x:Bind ShowLoadingState, Mode=OneWay}" />
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind domain:Translator.Busy}" />
+                        </StackPanel>
+                        <TextBlock
+                            Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind ErrorText, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords"
+                            Visibility="{x:Bind ShowErrorState, Mode=OneWay}" />
+                        <StackPanel
                             Margin="0,4,0,0"
                             Orientation="Horizontal"
                             Spacing="12">
@@ -40,7 +60,8 @@
                                 Command="{x:Bind PurchaseCommand}"
                                 CommandParameter="{x:Bind}"
                                 Content="{x:Bind domain:Translator.Buttons_Purchase}"
-                                Style="{StaticResource AccentButtonStyle}" />
+                                Style="{StaticResource AccentButtonStyle}"
+                                Visibility="{x:Bind ShowPurchaseState, Mode=OneWay}" />
                             <ProgressRing
                                 Width="18"
                                 Height="18"
@@ -88,41 +109,65 @@
                             Text="{x:Bind RenewalText, Mode=OneWay}" />
                     </StackPanel>
                 </controls:SettingsExpander.Description>
-                <HyperlinkButton Command="{x:Bind ManageCommand}" Content="{x:Bind domain:Translator.Buttons_Manage}" />
                 <controls:SettingsExpander.Items>
                     <controls:SettingsCard HorizontalContentAlignment="Stretch">
                         <controls:SettingsCard.Header>
-                            <StackPanel MinWidth="400" Spacing="8">
-                                <StackPanel Orientation="Horizontal" Spacing="4">
-                                    <TextBlock
-                                        FontSize="24"
-                                        FontWeight="Bold"
-                                        Text="{x:Bind UsageCount, Mode=OneWay}" />
-                                    <TextBlock
-                                        Margin="0,0,0,2"
-                                        VerticalAlignment="Bottom"
-                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Style="{StaticResource CaptionTextBlockStyle}">
-                                        <Run Text="/ " />
-                                        <Run Text="{x:Bind UsageLimit, Mode=OneWay}" />
-                                    </TextBlock>
+                            <StackPanel Spacing="8">
+                                <StackPanel
+                                    MinWidth="400"
+                                    Spacing="8"
+                                    Visibility="{x:Bind ShowUsageSummary, Mode=OneWay}">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <TextBlock
+                                            FontSize="24"
+                                            FontWeight="Bold"
+                                            Text="{x:Bind UsageCount, Mode=OneWay}" />
+                                        <TextBlock
+                                            Margin="0,0,0,2"
+                                            VerticalAlignment="Bottom"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{StaticResource CaptionTextBlockStyle}">
+                                            <Run Text="/ " />
+                                            <Run Text="{x:Bind UsageLimit, Mode=OneWay}" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                    <ProgressBar
+                                        Height="8"
+                                        Maximum="100"
+                                        Value="{x:Bind UsagePercentage, Mode=OneWay}" />
+                                    <Grid>
+                                        <TextBlock
+                                            HorizontalAlignment="Left"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                            Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackRequestsUsed}" />
+                                        <TextBlock
+                                            HorizontalAlignment="Right"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                            Text="{x:Bind UsageResetText, Mode=OneWay}" />
+                                    </Grid>
                                 </StackPanel>
-                                <ProgressBar
-                                    Height="8"
-                                    Maximum="100"
-                                    Value="{x:Bind UsagePercentage, Mode=OneWay}" />
-                                <Grid>
+                                <StackPanel
+                                    Orientation="Horizontal"
+                                    Spacing="8"
+                                    Visibility="{x:Bind ShowLoadingState, Mode=OneWay}">
+                                    <ProgressRing
+                                        Width="18"
+                                        Height="18"
+                                        IsActive="{x:Bind ShowLoadingState, Mode=OneWay}" />
                                     <TextBlock
-                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                         Style="{StaticResource CaptionTextBlockStyle}"
-                                        Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackRequestsUsed}" />
-                                    <TextBlock
-                                        HorizontalAlignment="Right"
-                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Style="{StaticResource CaptionTextBlockStyle}"
-                                        Text="{x:Bind UsageResetText, Mode=OneWay}" />
-                                </Grid>
+                                        Text="{x:Bind domain:Translator.Busy}" />
+                                </StackPanel>
+                                <TextBlock
+                                    Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind ErrorText, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords"
+                                    Visibility="{x:Bind ShowErrorState, Mode=OneWay}" />
                             </StackPanel>
                         </controls:SettingsCard.Header>
                     </controls:SettingsCard>
@@ -148,11 +193,32 @@
                             Style="{StaticResource CaptionTextBlockStyle}"
                             Text="{x:Bind domain:Translator.GetTranslatedString(KeywordsKey)}"
                             TextWrapping="WrapWholeWords" />
+                        <StackPanel
+                            Orientation="Horizontal"
+                            Spacing="8"
+                            Visibility="{x:Bind ShowLoadingState, Mode=OneWay}">
+                            <ProgressRing
+                                Width="18"
+                                Height="18"
+                                IsActive="{x:Bind ShowLoadingState, Mode=OneWay}" />
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind domain:Translator.Busy}" />
+                        </StackPanel>
+                        <TextBlock
+                            Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind ErrorText, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords"
+                            Visibility="{x:Bind ShowErrorState, Mode=OneWay}" />
                         <Border
                             Padding="12,4"
                             HorizontalAlignment="Left"
                             Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
-                            CornerRadius="12">
+                            CornerRadius="12"
+                            Visibility="{x:Bind ShowPurchaseState, Mode=OneWay}">
                             <TextBlock
                                 Foreground="{ThemeResource SystemFillColorSuccessBrush}"
                                 Style="{StaticResource CaptionTextBlockStyle}"
@@ -172,18 +238,6 @@
 
     <ScrollViewer>
         <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
-
-            <StackPanel
-                x:Name="BusyPanel"
-                HorizontalAlignment="Center"
-                x:Load="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
-                Spacing="8">
-                <ProgressRing
-                    Width="32"
-                    Height="32"
-                    IsActive="True" />
-                <TextBlock HorizontalAlignment="Center" Text="{x:Bind domain:Translator.Busy}" />
-            </StackPanel>
 
             <StackPanel
                 x:Name="SignedOutPanel"
@@ -260,15 +314,52 @@
                             VerticalAlignment="Center"
                             Data="F1 M 3.75 5 L 3.75 4.902344 C 3.75 4.225262 3.885091 3.588867 4.155273 2.993164 C 4.425456 2.397461 4.790039 1.878256 5.249023 1.435547 C 5.708008 0.99284 6.238606 0.642904 6.84082 0.385742 C 7.443034 0.128582 8.079427 0 8.75 0 C 9.440104 0 10.089518 0.130209 10.698242 0.390625 C 11.306966 0.651043 11.837564 1.007488 12.290039 1.459961 C 12.742513 1.912436 13.098958 2.443035 13.359375 3.051758 C 13.619791 3.660482 13.75 4.309896 13.75 5 C 13.75 5.690104 13.619791 6.339519 13.359375 6.948242 C 13.098958 7.556967 12.742513 8.087565 12.290039 8.540039 C 11.837564 8.992514 11.306966 9.348959 10.698242 9.609375 C 10.089518 9.869792 9.440104 10 8.75 10 C 8.059896 10 7.410481 9.869792 6.801758 9.609375 C 6.193034 9.348959 5.662435 8.992514 5.209961 8.540039 C 4.757487 8.087565 4.401042 7.556967 4.140625 6.948242 C 3.880208 6.339519 3.75 5.690104 3.75 5 Z M 5 5 L 5 5.078125 C 5 5.585938 5.100911 6.062826 5.302734 6.508789 C 5.504557 6.954753 5.777995 7.34375 6.123047 7.675781 C 6.468099 8.007812 6.866862 8.269857 7.319336 8.461914 C 7.77181 8.653972 8.248697 8.75 8.75 8.75 C 9.270833 8.75 9.759114 8.652344 10.214844 8.457031 C 10.670572 8.261719 11.067708 7.994792 11.40625 7.65625 C 11.744791 7.317709 12.011719 6.920573 12.207031 6.464844 C 12.402344 6.009115 12.5 5.520834 12.5 5 C 12.5 4.479167 12.402344 3.990887 12.207031 3.535156 C 12.011719 3.079428 11.744791 2.682293 11.40625 2.34375 C 11.067708 2.005209 10.670572 1.738281 10.214844 1.542969 C 9.759114 1.347656 9.270833 1.25 8.75 1.25 C 8.229166 1.25 7.740885 1.347656 7.285156 1.542969 C 6.829427 1.738281 6.432292 2.005209 6.09375 2.34375 C 5.755208 2.682293 5.488281 3.079428 5.292969 3.535156 C 5.097656 3.990887 5 4.479167 5 5 Z M 20 14.375 L 20 18.125 C 20 18.385416 19.951172 18.629557 19.853516 18.857422 C 19.755859 19.085287 19.622395 19.283854 19.453125 19.453125 C 19.283854 19.622396 19.085285 19.755859 18.857422 19.853516 C 18.629557 19.951172 18.385416 20 18.125 20 L 11.875 20 C 11.614583 20 11.370442 19.951172 11.142578 19.853516 C 10.914713 19.755859 10.716146 19.622396 10.546875 19.453125 C 10.377604 19.283854 10.244141 19.085287 10.146484 18.857422 C 10.048828 18.629557 10 18.385416 10 18.125 L 10 14.375 C 10 14.114584 10.048828 13.870443 10.146484 13.642578 C 10.244141 13.414714 10.377604 13.216146 10.546875 13.046875 C 10.716146 12.877604 10.914713 12.744141 11.142578 12.646484 C 11.370442 12.548828 11.614583 12.5 11.875 12.5 L 12.5 12.5 L 12.5 11.25 C 12.5 11.080729 12.532552 10.921225 12.597656 10.771484 C 12.66276 10.621745 12.753906 10.488281 12.871094 10.371094 C 13.118488 10.123698 13.411457 10 13.75 10 L 16.25 10 C 16.41927 10 16.578775 10.032553 16.728516 10.097656 C 16.878254 10.162761 17.011719 10.253906 17.128906 10.371094 C 17.376301 10.61849 17.5 10.911459 17.5 11.25 L 17.5 12.5 L 18.125 12.5 C 18.385416 12.5 18.629557 12.548828 18.857422 12.646484 C 19.085285 12.744141 19.283854 12.877604 19.453125 13.046875 C 19.622395 13.216146 19.755859 13.414714 19.853516 13.642578 C 19.951172 13.870443 20 14.114584 20 14.375 Z M 11.25 11.25 C 10.800781 11.25 10.382486 11.360678 9.995117 11.582031 C 9.607747 11.803386 9.303385 12.109375 9.082031 12.5 L 2.5 12.5 C 2.324219 12.5 2.159831 12.532553 2.006836 12.597656 C 1.853841 12.662761 1.722005 12.750651 1.611328 12.861328 C 1.500651 12.972006 1.41276 13.103842 1.347656 13.256836 C 1.282552 13.409831 1.25 13.574219 1.25 13.75 C 1.25 14.420573 1.360677 15.008139 1.582031 15.512695 C 1.803385 16.017252 2.102865 16.455078 2.480469 16.826172 C 2.858073 17.197266 3.297526 17.50651 3.798828 17.753906 C 4.30013 18.001303 4.827474 18.198242 5.380859 18.344727 C 5.934244 18.491211 6.50065 18.595377 7.080078 18.657227 C 7.659505 18.719076 8.216146 18.75 8.75 18.75 C 8.75 19.205729 8.860677 19.622396 9.082031 20 L 8.75 20 C 8.190104 20 7.618814 19.973959 7.036133 19.921875 C 6.45345 19.869791 5.878906 19.775391 5.3125 19.638672 C 4.746094 19.501953 4.197591 19.319662 3.666992 19.091797 C 3.136393 18.863932 2.646484 18.574219 2.197266 18.222656 C 1.474609 17.66276 0.927734 17.005209 0.556641 16.25 C 0.185547 15.494792 0 14.661458 0 13.75 C 0 13.404948 0.065104 13.081055 0.195312 12.77832 C 0.325521 12.475586 0.504557 12.210287 0.732422 11.982422 C 0.960286 11.754558 1.225586 11.575521 1.52832 11.445312 C 1.831055 11.315104 2.154948 11.25 2.5 11.25 Z M 16.25 11.25 L 13.75 11.25 L 13.75 12.5 L 16.25 12.5 Z " />
                     </controls:SettingsCard.HeaderIcon>
-                    <Border
-                        Padding="12,4"
-                        Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
-                        CornerRadius="12">
-                        <TextBlock
-                            Foreground="{ThemeResource SystemFillColorSuccessBrush}"
-                            Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="{x:Bind ViewModel.AccountStatusText, Mode=OneWay}" />
-                    </Border>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Border
+                            Padding="12,4"
+                            Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
+                            CornerRadius="12">
+                            <TextBlock
+                                Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ViewModel.AccountStatusText, Mode=OneWay}" />
+                        </Border>
+                        <StackPanel
+                            Orientation="Horizontal"
+                            Spacing="6"
+                            Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay}">
+                            <ProgressRing
+                                Width="16"
+                                Height="16"
+                                VerticalAlignment="Center"
+                                IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}" />
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind domain:Translator.Busy}" />
+                        </StackPanel>
+                    </StackPanel>
+                </controls:SettingsCard>
+
+                <controls:SettingsCard
+                    Command="{x:Bind ViewModel.ChangePasswordCommand}"
+                    Description="{x:Bind domain:Translator.WinoAccount_ChangePassword_Description}"
+                    Header="{x:Bind domain:Translator.WinoAccount_ChangePassword_Title}"
+                    IsClickEnabled="True">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE72E;" />
+                    </controls:SettingsCard.HeaderIcon>
+                </controls:SettingsCard>
+
+                <controls:SettingsCard
+                    Command="{x:Bind ViewModel.SignOutCommand}"
+                    Description="{x:Bind domain:Translator.WinoAccount_Management_SignOutDescription}"
+                    Header="{x:Bind domain:Translator.WinoAccount_Management_SignOutTitle}"
+                    IsClickEnabled="True">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xF3B1;" />
+                    </controls:SettingsCard.HeaderIcon>
                 </controls:SettingsCard>
 
                 <TextBlock
@@ -301,30 +392,6 @@
                     </StackPanel>
                 </controls:SettingsCard>
 
-                <TextBlock
-                    Margin="0,12,0,4"
-                    Style="{StaticResource BodyStrongTextBlockStyle}"
-                    Text="{x:Bind domain:Translator.WinoAccount_Management_AccountActionsSectionHeader}" />
-
-                <controls:SettingsCard
-                    Command="{x:Bind ViewModel.SignOutCommand}"
-                    Description="{x:Bind domain:Translator.WinoAccount_Management_SignOutDescription}"
-                    Header="{x:Bind domain:Translator.WinoAccount_Management_SignOutTitle}"
-                    IsClickEnabled="True">
-                    <controls:SettingsCard.HeaderIcon>
-                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xF3B1;" />
-                    </controls:SettingsCard.HeaderIcon>
-                </controls:SettingsCard>
-
-                <controls:SettingsCard
-                    Command="{x:Bind ViewModel.ChangePasswordCommand}"
-                    Description="{x:Bind domain:Translator.WinoAccount_ChangePassword_Description}"
-                    Header="{x:Bind domain:Translator.WinoAccount_ChangePassword_Title}"
-                    IsClickEnabled="True">
-                    <!--<controls:SettingsCard.HeaderIcon>
-                        <SymbolIcon Symbol="Permission" />
-                    </controls:SettingsCard.HeaderIcon>-->
-                </controls:SettingsCard>
             </StackPanel>
         </StackPanel>
     </ScrollViewer>

@@ -27,15 +27,15 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsPurchasePanelVisible))]
-    private bool hasUnlimitedAccountProduct;
+    public partial bool HasUnlimitedAccountProduct { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsAccountCreationAlmostOnLimit))]
     [NotifyPropertyChangedFor(nameof(IsPurchasePanelVisible))]
-    private bool isAccountCreationBlocked;
+    public partial bool IsAccountCreationBlocked { get; set; }
 
     [ObservableProperty]
-    private IAccountProviderDetailViewModel _startupAccount;
+    public partial IAccountProviderDetailViewModel StartupAccount { get; set; }
 
     public int FREE_ACCOUNT_COUNT { get; } = 3;
     protected IDialogServiceBase DialogService { get; }
@@ -94,7 +94,7 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
 
     public async Task ManageStorePurchasesAsync()
     {
-        var hasUnlimitedAccountProduct = await WinoAccountProfileService.HasAddOnAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS).ConfigureAwait(false);
+        var hasUnlimitedAccountProduct = await StoreManagementService.HasProductAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS).ConfigureAwait(false);
 
         await ExecuteUIThread(() =>
         {

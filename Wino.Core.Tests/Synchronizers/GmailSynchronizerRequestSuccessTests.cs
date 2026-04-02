@@ -1,0 +1,187 @@
+using System.Net;
+using System.Net.Http;
+using System.Reflection;
+using FluentAssertions;
+using Google.Apis.Requests;
+using Moq;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Integration.Processors;
+using Wino.Core.Requests.Bundles;
+using Wino.Core.Requests.Mail;
+using Wino.Core.Synchronizers.Mail;
+using Xunit;
+
+namespace Wino.Core.Tests.Synchronizers;
+
+public sealed class GmailSynchronizerRequestSuccessTests
+{
+    [Fact]
+    public async Task ProcessSingleNativeRequestResponseAsync_BatchMarkReadRequest_PersistsLocalReadStateForEachMail()
+    {
+        var changeProcessor = new Mock<IGmailChangeProcessor>(MockBehavior.Strict);
+        changeProcessor
+            .Setup(x => x.ChangeMailReadStatusAsync("mail-1", true))
+            .Returns(Task.CompletedTask);
+        changeProcessor
+            .Setup(x => x.ChangeMailReadStatusAsync("mail-2", true))
+            .Returns(Task.CompletedTask);
+
+        var synchronizer = CreateSynchronizer(changeProcessor.Object);
+        var request = new BatchMarkReadRequest(
+        [
+            new MarkReadRequest(CreateMailCopy("mail-1"), IsRead: true),
+            new MarkReadRequest(CreateMailCopy("mail-2"), IsRead: true)
+        ]);
+        var bundle = new HttpRequestBundle<IClientServiceRequest>(Mock.Of<IClientServiceRequest>(), request);
+        using var response = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(string.Empty)
+        };
+
+        await InvokeProcessSingleNativeRequestResponseAsync(synchronizer, bundle, response);
+
+        changeProcessor.Verify(x => x.ChangeMailReadStatusAsync("mail-1", true), Times.Once);
+        changeProcessor.Verify(x => x.ChangeMailReadStatusAsync("mail-2", true), Times.Once);
+    }
+
+    [Fact]
+    public async Task ProcessSingleNativeRequestResponseAsync_BatchChangeFlagRequest_PersistsLocalFlagStateForEachMail()
+    {
+        var changeProcessor = new Mock<IGmailChangeProcessor>(MockBehavior.Strict);
+        changeProcessor
+            .Setup(x => x.ChangeFlagStatusAsync("mail-1", true))
+            .Returns(Task.CompletedTask);
+        changeProcessor
+            .Setup(x => x.ChangeFlagStatusAsync("mail-2", true))
+            .Returns(Task.CompletedTask);
+
+        var synchronizer = CreateSynchronizer(changeProcessor.Object);
+        var request = new BatchChangeFlagRequest(
+        [
+            new ChangeFlagRequest(CreateMailCopy("mail-1"), IsFlagged: true),
+            new ChangeFlagRequest(CreateMailCopy("mail-2"), IsFlagged: true)
+        ]);
+        var bundle = new HttpRequestBundle<IClientServiceRequest>(Mock.Of<IClientServiceRequest>(), request);
+        using var response = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(string.Empty)
+        };
+
+        await InvokeProcessSingleNativeRequestResponseAsync(synchronizer, bundle, response);
+
+        changeProcessor.Verify(x => x.ChangeFlagStatusAsync("mail-1", true), Times.Once);
+        changeProcessor.Verify(x => x.ChangeFlagStatusAsync("mail-2", true), Times.Once);
+    }
+
+    [Fact]
+    public async Task ProcessSingleNativeRequestResponseAsync_HandledRequestError_DoesNotPersistLocalReadState()
+    {
+        var changeProcessor = new Mock<IGmailChangeProcessor>(MockBehavior.Strict);
+        var errorFactory = new Mock<IGmailSynchronizerErrorHandlerFactory>(MockBehavior.Strict);
+        errorFactory
+            .Setup(x => x.HandleErrorAsync(It.IsAny<SynchronizerErrorContext>()))
+            .ReturnsAsync(true);
+
+        var synchronizer = CreateSynchronizer(changeProcessor.Object, errorFactory.Object);
+        var request = new BatchMarkReadRequest(
+        [
+            new MarkReadRequest(CreateMailCopy("mail-1"), IsRead: true)
+        ]);
+        var bundle = new HttpRequestBundle<IClientServiceRequest>(Mock.Of<IClientServiceRequest>(), request);
+        using var response = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(string.Empty)
+        };
+        var error = new RequestError
+        {
+            Code = 429,
+            Message = "rate limit"
+        };
+
+        await InvokeProcessSingleNativeRequestResponseAsync(synchronizer, bundle, response, error);
+
+        changeProcessor.Verify(x => x.ChangeMailReadStatusAsync(It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+        errorFactory.Verify(x => x.HandleErrorAsync(It.IsAny<SynchronizerErrorContext>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ProcessSingleNativeRequestResponseAsync_HandledRequestError_RevertsOptimisticReadState()
+    {
+        var changeProcessor = new Mock<IGmailChangeProcessor>(MockBehavior.Strict);
+        var errorFactory = new Mock<IGmailSynchronizerErrorHandlerFactory>(MockBehavior.Strict);
+        errorFactory
+            .Setup(x => x.HandleErrorAsync(It.IsAny<SynchronizerErrorContext>()))
+            .ReturnsAsync(true);
+
+        var mail = CreateMailCopy("mail-1");
+        var request = new BatchMarkReadRequest(
+        [
+            new MarkReadRequest(mail, IsRead: true)
+        ]);
+        request.ApplyUIChanges();
+
+        var synchronizer = CreateSynchronizer(changeProcessor.Object, errorFactory.Object);
+        var bundle = new HttpRequestBundle<IClientServiceRequest>(Mock.Of<IClientServiceRequest>(), request);
+        using var response = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(string.Empty)
+        };
+        var error = new RequestError
+        {
+            Code = 429,
+            Message = "rate limit"
+        };
+
+        await InvokeProcessSingleNativeRequestResponseAsync(synchronizer, bundle, response, error);
+
+        mail.IsRead.Should().BeFalse();
+        changeProcessor.Verify(x => x.ChangeMailReadStatusAsync(It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+        errorFactory.Verify(x => x.HandleErrorAsync(It.IsAny<SynchronizerErrorContext>()), Times.Once);
+    }
+
+    private static GmailSynchronizer CreateSynchronizer(
+        IGmailChangeProcessor changeProcessor,
+        IGmailSynchronizerErrorHandlerFactory? errorFactory = null)
+    {
+        var account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Name = "Gmail",
+            Address = "user@example.com"
+        };
+
+        var authenticator = new Mock<IGmailAuthenticator>(MockBehavior.Loose);
+
+        return new GmailSynchronizer(account, authenticator.Object, changeProcessor, errorFactory ?? Mock.Of<IGmailSynchronizerErrorHandlerFactory>());
+    }
+
+    private static MailCopy CreateMailCopy(string id) =>
+        new()
+        {
+            UniqueId = Guid.NewGuid(),
+            Id = id,
+            FolderId = Guid.NewGuid(),
+            IsRead = false,
+            IsFlagged = false
+        };
+
+    private static async Task InvokeProcessSingleNativeRequestResponseAsync(
+        GmailSynchronizer synchronizer,
+        HttpRequestBundle<IClientServiceRequest> bundle,
+        HttpResponseMessage response,
+        RequestError? error = null)
+    {
+        var method = typeof(GmailSynchronizer).GetMethod(
+            "ProcessSingleNativeRequestResponseAsync",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        method.Should().NotBeNull();
+
+        var task = method!.Invoke(synchronizer, [bundle, error, response, CancellationToken.None]) as Task;
+        task.Should().NotBeNull();
+        await task!;
+    }
+}

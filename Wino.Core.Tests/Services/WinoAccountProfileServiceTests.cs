@@ -27,7 +27,6 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
     {
         _databaseService = new InMemoryDatabaseService();
         await _databaseService.InitializeAsync();
-        await _databaseService.Connection.CreateTableAsync<WinoAccountAddOnCache>();
         _service = new WinoAccountProfileService(_databaseService, _apiClient.Object, _storeManagementService.Object);
     }
 
@@ -94,18 +93,6 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
 
         var persisted = await _databaseService.Connection.Table<WinoAccount>().ToListAsync();
         persisted.Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task HasAddOnAsync_ShouldUseLegacyStoreForUnlimitedAccounts()
-    {
-        _storeManagementService
-            .Setup(x => x.HasProductAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS))
-            .ReturnsAsync(true);
-
-        var hasAddOn = await _service.HasAddOnAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS);
-
-        hasAddOn.Should().BeTrue();
     }
 
     [Fact]
@@ -190,8 +177,7 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
                 "Premium",
                 authResult.User.HasPassword,
                 authResult.User.HasGoogleLogin,
-                authResult.User.HasFacebookLogin,
-                authResult.User.HasUnlimitedAccounts)));
+                authResult.User.HasFacebookLogin)));
 
         await _service.LoginAsync("first@example.com", "pw");
 
@@ -237,7 +223,7 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task SummarizeAsync_ShouldPersistQuotaSnapshot()
+    public async Task SummarizeAsync_ShouldReturnQuotaBackedResponse()
     {
         var authResult = CreateAuthResult("first@example.com");
 
@@ -265,18 +251,12 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
 
         response.IsSuccess.Should().BeTrue();
         response.Result?.Html.Should().Be("<p>Summary</p>");
-
-        var cachedSnapshot = await _service.GetCachedAddOnSnapshotAsync();
-        cachedSnapshot.Should().NotBeNull();
-        cachedSnapshot!.HasAiPack.Should().BeTrue();
-        cachedSnapshot.UsageCount.Should().Be(4);
-        cachedSnapshot.UsageLimit.Should().Be(1000);
     }
 
     private static AuthResultDto CreateAuthResult(string email)
     {
         return new AuthResultDto(
-            new AuthUserDto(Guid.NewGuid(), email, "Active", true, false, false, false),
+            new AuthUserDto(Guid.NewGuid(), email, "Active", true, false, false),
             "access-token",
             DateTimeOffset.UtcNow.AddMinutes(30),
             "refresh-token",

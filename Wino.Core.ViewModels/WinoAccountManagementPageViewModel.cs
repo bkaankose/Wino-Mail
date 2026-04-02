@@ -1,8 +1,7 @@
 #nullable enable
 using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Linq;
+using Wino.Core.Domain.Entities.Shared;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -10,7 +9,6 @@ using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.ViewModels.Data;
 using Wino.Mail.Api.Contracts.Common;
@@ -24,9 +22,10 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     IRecipient<WinoAccountAddOnPurchasedMessage>
 {
     private readonly IWinoAccountProfileService _profileService;
-    private readonly IWinoAddOnService _addOnService;
     private readonly IMailDialogService _dialogService;
-    private readonly INativeAppService _nativeAppService;
+    private readonly IStoreManagementService _storeManagementService;
+    private readonly WinoAddOnItemViewModel _aiPackAddOn;
+    private readonly WinoAddOnItemViewModel _unlimitedAccountsAddOn;
 
     public ObservableCollection<WinoAddOnItemViewModel> AddOns { get; } = [];
 
@@ -50,14 +49,17 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     public bool IsSignedOut => !IsSignedIn;
 
     public WinoAccountManagementPageViewModel(IWinoAccountProfileService profileService,
-                                              IWinoAddOnService addOnService,
                                               IMailDialogService dialogService,
-                                              INativeAppService nativeAppService)
+                                              IStoreManagementService storeManagementService)
     {
         _profileService = profileService;
-        _addOnService = addOnService;
         _dialogService = dialogService;
-        _nativeAppService = nativeAppService;
+        _storeManagementService = storeManagementService;
+
+        _aiPackAddOn = CreateAddOnItem(WinoAddOnProductType.AI_PACK);
+        _unlimitedAccountsAddOn = CreateAddOnItem(WinoAddOnProductType.UNLIMITED_ACCOUNTS);
+        AddOns.Add(_aiPackAddOn);
+        AddOns.Add(_unlimitedAccountsAddOn);
     }
 
     public override void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -166,15 +168,6 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             return;
         }
 
-        var account = await _profileService.GetAuthenticatedAccountAsync().ConfigureAwait(false);
-        if (account == null)
-        {
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Warning,
-                                          Translator.WinoAccount_Management_PurchaseRequiresSignIn,
-                                          InfoBarMessageType.Warning);
-            return;
-        }
-
         await ExecuteUIThread(() =>
         {
             IsCheckoutInProgress = true;
@@ -183,9 +176,9 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
         try
         {
-            var checkoutSession = await _profileService.CreateCheckoutSessionAsync(addOn.ProductType).ConfigureAwait(false);
+            var purchaseResult = await _storeManagementService.PurchaseAsync(addOn.ProductType);
 
-            if (!checkoutSession.IsSuccess || string.IsNullOrWhiteSpace(checkoutSession.Result?.Url))
+            if (purchaseResult == StorePurchaseResult.NotPurchased)
             {
                 _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
                                               Translator.WinoAccount_Management_PurchaseStartFailed,
@@ -193,13 +186,16 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                 return;
             }
 
-            var isLaunched = await _nativeAppService.LaunchUriAsync(new Uri(checkoutSession.Result.Url)).ConfigureAwait(false);
-            if (!isLaunched)
+            var syncResult = await _profileService.SyncStoreEntitlementsAsync().ConfigureAwait(false);
+            if (!syncResult.IsSuccess && !string.Equals(syncResult.ErrorCode, "MissingAccessToken", StringComparison.Ordinal))
             {
                 _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
-                                              Translator.WinoAccount_Management_PurchaseStartFailed,
+                                              TranslateStoreSyncError(syncResult.ErrorCode),
                                               InfoBarMessageType.Error);
+                return;
             }
+
+            await HandleAddOnPurchasedAsync().ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -221,40 +217,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     }
 
     private bool CanPurchaseAddOn(WinoAddOnItemViewModel? addOn)
-        => addOn != null && !addOn.IsPurchased && !IsCheckoutInProgress;
-
-    [RelayCommand]
-    private async Task ManageAiPackAsync()
-    {
-        try
-        {
-            var portalSession = await _profileService.CreateCustomerPortalSessionAsync().ConfigureAwait(false);
-            if (!portalSession.IsSuccess || string.IsNullOrWhiteSpace(portalSession.Result?.Url))
-            {
-                _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
-                                              Translator.WinoAccount_Management_PurchaseStartFailed,
-                                              InfoBarMessageType.Error);
-                return;
-            }
-
-            var isLaunched = await _nativeAppService.LaunchUriAsync(new Uri(portalSession.Result.Url)).ConfigureAwait(false);
-            if (!isLaunched)
-            {
-                _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
-                                              Translator.WinoAccount_Management_PurchaseStartFailed,
-                                              InfoBarMessageType.Error);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        catch (Exception)
-        {
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
-                                          Translator.WinoAccount_Management_PurchaseStartFailed,
-                                          InfoBarMessageType.Error);
-        }
-    }
+        => addOn != null && !addOn.IsPurchased && !addOn.IsLoading && !IsCheckoutInProgress;
 
     [RelayCommand]
     private Task ExportSettingsAsync() => Task.CompletedTask;
@@ -296,43 +259,58 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
     private async Task LoadAsync()
     {
+        WinoAccount? cachedAccount = null;
+
         try
         {
-            var cachedAccount = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
-            var cachedAddOns = await _addOnService.GetAvailableAddOnsAsync(true).ConfigureAwait(false);
+            cachedAccount = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
 
             if (cachedAccount != null)
             {
                 await ApplyAccountStateAsync(cachedAccount).ConfigureAwait(false);
             }
 
-            if (cachedAddOns.Count > 0)
+            await ExecuteUIThread(() => IsBusy = true);
+            await ResetAddOnStatesAsync().ConfigureAwait(false);
+            var loadAiPackTask = LoadAiPackAddOnAsync();
+            var loadUnlimitedAccountsTask = LoadUnlimitedAccountsAddOnAsync();
+
+            var resolvedAccount = cachedAccount;
+
+            if (cachedAccount == null || IsAccessTokenExpired(cachedAccount))
             {
-                await UpdateAddOnsAsync(cachedAddOns).ConfigureAwait(false);
+                try
+                {
+                    var account = await _profileService.GetAuthenticatedAccountAsync().ConfigureAwait(false);
+                    if (account != null)
+                    {
+                        resolvedAccount = account;
+
+                        var refreshedProfileResult = await _profileService.RefreshProfileAsync().ConfigureAwait(false);
+                        if (refreshedProfileResult.IsSuccess && refreshedProfileResult.Account != null)
+                        {
+                            resolvedAccount = refreshedProfileResult.Account;
+                        }
+                    }
+                }
+                catch (Exception)
+                {
+                    resolvedAccount ??= cachedAccount;
+                }
             }
 
-            await ExecuteUIThread(() => IsBusy = cachedAccount == null && cachedAddOns.Count == 0);
-
-            var account = await _profileService.GetAuthenticatedAccountAsync().ConfigureAwait(false);
-            var refreshedProfileResult = account == null
-                ? null
-                : await _profileService.RefreshProfileAsync().ConfigureAwait(false);
-            var addOns = await _addOnService.GetAvailableAddOnsAsync().ConfigureAwait(false);
-
-            var resolvedAccount = refreshedProfileResult?.IsSuccess == true && refreshedProfileResult.Account != null
-                ? refreshedProfileResult.Account
-                : account;
-
             await ApplyAccountStateAsync(resolvedAccount).ConfigureAwait(false);
-
-            await UpdateAddOnsAsync(addOns).ConfigureAwait(false);
+            await Task.WhenAll(loadAiPackTask, loadUnlimitedAccountsTask).ConfigureAwait(false);
         }
         catch (Exception)
         {
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
-                                          Translator.WinoAccount_Management_LoadFailed,
-                                          InfoBarMessageType.Error);
-            await ResetStateAsync().ConfigureAwait(false);
+            if (cachedAccount == null)
+            {
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
+                                              Translator.WinoAccount_Management_LoadFailed,
+                                              InfoBarMessageType.Error);
+                await ResetStateAsync().ConfigureAwait(false);
+            }
         }
         finally
         {
@@ -369,46 +347,151 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             AccountEmail = string.Empty;
             AccountStatusText = string.Empty;
             IsCheckoutInProgress = false;
-            AddOns.Clear();
             PurchaseAddOnCommand.NotifyCanExecuteChanged();
         });
+
+        await ResetAddOnStatesAsync().ConfigureAwait(false);
     }
 
-    private async Task UpdateAddOnsAsync(IReadOnlyList<WinoAddOnInfo> addOns)
+    private WinoAddOnItemViewModel CreateAddOnItem(WinoAddOnProductType productType)
     {
-        var items = addOns.Select(CreateAddOnItem).ToList();
+        return new WinoAddOnItemViewModel(productType)
+        {
+            PurchaseCommand = PurchaseAddOnCommand,
+            UsageLimit = 1
+        };
+    }
 
+    private async Task ResetAddOnStatesAsync()
+    {
         await ExecuteUIThread(() =>
         {
-            AddOns.Clear();
-
-            foreach (var item in items)
-            {
-                AddOns.Add(item);
-            }
-
+            ResetAddOnItem(_aiPackAddOn);
+            ResetAddOnItem(_unlimitedAccountsAddOn);
             PurchaseAddOnCommand.NotifyCanExecuteChanged();
         });
     }
 
-    private WinoAddOnItemViewModel CreateAddOnItem(WinoAddOnInfo addOn)
+    private static void ResetAddOnItem(WinoAddOnItemViewModel addOn)
     {
-        var item = new WinoAddOnItemViewModel(addOn.ProductType)
+        addOn.IsLoading = true;
+        addOn.IsPurchased = false;
+        addOn.IsPurchaseInProgress = false;
+        addOn.HasUsageData = false;
+        addOn.ErrorText = string.Empty;
+        addOn.UsageCount = 0;
+        addOn.UsageLimit = 1;
+        addOn.UsagePercentage = 0;
+        addOn.RenewalText = string.Empty;
+        addOn.UsageResetText = string.Empty;
+    }
+
+    private static string TranslateStoreSyncError(string? errorCode)
+        => errorCode switch
         {
-            IsPurchased = addOn.IsPurchased,
-            PurchaseCommand = PurchaseAddOnCommand,
-            ManageCommand = ManageAiPackCommand,
-            UsageCount = addOn.UsageCount ?? 0,
-            UsageLimit = addOn.UsageLimit is > 0 ? addOn.UsageLimit.Value : 1,
-            UsagePercentage = addOn.UsagePercentage
+            _ => Translator.WinoAccount_Management_StoreSyncFailed
         };
 
-        if (addOn.RenewalDateUtc is DateTimeOffset renewalDateUtc)
-        {
-            item.RenewalText = string.Format(Translator.WinoAccount_Management_AiPackRenews, renewalDateUtc.LocalDateTime);
-            item.UsageResetText = string.Format(Translator.WinoAccount_Management_AiPackResets, renewalDateUtc.LocalDateTime);
-        }
+    private static bool IsAccessTokenExpired(WinoAccount account)
+        => string.IsNullOrWhiteSpace(account.AccessToken) || account.AccessTokenExpiresAtUtc <= DateTime.UtcNow;
 
-        return item;
+    private async Task LoadUnlimitedAccountsAddOnAsync()
+    {
+        try
+        {
+            var hasUnlimitedAccounts = await _storeManagementService.HasProductAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS).ConfigureAwait(false);
+            await ExecuteUIThread(() =>
+            {
+                _unlimitedAccountsAddOn.IsPurchased = hasUnlimitedAccounts;
+                _unlimitedAccountsAddOn.ErrorText = string.Empty;
+            });
+        }
+        catch (Exception)
+        {
+            await ExecuteUIThread(() =>
+            {
+                _unlimitedAccountsAddOn.ErrorText = Translator.WinoAccount_Management_AddOnLoadFailed;
+            });
+        }
+        finally
+        {
+            await ExecuteUIThread(() =>
+            {
+                _unlimitedAccountsAddOn.IsLoading = false;
+                PurchaseAddOnCommand.NotifyCanExecuteChanged();
+            });
+        }
+    }
+
+    private async Task LoadAiPackAddOnAsync()
+    {
+        try
+        {
+            var hasAiPack = await _storeManagementService.HasProductAsync(WinoAddOnProductType.AI_PACK).ConfigureAwait(false);
+
+            await ExecuteUIThread(() =>
+            {
+                _aiPackAddOn.IsPurchased = hasAiPack;
+                _aiPackAddOn.ErrorText = string.Empty;
+            });
+
+            if (!hasAiPack)
+            {
+                return;
+            }
+
+            var aiStatusResponse = await _profileService.GetAiStatusAsync().ConfigureAwait(false);
+            if (!aiStatusResponse.IsSuccess || aiStatusResponse.Result == null)
+            {
+                await ExecuteUIThread(() =>
+                {
+                    _aiPackAddOn.HasUsageData = false;
+                    _aiPackAddOn.ErrorText = Translator.WinoAccount_Management_AiPackUsageLoadFailed;
+                });
+                return;
+            }
+
+            var aiStatus = aiStatusResponse.Result;
+            if (aiStatus.MonthlyLimit is not int usageLimit || usageLimit <= 0 || aiStatus.Used is not int usageCount)
+            {
+                await ExecuteUIThread(() =>
+                {
+                    _aiPackAddOn.HasUsageData = false;
+                    _aiPackAddOn.ErrorText = Translator.WinoAccount_Management_AiPackUsageLoadFailed;
+                });
+                return;
+            }
+
+            await ExecuteUIThread(() =>
+            {
+                _aiPackAddOn.HasUsageData = true;
+                _aiPackAddOn.ErrorText = string.Empty;
+                _aiPackAddOn.UsageCount = usageCount;
+                _aiPackAddOn.UsageLimit = usageLimit;
+                _aiPackAddOn.UsagePercentage = usageLimit > 0 ? (double)usageCount / usageLimit * 100 : 0;
+                _aiPackAddOn.RenewalText = aiStatus.CurrentPeriodEndUtc is DateTimeOffset renewalDateUtc
+                    ? string.Format(Translator.WinoAccount_Management_AiPackRenews, renewalDateUtc.LocalDateTime)
+                    : string.Empty;
+                _aiPackAddOn.UsageResetText = aiStatus.CurrentPeriodEndUtc is DateTimeOffset resetDateUtc
+                    ? string.Format(Translator.WinoAccount_Management_AiPackResets, resetDateUtc.LocalDateTime)
+                    : string.Empty;
+            });
+        }
+        catch (Exception)
+        {
+            await ExecuteUIThread(() =>
+            {
+                _aiPackAddOn.HasUsageData = false;
+                _aiPackAddOn.ErrorText = Translator.WinoAccount_Management_AddOnLoadFailed;
+            });
+        }
+        finally
+        {
+            await ExecuteUIThread(() =>
+            {
+                _aiPackAddOn.IsLoading = false;
+                PurchaseAddOnCommand.NotifyCanExecuteChanged();
+            });
+        }
     }
 }

@@ -11,12 +11,10 @@ using System.Text.Json.Serialization.Metadata;
 using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Shared;
-using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Mail.Api.Contracts.Ai;
 using Wino.Mail.Api.Contracts.Auth;
-using Wino.Mail.Api.Contracts.Billing;
 using Wino.Mail.Api.Contracts.Common;
 
 namespace Wino.Services;
@@ -137,25 +135,27 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             WinoAccountApiJsonContext.Default.ApiEnvelopeAiTextResultDto,
             cancellationToken);
 
-    public Task<ApiEnvelope<CheckoutSessionResultDto>> CreateCheckoutSessionAsync(WinoAddOnProductType productId, CancellationToken cancellationToken = default)
-    {
-        var endpoint = productId switch
-        {
-            WinoAddOnProductType.AI_PACK => "api/v1/billing/ai-pack/checkout-session",
-            WinoAddOnProductType.UNLIMITED_ACCOUNTS => "api/v1/billing/unlimited-accounts/checkout-session",
-            _ => string.Empty
-        };
-
-        return string.IsNullOrWhiteSpace(endpoint)
-            ? Task.FromResult(ApiEnvelope<CheckoutSessionResultDto>.Failure("UnknownProduct"))
-            : SendAuthorizedRequestAsync(HttpMethod.Post, endpoint, WinoAccountApiJsonContext.Default.ApiEnvelopeCheckoutSessionResultDto, cancellationToken);
-    }
-
-    public Task<ApiEnvelope<CustomerPortalResultDto>> CreateCustomerPortalSessionAsync(CancellationToken cancellationToken = default)
+    public Task<ApiEnvelope<WinoStoreCollectionsIdTicketInfo>> CreateCollectionsIdTicketAsync(CancellationToken cancellationToken = default)
         => SendAuthorizedRequestAsync(
             HttpMethod.Post,
-            "api/v1/billing/ai-pack/customer-portal-session",
-            WinoAccountApiJsonContext.Default.ApiEnvelopeCustomerPortalResultDto,
+            "api/v1/store/collections-id-ticket",
+            WinoAccountApiJsonContext.Default.ApiEnvelopeWinoStoreCollectionsIdTicketInfo,
+            cancellationToken);
+
+    public Task<ApiEnvelope<WinoStoreCollectionsIdTicketInfo>> CreatePurchaseIdTicketAsync(CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync(
+            HttpMethod.Post,
+            "api/v1/store/purchase-id-ticket",
+            WinoAccountApiJsonContext.Default.ApiEnvelopeWinoStoreCollectionsIdTicketInfo,
+            cancellationToken);
+
+    public Task<ApiEnvelope<JsonElement>> SyncStoreEntitlementsAsync(string? storeIdKey, string? purchaseIdKey, CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync(
+            HttpMethod.Post,
+            "api/v1/store/entitlements/sync",
+            new SyncStoreEntitlementsRequest(storeIdKey, purchaseIdKey),
+            WinoAccountApiJsonContext.Default.SyncStoreEntitlementsRequest,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeJsonElement,
             cancellationToken);
 
     public async Task<string?> GetSettingsAsync(CancellationToken cancellationToken = default)
@@ -471,7 +471,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
                 return false;
             }
 
-            if (!string.IsNullOrWhiteSpace(account.AccessToken) && account.AccessTokenExpiresAtUtc > DateTime.UtcNow.AddMinutes(1))
+            if (!string.IsNullOrWhiteSpace(account.AccessToken) && account.AccessTokenExpiresAtUtc > DateTime.UtcNow)
             {
                 return true;
             }
@@ -542,12 +542,14 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(SummarizeRequest))]
 [JsonSerializable(typeof(TranslateRequest))]
 [JsonSerializable(typeof(RewriteRequest))]
+[JsonSerializable(typeof(SyncStoreEntitlementsRequest))]
 [JsonSerializable(typeof(ApiEnvelope<AuthResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<EmailConfirmationResendResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<AuthUserDto>))]
 [JsonSerializable(typeof(ApiEnvelope<AiStatusResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<AiTextResultDto>))]
-[JsonSerializable(typeof(ApiEnvelope<CheckoutSessionResultDto>))]
-[JsonSerializable(typeof(ApiEnvelope<CustomerPortalResultDto>))]
+[JsonSerializable(typeof(ApiEnvelope<WinoStoreCollectionsIdTicketInfo>))]
 [JsonSerializable(typeof(ApiEnvelope<JsonElement>))]
 internal sealed partial class WinoAccountApiJsonContext : JsonSerializerContext;
+
+internal sealed record SyncStoreEntitlementsRequest(string? StoreIdKey, string? PurchaseIdKey);

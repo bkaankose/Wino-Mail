@@ -1,5 +1,7 @@
-﻿using System.Threading.Tasks;
+#nullable enable
+using System.Threading.Tasks;
 using Wino.Core.Domain.Enums;
+
 namespace Wino.Core.Domain.Interfaces;
 
 public interface IStoreManagementService
@@ -13,4 +15,14 @@ public interface IStoreManagementService
     /// Attempts to purchase the given add-on.
     /// </summary>
     Task<StorePurchaseResult> PurchaseAsync(WinoAddOnProductType productType);
+
+    /// <summary>
+    /// Requests a Microsoft Store collections ID key for the current customer.
+    /// </summary>
+    Task<string?> GetCustomerCollectionsIdAsync(string serviceTicket, string publisherUserId);
+
+    /// <summary>
+    /// Requests a Microsoft Store purchase ID key for the current customer.
+    /// </summary>
+    Task<string?> GetCustomerPurchaseIdAsync(string serviceTicket, string publisherUserId);
 }

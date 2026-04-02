@@ -145,7 +145,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId);
 
             await remoteFolder.OpenAsync(FolderAccess.ReadWrite).ConfigureAwait(false);
-            await remoteFolder.StoreAsync(GetUniqueId(item.Item.Id), new StoreFlagsRequest(item.Item.IsFlagged ? StoreAction.Add : StoreAction.Remove, MessageFlags.Flagged) { Silent = true }).ConfigureAwait(false);
+            await remoteFolder.StoreAsync(GetUniqueId(item.Item.Id), new StoreFlagsRequest(item.IsFlagged ? StoreAction.Add : StoreAction.Remove, MessageFlags.Flagged) { Silent = true }).ConfigureAwait(false);
             await remoteFolder.CloseAsync().ConfigureAwait(false);
         }, requests);
     }

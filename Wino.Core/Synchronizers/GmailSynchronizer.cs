@@ -1622,6 +1622,16 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         // Try to handle the error with registered handlers
         var handled = await _gmailSynchronizerErrorHandlerFactory.HandleErrorAsync(errorContext);
 
+        if (handled)
+        {
+            if (ShouldRevertOptimisticMailStateChange(bundle?.UIChangeRequest))
+            {
+                bundle?.UIChangeRequest?.RevertUIChanges();
+            }
+
+            return;
+        }
+
         // If not handled by any specific handler, apply default error handling
         if (!handled)
         {
@@ -1649,6 +1659,12 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         }
     }
 
+    private static bool ShouldRevertOptimisticMailStateChange(IUIChangeRequest request)
+        => request is BatchMarkReadRequest
+        || request is MarkReadRequest
+        || request is BatchChangeFlagRequest
+        || request is ChangeFlagRequest;
+
     private bool ShouldUpdateSyncIdentifier(ulong? historyId)
     {
         if (historyId == null) return false;
@@ -1672,7 +1688,13 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                                                                HttpResponseMessage httpResponseMessage,
                                                                CancellationToken cancellationToken = default)
     {
-        await ProcessGmailRequestErrorAsync(error, bundle);
+        if (error != null)
+        {
+            await ProcessGmailRequestErrorAsync(error, bundle).ConfigureAwait(false);
+            return;
+        }
+
+        await PersistSuccessfulMailStateChangesAsync(bundle).ConfigureAwait(false);
 
         if (bundle is HttpRequestBundle<IClientServiceRequest, Message> messageBundle)
         {
@@ -1732,6 +1754,34 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             };
 
             await SynchronizeMailsInternalAsync(options, cancellationToken);
+        }
+    }
+
+    private async Task PersistSuccessfulMailStateChangesAsync(IRequestBundle<IClientServiceRequest> bundle)
+    {
+        switch (bundle.UIChangeRequest)
+        {
+            case BatchMarkReadRequest batchMarkReadRequest:
+                foreach (var request in batchMarkReadRequest)
+                {
+                    await _gmailChangeProcessor.ChangeMailReadStatusAsync(request.Item.Id, request.IsRead).ConfigureAwait(false);
+                }
+                break;
+
+            case MarkReadRequest markReadRequest:
+                await _gmailChangeProcessor.ChangeMailReadStatusAsync(markReadRequest.Item.Id, markReadRequest.IsRead).ConfigureAwait(false);
+                break;
+
+            case BatchChangeFlagRequest batchChangeFlagRequest:
+                foreach (var request in batchChangeFlagRequest)
+                {
+                    await _gmailChangeProcessor.ChangeFlagStatusAsync(request.Item.Id, request.IsFlagged).ConfigureAwait(false);
+                }
+                break;
+
+            case ChangeFlagRequest changeFlagRequest:
+                await _gmailChangeProcessor.ChangeFlagStatusAsync(changeFlagRequest.Item.Id, changeFlagRequest.IsFlagged).ConfigureAwait(false);
+                break;
         }
     }
 
