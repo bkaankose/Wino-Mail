@@ -1062,6 +1062,7 @@
     "Composer_SmimeEncryption": "S/MIME Encryption",
     "Composer_EmailTemplatesPlaceholder": "E-mail templates",
     "Composer_AiSummarize": "Summarize with AI",
+    "Composer_AiSummarizeDescription": "Extract key points, action items, and decisions from this email.",
     "Composer_AiTranslate": "Translate with AI",
     "Composer_AiActions": "AI Actions",
     "Composer_AiRewrite": "Rewrite with AI",

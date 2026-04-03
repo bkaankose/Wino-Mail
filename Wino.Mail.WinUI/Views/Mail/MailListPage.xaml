@@ -15,10 +15,7 @@
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
-    xmlns:i="using:Microsoft.Xaml.Interactivity"
-    xmlns:interactivity="using:Microsoft.Xaml.Interactivity"
     xmlns:listview="using:Wino.Mail.WinUI.Controls.ListView"
-    xmlns:local="using:Wino.Behaviors"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:menuflyouts="using:Wino.MenuFlyouts"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
@@ -176,15 +173,15 @@
                     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
                     CornerRadius="8"
                     Visibility="{x:Bind ViewModel.PreferencesService.IsMailListActionBarEnabled}">
-                    <CommandBar
+                    <coreControls:OperationCommandBar
                         HorizontalAlignment="Left"
                         DefaultLabelPosition="Collapsed"
                         IsEnabled="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.MailCollection.SelectedItemsCount), Mode=OneWay}"
+                        IsAIActionsPaneToggleVisible="False"
+                        ItemInvokedCommand="{x:Bind ViewModel.ExecuteTopBarActionCommand}"
+                        MenuItems="{x:Bind ViewModel.ActionItems, Mode=OneWay}"
                         OverflowButtonVisibility="Auto">
-                        <interactivity:Interaction.Behaviors>
-                            <local:BindableCommandBarBehavior ItemClickedCommand="{x:Bind ViewModel.ExecuteTopBarActionCommand}" PrimaryCommands="{x:Bind ViewModel.ActionItems, Mode=OneWay}" />
-                        </interactivity:Interaction.Behaviors>
-                    </CommandBar>
+                    </coreControls:OperationCommandBar>
                 </Grid>
 
                 <!--  Pivot + Sync + Multi Select  -->

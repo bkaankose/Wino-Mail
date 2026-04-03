@@ -4,16 +4,14 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:Wino.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:customcontrols="using:Wino.Mail.WinUI.Controls.CustomControls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
     xmlns:helpers="using:Wino.Helpers"
-    xmlns:interactivity="using:Microsoft.Xaml.Interactivity"
-    xmlns:local="using:Wino.Behaviors"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
-    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
     x:Name="root"
@@ -266,20 +264,17 @@
                         <PathIcon Data="M12 2a4 4 0 0 1 4 4v2h1.75A2.25 2.25 0 0 1 20 10.25v9.5A2.25 2.25 0 0 1 17.75 22H6.25A2.25 2.25 0 0 1 4 19.75v-9.5A2.25 2.25 0 0 1 6.25 8H8V6a4 4 0 0 1 4-4Zm5.75 7.5H6.25a.75.75 0 0 0-.75.75v9.5c0 .414.336.75.75.75h11.5a.75.75 0 0 0 .75-.75v-9.5a.75.75 0 0 0-.75-.75Zm-5.75 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0-10A2.5 2.5 0 0 0 9.5 6v2h5V6A2.5 2.5 0 0 0 12 3.5Z" />
                     </Viewbox>
                 </Grid>
-                <CommandBar
-                    x:Name="RendererBar"
+                <coreControls:OperationCommandBar
+                    x:Name="RendererCommandBar"
                     Grid.Row="1"
                     HorizontalContentAlignment="Stretch"
                     DefaultLabelPosition="Right"
-                    DynamicOverflowItemsChanging="BarDynamicOverflowChanging"
-                    IsDynamicOverflowEnabled="True"
-                    OverflowButtonVisibility="Auto">
-                    <interactivity:Interaction.Behaviors>
-                        <local:BindableCommandBarBehavior
-                            ItemClickedCommand="{x:Bind ViewModel.OperationClickedCommand}"
-                            PrimaryCommands="{x:Bind ViewModel.MenuItems, Mode=OneWay}" />
-                    </interactivity:Interaction.Behaviors>
-                    <CommandBar.Content>
+                    IsAIActionsPaneToggleVisible="True"
+                    IsEditorThemeDark="{x:Bind ViewModel.IsDarkWebviewRenderer, Mode=TwoWay}"
+                    IsEditorThemeToggleVisible="True"
+                    ItemInvokedCommand="{x:Bind ViewModel.OperationClickedCommand}"
+                    MenuItems="{x:Bind ViewModel.MenuItems, Mode=OneWay}">
+                    <coreControls:OperationCommandBar.Content>
                         <Grid Padding="0,5">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
@@ -322,22 +317,9 @@
                                     <TextBlock FontSize="12" Text="{x:Bind helpers:XamlHelpers.GetCreationDateString(ViewModel.CreationDate, ViewModel.PreferencesService.Prefer24HourTimeFormat), Mode=OneWay}" />
                                 </StackPanel>
                             </Grid>
-
-                            <AppBarToggleButton
-                                x:Name="ReaderAiActionsToggleButton"
-                                Grid.Column="2"
-                                Checked="ReaderAiActionsToggleButton_Checked"
-                                MinWidth="40"
-                                HorizontalContentAlignment="Center"
-                                LabelPosition="Collapsed"
-                                ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AiActions}">
-                                <AppBarToggleButton.Icon>
-                                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE945;" />
-                                </AppBarToggleButton.Icon>
-                            </AppBarToggleButton>
                         </Grid>
-                    </CommandBar.Content>
-                </CommandBar>
+                    </coreControls:OperationCommandBar.Content>
+                </coreControls:OperationCommandBar>
 
                 <ScrollViewer
                     Grid.Row="2"
@@ -433,7 +415,7 @@
                     Margin="0,8,0,0"
                     AvailableActions="Translate, Summarize"
                     HtmlHost="{x:Bind}"
-                    Visibility="{x:Bind GetAiActionsPanelVisibility(ReaderAiActionsToggleButton.IsChecked), Mode=OneWay}" />
+                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(RendererCommandBar.IsAIActionsEnabled), Mode=OneWay}" />
 
                 <!--  Attachments  -->
                 <Grid Grid.Row="4">

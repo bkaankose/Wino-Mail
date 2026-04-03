@@ -1,5 +1,5 @@
 using System;
-using System.Linq;
+using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -42,8 +42,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     public WebView2 GetWebView() => Chromium;
 
-    public Visibility GetAiActionsPanelVisibility(bool? isChecked) => isChecked == true ? Visibility.Visible : Visibility.Collapsed;
-
     public MailRenderingPage()
     {
         InitializeComponent();
@@ -56,6 +54,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         {
             return Chromium.CoreWebView2.PrintToPdfAsync(path, null).AsTask();
         });
+
     }
 
     private async Task<PrintingResult> DirectPrintAsync(WebView2PrintSettingsModel settings)
@@ -150,6 +149,8 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         ViewModel.SaveHTMLasPDFFunc = null;
         ViewModel.DirectPrintFuncAsync = null;
         _currentRenderedHtml = string.Empty;
+        RendererCommandBar.AIActionsEnabledChanged -= RendererCommandBar_AIActionsEnabledChanged;
+        RendererCommandBar.IsAIActionsEnabled = false;
         ReaderAiActionsPanel.CancelPendingOperation();
 
         DisposeWebView2();
@@ -168,9 +169,12 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         cancellationToken.ThrowIfCancellationRequested();
     }
 
-    private async void ReaderAiActionsToggleButton_Checked(object sender, RoutedEventArgs e)
+    private async void RendererCommandBar_AIActionsEnabledChanged(object? sender, bool isEnabled)
     {
-        await ReaderAiActionsPanel.RefreshAvailabilityAsync();
+        if (isEnabled)
+        {
+            await ReaderAiActionsPanel.RefreshAvailabilityAsync();
+        }
     }
 
     public async Task<string?> TryGetCachedTranslationHtmlAsync(string languageCode, CancellationToken cancellationToken)
@@ -206,6 +210,43 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<string?> TryGetCachedSummaryTextAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!ViewModel.CurrentMailAccountId.HasValue || !ViewModel.CurrentMailFileId.HasValue)
+        {
+            return null;
+        }
+
+        return await _mimeFileService.GetSummaryTextAsync(
+            ViewModel.CurrentMailAccountId.Value,
+            ViewModel.CurrentMailFileId.Value,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task SaveCachedSummaryTextAsync(string summary, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!ViewModel.CurrentMailAccountId.HasValue || !ViewModel.CurrentMailFileId.HasValue)
+        {
+            return;
+        }
+
+        await _mimeFileService.SaveSummaryTextAsync(
+            ViewModel.CurrentMailAccountId.Value,
+            ViewModel.CurrentMailFileId.Value,
+            summary,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public string GetSuggestedSummaryFileName()
+    {
+        var subject = string.IsNullOrWhiteSpace(ViewModel.Subject) ? "email-summary" : ViewModel.Subject;
+        return $"{SanitizeFileNamePart(subject)}.txt";
+    }
+
     private void DisposeWebView2()
     {
         if (Chromium == null) return;
@@ -228,6 +269,9 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         // Initialize WebView2 wiring before base navigation invokes ViewModel rendering.
         // Base.OnNavigatedTo triggers VM.OnNavigatedTo, which can send HtmlRenderingRequested.
         DOMLoadedTask = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        RendererCommandBar.AIActionsEnabledChanged -= RendererCommandBar_AIActionsEnabledChanged;
+        RendererCommandBar.AIActionsEnabledChanged += RendererCommandBar_AIActionsEnabledChanged;
+        RendererCommandBar.IsAIActionsEnabled = false;
         Chromium.CoreWebView2Initialized -= CoreWebViewInitialized;
         Chromium.CoreWebView2Initialized += CoreWebViewInitialized;
         _ = Chromium.EnsureCoreWebView2Async();
@@ -298,14 +342,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         {
             ViewModel?.OpenAttachmentCommand.Execute(attachmentViewModel);
         }
-    }
-
-    private void BarDynamicOverflowChanging(CommandBar sender, DynamicOverflowItemsChangingEventArgs args)
-    {
-        if (args.Action == CommandBarDynamicOverflowAction.AddingToOverflow || sender.SecondaryCommands.Any())
-            sender.OverflowButtonVisibility = CommandBarOverflowButtonVisibility.Visible;
-        else
-            sender.OverflowButtonVisibility = CommandBarOverflowButtonVisibility.Collapsed;
     }
 
     private async Task UpdateEditorThemeAsync()
@@ -403,5 +439,22 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     private void EscapeInvoked(Microsoft.UI.Xaml.Input.KeyboardAccelerator sender, Microsoft.UI.Xaml.Input.KeyboardAcceleratorInvokedEventArgs args)
     {
         WeakReferenceMessenger.Default.Send(new ClearMailSelectionsRequested());
+    }
+
+    private static string SanitizeFileNamePart(string value)
+    {
+        var invalidCharacters = Path.GetInvalidFileNameChars();
+        var sanitizedChars = value.Trim().ToCharArray();
+
+        for (var i = 0; i < sanitizedChars.Length; i++)
+        {
+            if (Array.IndexOf(invalidCharacters, sanitizedChars[i]) >= 0)
+            {
+                sanitizedChars[i] = '_';
+            }
+        }
+
+        var sanitized = new string(sanitizedChars).Trim();
+        return string.IsNullOrWhiteSpace(sanitized) ? "email-summary" : sanitized;
     }
 }

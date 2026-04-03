@@ -133,7 +133,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     public ObservableCollection<AccountContactViewModel> CcItems { get; set; } = [];
     public ObservableCollection<AccountContactViewModel> BccItems { get; set; } = [];
     public ObservableCollection<MailAttachmentViewModel> Attachments { get; set; } = [];
-    public ObservableCollection<MailOperationMenuItem> MenuItems { get; set; } = [];
+    public ObservableCollection<IMenuOperation> MenuItems { get; set; } = [];
 
     #endregion
 
@@ -255,21 +255,18 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     }
 
     [RelayCommand]
-    private async Task OperationClicked(MailOperationMenuItem menuItem)
+    private async Task OperationClicked(IMenuOperation menuItem)
     {
-        if (menuItem == null) return;
+        if (menuItem is not MailOperationMenuItem mailOperationMenuItem) return;
 
-        await HandleMailOperationAsync(menuItem.Operation);
+        await HandleMailOperationAsync(mailOperationMenuItem.Operation);
     }
 
     private async Task HandleMailOperationAsync(MailOperation operation)
     {
         try
         {
-            // Toggle theme
-            if (operation == MailOperation.DarkEditor || operation == MailOperation.LightEditor)
-                IsDarkWebviewRenderer = !IsDarkWebviewRenderer;
-            else if (operation == MailOperation.SaveAs)
+            if (operation == MailOperation.SaveAs)
             {
                 await SaveAsAsync();
             }
@@ -588,12 +585,6 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     private void InitializeCommandBarItems()
     {
         MenuItems.Clear();
-
-        // Add light/dark editor theme switch.
-        if (IsDarkWebviewRenderer)
-            MenuItems.Add(MailOperationMenuItem.Create(MailOperation.LightEditor));
-        else
-            MenuItems.Add(MailOperationMenuItem.Create(MailOperation.DarkEditor));
 
         // Save As PDF
         MenuItems.Add(MailOperationMenuItem.Create(MailOperation.SaveAs, true, true));

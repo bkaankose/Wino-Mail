@@ -5,8 +5,8 @@
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:models="using:Wino.Core.Domain.Models.Ai"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:Wino.Core.Domain.Models.Ai"
     x:Name="root"
     Loaded="OnLoaded"
     Unloaded="OnUnloaded"
@@ -20,11 +20,17 @@
         CornerRadius="10">
         <Grid>
             <StackPanel Spacing="14">
-                <ProgressBar x:Name="BusyProgressBar" IsIndeterminate="True" Visibility="Collapsed" />
+                <ProgressBar
+                    x:Name="BusyProgressBar"
+                    IsIndeterminate="True"
+                    Visibility="Collapsed" />
 
                 <StackPanel x:Name="LoadingPanel" Spacing="12">
                     <StackPanel Orientation="Horizontal" Spacing="10">
-                        <ProgressRing Width="20" Height="20" IsActive="True" />
+                        <ProgressRing
+                            Width="20"
+                            Height="20"
+                            IsActive="True" />
                         <TextBlock
                             VerticalAlignment="Center"
                             Style="{StaticResource BodyStrongTextBlockStyle}"
@@ -32,8 +38,14 @@
                     </StackPanel>
                 </StackPanel>
 
-                <StackPanel x:Name="SignedOutPanel" Spacing="14" Visibility="Collapsed">
-                    <Border Height="120" Padding="18" CornerRadius="12">
+                <StackPanel
+                    x:Name="SignedOutPanel"
+                    Spacing="14"
+                    Visibility="Collapsed">
+                    <Border
+                        Height="120"
+                        Padding="18"
+                        CornerRadius="12">
                         <Border.Background>
                             <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                                 <GradientStop Offset="0" Color="#1A6EE7B7" />
@@ -47,7 +59,12 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
 
-                            <Border Width="56" Height="56" VerticalAlignment="Top" Background="#22FFFFFF" CornerRadius="28">
+                            <Border
+                                Width="56"
+                                Height="56"
+                                VerticalAlignment="Top"
+                                Background="#22FFFFFF"
+                                CornerRadius="28">
                                 <FontIcon
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
@@ -87,22 +104,32 @@
                     </Grid>
                 </StackPanel>
 
-                <StackPanel x:Name="PurchasePanel" Spacing="14" Visibility="Collapsed">
-                    <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorTertiaryBrush}" CornerRadius="12">
+                <StackPanel
+                    x:Name="PurchasePanel"
+                    Spacing="14"
+                    Visibility="Collapsed">
+                    <Border
+                        Padding="16"
+                        Background="{ThemeResource CardBackgroundFillColorTertiaryBrush}"
+                        CornerRadius="12">
                         <StackPanel Spacing="8">
-                            <TextBlock
-                                Style="{StaticResource BodyStrongTextBlockStyle}"
-                                Text="{x:Bind domain:Translator.AiActions_NoPackTitle, Mode=OneWay}" />
+                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.AiActions_NoPackTitle, Mode=OneWay}" />
                             <TextBlock
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                 Style="{StaticResource BodyTextBlockStyle}"
                                 Text="{x:Bind domain:Translator.AiActions_NoPackDescription, Mode=OneWay}"
                                 TextWrapping="WrapWholeWords" />
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <Border Padding="8,2" Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="8">
+                                <Border
+                                    Padding="8,2"
+                                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                    CornerRadius="8">
                                     <TextBlock Foreground="White" Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackPromoPrice, Mode=OneWay}" />
                                 </Border>
-                                <Border Padding="8,2" Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}" CornerRadius="8">
+                                <Border
+                                    Padding="8,2"
+                                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                                    CornerRadius="8">
                                     <TextBlock Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackPromoRequests, Mode=OneWay}" />
                                 </Border>
                             </StackPanel>
@@ -110,121 +137,178 @@
                     </Border>
 
                     <Button
+                        HorizontalAlignment="Left"
                         Click="PurchaseButton_Click"
                         Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackGetButton, Mode=OneWay}"
-                        HorizontalAlignment="Left"
                         Style="{StaticResource AccentButtonStyle}" />
                 </StackPanel>
 
-                <StackPanel x:Name="ReadyPanel" Spacing="12" Visibility="Collapsed">
-                    <Border Padding="12" Background="{ThemeResource CardBackgroundFillColorTertiaryBrush}" CornerRadius="10">
-                        <Grid ColumnSpacing="10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
+                <StackPanel
+                    x:Name="ReadyPanel"
+                    Spacing="8"
+                    Visibility="Collapsed">
+                    <!--  Row 1: Action tabs + usage  -->
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
 
-                            <Border
-                                Width="36"
-                                Height="36"
-                                Background="{ThemeResource AccentFillColorDefaultBrush}"
-                                CornerRadius="18"
-                                Opacity="0.18" />
-                            <FontIcon
-                                HorizontalAlignment="Center"
+                        <controls:Segmented
+                            x:Name="ActionSelector"
+                            Height="30"
+                            VerticalAlignment="Center"
+                            SelectionChanged="ActionSelector_SelectionChanged"
+                            Style="{StaticResource ButtonSegmentedStyle}">
+                            <controls:SegmentedItem
+                                x:Name="TranslateSegment"
+                                Padding="12,6"
+                                Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureTranslate, Mode=OneWay}">
+                                <controls:SegmentedItem.Icon>
+                                    <SymbolIcon Symbol="Switch" />
+                                </controls:SegmentedItem.Icon>
+                            </controls:SegmentedItem>
+                            <controls:SegmentedItem
+                                x:Name="RewriteSegment"
+                                Padding="12,6"
+                                Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureRewrite, Mode=OneWay}">
+                                <controls:SegmentedItem.Icon>
+                                    <SymbolIcon Symbol="Edit" />
+                                </controls:SegmentedItem.Icon>
+                            </controls:SegmentedItem>
+                            <controls:SegmentedItem
+                                x:Name="SummarizeSegment"
+                                Padding="12,6"
+                                Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureSummarize, Mode=OneWay}">
+                                <controls:SegmentedItem.Icon>
+                                    <SymbolIcon Symbol="Bullets" />
+                                </controls:SegmentedItem.Icon>
+                            </controls:SegmentedItem>
+                        </controls:Segmented>
+
+                        <StackPanel
+                            Grid.Column="2"
+                            VerticalAlignment="Center"
+                            Orientation="Horizontal"
+                            Spacing="8">
+                            <ProgressBar
+                                x:Name="UsageProgressBar"
+                                Width="100"
                                 VerticalAlignment="Center"
-                                FontFamily="{StaticResource SymbolThemeFontFamily}"
-                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                Glyph="&#xE945;" />
+                                Maximum="1000"
+                                Value="0" />
+                            <TextBlock
+                                x:Name="UsageSummaryTextBlock"
+                                VerticalAlignment="Center"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}" />
+                        </StackPanel>
+                    </Grid>
 
-                            <StackPanel Grid.Column="1" Spacing="3">
+                    <!--  Row 2: Action-specific options  -->
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <!--  Translate options  -->
+                        <StackPanel
+                            x:Name="TranslateOptionsPanel"
+                            Orientation="Horizontal"
+                            Spacing="8"
+                            Visibility="Collapsed">
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind domain:Translator.Composer_AiTranslateLanguage, Mode=OneWay}" />
+                            <ComboBox
+                                x:Name="TranslateLanguageComboBox"
+                                MinWidth="120"
+                                SelectionChanged="TranslateLanguageComboBox_SelectionChanged">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="models:AiTranslateLanguageOption">
+                                        <TextBlock Text="{x:Bind Label}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <Button
+                                x:Name="RunTranslateButton"
+                                Click="RunTranslateButton_Click"
+                                Content="{x:Bind domain:Translator.Composer_AiTranslateApply, Mode=OneWay}"
+                                Style="{StaticResource AccentButtonStyle}" />
+                        </StackPanel>
+
+                        <!--  Rewrite options  -->
+                        <StackPanel
+                            x:Name="RewriteOptionsPanel"
+                            Spacing="8"
+                            Visibility="Collapsed">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
                                 <TextBlock
-                                    Style="{StaticResource BodyStrongTextBlockStyle}"
-                                    Text="{x:Bind domain:Translator.Composer_AiActions, Mode=OneWay}" />
-                                <TextBlock
-                                    x:Name="UsageSummaryTextBlock"
+                                    VerticalAlignment="Center"
                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Style="{StaticResource CaptionTextBlockStyle}"
-                                    TextWrapping="WrapWholeWords" />
-                                <TextBlock
-                                    x:Name="UsageResetTextBlock"
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                    TextWrapping="WrapWholeWords" />
+                                    Text="{x:Bind domain:Translator.Composer_AiRewriteMode, Mode=OneWay}" />
+                                <ComboBox
+                                    x:Name="RewriteModeComboBox"
+                                    MinWidth="140"
+                                    SelectionChanged="RewriteModeComboBox_SelectionChanged">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="models:AiRewriteModeOption">
+                                            <TextBlock Text="{x:Bind Label}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                                <Button
+                                    x:Name="RunRewriteButton"
+                                    Click="RunRewriteButton_Click"
+                                    Content="{x:Bind domain:Translator.Composer_AiRewriteApply, Mode=OneWay}"
+                                    Style="{StaticResource AccentButtonStyle}" />
                             </StackPanel>
-                        </Grid>
-                    </Border>
+                            <TextBlock
+                                x:Name="RewriteDescriptionTextBlock"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                TextWrapping="WrapWholeWords" />
+                            <TextBox
+                                x:Name="CustomRewriteTextBox"
+                                PlaceholderText="{x:Bind domain:Translator.Composer_AiRewriteCustomPlaceholder, Mode=OneWay}"
+                                Visibility="Collapsed" />
+                        </StackPanel>
 
-                    <controls:Segmented x:Name="ActionSelector" SelectionChanged="ActionSelector_SelectionChanged">
-                        <controls:SegmentedItem x:Name="TranslateSegment" Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureTranslate, Mode=OneWay}">
-                            <controls:SegmentedItem.Icon>
-                                <SymbolIcon Symbol="Switch" />
-                            </controls:SegmentedItem.Icon>
-                        </controls:SegmentedItem>
-                        <controls:SegmentedItem x:Name="RewriteSegment" Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureRewrite, Mode=OneWay}">
-                            <controls:SegmentedItem.Icon>
-                                <SymbolIcon Symbol="Edit" />
-                            </controls:SegmentedItem.Icon>
-                        </controls:SegmentedItem>
-                        <controls:SegmentedItem x:Name="SummarizeSegment" Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureSummarize, Mode=OneWay}">
-                            <controls:SegmentedItem.Icon>
-                                <SymbolIcon Symbol="Bullets" />
-                            </controls:SegmentedItem.Icon>
-                        </controls:SegmentedItem>
-                    </controls:Segmented>
+                        <!--  Summarize options  -->
+                        <StackPanel
+                            x:Name="SummarizeOptionsPanel"
+                            Spacing="8"
+                            Visibility="Collapsed">
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind domain:Translator.Composer_AiSummarizeDescription, Mode=OneWay}" />
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <Button
+                                    x:Name="RunSummarizeButton"
+                                    HorizontalAlignment="Left"
+                                    Click="RunSummarizeButton_Click"
+                                    Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureSummarize, Mode=OneWay}"
+                                    Style="{StaticResource AccentButtonStyle}" />
+                                <FontIcon
+                                    x:Name="SummarizeCachedIndicator"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Center"
+                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                    FontSize="16"
+                                    Foreground="#2AA84A"
+                                    Glyph="&#xE73E;"
+                                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AiSummarize, Mode=OneWay}"
+                                    Visibility="Collapsed" />
+                            </StackPanel>
+                        </StackPanel>
 
-                    <StackPanel x:Name="TranslateOptionsPanel" Spacing="8" Visibility="Collapsed">
-                        <TextBlock
-                            Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="{x:Bind domain:Translator.Composer_AiTranslateLanguage, Mode=OneWay}" />
-                        <ComboBox
-                            x:Name="TranslateLanguageComboBox"
-                            SelectedItem="{x:Bind SelectedTranslateLanguageOption, Mode=TwoWay}"
-                            SelectionChanged="TranslateLanguageComboBox_SelectionChanged">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate x:DataType="models:AiTranslateLanguageOption">
-                                    <TextBlock Text="{x:Bind Label}" />
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
-                        <Button
-                            x:Name="RunTranslateButton"
-                            Click="RunTranslateButton_Click"
-                            Content="{x:Bind domain:Translator.Composer_AiTranslateApply, Mode=OneWay}"
-                            HorizontalAlignment="Left"
-                            Style="{StaticResource AccentButtonStyle}" />
-                    </StackPanel>
-
-                    <StackPanel x:Name="RewriteOptionsPanel" Spacing="8" Visibility="Collapsed">
-                        <TextBlock
-                            Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="{x:Bind domain:Translator.Composer_AiRewriteMode, Mode=OneWay}" />
-                        <ComboBox
-                            x:Name="RewriteModeComboBox"
-                            SelectedItem="{x:Bind SelectedRewriteModeOption, Mode=TwoWay}"
-                            SelectionChanged="RewriteModeComboBox_SelectionChanged">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate x:DataType="models:AiRewriteModeOption">
-                                    <TextBlock Text="{x:Bind Label}" />
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
-                        <TextBlock
-                            x:Name="RewriteDescriptionTextBlock"
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Style="{StaticResource CaptionTextBlockStyle}"
-                            TextWrapping="WrapWholeWords" />
-                        <TextBox
-                            x:Name="CustomRewriteTextBox"
-                            PlaceholderText="{x:Bind domain:Translator.Composer_AiRewriteCustomPlaceholder, Mode=OneWay}"
-                            Visibility="Collapsed" />
-                        <Button
-                            x:Name="RunRewriteButton"
-                            Click="RunRewriteButton_Click"
-                            Content="{x:Bind domain:Translator.Composer_AiRewriteApply, Mode=OneWay}"
-                            HorizontalAlignment="Left"
-                            Style="{StaticResource AccentButtonStyle}" />
-                    </StackPanel>
+                    </Grid>
                 </StackPanel>
             </StackPanel>
         </Grid>

@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.WinUI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -18,6 +20,7 @@ namespace Wino.Mail.WinUI.Controls;
 
 public sealed partial class AiActionsPanel : UserControl, IDisposable
 {
+    public event EventHandler? CloseRequested;
     private readonly IWinoAccountProfileService _profileService = App.Current.Services.GetRequiredService<IWinoAccountProfileService>();
     private readonly IStoreManagementService _storeManagementService = App.Current.Services.GetRequiredService<IStoreManagementService>();
     private readonly IMailDialogService _dialogService = App.Current.Services.GetRequiredService<IMailDialogService>();
@@ -27,6 +30,7 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
     private bool _isRefreshing;
     private bool _isBusy;
     private AiActionType _lastConfigurableAction = AiActionType.Translate;
+    private bool _hasCachedSummary;
     private CancellationTokenSource? _actionCancellationTokenSource;
     private IReadOnlyList<AiTranslateLanguageOption> _translateOptions = Array.Empty<AiTranslateLanguageOption>();
     private IReadOnlyList<AiRewriteModeOption> _rewriteOptions = Array.Empty<AiRewriteModeOption>();
@@ -66,6 +70,7 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
     {
         UpdateActionAvailability();
         ApplySelectedAction(SelectDefaultAction());
+        _ = RefreshCachedSummaryStateAsync();
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -83,18 +88,36 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
 
     private void LoadOptions()
     {
+        // Save current selections before replacing ItemsSource (which clears SelectedItem).
+        var previousTranslateCode = SelectedTranslateLanguageOption?.Code;
+        var previousRewriteMode = SelectedRewriteModeOption?.Mode;
+
         _translateOptions = _optionsService.GetTranslateLanguageOptions();
         _rewriteOptions = _optionsService.GetRewriteModeOptions();
 
         TranslateLanguageComboBox.ItemsSource = _translateOptions;
         RewriteModeComboBox.ItemsSource = _rewriteOptions;
 
-        SelectedTranslateLanguageOption ??= _translateOptions.Count > 0 ? _translateOptions[0] : null;
-        SelectedRewriteModeOption ??= _rewriteOptions.Count > 0 ? _rewriteOptions[0] : null;
+        // Restore selection by matching on value, falling back to first item.
+        SelectedTranslateLanguageOption = FindOption(_translateOptions, o => o.Code == previousTranslateCode) ?? (_translateOptions.Count > 0 ? _translateOptions[0] : null);
+        SelectedRewriteModeOption = FindOption(_rewriteOptions, o => o.Mode == previousRewriteMode) ?? (_rewriteOptions.Count > 0 ? _rewriteOptions[0] : null);
 
         TranslateLanguageComboBox.SelectedItem = SelectedTranslateLanguageOption;
         RewriteModeComboBox.SelectedItem = SelectedRewriteModeOption;
         UpdateRewriteOptionState();
+    }
+
+    private static T? FindOption<T>(IReadOnlyList<T> options, Func<T, bool> predicate) where T : class
+    {
+        foreach (var option in options)
+        {
+            if (predicate(option))
+            {
+                return option;
+            }
+        }
+
+        return null;
     }
 
     private void UpdateActionAvailability()
@@ -102,6 +125,7 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
         TranslateSegment.Visibility = HasAction(AiActionType.Translate) ? Visibility.Visible : Visibility.Collapsed;
         RewriteSegment.Visibility = HasAction(AiActionType.Rewrite) ? Visibility.Visible : Visibility.Collapsed;
         SummarizeSegment.Visibility = HasAction(AiActionType.Summarize) ? Visibility.Visible : Visibility.Collapsed;
+        SummarizeCachedIndicator.Visibility = HasAction(AiActionType.Summarize) && _hasCachedSummary ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private bool HasAction(AiActionType action) => (AvailableActions & action) == action;
@@ -143,6 +167,7 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
 
         TranslateOptionsPanel.Visibility = action == AiActionType.Translate ? Visibility.Visible : Visibility.Collapsed;
         RewriteOptionsPanel.Visibility = action == AiActionType.Rewrite ? Visibility.Visible : Visibility.Collapsed;
+        SummarizeOptionsPanel.Visibility = action == AiActionType.Summarize ? Visibility.Visible : Visibility.Collapsed;
     }
 
     public async Task RefreshAvailabilityAsync()
@@ -160,7 +185,7 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
             var account = await _profileService.GetAuthenticatedAccountAsync().ConfigureAwait(true);
             if (account == null)
             {
-                UpdateUsageSummary(string.Empty, string.Empty);
+                UpdateUsageSummary(string.Empty);
                 UpdatePanelState(showSignedOut: true);
                 return;
             }
@@ -168,7 +193,7 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
             var hasAiPack = await _storeManagementService.HasProductAsync(WinoAddOnProductType.AI_PACK).ConfigureAwait(true);
             if (!hasAiPack)
             {
-                UpdateUsageSummary(string.Empty, string.Empty);
+                UpdateUsageSummary(string.Empty);
                 UpdatePanelState(showPurchase: true);
                 return;
             }
@@ -176,13 +201,17 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
             var aiStatusResponse = await _profileService.GetAiStatusAsync().ConfigureAwait(true);
             if (aiStatusResponse.IsSuccess && aiStatusResponse.Result != null)
             {
-                UpdateUsageSummary(CreateUsageSummary(aiStatusResponse.Result), CreateUsageResetText(aiStatusResponse.Result));
+                UpdateUsageSummary(
+                    CreateUsageSummary(aiStatusResponse.Result),
+                    GetUsedCount(aiStatusResponse.Result),
+                    GetUsageLimit(aiStatusResponse.Result));
             }
             else
             {
-                UpdateUsageSummary(Translator.WinoAccount_Management_AiPackUsageLoadFailed, string.Empty);
+                UpdateUsageSummary(Translator.WinoAccount_Management_AiPackUsageLoadFailed);
             }
 
+            await RefreshCachedSummaryStateAsync().ConfigureAwait(true);
             ApplySelectedAction(SelectDefaultAction());
             UpdatePanelState(showReady: true);
         }
@@ -191,7 +220,7 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
         }
         catch (Exception)
         {
-            UpdateUsageSummary(Translator.WinoAccount_Management_AiPackUsageLoadFailed, string.Empty);
+            UpdateUsageSummary(Translator.WinoAccount_Management_AiPackUsageLoadFailed);
             UpdatePanelState(showReady: true);
         }
         finally
@@ -211,12 +240,28 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
         return Translator.WinoAccount_Management_AiPackUsageLoadFailed;
     }
 
-    private static string CreateUsageResetText(AiStatusResultDto aiStatus)
+    private static int GetUsedCount(AiStatusResultDto aiStatus)
+        => aiStatus.Used is int used ? used : 0;
+
+    private static string CreateUsageSummary(QuotaInfoDto quotaInfo)
     {
-        return aiStatus.CurrentPeriodEndUtc is DateTimeOffset resetDateUtc
-            ? string.Format(Translator.WinoAccount_Management_AiPackResets, resetDateUtc.LocalDateTime)
-            : string.Empty;
+        if (quotaInfo.Used is int used && quotaInfo.MonthlyLimit is int limit && limit > 0)
+        {
+            return string.Format(Translator.AiActions_UsageSummary, used, limit);
+        }
+
+        return Translator.WinoAccount_Management_AiPackUsageLoadFailed;
     }
+
+    private static int GetUsedCount(QuotaInfoDto quotaInfo)
+        => quotaInfo.Used is int used ? used : 0;
+
+    private static int GetUsageLimit(QuotaInfoDto quotaInfo)
+        => quotaInfo.MonthlyLimit is int limit && limit > 0 ? limit : 1000;
+
+    private static int GetUsageLimit(AiStatusResultDto aiStatus)
+        => aiStatus.MonthlyLimit is int limit && limit > 0 ? limit : 1000;
+
 
     private void UpdatePanelState(bool showLoading = false, bool showSignedOut = false, bool showPurchase = false, bool showReady = false)
     {
@@ -226,11 +271,19 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
         ReadyPanel.Visibility = showReady ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private void UpdateUsageSummary(string usageText, string resetText)
+    private void UpdateUsageSummary(string usageText, int usedCount = 0)
     {
         UsageSummaryTextBlock.Text = usageText;
-        UsageResetTextBlock.Text = resetText;
-        UsageResetTextBlock.Visibility = string.IsNullOrWhiteSpace(resetText) ? Visibility.Collapsed : Visibility.Visible;
+        UsageProgressBar.Maximum = 1000;
+        UsageProgressBar.Value = Math.Min(usedCount, 1000);
+    }
+
+    private void UpdateUsageSummary(string usageText, int usedCount, int usageLimit)
+    {
+        var normalizedLimit = usageLimit > 0 ? usageLimit : 1000;
+        UsageSummaryTextBlock.Text = usageText;
+        UsageProgressBar.Maximum = normalizedLimit;
+        UsageProgressBar.Value = Math.Min(usedCount, normalizedLimit);
     }
 
     private void SetBusyUi(bool isBusy, bool showLoading)
@@ -244,6 +297,7 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
         CustomRewriteTextBox.IsEnabled = !isBusy;
         RunTranslateButton.IsEnabled = !isBusy;
         RunRewriteButton.IsEnabled = !isBusy;
+        RunSummarizeButton.IsEnabled = !isBusy;
         SignedOutPanel.IsHitTestVisible = !isBusy;
         PurchasePanel.IsHitTestVisible = !isBusy;
 
@@ -363,7 +417,7 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
         if (ReferenceEquals(ActionSelector.SelectedItem, SummarizeSegment))
         {
             ApplySelectedAction(AiActionType.Summarize);
-            _ = ExecuteAiActionAsync(AiActionType.Summarize);
+            _ = RefreshCachedSummaryStateAsync();
         }
     }
 
@@ -402,6 +456,17 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
         await ExecuteAiActionAsync(AiActionType.Rewrite);
     }
 
+    private async void RunSummarizeButton_Click(object sender, RoutedEventArgs e)
+    {
+        await ExecuteAiActionAsync(AiActionType.Summarize);
+    }
+
+    private void CloseButton_Click(object sender, RoutedEventArgs e)
+    {
+        CancelPendingOperation();
+        CloseRequested?.Invoke(this, EventArgs.Empty);
+    }
+
     private async Task ExecuteAiActionAsync(AiActionType action)
     {
         if (_isBusy)
@@ -423,15 +488,6 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
 
         try
         {
-            var html = await HtmlHost.GetCurrentHtmlAsync(cancellationToken).ConfigureAwait(true);
-            cancellationToken.ThrowIfCancellationRequested();
-
-            if (string.IsNullOrWhiteSpace(html))
-            {
-                _dialogService.InfoBarMessage(Translator.Composer_AiErrorTitle, Translator.WinoAccount_Error_AiHtmlEmpty, InfoBarMessageType.Error);
-                return;
-            }
-
             if (action == AiActionType.Translate && SelectedTranslateLanguageOption == null)
             {
                 _dialogService.InfoBarMessage(Translator.Composer_AiErrorTitle, Translator.WinoAccount_Error_ValidationFailed, InfoBarMessageType.Error);
@@ -441,6 +497,41 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
             if (action == AiActionType.Rewrite && string.IsNullOrWhiteSpace(ResolveRewriteMode()))
             {
                 _dialogService.InfoBarMessage(Translator.Composer_AiErrorTitle, Translator.WinoAccount_Error_ValidationFailed, InfoBarMessageType.Error);
+                return;
+            }
+
+            if (action == AiActionType.Translate)
+            {
+                var cachedTranslation = await HtmlHost.TryGetCachedTranslationHtmlAsync(SelectedTranslateLanguageOption?.Code ?? string.Empty, cancellationToken).ConfigureAwait(true);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (!string.IsNullOrWhiteSpace(cachedTranslation))
+                {
+                    await HtmlHost.ApplyHtmlResultAsync(cachedTranslation, cancellationToken).ConfigureAwait(true);
+                    return;
+                }
+            }
+
+            if (action == AiActionType.Summarize)
+            {
+                var cachedSummary = await HtmlHost.TryGetCachedSummaryTextAsync(cancellationToken).ConfigureAwait(true);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (!string.IsNullOrWhiteSpace(cachedSummary))
+                {
+                    _hasCachedSummary = true;
+                    UpdateActionAvailability();
+                    await ShowSummaryDialogAsync(cachedSummary).ConfigureAwait(true);
+                    return;
+                }
+            }
+
+            var html = await HtmlHost.GetCurrentHtmlAsync(cancellationToken).ConfigureAwait(true);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (string.IsNullOrWhiteSpace(html))
+            {
+                _dialogService.InfoBarMessage(Translator.Composer_AiErrorTitle, Translator.WinoAccount_Error_AiHtmlEmpty, InfoBarMessageType.Error);
                 return;
             }
 
@@ -457,6 +548,37 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
             if (!response.IsSuccess || response.Result == null || string.IsNullOrWhiteSpace(response.Result.Html))
             {
                 _dialogService.InfoBarMessage(Translator.Composer_AiErrorTitle, WinoAccountAiErrorTranslator.Format(response.ErrorCode, null), InfoBarMessageType.Error);
+                return;
+            }
+
+            if (response.Quota != null)
+            {
+                UpdateUsageSummary(
+                    CreateUsageSummary(response.Quota),
+                    GetUsedCount(response.Quota),
+                    GetUsageLimit(response.Quota));
+            }
+
+            if (action == AiActionType.Translate)
+            {
+                await HtmlHost.SaveCachedTranslationHtmlAsync(SelectedTranslateLanguageOption?.Code ?? string.Empty, response.Result.Html, cancellationToken).ConfigureAwait(true);
+                cancellationToken.ThrowIfCancellationRequested();
+                await HtmlHost.ApplyHtmlResultAsync(response.Result.Html, cancellationToken).ConfigureAwait(true);
+                return;
+            }
+
+            if (action == AiActionType.Summarize)
+            {
+                await HtmlHost.SaveCachedSummaryTextAsync(response.Result.Html, cancellationToken).ConfigureAwait(true);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                _hasCachedSummary = true;
+                UpdateActionAvailability();
+
+                var savedSummary = await HtmlHost.TryGetCachedSummaryTextAsync(cancellationToken).ConfigureAwait(true);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                await ShowSummaryDialogAsync(string.IsNullOrWhiteSpace(savedSummary) ? response.Result.Html : savedSummary).ConfigureAwait(true);
                 return;
             }
 
@@ -479,14 +601,7 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
                 _actionCancellationTokenSource = null;
             }
 
-            if (action == AiActionType.Summarize)
-            {
-                var fallbackAction = _lastConfigurableAction != AiActionType.None && HasAction(_lastConfigurableAction)
-                    ? _lastConfigurableAction
-                    : SelectDefaultAction();
-
-                ApplySelectedAction(fallbackAction);
-            }
+            // Summarize no longer auto-switches back; the user explicitly selected the tab.
         }
     }
 
@@ -503,6 +618,94 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
         }
 
         return CustomRewriteTextBox.Text?.Trim() ?? string.Empty;
+    }
+
+    private async Task RefreshCachedSummaryStateAsync()
+    {
+        if (HtmlHost == null || !HasAction(AiActionType.Summarize))
+        {
+            _hasCachedSummary = false;
+            UpdateActionAvailability();
+            return;
+        }
+
+        try
+        {
+            var cachedSummary = await HtmlHost.TryGetCachedSummaryTextAsync(CancellationToken.None).ConfigureAwait(true);
+            _hasCachedSummary = !string.IsNullOrWhiteSpace(cachedSummary);
+        }
+        catch (Exception)
+        {
+            _hasCachedSummary = false;
+        }
+
+        UpdateActionAvailability();
+    }
+
+    private async Task ShowSummaryDialogAsync(string summary)
+    {
+        if (HtmlHost == null)
+        {
+            await _dialogService.ShowMessageAsync(summary, Translator.Composer_AiSummarize, WinoCustomMessageDialogIcon.Information);
+            return;
+        }
+
+        var summaryTextBox = new TextBox
+        {
+            Text = summary,
+            IsReadOnly = true,
+            AcceptsReturn = true,
+            TextWrapping = TextWrapping.Wrap,
+            MinHeight = 240,
+            MaxHeight = 420,
+            BorderThickness = new Thickness(0),
+            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0, 0, 0, 0))
+        };
+
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            RequestedTheme = ActualTheme,
+            Title = Translator.Composer_AiSummarize,
+            PrimaryButtonText = Translator.Buttons_Save,
+            SecondaryButtonText = Translator.Buttons_Close,
+            DefaultButton = ContentDialogButton.Secondary,
+            Content = new ScrollViewer
+            {
+                Content = summaryTextBox,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+            }
+        };
+
+        dialog.PrimaryButtonClick += async (sender, args) =>
+        {
+            var deferral = args.GetDeferral();
+
+            try
+            {
+                var path = await _dialogService.PickFilePathAsync(HtmlHost.GetSuggestedSummaryFileName());
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    args.Cancel = true;
+                    return;
+                }
+
+                await File.WriteAllTextAsync(path, summary);
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, string.Format(Translator.ClipboardTextCopied_Message, Path.GetFileName(path)), InfoBarMessageType.Success);
+            }
+            catch (Exception ex)
+            {
+                args.Cancel = true;
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, ex.Message, InfoBarMessageType.Error);
+            }
+            finally
+            {
+                deferral.Complete();
+            }
+        };
+
+        await dialog.ShowAsync();
     }
 
     private void CancelAndDisposeActionCancellationToken()

@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using HtmlAgilityPack;
 using MimeKit;
 using MimeKit.Cryptography;
 using Serilog;
@@ -162,6 +163,43 @@ public class MimeFileService : IMimeFileService
         }
     }
 
+    public async Task<string> GetSummaryTextAsync(Guid accountId, Guid fileId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var summaryPath = await GetSummaryTextPathAsync(accountId, fileId).ConfigureAwait(false);
+            if (!File.Exists(summaryPath))
+            {
+                return null;
+            }
+
+            return await File.ReadAllTextAsync(summaryPath, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Could not read summary cache for FileId: {FileId}", fileId);
+            return null;
+        }
+    }
+
+    public async Task SaveSummaryTextAsync(Guid accountId, Guid fileId, string summary, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(summary))
+        {
+            return;
+        }
+
+        try
+        {
+            var summaryPath = await GetSummaryTextPathAsync(accountId, fileId).ConfigureAwait(false);
+            await File.WriteAllTextAsync(summaryPath, NormalizeSummaryText(summary), cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Could not save summary cache for FileId: {FileId}", fileId);
+        }
+    }
+
     public MailRenderModel GetMailRenderModel(MimeMessage message, string mimeLocalPath, MailRenderingOptions options = null)
     {
         var visitor = CreateHTMLPreviewVisitor(message, mimeLocalPath);
@@ -258,6 +296,12 @@ public class MimeFileService : IMimeFileService
         return Path.Combine(resourcePath, $"translated-{SanitizeFileNamePart(targetLanguage)}.html");
     }
 
+    private async Task<string> GetSummaryTextPathAsync(Guid accountId, Guid fileId)
+    {
+        var resourcePath = await GetMimeResourcePathAsync(accountId, fileId).ConfigureAwait(false);
+        return Path.Combine(resourcePath, "summary.txt");
+    }
+
     private static string SanitizeFileNamePart(string value)
     {
         var invalidCharacters = Path.GetInvalidFileNameChars();
@@ -267,5 +311,45 @@ public class MimeFileService : IMimeFileService
             .ToArray();
 
         return sanitizedChars.Length == 0 ? "default" : new string(sanitizedChars);
+    }
+
+    private static string NormalizeSummaryText(string summary)
+    {
+        if (string.IsNullOrWhiteSpace(summary))
+        {
+            return string.Empty;
+        }
+
+        if (!summary.Contains('<'))
+        {
+            return summary.Trim();
+        }
+
+        var document = new HtmlDocument();
+        document.LoadHtml(summary);
+
+        var lineBreakNodes = document.DocumentNode.SelectNodes("//br|//p|//div|//li");
+        if (lineBreakNodes != null)
+        {
+            foreach (var node in lineBreakNodes)
+            {
+                if (node.Name.Equals("li", StringComparison.OrdinalIgnoreCase))
+                {
+                    node.ParentNode?.InsertBefore(document.CreateTextNode(Environment.NewLine + "- "), node);
+                }
+                else
+                {
+                    node.ParentNode?.InsertBefore(document.CreateTextNode(Environment.NewLine), node);
+                }
+            }
+        }
+
+        var plainText = HtmlEntity.DeEntitize(document.DocumentNode.InnerText ?? string.Empty);
+        return string.Join(
+            Environment.NewLine,
+            plainText
+                .Split([Environment.NewLine], StringSplitOptions.None)
+                .Select(line => line.Trim())
+                .Where(line => !string.IsNullOrWhiteSpace(line)));
     }
 }

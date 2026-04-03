@@ -451,6 +451,20 @@ public sealed partial class ComposePage : ComposePageAbstract,
         return Task.CompletedTask;
     }
 
+    public Task<string?> TryGetCachedSummaryTextAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult<string?>(null);
+    }
+
+    public Task SaveCachedSummaryTextAsync(string summary, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.CompletedTask;
+    }
+
+    public string GetSuggestedSummaryFileName() => "email-summary.txt";
+
     private void OpenAttachment_Click(object sender, RoutedEventArgs e)
     {
         if (sender is MenuFlyoutItem item && item.CommandParameter is MailAttachmentViewModel attachment)

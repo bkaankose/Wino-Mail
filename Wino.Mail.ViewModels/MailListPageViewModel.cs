@@ -60,7 +60,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     public WinoMailCollection MailCollection { get; set; } = new WinoMailCollection();
     public ObservableCollection<FolderPivotViewModel> PivotFolders { get; set; } = [];
-    public ObservableCollection<MailOperationMenuItem> ActionItems { get; set; } = [];
+    public ObservableCollection<IMenuOperation> ActionItems { get; set; } = [];
 
     private readonly SemaphoreSlim listManipulationSemepahore = new SemaphoreSlim(1);
     private CancellationTokenSource listManipulationCancellationTokenSource = new CancellationTokenSource();
@@ -439,11 +439,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     public Task ExecuteHoverAction(MailOperationPreperationRequest request) => ExecuteMailOperationAsync(request);
 
     [RelayCommand]
-    private async Task ExecuteTopBarAction(MailOperationMenuItem menuItem)
+    private async Task ExecuteTopBarAction(IMenuOperation menuItem)
     {
-        if (menuItem == null || MailCollection.SelectedItemsCount == 0) return;
+        if (menuItem is not MailOperationMenuItem mailOperationMenuItem || MailCollection.SelectedItemsCount == 0) return;
 
-        await HandleMailOperation(menuItem.Operation, MailCollection.SelectedItems);
+        await HandleMailOperation(mailOperationMenuItem.Operation, MailCollection.SelectedItems);
     }
 
     /// <summary>
