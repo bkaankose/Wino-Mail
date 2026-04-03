@@ -141,6 +141,8 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     public IStatePersistanceService StatePersistenceService { get; }
     public IPreferencesService PreferencesService { get; }
     public IPrintService PrintService { get; }
+    public Guid? CurrentMailAccountId => initializedMailItemViewModel?.MailCopy.AssignedAccount?.Id;
+    public Guid? CurrentMailFileId => initializedMailItemViewModel?.MailCopy.FileId;
 
     public MailRenderingPageViewModel(IMailDialogService dialogService,
         INativeAppService nativeAppService,

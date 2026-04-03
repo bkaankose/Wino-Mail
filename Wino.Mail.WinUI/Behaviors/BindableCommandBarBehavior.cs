@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Specialized;
 using System.Windows.Input;
@@ -9,9 +10,9 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.Xaml.Interactivity;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Menus;
-using Wino.Mail.WinUI.Controls;
 using Wino.Helpers;
 using Wino.Mail.WinUI;
+using Wino.Mail.WinUI.Controls;
 
 namespace Wino.Behaviors;
 
@@ -41,11 +42,22 @@ public partial class BindableCommandBarBehavior : Behavior<CommandBar>
         {
             foreach (var item in enumerable)
             {
-                if (item is ButtonBase button)
-                {
-                    button.Click -= Button_Click;
-                }
+                DetachCommandElement(item);
             }
+        }
+    }
+
+    private void DetachCommandElement(object item)
+    {
+        if (item is ButtonBase button)
+        {
+            button.Click -= Button_Click;
+            return;
+        }
+
+        if (item is AppBarElementContainer container && container.Content is IDisposable disposable)
+        {
+            disposable.Dispose();
         }
     }
 
@@ -61,10 +73,7 @@ public partial class BindableCommandBarBehavior : Behavior<CommandBar>
         {
             foreach (var item in enumerableObjects)
             {
-                if (item is ButtonBase button)
-                {
-                    button.Click -= Button_Click;
-                }
+                DetachCommandElement(item);
             }
         }
 
@@ -72,10 +81,7 @@ public partial class BindableCommandBarBehavior : Behavior<CommandBar>
         {
             foreach (var item in secondaryObject)
             {
-                if (item is ButtonBase button)
-                {
-                    button.Click -= Button_Click;
-                }
+                DetachCommandElement(item);
             }
         }
 
@@ -135,7 +141,6 @@ public partial class BindableCommandBarBehavior : Behavior<CommandBar>
                     AssociatedObject.PrimaryCommands.Add(menuItem);
                 }
             }
-
             //if (dependencyObject is ICommandBarElement icommandBarElement)
             //{
             //    if (dependencyObject is ButtonBase button)

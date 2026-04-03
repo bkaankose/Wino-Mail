@@ -13,6 +13,7 @@
     xmlns:local="using:Wino.Behaviors"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
     x:Name="root"
@@ -181,6 +182,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <Grid Grid.Row="0" Margin="5,0">
                     <Grid.ColumnDefinitions>
@@ -273,13 +275,16 @@
                     IsDynamicOverflowEnabled="True"
                     OverflowButtonVisibility="Auto">
                     <interactivity:Interaction.Behaviors>
-                        <local:BindableCommandBarBehavior ItemClickedCommand="{x:Bind ViewModel.OperationClickedCommand}" PrimaryCommands="{x:Bind ViewModel.MenuItems, Mode=OneWay}" />
+                        <local:BindableCommandBarBehavior
+                            ItemClickedCommand="{x:Bind ViewModel.OperationClickedCommand}"
+                            PrimaryCommands="{x:Bind ViewModel.MenuItems, Mode=OneWay}" />
                     </interactivity:Interaction.Behaviors>
                     <CommandBar.Content>
                         <Grid Padding="0,5">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -317,6 +322,19 @@
                                     <TextBlock FontSize="12" Text="{x:Bind helpers:XamlHelpers.GetCreationDateString(ViewModel.CreationDate, ViewModel.PreferencesService.Prefer24HourTimeFormat), Mode=OneWay}" />
                                 </StackPanel>
                             </Grid>
+
+                            <AppBarToggleButton
+                                x:Name="ReaderAiActionsToggleButton"
+                                Grid.Column="2"
+                                Checked="ReaderAiActionsToggleButton_Checked"
+                                MinWidth="40"
+                                HorizontalContentAlignment="Center"
+                                LabelPosition="Collapsed"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AiActions}">
+                                <AppBarToggleButton.Icon>
+                                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE945;" />
+                                </AppBarToggleButton.Icon>
+                            </AppBarToggleButton>
                         </Grid>
                     </CommandBar.Content>
                 </CommandBar>
@@ -409,8 +427,16 @@
                     </Grid>
                 </ScrollViewer>
 
+                <coreControls:AiActionsPanel
+                    x:Name="ReaderAiActionsPanel"
+                    Grid.Row="3"
+                    Margin="0,8,0,0"
+                    AvailableActions="Translate, Summarize"
+                    HtmlHost="{x:Bind}"
+                    Visibility="{x:Bind GetAiActionsPanelVisibility(ReaderAiActionsToggleButton.IsChecked), Mode=OneWay}" />
+
                 <!--  Attachments  -->
-                <Grid Grid.Row="3">
+                <Grid Grid.Row="4">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
@@ -442,7 +468,7 @@
 
                 <InfoBar
                     x:Name="ImageLoadingDisabledMessage"
-                    Grid.Row="4"
+                    Grid.Row="5"
                     HorizontalContentAlignment="Stretch"
                     x:Load="{x:Bind ViewModel.IsImageRenderingDisabled, Mode=OneWay}"
                     IsOpen="True"
@@ -458,7 +484,7 @@
 
                 <ProgressBar
                     x:Name="DownloadingProgressBar"
-                    Grid.Row="3"
+                    Grid.Row="4"
                     Margin="12,1"
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Top"

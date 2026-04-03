@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,6 +17,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Printing;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
+using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Extensions;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
@@ -24,18 +26,23 @@ using Wino.Views.Abstract;
 namespace Wino.Views.Mail;
 
 public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
+    IAiHtmlActionHost,
     IRecipient<HtmlRenderingRequested>,
     IRecipient<CancelRenderingContentRequested>,
     IRecipient<ApplicationThemeChanged>
 {
     private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>()!;
     private readonly IMailDialogService _dialogService = App.Current.Services.GetService<IMailDialogService>()!;
+    private readonly IMimeFileService _mimeFileService = App.Current.Services.GetRequiredService<IMimeFileService>();
 
     private bool isRenderingInProgress = false;
     private bool? _lastAppliedDarkTheme;
     private TaskCompletionSource<bool> DOMLoadedTask = new TaskCompletionSource<bool>();
+    private string _currentRenderedHtml = string.Empty;
 
     public WebView2 GetWebView() => Chromium;
+
+    public Visibility GetAiActionsPanelVisibility(bool? isChecked) => isChecked == true ? Visibility.Visible : Visibility.Collapsed;
 
     public MailRenderingPage()
     {
@@ -82,6 +89,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     private async Task RenderInternalAsync(string htmlBody)
     {
         isRenderingInProgress = true;
+        _currentRenderedHtml = htmlBody ?? string.Empty;
 
         await DOMLoadedTask.Task;
 
@@ -141,8 +149,61 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
         ViewModel.SaveHTMLasPDFFunc = null;
         ViewModel.DirectPrintFuncAsync = null;
+        _currentRenderedHtml = string.Empty;
+        ReaderAiActionsPanel.CancelPendingOperation();
 
         DisposeWebView2();
+    }
+
+    public Task<string?> GetCurrentHtmlAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult<string?>(_currentRenderedHtml);
+    }
+
+    public async Task ApplyHtmlResultAsync(string html, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await RenderInternalAsync(html);
+        cancellationToken.ThrowIfCancellationRequested();
+    }
+
+    private async void ReaderAiActionsToggleButton_Checked(object sender, RoutedEventArgs e)
+    {
+        await ReaderAiActionsPanel.RefreshAvailabilityAsync();
+    }
+
+    public async Task<string?> TryGetCachedTranslationHtmlAsync(string languageCode, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!ViewModel.CurrentMailAccountId.HasValue || !ViewModel.CurrentMailFileId.HasValue || string.IsNullOrWhiteSpace(languageCode))
+        {
+            return null;
+        }
+
+        return await _mimeFileService.GetTranslatedHtmlAsync(
+            ViewModel.CurrentMailAccountId.Value,
+            ViewModel.CurrentMailFileId.Value,
+            languageCode,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task SaveCachedTranslationHtmlAsync(string languageCode, string html, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!ViewModel.CurrentMailAccountId.HasValue || !ViewModel.CurrentMailFileId.HasValue || string.IsNullOrWhiteSpace(languageCode))
+        {
+            return;
+        }
+
+        await _mimeFileService.SaveTranslatedHtmlAsync(
+            ViewModel.CurrentMailAccountId.Value,
+            ViewModel.CurrentMailFileId.Value,
+            languageCode,
+            html,
+            cancellationToken).ConfigureAwait(false);
     }
 
     private void DisposeWebView2()

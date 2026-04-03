@@ -160,6 +160,17 @@
                                 Visibility="{x:Bind ViewModel.IsDraftBusy, Mode=OneWay}">
                                 <ProgressRing IsActive="True" />
                             </AppBarButton>
+                            <AppBarToggleButton
+                                x:Name="ComposeAiActionsToggleButton"
+                                Checked="ComposeAiActionsToggleButton_Checked"
+                                MinWidth="40"
+                                HorizontalContentAlignment="Center"
+                                LabelPosition="Collapsed"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AiActions}">
+                                <AppBarToggleButton.Icon>
+                                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE945;" />
+                                </AppBarToggleButton.Icon>
+                            </AppBarToggleButton>
                             <AppBarButton Click="ToggleEditorThemeClicked" ToolTipService.ToolTip="{x:Bind GetEditorThemeToolTip(WebViewEditor.IsEditorDarkMode), Mode=OneWay}">
                                 <AppBarButton.Icon>
                                     <coreControls:WinoFontIcon Icon="{x:Bind GetEditorThemeIcon(WebViewEditor.IsEditorDarkMode), Mode=OneWay}" />
@@ -307,6 +318,7 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <Grid.ColumnDefinitions>
@@ -445,10 +457,19 @@
                         BorderThickness="0"
                         Text="{x:Bind ViewModel.Subject, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
+                    <coreControls:AiActionsPanel
+                        x:Name="ComposeAiActionsPanel"
+                        Grid.Row="5"
+                        Grid.ColumnSpan="2"
+                        Margin="0,8,0,0"
+                        AvailableActions="Rewrite"
+                        HtmlHost="{x:Bind}"
+                        Visibility="{x:Bind GetAiActionsPanelVisibility(ComposeAiActionsToggleButton.IsChecked), Mode=OneWay}" />
+
                     <!--  Attachments  -->
                     <ListView
                         x:Name="AttachmentsListView"
-                        Grid.Row="5"
+                        Grid.Row="6"
                         Grid.ColumnSpan="2"
                         ui:ListViewExtensions.Command="{x:Bind ViewModel.OpenAttachmentCommand}"
                         x:Load="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.IncludedAttachments.Count), Mode=OneWay}"

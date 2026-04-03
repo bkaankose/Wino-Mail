@@ -32,11 +32,14 @@ using Wino.Views.Abstract;
 namespace Wino.Views.Mail;
 
 public sealed partial class ComposePage : ComposePageAbstract,
+    IAiHtmlActionHost,
     IRecipient<CreateNewComposeMailRequested>,
     IRecipient<ApplicationThemeChanged>,
     IRecipient<ReaderItemRefreshRequestedEvent>
 {
     public WebView2 GetWebView() => WebViewEditor.GetUnderlyingWebView();
+
+    public Visibility GetAiActionsPanelVisibility(bool? isChecked) => isChecked == true ? Visibility.Visible : Visibility.Collapsed;
 
     private readonly List<IDisposable> _disposables = [];
 
@@ -283,6 +286,11 @@ public sealed partial class ComposePage : ComposePageAbstract,
         ViewModel.IsCCBCCVisible = true;
     }
 
+    private async void ComposeAiActionsToggleButton_Checked(object sender, RoutedEventArgs e)
+    {
+        await ComposeAiActionsPanel.RefreshAvailabilityAsync();
+    }
+
     private async void TokenItemAdding(TokenizingTextBox sender, TokenItemAddingEventArgs args)
     {
         // Check is valid email.
@@ -410,9 +418,37 @@ public sealed partial class ComposePage : ComposePageAbstract,
         base.OnNavigatingFrom(e);
 
         FocusManager.GotFocus -= GlobalFocusManagerGotFocus;
+        ComposeAiActionsPanel.CancelPendingOperation();
         await ViewModel.UpdateMimeChangesAsync();
 
         DisposeDisposables();
+    }
+
+    public async Task<string?> GetCurrentHtmlAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var html = await WebViewEditor.GetHtmlBodyAsync();
+        cancellationToken.ThrowIfCancellationRequested();
+        return html;
+    }
+
+    public async Task ApplyHtmlResultAsync(string html, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await WebViewEditor.RenderHtmlAsync(html);
+        cancellationToken.ThrowIfCancellationRequested();
+    }
+
+    public Task<string?> TryGetCachedTranslationHtmlAsync(string languageCode, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult<string?>(null);
+    }
+
+    public Task SaveCachedTranslationHtmlAsync(string languageCode, string html, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.CompletedTask;
     }
 
     private void OpenAttachment_Click(object sender, RoutedEventArgs e)

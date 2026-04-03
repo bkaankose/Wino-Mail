@@ -120,6 +120,48 @@ public class MimeFileService : IMimeFileService
         return true;
     }
 
+    public async Task<string> GetTranslatedHtmlAsync(Guid accountId, Guid fileId, string targetLanguage, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(targetLanguage))
+        {
+            return null;
+        }
+
+        try
+        {
+            var translatedHtmlPath = await GetTranslatedHtmlPathAsync(accountId, fileId, targetLanguage).ConfigureAwait(false);
+            if (!File.Exists(translatedHtmlPath))
+            {
+                return null;
+            }
+
+            return await File.ReadAllTextAsync(translatedHtmlPath, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Could not read translated html cache for FileId: {FileId}, Language: {Language}", fileId, targetLanguage);
+            return null;
+        }
+    }
+
+    public async Task SaveTranslatedHtmlAsync(Guid accountId, Guid fileId, string targetLanguage, string html, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(targetLanguage) || string.IsNullOrWhiteSpace(html))
+        {
+            return;
+        }
+
+        try
+        {
+            var translatedHtmlPath = await GetTranslatedHtmlPathAsync(accountId, fileId, targetLanguage).ConfigureAwait(false);
+            await File.WriteAllTextAsync(translatedHtmlPath, html, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Could not save translated html cache for FileId: {FileId}, Language: {Language}", fileId, targetLanguage);
+        }
+    }
+
     public MailRenderModel GetMailRenderModel(MimeMessage message, string mimeLocalPath, MailRenderingOptions options = null)
     {
         var visitor = CreateHTMLPreviewVisitor(message, mimeLocalPath);
@@ -208,5 +250,22 @@ public class MimeFileService : IMimeFileService
         {
             Log.Error(ex, "Failed to remove user's mime cache folder.");
         }
+    }
+
+    private async Task<string> GetTranslatedHtmlPathAsync(Guid accountId, Guid fileId, string targetLanguage)
+    {
+        var resourcePath = await GetMimeResourcePathAsync(accountId, fileId).ConfigureAwait(false);
+        return Path.Combine(resourcePath, $"translated-{SanitizeFileNamePart(targetLanguage)}.html");
+    }
+
+    private static string SanitizeFileNamePart(string value)
+    {
+        var invalidCharacters = Path.GetInvalidFileNameChars();
+        var sanitizedChars = value
+            .Trim()
+            .Select(ch => invalidCharacters.Contains(ch) ? '_' : char.ToLowerInvariant(ch))
+            .ToArray();
+
+        return sanitizedChars.Length == 0 ? "default" : new string(sanitizedChars);
     }
 }

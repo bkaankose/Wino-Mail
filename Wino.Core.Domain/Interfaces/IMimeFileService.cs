@@ -60,6 +60,16 @@ public interface IMimeFileService
     Task<bool> DeleteMimeMessageAsync(Guid accountId, Guid fileId);
 
     /// <summary>
+    /// Returns cached translated html for the given mime resource if it exists.
+    /// </summary>
+    Task<string> GetTranslatedHtmlAsync(Guid accountId, Guid fileId, string targetLanguage, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Saves translated html for the given mime resource.
+    /// </summary>
+    Task SaveTranslatedHtmlAsync(Guid accountId, Guid fileId, string targetLanguage, string html, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Prepares the final model containing rendering details.
     /// </summary>
     /// <param name="message">Message to render.</param>
