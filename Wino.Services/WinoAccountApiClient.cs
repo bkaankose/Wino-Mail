@@ -108,11 +108,11 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     public Task<ApiEnvelope<AiStatusResultDto>> GetAiStatusAsync(CancellationToken cancellationToken = default)
         => SendAuthorizedRequestAsync("api/v1/ai/status", WinoAccountApiJsonContext.Default.ApiEnvelopeAiStatusResultDto, cancellationToken);
 
-    public Task<ApiEnvelope<AiTextResultDto>> SummarizeAsync(string html, CancellationToken cancellationToken = default)
+    public Task<ApiEnvelope<AiTextResultDto>> SummarizeAsync(string html, string targetLanguage, CancellationToken cancellationToken = default)
         => SendAuthorizedRequestAsync(
             HttpMethod.Post,
             "api/v1/ai/summarize",
-            new SummarizeRequest(html),
+            new SummarizeRequest(html, targetLanguage),
             WinoAccountApiJsonContext.Default.SummarizeRequest,
             WinoAccountApiJsonContext.Default.ApiEnvelopeAiTextResultDto,
             cancellationToken);

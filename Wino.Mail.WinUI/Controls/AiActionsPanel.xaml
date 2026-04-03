@@ -143,71 +143,50 @@
                         Style="{StaticResource AccentButtonStyle}" />
                 </StackPanel>
 
-                <StackPanel
+                <Grid
                     x:Name="ReadyPanel"
-                    Spacing="8"
+                    ColumnSpacing="12"
                     Visibility="Collapsed">
-                    <!--  Row 1: Action tabs + usage  -->
-                    <Grid ColumnSpacing="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <!--  Column 1: Action tabs  -->
+                    <controls:Segmented
+                        x:Name="ActionSelector"
+                        Height="30"
+                        VerticalAlignment="Center"
+                        SelectionChanged="ActionSelector_SelectionChanged"
+                        Style="{StaticResource ButtonSegmentedStyle}">
+                        <controls:SegmentedItem
+                            x:Name="TranslateSegment"
+                            Padding="12,6"
+                            Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureTranslate, Mode=OneWay}">
+                            <controls:SegmentedItem.Icon>
+                                <SymbolIcon Symbol="Switch" />
+                            </controls:SegmentedItem.Icon>
+                        </controls:SegmentedItem>
+                        <controls:SegmentedItem
+                            x:Name="RewriteSegment"
+                            Padding="12,6"
+                            Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureRewrite, Mode=OneWay}">
+                            <controls:SegmentedItem.Icon>
+                                <SymbolIcon Symbol="Edit" />
+                            </controls:SegmentedItem.Icon>
+                        </controls:SegmentedItem>
+                        <controls:SegmentedItem
+                            x:Name="SummarizeSegment"
+                            Padding="12,6"
+                            Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureSummarize, Mode=OneWay}">
+                            <controls:SegmentedItem.Icon>
+                                <SymbolIcon Symbol="Bullets" />
+                            </controls:SegmentedItem.Icon>
+                        </controls:SegmentedItem>
+                    </controls:Segmented>
 
-                        <controls:Segmented
-                            x:Name="ActionSelector"
-                            Height="30"
-                            VerticalAlignment="Center"
-                            SelectionChanged="ActionSelector_SelectionChanged"
-                            Style="{StaticResource ButtonSegmentedStyle}">
-                            <controls:SegmentedItem
-                                x:Name="TranslateSegment"
-                                Padding="12,6"
-                                Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureTranslate, Mode=OneWay}">
-                                <controls:SegmentedItem.Icon>
-                                    <SymbolIcon Symbol="Switch" />
-                                </controls:SegmentedItem.Icon>
-                            </controls:SegmentedItem>
-                            <controls:SegmentedItem
-                                x:Name="RewriteSegment"
-                                Padding="12,6"
-                                Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureRewrite, Mode=OneWay}">
-                                <controls:SegmentedItem.Icon>
-                                    <SymbolIcon Symbol="Edit" />
-                                </controls:SegmentedItem.Icon>
-                            </controls:SegmentedItem>
-                            <controls:SegmentedItem
-                                x:Name="SummarizeSegment"
-                                Padding="12,6"
-                                Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureSummarize, Mode=OneWay}">
-                                <controls:SegmentedItem.Icon>
-                                    <SymbolIcon Symbol="Bullets" />
-                                </controls:SegmentedItem.Icon>
-                            </controls:SegmentedItem>
-                        </controls:Segmented>
-
-                        <StackPanel
-                            Grid.Column="2"
-                            VerticalAlignment="Center"
-                            Orientation="Horizontal"
-                            Spacing="8">
-                            <ProgressBar
-                                x:Name="UsageProgressBar"
-                                Width="100"
-                                VerticalAlignment="Center"
-                                Maximum="1000"
-                                Value="0" />
-                            <TextBlock
-                                x:Name="UsageSummaryTextBlock"
-                                VerticalAlignment="Center"
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Style="{StaticResource CaptionTextBlockStyle}" />
-                        </StackPanel>
-                    </Grid>
-
-                    <!--  Row 2: Action-specific options  -->
-                    <Grid ColumnSpacing="8">
+                    <!--  Column 2: Action-specific options  -->
+                    <Grid Grid.Column="1" ColumnSpacing="8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
@@ -284,11 +263,24 @@
                             x:Name="SummarizeOptionsPanel"
                             Spacing="8"
                             Visibility="Collapsed">
-                            <TextBlock
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind domain:Translator.Composer_AiSummarizeDescription, Mode=OneWay}" />
-                            <StackPanel Orientation="Horizontal" Spacing="4">
+
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind domain:Translator.Composer_AiTranslateLanguage, Mode=OneWay}" />
+                                <ComboBox
+                                    x:Name="SummarizeLanguageComboBox"
+                                    MinWidth="120"
+                                    SelectionChanged="SummarizeLanguageComboBox_SelectionChanged">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="models:AiTranslateLanguageOption">
+                                            <TextBlock Text="{x:Bind Label}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+
                                 <Button
                                     x:Name="RunSummarizeButton"
                                     HorizontalAlignment="Left"
@@ -306,10 +298,30 @@
                                     ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AiSummarize, Mode=OneWay}"
                                     Visibility="Collapsed" />
                             </StackPanel>
+
                         </StackPanel>
 
                     </Grid>
-                </StackPanel>
+
+                    <!--  Column 3: Progress  -->
+                    <StackPanel
+                        Grid.Column="2"
+                        VerticalAlignment="Center"
+                        Orientation="Horizontal"
+                        Spacing="8">
+                        <ProgressBar
+                            x:Name="UsageProgressBar"
+                            Width="100"
+                            VerticalAlignment="Center"
+                            Maximum="1000"
+                            Value="0" />
+                        <TextBlock
+                            x:Name="UsageSummaryTextBlock"
+                            VerticalAlignment="Center"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}" />
+                    </StackPanel>
+                </Grid>
             </StackPanel>
         </Grid>
     </Border>

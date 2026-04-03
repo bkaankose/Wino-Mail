@@ -389,6 +389,24 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SetPropertyAndSave(nameof(IsWinoAccountButtonHidden), value);
     }
 
+    public string AiDefaultTranslationLanguageCode
+    {
+        get => _configurationService.Get(nameof(AiDefaultTranslationLanguageCode), "en-US");
+        set => SetPropertyAndSave(nameof(AiDefaultTranslationLanguageCode), string.IsNullOrWhiteSpace(value) ? "en-US" : value.Trim());
+    }
+
+    public string AiSummarizeLanguageCode
+    {
+        get => _configurationService.Get(nameof(AiSummarizeLanguageCode), "en-US");
+        set => SetPropertyAndSave(nameof(AiSummarizeLanguageCode), string.IsNullOrWhiteSpace(value) ? "en-US" : value.Trim());
+    }
+
+    public string AiSummarySavePath
+    {
+        get => _configurationService.Get(nameof(AiSummarySavePath), string.Empty);
+        set => SetPropertyAndSave(nameof(AiSummarySavePath), value?.Trim() ?? string.Empty);
+    }
+
     public WinoApplicationMode DefaultApplicationMode
     {
         get

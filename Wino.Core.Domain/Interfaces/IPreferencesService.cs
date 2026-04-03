@@ -68,6 +68,21 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsWinoAccountButtonHidden { get; set; }
 
     /// <summary>
+    /// Setting: Default target language code used for AI translation actions.
+    /// </summary>
+    string AiDefaultTranslationLanguageCode { get; set; }
+
+    /// <summary>
+    /// Setting: Preferred target language code for AI summarize actions.
+    /// </summary>
+    string AiSummarizeLanguageCode { get; set; }
+
+    /// <summary>
+    /// Setting: Preferred folder path used when saving AI summaries.
+    /// </summary>
+    string AiSummarySavePath { get; set; }
+
+    /// <summary>
     /// Serializes the current syncable preferences snapshot.
     /// </summary>
     string ExportPreferences();

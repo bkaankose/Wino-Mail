@@ -213,8 +213,8 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
         return response;
     }
 
-    public async Task<ApiEnvelope<AiTextResultDto>> SummarizeAsync(string html, CancellationToken cancellationToken = default)
-        => await ExecuteAiOperationAsync(account => _apiClient.SummarizeAsync(html, cancellationToken), "summarize", cancellationToken).ConfigureAwait(false);
+    public async Task<ApiEnvelope<AiTextResultDto>> SummarizeAsync(string html, string targetLanguage, CancellationToken cancellationToken = default)
+        => await ExecuteAiOperationAsync(account => _apiClient.SummarizeAsync(html, targetLanguage, cancellationToken), "summarize", cancellationToken).ConfigureAwait(false);
 
     public async Task<ApiEnvelope<AiTextResultDto>> TranslateAsync(string html, string targetLanguage, CancellationToken cancellationToken = default)
         => await ExecuteAiOperationAsync(account => _apiClient.TranslateAsync(html, targetLanguage, cancellationToken), "translate", cancellationToken).ConfigureAwait(false);

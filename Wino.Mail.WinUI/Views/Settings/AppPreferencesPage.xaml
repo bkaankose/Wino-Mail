@@ -7,6 +7,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:Wino.Core.Domain.Models.Ai"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:translations="using:Wino.Core.Domain.Models.Translations"
     mc:Ignorable="d">
@@ -74,6 +75,67 @@
                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE896;" />
                 </controls:SettingsCard.HeaderIcon>
             </controls:SettingsCard>
+
+            <controls:SettingsExpander
+                Description="{x:Bind domain:Translator.SettingsAppPreferences_AiActions_Description}"
+                Header="{x:Bind domain:Translator.SettingsAppPreferences_AiActions_Title}"
+                IsExpanded="True">
+                <controls:SettingsExpander.HeaderIcon>
+                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE734;" />
+                </controls:SettingsExpander.HeaderIcon>
+                <controls:SettingsExpander.Items>
+                    <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsAppPreferences_AiDefaultTranslationLanguage_Description}" Header="{x:Bind domain:Translator.SettingsAppPreferences_AiDefaultTranslationLanguage_Title}">
+                        <ComboBox ItemsSource="{x:Bind ViewModel.AvailableAiLanguages, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.SelectedDefaultTranslationLanguage, Mode=TwoWay}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="models:AiTranslateLanguageOption">
+                                    <TextBlock Text="{x:Bind Label}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </controls:SettingsCard>
+
+                    <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsAppPreferences_AiSummarizeLanguage_Description}" Header="{x:Bind domain:Translator.SettingsAppPreferences_AiSummarizeLanguage_Title}">
+                        <ComboBox ItemsSource="{x:Bind ViewModel.AvailableAiLanguages, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.SelectedSummarizeLanguage, Mode=TwoWay}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="models:AiTranslateLanguageOption">
+                                    <TextBlock Text="{x:Bind Label}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </controls:SettingsCard>
+
+                    <controls:SettingsCard
+                        Description="{x:Bind domain:Translator.SettingsAppPreferences_AiSummarySavePath_Description}"
+                        Header="{x:Bind domain:Translator.SettingsAppPreferences_AiSummarySavePath_Title}"
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch"
+                        ContentAlignment="Vertical">
+                        <StackPanel Spacing="8">
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox
+                                    Grid.Column="0"
+                                    IsReadOnly="True"
+                                    PlaceholderText="{x:Bind domain:Translator.SettingsAppPreferences_AiSummarySavePath_Placeholder}"
+                                    Text="{x:Bind ViewModel.SummarySavePath, Mode=OneWay}" />
+                                <Button
+                                    Grid.Column="1"
+                                    Command="{x:Bind ViewModel.BrowseSummarySavePathCommand}"
+                                    Content="{x:Bind domain:Translator.Buttons_Browse}" />
+                            </Grid>
+                            <TextBlock
+                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind domain:Translator.SettingsAppPreferences_AiSummarySavePath_InvalidHint}"
+                                TextWrapping="WrapWholeWords"
+                                Visibility="{x:Bind ViewModel.HasInvalidSummarySavePath, Mode=OneWay}" />
+                        </StackPanel>
+                    </controls:SettingsCard>
+                </controls:SettingsExpander.Items>
+            </controls:SettingsExpander>
         </StackPanel>
 
         <VisualStateManager.VisualStateGroups>

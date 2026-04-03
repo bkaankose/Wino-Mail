@@ -25,6 +25,7 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
     private readonly IStoreManagementService _storeManagementService = App.Current.Services.GetRequiredService<IStoreManagementService>();
     private readonly IMailDialogService _dialogService = App.Current.Services.GetRequiredService<IMailDialogService>();
     private readonly IAiActionOptionsService _optionsService = App.Current.Services.GetRequiredService<IAiActionOptionsService>();
+    private readonly IPreferencesService _preferencesService = App.Current.Services.GetRequiredService<IPreferencesService>();
 
     private bool _disposedValue;
     private bool _isRefreshing;
@@ -42,6 +43,8 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
     public partial IAiHtmlActionHost? HtmlHost { get; set; }
 
     public AiTranslateLanguageOption? SelectedTranslateLanguageOption { get; set; }
+
+    public AiTranslateLanguageOption? SelectedSummarizeLanguageOption { get; set; }
 
     public AiRewriteModeOption? SelectedRewriteModeOption { get; set; }
 
@@ -90,19 +93,33 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
     {
         // Save current selections before replacing ItemsSource (which clears SelectedItem).
         var previousTranslateCode = SelectedTranslateLanguageOption?.Code;
+        var previousSummarizeCode = SelectedSummarizeLanguageOption?.Code;
         var previousRewriteMode = SelectedRewriteModeOption?.Mode;
+        var preferredTranslateCode = string.IsNullOrWhiteSpace(previousTranslateCode)
+            ? _preferencesService.AiDefaultTranslationLanguageCode
+            : previousTranslateCode;
+        var preferredSummarizeCode = string.IsNullOrWhiteSpace(previousSummarizeCode)
+            ? _preferencesService.AiSummarizeLanguageCode
+            : previousSummarizeCode;
 
         _translateOptions = _optionsService.GetTranslateLanguageOptions();
         _rewriteOptions = _optionsService.GetRewriteModeOptions();
 
         TranslateLanguageComboBox.ItemsSource = _translateOptions;
+        SummarizeLanguageComboBox.ItemsSource = _translateOptions;
         RewriteModeComboBox.ItemsSource = _rewriteOptions;
 
         // Restore selection by matching on value, falling back to first item.
-        SelectedTranslateLanguageOption = FindOption(_translateOptions, o => o.Code == previousTranslateCode) ?? (_translateOptions.Count > 0 ? _translateOptions[0] : null);
+        SelectedTranslateLanguageOption = FindOption(_translateOptions, o => o.Code == preferredTranslateCode)
+                                          ?? FindOption(_translateOptions, o => o.Code == "en-US")
+                                          ?? (_translateOptions.Count > 0 ? _translateOptions[0] : null);
+        SelectedSummarizeLanguageOption = FindOption(_translateOptions, o => o.Code == preferredSummarizeCode)
+                                          ?? FindOption(_translateOptions, o => o.Code == "en-US")
+                                          ?? (_translateOptions.Count > 0 ? _translateOptions[0] : null);
         SelectedRewriteModeOption = FindOption(_rewriteOptions, o => o.Mode == previousRewriteMode) ?? (_rewriteOptions.Count > 0 ? _rewriteOptions[0] : null);
 
         TranslateLanguageComboBox.SelectedItem = SelectedTranslateLanguageOption;
+        SummarizeLanguageComboBox.SelectedItem = SelectedSummarizeLanguageOption;
         RewriteModeComboBox.SelectedItem = SelectedRewriteModeOption;
         UpdateRewriteOptionState();
     }
@@ -293,6 +310,7 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
         BusyProgressBar.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
         ActionSelector.IsEnabled = !isBusy;
         TranslateLanguageComboBox.IsEnabled = !isBusy;
+        SummarizeLanguageComboBox.IsEnabled = !isBusy;
         RewriteModeComboBox.IsEnabled = !isBusy;
         CustomRewriteTextBox.IsEnabled = !isBusy;
         RunTranslateButton.IsEnabled = !isBusy;
@@ -426,6 +444,7 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
         if (TranslateLanguageComboBox.SelectedItem is AiTranslateLanguageOption option)
         {
             SelectedTranslateLanguageOption = option;
+            _preferencesService.AiDefaultTranslationLanguageCode = option.Code;
         }
     }
 
@@ -435,6 +454,15 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
         {
             SelectedRewriteModeOption = option;
             UpdateRewriteOptionState();
+        }
+    }
+
+    private void SummarizeLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (SummarizeLanguageComboBox.SelectedItem is AiTranslateLanguageOption option)
+        {
+            SelectedSummarizeLanguageOption = option;
+            _preferencesService.AiSummarizeLanguageCode = option.Code;
         }
     }
 
@@ -500,6 +528,12 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
                 return;
             }
 
+            if (action == AiActionType.Summarize && SelectedSummarizeLanguageOption == null)
+            {
+                _dialogService.InfoBarMessage(Translator.Composer_AiErrorTitle, Translator.WinoAccount_Error_ValidationFailed, InfoBarMessageType.Error);
+                return;
+            }
+
             if (action == AiActionType.Translate)
             {
                 var cachedTranslation = await HtmlHost.TryGetCachedTranslationHtmlAsync(SelectedTranslateLanguageOption?.Code ?? string.Empty, cancellationToken).ConfigureAwait(true);
@@ -539,7 +573,7 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
             {
                 AiActionType.Translate => await _profileService.TranslateAsync(html, SelectedTranslateLanguageOption?.Code ?? string.Empty, cancellationToken).ConfigureAwait(true),
                 AiActionType.Rewrite => await _profileService.RewriteAsync(html, ResolveRewriteMode(), cancellationToken).ConfigureAwait(true),
-                AiActionType.Summarize => await _profileService.SummarizeAsync(html, cancellationToken).ConfigureAwait(true),
+                AiActionType.Summarize => await _profileService.SummarizeAsync(html, SelectedSummarizeLanguageOption?.Code ?? string.Empty, cancellationToken).ConfigureAwait(true),
                 _ => ApiEnvelope<AiTextResultDto>.Failure(ApiErrorCodes.ValidationFailed)
             };
 
@@ -684,7 +718,11 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
 
             try
             {
-                var path = await _dialogService.PickFilePathAsync(HtmlHost.GetSuggestedSummaryFileName());
+                var configuredSummarySavePath = _preferencesService.AiSummarySavePath;
+                var path = !string.IsNullOrWhiteSpace(configuredSummarySavePath) && Directory.Exists(configuredSummarySavePath)
+                    ? Path.Combine(configuredSummarySavePath, HtmlHost.GetSuggestedSummaryFileName())
+                    : await _dialogService.PickFilePathAsync(HtmlHost.GetSuggestedSummaryFileName());
+
                 if (string.IsNullOrWhiteSpace(path))
                 {
                     args.Cancel = true;

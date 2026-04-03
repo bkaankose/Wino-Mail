@@ -1,10 +1,12 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Ai;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Translations;
 
@@ -16,12 +18,14 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
         IMailDialogService dialogService,
         IPreferencesService preferencesService,
         IStartupBehaviorService startupBehaviorService,
-        ITranslationService translationService)
+        ITranslationService translationService,
+        IAiActionOptionsService aiActionOptionsService)
     {
         _dialogService = dialogService;
         PreferencesService = preferencesService;
         _startupBehaviorService = startupBehaviorService;
         _translationService = translationService;
+        _aiActionOptionsService = aiActionOptionsService;
 
         SearchModes =
         [
@@ -40,6 +44,7 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
         SelectedDefaultSearchMode = SearchModes[(int)PreferencesService.DefaultSearchMode];
         SelectedDefaultApplicationMode = ApplicationModes[(int)PreferencesService.DefaultApplicationMode];
         EmailSyncIntervalMinutes = PreferencesService.EmailSyncIntervalMinutes;
+        SummarySavePath = PreferencesService.AiSummarySavePath;
     }
 
     public IPreferencesService PreferencesService { get; }
@@ -57,6 +62,21 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
     public partial AppLanguageModel SelectedLanguage { get; set; }
 
     [ObservableProperty]
+    public partial List<AiTranslateLanguageOption> AvailableAiLanguages { get; set; } = [];
+
+    [ObservableProperty]
+    public partial AiTranslateLanguageOption SelectedDefaultTranslationLanguage { get; set; }
+
+    [ObservableProperty]
+    public partial AiTranslateLanguageOption SelectedSummarizeLanguage { get; set; }
+
+    [ObservableProperty]
+    public partial string SummarySavePath { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool HasInvalidSummarySavePath { get; set; }
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsStartupBehaviorDisabled))]
     [NotifyPropertyChangedFor(nameof(IsStartupBehaviorEnabled))]
     private StartupBehaviorResult startupBehaviorResult;
@@ -64,7 +84,9 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
     private readonly IMailDialogService _dialogService;
     private readonly IStartupBehaviorService _startupBehaviorService;
     private readonly ITranslationService _translationService;
+    private readonly IAiActionOptionsService _aiActionOptionsService;
     private bool _isLanguageInitialized;
+    private bool _isAiPreferencesInitialized;
     private int _emailSyncIntervalMinutes;
     private string _selectedDefaultSearchMode;
     private string _selectedDefaultApplicationMode;
@@ -108,6 +130,31 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
             return;
 
         _ = _translationService.InitializeLanguageAsync(value.Language);
+    }
+
+    partial void OnSelectedDefaultTranslationLanguageChanged(AiTranslateLanguageOption value)
+    {
+        if (!_isAiPreferencesInitialized || value == null)
+            return;
+
+        PreferencesService.AiDefaultTranslationLanguageCode = value.Code;
+    }
+
+    partial void OnSelectedSummarizeLanguageChanged(AiTranslateLanguageOption value)
+    {
+        if (!_isAiPreferencesInitialized || value == null)
+            return;
+
+        PreferencesService.AiSummarizeLanguageCode = value.Code;
+    }
+
+    partial void OnSummarySavePathChanged(string value)
+    {
+        if (!_isAiPreferencesInitialized)
+            return;
+
+        PreferencesService.AiSummarySavePath = value ?? string.Empty;
+        RefreshSummarySavePathState();
     }
 
     [RelayCommand]
@@ -157,15 +204,56 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
         }
     }
 
+    [RelayCommand]
+    private async Task BrowseSummarySavePathAsync()
+    {
+        var pickedPath = await _dialogService.PickWindowsFolderAsync();
+        if (string.IsNullOrWhiteSpace(pickedPath))
+            return;
+
+        await ExecuteUIThread(() => SummarySavePath = pickedPath);
+    }
+
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 
-        AvailableLanguages = _translationService.GetAvailableLanguages();
-        SelectedLanguage = AvailableLanguages.Find(language => language.Language == PreferencesService.CurrentLanguage)
-                           ?? (AvailableLanguages.Count > 0 ? AvailableLanguages[0] : null);
-        _isLanguageInitialized = true;
+        var availableLanguages = _translationService.GetAvailableLanguages();
+        var availableAiLanguages = new List<AiTranslateLanguageOption>(_aiActionOptionsService.GetTranslateLanguageOptions());
+        var startupBehaviorResult = await _startupBehaviorService.GetCurrentStartupBehaviorAsync();
 
-        StartupBehaviorResult = await _startupBehaviorService.GetCurrentStartupBehaviorAsync();
+        await ExecuteUIThread(() =>
+        {
+            AvailableLanguages = availableLanguages;
+            SelectedLanguage = AvailableLanguages.Find(language => language.Language == PreferencesService.CurrentLanguage)
+                               ?? (AvailableLanguages.Count > 0 ? AvailableLanguages[0] : null);
+            _isLanguageInitialized = true;
+
+            AvailableAiLanguages = availableAiLanguages;
+            SelectedDefaultTranslationLanguage = FindAiLanguageOption(PreferencesService.AiDefaultTranslationLanguageCode)
+                                                 ?? FindAiLanguageOption("en-US")
+                                                 ?? (AvailableAiLanguages.Count > 0 ? AvailableAiLanguages[0] : null);
+            SelectedSummarizeLanguage = FindAiLanguageOption(PreferencesService.AiSummarizeLanguageCode)
+                                        ?? FindAiLanguageOption("en-US")
+                                        ?? (AvailableAiLanguages.Count > 0 ? AvailableAiLanguages[0] : null);
+            SummarySavePath = PreferencesService.AiSummarySavePath;
+            RefreshSummarySavePathState();
+            _isAiPreferencesInitialized = true;
+
+            StartupBehaviorResult = startupBehaviorResult;
+        });
+    }
+
+    private AiTranslateLanguageOption FindAiLanguageOption(string languageCode)
+    {
+        if (string.IsNullOrWhiteSpace(languageCode))
+            return null;
+
+        return AvailableAiLanguages.Find(option => option.Code == languageCode);
+    }
+
+    private void RefreshSummarySavePathState()
+    {
+        HasInvalidSummarySavePath = !string.IsNullOrWhiteSpace(SummarySavePath) && !Directory.Exists(SummarySavePath);
     }
 }
