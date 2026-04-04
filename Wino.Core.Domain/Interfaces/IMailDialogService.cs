@@ -8,6 +8,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
 
@@ -74,4 +75,6 @@ public interface IMailDialogService : IDialogServiceBase
     Task<WinoAccount?> ShowWinoAccountRegistrationDialogAsync();
 
     Task<WinoAccount?> ShowWinoAccountLoginDialogAsync();
+
+    Task<WinoAccountSyncExportResult?> ShowWinoAccountExportDialogAsync();
 }

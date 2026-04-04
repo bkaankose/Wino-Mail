@@ -28,14 +28,16 @@ namespace Wino.Services;
 public class DialogService : DialogServiceBase, IMailDialogService
 {
     private readonly IWinoAccountProfileService _winoAccountProfileService;
+    private readonly IWinoAccountDataSyncService _winoAccountDataSyncService;
 
     public DialogService(INewThemeService themeService,
                          IConfigurationService configurationService,
                          IApplicationResourceManager<ResourceDictionary> applicationResourceManager,
-                         IUpdateManager updateManager,
-                         IWinoAccountProfileService winoAccountProfileService) : base(themeService, configurationService, applicationResourceManager, updateManager)
+                         IWinoAccountProfileService winoAccountProfileService,
+                         IWinoAccountDataSyncService winoAccountDataSyncService) : base(themeService, configurationService, applicationResourceManager)
     {
         _winoAccountProfileService = winoAccountProfileService;
+        _winoAccountDataSyncService = winoAccountDataSyncService;
     }
 
     public async Task<ICreateAccountAliasDialog> ShowCreateAccountAliasDialogAsync()
@@ -275,6 +277,23 @@ public class DialogService : DialogServiceBase, IMailDialogService
                 Translator.WinoAccount_ForgotPasswordDialog_SuccessTitle);
 
             return null;
+        }
+
+        return dialog.Result;
+    }
+
+    public async Task<WinoAccountSyncExportResult?> ShowWinoAccountExportDialogAsync()
+    {
+        var dialog = new WinoAccountSyncExportDialog(_winoAccountDataSyncService)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(dialog);
+
+        if (dialog.FailureException != null)
+        {
+            throw dialog.FailureException;
         }
 
         return dialog.Result;

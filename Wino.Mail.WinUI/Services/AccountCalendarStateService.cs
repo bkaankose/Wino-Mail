@@ -23,7 +23,9 @@ public partial class AccountCalendarStateService : ObservableRecipient,
     IRecipient<CalendarListAdded>,
     IRecipient<CalendarListUpdated>,
     IRecipient<CalendarListDeleted>,
-    IRecipient<AccountRemovedMessage>
+    IRecipient<AccountRemovedMessage>,
+    IRecipient<AccountUpdatedMessage>,
+    IRecipient<AccountCalendarSynchronizationStateChanged>
 {
     private readonly object _calendarStateLock = new();
 
@@ -40,6 +42,9 @@ public partial class AccountCalendarStateService : ObservableRecipient,
 
     [ObservableProperty]
     public partial ReadOnlyObservableGroupedCollection<MailAccount, AccountCalendarViewModel> GroupedCalendars { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsAnySynchronizationInProgress { get; set; }
 
     public IEnumerable<AccountCalendarViewModel> ActiveCalendars
     {
@@ -84,6 +89,8 @@ public partial class AccountCalendarStateService : ObservableRecipient,
         Messenger.Register<CalendarListUpdated>(this);
         Messenger.Register<CalendarListDeleted>(this);
         Messenger.Register<AccountRemovedMessage>(this);
+        Messenger.Register<AccountUpdatedMessage>(this);
+        Messenger.Register<AccountCalendarSynchronizationStateChanged>(this);
     }
 
     private void SingleGroupCalendarCollectiveStateChanged(object? sender, EventArgs e)
@@ -114,6 +121,8 @@ public partial class AccountCalendarStateService : ObservableRecipient,
                     group.Add(calendar);
                 }
             }
+
+            UpdateAggregateSynchronizationState();
         }
     }
 
@@ -140,6 +149,8 @@ public partial class AccountCalendarStateService : ObservableRecipient,
                     _internalGroupedCalendars.Remove(group);
                 }
             }
+
+            UpdateAggregateSynchronizationState();
         }
     }
 
@@ -339,5 +350,61 @@ public partial class AccountCalendarStateService : ObservableRecipient,
                 RemoveGroupedAccountCalendar(groupedAccount);
             }
         }
+    }
+
+    public async void Receive(AccountUpdatedMessage message)
+    {
+        if (Dispatcher != null)
+        {
+            await Dispatcher.ExecuteOnUIThread(() => UpdateGroupedAccount(message.Account));
+        }
+        else
+        {
+            UpdateGroupedAccount(message.Account);
+        }
+    }
+
+    public async void Receive(AccountCalendarSynchronizationStateChanged message)
+    {
+        if (Dispatcher != null)
+        {
+            await Dispatcher.ExecuteOnUIThread(() => UpdateCalendarSynchronizationState(message));
+        }
+        else
+        {
+            UpdateCalendarSynchronizationState(message);
+        }
+    }
+
+    private void UpdateGroupedAccount(MailAccount updatedAccount)
+    {
+        GroupedAccountCalendarViewModel? groupedAccount;
+        lock (_calendarStateLock)
+        {
+            groupedAccount = _internalGroupedAccountCalendars.FirstOrDefault(a => a.Account.Id == updatedAccount.Id);
+        }
+
+        groupedAccount?.UpdateAccount(updatedAccount);
+    }
+
+    private void UpdateCalendarSynchronizationState(AccountCalendarSynchronizationStateChanged message)
+    {
+        GroupedAccountCalendarViewModel? groupedAccount;
+        lock (_calendarStateLock)
+        {
+            groupedAccount = _internalGroupedAccountCalendars.FirstOrDefault(a => a.Account.Id == message.AccountId);
+        }
+
+        if (groupedAccount == null)
+            return;
+
+        groupedAccount.IsSynchronizationInProgress = message.IsSynchronizationInProgress;
+        groupedAccount.SynchronizationStatus = message.SynchronizationStatus;
+        UpdateAggregateSynchronizationState();
+    }
+
+    private void UpdateAggregateSynchronizationState()
+    {
+        IsAnySynchronizationInProgress = _internalGroupedAccountCalendars.Any(a => a.IsSynchronizationInProgress);
     }
 }

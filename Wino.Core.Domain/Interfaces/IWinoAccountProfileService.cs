@@ -8,6 +8,7 @@ using Wino.Core.Domain.Models.Accounts;
 using Wino.Mail.Api.Contracts.Ai;
 using Wino.Mail.Api.Contracts.Auth;
 using Wino.Mail.Api.Contracts.Common;
+using Wino.Mail.Api.Contracts.Users;
 
 namespace Wino.Core.Domain.Interfaces;
 
@@ -28,6 +29,10 @@ public interface IWinoAccountProfileService
     Task<ApiEnvelope<AiTextResultDto>> TranslateAsync(string html, string targetLanguage, CancellationToken cancellationToken = default);
     Task<ApiEnvelope<AiTextResultDto>> RewriteAsync(string html, string mode, CancellationToken cancellationToken = default);
     Task<ApiEnvelope<JsonElement>> SyncStoreEntitlementsAsync(CancellationToken cancellationToken = default);
+    Task<string?> GetSettingsAsync(CancellationToken cancellationToken = default);
+    Task SaveSettingsAsync(string settingsJson, CancellationToken cancellationToken = default);
+    Task<UserMailboxSyncListDto> GetMailboxesAsync(CancellationToken cancellationToken = default);
+    Task ReplaceMailboxesAsync(ReplaceUserMailboxesRequestDto request, CancellationToken cancellationToken = default);
     Task<bool> ProcessBillingCallbackAsync(Uri callbackUri, CancellationToken cancellationToken = default);
     Task SignOutAsync(CancellationToken cancellationToken = default);
 }

@@ -16,6 +16,7 @@ using Wino.Core.Domain.Models.Accounts;
 using Wino.Mail.Api.Contracts.Ai;
 using Wino.Mail.Api.Contracts.Auth;
 using Wino.Mail.Api.Contracts.Common;
+using Wino.Mail.Api.Contracts.Users;
 
 namespace Wino.Services;
 
@@ -160,49 +161,83 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 
     public async Task<string?> GetSettingsAsync(CancellationToken cancellationToken = default)
     {
-        try
+        using var response = await SendAuthorizedAsync(
+            () => CreateAuthorizedRequestAsync(HttpMethod.Get, "api/v1/users/me/settings"),
+            cancellationToken).ConfigureAwait(false);
+
+        if (response == null)
         {
-            using var response = await SendAuthorizedAsync(
-                () => CreateAuthorizedRequestAsync(HttpMethod.Get, "api/v1/users/me/settings"),
-                cancellationToken).ConfigureAwait(false);
-
-            if (response == null)
-                return null;
-
-            if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
-                return null;
-
-            if (!response.IsSuccessStatusCode)
-                return null;
-
-            return await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            throw new InvalidOperationException("MissingAccessToken");
         }
-        catch
+
+        if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
         {
             return null;
         }
+
+        await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
+
+        return await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<bool> SaveSettingsAsync(string settingsJson, CancellationToken cancellationToken = default)
+    public async Task SaveSettingsAsync(string settingsJson, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            using var response = await SendAuthorizedAsync(
-                () => CreateAuthorizedRequestAsync(
-                    HttpMethod.Put,
-                    "api/v1/users/me/settings",
-                    () => new StringContent(settingsJson, Encoding.UTF8, "application/json")),
-                cancellationToken).ConfigureAwait(false);
+        using var response = await SendAuthorizedAsync(
+            () => CreateAuthorizedRequestAsync(
+                HttpMethod.Put,
+                "api/v1/users/me/settings",
+                () => new StringContent(settingsJson, Encoding.UTF8, "application/json")),
+            cancellationToken).ConfigureAwait(false);
 
-            if (response == null)
-                return false;
-
-            return response.IsSuccessStatusCode;
-        }
-        catch
+        if (response == null)
         {
-            return false;
+            throw new InvalidOperationException("MissingAccessToken");
         }
+
+        await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<UserMailboxSyncListDto> GetMailboxesAsync(CancellationToken cancellationToken = default)
+    {
+        using var response = await SendAuthorizedAsync(
+            () => CreateAuthorizedRequestAsync(HttpMethod.Get, "api/v1/users/me/mailboxes"),
+            cancellationToken).ConfigureAwait(false);
+
+        if (response == null)
+        {
+            throw new InvalidOperationException("MissingAccessToken");
+        }
+
+        await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
+
+        var payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        var envelope = string.IsNullOrWhiteSpace(payload)
+            ? null
+            : JsonSerializer.Deserialize(payload, WinoAccountApiJsonContext.Default.ApiEnvelopeUserMailboxSyncListDto);
+
+        if (envelope?.IsSuccess == true && envelope.Result != null)
+        {
+            return envelope.Result;
+        }
+
+        throw new InvalidOperationException(ExtractErrorMessage(payload) ?? envelope?.ErrorCode ?? "Mailbox synchronization request failed.");
+    }
+
+    public async Task ReplaceMailboxesAsync(ReplaceUserMailboxesRequestDto request, CancellationToken cancellationToken = default)
+    {
+        using var response = await SendAuthorizedAsync(
+            () => CreateAuthorizedRequestAsync(
+                HttpMethod.Put,
+                "api/v1/users/me/mailboxes",
+                () => JsonContent.Create(request, WinoAccountApiJsonContext.Default.ReplaceUserMailboxesRequestDto)),
+            cancellationToken).ConfigureAwait(false);
+
+        if (response == null)
+        {
+            throw new InvalidOperationException("MissingAccessToken");
+        }
+
+        await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<WinoAccountApiResult<AuthResultDto>> SendAuthRequestAsync<TRequest>(string endpoint, TRequest request, JsonTypeInfo<TRequest> typeInfo, CancellationToken cancellationToken)
@@ -319,6 +354,19 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 
         value = property.GetString();
         return !string.IsNullOrWhiteSpace(value);
+    }
+
+    private static async Task EnsureSuccessResponseAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            return;
+        }
+
+        var payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        throw new InvalidOperationException(
+            ExtractErrorMessage(payload)
+            ?? $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim());
     }
 
     private Task<ApiEnvelope<TResponse>> SendAuthorizedRequestAsync<TResponse>(string endpoint, JsonTypeInfo<ApiEnvelope<TResponse>> typeInfo, CancellationToken cancellationToken)
@@ -549,7 +597,9 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(ApiEnvelope<AiStatusResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<AiTextResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<WinoStoreCollectionsIdTicketInfo>))]
+[JsonSerializable(typeof(ApiEnvelope<UserMailboxSyncListDto>))]
 [JsonSerializable(typeof(ApiEnvelope<JsonElement>))]
+[JsonSerializable(typeof(ReplaceUserMailboxesRequestDto))]
 internal sealed partial class WinoAccountApiJsonContext : JsonSerializerContext;
 
 internal sealed record SyncStoreEntitlementsRequest(string? StoreIdKey, string? PurchaseIdKey);

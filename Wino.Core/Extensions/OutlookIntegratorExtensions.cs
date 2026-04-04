@@ -191,10 +191,8 @@ public static class OutlookIntegratorExtensions
         // Bg must be present. Generate flat one if doesn't exists.
         // Text doesnt exists for Outlook.
 
-        calendar.BackgroundColorHex = string.IsNullOrEmpty(outlookCalendar.HexColor)
-            ? fallbackBackgroundColor ?? ColorHelpers.GenerateFlatColorHex()
-            : outlookCalendar.HexColor;
-        calendar.TextColorHex = "#000000";
+        calendar.BackgroundColorHex = fallbackBackgroundColor ?? ColorHelpers.GenerateFlatColorHex();
+        calendar.TextColorHex = ColorHelpers.GetReadableTextColorHex(calendar.BackgroundColorHex);
 
         return calendar;
     }

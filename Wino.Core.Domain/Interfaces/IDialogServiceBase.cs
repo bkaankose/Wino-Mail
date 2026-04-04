@@ -5,7 +5,6 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Common;
 using Wino.Core.Domain.Models.Printing;
-using Wino.Core.Domain.Models.Updates;
 
 namespace Wino.Core.Domain.Interfaces;
 
@@ -32,10 +31,4 @@ public interface IDialogServiceBase
     Task<List<PickedFileMetadata>> PickFilesMetadataAsync(params object[] typeFilters);
     Task<string> PickFilePathAsync(string saveFileName);
     Task<WebView2PrintSettingsModel> ShowPrintDialogAsync(WebView2PrintSettingsModel initialSettings = null);
-
-    /// <summary>
-    /// Presents the "What's New" dialog for the current version.
-    /// This dialog is undismissable and runs any pending migrations when the user clicks "Get Started".
-    /// </summary>
-    Task ShowWhatIsNewDialogAsync(UpdateNotes notes);
 }

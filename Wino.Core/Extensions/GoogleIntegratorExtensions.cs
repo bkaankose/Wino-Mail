@@ -147,10 +147,8 @@ public static class GoogleIntegratorExtensions
         // Bg color must present. Generate one if doesnt exists.
         // Text color is optional. It'll be overriden by UI for readibility.
 
-        calendar.BackgroundColorHex = string.IsNullOrEmpty(calendarListEntry.BackgroundColor)
-            ? fallbackBackgroundColor ?? ColorHelpers.GenerateFlatColorHex()
-            : calendarListEntry.BackgroundColor;
-        calendar.TextColorHex = string.IsNullOrEmpty(calendarListEntry.ForegroundColor) ? "#000000" : calendarListEntry.ForegroundColor;
+        calendar.BackgroundColorHex = fallbackBackgroundColor ?? ColorHelpers.GenerateFlatColorHex();
+        calendar.TextColorHex = ColorHelpers.GetReadableTextColorHex(calendar.BackgroundColorHex);
 
         return calendar;
     }

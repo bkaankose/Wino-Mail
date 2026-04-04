@@ -44,6 +44,7 @@ public static class CoreContainerSetup
         services.AddTransient<OutlookRateLimitHandler>();
 
         // Register Gmail error handlers
+        services.AddTransient<GmailAuthenticationFailedHandler>();
         services.AddTransient<GmailQuotaExceededHandler>();
         services.AddTransient<GmailRateLimitHandler>();
         services.AddTransient<GmailHistoryExpiredHandler>();
@@ -55,6 +56,9 @@ public static class CoreContainerSetup
         services.AddTransient<ImapAuthenticationFailedHandler>();
         services.AddTransient<ImapFolderNotFoundHandler>();
         services.AddTransient<ImapProtocolErrorHandler>();
+
+        // Register Outlook auth handlers
+        services.AddTransient<OutlookAuthenticationFailedHandler>();
 
         // Register error handler factories
         services.AddTransient<IOutlookSynchronizerErrorHandlerFactory, OutlookSynchronizerErrorHandlingFactory>();

@@ -52,6 +52,9 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     System.Windows.Input.ICommand ICalendarShellClient.DateClickedCommand => DateClickedCommand;
     System.Windows.Input.ICommand ICalendarShellClient.PreviousDateRangeCommand => PreviousDateRangeCommand;
     System.Windows.Input.ICommand ICalendarShellClient.NextDateRangeCommand => NextDateRangeCommand;
+    System.Windows.Input.ICommand ICalendarShellClient.SyncCommand => SyncCommand;
+
+    public bool CanSynchronizeCalendars => !AccountCalendarStateService.IsAnySynchronizationInProgress;
 
     public MenuItemCollection MenuItems { get; private set; }
     public MenuItemCollection FooterItems { get; private set; }
@@ -75,7 +78,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     private readonly SemaphoreSlim _accountCalendarUpdateSemaphoreSlim = new(1);
     private readonly CalendarPageViewModel _calendarPageViewModel;
     private readonly IMailDialogService _dialogService;
-    private readonly IUpdateManager _updateManager;
     private readonly IStoreUpdateService _storeUpdateService;
     private readonly IAccountService _accountService;
     private readonly ICalendarService _calendarService;
@@ -93,7 +95,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         INavigationService navigationService,
         CalendarPageViewModel calendarPageViewModel,
         IMailDialogService dialogService,
-        IUpdateManager updateManager,
         IStoreUpdateService storeUpdateService,
         IDateContextProvider dateContextProvider)
     {
@@ -105,11 +106,11 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         _calendarService = calendarService;
         _calendarPageViewModel = calendarPageViewModel;
         _dialogService = dialogService;
-        _updateManager = updateManager;
         _storeUpdateService = storeUpdateService;
         _dateContextProvider = dateContextProvider;
 
         _calendarPageViewModel.PropertyChanged += CalendarPageViewModelPropertyChanged;
+        AccountCalendarStateService.PropertyChanged += AccountCalendarStateServicePropertyChanged;
     }
 
     protected override void OnDispatcherAssigned()
@@ -177,11 +178,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         await InitializeAccountCalendarsAsync();
         ValidateConfiguredNewEventCalendar();
 
-        if (shouldRunStartupFlows)
-        {
-            await ShowWhatIsNewIfNeededAsync();
-        }
-
         TodayClicked();
     }
 
@@ -218,6 +214,15 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         _calendarPageViewModel.CleanupForShellDeactivation();
     }
 
+    private void AccountCalendarStateServicePropertyChanged(object sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(IAccountCalendarStateService.IsAnySynchronizationInProgress))
+            return;
+
+        OnPropertyChanged(nameof(CanSynchronizeCalendars));
+        SyncCommand.NotifyCanExecuteChanged();
+    }
+
     private void AttachRuntimeSubscriptions()
     {
         if (_runtimeSubscriptionsAttached)
@@ -238,18 +243,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         AccountCalendarStateService.CollectiveAccountGroupSelectionStateChanged -= AccountCalendarStateCollectivelyChanged;
         StatePersistenceService.StatePropertyChanged -= PrefefencesChanged;
         _runtimeSubscriptionsAttached = false;
-    }
-
-    private async Task ShowWhatIsNewIfNeededAsync()
-    {
-        if (!_updateManager.ShouldShowUpdateNotes())
-            return;
-
-        var notes = await _updateManager.GetLatestUpdateNotesAsync();
-        if (notes.Sections.Count == 0)
-            return;
-
-        await _dialogService.ShowWhatIsNewDialogAsync(notes);
     }
 
     private async Task RefreshFooterItemsAsync(bool showNotification)
@@ -326,7 +319,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         _navigationDate = null;
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanSynchronizeCalendars))]
     private async Task Sync()
     {
         var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
@@ -335,7 +328,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
             Messenger.Send(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
             {
                 AccountId = account.Id,
-                Type = CalendarSynchronizationType.CalendarEvents
+                Type = CalendarSynchronizationType.Strict
             }));
         }
     }

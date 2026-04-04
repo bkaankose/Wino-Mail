@@ -161,6 +161,13 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         => Messenger.Send(new BreadcrumbNavigationRequested(Translator.SettingsManageAliases_Title, WinoPage.AliasManagementPage, Account.Id));
 
     [RelayCommand]
+    private void EditImapCalDavSettings()
+        => Messenger.Send(new BreadcrumbNavigationRequested(
+            Translator.ImapCalDavSettingsPage_TitleEdit,
+            WinoPage.ImapCalDavSettingsPage,
+            ImapCalDavSettingsNavigationContext.CreateForEditMode(Account.Id)));
+
+    [RelayCommand]
     private async Task SaveChangesAsync()
     {
         await UpdateAccountAsync();

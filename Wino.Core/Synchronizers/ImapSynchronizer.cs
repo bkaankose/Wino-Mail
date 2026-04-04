@@ -1455,11 +1455,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         var remoteCalendarsById = remoteCalendars
             .GroupBy(c => c.RemoteCalendarId, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
-        var usedCalendarColors = new HashSet<string>(
-            localCalendars
-                .Select(a => a.BackgroundColorHex)
-                .Where(a => !string.IsNullOrWhiteSpace(a)),
-            StringComparer.OrdinalIgnoreCase);
+        var usedCalendarColors = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         var remotePrimaryCalendarId = remoteCalendars.FirstOrDefault()?.RemoteCalendarId;
 
@@ -1493,25 +1489,33 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                     IsPrimary = isPrimary,
                     IsSynchronizationEnabled = true,
                     IsExtended = true,
-                    TextColorHex = "#000000",
                     BackgroundColorHex = ColorHelpers.GetDistinctFlatColorHex(usedCalendarColors),
                     TimeZone = "UTC",
                     SynchronizationDeltaToken = string.Empty
                 };
 
+                newCalendar.TextColorHex = ColorHelpers.GetReadableTextColorHex(newCalendar.BackgroundColorHex);
                 usedCalendarColors.Add(newCalendar.BackgroundColorHex);
                 await _imapChangeProcessor.InsertAccountCalendarAsync(newCalendar).ConfigureAwait(false);
                 continue;
             }
 
+            var resolvedColor = ColorHelpers.GetDistinctFlatColorHex(usedCalendarColors, existingLocal.BackgroundColorHex);
             var shouldUpdate = !string.Equals(existingLocal.Name, remoteCalendar.Name, StringComparison.Ordinal)
-                               || existingLocal.IsPrimary != isPrimary;
+                               || existingLocal.IsPrimary != isPrimary
+                               || !string.Equals(existingLocal.BackgroundColorHex, resolvedColor, StringComparison.OrdinalIgnoreCase);
 
             if (!shouldUpdate)
+            {
+                usedCalendarColors.Add(resolvedColor);
                 continue;
+            }
 
             existingLocal.Name = remoteCalendar.Name;
             existingLocal.IsPrimary = isPrimary;
+            existingLocal.BackgroundColorHex = resolvedColor;
+            existingLocal.TextColorHex = ColorHelpers.GetReadableTextColorHex(existingLocal.BackgroundColorHex);
+            usedCalendarColors.Add(existingLocal.BackgroundColorHex);
             await _imapChangeProcessor.UpdateAccountCalendarAsync(existingLocal).ConfigureAwait(false);
         }
     }

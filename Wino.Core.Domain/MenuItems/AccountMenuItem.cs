@@ -111,6 +111,7 @@ public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IM
     public void UpdateAccount(MailAccount account)
     {
         Parameter = account;
+        AttentionReason = account.AttentionReason;
 
         OnPropertyChanged(nameof(AccountName));
         OnPropertyChanged(nameof(Base64ProfilePicture));

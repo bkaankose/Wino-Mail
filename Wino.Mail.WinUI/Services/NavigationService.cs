@@ -219,10 +219,13 @@ public class NavigationService : NavigationServiceBase, INavigationService
     public bool ChangeApplicationMode(WinoApplicationMode mode)
         => ExecuteOnNavigationThread(() => ChangeApplicationModeInternal(mode));
 
+    public bool ChangeApplicationMode(WinoApplicationMode mode, ShellModeActivationContext activationContext)
+        => ExecuteOnNavigationThread(() => ChangeApplicationModeInternal(mode, activationContext));
+
     public bool CanGoBack()
         => ExecuteOnNavigationThread(CanGoBackInternal);
 
-    private bool ChangeApplicationModeInternal(WinoApplicationMode mode, object? activationParameter = null)
+    private bool ChangeApplicationModeInternal(WinoApplicationMode mode, ShellModeActivationContext? activationContext = null)
     {
         var coreFrame = GetCoreFrameInternal(NavigationReferenceFrame.ShellFrame);
 
@@ -254,7 +257,8 @@ public class NavigationService : NavigationServiceBase, INavigationService
             shell.ActivateMode(mode, new ShellModeActivationContext
             {
                 IsInitialActivation = isInitialShellNavigation,
-                Parameter = activationParameter
+                SuppressStartupFlows = activationContext?.SuppressStartupFlows ?? false,
+                Parameter = activationContext?.Parameter
             });
 
             ResetCurrentModeBackStackState();
@@ -280,7 +284,10 @@ public class NavigationService : NavigationServiceBase, INavigationService
         {
             if (_statePersistanceService.ApplicationMode != WinoApplicationMode.Settings)
             {
-                return ChangeApplicationModeInternal(WinoApplicationMode.Settings, settingsTarget);
+                return ChangeApplicationModeInternal(WinoApplicationMode.Settings, new ShellModeActivationContext
+                {
+                    Parameter = settingsTarget
+                });
             }
 
             page = WinoPage.SettingsPage;

@@ -232,11 +232,10 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
             .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(authResult));
 
         _apiClient
-            .Setup(x => x.SummarizeAsync("<p>Hello</p>", default))
+            .Setup(x => x.SummarizeAsync("<p>Hello</p>", "en", default))
             .ReturnsAsync(ApiEnvelope<AiTextResultDto>.Success(
                 new AiTextResultDto("<p>Summary</p>"),
                 new QuotaInfoDto(
-                    true,
                     "Active",
                     DateTimeOffset.UtcNow.AddDays(-1),
                     DateTimeOffset.UtcNow.AddDays(29),
@@ -247,7 +246,7 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
 
         await _service.LoginAsync("first@example.com", "pw");
 
-        var response = await _service.SummarizeAsync("<p>Hello</p>");
+        var response = await _service.SummarizeAsync("<p>Hello</p>", "en");
 
         response.IsSuccess.Should().BeTrue();
         response.Result?.Html.Should().Be("<p>Summary</p>");

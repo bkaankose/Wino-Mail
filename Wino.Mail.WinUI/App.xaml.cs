@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System;
 using System.IO;
@@ -48,7 +49,8 @@ public partial class App : WinoApplication,
     IRecipient<NewCalendarSynchronizationRequested>,
     IRecipient<AccountCreatedMessage>,
     IRecipient<AccountRemovedMessage>,
-    IRecipient<GetStartedFromWelcomeRequested>
+    IRecipient<GetStartedFromWelcomeRequested>,
+    IRecipient<WelcomeImportCompletedMessage>
 {
     private const int InboxSyncsPerFullSync = 20;
     private const string ToggleDefaultModeLaunchArgument = "--mode=toggle-default";
@@ -63,7 +65,7 @@ public partial class App : WinoApplication,
     private bool _isExiting;
     private CancellationTokenSource? _autoSynchronizationLoopCts;
     private readonly SemaphoreSlim _autoSynchronizationSemaphore = new(1, 1);
-    private readonly Dictionary<Guid, int> _inboxSyncCounters = [];
+    private readonly ConcurrentDictionary<Guid, int> _inboxSyncCounters = [];
     private NativeTrayIcon? _trayIcon;
 
     internal bool IsExiting => _isExiting;
@@ -756,7 +758,9 @@ public partial class App : WinoApplication,
     /// Creates the main window without activating it.
     /// Used for both normal launch and startup task launch (tray only).
     /// </summary>
-    private void CreateWindow(Microsoft.UI.Xaml.LaunchActivatedEventArgs? args, string? forcedLaunchArguments = null)
+    private void CreateWindow(Microsoft.UI.Xaml.LaunchActivatedEventArgs? args,
+                              string? forcedLaunchArguments = null,
+                              ShellModeActivationContext? activationContextOverride = null)
     {
         LogActivation("Creating main window.");
 
@@ -769,13 +773,27 @@ public partial class App : WinoApplication,
 
         windowManager.SetPrimaryNavigationFrame(WinoWindowKind.Shell, shellWindow.GetMainFrame());
 
+        var navigationService = Services.GetRequiredService<INavigationService>();
+        var defaultMode = _preferencesService?.DefaultApplicationMode ?? WinoApplicationMode.Mail;
+        var activationArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
+
+        if (activationContextOverride != null)
+        {
+            var targetMode = !string.IsNullOrWhiteSpace(forcedLaunchArguments)
+                ? AppModeActivationResolver.Resolve(forcedLaunchArguments, null, null, defaultMode)
+                : TryResolveActivationMode(activationArgs, defaultMode, out var resolvedActivationMode)
+                    ? resolvedActivationMode
+                    : AppModeActivationResolver.Resolve(args?.Arguments, GetCurrentLaunchTileId(), Environment.CommandLine, defaultMode);
+
+            navigationService.ChangeApplicationMode(targetMode, activationContextOverride);
+            return;
+        }
+
         if (!string.IsNullOrWhiteSpace(forcedLaunchArguments))
         {
             shellWindow.HandleAppActivation(forcedLaunchArguments);
             return;
         }
-
-        var activationArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
 
         if (activationArgs.Kind == ExtendedActivationKind.Launch &&
             activationArgs.Data is ILaunchActivatedEventArgs launchArgs)
@@ -791,7 +809,7 @@ public partial class App : WinoApplication,
             return;
         }
 
-        if (TryResolveActivationMode(activationArgs, _preferencesService?.DefaultApplicationMode ?? WinoApplicationMode.Mail, out var activationMode))
+        if (TryResolveActivationMode(activationArgs, defaultMode, out var activationMode))
         {
             shellWindow.HandleAppActivation(GetModeLaunchArgument(activationMode));
             return;
@@ -859,6 +877,7 @@ public partial class App : WinoApplication,
         WeakReferenceMessenger.Default.Register<AccountCreatedMessage>(this);
         WeakReferenceMessenger.Default.Register<AccountRemovedMessage>(this);
         WeakReferenceMessenger.Default.Register<GetStartedFromWelcomeRequested>(this);
+        WeakReferenceMessenger.Default.Register<WelcomeImportCompletedMessage>(this);
     }
 
     public async void Receive(NewMailSynchronizationRequested message)
@@ -881,6 +900,11 @@ public partial class App : WinoApplication,
             message.Options.AccountId,
             syncResult.CompletedState,
             message.Options.GroupedSynchronizationTrackingId));
+
+        if (syncResult.CompletedState is SynchronizationCompletedState.Success or SynchronizationCompletedState.PartiallyCompleted)
+        {
+            await ClearInvalidCredentialAttentionIfNeededAsync(message.Options.AccountId).ConfigureAwait(false);
+        }
 
         if (syncResult.CompletedState == SynchronizationCompletedState.Failed ||
             syncResult.CompletedState == SynchronizationCompletedState.PartiallyCompleted)
@@ -906,7 +930,12 @@ public partial class App : WinoApplication,
             var dialogService = Services.GetRequiredService<IMailDialogService>();
             dialogService.InfoBarMessage(
                 Translator.Info_SyncFailedTitle,
-                Translator.Exception_FailedToSynchronizeFolders,
+                message.Options.Type switch
+                {
+                    CalendarSynchronizationType.CalendarMetadata => Translator.Exception_FailedToSynchronizeCalendarMetadata,
+                    CalendarSynchronizationType.Strict => Translator.Exception_FailedToSynchronizeCalendarData,
+                    _ => Translator.Exception_FailedToSynchronizeCalendarEvents
+                },
                 InfoBarMessageType.Error);
         }
     }
@@ -939,6 +968,47 @@ public partial class App : WinoApplication,
             }
 
             RestartAutoSynchronizationLoop();
+        });
+    }
+
+    public void Receive(WelcomeImportCompletedMessage message)
+    {
+        _hasConfiguredAccounts = message.ImportedMailboxCount > 0;
+
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        if (windowManager.GetWindow(WinoWindowKind.Welcome) == null)
+            return;
+
+        MainWindow?.DispatcherQueue?.TryEnqueue(async () =>
+        {
+            if (_preferencesService != null)
+            {
+                _preferencesService.PreferenceChanged -= PreferencesServiceChanged;
+                _preferencesService.PreferenceChanged += PreferencesServiceChanged;
+            }
+
+            CreateWindow(
+                null,
+                GetModeLaunchArgument(WinoApplicationMode.Mail),
+                new ShellModeActivationContext
+                {
+                    SuppressStartupFlows = true
+                });
+
+            await LoadInitialWinoAccountAsync();
+            CloseWelcomeWindowIfPresent();
+
+            if (MainWindow != null)
+            {
+                await ActivateWindowAsync(MainWindow);
+            }
+
+            RestartAutoSynchronizationLoop();
+
+            Services.GetRequiredService<IMailDialogService>().InfoBarMessage(
+                Translator.GeneralTitle_Info,
+                Translator.WinoAccount_Management_ImportReloginReminder,
+                InfoBarMessageType.Information);
         });
     }
 
@@ -1078,52 +1148,16 @@ public partial class App : WinoApplication,
 
             var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
             var currentAccountIds = accounts.Select(a => a.Id).ToHashSet();
-            _inboxSyncCounters.Keys.Where(a => !currentAccountIds.Contains(a)).ToList().ForEach(a => _inboxSyncCounters.Remove(a));
-
-            foreach (var account in accounts)
+            foreach (var staleAccountId in _inboxSyncCounters.Keys.Where(a => !currentAccountIds.Contains(a)).ToList())
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                if (_synchronizationManager.IsAccountSynchronizing(account.Id))
-                    continue;
-
-                var inboxSyncOptions = new MailSynchronizationOptions()
-                {
-                    AccountId = account.Id,
-                    Type = MailSynchronizationType.InboxOnly
-                };
-
-                var inboxSyncResult = await _synchronizationManager.SynchronizeMailAsync(inboxSyncOptions, cancellationToken).ConfigureAwait(false);
-
-                if (inboxSyncResult.CompletedState is SynchronizationCompletedState.Success or SynchronizationCompletedState.PartiallyCompleted)
-                {
-                    _inboxSyncCounters.TryAdd(account.Id, 0);
-                    _inboxSyncCounters[account.Id]++;
-
-                    if (_inboxSyncCounters[account.Id] >= InboxSyncsPerFullSync)
-                    {
-                        var fullSyncOptions = new MailSynchronizationOptions()
-                        {
-                            AccountId = account.Id,
-                            Type = MailSynchronizationType.FullFolders
-                        };
-
-                        await _synchronizationManager.SynchronizeMailAsync(fullSyncOptions, cancellationToken).ConfigureAwait(false);
-                        _inboxSyncCounters[account.Id] = 0;
-                    }
-                }
-
-                if (!account.IsCalendarAccessGranted)
-                    continue;
-
-                var calendarOptions = new CalendarSynchronizationOptions()
-                {
-                    AccountId = account.Id,
-                    Type = CalendarSynchronizationType.CalendarMetadata
-                };
-
-                await _synchronizationManager.SynchronizeCalendarAsync(calendarOptions, cancellationToken).ConfigureAwait(false);
+                _inboxSyncCounters.TryRemove(staleAccountId, out _);
             }
+
+            var synchronizationTasks = accounts
+                .Select(account => ExecuteAutoSynchronizationForAccountAsync(account, cancellationToken))
+                .ToList();
+
+            await Task.WhenAll(synchronizationTasks).ConfigureAwait(false);
         }
         finally
         {
@@ -1132,6 +1166,68 @@ public partial class App : WinoApplication,
                 _autoSynchronizationSemaphore.Release();
             }
         }
+    }
+
+    private async Task ExecuteAutoSynchronizationForAccountAsync(Wino.Core.Domain.Entities.Shared.MailAccount account, CancellationToken cancellationToken)
+    {
+        if (_synchronizationManager == null)
+            return;
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (_synchronizationManager.IsAccountSynchronizing(account.Id))
+            return;
+
+        var inboxSyncOptions = new MailSynchronizationOptions
+        {
+            AccountId = account.Id,
+            Type = MailSynchronizationType.InboxOnly
+        };
+
+        var inboxSyncResult = await _synchronizationManager.SynchronizeMailAsync(inboxSyncOptions, cancellationToken).ConfigureAwait(false);
+
+        if (inboxSyncResult.CompletedState is SynchronizationCompletedState.Success or SynchronizationCompletedState.PartiallyCompleted)
+        {
+            await ClearInvalidCredentialAttentionIfNeededAsync(account.Id).ConfigureAwait(false);
+
+            var inboxSyncCount = _inboxSyncCounters.AddOrUpdate(account.Id, 1, (_, currentCount) => currentCount + 1);
+
+            if (inboxSyncCount >= InboxSyncsPerFullSync)
+            {
+                var fullSyncOptions = new MailSynchronizationOptions
+                {
+                    AccountId = account.Id,
+                    Type = MailSynchronizationType.FullFolders
+                };
+
+                await _synchronizationManager.SynchronizeMailAsync(fullSyncOptions, cancellationToken).ConfigureAwait(false);
+                _inboxSyncCounters[account.Id] = 0;
+            }
+        }
+
+        if (!account.IsCalendarAccessGranted)
+            return;
+
+        var calendarOptions = new CalendarSynchronizationOptions
+        {
+            AccountId = account.Id,
+            Type = CalendarSynchronizationType.CalendarMetadata
+        };
+
+        await _synchronizationManager.SynchronizeCalendarAsync(calendarOptions, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task ClearInvalidCredentialAttentionIfNeededAsync(Guid accountId)
+    {
+        if (_accountService == null)
+            return;
+
+        var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+
+        if (account?.AttentionReason != AccountAttentionReason.InvalidCredentials)
+            return;
+
+        await _accountService.ClearAccountAttentionAsync(accountId).ConfigureAwait(false);
     }
 
     /// <summary>

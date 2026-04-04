@@ -4,7 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -13,6 +15,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authentication;
 using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.Services;
 
@@ -27,6 +30,7 @@ public class SynchronizationManager : ISynchronizationManager
 
     private readonly ConcurrentDictionary<Guid, IWinoSynchronizerBase> _synchronizerCache = new();
     private readonly ConcurrentDictionary<Guid, CancellationTokenSource> _accountSynchronizationCancellationSources = new();
+    private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _calendarSynchronizationLocks = new();
     private readonly SemaphoreSlim _initializationSemaphore = new(1, 1);
     private readonly ILogger _logger = Log.ForContext<SynchronizationManager>();
 
@@ -131,6 +135,12 @@ public class SynchronizationManager : ISynchronizationManager
     {
         EnsureInitialized();
 
+        if (await IsSynchronizationBlockedByAttentionAsync(options.AccountId).ConfigureAwait(false))
+        {
+            _logger.Information("Skipping mail synchronization for account {AccountId} because it requires credential attention.", options.AccountId);
+            return MailSynchronizationResult.Canceled;
+        }
+
         var synchronizer = await GetOrCreateSynchronizerAsync(options.AccountId);
         if (synchronizer == null)
         {
@@ -170,7 +180,8 @@ public class SynchronizationManager : ISynchronizationManager
         catch (AuthenticationAttentionException authEx)
         {
             _logger.Warning("Account {AccountId} requires attention due to authentication issues", options.AccountId);
-            
+            await SetInvalidCredentialAttentionAsync(authEx.Account).ConfigureAwait(false);
+
             // Create app notification for authentication attention
             _notificationBuilder.CreateAttentionRequiredNotification(authEx.Account);
 
@@ -348,8 +359,74 @@ public class SynchronizationManager : ISynchronizationManager
     /// <returns>Synchronization result</returns>
     public async Task<CalendarSynchronizationResult> SynchronizeCalendarAsync(CalendarSynchronizationOptions options,
                                                                                CancellationToken cancellationToken = default)
+        => options.Type == CalendarSynchronizationType.Strict
+            ? await SynchronizeCalendarStrictAsync(options, cancellationToken).ConfigureAwait(false)
+            : await RunCalendarSynchronizationWithLockAsync(
+                options.AccountId,
+                cancellationToken,
+                () => SynchronizeCalendarCoreAsync(options, cancellationToken, reportState: true)).ConfigureAwait(false);
+
+    private async Task<CalendarSynchronizationResult> SynchronizeCalendarStrictAsync(
+        CalendarSynchronizationOptions options,
+        CancellationToken cancellationToken)
+    {
+        var metadataOptions = new CalendarSynchronizationOptions
+        {
+            AccountId = options.AccountId,
+            Type = CalendarSynchronizationType.CalendarMetadata,
+            SynchronizationCalendarIds = options.SynchronizationCalendarIds
+        };
+
+        var eventOptions = new CalendarSynchronizationOptions
+        {
+            AccountId = options.AccountId,
+            Type = CalendarSynchronizationType.CalendarEvents,
+            SynchronizationCalendarIds = options.SynchronizationCalendarIds
+        };
+
+        return await RunCalendarSynchronizationWithLockAsync(options.AccountId, cancellationToken, async () =>
+        {
+            try
+            {
+                PublishCalendarSynchronizationState(
+                    options.AccountId,
+                    CalendarSynchronizationType.Strict,
+                    isSynchronizationInProgress: true,
+                    Translator.SyncAction_SynchronizingCalendarMetadata);
+
+                var metadataResult = await SynchronizeCalendarCoreAsync(metadataOptions, cancellationToken, reportState: false).ConfigureAwait(false);
+                if (metadataResult.CompletedState is SynchronizationCompletedState.Failed or SynchronizationCompletedState.Canceled)
+                {
+                    return metadataResult;
+                }
+
+                PublishCalendarSynchronizationState(
+                    options.AccountId,
+                    CalendarSynchronizationType.Strict,
+                    isSynchronizationInProgress: true,
+                    Translator.SyncAction_SynchronizingCalendarEvents);
+
+                return await SynchronizeCalendarCoreAsync(eventOptions, cancellationToken, reportState: false).ConfigureAwait(false);
+            }
+            finally
+            {
+                PublishCalendarSynchronizationState(options.AccountId, CalendarSynchronizationType.Strict, isSynchronizationInProgress: false);
+            }
+        }).ConfigureAwait(false);
+    }
+
+    private async Task<CalendarSynchronizationResult> SynchronizeCalendarCoreAsync(
+        CalendarSynchronizationOptions options,
+        CancellationToken cancellationToken,
+        bool reportState)
     {
         EnsureInitialized();
+
+        if (await IsSynchronizationBlockedByAttentionAsync(options.AccountId).ConfigureAwait(false))
+        {
+            _logger.Information("Skipping calendar synchronization for account {AccountId} because it requires credential attention.", options.AccountId);
+            return CalendarSynchronizationResult.Canceled;
+        }
 
         var synchronizer = await GetOrCreateSynchronizerAsync(options.AccountId);
         if (synchronizer == null)
@@ -360,6 +437,15 @@ public class SynchronizationManager : ISynchronizationManager
 
         _logger.Information("Starting calendar synchronization for account {AccountId} with type {SyncType}",
                           options.AccountId, options.Type);
+
+        if (reportState)
+        {
+            PublishCalendarSynchronizationState(
+                options.AccountId,
+                options.Type,
+                isSynchronizationInProgress: true,
+                GetCalendarSynchronizationStatus(options.Type));
+        }
 
         var accountCancellationSource = _accountSynchronizationCancellationSources.GetOrAdd(options.AccountId, _ => new CancellationTokenSource());
         using var linkedCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
@@ -387,7 +473,8 @@ public class SynchronizationManager : ISynchronizationManager
         catch (AuthenticationAttentionException authEx)
         {
             _logger.Warning("Account {AccountId} requires attention due to authentication issues", options.AccountId);
-            
+            await SetInvalidCredentialAttentionAsync(authEx.Account).ConfigureAwait(false);
+
             // Create app notification for authentication attention
             _notificationBuilder.CreateAttentionRequiredNotification(authEx.Account);
 
@@ -397,6 +484,13 @@ public class SynchronizationManager : ISynchronizationManager
         {
             _logger.Error(ex, "Calendar synchronization failed for account {AccountId}", options.AccountId);
             return CalendarSynchronizationResult.Failed;
+        }
+        finally
+        {
+            if (reportState)
+            {
+                PublishCalendarSynchronizationState(options.AccountId, options.Type, isSynchronizationInProgress: false);
+            }
         }
     }
 
@@ -665,6 +759,71 @@ public class SynchronizationManager : ISynchronizationManager
         if (!_isInitialized)
         {
             throw new InvalidOperationException("SynchronizationManager must be initialized before use. Call InitializeAsync first.");
+        }
+    }
+
+    private async Task SetInvalidCredentialAttentionAsync(MailAccount account)
+    {
+        if (account == null || _accountService == null)
+            return;
+
+        var persistedAccount = await _accountService.GetAccountAsync(account.Id).ConfigureAwait(false);
+
+        if (persistedAccount == null)
+            return;
+
+        if (persistedAccount.AttentionReason == AccountAttentionReason.InvalidCredentials)
+            return;
+
+        persistedAccount.AttentionReason = AccountAttentionReason.InvalidCredentials;
+        await _accountService.UpdateAccountAsync(persistedAccount).ConfigureAwait(false);
+    }
+
+    private async Task<bool> IsSynchronizationBlockedByAttentionAsync(Guid accountId)
+    {
+        if (_accountService == null)
+            return false;
+
+        var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+        return account?.AttentionReason == AccountAttentionReason.InvalidCredentials;
+    }
+
+    private void PublishCalendarSynchronizationState(
+        Guid accountId,
+        CalendarSynchronizationType synchronizationType,
+        bool isSynchronizationInProgress,
+        string synchronizationStatus = "")
+    {
+        WeakReferenceMessenger.Default.Send(new AccountCalendarSynchronizationStateChanged(
+            accountId,
+            synchronizationType,
+            isSynchronizationInProgress,
+            synchronizationStatus));
+    }
+
+    private static string GetCalendarSynchronizationStatus(CalendarSynchronizationType synchronizationType)
+        => synchronizationType switch
+        {
+            CalendarSynchronizationType.CalendarMetadata => Translator.SyncAction_SynchronizingCalendarMetadata,
+            CalendarSynchronizationType.Strict => Translator.SyncAction_SynchronizingCalendarData,
+            _ => Translator.SyncAction_SynchronizingCalendarEvents
+        };
+
+    private async Task<CalendarSynchronizationResult> RunCalendarSynchronizationWithLockAsync(
+        Guid accountId,
+        CancellationToken cancellationToken,
+        Func<Task<CalendarSynchronizationResult>> synchronizationFactory)
+    {
+        var calendarSemaphore = _calendarSynchronizationLocks.GetOrAdd(accountId, _ => new SemaphoreSlim(1, 1));
+        await calendarSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            return await synchronizationFactory().ConfigureAwait(false);
+        }
+        finally
+        {
+            calendarSemaphore.Release();
         }
     }
 }

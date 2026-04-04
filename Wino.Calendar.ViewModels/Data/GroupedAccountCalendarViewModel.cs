@@ -20,6 +20,7 @@ public partial class GroupedAccountCalendarViewModel : ObservableObject
     {
         Account = account;
         AccountCalendars = new ObservableCollection<AccountCalendarViewModel>(calendarViewModels);
+        AccountColorHex = account.AccountColorHex;
 
         ManageIsCheckedState();
 
@@ -73,6 +74,18 @@ public partial class GroupedAccountCalendarViewModel : ObservableObject
 
     [ObservableProperty]
     public partial bool? IsCheckedState { get; set; } = true;
+
+    [ObservableProperty]
+    public partial string AccountColorHex { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool IsSynchronizationInProgress { get; set; }
+
+    [ObservableProperty]
+    public partial string SynchronizationStatus { get; set; } = string.Empty;
+
+    public bool CanSynchronize => !IsSynchronizationInProgress;
+    public bool IsSynchronizationProgressVisible => IsSynchronizationInProgress;
 
     private bool _isExternalPropChangeBlocked = false;
 
@@ -141,5 +154,25 @@ public partial class GroupedAccountCalendarViewModel : ObservableObject
         if (_isExternalPropChangeBlocked == true) return;
 
         CalendarSelectionStateChanged?.Invoke(this, accountCalendarViewModel);
+    }
+
+    partial void OnIsSynchronizationInProgressChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanSynchronize));
+        OnPropertyChanged(nameof(IsSynchronizationProgressVisible));
+    }
+
+    public void UpdateAccount(MailAccount updatedAccount)
+    {
+        if (updatedAccount == null || updatedAccount.Id != Account.Id)
+            return;
+
+        Account.Name = updatedAccount.Name;
+        Account.Address = updatedAccount.Address;
+        Account.AccountColorHex = updatedAccount.AccountColorHex;
+        Account.AttentionReason = updatedAccount.AttentionReason;
+        Account.MergedInboxId = updatedAccount.MergedInboxId;
+        AccountColorHex = updatedAccount.AccountColorHex;
+        OnPropertyChanged(nameof(Account));
     }
 }

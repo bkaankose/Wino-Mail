@@ -20,6 +20,8 @@ using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Services;
+using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Client.Shell;
@@ -81,7 +83,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private readonly IMailDialogService _dialogService;
     private readonly IMimeFileService _mimeFileService;
     private readonly IWebView2RuntimeValidatorService _webView2RuntimeValidatorService;
-    private readonly IUpdateManager _updateManager;
     private readonly IStoreUpdateService _storeUpdateService;
 
     private readonly INativeAppService _nativeAppService;
@@ -108,7 +109,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                              IConfigurationService configurationService,
                              IStartupBehaviorService startupBehaviorService,
                              IWebView2RuntimeValidatorService webView2RuntimeValidatorService,
-                             IUpdateManager updateManager,
                              IStoreUpdateService storeUpdateService)
     {
         StatePersistenceService = statePersistanceService;
@@ -130,7 +130,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         _notificationBuilder = notificationBuilder;
         _winoRequestDelegator = winoRequestDelegator;
         _webView2RuntimeValidatorService = webView2RuntimeValidatorService;
-        _updateManager = updateManager;
         _storeUpdateService = storeUpdateService;
     }
 
@@ -235,7 +234,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         }
 
         var activationContext = parameters as ShellModeActivationContext;
-        var shouldRunStartupFlows = activationContext?.IsInitialActivation ?? true;
+        var shouldRunStartupFlows = (activationContext?.IsInitialActivation ?? true) &&
+                                    activationContext?.SuppressStartupFlows != true;
         var hasExistingAccountMenuItems = MenuItems?.OfType<IAccountMenuItem>().Any() == true;
 
         PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
@@ -258,7 +258,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
         if (shouldRunStartupFlows)
         {
-            await ShowWhatIsNewIfNeededAsync();
             await MakeSureEnableStartupLaunchAsync();
         }
     }
@@ -294,19 +293,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         MenuItems?.Clear();
         MenuItems?.Add(CreateMailMenuItem);
         FooterItems?.Clear();
-    }
-
-    private async Task ShowWhatIsNewIfNeededAsync()
-    {
-        if (!_updateManager.ShouldShowUpdateNotes())
-            return;
-
-        var notes = await _updateManager.GetLatestUpdateNotesAsync();
-
-        if (notes.Sections.Count == 0)
-            return;
-
-        await _dialogService.ShowWhatIsNewDialogAsync(notes);
     }
 
     private async Task MakeSureEnableStartupLaunchAsync()
@@ -605,21 +591,75 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         }
     }
 
+    public Task HandleAccountAttentionAsync(MailAccount account)
+        => FixAccountIssuesAsync(account);
+
+    private void TriggerFullSynchronization(MailAccount account)
+    {
+        Messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+        {
+            AccountId = account.Id,
+            Type = MailSynchronizationType.FullFolders
+        }));
+
+        if (account.IsCalendarAccessGranted)
+        {
+            Messenger.Send(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
+            {
+                AccountId = account.Id,
+                Type = CalendarSynchronizationType.CalendarEvents
+            }));
+        }
+    }
+
     private async Task FixAccountIssuesAsync(MailAccount account)
     {
-        // TODO: This area is very unclear. Needs to be rewritten with care.
-        // Fix account issues are expected to not work, but may work for some cases.
-
         try
         {
             if (account.AttentionReason == AccountAttentionReason.InvalidCredentials)
-                await _accountService.FixTokenIssuesAsync(account.Id);
+            {
+                if (account.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook)
+                {
+                    await SynchronizationManager.Instance.HandleAuthorizationAsync(
+                        account.ProviderType,
+                        account,
+                        account.ProviderType == MailProviderType.Gmail);
+
+                    await _accountService.ClearAccountAttentionAsync(account.Id);
+
+                    _dialogService.InfoBarMessage(
+                        Translator.Info_AccountIssueFixSuccessTitle,
+                        Translator.Info_AccountIssueFixSuccessMessage,
+                        InfoBarMessageType.Success);
+
+                    TriggerFullSynchronization(account);
+                    return;
+                }
+
+                NavigationService.Navigate(WinoPage.SettingsPage, WinoPage.ManageAccountsPage);
+                Messenger.Send(new BreadcrumbNavigationRequested(
+                    Translator.ImapCalDavSettingsPage_TitleEdit,
+                    WinoPage.ImapCalDavSettingsPage,
+                    ImapCalDavSettingsNavigationContext.CreateForEditMode(account.Id)));
+
+                _dialogService.InfoBarMessage(
+                    Translator.Info_AccountIssueFixSuccessTitle,
+                    Translator.Info_AccountIssueFixImapMessage,
+                    InfoBarMessageType.Information);
+                return;
+            }
             else if (account.AttentionReason == AccountAttentionReason.MissingSystemFolderConfiguration)
+            {
                 await _dialogService.HandleSystemFolderConfigurationDialogAsync(account.Id, _folderService);
+                await _accountService.ClearAccountAttentionAsync(account.Id);
 
-            await _accountService.ClearAccountAttentionAsync(account.Id);
+                _dialogService.InfoBarMessage(
+                    Translator.Info_AccountIssueFixSuccessTitle,
+                    Translator.Info_AccountIssueFixSuccessMessage,
+                    InfoBarMessageType.Success);
 
-            _dialogService.InfoBarMessage(Translator.Info_AccountIssueFixFailedTitle, Translator.Info_AccountIssueFixSuccessMessage, InfoBarMessageType.Success);
+                TriggerFullSynchronization(account);
+            }
         }
         catch (Exception ex)
         {

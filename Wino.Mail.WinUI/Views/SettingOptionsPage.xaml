@@ -219,6 +219,11 @@
                         Style="{StaticResource BodyStrongTextBlockStyle}"
                         Text="Manage account settings" />
                     <TextBlock Margin="20,0,0,12" Text="Add new account or manage individidual account settings." />
+                    <Button
+                        Margin="20,0,0,12"
+                        HorizontalAlignment="Left"
+                        Click="ManageAccountsClicked"
+                        Content="{x:Bind domain:Translator.MenuManageAccounts}" />
                     <ListView
                         x:Name="AccountsList"
                         IsItemClickEnabled="False"

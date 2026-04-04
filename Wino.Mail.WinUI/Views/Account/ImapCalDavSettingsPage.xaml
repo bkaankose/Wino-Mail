@@ -10,9 +10,9 @@
 
     <ScrollViewer>
         <StackPanel
-            MaxWidth="860"
             Padding="36,28,36,36"
-            HorizontalAlignment="Center"
+            HorizontalAlignment="Stretch"
+            
             Spacing="24">
 
             <!--  Page Header  -->

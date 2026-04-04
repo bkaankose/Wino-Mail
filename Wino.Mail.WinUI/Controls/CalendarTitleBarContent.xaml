@@ -15,8 +15,9 @@
             TargetType="Button">
             <Setter Property="Margin" Value="0" />
             <Setter Property="Height" Value="32" />
+
             <Setter Property="Padding" Value="0" />
-            <Setter Property="Foreground" Value="{ThemeResource SystemColorControlAccentBrush}" />
+            <!--<Setter Property="Foreground" Value="{ThemeResource SystemColorControlAccentBrush}" />-->
 
             <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
             <Setter Property="VerticalAlignment" Value="Center" />
@@ -27,7 +28,7 @@
     <Grid Margin="4,0,0,0" Background="Transparent">
         <Grid Background="Transparent" ColumnSpacing="16">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="64" />
+                <ColumnDefinition Width="128" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>

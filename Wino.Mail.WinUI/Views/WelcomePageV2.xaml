@@ -130,6 +130,34 @@
                 MaxWidth="600"
                 HorizontalAlignment="Center"
                 Spacing="8">
+                <HyperlinkButton
+                    HorizontalAlignment="Center"
+                    Command="{x:Bind ViewModel.ImportFromWinoAccountCommand}"
+                    Content="{x:Bind domain:Translator.WelcomeWindow_ImportFromWinoAccount}" />
+
+                <StackPanel
+                    x:Name="ImportProgressPanel"
+                    HorizontalAlignment="Stretch"
+                    Spacing="8"
+                    Visibility="{x:Bind ViewModel.IsImportInProgress, Mode=OneWay}">
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.WelcomeWindow_ImportInProgress}" />
+                    <ProgressBar IsIndeterminate="True" />
+                </StackPanel>
+
+                <TextBlock
+                    x:Name="ImportStatusTextBlock"
+                    HorizontalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind ViewModel.ImportStatusMessage, Mode=OneWay}"
+                    TextAlignment="Center"
+                    TextWrapping="WrapWholeWords"
+                    Visibility="{x:Bind ViewModel.HasImportStatus, Mode=OneWay}" />
+
                 <TextBlock
                     HorizontalAlignment="Center"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"

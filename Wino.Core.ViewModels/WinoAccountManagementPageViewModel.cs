@@ -1,14 +1,15 @@
 #nullable enable
 using System;
 using System.Collections.ObjectModel;
-using Wino.Core.Domain.Entities.Shared;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.ViewModels.Data;
 using Wino.Mail.Api.Contracts.Common;
@@ -22,6 +23,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     IRecipient<WinoAccountAddOnPurchasedMessage>
 {
     private readonly IWinoAccountProfileService _profileService;
+    private readonly IWinoAccountDataSyncService _syncService;
     private readonly IMailDialogService _dialogService;
     private readonly IStoreManagementService _storeManagementService;
     private readonly WinoAddOnItemViewModel _aiPackAddOn;
@@ -49,10 +51,12 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     public bool IsSignedOut => !IsSignedIn;
 
     public WinoAccountManagementPageViewModel(IWinoAccountProfileService profileService,
+                                              IWinoAccountDataSyncService syncService,
                                               IMailDialogService dialogService,
                                               IStoreManagementService storeManagementService)
     {
         _profileService = profileService;
+        _syncService = syncService;
         _dialogService = dialogService;
         _storeManagementService = storeManagementService;
 
@@ -220,10 +224,69 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         => addOn != null && !addOn.IsPurchased && !addOn.IsLoading && !IsCheckoutInProgress;
 
     [RelayCommand]
-    private Task ExportSettingsAsync() => Task.CompletedTask;
+    private async Task ExportSettingsAsync()
+    {
+        try
+        {
+            var result = await _dialogService.ShowWinoAccountExportDialogAsync().ConfigureAwait(false);
+            if (result == null)
+            {
+                return;
+            }
+
+            _dialogService.InfoBarMessage(
+                Translator.GeneralTitle_Info,
+                BuildExportSuccessMessage(result),
+                InfoBarMessageType.Success);
+        }
+        catch (Exception ex)
+        {
+            _dialogService.InfoBarMessage(
+                Translator.GeneralTitle_Error,
+                ex.Message,
+                InfoBarMessageType.Error);
+        }
+    }
 
     [RelayCommand]
-    private Task ImportSettingsAsync() => Task.CompletedTask;
+    private async Task ImportSettingsAsync()
+    {
+        await ExecuteUIThread(() => IsBusy = true);
+
+        try
+        {
+            var result = await _syncService.ImportAsync(new WinoAccountSyncSelection());
+
+            if (!result.HasAnyRemoteData)
+            {
+                _dialogService.InfoBarMessage(
+                    Translator.GeneralTitle_Info,
+                    Translator.WinoAccount_Management_NoRemoteSettings,
+                    InfoBarMessageType.Information);
+                return;
+            }
+
+            var messageType = result.FailedPreferenceCount > 0
+                ? InfoBarMessageType.Warning
+                : InfoBarMessageType.Success;
+
+            _dialogService.InfoBarMessage(
+                result.FailedPreferenceCount > 0 ? Translator.GeneralTitle_Warning : Translator.GeneralTitle_Info,
+                BuildImportMessage(result),
+                messageType);
+        }
+        catch (Exception ex)
+        {
+            _dialogService.InfoBarMessage(
+                Translator.GeneralTitle_Error,
+                ex.Message,
+                InfoBarMessageType.Error);
+        }
+        finally
+        {
+            await ExecuteUIThread(() => IsBusy = false);
+        }
+    }
 
     protected override void RegisterRecipients()
     {
@@ -391,6 +454,62 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         {
             _ => Translator.WinoAccount_Management_StoreSyncFailed
         };
+
+    private static string BuildExportSuccessMessage(WinoAccountSyncExportResult result)
+    {
+        var parts = new Collection<string>();
+
+        if (result.IncludedPreferences)
+        {
+            parts.Add(Translator.WinoAccount_Management_ExportPreferencesSucceeded);
+        }
+
+        if (result.IncludedAccounts)
+        {
+            parts.Add(string.Format(Translator.WinoAccount_Management_ExportAccountsSucceeded, result.ExportedMailboxCount));
+        }
+
+        if (parts.Count == 0)
+        {
+            parts.Add(Translator.WinoAccount_Management_ExportSucceeded);
+        }
+
+        return string.Join(" ", parts);
+    }
+
+    private static string BuildImportMessage(WinoAccountSyncImportResult result)
+    {
+        var parts = new Collection<string>();
+
+        if (result.HadRemotePreferences)
+        {
+            parts.Add(result.FailedPreferenceCount > 0
+                ? string.Format(Translator.WinoAccount_Management_ImportPartial, result.AppliedPreferenceCount, result.FailedPreferenceCount)
+                : string.Format(Translator.WinoAccount_Management_ImportPreferencesSucceeded, result.AppliedPreferenceCount));
+        }
+
+        if (result.ImportedMailboxCount > 0)
+        {
+            parts.Add(string.Format(Translator.WinoAccount_Management_ImportAccountsSucceeded, result.ImportedMailboxCount));
+        }
+
+        if (result.SkippedDuplicateMailboxCount > 0)
+        {
+            parts.Add(string.Format(Translator.WinoAccount_Management_ImportDuplicateAccountsSkipped, result.SkippedDuplicateMailboxCount));
+        }
+
+        if (parts.Count == 0)
+        {
+            parts.Add(Translator.WinoAccount_Management_ImportEmpty);
+        }
+
+        if (result.ImportedMailboxCount > 0)
+        {
+            parts.Add(Translator.WinoAccount_Management_ImportReloginReminder);
+        }
+
+        return string.Join(" ", parts);
+    }
 
     private static bool IsAccessTokenExpired(WinoAccount account)
         => string.IsNullOrWhiteSpace(account.AccessToken) || account.AccessTokenExpiresAtUtc <= DateTime.UtcNow;

@@ -11,12 +11,14 @@ namespace Wino.Core.Services;
 public class GmailSynchronizerErrorHandlingFactory : SynchronizerErrorHandlingFactory, IGmailSynchronizerErrorHandlerFactory
 {
     public GmailSynchronizerErrorHandlingFactory(
+        GmailAuthenticationFailedHandler authenticationFailedHandler,
         GmailQuotaExceededHandler quotaExceededHandler,
         GmailRateLimitHandler rateLimitHandler,
         GmailHistoryExpiredHandler historyExpiredHandler,
         EntityNotFoundHandler entityNotFoundHandler)
     {
         // Order matters - more specific handlers should be registered first
+        RegisterHandler(authenticationFailedHandler);
         RegisterHandler(quotaExceededHandler);
         RegisterHandler(historyExpiredHandler);
         RegisterHandler(entityNotFoundHandler);

@@ -51,6 +51,8 @@ public interface ICalendarShellClient : IShellClient
     int SelectedDateNavigationHeaderIndex { get; }
     VisibleDateRange? CurrentVisibleRange { get; }
     string VisibleDateRangeText { get; }
+    bool CanSynchronizeCalendars { get; }
+    ICommand SyncCommand { get; }
     ICommand TodayClickedCommand { get; }
     ICommand DateClickedCommand { get; }
     ICommand PreviousDateRangeCommand { get; }

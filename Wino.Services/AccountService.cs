@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Diagnostics;
@@ -642,9 +643,10 @@ public class AccountService : BaseDatabaseService, IAccountService
             IsExtended = true,
             RemoteCalendarId = string.Empty,
             TimeZone = string.Empty,
-            BackgroundColorHex = await GetNextDistinctCalendarColorAsync().ConfigureAwait(false),
-            TextColorHex = "#FFFFFF"
+            BackgroundColorHex = await GetNextDistinctCalendarColorAsync().ConfigureAwait(false)
         };
+
+        localCalendar.TextColorHex = GetReadableTextColorHex(localCalendar.BackgroundColorHex);
 
         await Connection.InsertAsync(localCalendar, typeof(AccountCalendar)).ConfigureAwait(false);
     }
@@ -656,6 +658,16 @@ public class AccountService : BaseDatabaseService, IAccountService
             .ConfigureAwait(false);
 
         return CalendarColorPalette.GetDistinctColor(usedColors.Select(a => a.BackgroundColorHex));
+    }
+
+    private static string GetReadableTextColorHex(string backgroundColorHex)
+    {
+        if (string.IsNullOrWhiteSpace(backgroundColorHex))
+            return "#FFFFFF";
+
+        var color = ColorTranslator.FromHtml(backgroundColorHex);
+        var luminance = ((0.299 * color.R) + (0.587 * color.G) + (0.114 * color.B)) / 255d;
+        return luminance > 0.6 ? "#111111" : "#FFFFFF";
     }
 
     public async Task UpdateAccountOrdersAsync(Dictionary<Guid, int> accountIdOrderPair)

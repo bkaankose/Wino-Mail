@@ -603,11 +603,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         var localCalendars = await _gmailChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
         var remotePrimaryCalendarId = GetPrimaryCalendarId(calendarListResponse.Items);
-        var usedCalendarColors = new HashSet<string>(
-            localCalendars
-                .Select(a => a.BackgroundColorHex)
-                .Where(a => !string.IsNullOrWhiteSpace(a)),
-            StringComparer.OrdinalIgnoreCase);
+        var usedCalendarColors = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         List<AccountCalendar> insertedCalendars = new();
         List<AccountCalendar> updatedCalendars = new();
@@ -637,25 +633,25 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             if (existingLocalCalendar == null)
             {
                 // Insert new calendar.
-                var fallbackColor = ColorHelpers.GetDistinctFlatColorHex(usedCalendarColors);
+                var fallbackColor = ColorHelpers.GetDistinctFlatColorHex(usedCalendarColors, calendar.BackgroundColor);
                 var localCalendar = calendar.AsCalendar(Account.Id, fallbackColor);
                 localCalendar.IsPrimary = string.Equals(localCalendar.RemoteCalendarId, remotePrimaryCalendarId, StringComparison.OrdinalIgnoreCase);
-                if (string.IsNullOrWhiteSpace(localCalendar.BackgroundColorHex) || usedCalendarColors.Contains(localCalendar.BackgroundColorHex))
-                    localCalendar.BackgroundColorHex = ColorHelpers.GetDistinctFlatColorHex(usedCalendarColors);
+                localCalendar.BackgroundColorHex = ColorHelpers.GetDistinctFlatColorHex(usedCalendarColors, localCalendar.BackgroundColorHex);
+                localCalendar.TextColorHex = ColorHelpers.GetReadableTextColorHex(localCalendar.BackgroundColorHex);
                 usedCalendarColors.Add(localCalendar.BackgroundColorHex);
                 insertedCalendars.Add(localCalendar);
             }
             else
             {
                 // Update existing calendar. Right now we only update the name.
-                if (ShouldUpdateCalendar(calendar, existingLocalCalendar, remotePrimaryCalendarId))
+                var resolvedColor = ColorHelpers.GetDistinctFlatColorHex(usedCalendarColors, existingLocalCalendar.BackgroundColorHex);
+                if (ShouldUpdateCalendar(calendar, existingLocalCalendar, remotePrimaryCalendarId) ||
+                    !string.Equals(existingLocalCalendar.BackgroundColorHex, resolvedColor, StringComparison.OrdinalIgnoreCase))
                 {
                     existingLocalCalendar.Name = calendar.Summary;
                     existingLocalCalendar.TimeZone = calendar.TimeZone;
-                    if (!string.IsNullOrEmpty(calendar.BackgroundColor))
-                        existingLocalCalendar.BackgroundColorHex = calendar.BackgroundColor;
-                    if (!string.IsNullOrEmpty(calendar.ForegroundColor))
-                        existingLocalCalendar.TextColorHex = calendar.ForegroundColor;
+                    existingLocalCalendar.BackgroundColorHex = resolvedColor;
+                    existingLocalCalendar.TextColorHex = ColorHelpers.GetReadableTextColorHex(existingLocalCalendar.BackgroundColorHex);
                     existingLocalCalendar.IsPrimary = string.Equals(existingLocalCalendar.RemoteCalendarId, remotePrimaryCalendarId, StringComparison.OrdinalIgnoreCase);
 
                     updatedCalendars.Add(existingLocalCalendar);
@@ -665,6 +661,8 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                     // Remove it from the local folder list to skip additional calendar updates.
                     localCalendars.Remove(existingLocalCalendar);
                 }
+
+                usedCalendarColors.Add(resolvedColor);
             }
         }
 

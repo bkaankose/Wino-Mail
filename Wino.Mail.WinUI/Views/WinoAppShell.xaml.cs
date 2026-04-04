@@ -277,6 +277,17 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         await InvokeNewCalendarEventAsync();
     }
 
+    private async void AttentionIconClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: AccountMenuItem accountMenuItem })
+            return;
+
+        if (ViewModel.MailClient is MailAppShellViewModel mailClient)
+        {
+            await mailClient.HandleAccountAttentionAsync(accountMenuItem.Parameter);
+        }
+    }
+
     private async void NewCalendarEventNavigationItemKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (e.Key is not (VirtualKey.Enter or VirtualKey.Space))
@@ -288,6 +299,31 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private Task InvokeNewCalendarEventAsync()
         => ViewModel.CalendarClient.HandleNavigationItemInvokedAsync(new NewCalendarEventMenuItem());
+
+    private async void SynchronizeCalendarsNavigationItemTapped(object sender, TappedRoutedEventArgs e)
+    {
+        e.Handled = true;
+        await InvokeCalendarSynchronizationAsync();
+    }
+
+    private async void SynchronizeCalendarsNavigationItemKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key is not (VirtualKey.Enter or VirtualKey.Space))
+            return;
+
+        e.Handled = true;
+        await InvokeCalendarSynchronizationAsync();
+    }
+
+    private Task InvokeCalendarSynchronizationAsync()
+    {
+        if (ViewModel.CalendarClient.SyncCommand.CanExecute(null))
+        {
+            ViewModel.CalendarClient.SyncCommand.Execute(null);
+        }
+
+        return Task.CompletedTask;
+    }
 
     public void Receive(CalendarDisplayTypeChangedMessage message) => NotifyTitleBarContentChanged();
 

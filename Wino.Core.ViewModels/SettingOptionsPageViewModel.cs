@@ -163,6 +163,11 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
         Messenger.Send(new BreadcrumbNavigationRequested(Translator.WelcomeWizard_Step2Title, WinoPage.ProviderSelectionPage));
     }
 
+    public void NavigateToManageAccounts()
+    {
+        Messenger.Send(new BreadcrumbNavigationRequested(Translator.SettingsManageAccountSettings_Title, WinoPage.ManageAccountsPage));
+    }
+
     private async Task LoadDashboardAsync()
     {
         var accounts = (await _accountService.GetAccountsAsync().ConfigureAwait(false) ?? []).ToList();

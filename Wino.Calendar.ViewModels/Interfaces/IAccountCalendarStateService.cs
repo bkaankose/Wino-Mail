@@ -29,5 +29,6 @@ public interface IAccountCalendarStateService : INotifyPropertyChanged
     /// </summary>
     IEnumerable<AccountCalendarViewModel> ActiveCalendars { get; }
     IEnumerable<AccountCalendarViewModel> AllCalendars { get; }
+    bool IsAnySynchronizationInProgress { get; }
     ReadOnlyObservableGroupedCollection<MailAccount, AccountCalendarViewModel> GroupedCalendars { get; set; }
 }

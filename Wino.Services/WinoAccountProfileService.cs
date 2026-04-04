@@ -11,6 +11,7 @@ using Wino.Core.Domain.Models.Accounts;
 using Wino.Mail.Api.Contracts.Ai;
 using Wino.Mail.Api.Contracts.Auth;
 using Wino.Mail.Api.Contracts.Common;
+using Wino.Mail.Api.Contracts.Users;
 using Wino.Messaging.UI;
 
 namespace Wino.Services;
@@ -283,6 +284,38 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
         await GetAiStatusAsync(cancellationToken).ConfigureAwait(false);
 
         return response;
+    }
+
+    public async Task<string?> GetSettingsAsync(CancellationToken cancellationToken = default)
+    {
+        _ = await GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("MissingAccessToken");
+
+        return await _apiClient.GetSettingsAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task SaveSettingsAsync(string settingsJson, CancellationToken cancellationToken = default)
+    {
+        _ = await GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("MissingAccessToken");
+
+        await _apiClient.SaveSettingsAsync(settingsJson, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<UserMailboxSyncListDto> GetMailboxesAsync(CancellationToken cancellationToken = default)
+    {
+        _ = await GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("MissingAccessToken");
+
+        return await _apiClient.GetMailboxesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task ReplaceMailboxesAsync(ReplaceUserMailboxesRequestDto request, CancellationToken cancellationToken = default)
+    {
+        _ = await GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("MissingAccessToken");
+
+        await _apiClient.ReplaceMailboxesAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<bool> ProcessBillingCallbackAsync(Uri callbackUri, CancellationToken cancellationToken = default)

@@ -1,0 +1,76 @@
+<ContentDialog
+    x:Class="Wino.Dialogs.WinoAccountSyncExportDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    DefaultButton="Primary"
+    PrimaryButtonClick="ExportClicked"
+    PrimaryButtonStyle="{ThemeResource AccentButtonStyle}"
+    PrimaryButtonText="{x:Bind domain:Translator.Buttons_Export, Mode=OneTime}"
+    SecondaryButtonText="{x:Bind domain:Translator.Buttons_Close, Mode=OneTime}"
+    Style="{StaticResource WinoDialogStyle}"
+    Title="{x:Bind domain:Translator.WinoAccount_Management_ExportDialog_Title, Mode=OneTime}"
+    mc:Ignorable="d">
+
+    <ContentDialog.Resources>
+        <x:Double x:Key="ContentDialogMinWidth">520</x:Double>
+        <x:Double x:Key="ContentDialogMaxWidth">520</x:Double>
+    </ContentDialog.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="16">
+            <TextBlock
+                Text="{x:Bind domain:Translator.WinoAccount_Management_ExportDialog_Description, Mode=OneTime}"
+                TextWrapping="WrapWholeWords" />
+
+            <StackPanel Spacing="12">
+                <CheckBox
+                    x:Name="PreferencesCheckBox"
+                    Checked="SelectionChanged"
+                    Content="{x:Bind domain:Translator.WinoAccount_Management_ExportDialog_IncludePreferences, Mode=OneTime}"
+                    IsChecked="True"
+                    Unchecked="SelectionChanged" />
+
+                <StackPanel Spacing="8">
+                    <CheckBox
+                        x:Name="AccountsCheckBox"
+                        Checked="SelectionChanged"
+                        Content="{x:Bind domain:Translator.WinoAccount_Management_ExportDialog_IncludeAccounts, Mode=OneTime}"
+                        IsChecked="True"
+                        Unchecked="SelectionChanged" />
+
+                    <Border
+                        Padding="12"
+                        Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                        CornerRadius="10">
+                        <StackPanel Spacing="6">
+                            <TextBlock
+                                Style="{StaticResource BodyStrongTextBlockStyle}"
+                                Text="{x:Bind domain:Translator.WinoAccount_Management_ExportDialog_AccountsDisclaimer, Mode=OneTime}"
+                                TextWrapping="WrapWholeWords" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind domain:Translator.WinoAccount_Management_ExportDialog_AccountsRelogin, Mode=OneTime}"
+                                TextWrapping="WrapWholeWords" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel
+                x:Name="ProgressPanel"
+                Spacing="8"
+                Visibility="Collapsed">
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.WinoAccount_Management_ExportDialog_InProgress, Mode=OneTime}"
+                    TextWrapping="WrapWholeWords" />
+                <ProgressBar IsIndeterminate="True" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</ContentDialog>

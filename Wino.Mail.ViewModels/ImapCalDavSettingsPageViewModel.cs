@@ -13,9 +13,12 @@ using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.AutoDiscovery;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
+using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Navigation;
+using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels;
 
@@ -289,7 +292,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         else
         {
             PageTitle = Translator.ImapCalDavSettingsPage_TitleEdit;
-            await InitializeEditModeAsync(context.AccountId).ConfigureAwait(false);
+            await InitializeEditModeAsync(context.AccountId);
         }
     }
 
@@ -498,7 +501,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
     private async Task InitializeEditModeAsync(Guid accountId)
     {
-        var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+        var account = await _accountService.GetAccountAsync(accountId);
         if (account == null)
             throw new InvalidOperationException(Translator.Exception_NullAssignedAccount);
 
@@ -768,9 +771,25 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         serverInformation.AccountId = account.Id;
 
         account.ServerInformation = serverInformation;
+        account.AttentionReason = AccountAttentionReason.None;
 
         await _accountService.UpdateAccountCustomServerInformationAsync(serverInformation).ConfigureAwait(false);
         await _accountService.UpdateAccountAsync(account).ConfigureAwait(false);
+
+        Messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+        {
+            AccountId = account.Id,
+            Type = MailSynchronizationType.FullFolders
+        }));
+
+        if (account.IsCalendarAccessGranted)
+        {
+            Messenger.Send(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
+            {
+                AccountId = account.Id,
+                Type = CalendarSynchronizationType.CalendarEvents
+            }));
+        }
 
         _mailDialogService.InfoBarMessage(
             Translator.IMAPSetupDialog_ValidationSuccess_Title,
