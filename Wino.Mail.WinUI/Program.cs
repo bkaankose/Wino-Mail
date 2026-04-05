@@ -3,9 +3,13 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Toolkit.Uwp.Notifications;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
+using Microsoft.Windows.AppNotifications;
 using Microsoft.Windows.AppLifecycle;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Mail.WinUI;
 
@@ -177,9 +181,11 @@ public class Program
            CWMO_DEFAULT, INFINITE, 1,
            [redirectEventHandle], out uint handleIndex);
 
-        // Bring the window to the foreground
-        Process process = Process.GetProcessById((int)keyInstance.ProcessId);
-        SetForegroundWindow(process.MainWindowHandle);
+        if (ShouldBringWindowToForegroundAfterRedirection(args))
+        {
+            Process process = Process.GetProcessById((int)keyInstance.ProcessId);
+            SetForegroundWindow(process.MainWindowHandle);
+        }
     }
 
     private static void OnActivated(object? sender, AppActivationArguments args)
@@ -190,5 +196,34 @@ public class Program
         {
             app.HandleRedirectedActivation(args);
         }
+    }
+
+    private static bool ShouldBringWindowToForegroundAfterRedirection(AppActivationArguments args)
+    {
+        if (args.Kind != ExtendedActivationKind.AppNotification ||
+            args.Data is not AppNotificationActivatedEventArgs toastArgs)
+        {
+            return true;
+        }
+
+        var toastArguments = ToastArguments.Parse(toastArgs.Argument);
+
+        if (toastArguments.TryGetValue(Constants.ToastStoreUpdateActionKey, out string storeUpdateAction) &&
+            storeUpdateAction == Constants.ToastStoreUpdateActionInstall)
+        {
+            return true;
+        }
+
+        if (toastArguments.TryGetValue(Constants.ToastCalendarActionKey, out string calendarAction))
+        {
+            return calendarAction == Constants.ToastCalendarNavigateAction;
+        }
+
+        if (toastArguments.TryGetValue(Constants.ToastActionKey, out MailOperation mailAction))
+        {
+            return mailAction == MailOperation.Navigate;
+        }
+
+        return true;
     }
 }

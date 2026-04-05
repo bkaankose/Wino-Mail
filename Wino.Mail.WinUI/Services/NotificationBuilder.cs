@@ -350,12 +350,12 @@ public class NotificationBuilder : INotificationBuilder
             var snoozeButton = new ToastButton()
                 .SetContent(Translator.CalendarReminder_SnoozeAction)
                 .SetImageUri(GetNotificationIconUri("calendar-snooze"))
-                .SetBackgroundActivation();
-
-            builder.AddButton(snoozeButton)
                 .AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarSnoozeAction)
                 .AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString())
-                .AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar);
+                .AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar)
+                .SetBackgroundActivation();
+
+            builder.AddButton(snoozeButton);
         }
 
         builder.AddButton(new ToastButton()
