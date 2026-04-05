@@ -12,7 +12,6 @@
         <StackPanel
             Padding="36,28,36,36"
             HorizontalAlignment="Stretch"
-            
             Spacing="24">
 
             <!--  Page Header  -->

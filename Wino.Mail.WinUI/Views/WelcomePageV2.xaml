@@ -92,9 +92,7 @@
                                         Grid.Column="1"
                                         VerticalAlignment="Center"
                                         Spacing="8">
-                                        <TextBlock
-                                            Text="{x:Bind Title, Mode=OneTime}"
-                                            TextWrapping="WrapWholeWords" />
+                                        <TextBlock Text="{x:Bind Title, Mode=OneTime}" TextWrapping="WrapWholeWords" />
                                         <TextBlock
                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                             Text="{x:Bind Description, Mode=OneTime}"

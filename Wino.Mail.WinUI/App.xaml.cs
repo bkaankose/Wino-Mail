@@ -302,6 +302,7 @@ public partial class App : WinoApplication,
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<IMailDialogService, DialogService>();
         services.AddSingleton<IAiActionOptionsService, AiActionOptionsService>();
+        services.AddSingleton<ReleaseLocalAccountDataCleanupService>();
         services.AddTransient<IProviderService, ProviderService>();
         services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();
         services.AddSingleton<IAccountCalendarStateService, AccountCalendarStateService>();
@@ -384,6 +385,9 @@ public partial class App : WinoApplication,
 
         // Always register notification callbacks.
         TryRegisterAppNotifications();
+
+        await Services.GetRequiredService<ReleaseLocalAccountDataCleanupService>()
+            .RunIfNeededAsync();
 
         // Initialize required services regardless of launch activation type.
         // All activation scenarios require these services to be ready.

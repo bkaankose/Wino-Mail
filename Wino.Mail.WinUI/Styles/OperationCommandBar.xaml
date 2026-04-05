@@ -3,9 +3,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Wino.Mail.WinUI.Controls">
 
-    <Style
-        BasedOn="{StaticResource DefaultCommandBarStyle}"
-        TargetType="controls:OperationCommandBar">
+    <Style BasedOn="{StaticResource DefaultCommandBarStyle}" TargetType="controls:OperationCommandBar">
         <Setter Property="DefaultLabelPosition" Value="Right" />
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         <Setter Property="IsDynamicOverflowEnabled" Value="True" />
