@@ -1,6 +1,6 @@
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -54,9 +54,6 @@ public partial class App : WinoApplication,
 {
     private const int InboxSyncsPerFullSync = 20;
     private const string ToggleDefaultModeLaunchArgument = "--mode=toggle-default";
-    private const string WinoProtocolScheme = "wino";
-    private const string BillingProtocolHost = "billing";
-    private const string BillingSuccessPath = "/success";
     private ISynchronizationManager? _synchronizationManager;
     private IPreferencesService? _preferencesService;
     private IAccountService? _accountService;
@@ -444,7 +441,6 @@ public partial class App : WinoApplication,
         {
             // Wino account loading and activation.
             await LoadInitialWinoAccountAsync();
-            await HandlePostActivationAsync(AppInstance.GetCurrent().GetActivatedEventArgs());
         }
 
         LogActivation("Theme service initialized.");
@@ -589,7 +585,7 @@ public partial class App : WinoApplication,
         var calendarService = Services.GetRequiredService<ICalendarService>();
         var snoozedUntilLocal = DateTime.Now.AddMinutes(snoozeDurationMinutes);
 
-        await calendarService.SnoozeCalendarItemAsync(calendarItemId, snoozedUntilLocal).ConfigureAwait(false);
+        await calendarService.SnoozeCalendarItemAsync(calendarItemId, snoozedUntilLocal);
     }
 
     private static bool TryGetSnoozeDurationMinutes(AppNotificationActivatedEventArgs toastArgs, out int snoozeDurationMinutes)
@@ -908,7 +904,7 @@ public partial class App : WinoApplication,
 
         if (syncResult.CompletedState is SynchronizationCompletedState.Success or SynchronizationCompletedState.PartiallyCompleted)
         {
-            await ClearInvalidCredentialAttentionIfNeededAsync(message.Options.AccountId).ConfigureAwait(false);
+            await ClearInvalidCredentialAttentionIfNeededAsync(message.Options.AccountId);
         }
 
         if (syncResult.CompletedState == SynchronizationCompletedState.Failed ||
@@ -1107,7 +1103,7 @@ public partial class App : WinoApplication,
     private async Task LoadInitialWinoAccountAsync()
     {
         var winoAccountProfileService = Services.GetRequiredService<IWinoAccountProfileService>();
-        var winoAccount = await winoAccountProfileService.GetActiveAccountAsync().ConfigureAwait(false);
+        var winoAccount = await winoAccountProfileService.GetActiveAccountAsync();
 
         if (winoAccount != null)
         {
@@ -1119,13 +1115,13 @@ public partial class App : WinoApplication,
     {
         try
         {
-            await ExecuteAutoSynchronizationAsync(cancellationToken).ConfigureAwait(false);
+            await ExecuteAutoSynchronizationAsync(cancellationToken);
 
             using var timer = new PeriodicTimer(interval);
 
-            while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
+            while (await timer.WaitForNextTickAsync(cancellationToken))
             {
-                await ExecuteAutoSynchronizationAsync(cancellationToken).ConfigureAwait(false);
+                await ExecuteAutoSynchronizationAsync(cancellationToken);
             }
         }
         catch (OperationCanceledException)
@@ -1147,11 +1143,11 @@ public partial class App : WinoApplication,
 
         try
         {
-            lockTaken = await _autoSynchronizationSemaphore.WaitAsync(0, cancellationToken).ConfigureAwait(false);
+            lockTaken = await _autoSynchronizationSemaphore.WaitAsync(0, cancellationToken);
             if (!lockTaken)
                 return;
 
-            var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
+            var accounts = await _accountService.GetAccountsAsync();
             var currentAccountIds = accounts.Select(a => a.Id).ToHashSet();
             foreach (var staleAccountId in _inboxSyncCounters.Keys.Where(a => !currentAccountIds.Contains(a)).ToList())
             {
@@ -1162,7 +1158,7 @@ public partial class App : WinoApplication,
                 .Select(account => ExecuteAutoSynchronizationForAccountAsync(account, cancellationToken))
                 .ToList();
 
-            await Task.WhenAll(synchronizationTasks).ConfigureAwait(false);
+            await Task.WhenAll(synchronizationTasks);
         }
         finally
         {
@@ -1189,11 +1185,11 @@ public partial class App : WinoApplication,
             Type = MailSynchronizationType.InboxOnly
         };
 
-        var inboxSyncResult = await _synchronizationManager.SynchronizeMailAsync(inboxSyncOptions, cancellationToken).ConfigureAwait(false);
+        var inboxSyncResult = await _synchronizationManager.SynchronizeMailAsync(inboxSyncOptions, cancellationToken);
 
         if (inboxSyncResult.CompletedState is SynchronizationCompletedState.Success or SynchronizationCompletedState.PartiallyCompleted)
         {
-            await ClearInvalidCredentialAttentionIfNeededAsync(account.Id).ConfigureAwait(false);
+            await ClearInvalidCredentialAttentionIfNeededAsync(account.Id);
 
             var inboxSyncCount = _inboxSyncCounters.AddOrUpdate(account.Id, 1, (_, currentCount) => currentCount + 1);
 
@@ -1205,7 +1201,7 @@ public partial class App : WinoApplication,
                     Type = MailSynchronizationType.FullFolders
                 };
 
-                await _synchronizationManager.SynchronizeMailAsync(fullSyncOptions, cancellationToken).ConfigureAwait(false);
+                await _synchronizationManager.SynchronizeMailAsync(fullSyncOptions, cancellationToken);
                 _inboxSyncCounters[account.Id] = 0;
             }
         }
@@ -1219,7 +1215,7 @@ public partial class App : WinoApplication,
             Type = CalendarSynchronizationType.CalendarMetadata
         };
 
-        await _synchronizationManager.SynchronizeCalendarAsync(calendarOptions, cancellationToken).ConfigureAwait(false);
+        await _synchronizationManager.SynchronizeCalendarAsync(calendarOptions, cancellationToken);
     }
 
     private async Task ClearInvalidCredentialAttentionIfNeededAsync(Guid accountId)
@@ -1227,12 +1223,12 @@ public partial class App : WinoApplication,
         if (_accountService == null)
             return;
 
-        var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+        var account = await _accountService.GetAccountAsync(accountId);
 
         if (account?.AttentionReason != AccountAttentionReason.InvalidCredentials)
             return;
 
-        await _accountService.ClearAccountAttentionAsync(accountId).ConfigureAwait(false);
+        await _accountService.ClearAccountAttentionAsync(accountId);
     }
 
     /// <summary>
@@ -1273,11 +1269,12 @@ public partial class App : WinoApplication,
                     }
                 }
 
-                await HandlePostActivationAsync(args);
-
-                // Bring the existing window to front after handling redirected activation.
-                MainWindow?.BringToFront();
-                MainWindow?.Activate();
+                // Redirected launches can target a shell window that is currently hidden in the tray.
+                // Restore it through the window manager so Show/BringToFront/Activate happen together.
+                if (MainWindow is WindowEx mainWindow)
+                {
+                    Services.GetRequiredService<IWinoWindowManager>().ActivateWindow(mainWindow);
+                }
             }
         });
     }
@@ -1321,12 +1318,6 @@ public partial class App : WinoApplication,
                 return true;
             }
 
-            if (string.Equals(scheme, WinoProtocolScheme, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(protocolArgs.Uri?.Host, BillingProtocolHost, StringComparison.OrdinalIgnoreCase))
-            {
-                mode = WinoApplicationMode.Settings;
-                return true;
-            }
         }
 
         if (activationArgs.Kind == ExtendedActivationKind.File &&
@@ -1371,54 +1362,6 @@ public partial class App : WinoApplication,
         return null;
     }
 
-    private async Task HandlePostActivationAsync(AppActivationArguments activationArgs)
-    {
-        if (await TryHandleBillingProtocolActivationAsync(activationArgs).ConfigureAwait(false))
-        {
-            return;
-        }
-    }
-
-    private async Task<bool> TryHandleBillingProtocolActivationAsync(AppActivationArguments activationArgs)
-    {
-        if (!TryGetBillingCallbackUri(activationArgs, out var callbackUri))
-        {
-            return false;
-        }
-
-        Services.GetRequiredService<INavigationService>().Navigate(
-            WinoPage.SettingsPage,
-            WinoPage.WinoAccountManagementPage,
-            NavigationReferenceFrame.ShellFrame,
-            NavigationTransitionType.None);
-
-        var winoAccountProfileService = Services.GetRequiredService<IWinoAccountProfileService>();
-        await winoAccountProfileService.ProcessBillingCallbackAsync(callbackUri).ConfigureAwait(false);
-        return true;
-    }
-
-    private static bool TryGetBillingCallbackUri(AppActivationArguments activationArgs, out Uri callbackUri)
-    {
-        callbackUri = null!;
-
-        if (activationArgs.Kind != ExtendedActivationKind.Protocol ||
-            activationArgs.Data is not IProtocolActivatedEventArgs protocolArgs ||
-            protocolArgs.Uri == null)
-        {
-            return false;
-        }
-
-        var uri = protocolArgs.Uri;
-        if (!string.Equals(uri.Scheme, WinoProtocolScheme, StringComparison.OrdinalIgnoreCase) ||
-            !string.Equals(uri.Host, BillingProtocolHost, StringComparison.OrdinalIgnoreCase) ||
-            !string.Equals(uri.AbsolutePath, BillingSuccessPath, StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        callbackUri = uri;
-        return true;
-    }
 }
 
 
