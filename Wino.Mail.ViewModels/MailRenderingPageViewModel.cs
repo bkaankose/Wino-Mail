@@ -652,19 +652,6 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         await ExecuteUIThread(() => { InitializeCommandBarItems(); });
     }
 
-    protected override async void OnMailUpdated(IReadOnlyList<MailCopy> updatedMails)
-    {
-        base.OnMailUpdated(updatedMails);
-
-        if (initializedMailItemViewModel == null || updatedMails == null || updatedMails.Count == 0) return;
-
-        // Only care about the currently rendered item.
-        if (updatedMails.Any(m => m?.UniqueId == initializedMailItemViewModel.UniqueId))
-        {
-            await ExecuteUIThread(() => { InitializeCommandBarItems(); });
-        }
-    }
-
     [RelayCommand]
     private async Task OpenAttachmentAsync(MailAttachmentViewModel attachmentViewModel)
     {

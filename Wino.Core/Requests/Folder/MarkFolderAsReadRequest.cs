@@ -11,6 +11,10 @@ namespace Wino.Core.Requests.Folder;
 
 public record MarkFolderAsReadRequest(MailItemFolder Folder, List<MailCopy> MailsToMarkRead) : FolderRequestBase(Folder, FolderSynchronizerOperation.MarkFolderRead), ICustomFolderSynchronizationRequest
 {
+    public List<Guid> SynchronizationFolderIds => [Folder.Id];
+
+    public bool ExcludeMustHaveFolders => true;
+
     public override void ApplyUIChanges()
     {
         if (MailsToMarkRead == null || MailsToMarkRead.Count == 0) return;
@@ -21,7 +25,6 @@ public record MarkFolderAsReadRequest(MailItemFolder Folder, List<MailCopy> Mail
             if (item.IsRead) continue;
 
             item.IsRead = true;
-        }
 
             WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(item, MailUpdateSource.ClientUpdated, MailCopyChangeFlags.IsRead));
         }
@@ -37,13 +40,8 @@ public record MarkFolderAsReadRequest(MailItemFolder Folder, List<MailCopy> Mail
             if (!item.IsRead) continue;
 
             item.IsRead = false;
-        }
 
             WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(item, MailUpdateSource.ClientReverted, MailCopyChangeFlags.IsRead));
         }
     }
-
-    public List<Guid> SynchronizationFolderIds => [Folder.Id];
-
-    public bool ExcludeMustHaveFolders => true;
 }
