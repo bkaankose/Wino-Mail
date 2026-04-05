@@ -18,13 +18,10 @@ public class ImapConnectivityTestResults
     public bool IsCertificateUIRequired { get; set; }
 
     public string FailedReason { get; set; }
-    public string FailureProtocolLog { get; set; }
-
     public static ImapConnectivityTestResults Success() => new ImapConnectivityTestResults() { IsSuccess = true };
-    public static ImapConnectivityTestResults Failure(Exception ex, string failureProtocolLog) => new ImapConnectivityTestResults()
+    public static ImapConnectivityTestResults Failure(Exception ex) => new ImapConnectivityTestResults()
     {
-        FailedReason = string.Join(Environment.NewLine, ex.GetInnerExceptions().Select(e => e.Message)),
-        FailureProtocolLog = failureProtocolLog
+        FailedReason = string.Join(Environment.NewLine, ex.GetInnerExceptions().Select(e => e.Message))
     };
 
     public static ImapConnectivityTestResults CertificateUIRequired(string issuer,

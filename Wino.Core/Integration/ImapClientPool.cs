@@ -1,12 +1,10 @@
 using System;
 using System.Collections.Concurrent;
-using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Security;
 using System.Reflection;
 using System.Security.Cryptography.X509Certificates;
-using System.Text;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -48,7 +46,6 @@ public class ImapClientPool : IDisposable
 
     private readonly ILogger _logger = Log.ForContext<ImapClientPool>();
     private readonly CustomServerInformation _customServerInformation;
-    private readonly Stream _protocolLogStream;
     private readonly ConcurrentDictionary<WinoImapClient, ImapClientState> _clientStates = new();
     private readonly Channel<WinoImapClient> _availableClients;
     private readonly CancellationTokenSource _maintenanceCts = new();
@@ -78,7 +75,6 @@ public class ImapClientPool : IDisposable
     public ImapClientPool(ImapClientPoolOptions imapClientPoolOptions)
     {
         _customServerInformation = imapClientPoolOptions.ServerInformation;
-        _protocolLogStream = imapClientPoolOptions.ProtocolLog;
         ImapClientPoolOptions = imapClientPoolOptions;
 
         _quirks = ImapServerQuirks.Resolve(_customServerInformation.IncomingServer);
@@ -620,14 +616,7 @@ public class ImapClientPool : IDisposable
 
     private WinoImapClient CreateNewClient()
     {
-        IProtocolLogger protocolLogger = null;
-
-        if (_protocolLogStream != null)
-        {
-            protocolLogger = new ProtocolLogger(_protocolLogStream, leaveOpen: true);
-        }
-
-        var client = protocolLogger != null ? new WinoImapClient(protocolLogger) : new WinoImapClient();
+        var client = new WinoImapClient();
 
         if (!string.IsNullOrEmpty(_customServerInformation.ProxyServer))
         {
@@ -679,11 +668,9 @@ public class ImapClientPool : IDisposable
 
     private ImapClientPoolException CreatePoolException(string message, Exception innerException = null)
     {
-        var protocolLog = GetProtocolLogContent() ?? string.Empty;
-
         return innerException == null
-            ? new ImapClientPoolException(message, _customServerInformation, protocolLog)
-            : new ImapClientPoolException(innerException, protocolLog);
+            ? new ImapClientPoolException(message, _customServerInformation)
+            : new ImapClientPoolException(innerException);
     }
 
     private static ImapImplementation CreateImplementation()
@@ -740,17 +727,6 @@ public class ImapClientPool : IDisposable
         return true;
     }
 
-    public string GetProtocolLogContent()
-    {
-        if (_protocolLogStream == null) return default;
-
-        if (_protocolLogStream.CanSeek)
-            _protocolLogStream.Seek(0, SeekOrigin.Begin);
-
-        using var reader = new StreamReader(_protocolLogStream, Encoding.UTF8, true, 1024, leaveOpen: true);
-        return reader.ReadToEnd();
-    }
-
     // Legacy compatibility methods
     public Task<bool> EnsureConnectedAsync(IImapClient client) =>
         Task.FromResult(client.IsConnected);
@@ -784,7 +760,6 @@ public class ImapClientPool : IDisposable
                 _dedicatedIdleClient = null;
             }
 
-            _protocolLogStream?.Dispose();
         }
 
         _disposedValue = true;

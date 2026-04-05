@@ -231,6 +231,7 @@ public partial class App : WinoApplication,
         if (windowManager.GetWindow(WinoWindowKind.Welcome) is not WelcomeWindow welcomeWindow)
             return;
 
+        welcomeWindow.PrepareForClose();
         welcomeWindow.AllowClose();
         welcomeWindow.Close();
     }

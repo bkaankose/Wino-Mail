@@ -28,10 +28,12 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     private readonly ICalDavClient _calDavClient;
     private readonly IAccountService _accountService;
     private readonly IMailDialogService _mailDialogService;
+    private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
     private readonly WelcomeWizardContext _wizardContext;
 
     private ImapCalDavSettingsPageMode _pageMode;
     private Guid _editingAccountId;
+    private SpecialImapProvider _editingSpecialImapProvider;
     private TaskCompletionSource<ImapCalDavSetupResult> _completionSource;
     private bool _isCompletionFinalized;
     private bool _localOnlyInfoShown;
@@ -261,12 +263,14 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                                            ICalDavClient calDavClient,
                                            IAccountService accountService,
                                            IMailDialogService mailDialogService,
+                                           ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
                                            WelcomeWizardContext wizardContext)
     {
         _autoDiscoveryService = autoDiscoveryService;
         _calDavClient = calDavClient;
         _accountService = accountService;
         _mailDialogService = mailDialogService;
+        _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
         _wizardContext = wizardContext;
     }
 
@@ -368,6 +372,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             if (!IsCalendarSupportEnabled || SelectedCalendarSupportMode != ImapCalendarSupportMode.CalDav)
                 throw new InvalidOperationException(Translator.ImapCalDavSettingsPage_CalDavNotRequiredMessage);
 
+            TryApplyKnownProviderSettingsIfNeeded(requireCompleteImapSettings: false, requireCompleteCalDavSettings: true);
             var serverInformation = BuildServerInformation();
             ValidateCalDavSettings(serverInformation);
             await ValidateCalDavConnectivityAsync(serverInformation).ConfigureAwait(false);
@@ -505,8 +510,10 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         if (account == null)
             throw new InvalidOperationException(Translator.Exception_NullAssignedAccount);
 
+        _editingSpecialImapProvider = account.SpecialImapProvider;
         DisplayName = account.SenderName ?? string.Empty;
         EmailAddress = account.Address ?? string.Empty;
+        ApplyProviderHint(_editingSpecialImapProvider);
 
         ApplyServerInformation(account.ServerInformation);
 
@@ -539,10 +546,12 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         SelectedCalendarSupportMode = ImapCalendarSupportMode.CalDav;
 
         var specialProvider = accountCreationDialogResult?.SpecialImapProviderDetails?.SpecialImapProvider ?? SpecialImapProvider.None;
+        _editingSpecialImapProvider = specialProvider;
+        ApplyProviderHint(specialProvider);
+
         switch (specialProvider)
         {
             case SpecialImapProvider.iCloud:
-                ProviderHint = Translator.ImapCalDavSettingsPage_ICloudHint;
                 ApplySpecialProviderDefaults(
                     "imap.mail.me.com",
                     "993",
@@ -556,7 +565,6 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                     Password);
                 break;
             case SpecialImapProvider.Yahoo:
-                ProviderHint = Translator.ImapCalDavSettingsPage_YahooHint;
                 ApplySpecialProviderDefaults(
                     "imap.mail.yahoo.com",
                     "993",
@@ -568,9 +576,6 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                     "https://caldav.calendar.yahoo.com/",
                     EmailAddress,
                     Password);
-                break;
-            default:
-                ProviderHint = string.Empty;
                 break;
         }
     }
@@ -645,6 +650,9 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         if (HasCompleteImapSettings())
             return;
 
+        if (TryApplyKnownProviderSettingsIfNeeded(requireCompleteImapSettings: true, requireCompleteCalDavSettings: false))
+            return;
+
         var minimalSettings = BuildMinimalSettingsOrThrow();
         await AutoDiscoverAndApplySettingsAsync(minimalSettings).ConfigureAwait(false);
 
@@ -654,6 +662,9 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
     private async Task AutoDiscoverAndApplySettingsAsync(AutoDiscoveryMinimalSettings minimalSettings)
     {
+        if (TryApplyKnownProviderSettings(alwaysApplyForKnownProvider: true))
+            return;
+
         var discoverySettings = await _autoDiscoveryService.GetAutoDiscoverySettings(minimalSettings).ConfigureAwait(false);
 
         if (discoverySettings == null)
@@ -930,6 +941,96 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         if (string.IsNullOrWhiteSpace(serverInformation.CalDavPassword))
             throw new InvalidOperationException(Translator.ImapCalDavSettingsPage_CalDavPasswordRequired);
     }
+
+    private void ApplyProviderHint(SpecialImapProvider provider)
+    {
+        ProviderHint = provider switch
+        {
+            SpecialImapProvider.iCloud => Translator.ImapCalDavSettingsPage_ICloudHint,
+            SpecialImapProvider.Yahoo => Translator.ImapCalDavSettingsPage_YahooHint,
+            _ => string.Empty
+        };
+    }
+
+    private bool TryApplyKnownProviderSettingsIfNeeded(bool requireCompleteImapSettings, bool requireCompleteCalDavSettings)
+    {
+        var needsImapSettings = requireCompleteImapSettings && !HasCompleteImapSettings();
+        var needsCalDavSettings = requireCompleteCalDavSettings
+                                  && IsCalendarSupportEnabled
+                                  && SelectedCalendarSupportMode == ImapCalendarSupportMode.CalDav
+                                  && !HasCompleteCalDavSettings();
+
+        if (!needsImapSettings && !needsCalDavSettings)
+            return false;
+
+        return TryApplyKnownProviderSettings(alwaysApplyForKnownProvider: false);
+    }
+
+    private bool TryApplyKnownProviderSettings(bool alwaysApplyForKnownProvider)
+    {
+        if (_editingSpecialImapProvider is not (SpecialImapProvider.iCloud or SpecialImapProvider.Yahoo))
+            return false;
+
+        var effectivePassword = GetKnownProviderPasswordCandidate();
+        if (string.IsNullOrWhiteSpace(EmailAddress) || string.IsNullOrWhiteSpace(effectivePassword))
+            return false;
+
+        if (!alwaysApplyForKnownProvider && HasCompleteImapSettings() && HasCompleteCalDavSettings())
+            return false;
+
+        var mode = IsCalendarSupportEnabled ? SelectedCalendarSupportMode : ImapCalendarSupportMode.Disabled;
+        var providerDetails = new SpecialImapProviderDetails(
+            EmailAddress.Trim(),
+            effectivePassword,
+            DisplayName.Trim(),
+            _editingSpecialImapProvider,
+            mode);
+
+        var serverInformation = _specialImapProviderConfigResolver.GetServerInformation(
+            new MailAccount
+            {
+                Address = EmailAddress.Trim(),
+                SenderName = DisplayName.Trim(),
+                ProviderType = MailProviderType.IMAP4,
+                SpecialImapProvider = _editingSpecialImapProvider,
+                IsCalendarAccessGranted = mode != ImapCalendarSupportMode.Disabled
+            },
+            new AccountCreationDialogResult(MailProviderType.IMAP4, DisplayName.Trim(), providerDetails, string.Empty));
+
+        if (serverInformation == null)
+            return false;
+
+        serverInformation.ProxyServer = (ProxyServer ?? string.Empty).Trim();
+        serverInformation.ProxyServerPort = (ProxyServerPort ?? string.Empty).Trim();
+        serverInformation.MaxConcurrentClients = MaxConcurrentClients <= 0 ? serverInformation.MaxConcurrentClients : MaxConcurrentClients;
+
+        ApplyServerInformation(serverInformation);
+        Password = effectivePassword;
+        return true;
+    }
+
+    private string GetKnownProviderPasswordCandidate()
+    {
+        if (!string.IsNullOrWhiteSpace(Password))
+            return Password;
+
+        if (!string.IsNullOrWhiteSpace(IncomingServerPassword))
+            return IncomingServerPassword;
+
+        if (!string.IsNullOrWhiteSpace(OutgoingServerPassword))
+            return OutgoingServerPassword;
+
+        return CalDavPassword ?? string.Empty;
+    }
+
+    private bool HasCompleteCalDavSettings()
+        => !IsCalendarSupportEnabled
+           || SelectedCalendarSupportMode != ImapCalendarSupportMode.CalDav
+           || (!string.IsNullOrWhiteSpace(CalDavServiceUrl)
+               && Uri.TryCreate(CalDavServiceUrl, UriKind.Absolute, out _)
+               && !string.IsNullOrWhiteSpace(CalDavUsername)
+               && !string.IsNullOrWhiteSpace(CalDavPassword));
+
     private bool HasCompleteImapSettings()
         => !string.IsNullOrWhiteSpace(IncomingServer)
            && !string.IsNullOrWhiteSpace(IncomingServerPort)

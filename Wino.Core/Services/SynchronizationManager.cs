@@ -114,13 +114,13 @@ public class SynchronizationManager : ISynchronizationManager
         }
         catch (ImapClientPoolException clientPoolException)
         {
-            _logger.Error(clientPoolException, "IMAP connectivity test failed with protocol log");
-            return ImapConnectivityTestResults.Failure(clientPoolException, clientPoolException.ProtocolLog);
+            _logger.Error(clientPoolException, "IMAP connectivity test failed");
+            return ImapConnectivityTestResults.Failure(clientPoolException);
         }
         catch (Exception exception)
         {
             _logger.Error(exception, "IMAP connectivity test failed");
-            return ImapConnectivityTestResults.Failure(exception, string.Empty);
+            return ImapConnectivityTestResults.Failure(exception);
         }
     }
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading;
 using MailKit;
 using MailKit.Net.Imap;
@@ -20,11 +20,6 @@ public class WinoImapClient : ImapClient
     public bool IsQResyncEnabled { get; internal set; }
 
     public WinoImapClient()
-    {
-        HookEvents();
-    }
-
-    public WinoImapClient(IProtocolLogger protocolLogger) : base(protocolLogger)
     {
         HookEvents();
     }

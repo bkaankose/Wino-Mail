@@ -16,6 +16,7 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Extensions;
 using Wino.Mail.WinUI.Activation;
 using Wino.Mail.WinUI.Extensions;
+using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Mail.WinUI.Views;
@@ -46,6 +47,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     private ITitleBarSearchHost? _activeTitleBarSearchHost;
     private bool _isBackButtonVisibilityReady;
     private bool _isSynchronizingTitleBarSearch;
+    private bool _isPreparedForClose;
 
     public ShellWindow()
     {
@@ -365,10 +367,17 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     public void PrepareForClose()
     {
+        if (_isPreparedForClose)
+            return;
+
+        _isPreparedForClose = true;
+
         if (MainShellFrame.Content is WinoAppShell shellPage)
         {
             shellPage.PrepareForWindowClose();
         }
+
+        WindowCleanupHelper.CleanupFrame(MainShellFrame);
 
         _allowClose = true;
     }
@@ -384,6 +393,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
             shellPage.PrepareForWindowClose();
         }
 
+        WindowCleanupHelper.CleanupFrame(MainShellFrame);
         UnregisterRecipients();
     }
 

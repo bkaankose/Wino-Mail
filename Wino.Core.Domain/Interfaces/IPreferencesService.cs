@@ -183,11 +183,6 @@ public interface IPreferencesService : INotifyPropertyChanged
     MailOperation RightHoverAction { get; set; }
 
     /// <summary>
-    /// Setting: Whether Mailkit Protocol Logger is enabled for ImapTestService or not.
-    /// </summary>
-    bool IsMailkitProtocolLoggerEnabled { get; set; }
-
-    /// <summary>
     /// Setting: Which entity id (merged account or folder) should be expanded automatically on startup.
     /// </summary>
     Guid? StartupEntityId { get; set; }

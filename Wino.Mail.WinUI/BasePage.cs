@@ -13,6 +13,8 @@ namespace Wino.Mail.WinUI;
 
 public partial class BasePage : Page, IRecipient<LanguageChanged>
 {
+    private bool _isPreparedForClose;
+
     public void Receive(LanguageChanged message)
     {
         OnLanguageChanged();
@@ -31,6 +33,24 @@ public partial class BasePage : Page, IRecipient<LanguageChanged>
     protected virtual void UnregisterRecipients() { }
 
     public virtual CoreBaseViewModel? AssociatedViewModel => null;
+
+    public virtual void PrepareForClose()
+    {
+        if (_isPreparedForClose)
+            return;
+
+        _isPreparedForClose = true;
+
+        WeakReferenceMessenger.Default.Unregister<LanguageChanged>(this);
+        UnregisterRecipients();
+    }
+
+    protected void ResetPreparedForCloseState()
+    {
+        _isPreparedForClose = false;
+    }
+
+    protected bool IsPreparedForClose => _isPreparedForClose;
 }
 
 public abstract class BasePage<T> : BasePage where T : CoreBaseViewModel
@@ -63,6 +83,7 @@ public abstract class BasePage<T> : BasePage where T : CoreBaseViewModel
         var mode = GetNavigationMode(e.NavigationMode);
         var parameter = e.Parameter;
 
+        ResetPreparedForCloseState();
         WeakReferenceMessenger.Default.Register<LanguageChanged>(this);
         RegisterRecipients();
 
@@ -76,12 +97,23 @@ public abstract class BasePage<T> : BasePage where T : CoreBaseViewModel
         var mode = GetNavigationMode(e.NavigationMode);
         var parameter = e.Parameter;
 
-        WeakReferenceMessenger.Default.Unregister<LanguageChanged>(this);
-        UnregisterRecipients();
-
-        ViewModel.OnNavigatedFrom(mode, parameter);
+        PrepareForClose(mode, parameter);
 
         GC.Collect();
+    }
+
+    public override void PrepareForClose()
+    {
+        PrepareForClose(WinoNavigationMode.New, null);
+    }
+
+    private void PrepareForClose(WinoNavigationMode mode, object? parameter)
+    {
+        if (IsPreparedForClose)
+            return;
+
+        base.PrepareForClose();
+        ViewModel.OnNavigatedFrom(mode, parameter!);
     }
 
     private WinoNavigationMode GetNavigationMode(NavigationMode mode)

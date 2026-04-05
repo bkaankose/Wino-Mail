@@ -28,6 +28,7 @@ using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.ViewModels;
 using Wino.Mail.WinUI.Controls;
+using Wino.Mail.WinUI.Helpers;
 using Wino.MenuFlyouts;
 using Wino.MenuFlyouts.Context;
 using Wino.Messaging.Client.Accounts;
@@ -127,6 +128,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
         navigationView.MenuItemsSource = null;
         CalendarHostListView.ItemsSource = null;
+        WindowCleanupHelper.CleanupFrame(InnerShellFrame);
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)

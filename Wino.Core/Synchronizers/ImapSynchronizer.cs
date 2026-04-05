@@ -83,7 +83,6 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                             IAutoDiscoveryService autoDiscoveryService,
                             ICalendarService calendarService) : base(account, WeakReferenceMessenger.Default)
     {
-        // Create client pool with account protocol log.
         _imapChangeProcessor = imapChangeProcessor;
         _applicationConfiguration = applicationConfiguration;
         _unifiedSynchronizer = unifiedSynchronizer;
@@ -92,24 +91,11 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         _autoDiscoveryService = autoDiscoveryService;
         _calendarService = calendarService;
 
-        var protocolLogStream = CreateAccountProtocolLogFileStream();
-        var poolOptions = ImapClientPoolOptions.CreateDefault(Account.ServerInformation, protocolLogStream);
+        var poolOptions = ImapClientPoolOptions.CreateDefault(Account.ServerInformation);
 
         _clientPool = new ImapClientPool(poolOptions);
         _localCalendarOperationHandler = new LocalCalendarOperationHandler(Account, _imapChangeProcessor, _calendarService, _applicationConfiguration.ApplicationDataFolderPath, "local");
         _calDavCalendarOperationHandler = new CalDavCalendarOperationHandler(this, Account, _calendarService, _calDavClient);
-    }
-
-    private Stream CreateAccountProtocolLogFileStream()
-    {
-        if (Account == null) throw new ArgumentNullException(nameof(Account));
-
-        var logFile = Path.Combine(_applicationConfiguration.ApplicationDataFolderPath, $"Protocol_{Account.Address}_{Account.Id}.log");
-
-        // Each session should start a new log.
-        if (File.Exists(logFile)) File.Delete(logFile);
-
-        return new FileStream(logFile, FileMode.CreateNew);
     }
 
     /// <summary>

@@ -25,19 +25,21 @@ public sealed partial class WelcomeHostPage : WelcomeHostPageAbstract,
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
-
-        WeakReferenceMessenger.Default.Register<BreadcrumbNavigationRequested>(this);
-        WeakReferenceMessenger.Default.Register<BackBreadcrumNavigationRequested>(this);
-
         ResetWizard();
     }
 
-    protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
+    protected override void RegisterRecipients()
     {
+        base.RegisterRecipients();
+        WeakReferenceMessenger.Default.Register<BreadcrumbNavigationRequested>(this);
+        WeakReferenceMessenger.Default.Register<BackBreadcrumNavigationRequested>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
         WeakReferenceMessenger.Default.Unregister<BreadcrumbNavigationRequested>(this);
         WeakReferenceMessenger.Default.Unregister<BackBreadcrumNavigationRequested>(this);
-
-        base.OnNavigatingFrom(e);
     }
 
     public void Receive(BreadcrumbNavigationRequested message)

@@ -1,133 +1,158 @@
-# Wino Mail vNext Release Notes (vs. `main`)
+# Wino Mail vNext Improvements
 
-This document summarizes the areas that were merged and improved on `feature/vNext` relative to `main`, based on commit history.
+This document summarizes the major improvements on `feature/vNext` compared to `main`, based on the commit history between the current branch and the merge-base with `main`.
 
-## Major merged/improved areas
+## Wino Calendar
 
-### 1) Calendar management and scheduling experience
-Calendar support was significantly expanded from foundational UI work to full account-integrated flows. The cycle includes calendar/mail mapping, richer calendar visuals, event details improvements, recurring occurrence summary work, and dedicated event compose/create flows. Calendar reliability also improved through delta-sync fixes, timezone correctness updates, duplicate-operation prevention, and better synchronization state handling across providers. Reminder handling became much more complete with snooze support spanning toast UX, service logic, and database persistence. Overall, calendar now behaves like a first-class product surface rather than an auxiliary feature.
+Calendar has grown from an early implementation into a much more complete product area on this branch.
 
-### 2) Contact management and people-centric UX
-Contacts moved from incremental UI adjustments to robust management features across account and settings surfaces. The branch includes explicit contact-management commits, contact/settings integration updates, and data-model cleanup that removes legacy base64 contact storage patterns. Visual quality improvements (such as profile-image initials behavior and image preview controls) tightened the identity and people experience. In practice, this reduces friction when browsing and maintaining contact data and makes account-related contact operations more predictable.
+### A full Wino Calendar experience
 
-### 3) Synchronization architecture, correctness, and resilience
-Synchronization paths were deeply refactored to address long-standing reliability issues. The branch adds generic error handling (including 404 and Outlook 429 handling), improves thread mapping across synchronizers, introduces explicit mail/calendar synchronizer state, and hardens CalDAV/IMAP behaviors with targeted fixes. Operation safety improved via better busy-state handling, duplicate-operation avoidance, and execution-error handling in rendering/operation pipelines. These changes collectively reduce failure surfaces and improve consistency under real-world server and network conditions.
+- Added a dedicated Wino Calendar app entry, making calendar a first-class experience instead of a secondary add-on.
+- Built out the calendar rendering experience with multiple rounds of rendering improvements, updated calendar view styling, calendar buttons, and better event visuals.
+- Added event creation and full event compose flows, including follow-up improvements for attachments, attendees, recurrence summaries, RSVP actions, reminders, and event details.
+- Improved support for all-day events, better display dates, occurrence handling, and mail-to-calendar mapping so calendar actions connect more naturally with messages and invitations.
 
-### 4) Compose/editor, rendering, and draft pipeline improvements
-Message composition and rendering received notable architectural cleanup. Work includes editor and toolbar refactors, message-based compose/render simplifications, Gmail drafting, and large Outlook attachment support through upload sessions. Local-draft behavior was refined with resend logic and grace-period protections, while MIME/header and template work improved message fidelity. Together, these changes make authoring and sending mail more stable for both common and heavy payload workflows.
+### Local calendar support
 
-### 5) Performance, data integrity, and test/build quality
-The cycle introduced meaningful backend and tooling quality improvements: batch DB query mail fetching with in-memory caching, SQLite index additions, and foreign-key enforcement. Collection/thread update performance was optimized, and multiple targeted tests were added for calendar, IMAP, CalDAV, sanitization, and view-model behavior. CI support was improved via a dedicated PR workflow for WinUI/Core tests, and the WinUI project moved toward stricter warning discipline (`warnings as errors`). This area improves both runtime responsiveness and development confidence.
+- Added local calendar operation coverage and supporting behavior for IMAP-backed/local calendar scenarios.
+- Prevented duplicate operations by ignoring local calendar apply-changes in the wrong paths.
+- Added busy-state support and metadata fetch flows so newly created accounts can initialize calendar data more reliably.
 
-### 6) WinUI shell, settings, onboarding, and notification polish
-The WinUI shell and app flow were modernized with startup window/onboarding wizard work, settings page refreshes, dialog/title bar improvements, and navigation fixes. Notification behavior was refined with app-entry routing for mail/calendar toasts, redundant-target cleanup, runtime toast dispatch fixes, and tailored image corrections. Additional quality-of-life updates (keyboard shortcuts, global mouse back listener, storage/settings navigability, and startup mode fixes) make daily use more polished and predictable.
+### CalDAV sync
 
----
+- Introduced a dedicated CalDAV synchronizer and supporting service/client work.
+- Fixed CalDAV delta sync issues.
+- Fixed CalDAV timezone issues.
+- Added manual live CalDAV workflow tests to validate real-world sync behavior.
 
-## Small changes (commit-by-commit, one-line summary)
+This means local and self-hosted calendar scenarios are much better represented on this branch than on `main`.
 
-- **44be3eb** — Final settings UI tweaks polished spacing/behavior for the latest shell experience.
-- **3e73196** — Removed edit-account-details page to simplify account maintenance flows.
-- **8548257** — Corrected update-notes behavior/content for clearer release messaging.
-- **d9da326** — Renamed the database artifact to align naming with updated app data conventions.
-- **d43e2b2** — Fixed tailored notification image handling so visuals render reliably.
-- **9d94bad** — Fixed storage page navigation so users can reach storage settings consistently.
-- **e4a224b** — Added/updated email templates to improve default composition output.
-- **15400d4** — Improved keyboard shortcuts for faster power-user navigation and commands.
-- **c1568d3** — Added live store update notifications to surface app-update availability.
-- **a8f9b2d** — Delivered broad calendar quality improvements across UX and behavior.
-- **1da3408** — Refactored HTML editor toolbar for cleaner structure and easier extensibility.
-- **ebc35c3** — Added event creation capabilities to the calendar workflow.
-- **d1f8163** — Refactored web editor internals and improved calendar occurrence summaries.
-- **09f1cee** — Removed sqlite base64 contact storage from `AccountContact` to modernize data handling.
-- **8e8b123** — Updated NuGet dependencies for compatibility, fixes, and maintenance.
-- **9ec7b32** — Merged `feature/EventCompose` into `feature/vNext` to unify event compose work.
-- **e94cce4** — Implemented main event compose functionality for calendar authoring.
-- **6608bae** — Added initial scaffolding for event composition.
-- **5904272** — Added specific handling for Outlook 429 responses to improve throttling resilience.
-- **e1be644** — Delivered contact/settings integration updates for smoother account configuration.
-- **51f6446** — Updated core title bar to reflect new menu-item structure.
-- **24f7c26** — Refreshed dialog visuals for a more modern WinUI look.
-- **1aaf4e8** — Expanded settings UI foundation for broader configuration coverage.
-- **3d67637** — Consolidated intermediate branch work through merge integration.
-- **aaa6e8a** — Removed migrations and introduced wizard-like onboarding steps.
-- **db5ecd6** — Added a new startup window to improve initial app entry flow.
-- **d45d3fa** — Implemented “What’s New” surface for post-update feature communication.
-- **5b3739c** — Added snooze support for calendar reminders across UI/service/database layers.
-- **e816e87** — Added/expanded contact management capabilities.
-- **bdd3278** — Reworked folder structure organization for maintainability.
-- **f35a433** — Fixed profile-image transparency edge case causing unwanted initials background.
-- **2c9351f** — Fixed edge cases in `IsBusy` handling to prevent inconsistent UI state.
-- **211faff** — Improved bulk mail operations by using property-change-driven updates.
-- **11158fe** — Removed redundant notification target configuration.
-- **76e3b72** — Fixed issues around mode switching and notification behavior.
-- **2040d4a** — Optimized mail fetch pipeline with batched DB queries and memory caching.
-- **0e742c7** — Resolved warnings and enforced warning-as-error discipline in WinUI.
-- **d2fce5e** — Added PR GitHub Actions workflow for WinUI build + Core test validation.
-- **5c510fd** — Removed single-entry/mode-launch behavior tied to Ctrl key startup.
-- **e1ce856** — Fixed additional startup mode issues for more predictable launches.
-- **4b22608** — Fixed badge creation behavior so badges are consistently generated for Wino Mail.
-- **3a39266** — Simplified compose/rendering logic using clearer message-driven flows.
-- **5d46ea7** — Routed mail/calendar toasts to correct app entries.
-- **d51f4a7** — Added SQLite indexes and enforced foreign keys for performance/integrity.
-- **79a8171** — Improved thread mapping logic across all synchronizer implementations.
-- **c5a631d** — Added grace-period logic for local drafts to reduce accidental loss/conflicts.
-- **33672ab** — Added local draft resend behavior and default app mode settings.
-- **311b3c7** — Added dedicated Wino Calendar app entry point.
-- **17ca32c** — Enabled large Outlook attachment sending via upload sessions.
-- **9d3f0bd** — Added manual live coverage tests for `ImapSynchronizer`.
-- **7f198ba** — Implemented explicit synchronizer state for mail and calendar items.
-- **a912ada** — Fixed messaging issues tied to calendar add/delete operations.
-- **317113a** — Fixed CalDAV timezone handling issues.
-- **564cb0b** — Fixed double-initialization issue in calendar day views.
-- **ab0810f** — Fixed CalDAV delta sync behavior.
-- **7a13ae0** — Added manual live CalDAV workflow tests.
-- **c8e1678** — Fixed `HtmlPreviewVisitor` regressions and added sanitization tests.
-- **f49d276** — Added focused ViewModel tests for `WinoMailCollection`.
-- **05112d6** — Ensured WebView2 runtime toast notifications are dispatched on UI thread.
-- **fec49ce** — Improved UI-side cleanup when deleting an account.
-- **31a7fae** — Added operation-execution error handling in rendering page flow.
-- **dae7d04** — Added calendar metadata fetch after account creation.
-- **d428a6c** — Ignored local calendar apply-changes in specific paths to prevent duplicates.
-- **ff25db3** — Added busy-state support to calendar item view models.
-- **2baa87d** — Added IMAP local calendar operation tests with in-memory DB.
-- **42e5157** — Landed broad calendar implementation work across multiple components.
-- **acf0f64** — Added CalDAV synchronizer and new IMAP setup/edit page.
-- **64b9bfc** — Added flag changes to support UID-based IMAP synchronization.
-- **744145b** — Refactored IMAP synchronization internals for stability.
-- **4a0dcd2** — Removed obsolete project files.
-- **92df726** — Batched flip-view date-range updates for programmatic calendar navigation.
-- **dbd5812** — Fixed null handling in `WinoCalendarView` date-range updates.
-- **884f000** — Added additional calendar feature plumbing and behaviors.
-- **e936c43** — Improved search behavior and relevance/UX.
-- **b01fa4e** — Improved event details page and calendar item update source handling.
-- **96dcdc8** — Added auto-sync triggering and cancellation support.
-- **96d2efb** — Removed semantic zoom support to simplify calendar interaction model.
-- **37199d8** — Fixed cache bug preventing mail removal and improved drag/drop behavior.
-- **52ee5f1** — Added/improved visuals for mail-calendar items and reminders.
-- **870a5e2** — Added calendar-to-mail mapping integration.
-- **10dd42b** — Fixed thread UI issues for better consistency.
-- **0999c71** — Improved contacts UX, thread animations, and image preview controls.
-- **e559a79** — Added generic 404 handling for synchronizer operations.
-- **1747ed8** — Disabled Sentry logging for synchronizer exceptions.
-- **22c6452** — Delivered editor optimizations for better responsiveness.
-- **ad9b94d** — Removed INC registrations for list view items to reduce overhead.
-- **9f13bcd** — Applied collection-level performance optimizations.
-- **5bfa61a** — Added folder create/delete, storage settings, and thread UI adjustments.
-- **2cd03d5** — Fixed thread selection issue involving unrealized containers.
-- **c7fb648** — Improved thread selection interactions.
-- **331b966** — Added synchronizer info panel in shell for visibility/diagnostics.
-- **d28de50** — Fixed Outlook attachments, compose-page reuse, and MIME header details.
-- **1ec8d5b** — Added Gmail draft support.
-- **4374d19** — Improved threading behavior and related interaction logic.
-- **071f1c9** — Refactored synchronizers broadly to address chronic reliability issues.
-- **d1425ca** — Updated Claude permissions ignore configuration.
-- **2fd600d** — Added partial busy-state handling for mark-as-read requests.
-- **0eba778** — Added/updated mail update-source tracking.
-- **b343152** — Landed exploratory internal experiments that informed later improvements.
-- **31097e4** — Added reactions to calendar changes for better real-time UI updates.
-- **319b0af** — Added global mouse back-button listener for app navigation.
-- **f105c2f** — Added settings/manage-accounts navigation options.
-- **7cc201f** — Added `ShowAs` stripe in calendar control template.
-- **a23a99c** — Added quick “join online” affordance for meetings.
-- **be6b23c** — Made panel usage AOT-safe to improve compatibility.
+### API calendar sync for Outlook and Gmail
+
+- Expanded Outlook calendar sync behavior, including broader sync windows and fixes around date/time handling.
+- Improved Gmail drafting and mail/calendar integration so event-related actions work better across providers.
+- Added mail and calendar synchronizer state tracking to make sync progress and error handling more reliable.
+- Added auto calendar sync on account creation and broader auto-sync trigger and cancellation support.
+
+### Calendar polish and reliability
+
+- Fixed calendar crashes and null-handling issues in calendar view date range updates.
+- Fixed double initialization in calendar day views.
+- Improved reaction to calendar changes and calendar item update-source handling.
+- Added reminder snooze support across toast UI, services, and database storage.
+
+Overall, Wino Calendar is one of the biggest themes of this branch: richer UI, more complete event workflows, and real sync support across local, CalDAV, Outlook, and Gmail-backed scenarios.
+
+## Wino Accounts
+
+Wino Accounts was significantly expanded and polished on this branch.
+
+### Account flows and identity
+
+- Added sign in, sign out, and registration flows.
+- Redesigned login and registration dialogs.
+- Added privacy policy presentation during registration.
+- Added forgot password and email confirmation flows.
+- Pointed the app to the real API and improved profile caching.
+
+### Account management and settings
+
+- Added Wino account settings and a dedicated management page.
+- Added a special navigation item for Wino Accounts.
+- Added import functionality for Wino Accounts.
+- Added a preference to hide the title bar Wino account button.
+- Improved the top-shell account icon and signed-out identity visuals.
+
+### Purchases and add-ons
+
+- Added handling for Paddle purchases and add-ons.
+- Added purchase-success deep linking.
+- Added support for AI pack handling through the Microsoft Store.
+
+### User-facing polish
+
+- Redesigned the Wino Account flyout and menu with a more polished Fluent-style presentation.
+- Improved account cleanup behavior when an account is deleted.
+- Added account attention handling and better account details/settings behavior.
+
+Compared to `main`, this branch turns Wino Accounts into a much more complete platform feature rather than a minimal sign-in surface.
+
+## Improved Stability and Reliability
+
+A large part of this branch is about making the app more dependable in everyday use.
+
+### Synchronization stability
+
+- Refactored synchronizers to address long-standing reliability issues.
+- Improved thread mapping across synchronizers.
+- Added generic 404 handling for synchronizers.
+- Added specific Outlook 429 handling for rate-limit scenarios.
+- Improved Outlook authentication and Outlook sync reliability.
+- Improved Gmail synchronizer behavior.
+- Added explicit mail and calendar synchronizer state support.
+
+### Mail and data reliability
+
+- Optimized mail fetching with batched database queries and in-memory caching.
+- Added SQLite indexes and enabled foreign key enforcement.
+- Switched away from the old mail item queue approach and returned to a simpler initial sync strategy.
+- Improved local draft resend behavior and added grace-period handling for local drafts.
+- Added better handling for large Outlook attachments via upload sessions.
+- Fixed issues with sent/draft placement, loading mails with infinite scroll, selection cleanup, and deleted-object scenarios.
+
+### UI and lifecycle stability
+
+- Fixed mail rendering page disposal issues.
+- Fixed WebView2 runtime toast dispatching on the UI thread.
+- Fixed startup mode issues, single-instancing problems, and shell/navigation regressions.
+- Fixed multiple thread selection, container, flicker, and context-menu issues.
+- Fixed crashes and null-reference style issues in several calendar and shell flows.
+
+### Engineering quality
+
+- Added more tests across calendar, CalDAV, IMAP, view-model, sanitization, and account sync scenarios.
+- Added a GitHub Actions workflow to build WinUI and run Core tests on pull requests.
+- Resolved warnings and moved the WinUI project toward warnings-as-errors discipline.
+- Added AOT compatibility work and related cleanup across the app.
+
+The branch is not just adding features; it is also clearly reducing failure points throughout sync, rendering, navigation, and storage.
+
+## Contacts, Settings, and General UX
+
+This branch also improves the everyday product experience outside mail and calendar core flows.
+
+### Contacts
+
+- Added contacts management.
+- Improved contacts UI and related thread/image preview behavior.
+- Removed legacy SQLite base64 contact storage from `AccountContact`.
+- Added contact picture handling support and supporting contact service improvements.
+
+### Settings
+
+- Added a dedicated settings shell and refactored settings home/navigation.
+- Expanded settings UI and introduced new setting options.
+- Added calendar settings into the settings experience.
+- Improved account details/settings pages and storage settings navigation.
+- Refined settings visuals, shell integration, and menu behavior.
+
+### Onboarding and app experience
+
+- Added a new startup window and a more guided onboarding flow with wizard-like steps.
+- Added a "What's New" implementation for feature communication.
+- Improved dialogs, title bar behavior, shell content, navigation, and shell polish across multiple iterations.
+- Added live store update notifications.
+- Improved keyboard shortcuts and related dialogs.
+- Added tray icon support and better toast routing between mail and calendar app entries.
+
+## Summary
+
+Compared to `main`, `feature/vNext` delivers four major leaps:
+
+1. Wino Calendar becomes a substantially more complete feature set, including local calendar support, CalDAV sync, and stronger Outlook and Gmail calendar integration.
+2. Wino Accounts becomes a real product surface with better authentication flows, management, imports, purchases, and polish.
+3. The app is more stable thanks to synchronization refactors, storage improvements, test expansion, and many crash and lifecycle fixes.
+4. Contacts, settings, onboarding, and shell/navigation experience all feel more mature and more consistent.
+
+In short, this branch is a broad product maturation release rather than a narrow feature drop.

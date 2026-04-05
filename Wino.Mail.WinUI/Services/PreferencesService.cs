@@ -221,12 +221,6 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SetPropertyAndSave(nameof(IsLoggingEnabled), value);
     }
 
-    public bool IsMailkitProtocolLoggerEnabled
-    {
-        get => _configurationService.Get(nameof(IsMailkitProtocolLoggerEnabled), false);
-        set => SetPropertyAndSave(nameof(IsMailkitProtocolLoggerEnabled), value);
-    }
-
     public bool IsGravatarEnabled
     {
         get => _configurationService.Get(nameof(IsGravatarEnabled), true);
