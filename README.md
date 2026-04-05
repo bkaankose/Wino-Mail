@@ -61,61 +61,6 @@ These releases are distributed as side-loaded packages. To install them, downloa
 
 Check out the [contribution guidelines](/CONTRIBUTING.md) before diving into the source code or opening an issue. There are multiple ways to contribute and all of them are explained in detail there.
 
-## GitHub Packages Setup
-
-`Wino-Mail` restores `Wino.Mail.Contracts` from the GitHub Packages feed for the `bkaankose` account. The repository-level [`nuget.config`](./nuget.config) already declares this source:
-
-- Source URL: `https://nuget.pkg.github.com/bkaankose/index.json`
-- Package mapped to that source: `Wino.Mail.Contracts`
-
-To restore packages locally, configure credentials for that feed in your user-level NuGet config.
-
-### 1. Create a personal access token
-
-Create a classic GitHub personal access token with at least:
-
-- `read:packages` for restoring packages
-
-If you also need to publish packages from your machine, add:
-
-- `write:packages`
-
-### 2. Add the GitHub Packages source to your local NuGet config
-
-Run:
-
-```powershell
-dotnet nuget add source https://nuget.pkg.github.com/bkaankose/index.json `
-  --name github `
-  --username YOUR_GITHUB_USERNAME `
-  --password YOUR_GITHUB_PAT `
-  --store-password-in-clear-text
-```
-
-If you already have a `github` source configured, update it instead:
-
-```powershell
-dotnet nuget update source github `
-  --source https://nuget.pkg.github.com/bkaankose/index.json `
-  --username YOUR_GITHUB_USERNAME `
-  --password YOUR_GITHUB_PAT `
-  --store-password-in-clear-text
-```
-
-### 3. Verify restore
-
-After adding the source, restore as usual:
-
-```powershell
-dotnet restore Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config -p:Platform=x64 -p:RuntimeIdentifier=win-x64
-```
-
-If restore still fails for `Wino.Mail.Contracts`, double-check that:
-
-- your PAT includes `read:packages`
-- the source name is `github`
-- the source URL exactly matches `https://nuget.pkg.github.com/bkaankose/index.json`
-
 ## Donate
 
 Your donations will motivate me more to work on Wino in my spare time and cover the expenses to keep [project's website](https://www.winomail.app/) alive.
