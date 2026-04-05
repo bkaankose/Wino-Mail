@@ -46,36 +46,35 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
 
         // Check if we have this event before.
         var existingCalendarItem = await CalendarService.GetCalendarItemAsync(assignedCalendar.Id, calendarEvent.Id);
+        CalendarItem parentRecurringEvent = null;
+
+        if (!string.IsNullOrEmpty(recurringEventId))
+        {
+            parentRecurringEvent = await CalendarService.GetCalendarItemAsync(assignedCalendar.Id, recurringEventId).ConfigureAwait(false);
+        }
+
+        var eventStartDateTimeOffset = GoogleIntegratorExtensions.GetEventDateTimeOffset(calendarEvent.Start);
+        var eventEndDateTimeOffset = GoogleIntegratorExtensions.GetEventDateTimeOffset(calendarEvent.End);
+        var eventStartLocalDateTime = GoogleIntegratorExtensions.GetEventLocalDateTime(calendarEvent.Start);
+        var eventEndLocalDateTime = GoogleIntegratorExtensions.GetEventLocalDateTime(calendarEvent.End);
+
+        double totalDurationInSeconds = 0;
+
+        if (eventStartLocalDateTime != null && eventEndLocalDateTime != null)
+        {
+            totalDurationInSeconds = (eventEndLocalDateTime.Value - eventStartLocalDateTime.Value).TotalSeconds;
+        }
 
         if (existingCalendarItem == null)
         {
-            CalendarItem parentRecurringEvent = null;
-
             // Manage the recurring event id.
-            if (!string.IsNullOrEmpty(recurringEventId))
+            if (!string.IsNullOrEmpty(recurringEventId) && parentRecurringEvent == null)
             {
-                parentRecurringEvent = await CalendarService.GetCalendarItemAsync(assignedCalendar.Id, recurringEventId).ConfigureAwait(false);
-
-                if (parentRecurringEvent == null)
-                {
-                    Log.Information($"Parent recurring event is missing for event. Skipping creation of {calendarEvent.Id}");
-                    return;
-                }
+                Log.Warning("Parent recurring event is missing for event {EventId}. Skipping creation until parent is available.", calendarEvent.Id);
+                return;
             }
 
             // We don't have this event yet. Create a new one.
-            var eventStartDateTimeOffset = GoogleIntegratorExtensions.GetEventDateTimeOffset(calendarEvent.Start);
-            var eventEndDateTimeOffset = GoogleIntegratorExtensions.GetEventDateTimeOffset(calendarEvent.End);
-            var eventStartLocalDateTime = GoogleIntegratorExtensions.GetEventLocalDateTime(calendarEvent.Start);
-            var eventEndLocalDateTime = GoogleIntegratorExtensions.GetEventLocalDateTime(calendarEvent.End);
-
-            double totalDurationInSeconds = 0;
-
-            if (eventStartLocalDateTime != null && eventEndLocalDateTime != null)
-            {
-                totalDurationInSeconds = (eventEndLocalDateTime.Value - eventStartLocalDateTime.Value).TotalSeconds;
-            }
-
             CalendarItem calendarItem = null;
 
             if (parentRecurringEvent != null)
@@ -289,6 +288,8 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
             {
                 await CalendarService.InsertOrReplaceAttachmentsAsync(attachments).ConfigureAwait(false);
             }
+
+            return;
         }
         else
         {
@@ -319,6 +320,44 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                 existingCalendarItem.IsHidden = false;
 
                 // Update the event properties.
+            }
+
+            if (eventStartLocalDateTime != null)
+            {
+                existingCalendarItem.StartDate = eventStartLocalDateTime.Value;
+            }
+
+            if (totalDurationInSeconds <= 0 && parentRecurringEvent != null)
+            {
+                totalDurationInSeconds = parentRecurringEvent.DurationInSeconds;
+            }
+
+            if (totalDurationInSeconds > 0)
+            {
+                existingCalendarItem.DurationInSeconds = totalDurationInSeconds;
+            }
+
+            existingCalendarItem.CalendarId = assignedCalendar.Id;
+            existingCalendarItem.RemoteEventId = calendarEvent.Id;
+            existingCalendarItem.Description = calendarEvent.Description ?? parentRecurringEvent?.Description ?? existingCalendarItem.Description;
+            existingCalendarItem.Location = string.IsNullOrEmpty(calendarEvent.Location) ? parentRecurringEvent?.Location ?? existingCalendarItem.Location : calendarEvent.Location;
+            existingCalendarItem.StartTimeZone = GoogleIntegratorExtensions.GetEventTimeZone(calendarEvent.Start) ?? parentRecurringEvent?.StartTimeZone ?? existingCalendarItem.StartTimeZone;
+            existingCalendarItem.EndTimeZone = GoogleIntegratorExtensions.GetEventTimeZone(calendarEvent.End) ?? parentRecurringEvent?.EndTimeZone ?? existingCalendarItem.EndTimeZone;
+            existingCalendarItem.Recurrence = GoogleIntegratorExtensions.GetRecurrenceString(calendarEvent) ?? existingCalendarItem.Recurrence ?? string.Empty;
+            existingCalendarItem.Status = GetStatus(calendarEvent.Status);
+            existingCalendarItem.Title = string.IsNullOrEmpty(calendarEvent.Summary) ? parentRecurringEvent?.Title ?? existingCalendarItem.Title : calendarEvent.Summary;
+            existingCalendarItem.UpdatedAt = DateTimeOffset.UtcNow;
+            existingCalendarItem.Visibility = string.IsNullOrEmpty(calendarEvent.Visibility) ? parentRecurringEvent?.Visibility ?? existingCalendarItem.Visibility : GetVisibility(calendarEvent.Visibility);
+            existingCalendarItem.ShowAs = string.IsNullOrEmpty(calendarEvent.Transparency) ? parentRecurringEvent?.ShowAs ?? existingCalendarItem.ShowAs : GetShowAs(calendarEvent.Transparency);
+            existingCalendarItem.HtmlLink = string.IsNullOrEmpty(calendarEvent.HtmlLink) ? parentRecurringEvent?.HtmlLink ?? existingCalendarItem.HtmlLink : calendarEvent.HtmlLink;
+            existingCalendarItem.IsLocked = calendarEvent.Locked.GetValueOrDefault(existingCalendarItem.IsLocked);
+            existingCalendarItem.OrganizerDisplayName = string.IsNullOrEmpty(GetOrganizerName(calendarEvent, organizerAccount)) ? parentRecurringEvent?.OrganizerDisplayName ?? existingCalendarItem.OrganizerDisplayName : GetOrganizerName(calendarEvent, organizerAccount);
+            existingCalendarItem.OrganizerEmail = string.IsNullOrEmpty(GetOrganizerEmail(calendarEvent, organizerAccount)) ? parentRecurringEvent?.OrganizerEmail ?? existingCalendarItem.OrganizerEmail : GetOrganizerEmail(calendarEvent, organizerAccount);
+            existingCalendarItem.AssignedCalendar = assignedCalendar;
+
+            if (!string.IsNullOrEmpty(recurringEventId) && parentRecurringEvent != null)
+            {
+                existingCalendarItem.RecurringCalendarItemId = parentRecurringEvent.Id;
             }
 
             // Prepare reminders list from Gmail event for update

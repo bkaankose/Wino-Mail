@@ -576,18 +576,79 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             // allEvents contains new or updated events.
             // Process them and create/update local calendar items.
 
-            foreach (var @event in allEvents)
-            {
-                // TODO: Exception handling for event processing.
-                // TODO: Also update attendees and other properties.
+            var eventByRemoteId = allEvents
+                .Where(e => !string.IsNullOrWhiteSpace(e.Id))
+                .GroupBy(e => e.Id, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
 
+            foreach (var @event in OrderCalendarEventsForPersistence(allEvents))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                await EnsureRecurringParentProcessedAsync(calendar, @event, eventByRemoteId, cancellationToken).ConfigureAwait(false);
                 await _gmailChangeProcessor.ManageCalendarEventAsync(@event, calendar, Account).ConfigureAwait(false);
             }
 
             await _gmailChangeProcessor.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
         }
 
-        return default;
+        return CalendarSynchronizationResult.Empty;
+    }
+
+    private static IEnumerable<Event> OrderCalendarEventsForPersistence(IEnumerable<Event> events)
+        => events
+            .OrderBy(e => !string.IsNullOrWhiteSpace(e.RecurringEventId))
+            .ThenByDescending(e => !string.IsNullOrWhiteSpace(GoogleIntegratorExtensions.GetRecurrenceString(e)))
+            .ThenBy(e => GoogleIntegratorExtensions.GetEventDateTimeOffset(e.Start) ?? DateTimeOffset.MinValue);
+
+    private async Task EnsureRecurringParentProcessedAsync(
+        AccountCalendar calendar,
+        Event calendarEvent,
+        Dictionary<string, Event> eventByRemoteId,
+        CancellationToken cancellationToken)
+    {
+        var recurringEventId = calendarEvent?.RecurringEventId;
+        if (string.IsNullOrWhiteSpace(recurringEventId))
+            return;
+
+        var parentItem = await _gmailChangeProcessor.GetCalendarItemAsync(calendar.Id, recurringEventId).ConfigureAwait(false);
+        if (parentItem != null)
+            return;
+
+        if (!eventByRemoteId.TryGetValue(recurringEventId, out var parentEvent))
+        {
+            try
+            {
+                parentEvent = await _calendarService.Events.Get(calendar.RemoteCalendarId, recurringEventId)
+                    .ExecuteAsync(cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (GoogleApiException ex)
+            {
+                _logger.Warning(ex,
+                    "Failed to fetch recurring parent {ParentRemoteEventId} for child {ChildRemoteEventId} in calendar {CalendarName}",
+                    recurringEventId,
+                    calendarEvent.Id,
+                    calendar.Name);
+            }
+
+            if (parentEvent != null && !string.IsNullOrWhiteSpace(parentEvent.Id))
+            {
+                eventByRemoteId[parentEvent.Id] = parentEvent;
+            }
+        }
+
+        if (parentEvent == null)
+        {
+            _logger.Warning(
+                "Recurring parent {ParentRemoteEventId} is still missing for child {ChildRemoteEventId} in calendar {CalendarName}",
+                recurringEventId,
+                calendarEvent.Id,
+                calendar.Name);
+            return;
+        }
+
+        await _gmailChangeProcessor.ManageCalendarEventAsync(parentEvent, calendar, Account).ConfigureAwait(false);
     }
 
     private async Task SynchronizeCalendarsAsync(CancellationToken cancellationToken = default)
