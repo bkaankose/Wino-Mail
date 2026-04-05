@@ -1,10 +1,10 @@
 ﻿using System;
 using SQLite;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Entities.Calendar;
 
-// TODO: Connect to Contact store with Wino People.
 public class CalendarEventAttendee
 {
     [PrimaryKey]
@@ -16,4 +16,11 @@ public class CalendarEventAttendee
     public bool IsOrganizer { get; set; }
     public bool IsOptionalAttendee { get; set; }
     public string Comment { get; set; }
+
+    /// <summary>
+    /// Resolved contact from the contact store. Populated at runtime via IContactService;
+    /// not persisted to the database.
+    /// </summary>
+    [Ignore]
+    public AccountContact ResolvedContact { get; set; }
 }

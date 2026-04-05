@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="Wino.Mail.WinUI.Controls.CalendarTitleBarContent"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:calendarControls="using:Wino.Calendar.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <Style
+            x:Key="CalendarNavigationButtonStyle"
+            BasedOn="{StaticResource DefaultButtonStyle}"
+            TargetType="Button">
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Height" Value="32" />
+
+            <Setter Property="Padding" Value="0" />
+            <!--<Setter Property="Foreground" Value="{ThemeResource SystemColorControlAccentBrush}" />-->
+
+            <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="4,0,0,0" Background="Transparent">
+        <Grid Background="Transparent" ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="128" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Grid VerticalAlignment="Center" ColumnSpacing="6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button Click="PreviousDateClicked" Style="{StaticResource CalendarNavigationButtonStyle}">
+                    <Viewbox Width="12">
+                        <PathIcon Data="F1 M 8.72 18.599998 C 8.879999 18.733334 9.059999 18.799999 9.26 18.799999 C 9.459999 18.799999 9.633332 18.719999 9.78 18.559999 C 9.926666 18.4 10 18.219999 10 18.019999 C 10 17.82 9.92 17.653332 9.76 17.52 L 4.52 12.559999 L 17.24 12.559999 C 17.453333 12.559999 17.633331 12.486667 17.779999 12.339999 C 17.926666 12.193334 18 12.013333 18 11.799999 C 18 11.586666 17.926666 11.406667 17.779999 11.259999 C 17.633331 11.113333 17.453333 11.039999 17.24 11.039999 L 4.52 11.039999 L 9.76 6.08 C 9.973333 5.893333 10.046666 5.653332 9.98 5.359999 C 9.913333 5.066666 9.74 4.880001 9.46 4.799999 C 9.179999 4.720001 8.933332 4.786667 8.72 5 L 2.32 11.08 C 2.16 11.24 2.053333 11.426666 2 11.639999 C 1.973333 11.746666 1.973333 11.853333 2 11.959999 C 2.053333 12.173333 2.16 12.360001 2.32 12.52 Z " />
+                    </Viewbox>
+                </Button>
+
+                <Button
+                    Grid.Column="1"
+                    Click="NextDateClicked"
+                    Style="{StaticResource CalendarNavigationButtonStyle}">
+                    <Viewbox Width="12">
+                        <PathIcon Data="F1 M 11.28 5 C 11.12 4.866667 10.94 4.806667 10.74 4.82 C 10.539999 4.833334 10.366666 4.913334 10.219999 5.059999 C 10.073333 5.206665 10 5.379999 10 5.58 C 10 5.779999 10.08 5.946667 10.24 6.08 L 15.48 11.039999 L 2.76 11.039999 C 2.546667 11.039999 2.366667 11.113333 2.22 11.259999 C 2.073333 11.406667 2 11.586666 2 11.799999 C 2 12.013333 2.073333 12.193334 2.22 12.339999 C 2.366667 12.486667 2.546667 12.559999 2.76 12.559999 L 15.48 12.559999 L 10.24 17.52 C 10.026667 17.706665 9.953333 17.946667 10.02 18.24 C 10.086666 18.533333 10.259999 18.719999 10.54 18.799999 C 10.82 18.879999 11.066667 18.813334 11.28 18.599998 L 17.68 12.52 C 17.84 12.360001 17.946667 12.173333 18 11.959999 C 18 11.853333 18 11.746666 18 11.639999 C 17.946667 11.426666 17.84 11.24 17.68 11.08 Z " />
+                    </Viewbox>
+                </Button>
+            </Grid>
+
+            <TextBlock
+                x:Name="VisibleDateRangeTextBlock"
+                Grid.Column="1"
+                MaxHeight="30"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                FontSize="18"
+                IsHitTestVisible="False"
+                Style="{StaticResource BodyTextBlockStyle}"
+                TextAlignment="Center" />
+            <calendarControls:WinoCalendarTypeSelectorControl
+                x:Name="CalendarTypeSelector"
+                Grid.Column="2"
+                VerticalAlignment="Center" />
+        </Grid>
+    </Grid>
+</UserControl>

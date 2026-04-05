@@ -1,5 +1,5 @@
 using System.Threading.Tasks;
-using Wino.Core.Domain.Models.Errors;
+using Wino.Core.Domain.Models.Synchronization;
 
 namespace Wino.Core.Domain.Interfaces;
 
@@ -23,10 +23,6 @@ public interface ISynchronizerErrorHandler
     Task<bool> HandleAsync(SynchronizerErrorContext error);
 }
 
-public interface ISynchronizerErrorHandlerFactory
-{
-    Task<bool> HandleErrorAsync(SynchronizerErrorContext error);
-}
-
 public interface IOutlookSynchronizerErrorHandlerFactory : ISynchronizerErrorHandlerFactory;
 public interface IGmailSynchronizerErrorHandlerFactory : ISynchronizerErrorHandlerFactory;
+public interface IImapSynchronizerErrorHandlerFactory : ISynchronizerErrorHandlerFactory;

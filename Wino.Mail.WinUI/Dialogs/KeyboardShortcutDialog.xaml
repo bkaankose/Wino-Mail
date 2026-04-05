@@ -1,0 +1,96 @@
+<ContentDialog
+    x:Class="Wino.Dialogs.KeyboardShortcutDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:data="using:Wino.Core.ViewModels.Data"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:local="using:Wino.Dialogs"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="{x:Bind domain:Translator.KeyboardShortcuts_Add}"
+    DefaultButton="Primary"
+    PrimaryButtonClick="SaveClicked"
+    PrimaryButtonText="{x:Bind domain:Translator.Buttons_Save}"
+    SecondaryButtonText="{x:Bind domain:Translator.Buttons_Cancel}"
+    Style="{StaticResource WinoDialogStyle}"
+    mc:Ignorable="d">
+
+    <Grid MinWidth="400" MinHeight="300">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="1" Margin="0,0,0,20">
+            <TextBlock
+                Margin="0,0,0,8"
+                Style="{ThemeResource BodyStrongTextBlockStyle}"
+                Text="{x:Bind domain:Translator.KeyboardShortcuts_Mode}" />
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <RadioButton
+                    Content="{x:Bind domain:Translator.KeyboardShortcuts_ModeMail}"
+                    GroupName="ShortcutMode"
+                    IsChecked="{x:Bind IsMailModeSelected, Mode=TwoWay}" />
+                <RadioButton
+                    Content="{x:Bind domain:Translator.KeyboardShortcuts_ModeCalendar}"
+                    GroupName="ShortcutMode"
+                    IsChecked="{x:Bind IsCalendarModeSelected, Mode=TwoWay}" />
+            </StackPanel>
+        </StackPanel>
+
+        <!--  Action  -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,20">
+            <TextBlock
+                Margin="0,0,0,4"
+                Style="{ThemeResource BodyStrongTextBlockStyle}"
+                Text="{x:Bind domain:Translator.KeyboardShortcuts_Action}" />
+            <ComboBox
+                x:Name="ActionComboBox"
+                HorizontalAlignment="Stretch"
+                ItemsSource="{x:Bind AvailableActions}"
+                SelectedItem="{x:Bind SelectedAction, Mode=TwoWay}">
+                <ComboBox.ItemTemplate>
+
+                    <DataTemplate x:DataType="data:KeyboardShortcutActionViewModel">
+                        <TextBlock Text="{x:Bind DisplayName}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </StackPanel>
+
+        <!--  Key Input  -->
+        <StackPanel Grid.Row="2" Margin="0,0,0,20">
+            <TextBlock
+                Margin="0,0,0,4"
+                Style="{ThemeResource BodyStrongTextBlockStyle}"
+                Text="{x:Bind domain:Translator.KeyboardShortcuts_KeyCombination}" />
+            <TextBox
+                x:Name="KeyInputTextBox"
+                IsReadOnly="True"
+                PlaceholderText="{x:Bind domain:Translator.KeyboardShortcuts_PressKeysHere}"
+                PreviewKeyDown="KeyInputTextBox_PreviewKeyDown" />
+            <TextBlock
+                Margin="0,4,0,0"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{ThemeResource CaptionTextBlockStyle}"
+                Text="{x:Bind domain:Translator.KeyboardShortcuts_FocusArea}" />
+        </StackPanel>
+
+        <!--  Error Message  -->
+        <Border
+            x:Name="ErrorBorder"
+            Grid.Row="4"
+            Padding="12,8"
+            Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+            CornerRadius="4"
+            Visibility="Collapsed">
+            <TextBlock
+                x:Name="ErrorTextBlock"
+                Foreground="{ThemeResource SystemErrorTextColor}"
+                Style="{ThemeResource CaptionTextBlockStyle}" />
+        </Border>
+    </Grid>
+</ContentDialog>

@@ -8,9 +8,12 @@ public interface INavigationService
 {
     bool Navigate(WinoPage page,
                          object parameter = null,
-                         NavigationReferenceFrame frame = NavigationReferenceFrame.ShellFrame,
+                         NavigationReferenceFrame frame = NavigationReferenceFrame.InnerShellFrame,
                          NavigationTransitionType transition = NavigationTransitionType.None);
 
     Type GetPageType(WinoPage winoPage);
-    void GoBack();
+    bool ChangeApplicationMode(WinoApplicationMode mode);
+    bool ChangeApplicationMode(WinoApplicationMode mode, ShellModeActivationContext activationContext);
+    bool CanGoBack();
+    void GoBack(NavigationTransitionEffect slideEffect = NavigationTransitionEffect.FromRight);
 }

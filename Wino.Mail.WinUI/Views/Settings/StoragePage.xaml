@@ -1,0 +1,114 @@
+<abstract:StoragePageAbstract
+    x:Class="Wino.Views.Settings.StoragePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:mailData="using:Wino.Mail.ViewModels.Data"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    x:Name="root"
+    mc:Ignorable="d">
+
+    <ScrollViewer>
+        <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
+            <Grid
+                Padding="16"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="{ThemeResource OverlayCornerRadius}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <PathIcon>
+                        <PathIcon.Data>
+                            M5 7h14a3 3 0 0 1 2.995 2.824L22 10v4a3 3 0 0 1-2.824 2.995L19 17H5a3 3 0 0 1-2.995-2.824L2 14v-4a3 3 0 0 1 2.824-2.995L5 7h14H5Zm14 1.5H5A1.5 1.5 0 0 0 3.5 10v4A1.5 1.5 0 0 0 5 15.5h14a1.5 1.5 0 0 0 1.5-1.5v-4A1.5 1.5 0 0 0 19 8.5ZM18 10a1 1 0 1 1 0 2 1 1 0 0 1 0-2Zm-4 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z
+                        </PathIcon.Data>
+                    </PathIcon>
+                    <StackPanel Spacing="2">
+                        <TextBlock Style="{ThemeResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.SettingsStorage_Title}" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="{x:Bind domain:Translator.SettingsStorage_Description}"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+                </StackPanel>
+
+                <Grid Grid.Row="1" Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="{x:Bind ViewModel.SummaryText, Mode=OneWay}"
+                        TextWrapping="WrapWholeWords" />
+
+                    <Button
+                        Grid.Column="1"
+                        Margin="12,0,0,0"
+                        Command="{x:Bind ViewModel.RefreshStorageCommand}"
+                        Content="{x:Bind domain:Translator.SettingsStorage_ScanFolder}"
+                        IsEnabled="{x:Bind ViewModel.IsBusy, Mode=OneWay, Converter={StaticResource ReverseBooleanConverter}}"
+                        Style="{StaticResource AccentButtonStyle}" />
+                </Grid>
+            </Grid>
+
+            <ItemsControl ItemsSource="{x:Bind ViewModel.AccountStorageItems, Mode=OneWay}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="mailData:AccountStorageItemViewModel">
+                        <controls:SettingsExpander Description="{x:Bind SizeDescription}" Header="{x:Bind AccountName}">
+                            <controls:SettingsExpander.HeaderIcon>
+                                <coreControls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(Account)}" />
+                            </controls:SettingsExpander.HeaderIcon>
+
+                            <controls:SettingsExpander.Items>
+                                <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsStorage_DeleteAll_Description}" Header="{x:Bind domain:Translator.SettingsStorage_DeleteAll_Title}">
+                                    <Button
+                                        Command="{x:Bind DeleteAllCommand}"
+                                        CommandParameter="{x:Bind}"
+                                        Content="{x:Bind domain:Translator.SettingsStorage_DeleteAll_Button}"
+                                        IsEnabled="{x:Bind IsBusy, Mode=OneWay, Converter={StaticResource ReverseBooleanConverter}}" />
+                                </controls:SettingsCard>
+
+                                <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsStorage_DeleteOld_Description}" Header="{x:Bind domain:Translator.SettingsStorage_DeleteOld_Title}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button
+                                            Command="{x:Bind DeleteOneMonthCommand}"
+                                            CommandParameter="{x:Bind}"
+                                            Content="{x:Bind domain:Translator.SettingsStorage_DeleteOld_1Month}"
+                                            IsEnabled="{x:Bind IsBusy, Mode=OneWay, Converter={StaticResource ReverseBooleanConverter}}" />
+                                        <Button
+                                            Command="{x:Bind DeleteThreeMonthsCommand}"
+                                            CommandParameter="{x:Bind}"
+                                            Content="{x:Bind domain:Translator.SettingsStorage_DeleteOld_3Months}"
+                                            IsEnabled="{x:Bind IsBusy, Mode=OneWay, Converter={StaticResource ReverseBooleanConverter}}" />
+                                        <Button
+                                            Command="{x:Bind DeleteSixMonthsCommand}"
+                                            CommandParameter="{x:Bind}"
+                                            Content="{x:Bind domain:Translator.SettingsStorage_DeleteOld_6Months}"
+                                            IsEnabled="{x:Bind IsBusy, Mode=OneWay, Converter={StaticResource ReverseBooleanConverter}}" />
+                                        <Button
+                                            Command="{x:Bind DeleteYearCommand}"
+                                            CommandParameter="{x:Bind}"
+                                            Content="{x:Bind domain:Translator.SettingsStorage_DeleteOld_1Year}"
+                                            IsEnabled="{x:Bind IsBusy, Mode=OneWay, Converter={StaticResource ReverseBooleanConverter}}" />
+                                    </StackPanel>
+                                </controls:SettingsCard>
+                            </controls:SettingsExpander.Items>
+                        </controls:SettingsExpander>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </ScrollViewer>
+</abstract:StoragePageAbstract>

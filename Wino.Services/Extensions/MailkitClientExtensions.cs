@@ -93,42 +93,154 @@ public static class MailkitClientExtensions
             return HtmlAgilityPackExtensions.GetPreviewText(message.HtmlBody);
     }
 
-    public static MailCopy GetMailDetails(this IMessageSummary messageSummary, MailItemFolder folder, MimeMessage mime)
+    public static MailCopy GetMailDetails(this IMessageSummary messageSummary, MailItemFolder folder, MimeMessage mime = null)
     {
-        // MessageSummary will only have UniqueId, Flags, ThreadId.
-        // Other properties are extracted directly from the MimeMessage.
+        // IMAP UIDs are unique only within a folder.
+        // MailCopy.Id maps to {FolderId}_{UID} for deterministic folder-local identity.
 
-        // IMAP doesn't have unique id for mails.
-        // All mails are mapped to specific folders with incremental Id.
-        // Uid 1 may belong to different messages in different folders, but can never be
-        // same for different messages in same folders.
-        // Here we create arbitrary Id that maps the Id of the message with Folder UniqueId.
-        // When folder becomes invalid, we'll clear out these MailCopies as well.
+        var envelope = messageSummary.Envelope;
 
         var messageUid = CreateUid(folder.Id, messageSummary.UniqueId.Id);
-        var previewText = mime.GetPreviewText();
+        var subject = mime?.Subject ?? envelope?.Subject ?? string.Empty;
+        var previewText = mime != null ? mime.GetPreviewText() : GetPreviewText(messageSummary, subject);
+
+        // Prefer InternalDate (server received time). Fall back to envelope date and finally UTC now.
+        var creationDate = messageSummary.InternalDate?.UtcDateTime
+                           ?? envelope?.Date?.UtcDateTime
+                           ?? DateTime.UtcNow;
+
+        var messageId = mime?.GetMessageId() ?? envelope?.MessageId ?? string.Empty;
+        var fromName = mime != null ? GetActualSenderName(mime) : GetEnvelopeSenderName(envelope);
+        var fromAddress = mime != null ? GetActualSenderAddress(mime) : GetEnvelopeSenderAddress(envelope);
+        var references = mime?.References?.GetReferences() ?? messageSummary.References?.GetReferences();
+        var inReplyTo = mime != null ? mime.GetInReplyTo() : envelope?.InReplyTo ?? string.Empty;
+        var threadId = ResolveThreadId(messageSummary, messageId, references, inReplyTo);
+        var hasAttachments = mime != null ? mime.Attachments.Any() : false;
+        var itemType = mime != null ? GetMailItemTypeFromMime(mime) : MailItemType.Mail;
 
         var copy = new MailCopy()
         {
             Id = messageUid,
-            CreationDate = mime.Date.UtcDateTime,
-            ThreadId = messageSummary.GetThreadId(),
-            MessageId = mime.GetMessageId(),
-            Subject = mime.Subject,
+            CreationDate = creationDate,
+            ThreadId = threadId,
+            MessageId = messageId,
+            Subject = subject,
             IsRead = messageSummary.Flags.GetIsRead(),
             IsFlagged = messageSummary.Flags.GetIsFlagged(),
             PreviewText = previewText,
-            FromAddress = GetActualSenderAddress(mime),
-            FromName = GetActualSenderName(mime),
+            FromAddress = fromAddress,
+            FromName = fromName,
             IsFocused = false,
-            Importance = mime.GetImportance(),
-            References = mime.References?.GetReferences(),
-            InReplyTo = mime.GetInReplyTo(),
-            HasAttachments = mime.Attachments.Any(),
-            FileId = Guid.NewGuid()
+            Importance = mime != null ? mime.GetImportance() : MailImportance.Normal,
+            References = references,
+            InReplyTo = inReplyTo,
+            HasAttachments = hasAttachments,
+            FileId = Guid.NewGuid(),
+            ItemType = itemType
         };
 
         return copy;
+    }
+
+    private static string ResolveThreadId(IMessageSummary messageSummary, string messageId, string references, string inReplyTo)
+    {
+        var serverThreadId = messageSummary.GetThreadId();
+        if (!string.IsNullOrEmpty(serverThreadId))
+            return serverThreadId;
+
+        // Fallback threading for IMAP providers that do not expose a native ThreadId:
+        // - Prefer root of References chain
+        // - Then In-Reply-To
+        // - Finally own Message-Id (single-message thread root)
+        var rootReference = references?
+            .Split(new[] { ';', ',', ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(NormalizeThreadToken)
+            .FirstOrDefault();
+
+        if (!string.IsNullOrEmpty(rootReference))
+            return rootReference;
+
+        var normalizedInReplyTo = NormalizeThreadToken(inReplyTo);
+        if (!string.IsNullOrEmpty(normalizedInReplyTo))
+            return normalizedInReplyTo;
+
+        var normalizedMessageId = NormalizeThreadToken(messageId);
+        if (!string.IsNullOrEmpty(normalizedMessageId))
+            return normalizedMessageId;
+
+        return string.Empty;
+    }
+
+    private static string NormalizeThreadToken(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        value = value.Trim();
+
+        if (value.StartsWith("<") && value.EndsWith(">") && value.Length > 2)
+            value = value.Substring(1, value.Length - 2);
+
+        return value;
+    }
+
+    private static string GetPreviewText(IMessageSummary messageSummary, string subjectFallback)
+    {
+        if (!string.IsNullOrWhiteSpace(messageSummary.PreviewText))
+            return messageSummary.PreviewText;
+
+        return subjectFallback ?? string.Empty;
+    }
+
+    private static string GetEnvelopeSenderName(Envelope envelope)
+    {
+        var mailbox = envelope?.From?.Mailboxes?.FirstOrDefault() ?? envelope?.Sender?.Mailboxes?.FirstOrDefault();
+        if (mailbox == null)
+            return Translator.UnknownSender;
+
+        return string.IsNullOrWhiteSpace(mailbox.Name) ? mailbox.Address : mailbox.Name;
+    }
+
+    private static string GetEnvelopeSenderAddress(Envelope envelope)
+    {
+        var mailbox = envelope?.From?.Mailboxes?.FirstOrDefault() ?? envelope?.Sender?.Mailboxes?.FirstOrDefault();
+        return mailbox?.Address ?? Translator.UnknownSender;
+    }
+
+    /// <summary>
+    /// Determines MailItemType based on MIME message content type.
+    /// Calendar invitations have text/calendar content type with METHOD parameter.
+    /// </summary>
+    private static MailItemType GetMailItemTypeFromMime(MimeMessage mime)
+    {
+        if (mime == null) return MailItemType.Mail;
+
+        // Check if the message contains text/calendar content
+        var calendarPart = mime.BodyParts.OfType<MimePart>()
+            .FirstOrDefault(p => p.ContentType?.MimeType?.Equals("text/calendar", StringComparison.OrdinalIgnoreCase) == true);
+
+        if (calendarPart != null)
+        {
+            // Check the METHOD parameter to determine invitation type
+            var method = calendarPart.ContentType.Parameters
+                .FirstOrDefault(p => p.Name.Equals("method", StringComparison.OrdinalIgnoreCase))?.Value?.ToUpperInvariant();
+
+            if (!string.IsNullOrEmpty(method))
+            {
+                return method switch
+                {
+                    "REQUEST" => MailItemType.CalendarInvitation,
+                    "CANCEL" => MailItemType.CalendarCancellation,
+                    "REPLY" => MailItemType.CalendarResponse,
+                    _ => MailItemType.Mail
+                };
+            }
+
+            // If no method specified, assume it's an invitation
+            return MailItemType.CalendarInvitation;
+        }
+
+        return MailItemType.Mail;
     }
 
     // TODO: Name and Address parsing should be handled better.

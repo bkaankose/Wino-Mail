@@ -1,0 +1,1356 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Messaging;
+using MoreLinq;
+using MoreLinq.Extensions;
+using Serilog;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.MenuItems;
+using Wino.Core.Domain.Models.Folders;
+using Wino.Core.Domain.Models;
+using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Services;
+using Wino.Mail.ViewModels.Data;
+using Wino.Messaging.Client.Accounts;
+using Wino.Messaging.Client.Navigation;
+using Wino.Messaging.Client.Shell;
+using Wino.Messaging.Server;
+using Wino.Messaging.UI;
+
+namespace Wino.Mail.ViewModels;
+
+public partial class MailAppShellViewModel : MailBaseViewModel,
+    IMailShellClient,
+    IRecipient<MailtoProtocolMessageRequested>,
+    IRecipient<RefreshUnreadCountsMessage>,
+    IRecipient<AccountsMenuRefreshRequested>,
+    IRecipient<MergedInboxRenamed>,
+    IRecipient<LanguageChanged>,
+    IRecipient<AccountMenuItemsReordered>,
+    IRecipient<AccountSynchronizerStateChanged>,
+    IRecipient<NavigateAppPreferencesRequested>,
+    IRecipient<AccountFolderConfigurationUpdated>,
+    IRecipient<AccountRemovedMessage>,
+    IRecipient<AccountUpdatedMessage>
+{
+    #region Menu Items
+
+    [ObservableProperty]
+    private object selectedMenuItem;
+
+    private IAccountMenuItem latestSelectedAccountMenuItem;
+
+    public MenuItemCollection FooterItems { get; set; }
+    public MenuItemCollection MenuItems { get; set; }
+
+    private readonly SettingsItem SettingsItem = new SettingsItem();
+    private readonly ContactsMenuItem ContactsMenuItem = new ContactsMenuItem();
+    private readonly StoreUpdateMenuItem StoreUpdateMenuItem = new StoreUpdateMenuItem();
+
+    public IMenuItem CreateMailMenuItem = new NewMailMenuItem();
+
+    #endregion
+
+    private const string IsActivateStartupLaunchAskedKey = nameof(IsActivateStartupLaunchAskedKey);
+
+    public IStatePersistanceService StatePersistenceService { get; }
+    public IPreferencesService PreferencesService { get; }
+    public INavigationService NavigationService { get; }
+    public WinoApplicationMode Mode => WinoApplicationMode.Mail;
+    public bool HandlesNavigationSelection => true;
+    public IMenuItem CreatePrimaryMenuItem => CreateMailMenuItem;
+
+    private readonly IFolderService _folderService;
+    private readonly IConfigurationService _configurationService;
+    private readonly IStartupBehaviorService _startupBehaviorService;
+    private readonly IAccountService _accountService;
+    private readonly IContextMenuItemService _contextMenuItemService;
+    private readonly IStoreRatingService _storeRatingService;
+    private readonly ILaunchProtocolService _launchProtocolService;
+    private readonly INotificationBuilder _notificationBuilder;
+    private readonly IWinoRequestDelegator _winoRequestDelegator;
+    private readonly IMailDialogService _dialogService;
+    private readonly IMimeFileService _mimeFileService;
+    private readonly IWebView2RuntimeValidatorService _webView2RuntimeValidatorService;
+    private readonly IStoreUpdateService _storeUpdateService;
+
+    private readonly INativeAppService _nativeAppService;
+    private readonly IMailService _mailService;
+    private bool _hasRegisteredPersistentRecipients;
+    private readonly SemaphoreSlim _menuRefreshSemaphore = new(1, 1);
+
+    private readonly SemaphoreSlim accountInitFolderUpdateSlim = new SemaphoreSlim(1);
+
+    public MailAppShellViewModel(IMailDialogService dialogService,
+                             INavigationService navigationService,
+                             IMimeFileService mimeFileService,
+                             INativeAppService nativeAppService,
+                             IMailService mailService,
+                             IAccountService accountService,
+                             IContextMenuItemService contextMenuItemService,
+                             IStoreRatingService storeRatingService,
+                             IPreferencesService preferencesService,
+                             ILaunchProtocolService launchProtocolService,
+                             INotificationBuilder notificationBuilder,
+                             IWinoRequestDelegator winoRequestDelegator,
+                             IFolderService folderService,
+                             IStatePersistanceService statePersistanceService,
+                             IConfigurationService configurationService,
+                             IStartupBehaviorService startupBehaviorService,
+                             IWebView2RuntimeValidatorService webView2RuntimeValidatorService,
+                             IStoreUpdateService storeUpdateService)
+    {
+        StatePersistenceService = statePersistanceService;
+
+        PreferencesService = preferencesService;
+        _dialogService = dialogService;
+        NavigationService = navigationService;
+
+        _configurationService = configurationService;
+        _startupBehaviorService = startupBehaviorService;
+        _mimeFileService = mimeFileService;
+        _nativeAppService = nativeAppService;
+        _mailService = mailService;
+        _folderService = folderService;
+        _accountService = accountService;
+        _contextMenuItemService = contextMenuItemService;
+        _storeRatingService = storeRatingService;
+        _launchProtocolService = launchProtocolService;
+        _notificationBuilder = notificationBuilder;
+        _winoRequestDelegator = winoRequestDelegator;
+        _webView2RuntimeValidatorService = webView2RuntimeValidatorService;
+        _storeUpdateService = storeUpdateService;
+    }
+
+    protected override void OnDispatcherAssigned()
+    {
+        base.OnDispatcherAssigned();
+
+        MenuItems = new MenuItemCollection(Dispatcher);
+        FooterItems = new MenuItemCollection(Dispatcher);
+    }
+
+    public IEnumerable<FolderOperationMenuItem> GetFolderContextMenuActions(IBaseFolderMenuItem folder)
+    {
+        if (folder == null || folder.SpecialFolderType == SpecialFolderType.Category || folder.SpecialFolderType == SpecialFolderType.More)
+            return default;
+
+        return _contextMenuItemService.GetFolderContextMenuActions(folder);
+    }
+
+    private async Task CreateFooterItemsAsync(bool showNotification = false)
+    {
+        await ExecuteUIThread(() =>
+        {
+            FooterItems.Clear();
+        });
+    }
+
+    private async Task LoadAccountsAsync()
+    {
+        // First clear all account menu items.
+        MenuItems.RemoveRange(MenuItems.Where(a => a is IAccountMenuItem));
+
+        var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
+
+        List<Guid> initializedAccountIds = new();
+
+        foreach (var account in accounts)
+        {
+            // Already initialized with one of the previous merged accounts.
+
+            if (initializedAccountIds.Contains(account.Id)) continue;
+
+            bool isMergedAccount = account.MergedInboxId != null;
+
+            if (isMergedAccount)
+            {
+                var mergedAccountId = account.MergedInboxId.Value;
+                var mergedAccounts = accounts.Where(a => a.MergedInboxId == mergedAccountId);
+                var mergedInbox = mergedAccounts.First().MergedInbox;
+
+                var mergedAccountMenuItem = new MergedAccountMenuItem(mergedInbox, mergedAccounts, null);
+
+                foreach (var mergedAccount in mergedAccounts)
+                {
+                    initializedAccountIds.Add(mergedAccount.Id);
+                    mergedAccountMenuItem.SubMenuItems.Add(new AccountMenuItem(mergedAccount, mergedAccountMenuItem));
+                }
+
+                await ExecuteUIThread(() =>
+                {
+                    MenuItems.Add(mergedAccountMenuItem);
+                });
+
+            }
+            else
+            {
+                await ExecuteUIThread(() =>
+                {
+                    MenuItems.Add(new AccountMenuItem(account, null));
+                });
+
+                initializedAccountIds.Add(account.Id);
+            }
+        }
+
+        // Re-assign latest selected account menu item for containers to reflect changes better.
+        // Also , this will ensure that the latest selected account is still selected after re-creation.
+
+        if (latestSelectedAccountMenuItem != null && MenuItems.TryGetAccountMenuItem(latestSelectedAccountMenuItem.EntityId.GetValueOrDefault(), out IAccountMenuItem foundLatestSelectedAccountMenuItem))
+        {
+            await ExecuteUIThread(() =>
+            {
+                foundLatestSelectedAccountMenuItem.IsSelected = true;
+            });
+        }
+    }
+
+    private async void PreferencesServiceChanged(object sender, string e)
+    {
+        if (e == nameof(IPreferencesService.IsStoreUpdateNotificationsEnabled))
+        {
+            await CreateFooterItemsAsync();
+        }
+    }
+
+    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    {
+        if (!_hasRegisteredPersistentRecipients)
+        {
+            RegisterRecipients();
+            _hasRegisteredPersistentRecipients = true;
+        }
+
+        var activationContext = parameters as ShellModeActivationContext;
+        var shouldRunStartupFlows = (activationContext?.IsInitialActivation ?? true) &&
+                                    activationContext?.SuppressStartupFlows != true;
+        var hasExistingAccountMenuItems = MenuItems?.OfType<IAccountMenuItem>().Any() == true;
+
+        PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
+        PreferencesService.PreferenceChanged += PreferencesServiceChanged;
+
+        await CreateFooterItemsAsync(true);
+
+        if (!hasExistingAccountMenuItems)
+        {
+            await RecreateMenuItemsAsync();
+        }
+
+        await ProcessLaunchOptionsAsync();
+        await ValidateWebView2RuntimeAsync();
+
+        if (shouldRunStartupFlows && !Debugger.IsAttached)
+        {
+            await ForceAllAccountSynchronizationsAsync();
+        }
+
+        if (shouldRunStartupFlows)
+        {
+            await MakeSureEnableStartupLaunchAsync();
+        }
+    }
+
+    private async Task ValidateWebView2RuntimeAsync()
+    {
+        var isRuntimeAvailable = await _webView2RuntimeValidatorService.IsRuntimeAvailableAsync();
+
+        if (!isRuntimeAvailable)
+        {
+            await ExecuteUIThread(() => _notificationBuilder.CreateWebView2RuntimeMissingNotification());
+        }
+    }
+
+    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    {
+        PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
+    }
+
+    public void PrepareForShellShutdown()
+    {
+        PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
+
+        if (_hasRegisteredPersistentRecipients)
+        {
+            UnregisterRecipients();
+            _hasRegisteredPersistentRecipients = false;
+        }
+
+        latestSelectedAccountMenuItem = null;
+        SelectedMenuItem = null;
+
+        MenuItems?.Clear();
+        MenuItems?.Add(CreateMailMenuItem);
+        FooterItems?.Clear();
+    }
+
+    private async Task MakeSureEnableStartupLaunchAsync()
+    {
+        if (!_configurationService.Get<bool>(IsActivateStartupLaunchAskedKey, false))
+        {
+            var currentBehavior = await _startupBehaviorService.GetCurrentStartupBehaviorAsync();
+
+            // User somehow already enabled Wino before the first launch.
+            if (currentBehavior == StartupBehaviorResult.Enabled)
+            {
+                _configurationService.Set(IsActivateStartupLaunchAskedKey, true);
+                return;
+            }
+
+            bool isAccepted = await _dialogService.ShowWinoCustomMessageDialogAsync(Translator.DialogMessage_EnableStartupLaunchTitle,
+                                                                                   Translator.DialogMessage_EnableStartupLaunchMessage,
+                                                                                   Translator.Buttons_Yes,
+                                                                                   WinoCustomMessageDialogIcon.Information,
+                                                                                   Translator.Buttons_No);
+
+            bool shouldDisplayLaterOnMessage = !isAccepted;
+
+            if (isAccepted)
+            {
+                var behavior = await _startupBehaviorService.ToggleStartupBehavior(true);
+
+                shouldDisplayLaterOnMessage = behavior != StartupBehaviorResult.Enabled;
+            }
+
+            if (shouldDisplayLaterOnMessage)
+            {
+                await _dialogService.ShowWinoCustomMessageDialogAsync(Translator.DialogMessage_EnableStartupLaunchTitle,
+                                                                    Translator.DialogMessage_EnableStartupLaunchDeniedMessage,
+                                                                    Translator.Buttons_Close,
+                                                                    WinoCustomMessageDialogIcon.Information);
+            }
+
+            _configurationService.Set(IsActivateStartupLaunchAskedKey, true);
+        }
+    }
+
+
+    private async Task ForceAllAccountSynchronizationsAsync()
+    {
+        // Run Inbox synchronization for all accounts on startup.
+        var accounts = await _accountService.GetAccountsAsync();
+
+        foreach (var account in accounts)
+        {
+            var options = new MailSynchronizationOptions()
+            {
+                AccountId = account.Id,
+                Type = MailSynchronizationType.FullFolders
+            };
+
+            Messenger.Send(new NewMailSynchronizationRequested(options));
+        }
+    }
+
+    // Navigate to startup account's Inbox.
+    private async Task ProcessLaunchOptionsAsync()
+    {
+        try
+        {
+            // Check whether we have saved navigation item from toast.
+
+            bool hasToastActivation = _launchProtocolService.LaunchParameter != null;
+
+            if (hasToastActivation)
+            {
+                if (_launchProtocolService.LaunchParameter is AccountMenuItemExtended accountExtendedMessage)
+                {
+                    // Find the account that this folder and mail belongs to.
+                    var account = await _mailService.GetMailAccountByUniqueIdAsync(accountExtendedMessage.NavigateMailItem.UniqueId).ConfigureAwait(false);
+
+                    if (account != null && MenuItems.TryGetAccountMenuItem(account.Id, out IAccountMenuItem accountMenuItem))
+                    {
+                        await ChangeLoadedAccountAsync(accountMenuItem);
+
+                        WeakReferenceMessenger.Default.Send(accountExtendedMessage);
+
+                        _launchProtocolService.LaunchParameter = null;
+                    }
+                    else
+                    {
+                        await ProcessLaunchDefaultAsync();
+                    }
+                }
+            }
+            else
+            {
+                bool hasMailtoActivation = _launchProtocolService.MailToUri != null;
+
+                if (hasMailtoActivation)
+                {
+                    // mailto activation. Create new mail with specific delivered address as receiver.
+
+                    WeakReferenceMessenger.Default.Send(new MailtoProtocolMessageRequested());
+                }
+                else
+                {
+                    // Use default startup extending.
+                    await ProcessLaunchDefaultAsync();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to process launch options.");
+        }
+    }
+
+    private async Task ProcessLaunchDefaultAsync()
+    {
+        if (PreferencesService.StartupEntityId == null)
+        {
+            NavigateToWelcomeWizard();
+        }
+        else
+        {
+            var startupEntityId = PreferencesService.StartupEntityId.Value;
+
+            // startupEntityId is the id of the entity to be expanded on startup.
+            // This can be either AccountId or MergedAccountId right now.
+            // If accountId, we'll find the root account and extend Inbox folder for it.
+            // If mergedAccountId, merged account's Inbox folder will be extended.
+
+            var startupEntityMenuItem = MenuItems.FirstOrDefault(a => a.EntityId == startupEntityId);
+
+            if (startupEntityMenuItem != null)
+            {
+                startupEntityMenuItem.Expand();
+
+                if (startupEntityMenuItem is IAccountMenuItem startupAccountMenuItem)
+                {
+                    await ChangeLoadedAccountAsync(startupAccountMenuItem);
+                }
+            }
+            else
+            {
+                // Fallback to the welcome wizard if startup entity is not found.
+                NavigateToWelcomeWizard();
+            }
+        }
+    }
+
+    public async Task NavigateFolderAsync(IBaseFolderMenuItem baseFolderMenuItem, TaskCompletionSource<bool> folderInitAwaitTask = null)
+    {
+        // It's already there. Don't navigate again.
+        if (SelectedMenuItem == baseFolderMenuItem) return;
+
+        await ExecuteUIThread(() =>
+        {
+            SelectedMenuItem = baseFolderMenuItem;
+            baseFolderMenuItem.IsSelected = true;
+
+            folderInitAwaitTask ??= new TaskCompletionSource<bool>();
+
+            var args = new NavigateMailFolderEventArgs(baseFolderMenuItem, folderInitAwaitTask);
+
+            NavigationService.Navigate(WinoPage.MailListPage, args, NavigationReferenceFrame.InnerShellFrame);
+
+            UpdateWindowTitleForFolder(baseFolderMenuItem);
+        });
+
+        // Wait until mail list page picks up the event and finish initialization of the mails.
+        await folderInitAwaitTask.Task;
+    }
+
+    private void UpdateWindowTitleForFolder(IBaseFolderMenuItem folder)
+    {
+        StatePersistenceService.CoreWindowTitle = $"{folder.AssignedAccountName} - {folder.FolderName}";
+    }
+
+    private void UpdateWindowTitle(string title)
+    {
+        StatePersistenceService.CoreWindowTitle = title;
+    }
+
+    private async Task NavigateSpecialFolderAsync(MailAccount account, SpecialFolderType specialFolderType, bool extendAccountMenu)
+    {
+        try
+        {
+            if (account == null) return;
+
+            if (!MenuItems.TryGetAccountMenuItem(account.Id, out IAccountMenuItem accountMenuItem)) return;
+
+            // First make sure to navigate to the given accounnt.
+
+            if (latestSelectedAccountMenuItem != accountMenuItem)
+            {
+                await ChangeLoadedAccountAsync(accountMenuItem, false);
+            }
+
+            // Account folders are already initialized.
+            // Try to find the special folder menu item and navigate to it.
+
+            if (latestSelectedAccountMenuItem is IMergedAccountMenuItem latestMergedAccountMenuItem)
+            {
+                if (MenuItems.TryGetMergedAccountSpecialFolderMenuItem(latestSelectedAccountMenuItem.EntityId.Value, specialFolderType, out IBaseFolderMenuItem mergedFolderMenuItem))
+                {
+                    await NavigateFolderAsync(mergedFolderMenuItem);
+                }
+            }
+            else if (latestSelectedAccountMenuItem is IAccountMenuItem latestAccountMenuItem)
+            {
+                if (MenuItems.TryGetSpecialFolderMenuItem(account.Id, specialFolderType, out FolderMenuItem rootFolderMenuItem))
+                {
+                    await NavigateFolderAsync(rootFolderMenuItem);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to navigate to Inbox.");
+        }
+    }
+
+    /// <summary>
+    /// Performs move operation for given items to target folder.
+    /// Used with drag and drop from Shell.
+    /// </summary>
+    /// <param name="items">Items to move.</param>
+    /// <param name="targetFolderMenuItem">Folder menu item to move to. Can be merged folder as well.</param>
+    public async Task PerformMoveOperationAsync(IEnumerable<MailCopy> items, IBaseFolderMenuItem targetFolderMenuItem)
+    {
+        if (!items.Any() || targetFolderMenuItem == null) return;
+
+        // User dropped mails to merged account folder.
+        if (targetFolderMenuItem is IMergedAccountFolderMenuItem mergedAccountFolderMenuItem)
+        {
+            // Mail items must be grouped by their account and move
+            // operation should be targeted towards that account's special type.
+            // Multiple move packages will be created if there are multiple accounts.
+
+            var folderSpecialType = mergedAccountFolderMenuItem.SpecialFolderType;
+
+            var groupedByAccount = items.GroupBy(a => a.AssignedAccount.Id);
+
+            foreach (var group in groupedByAccount)
+            {
+                var accountId = group.Key;
+
+                // Find the target folder for this account.
+                var handlingAccountFolder = mergedAccountFolderMenuItem.HandlingFolders.FirstOrDefault(a => a.MailAccountId == accountId);
+
+                if (handlingAccountFolder == null)
+                {
+                    Log.Warning("Failed to find the account in the merged account folder menu item for account id {AccountId}", accountId);
+                    continue;
+                }
+
+                var package = new MailOperationPreperationRequest(MailOperation.Move, group, false, handlingAccountFolder);
+                await _winoRequestDelegator.ExecuteAsync(package);
+            }
+        }
+        else if (targetFolderMenuItem is IFolderMenuItem singleFolderMenuItem)
+        {
+            // User dropped mails to a single folder.
+            // Create a single move package for this folder.
+
+            var package = new MailOperationPreperationRequest(MailOperation.Move, items, false, targetFolderMenuItem.HandlingFolders.First());
+
+            await _winoRequestDelegator.ExecuteAsync(package);
+        }
+    }
+
+    public async Task PerformFolderOperationAsync(FolderOperation operation, IBaseFolderMenuItem folderMenuItem)
+    {
+        if (folderMenuItem == null)
+            return;
+
+        // Ask confirmation for cleaning up the folder.
+        if (operation == FolderOperation.Empty)
+        {
+            var result = await _dialogService.ShowConfirmationDialogAsync(Translator.DialogMessage_CleanupFolderMessage, Translator.DialogMessage_CleanupFolderTitle, Translator.Buttons_Yes);
+
+            if (!result) return;
+        }
+
+        foreach (var folder in folderMenuItem.HandlingFolders)
+        {
+            if (folder is MailItemFolder realFolder)
+            {
+                var folderPrepRequest = new FolderOperationPreperationRequest(operation, realFolder);
+
+                await _winoRequestDelegator.ExecuteAsync(folderPrepRequest);
+            }
+        }
+
+        // Refresh the pins.
+        if (operation == FolderOperation.Pin || operation == FolderOperation.Unpin)
+        {
+            Messenger.Send(new AccountsMenuRefreshRequested(true));
+        }
+    }
+
+    public Task HandleAccountAttentionAsync(MailAccount account)
+        => FixAccountIssuesAsync(account);
+
+    private void TriggerFullSynchronization(MailAccount account)
+    {
+        Messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+        {
+            AccountId = account.Id,
+            Type = MailSynchronizationType.FullFolders
+        }));
+
+        if (account.IsCalendarAccessGranted)
+        {
+            Messenger.Send(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
+            {
+                AccountId = account.Id,
+                Type = CalendarSynchronizationType.CalendarEvents
+            }));
+        }
+    }
+
+    private async Task FixAccountIssuesAsync(MailAccount account)
+    {
+        try
+        {
+            if (account.AttentionReason == AccountAttentionReason.InvalidCredentials)
+            {
+                if (account.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook)
+                {
+                    await SynchronizationManager.Instance.HandleAuthorizationAsync(
+                        account.ProviderType,
+                        account,
+                        account.ProviderType == MailProviderType.Gmail);
+
+                    await _accountService.ClearAccountAttentionAsync(account.Id);
+
+                    _dialogService.InfoBarMessage(
+                        Translator.Info_AccountIssueFixSuccessTitle,
+                        Translator.Info_AccountIssueFixSuccessMessage,
+                        InfoBarMessageType.Success);
+
+                    TriggerFullSynchronization(account);
+                    return;
+                }
+
+                NavigationService.Navigate(WinoPage.SettingsPage, WinoPage.ManageAccountsPage);
+                Messenger.Send(new BreadcrumbNavigationRequested(
+                    Translator.ImapCalDavSettingsPage_TitleEdit,
+                    WinoPage.ImapCalDavSettingsPage,
+                    ImapCalDavSettingsNavigationContext.CreateForEditMode(account.Id)));
+
+                _dialogService.InfoBarMessage(
+                    Translator.Info_AccountIssueFixSuccessTitle,
+                    Translator.Info_AccountIssueFixImapMessage,
+                    InfoBarMessageType.Information);
+                return;
+            }
+            else if (account.AttentionReason == AccountAttentionReason.MissingSystemFolderConfiguration)
+            {
+                await _dialogService.HandleSystemFolderConfigurationDialogAsync(account.Id, _folderService);
+                await _accountService.ClearAccountAttentionAsync(account.Id);
+
+                _dialogService.InfoBarMessage(
+                    Translator.Info_AccountIssueFixSuccessTitle,
+                    Translator.Info_AccountIssueFixSuccessMessage,
+                    InfoBarMessageType.Success);
+
+                TriggerFullSynchronization(account);
+            }
+        }
+        catch (Exception ex)
+        {
+            _dialogService.InfoBarMessage(Translator.Info_AccountIssueFixFailedTitle, ex.Message, InfoBarMessageType.Error);
+        }
+    }
+
+    public void NavigatePage(WinoPage winoPage)
+    {
+        NavigationService.Navigate(winoPage);
+
+        StatePersistenceService.CoreWindowTitle = "Wino Mail";
+    }
+
+    public async Task MenuItemInvokedOrSelectedAsync(IMenuItem clickedMenuItem, object parameter = null)
+    {
+        if (clickedMenuItem == null) return;
+
+        // Regular menu item clicked without page navigation.
+        if (clickedMenuItem is FixAccountIssuesMenuItem fixAccountItem)
+        {
+            await FixAccountIssuesAsync(fixAccountItem.Account);
+        }
+        else if (clickedMenuItem is RateMenuItem)
+        {
+            await _storeRatingService.LaunchStorePageForReviewAsync();
+        }
+        else if (clickedMenuItem is NewMailMenuItem)
+        {
+            await HandleCreateNewMailAsync();
+        }
+        else if (clickedMenuItem is IBaseFolderMenuItem baseFolderMenuItem && baseFolderMenuItem.HandlingFolders.All(a => a.IsMoveTarget))
+        {
+            // Don't navigate to base folders that contain non-move target folders.
+            // Theory: This is a special folder like Categories or More. Don't navigate to it.
+
+            // Prompt user rating dialog if eligible.
+            _ = _storeRatingService.PromptRatingDialogAsync();
+
+            await NavigateFolderAsync(baseFolderMenuItem);
+        }
+        else if (clickedMenuItem is MergedAccountMenuItem clickedMergedAccountMenuItem && latestSelectedAccountMenuItem != clickedMenuItem)
+        {
+            // Don't navigate to merged account if it's already selected. Preserve user's already selected folder.
+            await ChangeLoadedAccountAsync(clickedMergedAccountMenuItem, true);
+        }
+        else if (clickedMenuItem is IAccountMenuItem clickedAccountMenuItem)
+        {
+            // Changing loaded account.
+            if (latestSelectedAccountMenuItem != clickedAccountMenuItem)
+            {
+                await ChangeLoadedAccountAsync(clickedAccountMenuItem);
+            }
+            else
+            {
+                // Clicked on the same account. Just navigate to Inbox.
+                await NavigateInboxAsync(clickedAccountMenuItem);
+            }
+        }
+    }
+
+    public async Task ChangeLoadedAccountAsync(IAccountMenuItem clickedBaseAccountMenuItem, bool navigateInbox = true)
+    {
+        if (clickedBaseAccountMenuItem == null) return;
+
+        // User clicked an account in Windows Mail style menu.
+        // List folders for this account and select Inbox.
+
+        await MenuItems.SetAccountMenuItemEnabledStatusAsync(false);
+
+        // Load account folder structure and replace the visible folders.
+        var folders = await _folderService.GetAccountFoldersForDisplayAsync(clickedBaseAccountMenuItem);
+
+        await ExecuteUIThread(() =>
+        {
+            clickedBaseAccountMenuItem.IsEnabled = false;
+
+            if (latestSelectedAccountMenuItem != null)
+            {
+                latestSelectedAccountMenuItem.IsSelected = false;
+            }
+
+            clickedBaseAccountMenuItem.IsSelected = true;
+
+            latestSelectedAccountMenuItem = clickedBaseAccountMenuItem;
+        });
+
+        await MenuItems.ReplaceFoldersAsync(folders);
+
+        await UpdateUnreadItemCountAsync();
+        await MenuItems.SetAccountMenuItemEnabledStatusAsync(true);
+
+        if (navigateInbox)
+        {
+            await Task.Yield();
+            await NavigateInboxAsync(clickedBaseAccountMenuItem);
+        }
+    }
+
+    private async Task UpdateUnreadItemCountAsync()
+    {
+        // Get visible account menu items, ordered by merged accounts at the last.
+        // We will update the unread counts for all single accounts and trigger UI refresh for merged menu items.
+        var accountMenuItems = MenuItems.GetAllAccountMenuItems().OrderBy(a => a.HoldingAccounts.Count());
+
+        // Individually get all single accounts' unread counts.
+        var accountIds = accountMenuItems.OfType<AccountMenuItem>().Select(a => a.AccountId);
+        var unreadCountResult = await _folderService.GetUnreadItemCountResultsAsync(accountIds).ConfigureAwait(false);
+
+        // Recursively update all folders' unread counts to 0.
+        // Query above only returns unread counts that exists. We need to reset the rest to 0 first.
+
+        await ExecuteUIThread(() =>
+        {
+            MenuItems.UpdateUnreadItemCountsToZero();
+        });
+
+        foreach (var accountMenuItem in accountMenuItems)
+        {
+            if (accountMenuItem is MergedAccountMenuItem mergedAccountMenuItem)
+            {
+                await ExecuteUIThread(() =>
+                {
+                    mergedAccountMenuItem.RefreshFolderItemCount();
+                });
+            }
+            else
+            {
+                await ExecuteUIThread(() =>
+                {
+                    accountMenuItem.UnreadItemCount = unreadCountResult
+                    .Where(a => a.AccountId == accountMenuItem.HoldingAccounts.First().Id && a.SpecialFolderType == SpecialFolderType.Inbox)
+                    .Sum(a => a.UnreadItemCount);
+                });
+            }
+        }
+
+        // Try to update unread counts for all folders.
+        foreach (var unreadCount in unreadCountResult)
+        {
+            if (MenuItems.TryGetFolderMenuItem(unreadCount.FolderId, out IBaseFolderMenuItem folderMenuItem))
+            {
+                if (folderMenuItem is IMergedAccountFolderMenuItem mergedAccountFolderMenuItem)
+                {
+                    await ExecuteUIThread(() =>
+                    {
+                        folderMenuItem.UnreadItemCount = unreadCountResult.Where(a => a.SpecialFolderType == unreadCount.SpecialFolderType && mergedAccountFolderMenuItem.HandlingFolders.Select(b => b.Id).Contains(a.FolderId)).Sum(a => a.UnreadItemCount);
+                    });
+                }
+                else
+                {
+                    await ExecuteUIThread(() =>
+                    {
+                        folderMenuItem.UnreadItemCount = unreadCount.UnreadItemCount;
+                    });
+                }
+            }
+        }
+
+        // Update unread badge after all unread counts are updated.
+        await _notificationBuilder.UpdateTaskbarIconBadgeAsync();
+    }
+
+    private async Task NavigateInboxAsync(IAccountMenuItem clickedBaseAccountMenuItem)
+    {
+        var folderInitAwaitTask = new TaskCompletionSource<bool>();
+
+        if (clickedBaseAccountMenuItem is AccountMenuItem accountMenuItem)
+        {
+            if (MenuItems.TryGetWindowsStyleRootSpecialFolderMenuItem(accountMenuItem.AccountId, SpecialFolderType.Inbox, out FolderMenuItem inboxFolder))
+            {
+                await NavigateFolderAsync(inboxFolder, folderInitAwaitTask);
+            }
+        }
+        else if (clickedBaseAccountMenuItem is MergedAccountMenuItem mergedAccountMenuItem)
+        {
+            if (MenuItems.TryGetMergedAccountSpecialFolderMenuItem(mergedAccountMenuItem.EntityId.GetValueOrDefault(), SpecialFolderType.Inbox, out IBaseFolderMenuItem inboxFolder))
+            {
+                await NavigateFolderAsync(inboxFolder, folderInitAwaitTask);
+            }
+        }
+    }
+
+    public async Task HandleCreateNewMailAsync()
+    {
+        _ = _storeRatingService.PromptRatingDialogAsync();
+
+        MailAccount operationAccount = null;
+
+        // Check whether we have active folder item selected for any account.
+        // We have selected account. New mail creation should be targeted for this account.
+
+        if (SelectedMenuItem is FolderMenuItem selectedFolderMenuItem)
+        {
+            operationAccount = selectedFolderMenuItem.ParentAccount;
+        }
+
+        // We couldn't find any account so far.
+        // If there is only 1 account to use, use it. If not,
+        // send a message for flyout so user can pick from it.
+
+        if (operationAccount == null)
+        {
+            // No selected account.
+            // List all accounts and let user pick one.
+
+            var accounts = await _accountService.GetAccountsAsync();
+
+            if (!accounts.Any())
+            {
+                var isManageAccountClicked = await _dialogService.ShowWinoCustomMessageDialogAsync(Translator.DialogMessage_NoAccountsForCreateMailTitle,
+                                                                                                  Translator.DialogMessage_NoAccountsForCreateMailMessage,
+                                                                                                  Translator.MenuManageAccounts,
+                                                                                                  WinoCustomMessageDialogIcon.Information,
+                                                                                                  string.Empty);
+
+
+
+                if (isManageAccountClicked)
+                {
+                    NavigationService.Navigate(WinoPage.SettingsPage, WinoPage.ManageAccountsPage);
+                }
+
+                return;
+            }
+
+            if (accounts.Count() == 1)
+                operationAccount = accounts.FirstOrDefault();
+            else
+            {
+                if (latestSelectedAccountMenuItem is MergedAccountMenuItem selectedMergedAccountMenuItem)
+                {
+                    // There are multiple accounts and there is no selection.
+                    // Don't list all accounts, but only accounts that belong to Merged Inbox.
+
+                    var mergedAccounts = accounts.Where(a => a.MergedInboxId == selectedMergedAccountMenuItem.EntityId);
+
+                    if (!mergedAccounts.Any()) return;
+
+                    Messenger.Send(new CreateNewMailWithMultipleAccountsRequested(mergedAccounts.ToList()));
+                }
+                else if (latestSelectedAccountMenuItem is AccountMenuItem selectedAccountMenuItem)
+                {
+                    operationAccount = selectedAccountMenuItem.HoldingAccounts.ElementAt(0);
+                }
+                else
+                {
+                    // User is at some other page. List all accounts.
+                    Messenger.Send(new CreateNewMailWithMultipleAccountsRequested(accounts));
+                }
+            }
+        }
+
+        if (operationAccount != null)
+            await CreateNewMailForAsync(operationAccount);
+    }
+
+    public async Task CreateNewMailForAsync(MailAccount account)
+    {
+        if (account == null) return;
+
+        // Find draft folder.
+        var draftFolder = await _folderService.GetSpecialFolderByAccountIdAsync(account.Id, SpecialFolderType.Draft);
+
+        if (draftFolder == null)
+        {
+            _dialogService.InfoBarMessage(Translator.Info_DraftFolderMissingTitle,
+                                         Translator.Info_DraftFolderMissingMessage,
+                                         InfoBarMessageType.Error,
+                                         Translator.SettingConfigureSpecialFolders_Button,
+                                         () =>
+                                         {
+                                             _dialogService.HandleSystemFolderConfigurationDialogAsync(account.Id, _folderService);
+                                         });
+            return;
+        }
+
+        // Navigate to draft folder.
+        await NavigateSpecialFolderAsync(account, SpecialFolderType.Draft, true);
+
+        // Generate empty mime message.
+        var draftOptions = new DraftCreationOptions
+        {
+            Reason = DraftCreationReason.Empty,
+            MailToUri = _launchProtocolService.MailToUri
+        };
+
+        var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(account.Id, draftOptions).ConfigureAwait(false);
+
+        var draftPreparationRequest = new DraftPreparationRequest(account, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason);
+        await _winoRequestDelegator.ExecuteAsync(draftPreparationRequest);
+    }
+
+    public override async Task KeyboardShortcutHook(KeyboardShortcutTriggerDetails args)
+    {
+        if (args.Handled || args.Mode != WinoApplicationMode.Mail)
+            return;
+
+        if (args.Action == KeyboardShortcutAction.NewMail)
+        {
+            await HandleCreateNewMailAsync();
+            args.Handled = true;
+        }
+    }
+
+
+
+    // TODO: Handle by messaging.
+    private async Task SetAccountAttentionAsync(Guid accountId, AccountAttentionReason reason)
+    {
+        if (!MenuItems.TryGetAccountMenuItem(accountId, out IAccountMenuItem accountMenuItem)) return;
+
+        var accountModel = accountMenuItem.HoldingAccounts.First(a => a.Id == accountId);
+
+        accountModel.AttentionReason = reason;
+
+        await _accountService.UpdateAccountAsync(accountModel);
+
+        accountMenuItem.UpdateAccount(accountModel);
+    }
+
+    public async void Receive(MailtoProtocolMessageRequested message)
+    {
+        var accounts = await _accountService.GetAccountsAsync();
+
+        MailAccount targetAccount = null;
+
+        if (!accounts.Any())
+        {
+            await _dialogService.ShowMessageAsync(Translator.DialogMessage_NoAccountsForCreateMailMessage,
+                                                 Translator.DialogMessage_NoAccountsForCreateMailTitle,
+                                                 WinoCustomMessageDialogIcon.Warning);
+        }
+        else if (accounts.Count == 1)
+        {
+            targetAccount = accounts[0];
+        }
+        else
+        {
+            // User must pick an account.
+
+            targetAccount = await _dialogService.ShowAccountPickerDialogAsync(accounts);
+        }
+
+        if (targetAccount == null) return;
+
+        await CreateNewMailForAsync(targetAccount);
+    }
+
+    private async Task RecreateMenuItemsAsync()
+    {
+        await _menuRefreshSemaphore.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            await ExecuteUIThread(() =>
+            {
+                MenuItems.Clear();
+                MenuItems.Add(CreateMailMenuItem);
+            });
+
+            await LoadAccountsAsync();
+        }
+        finally
+        {
+            _menuRefreshSemaphore.Release();
+        }
+    }
+
+    private async Task RestoreSelectedAccountAfterMenuRefreshAsync(bool automaticallyNavigateFirstItem)
+    {
+        IAccountMenuItem validSelectedMenuItem = null;
+        bool hasPreviousSelection = latestSelectedAccountMenuItem != null;
+
+        if (hasPreviousSelection)
+        {
+            var selectedEntityId = latestSelectedAccountMenuItem.EntityId.GetValueOrDefault();
+
+            if (selectedEntityId != Guid.Empty &&
+                MenuItems.TryGetAccountMenuItem(selectedEntityId, out IAccountMenuItem foundSelectedMenuItem))
+            {
+                validSelectedMenuItem = foundSelectedMenuItem;
+            }
+            else
+            {
+                latestSelectedAccountMenuItem = null;
+            }
+        }
+
+        if (validSelectedMenuItem == null)
+        {
+            validSelectedMenuItem = MenuItems.FirstOrDefault(a => a is IAccountMenuItem) as IAccountMenuItem;
+            hasPreviousSelection = false;
+        }
+
+        if (validSelectedMenuItem != null)
+        {
+            await ChangeLoadedAccountAsync(validSelectedMenuItem, hasPreviousSelection || automaticallyNavigateFirstItem);
+        }
+        else
+        {
+            await ExecuteUIThread(() => SelectedMenuItem = null);
+            NavigateToWelcomeWizard();
+        }
+    }
+
+    private void NavigateToWelcomeWizard()
+        => NavigationService.Navigate(
+            WinoPage.WelcomeHostPage,
+            null,
+            NavigationReferenceFrame.ShellFrame,
+            NavigationTransitionType.None);
+
+    private bool IsAccountCurrentlyLoaded(Guid accountId)
+    {
+        return latestSelectedAccountMenuItem?.HoldingAccounts?.Any(a => a.Id == accountId) == true;
+    }
+
+    private async Task RefreshLoadedAccountFolderStructureAsync(Guid accountId)
+    {
+        if (!IsAccountCurrentlyLoaded(accountId) || latestSelectedAccountMenuItem == null)
+            return;
+
+        var selectedFolderId = (SelectedMenuItem as IBaseFolderMenuItem)?.HandlingFolders
+            ?.FirstOrDefault(a => a.MailAccountId == accountId)?.Id;
+
+        var folders = await _folderService.GetAccountFoldersForDisplayAsync(latestSelectedAccountMenuItem);
+
+        await MenuItems.ReplaceFoldersAsync(folders);
+        await UpdateUnreadItemCountAsync();
+
+        if (selectedFolderId.HasValue &&
+            MenuItems.TryGetFolderMenuItem(selectedFolderId.Value, out IBaseFolderMenuItem selectedFolderMenuItem))
+        {
+            await NavigateFolderAsync(selectedFolderMenuItem);
+        }
+        else
+        {
+            await NavigateInboxAsync(latestSelectedAccountMenuItem);
+        }
+    }
+
+    public async void Receive(RefreshUnreadCountsMessage message)
+        => await UpdateUnreadItemCountAsync();
+
+    public async void Receive(AccountsMenuRefreshRequested message)
+    {
+        await RecreateMenuItemsAsync();
+        await RestoreSelectedAccountAfterMenuRefreshAsync(message.AutomaticallyNavigateFirstItem);
+    }
+
+    public async void Receive(AccountFolderConfigurationUpdated message)
+    {
+        await RefreshLoadedAccountFolderStructureAsync(message.AccountId);
+    }
+
+    public async void Receive(MergedInboxRenamed message)
+    {
+        var mergedInboxMenuItem = MenuItems.FirstOrDefault(a => a.EntityId == message.MergedInboxId);
+
+        if (mergedInboxMenuItem == null) return;
+
+        if (mergedInboxMenuItem is MergedAccountMenuItem mergedAccountMenuItemCasted)
+        {
+            await ExecuteUIThread(() => { mergedAccountMenuItemCasted.MergedAccountName = message.NewName; });
+        }
+    }
+
+    public async void Receive(LanguageChanged message)
+    {
+        await CreateFooterItemsAsync(true);
+        await RecreateMenuItemsAsync();
+        await RestoreSelectedAccountAfterMenuRefreshAsync(false);
+    }
+
+    private void ReorderAccountMenuItems(Dictionary<Guid, int> newAccountOrder)
+    {
+        foreach (var item in newAccountOrder)
+        {
+            if (!MenuItems.TryGetAccountMenuItem(item.Key, out IAccountMenuItem menuItem)) return;
+
+            // Adding +1 since first item is always reserved for CreateMailMenuItem.
+            MenuItems.Move(MenuItems.IndexOf(menuItem), item.Value + 1);
+        }
+    }
+
+    public void Receive(AccountMenuItemsReordered message) => ReorderAccountMenuItems(message.newOrderDictionary);
+
+    private async void UpdateFolderCollection(IMailItemFolder updatedMailItemFolder)
+    {
+        var menuItem = MenuItems.GetAllFolderMenuItems(updatedMailItemFolder.Id);
+
+        if (!menuItem.Any()) return;
+
+        foreach (var item in menuItem)
+        {
+            await ExecuteUIThread(() =>
+            {
+                item.UpdateFolder(updatedMailItemFolder);
+            });
+        }
+    }
+
+    protected override void OnFolderRenamed(IMailItemFolder mailItemFolder)
+    {
+        base.OnFolderRenamed(mailItemFolder);
+
+        UpdateFolderCollection(mailItemFolder);
+    }
+
+    protected override async void OnFolderDeleted(MailItemFolder folder)
+    {
+        base.OnFolderDeleted(folder);
+
+        bool wasSelected = SelectedMenuItem is IBaseFolderMenuItem selectedFolder &&
+            selectedFolder.HandlingFolders.Any(a => a.Id == folder.Id);
+
+        await ExecuteUIThread(() => MenuItems.RemoveFolderMenuItem(folder.Id));
+
+        if (wasSelected && latestSelectedAccountMenuItem != null)
+        {
+            await NavigateInboxAsync(latestSelectedAccountMenuItem);
+            return;
+        }
+
+        await RefreshLoadedAccountFolderStructureAsync(folder.MailAccountId);
+    }
+
+    protected override void OnFolderSynchronizationEnabled(IMailItemFolder mailItemFolder)
+    {
+        base.OnFolderSynchronizationEnabled(mailItemFolder);
+
+        UpdateFolderCollection(mailItemFolder);
+    }
+
+    public async void Receive(AccountSynchronizerStateChanged message)
+    {
+        var accountMenuItem = MenuItems.GetSpecificAccountMenuItem(message.AccountId);
+
+        if (accountMenuItem == null) return;
+
+        await ExecuteUIThread(() =>
+        {
+            accountMenuItem.TotalItemsToSync = message.TotalItemsToSync;
+            accountMenuItem.RemainingItemsToSync = message.RemainingItemsToSync;
+            accountMenuItem.SynchronizationStatus = message.SynchronizationStatus;
+
+            // If this account is part of a merged inbox, update the merged inbox progress as well
+            if (accountMenuItem.ParentMenuItem is MergedAccountMenuItem mergedAccountMenuItem)
+            {
+                mergedAccountMenuItem.RefreshSynchronizationProgress();
+            }
+        });
+    }
+
+    public async void Receive(NavigateAppPreferencesRequested message)
+    {
+        NavigationService.Navigate(WinoPage.SettingsPage, WinoPage.AppPreferencesPage);
+    }
+
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+
+        Messenger.Register<AccountRemovedMessage>(this);
+        Messenger.Register<AccountUpdatedMessage>(this);
+        Messenger.Register<MailtoProtocolMessageRequested>(this);
+        Messenger.Register<RefreshUnreadCountsMessage>(this);
+        Messenger.Register<AccountsMenuRefreshRequested>(this);
+        Messenger.Register<MergedInboxRenamed>(this);
+        Messenger.Register<LanguageChanged>(this);
+        Messenger.Register<AccountMenuItemsReordered>(this);
+        Messenger.Register<AccountSynchronizerStateChanged>(this);
+        Messenger.Register<NavigateAppPreferencesRequested>(this);
+        Messenger.Register<AccountFolderConfigurationUpdated>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+
+        Messenger.Unregister<AccountRemovedMessage>(this);
+        Messenger.Unregister<AccountUpdatedMessage>(this);
+        Messenger.Unregister<MailtoProtocolMessageRequested>(this);
+        Messenger.Unregister<RefreshUnreadCountsMessage>(this);
+        Messenger.Unregister<AccountsMenuRefreshRequested>(this);
+        Messenger.Unregister<MergedInboxRenamed>(this);
+        Messenger.Unregister<LanguageChanged>(this);
+        Messenger.Unregister<AccountMenuItemsReordered>(this);
+        Messenger.Unregister<AccountSynchronizerStateChanged>(this);
+        Messenger.Unregister<NavigateAppPreferencesRequested>(this);
+        Messenger.Unregister<AccountFolderConfigurationUpdated>(this);
+    }
+
+    public async void Receive(AccountRemovedMessage message)
+    {
+        var remainingAccounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
+        if (!remainingAccounts.Any())
+        {
+            latestSelectedAccountMenuItem = null;
+            await ExecuteUIThread(() =>
+            {
+                SelectedMenuItem = null;
+                MenuItems?.Clear();
+                MenuItems?.Add(CreateMailMenuItem);
+            });
+            return;
+        }
+
+        if (latestSelectedAccountMenuItem?.HoldingAccounts?.Any(a => a.Id == message.Account.Id) == true)
+        {
+            latestSelectedAccountMenuItem = null;
+            await ExecuteUIThread(() => SelectedMenuItem = null);
+        }
+
+        await RecreateMenuItemsAsync();
+        await RestoreSelectedAccountAfterMenuRefreshAsync(false);
+    }
+
+    public async Task HandleAccountCreatedAsync(MailAccount createdAccount)
+    {
+        latestSelectedAccountMenuItem = null;
+
+        await RecreateMenuItemsAsync();
+
+        if (!MenuItems.TryGetAccountMenuItem(createdAccount.Id, out IAccountMenuItem createdMenuItem))
+        {
+            Log.Warning("Created account {AccountId} could not be found in menu items after refresh.", createdAccount.Id);
+            return;
+        }
+
+        await ChangeLoadedAccountAsync(createdMenuItem);
+
+        // Each created account should start a new synchronization automatically.
+        var options = new MailSynchronizationOptions()
+        {
+            AccountId = createdAccount.Id,
+            Type = MailSynchronizationType.FullFolders,
+        };
+
+        Messenger.Send(new NewMailSynchronizationRequested(options));
+
+        if (createdAccount.IsCalendarAccessGranted)
+        {
+            var calendarOptions = new CalendarSynchronizationOptions()
+            {
+                AccountId = createdAccount.Id,
+                Type = CalendarSynchronizationType.CalendarEvents
+            };
+
+            Messenger.Send(new NewCalendarSynchronizationRequested(calendarOptions));
+        }
+
+        try
+        {
+            await _nativeAppService.PinAppToTaskbarAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to pin Wino to taskbar.");
+        }
+    }
+
+    public async void Receive(AccountUpdatedMessage message)
+    {
+        var updatedAccount = message.Account;
+
+        await ExecuteUIThread(() =>
+        {
+            if (MenuItems.TryGetAccountMenuItem(updatedAccount.Id, out IAccountMenuItem foundAccountMenuItem))
+            {
+                foundAccountMenuItem.UpdateAccount(updatedAccount);
+            }
+        });
+    }
+
+    void IShellClient.Activate(ShellModeActivationContext activationContext)
+        => OnNavigatedTo(NavigationMode.New, activationContext);
+
+    void IShellClient.Deactivate()
+        => OnNavigatedFrom(NavigationMode.New, null!);
+
+    Task IShellClient.HandleNavigationItemInvokedAsync(IMenuItem menuItem)
+        => MenuItemInvokedOrSelectedAsync(menuItem);
+
+    Task IShellClient.HandleNavigationSelectionChangedAsync(IMenuItem menuItem)
+        => menuItem == null ? Task.CompletedTask : MenuItemInvokedOrSelectedAsync(menuItem);
+}
+
+
+
+
+
+
+

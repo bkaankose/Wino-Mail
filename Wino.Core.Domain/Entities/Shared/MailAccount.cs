@@ -79,6 +79,14 @@ public class MailAccount
     public SpecialImapProvider SpecialImapProvider { get; set; }
 
     /// <summary>
+    /// Gets or sets whether calendar access is granted for this account.
+    /// When false, synchronizers will not process EventMessages or calendar invitations.
+    /// Default is false for existing accounts to prevent scope issues.
+    /// New accounts created after this feature will have this set to true.
+    /// </summary>
+    public bool IsCalendarAccessGranted { get; set; }
+
+    /// <summary>
     /// Contains the merged inbox this account belongs to.
     /// Ignored for all SQLite operations.
     /// </summary>
@@ -99,6 +107,12 @@ public class MailAccount
     public MailAccountPreferences Preferences { get; set; }
 
     /// <summary>
+    /// Last time folder structure was synchronized.
+    /// Used for optimization - skip folder sync if synced recently.
+    /// </summary>
+    public DateTime? LastFolderStructureSyncDate { get; set; }
+
+    /// <summary>
     /// Gets whether the account can perform ProfileInformation sync type.
     /// </summary>
     public bool IsProfileInfoSyncSupported => ProviderType == MailProviderType.Outlook || ProviderType == MailProviderType.Gmail;
@@ -107,4 +121,6 @@ public class MailAccount
     /// Gets whether the account can perform AliasInformation sync type.
     /// </summary>
     public bool IsAliasSyncSupported => ProviderType == MailProviderType.Gmail;
+
+    public override string ToString() => Name;
 }

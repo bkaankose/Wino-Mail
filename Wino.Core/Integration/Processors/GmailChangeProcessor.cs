@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 using Google.Apis.Calendar.v3.Data;
 using Serilog;
@@ -65,12 +66,14 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
             // We don't have this event yet. Create a new one.
             var eventStartDateTimeOffset = GoogleIntegratorExtensions.GetEventDateTimeOffset(calendarEvent.Start);
             var eventEndDateTimeOffset = GoogleIntegratorExtensions.GetEventDateTimeOffset(calendarEvent.End);
+            var eventStartLocalDateTime = GoogleIntegratorExtensions.GetEventLocalDateTime(calendarEvent.Start);
+            var eventEndLocalDateTime = GoogleIntegratorExtensions.GetEventLocalDateTime(calendarEvent.End);
 
             double totalDurationInSeconds = 0;
 
-            if (eventStartDateTimeOffset != null && eventEndDateTimeOffset != null)
+            if (eventStartLocalDateTime != null && eventEndLocalDateTime != null)
             {
-                totalDurationInSeconds = (eventEndDateTimeOffset.Value - eventStartDateTimeOffset.Value).TotalSeconds;
+                totalDurationInSeconds = (eventEndLocalDateTime.Value - eventStartLocalDateTime.Value).TotalSeconds;
             }
 
             CalendarItem calendarItem = null;
@@ -96,11 +99,13 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                     CreatedAt = DateTimeOffset.UtcNow,
                     Description = calendarEvent.Description ?? parentRecurringEvent.Description,
                     Id = Guid.NewGuid(),
-                    StartDate = eventStartDateTimeOffset.Value.DateTime,
-                    StartDateOffset = eventStartDateTimeOffset.Value.Offset,
-                    EndDateOffset = eventEndDateTimeOffset?.Offset ?? parentRecurringEvent.EndDateOffset,
+                    StartDate = eventStartLocalDateTime.Value,
                     DurationInSeconds = totalDurationInSeconds,
                     Location = string.IsNullOrEmpty(calendarEvent.Location) ? parentRecurringEvent.Location : calendarEvent.Location,
+
+                    // Store timezone information
+                    StartTimeZone = GoogleIntegratorExtensions.GetEventTimeZone(calendarEvent.Start) ?? parentRecurringEvent.StartTimeZone,
+                    EndTimeZone = GoogleIntegratorExtensions.GetEventTimeZone(calendarEvent.End) ?? parentRecurringEvent.EndTimeZone,
 
                     // Leave it empty if it's not populated.
                     Recurrence = GoogleIntegratorExtensions.GetRecurrenceString(calendarEvent) == null ? string.Empty : GoogleIntegratorExtensions.GetRecurrenceString(calendarEvent),
@@ -108,6 +113,7 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                     Title = string.IsNullOrEmpty(calendarEvent.Summary) ? parentRecurringEvent.Title : calendarEvent.Summary,
                     UpdatedAt = DateTimeOffset.UtcNow,
                     Visibility = string.IsNullOrEmpty(calendarEvent.Visibility) ? parentRecurringEvent.Visibility : GetVisibility(calendarEvent.Visibility),
+                    ShowAs = string.IsNullOrEmpty(calendarEvent.Transparency) ? parentRecurringEvent.ShowAs : GetShowAs(calendarEvent.Transparency),
                     HtmlLink = string.IsNullOrEmpty(calendarEvent.HtmlLink) ? parentRecurringEvent.HtmlLink : calendarEvent.HtmlLink,
                     RemoteEventId = calendarEvent.Id,
                     IsLocked = calendarEvent.Locked.GetValueOrDefault(),
@@ -132,16 +138,20 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                     CreatedAt = DateTimeOffset.UtcNow,
                     Description = calendarEvent.Description,
                     Id = Guid.NewGuid(),
-                    StartDate = eventStartDateTimeOffset.Value.DateTime,
-                    StartDateOffset = eventStartDateTimeOffset.Value.Offset,
-                    EndDateOffset = eventEndDateTimeOffset.Value.Offset,
+                    StartDate = eventStartLocalDateTime.Value,
                     DurationInSeconds = totalDurationInSeconds,
                     Location = calendarEvent.Location,
+
+                    // Store timezone information from Google Calendar event
+                    StartTimeZone = GoogleIntegratorExtensions.GetEventTimeZone(calendarEvent.Start),
+                    EndTimeZone = GoogleIntegratorExtensions.GetEventTimeZone(calendarEvent.End),
+
                     Recurrence = GoogleIntegratorExtensions.GetRecurrenceString(calendarEvent),
                     Status = GetStatus(calendarEvent.Status),
                     Title = calendarEvent.Summary,
                     UpdatedAt = DateTimeOffset.UtcNow,
                     Visibility = GetVisibility(calendarEvent.Visibility),
+                    ShowAs = GetShowAs(calendarEvent.Transparency),
                     HtmlLink = calendarEvent.HtmlLink,
                     RemoteEventId = calendarEvent.Id,
                     IsLocked = calendarEvent.Locked.GetValueOrDefault(),
@@ -152,6 +162,9 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
 
             // Hide canceled events.
             calendarItem.IsHidden = calendarItem.Status == CalendarItemStatus.Cancelled;
+
+            // Set assigned calendar for navigation properties to work.
+            calendarItem.AssignedCalendar = assignedCalendar;
 
             // Manage the recurring event id.
             if (parentRecurringEvent != null)
@@ -218,7 +231,64 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                 }
             }
 
+            // Prepare reminders list from Gmail event
+            List<Reminder> reminders = null;
+            if (calendarEvent.Reminders?.Overrides != null && calendarEvent.Reminders.Overrides.Count > 0)
+            {
+                reminders = new List<Reminder>();
+                foreach (var reminderOverride in calendarEvent.Reminders.Overrides)
+                {
+                    if (reminderOverride.Minutes.HasValue)
+                    {
+                        var durationInSeconds = reminderOverride.Minutes.Value * 60; // Convert minutes to seconds
+                        var reminderType = reminderOverride.Method switch
+                        {
+                            "email" => CalendarItemReminderType.Email,
+                            _ => CalendarItemReminderType.Popup
+                        };
+
+                        reminders.Add(new Reminder
+                        {
+                            Id = Guid.NewGuid(),
+                            CalendarItemId = calendarItem.Id,
+                            DurationInSeconds = durationInSeconds,
+                            ReminderType = reminderType
+                        });
+                    }
+                }
+            }
+
+            // Prepare attachments metadata from Gmail event
+            List<CalendarAttachment> attachments = null;
+            if (calendarEvent.Attachments != null && calendarEvent.Attachments.Count > 0)
+            {
+                attachments = calendarEvent.Attachments
+                    .Where(a => a != null && !string.IsNullOrEmpty(a.Title))
+                    .Select(a => new CalendarAttachment
+                    {
+                        Id = Guid.NewGuid(),
+                        CalendarItemId = calendarItem.Id,
+                        RemoteAttachmentId = a.FileId ?? a.FileUrl, // Gmail uses FileId or FileUrl
+                        FileName = a.Title,
+                        Size = 0, // Gmail API doesn't provide size in Event.Attachment
+                        ContentType = a.MimeType ?? "application/octet-stream",
+                        IsDownloaded = false,
+                        LocalFilePath = null,
+                        LastModified = DateTimeOffset.UtcNow
+                    })
+                    .ToList();
+            }
+
             await CalendarService.CreateNewCalendarItemAsync(calendarItem, attendees);
+
+            // Save reminders separately
+            await CalendarService.SaveRemindersAsync(calendarItem.Id, reminders).ConfigureAwait(false);
+
+            // Save attachments metadata separately
+            if (attachments != null && attachments.Count > 0)
+            {
+                await CalendarService.InsertOrReplaceAttachmentsAsync(attachments).ConfigureAwait(false);
+            }
         }
         else
         {
@@ -250,10 +320,67 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
 
                 // Update the event properties.
             }
+
+            // Prepare reminders list from Gmail event for update
+            List<Reminder> reminders = null;
+            if (calendarEvent.Reminders?.Overrides != null && calendarEvent.Reminders.Overrides.Count > 0)
+            {
+                reminders = new List<Reminder>();
+                foreach (var reminderOverride in calendarEvent.Reminders.Overrides)
+                {
+                    if (reminderOverride.Minutes.HasValue)
+                    {
+                        var durationInSeconds = reminderOverride.Minutes.Value * 60; // Convert minutes to seconds
+                        var reminderType = reminderOverride.Method switch
+                        {
+                            "email" => CalendarItemReminderType.Email,
+                            _ => CalendarItemReminderType.Popup
+                        };
+
+                        reminders.Add(new Reminder
+                        {
+                            Id = Guid.NewGuid(),
+                            CalendarItemId = existingCalendarItem.Id,
+                            DurationInSeconds = durationInSeconds,
+                            ReminderType = reminderType
+                        });
+                    }
+                }
+            }
+
+            // Save reminders
+            await CalendarService.SaveRemindersAsync(existingCalendarItem.Id, reminders).ConfigureAwait(false);
+
+            // Prepare attachments metadata from Gmail event for update
+            List<CalendarAttachment> attachments = null;
+            if (calendarEvent.Attachments != null && calendarEvent.Attachments.Count > 0)
+            {
+                attachments = calendarEvent.Attachments
+                    .Where(a => a != null && !string.IsNullOrEmpty(a.Title))
+                    .Select(a => new CalendarAttachment
+                    {
+                        Id = Guid.NewGuid(),
+                        CalendarItemId = existingCalendarItem.Id,
+                        RemoteAttachmentId = a.FileId ?? a.FileUrl,
+                        FileName = a.Title,
+                        Size = 0,
+                        ContentType = a.MimeType ?? "application/octet-stream",
+                        IsDownloaded = false,
+                        LocalFilePath = null,
+                        LastModified = DateTimeOffset.UtcNow
+                    })
+                    .ToList();
+            }
+
+            // Save attachments metadata
+            if (attachments != null && attachments.Count > 0)
+            {
+                await CalendarService.InsertOrReplaceAttachmentsAsync(attachments).ConfigureAwait(false);
+            }
         }
 
         // Upsert the event.
-        await Connection.InsertOrReplaceAsync(existingCalendarItem);
+        await Connection.InsertOrReplaceAsync(existingCalendarItem, typeof(CalendarItem));
     }
 
     private string GetOrganizerName(Event calendarEvent, MailAccount account)
@@ -284,10 +411,10 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
     {
         return status switch
         {
-            "confirmed" => CalendarItemStatus.Confirmed,
+            "confirmed" => CalendarItemStatus.Accepted,
             "tentative" => CalendarItemStatus.Tentative,
             "cancelled" => CalendarItemStatus.Cancelled,
-            _ => CalendarItemStatus.Confirmed
+            _ => CalendarItemStatus.Accepted
         };
     }
 
@@ -306,6 +433,20 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
             "private" => CalendarItemVisibility.Private,
             "confidential" => CalendarItemVisibility.Confidential,
             _ => CalendarItemVisibility.Default
+        };
+    }
+
+    private CalendarItemShowAs GetShowAs(string transparency)
+    {
+        /// Google Calendar uses "transparent" for free time (event doesn't block time) 
+        /// and "opaque" for busy time (event blocks time on the calendar).
+        /// If not specified, defaults to opaque (busy).
+
+        return transparency switch
+        {
+            "transparent" => CalendarItemShowAs.Free,
+            "opaque" => CalendarItemShowAs.Busy,
+            _ => CalendarItemShowAs.Busy
         };
     }
 

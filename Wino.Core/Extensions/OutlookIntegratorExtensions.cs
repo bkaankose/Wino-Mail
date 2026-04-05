@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using Microsoft.Graph.Models;
@@ -8,6 +9,7 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Misc;
 
 namespace Wino.Core.Extensions;
@@ -60,8 +62,23 @@ public static class OutlookIntegratorExtensions
             FromName = outlookMessage.From?.EmailAddress?.Name,
             FromAddress = outlookMessage.From?.EmailAddress?.Address,
             Subject = outlookMessage.Subject,
-            FileId = Guid.NewGuid()
+            FileId = Guid.NewGuid(),
+            ItemType = MailItemType.Mail // ItemType will be set by caller if calendar access is granted
         };
+
+        // Extract In-Reply-To and References from InternetMessageHeaders for threading.
+        if (outlookMessage.InternetMessageHeaders != null)
+        {
+            var inReplyToHeader = outlookMessage.InternetMessageHeaders
+                .FirstOrDefault(h => string.Equals(h.Name, "In-Reply-To", StringComparison.OrdinalIgnoreCase));
+            if (inReplyToHeader != null)
+                mailCopy.InReplyTo = MailHeaderExtensions.StripAngleBrackets(inReplyToHeader.Value);
+
+            var referencesHeader = outlookMessage.InternetMessageHeaders
+                .FirstOrDefault(h => string.Equals(h.Name, "References", StringComparison.OrdinalIgnoreCase));
+            if (referencesHeader != null)
+                mailCopy.References = MailHeaderExtensions.NormalizeReferences(referencesHeader.Value);
+        }
 
         if (mailCopy.IsDraft)
             mailCopy.DraftId = mailCopy.ThreadId;
@@ -69,7 +86,52 @@ public static class OutlookIntegratorExtensions
         return mailCopy;
     }
 
-    public static Message AsOutlookMessage(this MimeMessage mime, bool includeInternetHeaders)
+    public static MailItemType GetMailItemType(this Message message)
+    {
+        // Check if the message is an EventMessage (calendar-related)
+        if (message is EventMessage eventMessage)
+        {
+            // Try to get MeetingMessageType from the property
+            if (eventMessage.MeetingMessageType.HasValue)
+            {
+                return eventMessage.MeetingMessageType.Value switch
+                {
+                    MeetingMessageType.MeetingRequest => MailItemType.CalendarInvitation,
+                    MeetingMessageType.MeetingCancelled => MailItemType.CalendarCancellation,
+                    MeetingMessageType.MeetingAccepted or
+                    MeetingMessageType.MeetingTenativelyAccepted or
+                    MeetingMessageType.MeetingDeclined => MailItemType.CalendarResponse,
+                    _ => MailItemType.Mail
+                };
+            }
+
+            // Fallback: Check @odata.type in AdditionalData to determine specific type
+            if (message.AdditionalData?.TryGetValue("@odata.type", out var odataType) == true)
+            {
+                var odataTypeString = odataType?.ToString();
+                if (odataTypeString != null)
+                {
+                    // eventMessageRequest -> CalendarInvitation
+                    if (odataTypeString.Contains("eventMessageRequest", StringComparison.OrdinalIgnoreCase))
+                        return MailItemType.CalendarInvitation;
+
+                    // eventMessageResponse -> CalendarResponse
+                    if (odataTypeString.Contains("eventMessageResponse", StringComparison.OrdinalIgnoreCase))
+                        return MailItemType.CalendarResponse;
+
+                    // Generic eventMessage without specific type - assume invitation
+                    if (odataTypeString.Contains("eventMessage", StringComparison.OrdinalIgnoreCase))
+                        return MailItemType.CalendarInvitation;
+                }
+            }
+
+            return MailItemType.CalendarInvitation;
+        }
+
+        return MailItemType.Mail;
+    }
+
+    public static Message AsOutlookMessage(this MimeMessage mime, bool includeInternetHeaders, string conversationId = null)
     {
         var fromAddress = GetRecipients(mime.From).ElementAt(0);
         var toAddresses = GetRecipients(mime.To).ToList();
@@ -77,35 +139,42 @@ public static class OutlookIntegratorExtensions
         var bccAddresses = GetRecipients(mime.Bcc).ToList();
         var replyToAddresses = GetRecipients(mime.ReplyTo).ToList();
 
+        // Prefer HTML body, fall back to plain text.
+        var (bodyContent, bodyType) = mime.HtmlBody != null
+            ? (mime.HtmlBody, BodyType.Html)
+            : (mime.TextBody ?? string.Empty, BodyType.Text);
+
         var message = new Message()
         {
             Subject = mime.Subject,
             Importance = GetImportance(mime.Importance),
-            Body = new ItemBody() { ContentType = BodyType.Html, Content = mime.HtmlBody },
+            Body = new ItemBody() { ContentType = bodyType, Content = bodyContent },
             IsDraft = false,
-            IsRead = true, // Sent messages are always read.
+            IsRead = true,
             ToRecipients = toAddresses,
             CcRecipients = ccAddresses,
             BccRecipients = bccAddresses,
             From = fromAddress,
-            InternetMessageId = GetProperId(mime.MessageId),
+            InternetMessageId = mime.MessageId,
             ReplyTo = replyToAddresses,
-            Attachments = []
         };
 
-        // Headers are only included when creating the draft.
-        // When sending, they are not included. Graph will throw an error.
+        if (!string.IsNullOrEmpty(conversationId))
+        {
+            message.ConversationId = conversationId;
+        }
 
+        // Headers are only included when creating the draft.
+        // Graph API throws an error if headers are included in send/patch operations.
         if (includeInternetHeaders)
         {
             message.InternetMessageHeaders = GetHeaderList(mime);
         }
 
-
         return message;
     }
 
-    public static AccountCalendar AsCalendar(this Calendar outlookCalendar, MailAccount assignedAccount)
+    public static AccountCalendar AsCalendar(this Calendar outlookCalendar, MailAccount assignedAccount, string fallbackBackgroundColor = null)
     {
         var calendar = new AccountCalendar()
         {
@@ -114,6 +183,7 @@ public static class OutlookIntegratorExtensions
             RemoteCalendarId = outlookCalendar.Id,
             IsPrimary = outlookCalendar.IsDefaultCalendar.GetValueOrDefault(),
             Name = outlookCalendar.Name,
+            IsSynchronizationEnabled = true,
             IsExtended = true,
         };
 
@@ -121,8 +191,8 @@ public static class OutlookIntegratorExtensions
         // Bg must be present. Generate flat one if doesn't exists.
         // Text doesnt exists for Outlook.
 
-        calendar.BackgroundColorHex = string.IsNullOrEmpty(outlookCalendar.HexColor) ? ColorHelpers.GenerateFlatColorHex() : outlookCalendar.HexColor;
-        calendar.TextColorHex = "#000000";
+        calendar.BackgroundColorHex = fallbackBackgroundColor ?? ColorHelpers.GenerateFlatColorHex();
+        calendar.TextColorHex = ColorHelpers.GetReadableTextColorHex(calendar.BackgroundColorHex);
 
         return calendar;
     }
@@ -209,7 +279,9 @@ public static class OutlookIntegratorExtensions
         {
             if (recurrence.Range.Type == RecurrenceRangeType.EndDate && recurrence.Range.EndDate != null)
             {
-                ruleBuilder.Append($"UNTIL={recurrence.Range.EndDate.Value:yyyyMMddTHHmmssZ};");
+                // RFC 5545 requires YYYYMMDD or YYYYMMDDTHHMMSSinvalid format (no dashes or colons)
+                var untilDate = recurrence.Range.EndDate.Value.DateTime.ToString("yyyyMMdd'T'HHmmss'Z'", System.Globalization.CultureInfo.InvariantCulture);
+                ruleBuilder.Append($"UNTIL={untilDate};");
             }
             else if (recurrence.Range.Type == RecurrenceRangeType.Numbered && recurrence.Range.NumberOfOccurrences.HasValue)
             {
@@ -223,28 +295,57 @@ public static class OutlookIntegratorExtensions
 
     public static DateTimeOffset GetDateTimeOffsetFromDateTimeTimeZone(DateTimeTimeZone dateTimeTimeZone)
     {
-        if (dateTimeTimeZone == null || string.IsNullOrEmpty(dateTimeTimeZone.DateTime) || string.IsNullOrEmpty(dateTimeTimeZone.TimeZone))
+        if (dateTimeTimeZone == null || string.IsNullOrEmpty(dateTimeTimeZone.DateTime))
         {
-            throw new ArgumentException("DateTimeTimeZone is null or empty.");
+            throw new ArgumentException("DateTimeTimeZone or DateTime is null or empty.");
         }
 
         try
         {
             // Parse the DateTime string
-            if (DateTime.TryParse(dateTimeTimeZone.DateTime, out DateTime parsedDateTime))
+            if (!DateTime.TryParse(dateTimeTimeZone.DateTime, out DateTime parsedDateTime))
+            {
+                throw new ArgumentException("DateTime string is not in a valid format.");
+            }
+
+            // If no timezone is provided, assume UTC
+            if (string.IsNullOrEmpty(dateTimeTimeZone.TimeZone))
+            {
+                return new DateTimeOffset(parsedDateTime, TimeSpan.Zero);
+            }
+
+            try
             {
                 // Get TimeZoneInfo to get the offset
                 TimeZoneInfo timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById(dateTimeTimeZone.TimeZone);
                 TimeSpan offset = timeZoneInfo.GetUtcOffset(parsedDateTime);
                 return new DateTimeOffset(parsedDateTime, offset);
             }
-            else
-                throw new ArgumentException("DateTime string is not in a valid format.");
+            catch (TimeZoneNotFoundException)
+            {
+                // If timezone is not found, assume UTC as fallback
+                return new DateTimeOffset(parsedDateTime, TimeSpan.Zero);
+            }
         }
         catch (Exception)
         {
             throw;
         }
+    }
+
+    public static DateTime GetLocalDateTimeFromDateTimeTimeZone(DateTimeTimeZone dateTimeTimeZone)
+    {
+        if (dateTimeTimeZone == null || string.IsNullOrEmpty(dateTimeTimeZone.DateTime))
+        {
+            throw new ArgumentException("DateTimeTimeZone or DateTime is null or empty.");
+        }
+
+        if (!DateTime.TryParse(dateTimeTimeZone.DateTime, out DateTime parsedDateTime))
+        {
+            throw new ArgumentException("DateTime string is not in a valid format.");
+        }
+
+        return DateTime.SpecifyKind(parsedDateTime, DateTimeKind.Unspecified);
     }
 
     private static AttendeeStatus GetAttendeeStatus(ResponseType? responseType)
@@ -261,9 +362,12 @@ public static class OutlookIntegratorExtensions
         };
     }
 
-    public static CalendarEventAttendee CreateAttendee(this Attendee attendee, Guid calendarItemId)
+    public static CalendarEventAttendee CreateAttendee(this Attendee attendee, Guid calendarItemId, string organizerEmail = null)
     {
-        bool isOrganizer = attendee?.Status?.Response == ResponseType.Organizer;
+        // Check if this attendee is the organizer by comparing email addresses
+        bool isOrganizer = !string.IsNullOrEmpty(organizerEmail) &&
+                          !string.IsNullOrEmpty(attendee?.EmailAddress?.Address) &&
+                          string.Equals(attendee.EmailAddress.Address, organizerEmail, StringComparison.OrdinalIgnoreCase);
 
         var eventAttendee = new CalendarEventAttendee()
         {
@@ -280,6 +384,40 @@ public static class OutlookIntegratorExtensions
     }
 
     #region Mime to Outlook Message Helpers
+
+    /// <summary>
+    /// Extracts all attachments (inline and regular) from a MimeMessage
+    /// and returns them as Graph SDK FileAttachment objects.
+    /// </summary>
+    public static List<FileAttachment> ExtractAttachments(this MimeMessage mime)
+    {
+        var attachments = new List<FileAttachment>();
+
+        foreach (var part in mime.BodyParts)
+        {
+            bool isInline = part.ContentDisposition?.Disposition == "inline";
+
+            if (!part.IsAttachment && !isInline)
+                continue;
+
+            if (part is not MimePart mimePart || mimePart.Content == null)
+                continue;
+
+            using var memory = new MemoryStream();
+            mimePart.Content.DecodeTo(memory);
+
+            attachments.Add(new FileAttachment()
+            {
+                Name = part.ContentDisposition?.FileName ?? part.ContentType.Name,
+                ContentBytes = memory.ToArray(),
+                ContentType = part.ContentType.MimeType,
+                ContentId = part.ContentId,
+                IsInline = isInline
+            });
+        }
+
+        return attachments;
+    }
 
     private static IEnumerable<Recipient> GetRecipients(this InternetAddressList internetAddresses)
     {
@@ -313,47 +451,47 @@ public static class OutlookIntegratorExtensions
     private static List<InternetMessageHeader> GetHeaderList(this MimeMessage mime)
     {
         // Graph API only allows max of 5 headers.
-        // Here we'll try to ignore some headers that are not neccessary.
-        // Outlook API will generate them automatically.
+        // Graph only allows setting custom internet headers (typically X-*).
+        // Reply/threading headers like In-Reply-To and References are managed by
+        // createReply/createReplyAll flows and must not be sent here.
 
-        // Some headers also require to start with X- or x-.
-
+        const int headerLimit = 5;
         string[] headersToIgnore = ["Date", "To", "Cc", "Bcc", "MIME-Version", "From", "Subject", "Message-Id"];
-        string[] headersToModify = ["In-Reply-To", "Reply-To", "References", "Thread-Topic"];
 
         var headers = new List<InternetMessageHeader>();
 
-        int includedHeaderCount = 0;
+        void AddHeader(string name, string value)
+        {
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(value)) return;
+            if (headers.Count >= headerLimit) return;
+            if (headers.Any(h => string.Equals(h.Name, name, StringComparison.OrdinalIgnoreCase))) return;
 
+            // No header value should exceed 995 characters.
+            var headerValue = value.Length >= 995 ? value.Substring(0, 995) : value;
+            headers.Add(new InternetMessageHeader() { Name = name, Value = headerValue });
+        }
+
+        // PRIORITY: Always include WinoLocalDraftHeader first if it exists.
+        var winoDraftHeader = mime.Headers.FirstOrDefault(h => h.Field == Domain.Constants.WinoLocalDraftHeader);
+        if (winoDraftHeader != null)
+            AddHeader(winoDraftHeader.Field, winoDraftHeader.Value);
+
+        // Fill remaining slots with custom headers only (avoid Graph restrictions).
         foreach (var header in mime.Headers)
         {
-            if (!headersToIgnore.Contains(header.Field))
-            {
-                var headerName = headersToModify.Contains(header.Field) ? $"X-{header.Field}" : header.Field;
+            if (headers.Count >= headerLimit) break;
+            if (header.Field == Domain.Constants.WinoLocalDraftHeader) continue;
+            if (headersToIgnore.Contains(header.Field)) continue;
 
-                // No header value should exceed 995 characters.
-                var headerValue = header.Value.Length >= 995 ? header.Value.Substring(0, 995) : header.Value;
+            // Only include custom headers beyond the core threading ones.
+            if (!header.Field.StartsWith("X-", StringComparison.OrdinalIgnoreCase)) continue;
 
-                headers.Add(new InternetMessageHeader() { Name = headerName, Value = headerValue });
-                includedHeaderCount++;
-            }
-
-            if (includedHeaderCount >= 5) break;
+            AddHeader(header.Field, header.Value);
         }
 
         return headers;
     }
 
-    private static string GetProperId(string id)
-    {
-        // Outlook requires some identifiers to start with "X-" or "x-".
-        if (string.IsNullOrEmpty(id)) return string.Empty;
-
-        if (!id.StartsWith("x-") || !id.StartsWith("X-"))
-            return $"X-{id}";
-
-        return id;
-    }
 
 
     #endregion

@@ -1,17 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Web;
 using Google.Apis.Calendar.v3.Data;
 using Google.Apis.Gmail.v1.Data;
-using MimeKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Misc;
 using Wino.Services;
-using Wino.Services.Extensions;
 
 namespace Wino.Core.Extensions;
 
@@ -121,41 +118,6 @@ public static class GoogleIntegratorExtensions
         return GetNormalizedLabelName(lastPart);
     }
 
-    /// <summary>
-    /// Returns MailCopy out of native Gmail message and converted MimeMessage of that native messaage.
-    /// </summary>
-    /// <param name="gmailMessage">Gmail Message</param>
-    /// <param name="mimeMessage">MimeMessage representation of that native message.</param>
-    /// <returns>MailCopy object that is ready to be inserted to database.</returns>
-    public static MailCopy AsMailCopy(this Message gmailMessage, MimeMessage mimeMessage)
-    {
-        bool isUnread = gmailMessage.GetIsUnread();
-        bool isFocused = gmailMessage.GetIsFocused();
-        bool isFlagged = gmailMessage.GetIsFlagged();
-        bool isDraft = gmailMessage.GetIsDraft();
-
-        return new MailCopy()
-        {
-            CreationDate = mimeMessage.Date.UtcDateTime,
-            Subject = HttpUtility.HtmlDecode(mimeMessage.Subject),
-            FromName = MailkitClientExtensions.GetActualSenderName(mimeMessage),
-            FromAddress = MailkitClientExtensions.GetActualSenderAddress(mimeMessage),
-            PreviewText = HttpUtility.HtmlDecode(gmailMessage.Snippet),
-            ThreadId = gmailMessage.ThreadId,
-            Importance = (MailImportance)mimeMessage.Importance,
-            Id = gmailMessage.Id,
-            IsDraft = isDraft,
-            HasAttachments = mimeMessage.Attachments.Any(),
-            IsRead = !isUnread,
-            IsFlagged = isFlagged,
-            IsFocused = isFocused,
-            InReplyTo = mimeMessage.InReplyTo,
-            MessageId = mimeMessage.MessageId,
-            References = mimeMessage.References.GetReferences(),
-            FileId = Guid.NewGuid()
-        };
-    }
-
     public static List<RemoteAccountAlias> GetRemoteAliases(this ListSendAsResponse response)
     {
         return response?.SendAs?.Select(a => new RemoteAccountAlias()
@@ -169,7 +131,7 @@ public static class GoogleIntegratorExtensions
         }).ToList();
     }
 
-    public static AccountCalendar AsCalendar(this CalendarListEntry calendarListEntry, Guid accountId)
+    public static AccountCalendar AsCalendar(this CalendarListEntry calendarListEntry, Guid accountId, string fallbackBackgroundColor = null)
     {
         var calendar = new AccountCalendar()
         {
@@ -179,13 +141,14 @@ public static class GoogleIntegratorExtensions
             Id = Guid.NewGuid(),
             TimeZone = calendarListEntry.TimeZone,
             IsPrimary = calendarListEntry.Primary.GetValueOrDefault(),
+            IsSynchronizationEnabled = true,
         };
 
         // Bg color must present. Generate one if doesnt exists.
         // Text color is optional. It'll be overriden by UI for readibility.
 
-        calendar.BackgroundColorHex = string.IsNullOrEmpty(calendarListEntry.BackgroundColor) ? ColorHelpers.GenerateFlatColorHex() : calendarListEntry.BackgroundColor;
-        calendar.TextColorHex = string.IsNullOrEmpty(calendarListEntry.ForegroundColor) ? "#000000" : calendarListEntry.ForegroundColor;
+        calendar.BackgroundColorHex = fallbackBackgroundColor ?? ColorHelpers.GenerateFlatColorHex();
+        calendar.TextColorHex = ColorHelpers.GetReadableTextColorHex(calendar.BackgroundColorHex);
 
         return calendar;
     }
@@ -213,6 +176,40 @@ public static class GoogleIntegratorExtensions
         }
 
         return null;
+    }
+
+    public static DateTime? GetEventLocalDateTime(EventDateTime calendarEvent)
+    {
+        if (calendarEvent == null)
+        {
+            return null;
+        }
+
+        if (calendarEvent.DateTimeDateTimeOffset != null)
+        {
+            return DateTime.SpecifyKind(calendarEvent.DateTimeDateTimeOffset.Value.DateTime, DateTimeKind.Unspecified);
+        }
+
+        if (calendarEvent.Date != null)
+        {
+            if (DateTime.TryParse(calendarEvent.Date, out DateTime eventDateTime))
+            {
+                return DateTime.SpecifyKind(eventDateTime, DateTimeKind.Unspecified);
+            }
+
+            throw new Exception("Invalid date format in Google Calendar event date.");
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Extracts the timezone string from EventDateTime.
+    /// Returns null for all-day events or if timezone is not specified.
+    /// </summary>
+    public static string GetEventTimeZone(EventDateTime eventDateTime)
+    {
+        return eventDateTime?.TimeZone;
     }
 
     /// <summary>

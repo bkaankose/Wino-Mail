@@ -1,4 +1,5 @@
-﻿using Wino.Core.Domain.Models.Launch;
+using System;
+using Wino.Core.Domain.Models.Launch;
 
 namespace Wino.Core.Domain.Interfaces;
 
@@ -13,4 +14,5 @@ public interface ILaunchProtocolService
     /// Used to handle mailto links.
     /// </summary>
     MailToUri MailToUri { get; set; }
+
 }

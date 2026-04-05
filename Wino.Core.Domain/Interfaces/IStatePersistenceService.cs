@@ -19,15 +19,25 @@ public interface IStatePersistanceService : INotifyPropertyChanged
     string CoreWindowTitle { get; set; }
 
     /// <summary>
+    /// App mode title shown in the title bar.
+    /// </summary>
+    string AppModeTitle { get; set; }
+
+    /// <summary>
     /// When only reader page is visible in small sized window.
     /// </summary>
     bool IsReaderNarrowed { get; set; }
 
     /// <summary>
-    /// Should display back button on the shell title bar.
+    /// Current application mode (Mail or Calendar).
+    /// Not persisted to configuration, only kept in memory.
     /// </summary>
-    bool IsBackButtonVisible { get; }
+    WinoApplicationMode ApplicationMode { get; set; }
 
+    /// <summary>
+    /// Whether event details page is visible in Calendar mode.
+    /// </summary>
+    bool IsEventDetailsVisible { get; set; }
 
     /// <summary>
     /// Setting: Opened pane length for the navigation view.
@@ -54,4 +64,5 @@ public interface IStatePersistanceService : INotifyPropertyChanged
     /// Setting: Calendar display count for the day view.
     /// </summary>
     int DayDisplayCount { get; set; }
+
 }

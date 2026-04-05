@@ -1,0 +1,124 @@
+<abstract:ProviderSelectionPageAbstract
+    x:Class="Wino.Views.ProviderSelectionPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"
+    xmlns:accounts="using:Wino.Core.Domain.Models.Accounts"
+    xmlns:coreViewModelData="using:Wino.Core.ViewModels.Data"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:interfaces="using:Wino.Core.Domain.Interfaces"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <ScrollViewer
+        HorizontalAlignment="Center"
+        VerticalAlignment="Center"
+        VerticalScrollBarVisibility="Auto">
+        <StackPanel
+            MaxWidth="480"
+            Margin="0,24,0,24"
+            HorizontalAlignment="Stretch"
+            Spacing="20">
+
+            <!--  Title  -->
+            <StackPanel Spacing="4">
+                <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind domain:Translator.ProviderSelection_Title}" />
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource BodyTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.ProviderSelection_Subtitle}" />
+            </StackPanel>
+
+            <!--  Account Name + Color Picker  -->
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBox
+                    Header="{x:Bind domain:Translator.ProviderSelection_AccountNameHeader}"
+                    PlaceholderText="{x:Bind domain:Translator.ProviderSelection_AccountNamePlaceholder}"
+                    Text="{x:Bind ViewModel.AccountName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                <Button Grid.Column="1" VerticalAlignment="Bottom">
+                    <Grid>
+                        <!--  No color selected placeholder  -->
+                        <FontIcon
+                            FontSize="16"
+                            Glyph="&#xE771;"
+                            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsColorSelected), Mode=OneWay}" />
+                        <!--  Color swatch  -->
+                        <Ellipse
+                            Width="16"
+                            Height="16"
+                            Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedColor.Hex), Mode=OneWay}"
+                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsColorSelected), Mode=OneWay}" />
+                    </Grid>
+                    <Button.Flyout>
+                        <Flyout Placement="TopEdgeAlignedLeft">
+                            <StackPanel Spacing="8">
+                                <GridView
+                                    Width="150"
+                                    ItemTemplate="{StaticResource AccountColorTemplate}"
+                                    ItemsSource="{x:Bind ViewModel.AvailableColors, Mode=OneWay}"
+                                    SelectedItem="{x:Bind ViewModel.SelectedColor, Mode=TwoWay}" />
+                                <HyperlinkButton
+                                    HorizontalAlignment="Center"
+                                    Command="{x:Bind ViewModel.ClearColorCommand}"
+                                    Content="{x:Bind domain:Translator.ProviderSelection_ClearColor}"
+                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsColorSelected), Mode=OneWay}" />
+                            </StackPanel>
+                        </Flyout>
+                    </Button.Flyout>
+                </Button>
+            </Grid>
+
+            <!--  Provider List  -->
+            <ItemsView
+                HorizontalContentAlignment="Stretch"
+                ItemsSource="{x:Bind ViewModel.Providers, Mode=OneWay}"
+                SelectionChanged="ProviderSelectionChanged"
+                SelectionMode="Single">
+
+                <ItemsView.ItemTemplate>
+                    <DataTemplate x:DataType="interfaces:IProviderDetail">
+                        <ItemContainer Padding="12,10" HorizontalAlignment="Stretch">
+                            <Grid Padding="16" ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Image
+                                    Width="32"
+                                    Height="32"
+                                    Source="{x:Bind ProviderImage}" />
+                                <StackPanel
+                                    Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    Spacing="2">
+                                    <TextBlock FontWeight="SemiBold" Text="{x:Bind Name}" />
+                                    <TextBlock
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="{x:Bind Description}" />
+                                </StackPanel>
+                            </Grid>
+                        </ItemContainer>
+                    </DataTemplate>
+                </ItemsView.ItemTemplate>
+            </ItemsView>
+
+            <!--  Continue Button  -->
+            <Button
+                HorizontalAlignment="Stretch"
+                Command="{x:Bind ViewModel.ProceedCommand}"
+                Content="{x:Bind domain:Translator.ProviderSelection_ContinueButton}"
+                IsEnabled="{x:Bind ViewModel.CanProceed, Mode=OneWay}"
+                Style="{StaticResource AccentButtonStyle}" />
+
+        </StackPanel>
+    </ScrollViewer>
+</abstract:ProviderSelectionPageAbstract>

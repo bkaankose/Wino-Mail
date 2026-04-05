@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -12,7 +13,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Messaging.Server;
+using Wino.Core.Services;
 
 namespace Wino.Mail.ViewModels;
 
@@ -20,7 +21,7 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
 {
     private readonly IMailDialogService _dialogService;
     private readonly IAccountService _accountService;
-    private readonly IWinoServerConnectionManager _winoServerConnectionManager;
+    private readonly ISmimeCertificateService _smimeCertificateService;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSynchronizeAliases))]
@@ -33,11 +34,11 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
 
     public AliasManagementPageViewModel(IMailDialogService dialogService,
                                         IAccountService accountService,
-                                        IWinoServerConnectionManager winoServerConnectionManager)
+                                        ISmimeCertificateService smimeCertificateService)
     {
         _dialogService = dialogService;
         _accountService = accountService;
-        _winoServerConnectionManager = winoServerConnectionManager;
+        _smimeCertificateService = smimeCertificateService;
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -54,7 +55,22 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
 
     private async Task LoadAliasesAsync()
     {
-        AccountAliases = await _accountService.GetAccountAliasesAsync(Account.Id);
+        var aliases = await _accountService.GetAccountAliasesAsync(Account.Id);
+        foreach (var alias in aliases)
+        {
+            alias.Certificates.Clear();
+            alias.Certificates.Add(null); // First blank optioon
+            var certs = _smimeCertificateService.GetCertificates()
+                .Where(cert => cert.Subject.Contains(alias.AliasAddress, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            foreach (var cert in certs)
+                alias.Certificates.Add(cert);
+
+            alias.SelectedSigningCertificate = !string.IsNullOrEmpty(alias.SelectedSigningCertificateThumbprint)
+                ? alias.Certificates.FirstOrDefault(c => c?.Thumbprint == alias.SelectedSigningCertificateThumbprint)
+                : null;
+        }
+        AccountAliases = aliases;
     }
 
     [RelayCommand]
@@ -82,12 +98,12 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
             Type = MailSynchronizationType.Alias
         };
 
-        var aliasSyncResponse = await _winoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewMailSynchronizationRequested>(new NewMailSynchronizationRequested(aliasSyncOptions, SynchronizationSource.Client));
+        var aliasSyncResult = await SynchronizationManager.Instance.SynchronizeAliasesAsync(Account.Id);
 
-        if (aliasSyncResponse.IsSuccess)
+        if (aliasSyncResult.CompletedState == SynchronizationCompletedState.Success)
             await LoadAliasesAsync();
         else
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, aliasSyncResponse.Message, InfoBarMessageType.Error);
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, "Failed to synchronize aliases", InfoBarMessageType.Error);
     }
 
     [RelayCommand]
@@ -149,6 +165,22 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
         }
 
         await _accountService.DeleteAccountAliasAsync(alias.Id);
+        await LoadAliasesAsync();
+    }
+
+    public async Task SetAliasSmimeEncryption(MailAccountAlias alias, bool value)
+    {
+        alias.IsSmimeEncryptionEnabled = value;
+        await _accountService.UpdateAccountAliasesAsync(Account.Id, AccountAliases);
+        await LoadAliasesAsync();
+    }
+
+    public async Task SetSelectedSigningCertificate(MailAccountAlias alias, X509Certificate2 cert)
+    {
+        alias.SelectedSigningCertificate = cert;
+        alias.SelectedSigningCertificateThumbprint = cert?.Thumbprint;
+
+        await _accountService.UpdateAccountAliasesAsync(Account.Id, AccountAliases);
         await LoadAliasesAsync();
     }
 }

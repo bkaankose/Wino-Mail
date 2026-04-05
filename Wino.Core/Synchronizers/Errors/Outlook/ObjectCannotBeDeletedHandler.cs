@@ -1,8 +1,8 @@
 ﻿using System.Threading.Tasks;
 using Microsoft.Kiota.Abstractions;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Errors;
 using Wino.Core.Domain.Models.Requests;
+using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests.Bundles;
 
 namespace Wino.Core.Synchronizers.Errors.Outlook;
@@ -18,7 +18,7 @@ public class ObjectCannotBeDeletedHandler : ISynchronizerErrorHandler
 
     public bool CanHandle(SynchronizerErrorContext error)
     {
-        return error.ErrorMessage.Contains("ErrorCannotDeleteObject") && error.RequestBundle is HttpRequestBundle<RequestInformation>;
+        return error.ErrorMessage.Contains("Object cannot be deleted.") && error.RequestBundle is HttpRequestBundle<RequestInformation>;
     }
 
     public async Task<bool> HandleAsync(SynchronizerErrorContext error)

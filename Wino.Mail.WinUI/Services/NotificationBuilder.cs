@@ -1,0 +1,433 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.Toolkit.Uwp.Notifications;
+using Serilog;
+using Windows.Data.Xml.Dom;
+using Windows.UI.Notifications;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
+using Wino.Core.Domain.Interfaces;
+using Wino.Messaging.UI;
+
+namespace Wino.Mail.WinUI.Services;
+
+public class NotificationBuilder : INotificationBuilder
+{
+    private const string MailApplicationId = "App";
+    private const string NotificationIconRootUri = "ms-appx:///Assets/NotificationIcons/";
+
+    private readonly IAccountService _accountService;
+    private readonly IFolderService _folderService;
+    private readonly IMailService _mailService;
+    private readonly IThumbnailService _thumbnailService;
+    private readonly IPreferencesService _preferencesService;
+
+    public NotificationBuilder(IAccountService accountService,
+                               IFolderService folderService,
+                               IMailService mailService,
+                               IThumbnailService thumbnailService,
+                               IPreferencesService preferencesService)
+    {
+        _accountService = accountService;
+        _folderService = folderService;
+        _mailService = mailService;
+        _thumbnailService = thumbnailService;
+        _preferencesService = preferencesService;
+
+        WeakReferenceMessenger.Default.Register<MailReadStatusChanged>(this, (r, msg) =>
+        {
+            RemoveNotification(msg.UniqueId);
+        });
+    }
+
+    public async Task CreateNotificationsAsync(IEnumerable<MailCopy> downloadedMailItems)
+    {
+        try
+        {
+            // Filter mails to only include Inbox folder items
+            var inboxMailItems = new List<MailCopy>();
+
+            foreach (var item in downloadedMailItems)
+            {
+                var mailItem = await _mailService.GetSingleMailItemAsync(item.UniqueId);
+
+                //if (mailItem == null || mailItem.AssignedFolder == null)
+                //    continue;
+
+                //// Only create notifications for Inbox folder mails
+                //if (mailItem.AssignedFolder.SpecialFolderType != SpecialFolderType.Inbox)
+                //    continue;
+
+                //// Skip folders with synchronization disabled
+                //if (!mailItem.AssignedFolder.IsSynchronizationEnabled)
+                //    continue;
+
+                //// Skip already read mails
+                //if (mailItem.IsRead)
+                //{
+                //    RemoveNotification(mailItem.UniqueId);
+                //    continue;
+                //}
+
+                inboxMailItems.Add(mailItem);
+            }
+
+            var mailCount = inboxMailItems.Count;
+
+            if (mailCount == 0)
+                return;
+
+            // If there are more than 3 mails, just display 1 general toast.
+            if (mailCount > 3)
+            {
+                var builder = new ToastContentBuilder();
+                builder.SetToastScenario(ToastScenario.Default);
+
+                builder.AddText(Translator.Notifications_MultipleNotificationsTitle);
+                builder.AddText(string.Format(Translator.Notifications_MultipleNotificationsMessage, mailCount));
+                builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
+
+                builder.AddButton(GetDismissButton());
+                builder.AddAudio(new ToastAudio()
+                {
+                    Src = new Uri("ms-winsoundevent:Notification.Mail")
+                });
+
+                ShowToast(builder);
+            }
+            else
+            {
+                foreach (var mailItem in inboxMailItems)
+                {
+                    await CreateSingleNotificationAsync(mailItem);
+                }
+
+                await UpdateTaskbarIconBadgeAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to create notifications.");
+        }
+    }
+
+    private async Task CreateSingleNotificationAsync(MailCopy mailItem)
+    {
+        var builder = new ToastContentBuilder();
+        builder.SetToastScenario(ToastScenario.Default);
+
+        var avatarThumbnail = await _thumbnailService.GetThumbnailAsync(mailItem.FromAddress, awaitLoad: true);
+        if (!string.IsNullOrEmpty(avatarThumbnail))
+        {
+            var tempFile = await Windows.Storage.ApplicationData.Current.TemporaryFolder.CreateFileAsync($"{Guid.NewGuid()}.png", Windows.Storage.CreationCollisionOption.ReplaceExisting);
+            await using (var stream = await tempFile.OpenStreamForWriteAsync())
+            {
+                var bytes = Convert.FromBase64String(avatarThumbnail);
+                await stream.WriteAsync(bytes);
+            }
+            builder.AddAppLogoOverride(new Uri($"ms-appdata:///temp/{tempFile.Name}"), hintCrop: ToastGenericAppLogoCrop.Default);
+        }
+
+        // Override system notification timestamp with received date of the mail.
+        builder.AddCustomTimeStamp(mailItem.CreationDate.ToLocalTime());
+
+        builder.AddText(mailItem.FromName);
+        builder.AddText(mailItem.Subject);
+        builder.AddText(mailItem.PreviewText);
+
+        builder.AddArgument(Constants.ToastMailUniqueIdKey, mailItem.UniqueId.ToString());
+        builder.AddArgument(Constants.ToastActionKey, MailOperation.Navigate);
+        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
+
+        builder.AddButton(GetMarkAsReadButton(mailItem.UniqueId));
+        builder.AddButton(GetDeleteButton(mailItem.UniqueId));
+        builder.AddButton(GetArchiveButton(mailItem.UniqueId));
+        builder.AddAudio(new ToastAudio()
+        {
+            Src = new Uri("ms-winsoundevent:Notification.Mail")
+        });
+
+        // Use UniqueId as tag to allow removal
+        ShowToast(builder, mailItem.UniqueId.ToString());
+    }
+
+    private ToastButton GetDismissButton()
+        => new ToastButton()
+        .SetDismissActivation()
+        .SetImageUri(GetNotificationIconUri("dismiss"));
+
+    private ToastButton GetArchiveButton(Guid mailUniqueId)
+        => new ToastButton()
+        .SetContent(Translator.MailOperation_Archive)
+        .SetImageUri(GetNotificationIconUri("mail-archive"))
+        .AddArgument(Constants.ToastMailUniqueIdKey, mailUniqueId.ToString())
+        .AddArgument(Constants.ToastActionKey, MailOperation.Archive)
+        .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail)
+        .SetBackgroundActivation();
+
+    private ToastButton GetDeleteButton(Guid mailUniqueId)
+        => new ToastButton()
+        .SetContent(Translator.MailOperation_Delete)
+        .SetImageUri(GetNotificationIconUri("mail-delete"))
+        .AddArgument(Constants.ToastMailUniqueIdKey, mailUniqueId.ToString())
+        .AddArgument(Constants.ToastActionKey, MailOperation.SoftDelete)
+        .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail)
+        .SetBackgroundActivation();
+
+    private ToastButton GetMarkAsReadButton(Guid mailUniqueId)
+        => new ToastButton()
+        .SetContent(Translator.MailOperation_MarkAsRead)
+        .SetImageUri(GetNotificationIconUri("mail-markread"))
+        .AddArgument(Constants.ToastMailUniqueIdKey, mailUniqueId.ToString())
+        .AddArgument(Constants.ToastActionKey, MailOperation.MarkAsRead)
+        .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail)
+        .SetBackgroundActivation();
+
+    public async Task UpdateTaskbarIconBadgeAsync()
+    {
+        int totalUnreadCount = 0;
+
+        try
+        {
+            var badgeUpdater = BadgeUpdateManager.CreateBadgeUpdaterForApplication(MailApplicationId);
+            var accounts = await _accountService.GetAccountsAsync();
+
+            foreach (var account in accounts)
+            {
+                if (!account.Preferences.IsTaskbarBadgeEnabled) continue;
+
+                var accountInbox = await _folderService.GetSpecialFolderByAccountIdAsync(account.Id, SpecialFolderType.Inbox);
+
+                if (accountInbox == null)
+                    continue;
+
+                var inboxUnreadCount = await _folderService.GetFolderNotificationBadgeAsync(accountInbox.Id);
+
+                totalUnreadCount += inboxUnreadCount;
+            }
+
+            if (totalUnreadCount > 0)
+            {
+                // Get the blank badge XML payload for a badge number
+                XmlDocument badgeXml = BadgeUpdateManager.GetTemplateContent(BadgeTemplateType.BadgeNumber);
+
+                // Set the value of the badge in the XML to our number
+                XmlElement? badgeElement = badgeXml.SelectSingleNode("/badge") as XmlElement;
+                if (badgeElement == null)
+                {
+                    badgeUpdater.Clear();
+                    return;
+                }
+                badgeElement.SetAttribute("value", totalUnreadCount.ToString());
+
+                // Create the badge notification
+                BadgeNotification badge = new BadgeNotification(badgeXml);
+
+                // And update the badge
+                badgeUpdater.Update(badge);
+            }
+            else
+                badgeUpdater.Clear();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error while updating taskbar badge.");
+        }
+    }
+
+    public void RemoveNotification(Guid mailUniqueId)
+    {
+        try
+        {
+            ToastNotificationManager.History.Remove(mailUniqueId.ToString(), null);
+        }
+        catch (ArgumentException)
+        {
+            // Notification does not exists. Ignore.
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, $"Failed to remove notification for mail {mailUniqueId}");
+        }
+    }
+
+    public void CreateAttentionRequiredNotification(MailAccount account)
+    {
+        var builder = new ToastContentBuilder();
+        builder.SetToastScenario(ToastScenario.Default);
+
+        builder.AddText(Translator.Exception_AccountNeedsAttention_Title);
+        builder.AddText(string.Format(Translator.Exception_AccountNeedsAttention_Message, account.Name));
+
+        builder.AddButton(GetDismissButton());
+
+        builder.AddArgument(Constants.ToastMailAccountIdKey, account.Id.ToString());
+        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
+        builder.AddButton(new ToastButton().SetContent(Translator.Buttons_FixAccount));
+        ShowToast(builder);
+    }
+
+    public void CreateWebView2RuntimeMissingNotification()
+    {
+        var builder = new ToastContentBuilder();
+        builder.SetToastScenario(ToastScenario.Default);
+
+        builder.AddText(Translator.Exception_WebView2RuntimeMissing_Title);
+        builder.AddText(Translator.Exception_WebView2RuntimeMissing_Message);
+
+        builder.AddButton(GetDismissButton());
+        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
+        ShowToast(builder);
+    }
+
+    public void CreateStoreUpdateNotification()
+    {
+        var builder = new ToastContentBuilder();
+        builder.SetToastScenario(ToastScenario.Default);
+
+        builder.AddText(Translator.Notifications_StoreUpdateAvailableTitle);
+        builder.AddText(Translator.Notifications_StoreUpdateAvailableMessage);
+        builder.AddArgument(Constants.ToastStoreUpdateActionKey, Constants.ToastStoreUpdateActionInstall);
+        builder.AddButton(GetDismissButton());
+
+        ShowToast(builder, "store-update-available");
+    }
+
+    public Task CreateCalendarReminderNotificationAsync(CalendarItem calendarItem, long reminderDurationInSeconds)
+    {
+        if (calendarItem == null)
+            return Task.CompletedTask;
+
+        var builder = new ToastContentBuilder();
+        builder.SetToastScenario(ToastScenario.Reminder);
+
+        var localStart = calendarItem.GetLocalStartDate();
+        var nowLocal = DateTime.Now;
+        var reminderContext = GetCalendarReminderContext(localStart, nowLocal);
+
+        builder.AddText(calendarItem.Title);
+        builder.AddText($"{reminderContext} - {localStart:g}");
+
+        if (!string.IsNullOrWhiteSpace(calendarItem.Location))
+            builder.AddText(calendarItem.Location);
+
+        builder.AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarNavigateAction);
+        builder.AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString());
+        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar);
+
+        var allowedSnoozeMinutes = CalendarReminderSnoozeOptions.GetAllowedSnoozeMinutes(
+            reminderDurationInSeconds,
+            _preferencesService.DefaultReminderDurationInSeconds);
+
+        if (allowedSnoozeMinutes.Count > 0)
+        {
+            var preferredSnoozeMinutes = _preferencesService.DefaultSnoozeDurationInMinutes;
+            var defaultSnoozeMinutes = allowedSnoozeMinutes.Contains(preferredSnoozeMinutes)
+                ? preferredSnoozeMinutes
+                : allowedSnoozeMinutes[0];
+
+            var selectionBox = new ToastSelectionBox(Constants.ToastCalendarSnoozeDurationInputId)
+            {
+                DefaultSelectionBoxItemId = defaultSnoozeMinutes.ToString()
+            };
+
+            foreach (var snoozeMinutes in allowedSnoozeMinutes)
+            {
+                selectionBox.Items.Add(new ToastSelectionBoxItem(
+                    snoozeMinutes.ToString(),
+                    string.Format(Translator.CalendarReminder_SnoozeMinutesOption, snoozeMinutes)));
+            }
+
+            builder.AddToastInput(selectionBox);
+            var snoozeButton = new ToastButton()
+                .SetContent(Translator.CalendarReminder_SnoozeAction)
+                .SetImageUri(GetNotificationIconUri("calendar-snooze"))
+                .AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarSnoozeAction)
+                .AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString())
+                .AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar)
+                .SetBackgroundActivation();
+
+            builder.AddButton(snoozeButton);
+        }
+
+        builder.AddButton(new ToastButton()
+            .SetDismissActivation()
+            .SetImageUri(GetNotificationIconUri("dismiss")));
+
+        if (Uri.TryCreate(calendarItem.HtmlLink, UriKind.Absolute, out var joinUri))
+        {
+            builder.AddButton(new ToastButton()
+                .SetContent(Translator.CalendarEventDetails_JoinOnline)
+                .SetImageUri(GetNotificationIconUri("calendar-join"))
+                .SetProtocolActivation(joinUri));
+        }
+
+        builder.AddAudio(new ToastAudio()
+        {
+            Src = new Uri("ms-winsoundevent:Notification.Reminder")
+        });
+
+        var tag = $"calendar-reminder-{calendarItem.Id:N}-{reminderDurationInSeconds}";
+        ShowToast(builder, tag);
+
+        return Task.CompletedTask;
+    }
+
+    private static string GetCalendarReminderContext(DateTime localStart, DateTime nowLocal)
+    {
+        var delta = localStart - nowLocal;
+        var absDelta = delta.Duration();
+
+        if (absDelta < TimeSpan.FromMinutes(1))
+            return delta.TotalSeconds >= 0 ? Translator.CalendarReminder_StartingNow : Translator.CalendarReminder_StartedNow;
+
+        if (delta.TotalSeconds > 0)
+        {
+            if (delta.TotalHours >= 1)
+            {
+                var hours = Math.Max(1, (int)Math.Floor(delta.TotalHours));
+                return string.Format(Translator.CalendarReminder_StartsInHours, hours);
+            }
+
+            var minutes = Math.Max(1, (int)Math.Floor(delta.TotalMinutes));
+            return string.Format(Translator.CalendarReminder_StartsInMinutes, minutes);
+        }
+
+        if (absDelta.TotalHours >= 1)
+        {
+            var hoursAgo = Math.Max(1, (int)Math.Floor(absDelta.TotalHours));
+            return string.Format(Translator.CalendarReminder_StartedHoursAgo, hoursAgo);
+        }
+
+        var minutesAgo = Math.Max(1, (int)Math.Floor(absDelta.TotalMinutes));
+        return string.Format(Translator.CalendarReminder_StartedMinutesAgo, minutesAgo);
+    }
+
+    private static void ShowToast(ToastContentBuilder builder, string? tag = null)
+    {
+        var toastNotification = new ToastNotification(builder.GetToastContent().GetXml());
+
+        if (!string.IsNullOrWhiteSpace(tag))
+        {
+            toastNotification.Tag = tag;
+        }
+
+        var notifier = ToastNotificationManager.CreateToastNotifier();
+        notifier.Show(toastNotification);
+    }
+
+    private Uri GetNotificationIconUri(string iconName)
+    {
+        // Keep the URI unqualified so Windows resolves the best matching theme/scale asset from the package.
+        return new($"{NotificationIconRootUri}{iconName}.png");
+    }
+}
+

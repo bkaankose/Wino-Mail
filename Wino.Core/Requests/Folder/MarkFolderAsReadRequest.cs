@@ -17,10 +17,14 @@ public record MarkFolderAsReadRequest(MailItemFolder Folder, List<MailCopy> Mail
 
         foreach (var item in MailsToMarkRead)
         {
+            // Skip if already read
+            if (item.IsRead) continue;
+
             item.IsRead = true;
         }
 
-        WeakReferenceMessenger.Default.Send(new BulkMailUpdatedMessage(MailsToMarkRead));
+            WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(item, MailUpdateSource.ClientUpdated, MailCopyChangeFlags.IsRead));
+        }
     }
 
     public override void RevertUIChanges()
@@ -29,10 +33,14 @@ public record MarkFolderAsReadRequest(MailItemFolder Folder, List<MailCopy> Mail
 
         foreach (var item in MailsToMarkRead)
         {
+            // Skip if already unread (wasn't changed by ApplyUIChanges)
+            if (!item.IsRead) continue;
+
             item.IsRead = false;
         }
 
-        WeakReferenceMessenger.Default.Send(new BulkMailUpdatedMessage(MailsToMarkRead));
+            WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(item, MailUpdateSource.ClientReverted, MailCopyChangeFlags.IsRead));
+        }
     }
 
     public List<Guid> SynchronizationFolderIds => [Folder.Id];

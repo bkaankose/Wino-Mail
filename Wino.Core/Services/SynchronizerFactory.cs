@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration.Processors;
+using Wino.Core.Synchronizers.ImapSync;
 using Wino.Core.Synchronizers.Mail;
 
 namespace Wino.Core.Services;
@@ -13,39 +14,48 @@ public class SynchronizerFactory : ISynchronizerFactory
     private bool isInitialized = false;
 
     private readonly IAccountService _accountService;
-    private readonly IImapSynchronizationStrategyProvider _imapSynchronizationStrategyProvider;
     private readonly IApplicationConfiguration _applicationConfiguration;
     private readonly IOutlookSynchronizerErrorHandlerFactory _outlookSynchronizerErrorHandlerFactory;
     private readonly IGmailSynchronizerErrorHandlerFactory _gmailSynchronizerErrorHandlerFactory;
+    private readonly IImapSynchronizerErrorHandlerFactory _imapSynchronizerErrorHandlerFactory;
     private readonly IOutlookChangeProcessor _outlookChangeProcessor;
     private readonly IGmailChangeProcessor _gmailChangeProcessor;
     private readonly IImapChangeProcessor _imapChangeProcessor;
-    private readonly IOutlookAuthenticator _outlookAuthenticator;
-    private readonly IGmailAuthenticator _gmailAuthenticator;
+    private readonly IAuthenticationProvider _authenticationProvider;
+    private readonly UnifiedImapSynchronizer _unifiedImapSynchronizer;
+    private readonly ICalDavClient _calDavClient;
+    private readonly IAutoDiscoveryService _autoDiscoveryService;
+    private readonly ICalendarService _calendarService;
 
     private readonly List<IWinoSynchronizerBase> synchronizerCache = new();
 
     public SynchronizerFactory(IOutlookChangeProcessor outlookChangeProcessor,
                                IGmailChangeProcessor gmailChangeProcessor,
                                IImapChangeProcessor imapChangeProcessor,
-                               IOutlookAuthenticator outlookAuthenticator,
-                               IGmailAuthenticator gmailAuthenticator,
+                               IAuthenticationProvider authenticationProvider,
                                IAccountService accountService,
-                               IImapSynchronizationStrategyProvider imapSynchronizationStrategyProvider,
                                IApplicationConfiguration applicationConfiguration,
                                IOutlookSynchronizerErrorHandlerFactory outlookSynchronizerErrorHandlerFactory,
-                               IGmailSynchronizerErrorHandlerFactory gmailSynchronizerErrorHandlerFactory)
+                               IGmailSynchronizerErrorHandlerFactory gmailSynchronizerErrorHandlerFactory,
+                               IImapSynchronizerErrorHandlerFactory imapSynchronizerErrorHandlerFactory,
+                               UnifiedImapSynchronizer unifiedImapSynchronizer,
+                               ICalDavClient calDavClient,
+                               IAutoDiscoveryService autoDiscoveryService,
+                               ICalendarService calendarService)
     {
         _outlookChangeProcessor = outlookChangeProcessor;
         _gmailChangeProcessor = gmailChangeProcessor;
         _imapChangeProcessor = imapChangeProcessor;
-        _outlookAuthenticator = outlookAuthenticator;
-        _gmailAuthenticator = gmailAuthenticator;
+        _authenticationProvider = authenticationProvider;
         _accountService = accountService;
-        _imapSynchronizationStrategyProvider = imapSynchronizationStrategyProvider;
         _applicationConfiguration = applicationConfiguration;
         _outlookSynchronizerErrorHandlerFactory = outlookSynchronizerErrorHandlerFactory;
         _gmailSynchronizerErrorHandlerFactory = gmailSynchronizerErrorHandlerFactory;
+        _imapSynchronizerErrorHandlerFactory = imapSynchronizerErrorHandlerFactory;
+        _unifiedImapSynchronizer = unifiedImapSynchronizer;
+        _calDavClient = calDavClient;
+        _autoDiscoveryService = autoDiscoveryService;
+        _calendarService = calendarService;
     }
 
     public async Task<IWinoSynchronizerBase> GetAccountSynchronizerAsync(Guid accountId)
@@ -75,11 +85,13 @@ public class SynchronizerFactory : ISynchronizerFactory
         switch (providerType)
         {
             case Domain.Enums.MailProviderType.Outlook:
-                return new OutlookSynchronizer(mailAccount, _outlookAuthenticator, _outlookChangeProcessor, _outlookSynchronizerErrorHandlerFactory);
+                var outlookAuthenticator = _authenticationProvider.GetAuthenticator(Domain.Enums.MailProviderType.Outlook) as IOutlookAuthenticator;
+                return new OutlookSynchronizer(mailAccount, outlookAuthenticator, _outlookChangeProcessor, _outlookSynchronizerErrorHandlerFactory);
             case Domain.Enums.MailProviderType.Gmail:
-                return new GmailSynchronizer(mailAccount, _gmailAuthenticator, _gmailChangeProcessor, _gmailSynchronizerErrorHandlerFactory);
+                var gmailAuthenticator = _authenticationProvider.GetAuthenticator(Domain.Enums.MailProviderType.Gmail) as IGmailAuthenticator;
+                return new GmailSynchronizer(mailAccount, gmailAuthenticator, _gmailChangeProcessor, _gmailSynchronizerErrorHandlerFactory);
             case Domain.Enums.MailProviderType.IMAP4:
-                return new ImapSynchronizer(mailAccount, _imapChangeProcessor, _imapSynchronizationStrategyProvider, _applicationConfiguration);
+                return new ImapSynchronizer(mailAccount, _imapChangeProcessor, _applicationConfiguration, _unifiedImapSynchronizer, _imapSynchronizerErrorHandlerFactory, _calDavClient, _autoDiscoveryService, _calendarService);
             default:
                 break;
         }

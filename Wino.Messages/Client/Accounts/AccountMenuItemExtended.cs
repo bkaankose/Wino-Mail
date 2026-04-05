@@ -1,5 +1,5 @@
 ﻿using System;
-using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Entities.Mail;
 
 namespace Wino.Messaging.Client.Accounts;
 
@@ -10,4 +10,4 @@ namespace Wino.Messaging.Client.Accounts;
 /// <param name="AutoSelectAccount">Account to extend menu item for.</param>
 /// <param name="FolderId">Folder to select after expansion.</param>
 /// <param name="NavigateMailItem">Mail item to select if possible in the expanded folder.</param>
-public record AccountMenuItemExtended(Guid FolderId, IMailItem NavigateMailItem);
+public record AccountMenuItemExtended(Guid FolderId, MailCopy NavigateMailItem);

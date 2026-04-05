@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
@@ -12,5 +13,7 @@ public record MailListInitializationOptions(IEnumerable<IMailItemFolder> Folders
                                             bool CreateThreads,
                                             bool? IsFocusedOnly,
                                             string SearchQuery,
-                                            IEnumerable<Guid> ExistingUniqueIds,
-                                            List<MailCopy> PreFetchMailCopies = null);
+                                            ConcurrentDictionary<Guid, bool> ExistingUniqueIds = null,
+                                            List<MailCopy> PreFetchMailCopies = null,
+                                            int Skip = 0,
+                                            int Take = 0);

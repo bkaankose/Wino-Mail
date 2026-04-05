@@ -1,4 +1,5 @@
 ﻿using System.Threading.Tasks;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 
@@ -29,4 +30,10 @@ public interface IWinoRequestDelegator
     /// </summary>
     /// <param name="folderOperationPreperationRequest">Folder prep request.</param>
     Task ExecuteAsync(FolderOperationPreperationRequest folderOperationPreperationRequest);
+
+    /// <summary>
+    /// Prepares and queues calendar action requests for proper synchronizers.
+    /// </summary>
+    /// <param name="calendarOperationPreparationRequest">Calendar preparation request.</param>
+    Task ExecuteAsync(CalendarOperationPreparationRequest calendarOperationPreparationRequest);
 }

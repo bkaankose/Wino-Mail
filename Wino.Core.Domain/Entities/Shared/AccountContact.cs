@@ -11,7 +11,7 @@ namespace Wino.Core.Domain.Entities.Shared;
 
 // TODO: This can easily evolve to Contact store, just like People app in Windows 10/11.
 // Do it.
-public class AccountContact : IEquatable<AccountContact>
+public class AccountContact : IEquatable<AccountContact>, IContactDisplayItem
 {
     /// <summary>
     /// E-mail address of the contact.
@@ -25,9 +25,10 @@ public class AccountContact : IEquatable<AccountContact>
     public string Name { get; set; }
 
     /// <summary>
-    /// Base64 encoded profile image of the contact.
+    /// File ID for the contact picture stored on disk.
+    /// The actual file lives at {ApplicationDataFolderPath}/contacts/{ContactPictureFileId}.jpg.
     /// </summary>
-    public string Base64ContactPicture { get; set; }
+    public Guid? ContactPictureFileId { get; set; }
 
     /// <summary>
     /// All registered accounts have their contacts registered as root.
@@ -35,6 +36,15 @@ public class AccountContact : IEquatable<AccountContact>
     /// They are created on account creation.
     /// </summary>
     public bool IsRootContact { get; set; }
+
+    /// <summary>
+    /// When true, indicates that the contact has been manually modified by the user.
+    /// Contacts with this flag set to true should not be updated during synchronization.
+    /// </summary>
+    public bool IsOverridden { get; set; } = false;
+
+    public string DisplayName => string.IsNullOrWhiteSpace(Name) ? Address : Name;
+    AccountContact IContactDisplayItem.PreviewContact => this;
 
     public override bool Equals(object obj)
     {

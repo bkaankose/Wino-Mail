@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading;
 using MailKit;
 using MailKit.Net.Imap;
@@ -9,7 +9,7 @@ namespace Wino.Core.Integration;
 /// <summary>
 /// Extended class for ImapClient that is used in Wino.
 /// </summary>
-internal class WinoImapClient : ImapClient
+public class WinoImapClient : ImapClient
 {
     private int _busyCount;
 
@@ -20,11 +20,6 @@ internal class WinoImapClient : ImapClient
     public bool IsQResyncEnabled { get; internal set; }
 
     public WinoImapClient()
-    {
-        HookEvents();
-    }
-
-    public WinoImapClient(IProtocolLogger protocolLogger) : base(protocolLogger)
     {
         HookEvents();
     }

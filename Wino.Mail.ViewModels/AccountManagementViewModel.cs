@@ -12,43 +12,42 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Authentication;
-using Wino.Core.Domain.Models.Connectivity;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Services;
 using Wino.Core.ViewModels;
 using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
-using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels;
 
 public partial class AccountManagementViewModel : AccountManagementPageViewModelBase
 {
-    private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
-    private readonly IImapTestService _imapTestService;
     private readonly IWinoLogger _winoLogger;
+    private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
+    private readonly ICalDavClient _calDavClient;
 
     public IMailDialogService MailDialogService { get; }
 
     public AccountManagementViewModel(IMailDialogService dialogService,
-                                      IWinoServerConnectionManager winoServerConnectionManager,
                                       INavigationService navigationService,
                                       IAccountService accountService,
-                                      ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
                                       IProviderService providerService,
-                                      IImapTestService imapTestService,
                                       IStoreManagementService storeManagementService,
+                                      IWinoAccountProfileService winoAccountProfileService,
                                       IWinoLogger winoLogger,
+                                      ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
+                                      ICalDavClient calDavClient,
                                       IAuthenticationProvider authenticationProvider,
-                                      IPreferencesService preferencesService) : base(dialogService, winoServerConnectionManager, navigationService, accountService, providerService, storeManagementService, authenticationProvider, preferencesService)
+                                      IPreferencesService preferencesService) : base(dialogService, navigationService, accountService, providerService, storeManagementService, winoAccountProfileService, authenticationProvider, preferencesService)
     {
         MailDialogService = dialogService;
-        _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
-        _imapTestService = imapTestService;
         _winoLogger = winoLogger;
+        _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
+        _calDavClient = calDavClient;
     }
 
     [RelayCommand]
@@ -88,246 +87,114 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
             return;
         }
 
-        MailAccount createdAccount = null;
-        IAccountCreationDialog creationDialog = null;
+        Messenger.Send(new BreadcrumbNavigationRequested(Translator.WelcomeWizard_Step2Title, WinoPage.ProviderSelectionPage));
+    }
 
-        try
+    public Task StartAddNewAccountAsync() => AddNewAccountAsync();
+
+    private async Task ValidateSpecialImapConnectivityAsync(CustomServerInformation serverInformation)
+    {
+        var connectivityResult = await SynchronizationManager.Instance
+            .TestImapConnectivityAsync(serverInformation, allowSSLHandshake: false)
+            .ConfigureAwait(false);
+
+        if (connectivityResult.IsCertificateUIRequired)
         {
-            var providers = ProviderService.GetAvailableProviders();
+            var certificateMessage =
+                $"{Translator.IMAPSetupDialog_CertificateAllowanceRequired_Row0}\n\n" +
+                $"{Translator.IMAPSetupDialog_CertificateIssuer}: {connectivityResult.CertificateIssuer}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateValidFrom}: {connectivityResult.CertificateValidFromDateString}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateValidTo}: {connectivityResult.CertificateExpirationDateString}\n\n" +
+                $"{Translator.IMAPSetupDialog_CertificateAllowanceRequired_Row1}";
 
-            // Select provider.
-            var accountCreationDialogResult = await MailDialogService.ShowAccountProviderSelectionDialogAsync(providers);
+            var allowCertificate = await ExecuteUIThreadTaskAsync(
+                () => MailDialogService.ShowConfirmationDialogAsync(certificateMessage, Translator.GeneralTitle_Warning, Translator.Buttons_Allow))
+                .ConfigureAwait(false);
 
-            var accountCreationCancellationTokenSource = new CancellationTokenSource();
+            if (!allowCertificate)
+                throw new InvalidOperationException(Translator.IMAPSetupDialog_CertificateDenied);
 
-            if (accountCreationDialogResult != null)
+            connectivityResult = await SynchronizationManager.Instance
+                .TestImapConnectivityAsync(serverInformation, allowSSLHandshake: true)
+                .ConfigureAwait(false);
+        }
+
+        if (!connectivityResult.IsSuccess)
+            throw new InvalidOperationException(connectivityResult.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage);
+
+        if (serverInformation.CalendarSupportMode != ImapCalendarSupportMode.CalDav)
+            return;
+
+        if (string.IsNullOrWhiteSpace(serverInformation.CalDavServiceUrl))
+            throw new InvalidOperationException(Translator.ImapCalDavSettingsPage_CalDavUrlRequired);
+
+        var settings = new CalDavConnectionSettings
+        {
+            ServiceUri = new Uri(serverInformation.CalDavServiceUrl, UriKind.Absolute),
+            Username = serverInformation.CalDavUsername,
+            Password = serverInformation.CalDavPassword
+        };
+
+        await _calDavClient.DiscoverCalendarsAsync(settings).ConfigureAwait(false);
+    }
+
+    private async Task ExecuteUIThreadTaskAsync(Func<Task> action)
+    {
+        if (Dispatcher == null)
+        {
+            await action().ConfigureAwait(false);
+            return;
+        }
+
+        var completionSource = new TaskCompletionSource<object>();
+
+        await ExecuteUIThread(() =>
+        {
+            _ = ExecuteAndCaptureAsync();
+
+            async Task ExecuteAndCaptureAsync()
             {
-                creationDialog = MailDialogService.GetAccountCreationDialog(accountCreationDialogResult);
-
-                CustomServerInformation customServerInformation = null;
-
-                createdAccount = new MailAccount()
+                try
                 {
-                    ProviderType = accountCreationDialogResult.ProviderType,
-                    Name = accountCreationDialogResult.AccountName,
-                    SpecialImapProvider = accountCreationDialogResult.SpecialImapProviderDetails?.SpecialImapProvider ?? SpecialImapProvider.None,
-                    Id = Guid.NewGuid(),
-                    AccountColorHex = accountCreationDialogResult.AccountColorHex
-                };
-
-                await creationDialog.ShowDialogAsync(accountCreationCancellationTokenSource);
-                await Task.Delay(500);
-
-                creationDialog.State = AccountCreationDialogState.SigningIn;
-
-                string tokenInformation = string.Empty;
-
-                // Custom server implementation requires more async waiting.
-                if (creationDialog is IImapAccountCreationDialog customServerDialog)
-                {
-                    // Pass along the account properties and perform initial navigation on the imap frame.
-                    customServerDialog.StartImapConnectionSetup(createdAccount);
-
-                    customServerInformation = await customServerDialog.GetCustomServerInformationAsync()
-                        ?? throw new AccountSetupCanceledException();
-
-                    // At this point connection is successful.
-                    // Save the server setup information and later on we'll fetch folders.
-
-                    customServerInformation.AccountId = createdAccount.Id;
-
-                    createdAccount.Address = customServerInformation.Address;
-                    createdAccount.ServerInformation = customServerInformation;
-                    createdAccount.SenderName = customServerInformation.DisplayName;
+                    await action().ConfigureAwait(false);
+                    completionSource.TrySetResult(null);
                 }
-                else
+                catch (Exception ex)
                 {
-                    // Hanle special imap providers like iCloud and Yahoo.
-                    if (accountCreationDialogResult.SpecialImapProviderDetails != null)
-                    {
-                        // Special imap provider testing dialog. This is only available for iCloud and Yahoo.
-                        customServerInformation = _specialImapProviderConfigResolver.GetServerInformation(createdAccount, accountCreationDialogResult);
-                        customServerInformation.Id = Guid.NewGuid();
-                        customServerInformation.AccountId = createdAccount.Id;
-
-                        createdAccount.SenderName = accountCreationDialogResult.SpecialImapProviderDetails.SenderName;
-                        createdAccount.Address = customServerInformation.Address;
-
-                        // Let server validate the imap/smtp connection.
-                        var testResultResponse = await WinoServerConnectionManager.GetResponseAsync<ImapConnectivityTestResults, ImapConnectivityTestRequested>(new ImapConnectivityTestRequested(customServerInformation, true));
-
-                        if (!testResultResponse.IsSuccess)
-                        {
-                            throw new Exception($"{Translator.IMAPSetupDialog_ConnectionFailedTitle}\n{testResultResponse.Message}");
-                        }
-                        else if (!testResultResponse.Data.IsSuccess)
-                        {
-                            // Server connectivity might succeed, but result might be failed.
-                            throw new ImapClientPoolException(testResultResponse.Data.FailedReason, customServerInformation, testResultResponse.Data.FailureProtocolLog);
-                        }
-                    }
-                    else
-                    {
-                        // OAuth authentication is handled here.
-                        // Server authenticates, returns the token info here.
-
-                        var tokenInformationResponse = await WinoServerConnectionManager
-                            .GetResponseAsync<TokenInformationEx, AuthorizationRequested>(new AuthorizationRequested(accountCreationDialogResult.ProviderType,
-                                                                                                                   createdAccount,
-                                                                                                                   createdAccount.ProviderType == MailProviderType.Gmail), accountCreationCancellationTokenSource.Token);
-
-                        if (creationDialog.State == AccountCreationDialogState.Canceled)
-                            throw new AccountSetupCanceledException();
-
-                        if (!tokenInformationResponse.IsSuccess)
-                            throw new Exception(tokenInformationResponse.Message);
-
-                        createdAccount.Address = tokenInformationResponse.Data.AccountAddress;
-
-                        tokenInformationResponse.ThrowIfFailed();
-                    }
+                    completionSource.TrySetException(ex);
                 }
-
-                // Address is still doesn't have a value for API synchronizers.
-                // It'll be synchronized with profile information.
-
-                await AccountService.CreateAccountAsync(createdAccount, customServerInformation);
-
-                // Local account has been created.
-
-                // Sync profile information if supported.
-                if (createdAccount.IsProfileInfoSyncSupported)
-                {
-                    // Start profile information synchronization.
-                    // It's only available for Outlook and Gmail synchronizers.
-
-                    var profileSyncOptions = new MailSynchronizationOptions()
-                    {
-                        AccountId = createdAccount.Id,
-                        Type = MailSynchronizationType.UpdateProfile
-                    };
-
-                    var profileSynchronizationResponse = await WinoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewMailSynchronizationRequested>(new NewMailSynchronizationRequested(profileSyncOptions, SynchronizationSource.Client));
-
-                    var profileSynchronizationResult = profileSynchronizationResponse.Data;
-
-                    if (profileSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
-                        throw new Exception(Translator.Exception_FailedToSynchronizeProfileInformation);
-
-                    createdAccount.SenderName = profileSynchronizationResult.ProfileInformation.SenderName;
-                    createdAccount.Base64ProfilePictureData = profileSynchronizationResult.ProfileInformation.Base64ProfilePictureData;
-
-                    if (!string.IsNullOrEmpty(profileSynchronizationResult.ProfileInformation.AccountAddress))
-                    {
-                        createdAccount.Address = profileSynchronizationResult.ProfileInformation.AccountAddress;
-                    }
-
-                    await AccountService.UpdateProfileInformationAsync(createdAccount.Id, profileSynchronizationResult.ProfileInformation);
-                }
-
-                if (creationDialog is IImapAccountCreationDialog customServerAccountCreationDialog)
-                    customServerAccountCreationDialog.ShowPreparingFolders();
-                else
-                    creationDialog.State = AccountCreationDialogState.PreparingFolders;
-
-                // Start synchronizing folders.
-                var folderSyncOptions = new MailSynchronizationOptions()
-                {
-                    AccountId = createdAccount.Id,
-                    Type = MailSynchronizationType.FoldersOnly
-                };
-
-                var folderSynchronizationResponse = await WinoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewMailSynchronizationRequested>(new NewMailSynchronizationRequested(folderSyncOptions, SynchronizationSource.Client));
-
-                var folderSynchronizationResult = folderSynchronizationResponse.Data;
-
-                if (folderSynchronizationResult == null || folderSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
-                    throw new Exception($"{Translator.Exception_FailedToSynchronizeFolders}\n{folderSynchronizationResponse.Message}");
-
-                // Sync aliases if supported.
-                if (createdAccount.IsAliasSyncSupported)
-                {
-                    // Try to synchronize aliases for the account.
-
-                    var aliasSyncOptions = new MailSynchronizationOptions()
-                    {
-                        AccountId = createdAccount.Id,
-                        Type = MailSynchronizationType.Alias
-                    };
-
-                    var aliasSyncResponse = await WinoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewMailSynchronizationRequested>(new NewMailSynchronizationRequested(aliasSyncOptions, SynchronizationSource.Client));
-                    var aliasSynchronizationResult = folderSynchronizationResponse.Data;
-
-                    if (aliasSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
-                        throw new Exception(Translator.Exception_FailedToSynchronizeAliases);
-                }
-                else
-                {
-                    // Create root primary alias for the account.
-                    // This is only available for accounts that do not support alias synchronization.
-
-                    await AccountService.CreateRootAliasAsync(createdAccount.Id, createdAccount.Address);
-                }
-
-                // Send changes to listeners.
-                ReportUIChange(new AccountCreatedMessage(createdAccount));
-
-                // Notify success.
-                DialogService.InfoBarMessage(Translator.Info_AccountCreatedTitle, string.Format(Translator.Info_AccountCreatedMessage, createdAccount.Address), InfoBarMessageType.Success);
             }
-        }
-        catch (Exception ex) when (ex.Message.Contains(nameof(GmailServiceDisabledException)))
+        });
+
+        await completionSource.Task.ConfigureAwait(false);
+    }
+
+    private async Task<T> ExecuteUIThreadTaskAsync<T>(Func<Task<T>> action)
+    {
+        if (Dispatcher == null)
+            return await action().ConfigureAwait(false);
+
+        var completionSource = new TaskCompletionSource<T>();
+
+        await ExecuteUIThread(() =>
         {
-            // For Google Workspace accounts, Gmail API might be disabled by the admin.
-            // Wino can't continue synchronization in this case.
-            // We must notify the user about this and prevent account creation.
+            _ = ExecuteAndCaptureAsync();
 
-            DialogService.InfoBarMessage(Translator.GmailServiceDisabled_Title, Translator.GmailServiceDisabled_Message, InfoBarMessageType.Error);
-
-            if (createdAccount != null)
+            async Task ExecuteAndCaptureAsync()
             {
-                await AccountService.DeleteAccountAsync(createdAccount);
+                try
+                {
+                    var result = await action().ConfigureAwait(false);
+                    completionSource.TrySetResult(result);
+                }
+                catch (Exception ex)
+                {
+                    completionSource.TrySetException(ex);
+                }
             }
-        }
-        catch (AccountSetupCanceledException)
-        {
-            // Ignore
-        }
-        catch (Exception ex) when (ex.Message.Contains(nameof(AccountSetupCanceledException)))
-        {
-            // Ignore
-        }
-        catch (ImapClientPoolException testClientPoolException) when (testClientPoolException.CustomServerInformation != null)
-        {
-            var properties = testClientPoolException.CustomServerInformation.GetConnectionProperties();
+        });
 
-            properties.Add("ProtocolLog", testClientPoolException.ProtocolLog);
-            properties.Add("DiagnosticId", PreferencesService.DiagnosticId);
-
-            _winoLogger.TrackEvent("IMAP Test Failed", properties);
-
-            DialogService.InfoBarMessage(Translator.Info_AccountCreationFailedTitle, testClientPoolException.Message, InfoBarMessageType.Error);
-        }
-        catch (ImapClientPoolException clientPoolException) when (clientPoolException.InnerException != null)
-        {
-            DialogService.InfoBarMessage(Translator.Info_AccountCreationFailedTitle, clientPoolException.InnerException.Message, InfoBarMessageType.Error);
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Failed to create account.");
-
-            DialogService.InfoBarMessage(Translator.Info_AccountCreationFailedTitle, ex.Message, InfoBarMessageType.Error);
-
-            // Delete account in case of failure.
-            if (createdAccount != null)
-            {
-                await AccountService.DeleteAccountAsync(createdAccount);
-            }
-        }
-        finally
-        {
-            creationDialog?.Complete(false);
-        }
+        return await completionSource.Task.ConfigureAwait(false);
     }
 
     [RelayCommand]

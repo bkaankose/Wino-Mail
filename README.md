@@ -1,45 +1,54 @@
-
 <p align="center">
-  <a href="https://apps.microsoft.com/detail/Wino%20Mail/9NCRCVJC50WL?launch=true
-	&mode=full">
-    <img src="https://www.winomail.app/images/wino_logo.png" width=90 height=90>
+  <a href="https://apps.microsoft.com/detail/Wino%20Mail/9NCRCVJC50WL?launch=true&mode=full">
+    <img src="https://www.winomail.app/images/v2/Logo.png" width="90" height="90" alt="Wino Mail logo">
   </a>
 
   <h3 align="center">Wino Mail</h3>
 
   <p align="center">
-    Native mail client for Windows device families. 
+    Native mail and calendar client for Windows.
   </p>
 </p>
 
 <br>
 
-![pdark](https://user-images.githubusercontent.com/12009960/232114528-2d2c8e3c-dbe7-429a-94e0-6aecc73bdf70.png)
+![Wino Mail screenshot](https://user-images.githubusercontent.com/12009960/232114528-2d2c8e3c-dbe7-429a-94e0-6aecc73bdf70.png)
 
 ## Motivation
 
-I'm a big fan of Windows Mail & Calendars due to its simplicity. Personally, I find it more intuitive for daily use cases compared to Outlook desktop and the new WebView2 powered Outlook version. Seeing [Microsoft deprecating it](https://support.microsoft.com/en-us/office/outlook-for-windows-the-future-of-mail-calendar-and-people-on-windows-11-715fc27c-e0f4-4652-9174-47faa751b199#:~:text=The%20Mail%20and%20Calendar%20applications,will%20no%20longer%20be%20supported.) dragged me into starting to work on Wino a couple of years ago. Wino's main motivation is to bring all the existing functionality from Mail & Calendars over time without changing the user experience that millions have loved since the Windows 8 days in Mail & Calendars
+I'm a big fan of Windows Mail & Calendars due to its simplicity. Personally, I find it more intuitive for daily use cases compared to Outlook desktop and the new WebView2 powered Outlook version. Seeing [Microsoft deprecating it](https://support.microsoft.com/en-us/office/outlook-for-windows-the-future-of-mail-calendar-and-people-on-windows-11-715fc27c-e0f4-4652-9174-47faa751b199#:~:text=The%20Mail%20and%20Calendar%20applications,will%20no%20longer%20be%20supported.) dragged me into starting to work on Wino a couple of years ago. Wino's main motivation is to bring all the existing functionality from Mail & Calendars over time without changing the user experience that millions have loved since the Windows 8 days in Mail & Calendars.
+
+## vNext Release Highlights
+
+Wino vNext focuses on making Mail, Calendar, and Contacts feel like one cohesive native Windows experience while improving sync reliability and startup responsiveness.
+
+- 📅 **Calendar management:** Event compose/create flow, calendar-mail mapping, reminder snooze support, occurrence and detail-page improvements, and CalDAV correctness fixes.
+- 👥 **Contact management:** Improved contact workflows, account/settings integration, and contact data-model cleanup.
+- 🔄 **Synchronization reliability:** Refactored synchronizers, better state handling, 404 + 429 error handling, and duplicate-operation prevention.
+- ✉️ **Compose and drafts:** Refined editor/toolbar architecture, better rendering pipeline, Gmail draft support, and large Outlook attachment upload sessions.
+- ⚡ **Performance and quality:** Faster mail fetching with batched DB queries and caching, SQLite indexing/foreign key enforcement, and broader test + CI coverage.
+- 🎨 **WinUI polish:** Improved onboarding/startup, settings and dialogs refresh, notification routing fixes, and keyboard/navigation quality-of-life improvements.
 
 ## Features
 
-- API integration for Outlook and Gmail
-- IMAP/SMTP support for custom mail servers
-- Send, receive, mark as (read,important,spam etc), move mails.
-- Linked/Merged Accounts
-- Toast notifications with background sync.
-- Instant startup performance
-- Offline use / search.
-- Modern and responsive UI
-- Lots of personalization options
-- Dark / Light mode for mail reader
+- 📨 Outlook and Gmail API integration
+- 🌐 IMAP/SMTP support for custom mail servers
+- 📅 Calendar support with event creation/compose and reminders
+- 👥 Contact management and people-centric account experience
+- ✅ Core mail actions: send, receive, read/unread, move, spam, and more
+- 🔗 Linked/Merged accounts
+- 🔔 Toast notifications with background sync
+- ⚡ Instant startup-oriented architecture
+- 🔎 Offline-capable workflows and search improvements
+- 🎛️ Modern responsive WinUI interface with personalization options
+- 🌗 Dark/Light mode for mail reader and app surfaces
 
 ## Download
 
 Download latest version of Wino Mail from Microsoft Store for free.
 
-<a href="https://apps.microsoft.com/detail/Wino%20Mail/9NCRCVJC50WL?launch=true
-	&mode=full">
-	<img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200"/>
+<a href="https://apps.microsoft.com/detail/Wino%20Mail/9NCRCVJC50WL?launch=true&mode=full">
+	<img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200" alt="Get Wino Mail from Microsoft Store"/>
 </a>
 
 ## Beta Releases
@@ -47,7 +56,6 @@ Download latest version of Wino Mail from Microsoft Store for free.
 Stable releases will always be distributed on Microsoft Store. However, beta releases will be distributed in [GitHub Releases](https://github.com/bkaankose/Wino-Mail/releases). Please keep in mind that beta releases might not be for daily use, only for testing purposes and recommended for experienced users or developers. Beta releases are also managed manually. Therefore, code in the repository might be ahead of the released Beta version at the moment. Make sure to compare versions before tryout out the Beta version.
 
 These releases are distributed as side-loaded packages. To install them, download the **.msixbundle** file in GitHub releases and [follow the steps explained here.](https://learn.microsoft.com/en-us/windows/application-management/sideload-apps-in-windows)
-
 
 ## Contributing
 
@@ -59,3 +67,4 @@ Your donations will motivate me more to work on Wino in my spare time and cover 
 
 - You can [donate via Paypal by clicking here](https://www.paypal.com/donate/?hosted_button_id=LGPERGGXFMQ7U)
 - You can buy Unlimited Accounts add-on in the application. It's a one-time payment for lifetime, not a monthly recurring payment.
+

@@ -19,6 +19,18 @@ public enum FolderSynchronizerOperation
     RenameFolder,
     EmptyFolder,
     MarkFolderRead,
+    DeleteFolder,
+    CreateSubFolder,
+}
+
+public enum CalendarSynchronizerOperation
+{
+    CreateEvent,
+    UpdateEvent,
+    DeleteEvent,
+    AcceptEvent,
+    DeclineEvent,
+    TentativeEvent,
 }
 
 // UI requests

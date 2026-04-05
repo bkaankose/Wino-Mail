@@ -2,4 +2,9 @@
 
 namespace Wino.Core.Domain.Models.Accounts;
 
-public record SpecialImapProviderDetails(string Address, string Password, string SenderName, SpecialImapProvider SpecialImapProvider);
+public record SpecialImapProviderDetails(
+    string Address,
+    string Password,
+    string SenderName,
+    SpecialImapProvider SpecialImapProvider,
+    ImapCalendarSupportMode CalendarSupportMode = ImapCalendarSupportMode.CalDav);

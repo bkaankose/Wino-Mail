@@ -1,9 +1,12 @@
 ﻿using System;
 using SQLite;
+using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Domain.Entities.Calendar;
 
+[Preserve]
 public class AccountCalendar : IAccountCalendar
 {
     [PrimaryKey]
@@ -13,7 +16,9 @@ public class AccountCalendar : IAccountCalendar
     public string SynchronizationDeltaToken { get; set; }
     public string Name { get; set; }
     public bool IsPrimary { get; set; }
+    public bool IsSynchronizationEnabled { get; set; } = true;
     public bool IsExtended { get; set; } = true;
+    public CalendarItemShowAs DefaultShowAs { get; set; } = CalendarItemShowAs.Busy;
 
     /// <summary>
     /// Unused for now.
@@ -21,4 +26,7 @@ public class AccountCalendar : IAccountCalendar
     public string TextColorHex { get; set; }
     public string BackgroundColorHex { get; set; }
     public string TimeZone { get; set; }
+
+    [Ignore]
+    public MailAccount MailAccount { get; set; }
 }

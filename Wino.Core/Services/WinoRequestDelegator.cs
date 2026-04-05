@@ -5,33 +5,41 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Helpers;
+using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Mail;
 using Wino.Messaging.Server;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.Services;
 
 public class WinoRequestDelegator : IWinoRequestDelegator
 {
     private readonly IWinoRequestProcessor _winoRequestProcessor;
-    private readonly IWinoServerConnectionManager _winoServerConnectionManager;
     private readonly IFolderService _folderService;
     private readonly IMailDialogService _dialogService;
+    private readonly IAccountService _accountService;
+    private readonly ICalendarService _calendarService;
 
     public WinoRequestDelegator(IWinoRequestProcessor winoRequestProcessor,
-                                IWinoServerConnectionManager winoServerConnectionManager,
                                 IFolderService folderService,
-                                IMailDialogService dialogService)
+                                IMailDialogService dialogService,
+                                IAccountService accountService,
+                                ICalendarService calendarService)
     {
         _winoRequestProcessor = winoRequestProcessor;
-        _winoServerConnectionManager = winoServerConnectionManager;
         _folderService = folderService;
         _dialogService = dialogService;
+        _accountService = accountService;
+        _calendarService = calendarService;
     }
 
     public async Task ExecuteAsync(MailOperationPreperationRequest request)
@@ -82,14 +90,20 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         var accountIds = requests.GroupBy(a => a.Item.AssignedAccount.Id);
 
         // Queue requests for each account and start synchronization.
-        foreach (var accountId in accountIds)
+        foreach (var accountGroup in accountIds)
         {
-            foreach (var accountRequest in accountId)
+            foreach (var accountRequest in accountGroup)
             {
-                await QueueRequestAsync(accountRequest, accountId.Key);
+                await QueueRequestAsync(accountRequest, accountGroup.Key);
             }
 
-            await QueueSynchronizationAsync(accountId.Key);
+            var account = accountGroup.First().Item.AssignedAccount;
+            var actionItems = SynchronizationActionHelper.CreateActionItems(accountGroup, accountGroup.Key, account.Name);
+
+            if (actionItems.Count > 0)
+                WeakReferenceMessenger.Default.Send(new SynchronizationActionsAdded(accountGroup.Key, account.Name, actionItems));
+
+            await QueueSynchronizationAsync(accountGroup.Key);
         }
     }
 
@@ -117,55 +131,147 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         if (request == null) return;
 
         await QueueRequestAsync(request, accountId);
+        await SendSyncActionsAddedAsync([request], accountId);
         await QueueSynchronizationAsync(accountId);
+
+        if (folderRequest.Action is FolderOperation.Delete or FolderOperation.CreateSubFolder)
+        {
+            await QueueFoldersOnlySynchronizationAsync(accountId);
+        }
     }
 
     public async Task ExecuteAsync(DraftPreparationRequest draftPreperationRequest)
     {
         var request = new CreateDraftRequest(draftPreperationRequest);
+        var accountId = draftPreperationRequest.Account.Id;
 
-        await QueueRequestAsync(request, draftPreperationRequest.Account.Id);
-        await QueueSynchronizationAsync(draftPreperationRequest.Account.Id);
+        await QueueRequestAsync(request, accountId);
+        await SendSyncActionsAddedAsync([request], accountId, draftPreperationRequest.Account.Name);
+        await QueueSynchronizationAsync(accountId);
     }
 
     public async Task ExecuteAsync(SendDraftPreparationRequest sendDraftPreperationRequest)
     {
         var request = new SendDraftRequest(sendDraftPreperationRequest);
+        var account = sendDraftPreperationRequest.MailItem.AssignedAccount;
 
-        await QueueRequestAsync(request, sendDraftPreperationRequest.MailItem.AssignedAccount.Id);
-        await QueueSynchronizationAsync(sendDraftPreperationRequest.MailItem.AssignedAccount.Id);
+        await QueueRequestAsync(request, account.Id);
+        await SendSyncActionsAddedAsync([request], account.Id, account.Name);
+        await QueueSynchronizationAsync(account.Id);
+    }
+
+    public async Task ExecuteAsync(CalendarOperationPreparationRequest calendarPreparationRequest)
+    {
+        if (calendarPreparationRequest == null)
+            return;
+
+        IRequestBase request = calendarPreparationRequest.Operation switch
+        {
+            CalendarSynchronizerOperation.CreateEvent => await CreateCalendarEventRequestAsync(calendarPreparationRequest).ConfigureAwait(false),
+            CalendarSynchronizerOperation.DeleteEvent => new DeleteCalendarEventRequest(calendarPreparationRequest.CalendarItem),
+            CalendarSynchronizerOperation.AcceptEvent => new AcceptEventRequest(calendarPreparationRequest.CalendarItem, calendarPreparationRequest.ResponseMessage),
+            CalendarSynchronizerOperation.DeclineEvent => CreateDeclineRequest(calendarPreparationRequest.CalendarItem, calendarPreparationRequest.ResponseMessage),
+            CalendarSynchronizerOperation.TentativeEvent => new TentativeEventRequest(calendarPreparationRequest.CalendarItem, calendarPreparationRequest.ResponseMessage),
+            CalendarSynchronizerOperation.UpdateEvent => new UpdateCalendarEventRequest(calendarPreparationRequest.CalendarItem, calendarPreparationRequest.Attendees)
+            {
+                OriginalItem = calendarPreparationRequest.OriginalItem,
+                OriginalAttendees = calendarPreparationRequest.OriginalAttendees
+            },
+            _ => throw new NotImplementedException($"Calendar operation {calendarPreparationRequest.Operation} is not implemented yet.")
+        };
+
+        if (request == null)
+            return;
+
+        var accountId = calendarPreparationRequest.Operation == CalendarSynchronizerOperation.CreateEvent
+            ? calendarPreparationRequest.ComposeResult.AccountId
+            : calendarPreparationRequest.CalendarItem.AssignedCalendar.AccountId;
+        var accountName = calendarPreparationRequest.Operation == CalendarSynchronizerOperation.CreateEvent
+            ? null
+            : calendarPreparationRequest.CalendarItem.AssignedCalendar.MailAccount?.Name;
+
+        await QueueRequestAsync(request, accountId);
+        await SendSyncActionsAddedAsync([request], accountId, accountName);
+        await QueueCalendarSynchronizationAsync(accountId);
+    }
+
+    private async Task<IRequestBase> CreateCalendarEventRequestAsync(CalendarOperationPreparationRequest calendarPreparationRequest)
+    {
+        var composeResult = calendarPreparationRequest.ComposeResult
+                            ?? throw new InvalidOperationException("Create event requests require a compose result.");
+        var assignedCalendar = await _calendarService.GetAccountCalendarAsync(composeResult.CalendarId).ConfigureAwait(false);
+
+        if (assignedCalendar == null)
+            throw new InvalidOperationException($"Calendar {composeResult.CalendarId} could not be resolved.");
+
+        return new CreateCalendarEventRequest(composeResult, assignedCalendar);
+    }
+
+    private IRequestBase CreateDeclineRequest(CalendarItem calendarItem, string responseMessage)
+    {
+        // For Outlook accounts, declined events are deleted by the server after synchronization.
+        // Use OutlookDeclineEventRequest to handle UI removal.
+        if (calendarItem.AssignedCalendar?.MailAccount?.ProviderType == MailProviderType.Outlook)
+        {
+            return new OutlookDeclineEventRequest(calendarItem, responseMessage);
+        }
+
+        return new DeclineEventRequest(calendarItem, responseMessage);
     }
 
     private async Task QueueRequestAsync(IRequestBase request, Guid accountId)
     {
-        try
-        {
-            await EnsureServerConnectedAsync();
-            await _winoServerConnectionManager.QueueRequestAsync(request, accountId);
-        }
-        catch (WinoServerException serverException)
-        {
-            _dialogService.InfoBarMessage("Wino Server Exception", serverException.Message, InfoBarMessageType.Error);
-        }
+        // Don't trigger synchronization for individual requests - we'll trigger it once for all requests
+        await SynchronizationManager.Instance.QueueRequestAsync(request, accountId, triggerSynchronization: false);
     }
 
-    private async Task QueueSynchronizationAsync(Guid accountId)
+    private Task QueueSynchronizationAsync(Guid accountId)
     {
-        await EnsureServerConnectedAsync();
-
         var options = new MailSynchronizationOptions()
         {
             AccountId = accountId,
             Type = MailSynchronizationType.ExecuteRequests
         };
 
-        WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options, SynchronizationSource.Client));
+        WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options));
+        return Task.CompletedTask;
     }
 
-    private async Task EnsureServerConnectedAsync()
+    private Task QueueFoldersOnlySynchronizationAsync(Guid accountId)
     {
-        if (_winoServerConnectionManager.Status == WinoServerConnectionStatus.Connected) return;
+        var options = new MailSynchronizationOptions()
+        {
+            AccountId = accountId,
+            Type = MailSynchronizationType.FoldersOnly
+        };
 
-        await _winoServerConnectionManager.ConnectAsync();
+        WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options));
+        return Task.CompletedTask;
+    }
+
+    private async Task SendSyncActionsAddedAsync(IEnumerable<IRequestBase> requests, Guid accountId, string accountName = null)
+    {
+        if (accountName == null)
+        {
+            var account = await _accountService.GetAccountAsync(accountId);
+            accountName = account?.Name ?? string.Empty;
+        }
+
+        var actionItems = SynchronizationActionHelper.CreateActionItems(requests, accountId, accountName);
+
+        if (actionItems.Count > 0)
+            WeakReferenceMessenger.Default.Send(new SynchronizationActionsAdded(accountId, accountName, actionItems));
+    }
+
+    private Task QueueCalendarSynchronizationAsync(Guid accountId)
+    {
+        var options = new CalendarSynchronizationOptions()
+        {
+            AccountId = accountId,
+            Type = CalendarSynchronizationType.ExecuteRequests
+        };
+
+        WeakReferenceMessenger.Default.Send(new NewCalendarSynchronizationRequested(options));
+        return Task.CompletedTask;
     }
 }

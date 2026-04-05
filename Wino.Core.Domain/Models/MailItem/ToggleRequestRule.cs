@@ -1,4 +1,5 @@
 ﻿using System;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Models.MailItem;
@@ -10,4 +11,4 @@ namespace Wino.Core.Domain.Models.MailItem;
 /// <param name="SourceAction"></param>
 /// <param name="TargetAction"></param>
 /// <param name="Condition"></param>
-public record ToggleRequestRule(MailOperation SourceAction, MailOperation TargetAction, Func<IMailItem, bool> Condition);
+public record ToggleRequestRule(MailOperation SourceAction, MailOperation TargetAction, Func<MailCopy, bool> Condition);

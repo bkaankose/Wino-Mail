@@ -6,6 +6,7 @@ using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Navigation;
 
 namespace Wino.Core.ViewModels;
 
@@ -20,10 +21,11 @@ public partial class AboutPageViewModel : CoreBaseViewModel
     private readonly IWinoLogger _logInitializer;
 
     public string VersionName => _nativeAppService.GetFullAppVersion();
-    public string DiscordChannelUrl => "https://discord.gg/windows-apps-hub-714581497222398064";
-    public string GitHubUrl => "https://github.com/bkaankose/Wino-Mail/";
-    public string PrivacyPolicyUrl => "https://www.winomail.app/support/privacy";
-    public string PaypalUrl => "https://paypal.me/bkaankose?country.x=PL&locale.x=en_US";
+    public string WebsiteUrl => AppUrls.Website;
+    public string DiscordChannelUrl => AppUrls.Discord;
+    public string GitHubUrl => AppUrls.GitHub;
+    public string PrivacyPolicyUrl => AppUrls.PrivacyPolicy;
+    public string PaypalUrl => AppUrls.Paypal;
 
     public IPreferencesService PreferencesService { get; }
 
@@ -47,19 +49,17 @@ public partial class AboutPageViewModel : CoreBaseViewModel
         PreferencesService = preferencesService;
     }
 
-    [RequiresDynamicCode("AOT")]
-    [RequiresUnreferencedCode("AOT")]
-    protected override void OnActivated()
+    public override void OnNavigatedTo(NavigationMode mode, object parameters)
     {
-        base.OnActivated();
+        base.OnNavigatedTo(mode, parameters);
 
         PreferencesService.PreferenceChanged -= PreferencesChanged;
         PreferencesService.PreferenceChanged += PreferencesChanged;
     }
 
-    protected override void OnDeactivated()
+    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
     {
-        base.OnDeactivated();
+        base.OnNavigatedFrom(mode, parameters);
 
         PreferencesService.PreferenceChanged -= PreferencesChanged;
     }

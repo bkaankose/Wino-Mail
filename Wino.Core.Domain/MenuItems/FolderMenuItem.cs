@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Shared;
@@ -19,6 +20,8 @@ public partial class FolderMenuItem : MenuItemBase<IMailItemFolder, FolderMenuIt
     public SpecialFolderType SpecialFolderType => Parameter.SpecialFolderType;
     public bool IsSticky => Parameter.IsSticky;
     public bool IsSystemFolder => Parameter.IsSystemFolder;
+
+
 
     /// <summary>
     /// Display name of the folder. More and Category folders have localized display names.
@@ -53,7 +56,7 @@ public partial class FolderMenuItem : MenuItemBase<IMailItemFolder, FolderMenuIt
 
     public bool ShowUnreadCount => Parameter.ShowUnreadCount;
 
-    IEnumerable<IMenuItem> IBaseFolderMenuItem.SubMenuItems => SubMenuItems;
+    public new ObservableCollection<IMenuItem> SubMenuItems { get; set; } = new ObservableCollection<IMenuItem>();
 
     public FolderMenuItem(IMailItemFolder folderStructure, MailAccount parentAccount, IMenuItem parentMenuItem) : base(folderStructure, folderStructure.Id, parentMenuItem)
     {

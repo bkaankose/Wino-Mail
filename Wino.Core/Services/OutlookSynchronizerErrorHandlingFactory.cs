@@ -1,18 +1,21 @@
-﻿using System.Threading.Tasks;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Errors;
+﻿using Wino.Core.Domain.Interfaces;
+using Wino.Core.Synchronizers.Errors;
 using Wino.Core.Synchronizers.Errors.Outlook;
 
 namespace Wino.Core.Services;
 
 public class OutlookSynchronizerErrorHandlingFactory : SynchronizerErrorHandlingFactory, IOutlookSynchronizerErrorHandlerFactory
 {
-    public OutlookSynchronizerErrorHandlingFactory(ObjectCannotBeDeletedHandler objectCannotBeDeleted)
+    public OutlookSynchronizerErrorHandlingFactory(OutlookAuthenticationFailedHandler authenticationFailedHandler,
+                                                 ObjectCannotBeDeletedHandler objectCannotBeDeleted,
+                                                 EntityNotFoundHandler entityNotFoundHandler,
+                                                 DeltaTokenExpiredHandler deltaTokenExpiredHandler,
+                                                 OutlookRateLimitHandler outlookRateLimitHandler)
     {
+        RegisterHandler(authenticationFailedHandler);
+        RegisterHandler(outlookRateLimitHandler);
         RegisterHandler(objectCannotBeDeleted);
+        RegisterHandler(entityNotFoundHandler);
+        RegisterHandler(deltaTokenExpiredHandler);
     }
-
-    public bool CanHandle(SynchronizerErrorContext error) => CanHandle(error);
-
-    public Task HandleAsync(SynchronizerErrorContext error) => HandleErrorAsync(error);
 }

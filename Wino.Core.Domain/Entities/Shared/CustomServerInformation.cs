@@ -30,6 +30,11 @@ public class CustomServerInformation
     public string OutgoingServerUsername { get; set; }
     public string OutgoingServerPassword { get; set; }
 
+    public string CalDavServiceUrl { get; set; }
+    public string CalDavUsername { get; set; }
+    public string CalDavPassword { get; set; }
+    public ImapCalendarSupportMode CalendarSupportMode { get; set; }
+
     /// <summary>
     /// useSSL True: SslOnConnect
     /// useSSL False: StartTlsWhenAvailable
@@ -65,6 +70,8 @@ public class CustomServerInformation
             { "OutgoingServerPort", OutgoingServerPort },
             { "OutgoingServerSocketOption", OutgoingServerSocketOption.ToString() },
             { "OutgoingAuthenticationMethod", OutgoingAuthenticationMethod.ToString() },
+            { "CalendarSupportMode", CalendarSupportMode.ToString() },
+            { "CalDavServiceUrl", CalDavServiceUrl },
             { "ProxyServer", ProxyServer },
             { "ProxyServerPort", ProxyServerPort }
         };

@@ -1,15 +1,9 @@
-﻿using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Models.Menus;
 
-public class MailOperationMenuItem : MenuOperationItemBase<MailOperation>, IMenuOperation
+public class MailOperationMenuItem : MenuOperationItemBase<MailOperation>
 {
-    /// <summary>
-    /// Gets or sets whether this menu item should be placed in SecondaryCommands if used in CommandBar.
-    /// </summary>
-    public bool IsSecondaryMenuPreferred { get; set; }
-
     protected MailOperationMenuItem(MailOperation operation, bool isEnabled, bool isSecondaryMenuItem = false) : base(operation, isEnabled)
     {
         IsSecondaryMenuPreferred = isSecondaryMenuItem;

@@ -8,10 +8,10 @@ namespace Wino.Core.Domain.MenuItems;
 public partial class MenuItemBase : ObservableObject, IMenuItem
 {
     [ObservableProperty]
-    private bool _isExpanded;
+    public partial bool IsExpanded { get; set; }
 
     [ObservableProperty]
-    private bool _isSelected;
+    public partial bool IsSelected { get; set; }
 
     public IMenuItem ParentMenuItem { get; }
 
@@ -46,7 +46,7 @@ public partial class MenuItemBase : ObservableObject, IMenuItem
 public partial class MenuItemBase<T> : MenuItemBase
 {
     [ObservableProperty]
-    private T _parameter;
+    public partial T Parameter { get; set; }
 
     public MenuItemBase(T parameter, Guid? entityId, IMenuItem parentMenuItem = null) : base(entityId, parentMenuItem) => Parameter = parameter;
 }
@@ -54,7 +54,7 @@ public partial class MenuItemBase<T> : MenuItemBase
 public partial class MenuItemBase<TValue, TCollection> : MenuItemBase<TValue>
 {
     [ObservableProperty]
-    private bool _isChildSelected;
+    public partial bool IsChildSelected { get; set; }
 
     protected MenuItemBase(TValue parameter, Guid? entityId, IMenuItem parentMenuItem = null) : base(parameter, entityId, parentMenuItem) { }
 

@@ -1,9 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
-using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 
 namespace Wino.Services;
@@ -35,7 +35,7 @@ public class ContextMenuItemService : IContextMenuItemService
 
         return list;
     }
-    public virtual IEnumerable<MailOperationMenuItem> GetMailItemContextMenuActions(IEnumerable<IMailItem> selectedMailItems)
+    public virtual IEnumerable<MailOperationMenuItem> GetMailItemContextMenuActions(IEnumerable<MailCopy> selectedMailItems)
     {
         if (selectedMailItems == null)
             return default;
@@ -50,7 +50,7 @@ public class ContextMenuItemService : IContextMenuItemService
 
         bool isSingleItem = selectedMailItems.Count() == 1;
 
-        IMailItem singleItem = selectedMailItems.FirstOrDefault();
+        MailCopy singleItem = selectedMailItems.FirstOrDefault();
 
         // Archive button.
 
@@ -125,7 +125,7 @@ public class ContextMenuItemService : IContextMenuItemService
 
         return operationList;
     }
-    public virtual IEnumerable<MailOperationMenuItem> GetMailItemRenderMenuActions(IMailItem mailItem, bool isDarkEditor)
+    public virtual IEnumerable<MailOperationMenuItem> GetMailItemRenderMenuActions(MailCopy mailItem, bool isDarkEditor)
     {
         var actionList = new List<MailOperationMenuItem>();
 

@@ -1,6 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
+using Itenso.TimePeriod;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Models.Calendar;
 
@@ -11,12 +13,22 @@ public interface ICalendarService
     Task<List<AccountCalendar>> GetAccountCalendarsAsync(Guid accountId);
     Task<AccountCalendar> GetAccountCalendarAsync(Guid accountCalendarId);
     Task DeleteCalendarItemAsync(Guid calendarItemId);
+    Task DeleteCalendarItemAsync(string calendarRemoteEventId, Guid calendarId);
 
     Task DeleteAccountCalendarAsync(AccountCalendar accountCalendar);
     Task InsertAccountCalendarAsync(AccountCalendar accountCalendar);
     Task UpdateAccountCalendarAsync(AccountCalendar accountCalendar);
+    Task SetPrimaryCalendarAsync(Guid accountId, Guid accountCalendarId);
     Task CreateNewCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees);
-    Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, DayRangeRenderModel dayRangeRenderModel);
+
+    /// <summary>
+    /// Retrieves calendar events for a given calendar within the specified time period.
+    /// </summary>
+    /// <param name="calendar">The calendar to retrieve events from.</param>
+    /// <param name="period">The time period to query events for.</param>
+    /// <returns>List of calendar items that fall within the requested period.</returns>
+    Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, ITimePeriod period);
+
     Task<CalendarItem> GetCalendarItemAsync(Guid accountCalendarId, string remoteEventId);
     Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken);
 
@@ -28,4 +40,43 @@ public interface ICalendarService
     Task<CalendarItem> GetCalendarItemAsync(Guid id);
     Task<List<CalendarEventAttendee>> GetAttendeesAsync(Guid calendarEventTrackingId);
     Task<List<CalendarEventAttendee>> ManageEventAttendeesAsync(Guid calendarItemId, List<CalendarEventAttendee> allAttendees);
+    Task UpdateCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees);
+    Task<List<CalendarItem>> SearchCalendarItemsAsync(string searchQuery, int limit, CancellationToken cancellationToken = default);
+    Task<List<Reminder>> GetRemindersAsync(Guid calendarItemId);
+    Task SaveRemindersAsync(Guid calendarItemId, List<Reminder> reminders);
+    Task SnoozeCalendarItemAsync(Guid calendarItemId, DateTime snoozedUntilLocal);
+
+    /// <summary>
+    /// Checks due reminder windows and returns reminder notifications that should trigger now.
+    /// </summary>
+    Task<List<CalendarReminderNotificationRequest>> CheckAndNotifyAsync(DateTime lastCheckLocal, DateTime nowLocal, ISet<string> sentReminderKeys, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets predefined reminder options in minutes (1 Hour, 30 Min, 15 Min, 5 Min, 1 Min).
+    /// </summary>
+    int[] GetPredefinedReminderMinutes();
+
+    #region Attachments
+
+    /// <summary>
+    /// Gets all attachments for a calendar event.
+    /// </summary>
+    Task<List<CalendarAttachment>> GetAttachmentsAsync(Guid calendarItemId);
+
+    /// <summary>
+    /// Inserts or updates calendar attachments.
+    /// </summary>
+    Task InsertOrReplaceAttachmentsAsync(List<CalendarAttachment> attachments);
+
+    /// <summary>
+    /// Marks an attachment as downloaded and updates its local file path.
+    /// </summary>
+    Task MarkAttachmentDownloadedAsync(Guid attachmentId, string localFilePath);
+
+    /// <summary>
+    /// Deletes all attachments for a calendar item.
+    /// </summary>
+    Task DeleteAttachmentsAsync(Guid calendarItemId);
+
+    #endregion
 }

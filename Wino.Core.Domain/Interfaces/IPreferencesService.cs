@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
@@ -6,7 +6,7 @@ using Wino.Core.Domain.Models.Reader;
 
 namespace Wino.Core.Domain.Interfaces;
 
-public interface IPreferencesService: INotifyPropertyChanged
+public interface IPreferencesService : INotifyPropertyChanged
 {
     /// <summary>
     /// When any of the preferences are changed.
@@ -31,11 +31,6 @@ public interface IPreferencesService: INotifyPropertyChanged
     bool IsNavigationPaneOpened { get; set; }
 
     /// <summary>
-    /// Setting: Gets or sets what should happen to server app when the client is terminated.
-    /// </summary>
-    ServerBackgroundMode ServerTerminationBehavior { get; set; }
-
-    /// <summary>
     /// Setting: Preferred time format for mail or calendar header display.
     /// </summary>
     bool Prefer24HourTimeFormat { get; set; }
@@ -56,6 +51,47 @@ public interface IPreferencesService: INotifyPropertyChanged
     /// Setting: Interval in minutes for background email synchronization.
     /// </summary>
     int EmailSyncIntervalMinutes { get; set; }
+
+    /// <summary>
+    /// Setting: Default application mode to open when activation does not specify one.
+    /// </summary>
+    WinoApplicationMode DefaultApplicationMode { get; set; }
+
+    /// <summary>
+    /// Setting: Whether Microsoft Store update notifications should be shown.
+    /// </summary>
+    bool IsStoreUpdateNotificationsEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Whether the Wino account profile button in the shell title bar should be hidden.
+    /// </summary>
+    bool IsWinoAccountButtonHidden { get; set; }
+
+    /// <summary>
+    /// Setting: Default target language code used for AI translation actions.
+    /// </summary>
+    string AiDefaultTranslationLanguageCode { get; set; }
+
+    /// <summary>
+    /// Setting: Preferred target language code for AI summarize actions.
+    /// </summary>
+    string AiSummarizeLanguageCode { get; set; }
+
+    /// <summary>
+    /// Setting: Preferred folder path used when saving AI summaries.
+    /// </summary>
+    string AiSummarySavePath { get; set; }
+
+    /// <summary>
+    /// Serializes the current syncable preferences snapshot.
+    /// </summary>
+    string ExportPreferences();
+
+    /// <summary>
+    /// Deserializes and applies a preferences snapshot.
+    /// Returns the applied and failed property counts.
+    /// </summary>
+    (int appliedCount, int failedCount) ImportPreferences(string settingsJson);
 
     #endregion
 
@@ -95,11 +131,6 @@ public interface IPreferencesService: INotifyPropertyChanged
     /// Setting: Show preview text in mail list.
     /// </summary>
     bool IsShowPreviewEnabled { get; set; }
-
-    /// <summary>
-    /// Setting: Enable/disable semantic zoom on clicking date headers.
-    /// </summary>
-    bool IsSemanticZoomEnabled { get; set; }
 
     /// <summary>
     /// Setting: Set whether 'img' tags in rendered HTMLs should be removed.
@@ -150,11 +181,6 @@ public interface IPreferencesService: INotifyPropertyChanged
     /// Setting: Hover action on the right when the mail is hovered over.
     /// </summary>
     MailOperation RightHoverAction { get; set; }
-
-    /// <summary>
-    /// Setting: Whether Mailkit Protocol Logger is enabled for ImapTestService or not.
-    /// </summary>
-    bool IsMailkitProtocolLoggerEnabled { get; set; }
 
     /// <summary>
     /// Setting: Which entity id (merged account or folder) should be expanded automatically on startup.
@@ -215,12 +241,34 @@ public interface IPreferencesService: INotifyPropertyChanged
     #region Calendar
 
     DayOfWeek FirstDayOfWeek { get; set; }
+    bool IsWorkingHoursEnabled { get; set; }
     TimeSpan WorkingHourStart { get; set; }
     TimeSpan WorkingHourEnd { get; set; }
     DayOfWeek WorkingDayStart { get; set; }
     DayOfWeek WorkingDayEnd { get; set; }
     double HourHeight { get; set; }
+    string CalendarTimedDayHeaderDateFormat { get; set; }
 
+    /// <summary>
+    /// Setting: Default reminder duration in seconds for new calendar events.
+    /// Set to 0 to disable default reminders.
+    /// </summary>
+    long DefaultReminderDurationInSeconds { get; set; }
+
+    /// <summary>
+    /// Setting: Default snooze duration in minutes for calendar reminder notifications.
+    /// </summary>
+    int DefaultSnoozeDurationInMinutes { get; set; }
+
+    /// <summary>
+    /// Setting: How the New Event button chooses a calendar.
+    /// </summary>
+    NewEventButtonBehavior NewEventButtonBehavior { get; set; }
+
+    /// <summary>
+    /// Setting: Default calendar used when New Event is configured to always use a specific calendar.
+    /// </summary>
+    Guid? DefaultNewEventCalendarId { get; set; }
 
     CalendarSettings GetCurrentCalendarSettings();
 

@@ -2,26 +2,44 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
-using Ical.Net.CalendarComponents;
-using Ical.Net.DataTypes;
-using SqlKata;
-using Wino.Core.Domain;
+using Itenso.TimePeriod;
+using Serilog;
 using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Messaging.Client.Calendar;
-using Wino.Services.Extensions;
 
 namespace Wino.Services;
 
 public class CalendarService : BaseDatabaseService, ICalendarService
 {
+    // Predefined reminder options in minutes
+    private static readonly int[] PredefinedReminderMinutes = [60, 30, 15, 5, 1];
+
     public CalendarService(IDatabaseService databaseService) : base(databaseService)
     {
+    }
+
+    public int[] GetPredefinedReminderMinutes() => PredefinedReminderMinutes;
+
+    /// <summary>
+    /// Loads the AssignedCalendar (and its MailAccount) for a CalendarItem if not already loaded.
+    /// </summary>
+    private async Task LoadAssignedCalendarAsync(CalendarItem calendarItem)
+    {
+        if (calendarItem == null || calendarItem.AssignedCalendar != null) return;
+
+        calendarItem.AssignedCalendar = await Connection.GetAsync<AccountCalendar>(calendarItem.CalendarId);
+        if (calendarItem.AssignedCalendar != null)
+        {
+            calendarItem.AssignedCalendar.MailAccount = await Connection.GetAsync<MailAccount>(calendarItem.AssignedCalendar.AccountId);
+        }
     }
 
     public Task<List<AccountCalendar>> GetAccountCalendarsAsync(Guid accountId)
@@ -29,29 +47,54 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
     public async Task InsertAccountCalendarAsync(AccountCalendar accountCalendar)
     {
-        await Connection.InsertAsync(accountCalendar);
+        await Connection.InsertAsync(accountCalendar, typeof(AccountCalendar));
 
         WeakReferenceMessenger.Default.Send(new CalendarListAdded(accountCalendar));
     }
 
     public async Task UpdateAccountCalendarAsync(AccountCalendar accountCalendar)
     {
-        await Connection.UpdateAsync(accountCalendar);
+        if (accountCalendar.IsPrimary)
+        {
+            await Connection.ExecuteAsync(
+                "UPDATE AccountCalendar SET IsPrimary = 0 WHERE AccountId = ? AND Id != ?",
+                accountCalendar.AccountId,
+                accountCalendar.Id);
+        }
+
+        await Connection.UpdateAsync(accountCalendar, typeof(AccountCalendar));
 
         WeakReferenceMessenger.Default.Send(new CalendarListUpdated(accountCalendar));
     }
 
+    public async Task SetPrimaryCalendarAsync(Guid accountId, Guid accountCalendarId)
+    {
+        await Connection.RunInTransactionAsync(connection =>
+        {
+            connection.Execute(
+                "UPDATE AccountCalendar SET IsPrimary = 0 WHERE AccountId = ?",
+                accountId);
+
+            connection.Execute(
+                "UPDATE AccountCalendar SET IsPrimary = 1 WHERE AccountId = ? AND Id = ?",
+                accountId,
+                accountCalendarId);
+        });
+
+        var calendars = await GetAccountCalendarsAsync(accountId).ConfigureAwait(false);
+
+        foreach (var calendar in calendars)
+        {
+            WeakReferenceMessenger.Default.Send(new CalendarListUpdated(calendar));
+        }
+    }
+
     public async Task DeleteAccountCalendarAsync(AccountCalendar accountCalendar)
     {
-        var deleteCalendarItemsQuery = new Query()
-            .From(nameof(CalendarItem))
-            .Where(nameof(CalendarItem.CalendarId), accountCalendar.Id)
-            .Where(nameof(AccountCalendar.AccountId), accountCalendar.AccountId);
-
-        var rawQuery = deleteCalendarItemsQuery.GetRawQuery();
-
-        await Connection.ExecuteAsync(rawQuery);
-        await Connection.DeleteAsync(accountCalendar);
+        await Connection.ExecuteAsync(
+            "DELETE FROM CalendarItem WHERE CalendarId = ? AND AccountId = ?",
+            accountCalendar.Id, accountCalendar.AccountId);
+        await Connection.DeleteAsync<AccountCalendar>(accountCalendar.Id);
 
         WeakReferenceMessenger.Default.Send(new CalendarListDeleted(accountCalendar));
     }
@@ -76,150 +119,178 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         {
             await Connection.Table<CalendarItem>().DeleteAsync(x => x.Id == @event.Id).ConfigureAwait(false);
             await Connection.Table<CalendarEventAttendee>().DeleteAsync(a => a.CalendarItemId == @event.Id).ConfigureAwait(false);
+            await Connection.Table<Reminder>().DeleteAsync(r => r.CalendarItemId == @event.Id).ConfigureAwait(false);
+            await Connection.Table<CalendarAttachment>().DeleteAsync(a => a.CalendarItemId == @event.Id).ConfigureAwait(false);
 
             WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(@event));
         }
     }
 
-    public async Task CreateNewCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees)
+    public async Task DeleteCalendarItemAsync(string calendarRemoteEventId, Guid calendarId)
     {
-        await Connection.RunInTransactionAsync((conn) =>
-           {
-               conn.Insert(calendarItem);
+        var calendarItem = await FindCalendarItemByRemoteEventIdAsync(calendarId, calendarRemoteEventId).ConfigureAwait(false);
 
-               if (attendees != null)
-               {
-                   conn.InsertAll(attendees);
-               }
-           });
+        if (calendarItem == null) return;
 
-        WeakReferenceMessenger.Default.Send(new CalendarItemAdded(calendarItem));
+        await DeleteCalendarItemAsync(calendarItem.Id);
     }
 
-    public async Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, DayRangeRenderModel dayRangeRenderModel)
+    public async Task CreateNewCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees)
     {
-        // TODO: We might need to implement caching here.
-        // I don't know how much of the events we'll have in total, but this logic scans all events every time for given calendar.
+        try
+        {
+            await Connection.RunInTransactionAsync((conn) =>
+            {
+                conn.Insert(calendarItem, typeof(CalendarItem));
 
+                if (attendees != null)
+                {
+                    conn.InsertAll(attendees, typeof(CalendarEventAttendee));
+                }
+            });
+
+            WeakReferenceMessenger.Default.Send(new CalendarItemAdded(calendarItem));
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error creating new calendar item");
+        }
+    }
+
+    public async Task UpdateCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees)
+    {
+        try
+        {
+            await Connection.RunInTransactionAsync((conn) =>
+            {
+                conn.Update(calendarItem, typeof(CalendarItem));
+
+                // Clear existing attendees and add new ones
+                conn.Table<CalendarEventAttendee>().Delete(a => a.CalendarItemId == calendarItem.Id);
+
+                if (attendees != null)
+                {
+                    conn.InsertAll(attendees, typeof(CalendarEventAttendee));
+                }
+            });
+
+            WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(calendarItem, CalendarItemUpdateSource.Server));
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error updating calendar item");
+        }
+    }
+
+    public async Task<List<CalendarItem>> SearchCalendarItemsAsync(string searchQuery, int limit, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (string.IsNullOrWhiteSpace(searchQuery) || limit <= 0)
+            return [];
+
+        var pattern = $"%{searchQuery.Trim()}%";
+        var results = await Connection.QueryAsync<CalendarItem>(
+            """
+            SELECT *
+            FROM CalendarItem
+            WHERE IsHidden = 0
+              AND (Recurrence IS NULL OR Recurrence = '' OR RecurringCalendarItemId IS NOT NULL)
+              AND (Title LIKE ? OR Description LIKE ? OR Location LIKE ?)
+            ORDER BY StartDate DESC
+            LIMIT ?
+            """,
+            pattern,
+            pattern,
+            pattern,
+            limit).ConfigureAwait(false);
+
+        foreach (var result in results)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await LoadAssignedCalendarAsync(result).ConfigureAwait(false);
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Retrieves calendar events for a given calendar within the specified time period.
+    /// Returns all events (single instances and recurring event occurrences) that overlap with the period.
+    /// Note: Recurring events are expected to be synced as individual instances from the server.
+    /// Series master events (parents) are filtered out as they should not be displayed directly.
+    /// </summary>
+    /// <param name="calendar">The calendar to retrieve events from.</param>
+    /// <param name="period">The time period to query events for.</param>
+    /// <returns>List of calendar items that fall within the requested period.</returns>
+    public async Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, ITimePeriod period)
+    {
+        // Fetch all non-hidden events for this calendar
         var accountEvents = await Connection.Table<CalendarItem>()
-            .Where(x => x.CalendarId == calendar.Id && !x.IsHidden).ToListAsync();
+            .Where(x => x.CalendarId == calendar.Id && !x.IsHidden)
+            .ToListAsync();
 
         var result = new List<CalendarItem>();
 
-        foreach (var ev in accountEvents)
+        foreach (var calendarItem in accountEvents)
         {
-            ev.AssignedCalendar = calendar;
+            // Skip series master events - they should not be displayed directly.
+            // Individual instances are synced from the server and displayed instead.
+            if (calendarItem.IsRecurringParent)
+                continue;
 
-            // Parse recurrence rules
-            var calendarEvent = new CalendarEvent
+            calendarItem.AssignedCalendar = calendar;
+
+            // Check if the event overlaps with the requested period
+            if (calendarItem.Period.OverlapsWith(period))
             {
-                Start = new CalDateTime(ev.StartDate),
-                End = new CalDateTime(ev.EndDate),
-            };
-
-            if (string.IsNullOrEmpty(ev.Recurrence))
-            {
-                // No recurrence, only check if we fall into the given period.
-
-                if (ev.Period.OverlapsWith(dayRangeRenderModel.Period))
-                {
-                    result.Add(ev);
-                }
-            }
-            else
-            {
-                // This event has recurrences.
-                // Wino stores exceptional recurrent events as a separate calendar item, without the recurrence rule.
-                // Because each instance of recurrent event can have different attendees, properties etc.
-                // Even though the event is recurrent, each updated instance is a separate calendar item.
-                // Calculate the all recurrences, and remove the exceptional instances like hidden ones.
-
-                var recurrenceLines = Regex.Split(ev.Recurrence, Constants.CalendarEventRecurrenceRuleSeperator);
-
-                foreach (var line in recurrenceLines)
-                {
-                    calendarEvent.RecurrenceRules.Add(new RecurrencePattern(line));
-                }
-
-                // Calculate occurrences in the range.
-                var occurrences = calendarEvent.GetOccurrences(dayRangeRenderModel.Period.Start, dayRangeRenderModel.Period.End);
-
-                // Get all recurrent exceptional calendar events.
-                var exceptionalRecurrences = await Connection.Table<CalendarItem>()
-                    .Where(a => a.RecurringCalendarItemId == ev.Id)
-                    .ToListAsync()
-                    .ConfigureAwait(false);
-
-                foreach (var occurrence in occurrences)
-                {
-                    var exactInstanceCheck = exceptionalRecurrences.FirstOrDefault(a =>
-                    a.Period.OverlapsWith(dayRangeRenderModel.Period));
-
-                    if (exactInstanceCheck == null)
-                    {
-                        // There is no exception for the period.
-                        // Change the instance StartDate and Duration.
-
-                        var recurrence = ev.CreateRecurrence(occurrence.Period.StartTime.Value, occurrence.Period.Duration.TotalSeconds);
-
-                        result.Add(recurrence);
-                    }
-                    else
-                    {
-                        // There is a single instance of this recurrent event.
-                        // It will be added as single item if it's not hidden.
-                        // We don't need to do anything here.
-                    }
-                }
+                result.Add(calendarItem);
             }
         }
 
         return result;
     }
 
-    public Task<AccountCalendar> GetAccountCalendarAsync(Guid accountCalendarId)
-        => Connection.GetAsync<AccountCalendar>(accountCalendarId);
-
-    public Task<CalendarItem> GetCalendarItemAsync(Guid id)
+    public async Task<AccountCalendar> GetAccountCalendarAsync(Guid accountCalendarId)
     {
-        var query = new Query()
-            .From(nameof(CalendarItem))
-            .Where(nameof(CalendarItem.Id), id);
+        var calendar = await Connection.GetAsync<AccountCalendar>(accountCalendarId);
+        if (calendar != null)
+        {
+            calendar.MailAccount = await Connection.GetAsync<MailAccount>(calendar.AccountId);
+        }
+        return calendar;
+    }
 
-        var rawQuery = query.GetRawQuery();
-        return Connection.FindWithQueryAsync<CalendarItem>(rawQuery);
+    public async Task<CalendarItem> GetCalendarItemAsync(Guid id)
+    {
+        var calendarItem = await Connection.FindWithQueryAsync<CalendarItem>(
+            "SELECT * FROM CalendarItem WHERE Id = ?",
+            id);
+
+        await LoadAssignedCalendarAsync(calendarItem);
+
+        return calendarItem;
     }
 
     public async Task<CalendarItem> GetCalendarItemAsync(Guid accountCalendarId, string remoteEventId)
     {
-        var query = new Query()
-            .From(nameof(CalendarItem))
-            .Where(nameof(CalendarItem.CalendarId), accountCalendarId)
-            .Where(nameof(CalendarItem.RemoteEventId), remoteEventId);
+        var calendarItem = await FindCalendarItemByRemoteEventIdAsync(accountCalendarId, remoteEventId).ConfigureAwait(false);
 
-        var rawQuery = query.GetRawQuery();
-
-        var calendarItem = await Connection.FindWithQueryAsync<CalendarItem>(rawQuery);
-
-        // Load assigned calendar.
-        if (calendarItem != null)
-        {
-            calendarItem.AssignedCalendar = await Connection.GetAsync<AccountCalendar>(calendarItem.CalendarId);
-        }
+        await LoadAssignedCalendarAsync(calendarItem);
 
         return calendarItem;
     }
 
     public Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken)
     {
-        var query = new Query()
-            .From(nameof(AccountCalendar))
-            .Where(nameof(AccountCalendar.Id), calendarId)
-            .AsUpdate(new { SynchronizationDeltaToken = deltaToken });
-
-        return Connection.ExecuteAsync(query.GetRawQuery());
+        return Connection.ExecuteAsync(
+            "UPDATE AccountCalendar SET SynchronizationDeltaToken = ? WHERE Id = ?",
+            deltaToken, calendarId);
     }
 
+    /// <summary>
+    /// Gets attendees for a calendar item.
+    /// </summary>
     public Task<List<CalendarEventAttendee>> GetAttendeesAsync(Guid calendarEventTrackingId)
         => Connection.Table<CalendarEventAttendee>().Where(x => x.CalendarItemId == calendarEventTrackingId).ToListAsync();
 
@@ -228,15 +299,12 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         await Connection.RunInTransactionAsync((connection) =>
         {
             // Clear all attendees.
-            var query = new Query()
-                .From(nameof(CalendarEventAttendee))
-                .Where(nameof(CalendarEventAttendee.CalendarItemId), calendarItemId)
-                .AsDelete();
-
-            connection.Execute(query.GetRawQuery());
+            connection.Execute(
+                "DELETE FROM CalendarEventAttendee WHERE CalendarItemId = ?",
+                calendarItemId);
 
             // Insert new attendees.
-            connection.InsertAll(allAttendees);
+            connection.InsertAll(allAttendees, typeof(CalendarEventAttendee));
         });
 
         return await Connection.Table<CalendarEventAttendee>().Where(a => a.CalendarItemId == calendarItemId).ToListAsync();
@@ -246,7 +314,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
     {
         var eventId = targetDetails.Item.Id;
 
-        // Get the event by Id first.
+        // Get the event by Id first (this already loads AssignedCalendar).
         var item = await GetCalendarItemAsync(eventId).ConfigureAwait(false);
 
         bool isRecurringChild = targetDetails.Item.IsRecurringChild;
@@ -258,9 +326,9 @@ public class CalendarService : BaseDatabaseService, ICalendarService
             {
                 if (item == null)
                 {
-                    // This is an occurrence of a recurring event.
-                    // They don't exist in db.
-
+                    // This occurrence doesn't exist in db - return the passed item.
+                    // Ensure AssignedCalendar is loaded.
+                    await LoadAssignedCalendarAsync(targetDetails.Item);
                     return targetDetails.Item;
                 }
                 else
@@ -301,5 +369,166 @@ public class CalendarService : BaseDatabaseService, ICalendarService
                 return null;
             }
         }
+    }
+
+    /// <summary>
+    /// Gets reminders for a calendar item.
+    /// </summary>
+    public Task<List<Reminder>> GetRemindersAsync(Guid calendarItemId)
+        => Connection.Table<Reminder>().Where(r => r.CalendarItemId == calendarItemId).ToListAsync();
+
+    public async Task SaveRemindersAsync(Guid calendarItemId, List<Reminder> reminders)
+    {
+        await Connection.RunInTransactionAsync((connection) =>
+        {
+            // Clear existing reminders for this calendar item
+            connection.Execute(
+                "DELETE FROM Reminder WHERE CalendarItemId = ?",
+                calendarItemId);
+
+            // Insert new reminders if any
+            if (reminders != null && reminders.Count > 0)
+            {
+                connection.InsertAll(reminders, typeof(Reminder));
+            }
+        });
+    }
+
+    public Task SnoozeCalendarItemAsync(Guid calendarItemId, DateTime snoozedUntilLocal)
+        => Connection.ExecuteAsync(
+            $"UPDATE {nameof(CalendarItem)} SET {nameof(CalendarItem.SnoozedUntil)} = ? WHERE {nameof(CalendarItem.Id)} = ?",
+            snoozedUntilLocal,
+            calendarItemId);
+
+    public async Task<List<CalendarReminderNotificationRequest>> CheckAndNotifyAsync(DateTime lastCheckLocal, DateTime nowLocal, ISet<string> sentReminderKeys, CancellationToken cancellationToken = default)
+    {
+        if (sentReminderKeys == null)
+            return [];
+
+        var candidates = await Connection.QueryAsync<CalendarReminderCandidate>(
+            @"
+            SELECT
+                c.Id AS CalendarItemId,
+                c.StartDate,
+                c.StartTimeZone,
+                r.DurationInSeconds AS ReminderDurationInSeconds,
+                c.SnoozedUntil
+            FROM CalendarItem c
+            INNER JOIN Reminder r ON r.CalendarItemId = c.Id
+            INNER JOIN AccountCalendar ac ON ac.Id = c.CalendarId
+            INNER JOIN MailAccount ma ON ma.Id = ac.AccountId
+            WHERE
+                c.IsHidden = 0
+                AND ma.IsCalendarAccessGranted = 1
+                AND r.ReminderType = 0
+                AND NOT (IFNULL(c.Recurrence, '') != '' AND c.RecurringCalendarItemId IS NULL)")
+            .ConfigureAwait(false);
+
+        var dueNotifications = new List<CalendarReminderNotificationRequest>();
+
+        foreach (var candidate in candidates)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var eventStartLocal = candidate.StartDate.ToLocalTimeFromTimeZone(candidate.StartTimeZone);
+            var triggerTimeLocal = eventStartLocal.AddSeconds(-candidate.ReminderDurationInSeconds);
+            var effectiveTriggerTimeLocal = candidate.SnoozedUntil.HasValue
+                ? MaxDateTime(triggerTimeLocal, candidate.SnoozedUntil.Value)
+                : triggerTimeLocal;
+
+            if (effectiveTriggerTimeLocal <= lastCheckLocal || effectiveTriggerTimeLocal > nowLocal)
+                continue;
+
+            var reminderKey = $"{candidate.CalendarItemId:N}:{candidate.ReminderDurationInSeconds}:{effectiveTriggerTimeLocal.Ticks}";
+            if (!sentReminderKeys.Add(reminderKey))
+                continue;
+
+            var calendarItem = await GetCalendarItemAsync(candidate.CalendarItemId).ConfigureAwait(false);
+            if (calendarItem == null)
+                continue;
+
+            dueNotifications.Add(new CalendarReminderNotificationRequest()
+            {
+                CalendarItem = calendarItem,
+                ReminderDurationInSeconds = candidate.ReminderDurationInSeconds,
+                ReminderKey = reminderKey
+            });
+        }
+
+        return dueNotifications;
+    }
+
+    #region Attachments
+
+    public Task<List<CalendarAttachment>> GetAttachmentsAsync(Guid calendarItemId)
+        => Connection.Table<CalendarAttachment>().Where(x => x.CalendarItemId == calendarItemId).ToListAsync();
+
+    public async Task InsertOrReplaceAttachmentsAsync(List<CalendarAttachment> attachments)
+    {
+        if (attachments == null || attachments.Count == 0) return;
+
+        foreach (var item in attachments)
+        {
+            // Check if an attachment with the same RemoteAttachmentId already exists for this calendar item
+            // to avoid re-downloading already existing attachments.
+            var existingAttachment = await Connection.Table<CalendarAttachment>()
+                .FirstOrDefaultAsync(x => x.CalendarItemId == item.CalendarItemId
+                                       && x.RemoteAttachmentId == item.RemoteAttachmentId);
+
+            if (existingAttachment != null)
+            {
+                // Preserve the existing Id, IsDownloaded status, and LocalFilePath
+                item.Id = existingAttachment.Id;
+                item.IsDownloaded = existingAttachment.IsDownloaded;
+                item.LocalFilePath = existingAttachment.LocalFilePath;
+            }
+
+            await Connection.InsertOrReplaceAsync(item, typeof(CalendarAttachment));
+        }
+    }
+
+    public async Task MarkAttachmentDownloadedAsync(Guid attachmentId, string localFilePath)
+    {
+        var attachment = await Connection.Table<CalendarAttachment>().FirstOrDefaultAsync(x => x.Id == attachmentId);
+
+        if (attachment == null) return;
+
+        attachment.IsDownloaded = true;
+        attachment.LocalFilePath = localFilePath;
+
+        await Connection.UpdateAsync(attachment, typeof(CalendarAttachment));
+    }
+
+    public async Task DeleteAttachmentsAsync(Guid calendarItemId)
+    {
+        await Connection.ExecuteAsync("DELETE FROM CalendarAttachment WHERE CalendarItemId = ?", calendarItemId);
+    }
+
+    #endregion
+
+    private static DateTime MaxDateTime(DateTime first, DateTime second)
+        => first >= second ? first : second;
+
+    private Task<CalendarItem> FindCalendarItemByRemoteEventIdAsync(Guid calendarId, string remoteEventId)
+    {
+        if (string.IsNullOrWhiteSpace(remoteEventId))
+            return Task.FromResult<CalendarItem>(null);
+
+        var providerRemoteEventId = remoteEventId.GetProviderRemoteEventId();
+
+        return Connection.FindWithQueryAsync<CalendarItem>(
+            "SELECT * FROM CalendarItem WHERE CalendarId = ? AND (RemoteEventId = ? OR RemoteEventId LIKE ?)",
+            calendarId,
+            providerRemoteEventId,
+            $"{providerRemoteEventId}::%");
+    }
+
+    private sealed class CalendarReminderCandidate
+    {
+        public Guid CalendarItemId { get; set; }
+        public DateTime StartDate { get; set; }
+        public string StartTimeZone { get; set; }
+        public long ReminderDurationInSeconds { get; set; }
+        public DateTime? SnoozedUntil { get; set; }
     }
 }

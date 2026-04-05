@@ -188,6 +188,35 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
         Insert(insertIndex, accountMenuItem);
     }
 
+    public bool RemoveFolderMenuItem(Guid folderId)
+    {
+        // Check root-level items.
+        var rootItem = this.OfType<IBaseFolderMenuItem>()
+            .FirstOrDefault(a => a.HandlingFolders.Any(b => b.Id == folderId));
+
+        if (rootItem != null)
+        {
+            Remove(rootItem);
+            return true;
+        }
+
+        // Check sub-items of root folders.
+        foreach (var rootFolder in this.OfType<IBaseFolderMenuItem>())
+        {
+            var subItem = rootFolder.SubMenuItems
+                .OfType<IBaseFolderMenuItem>()
+                .FirstOrDefault(a => a.HandlingFolders.Any(b => b.Id == folderId));
+
+            if (subItem != null)
+            {
+                rootFolder.SubMenuItems.Remove(subItem);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private void ClearFolderAreaMenuItems()
     {
         var itemsToRemove = this.Where(a => !_preservingTypesForFolderArea.Contains(a.GetType())).ToList();

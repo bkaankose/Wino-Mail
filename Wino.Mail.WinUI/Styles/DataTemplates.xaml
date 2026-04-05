@@ -1,0 +1,376 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ResourceDictionary
+    x:Class="Wino.Mail.WinUI.Styles.DataTemplates"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:animatedvisuals="using:Microsoft.UI.Xaml.Controls.AnimatedVisuals"
+    xmlns:controls="using:Wino.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:coreSelectors="using:Wino.Mail.WinUI.Selectors"
+    xmlns:coreViewModelData="using:Wino.Core.ViewModels.Data"
+    xmlns:data="using:Wino.Calendar.ViewModels.Data"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:local="using:Wino.Mail.WinUI.Styles"
+    xmlns:menu="using:Wino.Core.Domain.MenuItems"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:personalization="using:Wino.Mail.WinUI.Models.Personalization"
+    xmlns:selectors1="using:Wino.Selectors"
+    xmlns:shared="using:Wino.Core.Domain.Entities.Shared"
+    xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
+    xmlns:winuiControls="using:CommunityToolkit.WinUI.Controls">
+
+    <!--  Removes default styles for content of navigation view  -->
+    <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
+    <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="Transparent" />
+
+
+
+    <!--#region Navigation Menu Templates-->
+
+    <DataTemplate x:Key="ContactsTemplate" x:DataType="menu:ContactsMenuItem">
+        <coreControls:WinoNavigationViewItem Content="{x:Bind domain:Translator.ContactsPage_Title}" DataContext="{x:Bind}">
+            <muxc:NavigationViewItem.Icon>
+                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE716;" />
+            </muxc:NavigationViewItem.Icon>
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
+    <DataTemplate x:Key="SeperatorTemplate">
+        <muxc:NavigationViewItemSeparator Margin="-20,0" />
+    </DataTemplate>
+
+    <!--  Settings Item  -->
+    <DataTemplate x:Key="SettingsItemTemplate" x:DataType="menu:SettingsItem">
+        <coreControls:WinoNavigationViewItem Content="{x:Bind domain:Translator.MenuSettings}" DataContext="{x:Bind}">
+            <coreControls:WinoNavigationViewItem.Icon>
+                <muxc:AnimatedIcon>
+                    <muxc:AnimatedIcon.Source>
+                        <animatedvisuals:AnimatedSettingsVisualSource />
+                    </muxc:AnimatedIcon.Source>
+                    <muxc:AnimatedIcon.FallbackIconSource>
+                        <muxc:SymbolIconSource Symbol="Setting" />
+                    </muxc:AnimatedIcon.FallbackIconSource>
+                </muxc:AnimatedIcon>
+            </coreControls:WinoNavigationViewItem.Icon>
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
+    <DataTemplate x:Key="SettingsShellPageItemTemplate" x:DataType="menu:SettingsShellPageMenuItem">
+        <coreControls:WinoNavigationViewItem Content="{x:Bind Title}" DataContext="{x:Bind}">
+            <muxc:NavigationViewItem.Icon>
+                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="{x:Bind Glyph}" />
+            </muxc:NavigationViewItem.Icon>
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
+    <DataTemplate x:Key="SettingsShellWinoAccountItemTemplate" x:DataType="menu:SettingsShellPageMenuItem">
+        <coreControls:WinoNavigationViewItem Content="{x:Bind Title}" DataContext="{x:Bind}">
+            <muxc:NavigationViewItem.Icon>
+                <BitmapIcon ShowAsMonochrome="False" UriSource="/Assets/Wino_Icon.ico" />
+                <!--<FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="{x:Bind Glyph}" />-->
+            </muxc:NavigationViewItem.Icon>
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
+    <DataTemplate x:Key="SettingsShellSectionItemTemplate" x:DataType="menu:SettingsShellSectionMenuItem">
+        <coreControls:WinoNavigationViewItem
+            Margin="0,12,0,4"
+            HorizontalContentAlignment="Stretch"
+            DataContext="{x:Bind}"
+            IsEnabled="False"
+            SelectsOnInvoked="False">
+            <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border
+                    Width="24"
+                    Height="24"
+                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                    BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12">
+                    <FontIcon
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontFamily="{StaticResource SymbolThemeFontFamily}"
+                        FontSize="12"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Glyph="{x:Bind Glyph}" />
+                </Border>
+
+                <TextBlock
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    CharacterSpacing="40"
+                    FontWeight="SemiBold"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind Title}"
+                    TextWrapping="NoWrap" />
+
+                <Border
+                    Grid.Column="2"
+                    Height="1"
+                    Margin="2,0,0,0"
+                    VerticalAlignment="Center"
+                    Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+            </Grid>
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
+    <!--  Store Update Item  -->
+    <DataTemplate x:Key="StoreUpdateItemTemplate" x:DataType="menu:StoreUpdateMenuItem">
+        <coreControls:WinoNavigationViewItem Content="{x:Bind domain:Translator.MenuUpdateAvailable}" DataContext="{x:Bind}">
+            <muxc:NavigationViewItem.Icon>
+                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE896;" />
+            </muxc:NavigationViewItem.Icon>
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
+    <!--  Rating Item  -->
+    <DataTemplate x:Key="RatingItemTemplate" x:DataType="menu:RateMenuItem">
+        <coreControls:WinoNavigationViewItem
+            Content="{x:Bind domain:Translator.MenuRate}"
+            DataContext="{x:Bind}"
+            SelectsOnInvoked="False">
+            <muxc:NavigationViewItem.Icon>
+                <PathIcon
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Data="F1 M 0 6.689453 C 0 5.940756 0.139974 5.237631 0.419922 4.580078 C 0.69987 3.922527 1.082357 3.346355 1.567383 2.851562 C 2.052409 2.356771 2.62207 1.966146 3.276367 1.679688 C 3.930664 1.39323 4.635417 1.25 5.390625 1.25 C 6.119792 1.25 6.814778 1.389975 7.475586 1.669922 C 8.136393 1.949871 8.723958 2.347006 9.238281 2.861328 C 9.368489 2.991537 9.493814 3.11849 9.614258 3.242188 C 9.7347 3.365887 9.860025 3.49284 9.990234 3.623047 C 10.113932 3.49284 10.236002 3.365887 10.356445 3.242188 C 10.476888 3.11849 10.602213 2.994793 10.732422 2.871094 C 11.240234 2.363281 11.822916 1.971029 12.480469 1.694336 C 13.138021 1.417645 13.828125 1.279297 14.550781 1.279297 C 15.305989 1.279297 16.015625 1.424154 16.679688 1.713867 C 17.34375 2.003582 17.921549 2.397461 18.413086 2.895508 C 18.904621 3.393555 19.291992 3.974609 19.575195 4.638672 C 19.858398 5.302734 20 6.01237 20 6.767578 C 20 7.483725 19.864908 8.178712 19.594727 8.852539 C 19.324543 9.526367 18.935547 10.117188 18.427734 10.625 L 10.625 18.505859 C 10.462239 18.668619 10.263672 18.75 10.029297 18.75 C 9.801432 18.75 9.606119 18.668619 9.443359 18.505859 L 1.591797 10.576172 C 1.077474 10.055339 0.683594 9.459636 0.410156 8.789062 C 0.136719 8.11849 0 7.418621 0 6.689453 Z M 18.75 6.767578 C 18.75 6.188151 18.640949 5.641276 18.422852 5.126953 C 18.204752 4.612631 17.905273 4.163412 17.524414 3.779297 C 17.143555 3.395184 16.699219 3.09082 16.191406 2.866211 C 15.683594 2.641602 15.136719 2.529297 14.550781 2.529297 C 13.997396 2.529297 13.468424 2.635092 12.963867 2.84668 C 12.45931 3.05827 12.011719 3.359375 11.621094 3.75 C 11.497396 3.873699 11.375325 4.000651 11.254883 4.130859 C 11.134439 4.261068 11.009114 4.384767 10.878906 4.501953 C 10.748697 4.625651 10.613606 4.716797 10.473633 4.775391 C 10.333658 4.833984 10.172525 4.863281 9.990234 4.863281 C 9.814453 4.863281 9.654947 4.832357 9.511719 4.770508 C 9.368489 4.70866 9.231771 4.619142 9.101562 4.501953 C 8.971354 4.378256 8.846028 4.25293 8.725586 4.125977 C 8.605143 3.999023 8.479817 3.870443 8.349609 3.740234 C 7.945963 3.3431 7.495117 3.037109 6.99707 2.822266 C 6.499023 2.607422 5.963542 2.5 5.390625 2.5 C 4.811198 2.5 4.269206 2.610678 3.764648 2.832031 C 3.260091 3.053387 2.822266 3.352865 2.451172 3.730469 C 2.080078 4.108074 1.787109 4.55241 1.572266 5.063477 C 1.357422 5.574545 1.25 6.116537 1.25 6.689453 C 1.25 7.24935 1.357422 7.791342 1.572266 8.31543 C 1.787109 8.839519 2.089844 9.300131 2.480469 9.697266 L 10.029297 17.324219 L 17.539062 9.746094 C 17.929688 9.348959 18.229166 8.891602 18.4375 8.374023 C 18.645832 7.856445 18.75 7.320964 18.75 6.767578 Z " />
+            </muxc:NavigationViewItem.Icon>
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
+    <!--#endregion-->
+
+    <!--#region Settings-->
+    <!--  System Theme Template  -->
+    <DataTemplate x:Key="SystemAppThemeTemplate" x:DataType="personalization:SystemAppTheme">
+        <Grid
+            Width="175"
+            CornerRadius="6"
+            RowSpacing="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="125" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid CornerRadius="6,6,0,0">
+                <Grid.Background>
+                    <ImageBrush ImageSource="{x:Bind BackgroundPreviewImage}" />
+                </Grid.Background>
+                <Grid
+                    Width="20"
+                    Height="20"
+                    Margin="0,12,12,0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Background="{ThemeResource SystemAccentColor}" />
+            </Grid>
+
+            <Grid Grid.Row="1" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+                <TextBlock
+                    Padding="0,8"
+                    HorizontalAlignment="Center"
+                    Text="{x:Bind ThemeName}" />
+            </Grid>
+        </Grid>
+    </DataTemplate>
+
+    <!--  Custom Theme Template  -->
+    <DataTemplate x:Key="CustomAppThemeTemplate" x:DataType="personalization:CustomAppTheme">
+        <Grid
+            Width="175"
+            CornerRadius="6"
+            RowSpacing="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="125" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid CornerRadius="6,6,0,0">
+                <Grid.Background>
+                    <ImageBrush ImageSource="{x:Bind BackgroundPreviewImage}" />
+                </Grid.Background>
+                <!--  Accent Assigned  -->
+                <Grid x:Name="AccentAssignedGrid" x:Load="{x:Bind IsAccentColorAssigned}">
+                    <Grid
+                        Width="20"
+                        Height="20"
+                        Margin="0,12,12,0"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(AccentColor)}" />
+                </Grid>
+
+                <!--  Accent Not Assigned  -->
+                <Grid x:Name="AccentNotAssignedGrid" x:Load="{x:Bind IsAccentColorAssigned, Converter={StaticResource ReverseBooleanConverter}}">
+                    <Grid
+                        Width="20"
+                        Height="20"
+                        Margin="0,12,12,0"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Background="{ThemeResource SystemAccentColor}" />
+                </Grid>
+
+            </Grid>
+
+            <Grid Grid.Row="1" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+                <TextBlock
+                    Padding="0,8"
+                    HorizontalAlignment="Center"
+                    Text="{x:Bind ThemeName}" />
+            </Grid>
+        </Grid>
+    </DataTemplate>
+
+    <!--  Wino Template  -->
+    <DataTemplate x:Key="PreDefinedAppThemeTemplate" x:DataType="personalization:PreDefinedAppTheme">
+        <Grid
+            Width="175"
+            CornerRadius="6"
+            RowSpacing="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="125" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid CornerRadius="6,6,0,0">
+                <Grid.Background>
+                    <ImageBrush ImageSource="{x:Bind BackgroundPreviewImage}" />
+                </Grid.Background>
+
+                <Grid
+                    Width="20"
+                    Height="20"
+                    Margin="0,12,12,0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(AccentColor)}" />
+            </Grid>
+
+            <!--  Dark Theme Title  -->
+            <Grid Grid.Row="1" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+                <TextBlock
+                    Padding="0,8"
+                    HorizontalAlignment="Center"
+                    Text="{x:Bind ThemeName}" />
+            </Grid>
+        </Grid>
+    </DataTemplate>
+
+    <!--  Account Color Picker Template  -->
+    <DataTemplate x:Key="AccountColorTemplate" x:DataType="coreViewModelData:AppColorViewModel">
+        <Grid
+            Width="32"
+            Height="32"
+            Margin="2">
+            <Rectangle
+                Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(Hex)}"
+                RadiusX="4"
+                RadiusY="4" />
+        </Grid>
+    </DataTemplate>
+
+    <coreSelectors:AppThemePreviewTemplateSelector
+        x:Key="AppThemePreviewTemplateSelector"
+        CustomAppTemplate="{StaticResource CustomAppThemeTemplate}"
+        PreDefinedThemeTemplate="{StaticResource PreDefinedAppThemeTemplate}"
+        SystemThemeTemplate="{StaticResource SystemAppThemeTemplate}" />
+
+    <Style x:Key="SettingTitleTextBlockStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <DataTemplate x:Key="ContactTokenTemplate" x:DataType="shared:IContactDisplayItem">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <ToolTipService.ToolTip>
+                <ToolTip Content="{x:Bind Address}" />
+            </ToolTipService.ToolTip>
+
+            <Viewbox Width="24">
+                <controls:ImagePreviewControl
+                    Address="{x:Bind Address}"
+                    DisplayNameOverride="{x:Bind DisplayName}"
+                    PreviewContact="{x:Bind PreviewContact}" />
+            </Viewbox>
+
+            <TextBlock
+                Grid.Column="1"
+                Margin="6,0,8,0"
+                VerticalAlignment="Center"
+                Text="{x:Bind DisplayName}" />
+        </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ContactSuggestionTemplate" x:DataType="shared:IContactDisplayItem">
+        <Grid Margin="0,12" ColumnSpacing="6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <controls:ImagePreviewControl
+                Width="40"
+                Height="40"
+                Address="{x:Bind Address}"
+                DisplayNameOverride="{x:Bind DisplayName}"
+                PreviewContact="{x:Bind PreviewContact}" />
+
+            <TextBlock Grid.Column="1">
+                <Run FontWeight="SemiBold" Text="{x:Bind DisplayName}" />
+                <LineBreak />
+                <Run Text="{x:Bind Address}" />
+            </TextBlock>
+        </Grid>
+    </DataTemplate>
+
+    <!--  ShowAs Status Stripe Templates  -->
+    <DataTemplate x:Key="FreeStripeTemplate" x:DataType="data:CalendarItemViewModel">
+        <Border Background="#4CAF50" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="TentativeStripeTemplate" x:DataType="data:CalendarItemViewModel">
+        <Border Background="#FFC107" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="BusyStripeTemplate" x:DataType="data:CalendarItemViewModel">
+        <Border Background="#F44336" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="OutOfOfficeStripeTemplate" x:DataType="data:CalendarItemViewModel">
+        <Border Background="#9C27B0" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="WorkingElsewhereStripeTemplate" x:DataType="data:CalendarItemViewModel">
+        <Border Background="#2196F3" />
+    </DataTemplate>
+
+    <!--  ShowAs Status Stripe Selector  -->
+    <selectors1:CalendarItemShowAsStripeTemplateSelector
+        x:Key="ShowAsStripeSelector"
+        BusyTemplate="{StaticResource BusyStripeTemplate}"
+        FreeTemplate="{StaticResource FreeStripeTemplate}"
+        OutOfOfficeTemplate="{StaticResource OutOfOfficeStripeTemplate}"
+        TentativeTemplate="{StaticResource TentativeStripeTemplate}"
+        WorkingElsewhereTemplate="{StaticResource WorkingElsewhereStripeTemplate}" />
+
+    <!--#endregion-->
+
+</ResourceDictionary>
+
+
+
+

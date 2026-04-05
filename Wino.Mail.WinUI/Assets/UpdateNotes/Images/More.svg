@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="mo-star1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FCD34D"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+    <linearGradient id="mo-star2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#93C5FD"/>
+      <stop offset="100%" stop-color="#3B82F6"/>
+    </linearGradient>
+    <linearGradient id="mo-star3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#C4B5FD"/>
+      <stop offset="100%" stop-color="#7C3AED"/>
+    </linearGradient>
+    <filter id="mo-glow1" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#F59E0B" flood-opacity="0.4"/>
+    </filter>
+    <filter id="mo-glow2" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#3B82F6" flood-opacity="0.35"/>
+    </filter>
+    <filter id="mo-glow3" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#7C3AED" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Large center star -->
+  <polygon points="64,14 70,50 106,56 70,62 64,98 58,62 22,56 58,50"
+           fill="url(#mo-star1)" filter="url(#mo-glow1)"/>
+
+  <!-- Star highlight -->
+  <polygon points="64,20 68.5,48 92,52 68.5,56 64,84 59.5,56 36,52 59.5,48"
+           fill="white" opacity="0.18"/>
+
+  <!-- Small star top-right -->
+  <polygon points="98,18 100.5,28 110,30 100.5,32 98,42 95.5,32 86,30 95.5,28"
+           fill="url(#mo-star2)" filter="url(#mo-glow2)"/>
+
+  <!-- Small star bottom-left -->
+  <polygon points="28,82 30,90 38,92 30,94 28,102 26,94 18,92 26,90"
+           fill="url(#mo-star3)" filter="url(#mo-glow3)"/>
+
+  <!-- Tiny sparkle dots -->
+  <circle cx="104" cy="66" r="3" fill="#FCD34D" opacity="0.8"/>
+  <circle cx="22" cy="44" r="2.5" fill="#93C5FD" opacity="0.8"/>
+  <circle cx="110" cy="90" r="2" fill="#C4B5FD" opacity="0.7"/>
+  <circle cx="18" cy="106" r="2" fill="#FCD34D" opacity="0.6"/>
+  <circle cx="64" cy="108" r="2.5" fill="#93C5FD" opacity="0.6"/>
+</svg>

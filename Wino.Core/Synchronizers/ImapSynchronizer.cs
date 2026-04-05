@@ -1,21 +1,24 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using Itenso.TimePeriod;
 using MailKit;
 using MailKit.Net.Imap;
 using MailKit.Search;
-using MoreLinq;
+using MimeKit;
 using Serilog;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
@@ -24,8 +27,11 @@ using Wino.Core.Extensions;
 using Wino.Core.Integration;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Requests.Bundles;
+using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
+using Wino.Core.Synchronizers.ImapSync;
+using Wino.Core.Misc;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 using Wino.Services.Extensions;
@@ -34,49 +40,62 @@ namespace Wino.Core.Synchronizers.Mail;
 
 public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreationPackage, object>, IImapSynchronizer
 {
-    [Obsolete("N/A")]
+    /// <summary>
+    /// N/A for IMAP as it doesn't support batch modifications natively.
+    /// </summary>
     public override uint BatchModificationSize => 1000;
     public override uint InitialMessageDownloadCountPerFolder => 500;
 
     #region Idle Implementation
 
-    private CancellationTokenSource idleCancellationTokenSource;
-    private CancellationTokenSource idleDoneTokenSource;
+    private static readonly Random IdleReconnectJitter = new();
+    private readonly object _idleDebounceLock = new();
+    private CancellationTokenSource _idleLoopCancellationTokenSource;
+    private Task _idleLoopTask;
+    private int _lastIdleInboxCount = -1;
+    private DateTime _lastIdleSyncRequestUtc = DateTime.MinValue;
+    private readonly TimeSpan _idleSyncDebounceWindow = TimeSpan.FromSeconds(15);
 
     #endregion
 
     private readonly ILogger _logger = Log.ForContext<ImapSynchronizer>();
     private readonly ImapClientPool _clientPool;
     private readonly IImapChangeProcessor _imapChangeProcessor;
-    private readonly IImapSynchronizationStrategyProvider _imapSynchronizationStrategyProvider;
     private readonly IApplicationConfiguration _applicationConfiguration;
+    private readonly UnifiedImapSynchronizer _unifiedSynchronizer;
+    private readonly IImapSynchronizerErrorHandlerFactory _errorHandlerFactory;
+    private readonly ICalDavClient _calDavClient;
+    private readonly IAutoDiscoveryService _autoDiscoveryService;
+    private readonly ICalendarService _calendarService;
+    private readonly SemaphoreSlim _calDavDiscoveryLock = new(1, 1);
+    private Uri _cachedCalDavServiceUri;
+    private bool _isCalDavDiscoveryAttempted;
+    private readonly IImapCalendarOperationHandler _localCalendarOperationHandler;
+    private readonly IImapCalendarOperationHandler _calDavCalendarOperationHandler;
+    private bool _isFolderStructureChanged;
 
     public ImapSynchronizer(MailAccount account,
                             IImapChangeProcessor imapChangeProcessor,
-                            IImapSynchronizationStrategyProvider imapSynchronizationStrategyProvider,
-                            IApplicationConfiguration applicationConfiguration) : base(account)
+                            IApplicationConfiguration applicationConfiguration,
+                            UnifiedImapSynchronizer unifiedSynchronizer,
+                            IImapSynchronizerErrorHandlerFactory errorHandlerFactory,
+                            ICalDavClient calDavClient,
+                            IAutoDiscoveryService autoDiscoveryService,
+                            ICalendarService calendarService) : base(account, WeakReferenceMessenger.Default)
     {
-        // Create client pool with account protocol log.
         _imapChangeProcessor = imapChangeProcessor;
-        _imapSynchronizationStrategyProvider = imapSynchronizationStrategyProvider;
         _applicationConfiguration = applicationConfiguration;
+        _unifiedSynchronizer = unifiedSynchronizer;
+        _errorHandlerFactory = errorHandlerFactory;
+        _calDavClient = calDavClient;
+        _autoDiscoveryService = autoDiscoveryService;
+        _calendarService = calendarService;
 
-        var protocolLogStream = CreateAccountProtocolLogFileStream();
-        var poolOptions = ImapClientPoolOptions.CreateDefault(Account.ServerInformation, protocolLogStream);
+        var poolOptions = ImapClientPoolOptions.CreateDefault(Account.ServerInformation);
 
         _clientPool = new ImapClientPool(poolOptions);
-    }
-
-    private Stream CreateAccountProtocolLogFileStream()
-    {
-        if (Account == null) throw new ArgumentNullException(nameof(Account));
-
-        var logFile = Path.Combine(_applicationConfiguration.ApplicationDataFolderPath, $"Protocol_{Account.Address}_{Account.Id}.log");
-
-        // Each session should start a new log.
-        if (File.Exists(logFile)) File.Delete(logFile);
-
-        return new FileStream(logFile, FileMode.CreateNew);
+        _localCalendarOperationHandler = new LocalCalendarOperationHandler(Account, _imapChangeProcessor, _calendarService, _applicationConfiguration.ApplicationDataFolderPath, "local");
+        _calDavCalendarOperationHandler = new CalDavCalendarOperationHandler(this, Account, _calendarService, _calDavClient);
     }
 
     /// <summary>
@@ -112,7 +131,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId);
 
             await remoteFolder.OpenAsync(FolderAccess.ReadWrite).ConfigureAwait(false);
-            await remoteFolder.StoreAsync(GetUniqueId(item.Item.Id), new StoreFlagsRequest(item.Item.IsFlagged ? StoreAction.Add : StoreAction.Remove, MessageFlags.Flagged) { Silent = true }).ConfigureAwait(false);
+            await remoteFolder.StoreAsync(GetUniqueId(item.Item.Id), new StoreFlagsRequest(item.IsFlagged ? StoreAction.Add : StoreAction.Remove, MessageFlags.Flagged) { Silent = true }).ConfigureAwait(false);
             await remoteFolder.CloseAsync().ConfigureAwait(false);
         }, requests);
     }
@@ -187,6 +206,9 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             if (!smtpClient.IsAuthenticated)
                 await smtpClient.AuthenticateAsync(Account.ServerInformation.OutgoingServerUsername, Account.ServerInformation.OutgoingServerPassword);
 
+            // Remove local draft header before sending to prevent leaking to recipients.
+            singleRequest.Mime.Headers.Remove(Domain.Constants.WinoLocalDraftHeader);
+
             // TODO: Transfer progress implementation as popup in the UI.
             await smtpClient.SendAsync(singleRequest.Mime, default);
             await smtpClient.DisconnectAsync(true);
@@ -209,17 +231,13 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                 var sentFolder = await client.GetFolderAsync(singleRequest.SentFolder.RemoteFolderId);
 
                 await sentFolder.OpenAsync(FolderAccess.ReadWrite);
-
-                // Delete local Wino draft header. Otherwise mapping will be applied on re-sync.
-                singleRequest.Mime.Headers.Remove(Domain.Constants.WinoLocalDraftHeader);
-
                 await sentFolder.AppendAsync(singleRequest.Mime, MessageFlags.Seen);
                 await sentFolder.CloseAsync();
             }
         }, request, request);
     }
 
-    public override async Task DownloadMissingMimeMessageAsync(IMailItem mailItem,
+    public override async Task DownloadMissingMimeMessageAsync(MailCopy mailItem,
                                                            ITransferProgress transferProgress = null,
                                                            CancellationToken cancellationToken = default)
     {
@@ -227,18 +245,48 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         var remoteFolderId = folder.RemoteFolderId;
 
         var client = await _clientPool.GetClientAsync().ConfigureAwait(false);
-        var remoteFolder = await client.GetFolderAsync(remoteFolderId, cancellationToken).ConfigureAwait(false);
 
-        var uniqueId = new UniqueId(MailkitClientExtensions.ResolveUid(mailItem.Id));
+        try
+        {
+            var remoteFolder = await client.GetFolderAsync(remoteFolderId, cancellationToken).ConfigureAwait(false);
 
-        await remoteFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
+            var uniqueId = new UniqueId(MailkitClientExtensions.ResolveUid(mailItem.Id));
 
-        var message = await remoteFolder.GetMessageAsync(uniqueId, cancellationToken, transferProgress).ConfigureAwait(false);
+            await remoteFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
 
-        await _imapChangeProcessor.SaveMimeFileAsync(mailItem.FileId, message, Account.Id).ConfigureAwait(false);
-        await remoteFolder.CloseAsync(false, cancellationToken).ConfigureAwait(false);
+            var message = await remoteFolder.GetMessageAsync(uniqueId, cancellationToken, transferProgress).ConfigureAwait(false);
 
-        _clientPool.Release(client);
+            await _imapChangeProcessor.SaveMimeFileAsync(mailItem.FileId, message, Account.Id).ConfigureAwait(false);
+            await remoteFolder.CloseAsync(false, cancellationToken).ConfigureAwait(false);
+        }
+        catch (FolderNotFoundException ex)
+        {
+            _logger.Warning("IMAP folder {FolderId} not found during MIME download for {MailId}. Deleting locally.", remoteFolderId, mailItem.Id);
+            await _imapChangeProcessor.DeleteMailAsync(Account.Id, mailItem.Id).ConfigureAwait(false);
+            throw new SynchronizerEntityNotFoundException(ex.Message);
+        }
+        catch (ImapCommandException ex) when (ex.Response == ImapCommandResponse.No)
+        {
+            _logger.Warning("IMAP message {MailId} not found during MIME download (NO response). Deleting locally.", mailItem.Id);
+            await _imapChangeProcessor.DeleteMailAsync(Account.Id, mailItem.Id).ConfigureAwait(false);
+            throw new SynchronizerEntityNotFoundException(ex.Message);
+        }
+        finally
+        {
+            _clientPool.Release(client);
+        }
+    }
+
+    public override Task DownloadCalendarAttachmentAsync(
+        Wino.Core.Domain.Entities.Calendar.CalendarItem calendarItem,
+        Wino.Core.Domain.Entities.Calendar.CalendarAttachment attachment,
+        string localFilePath,
+        CancellationToken cancellationToken = default)
+    {
+        // IMAP protocol doesn't support calendar operations natively
+        // Calendar functionality would require CalDAV protocol
+        _logger.Warning("IMAP protocol does not support calendar attachments. CalDAV would be required.");
+        throw new NotSupportedException("IMAP does not support calendar attachments. Use Outlook or Gmail for calendar functionality.");
     }
 
     public override List<IRequestBundle<ImapRequest>> RenameFolder(RenameFolderRequest request)
@@ -248,6 +296,105 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             var folder = await client.GetFolderAsync(request.Folder.RemoteFolderId).ConfigureAwait(false);
             await folder.RenameAsync(folder.ParentFolder, request.NewFolderName).ConfigureAwait(false);
         }, request, request);
+    }
+
+    public override List<IRequestBundle<ImapRequest>> DeleteFolder(DeleteFolderRequest request)
+    {
+        return CreateSingleTaskBundle(async (client, item) =>
+        {
+            var folder = await client.GetFolderAsync(request.Folder.RemoteFolderId).ConfigureAwait(false);
+            await folder.DeleteAsync().ConfigureAwait(false);
+        }, request, request);
+    }
+
+    public override List<IRequestBundle<ImapRequest>> CreateSubFolder(CreateSubFolderRequest request)
+    {
+        return CreateSingleTaskBundle(async (client, item) =>
+        {
+            var parentFolder = await client.GetFolderAsync(request.Folder.RemoteFolderId).ConfigureAwait(false);
+            await parentFolder.CreateAsync(request.NewFolderName, true).ConfigureAwait(false);
+        }, request, request);
+    }
+
+    public override List<IRequestBundle<ImapRequest>> CreateCalendarEvent(CreateCalendarEventRequest request)
+    {
+        var handler = ResolveCalendarOperationHandler();
+        return CreateCalendarOperationTaskBundle(
+            request,
+            async value => await handler.CreateCalendarEventAsync(value).ConfigureAwait(false),
+            handler.RequiresConnectedClient);
+    }
+
+    public override List<IRequestBundle<ImapRequest>> UpdateCalendarEvent(UpdateCalendarEventRequest request)
+    {
+        var handler = ResolveCalendarOperationHandler();
+        return CreateCalendarOperationTaskBundle(
+            request,
+            async value => await handler.UpdateCalendarEventAsync(value).ConfigureAwait(false),
+            handler.RequiresConnectedClient);
+    }
+
+    public override List<IRequestBundle<ImapRequest>> DeleteCalendarEvent(DeleteCalendarEventRequest request)
+    {
+        var handler = ResolveCalendarOperationHandler();
+        return CreateCalendarOperationTaskBundle(
+            request,
+            async value => await handler.DeleteCalendarEventAsync(value).ConfigureAwait(false),
+            handler.RequiresConnectedClient);
+    }
+
+    public override List<IRequestBundle<ImapRequest>> AcceptEvent(AcceptEventRequest request)
+    {
+        var handler = ResolveCalendarOperationHandler();
+        return CreateCalendarOperationTaskBundle(
+            request,
+            async value => await handler.AcceptEventAsync(value).ConfigureAwait(false),
+            handler.RequiresConnectedClient);
+    }
+
+    public override List<IRequestBundle<ImapRequest>> DeclineEvent(DeclineEventRequest request)
+    {
+        var handler = ResolveCalendarOperationHandler();
+        return CreateCalendarOperationTaskBundle(
+            request,
+            async value => await handler.DeclineEventAsync(value).ConfigureAwait(false),
+            handler.RequiresConnectedClient);
+    }
+
+    public override List<IRequestBundle<ImapRequest>> TentativeEvent(TentativeEventRequest request)
+    {
+        var handler = ResolveCalendarOperationHandler();
+        return CreateCalendarOperationTaskBundle(
+            request,
+            async value => await handler.TentativeEventAsync(value).ConfigureAwait(false),
+            handler.RequiresConnectedClient);
+    }
+
+    private IImapCalendarOperationHandler ResolveCalendarOperationHandler()
+    {
+        var mode = Account.ServerInformation?.CalendarSupportMode ?? ImapCalendarSupportMode.Disabled;
+
+        return mode switch
+        {
+            ImapCalendarSupportMode.LocalOnly => _localCalendarOperationHandler,
+            ImapCalendarSupportMode.CalDav => _calDavCalendarOperationHandler,
+            _ => throw new NotSupportedException("Calendar operations are disabled for this IMAP account.")
+        };
+    }
+
+    private List<IRequestBundle<ImapRequest>> CreateCalendarOperationTaskBundle<TRequest>(
+        TRequest request,
+        Func<TRequest, Task> operation,
+        bool requiresConnectedClient)
+        where TRequest : IRequestBase, IUIChangeRequest
+    {
+        return
+        [
+            new ImapRequestBundle(
+                new ImapRequest<TRequest>((client, value) => operation(value), request, requiresConnectedClient),
+                request,
+                request)
+        ];
     }
 
     #endregion
@@ -264,21 +411,34 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         // Check draft mapping.
         // This is the same implementation as in the OutlookSynchronizer.
 
-        if (message.MimeMessage != null &&
-            message.MimeMessage.Headers.Contains(Domain.Constants.WinoLocalDraftHeader) &&
-            Guid.TryParse(message.MimeMessage.Headers[Domain.Constants.WinoLocalDraftHeader], out Guid localDraftCopyUniqueId))
+        string draftHeaderValue = null;
+
+        if (message.MimeMessage?.Headers?.Contains(Domain.Constants.WinoLocalDraftHeader) == true)
+        {
+            draftHeaderValue = message.MimeMessage.Headers[Domain.Constants.WinoLocalDraftHeader];
+        }
+        else if (message.MessageSummary?.Headers?.Contains(Domain.Constants.WinoLocalDraftHeader) == true)
+        {
+            draftHeaderValue = message.MessageSummary.Headers[Domain.Constants.WinoLocalDraftHeader];
+        }
+
+        if (Guid.TryParse(draftHeaderValue, out Guid localDraftCopyUniqueId))
         {
             // This message belongs to existing local draft copy.
             // We don't need to create a new mail copy for this message, just update the existing one.
 
-            bool isMappingSuccessful = await _imapChangeProcessor.MapLocalDraftAsync(Account.Id, localDraftCopyUniqueId, mailCopy.Id, mailCopy.DraftId, mailCopy.ThreadId);
+            bool isMappingSuccessful = await _imapChangeProcessor.MapLocalDraftAsync(Account.Id, localDraftCopyUniqueId, mailCopy.Id, draftHeaderValue, mailCopy.ThreadId);
 
             if (isMappingSuccessful) return null;
 
             // Local copy doesn't exists. Continue execution to insert mail copy.
         }
 
-        var package = new NewMailItemPackage(mailCopy, message.MimeMessage, assignedFolder.RemoteFolderId);
+        var contacts = message.MimeMessage != null
+            ? ExtractContactsFromMimeMessage(message.MimeMessage)
+            : ExtractContactsFromMessageSummary(message.MessageSummary);
+
+        var package = new NewMailItemPackage(mailCopy, message.MimeMessage, assignedFolder.RemoteFolderId, contacts);
 
         return
         [
@@ -286,52 +446,252 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         ];
     }
 
+    private static IReadOnlyList<AccountContact> ExtractContactsFromMimeMessage(MimeMessage mimeMessage)
+    {
+        if (mimeMessage == null) return [];
+
+        var contacts = new Dictionary<string, AccountContact>(StringComparer.OrdinalIgnoreCase);
+
+        AddFromInternetAddressList(mimeMessage.From);
+        AddFromInternetAddressList(mimeMessage.To);
+        AddFromInternetAddressList(mimeMessage.Cc);
+        AddFromInternetAddressList(mimeMessage.Bcc);
+        AddFromInternetAddressList(mimeMessage.ReplyTo);
+
+        if (mimeMessage.Sender is MailboxAddress senderMailbox)
+        {
+            AddContact(senderMailbox.Address, senderMailbox.Name);
+        }
+
+        return contacts.Values.ToList();
+
+        void AddFromInternetAddressList(InternetAddressList addresses)
+        {
+            if (addresses == null) return;
+
+            foreach (var mailbox in addresses.Mailboxes)
+            {
+                AddContact(mailbox.Address, mailbox.Name);
+            }
+        }
+
+        void AddContact(string address, string name)
+        {
+            var trimmedAddress = address?.Trim();
+            if (string.IsNullOrWhiteSpace(trimmedAddress)) return;
+
+            var displayName = string.IsNullOrWhiteSpace(name) ? trimmedAddress : name.Trim();
+
+            contacts[trimmedAddress] = new AccountContact
+            {
+                Address = trimmedAddress,
+                Name = displayName
+            };
+        }
+    }
+
+    private static IReadOnlyList<AccountContact> ExtractContactsFromMessageSummary(IMessageSummary summary)
+    {
+        if (summary?.Envelope == null) return [];
+
+        var contacts = new Dictionary<string, AccountContact>(StringComparer.OrdinalIgnoreCase);
+
+        AddFromInternetAddressList(summary.Envelope.From);
+        AddFromInternetAddressList(summary.Envelope.To);
+        AddFromInternetAddressList(summary.Envelope.Cc);
+        AddFromInternetAddressList(summary.Envelope.Bcc);
+        AddFromInternetAddressList(summary.Envelope.ReplyTo);
+
+        var senderMailbox = summary.Envelope.Sender?.Mailboxes?.FirstOrDefault();
+        if (senderMailbox != null)
+        {
+            AddContact(senderMailbox.Address, senderMailbox.Name);
+        }
+
+        return contacts.Values.ToList();
+
+        void AddFromInternetAddressList(InternetAddressList addresses)
+        {
+            if (addresses == null) return;
+
+            foreach (var mailbox in addresses.Mailboxes)
+            {
+                AddContact(mailbox.Address, mailbox.Name);
+            }
+        }
+
+        void AddContact(string address, string name)
+        {
+            var trimmedAddress = address?.Trim();
+            if (string.IsNullOrWhiteSpace(trimmedAddress)) return;
+
+            var displayName = string.IsNullOrWhiteSpace(name) ? trimmedAddress : name.Trim();
+
+            contacts[trimmedAddress] = new AccountContact
+            {
+                Address = trimmedAddress,
+                Name = displayName
+            };
+        }
+    }
+
     protected override async Task<MailSynchronizationResult> SynchronizeMailsInternalAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
         var downloadedMessageIds = new List<string>();
+        var folderResults = new List<FolderSyncResult>();
 
         _logger.Information("Internal synchronization started for {Name}", Account.Name);
         _logger.Information("Options: {Options}", options);
 
-        PublishSynchronizationProgress(1);
-
-        bool shouldDoFolderSync = options.Type == MailSynchronizationType.FullFolders || options.Type == MailSynchronizationType.FoldersOnly;
-
-        if (shouldDoFolderSync)
+        try
         {
-            await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
-        }
+            _isFolderStructureChanged = false;
 
-        if (options.Type != MailSynchronizationType.FoldersOnly)
-        {
-            var synchronizationFolders = await _imapChangeProcessor.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
+            // Set indeterminate progress initially
+            UpdateSyncProgress(0, 0, "Synchronizing...");
 
-            for (int i = 0; i < synchronizationFolders.Count; i++)
+            bool shouldDoFolderSync = options.Type == MailSynchronizationType.FullFolders || options.Type == MailSynchronizationType.FoldersOnly;
+
+            if (shouldDoFolderSync)
             {
-                var folder = synchronizationFolders[i];
-                var progress = (int)Math.Round((double)(i + 1) / synchronizationFolders.Count * 100);
+                await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
 
-                PublishSynchronizationProgress(progress);
-
-                var folderDownloadedMessageIds = await SynchronizeFolderInternalAsync(folder, cancellationToken).ConfigureAwait(false);
-
-                if (cancellationToken.IsCancellationRequested) return MailSynchronizationResult.Canceled;
-
-                if (folderDownloadedMessageIds != null)
+                if (_isFolderStructureChanged)
                 {
-                    downloadedMessageIds.AddRange(folderDownloadedMessageIds);
+                    WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
                 }
             }
-        }
 
-        PublishSynchronizationProgress(100);
+            if (options.Type != MailSynchronizationType.FoldersOnly)
+            {
+                var synchronizationFolders = await _imapChangeProcessor.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
+
+                var totalFolders = synchronizationFolders.Count;
+                const int maxParallelFolderSyncClients = 3;
+                var folderSyncSemaphore = new SemaphoreSlim(maxParallelFolderSyncClients, maxParallelFolderSyncClients);
+                using var linkedCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                var linkedToken = linkedCancellationTokenSource.Token;
+                var resultLock = new object();
+                int completedFolders = 0;
+
+                var syncTasks = synchronizationFolders.Select(async folder =>
+                {
+                    await folderSyncSemaphore.WaitAsync(linkedToken).ConfigureAwait(false);
+
+                    try
+                    {
+                        IImapClient client = null;
+
+                        try
+                        {
+                            client = await _clientPool.GetClientAsync(linkedToken).ConfigureAwait(false);
+                            var folderResult = await _unifiedSynchronizer
+                                .SynchronizeFolderAsync(client, folder, this, Account.ServerInformation?.IncomingServer, linkedToken)
+                                .ConfigureAwait(false);
+
+                            List<string> folderDownloadedIds = null;
+                            if (folderResult.Success && folderResult.DownloadedCount > 0)
+                            {
+                                folderDownloadedIds = await GetDownloadedIdsForFolderAsync(folder, folderResult.DownloadedCount).ConfigureAwait(false);
+                            }
+
+                            lock (resultLock)
+                            {
+                                folderResults.Add(folderResult);
+                                if (folderDownloadedIds != null && folderDownloadedIds.Count > 0)
+                                {
+                                    downloadedMessageIds.AddRange(folderDownloadedIds);
+                                }
+                            }
+                        }
+                        finally
+                        {
+                            if (client != null)
+                            {
+                                _clientPool.Release(client);
+                            }
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        var errorContext = new SynchronizerErrorContext
+                        {
+                            Account = Account,
+                            ErrorMessage = ex.Message,
+                            Exception = ex,
+                            FolderId = folder.Id,
+                            FolderName = folder.FolderName,
+                            OperationType = "ImapFolderSync"
+                        };
+
+                        _ = await _errorHandlerFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
+                        var failedResult = FolderSyncResult.Failed(folder.Id, folder.FolderName, errorContext);
+
+                        lock (resultLock)
+                        {
+                            folderResults.Add(failedResult);
+                        }
+
+                        if (!errorContext.CanContinueSync)
+                        {
+                            _logger.Error(ex, "Folder {FolderName} sync failed with fatal error", folder.FolderName);
+                            linkedCancellationTokenSource.Cancel();
+                            throw;
+                        }
+
+                        _logger.Warning(ex, "Folder {FolderName} sync failed, continuing with other folders", folder.FolderName);
+                    }
+                    finally
+                    {
+                        folderSyncSemaphore.Release();
+
+                        var completed = Interlocked.Increment(ref completedFolders);
+                        UpdateSyncProgress(totalFolders, totalFolders - completed, $"Syncing {folder.FolderName}...");
+                    }
+                }).ToList();
+
+                await Task.WhenAll(syncTasks).ConfigureAwait(false);
+
+                if (cancellationToken.IsCancellationRequested) return MailSynchronizationResult.Canceled;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.Information("Synchronization was canceled for {Name}", Account.Name);
+            return MailSynchronizationResult.Canceled;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Synchronization failed for {Name}", Account.Name);
+            return MailSynchronizationResult.Failed(ex);
+        }
+        finally
+        {
+            // Reset progress
+            ResetSyncProgress();
+        }
 
         // Get all unread new downloaded items and return in the result.
         // This is primarily used in notifications.
 
         var unreadNewItems = await _imapChangeProcessor.GetDownloadedUnreadMailsAsync(Account.Id, downloadedMessageIds).ConfigureAwait(false);
 
-        return MailSynchronizationResult.Completed(unreadNewItems);
+        return MailSynchronizationResult.CompletedWithFolderResults(unreadNewItems, folderResults);
+    }
+
+    /// <summary>
+    /// Gets the most recent downloaded message IDs for a folder.
+    /// Used for notification purposes after sync completes.
+    /// </summary>
+    private async Task<List<string>> GetDownloadedIdsForFolderAsync(MailItemFolder folder, int count)
+    {
+        // Get the most recent mail IDs from the folder
+        var recentMails = await _imapChangeProcessor.GetRecentMailIdsForFolderAsync(folder.Id, count).ConfigureAwait(false);
+        return recentMails?.ToList() ?? new List<string>();
     }
 
     public override async Task ExecuteNativeRequestsAsync(List<IRequestBundle<ImapRequest>> batchedRequests, CancellationToken cancellationToken = default)
@@ -341,7 +701,10 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
         foreach (var item in batchedRequests)
         {
-            item.Request.ApplyUIChanges();
+            if (ShouldApplyOptimisticUIChanges(item.Request))
+            {
+                item.Request.ApplyUIChanges();
+            }
         }
 
         // All task bundles will execute on the same client.
@@ -360,14 +723,20 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
             try
             {
-                executorClient = await _clientPool.GetClientAsync();
+                if (item.NativeRequest.RequiresConnectedClient)
+                {
+                    executorClient = await _clientPool.GetClientAsync();
+                }
             }
             catch (ImapClientPoolException)
             {
                 // Client pool failed to get a client.
                 // Requests may not be executed at this point.
 
-                item.Request.RevertUIChanges();
+                if (ShouldApplyOptimisticUIChanges(item.Request))
+                {
+                    item.Request.RevertUIChanges();
+                }
 
                 isCrashed = true;
                 throw;
@@ -381,22 +750,56 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                 }
             }
 
-            // TODO: Retry pattern.
-            // TODO: Error handling.
             try
             {
                 await item.NativeRequest.IntegratorTask(executorClient, item.Request).ConfigureAwait(false);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                item.Request.RevertUIChanges();
-                throw;
+                var errorContext = new SynchronizerErrorContext
+                {
+                    Account = Account,
+                    ErrorCode = ex is FolderNotFoundException ? 404 : null,
+                    ErrorMessage = ex.Message,
+                    Exception = ex,
+                    RequestBundle = item,
+                    OperationType = "RequestExecution"
+                };
+
+                var handled = await _errorHandlerFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
+
+                if (!handled)
+                {
+                    if (ShouldApplyOptimisticUIChanges(item.Request))
+                    {
+                        item.Request.RevertUIChanges();
+                    }
+                    throw;
+                }
             }
             finally
             {
-                _clientPool.Release(executorClient);
+                if (executorClient != null)
+                {
+                    _clientPool.Release(executorClient);
+                }
             }
         }
+    }
+
+    private bool ShouldApplyOptimisticUIChanges(IRequestBase request)
+    {
+        // Mail changes are always applied.
+        // Calendar changes are applied only if calendar is not in local mode.
+        // Database updates are immidiate and will be reflected in the UI right after the request is processed, so no need for optimistic changes.
+
+        if (request is not ICalendarActionRequest)
+        {
+            return true;
+        }
+
+        var mode = Account.ServerInformation?.CalendarSupportMode ?? ImapCalendarSupportMode.Disabled;
+        return mode != ImapCalendarSupportMode.LocalOnly;
     }
 
     /// <summary>
@@ -610,7 +1013,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
             if (insertedFolders.Any() || deletedFolders.Any() || updatedFolders.Any())
             {
-                WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+                _isFolderStructureChanged = true;
             }
         }
         catch (Exception ex)
@@ -631,7 +1034,6 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
     public override async Task<List<MailCopy>> OnlineSearchAsync(string queryText, List<IMailItemFolder> folders, CancellationToken cancellationToken = default)
     {
         IImapClient client = null;
-        IMailFolder activeFolder = null;
 
         try
         {
@@ -642,6 +1044,9 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
             foreach (var folder in folders)
             {
+                if (folder is not MailItemFolder localFolder)
+                    continue;
+
                 var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId, cancellationToken).ConfigureAwait(false);
                 await remoteFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
 
@@ -670,9 +1075,9 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
                 if (nonExistingUniqueIds.Count != 0)
                 {
-                    var syncStrategy = _imapSynchronizationStrategyProvider.GetSynchronizationStrategy(client);
-
-                    await syncStrategy.DownloadMessagesAsync(this, remoteFolder, folder as MailItemFolder, new UniqueIdSet(nonExistingUniqueIds, SortOrder.Ascending), cancellationToken).ConfigureAwait(false);
+                    await _unifiedSynchronizer
+                        .DownloadMessagesByUidsAsync(client, remoteFolder, localFolder, nonExistingUniqueIds, this, cancellationToken)
+                        .ConfigureAwait(false);
                 }
 
                 await remoteFolder.CloseAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -687,50 +1092,8 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         }
         finally
         {
-            if (activeFolder?.IsOpen ?? false)
-            {
-                await activeFolder.CloseAsync().ConfigureAwait(false);
-            }
-
             _clientPool.Release(client);
         }
-    }
-
-    private async Task<IEnumerable<string>> SynchronizeFolderInternalAsync(MailItemFolder folder, CancellationToken cancellationToken = default)
-    {
-        if (!folder.IsSynchronizationEnabled) return default;
-
-        IImapClient availableClient = null;
-
-    retry:
-        try
-        {
-
-            availableClient = await _clientPool.GetClientAsync().ConfigureAwait(false);
-
-            var strategy = _imapSynchronizationStrategyProvider.GetSynchronizationStrategy(availableClient);
-            return await strategy.HandleSynchronizationAsync(availableClient, folder, this, cancellationToken).ConfigureAwait(false);
-        }
-        catch (IOException)
-        {
-            _clientPool.Release(availableClient, false);
-
-            goto retry;
-        }
-        catch (OperationCanceledException)
-        {
-            // Ignore cancellations.
-        }
-        catch (Exception ex)
-        {
-            _logger.Error(ex, "Synchronization failed for folder {FolderName}", folder.FolderName);
-        }
-        finally
-        {
-            _clientPool.Release(availableClient, false);
-        }
-
-        return new List<string>();
     }
 
     /// <summary>
@@ -742,114 +1105,963 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
     public bool ShouldUpdateFolder(IMailFolder remoteFolder, MailItemFolder localFolder)
         => !localFolder.FolderName.Equals(remoteFolder.Name, StringComparison.OrdinalIgnoreCase);
 
-    protected override Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
-        => throw new NotImplementedException();
-
-    public async Task StartIdleClientAsync()
+    protected override async Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
-        IImapClient idleClient = null;
-        IMailFolder inboxFolder = null;
+        if (Account.ProviderType != MailProviderType.IMAP4 || !Account.IsCalendarAccessGranted || Account.ServerInformation == null)
+            return CalendarSynchronizationResult.Empty;
 
-        bool? reconnect = null;
+        if (Account.ServerInformation.CalendarSupportMode is ImapCalendarSupportMode.Disabled or ImapCalendarSupportMode.LocalOnly)
+            return CalendarSynchronizationResult.Empty;
+
+        var calDavServiceUri = await ResolveCalDavServiceUriAsync(cancellationToken).ConfigureAwait(false);
+        if (calDavServiceUri == null)
+        {
+            _logger.Information("Skipping calendar sync for {AccountName}: CalDAV endpoint is not configured.", Account.Name);
+            return CalendarSynchronizationResult.Empty;
+        }
+
+        var password = ResolveCalDavPassword();
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            _logger.Warning("Skipping calendar sync for {AccountName}: empty credentials.", Account.Name);
+            return CalendarSynchronizationResult.Empty;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var calDavUsername = ResolveCalDavUsername();
+        if (string.IsNullOrWhiteSpace(calDavUsername))
+        {
+            _logger.Warning("Skipping calendar sync for {AccountName}: account email address is empty for CalDAV credentials.", Account.Name);
+            return CalendarSynchronizationResult.Empty;
+        }
+
+        var activeConnection = new CalDavConnectionSettings
+        {
+            ServiceUri = calDavServiceUri,
+            Username = calDavUsername,
+            Password = password
+        };
+
+        IReadOnlyList<CalDavCalendar> remoteCalendars;
 
         try
         {
-            var client = await _clientPool.GetClientAsync().ConfigureAwait(false);
+            remoteCalendars = await _calDavClient
+                .DiscoverCalendarsAsync(activeConnection, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            _logger.Warning("Skipping calendar sync for {AccountName}: CalDAV authentication failed for username {Username}.", Account.Name, calDavUsername);
+            return CalendarSynchronizationResult.Empty;
+        }
 
-            if (!client.Capabilities.HasFlag(ImapCapabilities.Idle))
+        await SynchronizeCalendarMetadataAsync(remoteCalendars).ConfigureAwait(false);
+
+        if (options?.Type == CalendarSynchronizationType.CalendarMetadata)
+            return CalendarSynchronizationResult.Empty;
+
+        var localCalendars = await _imapChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+        var remoteCalendarsById = remoteCalendars.ToDictionary(c => c.RemoteCalendarId, StringComparer.OrdinalIgnoreCase);
+
+        if (options?.Type == CalendarSynchronizationType.SingleCalendar && options.SynchronizationCalendarIds?.Count > 0)
+        {
+            localCalendars = localCalendars
+                .Where(c => options.SynchronizationCalendarIds.Contains(c.Id))
+                .ToList();
+        }
+
+        localCalendars = localCalendars
+            .Where(c => c.IsSynchronizationEnabled)
+            .ToList();
+
+        var periodStartUtc = DateTimeOffset.UtcNow.AddYears(-1);
+        var periodEndUtc = DateTimeOffset.UtcNow.AddYears(2);
+
+        foreach (var localCalendar in localCalendars)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!remoteCalendarsById.TryGetValue(localCalendar.RemoteCalendarId, out var remoteCalendar))
+                continue;
+
+            var remoteToken = BuildCalendarDeltaToken(remoteCalendar);
+
+            var isInitialSync = string.IsNullOrWhiteSpace(localCalendar.SynchronizationDeltaToken);
+            var tokenChanged = !string.Equals(localCalendar.SynchronizationDeltaToken, remoteToken, StringComparison.Ordinal);
+            var forceSync = options?.Type is CalendarSynchronizationType.ExecuteRequests or CalendarSynchronizationType.SingleCalendar;
+
+            if (!isInitialSync && !tokenChanged && !forceSync)
+                continue;
+
+            var remoteEvents = await _calDavClient.GetCalendarEventsAsync(
+                activeConnection,
+                remoteCalendar,
+                periodStartUtc,
+                periodEndUtc,
+                cancellationToken).ConfigureAwait(false);
+            var remoteEventIds = new HashSet<string>(
+                remoteEvents
+                    .Where(e => !string.IsNullOrWhiteSpace(e.RemoteEventId))
+                    .Select(e => e.RemoteEventId),
+                StringComparer.OrdinalIgnoreCase);
+
+            foreach (var remoteEvent in remoteEvents)
             {
-                Log.Debug($"{Account.Name} does not support Idle command. Ignored.");
-                return;
+                var existingLocalItem = await _imapChangeProcessor
+                    .GetCalendarItemAsync(localCalendar.Id, remoteEvent.RemoteEventId)
+                    .ConfigureAwait(false);
+
+                var shouldSkipUnchangedEvent = await ShouldSkipUnchangedCalDavEventAsync(
+                    localCalendar,
+                    existingLocalItem,
+                    remoteEvent).ConfigureAwait(false);
+
+                if (shouldSkipUnchangedEvent)
+                    continue;
+
+                await _imapChangeProcessor
+                    .ManageCalendarEventAsync(remoteEvent, localCalendar, Account)
+                    .ConfigureAwait(false);
+
+                if (string.IsNullOrWhiteSpace(remoteEvent.IcsContent))
+                    continue;
+
+                var localItem = existingLocalItem ?? await _imapChangeProcessor
+                    .GetCalendarItemAsync(localCalendar.Id, remoteEvent.RemoteEventId)
+                    .ConfigureAwait(false);
+
+                if (localItem == null)
+                    continue;
+
+                await _imapChangeProcessor
+                    .SaveCalendarItemIcsAsync(
+                        Account.Id,
+                        localCalendar.Id,
+                        localItem.Id,
+                        remoteEvent.RemoteEventId,
+                        remoteEvent.RemoteResourceHref,
+                        remoteEvent.ETag,
+                        remoteEvent.IcsContent)
+                    .ConfigureAwait(false);
             }
 
-            if (client.Inbox == null)
+            await ReconcileDeletedCalendarItemsAsync(localCalendar, periodStartUtc, periodEndUtc, remoteEventIds)
+                .ConfigureAwait(false);
+
+            localCalendar.SynchronizationDeltaToken = remoteToken;
+            await _imapChangeProcessor.UpdateAccountCalendarAsync(localCalendar).ConfigureAwait(false);
+        }
+
+        return CalendarSynchronizationResult.Empty;
+    }
+
+    private async Task<bool> ShouldSkipUnchangedCalDavEventAsync(
+        AccountCalendar localCalendar,
+        CalendarItem existingLocalItem,
+        CalDavCalendarEvent remoteEvent)
+    {
+        if (localCalendar == null || existingLocalItem == null || remoteEvent == null)
+            return false;
+
+        // Ensure unresolved parent-child linkage still gets corrected when required.
+        if (!string.IsNullOrWhiteSpace(remoteEvent.SeriesMasterRemoteEventId) &&
+            existingLocalItem.RecurringCalendarItemId == null)
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(remoteEvent.ETag))
+            return false;
+
+        var savedETag = await _imapChangeProcessor
+            .GetCalendarItemIcsETagAsync(Account.Id, localCalendar.Id, existingLocalItem.Id)
+            .ConfigureAwait(false);
+
+        if (string.IsNullOrWhiteSpace(savedETag))
+            return false;
+
+        return string.Equals(savedETag.Trim(), remoteEvent.ETag.Trim(), StringComparison.Ordinal);
+    }
+
+    private async Task ReconcileDeletedCalendarItemsAsync(
+        AccountCalendar localCalendar,
+        DateTimeOffset periodStartUtc,
+        DateTimeOffset periodEndUtc,
+        HashSet<string> remoteEventIds)
+    {
+        var syncPeriod = new TimeRange(periodStartUtc.UtcDateTime, periodEndUtc.UtcDateTime);
+        var localEventsInWindow = await _calendarService
+            .GetCalendarEventsAsync(localCalendar, syncPeriod)
+            .ConfigureAwait(false);
+
+        foreach (var localEvent in localEventsInWindow)
+        {
+            if (string.IsNullOrWhiteSpace(localEvent.RemoteEventId))
+                continue;
+
+            if (remoteEventIds.Contains(localEvent.RemoteEventId))
+                continue;
+
+            await _imapChangeProcessor.DeleteCalendarItemAsync(localEvent.Id).ConfigureAwait(false);
+        }
+    }
+
+    private static string BuildCalendarDeltaToken(CalDavCalendar calendar)
+    {
+        if (calendar == null)
+            return string.Empty;
+
+        var syncToken = calendar.SyncToken?.Trim() ?? string.Empty;
+        var ctag = calendar.CTag?.Trim() ?? string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(syncToken) && !string.IsNullOrWhiteSpace(ctag))
+            return $"{syncToken}|{ctag}";
+
+        return !string.IsNullOrWhiteSpace(syncToken) ? syncToken : ctag;
+    }
+
+    private async Task<Uri> ResolveCalDavServiceUriAsync(CancellationToken cancellationToken)
+    {
+        var explicitCalDavUri = TryGetExplicitCalDavServiceUri();
+        if (explicitCalDavUri != null)
+        {
+            _cachedCalDavServiceUri = explicitCalDavUri;
+            _isCalDavDiscoveryAttempted = true;
+            return _cachedCalDavServiceUri;
+        }
+
+        if (_cachedCalDavServiceUri != null)
+            return _cachedCalDavServiceUri;
+
+        if (_isCalDavDiscoveryAttempted)
+            return null;
+
+        await _calDavDiscoveryLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            if (_cachedCalDavServiceUri != null)
+                return _cachedCalDavServiceUri;
+
+            if (_isCalDavDiscoveryAttempted)
+                return null;
+
+            _isCalDavDiscoveryAttempted = true;
+
+            var emailCandidates = new[]
             {
-                Log.Warning($"{Account.Name} does not have an Inbox folder for idle client to track. Ignored.");
-                return;
+                Account.ServerInformation?.Address,
+                Account.Address
+            }
+            .Where(value => !string.IsNullOrWhiteSpace(value) && value.Contains('@'))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+            foreach (var email in emailCandidates)
+            {
+                var discoveredUri = await _autoDiscoveryService
+                    .DiscoverCalDavServiceUriAsync(email, cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (discoveredUri == null)
+                    continue;
+
+                _cachedCalDavServiceUri = discoveredUri;
+                return _cachedCalDavServiceUri;
             }
 
-            // Setup idle client.
-            idleClient = client;
+            if (Account.SpecialImapProvider == SpecialImapProvider.iCloud)
+            {
+                _cachedCalDavServiceUri = new Uri("https://caldav.icloud.com/");
+                return _cachedCalDavServiceUri;
+            }
 
-            idleDoneTokenSource ??= new CancellationTokenSource();
-            idleCancellationTokenSource ??= new CancellationTokenSource();
+            if (Account.SpecialImapProvider == SpecialImapProvider.Yahoo)
+            {
+                _cachedCalDavServiceUri = new Uri("https://caldav.calendar.yahoo.com/");
+                return _cachedCalDavServiceUri;
+            }
 
-            inboxFolder = client.Inbox;
-
-            await inboxFolder.OpenAsync(FolderAccess.ReadOnly, idleCancellationTokenSource.Token);
-
-            inboxFolder.CountChanged += IdleNotificationTriggered;
-            inboxFolder.MessageFlagsChanged += IdleNotificationTriggered;
-            inboxFolder.MessageExpunged += IdleNotificationTriggered;
-            inboxFolder.MessagesVanished += IdleNotificationTriggered;
-
-            Log.Debug("Starting an idle client for {Name}", Account.Name);
-
-            await client.IdleAsync(idleDoneTokenSource.Token, idleCancellationTokenSource.Token);
-        }
-        catch (ImapProtocolException protocolException)
-        {
-            Log.Information(protocolException, "Idle client received protocol exception.");
-            reconnect = true;
-        }
-        catch (IOException ioException)
-        {
-            Log.Information(ioException, "Idle client received IO exception.");
-            reconnect = true;
-        }
-        catch (OperationCanceledException)
-        {
-            reconnect = !IsDisposing;
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Idle client failed to start.");
-            reconnect = false;
+            return null;
         }
         finally
         {
-            if (inboxFolder != null)
+            _calDavDiscoveryLock.Release();
+        }
+    }
+
+    private string ResolveCalDavPassword()
+    {
+        if (!string.IsNullOrWhiteSpace(Account.ServerInformation?.CalDavPassword))
+            return Account.ServerInformation.CalDavPassword;
+
+        if (!string.IsNullOrWhiteSpace(Account.ServerInformation?.IncomingServerPassword))
+            return Account.ServerInformation.IncomingServerPassword;
+
+        if (!string.IsNullOrWhiteSpace(Account.ServerInformation?.OutgoingServerPassword))
+            return Account.ServerInformation.OutgoingServerPassword;
+
+        return string.Empty;
+    }
+
+    private string ResolveCalDavUsername()
+    {
+        if (!string.IsNullOrWhiteSpace(Account.ServerInformation?.CalDavUsername))
+            return Account.ServerInformation.CalDavUsername.Trim();
+
+        if (!string.IsNullOrWhiteSpace(Account.ServerInformation?.Address))
+            return Account.ServerInformation.Address.Trim();
+
+        if (!string.IsNullOrWhiteSpace(Account.Address))
+            return Account.Address.Trim();
+
+        return string.Empty;
+    }
+
+    private Uri TryGetExplicitCalDavServiceUri()
+    {
+        var configuredUrl = Account.ServerInformation?.CalDavServiceUrl;
+        if (string.IsNullOrWhiteSpace(configuredUrl))
+            return null;
+
+        if (!Uri.TryCreate(configuredUrl, UriKind.Absolute, out var uri))
+        {
+            _logger.Warning("Configured CalDAV URL is invalid for account {AccountName}: {Url}", Account.Name, configuredUrl);
+            return null;
+        }
+
+        return uri;
+    }
+
+    private async Task SynchronizeCalendarMetadataAsync(IReadOnlyList<CalDavCalendar> remoteCalendars)
+    {
+        var localCalendars = await _imapChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+        var remoteCalendarsById = remoteCalendars
+            .GroupBy(c => c.RemoteCalendarId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var usedCalendarColors = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var remotePrimaryCalendarId = remoteCalendars.FirstOrDefault()?.RemoteCalendarId;
+
+        foreach (var localCalendar in localCalendars.ToList())
+        {
+            if (remoteCalendarsById.ContainsKey(localCalendar.RemoteCalendarId))
+                continue;
+
+            await _imapChangeProcessor
+                .DeleteCalendarIcsForCalendarAsync(Account.Id, localCalendar.Id)
+                .ConfigureAwait(false);
+            await _imapChangeProcessor.DeleteAccountCalendarAsync(localCalendar).ConfigureAwait(false);
+            localCalendars.Remove(localCalendar);
+        }
+
+        foreach (var remoteCalendar in remoteCalendars)
+        {
+            var existingLocal = localCalendars.FirstOrDefault(c =>
+                string.Equals(c.RemoteCalendarId, remoteCalendar.RemoteCalendarId, StringComparison.OrdinalIgnoreCase));
+
+            var isPrimary = string.Equals(remoteCalendar.RemoteCalendarId, remotePrimaryCalendarId, StringComparison.OrdinalIgnoreCase);
+
+            if (existingLocal == null)
             {
-                inboxFolder.CountChanged -= IdleNotificationTriggered;
-                inboxFolder.MessageFlagsChanged -= IdleNotificationTriggered;
-                inboxFolder.MessageExpunged -= IdleNotificationTriggered;
-                inboxFolder.MessagesVanished -= IdleNotificationTriggered;
+                var newCalendar = new AccountCalendar
+                {
+                    Id = Guid.NewGuid(),
+                    AccountId = Account.Id,
+                    RemoteCalendarId = remoteCalendar.RemoteCalendarId,
+                    Name = remoteCalendar.Name,
+                    IsPrimary = isPrimary,
+                    IsSynchronizationEnabled = true,
+                    IsExtended = true,
+                    BackgroundColorHex = ColorHelpers.GetDistinctFlatColorHex(usedCalendarColors),
+                    TimeZone = "UTC",
+                    SynchronizationDeltaToken = string.Empty
+                };
+
+                newCalendar.TextColorHex = ColorHelpers.GetReadableTextColorHex(newCalendar.BackgroundColorHex);
+                usedCalendarColors.Add(newCalendar.BackgroundColorHex);
+                await _imapChangeProcessor.InsertAccountCalendarAsync(newCalendar).ConfigureAwait(false);
+                continue;
             }
 
-            if (idleDoneTokenSource != null)
+            var resolvedColor = ColorHelpers.GetDistinctFlatColorHex(usedCalendarColors, existingLocal.BackgroundColorHex);
+            var shouldUpdate = !string.Equals(existingLocal.Name, remoteCalendar.Name, StringComparison.Ordinal)
+                               || existingLocal.IsPrimary != isPrimary
+                               || !string.Equals(existingLocal.BackgroundColorHex, resolvedColor, StringComparison.OrdinalIgnoreCase);
+
+            if (!shouldUpdate)
             {
-                idleDoneTokenSource.Dispose();
-                idleDoneTokenSource = null;
+                usedCalendarColors.Add(resolvedColor);
+                continue;
             }
 
-            if (idleClient != null)
-            {
-                // Killing the client is not necessary. We can re-use it later.
-                _clientPool.Release(idleClient, destroyClient: false);
+            existingLocal.Name = remoteCalendar.Name;
+            existingLocal.IsPrimary = isPrimary;
+            existingLocal.BackgroundColorHex = resolvedColor;
+            existingLocal.TextColorHex = ColorHelpers.GetReadableTextColorHex(existingLocal.BackgroundColorHex);
+            usedCalendarColors.Add(existingLocal.BackgroundColorHex);
+            await _imapChangeProcessor.UpdateAccountCalendarAsync(existingLocal).ConfigureAwait(false);
+        }
+    }
 
-                idleClient = null;
+    private interface IImapCalendarOperationHandler
+    {
+        bool RequiresConnectedClient { get; }
+        Task CreateCalendarEventAsync(CreateCalendarEventRequest request);
+        Task UpdateCalendarEventAsync(UpdateCalendarEventRequest request);
+        Task DeleteCalendarEventAsync(DeleteCalendarEventRequest request);
+        Task AcceptEventAsync(AcceptEventRequest request);
+        Task DeclineEventAsync(DeclineEventRequest request);
+        Task TentativeEventAsync(TentativeEventRequest request);
+    }
+
+    private class LocalCalendarOperationHandler : IImapCalendarOperationHandler
+    {
+        private readonly MailAccount _account;
+        private readonly IImapChangeProcessor _changeProcessor;
+        private readonly ICalendarService _calendarService;
+        private readonly string _applicationDataFolderPath;
+        private readonly string _resourceScheme;
+
+        public bool RequiresConnectedClient => false;
+
+        public LocalCalendarOperationHandler(MailAccount account, IImapChangeProcessor changeProcessor, ICalendarService calendarService, string applicationDataFolderPath, string resourceScheme)
+        {
+            _account = account;
+            _changeProcessor = changeProcessor;
+            _calendarService = calendarService;
+            _applicationDataFolderPath = applicationDataFolderPath;
+            _resourceScheme = resourceScheme;
+        }
+
+        public async Task CreateCalendarEventAsync(CreateCalendarEventRequest request)
+        {
+            var item = request.PreparedItem;
+            var attendees = request.PreparedEvent.Attendees;
+            var reminders = request.PreparedEvent.Reminders;
+            EnsureCalendarItemDefaults(item, _account, "local");
+            item.AssignedCalendar ??= await _calendarService.GetAccountCalendarAsync(item.CalendarId).ConfigureAwait(false);
+
+            var existing = await _calendarService.GetCalendarItemAsync(item.Id).ConfigureAwait(false);
+
+            if (existing == null)
+                await _calendarService.CreateNewCalendarItemAsync(item, attendees).ConfigureAwait(false);
+            else
+                await _calendarService.UpdateCalendarItemAsync(item, attendees).ConfigureAwait(false);
+
+            await _calendarService.SaveRemindersAsync(item.Id, reminders).ConfigureAwait(false);
+            await SaveAttachmentsAsync(request.ComposeResult, item.Id).ConfigureAwait(false);
+            await PersistIcsAsync(item, attendees).ConfigureAwait(false);
+        }
+
+        public async Task UpdateCalendarEventAsync(UpdateCalendarEventRequest request)
+        {
+            var item = request.Item;
+            EnsureCalendarItemDefaults(item, _account, "local");
+            item.AssignedCalendar ??= await _calendarService.GetAccountCalendarAsync(item.CalendarId).ConfigureAwait(false);
+
+            var attendees = request.Attendees ?? await _calendarService.GetAttendeesAsync(item.Id).ConfigureAwait(false);
+
+            await _calendarService.UpdateCalendarItemAsync(item, attendees).ConfigureAwait(false);
+            await PersistIcsAsync(item, attendees).ConfigureAwait(false);
+        }
+
+        public Task DeleteCalendarEventAsync(DeleteCalendarEventRequest request)
+            => _changeProcessor.DeleteCalendarItemAsync(request.Item.Id);
+
+        public async Task AcceptEventAsync(AcceptEventRequest request)
+        {
+            request.Item.Status = CalendarItemStatus.Accepted;
+            await UpdateStatusAsync(request.Item).ConfigureAwait(false);
+        }
+
+        public async Task DeclineEventAsync(DeclineEventRequest request)
+        {
+            request.Item.Status = CalendarItemStatus.Cancelled;
+            await UpdateStatusAsync(request.Item).ConfigureAwait(false);
+        }
+
+        public async Task TentativeEventAsync(TentativeEventRequest request)
+        {
+            request.Item.Status = CalendarItemStatus.Tentative;
+            await UpdateStatusAsync(request.Item).ConfigureAwait(false);
+        }
+
+        private async Task UpdateStatusAsync(CalendarItem item)
+        {
+            EnsureCalendarItemDefaults(item, _account, "local");
+            item.AssignedCalendar ??= await _calendarService.GetAccountCalendarAsync(item.CalendarId).ConfigureAwait(false);
+
+            var attendees = await _calendarService.GetAttendeesAsync(item.Id).ConfigureAwait(false);
+            await _calendarService.UpdateCalendarItemAsync(item, attendees).ConfigureAwait(false);
+            await PersistIcsAsync(item, attendees).ConfigureAwait(false);
+        }
+
+        private Task PersistIcsAsync(CalendarItem item, List<CalendarEventAttendee> attendees)
+        {
+            var resourceHref = $"{_resourceScheme}://calendar/{item.CalendarId:N}/{item.Id:N}";
+            var icsContent = BuildIcsContent(item, attendees);
+
+            return _changeProcessor.SaveCalendarItemIcsAsync(
+                _account.Id,
+                item.CalendarId,
+                item.Id,
+                item.RemoteEventId,
+                resourceHref,
+                DateTimeOffset.UtcNow.ToString("O"),
+                icsContent);
+        }
+
+        private async Task SaveAttachmentsAsync(CalendarEventComposeResult composeResult, Guid calendarItemId)
+        {
+            await _calendarService.DeleteAttachmentsAsync(calendarItemId).ConfigureAwait(false);
+
+            var attachments = composeResult?.Attachments;
+            if (attachments == null || attachments.Count == 0)
+                return;
+
+            var attachmentsRoot = Path.Combine(_applicationDataFolderPath, "CalendarAttachments", calendarItemId.ToString("N"));
+            Directory.CreateDirectory(attachmentsRoot);
+
+            var storedAttachments = new List<CalendarAttachment>();
+
+            foreach (var attachment in attachments.Where(a => !string.IsNullOrWhiteSpace(a.FilePath) && File.Exists(a.FilePath)))
+            {
+                var fileName = string.IsNullOrWhiteSpace(attachment.FileName) ? Path.GetFileName(attachment.FilePath) : attachment.FileName;
+                var destinationPath = Path.Combine(attachmentsRoot, fileName);
+                File.Copy(attachment.FilePath, destinationPath, overwrite: true);
+
+                storedAttachments.Add(new CalendarAttachment
+                {
+                    Id = Guid.NewGuid(),
+                    CalendarItemId = calendarItemId,
+                    RemoteAttachmentId = attachment.Id.ToString("N"),
+                    FileName = fileName,
+                    Size = attachment.Size,
+                    ContentType = MimeTypes.GetMimeType(fileName),
+                    IsDownloaded = true,
+                    LocalFilePath = destinationPath,
+                    LastModified = DateTimeOffset.UtcNow
+                });
             }
 
-            if (reconnect == true)
+            if (storedAttachments.Count > 0)
             {
-                Log.Information("Idle client is reconnecting.");
-
-                _ = StartIdleClientAsync();
-            }
-            else if (reconnect == false)
-            {
-                Log.Information("Finalized idle client.");
+                await _calendarService.InsertOrReplaceAttachmentsAsync(storedAttachments).ConfigureAwait(false);
             }
         }
     }
 
+    private sealed class CalDavCalendarOperationHandler : IImapCalendarOperationHandler
+    {
+        private readonly ImapSynchronizer _owner;
+        private readonly MailAccount _account;
+        private readonly ICalendarService _calendarService;
+        private readonly ICalDavClient _calDavClient;
+
+        public bool RequiresConnectedClient => false;
+
+        public CalDavCalendarOperationHandler(
+            ImapSynchronizer owner,
+            MailAccount account,
+            ICalendarService calendarService,
+            ICalDavClient calDavClient)
+        {
+            _owner = owner;
+            _account = account;
+            _calendarService = calendarService;
+            _calDavClient = calDavClient;
+        }
+
+        public Task CreateCalendarEventAsync(CreateCalendarEventRequest request)
+            => UpsertCalendarEventAsync(request.PreparedItem, request.PreparedEvent.Attendees);
+
+        public Task UpdateCalendarEventAsync(UpdateCalendarEventRequest request)
+            => UpsertCalendarEventAsync(request.Item, request.Attendees);
+
+        public async Task DeleteCalendarEventAsync(DeleteCalendarEventRequest request)
+        {
+            var (connection, calendar) = await ResolveCalDavContextAsync(request.Item.CalendarId).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(request.Item?.RemoteEventId))
+            {
+                throw new InvalidOperationException("Cannot delete CalDAV event because remote event ID is missing.");
+            }
+
+            await _calDavClient
+                .DeleteCalendarEventAsync(connection, calendar, request.Item.RemoteEventId.GetProviderRemoteEventId())
+                .ConfigureAwait(false);
+        }
+
+        public Task AcceptEventAsync(AcceptEventRequest request)
+        {
+            request.Item.Status = CalendarItemStatus.Accepted;
+            return UpsertCalendarEventAsync(request.Item, null);
+        }
+
+        public Task DeclineEventAsync(DeclineEventRequest request)
+        {
+            request.Item.Status = CalendarItemStatus.Cancelled;
+            return UpsertCalendarEventAsync(request.Item, null);
+        }
+
+        public Task TentativeEventAsync(TentativeEventRequest request)
+        {
+            request.Item.Status = CalendarItemStatus.Tentative;
+            return UpsertCalendarEventAsync(request.Item, null);
+        }
+
+        private async Task UpsertCalendarEventAsync(CalendarItem item, List<CalendarEventAttendee> attendees)
+        {
+            EnsureCalendarItemDefaults(item, _account, "caldav");
+
+            if (attendees == null)
+            {
+                attendees = await _calendarService.GetAttendeesAsync(item.Id).ConfigureAwait(false);
+            }
+
+            var (connection, calendar) = await ResolveCalDavContextAsync(item.CalendarId).ConfigureAwait(false);
+            var icsContent = BuildIcsContent(item, attendees);
+
+            await _calDavClient
+                .UpsertCalendarEventAsync(connection, calendar, item.RemoteEventId.GetProviderRemoteEventId(), icsContent)
+                .ConfigureAwait(false);
+        }
+
+        private async Task<(CalDavConnectionSettings Connection, CalDavCalendar Calendar)> ResolveCalDavContextAsync(Guid calendarId)
+        {
+            var assignedCalendar = await _calendarService.GetAccountCalendarAsync(calendarId).ConfigureAwait(false);
+            if (assignedCalendar == null || string.IsNullOrWhiteSpace(assignedCalendar.RemoteCalendarId))
+            {
+                throw new InvalidOperationException("Cannot execute CalDAV operation because the target calendar has no remote ID.");
+            }
+
+            var serviceUri = await _owner.ResolveCalDavServiceUriAsync(CancellationToken.None).ConfigureAwait(false);
+            if (serviceUri == null)
+            {
+                throw new InvalidOperationException("Cannot execute CalDAV operation because no CalDAV service URI is configured.");
+            }
+
+            var username = _owner.ResolveCalDavUsername();
+            var password = _owner.ResolveCalDavPassword();
+
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+            {
+                throw new InvalidOperationException("Cannot execute CalDAV operation because credentials are missing.");
+            }
+
+            var connection = new CalDavConnectionSettings
+            {
+                ServiceUri = serviceUri,
+                Username = username,
+                Password = password
+            };
+
+            var remoteCalendar = new CalDavCalendar
+            {
+                RemoteCalendarId = assignedCalendar.RemoteCalendarId,
+                Name = assignedCalendar.Name
+            };
+
+            return (connection, remoteCalendar);
+        }
+    }
+
+    private static void EnsureCalendarItemDefaults(CalendarItem item, MailAccount account, string idPrefix)
+    {
+        if (item == null)
+            throw new ArgumentNullException(nameof(item));
+
+        if (item.Id == Guid.Empty)
+            item.Id = Guid.NewGuid();
+
+        if (string.IsNullOrWhiteSpace(item.RemoteEventId))
+            item.RemoteEventId = $"{idPrefix}-{item.Id:N}";
+
+        if (item.CreatedAt == default)
+            item.CreatedAt = DateTimeOffset.UtcNow;
+
+        item.UpdatedAt = DateTimeOffset.UtcNow;
+        item.OrganizerDisplayName ??= account?.SenderName ?? string.Empty;
+        item.OrganizerEmail ??= account?.Address ?? string.Empty;
+        item.StartTimeZone ??= TimeZoneInfo.Local.Id;
+        item.EndTimeZone ??= item.StartTimeZone;
+    }
+
+    private static string BuildIcsContent(CalendarItem item, List<CalendarEventAttendee> attendees)
+    {
+        var uid = item.RemoteEventId?.Split(new[] { "::" }, StringSplitOptions.None)[0] ?? item.Id.ToString("N");
+        var dtStamp = DateTimeOffset.UtcNow.ToString("yyyyMMdd'T'HHmmss'Z'");
+
+        var lines = new List<string>
+        {
+            "BEGIN:VCALENDAR",
+            "VERSION:2.0",
+            "PRODID:-//Wino Mail//Calendar//EN",
+            "CALSCALE:GREGORIAN",
+            "BEGIN:VEVENT",
+            $"UID:{EscapeIcs(uid)}",
+            $"DTSTAMP:{dtStamp}",
+        };
+
+        if (item.IsAllDayEvent)
+        {
+            lines.Add($"DTSTART;VALUE=DATE:{item.StartDate:yyyyMMdd}");
+            lines.Add($"DTEND;VALUE=DATE:{item.EndDate:yyyyMMdd}");
+        }
+        else
+        {
+            var startUtc = ConvertEventTimeToUtc(item.StartDate, item.StartTimeZone);
+            var endUtc = ConvertEventTimeToUtc(item.EndDate, item.EndTimeZone ?? item.StartTimeZone);
+
+            lines.Add($"DTSTART:{startUtc:yyyyMMdd'T'HHmmss'Z'}");
+            lines.Add($"DTEND:{endUtc:yyyyMMdd'T'HHmmss'Z'}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.Title))
+            lines.Add($"SUMMARY:{EscapeIcs(item.Title)}");
+
+        if (!string.IsNullOrWhiteSpace(item.Description))
+            lines.Add($"DESCRIPTION:{EscapeIcs(item.Description)}");
+
+        if (!string.IsNullOrWhiteSpace(item.Location))
+            lines.Add($"LOCATION:{EscapeIcs(item.Location)}");
+
+        lines.Add($"STATUS:{MapStatus(item.Status)}");
+        lines.Add($"TRANSP:{(item.ShowAs == CalendarItemShowAs.Free ? "TRANSPARENT" : "OPAQUE")}");
+        lines.Add($"CLASS:{MapVisibility(item.Visibility)}");
+
+        if (!string.IsNullOrWhiteSpace(item.Recurrence))
+        {
+            var recurrenceLines = item.Recurrence
+                .Split(Wino.Core.Domain.Constants.CalendarEventRecurrenceRuleSeperator, StringSplitOptions.RemoveEmptyEntries)
+                .Select(l => l.Trim())
+                .Where(l => !string.IsNullOrWhiteSpace(l));
+
+            lines.AddRange(recurrenceLines);
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.OrganizerEmail))
+        {
+            var organizerName = string.IsNullOrWhiteSpace(item.OrganizerDisplayName)
+                ? item.OrganizerEmail
+                : item.OrganizerDisplayName;
+            lines.Add($"ORGANIZER;CN={EscapeIcs(organizerName)}:mailto:{EscapeIcs(item.OrganizerEmail)}");
+        }
+
+        if (attendees != null)
+        {
+            foreach (var attendee in attendees.Where(a => !string.IsNullOrWhiteSpace(a.Email)))
+            {
+                var role = attendee.IsOptionalAttendee ? "OPT-PARTICIPANT" : "REQ-PARTICIPANT";
+                var partStat = attendee.AttendenceStatus switch
+                {
+                    AttendeeStatus.Accepted => "ACCEPTED",
+                    AttendeeStatus.Declined => "DECLINED",
+                    AttendeeStatus.Tentative => "TENTATIVE",
+                    _ => "NEEDS-ACTION"
+                };
+
+                var cn = string.IsNullOrWhiteSpace(attendee.Name) ? attendee.Email : attendee.Name;
+                lines.Add($"ATTENDEE;CN={EscapeIcs(cn)};ROLE={role};PARTSTAT={partStat}:mailto:{EscapeIcs(attendee.Email)}");
+            }
+        }
+
+        lines.Add("END:VEVENT");
+        lines.Add("END:VCALENDAR");
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static DateTime ConvertEventTimeToUtc(DateTime eventDateTime, string eventTimeZoneId)
+    {
+        if (string.IsNullOrWhiteSpace(eventTimeZoneId))
+            return eventDateTime.ToUniversalTime();
+
+        try
+        {
+            var eventTimeZone = TimeZoneInfo.FindSystemTimeZoneById(eventTimeZoneId);
+            var unspecifiedDateTime = DateTime.SpecifyKind(eventDateTime, DateTimeKind.Unspecified);
+            return TimeZoneInfo.ConvertTimeToUtc(unspecifiedDateTime, eventTimeZone);
+        }
+        catch
+        {
+            return eventDateTime.ToUniversalTime();
+        }
+    }
+
+    private static string EscapeIcs(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+
+        return value
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace(";", "\\;", StringComparison.Ordinal)
+            .Replace(",", "\\,", StringComparison.Ordinal)
+            .Replace("\r\n", "\\n", StringComparison.Ordinal)
+            .Replace("\n", "\\n", StringComparison.Ordinal);
+    }
+
+    private static string MapStatus(CalendarItemStatus status)
+    {
+        return status switch
+        {
+            CalendarItemStatus.Cancelled => "CANCELLED",
+            CalendarItemStatus.Tentative => "TENTATIVE",
+            _ => "CONFIRMED"
+        };
+    }
+
+    private static string MapVisibility(CalendarItemVisibility visibility)
+    {
+        return visibility switch
+        {
+            CalendarItemVisibility.Public => "PUBLIC",
+            CalendarItemVisibility.Private => "PRIVATE",
+            CalendarItemVisibility.Confidential => "CONFIDENTIAL",
+            _ => "PUBLIC"
+        };
+    }
+
+    public Task StartIdleClientAsync()
+    {
+        if (IsDisposing)
+            return Task.CompletedTask;
+
+        if (_idleLoopTask != null && !_idleLoopTask.IsCompleted)
+            return Task.CompletedTask;
+
+        _idleLoopCancellationTokenSource = new CancellationTokenSource();
+        _idleLoopTask = RunIdleLoopAsync(_idleLoopCancellationTokenSource.Token);
+
+        return Task.CompletedTask;
+    }
+
+    private async Task RunIdleLoopAsync(CancellationToken cancellationToken)
+    {
+        int reconnectAttempt = 0;
+
+        while (!cancellationToken.IsCancellationRequested && !IsDisposing)
+        {
+            IImapClient idleClient = null;
+            IMailFolder inboxFolder = null;
+            bool shouldReconnect = false;
+
+            try
+            {
+                idleClient = await _clientPool.GetIdleClientAsync(cancellationToken).ConfigureAwait(false);
+
+                if (idleClient == null)
+                {
+                    _logger.Warning("Dedicated IDLE client could not be allocated for {AccountName}.", Account.Name);
+                    return;
+                }
+
+                if (!idleClient.Capabilities.HasFlag(ImapCapabilities.Idle))
+                {
+                    _logger.Information("{AccountName} does not support IMAP IDLE. Automatic updates rely on global sync interval.", Account.Name);
+                    return;
+                }
+
+                if (idleClient.Inbox == null)
+                {
+                    _logger.Warning("{AccountName} does not expose Inbox for IDLE listening.", Account.Name);
+                    return;
+                }
+
+                inboxFolder = idleClient.Inbox;
+
+                await inboxFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
+
+                _lastIdleInboxCount = inboxFolder.Count;
+                inboxFolder.CountChanged += IdleInboxCountChanged;
+
+                reconnectAttempt = 0;
+                _logger.Debug("Started dedicated IDLE loop for {AccountName}.", Account.Name);
+
+                while (!cancellationToken.IsCancellationRequested && !IsDisposing && idleClient.IsConnected)
+                {
+                    using var idleDoneTokenSource = new CancellationTokenSource(TimeSpan.FromMinutes(9));
+                    await idleClient.IdleAsync(idleDoneTokenSource.Token, cancellationToken).ConfigureAwait(false);
+                }
+            }
+            catch (ImapProtocolException protocolException)
+            {
+                _logger.Information(protocolException, "Idle client received protocol exception for {AccountName}.", Account.Name);
+                shouldReconnect = true;
+            }
+            catch (IOException ioException)
+            {
+                _logger.Information(ioException, "Idle client received IO exception for {AccountName}.", Account.Name);
+                shouldReconnect = true;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested || IsDisposing)
+            {
+                break;
+            }
+            catch (OperationCanceledException)
+            {
+                shouldReconnect = true;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Idle client loop failed for {AccountName}.", Account.Name);
+                shouldReconnect = true;
+            }
+            finally
+            {
+                if (inboxFolder != null)
+                {
+                    inboxFolder.CountChanged -= IdleInboxCountChanged;
+
+                    if (inboxFolder.IsOpen && !cancellationToken.IsCancellationRequested)
+                    {
+                        await inboxFolder.CloseAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+                    }
+                }
+
+                _clientPool.ReleaseIdleClient(isFaulted: shouldReconnect);
+            }
+
+            if (!shouldReconnect)
+            {
+                break;
+            }
+
+            reconnectAttempt++;
+            var reconnectDelay = GetIdleReconnectDelay(reconnectAttempt);
+            _logger.Information("Reconnecting IDLE client for {AccountName} in {Delay}.", Account.Name, reconnectDelay);
+
+            try
+            {
+                await Task.Delay(reconnectDelay, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
+    }
+
+    private static TimeSpan GetIdleReconnectDelay(int attempt)
+    {
+        var backoffSeconds = Math.Min(60, Math.Pow(2, Math.Min(attempt, 6)));
+        int jitterMs;
+
+        lock (IdleReconnectJitter)
+        {
+            jitterMs = IdleReconnectJitter.Next(250, 1250);
+        }
+
+        return TimeSpan.FromSeconds(backoffSeconds) + TimeSpan.FromMilliseconds(jitterMs);
+    }
+
     private void RequestIdleChangeSynchronization()
     {
-        Debug.WriteLine("Detected idle change.");
-
-        // We don't really need to act on the count change in detail.
-        // Our synchronization should be enough to handle the changes with on-demand sync.
-        // We can just trigger a sync here IMAPIdle type.
+        if (!ShouldTriggerIdleSynchronization(DateTime.UtcNow))
+            return;
 
         var options = new MailSynchronizationOptions()
         {
@@ -857,18 +2069,60 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             Type = MailSynchronizationType.IMAPIdle
         };
 
-        WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options, SynchronizationSource.Client));
+        WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options));
     }
 
-    private void IdleNotificationTriggered(object sender, EventArgs e)
-        => RequestIdleChangeSynchronization();
-
-    public Task StopIdleClientAsync()
+    internal bool ShouldTriggerIdleSynchronization(DateTime nowUtc)
     {
-        idleDoneTokenSource?.Cancel();
-        idleCancellationTokenSource?.Cancel();
+        lock (_idleDebounceLock)
+        {
+            if (nowUtc - _lastIdleSyncRequestUtc < _idleSyncDebounceWindow)
+            {
+                return false;
+            }
 
-        return Task.CompletedTask;
+            _lastIdleSyncRequestUtc = nowUtc;
+            return true;
+        }
+    }
+
+    private void IdleInboxCountChanged(object sender, EventArgs e)
+    {
+        if (sender is not IMailFolder inboxFolder)
+            return;
+
+        var currentCount = inboxFolder.Count;
+        var previousCount = _lastIdleInboxCount;
+        _lastIdleInboxCount = currentCount;
+
+        if (currentCount > previousCount)
+        {
+            RequestIdleChangeSynchronization();
+        }
+    }
+
+    public async Task StopIdleClientAsync()
+    {
+        if (_idleLoopCancellationTokenSource != null)
+        {
+            _idleLoopCancellationTokenSource.Cancel();
+        }
+
+        if (_idleLoopTask != null)
+        {
+            try
+            {
+                await _idleLoopTask.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // no-op
+            }
+        }
+
+        _idleLoopCancellationTokenSource?.Dispose();
+        _idleLoopCancellationTokenSource = null;
+        _idleLoopTask = null;
     }
 
     public override async Task KillSynchronizerAsync()
@@ -882,3 +2136,5 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
     public Task PreWarmClientPoolAsync() => _clientPool.PreWarmPoolAsync();
 }
+
+

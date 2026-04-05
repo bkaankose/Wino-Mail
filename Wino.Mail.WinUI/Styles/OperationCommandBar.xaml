@@ -1,0 +1,64 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Wino.Mail.WinUI.Controls">
+
+    <Style BasedOn="{StaticResource DefaultCommandBarStyle}" TargetType="controls:OperationCommandBar">
+        <Setter Property="DefaultLabelPosition" Value="Right" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="IsDynamicOverflowEnabled" Value="True" />
+        <Setter Property="OverflowButtonVisibility" Value="Auto" />
+    </Style>
+
+    <DataTemplate x:Key="OperationCommandBarMailOperationTemplate">
+        <AppBarButton
+            MinWidth="40"
+            IsEnabled="{Binding IsEnabled}"
+            Label="{Binding Label}"
+            LabelPosition="{Binding LabelPosition}"
+            ToolTipService.ToolTip="{Binding ToolTip}">
+            <AppBarButton.Icon>
+                <controls:WinoFontIcon Icon="{Binding Icon}" />
+            </AppBarButton.Icon>
+        </AppBarButton>
+    </DataTemplate>
+
+    <DataTemplate x:Key="OperationCommandBarFolderOperationTemplate">
+        <AppBarButton
+            MinWidth="40"
+            IsEnabled="{Binding IsEnabled}"
+            Label="{Binding Label}"
+            LabelPosition="{Binding LabelPosition}"
+            ToolTipService.ToolTip="{Binding ToolTip}">
+            <AppBarButton.Icon>
+                <controls:WinoFontIcon Icon="{Binding Icon}" />
+            </AppBarButton.Icon>
+        </AppBarButton>
+    </DataTemplate>
+
+    <DataTemplate x:Key="OperationCommandBarAIActionsTemplate">
+        <AppBarToggleButton
+            MinWidth="40"
+            LabelPosition="Collapsed"
+            ToolTipService.ToolTip="{Binding ToolTip}">
+            <AppBarToggleButton.Icon>
+                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="{Binding Glyph}" />
+            </AppBarToggleButton.Icon>
+        </AppBarToggleButton>
+    </DataTemplate>
+
+    <DataTemplate x:Key="OperationCommandBarThemeToggleTemplate">
+        <AppBarButton
+            MinWidth="40"
+            LabelPosition="Collapsed"
+            ToolTipService.ToolTip="{Binding ToolTip}">
+            <AppBarButton.Icon>
+                <controls:WinoFontIcon Icon="{Binding Icon}" />
+            </AppBarButton.Icon>
+        </AppBarButton>
+    </DataTemplate>
+
+    <DataTemplate x:Key="OperationCommandBarSeparatorTemplate">
+        <AppBarSeparator />
+    </DataTemplate>
+</ResourceDictionary>

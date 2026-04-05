@@ -25,7 +25,7 @@ public interface IMailService
     /// Caution: This method is not safe. Use other overrides.
     /// </summary>
     Task<List<MailCopy>> GetMailItemsAsync(IEnumerable<string> mailCopyIds);
-    Task<List<IMailItem>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default);
+    Task<List<MailCopy>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Deletes all mail copies for all folders.
@@ -132,6 +132,12 @@ public interface IMailService
     Task<(MailCopy draftMailCopy, string draftBase64MimeMessage)> CreateDraftAsync(Guid accountId, DraftCreationOptions draftCreationOptions);
 
     /// <summary>
+    /// Finds a mail copy in the given account by RFC Message-Id.
+    /// Returns null when no local match exists.
+    /// </summary>
+    Task<MailCopy> GetMailCopyByMessageIdAsync(Guid accountId, string messageId);
+
+    /// <summary>
     /// Returns ids 
     /// </summary>
     /// <param name="folderId"></param>
@@ -162,4 +168,17 @@ public interface IMailService
     /// <param name="onlineArchiveMailIds">Retrieved MailCopy ids from search result.</param>
     /// <returns>Result model that contains added and removed mail copy ids.</returns>
     Task<GmailArchiveComparisonResult> GetGmailArchiveComparisonResultAsync(Guid archiveFolderId, List<string> onlineArchiveMailIds);
+
+    /// <summary>
+    /// Gets the most recent mail IDs for a folder.
+    /// Used for notification purposes after sync completes.
+    /// </summary>
+    /// <param name="folderId">Folder ID.</param>
+    /// <param name="count">Number of recent mails to return.</param>
+    Task<IEnumerable<string>> GetRecentMailIdsForFolderAsync(Guid folderId, int count);
+
+    /// <summary>
+    /// Returns all mail copies for the account created before the given UTC date.
+    /// </summary>
+    Task<List<MailCopy>> GetMailCopiesBeforeDateAsync(Guid accountId, DateTime cutoffDateUtc);
 }

@@ -3,6 +3,7 @@ using Sentry;
 using Serilog;
 using Serilog.Core;
 using Serilog.Exceptions;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Services;
@@ -47,9 +48,13 @@ public class WinoLogger : IWinoLogger
 #endif
             options.AutoSessionTracking = true;
 
-            // Set user context
+            // Set user context and filter out known exceptions.
             options.SetBeforeSend((sentryEvent, hint) =>
             {
+                // Don't send synchronization failure exceptions to Sentry.
+                if (sentryEvent.Exception is SynchronizerException)
+                    return null;
+
                 sentryEvent.User = new SentryUser
                 {
                     Id = _preferencesService.DiagnosticId

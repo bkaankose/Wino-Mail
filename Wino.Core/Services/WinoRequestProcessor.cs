@@ -31,10 +31,10 @@ public class WinoRequestProcessor : IWinoRequestProcessor
     /// </summary>
     private readonly List<ToggleRequestRule> _toggleRequestRules =
     [
-        new ToggleRequestRule(MailOperation.MarkAsRead, MailOperation.MarkAsUnread, new System.Func<IMailItem, bool>((item) => item.IsRead)),
-        new ToggleRequestRule(MailOperation.MarkAsUnread, MailOperation.MarkAsRead, new System.Func<IMailItem, bool>((item) => !item.IsRead)),
-        new ToggleRequestRule(MailOperation.SetFlag, MailOperation.ClearFlag, new System.Func<IMailItem, bool>((item) => item.IsFlagged)),
-        new ToggleRequestRule(MailOperation.ClearFlag, MailOperation.SetFlag, new System.Func<IMailItem, bool>((item) => !item.IsFlagged)),
+        new ToggleRequestRule(MailOperation.MarkAsRead, MailOperation.MarkAsUnread, new System.Func<MailCopy, bool>((item) => item.IsRead)),
+        new ToggleRequestRule(MailOperation.MarkAsUnread, MailOperation.MarkAsRead, new System.Func<MailCopy, bool>((item) => !item.IsRead)),
+        new ToggleRequestRule(MailOperation.SetFlag, MailOperation.ClearFlag, new System.Func<MailCopy, bool>((item) => item.IsFlagged)),
+        new ToggleRequestRule(MailOperation.ClearFlag, MailOperation.SetFlag, new System.Func<MailCopy, bool>((item) => !item.IsFlagged)),
     ];
 
     public WinoRequestProcessor(IFolderService folderService,
@@ -94,7 +94,7 @@ public class WinoRequestProcessor : IWinoRequestProcessor
         var requests = new List<IMailActionRequest>();
 
         // TODO: Fix: Collection was modified; enumeration operation may not execute
-        foreach (var item in preperationRequest.MailItems)
+        foreach (var item in preperationRequest.MailItems.ToList())
         {
             var singleRequest = await GetSingleRequestAsync(item, action, moveTargetStructure, preperationRequest.ToggleExecution);
 
@@ -255,15 +255,29 @@ public class WinoRequestProcessor : IWinoRequestProcessor
                     change = new MarkFolderAsReadRequest(folder, unreadItems);
 
                 break;
-                //case FolderOperation.Delete:
-                //    var isConfirmed = await _dialogService.ShowConfirmationDialogAsync($"'{folderStructure.FolderName}' is going to be deleted. Do you want to continue?", "Are you sure?", "Yes delete.");
+            case FolderOperation.Delete:
+                var deleteQuestion = string.Format(Translator.DialogMessage_DeleteAccountConfirmationMessage, folder.FolderName);
+                var shouldDelete = await _dialogService.ShowConfirmationDialogAsync(deleteQuestion, Translator.FolderOperation_Delete, Translator.FolderOperation_Delete);
 
-                //    if (isConfirmed)
-                //        change = new DeleteFolderRequest(accountId, folderStructure.RemoteFolderId, folderStructure.FolderId);
+                if (shouldDelete)
+                {
+                    change = new DeleteFolderRequest(folder);
+                }
 
-                //    break;
-                //default:
-                //    throw new NotImplementedException();
+                break;
+            case FolderOperation.CreateSubFolder:
+                var subFolderName = await _dialogService.ShowTextInputDialogAsync(
+                    string.Empty,
+                    Translator.FolderOperation_CreateSubFolder,
+                    Translator.DialogMessage_RenameFolderMessage,
+                    Translator.FolderOperation_CreateSubFolder);
+
+                if (!string.IsNullOrWhiteSpace(subFolderName))
+                {
+                    change = new CreateSubFolderRequest(folder, subFolderName.Trim());
+                }
+
+                break;
         }
 
         return change;

@@ -1,0 +1,176 @@
+<abstract:CalendarRenderingSettingsPageAbstract
+    x:Class="Wino.Mail.WinUI.Views.Calendar.CalendarRenderingSettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <ScrollViewer>
+        <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
+            <controls:SettingsCard Description="Adjust the day that week starts." Header="First day of week">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE787;" />
+                </controls:SettingsCard.HeaderIcon>
+                <ComboBox ItemsSource="{x:Bind ViewModel.DayNames, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedFirstDayOfWeekIndex, Mode=TwoWay}" />
+            </controls:SettingsCard>
+
+            <controls:SettingsExpander Description="Set the day range for your working hours." Header="Working days">
+                <controls:SettingsExpander.HeaderIcon>
+                    <FontIcon Glyph="&#xE8EF;" />
+                </controls:SettingsExpander.HeaderIcon>
+                <controls:SettingsExpander.Items>
+                    <controls:SettingsCard HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" ContentAlignment="Vertical">
+                        <controls:SettingsCard.Content>
+                            <StackPanel Spacing="16">
+                                <StackPanel Spacing="6">
+                                    <TextBlock FontWeight="SemiBold" Text="Highlight working hours" />
+                                    <ToggleSwitch
+                                        IsOn="{x:Bind ViewModel.IsWorkingHoursEnabled, Mode=TwoWay}"
+                                        OffContent="Off"
+                                        OnContent="On" />
+                                </StackPanel>
+
+                                <Grid RowSpacing="12">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="50" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock VerticalAlignment="Center" FontWeight="Bold" Text="From" />
+                                        <ComboBox
+                                            Grid.Column="1"
+                                            IsEnabled="{x:Bind ViewModel.IsWorkingHoursEnabled, Mode=OneWay}"
+                                            ItemsSource="{x:Bind ViewModel.DayNames, Mode=OneWay}"
+                                            SelectedIndex="{x:Bind ViewModel.WorkingDayStartIndex, Mode=TwoWay}" />
+                                        <TimePicker
+                                            x:Name="WorkHourStartPicker"
+                                            Grid.Column="2"
+                                            Margin="12,0"
+                                            IsEnabled="{x:Bind ViewModel.IsWorkingHoursEnabled, Mode=OneWay}"
+                                            Time="{x:Bind ViewModel.WorkingHourStart, Mode=TwoWay}" />
+                                    </Grid>
+
+                                    <Grid Grid.Row="1">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="50" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock VerticalAlignment="Center" FontWeight="Bold" Text="To" />
+                                        <ComboBox
+                                            Grid.Column="1"
+                                            IsEnabled="{x:Bind ViewModel.IsWorkingHoursEnabled, Mode=OneWay}"
+                                            ItemsSource="{x:Bind ViewModel.DayNames, Mode=OneWay}"
+                                            SelectedIndex="{x:Bind ViewModel.WorkingDayEndIndex, Mode=TwoWay}" />
+                                        <TimePicker
+                                            x:Name="WorkHourEndPicker"
+                                            Grid.Column="2"
+                                            Margin="12,0"
+                                            IsEnabled="{x:Bind ViewModel.IsWorkingHoursEnabled, Mode=OneWay}"
+                                            Time="{x:Bind ViewModel.WorkingHourEnd, Mode=TwoWay}" />
+                                    </Grid>
+                                </Grid>
+                            </StackPanel>
+                        </controls:SettingsCard.Content>
+                    </controls:SettingsCard>
+                </controls:SettingsExpander.Items>
+            </controls:SettingsExpander>
+
+            <controls:SettingsExpander Description="Adjust calendar timeline rendering options." Header="Calendar rendering" IsExpanded="True">
+                <controls:SettingsExpander.HeaderIcon>
+                    <FontIcon Glyph="&#xE9D2;" />
+                </controls:SettingsExpander.HeaderIcon>
+                <controls:SettingsExpander.Items>
+                    <controls:SettingsCard
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch"
+                        ContentAlignment="Vertical"
+                        Description="How many pixels should 1 hour representation occupy in daily/weekly calendars."
+                        Header="Hour height">
+                        <StackPanel Spacing="12">
+                            <Slider
+                                x:Name="HourCellSlider"
+                                LargeChange="10"
+                                Maximum="120"
+                                Minimum="40"
+                                SmallChange="5"
+                                StepFrequency="5"
+                                Value="{x:Bind ViewModel.CellHourHeight, Mode=TwoWay}" />
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock VerticalAlignment="Bottom" Text="00:00" />
+                                <Grid
+                                    Grid.Column="1"
+                                    Width="100"
+                                    Height="{x:Bind HourCellSlider.Value, Mode=OneWay}"
+                                    VerticalAlignment="Center"
+                                    BorderBrush="Black"
+                                    BorderThickness="1">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="1" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+                                    <Rectangle Grid.Row="1" HorizontalAlignment="Stretch" Stroke="Black" StrokeThickness="0.5" />
+                                </Grid>
+                            </Grid>
+                        </StackPanel>
+                    </controls:SettingsCard>
+
+                    <controls:SettingsCard Description="Set whether you want to use AM/PM or 24 hour clock identifier." Header="Clock identifier for headers">
+                        <StackPanel Spacing="8">
+                            <ToggleSwitch
+                                HorizontalAlignment="Right"
+                                IsOn="{x:Bind ViewModel.Is24HourHeaders, Mode=TwoWay}"
+                                OffContent="12h"
+                                OnContent="24h" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="{x:Bind ViewModel.TimedHourLabelPreview, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                        </StackPanel>
+                    </controls:SettingsCard>
+
+                    <controls:SettingsCard Description="{x:Bind domain:Translator.CalendarSettings_TimedDayHeaderFormat_Description}" Header="{x:Bind domain:Translator.CalendarSettings_TimedDayHeaderFormat_Header}">
+                        <StackPanel Spacing="8">
+                            <TextBox PlaceholderText="ddd dd" Text="{x:Bind ViewModel.TimedDayHeaderDateFormat, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <ComboBox ItemsSource="{x:Bind ViewModel.TimedDayHeaderFormatPresets, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedTimedDayHeaderFormatPresetIndex, Mode=TwoWay}" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="{x:Bind ViewModel.TimedDayHeaderFormatPreview, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                        </StackPanel>
+                    </controls:SettingsCard>
+                </controls:SettingsExpander.Items>
+            </controls:SettingsExpander>
+        </StackPanel>
+
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="ClockIdentifierStates">
+                <VisualState x:Name="TwelveHour" />
+                <VisualState x:Name="TwentyFourHour">
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind ViewModel.Is24HourHeaders, Mode=OneWay}" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="WorkHourStartPicker.ClockIdentifier" Value="24HourClock" />
+                        <Setter Target="WorkHourEndPicker.ClockIdentifier" Value="24HourClock" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+    </ScrollViewer>
+</abstract:CalendarRenderingSettingsPageAbstract>

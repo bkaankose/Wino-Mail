@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Interfaces;
-using Wino.Services.Threading;
 
 namespace Wino.Services;
 
@@ -15,6 +14,8 @@ public static class ServicesContainerSetup
         services.AddSingleton<IWinoLogger, WinoLogger>();
         services.AddSingleton<ILaunchProtocolService, LaunchProtocolService>();
         services.AddSingleton<IMimeFileService, MimeFileService>();
+        services.AddSingleton<ICalendarIcsFileService, CalendarIcsFileService>();
+        services.AddTransient<IMimeStorageService, MimeStorageService>();
 
         services.AddTransient<ICalendarService, CalendarService>();
         services.AddTransient<IMailService, MailService>();
@@ -22,14 +23,16 @@ public static class ServicesContainerSetup
         services.AddTransient<IAccountService, AccountService>();
         services.AddTransient<IContactService, ContactService>();
         services.AddTransient<ISignatureService, SignatureService>();
+        services.AddTransient<IEmailTemplateService, EmailTemplateService>();
         services.AddTransient<IContextMenuItemService, ContextMenuItemService>();
         services.AddTransient<ISpecialImapProviderConfigResolver, SpecialImapProviderConfigResolver>();
+        services.AddTransient<IKeyboardShortcutService, KeyboardShortcutService>();
+        services.AddSingleton<IWinoAccountApiClient, WinoAccountApiClient>();
+        services.AddSingleton<IWinoAccountProfileService, WinoAccountProfileService>();
+        services.AddTransient<IWinoAccountDataSyncService, WinoAccountDataSyncService>();
+        services.AddSingleton<IContactPictureFileService, ContactPictureFileService>();
 
-        services.AddSingleton<IThreadingStrategyProvider, ThreadingStrategyProvider>();
-        services.AddTransient<IOutlookThreadingStrategy, OutlookThreadingStrategy>();
-        services.AddTransient<IGmailThreadingStrategy, GmailThreadingStrategy>();
-        services.AddTransient<IImapThreadingStrategy, ImapThreadingStrategy>();
-
-
+        services.AddTransient<ICalDavClient, CalDavClient>();
+        services.AddSingleton<IUpdateManager, UpdateManager>();
     }
 }

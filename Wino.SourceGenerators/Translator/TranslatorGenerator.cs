@@ -43,7 +43,7 @@ namespace Wino.Core.SourceGeneration.Translator
 
         // Get the JSON schema and track changes
         var jsonSchema = context.AdditionalTextsProvider
-            .Where(static file => file.Path.EndsWith("en_US\\resources.json"))
+            .Where(static file => file.Path.Replace("\\", "/").EndsWith("en_US/resources.json", StringComparison.OrdinalIgnoreCase))
             .Select((text, _) => (text, text.GetText()))
             .Collect()
             .WithTrackingName("JsonSchema");

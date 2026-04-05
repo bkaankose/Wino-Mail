@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Graph.Models;
@@ -7,8 +8,10 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Extensions;
 using Wino.Services;
+using Reminder = Wino.Core.Domain.Entities.Calendar.Reminder;
 
 namespace Wino.Core.Integration.Processors;
 
@@ -40,15 +43,13 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
 
     public async Task ManageCalendarEventAsync(Event calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount)
     {
-        // We parse the occurrences based on the parent event.
-        // There is literally no point to store them because
-        // type=Exception events are the exceptional childs of recurrency parent event.
-
-        if (calendarEvent.Type == EventType.Occurrence) return;
+        // All event types are now handled: SingleInstance, SeriesMaster, Occurrence, and Exception.
+        // Occurrences from CalendarView are individual instances that are saved separately.
 
         var savingItem = await CalendarService.GetCalendarItemAsync(assignedCalendar.Id, calendarEvent.Id);
 
         Guid savingItemId = Guid.Empty;
+        bool isNewItem = savingItem == null;
 
         if (savingItem != null)
             savingItemId = savingItem.Id;
@@ -58,25 +59,33 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
             savingItem = new CalendarItem() { Id = savingItemId };
         }
 
-        DateTimeOffset eventStartDateTimeOffset = OutlookIntegratorExtensions.GetDateTimeOffsetFromDateTimeTimeZone(calendarEvent.Start);
-        DateTimeOffset eventEndDateTimeOffset = OutlookIntegratorExtensions.GetDateTimeOffsetFromDateTimeTimeZone(calendarEvent.End);
+        var eventStartLocalDateTime = OutlookIntegratorExtensions.GetLocalDateTimeFromDateTimeTimeZone(calendarEvent.Start);
+        var eventEndLocalDateTime = OutlookIntegratorExtensions.GetLocalDateTimeFromDateTimeTimeZone(calendarEvent.End);
 
-        var durationInSeconds = (eventEndDateTimeOffset - eventStartDateTimeOffset).TotalSeconds;
+        var durationInSeconds = (eventEndLocalDateTime - eventStartLocalDateTime).TotalSeconds;
 
-        savingItem.RemoteEventId = calendarEvent.Id;
-        savingItem.StartDate = eventStartDateTimeOffset.DateTime;
-        savingItem.StartDateOffset = eventStartDateTimeOffset.Offset;
-        savingItem.EndDateOffset = eventEndDateTimeOffset.Offset;
+        // Store the wall-clock values exactly as Outlook returned them for the event timezone.
+        // Timed events are converted for display later, while all-day events stay as floating dates.
+        savingItem.RemoteEventId = calendarEvent.Id.WithClientTrackingId(calendarEvent.TransactionId.GetClientTrackingId());
+        savingItem.StartDate = eventStartLocalDateTime;
         savingItem.DurationInSeconds = durationInSeconds;
+
+        // Store the timezone information from the event
+        // This preserves the original timezone from Outlook, allowing proper reconstruction later
+        // If no timezone is provided, null will indicate UTC
+        savingItem.StartTimeZone = calendarEvent.Start?.TimeZone;
+        savingItem.EndTimeZone = calendarEvent.End?.TimeZone;
 
         savingItem.Title = calendarEvent.Subject;
         savingItem.Description = calendarEvent.Body?.Content;
         savingItem.Location = calendarEvent.Location?.DisplayName;
 
-        if (calendarEvent.Type == EventType.Exception && !string.IsNullOrEmpty(calendarEvent.SeriesMasterId))
+        // Handle recurring event relationships for both Exception and Occurrence types
+        if ((calendarEvent.Type == EventType.Exception || calendarEvent.Type == EventType.Occurrence) 
+            && !string.IsNullOrEmpty(calendarEvent.SeriesMasterId))
         {
-            // This is a recurring event exception.
-            // We need to find the parent event and set it as recurring event id.
+            // This is a recurring event instance (either an exception or a regular occurrence).
+            // Link it to the parent series master.
 
             var parentEvent = await CalendarService.GetCalendarItemAsync(assignedCalendar.Id, calendarEvent.SeriesMasterId);
 
@@ -86,12 +95,14 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
             }
             else
             {
-                Log.Warning($"Parent recurring event is missing for event. Skipping creation of {calendarEvent.Id}");
-                return;
+                // Parent not found yet - this can happen if occurrences sync before the series master.
+                // We still save the event but without the parent link for now.
+                Log.Warning($"Parent recurring event (SeriesMasterId: {calendarEvent.SeriesMasterId}) not found for event {calendarEvent.Id}. Event will be saved without parent link.");
             }
         }
 
         // Convert the recurrence pattern to string for parent recurring events.
+        // Note: We store this for reference but don't use it to calculate occurrences.
         if (calendarEvent.Type == EventType.SeriesMaster && calendarEvent.Recurrence != null)
         {
             savingItem.Recurrence = OutlookIntegratorExtensions.ToRfc5545RecurrenceString(calendarEvent.Recurrence);
@@ -102,6 +113,52 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
         savingItem.OrganizerEmail = calendarEvent.Organizer?.EmailAddress?.Address;
         savingItem.OrganizerDisplayName = calendarEvent.Organizer?.EmailAddress?.Name;
         savingItem.IsHidden = false;
+
+        // Set timestamps
+        if (calendarEvent.CreatedDateTime.HasValue)
+            savingItem.CreatedAt = calendarEvent.CreatedDateTime.Value;
+
+        if (calendarEvent.LastModifiedDateTime.HasValue)
+            savingItem.UpdatedAt = calendarEvent.LastModifiedDateTime.Value;
+
+        // Set visibility
+        if (calendarEvent.Sensitivity != null)
+        {
+            savingItem.Visibility = calendarEvent.Sensitivity.Value switch
+            {
+                Sensitivity.Normal => CalendarItemVisibility.Public,
+                Sensitivity.Personal => CalendarItemVisibility.Private,
+                Sensitivity.Private => CalendarItemVisibility.Private,
+                Sensitivity.Confidential => CalendarItemVisibility.Confidential,
+                _ => CalendarItemVisibility.Public
+            };
+        }
+        else
+        {
+            savingItem.Visibility = CalendarItemVisibility.Public;
+        }
+
+        // Set ShowAs status
+        if (calendarEvent.ShowAs != null)
+        {
+            savingItem.ShowAs = calendarEvent.ShowAs.Value switch
+            {
+                Microsoft.Graph.Models.FreeBusyStatus.Free => CalendarItemShowAs.Free,
+                Microsoft.Graph.Models.FreeBusyStatus.Tentative => CalendarItemShowAs.Tentative,
+                Microsoft.Graph.Models.FreeBusyStatus.Busy => CalendarItemShowAs.Busy,
+                Microsoft.Graph.Models.FreeBusyStatus.Oof => CalendarItemShowAs.OutOfOffice,
+                Microsoft.Graph.Models.FreeBusyStatus.WorkingElsewhere => CalendarItemShowAs.WorkingElsewhere,
+                _ => CalendarItemShowAs.Busy
+            };
+        }
+        else
+        {
+            savingItem.ShowAs = CalendarItemShowAs.Busy;
+        }
+
+        // Set IsLocked based on whether the user is the organizer
+        // Read-only events are those where the current user is not the organizer
+        savingItem.IsLocked = calendarEvent.IsOrganizer.HasValue && !calendarEvent.IsOrganizer.Value;
 
         if (calendarEvent.ResponseStatus?.Response != null)
         {
@@ -116,7 +173,7 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
                     break;
                 case ResponseType.Accepted:
                 case ResponseType.Organizer:
-                    savingItem.Status = CalendarItemStatus.Confirmed;
+                    savingItem.Status = CalendarItemStatus.Accepted;
                     break;
                 case ResponseType.Declined:
                     savingItem.Status = CalendarItemStatus.Cancelled;
@@ -128,18 +185,80 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
         }
         else
         {
-            savingItem.Status = CalendarItemStatus.Confirmed;
+            savingItem.Status = CalendarItemStatus.Accepted;
         }
 
-        // Upsert the event.
-        await Connection.InsertOrReplaceAsync(savingItem);
-
-        // Manage attendees.
+        // Prepare attendees list
+        List<CalendarEventAttendee> attendees = null;
         if (calendarEvent.Attendees != null)
         {
-            // Clear all attendees for this event.
-            var attendees = calendarEvent.Attendees.Select(a => a.CreateAttendee(savingItemId)).ToList();
-            await CalendarService.ManageEventAttendeesAsync(savingItemId, attendees).ConfigureAwait(false);
+            // Pass the organizer's email address to properly identify the organizer in the attendees list
+            string organizerEmail = calendarEvent.Organizer?.EmailAddress?.Address;
+            attendees = calendarEvent.Attendees.Select(a => a.CreateAttendee(savingItemId, organizerEmail)).ToList();
+        }
+
+        // Prepare reminders list from Outlook event
+        List<Reminder> reminders = null;
+        if (calendarEvent.IsReminderOn.GetValueOrDefault() && calendarEvent.ReminderMinutesBeforeStart.HasValue)
+        {
+            var reminderMinutes = calendarEvent.ReminderMinutesBeforeStart.Value;
+            var reminderDurationInSeconds = reminderMinutes * 60; // Convert minutes to seconds
+
+            reminders = new List<Reminder>
+            {
+                new Reminder
+                {
+                    Id = Guid.NewGuid(),
+                    CalendarItemId = savingItemId,
+                    DurationInSeconds = reminderDurationInSeconds,
+                    ReminderType = CalendarItemReminderType.Popup
+                }
+            };
+        }
+
+        // Prepare attachments metadata from Outlook event
+        List<CalendarAttachment> attachments = null;
+        if (calendarEvent.HasAttachments.GetValueOrDefault() && calendarEvent.Attachments != null)
+        {
+            attachments = calendarEvent.Attachments
+                .Where(a => a != null && !string.IsNullOrEmpty(a.Name))
+                .Select(a => new CalendarAttachment
+                {
+                    Id = Guid.NewGuid(),
+                    CalendarItemId = savingItemId,
+                    RemoteAttachmentId = a.Id,
+                    FileName = a.Name,
+                    Size = a.Size ?? 0,
+                    ContentType = a.ContentType ?? "application/octet-stream",
+                    IsDownloaded = false,
+                    LocalFilePath = null,
+                    LastModified = calendarEvent.LastModifiedDateTime ?? DateTimeOffset.UtcNow
+                })
+                .ToList();
+        }
+
+        // Set assigned calendar for navigation properties to work.
+        savingItem.AssignedCalendar = assignedCalendar;
+
+        // Use CalendarService to create or update the event
+        if (isNewItem)
+        {
+            // New item - use CreateNewCalendarItemAsync
+            await CalendarService.CreateNewCalendarItemAsync(savingItem, attendees).ConfigureAwait(false);
+        }
+        else
+        {
+            // Existing item - use UpdateCalendarItemAsync
+            await CalendarService.UpdateCalendarItemAsync(savingItem, attendees).ConfigureAwait(false);
+        }
+
+        // Save reminders separately
+        await CalendarService.SaveRemindersAsync(savingItemId, reminders).ConfigureAwait(false);
+
+        // Save attachments metadata separately
+        if (attachments != null && attachments.Count > 0)
+        {
+            await CalendarService.InsertOrReplaceAttachmentsAsync(attachments).ConfigureAwait(false);
         }
     }
 }

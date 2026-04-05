@@ -5,6 +5,7 @@ public enum AccountCreationDialogState
     Idle,
     SigningIn,
     PreparingFolders,
+    CalendarMetadataFetch,
     Completed,
     ManuelSetupWaiting,
     TestingConnection,

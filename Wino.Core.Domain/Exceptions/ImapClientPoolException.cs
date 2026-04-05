@@ -9,22 +9,18 @@ public class ImapClientPoolException : Exception
     {
     }
 
-    public ImapClientPoolException(string message, CustomServerInformation customServerInformation, string protocolLog) : base(message)
+    public ImapClientPoolException(string message, CustomServerInformation customServerInformation) : base(message)
     {
         CustomServerInformation = customServerInformation;
-        ProtocolLog = protocolLog;
     }
 
-    public ImapClientPoolException(string message, string protocolLog) : base(message)
+    public ImapClientPoolException(string message) : base(message)
     {
-        ProtocolLog = protocolLog;
     }
 
-    public ImapClientPoolException(Exception innerException, string protocolLog) : base(innerException.Message, innerException)
+    public ImapClientPoolException(Exception innerException) : base(innerException.Message, innerException)
     {
-        ProtocolLog = protocolLog;
     }
 
     public CustomServerInformation CustomServerInformation { get; }
-    public string ProtocolLog { get; }
 }

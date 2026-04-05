@@ -1,6 +1,6 @@
-﻿using System.Threading.Tasks;
+#nullable enable
+using System.Threading.Tasks;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.Store;
 
 namespace Wino.Core.Domain.Interfaces;
 
@@ -9,10 +9,20 @@ public interface IStoreManagementService
     /// <summary>
     /// Checks whether user has the type of an add-on purchased.
     /// </summary>
-    Task<bool> HasProductAsync(StoreProductType productType);
+    Task<bool> HasProductAsync(WinoAddOnProductType productType);
 
     /// <summary>
     /// Attempts to purchase the given add-on.
     /// </summary>
-    Task<StorePurchaseResult> PurchaseAsync(StoreProductType productType);
+    Task<StorePurchaseResult> PurchaseAsync(WinoAddOnProductType productType);
+
+    /// <summary>
+    /// Requests a Microsoft Store collections ID key for the current customer.
+    /// </summary>
+    Task<string?> GetCustomerCollectionsIdAsync(string serviceTicket, string publisherUserId);
+
+    /// <summary>
+    /// Requests a Microsoft Store purchase ID key for the current customer.
+    /// </summary>
+    Task<string?> GetCustomerPurchaseIdAsync(string serviceTicket, string publisherUserId);
 }

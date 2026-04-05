@@ -3,7 +3,9 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using HtmlAgilityPack;
 using MimeKit;
+using MimeKit.Cryptography;
 using Serilog;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
@@ -119,6 +121,85 @@ public class MimeFileService : IMimeFileService
         return true;
     }
 
+    public async Task<string> GetTranslatedHtmlAsync(Guid accountId, Guid fileId, string targetLanguage, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(targetLanguage))
+        {
+            return null;
+        }
+
+        try
+        {
+            var translatedHtmlPath = await GetTranslatedHtmlPathAsync(accountId, fileId, targetLanguage).ConfigureAwait(false);
+            if (!File.Exists(translatedHtmlPath))
+            {
+                return null;
+            }
+
+            return await File.ReadAllTextAsync(translatedHtmlPath, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Could not read translated html cache for FileId: {FileId}, Language: {Language}", fileId, targetLanguage);
+            return null;
+        }
+    }
+
+    public async Task SaveTranslatedHtmlAsync(Guid accountId, Guid fileId, string targetLanguage, string html, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(targetLanguage) || string.IsNullOrWhiteSpace(html))
+        {
+            return;
+        }
+
+        try
+        {
+            var translatedHtmlPath = await GetTranslatedHtmlPathAsync(accountId, fileId, targetLanguage).ConfigureAwait(false);
+            await File.WriteAllTextAsync(translatedHtmlPath, html, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Could not save translated html cache for FileId: {FileId}, Language: {Language}", fileId, targetLanguage);
+        }
+    }
+
+    public async Task<string> GetSummaryTextAsync(Guid accountId, Guid fileId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var summaryPath = await GetSummaryTextPathAsync(accountId, fileId).ConfigureAwait(false);
+            if (!File.Exists(summaryPath))
+            {
+                return null;
+            }
+
+            return await File.ReadAllTextAsync(summaryPath, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Could not read summary cache for FileId: {FileId}", fileId);
+            return null;
+        }
+    }
+
+    public async Task SaveSummaryTextAsync(Guid accountId, Guid fileId, string summary, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(summary))
+        {
+            return;
+        }
+
+        try
+        {
+            var summaryPath = await GetSummaryTextPathAsync(accountId, fileId).ConfigureAwait(false);
+            await File.WriteAllTextAsync(summaryPath, NormalizeSummaryText(summary), cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Could not save summary cache for FileId: {FileId}", fileId);
+        }
+    }
+
     public MailRenderModel GetMailRenderModel(MimeMessage message, string mimeLocalPath, MailRenderingOptions options = null)
     {
         var visitor = CreateHTMLPreviewVisitor(message, mimeLocalPath);
@@ -147,12 +228,26 @@ public class MimeFileService : IMimeFileService
 
         var renderingModel = new MailRenderModel(finalRenderHtml, options);
 
-        // Create attachments.
+        renderingModel.Signatures = visitor.Signatures;
 
+        // S/MIME encryption detection: if the body is ApplicationPkcs7Mime and SecureMimeType is EnvelopedData
+        renderingModel.IsSmimeEncrypted = message.Body is ApplicationPkcs7Mime encrypted &&
+            encrypted.SecureMimeType == SecureMimeType.EnvelopedData;
+
+        // Create attachments.
         foreach (var attachment in visitor.Attachments)
         {
             if (attachment.IsAttachment && attachment is MimePart attachmentPart)
             {
+                // Exclude S/MIME encryption/decryption certificates
+                var contentType = attachmentPart.ContentType?.MimeType?.ToLowerInvariant();
+                var fileName = attachmentPart.FileName?.ToLowerInvariant();
+                if ((contentType == "application/pkcs7-signature"
+                    || contentType == "application/x-pkcs7-signature"
+                    && fileName == "smime.p7s") || (contentType == "application/pkcs7-mime"
+                                                    || contentType == "application/x-pkcs7-mime"
+                                                    && fileName == "smime.p7m"))
+                    continue;
                 renderingModel.Attachments.Add(attachmentPart);
             }
         }
@@ -193,5 +288,68 @@ public class MimeFileService : IMimeFileService
         {
             Log.Error(ex, "Failed to remove user's mime cache folder.");
         }
+    }
+
+    private async Task<string> GetTranslatedHtmlPathAsync(Guid accountId, Guid fileId, string targetLanguage)
+    {
+        var resourcePath = await GetMimeResourcePathAsync(accountId, fileId).ConfigureAwait(false);
+        return Path.Combine(resourcePath, $"translated-{SanitizeFileNamePart(targetLanguage)}.html");
+    }
+
+    private async Task<string> GetSummaryTextPathAsync(Guid accountId, Guid fileId)
+    {
+        var resourcePath = await GetMimeResourcePathAsync(accountId, fileId).ConfigureAwait(false);
+        return Path.Combine(resourcePath, "summary.txt");
+    }
+
+    private static string SanitizeFileNamePart(string value)
+    {
+        var invalidCharacters = Path.GetInvalidFileNameChars();
+        var sanitizedChars = value
+            .Trim()
+            .Select(ch => invalidCharacters.Contains(ch) ? '_' : char.ToLowerInvariant(ch))
+            .ToArray();
+
+        return sanitizedChars.Length == 0 ? "default" : new string(sanitizedChars);
+    }
+
+    private static string NormalizeSummaryText(string summary)
+    {
+        if (string.IsNullOrWhiteSpace(summary))
+        {
+            return string.Empty;
+        }
+
+        if (!summary.Contains('<'))
+        {
+            return summary.Trim();
+        }
+
+        var document = new HtmlDocument();
+        document.LoadHtml(summary);
+
+        var lineBreakNodes = document.DocumentNode.SelectNodes("//br|//p|//div|//li");
+        if (lineBreakNodes != null)
+        {
+            foreach (var node in lineBreakNodes)
+            {
+                if (node.Name.Equals("li", StringComparison.OrdinalIgnoreCase))
+                {
+                    node.ParentNode?.InsertBefore(document.CreateTextNode(Environment.NewLine + "- "), node);
+                }
+                else
+                {
+                    node.ParentNode?.InsertBefore(document.CreateTextNode(Environment.NewLine), node);
+                }
+            }
+        }
+
+        var plainText = HtmlEntity.DeEntitize(document.DocumentNode.InnerText ?? string.Empty);
+        return string.Join(
+            Environment.NewLine,
+            plainText
+                .Split([Environment.NewLine], StringSplitOptions.None)
+                .Select(line => line.Trim())
+                .Where(line => !string.IsNullOrWhiteSpace(line)));
     }
 }

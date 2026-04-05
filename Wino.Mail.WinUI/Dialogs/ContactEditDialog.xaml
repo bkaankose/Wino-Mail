@@ -1,0 +1,106 @@
+<ContentDialog
+    x:Class="Wino.Dialogs.ContactEditDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Wino.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    HorizontalContentAlignment="Stretch"
+    DefaultButton="Primary"
+    IsPrimaryButtonEnabled="True"
+    PrimaryButtonClick="SaveClicked"
+    PrimaryButtonText="{x:Bind domain:Translator.Buttons_Save, Mode=OneTime}"
+    SecondaryButtonClick="CancelClicked"
+    SecondaryButtonText="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}"
+    Style="{StaticResource WinoDialogStyle}"
+    mc:Ignorable="d">
+
+    <ContentDialog.Resources>
+        <x:Double x:Key="ContentDialogMaxWidth">400</x:Double>
+    </ContentDialog.Resources>
+
+    <StackPanel Spacing="20">
+        <!--  Contact Name  -->
+        <TextBox
+            x:Name="ContactNameTextBox"
+            Header="{x:Bind domain:Translator.ContactEditDialog_NameHeader, Mode=OneTime}"
+            PlaceholderText="{x:Bind domain:Translator.ContactEditDialog_NamePlaceholder, Mode=OneTime}"
+            TextChanged="ValidateInput" />
+
+        <!--  Email Address  -->
+        <TextBox
+            x:Name="EmailAddressTextBox"
+            Header="{x:Bind domain:Translator.ContactEditDialog_EmailHeader, Mode=OneTime}"
+            PlaceholderText="{x:Bind domain:Translator.ContactEditDialog_EmailPlaceholder, Mode=OneTime}"
+            TextChanged="ValidateInput" />
+
+        <!--  Contact Photo  -->
+        <StackPanel>
+            <TextBlock
+                Margin="0,0,0,8"
+                Style="{ThemeResource BodyStrongTextBlockStyle}"
+                Text="{x:Bind domain:Translator.ContactEditDialog_PhotoSection, Mode=OneTime}" />
+            <Border
+                Padding="16"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="6">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <controls:ImagePreviewControl
+                        x:Name="ContactPhotoPersonPicture"
+                        Grid.Column="0"
+                        Width="64"
+                        Height="64"
+                        Margin="0,0,16,0" />
+
+                    <StackPanel
+                        Grid.Column="1"
+                        VerticalAlignment="Center"
+                        Spacing="8">
+                        <Button
+                            x:Name="ChoosePhotoButton"
+                            Click="ChoosePhotoClicked"
+                            Content="{x:Bind domain:Translator.ContactEditDialog_ChoosePhoto, Mode=OneTime}" />
+                        <Button
+                            x:Name="RemovePhotoButton"
+                            Click="RemovePhotoClicked"
+                            Content="{x:Bind domain:Translator.ContactEditDialog_RemovePhoto, Mode=OneTime}"
+                            Visibility="Collapsed" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </StackPanel>
+
+        <!--  Contact Status Info  -->
+        <Border
+            x:Name="RootContactInfoBorder"
+            Padding="16,12"
+            Background="{ThemeResource AccentFillColorDefaultBrush}"
+            CornerRadius="6"
+            Visibility="Collapsed">
+            <TextBlock
+                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                Text="{x:Bind domain:Translator.ContactEditDialog_RootContactInfo, Mode=OneTime}"
+                TextWrapping="Wrap" />
+        </Border>
+
+        <Border
+            x:Name="OverriddenContactInfoBorder"
+            Padding="16,12"
+            Background="{ThemeResource SystemFillColorCautionBrush}"
+            CornerRadius="6"
+            Visibility="Collapsed">
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                Text="{x:Bind domain:Translator.ContactEditDialog_OverriddenContactInfo, Mode=OneTime}"
+                TextWrapping="Wrap" />
+        </Border>
+    </StackPanel>
+</ContentDialog>

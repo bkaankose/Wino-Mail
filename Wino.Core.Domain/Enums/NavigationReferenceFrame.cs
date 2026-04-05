@@ -3,5 +3,6 @@
 public enum NavigationReferenceFrame
 {
     ShellFrame,
+    InnerShellFrame,
     RenderingFrame
 }

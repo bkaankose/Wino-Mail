@@ -1,10 +1,15 @@
-﻿using System;
+#nullable enable
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models;
+using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
 
 namespace Wino.Core.Domain.Interfaces;
@@ -17,6 +22,7 @@ public interface IMailDialogService : IDialogServiceBase
     // Custom dialogs
     Task<IMailItemFolder> ShowMoveMailFolderDialogAsync(List<IMailItemFolder> availableFolders);
     Task<MailAccount> ShowAccountPickerDialogAsync(List<MailAccount> availableAccounts);
+    Task<AccountCalendarPickingResult> ShowSingleCalendarPickerDialogAsync(List<CalendarPickerAccountGroup> availableCalendarGroups);
 
     /// <summary>
     /// Displays a dialog to the user for reordering accounts.
@@ -37,7 +43,7 @@ public interface IMailDialogService : IDialogServiceBase
     /// Presents a dialog to the user for signature creation/modification.
     /// </summary>
     /// <returns>Signature information. Null if canceled.</returns>
-    Task<AccountSignature> ShowSignatureEditorDialog(AccountSignature signatureModel = null);
+    Task<AccountSignature> ShowSignatureEditorDialog(AccountSignature? signatureModel = null);
 
     /// <summary>
     /// Presents a dialog to the user for account alias creation/modification.
@@ -49,4 +55,26 @@ public interface IMailDialogService : IDialogServiceBase
     /// Presents a dialog to the user to show email source.
     /// </summary>
     Task ShowMessageSourceDialogAsync(string messageSource);
+
+    /// <summary>
+    /// Presents a dialog to the user for keyboard shortcut creation/modification.
+    /// </summary>
+    /// <param name="existingShortcut">Existing shortcut to edit, or null for new shortcut.</param>
+    /// <returns>Dialog result with shortcut information.</returns>
+#pragma warning disable CS8625
+    Task<KeyboardShortcutDialogResult> ShowKeyboardShortcutDialogAsync(KeyboardShortcut existingShortcut = null);
+#pragma warning restore CS8625
+
+    /// <summary>
+    /// Presents a dialog to the user for contact creation/modification.
+    /// </summary>
+    /// <param name="contact">Existing contact to edit, or null for new contact.</param>
+    /// <returns>Contact information. Null if canceled.</returns>
+    Task<AccountContact?> ShowEditContactDialogAsync(AccountContact? contact = null);
+
+    Task<WinoAccount?> ShowWinoAccountRegistrationDialogAsync();
+
+    Task<WinoAccount?> ShowWinoAccountLoginDialogAsync();
+
+    Task<WinoAccountSyncExportResult?> ShowWinoAccountExportDialogAsync();
 }
