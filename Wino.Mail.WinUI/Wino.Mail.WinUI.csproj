@@ -12,30 +12,11 @@
     <UseWinUI>true</UseWinUI>
     <EnableMsixTooling>true</EnableMsixTooling>
     <Nullable>enable</Nullable>
-
-	<!-- AOT / Trimming -->
-	<PublishAot Condition="'$(Configuration)' == 'Debug'">False</PublishAot>
-	<PublishAot Condition="'$(Configuration)' != 'Debug'">True</PublishAot>
-	<TreatWarningsAsErrors>True</TreatWarningsAsErrors>
-	<NoWarn>$(NoWarn);CS8305</NoWarn>
-	<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-	<PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
-	<PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
-
-	<!-- Trimming -->
-	<PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
-	<PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
-	
 	  
 	<!-- Single instancing -->
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
 </PropertyGroup>
 
-<ItemGroup>
-	<TrimmerRootAssembly Include="Google.Apis.Auth" />
-	<TrimmerRootAssembly Include="Google.Apis.Drive.v3" />
-	<TrimmerRootAssembly Include="Google.Apis.Gmail.v1" />
-</ItemGroup>
 
   <ItemGroup>
     <Content Remove="Assets\BadgeLogo.scale-100.png" />
@@ -203,7 +184,6 @@
     <PackageReference Include="CommunityToolkit.WinUI.Lottie" />
 	  
     <PackageReference Include="Microsoft.Graphics.Win2D" />
-    <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
     <PackageReference Include="Microsoft.WindowsAppSDK" />
 	<PackageReference Include="Microsoft.Xaml.Behaviors.WinUI.Managed" />
@@ -215,7 +195,6 @@
 	<PackageReference Include="Sentry.Serilog" />
 	<PackageReference Include="sqlite-net-pcl" />
 	<PackageReference Include="EmailValidation" />
-	<PackageReference Include="System.Drawing.Common" />
 	<PackageReference Include="SkiaSharp.Views.WinUI" />
 	<PackageReference Include="WinUIEx" />
 	<PackageReference Include="Wino.Mail.Contracts" />

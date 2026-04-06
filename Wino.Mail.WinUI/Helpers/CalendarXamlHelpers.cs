@@ -76,7 +76,9 @@ public static class CalendarXamlHelpers
             interval: recurrenceRule.Interval <= 0 ? 1 : recurrenceRule.Interval,
             frequency: frequency.Value,
             daysOfWeek: recurrenceRule.ByDay?.Select(day => day.DayOfWeek).ToList() ?? [],
-            recurrenceEndDate: recurrenceRule.Until == default ? null : new DateTimeOffset(recurrenceRule.Until));
+            recurrenceEndDate: recurrenceRule.Until == null
+                ? null
+                : new DateTimeOffset(DateTime.SpecifyKind(recurrenceRule.Until.AsUtc, DateTimeKind.Utc)));
     }
 
     public static string GetDetailsPopupDurationString(CalendarItemViewModel calendarItemViewModel, CalendarSettings settings)

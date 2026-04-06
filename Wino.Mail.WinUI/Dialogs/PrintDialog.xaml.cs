@@ -1,11 +1,11 @@
 using System.Collections.Generic;
-using System.Drawing.Printing;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml.Controls;
 using Serilog;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Printing;
+using Wino.Mail.WinUI.Helpers;
 
 namespace Wino.Mail.WinUI.Dialogs;
 
@@ -87,15 +87,7 @@ public sealed partial class PrintDialog : ContentDialog
         {
             var printers = await Task.Run(() =>
             {
-                var printerList = new List<string>();
-
-                // Get all installed printers using System.Drawing.Printing
-                foreach (string printerName in PrinterSettings.InstalledPrinters)
-                {
-                    printerList.Add(printerName);
-                }
-
-                return printerList.AsEnumerable();
+                return InstalledPrinterHelper.GetInstalledPrinters().AsEnumerable();
             });
 
             SetAvailablePrinters(printers);

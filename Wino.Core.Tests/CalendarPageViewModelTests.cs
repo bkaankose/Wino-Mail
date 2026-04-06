@@ -282,6 +282,7 @@ public class CalendarPageViewModelTests
 
         public IEnumerable<AccountCalendarViewModel> ActiveCalendars => _activeCalendars;
         public IEnumerable<AccountCalendarViewModel> AllCalendars => _calendars;
+        public bool IsAnySynchronizationInProgress => false;
         public ReadOnlyObservableGroupedCollection<MailAccount, AccountCalendarViewModel> GroupedCalendars { get; set; } = null!;
 
         public void AddGroupedAccountCalendar(GroupedAccountCalendarViewModel groupedAccountCalendar) => _groupedCalendars.Add(groupedAccountCalendar);

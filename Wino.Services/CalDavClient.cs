@@ -421,14 +421,14 @@ public sealed class CalDavClient : ICalDavClient
             var result = new List<CalDavCalendarEvent>();
 
             var masters = allEvents
-                .Where(e => e != null && !string.IsNullOrWhiteSpace(e.Uid) && e.RecurrenceId == null)
+                .Where(e => e != null && !string.IsNullOrWhiteSpace(e.Uid) && GetRecurrenceId(e) == null)
                 .GroupBy(e => e.Uid, StringComparer.OrdinalIgnoreCase)
                 .Select(g => g.First())
                 .ToList();
 
             var exceptionMap = allEvents
-                .Where(e => e != null && !string.IsNullOrWhiteSpace(e.Uid) && e.RecurrenceId != null)
-                .GroupBy(e => $"{e.Uid}|{GetOccurrenceKey(e.RecurrenceId)}", StringComparer.OrdinalIgnoreCase)
+                .Where(e => e != null && !string.IsNullOrWhiteSpace(e.Uid) && GetRecurrenceId(e) != null)
+                .GroupBy(e => $"{e.Uid}|{GetOccurrenceKey(GetRecurrenceId(e))}", StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
             var consumedExceptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -453,7 +453,15 @@ public sealed class CalDavClient : ICalDavClient
                         seriesMasterRemoteEventId: string.Empty,
                         recurrence: BuildRecurrenceString(master)));
 
-                    var occurrences = master.GetOccurrences(windowStartUtc.UtcDateTime, windowEndUtc.UtcDateTime);
+                    var occurrences = master
+                        .GetOccurrences(
+                            new CalDateTime(windowStartUtc.UtcDateTime, true),
+                            new Ical.Net.Evaluation.EvaluationOptions())
+                        .Where(o => Overlaps(
+                            ToDateTimeOffset(o.Period.StartTime),
+                            ToDateTimeOffset(o.Period.EndTime),
+                            windowStartUtc,
+                            windowEndUtc));
 
                     foreach (var occurrence in occurrences)
                     {
@@ -507,9 +515,10 @@ public sealed class CalDavClient : ICalDavClient
                 }
             }
 
-            foreach (var exceptionEvent in allEvents.Where(e => e != null && e.RecurrenceId != null && !string.IsNullOrWhiteSpace(e.Uid)))
+            foreach (var exceptionEvent in allEvents.Where(e => e != null && GetRecurrenceId(e) != null && !string.IsNullOrWhiteSpace(e.Uid)))
             {
-                var key = $"{exceptionEvent.Uid}|{GetOccurrenceKey(exceptionEvent.RecurrenceId)}";
+                var recurrenceId = GetRecurrenceId(exceptionEvent);
+                var key = $"{exceptionEvent.Uid}|{GetOccurrenceKey(recurrenceId)}";
                 if (consumedExceptions.Contains(key))
                     continue;
 
@@ -525,7 +534,7 @@ public sealed class CalDavClient : ICalDavClient
                     sourceEvent: exceptionEvent,
                     start: start,
                     end: end,
-                    remoteEventId: BuildRemoteEventId(exceptionEvent.Uid, GetOccurrenceKey(exceptionEvent.RecurrenceId)),
+                    remoteEventId: BuildRemoteEventId(exceptionEvent.Uid, GetOccurrenceKey(recurrenceId)),
                     resourceHref: resourceHref,
                     eTag: eTag,
                     icsContent: icsContent,
@@ -546,16 +555,30 @@ public sealed class CalDavClient : ICalDavClient
 
     private static bool HasRecurrence(CalendarEvent calendarEvent)
         => (calendarEvent.RecurrenceRules?.Any() ?? false)
-           || (calendarEvent.RecurrenceDates?.Any() ?? false);
+           || (calendarEvent.RecurrenceDates?.GetAllPeriods().Any() ?? false);
 
     private static string BuildRemoteEventId(string uid, string occurrenceKey)
         => string.IsNullOrWhiteSpace(occurrenceKey) ? uid : $"{uid}::{occurrenceKey}";
 
-    private static string GetOccurrenceKey(IDateTime dateTime)
+    private static CalDateTime GetRecurrenceId(CalendarEvent calendarEvent)
+        => calendarEvent?.RecurrenceIdentifier?.StartTime;
+
+    private static string GetOccurrenceKey(CalDateTime dateTime)
         => dateTime.AsUtc.ToString("yyyyMMdd'T'HHmmss'Z'");
 
-    private static DateTimeOffset ToDateTimeOffset(IDateTime dateTime)
-        => dateTime?.AsDateTimeOffset ?? default;
+    private static DateTimeOffset ToDateTimeOffset(CalDateTime dateTime)
+    {
+        if (dateTime == null)
+            return default;
+
+        if (dateTime.IsFloating)
+        {
+            var floatingValue = DateTime.SpecifyKind(dateTime.Value, DateTimeKind.Unspecified);
+            return new DateTimeOffset(floatingValue, TimeZoneInfo.Local.GetUtcOffset(floatingValue));
+        }
+
+        return new DateTimeOffset(DateTime.SpecifyKind(dateTime.AsUtc, DateTimeKind.Utc));
+    }
 
     private static bool Overlaps(DateTimeOffset start, DateTimeOffset end, DateTimeOffset windowStart, DateTimeOffset windowEnd)
     {
@@ -601,7 +624,7 @@ public sealed class CalDavClient : ICalDavClient
             .Where(a => a?.Trigger != null && a.Trigger.IsRelative && a.Trigger.Duration.HasValue)
             .Select(a => new CalDavEventReminder
             {
-                DurationInSeconds = (int)Math.Abs(a.Trigger.Duration.Value.TotalSeconds),
+                DurationInSeconds = (int)Math.Abs(a.Trigger.Duration.Value.ToTimeSpanUnspecified().TotalSeconds),
                 ReminderType = string.Equals(a.Action, "EMAIL", StringComparison.OrdinalIgnoreCase)
                     ? CalendarItemReminderType.Email
                     : CalendarItemReminderType.Popup
@@ -638,7 +661,7 @@ public sealed class CalDavClient : ICalDavClient
         };
     }
 
-    private static string ResolveTimeZoneId(IDateTime sourceDateTime, DateTimeOffset parsedDateTime)
+    private static string ResolveTimeZoneId(CalDateTime sourceDateTime, DateTimeOffset parsedDateTime)
     {
         var explicitTimeZoneId = sourceDateTime?.TzId;
         if (!string.IsNullOrWhiteSpace(explicitTimeZoneId))
@@ -664,34 +687,26 @@ public sealed class CalDavClient : ICalDavClient
 
         if (sourceEvent.ExceptionDates != null)
         {
-            foreach (var periodList in sourceEvent.ExceptionDates)
-            {
-                var dates = periodList
-                    .Where(p => p.StartTime != null)
-                    .Select(p => p.StartTime.AsUtc.ToString("yyyyMMdd'T'HHmmss'Z'"))
-                    .ToList();
+            var dates = sourceEvent.ExceptionDates
+                .GetAllDates()
+                .Where(d => d != null)
+                .Select(d => d.AsUtc.ToString("yyyyMMdd'T'HHmmss'Z'"))
+                .ToList();
 
-                if (dates.Count > 0)
-                {
-                    recurrenceLines.Add($"EXDATE:{string.Join(",", dates)}");
-                }
-            }
+            if (dates.Count > 0)
+                recurrenceLines.Add($"EXDATE:{string.Join(",", dates)}");
         }
 
         if (sourceEvent.RecurrenceDates != null)
         {
-            foreach (var periodList in sourceEvent.RecurrenceDates)
-            {
-                var dates = periodList
-                    .Where(p => p.StartTime != null)
-                    .Select(p => p.StartTime.AsUtc.ToString("yyyyMMdd'T'HHmmss'Z'"))
-                    .ToList();
+            var dates = sourceEvent.RecurrenceDates
+                .GetAllPeriods()
+                .Where(p => p.StartTime != null)
+                .Select(p => p.StartTime.AsUtc.ToString("yyyyMMdd'T'HHmmss'Z'"))
+                .ToList();
 
-                if (dates.Count > 0)
-                {
-                    recurrenceLines.Add($"RDATE:{string.Join(",", dates)}");
-                }
-            }
+            if (dates.Count > 0)
+                recurrenceLines.Add($"RDATE:{string.Join(",", dates)}");
         }
 
         return recurrenceLines.Count == 0

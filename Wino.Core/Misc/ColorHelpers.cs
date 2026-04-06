@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Globalization;
 using System.Linq;
 using Wino.Core.Domain.Misc;
@@ -46,25 +45,21 @@ public static class ColorHelpers
             return "#FFFFFF";
         }
 
-        var color = ColorTranslator.FromHtml(normalizedColor);
-        var luminance = ((0.299 * color.R) + (0.587 * color.G) + (0.114 * color.B)) / 255d;
+        var (red, green, blue) = ParseRgb(normalizedColor);
+        var luminance = ((0.299 * red) + (0.587 * green) + (0.114 * blue)) / 255d;
         return luminance > 0.6 ? "#111111" : "#FFFFFF";
     }
 
-    public static string ToHexString(this Color c) => $"#{c.R:X2}{c.G:X2}{c.B:X2}";
-
-    public static string ToRgbString(this Color c) => $"RGB({c.R}, {c.G}, {c.B})";
     private static string AdjustColor(string hexColor, int cycle)
     {
-        var color = ColorTranslator.FromHtml(hexColor);
+        var (red, green, blue) = ParseRgb(hexColor);
         var factor = Math.Max(0.55, 1.0 - (cycle * 0.08));
 
-        var adjusted = Color.FromArgb(
-            (int)Math.Clamp(color.R * factor, 0, 255),
-            (int)Math.Clamp(color.G * factor, 0, 255),
-            (int)Math.Clamp(color.B * factor, 0, 255));
+        var adjustedRed = (int)Math.Clamp(red * factor, 0, 255);
+        var adjustedGreen = (int)Math.Clamp(green * factor, 0, 255);
+        var adjustedBlue = (int)Math.Clamp(blue * factor, 0, 255);
 
-        return adjusted.ToHexString();
+        return $"#{adjustedRed:X2}{adjustedGreen:X2}{adjustedBlue:X2}";
     }
 
     private static bool TryNormalizeHexColor(string value, out string normalized)
@@ -97,4 +92,18 @@ public static class ColorHelpers
 
     private static string NormalizeHexColor(string value)
         => TryNormalizeHexColor(value, out var normalized) ? normalized : string.Empty;
+
+    private static (int Red, int Green, int Blue) ParseRgb(string hexColor)
+    {
+        var normalized = NormalizeHexColor(hexColor);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return (255, 255, 255);
+        }
+
+        return (
+            Convert.ToInt32(normalized.Substring(1, 2), 16),
+            Convert.ToInt32(normalized.Substring(3, 2), 16),
+            Convert.ToInt32(normalized.Substring(5, 2), 16));
+    }
 }

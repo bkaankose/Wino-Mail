@@ -34,7 +34,7 @@
                         <TextBlock
                             VerticalAlignment="Center"
                             Style="{StaticResource BodyStrongTextBlockStyle}"
-                            Text="{x:Bind domain:Translator.AiActions_CheckingStatus, Mode=OneWay}" />
+                            Text="{x:Bind domain:Translator.AiActions_CheckingStatus}" />
                     </StackPanel>
                 </StackPanel>
 
@@ -77,12 +77,12 @@
                             <StackPanel Grid.Column="1" Spacing="6">
                                 <TextBlock
                                     Style="{StaticResource SubtitleTextBlockStyle}"
-                                    Text="{x:Bind domain:Translator.AiActions_SignedOutTitle, Mode=OneWay}"
+                                    Text="{x:Bind domain:Translator.AiActions_SignedOutTitle}"
                                     TextWrapping="WrapWholeWords" />
                                 <TextBlock
                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="{x:Bind domain:Translator.AiActions_SignedOutDescription, Mode=OneWay}"
+                                    Text="{x:Bind domain:Translator.AiActions_SignedOutDescription}"
                                     TextWrapping="WrapWholeWords" />
                             </StackPanel>
                         </Grid>
@@ -95,12 +95,12 @@
                         </Grid.ColumnDefinitions>
                         <Button
                             Click="SignInButton_Click"
-                            Content="{x:Bind domain:Translator.Buttons_SignIn, Mode=OneWay}"
+                            Content="{x:Bind domain:Translator.Buttons_SignIn}"
                             Style="{StaticResource AccentButtonStyle}" />
                         <Button
                             Grid.Column="1"
                             Click="CreateAccountButton_Click"
-                            Content="{x:Bind domain:Translator.Buttons_CreateAccount, Mode=OneWay}" />
+                            Content="{x:Bind domain:Translator.Buttons_CreateAccount}" />
                     </Grid>
                 </StackPanel>
 
@@ -113,24 +113,24 @@
                         Background="{ThemeResource CardBackgroundFillColorTertiaryBrush}"
                         CornerRadius="12">
                         <StackPanel Spacing="8">
-                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.AiActions_NoPackTitle, Mode=OneWay}" />
+                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.AiActions_NoPackTitle}" />
                             <TextBlock
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                 Style="{StaticResource BodyTextBlockStyle}"
-                                Text="{x:Bind domain:Translator.AiActions_NoPackDescription, Mode=OneWay}"
+                                Text="{x:Bind domain:Translator.AiActions_NoPackDescription}"
                                 TextWrapping="WrapWholeWords" />
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Border
                                     Padding="8,2"
                                     Background="{ThemeResource AccentFillColorDefaultBrush}"
                                     CornerRadius="8">
-                                    <TextBlock Foreground="White" Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackPromoPrice, Mode=OneWay}" />
+                                    <TextBlock Foreground="White" Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackPromoPrice}" />
                                 </Border>
                                 <Border
                                     Padding="8,2"
                                     Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
                                     CornerRadius="8">
-                                    <TextBlock Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackPromoRequests, Mode=OneWay}" />
+                                    <TextBlock Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackPromoRequests}" />
                                 </Border>
                             </StackPanel>
                         </StackPanel>
@@ -139,7 +139,7 @@
                     <Button
                         HorizontalAlignment="Left"
                         Click="PurchaseButton_Click"
-                        Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackGetButton, Mode=OneWay}"
+                        Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackGetButton}"
                         Style="{StaticResource AccentButtonStyle}" />
                 </StackPanel>
 
@@ -162,7 +162,7 @@
                         <controls:SegmentedItem
                             x:Name="TranslateSegment"
                             Padding="12,6"
-                            Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureTranslate, Mode=OneWay}">
+                            Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureTranslate}">
                             <controls:SegmentedItem.Icon>
                                 <SymbolIcon Symbol="Switch" />
                             </controls:SegmentedItem.Icon>
@@ -170,7 +170,7 @@
                         <controls:SegmentedItem
                             x:Name="RewriteSegment"
                             Padding="12,6"
-                            Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureRewrite, Mode=OneWay}">
+                            Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureRewrite}">
                             <controls:SegmentedItem.Icon>
                                 <SymbolIcon Symbol="Edit" />
                             </controls:SegmentedItem.Icon>
@@ -178,7 +178,7 @@
                         <controls:SegmentedItem
                             x:Name="SummarizeSegment"
                             Padding="12,6"
-                            Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureSummarize, Mode=OneWay}">
+                            Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureSummarize}">
                             <controls:SegmentedItem.Icon>
                                 <SymbolIcon Symbol="Bullets" />
                             </controls:SegmentedItem.Icon>
@@ -202,7 +202,7 @@
                                 VerticalAlignment="Center"
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                 Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind domain:Translator.Composer_AiTranslateLanguage, Mode=OneWay}" />
+                                Text="{x:Bind domain:Translator.Composer_AiTranslateLanguage}" />
                             <ComboBox
                                 x:Name="TranslateLanguageComboBox"
                                 MinWidth="120"
@@ -216,7 +216,7 @@
                             <Button
                                 x:Name="RunTranslateButton"
                                 Click="RunTranslateButton_Click"
-                                Content="{x:Bind domain:Translator.Composer_AiTranslateApply, Mode=OneWay}"
+                                Content="{x:Bind domain:Translator.Composer_AiTranslateApply}"
                                 Style="{StaticResource AccentButtonStyle}" />
                         </StackPanel>
 
@@ -230,7 +230,7 @@
                                     VerticalAlignment="Center"
                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="{x:Bind domain:Translator.Composer_AiRewriteMode, Mode=OneWay}" />
+                                    Text="{x:Bind domain:Translator.Composer_AiRewriteMode}" />
                                 <ComboBox
                                     x:Name="RewriteModeComboBox"
                                     MinWidth="140"
@@ -244,7 +244,7 @@
                                 <Button
                                     x:Name="RunRewriteButton"
                                     Click="RunRewriteButton_Click"
-                                    Content="{x:Bind domain:Translator.Composer_AiRewriteApply, Mode=OneWay}"
+                                    Content="{x:Bind domain:Translator.Composer_AiRewriteApply}"
                                     Style="{StaticResource AccentButtonStyle}" />
                             </StackPanel>
                             <TextBlock
@@ -254,7 +254,7 @@
                                 TextWrapping="WrapWholeWords" />
                             <TextBox
                                 x:Name="CustomRewriteTextBox"
-                                PlaceholderText="{x:Bind domain:Translator.Composer_AiRewriteCustomPlaceholder, Mode=OneWay}"
+                                PlaceholderText="{x:Bind domain:Translator.Composer_AiRewriteCustomPlaceholder}"
                                 Visibility="Collapsed" />
                         </StackPanel>
 
@@ -269,7 +269,7 @@
                                     VerticalAlignment="Center"
                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="{x:Bind domain:Translator.Composer_AiTranslateLanguage, Mode=OneWay}" />
+                                    Text="{x:Bind domain:Translator.Composer_AiTranslateLanguage}" />
                                 <ComboBox
                                     x:Name="SummarizeLanguageComboBox"
                                     MinWidth="120"
@@ -285,7 +285,7 @@
                                     x:Name="RunSummarizeButton"
                                     HorizontalAlignment="Left"
                                     Click="RunSummarizeButton_Click"
-                                    Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureSummarize, Mode=OneWay}"
+                                    Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureSummarize}"
                                     Style="{StaticResource AccentButtonStyle}" />
                                 <FontIcon
                                     x:Name="SummarizeCachedIndicator"
@@ -295,7 +295,7 @@
                                     FontSize="16"
                                     Foreground="#2AA84A"
                                     Glyph="&#xE73E;"
-                                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AiSummarize, Mode=OneWay}"
+                                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AiSummarize}"
                                     Visibility="Collapsed" />
                             </StackPanel>
 

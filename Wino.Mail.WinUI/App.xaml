@@ -19,7 +19,7 @@
                 <ResourceDictionary Source="/Styles/WinoInfoBar.xaml" />
                 <ResourceDictionary Source="/Styles/SharedStyles.xaml" />
                 <ResourceDictionary Source="/Styles/IconTemplates.xaml" />
-                <ResourceDictionary Source="/Styles/OperationCommandBar.xaml" />
+                <coreStyles:OperationCommandBarResources />
 
 
                 <coreStyles:CustomMessageDialogStyles />

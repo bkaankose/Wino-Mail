@@ -285,7 +285,7 @@ public sealed partial class OperationCommandBar : CommandBar
         {
             var button = LoadCommandBarElementTemplate(
                 MailOperationTemplateKey,
-                new MenuOperationCommandBarItemViewModel(
+                new OperationCommandBarMenuOperationItemViewModel(
                     mailOperationItem,
                     XamlHelpers.GetOperationString(mailOperationItem.Operation),
                     XamlHelpers.GetWinoIconGlyph(mailOperationItem.Operation),
@@ -307,7 +307,7 @@ public sealed partial class OperationCommandBar : CommandBar
             var label = XamlHelpers.GetOperationString(folderOperationItem.Operation);
             var button = LoadCommandBarElementTemplate(
                 FolderOperationTemplateKey,
-                new MenuOperationCommandBarItemViewModel(
+                new OperationCommandBarMenuOperationItemViewModel(
                     folderOperationItem,
                     label,
                     XamlHelpers.GetPathGeometry(folderOperationItem.Operation),
@@ -331,7 +331,7 @@ public sealed partial class OperationCommandBar : CommandBar
     {
         var button = (AppBarToggleButton)LoadCommandBarElementTemplate(
             AIActionsTemplateKey,
-            new AIActionsCommandBarItemViewModel(Translator.Composer_AiActions, "\uE945"));
+            new OperationCommandBarAIActionsItemViewModel(Translator.Composer_AiActions, "\uE945"));
 
         button.SetBinding(AppBarToggleButton.IsCheckedProperty, new Binding
         {
@@ -350,7 +350,7 @@ public sealed partial class OperationCommandBar : CommandBar
 
         var button = (AppBarButton)LoadCommandBarElementTemplate(
             ThemeToggleTemplateKey,
-            new ThemeCommandBarItemViewModel(label, icon));
+            new OperationCommandBarThemeItemViewModel(label, icon));
 
         button.Click += ThemeButton_Click;
         return button;
@@ -430,48 +430,48 @@ public sealed partial class OperationCommandBar : CommandBar
             : CommandBarOverflowButtonVisibility.Auto;
     }
 
-    private sealed class MenuOperationCommandBarItemViewModel
-    {
-        public MenuOperationCommandBarItemViewModel(IMenuOperation operation, string label, WinoIconGlyph icon, CommandBarLabelPosition labelPosition)
-        {
-            Operation = operation;
-            Label = label;
-            Icon = icon;
-            ToolTip = label;
-            LabelPosition = labelPosition;
-        }
-
-        public IMenuOperation Operation { get; }
-        public string Label { get; }
-        public WinoIconGlyph Icon { get; }
-        public string ToolTip { get; }
-        public bool IsEnabled => Operation.IsEnabled;
-        public CommandBarLabelPosition LabelPosition { get; }
-    }
-
-    private sealed class AIActionsCommandBarItemViewModel
-    {
-        public AIActionsCommandBarItemViewModel(string toolTip, string glyph)
-        {
-            ToolTip = toolTip;
-            Glyph = glyph;
-        }
-
-        public string ToolTip { get; }
-        public string Glyph { get; }
-    }
-
-    private sealed class ThemeCommandBarItemViewModel
-    {
-        public ThemeCommandBarItemViewModel(string toolTip, WinoIconGlyph icon)
-        {
-            ToolTip = toolTip;
-            Icon = icon;
-        }
-
-        public string ToolTip { get; }
-        public WinoIconGlyph Icon { get; }
-    }
-
     private sealed class SeparatorCommandBarItemViewModel;
+}
+
+public sealed class OperationCommandBarMenuOperationItemViewModel
+{
+    public OperationCommandBarMenuOperationItemViewModel(IMenuOperation operation, string label, WinoIconGlyph icon, CommandBarLabelPosition labelPosition)
+    {
+        Operation = operation;
+        Label = label;
+        Icon = icon;
+        ToolTip = label;
+        LabelPosition = labelPosition;
+    }
+
+    public IMenuOperation Operation { get; }
+    public string Label { get; }
+    public WinoIconGlyph Icon { get; }
+    public string ToolTip { get; }
+    public bool IsEnabled => Operation.IsEnabled;
+    public CommandBarLabelPosition LabelPosition { get; }
+}
+
+public sealed class OperationCommandBarAIActionsItemViewModel
+{
+    public OperationCommandBarAIActionsItemViewModel(string toolTip, string glyph)
+    {
+        ToolTip = toolTip;
+        Glyph = glyph;
+    }
+
+    public string ToolTip { get; }
+    public string Glyph { get; }
+}
+
+public sealed class OperationCommandBarThemeItemViewModel
+{
+    public OperationCommandBarThemeItemViewModel(string toolTip, WinoIconGlyph icon)
+    {
+        ToolTip = toolTip;
+        Icon = icon;
+    }
+
+    public string ToolTip { get; }
+    public WinoIconGlyph Icon { get; }
 }

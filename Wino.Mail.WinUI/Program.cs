@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Toolkit.Uwp.Notifications;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppNotifications;
@@ -206,7 +205,7 @@ public class Program
             return true;
         }
 
-        var toastArguments = ToastArguments.Parse(toastArgs.Argument);
+        var toastArguments = NotificationArguments.Parse(toastArgs.Argument);
 
         if (toastArguments.TryGetValue(Constants.ToastStoreUpdateActionKey, out string storeUpdateAction) &&
             storeUpdateAction == Constants.ToastStoreUpdateActionInstall)

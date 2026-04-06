@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Drawing;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Diagnostics;
@@ -662,12 +662,38 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     private static string GetReadableTextColorHex(string backgroundColorHex)
     {
-        if (string.IsNullOrWhiteSpace(backgroundColorHex))
+        if (!TryParseHexColor(backgroundColorHex, out var red, out var green, out var blue))
             return "#FFFFFF";
 
-        var color = ColorTranslator.FromHtml(backgroundColorHex);
-        var luminance = ((0.299 * color.R) + (0.587 * color.G) + (0.114 * color.B)) / 255d;
+        var luminance = ((0.299 * red) + (0.587 * green) + (0.114 * blue)) / 255d;
         return luminance > 0.6 ? "#111111" : "#FFFFFF";
+    }
+
+    private static bool TryParseHexColor(string value, out int red, out int green, out int blue)
+    {
+        red = 255;
+        green = 255;
+        blue = 255;
+
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var color = value.Trim();
+        if (color.StartsWith('#'))
+        {
+            color = color[1..];
+        }
+
+        if (color.Length != 6 ||
+            !int.TryParse(color, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out _))
+        {
+            return false;
+        }
+
+        red = Convert.ToInt32(color.Substring(0, 2), 16);
+        green = Convert.ToInt32(color.Substring(2, 2), 16);
+        blue = Convert.ToInt32(color.Substring(4, 2), 16);
+        return true;
     }
 
     public async Task UpdateAccountOrdersAsync(Dictionary<Guid, int> accountIdOrderPair)

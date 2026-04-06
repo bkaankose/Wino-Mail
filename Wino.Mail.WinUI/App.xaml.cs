@@ -8,7 +8,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Toolkit.Uwp.Notifications;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Animation;
@@ -492,7 +491,7 @@ public partial class App : WinoApplication,
     /// </summary>
     private async Task HandleToastActivationAsync(AppNotificationActivatedEventArgs toastArgs)
     {
-        var toastArguments = ToastArguments.Parse(toastArgs.Argument);
+        var toastArguments = NotificationArguments.Parse(toastArgs.Argument);
 
         if (toastArguments.TryGetValue(Constants.ToastStoreUpdateActionKey, out string storeUpdateAction) &&
             storeUpdateAction == Constants.ToastStoreUpdateActionInstall)
