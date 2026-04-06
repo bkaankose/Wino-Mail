@@ -48,7 +48,7 @@ public static class OutlookIntegratorExtensions
 
         var mailCopy = new MailCopy()
         {
-            MessageId = outlookMessage.InternetMessageId,
+            MessageId = MailHeaderExtensions.NormalizeMessageId(outlookMessage.InternetMessageId),
             IsFlagged = GetIsFlagged(outlookMessage),
             IsFocused = GetIsFocused(outlookMessage),
             Importance = !outlookMessage.Importance.HasValue ? MailImportance.Normal : (MailImportance)outlookMessage.Importance.Value,
@@ -155,7 +155,7 @@ public static class OutlookIntegratorExtensions
             CcRecipients = ccAddresses,
             BccRecipients = bccAddresses,
             From = fromAddress,
-            InternetMessageId = mime.MessageId,
+            InternetMessageId = MailHeaderExtensions.ToHeaderMessageId(mime.MessageId),
             ReplyTo = replyToAddresses,
         };
 

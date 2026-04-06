@@ -2030,13 +2030,13 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         }
 
         if (string.IsNullOrEmpty(copy.MessageId))
-            copy.MessageId = mime.MessageId;
+            copy.MessageId = MailHeaderExtensions.NormalizeMessageId(mime.Headers[HeaderId.MessageId]);
 
         if (string.IsNullOrEmpty(copy.InReplyTo))
-            copy.InReplyTo = mime.InReplyTo;
+            copy.InReplyTo = MailHeaderExtensions.NormalizeMessageId(mime.InReplyTo);
 
         if (string.IsNullOrEmpty(copy.References) && mime.References?.Count > 0)
-            copy.References = string.Join(";", mime.References);
+            copy.References = MailHeaderExtensions.JoinStoredReferences(mime.References);
 
         if (!copy.HasAttachments && mime.Attachments.Any())
             copy.HasAttachments = true;

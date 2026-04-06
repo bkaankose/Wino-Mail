@@ -5,6 +5,7 @@ using MimeKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 
 namespace Wino.Services.Extensions;
 
@@ -64,22 +65,16 @@ public static class MailkitClientExtensions
     }
 
     public static string GetMessageId(this MimeMessage mimeMessage)
-        => mimeMessage.MessageId;
+        => MailHeaderExtensions.NormalizeMessageId(mimeMessage.Headers[HeaderId.MessageId]);
 
     public static string GetReferences(this MessageIdList messageIdList)
-        => string.Join(";", messageIdList);
+        => MailHeaderExtensions.JoinStoredReferences(messageIdList);
 
     public static string GetInReplyTo(this MimeMessage mimeMessage)
     {
         if (mimeMessage.Headers.Contains(HeaderId.InReplyTo))
         {
-            // Normalize if <> brackets are there.
-            var inReplyTo = mimeMessage.Headers[HeaderId.InReplyTo];
-
-            if (inReplyTo.StartsWith("<") && inReplyTo.EndsWith(">"))
-                return inReplyTo.Substring(1, inReplyTo.Length - 2);
-
-            return inReplyTo;
+            return MailHeaderExtensions.NormalizeMessageId(mimeMessage.Headers[HeaderId.InReplyTo]);
         }
 
         return string.Empty;
@@ -109,11 +104,11 @@ public static class MailkitClientExtensions
                            ?? envelope?.Date?.UtcDateTime
                            ?? DateTime.UtcNow;
 
-        var messageId = mime?.GetMessageId() ?? envelope?.MessageId ?? string.Empty;
+        var messageId = MailHeaderExtensions.NormalizeMessageId(mime?.GetMessageId() ?? envelope?.MessageId);
         var fromName = mime != null ? GetActualSenderName(mime) : GetEnvelopeSenderName(envelope);
         var fromAddress = mime != null ? GetActualSenderAddress(mime) : GetEnvelopeSenderAddress(envelope);
         var references = mime?.References?.GetReferences() ?? messageSummary.References?.GetReferences();
-        var inReplyTo = mime != null ? mime.GetInReplyTo() : envelope?.InReplyTo ?? string.Empty;
+        var inReplyTo = MailHeaderExtensions.NormalizeMessageId(mime != null ? mime.GetInReplyTo() : envelope?.InReplyTo);
         var threadId = ResolveThreadId(messageSummary, messageId, references, inReplyTo);
         var hasAttachments = mime != null ? mime.Attachments.Any() : false;
         var itemType = mime != null ? GetMailItemTypeFromMime(mime) : MailItemType.Mail;

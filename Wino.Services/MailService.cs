@@ -14,6 +14,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Misc;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Messaging.UI;
 using Wino.Services.Extensions;
@@ -82,41 +83,20 @@ public class MailService : BaseDatabaseService, IMailService
             DraftId = $"{Constants.LocalDraftStartPrefix}{Guid.NewGuid()}",
             AssignedFolder = draftFolder,
             AssignedAccount = composerAccount,
-            FileId = Guid.NewGuid()
+            FileId = Guid.NewGuid(),
+            MessageId = GetNormalizedMimeMessageId(createdDraftMimeMessage),
+            InReplyTo = GetNormalizedMimeInReplyTo(createdDraftMimeMessage),
+            References = GetNormalizedMimeReferences(createdDraftMimeMessage)
         };
 
-        // If replying, add In-Reply-To, ThreadId and References per RFC 5322.
-        // References must include all previous References + the Message-ID of the message being replied to.
         if (draftCreationOptions.ReferencedMessage != null)
         {
-            var refMime = draftCreationOptions.ReferencedMessage.MimeMessage;
-            var referenceMailCopy = draftCreationOptions.ReferencedMessage.MailCopy;
-
-            string referenceMessageId = refMime?.MessageId;
-            string referenceInReplyTo = refMime?.InReplyTo;
-            IEnumerable<string> referenceChain = refMime?.References ?? [];
-
-            // Fallback to MailCopy metadata if MIME lacks threading headers.
-            if (string.IsNullOrWhiteSpace(referenceMessageId) && referenceMailCopy != null)
-            {
-                referenceMessageId = referenceMailCopy.MessageId;
-                referenceInReplyTo = referenceMailCopy.InReplyTo;
-                referenceChain = SplitStoredReferences(referenceMailCopy.References);
-            }
-
-            if (!string.IsNullOrWhiteSpace(referenceMessageId))
-                copy.InReplyTo = MailHeaderExtensions.StripAngleBrackets(referenceMessageId);
-
-            var refs = BuildReferencesChain(referenceChain, referenceInReplyTo, referenceMessageId);
-            if (refs.Count > 0)
-                copy.References = string.Join(";", refs);
-
             if (!string.IsNullOrEmpty(draftCreationOptions.ReferencedMessage.MailCopy?.ThreadId))
                 copy.ThreadId = draftCreationOptions.ReferencedMessage.MailCopy.ThreadId;
 
             // Fallback local threading when provider/native thread id is unavailable.
             if (string.IsNullOrWhiteSpace(copy.ThreadId))
-                copy.ThreadId = refs.FirstOrDefault() ?? copy.InReplyTo;
+                copy.ThreadId = MailHeaderExtensions.SplitMessageIds(copy.References).FirstOrDefault() ?? copy.InReplyTo;
         }
 
         await Connection.InsertAsync(copy, typeof(MailCopy));
@@ -997,6 +977,7 @@ public class MailService : BaseDatabaseService, IMailService
         {
             Headers = { { Constants.WinoLocalDraftHeader, Guid.NewGuid().ToString() } },
         };
+        EnsureOutgoingMessageId(message);
 
         var primaryAlias = await _accountService.GetPrimaryAccountAliasAsync(account.Id) ?? throw new MissingAliasException();
 
@@ -1086,6 +1067,7 @@ public class MailService : BaseDatabaseService, IMailService
     {
         var reason = draftCreationOptions.Reason;
         var referenceMessage = draftCreationOptions.ReferencedMessage.MimeMessage;
+        var referenceMailCopy = draftCreationOptions.ReferencedMessage.MailCopy;
         ownAddresses ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         var gap = CreateHtmlGap();
@@ -1167,38 +1149,22 @@ public class MailService : BaseDatabaseService, IMailService
                 }
             }
 
-            // Manage "ThreadId-ConversationId"
-            // CRITICAL: In-Reply-To and References headers are essential for threading
-            // They must reference the original message's Message-ID from the MIME headers
-            if (!string.IsNullOrEmpty(referenceMessage.MessageId))
-            {
-                message.InReplyTo = MailHeaderExtensions.StripAngleBrackets(referenceMessage.MessageId);
+            var referenceMessageId = MailHeaderExtensions.NormalizeMessageId(referenceMessage.Headers[HeaderId.MessageId]);
+            if (string.IsNullOrEmpty(referenceMessageId))
+                referenceMessageId = MailHeaderExtensions.NormalizeMessageId(referenceMailCopy?.MessageId);
 
-                var refs = BuildReferencesChain(
-                    referenceMessage.References,
-                    referenceMessage.InReplyTo,
-                    referenceMessage.MessageId);
+            if (!string.IsNullOrEmpty(referenceMessageId))
+            {
+                message.InReplyTo = referenceMessageId;
+
+                var existingReferences = referenceMessage.References?.Select(MailHeaderExtensions.NormalizeMessageId).ToList() ?? [];
+                if (existingReferences.Count == 0)
+                    existingReferences = MailHeaderExtensions.SplitMessageIds(referenceMailCopy?.References).ToList();
+
+                var refs = MailHeaderExtensions.BuildReferencesChain(existingReferences, referenceMessageId);
 
                 foreach (var referenceId in refs)
                     message.References.Add(referenceId);
-            }
-            else
-            {
-                // WARNING: Reference message has no Message-ID!
-                // This will break threading. Try to use the MessageId from MailCopy if available.
-                var referenceMailCopy = draftCreationOptions.ReferencedMessage.MailCopy;
-                if (referenceMailCopy != null && !string.IsNullOrEmpty(referenceMailCopy.MessageId))
-                {
-                    message.InReplyTo = MailHeaderExtensions.StripAngleBrackets(referenceMailCopy.MessageId);
-
-                    var refs = BuildReferencesChain(
-                        SplitStoredReferences(referenceMailCopy.References),
-                        referenceMailCopy.InReplyTo,
-                        referenceMailCopy.MessageId);
-
-                    foreach (var referenceId in refs)
-                        message.References.Add(referenceId);
-                }
             }
 
             if (!string.IsNullOrEmpty(referenceMessage.Subject))
@@ -1209,8 +1175,8 @@ public class MailService : BaseDatabaseService, IMailService
         var referenceSubject = referenceMessage?.Subject ?? string.Empty;
         if (reason == DraftCreationReason.Forward && !referenceSubject.StartsWith("FW: ", StringComparison.OrdinalIgnoreCase))
             message.Subject = $"FW: {referenceSubject}";
-        else if ((reason == DraftCreationReason.Reply || reason == DraftCreationReason.ReplyAll) && !referenceSubject.StartsWith("RE: ", StringComparison.OrdinalIgnoreCase))
-            message.Subject = $"RE: {referenceSubject}";
+        else if ((reason == DraftCreationReason.Reply || reason == DraftCreationReason.ReplyAll) && !referenceSubject.StartsWith("Re:", StringComparison.OrdinalIgnoreCase))
+            message.Subject = $"Re: {referenceSubject}";
         else
             message.Subject = referenceSubject;
 
@@ -1394,45 +1360,49 @@ public class MailService : BaseDatabaseService, IMailService
         return ownAddresses;
     }
 
-    private static IEnumerable<string> SplitStoredReferences(string references)
+    private static void EnsureOutgoingMessageId(MimeMessage message)
     {
-        if (string.IsNullOrWhiteSpace(references))
-            return [];
+        if (message == null)
+            return;
 
-        return references
-            .Split(new[] { ';', ',', ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-            .Select(r => r.Trim());
+        var messageId = MailHeaderExtensions.NormalizeMessageId(MessageIdGenerator.Generate());
+
+        if (string.IsNullOrEmpty(messageId))
+            return;
+
+        var headerValue = MailHeaderExtensions.ToHeaderMessageId(messageId);
+
+        if (message.Headers.Contains(HeaderId.MessageId))
+            message.Headers.Remove(HeaderId.MessageId);
+
+        message.Headers.Add(HeaderId.MessageId, headerValue);
+        message.MessageId = messageId;
     }
 
-    private static List<string> BuildReferencesChain(IEnumerable<string> existingReferences, string parentInReplyTo, string parentMessageId)
+    private static string GetNormalizedMimeMessageId(MimeMessage message)
+        => MailHeaderExtensions.NormalizeMessageId(message?.Headers[HeaderId.MessageId]);
+
+    private static string GetNormalizedMimeInReplyTo(MimeMessage message)
     {
-        var results = new List<string>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (message == null)
+            return string.Empty;
 
-        void AddReference(string value)
-        {
-            var normalized = MailHeaderExtensions.StripAngleBrackets(value)?.Trim();
-            if (string.IsNullOrWhiteSpace(normalized))
-                return;
-            if (!seen.Add(normalized))
-                return;
+        var inReplyTo = string.IsNullOrWhiteSpace(message.InReplyTo)
+            ? message.Headers[HeaderId.InReplyTo]
+            : message.InReplyTo;
 
-            results.Add(normalized);
-        }
+        return MailHeaderExtensions.NormalizeMessageId(inReplyTo);
+    }
 
-        if (existingReferences != null)
-        {
-            foreach (var reference in existingReferences)
-                AddReference(reference);
-        }
+    private static string GetNormalizedMimeReferences(MimeMessage message)
+    {
+        if (message == null)
+            return string.Empty;
 
-        // RFC 5322 fallback: if References is absent, include parent In-Reply-To first when available.
-        if (results.Count == 0)
-            AddReference(parentInReplyTo);
+        if (message.References?.Count > 0)
+            return MailHeaderExtensions.JoinStoredReferences(message.References);
 
-        AddReference(parentMessageId);
-
-        return results;
+        return MailHeaderExtensions.NormalizeReferences(message.Headers[HeaderId.References]);
     }
 
     public async Task<IEnumerable<string>> GetRecentMailIdsForFolderAsync(Guid folderId, int count)
