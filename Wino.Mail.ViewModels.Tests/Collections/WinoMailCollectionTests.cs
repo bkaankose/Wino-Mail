@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using FluentAssertions;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
@@ -114,6 +118,57 @@ public class WinoMailCollectionTests
     }
 
     [Fact]
+    public async Task AddRangeAsync_ShouldKeepGroupsAndItemsSortedDuringHighVolumeInitialization()
+    {
+        var sut = CreateCollection();
+        var baseDate = new DateTime(2026, 4, 6, 12, 0, 0, DateTimeKind.Utc);
+
+        var items = Enumerable.Range(0, 240)
+            .Select(index =>
+            {
+                var dayOffset = index % 4;
+                var minuteOffset = 240 - index;
+
+                return new MailItemViewModel(CreateMailCopy(
+                    threadId: $"single-{index}",
+                    creationDate: baseDate.AddDays(-dayOffset).AddMinutes(-minuteOffset)));
+            })
+            .OrderByDescending(item => item.MailCopy.UniqueId)
+            .ToList();
+
+        await sut.AddRangeAsync(items, clearIdCache: true);
+
+        var groups = new List<(DateTime Key, List<IMailListItem> Items)>();
+        foreach (var group in sut.MailItems)
+        {
+            var groupItems = new List<IMailListItem>();
+            foreach (var item in group)
+            {
+                groupItems.Add(item);
+            }
+
+            groups.Add(((DateTime)group.Key, groupItems));
+        }
+
+        groups.Should().NotBeEmpty();
+
+        var orderedGroupKeys = groups.Select(group => group.Key).ToList();
+        orderedGroupKeys.Should().BeInDescendingOrder();
+
+        foreach (var group in groups)
+        {
+            group.Items.Should().OnlyContain(item => item is MailItemViewModel);
+
+            var creationDates = group.Items
+                .Cast<MailItemViewModel>()
+                .Select(item => item.MailCopy.CreationDate)
+                .ToList();
+
+            creationDates.Should().BeInDescendingOrder();
+        }
+    }
+
+    [Fact]
     public async Task UpdateMailCopy_ShouldMergeExistingSingles_WhenThreadIdChangesToMatch()
     {
         var sut = CreateCollection();
@@ -155,6 +210,48 @@ public class WinoMailCollectionTests
         threadItem.GetContainingIds().Should().BeEquivalentTo([existing.UniqueId, incoming.UniqueId]);
     }
 
+    [Fact]
+    public async Task AddAsync_ShouldRemainConsistentUnderHighVolumeConcurrentAdds()
+    {
+        var sut = CreateCollection();
+        var threadCount = 40;
+        var mailsPerThread = 25;
+        var baseDate = new DateTime(2026, 4, 6, 12, 0, 0, DateTimeKind.Utc);
+
+        var mails = Enumerable.Range(0, threadCount)
+            .SelectMany(threadIndex => Enumerable.Range(0, mailsPerThread)
+                .Select(mailIndex => CreateMailCopy(
+                    threadId: $"thread-{threadIndex}",
+                    creationDate: baseDate.AddMinutes(-(threadIndex * mailsPerThread + mailIndex)))))
+            .OrderBy(_ => Guid.NewGuid())
+            .ToList();
+
+        await Task.WhenAll(mails.Select(mail => Task.Run(() => sut.AddAsync(mail))));
+
+        var flattenedMailIds = FlattenMailItems(sut)
+            .Select(item => item.MailCopy.UniqueId)
+            .ToList();
+
+        flattenedMailIds.Should().HaveCount(threadCount * mailsPerThread);
+        flattenedMailIds.Should().OnlyHaveUniqueItems();
+        flattenedMailIds.Should().BeEquivalentTo(mails.Select(mail => mail.UniqueId));
+
+        var topLevelItems = FlattenItems(sut);
+        topLevelItems.Should().HaveCount(threadCount);
+        topLevelItems.Should().OnlyContain(item => item is ThreadMailItemViewModel);
+
+        foreach (var thread in topLevelItems.Cast<ThreadMailItemViewModel>())
+        {
+            thread.EmailCount.Should().Be(mailsPerThread);
+
+            var expectedIds = mails
+                .Where(mail => mail.ThreadId == thread.ThreadId)
+                .Select(mail => mail.UniqueId);
+
+            thread.GetContainingIds().Should().BeEquivalentTo(expectedIds);
+        }
+    }
+
     private static WinoMailCollection CreateCollection() => new()
     {
         CoreDispatcher = new ImmediateDispatcher()
@@ -169,6 +266,28 @@ public class WinoMailCollectionTests
             foreach (var item in group)
             {
                 items.Add(item);
+            }
+        }
+
+        return items;
+    }
+
+    private static List<MailItemViewModel> FlattenMailItems(WinoMailCollection collection)
+    {
+        var items = new List<MailItemViewModel>();
+
+        foreach (var group in collection.MailItems)
+        {
+            foreach (var item in group)
+            {
+                if (item is MailItemViewModel mailItem)
+                {
+                    items.Add(mailItem);
+                }
+                else if (item is ThreadMailItemViewModel threadItem)
+                {
+                    items.AddRange(threadItem.ThreadEmails);
+                }
             }
         }
 

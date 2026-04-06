@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Collections;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -42,6 +43,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     private ListItemComparer listComparer = new();
 
     private readonly ObservableGroupedCollection<object, IMailListItem> _mailItemSource = new ObservableGroupedCollection<object, IMailListItem>();
+    private readonly SemaphoreSlim _mutationGate = new(1, 1);
 
     public ReadOnlyObservableGroupedCollection<object, IMailListItem> MailItems { get; }
 
@@ -106,25 +108,28 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
     public async Task ClearAsync()
     {
-        await ExecuteUIThread(() =>
+        await RunSerializedAsync(async () =>
         {
-            foreach (var group in _mailItemSource)
+            await ExecuteUIThread(() =>
             {
-                foreach (var item in group)
+                foreach (var group in _mailItemSource)
                 {
-                    if (item is ThreadMailItemViewModel threadItem)
+                    foreach (var item in group)
                     {
-                        threadItem.UnregisterThreadEmailPropertyChangedHandlers();
+                        if (item is ThreadMailItemViewModel threadItem)
+                        {
+                            threadItem.UnregisterThreadEmailPropertyChangedHandlers();
+                        }
                     }
                 }
-            }
 
-            _mailItemSource.Clear();
-            MailCopyIdHashSet.Clear();
-            _threadIdToItemsMap.Clear();
-            _itemToGroupMap.Clear();
-            _uniqueIdToMailItemMap.Clear();
-            _uniqueIdToThreadMap.Clear();
+                _mailItemSource.Clear();
+                MailCopyIdHashSet.Clear();
+                _threadIdToItemsMap.Clear();
+                _itemToGroupMap.Clear();
+                _uniqueIdToMailItemMap.Clear();
+                _uniqueIdToThreadMap.Clear();
+            });
         });
     }
 
@@ -434,7 +439,10 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         await InsertItemInternalAsync(newGroupKey, threadViewModel);
     }
 
-    public async Task AddAsync(MailCopy addedItem)
+    public Task AddAsync(MailCopy addedItem)
+        => RunSerializedAsync(() => AddInternalAsync(addedItem));
+
+    private async Task AddInternalAsync(MailCopy addedItem)
     {
         // First check if this is an update to an existing item
         if (MailCopyIdHashSet.ContainsKey(addedItem.UniqueId))
@@ -504,8 +512,8 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
     private async Task ReinsertUpdatedItemAsync(MailCopy updatedItem, bool isSelected, bool isBusy)
     {
-        await RemoveAsync(updatedItem);
-        await AddAsync(updatedItem);
+        await RemoveInternalAsync(updatedItem);
+        await AddInternalAsync(updatedItem);
 
         var updatedContainer = GetMailItemContainer(updatedItem.UniqueId);
         if (updatedContainer?.ItemViewModel == null)
@@ -584,7 +592,10 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     /// <summary>
     /// Adds multiple emails to the collection.
     /// </summary>
-    public async Task AddRangeAsync(IEnumerable<MailItemViewModel> items, bool clearIdCache)
+    public Task AddRangeAsync(IEnumerable<MailItemViewModel> items, bool clearIdCache)
+        => RunSerializedAsync(() => AddRangeInternalAsync(items, clearIdCache));
+
+    private async Task AddRangeInternalAsync(IEnumerable<MailItemViewModel> items, bool clearIdCache)
     {
         if (clearIdCache)
         {
@@ -717,17 +728,22 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         // Group items by their grouping key and add them in a single UI thread call
         if (itemsToAdd.Count > 0)
         {
-            // Pre-compute grouping on background thread to reduce UI thread work
             var groupedItems = await Task.Run(() => itemsToAdd
                 .GroupBy(GetGroupingKey)
-                .ToDictionary(g => g.Key, g => g.ToList())).ConfigureAwait(false);
+                .OrderBy(group => group.Key, listComparer)
+                .Select(group => new
+                {
+                    Key = group.Key,
+                    Items = group.OrderBy(item => (object)item, listComparer).ToList()
+                })
+                .ToList()).ConfigureAwait(false);
 
             await ExecuteUIThread(() =>
             {
-                foreach (var kvp in groupedItems)
+                foreach (var groupedItem in groupedItems)
                 {
-                    var groupKey = kvp.Key;
-                    var groupItems = kvp.Value;
+                    var groupKey = groupedItem.Key;
+                    var groupItems = groupedItem.Items;
 
                     // Update caches first
                     foreach (var item in groupItems)
@@ -736,25 +752,14 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
                         UpdateThreadIdCache(item, true);
                     }
 
-                    var existingGroup = _mailItemSource.FirstGroupByKeyOrDefault(groupKey);
-
-                    if (existingGroup == null)
+                    foreach (var item in groupItems)
                     {
-                        var newGroup = new ObservableGroup<object, IMailListItem>(groupKey, groupItems);
-                        _mailItemSource.AddGroup(groupKey, newGroup);
+                        _mailItemSource.InsertItem(groupKey, listComparer, item, listComparer);
 
-                        // Update item-to-group cache
-                        foreach (var item in groupItems)
+                        var targetGroup = _mailItemSource.FirstGroupByKeyOrDefault(groupKey);
+                        if (targetGroup != null)
                         {
-                            _itemToGroupMap[item] = newGroup;
-                        }
-                    }
-                    else
-                    {
-                        foreach (var item in groupItems)
-                        {
-                            existingGroup.Add(item);
-                            _itemToGroupMap[item] = existingGroup;
+                            _itemToGroupMap[item] = targetGroup;
                         }
                     }
                 }
@@ -814,7 +819,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     {
         if (CoreDispatcher == null) return Task.CompletedTask;
 
-        return CoreDispatcher.ExecuteOnUIThread(() =>
+        return RunSerializedAsync(() => CoreDispatcher.ExecuteOnUIThread(() =>
         {
             foreach (var group in _mailItemSource)
             {
@@ -836,7 +841,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
                     }
                 }
             }
-        });
+        }));
     }
 
     /// <summary>
@@ -845,16 +850,17 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     /// <param name="updatedMailCopy">Updated mail copy.</param>
     /// <returns></returns>
     public Task UpdateMailCopy(MailCopy updatedMailCopy, MailUpdateSource mailUpdateSource, MailCopyChangeFlags changedProperties = MailCopyChangeFlags.None)
-    {
-        var itemContainer = GetMailItemContainer(updatedMailCopy.UniqueId);
-
-        if (itemContainer?.ItemViewModel == null)
+        => RunSerializedAsync(() =>
         {
-            return Task.CompletedTask;
-        }
+            var itemContainer = GetMailItemContainer(updatedMailCopy.UniqueId);
 
-        return UpdateExistingItemAsync(itemContainer, updatedMailCopy, mailUpdateSource, changedProperties);
-    }
+            if (itemContainer?.ItemViewModel == null)
+            {
+                return Task.CompletedTask;
+            }
+
+            return UpdateExistingItemAsync(itemContainer, updatedMailCopy, mailUpdateSource, changedProperties);
+        });
 
     public MailItemViewModel GetFirst() => AllItems.ElementAtOrDefault(0);
 
@@ -921,7 +927,10 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         return null;
     }
 
-    public async Task RemoveAsync(MailCopy removeItem)
+    public Task RemoveAsync(MailCopy removeItem)
+        => RunSerializedAsync(() => RemoveInternalAsync(removeItem));
+
+    private async Task RemoveInternalAsync(MailCopy removeItem)
     {
         var itemContainer = GetMailItemContainer(removeItem.UniqueId);
 
@@ -1120,6 +1129,20 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     public Task CollapseAllThreadsAsync() => ExecuteWithoutRaiseSelectionChangedAsync(a => { if (a is ThreadMailItemViewModel thread) thread.IsThreadExpanded = false; }, true);
 
     private Task ExecuteUIThread(Action action) => CoreDispatcher?.ExecuteOnUIThread(action);
+
+    private async Task RunSerializedAsync(Func<Task> action)
+    {
+        await _mutationGate.WaitAsync().ConfigureAwait(false);
+
+        try
+        {
+            await action().ConfigureAwait(false);
+        }
+        finally
+        {
+            _mutationGate.Release();
+        }
+    }
 
     public void Receive(SelectedItemsChangedMessage message) => _ = NotifySelectionChangesAsync();
 

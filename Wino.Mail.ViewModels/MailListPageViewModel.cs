@@ -764,11 +764,17 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         if (addedMail.AssignedAccount == null || addedMail.AssignedFolder == null) return;
 
+        bool hasLock = false;
+
         try
         {
+            await listManipulationSemepahore.WaitAsync();
+            hasLock = true;
+
             if (ActiveFolder == null) return;
 
-            // At least one of the accounts we are listing must match with the account of the added mail.
+            // Re-evaluate folder membership after acquiring the semaphore so an add that was queued
+            // behind a folder re-initialization cannot land in the newly selected folder by mistake.
             if (!ActiveFolder.HandlingFolders.Any(a => a.MailAccountId == addedMail.AssignedAccount.Id)) return;
 
             // Fix for draft duplication: When a draft is created for reply/forward, it's first added as local draft.
@@ -838,8 +844,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 if (!IsMailMatchingLocalSearch(addedMail)) return;
             }
 
-            await listManipulationSemepahore.WaitAsync();
-
             // AddAsync already handles UI threading internally, no need to wrap it
             await MailCollection.AddAsync(addedMail);
 
@@ -851,7 +855,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         catch { }
         finally
         {
-            listManipulationSemepahore.Release();
+            if (hasLock)
+            {
+                listManipulationSemepahore.Release();
+            }
         }
     }
 
