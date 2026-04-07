@@ -349,12 +349,14 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
                     TimedDayWidth)));
 
         var eventTemplate = (DataTemplate)Resources["CalendarEventTemplate"];
+
         ReplaceCollection(TimedAllDayItemsCollection, TimedCalendarLayoutCalculator.CalculateAllDayItems(_currentRange, CurrentItems, timedSurfaceWidth).Select(item =>
         {
             PrepareDisplayMetadata(item.Item, item.Date);
             item.Template = eventTemplate;
             return item;
         }));
+
         ReplaceCollection(TimedItemsCollection, _timedLayout.Items.Select(item =>
         {
             PrepareDisplayMetadata(item.Item, item.Date);
@@ -365,9 +367,11 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         RenderTimedAllDayItems();
         RenderTimedItems();
 
-        TimedAllDayCanvas.Invalidate();
         TimedHeaderCanvas.Invalidate();
         TimedStructureCanvas.Invalidate();
+        TimedAllDayCanvas.Invalidate();
+
+        TimedAllDayHost.InvalidateArrange();
     }
 
     private void RefreshMonthView()
@@ -977,7 +981,9 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     private void ResetTimedVisualState()
     {
         ResetAnimatedElement(TimedScrollViewer);
-        ResetAnimatedElement(TimedAllDayHost);
+
+        // TODO: This is buggy.
+        // ResetAnimatedElement(TimedAllDayHost);
     }
 
     private static void StartNavigationTransition(Compositor compositor, Visual visual, int direction, double width)
@@ -1009,7 +1015,8 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         StartTimedElementTransition(compositor, TimedScrollViewer, signedTravel, 0f, 0.68f, TimeSpan.FromMilliseconds(240), direction >= 0 ? 0f : clipInset, direction >= 0 ? clipInset : 0f, animateScale: false);
         if (HasTimedAllDayItems)
         {
-            StartTimedElementTransition(compositor, TimedAllDayHost, signedTravel, 0f, 0.68f, TimeSpan.FromMilliseconds(240), direction >= 0 ? 0f : clipInset, direction >= 0 ? clipInset : 0f, animateScale: false);
+            // TODO: This is buggy.
+            // StartTimedElementTransition(compositor, TimedAllDayHost, signedTravel, 0f, 0.68f, TimeSpan.FromMilliseconds(240), direction >= 0 ? 0f : clipInset, direction >= 0 ? clipInset : 0f, animateScale: false);
         }
     }
 
@@ -1040,7 +1047,8 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         StartTimedElementTransition(compositor, TimedScrollViewer, 0f, 18f, 0f, TimeSpan.FromMilliseconds(240), 0f, 0f, animateScale: false);
         if (HasTimedAllDayItems)
         {
-            StartTimedElementTransition(compositor, TimedAllDayHost, 0f, 18f, 0f, TimeSpan.FromMilliseconds(240), 0f, 0f, animateScale: false);
+            // TODO: This is buggy.
+            // StartTimedElementTransition(compositor, TimedAllDayHost, 0f, 18f, 0f, TimeSpan.FromMilliseconds(240), 0f, 0f, animateScale: false);
         }
     }
 
@@ -1059,7 +1067,8 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         StartOpacityTransition(compositor, ElementCompositionPreview.GetElementVisual(TimedScrollViewer), 0.8f, TimeSpan.FromMilliseconds(160));
         if (HasTimedAllDayItems)
         {
-            StartOpacityTransition(compositor, ElementCompositionPreview.GetElementVisual(TimedAllDayHost), 0.8f, TimeSpan.FromMilliseconds(160));
+            // TODO: This is buggy.
+            // StartOpacityTransition(compositor, ElementCompositionPreview.GetElementVisual(TimedAllDayHost), 0.8f, TimeSpan.FromMilliseconds(160));
         }
     }
 

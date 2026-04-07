@@ -29,7 +29,7 @@ internal sealed record TimedCalendarLayoutResult(IReadOnlyList<DateOnly> Visible
 
 internal static class TimedCalendarLayoutCalculator
 {
-    private const double AllDayItemHeight = 28d;
+    private const double AllDayItemHeight = 32d;
     private const double AllDayItemGap = 4d;
     private const double AllDaySectionPadding = 6d;
 

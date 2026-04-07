@@ -53,7 +53,7 @@
         <Grid x:Name="TimedRoot" Visibility="Collapsed">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
+                <RowDefinition Height="{x:Bind helpers:XamlHelpers.DoubleToGridLength(TimedAllDayHeight), Mode=OneWay}" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
