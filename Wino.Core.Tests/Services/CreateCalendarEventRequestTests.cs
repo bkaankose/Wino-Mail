@@ -32,8 +32,10 @@ public sealed class CreateCalendarEventRequestTests
 
             recipient.Added.Should().ContainSingle();
             recipient.Deleted.Should().ContainSingle();
-            recipient.Added[0].Id.Should().Be(request.LocalCalendarItemId!.Value);
-            recipient.Deleted[0].Id.Should().Be(request.LocalCalendarItemId!.Value);
+            recipient.Added[0].CalendarItem.Id.Should().Be(request.LocalCalendarItemId!.Value);
+            recipient.Deleted[0].CalendarItem.Id.Should().Be(request.LocalCalendarItemId!.Value);
+            recipient.Added[0].Source.Should().Be(EntityUpdateSource.ClientUpdated);
+            recipient.Deleted[0].Source.Should().Be(EntityUpdateSource.ClientReverted);
         }
         finally
         {
@@ -117,11 +119,11 @@ public sealed class CreateCalendarEventRequestTests
         IRecipient<CalendarItemAdded>,
         IRecipient<CalendarItemDeleted>
     {
-        public List<CalendarItem> Added { get; } = [];
-        public List<CalendarItem> Deleted { get; } = [];
+        public List<CalendarItemAdded> Added { get; } = [];
+        public List<CalendarItemDeleted> Deleted { get; } = [];
 
-        public void Receive(CalendarItemAdded message) => Added.Add(message.CalendarItem);
+        public void Receive(CalendarItemAdded message) => Added.Add(message);
 
-        public void Receive(CalendarItemDeleted message) => Deleted.Add(message.CalendarItem);
+        public void Receive(CalendarItemDeleted message) => Deleted.Add(message);
     }
 }

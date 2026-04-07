@@ -102,7 +102,7 @@ public class MailItemViewModelUpdateTests
 
         latest.IsRead = true;
 
-        await collection.UpdateMailCopy(latest, MailUpdateSource.ClientUpdated, MailCopyChangeFlags.IsRead);
+        await collection.UpdateMailCopy(latest, EntityUpdateSource.ClientUpdated, MailCopyChangeFlags.IsRead);
 
         raisedProperties.Should().Equal(nameof(ThreadMailItemViewModel.IsRead));
     }

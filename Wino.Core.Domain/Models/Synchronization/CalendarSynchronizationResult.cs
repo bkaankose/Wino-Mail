@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json.Serialization;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -22,6 +24,13 @@ public class CalendarSynchronizationResult
 
     public SynchronizationCompletedState CompletedState { get; set; }
 
+    public Exception Exception { get; set; }
+
+    public List<SynchronizationIssue> Issues { get; set; } = [];
+
+    [JsonIgnore]
+    public IEnumerable<SynchronizationIssue> AllIssues => Issues;
+
     public static CalendarSynchronizationResult Empty => new() { CompletedState = SynchronizationCompletedState.Success };
 
     // Mail synchronization
@@ -41,5 +50,48 @@ public class CalendarSynchronizationResult
         };
 
     public static CalendarSynchronizationResult Canceled => new() { CompletedState = SynchronizationCompletedState.Canceled };
-    public static CalendarSynchronizationResult Failed => new() { CompletedState = SynchronizationCompletedState.Failed };
+    public static CalendarSynchronizationResult Failed(Exception exception = null) => new()
+    {
+        CompletedState = SynchronizationCompletedState.Failed,
+        Exception = exception
+    };
+
+    public CalendarSynchronizationResult MergeIssues(IEnumerable<SynchronizationIssue> issues)
+    {
+        if (issues == null)
+            return this;
+
+        foreach (var issue in issues.Where(issue => issue != null))
+        {
+            if (!Issues.Any(existing => AreEquivalent(existing, issue)))
+            {
+                Issues.Add(issue);
+            }
+        }
+
+        if (CompletedState == SynchronizationCompletedState.Success && Issues.Any())
+        {
+            CompletedState = SynchronizationCompletedState.PartiallyCompleted;
+        }
+
+        if (Exception == null)
+        {
+            Exception = Issues.FirstOrDefault(issue => !string.IsNullOrWhiteSpace(issue?.Message)) is { } issue
+                ? new Exception(issue.Message)
+                : null;
+        }
+
+        return this;
+    }
+
+    private static bool AreEquivalent(SynchronizationIssue left, SynchronizationIssue right)
+        => string.Equals(left?.Message, right?.Message, StringComparison.Ordinal)
+           && left?.ErrorCode == right?.ErrorCode
+           && left?.Severity == right?.Severity
+           && left?.Category == right?.Category
+           && string.Equals(left?.OperationType, right?.OperationType, StringComparison.Ordinal)
+           && string.Equals(left?.RequestType, right?.RequestType, StringComparison.Ordinal)
+           && left?.FolderId == right?.FolderId
+           && left?.CalendarId == right?.CalendarId
+           && string.Equals(left?.ScopeName, right?.ScopeName, StringComparison.Ordinal);
 }

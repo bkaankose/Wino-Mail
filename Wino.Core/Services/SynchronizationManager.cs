@@ -146,7 +146,10 @@ public class SynchronizationManager : ISynchronizationManager
         {
             _logger.Error("Could not find or create synchronizer for account {AccountId}", options.AccountId);
 
-            return MailSynchronizationResult.Failed(new Exception("Can't create/get synchronizer."));
+            var exception = new InvalidOperationException("Can't create/get synchronizer.");
+            return MailSynchronizationResult
+                .Failed(exception)
+                .MergeIssues([SynchronizationIssue.FromException(exception, "MailSync")]);
         }
 
         _logger.Information("Starting mail synchronization for account {AccountId} with type {SyncType}",
@@ -185,12 +188,16 @@ public class SynchronizationManager : ISynchronizationManager
             // Create app notification for authentication attention
             _notificationBuilder.CreateAttentionRequiredNotification(authEx.Account);
 
-            return MailSynchronizationResult.Failed(authEx);
+            return MailSynchronizationResult
+                .Failed(authEx)
+                .MergeIssues([SynchronizationIssue.FromException(authEx, "MailSync", SynchronizerErrorSeverity.AuthRequired)]);
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Mail synchronization failed for account {AccountId}", options.AccountId);
-            return MailSynchronizationResult.Failed(ex);
+            return MailSynchronizationResult
+                .Failed(ex)
+                .MergeIssues([SynchronizationIssue.FromException(ex, "MailSync")]);
         }
     }
 
@@ -432,7 +439,10 @@ public class SynchronizationManager : ISynchronizationManager
         if (synchronizer == null)
         {
             _logger.Error("Could not find or create synchronizer for account {AccountId}", options.AccountId);
-            return CalendarSynchronizationResult.Failed;
+            var exception = new InvalidOperationException("Can't create/get synchronizer.");
+            return CalendarSynchronizationResult
+                .Failed(exception)
+                .MergeIssues([SynchronizationIssue.FromException(exception, "CalendarSync")]);
         }
 
         _logger.Information("Starting calendar synchronization for account {AccountId} with type {SyncType}",
@@ -478,12 +488,16 @@ public class SynchronizationManager : ISynchronizationManager
             // Create app notification for authentication attention
             _notificationBuilder.CreateAttentionRequiredNotification(authEx.Account);
 
-            return CalendarSynchronizationResult.Failed;
+            return CalendarSynchronizationResult
+                .Failed(authEx)
+                .MergeIssues([SynchronizationIssue.FromException(authEx, "CalendarSync", SynchronizerErrorSeverity.AuthRequired)]);
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Calendar synchronization failed for account {AccountId}", options.AccountId);
-            return CalendarSynchronizationResult.Failed;
+            return CalendarSynchronizationResult
+                .Failed(ex)
+                .MergeIssues([SynchronizationIssue.FromException(ex, "CalendarSync")]);
         }
         finally
         {

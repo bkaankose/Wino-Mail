@@ -11,13 +11,13 @@ public class CalendarBaseViewModel : CoreBaseViewModel,
     IRecipient<CalendarItemUpdated>,
     IRecipient<CalendarItemDeleted>
 {
-    public void Receive(CalendarItemAdded message) => DispatchToUIThread(() => OnCalendarItemAdded(message.CalendarItem));
+    public void Receive(CalendarItemAdded message) => DispatchToUIThread(() => OnCalendarItemAdded(message.CalendarItem, message.Source));
     public void Receive(CalendarItemUpdated message) => DispatchToUIThread(() => OnCalendarItemUpdated(message.CalendarItem, message.Source));
-    public void Receive(CalendarItemDeleted message) => DispatchToUIThread(() => OnCalendarItemDeleted(message.CalendarItem));
+    public void Receive(CalendarItemDeleted message) => DispatchToUIThread(() => OnCalendarItemDeleted(message.CalendarItem, message.Source));
 
-    protected virtual void OnCalendarItemAdded(CalendarItem calendarItem) { }
-    protected virtual void OnCalendarItemUpdated(CalendarItem calendarItem, CalendarItemUpdateSource source) { }
-    protected virtual void OnCalendarItemDeleted(CalendarItem calendarItem) { }
+    protected virtual void OnCalendarItemAdded(CalendarItem calendarItem, EntityUpdateSource source) { }
+    protected virtual void OnCalendarItemUpdated(CalendarItem calendarItem, EntityUpdateSource source) { }
+    protected virtual void OnCalendarItemDeleted(CalendarItem calendarItem, EntityUpdateSource source) { }
 
     private void DispatchToUIThread(Action action)
     {

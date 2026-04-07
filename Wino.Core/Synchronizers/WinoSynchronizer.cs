@@ -12,6 +12,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
@@ -121,12 +122,15 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     /// <returns>Synchronization result that contains summary of the sync.</returns>
     public async Task<MailSynchronizationResult> SynchronizeMailsAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
+        ResetCapturedSynchronizationIssues();
+        List<IRequestBase> requestCopies = null;
+
         try
         {
             if (!ShouldQueueMailSynchronization(options))
             {
                 Log.Debug($"{options.Type} synchronization is ignored.");
-                return MailSynchronizationResult.Canceled;
+                return FinalizeMailResult(MailSynchronizationResult.Canceled);
             }
 
             var newCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -147,7 +151,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
                 List<IRequestBundle<TBaseRequest>> nativeRequests = new();
 
-                List<IRequestBase> requestCopies = new(changeRequestQueue);
+                requestCopies = new(changeRequestQueue);
 
                 var keys = changeRequestQueue.GroupBy(a => a.GroupingKey());
 
@@ -226,9 +230,8 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 finally
                 {
                     UntrackProcessedRequests(requestCopies);
+                    Messenger.Send(new SynchronizationActionsCompleted(Account.Id));
                 }
-
-                Messenger.Send(new SynchronizationActionsCompleted(Account.Id));
 
                 PublishUnreadItemChanges();
 
@@ -275,14 +278,19 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 {
                     newProfileInformation = await SynchronizeProfileInformationInternalAsync();
                 }
+                catch (AuthenticationAttentionException)
+                {
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     Log.Error(ex, "Failed to update profile information for {Name}", Account.Name);
 
-                    return MailSynchronizationResult.Failed(ex);
+                    CaptureSynchronizationIssue(SynchronizationIssue.FromException(ex, "ProfileSync"));
+                    return FinalizeMailResult(MailSynchronizationResult.Failed(ex));
                 }
 
-                return MailSynchronizationResult.Completed(newProfileInformation);
+                return FinalizeMailResult(MailSynchronizationResult.Completed(newProfileInformation));
             }
 
             // Alias sync.
@@ -294,13 +302,18 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 {
                     await SynchronizeAliasesAsync();
 
-                    return MailSynchronizationResult.Empty;
+                    return FinalizeMailResult(MailSynchronizationResult.Empty);
+                }
+                catch (AuthenticationAttentionException)
+                {
+                    throw;
                 }
                 catch (Exception ex)
                 {
                     Log.Error(ex, "Failed to update aliases for {Name}", Account.Name);
 
-                    return MailSynchronizationResult.Failed(ex);
+                    CaptureSynchronizationIssue(SynchronizationIssue.FromException(ex, "AliasSync"));
+                    return FinalizeMailResult(MailSynchronizationResult.Failed(ex));
                 }
             }
 
@@ -314,19 +327,23 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
             PublishUnreadItemChanges();
 
-            return synchronizationResult;
+            return FinalizeMailResult(synchronizationResult);
         }
         catch (OperationCanceledException)
         {
             Logger.Warning("Synchronization canceled.");
 
-            return MailSynchronizationResult.Canceled;
+            return FinalizeMailResult(MailSynchronizationResult.Canceled);
+        }
+        catch (AuthenticationAttentionException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
             Logger.Error(ex, "Synchronization failed for {Name}", Account.Name);
-
-            throw;
+            CaptureSynchronizationIssue(SynchronizationIssue.FromException(ex, "MailSync"));
+            return FinalizeMailResult(MailSynchronizationResult.Failed(ex));
         }
         finally
         {
@@ -355,104 +372,132 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     /// <returns>Synchronization result that contains summary of the sync.</returns>
     public async Task<CalendarSynchronizationResult> SynchronizeCalendarEventsAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
-        bool shouldExecuteRequests = changeRequestQueue.Any(r => r is ICalendarActionRequest);
-        bool shouldDelayExecution = false;
-        int maxExecutionDelay = 0;
+        ResetCapturedSynchronizationIssues();
+        List<IRequestBase> requestCopies = null;
+        var calendarRequestsWereExecuting = false;
 
-        if (shouldExecuteRequests)
+        try
         {
-            State = AccountSynchronizerState.ExecutingRequests;
+            bool shouldExecuteRequests = changeRequestQueue.Any(r => r is ICalendarActionRequest);
+            bool shouldDelayExecution = false;
+            int maxExecutionDelay = 0;
 
-            List<IRequestBundle<TBaseRequest>> nativeRequests = new();
-            List<IRequestBase> requestCopies = new(changeRequestQueue.Where(r => r is ICalendarActionRequest));
-
-            var keys = requestCopies.GroupBy(a => a.GroupingKey());
-
-            foreach (var group in keys)
+            if (shouldExecuteRequests)
             {
-                var key = group.Key;
+                calendarRequestsWereExecuting = true;
+                State = AccountSynchronizerState.ExecutingRequests;
 
-                if (key is CalendarSynchronizerOperation calendarSynchronizerOperation)
+                List<IRequestBundle<TBaseRequest>> nativeRequests = new();
+                requestCopies = new(changeRequestQueue.Where(r => r is ICalendarActionRequest));
+
+                var keys = requestCopies.GroupBy(a => a.GroupingKey());
+
+                foreach (var group in keys)
                 {
-                    switch (calendarSynchronizerOperation)
+                    var key = group.Key;
+
+                    if (key is CalendarSynchronizerOperation calendarSynchronizerOperation)
                     {
-                        case CalendarSynchronizerOperation.CreateEvent:
-                            nativeRequests.AddRange(group
-                                .OfType<CreateCalendarEventRequest>()
-                                .SelectMany(CreateCalendarEvent));
-                            break;
-                        case CalendarSynchronizerOperation.AcceptEvent:
-                            nativeRequests.AddRange(group
-                                .OfType<AcceptEventRequest>()
-                                .SelectMany(AcceptEvent));
-                            break;
-                        case CalendarSynchronizerOperation.DeclineEvent:
-                            if (Account.ProviderType == MailProviderType.Outlook)
-                            {
+                        switch (calendarSynchronizerOperation)
+                        {
+                            case CalendarSynchronizerOperation.CreateEvent:
                                 nativeRequests.AddRange(group
-                                    .OfType<OutlookDeclineEventRequest>()
-                                    .SelectMany(OutlookDeclineEvent));
-                            }
-                            else
-                            {
+                                    .OfType<CreateCalendarEventRequest>()
+                                    .SelectMany(CreateCalendarEvent));
+                                break;
+                            case CalendarSynchronizerOperation.AcceptEvent:
                                 nativeRequests.AddRange(group
-                                    .OfType<DeclineEventRequest>()
-                                    .SelectMany(DeclineEvent));
-                            }
-                            break;
-                        case CalendarSynchronizerOperation.TentativeEvent:
-                            nativeRequests.AddRange(group
-                                .OfType<TentativeEventRequest>()
-                                .SelectMany(TentativeEvent));
-                            break;
-                        case CalendarSynchronizerOperation.UpdateEvent:
-                            nativeRequests.AddRange(group
-                                .OfType<UpdateCalendarEventRequest>()
-                                .SelectMany(UpdateCalendarEvent));
-                            break;
-                        case CalendarSynchronizerOperation.DeleteEvent:
-                            nativeRequests.AddRange(group
-                                .OfType<DeleteCalendarEventRequest>()
-                                .SelectMany(DeleteCalendarEvent));
-                            break;
-                        default:
-                            break;
+                                    .OfType<AcceptEventRequest>()
+                                    .SelectMany(AcceptEvent));
+                                break;
+                            case CalendarSynchronizerOperation.DeclineEvent:
+                                if (Account.ProviderType == MailProviderType.Outlook)
+                                {
+                                    nativeRequests.AddRange(group
+                                        .OfType<OutlookDeclineEventRequest>()
+                                        .SelectMany(OutlookDeclineEvent));
+                                }
+                                else
+                                {
+                                    nativeRequests.AddRange(group
+                                        .OfType<DeclineEventRequest>()
+                                        .SelectMany(DeclineEvent));
+                                }
+                                break;
+                            case CalendarSynchronizerOperation.TentativeEvent:
+                                nativeRequests.AddRange(group
+                                    .OfType<TentativeEventRequest>()
+                                    .SelectMany(TentativeEvent));
+                                break;
+                            case CalendarSynchronizerOperation.UpdateEvent:
+                                nativeRequests.AddRange(group
+                                    .OfType<UpdateCalendarEventRequest>()
+                                    .SelectMany(UpdateCalendarEvent));
+                                break;
+                            case CalendarSynchronizerOperation.DeleteEvent:
+                                nativeRequests.AddRange(group
+                                    .OfType<DeleteCalendarEventRequest>()
+                                    .SelectMany(DeleteCalendarEvent));
+                                break;
+                            default:
+                                break;
+                        }
                     }
+                }
+
+                // Remove processed calendar requests from queue
+                changeRequestQueue.RemoveAll(r => r is ICalendarActionRequest);
+
+                Console.WriteLine($"Prepared {nativeRequests.Count()} native calendar requests");
+
+                try
+                {
+                    await ExecuteNativeRequestsAsync(nativeRequests, cancellationToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    UntrackProcessedRequests(requestCopies);
+                    Messenger.Send(new SynchronizationActionsCompleted(Account.Id));
+                }
+
+                // Let servers to finish their job. Sometimes the servers don't respond immediately.
+                shouldDelayExecution = requestCopies.Any(a => a.ResynchronizationDelay > 0);
+
+                if (shouldDelayExecution)
+                {
+                    maxExecutionDelay = requestCopies.Aggregate(0, (max, next) => Math.Max(max, next.ResynchronizationDelay));
                 }
             }
 
-            // Remove processed calendar requests from queue
-            changeRequestQueue.RemoveAll(r => r is ICalendarActionRequest);
-
-            Console.WriteLine($"Prepared {nativeRequests.Count()} native calendar requests");
-
-            try
-            {
-                await ExecuteNativeRequestsAsync(nativeRequests, cancellationToken).ConfigureAwait(false);
-            }
-            finally
-            {
-                UntrackProcessedRequests(requestCopies);
-            }
-
-            Messenger.Send(new SynchronizationActionsCompleted(Account.Id));
-
-            // Let servers to finish their job. Sometimes the servers don't respond immediately.
-            shouldDelayExecution = requestCopies.Any(a => a.ResynchronizationDelay > 0);
-
             if (shouldDelayExecution)
             {
-                maxExecutionDelay = requestCopies.Aggregate(0, (max, next) => Math.Max(max, next.ResynchronizationDelay));
+                await Task.Delay(maxExecutionDelay, cancellationToken);
+            }
+
+            var synchronizationResult = await SynchronizeCalendarEventsInternalAsync(options, cancellationToken);
+            return FinalizeCalendarResult(synchronizationResult);
+        }
+        catch (OperationCanceledException)
+        {
+            return FinalizeCalendarResult(CalendarSynchronizationResult.Canceled);
+        }
+        catch (AuthenticationAttentionException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            CaptureSynchronizationIssue(SynchronizationIssue.FromException(ex, "CalendarSync"));
+            return FinalizeCalendarResult(CalendarSynchronizationResult.Failed(ex));
+        }
+        finally
+        {
+            if (calendarRequestsWereExecuting && State == AccountSynchronizerState.ExecutingRequests)
+            {
+                ResetSyncProgress();
+                State = AccountSynchronizerState.Idle;
             }
         }
-
-        if (shouldDelayExecution)
-        {
-            await Task.Delay(maxExecutionDelay, cancellationToken);
-        }
-
-        // Execute the actual synchronization
-        return await SynchronizeCalendarEventsInternalAsync(options, cancellationToken);
     }
 
     /// <summary>
@@ -626,4 +671,10 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
             request.Value.Dispose();
         }
     }
+
+    private MailSynchronizationResult FinalizeMailResult(MailSynchronizationResult result)
+        => (result ?? MailSynchronizationResult.Empty).MergeIssues(GetCapturedSynchronizationIssues());
+
+    private CalendarSynchronizationResult FinalizeCalendarResult(CalendarSynchronizationResult result)
+        => (result ?? CalendarSynchronizationResult.Empty).MergeIssues(GetCapturedSynchronizationIssues());
 }

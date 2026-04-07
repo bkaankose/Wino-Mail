@@ -639,7 +639,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             MenuItems.Add(MailOperationMenuItem.Create(MailOperation.MarkAsRead, true, false));
     }
 
-    protected override async void OnMailUpdated(MailCopy updatedMail, MailUpdateSource source, MailCopyChangeFlags changedProperties)
+    protected override async void OnMailUpdated(MailCopy updatedMail, EntityUpdateSource source, MailCopyChangeFlags changedProperties)
     {
         base.OnMailUpdated(updatedMail, source, changedProperties);
 

@@ -21,12 +21,12 @@ public record DeleteCalendarEventRequest(CalendarItem Item) : CalendarRequestBas
     public override void ApplyUIChanges()
     {
         // Notify UI that the event was deleted
-        WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(Item));
+        WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(Item, EntityUpdateSource.ClientUpdated));
     }
 
     public override void RevertUIChanges()
     {
         // If deletion fails, we should notify the UI to add it back
-        WeakReferenceMessenger.Default.Send(new CalendarItemAdded(Item));
+        WeakReferenceMessenger.Default.Send(new CalendarItemAdded(Item, EntityUpdateSource.ClientReverted));
     }
 }

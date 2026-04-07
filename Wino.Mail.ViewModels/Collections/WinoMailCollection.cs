@@ -530,7 +530,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
     private async Task UpdateExistingItemAsync(MailItemContainer itemContainer,
                                                MailCopy updatedItem,
-                                               MailUpdateSource mailUpdateSource = MailUpdateSource.Server,
+                                               EntityUpdateSource mailUpdateSource = EntityUpdateSource.Server,
                                                MailCopyChangeFlags changeHint = MailCopyChangeFlags.None)
     {
         if (itemContainer?.ItemViewModel == null)
@@ -559,7 +559,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
                 itemContainer.ThreadViewModel?.ResumeChildPropertyNotifications();
             }
 
-            existingItem.IsBusy = mailUpdateSource == MailUpdateSource.ClientUpdated;
+            existingItem.IsBusy = mailUpdateSource == EntityUpdateSource.ClientUpdated;
 
             UpdateUniqueIdHashes(existingItem, true);
             UpdateThreadIdCache(threadOwner, true);
@@ -849,7 +849,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     /// </summary>
     /// <param name="updatedMailCopy">Updated mail copy.</param>
     /// <returns></returns>
-    public Task UpdateMailCopy(MailCopy updatedMailCopy, MailUpdateSource mailUpdateSource, MailCopyChangeFlags changedProperties = MailCopyChangeFlags.None)
+    public Task UpdateMailCopy(MailCopy updatedMailCopy, EntityUpdateSource mailUpdateSource, MailCopyChangeFlags changedProperties = MailCopyChangeFlags.None)
         => RunSerializedAsync(() =>
         {
             var itemContainer = GetMailItemContainer(updatedMailCopy.UniqueId);

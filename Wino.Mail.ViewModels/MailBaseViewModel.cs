@@ -20,9 +20,9 @@ public class MailBaseViewModel : CoreBaseViewModel,
     IRecipient<FolderDeleted>,
     IRecipient<FolderSynchronizationEnabled>
 {
-    protected virtual void OnMailAdded(MailCopy addedMail) { }
-    protected virtual void OnMailRemoved(MailCopy removedMail) { }
-    protected virtual void OnMailUpdated(MailCopy updatedMail, MailUpdateSource source, MailCopyChangeFlags changedProperties) { }
+    protected virtual void OnMailAdded(MailCopy addedMail, EntityUpdateSource source) { }
+    protected virtual void OnMailRemoved(MailCopy removedMail, EntityUpdateSource source) { }
+    protected virtual void OnMailUpdated(MailCopy updatedMail, EntityUpdateSource source, MailCopyChangeFlags changedProperties) { }
     protected virtual void OnMailDownloaded(MailCopy downloadedMail) { }
     protected virtual void OnDraftCreated(MailCopy draftMail, MailAccount account) { }
     protected virtual void OnDraftFailed(MailCopy draftMail, MailAccount account) { }
@@ -31,8 +31,8 @@ public class MailBaseViewModel : CoreBaseViewModel,
     protected virtual void OnFolderDeleted(MailItemFolder folder) { }
     protected virtual void OnFolderSynchronizationEnabled(IMailItemFolder mailItemFolder) { }
 
-    void IRecipient<MailAddedMessage>.Receive(MailAddedMessage message) => OnMailAdded(message.AddedMail);
-    void IRecipient<MailRemovedMessage>.Receive(MailRemovedMessage message) => OnMailRemoved(message.RemovedMail);
+    void IRecipient<MailAddedMessage>.Receive(MailAddedMessage message) => OnMailAdded(message.AddedMail, message.Source);
+    void IRecipient<MailRemovedMessage>.Receive(MailRemovedMessage message) => OnMailRemoved(message.RemovedMail, message.Source);
     void IRecipient<MailUpdatedMessage>.Receive(MailUpdatedMessage message) => OnMailUpdated(message.UpdatedMail, message.Source, message.ChangedProperties);
     void IRecipient<MailDownloadedMessage>.Receive(MailDownloadedMessage message) => OnMailDownloaded(message.DownloadedMail);
 

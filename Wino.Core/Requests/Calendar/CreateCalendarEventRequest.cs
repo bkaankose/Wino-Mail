@@ -47,7 +47,7 @@ public record CreateCalendarEventRequest : CalendarRequestBase
         if (Item == null)
             return;
 
-        WeakReferenceMessenger.Default.Send(new CalendarItemAdded(Item));
+        WeakReferenceMessenger.Default.Send(new CalendarItemAdded(Item, EntityUpdateSource.ClientUpdated));
     }
 
     public override void RevertUIChanges()
@@ -55,7 +55,7 @@ public record CreateCalendarEventRequest : CalendarRequestBase
         if (Item == null)
             return;
 
-        WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(Item));
+        WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(Item, EntityUpdateSource.ClientReverted));
     }
 
     private static bool ShouldCreateOptimisticItem(CalendarEventComposeResult composeResult)

@@ -122,7 +122,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
             await Connection.Table<Reminder>().DeleteAsync(r => r.CalendarItemId == @event.Id).ConfigureAwait(false);
             await Connection.Table<CalendarAttachment>().DeleteAsync(a => a.CalendarItemId == @event.Id).ConfigureAwait(false);
 
-            WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(@event));
+            WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(@event, EntityUpdateSource.Server));
         }
     }
 
@@ -149,7 +149,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
                 }
             });
 
-            WeakReferenceMessenger.Default.Send(new CalendarItemAdded(calendarItem));
+            WeakReferenceMessenger.Default.Send(new CalendarItemAdded(calendarItem, EntityUpdateSource.Server));
         }
         catch (Exception ex)
         {
@@ -174,7 +174,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
                 }
             });
 
-            WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(calendarItem, CalendarItemUpdateSource.Server));
+            WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(calendarItem, EntityUpdateSource.Server));
         }
         catch (Exception ex)
         {

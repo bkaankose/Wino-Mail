@@ -26,13 +26,13 @@ public record OutlookDeclineEventRequest(CalendarItem Item, string ResponseMessa
     {
         // In Outlook, declined events are deleted from the calendar after sync
         // Send deleted message to remove from UI immediately
-        WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(Item));
+        WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(Item, EntityUpdateSource.ClientUpdated));
     }
 
     public override void RevertUIChanges()
     {
         // If decline fails, restore the previous status and re-add the event
         Item.Status = _previousStatus;
-        WeakReferenceMessenger.Default.Send(new CalendarItemAdded(Item));
+        WeakReferenceMessenger.Default.Send(new CalendarItemAdded(Item, EntityUpdateSource.ClientReverted));
     }
 }

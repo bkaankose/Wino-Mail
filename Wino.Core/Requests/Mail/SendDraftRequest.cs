@@ -34,11 +34,11 @@ public record SendDraftRequest(SendDraftPreparationRequest Request)
 
     public override void ApplyUIChanges()
     {
-        WeakReferenceMessenger.Default.Send(new MailRemovedMessage(Item));
+        WeakReferenceMessenger.Default.Send(new MailRemovedMessage(Item, EntityUpdateSource.ClientUpdated));
     }
 
     public override void RevertUIChanges()
     {
-        WeakReferenceMessenger.Default.Send(new MailAddedMessage(Item));
+        WeakReferenceMessenger.Default.Send(new MailAddedMessage(Item, EntityUpdateSource.ClientReverted));
     }
 }

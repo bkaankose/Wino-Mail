@@ -16,7 +16,7 @@ public record EmptyFolderRequest(MailItemFolder Folder, List<MailCopy> MailsToDe
     {
         foreach (var item in MailsToDelete)
         {
-            WeakReferenceMessenger.Default.Send(new MailRemovedMessage(item));
+            WeakReferenceMessenger.Default.Send(new MailRemovedMessage(item, EntityUpdateSource.ClientUpdated));
         }
     }
 
@@ -24,7 +24,7 @@ public record EmptyFolderRequest(MailItemFolder Folder, List<MailCopy> MailsToDe
     {
         foreach (var item in MailsToDelete)
         {
-            WeakReferenceMessenger.Default.Send(new MailAddedMessage(item));
+            WeakReferenceMessenger.Default.Send(new MailAddedMessage(item, EntityUpdateSource.ClientReverted));
         }
     }
 

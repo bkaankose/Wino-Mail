@@ -181,7 +181,7 @@ public class WinoMailCollectionTests
         var updatedSecond = CloneMailCopy(second);
         updatedSecond.ThreadId = "shared-thread";
 
-        await sut.UpdateMailCopy(updatedSecond, MailUpdateSource.Server, MailCopyChangeFlags.ThreadId);
+        await sut.UpdateMailCopy(updatedSecond, EntityUpdateSource.Server, MailCopyChangeFlags.ThreadId);
 
         var items = FlattenItems(sut);
         var threadItem = items.Should().ContainSingle().Which.Should().BeOfType<ThreadMailItemViewModel>().Subject;
@@ -201,7 +201,7 @@ public class WinoMailCollectionTests
         var updatedExisting = CloneMailCopy(existing);
         updatedExisting.ThreadId = "shared-thread";
 
-        await sut.UpdateMailCopy(updatedExisting, MailUpdateSource.Server, MailCopyChangeFlags.ThreadId);
+        await sut.UpdateMailCopy(updatedExisting, EntityUpdateSource.Server, MailCopyChangeFlags.ThreadId);
         await sut.AddAsync(incoming);
 
         var items = FlattenItems(sut);

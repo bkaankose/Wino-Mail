@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.Collections;
+using CommunityToolkit.Mvvm.Messaging;
 using FluentAssertions;
 using Itenso.TimePeriod;
 using Moq;
@@ -10,9 +11,12 @@ using Wino.Calendar.ViewModels.Data;
 using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.Domain.Models.Navigation;
+using Wino.Messaging.Client.Calendar;
 using Xunit;
 
 namespace Wino.Core.Tests;
@@ -155,19 +159,140 @@ public class CalendarPageViewModelTests
         calendarService.Verify(service => service.GetCalendarEventsAsync(It.Is<IAccountCalendar>(calendar => calendar.Id == hiddenCalendar.Id), It.IsAny<ITimePeriod>()), Times.Never);
     }
 
+    [Fact]
+    public async Task CalendarItemAddedMessage_AddsVisibleItemWithoutReloadAndMarksBusy()
+    {
+        var settings = CreateSettings();
+        var preferencesService = CreatePreferencesService(settings);
+        var calendarService = new Mock<ICalendarService>();
+
+        var account = CreateAccount();
+        var calendar = CreateCalendar(account, "Calendar");
+        var accountCalendarViewModel = new AccountCalendarViewModel(account, calendar);
+        var existingItem = CreateCalendarItem(calendar.Id, new DateTime(2026, 3, 20, 9, 0, 0), "Existing");
+
+        calendarService
+            .Setup(service => service.GetCalendarEventsAsync(It.IsAny<IAccountCalendar>(), It.IsAny<ITimePeriod>()))
+            .ReturnsAsync([existingItem]);
+
+        var viewModel = CreateViewModel(
+            calendarService.Object,
+            preferencesService.Object,
+            new DateOnly(2026, 3, 20),
+            new FakeAccountCalendarStateService([accountCalendarViewModel]));
+
+        viewModel.OnNavigatedTo(NavigationMode.New, null!);
+
+        try
+        {
+            await viewModel.ApplyDisplayRequestAsync(new CalendarDisplayRequest(CalendarDisplayType.Day, new DateOnly(2026, 3, 20)));
+
+            var optimisticItem = CreateCalendarItem(calendar.Id, new DateTime(2026, 3, 20, 10, 0, 0), "Optimistic");
+            optimisticItem.AssignedCalendar = accountCalendarViewModel;
+
+            WeakReferenceMessenger.Default.Send(new CalendarItemAdded(optimisticItem, EntityUpdateSource.ClientUpdated));
+
+            viewModel.CalendarItems.Should().HaveCount(2);
+            viewModel.CalendarItems.Should().Contain(item => item.Id == optimisticItem.Id && item.IsBusy);
+            calendarService.Verify(service => service.GetCalendarEventsAsync(It.IsAny<IAccountCalendar>(), It.IsAny<ITimePeriod>()), Times.Once);
+        }
+        finally
+        {
+            viewModel.OnNavigatedFrom(NavigationMode.Back, null!);
+        }
+    }
+
+    [Fact]
+    public async Task CalendarItemDeletedMessage_RemovesVisibleItemWithoutReload()
+    {
+        var settings = CreateSettings();
+        var preferencesService = CreatePreferencesService(settings);
+        var calendarService = new Mock<ICalendarService>();
+
+        var account = CreateAccount();
+        var calendar = CreateCalendar(account, "Calendar");
+        var accountCalendarViewModel = new AccountCalendarViewModel(account, calendar);
+        var existingItem = CreateCalendarItem(calendar.Id, new DateTime(2026, 3, 20, 9, 0, 0), "Existing");
+
+        calendarService
+            .Setup(service => service.GetCalendarEventsAsync(It.IsAny<IAccountCalendar>(), It.IsAny<ITimePeriod>()))
+            .ReturnsAsync([existingItem]);
+
+        var viewModel = CreateViewModel(
+            calendarService.Object,
+            preferencesService.Object,
+            new DateOnly(2026, 3, 20),
+            new FakeAccountCalendarStateService([accountCalendarViewModel]));
+
+        viewModel.OnNavigatedTo(NavigationMode.New, null!);
+
+        try
+        {
+            await viewModel.ApplyDisplayRequestAsync(new CalendarDisplayRequest(CalendarDisplayType.Day, new DateOnly(2026, 3, 20)));
+
+            WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(existingItem, EntityUpdateSource.ClientUpdated));
+
+            viewModel.CalendarItems.Should().BeEmpty();
+            calendarService.Verify(service => service.GetCalendarEventsAsync(It.IsAny<IAccountCalendar>(), It.IsAny<ITimePeriod>()), Times.Once);
+        }
+        finally
+        {
+            viewModel.OnNavigatedFrom(NavigationMode.Back, null!);
+        }
+    }
+
+    [Fact]
+    public async Task CalendarItemAddedMessage_ReconcilesTrackedLocalPreviewInPlace()
+    {
+        var settings = CreateSettings();
+        var preferencesService = CreatePreferencesService(settings);
+        var calendarService = new Mock<ICalendarService>();
+
+        var account = CreateAccount();
+        var calendar = CreateCalendar(account, "Calendar");
+        var accountCalendarViewModel = new AccountCalendarViewModel(account, calendar);
+        var localPreview = CreateCalendarItem(calendar.Id, new DateTime(2026, 3, 20, 9, 0, 0), "Local preview");
+
+        calendarService
+            .Setup(service => service.GetCalendarEventsAsync(It.IsAny<IAccountCalendar>(), It.IsAny<ITimePeriod>()))
+            .ReturnsAsync([localPreview]);
+
+        var viewModel = CreateViewModel(
+            calendarService.Object,
+            preferencesService.Object,
+            new DateOnly(2026, 3, 20),
+            new FakeAccountCalendarStateService([accountCalendarViewModel]));
+
+        viewModel.OnNavigatedTo(NavigationMode.New, null!);
+
+        try
+        {
+            await viewModel.ApplyDisplayRequestAsync(new CalendarDisplayRequest(CalendarDisplayType.Day, new DateOnly(2026, 3, 20)));
+
+            var syncedItem = CreateCalendarItem(calendar.Id, localPreview.StartDate, "Synced");
+            syncedItem.RemoteEventId = "remote-event-id".WithClientTrackingId(localPreview.Id);
+            syncedItem.AssignedCalendar = accountCalendarViewModel;
+
+            WeakReferenceMessenger.Default.Send(new CalendarItemAdded(syncedItem, EntityUpdateSource.Server));
+
+            viewModel.CalendarItems.Should().ContainSingle();
+            viewModel.CalendarItems[0].Id.Should().Be(syncedItem.Id);
+            viewModel.CalendarItems[0].Title.Should().Be("Synced");
+            viewModel.CalendarItems[0].IsBusy.Should().BeFalse();
+            viewModel.CalendarItems.Should().NotContain(item => item.Id == localPreview.Id);
+        }
+        finally
+        {
+            viewModel.OnNavigatedFrom(NavigationMode.Back, null!);
+        }
+    }
+
     private static CalendarPageViewModel CreateViewModel(
         ICalendarService calendarService,
         IPreferencesService preferencesService,
         DateOnly today)
     {
-        var account = new MailAccount
-        {
-            Id = Guid.NewGuid(),
-            Name = "Primary",
-            SenderName = "Primary",
-            Address = "primary@example.com",
-            ProviderType = MailProviderType.Outlook
-        };
+        var account = CreateAccount();
 
         var calendar = CreateCalendar(account, "Calendar");
         var accountCalendarViewModel = new AccountCalendarViewModel(account, calendar);
@@ -215,6 +340,26 @@ public class CalendarPageViewModelTests
             IsExtended = true,
             IsPrimary = true,
             IsSynchronizationEnabled = true
+        };
+
+    private static MailAccount CreateAccount()
+        => new()
+        {
+            Id = Guid.NewGuid(),
+            Name = "Primary",
+            SenderName = "Primary",
+            Address = "primary@example.com",
+            ProviderType = MailProviderType.Outlook
+        };
+
+    private static CalendarItem CreateCalendarItem(Guid calendarId, DateTime startDate, string title)
+        => new()
+        {
+            Id = Guid.NewGuid(),
+            CalendarId = calendarId,
+            StartDate = startDate,
+            DurationInSeconds = TimeSpan.FromMinutes(30).TotalSeconds,
+            Title = title
         };
 
     private static Mock<IPreferencesService> CreatePreferencesService(CalendarSettings settings)

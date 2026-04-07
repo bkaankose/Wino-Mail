@@ -11,6 +11,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests.Bundles;
 using Wino.Messaging.UI;
 
@@ -24,6 +25,7 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
     protected List<IRequestBase> changeRequestQueue = [];
     private readonly ConcurrentDictionary<Guid, byte> _pendingMailOperationIds = new();
     private readonly ConcurrentDictionary<Guid, byte> _pendingCalendarOperationIds = new();
+    private readonly ConcurrentQueue<SynchronizationIssue> _capturedSynchronizationIssues = new();
     protected readonly IMessenger Messenger;
     
     public MailAccount Account { get; }
@@ -135,6 +137,8 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
 
     public bool HasPendingCalendarOperation(Guid calendarItemId) => _pendingCalendarOperationIds.ContainsKey(calendarItemId);
 
+    public IReadOnlyCollection<Guid> GetPendingCalendarOperationIds() => _pendingCalendarOperationIds.Keys.ToArray();
+
     protected void TrackQueuedRequest(IRequestBase request)
     {
         if (request is IMailActionRequest mailActionRequest)
@@ -172,6 +176,27 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
         foreach (var request in requests)
             UntrackProcessedRequest(request);
     }
+
+    protected void ResetCapturedSynchronizationIssues()
+    {
+        while (_capturedSynchronizationIssues.TryDequeue(out _))
+        {
+        }
+    }
+
+    protected void CaptureSynchronizationIssue(SynchronizationIssue issue)
+    {
+        if (issue == null || string.IsNullOrWhiteSpace(issue.Message))
+            return;
+
+        _capturedSynchronizationIssues.Enqueue(issue);
+    }
+
+    protected void CaptureSynchronizationIssue(SynchronizerErrorContext errorContext)
+        => CaptureSynchronizationIssue(SynchronizationIssue.FromErrorContext(errorContext));
+
+    protected IReadOnlyList<SynchronizationIssue> GetCapturedSynchronizationIssues()
+        => _capturedSynchronizationIssues.ToArray();
 
     /// <summary>
     /// Runs existing queued requests in the queue.

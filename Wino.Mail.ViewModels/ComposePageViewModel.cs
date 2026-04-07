@@ -874,7 +874,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         _dialogService.InfoBarMessage(Translator.Info_InvalidAddressTitle, string.Format(Translator.Info_InvalidAddressMessage, address), InfoBarMessageType.Warning);
     }
 
-    protected override async void OnMailUpdated(MailCopy updatedMail, MailUpdateSource source, MailCopyChangeFlags changedProperties)
+    protected override async void OnMailUpdated(MailCopy updatedMail, EntityUpdateSource source, MailCopyChangeFlags changedProperties)
     {
         base.OnMailUpdated(updatedMail, source, changedProperties);
 

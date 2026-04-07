@@ -26,6 +26,8 @@ public class MailSynchronizationResult
 
     public Exception Exception { get; set; }
 
+    public List<SynchronizationIssue> Issues { get; set; } = [];
+
     /// <summary>
     /// Gets or sets the results for each folder that was synchronized.
     /// Enables partial failure tracking - some folders may succeed while others fail.
@@ -75,6 +77,10 @@ public class MailSynchronizationResult
     [JsonIgnore]
     public IEnumerable<FolderSyncResult> FailedFolders => FolderResults.Where(f => !f.Success);
 
+    [JsonIgnore]
+    public IEnumerable<SynchronizationIssue> AllIssues
+        => Issues.Concat(FailedFolders.Select(SynchronizationIssue.FromFolderResult).Where(issue => issue != null));
+
     public static MailSynchronizationResult Empty => new() { CompletedState = SynchronizationCompletedState.Success };
 
     // Mail synchronization
@@ -121,4 +127,43 @@ public class MailSynchronizationResult
         CompletedState = SynchronizationCompletedState.Failed,
         Exception = exception
     };
+
+    public MailSynchronizationResult MergeIssues(IEnumerable<SynchronizationIssue> issues)
+    {
+        if (issues == null)
+            return this;
+
+        foreach (var issue in issues.Where(issue => issue != null))
+        {
+            if (!Issues.Any(existing => AreEquivalent(existing, issue)))
+            {
+                Issues.Add(issue);
+            }
+        }
+
+        if (CompletedState == SynchronizationCompletedState.Success && AllIssues.Any())
+        {
+            CompletedState = SynchronizationCompletedState.PartiallyCompleted;
+        }
+
+        if (Exception == null)
+        {
+            Exception = Issues.FirstOrDefault(issue => !string.IsNullOrWhiteSpace(issue?.Message)) is { } issue
+                ? new Exception(issue.Message)
+                : null;
+        }
+
+        return this;
+    }
+
+    private static bool AreEquivalent(SynchronizationIssue left, SynchronizationIssue right)
+        => string.Equals(left?.Message, right?.Message, StringComparison.Ordinal)
+           && left?.ErrorCode == right?.ErrorCode
+           && left?.Severity == right?.Severity
+           && left?.Category == right?.Category
+           && string.Equals(left?.OperationType, right?.OperationType, StringComparison.Ordinal)
+           && string.Equals(left?.RequestType, right?.RequestType, StringComparison.Ordinal)
+           && left?.FolderId == right?.FolderId
+           && left?.CalendarId == right?.CalendarId
+           && string.Equals(left?.ScopeName, right?.ScopeName, StringComparison.Ordinal);
 }

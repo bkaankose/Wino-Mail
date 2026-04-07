@@ -910,7 +910,7 @@ public partial class App : WinoApplication,
             syncResult.CompletedState == SynchronizationCompletedState.PartiallyCompleted)
         {
             var dialogService = Services.GetRequiredService<IMailDialogService>();
-            var errorMessage = GetSynchronizationFailureMessage(message.Options.Type, syncResult.Exception?.Message);
+            var errorMessage = GetSynchronizationFailureMessage(message.Options.Type, syncResult.AllIssues, syncResult.Exception?.Message);
             var severity = syncResult.CompletedState == SynchronizationCompletedState.PartiallyCompleted
                 ? InfoBarMessageType.Warning
                 : InfoBarMessageType.Error;
@@ -925,18 +925,15 @@ public partial class App : WinoApplication,
 
         var calendarSyncResult = await _synchronizationManager.SynchronizeCalendarAsync(message.Options);
 
-        if (calendarSyncResult.CompletedState == SynchronizationCompletedState.Failed)
+        if (calendarSyncResult.CompletedState is SynchronizationCompletedState.Failed or SynchronizationCompletedState.PartiallyCompleted)
         {
             var dialogService = Services.GetRequiredService<IMailDialogService>();
             dialogService.InfoBarMessage(
                 Translator.Info_SyncFailedTitle,
-                message.Options.Type switch
-                {
-                    CalendarSynchronizationType.CalendarMetadata => Translator.Exception_FailedToSynchronizeCalendarMetadata,
-                    CalendarSynchronizationType.Strict => Translator.Exception_FailedToSynchronizeCalendarData,
-                    _ => Translator.Exception_FailedToSynchronizeCalendarEvents
-                },
-                InfoBarMessageType.Error);
+                GetCalendarSynchronizationFailureMessage(message.Options.Type, calendarSyncResult.AllIssues, calendarSyncResult.Exception?.Message),
+                calendarSyncResult.CompletedState == SynchronizationCompletedState.PartiallyCompleted
+                    ? InfoBarMessageType.Warning
+                    : InfoBarMessageType.Error);
         }
     }
 
@@ -1052,8 +1049,17 @@ public partial class App : WinoApplication,
         });
     }
 
-    private static string GetSynchronizationFailureMessage(MailSynchronizationType synchronizationType, string? exceptionMessage)
+    private static string GetSynchronizationFailureMessage(
+        MailSynchronizationType synchronizationType,
+        IEnumerable<SynchronizationIssue> issues,
+        string? exceptionMessage)
     {
+        var issueMessage = FormatSynchronizationIssues(issues);
+        if (!string.IsNullOrWhiteSpace(issueMessage))
+        {
+            return issueMessage;
+        }
+
         if (!string.IsNullOrWhiteSpace(exceptionMessage))
         {
             return exceptionMessage;
@@ -1065,6 +1071,49 @@ public partial class App : WinoApplication,
             MailSynchronizationType.UpdateProfile => Translator.Exception_FailedToSynchronizeProfileInformation,
             _ => Translator.Exception_FailedToSynchronizeFolders
         };
+    }
+
+    private static string GetCalendarSynchronizationFailureMessage(
+        CalendarSynchronizationType synchronizationType,
+        IEnumerable<SynchronizationIssue> issues,
+        string? exceptionMessage)
+    {
+        var issueMessage = FormatSynchronizationIssues(issues);
+        if (!string.IsNullOrWhiteSpace(issueMessage))
+        {
+            return issueMessage;
+        }
+
+        if (!string.IsNullOrWhiteSpace(exceptionMessage))
+        {
+            return exceptionMessage;
+        }
+
+        return synchronizationType switch
+        {
+            CalendarSynchronizationType.CalendarMetadata => Translator.Exception_FailedToSynchronizeCalendarMetadata,
+            CalendarSynchronizationType.Strict => Translator.Exception_FailedToSynchronizeCalendarData,
+            _ => Translator.Exception_FailedToSynchronizeCalendarEvents
+        };
+    }
+
+    private static string? FormatSynchronizationIssues(IEnumerable<SynchronizationIssue> issues)
+    {
+        if (issues == null)
+        {
+            return null;
+        }
+
+        var issueLines = issues
+            .Where(issue => issue != null && !string.IsNullOrWhiteSpace(issue.Message))
+            .Select(issue => string.IsNullOrWhiteSpace(issue.ScopeName)
+                ? issue.Message
+                : string.Format(Translator.SynchronizationIssueFormat_WithScope, issue.ScopeName, issue.Message))
+            .Distinct(StringComparer.Ordinal)
+            .Take(5)
+            .ToList();
+
+        return issueLines.Count == 0 ? null : string.Join(Environment.NewLine, issueLines);
     }
 
     private void PreferencesServiceChanged(object? sender, string propertyName)

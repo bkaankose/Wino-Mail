@@ -28,8 +28,8 @@ public sealed class MailRequestStateTests
 
             mailCopy.IsRead.Should().BeFalse();
             recipient.Updated.Should().HaveCount(2);
-            recipient.Updated[0].Source.Should().Be(MailUpdateSource.ClientUpdated);
-            recipient.Updated[1].Source.Should().Be(MailUpdateSource.ClientReverted);
+            recipient.Updated[0].Source.Should().Be(EntityUpdateSource.ClientUpdated);
+            recipient.Updated[1].Source.Should().Be(EntityUpdateSource.ClientReverted);
             recipient.Updated[1].UpdatedMail.IsRead.Should().BeFalse();
         }
         finally
@@ -56,8 +56,8 @@ public sealed class MailRequestStateTests
 
             mailCopy.IsFlagged.Should().BeFalse();
             recipient.Updated.Should().HaveCount(2);
-            recipient.Updated[0].Source.Should().Be(MailUpdateSource.ClientUpdated);
-            recipient.Updated[1].Source.Should().Be(MailUpdateSource.ClientReverted);
+            recipient.Updated[0].Source.Should().Be(EntityUpdateSource.ClientUpdated);
+            recipient.Updated[1].Source.Should().Be(EntityUpdateSource.ClientReverted);
             recipient.Updated[1].UpdatedMail.IsFlagged.Should().BeFalse();
         }
         finally

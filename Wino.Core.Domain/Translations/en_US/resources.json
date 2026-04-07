@@ -989,6 +989,7 @@
     "StoreRatingDialog_MessageFirstLine": "All feedbacks are appreciated and they will make much Wino better in the future. Would you like to rate Wino in Microsoft Store?",
     "StoreRatingDialog_MessageSecondLine": "Would you like to rate Wino Mail in Microsoft Store?",
     "StoreRatingDialog_Title": "Enjoying Wino?",
+    "SynchronizationIssueFormat_WithScope": "{0}: {1}",
     "SynchronizationFolderReport_Failed": "synchronization is failed",
     "SynchronizationFolderReport_Success": "up to date",
     "SystemFolderConfigDialog_ArchiveFolderDescription": "Archived messages will be moved to here.",

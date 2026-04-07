@@ -659,7 +659,7 @@ public class MailService : BaseDatabaseService, IMailService
 
         await Connection.InsertAsync(mailCopy, typeof(MailCopy)).ConfigureAwait(false);
 
-        ReportUIChange(new MailAddedMessage(mailCopy));
+        ReportUIChange(new MailAddedMessage(mailCopy, EntityUpdateSource.Server));
     }
 
     public async Task UpdateMailAsync(MailCopy mailCopy)
@@ -675,7 +675,7 @@ public class MailService : BaseDatabaseService, IMailService
 
         await Connection.UpdateAsync(mailCopy, typeof(MailCopy)).ConfigureAwait(false);
 
-        ReportUIChange(new MailUpdatedMessage(mailCopy, MailUpdateSource.Server));
+        ReportUIChange(new MailUpdatedMessage(mailCopy, EntityUpdateSource.Server));
     }
 
     private async Task DeleteMailInternalAsync(MailCopy mailCopy, bool preserveMimeFile)
@@ -699,7 +699,7 @@ public class MailService : BaseDatabaseService, IMailService
             await _mimeFileService.DeleteMimeMessageAsync(mailCopy.AssignedAccount.Id, mailCopy.FileId).ConfigureAwait(false);
         }
 
-        ReportUIChange(new MailRemovedMessage(mailCopy));
+        ReportUIChange(new MailRemovedMessage(mailCopy, EntityUpdateSource.Server));
     }
 
     #endregion

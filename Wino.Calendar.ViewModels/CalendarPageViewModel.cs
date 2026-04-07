@@ -1,4 +1,5 @@
 using System;
+using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -14,11 +15,13 @@ using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Calendar.ViewModels.Messages;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Services;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.UI;
@@ -119,7 +122,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     public partial bool IsCalendarEnabled { get; set; } = true;
 
     [ObservableProperty]
-    public partial IReadOnlyList<CalendarItemViewModel> CalendarItems { get; set; } = [];
+    public partial ObservableCollection<CalendarItemViewModel> CalendarItems { get; set; } = new();
 
     #endregion
 
@@ -153,7 +156,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     private bool _subscriptionsAttached;
     private CancellationTokenSource _pageLifetimeCts = new();
     private long _pageLifetimeVersion;
-    private List<CalendarItemViewModel> _loadedCalendarItems = [];
+    private Dictionary<Guid, CalendarItemViewModel> _loadedCalendarItems = new();
 
     [ObservableProperty]
     public partial CalendarSettings CurrentSettings { get; set; }
@@ -323,8 +326,8 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         CurrentVisibleRange = null;
         VisibleDateRangeText = string.Empty;
         LoadedDateWindow = null;
-        _loadedCalendarItems = [];
-        CalendarItems = [];
+        _loadedCalendarItems = new();
+        CalendarItems = new();
     }
 
     public void Dispose()
@@ -594,8 +597,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             {
                 if (loadedItems != null)
                 {
-                    _loadedCalendarItems = loadedItems;
-                    CalendarItems = loadedItems;
+                    ReplaceLoadedCalendarItems(loadedItems);
                 }
 
                 EnsureSelectedQuickEventAccountCalendar();
@@ -656,8 +658,10 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     {
         var loadedItems = new Dictionary<Guid, CalendarItemViewModel>();
         var loadPeriod = new TimeRange(loadedDateWindow.StartDate, loadedDateWindow.EndDate);
+        var activeCalendars = AccountCalendarStateService.ActiveCalendars.ToList();
+        var pendingCalendarItemIds = await GetPendingCalendarItemIdsAsync(activeCalendars, lifetimeVersion).ConfigureAwait(false);
 
-        foreach (var calendarViewModel in AccountCalendarStateService.ActiveCalendars)
+        foreach (var calendarViewModel in activeCalendars)
         {
             if (!IsPageActive(lifetimeVersion))
                 return [];
@@ -672,12 +676,16 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
                 if (!loadedItems.ContainsKey(calendarItem.Id))
                 {
-                    loadedItems.Add(calendarItem.Id, new CalendarItemViewModel(calendarItem));
+                    loadedItems.Add(calendarItem.Id, CreateCalendarItemViewModel(calendarItem, pendingCalendarItemIds));
                 }
             }
         }
 
-        return loadedItems.Values.ToList();
+        return loadedItems.Values
+            .OrderBy(item => item.StartDate)
+            .ThenBy(item => item.EndDate)
+            .ThenBy(item => item.Id)
+            .ToList();
     }
 
     private static bool IsSameVisibleRange(VisibleDateRange current, VisibleDateRange next)
@@ -754,41 +762,12 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         await ReloadCurrentVisibleRangeAsync().ConfigureAwait(false);
     }
 
-    protected override void OnCalendarItemDeleted(CalendarItem calendarItem)
+    protected override void OnCalendarItemDeleted(CalendarItem calendarItem, EntityUpdateSource source)
     {
-        base.OnCalendarItemDeleted(calendarItem);
+        base.OnCalendarItemDeleted(calendarItem, source);
 
-        if (DisplayDetailsCalendarItemViewModel?.Id == calendarItem.Id ||
-            DisplayDetailsCalendarItemViewModel?.CalendarItem?.RecurringCalendarItemId == calendarItem.Id)
-        {
-            DisplayDetailsCalendarItemViewModel = null;
-        }
-
-        if (ShouldReloadFor(calendarItem))
-        {
-            _ = ReloadCurrentVisibleRangeAsync();
-        }
-    }
-
-    protected override void OnCalendarItemUpdated(CalendarItem calendarItem, CalendarItemUpdateSource source)
-    {
-        base.OnCalendarItemUpdated(calendarItem, source);
-
-        if (DisplayDetailsCalendarItemViewModel?.Id == calendarItem.Id)
-        {
-            calendarItem.AssignedCalendar ??= DisplayDetailsCalendarItemViewModel.AssignedCalendar;
-            DisplayDetailsCalendarItemViewModel = new CalendarItemViewModel(calendarItem);
-        }
-
-        if (ShouldReloadFor(calendarItem))
-        {
-            _ = ReloadCurrentVisibleRangeAsync();
-        }
-    }
-
-    protected override void OnCalendarItemAdded(CalendarItem calendarItem)
-    {
-        base.OnCalendarItemAdded(calendarItem);
+        if (calendarItem == null)
+            return;
 
         if (calendarItem.IsRecurringParent)
         {
@@ -796,19 +775,270 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             return;
         }
 
-        if (ShouldReloadFor(calendarItem))
+        var existingItemId = FindLoadedCalendarItemId(calendarItem);
+        if (!existingItemId.HasValue)
+            return;
+
+        RemoveLoadedCalendarItem(existingItemId.Value, calendarItem);
+    }
+
+    protected override void OnCalendarItemUpdated(CalendarItem calendarItem, EntityUpdateSource source)
+    {
+        base.OnCalendarItemUpdated(calendarItem, source);
+        ApplyCalendarItemUpsert(calendarItem, source);
+    }
+
+    protected override void OnCalendarItemAdded(CalendarItem calendarItem, EntityUpdateSource source)
+    {
+        base.OnCalendarItemAdded(calendarItem, source);
+        ApplyCalendarItemUpsert(calendarItem, source);
+    }
+
+    private async Task<HashSet<Guid>> GetPendingCalendarItemIdsAsync(IEnumerable<AccountCalendarViewModel> activeCalendars, long lifetimeVersion)
+    {
+        var pendingCalendarItemIds = new HashSet<Guid>();
+        var accountIds = activeCalendars
+            .Select(calendar => calendar.Account.Id)
+            .Where(accountId => accountId != Guid.Empty)
+            .Distinct()
+            .ToList();
+
+        foreach (var accountId in accountIds)
+        {
+            if (!IsPageActive(lifetimeVersion))
+                return pendingCalendarItemIds;
+
+            IWinoSynchronizerBase synchronizer;
+            try
+            {
+                synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(accountId).ConfigureAwait(false);
+            }
+            catch (InvalidOperationException)
+            {
+                return pendingCalendarItemIds;
+            }
+
+            if (synchronizer == null)
+                continue;
+
+            foreach (var pendingCalendarItemId in synchronizer.GetPendingCalendarOperationIds())
+            {
+                pendingCalendarItemIds.Add(pendingCalendarItemId);
+            }
+        }
+
+        return pendingCalendarItemIds;
+    }
+
+    private void ApplyCalendarItemUpsert(CalendarItem calendarItem, EntityUpdateSource source)
+    {
+        if (calendarItem == null)
+            return;
+
+        if (calendarItem.IsRecurringParent)
         {
             _ = ReloadCurrentVisibleRangeAsync();
+            return;
+        }
+
+        var existingItemId = FindLoadedCalendarItemId(calendarItem);
+        var shouldDisplay = ShouldDisplayCalendarItem(calendarItem);
+
+        if (!shouldDisplay)
+        {
+            if (existingItemId.HasValue)
+            {
+                RemoveLoadedCalendarItem(existingItemId.Value, calendarItem);
+            }
+
+            return;
+        }
+
+        var newViewModel = CreateCalendarItemViewModel(calendarItem, source);
+
+        if (existingItemId.HasValue)
+        {
+            ReplaceLoadedCalendarItem(existingItemId.Value, newViewModel);
+        }
+        else
+        {
+            InsertLoadedCalendarItem(newViewModel);
         }
     }
 
-    private bool ShouldReloadFor(CalendarItem calendarItem)
+    private CalendarItemViewModel CreateCalendarItemViewModel(CalendarItem calendarItem, EntityUpdateSource source)
+        => CreateCalendarItemViewModel(
+            calendarItem,
+            source == EntityUpdateSource.ClientUpdated ? new HashSet<Guid> { calendarItem.Id } : null,
+            source);
+
+    private CalendarItemViewModel CreateCalendarItemViewModel(CalendarItem calendarItem, ISet<Guid> pendingCalendarItemIds, EntityUpdateSource source = EntityUpdateSource.Server)
+    {
+        calendarItem.AssignedCalendar ??= ResolveAssignedCalendar(calendarItem.CalendarId);
+
+        return new CalendarItemViewModel(calendarItem)
+        {
+            IsBusy = source == EntityUpdateSource.ClientUpdated || HasPendingCalendarOperation(calendarItem, pendingCalendarItemIds)
+        };
+    }
+
+    private void ReplaceLoadedCalendarItems(IEnumerable<CalendarItemViewModel> loadedItems)
+    {
+        var loadedItemsList = loadedItems?.ToList() ?? [];
+        CalendarItems = new ObservableCollection<CalendarItemViewModel>(loadedItemsList);
+        _loadedCalendarItems = loadedItemsList.ToDictionary(item => item.Id);
+    }
+
+    private void InsertLoadedCalendarItem(CalendarItemViewModel calendarItemViewModel)
+    {
+        var insertionIndex = 0;
+
+        while (insertionIndex < CalendarItems.Count && CompareCalendarItems(CalendarItems[insertionIndex], calendarItemViewModel) <= 0)
+        {
+            insertionIndex++;
+        }
+
+        CalendarItems.Insert(insertionIndex, calendarItemViewModel);
+        _loadedCalendarItems[calendarItemViewModel.Id] = calendarItemViewModel;
+
+        if (IsDisplayDetailsMatch(calendarItemViewModel.CalendarItem))
+        {
+            DisplayDetailsCalendarItemViewModel = calendarItemViewModel;
+        }
+    }
+
+    private void ReplaceLoadedCalendarItem(Guid existingItemId, CalendarItemViewModel replacementViewModel)
+    {
+        if (!_loadedCalendarItems.TryGetValue(existingItemId, out var existingViewModel))
+        {
+            InsertLoadedCalendarItem(replacementViewModel);
+            return;
+        }
+
+        replacementViewModel.IsSelected = existingViewModel.IsSelected;
+
+        var existingIndex = CalendarItems.IndexOf(existingViewModel);
+        if (existingIndex >= 0)
+        {
+            CalendarItems[existingIndex] = replacementViewModel;
+        }
+
+        _loadedCalendarItems.Remove(existingItemId);
+        _loadedCalendarItems[replacementViewModel.Id] = replacementViewModel;
+
+        if (existingIndex >= 0)
+        {
+            MoveCalendarItemToSortedPosition(replacementViewModel, existingIndex);
+        }
+
+        if (IsDisplayDetailsMatch(replacementViewModel.CalendarItem, existingItemId))
+        {
+            DisplayDetailsCalendarItemViewModel = replacementViewModel;
+        }
+    }
+
+    private void RemoveLoadedCalendarItem(Guid existingItemId, CalendarItem calendarItem)
+    {
+        if (_loadedCalendarItems.TryGetValue(existingItemId, out var existingViewModel))
+        {
+            CalendarItems.Remove(existingViewModel);
+            _loadedCalendarItems.Remove(existingItemId);
+        }
+
+        if (IsDisplayDetailsMatch(calendarItem, existingItemId))
+        {
+            DisplayDetailsCalendarItemViewModel = null;
+        }
+    }
+
+    private void MoveCalendarItemToSortedPosition(CalendarItemViewModel calendarItemViewModel, int previousIndex)
+    {
+        if (previousIndex < 0)
+            return;
+
+        var targetIndex = 0;
+        while (targetIndex < CalendarItems.Count && CompareCalendarItems(CalendarItems[targetIndex], calendarItemViewModel) <= 0)
+        {
+            targetIndex++;
+        }
+
+        if (targetIndex > previousIndex)
+        {
+            targetIndex--;
+        }
+
+        if (targetIndex != previousIndex)
+        {
+            CalendarItems.Move(previousIndex, targetIndex);
+        }
+    }
+
+    private Guid? FindLoadedCalendarItemId(CalendarItem calendarItem)
+    {
+        if (calendarItem == null)
+            return null;
+
+        if (_loadedCalendarItems.ContainsKey(calendarItem.Id))
+            return calendarItem.Id;
+
+        var trackedLocalItemId = calendarItem.RemoteEventId.GetClientTrackingId();
+        if (trackedLocalItemId.HasValue && _loadedCalendarItems.ContainsKey(trackedLocalItemId.Value))
+            return trackedLocalItemId.Value;
+
+        return null;
+    }
+
+    private bool ShouldDisplayCalendarItem(CalendarItem calendarItem)
     {
         if (calendarItem == null || LoadedDateWindow == null)
             return false;
 
+        if (calendarItem.IsHidden || calendarItem.IsRecurringParent || !IsCalendarActive(calendarItem.CalendarId))
+            return false;
+
         var loadedWindow = new TimeRange(LoadedDateWindow.StartDate, LoadedDateWindow.EndDate);
         return loadedWindow.OverlapsWith(calendarItem.Period);
+    }
+
+    private bool IsDisplayDetailsMatch(CalendarItem calendarItem, Guid? existingItemId = null)
+    {
+        if (DisplayDetailsCalendarItemViewModel == null || calendarItem == null)
+            return false;
+
+        var trackedLocalItemId = calendarItem.RemoteEventId.GetClientTrackingId();
+
+        return DisplayDetailsCalendarItemViewModel.Id == calendarItem.Id ||
+               (existingItemId.HasValue && DisplayDetailsCalendarItemViewModel.Id == existingItemId.Value) ||
+               (trackedLocalItemId.HasValue && DisplayDetailsCalendarItemViewModel.Id == trackedLocalItemId.Value) ||
+               DisplayDetailsCalendarItemViewModel.CalendarItem?.RecurringCalendarItemId == calendarItem.Id;
+    }
+
+    private bool HasPendingCalendarOperation(CalendarItem calendarItem, ISet<Guid> pendingCalendarItemIds)
+    {
+        if (calendarItem == null || pendingCalendarItemIds == null || pendingCalendarItemIds.Count == 0)
+            return false;
+
+        if (pendingCalendarItemIds.Contains(calendarItem.Id))
+            return true;
+
+        var trackedLocalItemId = calendarItem.RemoteEventId.GetClientTrackingId();
+        return trackedLocalItemId.HasValue && pendingCalendarItemIds.Contains(trackedLocalItemId.Value);
+    }
+
+    private AccountCalendarViewModel ResolveAssignedCalendar(Guid calendarId)
+        => AccountCalendarStateService.AllCalendars.FirstOrDefault(calendar => calendar.Id == calendarId);
+
+    private static int CompareCalendarItems(CalendarItemViewModel left, CalendarItemViewModel right)
+    {
+        var compareResult = DateTime.Compare(left?.StartDate ?? DateTime.MinValue, right?.StartDate ?? DateTime.MinValue);
+        if (compareResult != 0)
+            return compareResult;
+
+        compareResult = DateTime.Compare(left?.EndDate ?? DateTime.MinValue, right?.EndDate ?? DateTime.MinValue);
+        if (compareResult != 0)
+            return compareResult;
+
+        return Nullable.Compare(left?.Id, right?.Id);
     }
 
     partial void OnIsAllDayChanged(bool value)

@@ -37,12 +37,19 @@ public class SynchronizerErrorHandlingFactory
                 _logger.Debug("Found handler {HandlerType} for error code {ErrorCode} message {ErrorMessage}",
                     handler.GetType().Name, error.ErrorCode, error.ErrorMessage);
 
-                return await handler.HandleAsync(error);
+                var handled = await handler.HandleAsync(error);
+                error.WasHandled = handled;
+                error.HandledBy = handled ? handler.GetType().Name : null;
+
+                return handled;
             }
         }
 
         _logger.Debug("No handler found for error code {ErrorCode} message {ErrorMessage}",
             error.ErrorCode, error.ErrorMessage);
+
+        error.WasHandled = false;
+        error.HandledBy = null;
 
         return false;
     }

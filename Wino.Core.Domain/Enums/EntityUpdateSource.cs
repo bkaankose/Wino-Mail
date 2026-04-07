@@ -1,17 +1,17 @@
 namespace Wino.Core.Domain.Enums;
 
 /// <summary>
-/// Indicates the source of a mail update.
+/// Indicates the source of an entity update.
 /// </summary>
-public enum MailUpdateSource
+public enum EntityUpdateSource
 {
     /// <summary>
-    /// Update originated from client-side UI changes (ApplyUIChanges).
+    /// Update originated from client-side optimistic UI changes (ApplyUIChanges).
     /// </summary>
     ClientUpdated,
 
     /// <summary>
-    /// Update originated from client-side UI revert (RevertUIChanges).
+    /// Update originated from reverting client-side optimistic UI changes (RevertUIChanges).
     /// </summary>
     ClientReverted,
 

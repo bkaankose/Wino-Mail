@@ -12,6 +12,7 @@ using Serilog;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
@@ -187,20 +188,20 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         await LoadCalendarItemTargetAsync(args);
     }
 
-    protected override async void OnCalendarItemUpdated(CalendarItem calendarItem, CalendarItemUpdateSource source)
+    protected override async void OnCalendarItemUpdated(CalendarItem calendarItem, EntityUpdateSource source)
     {
         base.OnCalendarItemUpdated(calendarItem, source);
 
         // If the current event was updated, reload it
-        if (CurrentEvent?.CalendarItem?.Id == calendarItem.Id || CurrentEvent?.CalendarItem.RecurringCalendarItemId == calendarItem.Id)
+        if (IsCurrentEventMatch(calendarItem))
         {
             // Reflect client-side optimistic changes immediately; fallback to DB for server updates.
-            if (source == CalendarItemUpdateSource.ClientUpdated || source == CalendarItemUpdateSource.ClientReverted)
+            if (source == EntityUpdateSource.ClientUpdated || source == EntityUpdateSource.ClientReverted)
             {
                 var previousAttendees = CurrentEvent?.Attendees?.ToList() ?? [];
                 CurrentEvent = new CalendarItemViewModel(calendarItem)
                 {
-                    IsBusy = source == CalendarItemUpdateSource.ClientUpdated
+                    IsBusy = source == EntityUpdateSource.ClientUpdated
                 };
 
                 foreach (var attendee in previousAttendees)
@@ -221,15 +222,52 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         }
     }
 
-    protected override void OnCalendarItemDeleted(CalendarItem calendarItem)
+    protected override async void OnCalendarItemAdded(CalendarItem calendarItem, EntityUpdateSource source)
     {
-        base.OnCalendarItemDeleted(calendarItem);
+        base.OnCalendarItemAdded(calendarItem, source);
+
+        if (!IsCurrentEventMatch(calendarItem))
+            return;
+
+        if (source == EntityUpdateSource.ClientUpdated || source == EntityUpdateSource.ClientReverted)
+        {
+            CurrentEvent = new CalendarItemViewModel(calendarItem)
+            {
+                IsBusy = source == EntityUpdateSource.ClientUpdated
+            };
+
+            return;
+        }
+
+        var refreshedEvent = await _calendarService.GetCalendarItemAsync(calendarItem.Id);
+        if (refreshedEvent != null)
+        {
+            CurrentEvent = new CalendarItemViewModel(refreshedEvent);
+            await LoadAttendeesAsync(refreshedEvent.Id, refreshedEvent);
+        }
+    }
+
+    protected override void OnCalendarItemDeleted(CalendarItem calendarItem, EntityUpdateSource source)
+    {
+        base.OnCalendarItemDeleted(calendarItem, source);
 
         // If the current event was deleted, navigate back
-        if (CurrentEvent?.CalendarItem?.Id == calendarItem.Id || CurrentEvent?.CalendarItem.RecurringCalendarItemId == calendarItem.Id)
+        if (IsCurrentEventMatch(calendarItem))
         {
             NavigateBackToCalendar(forceReload: true);
         }
+    }
+
+    private bool IsCurrentEventMatch(CalendarItem calendarItem)
+    {
+        if (CurrentEvent?.CalendarItem == null || calendarItem == null)
+            return false;
+
+        var trackedLocalItemId = calendarItem.RemoteEventId.GetClientTrackingId();
+
+        return CurrentEvent.CalendarItem.Id == calendarItem.Id ||
+               (trackedLocalItemId.HasValue && CurrentEvent.CalendarItem.Id == trackedLocalItemId.Value) ||
+               CurrentEvent.CalendarItem.RecurringCalendarItemId == calendarItem.Id;
     }
 
     private async Task LoadCalendarItemTargetAsync(CalendarItemTarget target)

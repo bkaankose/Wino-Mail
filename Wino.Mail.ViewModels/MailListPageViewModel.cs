@@ -745,7 +745,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         var fi = MailCollection.GetFirst();
         if (fi == null) return;
 
-        Messenger.Send(new MailRemovedMessage(fi.MailCopy));
+        Messenger.Send(new MailRemovedMessage(fi.MailCopy, EntityUpdateSource.Server));
     }
 
     /// <summary>
@@ -758,9 +758,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         return MailCollection.ContainsThreadId(mailItem.ThreadId);
     }
 
-    protected override async void OnMailAdded(MailCopy addedMail)
+    protected override async void OnMailAdded(MailCopy addedMail, EntityUpdateSource source)
     {
-        base.OnMailAdded(addedMail);
+        base.OnMailAdded(addedMail, source);
 
         if (addedMail.AssignedAccount == null || addedMail.AssignedFolder == null) return;
 
@@ -847,6 +847,15 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             // AddAsync already handles UI threading internally, no need to wrap it
             await MailCollection.AddAsync(addedMail);
 
+            if (source == EntityUpdateSource.ClientUpdated)
+            {
+                var addedContainer = MailCollection.GetMailItemContainer(addedMail.UniqueId);
+                if (addedContainer?.ItemViewModel != null)
+                {
+                    addedContainer.ItemViewModel.IsBusy = true;
+                }
+            }
+
             await ExecuteUIThread(() =>
             {
                 NotifyItemFoundState();
@@ -862,7 +871,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }
     }
 
-    protected override async void OnMailUpdated(MailCopy updatedMail, MailUpdateSource source, MailCopyChangeFlags changedProperties)
+    protected override async void OnMailUpdated(MailCopy updatedMail, EntityUpdateSource source, MailCopyChangeFlags changedProperties)
     {
         base.OnMailUpdated(updatedMail, source, changedProperties);
 
@@ -890,9 +899,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         await ExecuteUIThread(() => { SetupTopBarActions(); });
     }
 
-    protected override async void OnMailRemoved(MailCopy removedMail)
+    protected override async void OnMailRemoved(MailCopy removedMail, EntityUpdateSource source)
     {
-        base.OnMailRemoved(removedMail);
+        base.OnMailRemoved(removedMail, source);
 
         if (removedMail.AssignedAccount == null) return;
 

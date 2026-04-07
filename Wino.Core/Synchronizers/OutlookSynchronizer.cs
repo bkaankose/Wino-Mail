@@ -1861,6 +1861,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             ErrorCode = (int)response.StatusCode,
             ErrorMessage = errorMessage,
             RequestBundle = bundle,
+            Request = bundle.Request,
             IsEntityNotFound = IsKnownOutlookEntityNotFoundError(response.StatusCode, errorCode, errorMessage, bundle),
             AdditionalData = new Dictionary<string, object>
             {
@@ -1876,6 +1877,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         // Transient errors still need to bubble so the request can be retried or surfaced to the caller.
         if (!handled || errorContext.Severity == SynchronizerErrorSeverity.Transient)
         {
+            CaptureSynchronizationIssue(errorContext);
             bundle.UIChangeRequest?.RevertUIChanges();
             Debug.WriteLine(errorString);
             errors.Add(errorString);
@@ -2266,75 +2268,77 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
         foreach (var calendar in localCalendars)
         {
-            bool isInitialSync = string.IsNullOrEmpty(calendar.SynchronizationDeltaToken);
-
-            if (isInitialSync)
+            try
             {
-                _logger.Information("No calendar sync identifier for calendar {Name}. Performing initial sync.", calendar.Name);
+                bool isInitialSync = string.IsNullOrEmpty(calendar.SynchronizationDeltaToken);
 
-                // ISO 8601 format as expected by Microsoft Graph API (e.g., "2019-11-08T19:00:00-08:00")
-                var startDate = DateTimeOffset.Now.AddYears(-2).ToString("yyyy-MM-ddTHH:mm:sszzz");
-                var endDate = DateTimeOffset.Now.AddYears(2).ToString("yyyy-MM-ddTHH:mm:sszzz");
-
-                // Get Id only. We will always download the full event.
-                eventsDeltaResponse = await _graphClient.Me.Calendars[calendar.RemoteCalendarId].CalendarView.Delta.GetAsDeltaGetResponseAsync((requestConfiguration) =>
+                if (isInitialSync)
                 {
-                    requestConfiguration.QueryParameters.Select = ["id", "type"];
-                    requestConfiguration.QueryParameters.StartDateTime = startDate;
-                    requestConfiguration.QueryParameters.EndDateTime = endDate;
-                }, cancellationToken: cancellationToken);
-            }
-            else
-            {
-                var currentDeltaToken = calendar.SynchronizationDeltaToken;
+                    _logger.Information("No calendar sync identifier for calendar {Name}. Performing initial sync.", calendar.Name);
 
-                _logger.Information("Performing delta sync for calendar {Name}.", calendar.Name);
+                    // ISO 8601 format as expected by Microsoft Graph API (e.g., "2019-11-08T19:00:00-08:00")
+                    var startDate = DateTimeOffset.Now.AddYears(-2).ToString("yyyy-MM-ddTHH:mm:sszzz");
+                    var endDate = DateTimeOffset.Now.AddYears(2).ToString("yyyy-MM-ddTHH:mm:sszzz");
 
-                var requestInformation = _graphClient.Me.Calendars[calendar.RemoteCalendarId].CalendarView.Delta.ToGetRequestInformation();
-
-                requestInformation.UrlTemplate = requestInformation.UrlTemplate.Insert(requestInformation.UrlTemplate.Length - 1, ",%24deltatoken");
-                requestInformation.QueryParameters.Add("%24deltatoken", currentDeltaToken);
-
-                eventsDeltaResponse = await _graphClient.RequestAdapter.SendAsync(requestInformation, Microsoft.Graph.Me.Calendars.Item.CalendarView.Delta.DeltaGetResponse.CreateFromDiscriminatorValue);
-            }
-
-            List<Event> events = new();
-
-            // We must first save the parent recurring events to not lose exceptions.
-            // Therefore, order the existing items by their type and save the parent recurring events first.
-
-            var messageIteratorAsync = PageIterator<Event, Microsoft.Graph.Me.Calendars.Item.CalendarView.Delta.DeltaGetResponse>.CreatePageIterator(_graphClient, eventsDeltaResponse, (item) =>
-            {
-                // Include all event types: SingleInstance, SeriesMaster, Occurrence, and Exception
-                // CalendarView already expands recurring events into individual occurrences
-                events.Add(item);
-
-                return true;
-            });
-
-            await messageIteratorAsync
-                .IterateAsync(cancellationToken)
-                .ConfigureAwait(false);
-
-            // Desc-order will move parent recurring events to the top.
-            events = events.OrderByDescending(a => a.Type).ToList();
-
-            _logger.Information("Found {Count} events in total.", events.Count);
-
-            foreach (var item in events)
-            {
-                // Declined events are returned as Deleted from the API.
-                // There is no way to distinguish unfortunately atm.
-
-                if (IsResourceDeleted(item.AdditionalData))
-                {
-                    await _outlookChangeProcessor.DeleteCalendarItemAsync(item.Id, calendar.Id).ConfigureAwait(false);
+                    // Get Id only. We will always download the full event.
+                    eventsDeltaResponse = await _graphClient.Me.Calendars[calendar.RemoteCalendarId].CalendarView.Delta.GetAsDeltaGetResponseAsync((requestConfiguration) =>
+                    {
+                        requestConfiguration.QueryParameters.Select = ["id", "type"];
+                        requestConfiguration.QueryParameters.StartDateTime = startDate;
+                        requestConfiguration.QueryParameters.EndDateTime = endDate;
+                    }, cancellationToken: cancellationToken);
                 }
                 else
                 {
+                    var currentDeltaToken = calendar.SynchronizationDeltaToken;
+
+                    _logger.Information("Performing delta sync for calendar {Name}.", calendar.Name);
+
+                    var requestInformation = _graphClient.Me.Calendars[calendar.RemoteCalendarId].CalendarView.Delta.ToGetRequestInformation();
+
+                    requestInformation.UrlTemplate = requestInformation.UrlTemplate.Insert(requestInformation.UrlTemplate.Length - 1, ",%24deltatoken");
+                    requestInformation.QueryParameters.Add("%24deltatoken", currentDeltaToken);
+
+                    eventsDeltaResponse = await _graphClient.RequestAdapter.SendAsync(requestInformation, Microsoft.Graph.Me.Calendars.Item.CalendarView.Delta.DeltaGetResponse.CreateFromDiscriminatorValue);
+                }
+
+                List<Event> events = new();
+
+                // We must first save the parent recurring events to not lose exceptions.
+                // Therefore, order the existing items by their type and save the parent recurring events first.
+
+                var messageIteratorAsync = PageIterator<Event, Microsoft.Graph.Me.Calendars.Item.CalendarView.Delta.DeltaGetResponse>.CreatePageIterator(_graphClient, eventsDeltaResponse, (item) =>
+                {
+                    // Include all event types: SingleInstance, SeriesMaster, Occurrence, and Exception
+                    // CalendarView already expands recurring events into individual occurrences
+                    events.Add(item);
+
+                    return true;
+                });
+
+                await messageIteratorAsync
+                    .IterateAsync(cancellationToken)
+                    .ConfigureAwait(false);
+
+                // Desc-order will move parent recurring events to the top.
+                events = events.OrderByDescending(a => a.Type).ToList();
+
+                _logger.Information("Found {Count} events in total.", events.Count);
+
+                foreach (var item in events)
+                {
+                    // Declined events are returned as Deleted from the API.
+                    // There is no way to distinguish unfortunately atm.
+
+                    if (IsResourceDeleted(item.AdditionalData))
+                    {
+                        await _outlookChangeProcessor.DeleteCalendarItemAsync(item.Id, calendar.Id).ConfigureAwait(false);
+                        continue;
+                    }
+
                     try
                     {
-                        await _handleCalendarEventRetrievalSemaphore.WaitAsync();
+                        await _handleCalendarEventRetrievalSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
 
                         Event fullEvent = await _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events[item.Id]
                             .GetAsync(requestConfiguration =>
@@ -2344,8 +2348,25 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                             }, cancellationToken: cancellationToken).ConfigureAwait(false);
                         await _outlookChangeProcessor.ManageCalendarEventAsync(fullEvent, calendar, Account).ConfigureAwait(false);
                     }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
                     catch (Exception ex)
                     {
+                        var errorContext = new SynchronizerErrorContext
+                        {
+                            Account = Account,
+                            ErrorMessage = ex.Message,
+                            Exception = ex,
+                            CalendarId = calendar.Id,
+                            CalendarName = calendar.Name,
+                            OperationType = "CalendarEventSync",
+                            Severity = SynchronizerErrorSeverity.Recoverable
+                        };
+
+                        _ = await _errorHandlingFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
+                        CaptureSynchronizationIssue(errorContext);
                         _logger.Error(ex, "Error occurred while handling item {Id} for calendar {Name}", item.Id, calendar.Name);
                     }
                     finally
@@ -2353,18 +2374,40 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                         _handleCalendarEventRetrievalSemaphore.Release();
                     }
                 }
+
+                var latestDeltaLink = messageIteratorAsync.Deltalink;
+
+                //Store delta link for tracking new changes.
+                if (!string.IsNullOrEmpty(latestDeltaLink))
+                {
+                    // Parse Delta Token from Delta Link since v5 of Graph SDK works based on the token, not the link.
+
+                    var deltaToken = GetDeltaTokenFromDeltaLink(latestDeltaLink);
+
+                    await _outlookChangeProcessor.UpdateCalendarDeltaSynchronizationToken(calendar.Id, deltaToken).ConfigureAwait(false);
+                }
             }
-
-            var latestDeltaLink = messageIteratorAsync.Deltalink;
-
-            //Store delta link for tracking new changes.
-            if (!string.IsNullOrEmpty(latestDeltaLink))
+            catch (OperationCanceledException)
             {
-                // Parse Delta Token from Delta Link since v5 of Graph SDK works based on the token, not the link.
+                throw;
+            }
+            catch (Exception ex)
+            {
+                var errorContext = new SynchronizerErrorContext
+                {
+                    Account = Account,
+                    ErrorMessage = ex.Message,
+                    Exception = ex,
+                    CalendarId = calendar.Id,
+                    CalendarName = calendar.Name,
+                    OperationType = "CalendarSync"
+                };
 
-                var deltaToken = GetDeltaTokenFromDeltaLink(latestDeltaLink);
+                _ = await _errorHandlingFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
+                CaptureSynchronizationIssue(errorContext);
 
-                await _outlookChangeProcessor.UpdateCalendarDeltaSynchronizationToken(calendar.Id, deltaToken).ConfigureAwait(false);
+                if (!errorContext.CanContinueSync)
+                    throw;
             }
         }
 

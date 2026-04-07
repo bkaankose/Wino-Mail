@@ -43,6 +43,11 @@ public interface IBaseSynchronizer
     bool HasPendingCalendarOperation(Guid calendarItemId);
 
     /// <summary>
+    /// Returns calendar item ids that currently have queued or executing operations.
+    /// </summary>
+    IReadOnlyCollection<Guid> GetPendingCalendarOperationIds();
+
+    /// <summary>
     /// Synchronizes profile information with the server.
     /// Sender name and Profile picture are updated.
     /// </summary>

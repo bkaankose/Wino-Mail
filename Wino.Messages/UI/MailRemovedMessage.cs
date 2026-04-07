@@ -1,5 +1,6 @@
 ﻿using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Messaging.UI;
 
-public record MailRemovedMessage(MailCopy RemovedMail) : UIMessageBase<MailRemovedMessage>;
+public record MailRemovedMessage(MailCopy RemovedMail, EntityUpdateSource Source = EntityUpdateSource.Server) : UIMessageBase<MailRemovedMessage>;

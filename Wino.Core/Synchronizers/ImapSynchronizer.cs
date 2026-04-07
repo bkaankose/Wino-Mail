@@ -763,6 +763,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                     ErrorMessage = ex.Message,
                     Exception = ex,
                     RequestBundle = item,
+                    Request = item.Request,
                     OperationType = "RequestExecution",
                     IsEntityNotFound = ex is FolderNotFoundException || ex is SynchronizerEntityNotFoundException
                 };
@@ -771,6 +772,8 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
                 if (!handled)
                 {
+                    CaptureSynchronizationIssue(errorContext);
+
                     if (ShouldApplyOptimisticUIChanges(item.Request))
                     {
                         item.Request.RevertUIChanges();

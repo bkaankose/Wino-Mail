@@ -32,6 +32,11 @@ public class SynchronizerErrorContext
     public IRequestBundle RequestBundle { get; set; }
 
     /// <summary>
+    /// Gets or sets the original request associated with the error when available.
+    /// </summary>
+    public IRequestBase Request { get; set; }
+
+    /// <summary>
     /// Gets or sets additional data associated with the error
     /// </summary>
     public Dictionary<string, object> AdditionalData { get; set; } = new Dictionary<string, object>();
@@ -77,6 +82,16 @@ public class SynchronizerErrorContext
     public string FolderName { get; set; }
 
     /// <summary>
+    /// Gets or sets the calendar ID associated with the error for calendar sync issue tracking.
+    /// </summary>
+    public Guid? CalendarId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the calendar name for display purposes.
+    /// </summary>
+    public string CalendarName { get; set; }
+
+    /// <summary>
     /// Gets or sets the type of operation that failed.
     /// Examples: "FolderSync", "MailSync", "RequestExecution", "Idle"
     /// </summary>
@@ -88,6 +103,16 @@ public class SynchronizerErrorContext
     /// unrelated HTTP 404 responses that should still surface to the user.
     /// </summary>
     public bool IsEntityNotFound { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether a synchronizer error handler processed this error.
+    /// </summary>
+    public bool WasHandled { get; set; }
+
+    /// <summary>
+    /// Gets or sets the handler type that processed this error.
+    /// </summary>
+    public string HandledBy { get; set; }
 
     /// <summary>
     /// Gets whether this error should be retried based on severity and retry count.

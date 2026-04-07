@@ -522,74 +522,110 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             .Where(c => c.IsSynchronizationEnabled)
             .ToList();
 
-        // TODO: Better logging and exception handling.
         foreach (var calendar in localCalendars)
         {
-            var request = _calendarService.Events.List(calendar.RemoteCalendarId);
-
-            // Fetch individual event instances (including recurring event occurrences) 
-            // rather than recurring event masters. This ensures we get all occurrences
-            // as separate events that can be stored and displayed directly.
-            request.SingleEvents = true;
-            request.ShowDeleted = true;
-
-            if (!string.IsNullOrEmpty(calendar.SynchronizationDeltaToken))
+            try
             {
-                // If a sync token is available, perform an incremental sync
-                request.SyncToken = calendar.SynchronizationDeltaToken;
-            }
-            else
-            {
-                // If no sync token, perform an initial sync
-                // Fetch events from the past year
+                var request = _calendarService.Events.List(calendar.RemoteCalendarId);
 
-                request.TimeMinDateTimeOffset = DateTimeOffset.UtcNow.AddYears(-1);
-            }
+                // Fetch individual event instances (including recurring event occurrences)
+                // rather than recurring event masters. This ensures we get all occurrences
+                // as separate events that can be stored and displayed directly.
+                request.SingleEvents = true;
+                request.ShowDeleted = true;
 
-            string nextPageToken;
-            string syncToken;
-
-            var allEvents = new List<Event>();
-
-            do
-            {
-                // Execute the request
-                var events = await request.ExecuteAsync();
-
-                // Process the fetched events
-                if (events.Items != null)
+                if (!string.IsNullOrEmpty(calendar.SynchronizationDeltaToken))
                 {
-                    allEvents.AddRange(events.Items);
+                    request.SyncToken = calendar.SynchronizationDeltaToken;
+                }
+                else
+                {
+                    request.TimeMinDateTimeOffset = DateTimeOffset.UtcNow.AddYears(-1);
                 }
 
-                // Get the next page token and sync token
-                nextPageToken = events.NextPageToken;
-                syncToken = events.NextSyncToken;
+                string nextPageToken;
+                string syncToken;
 
-                // Set the next page token for subsequent requests
-                request.PageToken = nextPageToken;
+                var allEvents = new List<Event>();
 
-            } while (!string.IsNullOrEmpty(nextPageToken));
+                do
+                {
+                    var events = await request.ExecuteAsync(cancellationToken).ConfigureAwait(false);
 
-            calendar.SynchronizationDeltaToken = syncToken;
+                    if (events.Items != null)
+                    {
+                        allEvents.AddRange(events.Items);
+                    }
 
-            // allEvents contains new or updated events.
-            // Process them and create/update local calendar items.
+                    nextPageToken = events.NextPageToken;
+                    syncToken = events.NextSyncToken;
+                    request.PageToken = nextPageToken;
+                }
+                while (!string.IsNullOrEmpty(nextPageToken));
 
-            var eventByRemoteId = allEvents
-                .Where(e => !string.IsNullOrWhiteSpace(e.Id))
-                .GroupBy(e => e.Id, StringComparer.Ordinal)
-                .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+                calendar.SynchronizationDeltaToken = syncToken;
 
-            foreach (var @event in OrderCalendarEventsForPersistence(allEvents))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
+                var eventByRemoteId = allEvents
+                    .Where(e => !string.IsNullOrWhiteSpace(e.Id))
+                    .GroupBy(e => e.Id, StringComparer.Ordinal)
+                    .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
 
-                await EnsureRecurringParentProcessedAsync(calendar, @event, eventByRemoteId, cancellationToken).ConfigureAwait(false);
-                await _gmailChangeProcessor.ManageCalendarEventAsync(@event, calendar, Account).ConfigureAwait(false);
+                foreach (var @event in OrderCalendarEventsForPersistence(allEvents))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    try
+                    {
+                        await EnsureRecurringParentProcessedAsync(calendar, @event, eventByRemoteId, cancellationToken).ConfigureAwait(false);
+                        await _gmailChangeProcessor.ManageCalendarEventAsync(@event, calendar, Account).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        var errorContext = new SynchronizerErrorContext
+                        {
+                            Account = Account,
+                            ErrorMessage = ex.Message,
+                            Exception = ex,
+                            CalendarId = calendar.Id,
+                            CalendarName = calendar.Name,
+                            OperationType = "CalendarEventSync",
+                            Severity = SynchronizerErrorSeverity.Recoverable
+                        };
+
+                        _ = await _gmailSynchronizerErrorHandlerFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
+                        CaptureSynchronizationIssue(errorContext);
+                        _logger.Error(ex, "Failed to process Gmail event {EventId} for calendar {CalendarName}", @event.Id, calendar.Name);
+                    }
+                }
+
+                await _gmailChangeProcessor.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                var errorContext = new SynchronizerErrorContext
+                {
+                    Account = Account,
+                    ErrorMessage = ex.Message,
+                    Exception = ex,
+                    CalendarId = calendar.Id,
+                    CalendarName = calendar.Name,
+                    OperationType = "CalendarSync"
+                };
 
-            await _gmailChangeProcessor.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
+                _ = await _gmailSynchronizerErrorHandlerFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
+                CaptureSynchronizationIssue(errorContext);
+
+                if (!errorContext.CanContinueSync)
+                    throw;
+            }
         }
 
         return CalendarSynchronizationResult.Empty;
@@ -1674,6 +1710,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             ErrorCode = error.Code,
             ErrorMessage = error.Message,
             RequestBundle = bundle,
+            Request = bundle.Request,
             IsEntityNotFound = isEntityNotFound,
             AdditionalData = new Dictionary<string, object>
             {
@@ -1697,6 +1734,8 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         // If not handled by any specific handler, apply default error handling
         if (!handled)
         {
+            CaptureSynchronizationIssue(errorContext);
+
             // OutOfMemoryException is a known bug in Gmail SDK.
             if (error.Code == 0)
             {

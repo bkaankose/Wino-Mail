@@ -362,7 +362,7 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         foreach (var calendarItem in deletedCalendarItems)
         {
-            WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(calendarItem));
+            WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(calendarItem, EntityUpdateSource.Server));
         }
 
         foreach (var accountCalendar in accountCalendars)
