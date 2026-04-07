@@ -51,7 +51,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
     ITitleBarSearchHost
 {
     private const double RENDERING_COLUMN_MIN_WIDTH = 375;
-    private const int IDLE_NAVIGATION_DELAY_MS = 120;
+    private const int SELECTION_SETTLE_DELAY_MS = 120;
+    private const int RENDERING_FRAME_RELEASE_DELAY_MS = 2000;
     private int _idleNavigationRequestVersion = 0;
 
     private IStatePersistanceService StatePersistenceService { get; } = WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception($"Can't resolve {nameof(KeyPressService)}");
@@ -370,7 +371,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
     {
         int requestVersion = ++_idleNavigationRequestVersion;
 
-        await Task.Delay(IDLE_NAVIGATION_DELAY_MS);
+        await Task.Delay(SELECTION_SETTLE_DELAY_MS);
 
         if (requestVersion != _idleNavigationRequestVersion) return;
         if (ViewModel.MailCollection.SelectedItemsCount != 0) return;
@@ -379,6 +380,11 @@ public sealed partial class MailListPage : MailListPageAbstract,
         {
             WeakReferenceMessenger.Default.Send(new CancelRenderingContentRequested());
         }
+
+        await Task.Delay(RENDERING_FRAME_RELEASE_DELAY_MS);
+
+        if (requestVersion != _idleNavigationRequestVersion) return;
+        if (ViewModel.MailCollection.SelectedItemsCount != 0) return;
 
         // Ensure rendering frame actually navigates away from Compose/Rendering pages.
         // Otherwise those pages keep their messenger registrations alive.

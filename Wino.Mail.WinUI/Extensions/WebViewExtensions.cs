@@ -1,11 +1,15 @@
 using System;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
+using Microsoft.Web.WebView2.Core;
 
 namespace Wino.Mail.WinUI.Extensions;
 
 public static class WebViewExtensions
 {
+    private static readonly object _environmentLock = new();
     private static bool _environmentInitialized;
+    private static Task<CoreWebView2Environment>? _sharedEnvironmentTask;
 
     /// <summary>
     /// Sets WebView2 environment variables once per process.
@@ -20,6 +24,17 @@ public static class WebViewExtensions
             "--enable-features=OverlayScrollbar,msOverlayScrollbarWinStyle,msOverlayScrollbarWinStyleAnimation,msWebView2CodeCache");
 
         _environmentInitialized = true;
+    }
+
+    public static Task<CoreWebView2Environment> GetSharedEnvironmentAsync()
+    {
+        EnsureWebView2Environment();
+
+        lock (_environmentLock)
+        {
+            _sharedEnvironmentTask ??= CoreWebView2Environment.CreateAsync().AsTask();
+            return _sharedEnvironmentTask;
+        }
     }
 
     /// <summary>

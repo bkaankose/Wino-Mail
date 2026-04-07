@@ -85,6 +85,12 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         await UpdateEditorThemeAsync();
     }
 
+    private async Task EnsureChromiumInitializedAsync()
+    {
+        var sharedEnvironment = await WebViewExtensions.GetSharedEnvironmentAsync();
+        await Chromium.EnsureCoreWebView2Async(sharedEnvironment);
+    }
+
     private async Task RenderInternalAsync(string htmlBody)
     {
         isRenderingInProgress = true;
@@ -128,7 +134,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         // Ensure WebView2 is fully initialized before first render.
         // OnNavigatedTo starts initialization fire-and-forget; this await
         // guarantees the core is ready before we invoke any script.
-        await Chromium.EnsureCoreWebView2Async();
+        await EnsureChromiumInitializedAsync();
 
         if (message == null || string.IsNullOrEmpty(message.HtmlBody))
         {
@@ -274,7 +280,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         RendererCommandBar.IsAIActionsEnabled = false;
         Chromium.CoreWebView2Initialized -= CoreWebViewInitialized;
         Chromium.CoreWebView2Initialized += CoreWebViewInitialized;
-        _ = Chromium.EnsureCoreWebView2Async();
+        _ = EnsureChromiumInitializedAsync();
 
         base.OnNavigatedTo(e);
 
@@ -310,7 +316,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     async void IRecipient<CancelRenderingContentRequested>.Receive(CancelRenderingContentRequested message)
     {
-        await Chromium.EnsureCoreWebView2Async();
+        await EnsureChromiumInitializedAsync();
 
         if (!isRenderingInProgress)
         {

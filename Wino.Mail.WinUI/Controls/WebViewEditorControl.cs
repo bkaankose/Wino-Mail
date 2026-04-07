@@ -339,10 +339,10 @@ public sealed partial class WebViewEditorControl : Control, IDisposable, IEditor
             return;
         }
 
-        WebViewExtensions.EnsureWebView2Environment();
+        var sharedEnvironment = await WebViewExtensions.GetSharedEnvironmentAsync();
         _chromium.CoreWebView2Initialized -= ChromiumInitialized;
         _chromium.CoreWebView2Initialized += ChromiumInitialized;
-        await _chromium.EnsureCoreWebView2Async();
+        await _chromium.EnsureCoreWebView2Async(sharedEnvironment);
     }
 
     private Task EnsureEditorReadyAsync()
