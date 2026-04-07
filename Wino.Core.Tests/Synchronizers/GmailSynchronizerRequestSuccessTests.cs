@@ -5,6 +5,7 @@ using FluentAssertions;
 using Google.Apis.Requests;
 using Moq;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
@@ -140,6 +141,70 @@ public sealed class GmailSynchronizerRequestSuccessTests
         mail.IsRead.Should().BeFalse();
         changeProcessor.Verify(x => x.ChangeMailReadStatusAsync(It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
         errorFactory.Verify(x => x.HandleErrorAsync(It.IsAny<SynchronizerErrorContext>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ProcessSingleNativeRequestResponseAsync_Generic404Error_DoesNotClassifyAsEntityNotFound()
+    {
+        var changeProcessor = new Mock<IGmailChangeProcessor>(MockBehavior.Strict);
+        SynchronizerErrorContext? capturedContext = null;
+
+        var errorFactory = new Mock<IGmailSynchronizerErrorHandlerFactory>(MockBehavior.Strict);
+        errorFactory
+            .Setup(x => x.HandleErrorAsync(It.IsAny<SynchronizerErrorContext>()))
+            .Callback<SynchronizerErrorContext>(context => capturedContext = context)
+            .ReturnsAsync(false);
+
+        var synchronizer = CreateSynchronizer(changeProcessor.Object, errorFactory.Object);
+        var request = new DeleteRequest(CreateMailCopy("mail-1"));
+        var bundle = new HttpRequestBundle<IClientServiceRequest>(Mock.Of<IClientServiceRequest>(), request, request);
+        using var response = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(string.Empty)
+        };
+        var error = new RequestError
+        {
+            Code = 404,
+            Message = "Not Found"
+        };
+
+        var act = () => InvokeProcessSingleNativeRequestResponseAsync(synchronizer, bundle, response, error);
+
+        await act.Should().ThrowAsync<SynchronizerException>();
+        capturedContext.Should().NotBeNull();
+        capturedContext!.IsEntityNotFound.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ProcessSingleNativeRequestResponseAsync_Entity404Error_ClassifiesAsEntityNotFound()
+    {
+        var changeProcessor = new Mock<IGmailChangeProcessor>(MockBehavior.Strict);
+        SynchronizerErrorContext? capturedContext = null;
+
+        var errorFactory = new Mock<IGmailSynchronizerErrorHandlerFactory>(MockBehavior.Strict);
+        errorFactory
+            .Setup(x => x.HandleErrorAsync(It.IsAny<SynchronizerErrorContext>()))
+            .Callback<SynchronizerErrorContext>(context => capturedContext = context)
+            .ReturnsAsync(false);
+
+        var synchronizer = CreateSynchronizer(changeProcessor.Object, errorFactory.Object);
+        var request = new DeleteRequest(CreateMailCopy("mail-1"));
+        var bundle = new HttpRequestBundle<IClientServiceRequest>(Mock.Of<IClientServiceRequest>(), request, request);
+        using var response = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(string.Empty)
+        };
+        var error = new RequestError
+        {
+            Code = 404,
+            Message = "Requested entity was not found."
+        };
+
+        var act = () => InvokeProcessSingleNativeRequestResponseAsync(synchronizer, bundle, response, error);
+
+        await act.Should().ThrowAsync<SynchronizerEntityNotFoundException>();
+        capturedContext.Should().NotBeNull();
+        capturedContext!.IsEntityNotFound.Should().BeTrue();
     }
 
     private static GmailSynchronizer CreateSynchronizer(

@@ -1665,6 +1665,8 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     {
         if (error == null) return;
 
+        var isEntityNotFound = IsKnownGmailEntityNotFoundError(error, bundle);
+
         // Create error context
         var errorContext = new SynchronizerErrorContext
         {
@@ -1672,6 +1674,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             ErrorCode = error.Code,
             ErrorMessage = error.Message,
             RequestBundle = bundle,
+            IsEntityNotFound = isEntityNotFound,
             AdditionalData = new Dictionary<string, object>
             {
                 { "Error", error }
@@ -1702,7 +1705,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             }
 
             // Entity not found.
-            if (error.Code == 404)
+            if (isEntityNotFound)
             {
                 bundle?.UIChangeRequest?.RevertUIChanges();
                 throw new SynchronizerEntityNotFoundException(error.Message);
@@ -1717,6 +1720,50 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             }
         }
     }
+
+    private static bool IsKnownGmailEntityNotFoundError(
+        RequestError error,
+        IRequestBundle<IClientServiceRequest> bundle)
+    {
+        if (error?.Code != 404 || bundle?.UIChangeRequest == null)
+            return false;
+
+        if (!IsExistingEntityOperation(bundle.UIChangeRequest))
+            return false;
+
+        var message = error.Message?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(message))
+            return false;
+
+        var normalizedMessage = message.ToLowerInvariant();
+        return normalizedMessage.Contains("requested entity")
+               || normalizedMessage.Contains("message not found")
+               || normalizedMessage.Contains("thread not found")
+               || normalizedMessage.Contains("draft not found")
+               || normalizedMessage.Contains("label not found")
+               || normalizedMessage.Contains("event not found")
+               || normalizedMessage.Contains("calendar not found");
+    }
+
+    private static bool IsExistingEntityOperation(IUIChangeRequest request)
+        => request is BatchDeleteRequest
+           || request is BatchMoveRequest
+           || request is BatchChangeFlagRequest
+           || request is BatchMarkReadRequest
+           || request is BatchArchiveRequest
+           || request is DeleteRequest
+           || request is MoveRequest
+           || request is ChangeFlagRequest
+           || request is MarkReadRequest
+           || request is ArchiveRequest
+           || request is RenameFolderRequest
+           || request is DeleteFolderRequest
+           || request is AcceptEventRequest
+           || request is DeclineEventRequest
+           || request is OutlookDeclineEventRequest
+           || request is TentativeEventRequest
+           || request is UpdateCalendarEventRequest
+           || request is DeleteCalendarEventRequest;
 
     private static bool ShouldRevertOptimisticMailStateChange(IUIChangeRequest request)
         => request is BatchMarkReadRequest

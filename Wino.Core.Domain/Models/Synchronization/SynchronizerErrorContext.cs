@@ -83,6 +83,13 @@ public class SynchronizerErrorContext
     public string OperationType { get; set; }
 
     /// <summary>
+    /// Gets or sets whether the error was explicitly classified as a missing remote entity.
+    /// This is used to distinguish true "mail/folder/event no longer exists" cases from
+    /// unrelated HTTP 404 responses that should still surface to the user.
+    /// </summary>
+    public bool IsEntityNotFound { get; set; }
+
+    /// <summary>
     /// Gets whether this error should be retried based on severity and retry count.
     /// </summary>
     public bool ShouldRetry => Severity == SynchronizerErrorSeverity.Transient && RetryCount < MaxRetries;

@@ -21,7 +21,7 @@ public class GmailSynchronizerErrorHandlingFactory : SynchronizerErrorHandlingFa
         RegisterHandler(authenticationFailedHandler);
         RegisterHandler(quotaExceededHandler);
         RegisterHandler(historyExpiredHandler);
+        RegisterHandler(rateLimitHandler);
         RegisterHandler(entityNotFoundHandler);
-        RegisterHandler(rateLimitHandler); // Most generic rate limit handler last
     }
 }

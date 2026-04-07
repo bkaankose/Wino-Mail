@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -1860,6 +1861,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             ErrorCode = (int)response.StatusCode,
             ErrorMessage = errorMessage,
             RequestBundle = bundle,
+            IsEntityNotFound = IsKnownOutlookEntityNotFoundError(response.StatusCode, errorCode, errorMessage, bundle),
             AdditionalData = new Dictionary<string, object>
             {
                 { "ErrorCode", errorCode },
@@ -1879,6 +1881,49 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             errors.Add(errorString);
         }
     }
+
+    private static bool IsKnownOutlookEntityNotFoundError(
+        HttpStatusCode statusCode,
+        string errorCode,
+        string errorMessage,
+        IRequestBundle<RequestInformation> bundle)
+    {
+        if (statusCode != HttpStatusCode.NotFound || bundle?.UIChangeRequest == null)
+            return false;
+
+        if (!IsExistingEntityOperation(bundle.UIChangeRequest))
+            return false;
+
+        var normalizedErrorCode = errorCode?.Trim().ToLowerInvariant() ?? string.Empty;
+        var normalizedMessage = errorMessage?.Trim().ToLowerInvariant() ?? string.Empty;
+
+        return normalizedErrorCode.Contains("notfound")
+               || normalizedErrorCode.Contains("itemnotfound")
+               || normalizedErrorCode.Contains("resource")
+               || normalizedMessage.Contains("not found")
+               || normalizedMessage.Contains("does not exist")
+               || normalizedMessage.Contains("cannot be found");
+    }
+
+    private static bool IsExistingEntityOperation(IUIChangeRequest request)
+        => request is BatchDeleteRequest
+           || request is BatchMoveRequest
+           || request is BatchChangeFlagRequest
+           || request is BatchMarkReadRequest
+           || request is BatchArchiveRequest
+           || request is DeleteRequest
+           || request is MoveRequest
+           || request is ChangeFlagRequest
+           || request is MarkReadRequest
+           || request is ArchiveRequest
+           || request is RenameFolderRequest
+           || request is DeleteFolderRequest
+           || request is AcceptEventRequest
+           || request is DeclineEventRequest
+           || request is OutlookDeclineEventRequest
+           || request is TentativeEventRequest
+           || request is UpdateCalendarEventRequest
+           || request is DeleteCalendarEventRequest;
 
     private async Task HandleSuccessfulResponseAsync(IRequestBundle<RequestInformation> bundle, HttpResponseMessage response)
     {

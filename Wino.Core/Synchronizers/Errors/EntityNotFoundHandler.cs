@@ -8,26 +8,27 @@ using Wino.Core.Domain.Models.Synchronization;
 namespace Wino.Core.Synchronizers.Errors;
 
 /// <summary>
-/// Generic handler for 404 (Not Found) errors across all synchronizers.
-/// When a resource is already gone on the server, this handler applies
-/// the intended change locally instead of throwing.
-/// Works for all mail actions, folder actions, and batch operations.
+/// Handles errors that were explicitly classified as missing remote entities.
+/// This avoids swallowing unrelated HTTP 404 responses that should still surface
+/// to the user as real synchronization failures.
 /// </summary>
 public class EntityNotFoundHandler : ISynchronizerErrorHandler
 {
     private readonly ILogger _logger = Log.ForContext<EntityNotFoundHandler>();
     private readonly IMailService _mailService;
     private readonly IFolderService _folderService;
+    private readonly ICalendarService _calendarService;
 
-    public EntityNotFoundHandler(IMailService mailService, IFolderService folderService)
+    public EntityNotFoundHandler(IMailService mailService, IFolderService folderService, ICalendarService calendarService)
     {
         _mailService = mailService;
         _folderService = folderService;
+        _calendarService = calendarService;
     }
 
     public bool CanHandle(SynchronizerErrorContext error)
     {
-        if (error.ErrorCode != 404) return false;
+        if (!error.IsEntityNotFound) return false;
         if (error.RequestBundle == null) return false;
         return true;
     }
@@ -81,9 +82,30 @@ public class EntityNotFoundHandler : ISynchronizerErrorHandler
             return true;
         }
 
+        // --- Individual calendar actions ---
+        if (uiRequest is ICalendarActionRequest calendarAction)
+        {
+            _logger.Warning("Entity not found for calendar operation {Op} on {CalendarItemId}. Deleting locally.",
+                calendarAction.Operation, calendarAction.Item?.Id);
+
+            try
+            {
+                if (calendarAction.Item != null)
+                {
+                    await _calendarService.DeleteCalendarItemAsync(calendarAction.Item.Id).ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Failed to delete calendar item locally after entity-not-found.");
+            }
+
+            return true;
+        }
+
         // --- Batch requests (can't identify specific item) ---
         // Mark as recoverable. Next sync will clean up stale items.
-        _logger.Warning("Entity not found (404) for batch operation. Marking as recoverable.");
+        _logger.Warning("Entity not found for batch operation. Marking as recoverable.");
         return true;
     }
 }

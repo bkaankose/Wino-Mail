@@ -763,7 +763,8 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                     ErrorMessage = ex.Message,
                     Exception = ex,
                     RequestBundle = item,
-                    OperationType = "RequestExecution"
+                    OperationType = "RequestExecution",
+                    IsEntityNotFound = ex is FolderNotFoundException || ex is SynchronizerEntityNotFoundException
                 };
 
                 var handled = await _errorHandlerFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
