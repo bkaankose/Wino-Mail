@@ -1,5 +1,6 @@
 using System.Linq;
 using FluentAssertions;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Services;
@@ -30,15 +31,12 @@ public class CalendarContextMenuItemServiceTests
         items.Should().NotContain(item => item.Action.ActionType == CalendarContextMenuActionType.Respond);
 
         var showAsItem = items.Single(item => item.Action.ActionType == CalendarContextMenuActionType.ShowAs);
-        showAsItem.Children.Should().HaveCount(5);
+        showAsItem.Children.Should().HaveCount(CalendarItemActionOptions.ShowAsOptions.Count);
         showAsItem.Children.Select(child => child.Action.ShowAs).Should().BeEquivalentTo(
-            [
-                CalendarItemShowAs.Free,
-                CalendarItemShowAs.Tentative,
-                CalendarItemShowAs.Busy,
-                CalendarItemShowAs.OutOfOffice,
-                CalendarItemShowAs.WorkingElsewhere
-            ]);
+            CalendarItemActionOptions.ShowAsOptions);
+
+        var deleteItem = items.Single(item => item.Action.ActionType == CalendarContextMenuActionType.Delete);
+        deleteItem.Action.TargetType.Should().BeNull();
     }
 
     [Fact]

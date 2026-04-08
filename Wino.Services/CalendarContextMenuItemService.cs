@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -8,22 +9,6 @@ namespace Wino.Services;
 
 public class CalendarContextMenuItemService : ICalendarContextMenuItemService
 {
-    private static readonly IReadOnlyList<CalendarItemShowAs> ShowAsOptions =
-    [
-        CalendarItemShowAs.Free,
-        CalendarItemShowAs.Tentative,
-        CalendarItemShowAs.Busy,
-        CalendarItemShowAs.OutOfOffice,
-        CalendarItemShowAs.WorkingElsewhere
-    ];
-
-    private static readonly IReadOnlyList<CalendarItemStatus> ResponseOptions =
-    [
-        CalendarItemStatus.Accepted,
-        CalendarItemStatus.Tentative,
-        CalendarItemStatus.Cancelled
-    ];
-
     public IReadOnlyList<CalendarContextMenuItem> GetContextMenuItems(CalendarItem calendarItem)
     {
         if (calendarItem == null)
@@ -66,12 +51,12 @@ public class CalendarContextMenuItemService : ICalendarContextMenuItemService
                 new CalendarContextMenuAction(CalendarContextMenuActionType.Delete),
                 IsPrimary: true,
                 ChildItems:
-                [
-                    CreateScopeLeaf(CalendarContextMenuActionType.Delete, CalendarEventTargetType.Single),
-                    CreateScopeLeaf(CalendarContextMenuActionType.Delete, CalendarEventTargetType.Series)
-                ])
+                 [
+                     CreateScopeLeaf(CalendarContextMenuActionType.Delete, CalendarEventTargetType.Single),
+                     CreateScopeLeaf(CalendarContextMenuActionType.Delete, CalendarEventTargetType.Series)
+                 ])
             : new CalendarContextMenuItem(
-                new CalendarContextMenuAction(CalendarContextMenuActionType.Delete, CalendarEventTargetType.Single),
+                new CalendarContextMenuAction(CalendarContextMenuActionType.Delete),
                 IsPrimary: true);
 
     private static CalendarContextMenuItem CreateShowAsItem(bool isRecurringChild)
@@ -102,9 +87,9 @@ public class CalendarContextMenuItemService : ICalendarContextMenuItemService
 
     private static IReadOnlyList<CalendarContextMenuItem> CreateShowAsLeaves(CalendarEventTargetType targetType)
     {
-        var items = new List<CalendarContextMenuItem>(ShowAsOptions.Count);
+        var items = new List<CalendarContextMenuItem>(CalendarItemActionOptions.ShowAsOptions.Count);
 
-        foreach (var showAs in ShowAsOptions)
+        foreach (var showAs in CalendarItemActionOptions.ShowAsOptions)
         {
             items.Add(new CalendarContextMenuItem(
                 new CalendarContextMenuAction(CalendarContextMenuActionType.ShowAs, targetType, showAs)));
@@ -115,9 +100,9 @@ public class CalendarContextMenuItemService : ICalendarContextMenuItemService
 
     private static IReadOnlyList<CalendarContextMenuItem> CreateResponseLeaves(CalendarEventTargetType targetType)
     {
-        var items = new List<CalendarContextMenuItem>(ResponseOptions.Count);
+        var items = new List<CalendarContextMenuItem>(CalendarItemActionOptions.ResponseOptions.Count);
 
-        foreach (var responseStatus in ResponseOptions)
+        foreach (var responseStatus in CalendarItemActionOptions.ResponseOptions)
         {
             items.Add(new CalendarContextMenuItem(
                 new CalendarContextMenuAction(CalendarContextMenuActionType.Respond, targetType, ResponseStatus: responseStatus)));

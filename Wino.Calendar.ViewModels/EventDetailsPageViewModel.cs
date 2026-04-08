@@ -164,18 +164,17 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         CurrentSettings = _preferencesService.GetCurrentCalendarSettings();
         IsDarkWebviewRenderer = _underlyingThemeService.IsUnderlyingThemeDark();
 
-        // Initialize Show As options
-        ShowAsOptions.Add(new ShowAsOption(CalendarItemShowAs.Free));
-        ShowAsOptions.Add(new ShowAsOption(CalendarItemShowAs.Tentative));
-        ShowAsOptions.Add(new ShowAsOption(CalendarItemShowAs.Busy));
-        ShowAsOptions.Add(new ShowAsOption(CalendarItemShowAs.OutOfOffice));
-        ShowAsOptions.Add(new ShowAsOption(CalendarItemShowAs.WorkingElsewhere));
-        SelectedShowAsOption = ShowAsOptions[2]; // Default to Busy
+        foreach (var showAs in CalendarItemActionOptions.ShowAsOptions)
+        {
+            ShowAsOptions.Add(new ShowAsOption(showAs));
+        }
 
-        // Initialize RSVP status options
-        RsvpStatusOptions.Add(new RsvpStatusOption(CalendarItemStatus.Accepted));
-        RsvpStatusOptions.Add(new RsvpStatusOption(CalendarItemStatus.Tentative));
-        RsvpStatusOptions.Add(new RsvpStatusOption(CalendarItemStatus.Cancelled));
+        SelectedShowAsOption = ShowAsOptions.FirstOrDefault(option => option.ShowAs == CalendarItemShowAs.Busy) ?? ShowAsOptions.FirstOrDefault();
+
+        foreach (var responseStatus in CalendarItemActionOptions.ResponseOptions)
+        {
+            RsvpStatusOptions.Add(new RsvpStatusOption(responseStatus));
+        }
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)

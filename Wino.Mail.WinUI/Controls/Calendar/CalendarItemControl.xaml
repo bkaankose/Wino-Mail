@@ -30,8 +30,10 @@
 
         <Grid.ContextFlyout>
             <local:CalendarItemCommandBarFlyout
+                AlwaysExpanded="True"
                 Item="{x:Bind CalendarItem, Mode=OneWay}"
-                Placement="Top" />
+                Placement="BottomEdgeAlignedLeft"
+                ShowMode="Transient" />
         </Grid.ContextFlyout>
 
 

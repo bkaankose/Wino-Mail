@@ -845,13 +845,13 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     }
 
     private void TimedViewportPointerMoved(object sender, PointerRoutedEventArgs e)
-        => SetHoverTarget(ResolveTimedDropTarget(e.GetCurrentPoint(TimedViewport).Position, _activeDragPackage?.CalendarItemViewModel));
+        => UpdateHoverTargetForActiveDrag(() => ResolveTimedDropTarget(e.GetCurrentPoint(TimedViewport).Position, _activeDragPackage?.CalendarItemViewModel));
 
     private void TimedAllDayHostPointerMoved(object sender, PointerRoutedEventArgs e)
-        => SetHoverTarget(ResolveTimedAllDayDropTarget(e.GetCurrentPoint(TimedAllDayHost).Position, _activeDragPackage?.CalendarItemViewModel));
+        => UpdateHoverTargetForActiveDrag(() => ResolveTimedAllDayDropTarget(e.GetCurrentPoint(TimedAllDayHost).Position, _activeDragPackage?.CalendarItemViewModel));
 
     private void MonthViewportPointerMoved(object sender, PointerRoutedEventArgs e)
-        => SetHoverTarget(ResolveMonthDropTarget(e.GetCurrentPoint(MonthViewport).Position, _activeDragPackage?.CalendarItemViewModel));
+        => UpdateHoverTargetForActiveDrag(() => ResolveMonthDropTarget(e.GetCurrentPoint(MonthViewport).Position, _activeDragPackage?.CalendarItemViewModel));
 
     private void CalendarDropTargetPointerExited(object sender, PointerRoutedEventArgs e)
     {
@@ -859,6 +859,17 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         {
             SetHoverTarget(null);
         }
+    }
+
+    private void UpdateHoverTargetForActiveDrag(Func<CalendarDropTargetInfo?> resolveHoverTarget)
+    {
+        if (_activeDragPackage == null)
+        {
+            SetHoverTarget(null);
+            return;
+        }
+
+        SetHoverTarget(resolveHoverTarget());
     }
 
     private void TimedViewportDragOver(object sender, DragEventArgs e)
