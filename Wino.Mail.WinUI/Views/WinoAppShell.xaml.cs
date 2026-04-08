@@ -168,6 +168,8 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         {
             ViewModel.StatePersistenceService.IsEventDetailsVisible = false;
             ViewModel.CalendarClient.Deactivate();
+            WindowCleanupHelper.CleanupFrame(InnerShellFrame);
+            GC.Collect();
         }
         else if (_activeMode == WinoApplicationMode.Contacts)
         {

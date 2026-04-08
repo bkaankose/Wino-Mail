@@ -52,6 +52,12 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         base.OnNavigatingFrom(e);
     }
 
+    public override void PrepareForClose()
+    {
+        DetachNavigationLifetimeEvents();
+        base.PrepareForClose();
+    }
+
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);

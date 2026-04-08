@@ -324,6 +324,13 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         });
     }
 
+    private void ControlUnloaded(object sender, RoutedEventArgs e)
+    {
+        DetachCurrentItemsSource();
+        _sizeRefreshTimer.Stop();
+        _sizeRefreshTimer.Tick -= SizeRefreshTimerTick;
+    }
+
     private void SizeRefreshTimerTick(DispatcherQueueTimer sender, object args)
     {
         sender.Stop();

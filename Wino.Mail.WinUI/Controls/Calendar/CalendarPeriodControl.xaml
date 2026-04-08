@@ -11,6 +11,7 @@
     xmlns:viewModels="using:Wino.Calendar.ViewModels.Data"
     x:Name="Root"
     SizeChanged="ControlSizeChanged"
+    Unloaded="ControlUnloaded"
     mc:Ignorable="d">
 
     <UserControl.Resources>
