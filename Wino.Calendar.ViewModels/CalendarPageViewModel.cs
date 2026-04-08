@@ -35,6 +35,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     IRecipient<CalendarItemTappedMessage>,
     IRecipient<CalendarItemDoubleTappedMessage>,
     IRecipient<CalendarItemRightTappedMessage>,
+    IRecipient<CalendarItemContextActionRequestedMessage>,
     IRecipient<AccountRemovedMessage>,
     IDisposable
 {
@@ -229,6 +230,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         Messenger.Unregister<CalendarItemTappedMessage>(this);
         Messenger.Unregister<CalendarItemDoubleTappedMessage>(this);
         Messenger.Unregister<CalendarItemRightTappedMessage>(this);
+        Messenger.Unregister<CalendarItemContextActionRequestedMessage>(this);
         Messenger.Unregister<AccountRemovedMessage>(this);
 
         Messenger.Register<LoadCalendarMessage>(this);
@@ -236,6 +238,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         Messenger.Register<CalendarItemTappedMessage>(this);
         Messenger.Register<CalendarItemDoubleTappedMessage>(this);
         Messenger.Register<CalendarItemRightTappedMessage>(this);
+        Messenger.Register<CalendarItemContextActionRequestedMessage>(this);
         Messenger.Register<AccountRemovedMessage>(this);
     }
 
@@ -248,6 +251,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         Messenger.Unregister<CalendarItemTappedMessage>(this);
         Messenger.Unregister<CalendarItemDoubleTappedMessage>(this);
         Messenger.Unregister<CalendarItemRightTappedMessage>(this);
+        Messenger.Unregister<CalendarItemContextActionRequestedMessage>(this);
         Messenger.Unregister<AccountRemovedMessage>(this);
     }
 
@@ -802,6 +806,24 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
     public void Receive(CalendarItemRightTappedMessage message)
     {
+        if (message.CalendarItemViewModel == null)
+            return;
+
+        DisplayDetailsCalendarItemViewModel = message.CalendarItemViewModel;
+    }
+
+    public void Receive(CalendarItemContextActionRequestedMessage message)
+    {
+        if (message.CalendarItemViewModel == null)
+            return;
+
+        if (message.Action.ActionType == CalendarContextMenuActionType.Open)
+        {
+            NavigateEvent(message.CalendarItemViewModel, message.Action.TargetType ?? CalendarEventTargetType.Single);
+            return;
+        }
+
+        _ = ExecuteContextActionAsync(message.CalendarItemViewModel, message.Action);
     }
 
     public async void Receive(AccountRemovedMessage message)
@@ -1120,6 +1142,127 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
         var trackedLocalItemId = calendarItem.RemoteEventId.GetClientTrackingId();
         return trackedLocalItemId.HasValue && pendingCalendarItemIds.Contains(trackedLocalItemId.Value);
+    }
+
+    private async Task ExecuteContextActionAsync(CalendarItemViewModel calendarItemViewModel, CalendarContextMenuAction action)
+    {
+        switch (action.ActionType)
+        {
+            case CalendarContextMenuActionType.JoinOnline:
+                await JoinOnlineAsync(calendarItemViewModel).ConfigureAwait(false);
+                break;
+            case CalendarContextMenuActionType.Delete:
+                await DeleteCalendarItemAsync(calendarItemViewModel, action.TargetType ?? CalendarEventTargetType.Single).ConfigureAwait(false);
+                break;
+            case CalendarContextMenuActionType.ShowAs when action.ShowAs.HasValue:
+                await UpdateShowAsAsync(calendarItemViewModel, action.TargetType ?? CalendarEventTargetType.Single, action.ShowAs.Value).ConfigureAwait(false);
+                break;
+            case CalendarContextMenuActionType.Respond when action.ResponseStatus.HasValue:
+                await RespondToCalendarItemAsync(calendarItemViewModel, action.TargetType ?? CalendarEventTargetType.Single, action.ResponseStatus.Value).ConfigureAwait(false);
+                break;
+        }
+    }
+
+    private Task JoinOnlineAsync(CalendarItemViewModel calendarItemViewModel)
+    {
+        var htmlLink = calendarItemViewModel?.CalendarItem?.HtmlLink;
+
+        if (string.IsNullOrWhiteSpace(htmlLink))
+            return Task.CompletedTask;
+
+        return _nativeAppService.LaunchUriAsync(new Uri(htmlLink));
+    }
+
+    private async Task DeleteCalendarItemAsync(CalendarItemViewModel calendarItemViewModel, CalendarEventTargetType targetType)
+    {
+        var targetItem = await ResolveCalendarItemTargetAsync(calendarItemViewModel, targetType).ConfigureAwait(false);
+
+        if (targetItem == null)
+            return;
+
+        if (targetItem.IsRecurringParent)
+        {
+            var confirmed = await _dialogService.ShowConfirmationDialogAsync(
+                Translator.DialogMessage_DeleteRecurringSeriesMessage,
+                Translator.DialogMessage_DeleteRecurringSeriesTitle,
+                Translator.Buttons_Delete).ConfigureAwait(false);
+
+            if (!confirmed)
+                return;
+        }
+
+        var preparationRequest = new CalendarOperationPreparationRequest(
+            CalendarSynchronizerOperation.DeleteEvent,
+            targetItem,
+            null);
+
+        await _winoRequestDelegator.ExecuteAsync(preparationRequest).ConfigureAwait(false);
+    }
+
+    private async Task UpdateShowAsAsync(CalendarItemViewModel calendarItemViewModel, CalendarEventTargetType targetType, CalendarItemShowAs showAs)
+    {
+        var targetItem = await ResolveCalendarItemTargetAsync(calendarItemViewModel, targetType).ConfigureAwait(false);
+
+        if (targetItem == null || targetItem.ShowAs == showAs)
+            return;
+
+        var originalItem = await _calendarService.GetCalendarItemAsync(targetItem.Id).ConfigureAwait(false);
+        var attendees = await _calendarService.GetAttendeesAsync(targetItem.Id).ConfigureAwait(false);
+
+        targetItem.ShowAs = showAs;
+        await _calendarService.UpdateCalendarItemAsync(targetItem, attendees).ConfigureAwait(false);
+
+        var preparationRequest = new CalendarOperationPreparationRequest(
+            CalendarSynchronizerOperation.UpdateEvent,
+            targetItem,
+            attendees,
+            ResponseMessage: null,
+            OriginalItem: originalItem,
+            OriginalAttendees: attendees);
+
+        await _winoRequestDelegator.ExecuteAsync(preparationRequest).ConfigureAwait(false);
+    }
+
+    private async Task RespondToCalendarItemAsync(CalendarItemViewModel calendarItemViewModel, CalendarEventTargetType targetType, CalendarItemStatus responseStatus)
+    {
+        var targetItem = await ResolveCalendarItemTargetAsync(calendarItemViewModel, targetType).ConfigureAwait(false);
+
+        if (targetItem == null)
+            return;
+
+        var operation = responseStatus switch
+        {
+            CalendarItemStatus.Accepted => CalendarSynchronizerOperation.AcceptEvent,
+            CalendarItemStatus.Tentative => CalendarSynchronizerOperation.TentativeEvent,
+            CalendarItemStatus.Cancelled => CalendarSynchronizerOperation.DeclineEvent,
+            _ => throw new InvalidOperationException($"Unsupported calendar response status '{responseStatus}'.")
+        };
+
+        var preparationRequest = new CalendarOperationPreparationRequest(
+            operation,
+            targetItem,
+            null);
+
+        await _winoRequestDelegator.ExecuteAsync(preparationRequest).ConfigureAwait(false);
+    }
+
+    private async Task<CalendarItem> ResolveCalendarItemTargetAsync(CalendarItemViewModel calendarItemViewModel, CalendarEventTargetType targetType)
+    {
+        if (calendarItemViewModel?.CalendarItem == null)
+            return null;
+
+        var target = new CalendarItemTarget(calendarItemViewModel.CalendarItem, targetType);
+        var targetItem = await _calendarService.GetCalendarItemTargetAsync(target).ConfigureAwait(false);
+
+        targetItem ??= calendarItemViewModel.CalendarItem;
+        if (targetItem == calendarItemViewModel.CalendarItem || targetItem.AssignedCalendar == null)
+        {
+            targetItem.AssignedCalendar = await _calendarService.GetAccountCalendarAsync(targetItem.CalendarId).ConfigureAwait(false)
+                                        ?? calendarItemViewModel.AssignedCalendar
+                                        ?? ResolveAssignedCalendar(targetItem.CalendarId);
+        }
+
+        return targetItem;
     }
 
     private AccountCalendarViewModel ResolveAssignedCalendar(Guid calendarId)

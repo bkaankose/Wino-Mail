@@ -130,7 +130,14 @@ public sealed partial class CalendarItemControl : UserControl
 
     private void ControlRightTapped(object sender, RightTappedRoutedEventArgs e)
     {
-        if (CalendarItem == null) return;
+        if (CalendarItem == null)
+            return;
+
+        if (CalendarItem.IsBusy)
+        {
+            e.Handled = true;
+            return;
+        }
 
         WeakReferenceMessenger.Default.Send(new CalendarItemRightTappedMessage(CalendarItem));
     }

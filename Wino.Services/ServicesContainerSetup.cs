@@ -25,6 +25,7 @@ public static class ServicesContainerSetup
         services.AddTransient<ISignatureService, SignatureService>();
         services.AddTransient<IEmailTemplateService, EmailTemplateService>();
         services.AddTransient<IContextMenuItemService, ContextMenuItemService>();
+        services.AddTransient<ICalendarContextMenuItemService, CalendarContextMenuItemService>();
         services.AddTransient<ISpecialImapProviderConfigResolver, SpecialImapProviderConfigResolver>();
         services.AddTransient<IKeyboardShortcutService, KeyboardShortcutService>();
         services.AddSingleton<IWinoAccountApiClient, WinoAccountApiClient>();

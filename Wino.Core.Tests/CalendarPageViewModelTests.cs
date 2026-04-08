@@ -18,6 +18,7 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Messaging.Client.Calendar;
 using Xunit;
+using Wino.Calendar.ViewModels.Messages;
 
 namespace Wino.Core.Tests;
 
@@ -311,6 +312,22 @@ public class CalendarPageViewModelTests
         accountCalendarViewModel.MailAccount.Should().BeSameAs(account);
     }
 
+    [Fact]
+    public void ReceiveCalendarItemRightTappedMessage_SelectsItemForDetails()
+    {
+        var settings = CreateSettings();
+        var preferencesService = CreatePreferencesService(settings);
+        var calendarService = new Mock<ICalendarService>();
+        var calendar = CreateCalendar(CreateAccount(), "Calendar");
+        var itemViewModel = new CalendarItemViewModel(CreateCalendarItem(calendar.Id, new DateTime(2026, 3, 20, 9, 0, 0), "Tapped"));
+
+        var viewModel = CreateViewModel(calendarService.Object, preferencesService.Object, new DateOnly(2026, 3, 20));
+
+        viewModel.Receive(new CalendarItemRightTappedMessage(itemViewModel));
+
+        viewModel.DisplayDetailsCalendarItemViewModel.Should().BeSameAs(itemViewModel);
+    }
+
     private static CalendarPageViewModel CreateViewModel(
         ICalendarService calendarService,
         IPreferencesService preferencesService,
@@ -330,6 +347,17 @@ public class CalendarPageViewModelTests
         IPreferencesService preferencesService,
         DateOnly today,
         IAccountCalendarStateService accountCalendarStateService)
+        => CreateViewModel(calendarService, preferencesService, today, accountCalendarStateService, navigationService: Mock.Of<INavigationService>());
+
+    private static CalendarPageViewModel CreateViewModel(
+        ICalendarService calendarService,
+        IPreferencesService preferencesService,
+        DateOnly today,
+        IAccountCalendarStateService accountCalendarStateService,
+        INavigationService? navigationService = null,
+        INativeAppService? nativeAppService = null,
+        IWinoRequestDelegator? requestDelegator = null,
+        IMailDialogService? dialogService = null)
     {
         var statePersistenceService = new Mock<IStatePersistanceService>();
         statePersistenceService.SetupAllProperties();
@@ -339,13 +367,13 @@ public class CalendarPageViewModelTests
         return new CalendarPageViewModel(
             statePersistenceService.Object,
             calendarService,
-            Mock.Of<INavigationService>(),
+            navigationService ?? Mock.Of<INavigationService>(),
             Mock.Of<IKeyPressService>(),
-            Mock.Of<INativeAppService>(),
+            nativeAppService ?? Mock.Of<INativeAppService>(),
             accountCalendarStateService,
             preferencesService,
-            Mock.Of<IWinoRequestDelegator>(),
-            Mock.Of<IMailDialogService>(),
+            requestDelegator ?? Mock.Of<IWinoRequestDelegator>(),
+            dialogService ?? Mock.Of<IMailDialogService>(),
             new TestDateContextProvider("en-US", today),
             new CalendarRangeTextFormatter());
     }

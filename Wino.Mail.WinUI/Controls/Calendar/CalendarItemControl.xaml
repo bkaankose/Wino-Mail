@@ -29,12 +29,9 @@
         </Grid.ColumnDefinitions>
 
         <Grid.ContextFlyout>
-            <local:CalendarItemCommandBarFlyout Placement="Top">
-                <local:CalendarItemCommandBarFlyout.PrimaryCommands>
-                    <AppBarButton Icon="Save" Label="save" />
-                    <AppBarButton Icon="Delete" Label="Delet" />
-                </local:CalendarItemCommandBarFlyout.PrimaryCommands>
-            </local:CalendarItemCommandBarFlyout>
+            <local:CalendarItemCommandBarFlyout
+                Item="{x:Bind CalendarItem, Mode=OneWay}"
+                Placement="Top" />
         </Grid.ContextFlyout>
 
 
