@@ -2783,7 +2783,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             Subject = calendarItem.Title,
             Body = new Microsoft.Graph.Models.ItemBody
             {
-                ContentType = Microsoft.Graph.Models.BodyType.Text,
+                // CalendarItem.Description stores HTML notes content, so updates must preserve it as HTML.
+                ContentType = Microsoft.Graph.Models.BodyType.Html,
                 Content = calendarItem.Description
             },
             Location = new Microsoft.Graph.Models.Location
