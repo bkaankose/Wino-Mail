@@ -181,6 +181,9 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                             case MailSynchronizerOperation.ChangeFlag:
                                 nativeRequests.AddRange(ChangeFlag(new BatchChangeFlagRequest(group.Cast<ChangeFlagRequest>())));
                                 break;
+                            case MailSynchronizerOperation.ChangeJunkState:
+                                nativeRequests.AddRange(ChangeJunkState(new BatchChangeJunkStateRequest(group.Cast<ChangeJunkStateRequest>())));
+                                break;
                             case MailSynchronizerOperation.AlwaysMoveTo:
                                 nativeRequests.AddRange(AlwaysMoveTo(new BatchAlwaysMoveToRequest(group.Cast<AlwaysMoveToRequest>())));
                                 break;
@@ -577,6 +580,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     public virtual bool DelaySendOperationSynchronization() => false;
     public virtual List<IRequestBundle<TBaseRequest>> Move(BatchMoveRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> ChangeFlag(BatchChangeFlagRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+    public virtual List<IRequestBundle<TBaseRequest>> ChangeJunkState(BatchChangeJunkStateRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> MarkRead(BatchMarkReadRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> Delete(BatchDeleteRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> AlwaysMoveTo(BatchAlwaysMoveToRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));

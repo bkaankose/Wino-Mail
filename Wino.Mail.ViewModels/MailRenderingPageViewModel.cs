@@ -637,6 +637,12 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             MenuItems.Add(MailOperationMenuItem.Create(MailOperation.MarkAsUnread, true, false));
         else
             MenuItems.Add(MailOperationMenuItem.Create(MailOperation.MarkAsRead, true, false));
+
+        if (initializedMailItemViewModel.MailCopy.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk)
+            MenuItems.Add(MailOperationMenuItem.Create(MailOperation.MarkAsNotJunk, true, true));
+        else if (!initializedMailItemViewModel.IsDraft &&
+                 initializedMailItemViewModel.MailCopy.AssignedFolder.SpecialFolderType != SpecialFolderType.Sent)
+            MenuItems.Add(MailOperationMenuItem.Create(MailOperation.MoveToJunk, true, true));
     }
 
     protected override async void OnMailUpdated(MailCopy updatedMail, EntityUpdateSource source, MailCopyChangeFlags changedProperties)

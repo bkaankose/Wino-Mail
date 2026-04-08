@@ -68,6 +68,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsWinoAccountButtonHidden { get; set; }
 
     /// <summary>
+    /// Setting: Whether AI actions panels and their toggle buttons should be hidden.
+    /// </summary>
+    bool IsAiActionsPanelHidden { get; set; }
+
+    /// <summary>
     /// Setting: Default target language code used for AI translation actions.
     /// </summary>
     string AiDefaultTranslationLanguageCode { get; set; }

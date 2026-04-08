@@ -85,6 +85,7 @@ public static class SynchronizationActionHelper
         {
             MarkReadRequest r => r.IsRead ? "MarkRead" : "MarkUnread",
             ChangeFlagRequest r => r.IsFlagged ? "SetFlag" : "ClearFlag",
+            ChangeJunkStateRequest r => r.IsJunk ? "MarkJunk" : "MarkNotJunk",
             ArchiveRequest r => r.IsArchiving ? "Archive" : "Unarchive",
             _ => request.Operation.ToString()
         };
@@ -100,6 +101,8 @@ public static class SynchronizationActionHelper
             "MarkUnread" => string.Format(Translator.SyncAction_MarkingAsUnread, count),
             "Delete" => string.Format(Translator.SyncAction_Deleting, count),
             "Move" => string.Format(Translator.SyncAction_Moving, count),
+            "MarkJunk" => string.Format(Translator.SyncAction_Moving, count),
+            "MarkNotJunk" => string.Format(Translator.SyncAction_Moving, count),
             "Archive" => string.Format(Translator.SyncAction_Archiving, count),
             "Unarchive" => string.Format(Translator.SyncAction_Unarchiving, count),
             "SetFlag" => string.Format(Translator.SyncAction_SettingFlag, count),

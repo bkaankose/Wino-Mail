@@ -357,7 +357,7 @@ public static class XamlHelpers
             MailOperation.SoftDelete => Translator.MailOperation_Delete,
             MailOperation.HardDelete => Translator.MailOperation_Delete,
             MailOperation.Move => Translator.MailOperation_Move,
-            MailOperation.MoveToJunk => Translator.MailOperation_MoveJunk,
+            MailOperation.MoveToJunk => Translator.MailOperation_MarkAsJunk,
             MailOperation.MoveToFocused => Translator.MailOperation_MoveFocused,
             MailOperation.MoveToOther => Translator.MailOperation_MoveOther,
             MailOperation.AlwaysMoveToOther => Translator.MailOperation_AlwaysMoveOther,

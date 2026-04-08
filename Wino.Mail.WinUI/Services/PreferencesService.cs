@@ -383,6 +383,12 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SetPropertyAndSave(nameof(IsWinoAccountButtonHidden), value);
     }
 
+    public bool IsAiActionsPanelHidden
+    {
+        get => _configurationService.Get(nameof(IsAiActionsPanelHidden), false);
+        set => SetPropertyAndSave(nameof(IsAiActionsPanelHidden), value);
+    }
+
     public string AiDefaultTranslationLanguageCode
     {
         get => _configurationService.Get(nameof(AiDefaultTranslationLanguageCode), "en-US");

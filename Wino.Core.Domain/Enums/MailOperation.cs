@@ -9,6 +9,7 @@ public enum MailSynchronizerOperation
     CreateDraft,
     Send,
     ChangeFlag,
+    ChangeJunkState,
     AlwaysMoveTo,
     MoveToFocused,
     Archive,

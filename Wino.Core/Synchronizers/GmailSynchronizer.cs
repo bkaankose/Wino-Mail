@@ -1219,6 +1219,36 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request)];
     }
 
+    public override List<IRequestBundle<IClientServiceRequest>> ChangeJunkState(BatchChangeJunkStateRequest request)
+    {
+        bool isJunk = request[0].IsJunk;
+
+        var addLabelIds = new HashSet<string>();
+        var removeLabelIds = new HashSet<string>();
+
+        if (isJunk)
+        {
+            addLabelIds.Add(ServiceConstants.SPAM_LABEL_ID);
+            removeLabelIds.Add(ServiceConstants.INBOX_LABEL_ID);
+        }
+        else
+        {
+            addLabelIds.Add(ServiceConstants.INBOX_LABEL_ID);
+            removeLabelIds.Add(ServiceConstants.SPAM_LABEL_ID);
+        }
+
+        var batchModifyRequest = new BatchModifyMessagesRequest
+        {
+            Ids = request.Select(a => a.Item.Id.ToString()).ToList(),
+            AddLabelIds = addLabelIds.ToList(),
+            RemoveLabelIds = removeLabelIds.ToList()
+        };
+
+        var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
+
+        return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request)];
+    }
+
     public override List<IRequestBundle<IClientServiceRequest>> MarkRead(BatchMarkReadRequest request)
     {
         bool readStatus = request[0].IsRead;
@@ -1783,11 +1813,13 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     private static bool IsExistingEntityOperation(IUIChangeRequest request)
         => request is BatchDeleteRequest
            || request is BatchMoveRequest
+           || request is BatchChangeJunkStateRequest
            || request is BatchChangeFlagRequest
            || request is BatchMarkReadRequest
            || request is BatchArchiveRequest
            || request is DeleteRequest
            || request is MoveRequest
+           || request is ChangeJunkStateRequest
            || request is ChangeFlagRequest
            || request is MarkReadRequest
            || request is ArchiveRequest
@@ -1803,6 +1835,8 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     private static bool ShouldRevertOptimisticMailStateChange(IUIChangeRequest request)
         => request is BatchMarkReadRequest
         || request is MarkReadRequest
+        || request is BatchChangeJunkStateRequest
+        || request is ChangeJunkStateRequest
         || request is BatchChangeFlagRequest
         || request is ChangeFlagRequest;
 
@@ -2504,25 +2538,28 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             googleEvent.Start = new EventDateTime
             {
                 Date = calendarItem.StartDate.ToString("yyyy-MM-dd"),
-                TimeZone = calendarItem.StartTimeZone
+                TimeZone = NormalizeGoogleTimeZoneId(calendarItem.StartTimeZone)
             };
             googleEvent.End = new EventDateTime
             {
                 Date = calendarItem.EndDate.ToString("yyyy-MM-dd"),
-                TimeZone = calendarItem.EndTimeZone
+                TimeZone = NormalizeGoogleTimeZoneId(calendarItem.EndTimeZone)
             };
         }
         else
         {
+            var startTimeZone = NormalizeGoogleTimeZoneId(calendarItem.StartTimeZone);
+            var endTimeZone = NormalizeGoogleTimeZoneId(calendarItem.EndTimeZone ?? calendarItem.StartTimeZone);
+
             googleEvent.Start = new EventDateTime
             {
                 DateTimeDateTimeOffset = new DateTimeOffset(calendarItem.StartDate, ResolveOffset(calendarItem.StartDate, calendarItem.StartTimeZone)),
-                TimeZone = calendarItem.StartTimeZone
+                TimeZone = startTimeZone
             };
             googleEvent.End = new EventDateTime
             {
                 DateTimeDateTimeOffset = new DateTimeOffset(calendarItem.EndDate, ResolveOffset(calendarItem.EndDate, calendarItem.EndTimeZone ?? calendarItem.StartTimeZone)),
-                TimeZone = calendarItem.EndTimeZone
+                TimeZone = endTimeZone
             };
         }
 
@@ -2895,5 +2932,19 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         {
             return TimeSpan.Zero;
         }
+    }
+
+    private static string NormalizeGoogleTimeZoneId(string timeZoneId)
+    {
+        if (string.IsNullOrWhiteSpace(timeZoneId))
+            return timeZoneId;
+
+        if (timeZoneId.Contains('/'))
+            return timeZoneId;
+
+        if (TimeZoneInfo.TryConvertWindowsIdToIanaId(timeZoneId, out var ianaTimeZoneId))
+            return ianaTimeZoneId;
+
+        return timeZoneId;
     }
 }

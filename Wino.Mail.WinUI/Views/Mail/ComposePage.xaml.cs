@@ -39,7 +39,10 @@ public sealed partial class ComposePage : ComposePageAbstract,
 {
     public WebView2 GetWebView() => WebViewEditor.GetUnderlyingWebView();
 
-    public Visibility GetAiActionsPanelVisibility(bool? isChecked) => isChecked == true ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility GetAiActionsToggleVisibility(bool isHidden) => isHidden ? Visibility.Collapsed : Visibility.Visible;
+
+    public Visibility GetAiActionsPanelVisibility(bool? isChecked, bool isHidden)
+        => !isHidden && isChecked == true ? Visibility.Visible : Visibility.Collapsed;
 
     private readonly List<IDisposable> _disposables = [];
 

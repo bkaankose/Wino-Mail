@@ -41,6 +41,9 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     private string _currentRenderedHtml = string.Empty;
 
     public WebView2 GetWebView() => Chromium;
+    public bool GetAiActionsToggleVisible(bool isHidden) => !isHidden;
+    public Visibility GetAiActionsPanelVisibility(bool isEnabled, bool isHidden)
+        => !isHidden && isEnabled ? Visibility.Visible : Visibility.Collapsed;
 
     public MailRenderingPage()
     {

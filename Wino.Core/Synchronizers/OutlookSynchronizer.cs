@@ -1358,17 +1358,35 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     /// <param name="requestInformation">Post request information.</param>
     /// <param name="content">Content object to serialize.</param>
     /// <returns>Updated post request information.</returns>
-    private RequestInformation PreparePostRequestInformation(RequestInformation requestInformation, Microsoft.Graph.Me.Messages.Item.Move.MovePostRequestBody content = null)
+    private RequestInformation PreparePostRequestInformation(RequestInformation requestInformation, string contentJson = "{}")
     {
         requestInformation.Headers.Clear();
-
-        string contentJson = content == null ? "{}" : JsonSerializer.Serialize(content, OutlookSynchronizerJsonContext.Default.MovePostRequestBody);
 
         requestInformation.Content = new MemoryStream(Encoding.UTF8.GetBytes(contentJson));
         requestInformation.HttpMethod = Method.POST;
         requestInformation.Headers.Add("Content-Type", "application/json");
 
         return requestInformation;
+    }
+
+    private RequestInformation PreparePostRequestInformation(RequestInformation requestInformation, Microsoft.Graph.Me.Messages.Item.Move.MovePostRequestBody content)
+        => PreparePostRequestInformation(requestInformation, JsonSerializer.Serialize(content, OutlookSynchronizerJsonContext.Default.MovePostRequestBody));
+
+    private RequestInformation PrepareReportMessageRequestInformation(ChangeJunkStateRequest request)
+    {
+        var reportAction = request.IsJunk ? "junk" : "notJunk";
+        var body = $$"""
+        {
+          "IsMessageMoveRequested": true,
+          "ReportAction": "{{reportAction}}"
+        }
+        """;
+
+        return PreparePostRequestInformation(new RequestInformation
+        {
+            URI = new Uri($"https://graph.microsoft.com/beta/me/messages/{Uri.EscapeDataString(request.Item.Id)}/reportMessage"),
+            HttpMethod = Method.POST
+        }, body);
     }
 
     #region Mail Integration
@@ -1400,6 +1418,16 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
             return _graphClient.Me.Messages[item.Item.Id].ToPatchRequestInformation(message);
         });
+    }
+
+    public override List<IRequestBundle<RequestInformation>> ChangeJunkState(BatchChangeJunkStateRequest request)
+    {
+        return request
+            .Select(item => (IRequestBundle<RequestInformation>)new HttpRequestBundle<RequestInformation>(
+                PrepareReportMessageRequestInformation(item),
+                item,
+                item))
+            .ToList();
     }
 
     public override List<IRequestBundle<RequestInformation>> MarkRead(BatchMarkReadRequest request)
@@ -1747,8 +1775,32 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             }
         }
 
+        var directRequests = batchedRequests
+            .Where(bundle => bundle.Request is ChangeJunkStateRequest)
+            .ToList();
+
+        foreach (var directRequest in directRequests)
+        {
+            try
+            {
+                await _graphClient.RequestAdapter.SendAsync(
+                    directRequest.NativeRequest,
+                    Message.CreateFromDiscriminatorValue,
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                directRequest.UIChangeRequest?.RevertUIChanges();
+                throw;
+            }
+        }
+
         // Now batch and execute the network requests.
-        var batchedGroups = batchedRequests.Batch((int)MaximumAllowedBatchRequestSize);
+        var batchEligibleRequests = batchedRequests
+            .Except(directRequests)
+            .ToList();
+
+        var batchedGroups = batchEligibleRequests.Batch((int)MaximumAllowedBatchRequestSize);
 
         foreach (var batch in batchedGroups)
         {
@@ -1910,11 +1962,13 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     private static bool IsExistingEntityOperation(IUIChangeRequest request)
         => request is BatchDeleteRequest
            || request is BatchMoveRequest
+           || request is BatchChangeJunkStateRequest
            || request is BatchChangeFlagRequest
            || request is BatchMarkReadRequest
            || request is BatchArchiveRequest
            || request is DeleteRequest
            || request is MoveRequest
+           || request is ChangeJunkStateRequest
            || request is ChangeFlagRequest
            || request is MarkReadRequest
            || request is ArchiveRequest

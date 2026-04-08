@@ -175,6 +175,11 @@ public class ContextMenuItemService : IContextMenuItemService
         else
             actionList.Add(MailOperationMenuItem.Create(MailOperation.MarkAsRead, true, false));
 
+        if (mailItem.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk)
+            actionList.Add(MailOperationMenuItem.Create(MailOperation.MarkAsNotJunk, true, true));
+        else if (!mailItem.IsDraft && mailItem.AssignedFolder.SpecialFolderType != SpecialFolderType.Sent)
+            actionList.Add(MailOperationMenuItem.Create(MailOperation.MoveToJunk, true, true));
+
         return actionList;
     }
 }

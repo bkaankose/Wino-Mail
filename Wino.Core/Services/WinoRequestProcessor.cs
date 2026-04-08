@@ -183,7 +183,10 @@ public class WinoRequestProcessor : IWinoRequestProcessor
             var inboxFolder = await _folderService.GetSpecialFolderByAccountIdAsync(mailItem.AssignedAccount.Id, SpecialFolderType.Inbox)
                 ?? throw new UnavailableSpecialFolderException(SpecialFolderType.Inbox, mailItem.AssignedAccount.Id);
 
-            return new MoveRequest(mailItem, mailItem.AssignedFolder, inboxFolder);
+            if (mailItem.AssignedAccount.ProviderType == MailProviderType.IMAP4)
+                return new MoveRequest(mailItem, mailItem.AssignedFolder, inboxFolder);
+
+            return new ChangeJunkStateRequest(false, mailItem, mailItem.AssignedFolder, inboxFolder);
         }
         else if (action == MailOperation.UnArchive)
         {
@@ -204,7 +207,10 @@ public class WinoRequestProcessor : IWinoRequestProcessor
             var junkFolder = await _folderService.GetSpecialFolderByAccountIdAsync(mailItem.AssignedAccount.Id, SpecialFolderType.Junk)
                 ?? throw new UnavailableSpecialFolderException(SpecialFolderType.Junk, mailItem.AssignedAccount.Id);
 
-            return new MoveRequest(mailItem, mailItem.AssignedFolder, junkFolder);
+            if (mailItem.AssignedAccount.ProviderType == MailProviderType.IMAP4)
+                return new MoveRequest(mailItem, mailItem.AssignedFolder, junkFolder);
+
+            return new ChangeJunkStateRequest(true, mailItem, mailItem.AssignedFolder, junkFolder);
         }
         else if (action == MailOperation.AlwaysMoveToFocused || action == MailOperation.AlwaysMoveToOther)
             return new AlwaysMoveToRequest(mailItem, action == MailOperation.AlwaysMoveToFocused);

@@ -736,6 +736,8 @@
     "SettingsAppPreferences_HideWinoAccountButton_Description": "Hide the title bar profile button that opens the Wino account flyout.",
     "SettingsAppPreferences_StoreUpdateNotifications_Title": "Store update notifications",
     "SettingsAppPreferences_StoreUpdateNotifications_Description": "Show notifications and footer actions when a Microsoft Store update is available.",
+    "SettingsAppPreferences_HideAiActionsPanel_Title": "Hide AI actions panel",
+    "SettingsAppPreferences_HideAiActionsPanel_Description": "Hide AI actions in the mail composer and reader.",
     "SettingsAppPreferences_AiActions_Title": "AI actions",
     "SettingsAppPreferences_AiActions_Description": "Choose default AI languages and where summaries should be saved.",
     "SettingsAppPreferences_AiDefaultTranslationLanguage_Title": "Default translation language",

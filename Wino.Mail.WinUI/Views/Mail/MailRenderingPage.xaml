@@ -269,7 +269,7 @@
                     Grid.Row="1"
                     HorizontalContentAlignment="Stretch"
                     DefaultLabelPosition="Right"
-                    IsAIActionsPaneToggleVisible="True"
+                    IsAIActionsPaneToggleVisible="{x:Bind GetAiActionsToggleVisible(ViewModel.PreferencesService.IsAiActionsPanelHidden), Mode=OneWay}"
                     IsEditorThemeDark="{x:Bind ViewModel.IsDarkWebviewRenderer, Mode=TwoWay}"
                     IsEditorThemeToggleVisible="True"
                     ItemInvokedCommand="{x:Bind ViewModel.OperationClickedCommand}"
@@ -415,7 +415,7 @@
                     Margin="0,8,0,0"
                     AvailableActions="Translate, Summarize"
                     HtmlHost="{x:Bind}"
-                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(RendererCommandBar.IsAIActionsEnabled), Mode=OneWay}" />
+                    Visibility="{x:Bind GetAiActionsPanelVisibility(RendererCommandBar.IsAIActionsEnabled, ViewModel.PreferencesService.IsAiActionsPanelHidden), Mode=OneWay}" />
 
                 <!--  Attachments  -->
                 <Grid Grid.Row="4">

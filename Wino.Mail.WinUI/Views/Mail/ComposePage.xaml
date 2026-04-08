@@ -166,6 +166,7 @@
                                 MinWidth="40"
                                 HorizontalContentAlignment="Center"
                                 LabelPosition="Collapsed"
+                                Visibility="{x:Bind GetAiActionsToggleVisibility(ViewModel.PreferencesService.IsAiActionsPanelHidden), Mode=OneWay}"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AiActions}">
                                 <AppBarToggleButton.Icon>
                                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE945;" />
@@ -464,7 +465,7 @@
                         Margin="0,8,0,0"
                         AvailableActions="Rewrite"
                         HtmlHost="{x:Bind}"
-                        Visibility="{x:Bind GetAiActionsPanelVisibility(ComposeAiActionsToggleButton.IsChecked), Mode=OneWay}" />
+                        Visibility="{x:Bind GetAiActionsPanelVisibility(ComposeAiActionsToggleButton.IsChecked, ViewModel.PreferencesService.IsAiActionsPanelHidden), Mode=OneWay}" />
 
                     <!--  Attachments  -->
                     <ListView
