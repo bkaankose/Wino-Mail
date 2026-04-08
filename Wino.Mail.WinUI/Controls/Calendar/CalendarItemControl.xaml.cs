@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Windows.ApplicationModel.DataTransfer;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Calendar.ViewModels.Messages;
 using Wino.Core.Domain;
@@ -56,6 +57,8 @@ public sealed partial class CalendarItemControl : UserControl
 
     private void UpdateVisualStates()
     {
+        CanDrag = CalendarItem?.CanDragDrop == true;
+
         if (CalendarItem == null) return;
 
         if (CalendarItem.IsAllDayEvent)
@@ -80,7 +83,25 @@ public sealed partial class CalendarItemControl : UserControl
         }
     }
 
-    private void ControlDragStarting(UIElement sender, DragStartingEventArgs args) => IsDragging = true;
+    private void ControlDragStarting(UIElement sender, DragStartingEventArgs args)
+    {
+        if (CalendarItem?.CanDragDrop != true)
+        {
+            args.Cancel = true;
+            IsDragging = false;
+            return;
+        }
+
+        args.AllowedOperations = DataPackageOperation.Move;
+
+        var dragPackage = new CalendarDragPackage(CalendarItem);
+
+        args.Data.Properties.Add(nameof(CalendarDragPackage), dragPackage);
+        args.Data.SetText(CalendarItem.DisplayTitle);
+        args.Data.Properties.Title = CalendarItem.DisplayTitle;
+        args.DragUI.SetContentFromDataPackage();
+        IsDragging = true;
+    }
 
     private void ControlDropped(UIElement sender, DropCompletedEventArgs args) => IsDragging = false;
 

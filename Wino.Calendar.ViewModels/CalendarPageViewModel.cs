@@ -526,6 +526,59 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         SelectedEndTimeString = CurrentSettings.GetTimeString(endTime);
     }
 
+    public async Task MoveCalendarItemAsync(CalendarItemViewModel calendarItemViewModel, DateTime targetStart)
+    {
+        if (calendarItemViewModel?.CalendarItem == null)
+        {
+            return;
+        }
+
+        var calendarItem = calendarItemViewModel.CalendarItem;
+
+        if (!calendarItem.CanChangeStartAndEndDate)
+        {
+            _dialogService.InfoBarMessage(
+                Translator.CalendarDragDropMoveNotAllowedTitle,
+                Translator.CalendarDragDropMoveNotAllowedMessage,
+                InfoBarMessageType.Warning);
+            return;
+        }
+
+        var normalizedTargetStart = calendarItem.IsAllDayEvent
+            ? targetStart.Date
+            : targetStart;
+        var targetEnd = normalizedTargetStart.AddSeconds(calendarItem.DurationInSeconds);
+        var currentLocalStart = calendarItem.LocalStartDate;
+        var currentLocalEnd = calendarItem.LocalEndDate;
+
+        if (currentLocalStart == normalizedTargetStart && currentLocalEnd == targetEnd)
+        {
+            return;
+        }
+
+        var originalItem = CloneCalendarItem(calendarItem);
+        var attendees = await _calendarService.GetAttendeesAsync(calendarItem.EventTrackingId).ConfigureAwait(false) ?? [];
+        var originalAttendees = CloneAttendees(attendees);
+
+        await ExecuteUIThread(() =>
+        {
+            calendarItemViewModel.StartDate = normalizedTargetStart;
+            calendarItemViewModel.DurationInSeconds = calendarItem.DurationInSeconds;
+        }).ConfigureAwait(false);
+
+        await _calendarService.UpdateCalendarItemAsync(calendarItem, attendees).ConfigureAwait(false);
+
+        var preparationRequest = new CalendarOperationPreparationRequest(
+            CalendarSynchronizerOperation.ChangeStartAndEndDate,
+            calendarItem,
+            attendees,
+            ResponseMessage: null,
+            OriginalItem: originalItem,
+            OriginalAttendees: originalAttendees);
+
+        await _winoRequestDelegator.ExecuteAsync(preparationRequest).ConfigureAwait(false);
+    }
+
     partial void OnDisplayDetailsCalendarItemViewModelChanged(CalendarItemViewModel value)
         => DetailsShowCalendarItemChanged?.Invoke(this, EventArgs.Empty);
 
@@ -871,6 +924,50 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             calendarItem,
             source == EntityUpdateSource.ClientUpdated ? new HashSet<Guid> { calendarItem.Id } : null,
             source);
+
+    private static CalendarItem CloneCalendarItem(CalendarItem calendarItem)
+        => new()
+        {
+            Id = calendarItem.Id,
+            RemoteEventId = calendarItem.RemoteEventId,
+            Title = calendarItem.Title,
+            Description = calendarItem.Description,
+            Location = calendarItem.Location,
+            StartDate = calendarItem.StartDate,
+            StartTimeZone = calendarItem.StartTimeZone,
+            EndTimeZone = calendarItem.EndTimeZone,
+            DurationInSeconds = calendarItem.DurationInSeconds,
+            Recurrence = calendarItem.Recurrence,
+            OrganizerDisplayName = calendarItem.OrganizerDisplayName,
+            OrganizerEmail = calendarItem.OrganizerEmail,
+            RecurringCalendarItemId = calendarItem.RecurringCalendarItemId,
+            IsLocked = calendarItem.IsLocked,
+            IsHidden = calendarItem.IsHidden,
+            CustomEventColorHex = calendarItem.CustomEventColorHex,
+            HtmlLink = calendarItem.HtmlLink,
+            SnoozedUntil = calendarItem.SnoozedUntil,
+            Status = calendarItem.Status,
+            Visibility = calendarItem.Visibility,
+            ShowAs = calendarItem.ShowAs,
+            CreatedAt = calendarItem.CreatedAt,
+            UpdatedAt = calendarItem.UpdatedAt,
+            CalendarId = calendarItem.CalendarId,
+            AssignedCalendar = calendarItem.AssignedCalendar
+        };
+
+    private static List<CalendarEventAttendee> CloneAttendees(IEnumerable<CalendarEventAttendee> attendees)
+        => attendees?.Select(attendee => new CalendarEventAttendee
+        {
+            Id = attendee.Id,
+            CalendarItemId = attendee.CalendarItemId,
+            Name = attendee.Name,
+            Email = attendee.Email,
+            AttendenceStatus = attendee.AttendenceStatus,
+            IsOrganizer = attendee.IsOrganizer,
+            IsOptionalAttendee = attendee.IsOptionalAttendee,
+            Comment = attendee.Comment,
+            ResolvedContact = attendee.ResolvedContact
+        }).ToList() ?? [];
 
     private CalendarItemViewModel CreateCalendarItemViewModel(CalendarItem calendarItem, ISet<Guid> pendingCalendarItemIds, EntityUpdateSource source = EntityUpdateSource.Server)
     {

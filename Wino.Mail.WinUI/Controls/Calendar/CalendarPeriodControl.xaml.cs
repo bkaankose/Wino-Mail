@@ -19,6 +19,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using SkiaSharp;
 using SkiaSharp.Views.Windows;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.UI;
 using Wino.Calendar.ViewModels.Data;
@@ -57,6 +58,8 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     private bool _hasPresentedState;
     private bool _refreshPending = true;
     private bool _refreshScheduled;
+    private CalendarDropTargetInfo? _hoverTarget;
+    private CalendarDragPackage? _activeDragPackage;
     private CalendarDisplayType _lastDisplayMode = CalendarDisplayType.Month;
     private DateOnly _lastDisplayDate = DateOnly.FromDateTime(DateTime.Today);
     private DayOfWeek _lastFirstDayOfWeek = DayOfWeek.Monday;
@@ -84,6 +87,9 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     public partial Brush? SelectedSlotBackground { get; set; }
 
     [GeneratedDependencyProperty]
+    public partial Brush? HoverSlotBackground { get; set; }
+
+    [GeneratedDependencyProperty]
     public partial DateTime? SelectedDateTime { get; set; }
 
     public CalendarPeriodControl()
@@ -98,6 +104,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
     public event PropertyChangedEventHandler? PropertyChanged;
     public event EventHandler<CalendarEmptySlotTappedEventArgs>? EmptySlotTapped;
+    public event EventHandler<CalendarItemDroppedEventArgs>? CalendarItemDropped;
 
     private ObservableCollection<HeaderTextLayout> TimedHeaderTextsCollection { get; } = [];
     private ObservableCollection<HeaderTextLayout> MonthHeaderTextsCollection { get; } = [];
@@ -182,6 +189,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     partial void OnCalendarSettingsChanged(CalendarSettings? newValue) => RequestRefresh();
     partial void OnTimedHeaderDateFormatChanged(string? newValue) => RequestRefresh();
     partial void OnSelectedSlotBackgroundChanged(Brush? newValue) => InvalidateStructureCanvases();
+    partial void OnHoverSlotBackgroundChanged(Brush? newValue) => InvalidateStructureCanvases();
     partial void OnSelectedDateTimeChanged(DateTime? newValue) => InvalidateStructureCanvases();
 
     partial void OnCalendarItemsChanged(IReadOnlyList<CalendarItemViewModel>? newValue)
@@ -263,6 +271,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
     private void InvalidateStructureCanvases()
     {
+        TimedAllDayCanvas.Invalidate();
         TimedStructureCanvas.Invalidate();
         MonthStructureCanvas.Invalidate();
     }
@@ -511,6 +520,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     private void TimedAllDayCanvasPaintSurface(object? sender, SKPaintSurfaceEventArgs e)
     {
         using var borderPaint = CreateLinePaint();
+        using var hoverFillPaint = CreateFillPaint(HoverSlotBackground ?? new SolidColorBrush(Colors.Transparent));
         var canvas = e.Surface.Canvas;
         canvas.Clear(SKColors.Transparent);
 
@@ -524,6 +534,12 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         var scaleX = (float)(e.Info.Width / timedSurfaceWidth);
         var height = e.Info.Height;
         var dayWidth = (float)(_timedLayout.DayWidth * scaleX);
+
+        var hoveredTimedAllDayRect = GetHoveredTimedAllDayRect(dayWidth, height);
+        if (hoveredTimedAllDayRect.HasValue && hoverFillPaint.Color.Alpha > 0)
+        {
+            canvas.DrawRect(hoveredTimedAllDayRect.Value, hoverFillPaint);
+        }
 
         for (var index = 1; index < _timedLayout.VisibleDates.Count; index++)
         {
@@ -541,6 +557,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         using var defaultFillPaint = CreateFillPaint(DefaultHourBackground ?? new SolidColorBrush(Colors.Transparent));
         using var workFillPaint = CreateFillPaint(WorkHourBackground ?? new SolidColorBrush(Colors.Transparent));
         using var selectedFillPaint = CreateFillPaint(SelectedSlotBackground ?? new SolidColorBrush(Colors.Transparent));
+        using var hoverFillPaint = CreateFillPaint(HoverSlotBackground ?? new SolidColorBrush(Colors.Transparent));
         var canvas = e.Surface.Canvas;
         canvas.Clear(SKColors.Transparent);
 
@@ -579,6 +596,12 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
             }
         }
 
+        var hoveredTimedSlotRect = GetHoveredTimedSlotRect(dayWidth, intervalHeight, intervalCount);
+        if (hoveredTimedSlotRect.HasValue && hoverFillPaint.Color.Alpha > 0)
+        {
+            canvas.DrawRect(hoveredTimedSlotRect.Value, hoverFillPaint);
+        }
+
         var selectedTimedSlotRect = GetSelectedTimedSlotRect(dayWidth, intervalHeight, intervalCount);
         if (selectedTimedSlotRect.HasValue && selectedFillPaint.Color.Alpha > 0)
         {
@@ -609,6 +632,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
             IsAntialias = true
         };
         using var selectedPaint = CreateFillPaint(SelectedSlotBackground ?? new SolidColorBrush(Colors.Transparent));
+        using var hoverPaint = CreateFillPaint(HoverSlotBackground ?? new SolidColorBrush(Colors.Transparent));
 
         var canvas = e.Surface.Canvas;
         canvas.Clear(SKColors.Transparent);
@@ -630,6 +654,12 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
             }
 
             canvas.DrawRect((float)cell.Bounds.X, (float)cell.Bounds.Y, (float)cell.Bounds.Width, (float)cell.Bounds.Height, todayPaint);
+        }
+
+        var hoveredMonthCellRect = GetHoveredMonthCellRect();
+        if (hoveredMonthCellRect.HasValue && hoverPaint.Color.Alpha > 0)
+        {
+            canvas.DrawRect(hoveredMonthCellRect.Value, hoverPaint);
         }
 
         var selectedMonthCellRect = GetSelectedMonthCellRect();
@@ -814,6 +844,220 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
                 new Size(cell.Bounds.Width, cell.Bounds.Height)));
     }
 
+    private void TimedViewportPointerMoved(object sender, PointerRoutedEventArgs e)
+        => SetHoverTarget(ResolveTimedDropTarget(e.GetCurrentPoint(TimedViewport).Position, _activeDragPackage?.CalendarItemViewModel));
+
+    private void TimedAllDayHostPointerMoved(object sender, PointerRoutedEventArgs e)
+        => SetHoverTarget(ResolveTimedAllDayDropTarget(e.GetCurrentPoint(TimedAllDayHost).Position, _activeDragPackage?.CalendarItemViewModel));
+
+    private void MonthViewportPointerMoved(object sender, PointerRoutedEventArgs e)
+        => SetHoverTarget(ResolveMonthDropTarget(e.GetCurrentPoint(MonthViewport).Position, _activeDragPackage?.CalendarItemViewModel));
+
+    private void CalendarDropTargetPointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        if (_activeDragPackage == null)
+        {
+            SetHoverTarget(null);
+        }
+    }
+
+    private void TimedViewportDragOver(object sender, DragEventArgs e)
+    {
+        if (!TryGetDragPackage(e, out var dragPackage))
+        {
+            return;
+        }
+
+        var hoverTarget = ResolveTimedDropTarget(e.GetPosition(TimedViewport), dragPackage.CalendarItemViewModel);
+
+        UpdateDragOverState(e, dragPackage, hoverTarget);
+    }
+
+    private void TimedAllDayHostDragOver(object sender, DragEventArgs e)
+    {
+        if (!TryGetDragPackage(e, out var dragPackage))
+        {
+            return;
+        }
+
+        var hoverTarget = ResolveTimedAllDayDropTarget(e.GetPosition(TimedAllDayHost), dragPackage.CalendarItemViewModel);
+
+        UpdateDragOverState(e, dragPackage, hoverTarget);
+    }
+
+    private void MonthViewportDragOver(object sender, DragEventArgs e)
+    {
+        if (!TryGetDragPackage(e, out var dragPackage))
+        {
+            return;
+        }
+
+        var hoverTarget = ResolveMonthDropTarget(e.GetPosition(MonthViewport), dragPackage.CalendarItemViewModel);
+
+        UpdateDragOverState(e, dragPackage, hoverTarget);
+    }
+
+    private void TimedViewportDrop(object sender, DragEventArgs e)
+        => HandleDrop(e, ResolveTimedDropTarget(e.GetPosition(TimedViewport), _activeDragPackage?.CalendarItemViewModel));
+
+    private void TimedAllDayHostDrop(object sender, DragEventArgs e)
+        => HandleDrop(e, ResolveTimedAllDayDropTarget(e.GetPosition(TimedAllDayHost), _activeDragPackage?.CalendarItemViewModel));
+
+    private void MonthViewportDrop(object sender, DragEventArgs e)
+        => HandleDrop(e, ResolveMonthDropTarget(e.GetPosition(MonthViewport), _activeDragPackage?.CalendarItemViewModel));
+
+    private void CalendarDropTargetDragLeave(object sender, DragEventArgs e)
+    {
+        _activeDragPackage = null;
+        SetHoverTarget(null);
+    }
+
+    private bool TryGetDragPackage(DragEventArgs e, out CalendarDragPackage dragPackage)
+    {
+        dragPackage = null;
+
+        if (!e.DataView.Properties.ContainsKey(nameof(CalendarDragPackage)))
+        {
+            e.AcceptedOperation = DataPackageOperation.None;
+            _activeDragPackage = null;
+            SetHoverTarget(null);
+            return false;
+        }
+
+        dragPackage = e.DataView.Properties[nameof(CalendarDragPackage)] as CalendarDragPackage;
+
+        if (dragPackage?.CalendarItemViewModel?.CanDragDrop != true)
+        {
+            e.AcceptedOperation = DataPackageOperation.None;
+            _activeDragPackage = null;
+            SetHoverTarget(null);
+            return false;
+        }
+
+        return true;
+    }
+
+    private void UpdateDragOverState(DragEventArgs e, CalendarDragPackage dragPackage, CalendarDropTargetInfo? hoverTarget)
+    {
+        _activeDragPackage = dragPackage;
+        SetHoverTarget(hoverTarget);
+
+        if (hoverTarget.HasValue)
+        {
+            e.AcceptedOperation = DataPackageOperation.Move;
+        }
+        else
+        {
+            e.AcceptedOperation = DataPackageOperation.None;
+        }
+    }
+
+    private void HandleDrop(DragEventArgs e, CalendarDropTargetInfo? hoverTarget)
+    {
+        try
+        {
+            if (_activeDragPackage?.CalendarItemViewModel?.CanDragDrop != true || !hoverTarget.HasValue)
+            {
+                e.AcceptedOperation = DataPackageOperation.None;
+                return;
+            }
+
+            e.AcceptedOperation = DataPackageOperation.Move;
+            CalendarItemDropped?.Invoke(
+                this,
+                new CalendarItemDroppedEventArgs(
+                    _activeDragPackage.CalendarItemViewModel,
+                    hoverTarget.Value.TargetStart,
+                    hoverTarget.Value.Kind));
+        }
+        finally
+        {
+            _activeDragPackage = null;
+            SetHoverTarget(null);
+        }
+    }
+
+    private CalendarDropTargetInfo? ResolveTimedDropTarget(Point position, CalendarItemViewModel? draggedItem)
+    {
+        if (draggedItem?.IsAllDayEvent == true ||
+            _timedLayout.VisibleDates.Count == 0 ||
+            _timedLayout.DayWidth <= 0)
+        {
+            return null;
+        }
+
+        var dayIndex = Math.Clamp((int)(position.X / _timedLayout.DayWidth), 0, _timedLayout.VisibleDates.Count - 1);
+        var intervalHeight = GetTimedSelectionIntervalHeight();
+        var slotIndex = Math.Clamp((int)(position.Y / intervalHeight), 0, (int)((24d * 60d / TimedSelectionIntervalMinutes) - 1));
+        var date = _timedLayout.VisibleDates[dayIndex];
+        var slotStart = TimeSpan.FromMinutes(slotIndex * TimedSelectionIntervalMinutes);
+
+        return new CalendarDropTargetInfo(
+            CalendarDropTargetKind.TimedSlot,
+            date,
+            dayIndex,
+            slotIndex,
+            date.ToDateTime(TimeOnly.MinValue).Add(slotStart));
+    }
+
+    private CalendarDropTargetInfo? ResolveTimedAllDayDropTarget(Point position, CalendarItemViewModel? draggedItem)
+    {
+        if (draggedItem is { IsAllDayEvent: false } ||
+            _timedLayout.VisibleDates.Count == 0 ||
+            _timedLayout.DayWidth <= 0 ||
+            TimedAllDayHeight <= 0)
+        {
+            return null;
+        }
+
+        var dayIndex = Math.Clamp((int)(position.X / _timedLayout.DayWidth), 0, _timedLayout.VisibleDates.Count - 1);
+        var date = _timedLayout.VisibleDates[dayIndex];
+
+        return new CalendarDropTargetInfo(
+            CalendarDropTargetKind.TimedAllDay,
+            date,
+            dayIndex,
+            -1,
+            date.ToDateTime(TimeOnly.MinValue));
+    }
+
+    private CalendarDropTargetInfo? ResolveMonthDropTarget(Point position, CalendarItemViewModel? draggedItem)
+    {
+        if (_monthLayout.Cells.Count == 0 || _monthLayout.CellWidth <= 0 || _monthLayout.CellHeight <= 0)
+        {
+            return null;
+        }
+
+        var column = Math.Clamp((int)(position.X / _monthLayout.CellWidth), 0, MonthCalendarLayoutCalculator.ColumnCount - 1);
+        var row = Math.Clamp((int)(position.Y / _monthLayout.CellHeight), 0, MonthCalendarLayoutCalculator.RowCount - 1);
+        var cellIndex = Math.Clamp((row * MonthCalendarLayoutCalculator.ColumnCount) + column, 0, _monthLayout.Cells.Count - 1);
+        var cell = _monthLayout.Cells[cellIndex];
+        var targetStart = cell.Date.ToDateTime(TimeOnly.MinValue);
+
+        if (draggedItem is { IsAllDayEvent: false })
+        {
+            targetStart = targetStart.Add(draggedItem.StartDate.TimeOfDay);
+        }
+
+        return new CalendarDropTargetInfo(
+            CalendarDropTargetKind.MonthCell,
+            cell.Date,
+            -1,
+            -1,
+            targetStart);
+    }
+
+    private void SetHoverTarget(CalendarDropTargetInfo? hoverTarget)
+    {
+        if (_hoverTarget == hoverTarget)
+        {
+            return;
+        }
+
+        _hoverTarget = hoverTarget;
+        InvalidateStructureCanvases();
+    }
+
     private SKRect? GetSelectedTimedSlotRect(float dayWidth, float intervalHeight, int intervalCount)
     {
         if (SelectedDateTime is not DateTime selectedDateTime || _timedLayout.VisibleDates.Count == 0)
@@ -835,6 +1079,30 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         return new SKRect(x, y, x + dayWidth, y + intervalHeight);
     }
 
+    private SKRect? GetHoveredTimedSlotRect(float dayWidth, float intervalHeight, int intervalCount)
+    {
+        if (_hoverTarget is not { Kind: CalendarDropTargetKind.TimedSlot } hoverTarget)
+        {
+            return null;
+        }
+
+        var slotIndex = Math.Clamp(hoverTarget.SlotIndex, 0, intervalCount - 1);
+        var x = hoverTarget.DayIndex * dayWidth;
+        var y = slotIndex * intervalHeight;
+        return new SKRect(x, y, x + dayWidth, y + intervalHeight);
+    }
+
+    private SKRect? GetHoveredTimedAllDayRect(float dayWidth, float height)
+    {
+        if (_hoverTarget is not { Kind: CalendarDropTargetKind.TimedAllDay } hoverTarget)
+        {
+            return null;
+        }
+
+        var x = hoverTarget.DayIndex * dayWidth;
+        return new SKRect(x, 0, x + dayWidth, height);
+    }
+
     private SKRect? GetSelectedMonthCellRect()
     {
         if (SelectedDateTime is not DateTime selectedDateTime)
@@ -846,6 +1114,30 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         foreach (var cell in _monthLayout.Cells)
         {
             if (cell.Date != selectedDate)
+            {
+                continue;
+            }
+
+            return new SKRect(
+                (float)cell.Bounds.X,
+                (float)cell.Bounds.Y,
+                (float)(cell.Bounds.X + cell.Bounds.Width),
+                (float)(cell.Bounds.Y + cell.Bounds.Height));
+        }
+
+        return null;
+    }
+
+    private SKRect? GetHoveredMonthCellRect()
+    {
+        if (_hoverTarget is not { Kind: CalendarDropTargetKind.MonthCell } hoverTarget)
+        {
+            return null;
+        }
+
+        foreach (var cell in _monthLayout.Cells)
+        {
+            if (cell.Date != hoverTarget.Date)
             {
                 continue;
             }
@@ -1228,6 +1520,13 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     }
 
     private readonly record struct CalendarTransitionInfo(CalendarTransitionKind Kind, int Direction);
+
+    private readonly record struct CalendarDropTargetInfo(
+        CalendarDropTargetKind Kind,
+        DateOnly Date,
+        int DayIndex,
+        int SlotIndex,
+        DateTime TargetStart);
 
     private enum CalendarTransitionKind
     {

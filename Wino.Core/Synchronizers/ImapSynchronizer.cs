@@ -334,6 +334,15 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             handler.RequiresConnectedClient);
     }
 
+    public override List<IRequestBundle<ImapRequest>> ChangeStartAndEndDate(ChangeStartAndEndDateRequest request)
+    {
+        var handler = ResolveCalendarOperationHandler();
+        return CreateCalendarOperationTaskBundle(
+            request,
+            async value => await handler.UpdateCalendarEventAsync(value).ConfigureAwait(false),
+            handler.RequiresConnectedClient);
+    }
+
     public override List<IRequestBundle<ImapRequest>> DeleteCalendarEvent(DeleteCalendarEventRequest request)
     {
         var handler = ResolveCalendarOperationHandler();

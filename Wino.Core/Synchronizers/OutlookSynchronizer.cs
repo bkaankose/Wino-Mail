@@ -2856,6 +2856,9 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         return [new HttpRequestBundle<RequestInformation>(updateRequest, request)];
     }
 
+    public override List<IRequestBundle<RequestInformation>> ChangeStartAndEndDate(ChangeStartAndEndDateRequest request)
+        => UpdateCalendarEvent(request);
+
     public override List<IRequestBundle<RequestInformation>> DeleteCalendarEvent(DeleteCalendarEventRequest request)
     {
         var calendarItem = request.Item;

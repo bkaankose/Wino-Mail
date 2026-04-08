@@ -173,6 +173,9 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         _suppressSelectionResetOnPopupClose = false;
     }
 
+    private async void CalendarSurfaceCalendarItemDropped(object sender, CalendarItemDroppedEventArgs e)
+        => await ViewModel.MoveCalendarItemAsync(e.CalendarItemViewModel, e.TargetStart);
+
     private void QuickEventAccountSelectorSelectionChanged(object sender, SelectionChangedEventArgs e)
         => QuickEventAccountSelectorFlyout.Hide();
 

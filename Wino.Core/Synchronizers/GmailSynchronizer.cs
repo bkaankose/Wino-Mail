@@ -2807,6 +2807,9 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         return [new HttpRequestBundle<IClientServiceRequest>(updateRequest, request)];
     }
 
+    public override List<IRequestBundle<IClientServiceRequest>> ChangeStartAndEndDate(ChangeStartAndEndDateRequest request)
+        => UpdateCalendarEvent(request);
+
     public override List<IRequestBundle<IClientServiceRequest>> DeleteCalendarEvent(DeleteCalendarEventRequest request)
     {
         var calendarItem = request.Item;

@@ -72,6 +72,7 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
     public bool IsRecurringEvent => CalendarItem.IsRecurringEvent;
     public bool IsRecurringChild => CalendarItem.IsRecurringChild;
     public bool IsRecurringParent => CalendarItem.IsRecurringParent;
+    public bool CanDragDrop => CalendarItem.CanChangeStartAndEndDate;
 
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
@@ -157,6 +158,7 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
         OnPropertyChanged(nameof(IsRecurringEvent));
         OnPropertyChanged(nameof(IsRecurringChild));
         OnPropertyChanged(nameof(IsRecurringParent));
+        OnPropertyChanged(nameof(CanDragDrop));
         OnPropertyChanged(nameof(AssignedCalendar));
         OnPropertyChanged(nameof(DisplayTitle));
     }

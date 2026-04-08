@@ -103,8 +103,14 @@
                 x:Name="TimedAllDayHost"
                 Grid.Row="1"
                 Grid.Column="1"
+                AllowDrop="True"
+                DragLeave="CalendarDropTargetDragLeave"
+                DragOver="TimedAllDayHostDragOver"
+                Drop="TimedAllDayHostDrop"
                 Height="{x:Bind TimedAllDayHeight, Mode=OneWay}"
                 Background="{ThemeResource LayerFillColorDefaultBrush}"
+                PointerExited="CalendarDropTargetPointerExited"
+                PointerMoved="TimedAllDayHostPointerMoved"
                 Visibility="{x:Bind HasTimedAllDayItems, Mode=OneWay}">
                 <skia:SKXamlCanvas x:Name="TimedAllDayCanvas" PaintSurface="TimedAllDayCanvasPaintSurface" />
                 <Canvas x:Name="TimedAllDayItemsCanvas" />
@@ -134,7 +140,13 @@
                         <Grid
                             x:Name="TimedViewport"
                             Grid.Column="1"
-                            Height="{x:Bind TimelineHeight, Mode=OneWay}">
+                            AllowDrop="True"
+                            DragLeave="CalendarDropTargetDragLeave"
+                            DragOver="TimedViewportDragOver"
+                            Drop="TimedViewportDrop"
+                            Height="{x:Bind TimelineHeight, Mode=OneWay}"
+                            PointerExited="CalendarDropTargetPointerExited"
+                            PointerMoved="TimedViewportPointerMoved">
                             <skia:SKXamlCanvas x:Name="TimedStructureCanvas" PaintSurface="TimedStructureCanvasPaintSurface" />
                             <Border
                                 x:Name="TimedInteractionLayer"
@@ -169,7 +181,13 @@
             <Grid
                 x:Name="MonthViewport"
                 Grid.Row="1"
+                AllowDrop="True"
+                DragLeave="CalendarDropTargetDragLeave"
+                DragOver="MonthViewportDragOver"
+                Drop="MonthViewportDrop"
                 HorizontalAlignment="Stretch"
+                PointerExited="CalendarDropTargetPointerExited"
+                PointerMoved="MonthViewportPointerMoved"
                 VerticalAlignment="Stretch">
                 <skia:SKXamlCanvas x:Name="MonthStructureCanvas" PaintSurface="MonthStructureCanvasPaintSurface" />
                 <Border

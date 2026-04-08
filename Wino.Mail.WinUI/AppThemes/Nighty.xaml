@@ -14,6 +14,7 @@
             <!--  Brushes  -->
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#fdcb6e</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush">#33FDCB6E</SolidColorBrush>
+            <SolidColorBrush x:Key="CalendarHoverHourBackgroundBrush">#59FDCB6E</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarWorkHourBackgroundBrush">#66FDCB6E</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarSelectedHourBackgroundBrush">#4D0078D4</SolidColorBrush>
         </ResourceDictionary>
@@ -21,6 +22,7 @@
             <!--  Brushes  -->
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#5413191F</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush">#2213191F</SolidColorBrush>
+            <SolidColorBrush x:Key="CalendarHoverHourBackgroundBrush">#4D13191F</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarWorkHourBackgroundBrush">#5413191F</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarSelectedHourBackgroundBrush">#66399BFF</SolidColorBrush>
         </ResourceDictionary>

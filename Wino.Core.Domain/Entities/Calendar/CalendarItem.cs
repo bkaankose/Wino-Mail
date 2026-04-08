@@ -154,6 +154,24 @@ public class CalendarItem : ICalendarItem
     [Ignore]
     public IAccountCalendar AssignedCalendar { get; set; }
 
+    [Ignore]
+    public bool CanChangeStartAndEndDate
+    {
+        get
+        {
+            if (IsLocked)
+            {
+                return false;
+            }
+
+            var accountAddress = AssignedCalendar?.MailAccount?.Address;
+
+            return string.IsNullOrWhiteSpace(OrganizerEmail) ||
+                   string.IsNullOrWhiteSpace(accountAddress) ||
+                   string.Equals(OrganizerEmail, accountAddress, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
     /// <summary>
     /// Id to load information related to this event (attendees, reminders, etc.).
     /// For child events, if they have their own data, use their own Id.

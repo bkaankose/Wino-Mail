@@ -437,6 +437,11 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                                     .OfType<UpdateCalendarEventRequest>()
                                     .SelectMany(UpdateCalendarEvent));
                                 break;
+                            case CalendarSynchronizerOperation.ChangeStartAndEndDate:
+                                nativeRequests.AddRange(group
+                                    .OfType<ChangeStartAndEndDateRequest>()
+                                    .SelectMany(ChangeStartAndEndDate));
+                                break;
                             case CalendarSynchronizerOperation.DeleteEvent:
                                 nativeRequests.AddRange(group
                                     .OfType<DeleteCalendarEventRequest>()
@@ -600,6 +605,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
     public virtual List<IRequestBundle<TBaseRequest>> CreateCalendarEvent(CreateCalendarEventRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> UpdateCalendarEvent(UpdateCalendarEventRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+    public virtual List<IRequestBundle<TBaseRequest>> ChangeStartAndEndDate(ChangeStartAndEndDateRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> DeleteCalendarEvent(DeleteCalendarEventRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> AcceptEvent(AcceptEventRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> DeclineEvent(DeclineEventRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));

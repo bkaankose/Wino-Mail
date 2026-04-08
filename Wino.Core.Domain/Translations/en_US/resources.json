@@ -210,6 +210,8 @@
     "CalendarItem_DetailsPopup_JoinOnline": "Join online",
     "CalendarItem_DetailsPopup_ViewEventButton": "View event",
     "CalendarItem_DetailsPopup_ViewSeriesButton": "View series",
+    "CalendarDragDropMoveNotAllowedMessage": "Only events you own and can edit can be moved.",
+    "CalendarDragDropMoveNotAllowedTitle": "This event can't be moved",
     "CalendarItemAllDay": "all day",
     "CategoriesFolderNameOverride": "Categories",
     "Center": "Center",

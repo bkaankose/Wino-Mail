@@ -287,6 +287,30 @@ public class CalendarPageViewModelTests
         }
     }
 
+    [Fact]
+    public void CanChangeStartAndEndDate_ReturnsTrueForOrganizerMatchingAssignedCalendarAccount()
+    {
+        var account = CreateAccount();
+        var calendar = CreateCalendar(account, "Calendar");
+        var accountCalendarViewModel = new AccountCalendarViewModel(account, calendar);
+        var calendarItem = CreateCalendarItem(calendar.Id, new DateTime(2026, 3, 20, 9, 0, 0), "Existing");
+
+        calendarItem.AssignedCalendar = accountCalendarViewModel;
+        calendarItem.OrganizerEmail = account.Address;
+
+        calendarItem.CanChangeStartAndEndDate.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AccountCalendarViewModel_MailAccount_ExposesUnderlyingAccount()
+    {
+        var account = CreateAccount();
+        var calendar = CreateCalendar(account, "Calendar");
+        var accountCalendarViewModel = new AccountCalendarViewModel(account, calendar);
+
+        accountCalendarViewModel.MailAccount.Should().BeSameAs(account);
+    }
+
     private static CalendarPageViewModel CreateViewModel(
         ICalendarService calendarService,
         IPreferencesService preferencesService,

@@ -79,5 +79,9 @@ public partial class AccountCalendarViewModel : ObservableObject, IAccountCalend
         set => SetProperty(AccountCalendar.DefaultShowAs, value, AccountCalendar, (u, s) => u.DefaultShowAs = s);
     }
     public Guid Id { get => ((IAccountCalendar)AccountCalendar).Id; set => ((IAccountCalendar)AccountCalendar).Id = value; }
-    public MailAccount MailAccount { get => MailAccount; set => MailAccount = value; }
+    public MailAccount MailAccount
+    {
+        get => AccountCalendar.MailAccount ?? Account;
+        set => AccountCalendar.MailAccount = value;
+    }
 }

@@ -79,6 +79,27 @@ public sealed class WinoSynchronizerCalendarRequestTests
         }
     }
 
+    [Fact]
+    public async Task Change_start_and_end_date_request_should_dispatch_to_matching_handler()
+    {
+        var synchronizer = new TestCalendarSynchronizer(throwDuringRequestExecution: false);
+        var calendarItemId = Guid.NewGuid();
+        var request = new ChangeStartAndEndDateRequest(
+            new CalendarItem { Id = calendarItemId },
+            []);
+
+        synchronizer.QueueRequest(request);
+
+        var result = await synchronizer.SynchronizeCalendarEventsAsync(new CalendarSynchronizationOptions
+        {
+            AccountId = synchronizer.Account.Id,
+            Type = CalendarSynchronizationType.ExecuteRequests
+        });
+
+        result.CompletedState.Should().Be(SynchronizationCompletedState.Success);
+        synchronizer.ChangeStartAndEndDateInvocationCount.Should().Be(1);
+    }
+
     public sealed class SynchronizationActionsCompletedRecipient : IRecipient<SynchronizationActionsCompleted>
     {
         public List<Guid> CompletedAccountIds { get; } = [];
@@ -98,6 +119,7 @@ public sealed class WinoSynchronizerCalendarRequestTests
 
         public override uint BatchModificationSize => 1;
         public override uint InitialMessageDownloadCountPerFolder => 0;
+        public int ChangeStartAndEndDateInvocationCount { get; private set; }
 
         public override Task ExecuteNativeRequestsAsync(List<IRequestBundle<object>> batchedRequests, CancellationToken cancellationToken = default)
             => _throwDuringRequestExecution
@@ -106,6 +128,12 @@ public sealed class WinoSynchronizerCalendarRequestTests
 
         public override List<IRequestBundle<object>> DeleteCalendarEvent(DeleteCalendarEventRequest request)
             => [new TestRequestBundle(new object(), request)];
+
+        public override List<IRequestBundle<object>> ChangeStartAndEndDate(ChangeStartAndEndDateRequest request)
+        {
+            ChangeStartAndEndDateInvocationCount++;
+            return [new TestRequestBundle(new object(), request)];
+        }
 
         public override Task<List<NewMailItemPackage>> CreateNewMailPackagesAsync(
             object message,

@@ -177,6 +177,11 @@ public class WinoRequestDelegator : IWinoRequestDelegator
                 OriginalItem = calendarPreparationRequest.OriginalItem,
                 OriginalAttendees = calendarPreparationRequest.OriginalAttendees
             },
+            CalendarSynchronizerOperation.ChangeStartAndEndDate => new ChangeStartAndEndDateRequest(calendarPreparationRequest.CalendarItem, calendarPreparationRequest.Attendees)
+            {
+                OriginalItem = calendarPreparationRequest.OriginalItem,
+                OriginalAttendees = calendarPreparationRequest.OriginalAttendees
+            },
             _ => throw new NotImplementedException($"Calendar operation {calendarPreparationRequest.Operation} is not implemented yet.")
         };
 
