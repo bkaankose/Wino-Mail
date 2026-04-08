@@ -10,7 +10,6 @@ using System.Web;
 using CommunityToolkit.Mvvm.Messaging;
 using Google;
 using Google.Apis.Calendar.v3.Data;
-using Google.Apis.Drive.v3;
 using Google.Apis.Gmail.v1;
 using Google.Apis.Gmail.v1.Data;
 using Google.Apis.Http;
@@ -60,7 +59,7 @@ public partial class GmailSynchronizerJsonContext : JsonSerializerContext;
 /// Gmail synchronizer implementation using Gmail History API for efficient incremental sync.
 ///
 /// SYNCHRONIZATION STRATEGY:
-/// - Initial sync: Downloads up to 1500 messages PER FOLDER with metadata only.
+/// - Initial sync: Downloads up to 15c00 messages PER FOLDER with metadata only.
 ///   Uses a global HashSet to track downloaded message IDs, avoiding duplicate downloads
 ///   when messages have multiple labels. Each folder gets its full quota of messages.
 /// - Incremental sync: Uses ONLY History API to get changes since last sync.
@@ -1668,32 +1667,29 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             bundle.UIChangeRequest?.ApplyUIChanges();
         }
 
-        // Now batch and execute the network requests.
-        var batchedBundles = batchedRequests.Batch((int)MaximumAllowedBatchRequestSize);
-        var bundleCount = batchedBundles.Count();
+        // Batch requests per Google service instance. Calendar requests must be queued against
+        // CalendarService, otherwise Gmail's batch endpoint will reject Calendar REST paths.
+        var requestGroups = batchedRequests.GroupBy(bundle => bundle.NativeRequest.Service);
 
-        for (int i = 0; i < bundleCount; i++)
+        foreach (var requestGroup in requestGroups)
         {
-            var bundle = batchedBundles.ElementAt(i);
+            var batchedBundles = requestGroup.Batch((int)MaximumAllowedBatchRequestSize);
 
-            var nativeBatchRequest = new BatchRequest(_gmailService);
-
-            var bundleRequestCount = bundle.Count();
-
-            var bundleTasks = new List<Task>();
-
-            for (int k = 0; k < bundleRequestCount; k++)
+            foreach (var bundle in batchedBundles)
             {
-                var requestBundle = bundle.ElementAt(k);
-                // UI changes are already applied above before batching.
+                var nativeBatchRequest = new BatchRequest(requestGroup.Key);
+                var bundleTasks = new List<Task>();
 
-                nativeBatchRequest.Queue<object>(requestBundle.NativeRequest, (content, error, index, message)
-                    => bundleTasks.Add(ProcessSingleNativeRequestResponseAsync(requestBundle, error, message, cancellationToken)));
+                foreach (var requestBundle in bundle)
+                {
+                    // UI changes are already applied above before batching.
+                    nativeBatchRequest.Queue<object>(requestBundle.NativeRequest, (content, error, index, message)
+                        => bundleTasks.Add(ProcessSingleNativeRequestResponseAsync(requestBundle, error, message, cancellationToken)));
+                }
+
+                await nativeBatchRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+                await Task.WhenAll(bundleTasks).ConfigureAwait(false);
             }
-
-            await nativeBatchRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
-
-            await Task.WhenAll(bundleTasks);
         }
     }
 
