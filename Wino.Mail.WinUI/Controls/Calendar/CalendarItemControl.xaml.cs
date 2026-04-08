@@ -1,19 +1,20 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
-using CommunityToolkit.WinUI;
-using Itenso.TimePeriod;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
 using Windows.ApplicationModel.DataTransfer;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Calendar.ViewModels.Messages;
-using Wino.Core.Domain;
+using Wino.Core.Domain.Interfaces;
+using Wino.Mail.WinUI;
 namespace Wino.Calendar.Controls;
 
 public sealed partial class CalendarItemControl : UserControl
 {
+    private readonly ICalendarContextMenuItemService _contextMenuItemService;
+
     // Single tap has a delay to report double taps properly.
     private bool isSingleTap = false;
 
@@ -44,6 +45,7 @@ public sealed partial class CalendarItemControl : UserControl
 
     public CalendarItemControl()
     {
+        _contextMenuItemService = WinoApplication.Current.Services.GetRequiredService<ICalendarContextMenuItemService>();
         InitializeComponent();
     }
 
@@ -140,5 +142,34 @@ public sealed partial class CalendarItemControl : UserControl
         }
 
         WeakReferenceMessenger.Default.Send(new CalendarItemRightTappedMessage(CalendarItem));
+    }
+
+    private void CalendarItemCommandBarFlyout_Opening(object sender, object e)
+    {
+        if (sender is not CalendarItemCommandBarFlyout flyout)
+        {
+            return;
+        }
+
+        flyout.Item = CalendarItem;
+
+        if (CalendarItem?.CalendarItem == null)
+        {
+            flyout.ClearMenuItems();
+            return;
+        }
+
+        flyout.SetMenuItems(_contextMenuItemService.GetContextMenuItems(CalendarItem.CalendarItem));
+    }
+
+    private void CalendarItemCommandBarFlyout_Closed(object sender, object e)
+    {
+        if (sender is not CalendarItemCommandBarFlyout flyout)
+        {
+            return;
+        }
+
+        flyout.ClearMenuItems();
+        flyout.Item = null;
     }
 }

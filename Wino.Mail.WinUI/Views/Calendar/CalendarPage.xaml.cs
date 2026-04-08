@@ -32,6 +32,7 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
     private CancellationTokenSource? _searchCancellationTokenSource;
     private long _calendarTypeSelectorChangedToken;
     private bool _suppressSelectionResetOnPopupClose;
+    private bool _hasAttachedNavigationLifetimeEvents;
 
     public ObservableCollection<TitleBarSearchSuggestion> SearchSuggestions { get; } = [];
 
@@ -42,13 +43,6 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
     public CalendarPage()
     {
         InitializeComponent();
-        _calendarTypeSelectorChangedToken = CalendarToolbar.RegisterSelectedTypeChanged(CalendarTypeSelectorSelectedTypeChanged);
-        CalendarToolbar.PreviousDateRequested += CalendarToolbarPreviousDateRequested;
-        CalendarToolbar.NextDateRequested += CalendarToolbarNextDateRequested;
-        ViewModel.PropertyChanged += ViewModelPropertyChanged;
-        CalendarShellClient.PropertyChanged += CalendarShellClientPropertyChanged;
-        CalendarShellClient.StatePersistenceService.StatePropertyChanged += CalendarStatePersistenceServiceChanged;
-        Unloaded += CalendarPageUnloaded;
         RefreshCalendarToolbar();
     }
 
@@ -61,6 +55,8 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
+        Bindings.Update();
+        AttachNavigationLifetimeEvents();
         RefreshCalendarToolbar();
 
         if (e.NavigationMode == NavigationMode.Back && ViewModel.RestoreVisibleState())
@@ -77,6 +73,12 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
 
         var request = new CalendarDisplayRequest(ViewModel.StatePersistanceService.CalendarDisplayType, anchorDate);
         WeakReferenceMessenger.Default.Send(new LoadCalendarMessage(request));
+    }
+
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        base.OnNavigatedFrom(e);
+        DetachNavigationLifetimeEvents();
     }
 
     public async Task OnTitleBarSearchTextChangedAsync()
@@ -272,9 +274,31 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         }
     }
 
-    private void CalendarPageUnloaded(object sender, RoutedEventArgs e)
+    private void AttachNavigationLifetimeEvents()
     {
+        if (_hasAttachedNavigationLifetimeEvents)
+        {
+            return;
+        }
+
+        _calendarTypeSelectorChangedToken = CalendarToolbar.RegisterSelectedTypeChanged(CalendarTypeSelectorSelectedTypeChanged);
+        CalendarToolbar.PreviousDateRequested += CalendarToolbarPreviousDateRequested;
+        CalendarToolbar.NextDateRequested += CalendarToolbarNextDateRequested;
+        ViewModel.PropertyChanged += ViewModelPropertyChanged;
+        CalendarShellClient.PropertyChanged += CalendarShellClientPropertyChanged;
+        CalendarShellClient.StatePersistenceService.StatePropertyChanged += CalendarStatePersistenceServiceChanged;
+        _hasAttachedNavigationLifetimeEvents = true;
+    }
+
+    private void DetachNavigationLifetimeEvents()
+    {
+        if (!_hasAttachedNavigationLifetimeEvents)
+        {
+            return;
+        }
+
         CloseQuickEventPopup(clearSelection: true);
+        Bindings.StopTracking();
         CalendarToolbar.UnregisterSelectedTypeChanged(_calendarTypeSelectorChangedToken);
         CalendarToolbar.PreviousDateRequested -= CalendarToolbarPreviousDateRequested;
         CalendarToolbar.NextDateRequested -= CalendarToolbarNextDateRequested;
@@ -283,7 +307,8 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         CalendarShellClient.StatePersistenceService.StatePropertyChanged -= CalendarStatePersistenceServiceChanged;
         _searchCancellationTokenSource?.Cancel();
         _searchCancellationTokenSource?.Dispose();
-        Unloaded -= CalendarPageUnloaded;
+        _searchCancellationTokenSource = null;
+        _hasAttachedNavigationLifetimeEvents = false;
     }
 
     private async void SaveQuickEventClicked(object sender, RoutedEventArgs e)

@@ -1,56 +1,30 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
+using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Wino.Calendar.ViewModels.Messages;
 using Wino.Calendar.ViewModels.Data;
+using Wino.Calendar.ViewModels.Messages;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
-using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls;
 
 namespace Wino.Calendar.Controls;
 
 public partial class CalendarItemCommandBarFlyout : CommandBarFlyout
 {
-    private readonly ICalendarContextMenuItemService _contextMenuItemService;
-
-    public static readonly DependencyProperty ItemProperty = DependencyProperty.Register(nameof(Item), typeof(CalendarItemViewModel), typeof(CalendarItemCommandBarFlyout), new PropertyMetadata(null, new PropertyChangedCallback(OnItemChanged)));
-
-    public CalendarItemViewModel Item
-    {
-        get { return (CalendarItemViewModel)GetValue(ItemProperty); }
-        set { SetValue(ItemProperty, value); }
-    }
+    private readonly RelayCommand<CalendarContextMenuAction> _executeActionCommand;
 
     public CalendarItemCommandBarFlyout()
     {
-        _contextMenuItemService = WinoApplication.Current.Services.GetRequiredService<ICalendarContextMenuItemService>();
-        Opening += FlyoutOpening;
+        _executeActionCommand = new RelayCommand<CalendarContextMenuAction>(ExecuteAction);
     }
 
-    private static void OnItemChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    public CalendarItemViewModel? Item { get; set; }
+
+    public void SetMenuItems(IReadOnlyList<CalendarContextMenuItem> menuItems)
     {
-        if (d is CalendarItemCommandBarFlyout flyout)
-        {
-            flyout.UpdateMenuItems();
-        }
-    }
-
-    private void FlyoutOpening(object sender, object e) => UpdateMenuItems();
-
-    private void UpdateMenuItems()
-    {
-        PrimaryCommands.Clear();
-        SecondaryCommands.Clear();
-
-        if (Item?.CalendarItem == null)
-            return;
-
-        var menuItems = _contextMenuItemService.GetContextMenuItems(Item.CalendarItem);
+        ClearMenuItems();
 
         foreach (var menuItem in menuItems)
         {
@@ -63,12 +37,20 @@ public partial class CalendarItemCommandBarFlyout : CommandBarFlyout
         }
     }
 
+    public void ClearMenuItems()
+    {
+        PrimaryCommands.Clear();
+        SecondaryCommands.Clear();
+    }
+
     private AppBarButton BuildAppBarButton(CalendarContextMenuItem menuItem)
     {
         var button = new AppBarButton
         {
             Label = GetActionLabel(menuItem.Action),
             IsEnabled = menuItem.IsEnabled,
+            Command = _executeActionCommand,
+            CommandParameter = menuItem.Action,
             Icon = new WinoFontIcon
             {
                 Icon = GetActionIcon(menuItem.Action),
@@ -81,10 +63,6 @@ public partial class CalendarItemCommandBarFlyout : CommandBarFlyout
             var flyout = new MenuFlyout();
             PopulateMenuFlyoutItems(flyout.Items, menuItem.Children);
             button.Flyout = flyout;
-        }
-        else
-        {
-            button.Click += (_, _) => ExecuteAction(menuItem.Action);
         }
 
         return button;
@@ -110,10 +88,11 @@ public partial class CalendarItemCommandBarFlyout : CommandBarFlyout
                 var flyoutItem = new MenuFlyoutItem
                 {
                     Text = GetActionLabel(menuItem.Action),
-                    IsEnabled = menuItem.IsEnabled
+                    IsEnabled = menuItem.IsEnabled,
+                    Command = _executeActionCommand,
+                    CommandParameter = menuItem.Action
                 };
 
-                flyoutItem.Click += (_, _) => ExecuteAction(menuItem.Action);
                 items.Add(flyoutItem);
             }
         }
@@ -121,7 +100,8 @@ public partial class CalendarItemCommandBarFlyout : CommandBarFlyout
 
     private void ExecuteAction(CalendarContextMenuAction action)
     {
-        if (Item == null)
+        // We don't want to trigger any action or hide the flyout if it's a sub menu item.
+        if (Item == null || (action.ShowAs == null && action.ResponseStatus == null && action.TargetType == null))
             return;
 
         WeakReferenceMessenger.Default.Send(new CalendarItemContextActionRequestedMessage(Item, action));

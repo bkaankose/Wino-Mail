@@ -31,9 +31,10 @@
         <Grid.ContextFlyout>
             <local:CalendarItemCommandBarFlyout
                 AlwaysExpanded="True"
-                Item="{x:Bind CalendarItem, Mode=OneWay}"
+                Closed="CalendarItemCommandBarFlyout_Closed"
+                Opening="CalendarItemCommandBarFlyout_Opening"
                 Placement="BottomEdgeAlignedLeft"
-                ShowMode="Transient" />
+                ShowMode="Auto" />
         </Grid.ContextFlyout>
 
 
@@ -80,8 +81,8 @@
         <muxc:ProgressRing
             x:Name="BusyRing"
             Grid.Column="2"
-            Width="14"
-            Height="14"
+            Width="10"
+            Height="10"
             Margin="0,2,2,0"
             HorizontalAlignment="Right"
             VerticalAlignment="Top"
@@ -111,6 +112,7 @@
         </StackPanel>
 
         <VisualStateManager.VisualStateGroups>
+            <!--  TODO: Selection of items are disabled temporarily.  -->
             <VisualStateGroup x:Name="SelectionStates">
                 <VisualState x:Name="NonSelected" />
                 <VisualState x:Name="Selected">
