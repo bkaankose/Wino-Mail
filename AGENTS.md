@@ -113,6 +113,7 @@ private string searchQuery = string.Empty;
 3. Use Translator.{PropertyName} in code/XAML
 4. NEVER edit any resources.json file outside Wino.Core.Domain/Translations/en_US/resources.json
 5. Treat all non-en_US translation files as managed externally and leave them untouched, even when adding new localization keys
+6. In XAML, translation bindings must use `Mode=OneTime` because `Wino.Core.Domain/Translator.cs` does not implement `INotifyPropertyChanged`
 
 ## Storage
 
