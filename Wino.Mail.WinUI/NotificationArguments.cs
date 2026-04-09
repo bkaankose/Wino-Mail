@@ -6,6 +6,7 @@ namespace Wino.Mail.WinUI;
 
 internal sealed class NotificationArguments
 {
+    private static readonly char[] PairSeparators = ['&', ';'];
     private static readonly NotificationArguments Empty = new(new Dictionary<string, string>(StringComparer.Ordinal));
 
     private readonly IReadOnlyDictionary<string, string> _values;
@@ -24,7 +25,7 @@ internal sealed class NotificationArguments
 
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
 
-        foreach (var pair in encodedArguments.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        foreach (var pair in encodedArguments.Split(PairSeparators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             var separatorIndex = pair.IndexOf('=');
             if (separatorIndex < 0)

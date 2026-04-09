@@ -4,8 +4,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
+using System.Threading;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Dispatching;
@@ -59,8 +59,11 @@ public partial class App : WinoApplication,
     private bool _windowManagerConfigured;
     private bool _hasConfiguredAccounts;
     private bool _isExiting;
+    private bool _activationInfrastructureInitialized;
+    private int _initialNotificationActivationHandled;
     private CancellationTokenSource? _autoSynchronizationLoopCts;
     private readonly SemaphoreSlim _autoSynchronizationSemaphore = new(1, 1);
+    private readonly SemaphoreSlim _activationInfrastructureSemaphore = new(1, 1);
     private readonly ConcurrentDictionary<Guid, int> _inboxSyncCounters = [];
     private NativeTrayIcon? _trayIcon;
 
@@ -373,32 +376,71 @@ public partial class App : WinoApplication,
     }
 
     private bool IsStartupTaskLaunch() => AppInstance.GetCurrent().GetActivatedEventArgs()?.Kind == ExtendedActivationKind.StartupTask;
-    public bool IsAppRunning() => MainWindow != null;
+    public bool IsAppRunning()
+    {
+        var windowManager = Services.GetService<IWinoWindowManager>();
+
+        return MainWindow != null ||
+               windowManager?.GetWindow(WinoWindowKind.Shell) != null ||
+               windowManager?.GetWindow(WinoWindowKind.Welcome) != null;
+    }
+
+    private bool HasShellWindow()
+        => Services.GetRequiredService<IWinoWindowManager>().GetWindow(WinoWindowKind.Shell) is IWinoShellWindow;
+
+    private async Task EnsureActivationInfrastructureAsync()
+    {
+        if (_activationInfrastructureInitialized)
+            return;
+
+        await _activationInfrastructureSemaphore.WaitAsync();
+
+        try
+        {
+            if (_activationInfrastructureInitialized)
+                return;
+
+            TryRegisterAppNotifications();
+
+            await Services.GetRequiredService<ReleaseLocalAccountDataCleanupService>()
+                .RunIfNeededAsync();
+
+            await InitializeServicesAsync();
+
+            _synchronizationManager = Services.GetRequiredService<ISynchronizationManager>();
+            _preferencesService = Services.GetRequiredService<IPreferencesService>();
+            _accountService = Services.GetRequiredService<IAccountService>();
+
+            EnsureWindowManagerConfigured();
+            EnsureTrayIconCreated();
+
+            _hasConfiguredAccounts = (await _accountService.GetAccountsAsync()).Any();
+
+            if (_hasConfiguredAccounts)
+            {
+                _preferencesService.PreferenceChanged -= PreferencesServiceChanged;
+                _preferencesService.PreferenceChanged += PreferencesServiceChanged;
+                RestartAutoSynchronizationLoop();
+            }
+
+            _activationInfrastructureInitialized = true;
+        }
+        finally
+        {
+            _activationInfrastructureSemaphore.Release();
+        }
+    }
+
+    private bool TryMarkInitialNotificationActivationHandled()
+        => Interlocked.Exchange(ref _initialNotificationActivationHandled, 1) == 0;
 
     protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
         base.OnLaunched(args);
 
-        // Always register notification callbacks.
-        TryRegisterAppNotifications();
+        await EnsureActivationInfrastructureAsync();
 
-        await Services.GetRequiredService<ReleaseLocalAccountDataCleanupService>()
-            .RunIfNeededAsync();
-
-        // Initialize required services regardless of launch activation type.
-        // All activation scenarios require these services to be ready.
-        // Note: Theme service is initialized separately after window creation.
-        await InitializeServicesAsync();
-
-        _synchronizationManager = Services.GetRequiredService<ISynchronizationManager>();
-        _preferencesService = Services.GetRequiredService<IPreferencesService>();
-        _accountService = Services.GetRequiredService<IAccountService>();
-
-        EnsureWindowManagerConfigured();
-        EnsureTrayIconCreated();
-
-        var hasAnyAccount = (await _accountService.GetAccountsAsync()).Any();
-        _hasConfiguredAccounts = hasAnyAccount;
+        var hasAnyAccount = _hasConfiguredAccounts;
         if (!IsStartupTaskLaunch() && !hasAnyAccount)
         {
             CreateWelcomeWindow();
@@ -408,14 +450,11 @@ public partial class App : WinoApplication,
             return;
         }
 
-        _preferencesService.PreferenceChanged -= PreferencesServiceChanged;
-        _preferencesService.PreferenceChanged += PreferencesServiceChanged;
-
-        RestartAutoSynchronizationLoop();
-
         // Check if launched from toast notification.
-        if (IsNotificationActivation(out AppNotificationActivatedEventArgs toastArgs))
+        if (IsNotificationActivation(out AppNotificationActivatedEventArgs toastArgs) &&
+            TryMarkInitialNotificationActivationHandled())
         {
+            LogActivation($"Processing notification activation from OnLaunched. Arguments: {toastArgs.Argument}");
             await HandleToastActivationAsync(toastArgs);
             return;
         }
@@ -459,6 +498,23 @@ public partial class App : WinoApplication,
         }
     }
 
+    public async Task HandleInitialActivationAsync()
+    {
+        var activationArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
+
+        if (activationArgs.Kind != ExtendedActivationKind.AppNotification ||
+            activationArgs.Data is not AppNotificationActivatedEventArgs toastArgs ||
+            !TryMarkInitialNotificationActivationHandled())
+        {
+            return;
+        }
+
+        LogActivation($"Processing initial notification activation from application startup. Arguments: {toastArgs.Argument}");
+
+        await EnsureActivationInfrastructureAsync();
+        await HandleToastActivationAsync(toastArgs);
+    }
+
     private void AppNotificationInvoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args)
     {
         // AppNotification callbacks are not guaranteed to run on the UI thread.
@@ -466,6 +522,7 @@ public partial class App : WinoApplication,
         if (MainWindow?.DispatcherQueue?.TryEnqueue(() => _ = HandleToastActivationAsync(args)) == true)
             return;
 
+        LogActivation($"Processing notification activation from NotificationInvoked. Arguments: {args.Argument}");
         _ = HandleToastActivationAsync(args);
     }
 
@@ -491,6 +548,8 @@ public partial class App : WinoApplication,
     /// </summary>
     private async Task HandleToastActivationAsync(AppNotificationActivatedEventArgs toastArgs)
     {
+        LogActivation($"Handling app notification activation. Arguments: {toastArgs.Argument}");
+
         var toastArguments = NotificationArguments.Parse(toastArgs.Argument);
 
         if (toastArguments.TryGetValue(Constants.ToastStoreUpdateActionKey, out string storeUpdateAction) &&
@@ -534,19 +593,62 @@ public partial class App : WinoApplication,
 
                 await HandleToastActionAsync(action, mailItemUniqueId);
             }
+
+            return;
         }
+
+        LogActivation("App notification activation did not match any known handler.");
+    }
+
+    private async Task<IWinoShellWindow?> EnsureShellWindowAsync(WinoApplicationMode mode, bool activateWindow, bool suppressStartupFlows = true)
+    {
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        var navigationService = Services.GetRequiredService<INavigationService>();
+        var shellWindow = windowManager.GetWindow(WinoWindowKind.Shell) as IWinoShellWindow;
+
+        if (shellWindow == null)
+        {
+            LogActivation($"Creating shell window for {mode} activation.");
+
+            CreateWindow(
+                null,
+                GetModeLaunchArgument(mode),
+                new ShellModeActivationContext
+                {
+                    SuppressStartupFlows = suppressStartupFlows
+                });
+
+            await NewThemeService.InitializeAsync();
+
+            if (_hasConfiguredAccounts)
+            {
+                await LoadInitialWinoAccountAsync();
+            }
+
+            shellWindow = windowManager.GetWindow(WinoWindowKind.Shell) as IWinoShellWindow ?? MainWindow as IWinoShellWindow;
+        }
+        else
+        {
+            navigationService.ChangeApplicationMode(mode, new ShellModeActivationContext
+            {
+                SuppressStartupFlows = suppressStartupFlows
+            });
+        }
+
+        if (activateWindow && shellWindow is WindowEx window)
+        {
+            await ActivateWindowAsync(window);
+        }
+
+        return shellWindow;
     }
 
     private async Task HandleStoreUpdateToastAsync()
     {
         if (!IsAppRunning())
-        {
             await CreateAndActivateWindow(null!);
-        }
         else
-        {
             EnsureMainWindowVisibleAndForeground();
-        }
 
         var storeUpdateService = Services.GetRequiredService<IStoreUpdateService>();
         await storeUpdateService.StartUpdateAsync();
@@ -563,14 +665,7 @@ public partial class App : WinoApplication,
 
         var target = new CalendarItemTarget(calendarItem, CalendarEventTargetType.Single);
 
-        if (!IsAppRunning())
-        {
-            await CreateAndActivateWindow(null!);
-        }
-        else
-        {
-            EnsureMainWindowVisibleAndForeground();
-        }
+        await EnsureShellWindowAsync(WinoApplicationMode.Calendar, activateWindow: true);
 
         navigationService.ChangeApplicationMode(Core.Domain.Enums.WinoApplicationMode.Calendar);
         navigationService.Navigate(WinoPage.EventDetailsPage, target);
@@ -613,10 +708,18 @@ public partial class App : WinoApplication,
         var navigationService = Services.GetRequiredService<INavigationService>();
 
         var account = await mailService.GetMailAccountByUniqueIdAsync(mailItemUniqueId);
-        if (account == null) return;
+        if (account == null)
+        {
+            LogActivation($"Notification navigation mail account was not found for {mailItemUniqueId}.");
+            return;
+        }
 
         var mailItem = await mailService.GetSingleMailItemAsync(mailItemUniqueId);
-        if (mailItem == null) return;
+        if (mailItem == null)
+        {
+            LogActivation($"Notification navigation mail item was not found for {mailItemUniqueId}.");
+            return;
+        }
 
         var message = new AccountMenuItemExtended(mailItem.AssignedFolder.Id, mailItem);
 
@@ -624,19 +727,15 @@ public partial class App : WinoApplication,
         var launchProtocolService = Services.GetRequiredService<ILaunchProtocolService>();
         launchProtocolService.LaunchParameter = message;
 
-        // Create window if not already created.
-        if (!IsAppRunning())
+        var shellWindowAlreadyExists = HasShellWindow();
+
+        await EnsureShellWindowAsync(WinoApplicationMode.Mail, activateWindow: true);
+        navigationService.ChangeApplicationMode(Core.Domain.Enums.WinoApplicationMode.Mail);
+
+        if (shellWindowAlreadyExists)
         {
-            // Pass null for args since we're handling toast navigation
-            await CreateAndActivateWindow(null!);
-            navigationService.ChangeApplicationMode(Core.Domain.Enums.WinoApplicationMode.Mail);
-        }
-        else
-        {
-            // App is already running - send message and bring window to front.
-            navigationService.ChangeApplicationMode(Core.Domain.Enums.WinoApplicationMode.Mail);
             WeakReferenceMessenger.Default.Send(message);
-            EnsureMainWindowVisibleAndForeground();
+            launchProtocolService.LaunchParameter = null;
         }
     }
 
@@ -661,7 +760,7 @@ public partial class App : WinoApplication,
         var package = new MailOperationPreperationRequest(action, mailItem);
 
         // Check if app is already running (has a window).
-        if (IsAppRunning())
+        if (HasShellWindow())
         {
             // App is running - use the simple delegator pattern.
             // The synchronization will happen in the background.
@@ -1285,14 +1384,16 @@ public partial class App : WinoApplication,
     /// </summary>
     public void HandleRedirectedActivation(AppActivationArguments args)
     {
-        // Dispatch to UI thread since this is called from Program.OnActivated
-        MainWindow?.DispatcherQueue.TryEnqueue(async () =>
+        async Task HandleRedirectedActivationAsync()
         {
+            await EnsureActivationInfrastructureAsync();
+
             // Handle different activation kinds
             if (args.Kind == ExtendedActivationKind.AppNotification)
             {
                 // Handle toast notification activation
                 var toastArgs = (AppNotificationActivatedEventArgs)args.Data;
+                LogActivation($"Processing redirected notification activation. Arguments: {toastArgs.Argument}");
                 _ = HandleToastActivationAsync(toastArgs);
             }
             else
@@ -1324,7 +1425,13 @@ public partial class App : WinoApplication,
                     Services.GetRequiredService<IWinoWindowManager>().ActivateWindow(mainWindow);
                 }
             }
-        });
+        }
+
+        // Dispatch to UI thread since this is called from Program.OnActivated.
+        if (MainWindow?.DispatcherQueue.TryEnqueue(() => _ = HandleRedirectedActivationAsync()) == true)
+            return;
+
+        _ = HandleRedirectedActivationAsync();
     }
 
     private static string GetModeLaunchArgument(WinoApplicationMode mode)
