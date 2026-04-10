@@ -105,7 +105,7 @@
                             Width="56"
                             Height="56"
                             VerticalAlignment="Top"
-                            Source="ms-appx:///Assets/AppEntries/MailAssets/Square150x150Logo.scale-100.png"
+                            Source="ms-appx:///Assets/AppEntries/MailAssets/Square150x150Logo.png"
                             Stretch="Uniform" />
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock

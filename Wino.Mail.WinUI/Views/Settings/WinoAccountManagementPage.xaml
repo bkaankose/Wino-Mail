@@ -254,7 +254,7 @@
                         Width="64"
                         Height="64"
                         HorizontalAlignment="Center"
-                        Source="ms-appx:///Assets/AppEntries/MailAssets/Square150x150Logo.scale-100.png" />
+                        Source="ms-appx:///Assets/AppEntries/MailAssets/Square150x150Logo.png" />
 
                     <TextBlock
                         HorizontalAlignment="Center"

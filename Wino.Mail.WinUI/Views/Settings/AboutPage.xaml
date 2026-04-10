@@ -21,7 +21,7 @@
                 Height="128"
                 Margin="0,0,0,12"
                 HorizontalAlignment="Center"
-                Source="ms-appx:///Assets/AppEntries/MailAssets/Square150x150Logo.scale-100.png"
+                Source="ms-appx:///Assets/AppEntries/MailAssets/Square150x150Logo.png"
                 Stretch="Uniform" />
             <TextBlock
                 Margin="0,6,0,4"
@@ -197,7 +197,7 @@
 
             <controls:SettingsCard Header="Wino Mail">
                 <controls:SettingsCard.HeaderIcon>
-                    <BitmapIcon ShowAsMonochrome="False" UriSource="ms-appx:///Assets/AppEntries/MailAssets/Square150x150Logo.scale-100.png" />
+                    <BitmapIcon ShowAsMonochrome="False" UriSource="ms-appx:///Assets/AppEntries/MailAssets/Square150x150Logo.png" />
                 </controls:SettingsCard.HeaderIcon>
                 <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" IsTextSelectionEnabled="True">
                     <Run Text="{x:Bind domain:Translator.SettingsAboutVersion}" /><Run Text="{x:Bind ViewModel.VersionName}" />
