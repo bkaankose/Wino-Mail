@@ -7,8 +7,7 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppNotifications;
 using Microsoft.Windows.AppLifecycle;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Enums;
+using Wino.Mail.WinUI.Activation;
 
 namespace Wino.Mail.WinUI;
 
@@ -200,28 +199,19 @@ public class Program
 
     private static bool ShouldBringWindowToForegroundAfterRedirection(AppActivationArguments args)
     {
-        if (args.Kind != ExtendedActivationKind.AppNotification ||
-            args.Data is not AppNotificationActivatedEventArgs toastArgs)
+        if (args.Kind == ExtendedActivationKind.AppNotification &&
+            args.Data is AppNotificationActivatedEventArgs toastArgs)
         {
-            return true;
+            return ToastActivationResolver.TryParse(toastArgs.Argument, out var toastArguments)
+                ? ToastActivationResolver.ShouldBringToForeground(toastArguments)
+                : true;
         }
 
-        var toastArguments = NotificationArguments.Parse(toastArgs.Argument);
-
-        if (toastArguments.TryGetValue(Constants.ToastStoreUpdateActionKey, out string storeUpdateAction) &&
-            storeUpdateAction == Constants.ToastStoreUpdateActionInstall)
+        if (args.Kind == ExtendedActivationKind.Launch &&
+            args.Data is Windows.ApplicationModel.Activation.ILaunchActivatedEventArgs launchArgs &&
+            ToastActivationResolver.TryParse(launchArgs.Arguments, out var launchToastArguments))
         {
-            return true;
-        }
-
-        if (toastArguments.TryGetValue(Constants.ToastCalendarActionKey, out string calendarAction))
-        {
-            return calendarAction == Constants.ToastCalendarNavigateAction;
-        }
-
-        if (toastArguments.TryGetValue(Constants.ToastActionKey, out MailOperation mailAction))
-        {
-            return mailAction == MailOperation.Navigate;
+            return ToastActivationResolver.ShouldBringToForeground(launchToastArguments);
         }
 
         return true;

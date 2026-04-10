@@ -36,6 +36,7 @@ public static class CoreUWPContainerSetup
         services.AddTransient<IWebView2RuntimeValidatorService, WebView2RuntimeValidatorService>();
         services.AddTransient<INotificationBuilder, NotificationBuilder>();
         services.AddSingleton<ICalendarReminderServer, CalendarReminderServer>();
+        services.AddSingleton<PackagedAppEntryLauncher>();
         services.AddTransient<IClipboardService, ClipboardService>();
         services.AddTransient<IStartupBehaviorService, StartupBehaviorService>();
         services.AddSingleton<IPrintService, PrintService>();

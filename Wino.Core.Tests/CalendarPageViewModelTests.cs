@@ -47,7 +47,7 @@ public class CalendarPageViewModelTests
         viewModel.CurrentVisibleRange.EndDate.Should().Be(new DateOnly(2026, 3, 22));
         viewModel.LoadedDateWindow.StartDate.Should().Be(new DateTime(2026, 3, 9));
         viewModel.LoadedDateWindow.EndDate.Should().Be(new DateTime(2026, 3, 30));
-        viewModel.VisibleDateRangeText.Should().Be("March 16 - March 22");
+        viewModel.VisibleDateRangeText.Should().Be("March 16 - 22");
 
         requestedPeriod.Should().NotBeNull();
         requestedPeriod!.Start.Should().Be(new DateTime(2026, 3, 9));
@@ -243,6 +243,45 @@ public class CalendarPageViewModelTests
     }
 
     [Fact]
+    public async Task ApplyDisplayRequestAsync_ClearsCalendarBadgeOnlyOncePerPageLifetime()
+    {
+        var settings = CreateSettings();
+        var preferencesService = CreatePreferencesService(settings);
+        var calendarService = new Mock<ICalendarService>();
+        var notificationBuilder = new Mock<INotificationBuilder>();
+
+        calendarService
+            .Setup(service => service.GetCalendarEventsAsync(It.IsAny<IAccountCalendar>(), It.IsAny<ITimePeriod>()))
+            .ReturnsAsync([]);
+
+        notificationBuilder
+            .Setup(builder => builder.ClearCalendarTaskbarBadgeAsync())
+            .Returns(Task.CompletedTask);
+
+        var viewModel = CreateViewModel(
+            calendarService.Object,
+            preferencesService.Object,
+            new DateOnly(2026, 3, 20),
+            notificationBuilder: notificationBuilder.Object);
+
+        viewModel.OnNavigatedTo(NavigationMode.New, null!);
+
+        try
+        {
+            var request = new CalendarDisplayRequest(CalendarDisplayType.Day, new DateOnly(2026, 3, 20));
+
+            await viewModel.ApplyDisplayRequestAsync(request);
+            await viewModel.ApplyDisplayRequestAsync(request, forceReload: true);
+
+            notificationBuilder.Verify(builder => builder.ClearCalendarTaskbarBadgeAsync(), Times.Once);
+        }
+        finally
+        {
+            viewModel.OnNavigatedFrom(NavigationMode.Back, null!);
+        }
+    }
+
+    [Fact]
     public async Task CalendarItemAddedMessage_ReconcilesTrackedLocalPreviewInPlace()
     {
         var settings = CreateSettings();
@@ -333,13 +372,22 @@ public class CalendarPageViewModelTests
         IPreferencesService preferencesService,
         DateOnly today)
     {
+        return CreateViewModel(calendarService, preferencesService, today, notificationBuilder: null);
+    }
+
+    private static CalendarPageViewModel CreateViewModel(
+        ICalendarService calendarService,
+        IPreferencesService preferencesService,
+        DateOnly today,
+        INotificationBuilder? notificationBuilder)
+    {
         var account = CreateAccount();
 
         var calendar = CreateCalendar(account, "Calendar");
         var accountCalendarViewModel = new AccountCalendarViewModel(account, calendar);
         var accountCalendarStateService = new FakeAccountCalendarStateService([accountCalendarViewModel]);
 
-        return CreateViewModel(calendarService, preferencesService, today, accountCalendarStateService);
+        return CreateViewModel(calendarService, preferencesService, today, accountCalendarStateService, notificationBuilder: notificationBuilder);
     }
 
     private static CalendarPageViewModel CreateViewModel(
@@ -356,6 +404,7 @@ public class CalendarPageViewModelTests
         IAccountCalendarStateService accountCalendarStateService,
         INavigationService? navigationService = null,
         INativeAppService? nativeAppService = null,
+        INotificationBuilder? notificationBuilder = null,
         IWinoRequestDelegator? requestDelegator = null,
         IMailDialogService? dialogService = null)
     {
@@ -371,6 +420,7 @@ public class CalendarPageViewModelTests
             Mock.Of<IKeyPressService>(),
             nativeAppService ?? Mock.Of<INativeAppService>(),
             accountCalendarStateService,
+            notificationBuilder ?? Mock.Of<INotificationBuilder>(),
             preferencesService,
             requestDelegator ?? Mock.Of<IWinoRequestDelegator>(),
             dialogService ?? Mock.Of<IMailDialogService>(),

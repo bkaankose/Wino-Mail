@@ -167,18 +167,30 @@ public partial class App : WinoApplication,
         if (!_hasConfiguredAccounts)
             return ActivateWelcomeWindowAsync();
 
-        return ActivateShellWindowAsync(_preferencesService?.DefaultApplicationMode);
+        return LaunchEntryOrActivateShellAsync(_preferencesService?.DefaultApplicationMode ?? WinoApplicationMode.Mail);
     }
 
     private Task OpenMailFromTrayAsync()
         => _hasConfiguredAccounts
-            ? ActivateShellWindowAsync(WinoApplicationMode.Mail)
+            ? LaunchEntryOrActivateShellAsync(WinoApplicationMode.Mail)
             : ActivateWelcomeWindowAsync();
 
     private Task OpenCalendarFromTrayAsync()
         => _hasConfiguredAccounts
-            ? ActivateShellWindowAsync(WinoApplicationMode.Calendar)
+            ? LaunchEntryOrActivateShellAsync(WinoApplicationMode.Calendar)
             : ActivateWelcomeWindowAsync();
+
+    private async Task LaunchEntryOrActivateShellAsync(WinoApplicationMode mode)
+    {
+        if (AppEntryConstants.GetPackagedApplicationId(mode) != null)
+        {
+            var appEntryLauncher = Services.GetRequiredService<PackagedAppEntryLauncher>();
+            if (await appEntryLauncher.LaunchAsync(mode))
+                return;
+        }
+
+        await ActivateShellWindowAsync(mode);
+    }
 
     private async Task ActivateWelcomeWindowAsync()
     {
@@ -218,7 +230,7 @@ public partial class App : WinoApplication,
             return;
 
         if (mode.HasValue)
-            shellWindow.HandleAppActivation(GetModeLaunchArgument(mode.Value));
+            shellWindow.HandleAppActivation(AppEntryConstants.GetModeLaunchArgument(mode.Value));
 
         CloseWelcomeWindowIfPresent();
         await ActivateWindowAsync((WindowEx)shellWindow);
@@ -455,7 +467,15 @@ public partial class App : WinoApplication,
             TryMarkInitialNotificationActivationHandled())
         {
             LogActivation($"Processing notification activation from OnLaunched. Arguments: {toastArgs.Argument}");
-            await HandleToastActivationAsync(toastArgs);
+            await HandleToastActivationAsync(toastArgs.Argument, toastArgs.UserInput);
+            return;
+        }
+
+        if (ToastActivationResolver.TryParse(args.Arguments, out var launchToastArguments) &&
+            TryMarkInitialNotificationActivationHandled())
+        {
+            LogActivation($"Processing toast launch activation from OnLaunched. Arguments: {args.Arguments}");
+            await HandleToastActivationAsync(launchToastArguments);
             return;
         }
 
@@ -512,18 +532,18 @@ public partial class App : WinoApplication,
         LogActivation($"Processing initial notification activation from application startup. Arguments: {toastArgs.Argument}");
 
         await EnsureActivationInfrastructureAsync();
-        await HandleToastActivationAsync(toastArgs);
+        await HandleToastActivationAsync(toastArgs.Argument, toastArgs.UserInput);
     }
 
     private void AppNotificationInvoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args)
     {
         // AppNotification callbacks are not guaranteed to run on the UI thread.
         // Marshal toast handling to the window dispatcher before touching window APIs.
-        if (MainWindow?.DispatcherQueue?.TryEnqueue(() => _ = HandleToastActivationAsync(args)) == true)
+        if (MainWindow?.DispatcherQueue?.TryEnqueue(() => _ = HandleToastActivationAsync(args.Argument, args.UserInput)) == true)
             return;
 
         LogActivation($"Processing notification activation from NotificationInvoked. Arguments: {args.Argument}");
-        _ = HandleToastActivationAsync(args);
+        _ = HandleToastActivationAsync(args.Argument, args.UserInput);
     }
 
     private void TryRegisterAppNotifications()
@@ -546,11 +566,9 @@ public partial class App : WinoApplication,
     /// <summary>
     /// Handles toast notification activation scenarios.
     /// </summary>
-    private async Task HandleToastActivationAsync(AppNotificationActivatedEventArgs toastArgs)
+    private async Task HandleToastActivationAsync(NotificationArguments toastArguments, IDictionary<string, string>? userInput = null)
     {
-        LogActivation($"Handling app notification activation. Arguments: {toastArgs.Argument}");
-
-        var toastArguments = NotificationArguments.Parse(toastArgs.Argument);
+        LogActivation("Handling app notification activation.");
 
         if (toastArguments.TryGetValue(Constants.ToastStoreUpdateActionKey, out string storeUpdateAction) &&
             storeUpdateAction == Constants.ToastStoreUpdateActionInstall)
@@ -572,7 +590,7 @@ public partial class App : WinoApplication,
 
             if (calendarAction == Constants.ToastCalendarSnoozeAction)
             {
-                await HandleCalendarToastSnoozeAsync(toastArgs, calendarItemId);
+                await HandleCalendarToastSnoozeAsync(userInput, calendarItemId);
                 return;
             }
         }
@@ -600,6 +618,17 @@ public partial class App : WinoApplication,
         LogActivation("App notification activation did not match any known handler.");
     }
 
+    private Task HandleToastActivationAsync(string toastArgument, IDictionary<string, string>? userInput = null)
+    {
+        if (!ToastActivationResolver.TryParse(toastArgument, out var toastArguments))
+        {
+            LogActivation($"Ignoring non-toast launch argument: {toastArgument}");
+            return Task.CompletedTask;
+        }
+
+        return HandleToastActivationAsync(toastArguments, userInput);
+    }
+
     private async Task<IWinoShellWindow?> EnsureShellWindowAsync(WinoApplicationMode mode, bool activateWindow, bool suppressStartupFlows = true)
     {
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
@@ -612,7 +641,7 @@ public partial class App : WinoApplication,
 
             CreateWindow(
                 null,
-                GetModeLaunchArgument(mode),
+                AppEntryConstants.GetModeLaunchArgument(mode),
                 new ShellModeActivationContext
                 {
                     SuppressStartupFlows = suppressStartupFlows
@@ -671,9 +700,9 @@ public partial class App : WinoApplication,
         navigationService.Navigate(WinoPage.EventDetailsPage, target);
     }
 
-    private async Task HandleCalendarToastSnoozeAsync(AppNotificationActivatedEventArgs toastArgs, Guid calendarItemId)
+    private async Task HandleCalendarToastSnoozeAsync(IDictionary<string, string>? userInput, Guid calendarItemId)
     {
-        if (!TryGetSnoozeDurationMinutes(toastArgs, out var snoozeDurationMinutes))
+        if (!TryGetSnoozeDurationMinutes(userInput, out var snoozeDurationMinutes))
             return;
 
         var calendarService = Services.GetRequiredService<ICalendarService>();
@@ -682,15 +711,15 @@ public partial class App : WinoApplication,
         await calendarService.SnoozeCalendarItemAsync(calendarItemId, snoozedUntilLocal);
     }
 
-    private static bool TryGetSnoozeDurationMinutes(AppNotificationActivatedEventArgs toastArgs, out int snoozeDurationMinutes)
+    private bool TryGetSnoozeDurationMinutes(IDictionary<string, string>? userInput, out int snoozeDurationMinutes)
     {
-        snoozeDurationMinutes = 0;
+        snoozeDurationMinutes = _preferencesService?.DefaultSnoozeDurationInMinutes ?? 0;
 
-        if (toastArgs.UserInput == null ||
-            !toastArgs.UserInput.TryGetValue(Constants.ToastCalendarSnoozeDurationInputId, out var selectedValue) ||
+        if (userInput == null ||
+            !userInput.TryGetValue(Constants.ToastCalendarSnoozeDurationInputId, out var selectedValue) ||
             selectedValue == null)
         {
-            return false;
+            return snoozeDurationMinutes > 0;
         }
 
         var selectedText = selectedValue.ToString();
@@ -910,7 +939,7 @@ public partial class App : WinoApplication,
 
         if (TryResolveActivationMode(activationArgs, defaultMode, out var activationMode))
         {
-            shellWindow.HandleAppActivation(GetModeLaunchArgument(activationMode));
+            shellWindow.HandleAppActivation(AppEntryConstants.GetModeLaunchArgument(activationMode));
             return;
         }
 
@@ -1049,7 +1078,7 @@ public partial class App : WinoApplication,
         MainWindow?.DispatcherQueue?.TryEnqueue(async () =>
         {
             // Create and activate ShellWindow — ActiveWindowChanged fires and rebinds the dispatcher.
-            CreateWindow(null, GetModeLaunchArgument(WinoApplicationMode.Mail));
+            CreateWindow(null, AppEntryConstants.GetModeLaunchArgument(WinoApplicationMode.Mail));
             CloseWelcomeWindowIfPresent();
             if (MainWindow != null)
                 await ActivateWindowAsync(MainWindow);
@@ -1085,7 +1114,7 @@ public partial class App : WinoApplication,
 
             CreateWindow(
                 null,
-                GetModeLaunchArgument(WinoApplicationMode.Mail),
+                AppEntryConstants.GetModeLaunchArgument(WinoApplicationMode.Mail),
                 new ShellModeActivationContext
                 {
                     SuppressStartupFlows = true
@@ -1394,33 +1423,44 @@ public partial class App : WinoApplication,
                 // Handle toast notification activation
                 var toastArgs = (AppNotificationActivatedEventArgs)args.Data;
                 LogActivation($"Processing redirected notification activation. Arguments: {toastArgs.Argument}");
-                _ = HandleToastActivationAsync(toastArgs);
+                _ = HandleToastActivationAsync(toastArgs.Argument, toastArgs.UserInput);
             }
             else
             {
+                var shouldActivateWindow = true;
+
                 if (MainWindow is IWinoShellWindow shellWindow)
                 {
                     if (args.Kind == ExtendedActivationKind.Launch &&
                         args.Data is ILaunchActivatedEventArgs launchArgs)
                     {
-                        var launchArguments = launchArgs.Arguments;
-
-                        if (Program.TryConsumeRedirectedAlternateModeOverride())
+                        if (ToastActivationResolver.TryParse(launchArgs.Arguments, out var launchToastArguments))
                         {
-                            launchArguments = AppendLaunchArgument(launchArguments, ToggleDefaultModeLaunchArgument);
+                            shouldActivateWindow = ToastActivationResolver.ShouldBringToForeground(launchToastArguments);
+                            LogActivation($"Processing redirected toast launch activation. Arguments: {launchArgs.Arguments}");
+                            _ = HandleToastActivationAsync(launchToastArguments);
                         }
+                        else
+                        {
+                            var launchArguments = launchArgs.Arguments;
 
-                        shellWindow.HandleAppActivation(launchArguments, launchArgs.TileId);
+                            if (Program.TryConsumeRedirectedAlternateModeOverride())
+                            {
+                                launchArguments = AppendLaunchArgument(launchArguments, ToggleDefaultModeLaunchArgument);
+                            }
+
+                            shellWindow.HandleAppActivation(launchArguments, launchArgs.TileId);
+                        }
                     }
                     else if (TryResolveActivationMode(args, _preferencesService?.DefaultApplicationMode ?? WinoApplicationMode.Mail, out var redirectedMode))
                     {
-                        shellWindow.HandleAppActivation(GetModeLaunchArgument(redirectedMode));
+                        shellWindow.HandleAppActivation(AppEntryConstants.GetModeLaunchArgument(redirectedMode));
                     }
                 }
 
                 // Redirected launches can target a shell window that is currently hidden in the tray.
                 // Restore it through the window manager so Show/BringToFront/Activate happen together.
-                if (MainWindow is WindowEx mainWindow)
+                if (shouldActivateWindow && MainWindow is WindowEx mainWindow)
                 {
                     Services.GetRequiredService<IWinoWindowManager>().ActivateWindow(mainWindow);
                 }
@@ -1433,15 +1473,6 @@ public partial class App : WinoApplication,
 
         _ = HandleRedirectedActivationAsync();
     }
-
-    private static string GetModeLaunchArgument(WinoApplicationMode mode)
-        => mode switch
-        {
-            WinoApplicationMode.Calendar => "--mode=calendar",
-            WinoApplicationMode.Contacts => "--mode=contacts",
-            WinoApplicationMode.Settings => "--mode=settings",
-            _ => "--mode=mail"
-        };
 
     private static string AppendLaunchArgument(string? launchArguments, string launchArgument)
     {

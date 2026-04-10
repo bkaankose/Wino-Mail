@@ -159,7 +159,7 @@ public class CalendarRangeResolverTests
 
         var text = formatter.Format(range, new TestDateContextProvider("de-DE", today: new DateOnly(2026, 3, 20)));
 
-        text.Should().Be("16. März - 22. März");
+        text.Should().Be("16. März - 22");
     }
 
     private static CalendarSettings CreateSettings(

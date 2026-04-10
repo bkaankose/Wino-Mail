@@ -2,12 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Windows.AppNotifications;
-using Microsoft.Windows.AppNotifications.Builder;
+using CommunityToolkit.WinUI.Notifications;
 using Serilog;
 using Windows.Data.Xml.Dom;
+using Windows.Storage;
 using Windows.UI.Notifications;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
@@ -16,14 +17,15 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Mail.WinUI.Activation;
 using Wino.Messaging.UI;
 
 namespace Wino.Mail.WinUI.Services;
 
 public class NotificationBuilder : INotificationBuilder
 {
-    private const string MailApplicationId = "App";
     private const string NotificationIconRootUri = "ms-appx:///Assets/NotificationIcons/";
+    private static int _calendarTaskbarBadgeCount;
 
     private readonly IAccountService _accountService;
     private readonly IFolderService _folderService;
@@ -53,50 +55,33 @@ public class NotificationBuilder : INotificationBuilder
     {
         try
         {
-            // Filter mails to only include Inbox folder items
             var inboxMailItems = new List<MailCopy>();
 
             foreach (var item in downloadedMailItems)
             {
                 var mailItem = await _mailService.GetSingleMailItemAsync(item.UniqueId);
-
-                //if (mailItem == null || mailItem.AssignedFolder == null)
-                //    continue;
-
-                //// Only create notifications for Inbox folder mails
-                //if (mailItem.AssignedFolder.SpecialFolderType != SpecialFolderType.Inbox)
-                //    continue;
-
-                //// Skip folders with synchronization disabled
-                //if (!mailItem.AssignedFolder.IsSynchronizationEnabled)
-                //    continue;
-
-                //// Skip already read mails
-                //if (mailItem.IsRead)
-                //{
-                //    RemoveNotification(mailItem.UniqueId);
-                //    continue;
-                //}
-
-                inboxMailItems.Add(mailItem);
+                if (mailItem != null)
+                {
+                    inboxMailItems.Add(mailItem);
+                }
             }
 
             var mailCount = inboxMailItems.Count;
-
             if (mailCount == 0)
                 return;
 
-            // If there are more than 3 mails, just display 1 general notification.
             if (mailCount > 3)
             {
-                var builder = CreateBuilder();
+                var builder = new ToastContentBuilder()
+                    .AddText(Translator.Notifications_MultipleNotificationsTitle)
+                    .AddText(string.Format(Translator.Notifications_MultipleNotificationsMessage, mailCount))
+                    .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail)
+                    .AddAudio(new ToastAudio
+                    {
+                        Src = new Uri("ms-winsoundevent:Notification.Mail")
+                    });
 
-                builder.AddText(Translator.Notifications_MultipleNotificationsTitle);
-                builder.AddText(string.Format(Translator.Notifications_MultipleNotificationsMessage, mailCount));
-                builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
-                builder.SetAudioUri(new Uri("ms-winsoundevent:Notification.Mail"));
-
-                ShowNotification(builder);
+                ShowToast(builder, ToastTargetApp.Mail);
             }
             else
             {
@@ -114,104 +99,28 @@ public class NotificationBuilder : INotificationBuilder
         }
     }
 
-    private async Task CreateSingleNotificationAsync(MailCopy mailItem)
-    {
-        var builder = CreateBuilder();
-
-        var avatarThumbnail = await _thumbnailService.GetThumbnailAsync(mailItem.FromAddress, awaitLoad: true);
-        if (!string.IsNullOrEmpty(avatarThumbnail))
-        {
-            var tempFile = await Windows.Storage.ApplicationData.Current.TemporaryFolder.CreateFileAsync($"{Guid.NewGuid()}.png", Windows.Storage.CreationCollisionOption.ReplaceExisting);
-            await using (var stream = await tempFile.OpenStreamForWriteAsync())
-            {
-                var bytes = Convert.FromBase64String(avatarThumbnail);
-                await stream.WriteAsync(bytes);
-            }
-
-            builder.SetAppLogoOverride(new Uri($"ms-appdata:///temp/{tempFile.Name}"), AppNotificationImageCrop.Default);
-        }
-
-        builder.SetTimeStamp(mailItem.CreationDate.ToLocalTime());
-        builder.AddText(mailItem.FromName);
-        builder.AddText(mailItem.Subject);
-        builder.AddText(mailItem.PreviewText);
-
-        builder.AddArgument(Constants.ToastMailUniqueIdKey, mailItem.UniqueId.ToString());
-        builder.AddArgument(Constants.ToastActionKey, MailOperation.Navigate.ToString());
-        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
-
-        builder.AddButton(GetMarkAsReadButton(mailItem.UniqueId));
-        builder.AddButton(GetDeleteButton(mailItem.UniqueId));
-        builder.AddButton(GetArchiveButton(mailItem.UniqueId));
-        builder.SetAudioUri(new Uri("ms-winsoundevent:Notification.Mail"));
-
-        ShowNotification(builder, mailItem.UniqueId.ToString());
-    }
-
-    private AppNotificationButton GetArchiveButton(Guid mailUniqueId)
-        => new AppNotificationButton(Translator.MailOperation_Archive)
-        .SetIcon(GetNotificationIconUri("mail-archive"))
-        .AddArgument(Constants.ToastMailUniqueIdKey, mailUniqueId.ToString())
-        .AddArgument(Constants.ToastActionKey, MailOperation.Archive.ToString())
-        .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
-
-    private AppNotificationButton GetDeleteButton(Guid mailUniqueId)
-        => new AppNotificationButton(Translator.MailOperation_Delete)
-        .SetIcon(GetNotificationIconUri("mail-delete"))
-        .AddArgument(Constants.ToastMailUniqueIdKey, mailUniqueId.ToString())
-        .AddArgument(Constants.ToastActionKey, MailOperation.SoftDelete.ToString())
-        .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
-
-    private AppNotificationButton GetMarkAsReadButton(Guid mailUniqueId)
-        => new AppNotificationButton(Translator.MailOperation_MarkAsRead)
-        .SetIcon(GetNotificationIconUri("mail-markread"))
-        .AddArgument(Constants.ToastMailUniqueIdKey, mailUniqueId.ToString())
-        .AddArgument(Constants.ToastActionKey, MailOperation.MarkAsRead.ToString())
-        .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
-
     public async Task UpdateTaskbarIconBadgeAsync()
     {
-        int totalUnreadCount = 0;
+        var totalUnreadCount = 0;
 
         try
         {
-            var badgeUpdater = BadgeUpdateManager.CreateBadgeUpdaterForApplication(MailApplicationId);
             var accounts = await _accountService.GetAccountsAsync();
 
             foreach (var account in accounts)
             {
-                if (!account.Preferences.IsTaskbarBadgeEnabled) continue;
+                if (!account.Preferences.IsTaskbarBadgeEnabled)
+                    continue;
 
                 var accountInbox = await _folderService.GetSpecialFolderByAccountIdAsync(account.Id, SpecialFolderType.Inbox);
-
                 if (accountInbox == null)
                     continue;
 
                 var inboxUnreadCount = await _folderService.GetFolderNotificationBadgeAsync(accountInbox.Id);
-
                 totalUnreadCount += inboxUnreadCount;
             }
 
-            if (totalUnreadCount > 0)
-            {
-                XmlDocument badgeXml = BadgeUpdateManager.GetTemplateContent(BadgeTemplateType.BadgeNumber);
-
-                XmlElement? badgeElement = badgeXml.SelectSingleNode("/badge") as XmlElement;
-                if (badgeElement == null)
-                {
-                    badgeUpdater.Clear();
-                    return;
-                }
-
-                badgeElement.SetAttribute("value", totalUnreadCount.ToString());
-
-                BadgeNotification badge = new(badgeXml);
-                badgeUpdater.Update(badge);
-            }
-            else
-            {
-                badgeUpdater.Clear();
-            }
+            UpdateBadge(AppEntryConstants.MailApplicationId, totalUnreadCount > 0 ? totalUnreadCount : null);
         }
         catch (Exception ex)
         {
@@ -219,15 +128,34 @@ public class NotificationBuilder : INotificationBuilder
         }
     }
 
+    public Task AddCalendarTaskbarBadgeCountAsync(int newlyDownloadedCount)
+    {
+        if (newlyDownloadedCount <= 0)
+            return Task.CompletedTask;
+
+        var badgeCount = Interlocked.Add(ref _calendarTaskbarBadgeCount, newlyDownloadedCount);
+        UpdateBadge(AppEntryConstants.CalendarApplicationId, badgeCount > 0 ? badgeCount : null);
+        return Task.CompletedTask;
+    }
+
+    public Task ClearCalendarTaskbarBadgeAsync()
+    {
+        Interlocked.Exchange(ref _calendarTaskbarBadgeCount, 0);
+        UpdateBadge(AppEntryConstants.CalendarApplicationId, null);
+        return Task.CompletedTask;
+    }
+
     public void RemoveNotification(Guid mailUniqueId)
     {
         try
         {
-            AppNotificationManager.Default.RemoveByTagAsync(mailUniqueId.ToString()).AsTask().GetAwaiter().GetResult();
+            ToastNotificationManager.History.Remove(
+                mailUniqueId.ToString(),
+                null,
+                AppEntryConstants.GetAppUserModelId(WinoApplicationMode.Mail));
         }
         catch (ArgumentException)
         {
-            // Notification does not exists. Ignore.
         }
         catch (Exception ex)
         {
@@ -237,39 +165,38 @@ public class NotificationBuilder : INotificationBuilder
 
     public void CreateAttentionRequiredNotification(MailAccount account)
     {
-        var builder = CreateBuilder();
-
-        builder.AddText(Translator.Exception_AccountNeedsAttention_Title);
-        builder.AddText(string.Format(Translator.Exception_AccountNeedsAttention_Message, account.Name));
-        builder.AddArgument(Constants.ToastMailAccountIdKey, account.Id.ToString());
-        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
-        builder.AddButton(new AppNotificationButton(Translator.Buttons_FixAccount)
+        var builder = new ToastContentBuilder()
+            .AddText(Translator.Exception_AccountNeedsAttention_Title)
+            .AddText(string.Format(Translator.Exception_AccountNeedsAttention_Message, account.Name))
             .AddArgument(Constants.ToastMailAccountIdKey, account.Id.ToString())
-            .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail));
+            .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail)
+            .AddButton(new ToastButton()
+                .SetContent(Translator.Buttons_FixAccount)
+                .AddArgument(Constants.ToastMailAccountIdKey, account.Id.ToString())
+                .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail));
 
-        ShowNotification(builder);
+        ShowToast(builder, ToastTargetApp.Mail);
     }
 
     public void CreateWebView2RuntimeMissingNotification()
     {
-        var builder = CreateBuilder();
+        var builder = new ToastContentBuilder()
+            .AddText(Translator.Exception_WebView2RuntimeMissing_Title)
+            .AddText(Translator.Exception_WebView2RuntimeMissing_Message)
+            .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
 
-        builder.AddText(Translator.Exception_WebView2RuntimeMissing_Title);
-        builder.AddText(Translator.Exception_WebView2RuntimeMissing_Message);
-        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
-
-        ShowNotification(builder);
+        ShowToast(builder, ToastTargetApp.Mail);
     }
 
     public void CreateStoreUpdateNotification()
     {
-        var builder = CreateBuilder();
+        var builder = new ToastContentBuilder()
+            .AddText(Translator.Notifications_StoreUpdateAvailableTitle)
+            .AddText(Translator.Notifications_StoreUpdateAvailableMessage)
+            .AddArgument(Constants.ToastStoreUpdateActionKey, Constants.ToastStoreUpdateActionInstall)
+            .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
 
-        builder.AddText(Translator.Notifications_StoreUpdateAvailableTitle);
-        builder.AddText(Translator.Notifications_StoreUpdateAvailableMessage);
-        builder.AddArgument(Constants.ToastStoreUpdateActionKey, Constants.ToastStoreUpdateActionInstall);
-
-        ShowNotification(builder, "store-update-available");
+        ShowToast(builder, ToastTargetApp.Mail, "store-update-available");
     }
 
     public Task CreateCalendarReminderNotificationAsync(CalendarItem calendarItem, long reminderDurationInSeconds)
@@ -277,11 +204,10 @@ public class NotificationBuilder : INotificationBuilder
         if (calendarItem == null)
             return Task.CompletedTask;
 
-        var builder = CreateBuilder(AppNotificationScenario.Reminder);
-
+        var builder = new ToastContentBuilder()
+            .SetToastScenario(ToastScenario.Reminder);
         var localStart = calendarItem.GetLocalStartDate();
-        var nowLocal = DateTime.Now;
-        var reminderContext = GetCalendarReminderContext(localStart, nowLocal);
+        var reminderContext = GetCalendarReminderContext(localStart, DateTime.Now);
 
         builder.AddText(calendarItem.Title);
         builder.AddText($"{reminderContext} - {localStart:g}");
@@ -292,6 +218,10 @@ public class NotificationBuilder : INotificationBuilder
         builder.AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarNavigateAction);
         builder.AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString());
         builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar);
+        builder.AddAudio(new ToastAudio
+        {
+            Src = new Uri("ms-winsoundevent:Notification.Reminder")
+        });
 
         var allowedSnoozeMinutes = CalendarReminderSnoozeOptions.GetAllowedSnoozeMinutes(
             reminderDurationInSeconds,
@@ -304,40 +234,106 @@ public class NotificationBuilder : INotificationBuilder
                 ? preferredSnoozeMinutes
                 : allowedSnoozeMinutes[0];
 
-            var selectionBox = new AppNotificationComboBox(Constants.ToastCalendarSnoozeDurationInputId)
-                .SetSelectedItem(defaultSnoozeMinutes.ToString());
+            var selectionBox = new ToastSelectionBox(Constants.ToastCalendarSnoozeDurationInputId)
+            {
+                DefaultSelectionBoxItemId = defaultSnoozeMinutes.ToString()
+            };
 
             foreach (var snoozeMinutes in allowedSnoozeMinutes)
             {
-                selectionBox.AddItem(
+                selectionBox.Items.Add(new ToastSelectionBoxItem(
                     snoozeMinutes.ToString(),
-                    string.Format(Translator.CalendarReminder_SnoozeMinutesOption, snoozeMinutes));
+                    string.Format(Translator.CalendarReminder_SnoozeMinutesOption, snoozeMinutes)));
             }
 
-            builder.AddComboBox(selectionBox);
-            builder.AddButton(new AppNotificationButton(Translator.CalendarReminder_SnoozeAction)
+            builder.AddToastInput(selectionBox);
+            builder.AddButton(new ToastButton()
+                .SetContent(Translator.CalendarReminder_SnoozeAction)
+                .SetImageUri(GetNotificationIconUri("calendar-snooze"))
+                .SetBackgroundActivation()
                 .AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarSnoozeAction)
                 .AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString())
                 .AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar));
         }
 
-        builder.AddButton(new AppNotificationButton(Translator.Buttons_Open)
+        builder.AddButton(new ToastButton()
+            .SetContent(Translator.Buttons_Open)
+            .SetBackgroundActivation()
             .AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarNavigateAction)
             .AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString())
             .AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar));
 
         if (Uri.TryCreate(calendarItem.HtmlLink, UriKind.Absolute, out var joinUri))
         {
-            builder.AddButton(new AppNotificationButton(Translator.CalendarEventDetails_JoinOnline)
-                .SetInvokeUri(joinUri));
+            builder.AddButton(new ToastButton()
+                .SetContent(Translator.CalendarEventDetails_JoinOnline)
+                .SetImageUri(GetNotificationIconUri("calendar-join"))
+                .SetProtocolActivation(joinUri));
         }
 
-        builder.SetAudioUri(new Uri("ms-winsoundevent:Notification.Reminder"));
-
         var tag = $"calendar-reminder-{calendarItem.Id:N}-{reminderDurationInSeconds}";
-        ShowNotification(builder, tag);
+        ShowToast(builder, ToastTargetApp.Calendar, tag);
 
         return Task.CompletedTask;
+    }
+
+    private async Task CreateSingleNotificationAsync(MailCopy mailItem)
+    {
+        var builder = new ToastContentBuilder();
+
+        var avatarThumbnail = await _thumbnailService.GetThumbnailAsync(mailItem.FromAddress, awaitLoad: true);
+        if (!string.IsNullOrEmpty(avatarThumbnail))
+        {
+            var tempFile = await Windows.Storage.ApplicationData.Current.TemporaryFolder.CreateFileAsync(
+                $"{Guid.NewGuid()}.png",
+                Windows.Storage.CreationCollisionOption.ReplaceExisting);
+
+            await using (var stream = await tempFile.OpenStreamForWriteAsync())
+            {
+                var bytes = Convert.FromBase64String(avatarThumbnail);
+                await stream.WriteAsync(bytes);
+            }
+
+            builder.AddAppLogoOverride(new Uri($"ms-appdata:///temp/{tempFile.Name}"), ToastGenericAppLogoCrop.Default);
+        }
+
+        builder.AddCustomTimeStamp(mailItem.CreationDate.ToLocalTime());
+        builder.AddText(mailItem.FromName);
+        builder.AddText(mailItem.Subject);
+        builder.AddText(mailItem.PreviewText);
+        builder.AddArgument(Constants.ToastMailUniqueIdKey, mailItem.UniqueId.ToString());
+        builder.AddArgument(Constants.ToastActionKey, MailOperation.Navigate);
+        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
+        builder.AddButton(GetMarkAsReadButton(mailItem.UniqueId));
+        builder.AddButton(GetDeleteButton(mailItem.UniqueId));
+        builder.AddButton(GetArchiveButton(mailItem.UniqueId));
+        builder.AddAudio(new ToastAudio
+        {
+            Src = new Uri("ms-winsoundevent:Notification.Mail")
+        });
+
+        ShowToast(builder, ToastTargetApp.Mail, mailItem.UniqueId.ToString());
+    }
+
+    private void UpdateBadge(string applicationId, int? badgeCount)
+    {
+        var badgeUpdater = BadgeUpdateManager.CreateBadgeUpdaterForApplication(applicationId);
+
+        if (!badgeCount.HasValue || badgeCount.Value <= 0)
+        {
+            badgeUpdater.Clear();
+            return;
+        }
+
+        XmlDocument badgeXml = BadgeUpdateManager.GetTemplateContent(BadgeTemplateType.BadgeNumber);
+        if (badgeXml.SelectSingleNode("/badge") is not XmlElement badgeElement)
+        {
+            badgeUpdater.Clear();
+            return;
+        }
+
+        badgeElement.SetAttribute("value", badgeCount.Value.ToString());
+        badgeUpdater.Update(new BadgeNotification(badgeXml));
     }
 
     private static string GetCalendarReminderContext(DateTime localStart, DateTime nowLocal)
@@ -370,22 +366,55 @@ public class NotificationBuilder : INotificationBuilder
         return string.Format(Translator.CalendarReminder_StartedMinutesAgo, minutesAgo);
     }
 
-    private static AppNotificationBuilder CreateBuilder(AppNotificationScenario scenario = AppNotificationScenario.Default)
-        => new AppNotificationBuilder().SetScenario(scenario);
+    private ToastButton GetArchiveButton(Guid mailUniqueId)
+        => new ToastButton()
+            .SetContent(Translator.MailOperation_Archive)
+            .SetImageUri(GetNotificationIconUri("mail-archive"))
+            .SetBackgroundActivation()
+            .AddArgument(Constants.ToastMailUniqueIdKey, mailUniqueId.ToString())
+            .AddArgument(Constants.ToastActionKey, MailOperation.Archive)
+            .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
 
-    private static void ShowNotification(AppNotificationBuilder builder, string? tag = null)
+    private ToastButton GetDeleteButton(Guid mailUniqueId)
+        => new ToastButton()
+            .SetContent(Translator.MailOperation_Delete)
+            .SetImageUri(GetNotificationIconUri("mail-delete"))
+            .SetBackgroundActivation()
+            .AddArgument(Constants.ToastMailUniqueIdKey, mailUniqueId.ToString())
+            .AddArgument(Constants.ToastActionKey, MailOperation.SoftDelete)
+            .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
+
+    private ToastButton GetMarkAsReadButton(Guid mailUniqueId)
+        => new ToastButton()
+            .SetContent(Translator.MailOperation_MarkAsRead)
+            .SetImageUri(GetNotificationIconUri("mail-markread"))
+            .SetBackgroundActivation()
+            .AddArgument(Constants.ToastMailUniqueIdKey, mailUniqueId.ToString())
+            .AddArgument(Constants.ToastActionKey, MailOperation.MarkAsRead)
+            .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
+
+    private static void ShowToast(ToastContentBuilder builder, ToastTargetApp targetApp, string? tag = null)
     {
-        var notification = builder.BuildNotification();
+        var toastNotification = new ToastNotification(builder.GetToastContent().GetXml());
 
         if (!string.IsNullOrWhiteSpace(tag))
-            notification.Tag = tag;
+        {
+            toastNotification.Tag = tag;
+        }
 
-        AppNotificationManager.Default.Show(notification);
+        ToastNotificationManager
+            .CreateToastNotifier(AppEntryConstants.GetAppUserModelId(targetApp == ToastTargetApp.Calendar
+                ? WinoApplicationMode.Calendar
+                : WinoApplicationMode.Mail))
+            .Show(toastNotification);
     }
 
-    private Uri GetNotificationIconUri(string iconName)
+    private static Uri GetNotificationIconUri(string iconName)
+        => new($"{NotificationIconRootUri}{iconName}.png");
+
+    private enum ToastTargetApp
     {
-        // Keep the URI unqualified so Windows resolves the best matching theme/scale asset from the package.
-        return new($"{NotificationIconRootUri}{iconName}.png");
+        Mail,
+        Calendar
     }
 }

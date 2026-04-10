@@ -147,6 +147,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     private readonly ICalendarService _calendarService;
     private readonly INavigationService _navigationService;
     private readonly INativeAppService _nativeAppService;
+    private readonly INotificationBuilder _notificationBuilder;
     private readonly IPreferencesService _preferencesService;
     private readonly IWinoRequestDelegator _winoRequestDelegator;
     private readonly IMailDialogService _dialogService;
@@ -157,6 +158,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     private bool _subscriptionsAttached;
     private CancellationTokenSource _pageLifetimeCts = new();
     private long _pageLifetimeVersion;
+    private bool _isCalendarBadgeClearedForPageLifetime;
     private Dictionary<Guid, CalendarItemViewModel> _loadedCalendarItems = new();
 
     [ObservableProperty]
@@ -172,6 +174,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         IKeyPressService keyPressService,
         INativeAppService nativeAppService,
         IAccountCalendarStateService accountCalendarStateService,
+        INotificationBuilder notificationBuilder,
         IPreferencesService preferencesService,
         IWinoRequestDelegator winoRequestDelegator,
         IMailDialogService dialogService,
@@ -183,6 +186,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         _calendarService = calendarService;
         _navigationService = navigationService;
         _nativeAppService = nativeAppService;
+        _notificationBuilder = notificationBuilder;
         _preferencesService = preferencesService;
         _winoRequestDelegator = winoRequestDelegator;
         _dialogService = dialogService;
@@ -360,6 +364,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     {
         CancelPendingOperations();
         _pageLifetimeCts = new CancellationTokenSource();
+        _isCalendarBadgeClearedForPageLifetime = false;
         Interlocked.Increment(ref _pageLifetimeVersion);
     }
 
@@ -614,6 +619,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     {
         var lifetimeVersion = CurrentPageLifetimeVersion;
         var hasLoadingLock = await WaitForCalendarLoadingLockAsync(lifetimeVersion).ConfigureAwait(false);
+        var loadSucceeded = false;
 
         if (!hasLoadingLock)
             return;
@@ -666,6 +672,8 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
                     DisplayDetailsCalendarItemViewModel = null;
                 }
             }).ConfigureAwait(false);
+
+            loadSucceeded = true;
         }
         catch (OperationCanceledException)
         {
@@ -685,6 +693,12 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             ReleaseCalendarLoadingLock();
             await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () => IsCalendarEnabled = true).ConfigureAwait(false);
         }
+
+        if (loadSucceeded && !_isCalendarBadgeClearedForPageLifetime && IsPageActive(lifetimeVersion))
+        {
+            await _notificationBuilder.ClearCalendarTaskbarBadgeAsync().ConfigureAwait(false);
+            _isCalendarBadgeClearedForPageLifetime = true;
+        }
     }
 
     public Task ReloadCurrentVisibleRangeAsync()
@@ -692,6 +706,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         if (CurrentVisibleRange == null)
             return Task.CompletedTask;
 
+        RefreshSettings();
         return ApplyDisplayRequestAsync(new CalendarDisplayRequest(CurrentVisibleRange.DisplayType, CurrentVisibleRange.AnchorDate), forceReload: true);
     }
 

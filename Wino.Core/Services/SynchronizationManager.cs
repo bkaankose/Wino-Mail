@@ -465,13 +465,15 @@ public class SynchronizationManager : ISynchronizationManager
         try
         {
             var result = await synchronizer.SynchronizeCalendarEventsAsync(options, linkedCancellationTokenSource.Token);
+            var downloadedEventCount = result.DownloadedEvents?.Count() ?? 0;
 
             _logger.Information("Calendar synchronization completed for account {AccountId} with state {State}",
                               options.AccountId, result.CompletedState);
 
-            // TODO: Create notifications for new calendar events when INotificationBuilder supports it
-            // if (result.DownloadedEvents?.Any() ?? false)
-            //     await _notificationBuilder.CreateCalendarNotificationsAsync(result.DownloadedEvents);
+            if (downloadedEventCount > 0)
+            {
+                await _notificationBuilder.AddCalendarTaskbarBadgeCountAsync(downloadedEventCount).ConfigureAwait(false);
+            }
 
             return result;
         }

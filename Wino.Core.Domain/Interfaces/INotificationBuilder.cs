@@ -21,6 +21,16 @@ public interface INotificationBuilder
     Task UpdateTaskbarIconBadgeAsync();
 
     /// <summary>
+    /// Adds to the calendar app-entry badge count for newly downloaded events.
+    /// </summary>
+    Task AddCalendarTaskbarBadgeCountAsync(int newlyDownloadedCount);
+
+    /// <summary>
+    /// Clears the calendar app-entry badge.
+    /// </summary>
+    Task ClearCalendarTaskbarBadgeAsync();
+
+    /// <summary>
     /// Removes the toast notification for a specific mail by unique id.
     /// </summary>
     void RemoveNotification(Guid mailUniqueId);
