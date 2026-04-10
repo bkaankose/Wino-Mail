@@ -468,14 +468,33 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     }
 
     /// <summary>
-    /// Creates test notifications for the currently selected items.
+    /// Sends a new message to synchronize current folder.
     /// </summary>
     [RelayCommand]
-    private async Task SyncFolder()
+    private void SyncFolder()
     {
-        if (!CanSynchronize || MailCollection.SelectedItemsCount == 0) return;
+        if (!CanSynchronize) return;
 
-        await _notificationBuilder.CreateNotificationsAsync(MailCollection.SelectedItems.Select(a => a.MailCopy));
+        // Only synchronize listed folders.
+
+        // When doing linked inbox sync, we need to save the sync id to report progress back only once.
+        // Otherwise, we will report progress for each folder and that's what we don't want.
+
+        trackingSynchronizationId = Guid.NewGuid();
+        completedTrackingSynchronizationCount = 0;
+
+        foreach (var folder in ActiveFolder.HandlingFolders)
+        {
+            var options = new MailSynchronizationOptions()
+            {
+                AccountId = folder.MailAccountId,
+                Type = MailSynchronizationType.CustomFolders,
+                SynchronizationFolderIds = [folder.Id],
+                GroupedSynchronizationTrackingId = trackingSynchronizationId
+            };
+
+            Messenger.Send(new NewMailSynchronizationRequested(options));
+        }
     }
 
     [RelayCommand]

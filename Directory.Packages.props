@@ -32,6 +32,7 @@
     <PackageVersion Include="Microsoft.Identity.Client.Broker" Version="4.83.3" />
     <PackageVersion Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.83.3" />
     <PackageVersion Include="Microsoft.NETCore.UniversalWindowsPlatform" Version="6.2.14" />
+    <PackageVersion Include="Microsoft.Windows.SDK.BuildTools.MSIX" Version="1.7.260316102" />
     <PackageVersion Include="Microsoft.Xaml.Behaviors.WinUI.Managed" Version="3.0.1" />
     <PackageVersion Include="Wino.Mail.Contracts" Version="1.0.18" />
     <PackageVersion Include="MimeKit" Version="4.15.1" />
@@ -39,7 +40,7 @@
     <PackageVersion Include="Nito.AsyncEx" Version="5.1.2" />
     <PackageVersion Include="Nito.AsyncEx.Tasks" Version="5.1.2" />
     <PackageVersion Include="NodaTime" Version="3.3.1" />
-    <PackageVersion Include="Sentry.Serilog" Version="6.3.0" />
+    <PackageVersion Include="Sentry.Serilog" Version="6.3.1" />
     <PackageVersion Include="Serilog" Version="4.3.1" />
     <PackageVersion Include="Serilog.Exceptions" Version="8.4.0" />
     <PackageVersion Include="Serilog.Sinks.Debug" Version="3.0.0" />
@@ -70,7 +71,7 @@
     <PackageVersion Include="Microsoft.WindowsAppSDK" Version="2.0.250930001-experimental1" />
     <PackageVersion Include="WinUIEx" Version="2.9.0" />
     <!-- Testing packages -->
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.4.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <PackageVersion Include="FluentAssertions" Version="8.9.0" />
