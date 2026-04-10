@@ -23,21 +23,22 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Extensions;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
-using Wino.Mail.ViewModels.Messages;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels;
 
 public partial class ComposePageViewModel : MailBaseViewModel,
-    IRecipient<ReaderItemRefreshRequestedEvent>,
     IRecipient<SynchronizationActionsAdded>,
     IRecipient<SynchronizationActionsCompleted>,
     IRecipient<AccountSynchronizerStateChanged>
 {
+    public event EventHandler CloseRequested;
+
     private static readonly TimeSpan LocalDraftRetryGracePeriod = TimeSpan.FromSeconds(15);
 
     public Func<Task<string>> GetHTMLBodyFunction;
+    public Func<string, Task> RenderHtmlBodyAsyncFunc { get; set; }
 
     public override async Task KeyboardShortcutHook(KeyboardShortcutTriggerDetails args)
     {
@@ -529,9 +530,9 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         }
     }
 
-    public async void Receive(ReaderItemRefreshRequestedEvent message)
+    public async Task RefreshDraftAsync(MailItemViewModel draftMailItemViewModel)
     {
-        if (message.MailItemViewModel == null || !message.MailItemViewModel.IsDraft) return;
+        if (draftMailItemViewModel == null || !draftMailItemViewModel.IsDraft) return;
 
         // Save current draft before switching.
         await UpdateMimeChangesAsync();
@@ -542,7 +543,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         IncludedAttachments.Clear();
 
         // Set the new draft item and prepare it.
-        CurrentMailDraftItem = message.MailItemViewModel;
+        CurrentMailDraftItem = draftMailItemViewModel;
         await UpdatePendingOperationStateAsync();
         await LoadEmailTemplatesAsync();
         await TryPrepareComposeAsync(true);
@@ -591,7 +592,6 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     {
         base.RegisterRecipients();
 
-        Messenger.Register<ReaderItemRefreshRequestedEvent>(this);
         Messenger.Register<SynchronizationActionsAdded>(this);
         Messenger.Register<SynchronizationActionsCompleted>(this);
         Messenger.Register<AccountSynchronizerStateChanged>(this);
@@ -601,7 +601,6 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     {
         base.UnregisterRecipients();
 
-        Messenger.Unregister<ReaderItemRefreshRequestedEvent>(this);
         Messenger.Unregister<SynchronizationActionsAdded>(this);
         Messenger.Unregister<SynchronizationActionsCompleted>(this);
         Messenger.Unregister<AccountSynchronizerStateChanged>(this);
@@ -754,9 +753,12 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                 IsCCBCCVisible = true;
 
             Subject = replyingMime.Subject;
-
-            Messenger.Send(new CreateNewComposeMailRequested(renderModel));
         });
+
+        if (RenderHtmlBodyAsyncFunc != null)
+        {
+            await ExecuteUIThread(async () => await RenderHtmlBodyAsyncFunc(renderModel.RenderHtml));
+        }
     }
 
     private void LoadAttachments()
@@ -889,6 +891,19 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                 NotifyComposeActionStateChanged();
             });
         }
+    }
+
+    protected override async void OnMailRemoved(MailCopy removedMail, EntityUpdateSource source)
+    {
+        base.OnMailRemoved(removedMail, source);
+
+        if (CurrentMailDraftItem?.MailCopy == null)
+            return;
+
+        if (CurrentMailDraftItem.MailCopy.UniqueId != removedMail.UniqueId)
+            return;
+
+        await ExecuteUIThread(() => CloseRequested?.Invoke(this, EventArgs.Empty));
     }
 
     private void NotifyComposeActionStateChanged()

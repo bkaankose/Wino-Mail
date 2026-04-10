@@ -16,9 +16,12 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Printing;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.Models;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Extensions;
+using Wino.Mail.WinUI.Interfaces;
+using Wino.Mail.WinUI.Models;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
 using Wino.Views.Abstract;
@@ -27,8 +30,7 @@ namespace Wino.Views.Mail;
 
 public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     IAiHtmlActionHost,
-    IRecipient<HtmlRenderingRequested>,
-    IRecipient<CancelRenderingContentRequested>,
+    IPopoutClient,
     IRecipient<ApplicationThemeChanged>
 {
     private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>()!;
@@ -39,6 +41,11 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     private bool? _lastAppliedDarkTheme;
     private TaskCompletionSource<bool> DOMLoadedTask = new TaskCompletionSource<bool>();
     private string _currentRenderedHtml = string.Empty;
+    private bool _isPoppedOut;
+
+    public bool SupportsPopOut => !_isPoppedOut;
+    public event EventHandler<PopOutRequestedEventArgs>? PopOutRequested;
+    public event EventHandler<PopoutHostActionRequestedEventArgs>? HostActionRequested;
 
     public WebView2 GetWebView() => Chromium;
     public bool GetAiActionsToggleVisible(bool isHidden) => !isHidden;
@@ -57,7 +64,32 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         {
             return Chromium.CoreWebView2.PrintToPdfAsync(path, null).AsTask();
         });
+        ViewModel.RenderHtmlAsyncFunc = RenderInternalAsync;
+        ViewModel.ClearRenderedHtmlAsyncFunc = ClearRenderedContentAsync;
+        ViewModel.CloseRequested += ViewModel_CloseRequested;
+        ViewModel.ComposeRequested += ViewModel_ComposeRequested;
 
+    }
+
+    public HostedPopoutDescriptor GetPopoutDescriptor()
+    {
+        var title = string.IsNullOrWhiteSpace(ViewModel.Subject) ? Translator.MailItemNoSubject : ViewModel.Subject;
+        var uniquePart = ViewModel.CurrentMailFileId?.ToString("N") ?? title;
+        return new HostedPopoutDescriptor(
+            $"mail-rendering-{uniquePart}",
+            title,
+            1080,
+            780,
+            640,
+            480,
+            nameof(MailRenderingPage));
+    }
+
+    public void OnPopoutStateChanged(bool isPoppedOut)
+    {
+        _isPoppedOut = isPoppedOut;
+        Bindings.Update();
+        RendererCommandBar.InvalidateCommands();
     }
 
     private async Task<PrintingResult> DirectPrintAsync(WebView2PrintSettingsModel settings)
@@ -132,20 +164,14 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     private void DOMContentLoaded(CoreWebView2 sender, CoreWebView2DOMContentLoadedEventArgs args) => DOMLoadedTask.TrySetResult(true);
 
-    async void IRecipient<HtmlRenderingRequested>.Receive(HtmlRenderingRequested message)
+    public async Task ClearRenderedContentAsync()
     {
-        // Ensure WebView2 is fully initialized before first render.
-        // OnNavigatedTo starts initialization fire-and-forget; this await
-        // guarantees the core is ready before we invoke any script.
         await EnsureChromiumInitializedAsync();
 
-        if (message == null || string.IsNullOrEmpty(message.HtmlBody))
+        if (!isRenderingInProgress)
         {
             await RenderInternalAsync(string.Empty);
-            return;
         }
-
-        await RenderInternalAsync(message.HtmlBody);
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
@@ -157,8 +183,11 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
         ViewModel.SaveHTMLasPDFFunc = null;
         ViewModel.DirectPrintFuncAsync = null;
+        ViewModel.RenderHtmlAsyncFunc = null;
+        ViewModel.ClearRenderedHtmlAsyncFunc = null;
         _currentRenderedHtml = string.Empty;
         RendererCommandBar.AIActionsEnabledChanged -= RendererCommandBar_AIActionsEnabledChanged;
+        RendererCommandBar.PopOutClicked -= RendererCommandBar_PopOutClicked;
         RendererCommandBar.IsAIActionsEnabled = false;
         ReaderAiActionsPanel.CancelPendingOperation();
 
@@ -176,6 +205,11 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         cancellationToken.ThrowIfCancellationRequested();
         await RenderInternalAsync(html);
         cancellationToken.ThrowIfCancellationRequested();
+    }
+
+    public Task RefreshMailItemAsync(MailItemViewModel mailItemViewModel)
+    {
+        return ViewModel.RefreshMailItemAsync(mailItemViewModel);
     }
 
     private async void RendererCommandBar_AIActionsEnabledChanged(object? sender, bool isEnabled)
@@ -275,11 +309,13 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
-        // Initialize WebView2 wiring before base navigation invokes ViewModel rendering.
-        // Base.OnNavigatedTo triggers VM.OnNavigatedTo, which can send HtmlRenderingRequested.
         DOMLoadedTask = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        ViewModel.RenderHtmlAsyncFunc = RenderInternalAsync;
+        ViewModel.ClearRenderedHtmlAsyncFunc = ClearRenderedContentAsync;
         RendererCommandBar.AIActionsEnabledChanged -= RendererCommandBar_AIActionsEnabledChanged;
         RendererCommandBar.AIActionsEnabledChanged += RendererCommandBar_AIActionsEnabledChanged;
+        RendererCommandBar.PopOutClicked -= RendererCommandBar_PopOutClicked;
+        RendererCommandBar.PopOutClicked += RendererCommandBar_PopOutClicked;
         RendererCommandBar.IsAIActionsEnabled = false;
         Chromium.CoreWebView2Initialized -= CoreWebViewInitialized;
         Chromium.CoreWebView2Initialized += CoreWebViewInitialized;
@@ -314,17 +350,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         Chromium.CoreWebView2.NewWindowRequested += WindowRequested;
 
         Chromium.Source = new Uri("https://wino.mail/reader.html");
-    }
-
-
-    async void IRecipient<CancelRenderingContentRequested>.Receive(CancelRenderingContentRequested message)
-    {
-        await EnsureChromiumInitializedAsync();
-
-        if (!isRenderingInProgress)
-        {
-            await RenderInternalAsync(string.Empty);
-        }
     }
 
     private async void WebViewNavigationStarting(WebView2 sender, CoreWebView2NavigationStartingEventArgs args)
@@ -397,7 +422,8 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     private void InternetAddressClicked(object sender, RoutedEventArgs e)
     {
-        if (sender is HyperlinkButton hyperlinkButton)
+        // TODO: Popped out windows don't have xaml root assigned properly, therefore ShowAt will fail.
+        if (sender is HyperlinkButton hyperlinkButton && !_isPoppedOut)
         {
             hyperlinkButton.ContextFlyout.ShowAt(hyperlinkButton);
         }
@@ -409,6 +435,21 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         {
             ViewModel.CopyClipboardCommand.Execute(address);
         }
+    }
+
+    private void RendererCommandBar_PopOutClicked(object? sender, EventArgs e)
+    {
+        PopOutRequested?.Invoke(this, PopOutRequestedEventArgs.Default);
+    }
+
+    private void ViewModel_CloseRequested(object? sender, EventArgs e)
+    {
+        HostActionRequested?.Invoke(this, new PopoutHostActionRequestedEventArgs(PopoutHostActionKind.CloseHostedInstance));
+    }
+
+    private void ViewModel_ComposeRequested(object? sender, ComposeDraftRequestedEventArgs e)
+    {
+        HostActionRequested?.Invoke(this, new PopoutHostActionRequestedEventArgs(PopoutHostActionKind.PopOutNextNavigation, typeof(ComposePage), e.DraftUniqueId));
     }
 
     private void OpenAttachment_Click(object sender, RoutedEventArgs e)
@@ -431,8 +472,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     {
         base.RegisterRecipients();
 
-        WeakReferenceMessenger.Default.Register<HtmlRenderingRequested>(this);
-        WeakReferenceMessenger.Default.Register<CancelRenderingContentRequested>(this);
         WeakReferenceMessenger.Default.Register<ApplicationThemeChanged>(this);
     }
 
@@ -440,8 +479,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     {
         base.UnregisterRecipients();
 
-        WeakReferenceMessenger.Default.Unregister<HtmlRenderingRequested>(this);
-        WeakReferenceMessenger.Default.Unregister<CancelRenderingContentRequested>(this);
         WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
     }
 

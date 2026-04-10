@@ -25,6 +25,8 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Extensions;
+using Wino.Mail.WinUI.Interfaces;
+using Wino.Mail.WinUI.Models;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
 using Wino.Views.Abstract;
@@ -33,13 +35,19 @@ namespace Wino.Views.Mail;
 
 public sealed partial class ComposePage : ComposePageAbstract,
     IAiHtmlActionHost,
-    IRecipient<CreateNewComposeMailRequested>,
-    IRecipient<ApplicationThemeChanged>,
-    IRecipient<ReaderItemRefreshRequestedEvent>
+    IPopoutClient,
+    IRecipient<ApplicationThemeChanged>
 {
+    private bool _isPoppedOut;
+
+    public bool SupportsPopOut => !_isPoppedOut;
+    public event EventHandler<PopOutRequestedEventArgs>? PopOutRequested;
+    public event EventHandler<PopoutHostActionRequestedEventArgs>? HostActionRequested;
+
     public WebView2 GetWebView() => WebViewEditor.GetUnderlyingWebView();
 
     public Visibility GetAiActionsToggleVisibility(bool isHidden) => isHidden ? Visibility.Collapsed : Visibility.Visible;
+    public Visibility GetPopOutButtonVisibility() => SupportsPopOut ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility GetAiActionsPanelVisibility(bool? isChecked, bool isHidden)
         => !isHidden && isChecked == true ? Visibility.Visible : Visibility.Collapsed;
@@ -49,6 +57,28 @@ public sealed partial class ComposePage : ComposePageAbstract,
     public ComposePage()
     {
         InitializeComponent();
+        ViewModel.CloseRequested += ViewModel_CloseRequested;
+    }
+
+    public HostedPopoutDescriptor GetPopoutDescriptor()
+    {
+        var title = string.IsNullOrWhiteSpace(ViewModel.Subject) ? Translator.Draft : ViewModel.Subject;
+        var draftId = ViewModel.CurrentMailDraftItem?.MailCopy?.UniqueId.ToString("N") ?? title;
+
+        return new HostedPopoutDescriptor(
+            $"compose-{draftId}",
+            title,
+            1180,
+            860,
+            760,
+            600,
+            nameof(ComposePage));
+    }
+
+    public void OnPopoutStateChanged(bool isPoppedOut)
+    {
+        _isPoppedOut = isPoppedOut;
+        Bindings.Update();
     }
 
     public WinoIconGlyph GetEditorThemeIcon(bool isDarkMode) => isDarkMode ? WinoIconGlyph.LightEditor : WinoIconGlyph.DarkEditor;
@@ -277,16 +307,22 @@ public sealed partial class ComposePage : ComposePageAbstract,
         _disposables.Add(WebViewEditor);
 
         ViewModel.GetHTMLBodyFunction = WebViewEditor.GetHtmlBodyAsync;
-    }
-
-    async void IRecipient<CreateNewComposeMailRequested>.Receive(CreateNewComposeMailRequested message)
-    {
-        await WebViewEditor.RenderHtmlAsync(message.RenderModel.RenderHtml);
+        ViewModel.RenderHtmlBodyAsyncFunc = WebViewEditor.RenderHtmlAsync;
     }
 
     private void ShowCCBCCClicked(object sender, RoutedEventArgs e)
     {
         ViewModel.IsCCBCCVisible = true;
+    }
+
+    private void PopOutButton_Click(object sender, RoutedEventArgs e)
+    {
+        PopOutRequested?.Invoke(this, PopOutRequestedEventArgs.Default);
+    }
+
+    private void ViewModel_CloseRequested(object? sender, EventArgs e)
+    {
+        HostActionRequested?.Invoke(this, new PopoutHostActionRequestedEventArgs(PopoutHostActionKind.CloseHostedInstance));
     }
 
     private async void ComposeAiActionsToggleButton_Checked(object sender, RoutedEventArgs e)
@@ -333,12 +369,13 @@ public sealed partial class ComposePage : ComposePageAbstract,
         WebViewEditor.IsEditorDarkMode = message.IsUnderlyingThemeDark;
     }
 
-    void IRecipient<ReaderItemRefreshRequestedEvent>.Receive(ReaderItemRefreshRequestedEvent message)
+    public async Task RefreshDraftAsync(MailItemViewModel draftMailItemViewModel)
     {
-        if (message.MailItemViewModel == null || !message.MailItemViewModel.IsDraft) return;
+        if (draftMailItemViewModel == null || !draftMailItemViewModel.IsDraft) return;
 
         // Reset the initial focus flag so ToBox gets focus for the new draft.
         isInitialFocusHandled = false;
+        await ViewModel.RefreshDraftAsync(draftMailItemViewModel);
     }
 
     private void ImportanceClicked(object sender, RoutedEventArgs e)
@@ -423,6 +460,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
         FocusManager.GotFocus -= GlobalFocusManagerGotFocus;
         ComposeAiActionsPanel.CancelPendingOperation();
         await ViewModel.UpdateMimeChangesAsync();
+        ViewModel.RenderHtmlBodyAsyncFunc = null;
 
         DisposeDisposables();
     }
@@ -496,18 +534,14 @@ public sealed partial class ComposePage : ComposePageAbstract,
     {
         base.RegisterRecipients();
 
-        WeakReferenceMessenger.Default.Register<CreateNewComposeMailRequested>(this);
         WeakReferenceMessenger.Default.Register<ApplicationThemeChanged>(this);
-        WeakReferenceMessenger.Default.Register<ReaderItemRefreshRequestedEvent>(this);
     }
 
     protected override void UnregisterRecipients()
     {
         base.UnregisterRecipients();
 
-        WeakReferenceMessenger.Default.Unregister<CreateNewComposeMailRequested>(this);
         WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
-        WeakReferenceMessenger.Default.Unregister<ReaderItemRefreshRequestedEvent>(this);
     }
 
     // TODO: Save mime on closing the app.

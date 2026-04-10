@@ -172,6 +172,14 @@
                                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE945;" />
                                 </AppBarToggleButton.Icon>
                             </AppBarToggleButton>
+                            <AppBarButton
+                                Click="PopOutButton_Click"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_PopOut}"
+                                Visibility="{x:Bind GetPopOutButtonVisibility(), Mode=OneWay}">
+                                <AppBarButton.Icon>
+                                    <coreControls:WinoFontIcon Icon="OpenInNewWindow" />
+                                </AppBarButton.Icon>
+                            </AppBarButton>
                             <AppBarButton Click="ToggleEditorThemeClicked" ToolTipService.ToolTip="{x:Bind GetEditorThemeToolTip(WebViewEditor.IsEditorDarkMode), Mode=OneWay}">
                                 <AppBarButton.Icon>
                                     <coreControls:WinoFontIcon Icon="{x:Bind GetEditorThemeIcon(WebViewEditor.IsEditorDarkMode), Mode=OneWay}" />

@@ -28,8 +28,10 @@ using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls.ListView;
 using Wino.Mail.WinUI.Extensions;
+using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
+using Wino.Mail.WinUI.Services;
 using Wino.MenuFlyouts.Context;
 using Wino.Messaging.Client.Mails;
 using Wino.Views.Abstract;
@@ -48,12 +50,16 @@ public sealed partial class MailListPage : MailListPageAbstract,
     IRecipient<ActiveMailItemChangedEvent>,
     IRecipient<SelectMailItemContainerEvent>,
     IRecipient<DisposeRenderingFrameRequested>,
+    IHostedPopoutSource,
     ITitleBarSearchHost
 {
     private const double RENDERING_COLUMN_MIN_WIDTH = 375;
     private const int SELECTION_SETTLE_DELAY_MS = 120;
     private const int RENDERING_FRAME_RELEASE_DELAY_MS = 2000;
     private int _idleNavigationRequestVersion = 0;
+    private IPopoutClient? _activePopoutClient;
+    private readonly Dictionary<FrameworkElement, HostedContentPopoutWindow> _hostedPopoutWindows = [];
+    private PendingHostedPopoutNavigation? _pendingHostedPopoutNavigation;
 
     private IStatePersistanceService StatePersistenceService { get; } = WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception($"Can't resolve {nameof(KeyPressService)}");
     private IKeyPressService KeyPressService { get; } = WinoApplication.Current.Services.GetService<IKeyPressService>() ?? throw new Exception($"Can't resolve {nameof(KeyPressService)}");
@@ -69,6 +75,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
     public MailListPage()
     {
         InitializeComponent();
+        RenderingFrame.Navigated += RenderingFrame_Navigated;
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -101,6 +108,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         base.OnNavigatedFrom(e);
 
         InvalidatePendingIdleNavigation();
+        DetachPopoutClient();
 
         this.Bindings.StopTracking();
 
@@ -325,7 +333,10 @@ public sealed partial class MailListPage : MailListPageAbstract,
                     PrepareRenderingPageWebViewTransition();
 
                     // Dispose existing HTML content from rendering page webview.
-                    WeakReferenceMessenger.Default.Send(new CancelRenderingContentRequested());
+                    if (RenderingFrame.Content is MailRenderingPage renderingPage)
+                    {
+                        _ = renderingPage.ClearRenderedContentAsync();
+                    }
                 }
                 else if (IsComposingPageActive())
                 {
@@ -359,6 +370,55 @@ public sealed partial class MailListPage : MailListPageAbstract,
     private bool IsRenderingPageActive() => RenderingFrame.Content is MailRenderingPage;
     private bool IsComposingPageActive() => RenderingFrame.Content is ComposePage;
 
+    private void RenderingFrame_Navigated(object sender, NavigationEventArgs e)
+    {
+        AttachPopoutClient(RenderingFrame.Content as IPopoutClient);
+
+        if (_pendingHostedPopoutNavigation != null
+            && TryGetPendingHostedPopoutTarget(RenderingFrame.Content, _pendingHostedPopoutNavigation, out var hostedContent))
+        {
+            _ = ContinuePendingHostedPopoutNavigationAsync(hostedContent, _pendingHostedPopoutNavigation);
+        }
+    }
+
+    private void AttachPopoutClient(IPopoutClient? client)
+    {
+        if (ReferenceEquals(_activePopoutClient, client))
+            return;
+
+        DetachPopoutClient();
+
+        _activePopoutClient = client;
+        if (_activePopoutClient != null)
+        {
+            _activePopoutClient.PopOutRequested += ActivePopoutClient_PopOutRequested;
+            _activePopoutClient.HostActionRequested += ActivePopoutClient_HostActionRequested;
+        }
+    }
+
+    private void DetachPopoutClient()
+    {
+        if (_activePopoutClient != null)
+        {
+            _activePopoutClient.PopOutRequested -= ActivePopoutClient_PopOutRequested;
+            _activePopoutClient.HostActionRequested -= ActivePopoutClient_HostActionRequested;
+            _activePopoutClient = null;
+        }
+    }
+
+    private async void ActivePopoutClient_PopOutRequested(object? sender, PopOutRequestedEventArgs e)
+    {
+        await HostedContentPopoutCoordinator.PopOutCurrentContentAsync(this);
+    }
+
+    private void ActivePopoutClient_HostActionRequested(object? sender, PopoutHostActionRequestedEventArgs e)
+    {
+        if (sender is FrameworkElement content)
+        {
+            HandleHostedClientAction(content, e);
+        }
+    }
+
     private void InvalidatePendingIdleNavigation()
     {
         unchecked
@@ -378,7 +438,10 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
         if (IsRenderingPageActive())
         {
-            WeakReferenceMessenger.Default.Send(new CancelRenderingContentRequested());
+            if (RenderingFrame.Content is MailRenderingPage renderingPage)
+            {
+                _ = renderingPage.ClearRenderedContentAsync();
+            }
         }
 
         await Task.Delay(RENDERING_FRAME_RELEASE_DELAY_MS);
@@ -926,4 +989,125 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
         return Task.CompletedTask;
     }
+
+    public bool CanPopOutCurrentContent()
+    {
+        return RenderingFrame.Content is FrameworkElement
+               && RenderingFrame.Content is IPopoutClient client
+               && client.SupportsPopOut;
+    }
+
+    public FrameworkElement? GetCurrentHostedContent()
+    {
+        return RenderingFrame.Content as FrameworkElement;
+    }
+
+    public HostedPopoutDescriptor CreatePopoutDescriptor(IPopoutClient client)
+    {
+        return client.GetPopoutDescriptor();
+    }
+
+    public FrameworkElement DetachHostedContent()
+    {
+        if (RenderingFrame.Content is not FrameworkElement content)
+            throw new InvalidOperationException("RenderingFrame does not host detachable content.");
+
+        InvalidatePendingIdleNavigation();
+        DetachPopoutClient();
+        RenderingFrame.Content = null;
+        ViewModel.NavigationService.Navigate(WinoPage.IdlePage, null, NavigationReferenceFrame.RenderingFrame, NavigationTransitionType.None);
+
+        return content;
+    }
+
+    public void OnHostedContentPoppedOut(FrameworkElement content, HostedContentPopoutWindow window, HostedPopoutDescriptor descriptor)
+    {
+        if (content is IPopoutClient client)
+        {
+            client.HostActionRequested -= ActivePopoutClient_HostActionRequested;
+            client.HostActionRequested += ActivePopoutClient_HostActionRequested;
+        }
+
+        _hostedPopoutWindows[content] = window;
+        _ = ViewModel.MailCollection.UnselectAllAsync();
+        UpdateAdaptiveness();
+    }
+
+    public void OnHostedPopoutClosed(FrameworkElement content, HostedPopoutDescriptor descriptor)
+    {
+        if (_hostedPopoutWindows.Remove(content) && content is IPopoutClient hostedClient)
+        {
+            hostedClient.HostActionRequested -= ActivePopoutClient_HostActionRequested;
+        }
+
+        if (_pendingHostedPopoutNavigation?.SourceContent == content)
+        {
+            _pendingHostedPopoutNavigation = null;
+        }
+
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (content is IPopoutClient client)
+            {
+                client.OnPopoutStateChanged(false);
+            }
+
+            WindowCleanupHelper.CleanupObject(content);
+        });
+    }
+
+    private void HandleHostedClientAction(FrameworkElement content, PopoutHostActionRequestedEventArgs args)
+    {
+        if (!_hostedPopoutWindows.TryGetValue(content, out var hostedWindow))
+            return;
+
+        switch (args.ActionKind)
+        {
+            case PopoutHostActionKind.CloseHostedInstance:
+                hostedWindow.Close();
+                break;
+            case PopoutHostActionKind.PopOutNextNavigation when args.TargetPageType != null:
+                _pendingHostedPopoutNavigation = new PendingHostedPopoutNavigation(content, hostedWindow, args.TargetPageType, args.TargetMailUniqueId);
+                break;
+        }
+    }
+
+    private static bool TryGetPendingHostedPopoutTarget(object? currentContent, PendingHostedPopoutNavigation pendingHostedNavigation, out FrameworkElement hostedContent)
+    {
+        hostedContent = null!;
+
+        if (currentContent is not FrameworkElement currentFrameworkElement || currentFrameworkElement.GetType() != pendingHostedNavigation.TargetPageType)
+            return false;
+
+        if (pendingHostedNavigation.TargetMailUniqueId.HasValue
+            && currentFrameworkElement is ComposePage composePage
+            && composePage.ViewModel.CurrentMailDraftItem?.MailCopy?.UniqueId != pendingHostedNavigation.TargetMailUniqueId.Value)
+        {
+            return false;
+        }
+
+        hostedContent = currentFrameworkElement;
+        return true;
+    }
+
+    private async Task ContinuePendingHostedPopoutNavigationAsync(FrameworkElement content, PendingHostedPopoutNavigation pendingHostedNavigation)
+    {
+        if (!ReferenceEquals(_pendingHostedPopoutNavigation, pendingHostedNavigation))
+            return;
+
+        _pendingHostedPopoutNavigation = null;
+
+        var didPopOut = await HostedContentPopoutCoordinator.PopOutCurrentContentAsync(this);
+
+        if (didPopOut)
+        {
+            pendingHostedNavigation.SourceWindow.Close();
+        }
+    }
+
+    private sealed record PendingHostedPopoutNavigation(
+        FrameworkElement SourceContent,
+        HostedContentPopoutWindow SourceWindow,
+        Type TargetPageType,
+        Guid? TargetMailUniqueId);
 }

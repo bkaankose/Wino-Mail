@@ -26,7 +26,7 @@ using Wino.Core.Domain.Models.Printing;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
-using Wino.Mail.ViewModels.Messages;
+using Wino.Mail.ViewModels.Models;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.UI;
 using IMailService = Wino.Core.Domain.Interfaces.IMailService;
@@ -34,10 +34,12 @@ using IMailService = Wino.Core.Domain.Interfaces.IMailService;
 namespace Wino.Mail.ViewModels;
 
 public partial class MailRenderingPageViewModel : MailBaseViewModel,
-    IRecipient<ReaderItemRefreshRequestedEvent>,
     IRecipient<ThumbnailAdded>,
     ITransferProgress // For listening IMAP message download progress.
 {
+    public event EventHandler CloseRequested;
+    public event EventHandler<ComposeDraftRequestedEventArgs> ComposeRequested;
+
     private readonly IMailDialogService _dialogService;
     private readonly IUnderlyingThemeService _underlyingThemeService;
 
@@ -58,8 +60,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     // Func to get WebView2 to save current HTML as PDF to given location.
     // Used in 'Save as' and 'Print' functionality.
     public Func<string, Task<bool>> SaveHTMLasPDFFunc { get; set; }
-
     public Func<WebView2PrintSettingsModel, Task<PrintingResult>> DirectPrintFuncAsync { get; set; }
+    public Func<string, Task> RenderHtmlAsyncFunc { get; set; }
+    public Func<Task> ClearRenderedHtmlAsyncFunc { get; set; }
 
     #region Properties
 
@@ -319,6 +322,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
                 var draftPreparationRequest = new DraftPreparationRequest(initializedMailItemViewModel.MailCopy.AssignedAccount, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason, initializedMailItemViewModel.MailCopy);
 
                 await _requestDelegator.ExecuteAsync(draftPreparationRequest);
+                ComposeRequested?.Invoke(this, new ComposeDraftRequestedEventArgs(draftMailCopy.UniqueId));
 
             }
             else if (initializedMailItemViewModel != null)
@@ -362,8 +366,10 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         initializedMimeMessageInformation = null;
         CurrentMailItemDisplayInformation = null;
 
-        // Dispose existing content first.
-        Messenger.Send(new CancelRenderingContentRequested());
+        if (ClearRenderedHtmlAsyncFunc != null)
+        {
+            await ExecuteUIThread(async () => await ClearRenderedHtmlAsyncFunc());
+        }
 
         // This page can be accessed for 2 purposes.
         // 1. Rendering a mail item when the user selects.
@@ -509,8 +515,6 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
             CurrentRenderModel = _mimeFileService.GetMailRenderModel(message, messagePath, renderingOptions);
 
-            Messenger.Send(new HtmlRenderingRequested(CurrentRenderModel.RenderHtml));
-
             foreach (var attachment in CurrentRenderModel.Attachments)
             {
                 Attachments.Add(new MailAttachmentViewModel(attachment));
@@ -520,6 +524,11 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
             StatePersistenceService.IsReadingMail = true;
         });
+
+        if (RenderHtmlAsyncFunc != null)
+        {
+            await ExecuteUIThread(async () => await RenderHtmlAsyncFunc(CurrentRenderModel.RenderHtml));
+        }
     }
 
     private async Task<List<AccountContactViewModel>> GetAccountContacts(InternetAddressList internetAddresses)
@@ -658,6 +667,19 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         await ExecuteUIThread(() => { InitializeCommandBarItems(); });
     }
 
+    protected override async void OnMailRemoved(MailCopy removedMail, EntityUpdateSource source)
+    {
+        base.OnMailRemoved(removedMail, source);
+
+        if (initializedMailItemViewModel?.MailCopy == null)
+            return;
+
+        if (initializedMailItemViewModel.MailCopy.UniqueId != removedMail.UniqueId)
+            return;
+
+        await ExecuteUIThread(() => CloseRequested?.Invoke(this, EventArgs.Empty));
+    }
+
     [RelayCommand]
     private async Task OpenAttachmentAsync(MailAttachmentViewModel attachmentViewModel)
     {
@@ -794,13 +816,13 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     // For upload.
     void ITransferProgress.Report(long bytesTransferred) { }
 
-    public async void Receive(ReaderItemRefreshRequestedEvent message)
+    public async Task RefreshMailItemAsync(MailItemViewModel mailItemViewModel)
     {
-        if (message.MailItemViewModel == null || message.MailItemViewModel.IsDraft) return;
+        if (mailItemViewModel == null || mailItemViewModel.IsDraft) return;
 
         try
         {
-            await RenderAsync(message.MailItemViewModel, renderCancellationTokenSource.Token);
+            await RenderAsync(mailItemViewModel, renderCancellationTokenSource.Token);
         }
         catch (OperationCanceledException)
         {
@@ -907,7 +929,6 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     {
         base.RegisterRecipients();
 
-        Messenger.Register<ReaderItemRefreshRequestedEvent>(this);
         Messenger.Register<ThumbnailAdded>(this);
     }
 
@@ -915,7 +936,6 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     {
         base.UnregisterRecipients();
 
-        Messenger.Unregister<ReaderItemRefreshRequestedEvent>(this);
         Messenger.Unregister<ThumbnailAdded>(this);
     }
 }

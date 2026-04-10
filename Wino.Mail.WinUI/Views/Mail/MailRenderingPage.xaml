@@ -272,8 +272,10 @@
                     IsAIActionsPaneToggleVisible="{x:Bind GetAiActionsToggleVisible(ViewModel.PreferencesService.IsAiActionsPanelHidden), Mode=OneWay}"
                     IsEditorThemeDark="{x:Bind ViewModel.IsDarkWebviewRenderer, Mode=TwoWay}"
                     IsEditorThemeToggleVisible="True"
+                    IsPopOutButtonVisible="{x:Bind SupportsPopOut, Mode=OneWay}"
                     ItemInvokedCommand="{x:Bind ViewModel.OperationClickedCommand}"
-                    MenuItems="{x:Bind ViewModel.MenuItems, Mode=OneWay}">
+                    MenuItems="{x:Bind ViewModel.MenuItems, Mode=OneWay}"
+                    PopOutClicked="RendererCommandBar_PopOutClicked">
                     <coreControls:OperationCommandBar.Content>
                         <Grid Padding="0,5">
                             <Grid.ColumnDefinitions>

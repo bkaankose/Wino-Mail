@@ -23,6 +23,7 @@ public sealed partial class OperationCommandBar : CommandBar
     private const string MailOperationTemplateKey = "OperationCommandBarMailOperationTemplate";
     private const string FolderOperationTemplateKey = "OperationCommandBarFolderOperationTemplate";
     private const string AIActionsTemplateKey = "OperationCommandBarAIActionsTemplate";
+    private const string PopOutTemplateKey = "OperationCommandBarThemeToggleTemplate";
     private const string ThemeToggleTemplateKey = "OperationCommandBarThemeToggleTemplate";
     private const string SeparatorTemplateKey = "OperationCommandBarSeparatorTemplate";
 
@@ -47,7 +48,11 @@ public sealed partial class OperationCommandBar : CommandBar
     [GeneratedDependencyProperty]
     public partial bool IsEditorThemeToggleVisible { get; set; }
 
+    [GeneratedDependencyProperty]
+    public partial bool IsPopOutButtonVisible { get; set; }
+
     public event EventHandler<bool>? AIActionsEnabledChanged;
+    public event EventHandler? PopOutClicked;
 
     public OperationCommandBar()
     {
@@ -58,7 +63,6 @@ public sealed partial class OperationCommandBar : CommandBar
         OverflowButtonVisibility = CommandBarOverflowButtonVisibility.Auto;
 
         Loaded += OnLoaded;
-        Unloaded += OnUnloaded;
         DynamicOverflowItemsChanging += OperationCommandBar_DynamicOverflowItemsChanging;
     }
 
@@ -100,14 +104,14 @@ public sealed partial class OperationCommandBar : CommandBar
         RefreshCommands();
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e)
+    partial void OnIsPopOutButtonVisibleChanged(bool newValue)
     {
         RefreshCommands();
     }
 
-    private void OnUnloaded(object sender, RoutedEventArgs e)
+    private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        ClearGeneratedCommands();
+        RefreshCommands();
     }
 
     private void OperationCommandBar_DynamicOverflowItemsChanging(CommandBar sender, DynamicOverflowItemsChangingEventArgs args)
@@ -216,6 +220,11 @@ public sealed partial class OperationCommandBar : CommandBar
             PrimaryCommands.Add(CreateAIActionsToggleButton());
         }
 
+        if (IsPopOutButtonVisible)
+        {
+            PrimaryCommands.Add(CreatePopOutButton());
+        }
+
         if (IsEditorThemeToggleVisible)
         {
             PrimaryCommands.Add(CreateThemeToggleButton());
@@ -266,6 +275,7 @@ public sealed partial class OperationCommandBar : CommandBar
                 case AppBarButton button:
                     button.Click -= OperationButton_Click;
                     button.Click -= ThemeButton_Click;
+                    button.Click -= PopOutButton_Click;
                     break;
                 case AppBarToggleButton toggleButton:
                     toggleButton.ClearValue(AppBarToggleButton.IsCheckedProperty);
@@ -356,6 +366,16 @@ public sealed partial class OperationCommandBar : CommandBar
         return button;
     }
 
+    private AppBarButton CreatePopOutButton()
+    {
+        var button = (AppBarButton)LoadCommandBarElementTemplate(
+            PopOutTemplateKey,
+            new OperationCommandBarThemeItemViewModel(Translator.Buttons_PopOut, WinoIconGlyph.OpenInNewWindow));
+
+        button.Click += PopOutButton_Click;
+        return button;
+    }
+
     private void OperationButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is AppBarButton button && button.Tag is IMenuOperation operation)
@@ -367,6 +387,11 @@ public sealed partial class OperationCommandBar : CommandBar
     private void ThemeButton_Click(object sender, RoutedEventArgs e)
     {
         IsEditorThemeDark = !IsEditorThemeDark;
+    }
+
+    private void PopOutButton_Click(object sender, RoutedEventArgs e)
+    {
+        PopOutClicked?.Invoke(this, EventArgs.Empty);
     }
 
     private object? FindTemplateResource(string key)
@@ -428,6 +453,11 @@ public sealed partial class OperationCommandBar : CommandBar
         OverflowButtonVisibility = SecondaryCommands.Count > 0
             ? CommandBarOverflowButtonVisibility.Visible
             : CommandBarOverflowButtonVisibility.Auto;
+    }
+
+    public void InvalidateCommands()
+    {
+        RefreshCommands();
     }
 
     private sealed class SeparatorCommandBarItemViewModel;

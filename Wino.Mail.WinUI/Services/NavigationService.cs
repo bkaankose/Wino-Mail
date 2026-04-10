@@ -381,7 +381,10 @@ public class NavigationService : NavigationServiceBase, INavigationService
                         && parameter is MailItemViewModel mailItemViewModel
                         && page != WinoPage.ComposePage)
                     {
-                        WeakReferenceMessenger.Default.Send(new ReaderItemRefreshRequestedEvent(mailItemViewModel));
+                        if (listingFrame.Content is MailRenderingPage renderingPage)
+                        {
+                            _ = renderingPage.RefreshMailItemAsync(mailItemViewModel);
+                        }
                     }
                     else if (listingFrame.Content != null
                         && listingFrame.Content.GetType() == GetPageType(WinoPage.ComposePage)
@@ -390,7 +393,10 @@ public class NavigationService : NavigationServiceBase, INavigationService
                     {
                         // ComposePage is already active and we're switching to another draft.
                         // Reuse existing ComposePage and WebView2 instead of navigating.
-                        WeakReferenceMessenger.Default.Send(new ReaderItemRefreshRequestedEvent(composeDraftViewModel));
+                        if (listingFrame.Content is ComposePage composePage)
+                        {
+                            _ = composePage.RefreshDraftAsync(composeDraftViewModel);
+                        }
                     }
                     else if (listingFrame.Content != null
                         && listingFrame.Content.GetType() == GetPageType(WinoPage.IdlePage)

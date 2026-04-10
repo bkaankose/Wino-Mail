@@ -176,12 +176,11 @@
                     <coreControls:OperationCommandBar
                         HorizontalAlignment="Left"
                         DefaultLabelPosition="Collapsed"
-                        IsEnabled="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.MailCollection.SelectedItemsCount), Mode=OneWay}"
                         IsAIActionsPaneToggleVisible="False"
+                        IsEnabled="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.MailCollection.SelectedItemsCount), Mode=OneWay}"
                         ItemInvokedCommand="{x:Bind ViewModel.ExecuteTopBarActionCommand}"
                         MenuItems="{x:Bind ViewModel.ActionItems, Mode=OneWay}"
-                        OverflowButtonVisibility="Auto">
-                    </coreControls:OperationCommandBar>
+                        OverflowButtonVisibility="Auto" />
                 </Grid>
 
                 <!--  Pivot + Sync + Multi Select  -->
@@ -359,7 +358,7 @@
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Stretch"
                         toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
-                        toolkitExt:ScrollViewerExtensions.VerticalScrollBarMargin="0"
+                        toolkitExt:ScrollViewerExtensions.VerticalScrollBarMargin="-6"
                         CanDragItems="True"
                         ChoosingItemContainer="WinoListViewChoosingItemContainer"
                         IsItemClickEnabled="True"
@@ -377,7 +376,7 @@
                         </listview:WinoListView.ItemContainerTransitions>
                         <listview:WinoListView.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <ItemsStackPanel AreStickyGroupHeadersEnabled="True" GroupPadding="10,10,10,0" />
+                                <ItemsStackPanel AreStickyGroupHeadersEnabled="True" GroupPadding="4,0,4,4" />
                             </ItemsPanelTemplate>
                         </listview:WinoListView.ItemsPanel>
                         <listview:WinoListView.Resources>
@@ -488,7 +487,7 @@
         <Grid
             x:Name="RenderingGrid"
             Grid.Column="1"
-            Margin="7,0,0,0">
+            Margin="0,3,0,0">
             <!--  Mail Rendering Frame  -->
             <Frame x:Name="RenderingFrame" IsNavigationStackEnabled="False" />
 
