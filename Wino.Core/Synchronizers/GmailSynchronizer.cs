@@ -2133,6 +2133,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             IsDraft = isDraft,
             HasAttachments = gmailMessage.Payload?.Parts?.Any(p => !string.IsNullOrEmpty(p.Filename)) ?? false,
             IsRead = !isUnread,
+            IsReadReceiptRequested = HasReadReceiptRequest(gmailMessage.Payload?.Headers),
             IsFlagged = isFlagged,
             IsFocused = isFocused,
             InReplyTo = MailHeaderExtensions.StripAngleBrackets(gmailMessage.Payload?.Headers?.FirstOrDefault(h => h.Name.Equals("In-Reply-To", StringComparison.OrdinalIgnoreCase))?.Value),
@@ -2180,6 +2181,9 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         if (string.IsNullOrEmpty(copy.MessageId))
             copy.MessageId = MailHeaderExtensions.NormalizeMessageId(mime.Headers[HeaderId.MessageId]);
+
+        if (!copy.IsReadReceiptRequested)
+            copy.IsReadReceiptRequested = mime.HasReadReceiptRequest();
 
         if (string.IsNullOrEmpty(copy.InReplyTo))
             copy.InReplyTo = MailHeaderExtensions.NormalizeMessageId(mime.InReplyTo);
@@ -2262,6 +2266,17 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         // If no angle brackets, assume the whole value is the email with no name
         var emailOnly = headerValue.Trim();
         return ("", emailOnly);
+    }
+
+    private static bool HasReadReceiptRequest(IList<MessagePartHeader> headers)
+        => headers?.Any(h => h.Name.Equals(Domain.Constants.DispositionNotificationToHeader, StringComparison.OrdinalIgnoreCase)
+                             && !string.IsNullOrWhiteSpace(h.Value)) == true;
+
+    private static bool LooksLikeReadReceipt(IList<MessagePartHeader> headers)
+    {
+        var contentType = headers?.FirstOrDefault(h => h.Name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase))?.Value;
+        return !string.IsNullOrWhiteSpace(contentType)
+               && contentType.Contains("disposition-notification", StringComparison.OrdinalIgnoreCase);
     }
 
     private static IReadOnlyList<AccountContact> ExtractContactsFromGmailMessage(Message message, MimeMessage mimeMessage)
@@ -2381,7 +2396,9 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         // Initial sync metadata flow does not include MIME, but calendar invitations need MIME
         // for date rendering and invitation-to-calendar mapping.
-        if (mimeMessage == null && baseMailCopy?.ItemType == MailItemType.CalendarInvitation && !string.IsNullOrEmpty(message?.Id))
+        if (mimeMessage == null &&
+            (baseMailCopy?.ItemType == MailItemType.CalendarInvitation || LooksLikeReadReceipt(message?.Payload?.Headers)) &&
+            !string.IsNullOrEmpty(message?.Id))
         {
             try
             {
@@ -2396,7 +2413,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             }
             catch (Exception ex)
             {
-                _logger.Warning(ex, "Failed to fetch raw MIME for calendar invitation {MessageId}", message.Id);
+                _logger.Warning(ex, "Failed to fetch raw MIME for Gmail message {MessageId}", message.Id);
             }
         }
 

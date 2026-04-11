@@ -234,6 +234,15 @@
                                 Orientation="Horizontal"
                                 Spacing="2">
 
+                                <TextBlock
+                                    Margin="0,0,4,0"
+                                    VerticalAlignment="Center"
+                                    FontSize="11"
+                                    Opacity="0.8"
+                                    Text="{x:Bind MailItemInformation.ReadReceiptDisplayText, Mode=OneWay}"
+                                    TextTrimming="CharacterEllipsis"
+                                    Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(MailItemInformation.ReadReceiptDisplayText), Mode=OneWay}" />
+
                                 <ContentPresenter
                                     x:Name="HasAttachmentContent"
                                     x:Load="{x:Bind MailItemInformation.HasAttachments, Mode=OneWay}"

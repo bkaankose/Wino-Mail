@@ -31,6 +31,7 @@ public class MailService : BaseDatabaseService, IMailService
     private readonly ISignatureService _signatureService;
     private readonly IMimeFileService _mimeFileService;
     private readonly IPreferencesService _preferencesService;
+    private readonly ISentMailReceiptService _sentMailReceiptService;
 
     private readonly ILogger _logger = Log.ForContext<MailService>();
 
@@ -40,7 +41,8 @@ public class MailService : BaseDatabaseService, IMailService
                        IAccountService accountService,
                        ISignatureService signatureService,
                        IMimeFileService mimeFileService,
-                       IPreferencesService preferencesService) : base(databaseService)
+                       IPreferencesService preferencesService,
+                       ISentMailReceiptService sentMailReceiptService) : base(databaseService)
     {
         _folderService = folderService;
         _contactService = contactService;
@@ -48,6 +50,7 @@ public class MailService : BaseDatabaseService, IMailService
         _signatureService = signatureService;
         _mimeFileService = mimeFileService;
         _preferencesService = preferencesService;
+        _sentMailReceiptService = sentMailReceiptService;
     }
 
     public async Task<(MailCopy draftMailCopy, string draftBase64MimeMessage)> CreateDraftAsync(Guid accountId, DraftCreationOptions draftCreationOptions)
@@ -363,6 +366,7 @@ public class MailService : BaseDatabaseService, IMailService
         // 5. Assign all properties synchronously from the pre-loaded in-memory caches - no DB calls here.
         AssignPropertiesFromCaches(mails, folderCache, accountCache, contactCache);
         mails.RemoveAll(m => m.AssignedAccount == null || m.AssignedFolder == null);
+        await _sentMailReceiptService.PopulateReceiptStatesAsync(mails).ConfigureAwait(false);
 
         if (!options.CreateThreads || mails.Count == 0)
             return [.. mails];
@@ -417,6 +421,8 @@ public class MailService : BaseDatabaseService, IMailService
             AssignPropertiesFromCaches(threadMails, folderCache, accountCache, contactCache);
             mails.AddRange(threadMails.Where(m => m.AssignedAccount != null && m.AssignedFolder != null));
         }
+
+        await _sentMailReceiptService.PopulateReceiptStatesAsync(mails).ConfigureAwait(false);
 
         cancellationToken.ThrowIfCancellationRequested();
         return [.. mails];
@@ -568,6 +574,7 @@ public class MailService : BaseDatabaseService, IMailService
         mailCopy.AssignedAccount = account;
         mailCopy.AssignedFolder = folder;
         mailCopy.SenderContact = await GetSenderContactForAccountAsync(account, mailCopy.FromAddress).ConfigureAwait(false);
+        await _sentMailReceiptService.PopulateReceiptStateAsync(mailCopy).ConfigureAwait(false);
     }
 
     public async Task<MailCopy> GetSingleMailItemWithoutFolderAssignmentAsync(string mailCopyId)
@@ -843,6 +850,8 @@ public class MailService : BaseDatabaseService, IMailService
         var insertMailTask = InsertMailAsync(mailCopy);
 
         await Task.WhenAll(mimeSaveTask, insertMailTask).ConfigureAwait(false);
+        await _sentMailReceiptService.TrackSentMailAsync(mailCopy, mimeMessage).ConfigureAwait(false);
+        await _sentMailReceiptService.ProcessIncomingReceiptAsync(mailCopy, mimeMessage).ConfigureAwait(false);
     }
 
     public async Task CreateMailAsyncEx(Guid accountId, NewMailItemPackage package)
@@ -919,6 +928,8 @@ public class MailService : BaseDatabaseService, IMailService
             mailCopy.UniqueId = existingCopyItem.UniqueId;
 
             await UpdateMailAsync(mailCopy).ConfigureAwait(false);
+            await _sentMailReceiptService.TrackSentMailAsync(mailCopy, mimeMessage).ConfigureAwait(false);
+            await _sentMailReceiptService.ProcessIncomingReceiptAsync(mailCopy, mimeMessage).ConfigureAwait(false);
 
             return false;
         }
@@ -933,6 +944,8 @@ public class MailService : BaseDatabaseService, IMailService
             }
 
             await InsertMailAsync(mailCopy).ConfigureAwait(false);
+            await _sentMailReceiptService.TrackSentMailAsync(mailCopy, mimeMessage).ConfigureAwait(false);
+            await _sentMailReceiptService.ProcessIncomingReceiptAsync(mailCopy, mimeMessage).ConfigureAwait(false);
 
             return true;
         }

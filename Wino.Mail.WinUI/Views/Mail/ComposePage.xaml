@@ -310,6 +310,19 @@
                                     </Viewbox>
                                 </ToggleButton.Content>
                             </ToggleButton>
+                            <ToggleButton
+                                Margin="8,0,0,0"
+                                IsChecked="{x:Bind ViewModel.IsReadReceiptRequested, Mode=TwoWay}"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_RequestReadReceipt}">
+                                <ToggleButton.Content>
+                                    <Viewbox
+                                        Width="16"
+                                        Height="16"
+                                        Margin="0,0,4,0">
+                                        <PathIcon Data="M10.75 2.5a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.5 9.25a8.25 8.25 0 1 1 15.036 4.71l2.507 2.507a.75.75 0 1 1-1.06 1.06l-2.507-2.507A8.25 8.25 0 0 1 2.5 9.25Zm8.25-3.5a.75.75 0 0 1 .75.75v2.44l1.78 1.187a.75.75 0 0 1-.832 1.248l-2.114-1.41a.75.75 0 0 1-.334-.624V6.5a.75.75 0 0 1 .75-.75Z" />
+                                    </Viewbox>
+                                </ToggleButton.Content>
+                            </ToggleButton>
                         </StackPanel>
                     </controls1:EditorTabbedCommandBarControl.OptionsCustomContent>
                 </controls1:EditorTabbedCommandBarControl>

@@ -24,4 +24,7 @@ public interface IMailItemDisplayInformation : INotifyPropertyChanged
     bool ThumbnailUpdatedEvent { get; }
     bool IsThreadExpanded { get; }
     AccountContact SenderContact { get; }
+    bool HasReadReceiptTracking { get; }
+    bool IsReadReceiptAcknowledged { get; }
+    string ReadReceiptDisplayText { get; }
 }

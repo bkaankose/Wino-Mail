@@ -90,6 +90,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         "Flag",
         "Importance",
         "IsRead",
+        "IsReadReceiptRequested",
         "IsDraft",
         "ReceivedDateTime",
         "HasAttachments",
@@ -401,7 +402,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                         {
                             // For drafts and calendar invitations, download MIME during initial sync like delta sync.
                             var itemType = Account.IsCalendarAccessGranted ? message.GetMailItemType() : MailItemType.Mail;
-                            if (folder.SpecialFolderType == SpecialFolderType.Draft || itemType == MailItemType.CalendarInvitation)
+                            if (ShouldDownloadMimeForMessage(message, folder, itemType))
                             {
                                 var draftPackages = await CreateNewMailPackagesAsync(message, folder, cancellationToken).ConfigureAwait(false);
 
@@ -592,24 +593,47 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
                         if (message != null)
                         {
-                            // Create MailCopy from metadata only
-                            var mailCopy = await CreateMailCopyFromMessageAsync(message, folder).ConfigureAwait(false);
+                            var itemType = Account.IsCalendarAccessGranted ? message.GetMailItemType() : MailItemType.Mail;
 
-                            if (mailCopy != null)
+                            if (ShouldDownloadMimeForMessage(message, folder, itemType))
                             {
-                                // Create package without MIME
-                                var contacts = ExtractContactsFromOutlookMessage(message);
-                                var package = new NewMailItemPackage(mailCopy, null, folder.RemoteFolderId, contacts);
-                                bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+                                var packages = await CreateNewMailPackagesAsync(message, folder, cancellationToken).ConfigureAwait(false);
 
-                                if (isInserted)
+                                if (packages != null)
                                 {
-                                    downloadedIds.Add(mailCopy.Id);
-                                    _logger.Debug("Downloaded metadata for message {MailId} in folder {FolderName}", messageId, folder.FolderName);
+                                    foreach (var package in packages)
+                                    {
+                                        bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+
+                                        if (isInserted)
+                                        {
+                                            downloadedIds.Add(package.Copy.Id);
+                                            _logger.Debug("Downloaded MIME-backed message {MailId} in folder {FolderName}", messageId, folder.FolderName);
+                                        }
+                                    }
                                 }
-                                else
+                            }
+                            else
+                            {
+                                // Create MailCopy from metadata only
+                                var mailCopy = await CreateMailCopyFromMessageAsync(message, folder).ConfigureAwait(false);
+
+                                if (mailCopy != null)
                                 {
-                                    _logger.Warning("Failed to insert mail {MailId} for folder {FolderName}", messageId, folder.FolderName);
+                                    // Create package without MIME
+                                    var contacts = ExtractContactsFromOutlookMessage(message);
+                                    var package = new NewMailItemPackage(mailCopy, null, folder.RemoteFolderId, contacts);
+                                    bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+
+                                    if (isInserted)
+                                    {
+                                        downloadedIds.Add(mailCopy.Id);
+                                        _logger.Debug("Downloaded metadata for message {MailId} in folder {FolderName}", messageId, folder.FolderName);
+                                    }
+                                    else
+                                    {
+                                        _logger.Warning("Failed to insert mail {MailId} for folder {FolderName}", messageId, folder.FolderName);
+                                    }
                                 }
                             }
                         }
@@ -685,6 +709,21 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     /// Creates a MailCopy from an Outlook Message with metadata only (centralized method).
     /// This replaces the scattered CreateMinimalMailCopyAsync and AsMailCopy calls.
     /// </summary>
+    private static bool ShouldDownloadMimeForMessage(Message message, MailItemFolder folder, MailItemType itemType)
+        => folder.SpecialFolderType == SpecialFolderType.Draft
+           || itemType == MailItemType.CalendarInvitation
+           || LooksLikeReadReceipt(message);
+
+    private static bool LooksLikeReadReceipt(Message message)
+    {
+        var contentType = message?.InternetMessageHeaders?
+            .FirstOrDefault(h => string.Equals(h.Name, "Content-Type", StringComparison.OrdinalIgnoreCase))
+            ?.Value;
+
+        return !string.IsNullOrWhiteSpace(contentType)
+               && contentType.Contains("disposition-notification", StringComparison.OrdinalIgnoreCase);
+    }
+
     private async Task<MailCopy> CreateMailCopyFromMessageAsync(Message message, MailItemFolder assignedFolder)
     {
         if (message == null) return null;

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -104,6 +105,17 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
         get => MailCopy.IsDraft;
         set => SetProperty(MailCopy.IsDraft, value, MailCopy, (u, n) => u.IsDraft = n);
     }
+
+    public bool HasReadReceiptTracking => MailCopy.IsReadReceiptRequested;
+
+    public bool IsReadReceiptAcknowledged => MailCopy.ReadReceiptStatus == SentMailReceiptStatus.Acknowledged;
+
+    public string ReadReceiptDisplayText => MailCopy.ReadReceiptStatus switch
+    {
+        SentMailReceiptStatus.Acknowledged => Translator.MailReceiptStatus_Acknowledged,
+        SentMailReceiptStatus.Requested => Translator.MailReceiptStatus_Requested,
+        _ => string.Empty
+    };
 
     public string DraftId
     {
@@ -225,6 +237,7 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
             nameof(IsFocused) => MailCopyChangeFlags.IsFocused,
             nameof(IsRead) => MailCopyChangeFlags.IsRead,
             nameof(IsDraft) => MailCopyChangeFlags.IsDraft,
+            nameof(HasReadReceiptTracking) or nameof(IsReadReceiptAcknowledged) or nameof(ReadReceiptDisplayText) => MailCopyChangeFlags.ReadReceiptState,
             nameof(DraftId) => MailCopyChangeFlags.DraftId,
             nameof(Id) => MailCopyChangeFlags.Id,
             nameof(Subject) => MailCopyChangeFlags.Subject,
@@ -287,6 +300,10 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
             changedFlags |= SetIfChanged(MailCopy.AssignedAccount, source.AssignedAccount, value => MailCopy.AssignedAccount = value, MailCopyChangeFlags.AssignedAccount);
             changedFlags |= SetIfChanged(MailCopy.AssignedFolder, source.AssignedFolder, value => MailCopy.AssignedFolder = value, MailCopyChangeFlags.AssignedFolder);
             changedFlags |= SetIfChanged(MailCopy.UniqueId, source.UniqueId, value => MailCopy.UniqueId = value, MailCopyChangeFlags.UniqueId);
+            changedFlags |= SetIfChanged(MailCopy.IsReadReceiptRequested, source.IsReadReceiptRequested, value => MailCopy.IsReadReceiptRequested = value, MailCopyChangeFlags.ReadReceiptState);
+            changedFlags |= SetIfChanged(MailCopy.ReadReceiptStatus, source.ReadReceiptStatus, value => MailCopy.ReadReceiptStatus = value, MailCopyChangeFlags.ReadReceiptState);
+            changedFlags |= SetIfChanged(MailCopy.ReadReceiptAcknowledgedAtUtc, source.ReadReceiptAcknowledgedAtUtc, value => MailCopy.ReadReceiptAcknowledgedAtUtc = value, MailCopyChangeFlags.ReadReceiptState);
+            changedFlags |= SetIfChanged(MailCopy.ReadReceiptMessageUniqueId, source.ReadReceiptMessageUniqueId, value => MailCopy.ReadReceiptMessageUniqueId = value, MailCopyChangeFlags.ReadReceiptState);
         }
 
         changedFlags |= changeHint;
@@ -357,6 +374,13 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
 
         if ((changedFlags & MailCopyChangeFlags.IsDraft) != 0)
             Queue(nameof(IsDraft));
+
+        if ((changedFlags & MailCopyChangeFlags.ReadReceiptState) != 0)
+        {
+            Queue(nameof(HasReadReceiptTracking));
+            Queue(nameof(IsReadReceiptAcknowledged));
+            Queue(nameof(ReadReceiptDisplayText));
+        }
 
         if ((changedFlags & MailCopyChangeFlags.DraftId) != 0)
             Queue(nameof(DraftId));

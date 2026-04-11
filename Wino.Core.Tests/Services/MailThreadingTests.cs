@@ -230,6 +230,7 @@ public class MailThreadingTests : IAsyncLifetime
 
         var folderService = new FolderService(db, accountService);
         var contactService = new ContactService(db);
+        var sentMailReceiptService = new SentMailReceiptService(db, folderService, accountService);
 
         return new MailService(
             db,
@@ -238,6 +239,7 @@ public class MailThreadingTests : IAsyncLifetime
             accountService,
             signatureService.Object,
             mimeFileService.Object,
-            preferencesService.Object);
+            preferencesService.Object,
+            sentMailReceiptService);
     }
 }

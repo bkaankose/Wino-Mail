@@ -164,10 +164,13 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         public Guid? ContactPictureFileId => null;
         public bool ThumbnailUpdatedEvent => false;
         public bool IsThreadExpanded => false;
+        public bool HasReadReceiptTracking => true;
+        public bool IsReadReceiptAcknowledged => false;
+        public string ReadReceiptDisplayText => Translator.MailReceiptStatus_Requested;
         public AccountContact SenderContact => new()
         {
-            Address = "ava@contoso.com",
-            Name = "Ava Brooks"
+            Address = "hi@bkaan.dev",
+            Name = "Burak Kaan Köse"
         };
     }
 }

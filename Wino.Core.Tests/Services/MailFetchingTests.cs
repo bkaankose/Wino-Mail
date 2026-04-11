@@ -370,6 +370,7 @@ public class MailFetchingTests : IAsyncLifetime
 
         var folderService = new FolderService(db, accountService);
         var contactService = new ContactService(db);
+        var sentMailReceiptService = new SentMailReceiptService(db, folderService, accountService);
 
         return new MailService(
             db,
@@ -378,6 +379,7 @@ public class MailFetchingTests : IAsyncLifetime
             accountService,
             signatureService.Object,
             mimeFileService.Object,
-            preferencesService.Object);
+            preferencesService.Object,
+            sentMailReceiptService);
     }
 }

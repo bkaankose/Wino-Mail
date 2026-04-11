@@ -100,6 +100,12 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     /// </summary>
     public bool IsRead => ThreadEmails.All(e => e.IsRead);
 
+    public bool HasReadReceiptTracking => latestMailViewModel?.HasReadReceiptTracking ?? false;
+
+    public bool IsReadReceiptAcknowledged => latestMailViewModel?.IsReadReceiptAcknowledged ?? false;
+
+    public string ReadReceiptDisplayText => latestMailViewModel?.ReadReceiptDisplayText ?? string.Empty;
+
     /// <summary>
     /// Gets whether any email in this thread is a draft
     /// </summary>
@@ -177,6 +183,9 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     [NotifyPropertyChangedFor(nameof(IsFlagged))]
     [NotifyPropertyChangedFor(nameof(IsFocused))]
     [NotifyPropertyChangedFor(nameof(IsRead))]
+    [NotifyPropertyChangedFor(nameof(HasReadReceiptTracking))]
+    [NotifyPropertyChangedFor(nameof(IsReadReceiptAcknowledged))]
+    [NotifyPropertyChangedFor(nameof(ReadReceiptDisplayText))]
     [NotifyPropertyChangedFor(nameof(IsDraft))]
     [NotifyPropertyChangedFor(nameof(DraftId))]
     [NotifyPropertyChangedFor(nameof(Id))]
@@ -450,6 +459,13 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
 
         if ((changedFlags & MailCopyChangeFlags.IsRead) != 0 || changedFlags == MailCopyChangeFlags.All)
             Queue(nameof(IsRead));
+
+        if ((changedFlags & MailCopyChangeFlags.ReadReceiptState) != 0 || changedFlags == MailCopyChangeFlags.All)
+        {
+            Queue(nameof(HasReadReceiptTracking));
+            Queue(nameof(IsReadReceiptAcknowledged));
+            Queue(nameof(ReadReceiptDisplayText));
+        }
 
         if ((changedFlags & MailCopyChangeFlags.IsDraft) != 0 || changedFlags == MailCopyChangeFlags.All)
             Queue(nameof(IsDraft));
