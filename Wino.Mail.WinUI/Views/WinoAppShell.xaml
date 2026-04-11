@@ -66,37 +66,43 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <Grid>
-                        <Grid.RowDefinitions>
+                        <!--<Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="10" />
-                        </Grid.RowDefinitions>
+                        </Grid.RowDefinitions>-->
 
-                        <TextBlock
-                            x:Name="AccountNameTextblock"
-                            FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
-                            MaxLines="1"
-                            Style="{StaticResource BodyTextBlockStyle}"
-                            Text="{x:Bind AccountName, Mode=OneWay}"
-                            TextTrimming="CharacterEllipsis" />
 
-                        <TextBlock
-                            Grid.Row="1"
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            MaxLines="1"
-                            Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="{x:Bind Parameter.Address, Mode=OneWay}"
-                            TextTrimming="CharacterEllipsis" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock
+                                x:Name="AccountNameTextblock"
+                                FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
+                                MaxLines="1"
+                                Style="{StaticResource BodyTextBlockStyle}"
+                                Text="{x:Bind AccountName, Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis" />
 
-                        <ProgressBar
-                            Grid.Row="2"
-                            Height="3"
-                            Margin="0,4,0,0"
-                            IsIndeterminate="{x:Bind IsProgressIndeterminate, Mode=OneWay}"
-                            ShowError="False"
-                            ShowPaused="False"
-                            Visibility="{x:Bind IsSynchronizationProgressVisible, Mode=OneWay}"
-                            Value="{x:Bind SynchronizationProgressValue, Mode=OneWay}" />
+                            <TextBlock
+                                Grid.Row="1"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                MaxLines="1"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind Parameter.Address, Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis" />
+
+                            <ProgressBar
+                                Grid.Row="1"
+                                Height="3"
+                                Margin="0,4,0,0"
+                                VerticalAlignment="Bottom"
+                                IsIndeterminate="{x:Bind IsProgressIndeterminate, Mode=OneWay}"
+                                ShowError="False"
+                                ShowPaused="False"
+                                Visibility="{x:Bind IsSynchronizationProgressVisible, Mode=OneWay}"
+                                Value="{x:Bind SynchronizationProgressValue, Mode=OneWay}" />
+                        </StackPanel>
+
+
                     </Grid>
 
                     <Button
