@@ -174,7 +174,6 @@
 	<PackageReference Include="CommunityToolkit.Diagnostics" />
 	<PackageReference Include="CommunityToolkit.Mvvm" />
 	<PackageReference Include="CommunityToolkit.Labs.WinUI.DependencyPropertyGenerator" />
-    <PackageReference Include="CommunityToolkit.WinUI.Notifications" />
     <PackageReference Include="CommunityToolkit.WinUI.Animations" />
     <PackageReference Include="CommunityToolkit.WinUI.Controls.Segmented" />
     <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" />
