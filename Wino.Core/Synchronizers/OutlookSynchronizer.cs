@@ -2320,8 +2320,16 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
         // TODO: Maybe we can batch each calendar?
 
-        foreach (var calendar in localCalendars)
+        var totalCalendars = localCalendars.Count;
+        if (totalCalendars > 0)
         {
+            UpdateSyncProgress(totalCalendars, totalCalendars, Translator.SyncAction_SynchronizingCalendarEvents);
+        }
+
+        for (int i = 0; i < totalCalendars; i++)
+        {
+            var calendar = localCalendars[i];
+
             try
             {
                 bool isInitialSync = string.IsNullOrEmpty(calendar.SynchronizationDeltaToken);
@@ -2440,6 +2448,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
                     await _outlookChangeProcessor.UpdateCalendarDeltaSynchronizationToken(calendar.Id, deltaToken).ConfigureAwait(false);
                 }
+
+                UpdateSyncProgress(totalCalendars, totalCalendars - (i + 1), Translator.SyncAction_SynchronizingCalendarEvents);
             }
             catch (OperationCanceledException)
             {
@@ -2462,6 +2472,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
                 if (!errorContext.CanContinueSync)
                     throw;
+
+                UpdateSyncProgress(totalCalendars, totalCalendars - (i + 1), Translator.SyncAction_SynchronizingCalendarEvents);
             }
         }
 

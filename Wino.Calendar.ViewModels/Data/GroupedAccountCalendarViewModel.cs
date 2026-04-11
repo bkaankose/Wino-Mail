@@ -1,10 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Models.Synchronization;
 
 namespace Wino.Calendar.ViewModels.Data;
 
@@ -32,7 +33,7 @@ public partial class GroupedAccountCalendarViewModel : ObservableObject
         AccountCalendars.CollectionChanged += CalendarListUpdated;
     }
 
-    private void CalendarListUpdated(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    private void CalendarListUpdated(object sender, NotifyCollectionChangedEventArgs e)
     {
         if (e.Action == NotifyCollectionChangedAction.Add)
         {
@@ -59,13 +60,11 @@ public partial class GroupedAccountCalendarViewModel : ObservableObject
 
     private void CalendarPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (sender is AccountCalendarViewModel viewModel)
+        if (sender is AccountCalendarViewModel viewModel &&
+            e.PropertyName == nameof(AccountCalendarViewModel.IsChecked))
         {
-            if (e.PropertyName == nameof(AccountCalendarViewModel.IsChecked))
-            {
-                ManageIsCheckedState();
-                UpdateCalendarCheckedState(viewModel, viewModel.IsChecked, true);
-            }
+            ManageIsCheckedState();
+            UpdateCalendarCheckedState(viewModel, viewModel.IsChecked, true);
         }
     }
 
@@ -79,19 +78,54 @@ public partial class GroupedAccountCalendarViewModel : ObservableObject
     public partial string AccountColorHex { get; set; } = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanSynchronize), nameof(IsSynchronizationProgressVisible), nameof(IsProgressIndeterminate))]
     public partial bool IsSynchronizationInProgress { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SynchronizationProgress), nameof(SynchronizationProgressValue), nameof(IsProgressIndeterminate))]
+    public partial int TotalItemsToSync { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SynchronizationProgress), nameof(SynchronizationProgressValue), nameof(IsProgressIndeterminate))]
+    public partial int RemainingItemsToSync { get; set; }
 
     [ObservableProperty]
     public partial string SynchronizationStatus { get; set; } = string.Empty;
 
     public bool CanSynchronize => !IsSynchronizationInProgress;
     public bool IsSynchronizationProgressVisible => IsSynchronizationInProgress;
+    public bool IsProgressIndeterminate => IsSynchronizationInProgress && TotalItemsToSync <= 0;
 
-    private bool _isExternalPropChangeBlocked = false;
+    public double SynchronizationProgress
+    {
+        get
+        {
+            if (TotalItemsToSync <= 0)
+                return 0;
+
+            return ((double)(TotalItemsToSync - RemainingItemsToSync) / TotalItemsToSync) * 100;
+        }
+    }
+
+    public double SynchronizationProgressValue => SynchronizationProgress;
+
+    private bool _isExternalPropChangeBlocked;
+
+    public void ApplySynchronizationProgress(AccountSynchronizationProgress progress)
+    {
+        if (progress == null || progress.AccountId != Account.Id)
+            return;
+
+        IsSynchronizationInProgress = progress.IsInProgress;
+        TotalItemsToSync = progress.TotalUnits;
+        RemainingItemsToSync = progress.RemainingUnits;
+        SynchronizationStatus = progress.Status ?? string.Empty;
+    }
 
     private void ManageIsCheckedState()
     {
-        if (_isExternalPropChangeBlocked) return;
+        if (_isExternalPropChangeBlocked)
+            return;
 
         _isExternalPropChangeBlocked = true;
 
@@ -113,17 +147,13 @@ public partial class GroupedAccountCalendarViewModel : ObservableObject
 
     partial void OnIsCheckedStateChanged(bool? oldValue, bool? newValue)
     {
-        if (_isExternalPropChangeBlocked) return;
-
-        // Update is triggered by user on the three-state checkbox.
-        // We should not report all changes one by one.
+        if (_isExternalPropChangeBlocked)
+            return;
 
         _isExternalPropChangeBlocked = true;
 
         if (newValue == null)
         {
-            // Only primary calendars must be checked.
-
             foreach (var calendar in AccountCalendars)
             {
                 UpdateCalendarCheckedState(calendar, calendar.IsPrimary);
@@ -138,7 +168,6 @@ public partial class GroupedAccountCalendarViewModel : ObservableObject
         }
 
         _isExternalPropChangeBlocked = false;
-
         CollectiveSelectionStateChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -146,20 +175,15 @@ public partial class GroupedAccountCalendarViewModel : ObservableObject
     {
         var currentValue = accountCalendarViewModel.IsChecked;
 
-        if (currentValue == newValue && !ignoreValueCheck) return;
+        if (currentValue == newValue && !ignoreValueCheck)
+            return;
 
         accountCalendarViewModel.IsChecked = newValue;
 
-        // No need to report.
-        if (_isExternalPropChangeBlocked == true) return;
+        if (_isExternalPropChangeBlocked)
+            return;
 
         CalendarSelectionStateChanged?.Invoke(this, accountCalendarViewModel);
-    }
-
-    partial void OnIsSynchronizationInProgressChanged(bool value)
-    {
-        OnPropertyChanged(nameof(CanSynchronize));
-        OnPropertyChanged(nameof(IsSynchronizationProgressVisible));
     }
 
     public void UpdateAccount(MailAccount updatedAccount)

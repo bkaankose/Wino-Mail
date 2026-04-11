@@ -38,7 +38,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     IRecipient<MergedInboxRenamed>,
     IRecipient<LanguageChanged>,
     IRecipient<AccountMenuItemsReordered>,
-    IRecipient<AccountSynchronizerStateChanged>,
+    IRecipient<AccountSynchronizationProgressUpdatedMessage>,
     IRecipient<NavigateAppPreferencesRequested>,
     IRecipient<AccountFolderConfigurationUpdated>,
     IRecipient<AccountRemovedMessage>,
@@ -157,6 +157,24 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         });
     }
 
+    private static void ApplySynchronizationProgress(IAccountMenuItem accountMenuItem, SynchronizationProgressCategory category)
+    {
+        AccountSynchronizationProgress progress;
+
+        try
+        {
+            progress = SynchronizationManager.Instance.GetSynchronizationProgress(
+                accountMenuItem.HoldingAccounts.First().Id,
+                category);
+        }
+        catch (InvalidOperationException)
+        {
+            return;
+        }
+
+        accountMenuItem.ApplySynchronizationProgress(progress);
+    }
+
     private async Task LoadAccountsAsync()
     {
         // First clear all account menu items.
@@ -185,8 +203,12 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                 foreach (var mergedAccount in mergedAccounts)
                 {
                     initializedAccountIds.Add(mergedAccount.Id);
-                    mergedAccountMenuItem.SubMenuItems.Add(new AccountMenuItem(mergedAccount, mergedAccountMenuItem));
+                    var accountMenuItem = new AccountMenuItem(mergedAccount, mergedAccountMenuItem);
+                    ApplySynchronizationProgress(accountMenuItem, SynchronizationProgressCategory.Mail);
+                    mergedAccountMenuItem.SubMenuItems.Add(accountMenuItem);
                 }
+
+                mergedAccountMenuItem.RefreshSynchronizationProgress();
 
                 await ExecuteUIThread(() =>
                 {
@@ -196,9 +218,12 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             }
             else
             {
+                var accountMenuItem = new AccountMenuItem(account, null);
+                ApplySynchronizationProgress(accountMenuItem, SynchronizationProgressCategory.Mail);
+
                 await ExecuteUIThread(() =>
                 {
-                    MenuItems.Add(new AccountMenuItem(account, null));
+                    MenuItems.Add(accountMenuItem);
                 });
 
                 initializedAccountIds.Add(account.Id);
@@ -1194,17 +1219,19 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         UpdateFolderCollection(mailItemFolder);
     }
 
-    public async void Receive(AccountSynchronizerStateChanged message)
+    public async void Receive(AccountSynchronizationProgressUpdatedMessage message)
     {
-        var accountMenuItem = MenuItems.GetSpecificAccountMenuItem(message.AccountId);
+        var progress = message.Progress;
+        if (progress.Category != SynchronizationProgressCategory.Mail)
+            return;
+
+        var accountMenuItem = MenuItems.GetSpecificAccountMenuItem(progress.AccountId);
 
         if (accountMenuItem == null) return;
 
         await ExecuteUIThread(() =>
         {
-            accountMenuItem.TotalItemsToSync = message.TotalItemsToSync;
-            accountMenuItem.RemainingItemsToSync = message.RemainingItemsToSync;
-            accountMenuItem.SynchronizationStatus = message.SynchronizationStatus;
+            accountMenuItem.ApplySynchronizationProgress(progress);
 
             // If this account is part of a merged inbox, update the merged inbox progress as well
             if (accountMenuItem.ParentMenuItem is MergedAccountMenuItem mergedAccountMenuItem)
@@ -1231,7 +1258,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         Messenger.Register<MergedInboxRenamed>(this);
         Messenger.Register<LanguageChanged>(this);
         Messenger.Register<AccountMenuItemsReordered>(this);
-        Messenger.Register<AccountSynchronizerStateChanged>(this);
+        Messenger.Register<AccountSynchronizationProgressUpdatedMessage>(this);
         Messenger.Register<NavigateAppPreferencesRequested>(this);
         Messenger.Register<AccountFolderConfigurationUpdated>(this);
     }
@@ -1248,7 +1275,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         Messenger.Unregister<MergedInboxRenamed>(this);
         Messenger.Unregister<LanguageChanged>(this);
         Messenger.Unregister<AccountMenuItemsReordered>(this);
-        Messenger.Unregister<AccountSynchronizerStateChanged>(this);
+        Messenger.Unregister<AccountSynchronizationProgressUpdatedMessage>(this);
         Messenger.Unregister<NavigateAppPreferencesRequested>(this);
         Messenger.Unregister<AccountFolderConfigurationUpdated>(this);
     }

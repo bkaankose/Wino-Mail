@@ -42,6 +42,11 @@ public interface ISynchronizationManager
     bool IsAccountSynchronizing(Guid accountId);
 
     /// <summary>
+    /// Gets the latest centralized synchronization progress snapshot for the given account and category.
+    /// </summary>
+    AccountSynchronizationProgress GetSynchronizationProgress(Guid accountId, SynchronizationProgressCategory category);
+
+    /// <summary>
     /// Queues a mail action request to the corresponding account's synchronizer with optional synchronization triggering.
     /// </summary>
     Task QueueRequestAsync(IRequestBase request, Guid accountId, bool triggerSynchronization);

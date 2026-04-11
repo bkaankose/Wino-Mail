@@ -65,7 +65,13 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <StackPanel VerticalAlignment="Center">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="10" />
+                        </Grid.RowDefinitions>
+
                         <TextBlock
                             x:Name="AccountNameTextblock"
                             FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
@@ -75,22 +81,23 @@
                             TextTrimming="CharacterEllipsis" />
 
                         <TextBlock
+                            Grid.Row="1"
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             MaxLines="1"
                             Style="{StaticResource CaptionTextBlockStyle}"
                             Text="{x:Bind Parameter.Address, Mode=OneWay}"
-                            TextTrimming="CharacterEllipsis"
-                            Visibility="{x:Bind IsSynchronizationProgressVisible, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />
+                            TextTrimming="CharacterEllipsis" />
 
-                        <TextBlock
-                            x:Name="SyncStatusText"
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            MaxLines="1"
-                            Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="{x:Bind SynchronizationStatus, Mode=OneWay}"
-                            TextTrimming="CharacterEllipsis"
-                            Visibility="{x:Bind IsSynchronizationProgressVisible, Mode=OneWay}" />
-                    </StackPanel>
+                        <ProgressBar
+                            Grid.Row="2"
+                            Height="3"
+                            Margin="0,4,0,0"
+                            IsIndeterminate="{x:Bind IsProgressIndeterminate, Mode=OneWay}"
+                            ShowError="False"
+                            ShowPaused="False"
+                            Visibility="{x:Bind IsSynchronizationProgressVisible, Mode=OneWay}"
+                            Value="{x:Bind SynchronizationProgressValue, Mode=OneWay}" />
+                    </Grid>
 
                     <Button
                         Grid.Column="1"
@@ -117,9 +124,9 @@
                         Margin="8,0"
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
+                        x:Load="{x:Bind IsProgressIndeterminate, Mode=OneWay}"
                         IsActive="{x:Bind IsSynchronizationProgressVisible, Mode=OneWay}"
-                        IsIndeterminate="{x:Bind IsProgressIndeterminate, Mode=OneWay}"
-                        Visibility="{x:Bind IsSynchronizationProgressVisible, Mode=OneWay}" />
+                        IsIndeterminate="{x:Bind IsProgressIndeterminate, Mode=OneWay}" />
                 </Grid>
             </controls:AccountNavigationItem>
         </DataTemplate>
@@ -291,6 +298,15 @@
                             Text="{x:Bind SynchronizationStatus, Mode=OneWay}"
                             TextTrimming="CharacterEllipsis"
                             Visibility="{x:Bind IsSynchronizationProgressVisible, Mode=OneWay}" />
+
+                        <ProgressBar
+                            Height="3"
+                            Margin="0,4,0,0"
+                            IsIndeterminate="{x:Bind IsProgressIndeterminate, Mode=OneWay}"
+                            ShowError="False"
+                            ShowPaused="False"
+                            Visibility="{x:Bind IsSynchronizationProgressVisible, Mode=OneWay}"
+                            Value="{x:Bind SynchronizationProgressValue, Mode=OneWay}" />
 
                         <TextBlock
                             FontSize="12"
@@ -564,12 +580,20 @@
                                                         <Run FontWeight="SemiBold" Text="{x:Bind Account.Name}" />
                                                         <Run FontSize="12" Text=" (" /><Run FontSize="12" Text="{x:Bind Account.Address}" /><Run FontSize="12" Text=")" />
                                                     </TextBlock>
+                                                    <TextBlock
+                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                        MaxLines="1"
+                                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                                        Text="{x:Bind SynchronizationStatus, Mode=OneWay}"
+                                                        TextTrimming="CharacterEllipsis"
+                                                        Visibility="{x:Bind IsSynchronizationProgressVisible, Mode=OneWay}" />
                                                     <ProgressBar
                                                         Height="4"
-                                                        IsIndeterminate="True"
+                                                        IsIndeterminate="{x:Bind IsProgressIndeterminate, Mode=OneWay}"
                                                         ShowError="False"
                                                         ShowPaused="False"
-                                                        Visibility="{x:Bind IsSynchronizationProgressVisible, Mode=OneWay}" />
+                                                        Visibility="{x:Bind IsSynchronizationProgressVisible, Mode=OneWay}"
+                                                        Value="{x:Bind SynchronizationProgressValue, Mode=OneWay}" />
                                                 </StackPanel>
                                             </Grid>
                                         </muxc:Expander.Header>

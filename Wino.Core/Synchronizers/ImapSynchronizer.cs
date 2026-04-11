@@ -11,6 +11,7 @@ using MailKit.Net.Imap;
 using MailKit.Search;
 using MimeKit;
 using Serilog;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -1192,8 +1193,16 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         var periodStartUtc = DateTimeOffset.UtcNow.AddYears(-1);
         var periodEndUtc = DateTimeOffset.UtcNow.AddYears(2);
 
-        foreach (var localCalendar in localCalendars)
+        var totalCalendars = localCalendars.Count;
+        if (totalCalendars > 0)
         {
+            UpdateSyncProgress(totalCalendars, totalCalendars, Translator.SyncAction_SynchronizingCalendarEvents);
+        }
+
+        for (int i = 0; i < totalCalendars; i++)
+        {
+            var localCalendar = localCalendars[i];
+
             cancellationToken.ThrowIfCancellationRequested();
 
             if (!remoteCalendarsById.TryGetValue(localCalendar.RemoteCalendarId, out var remoteCalendar))
@@ -1265,6 +1274,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
             localCalendar.SynchronizationDeltaToken = remoteToken;
             await _imapChangeProcessor.UpdateAccountCalendarAsync(localCalendar).ConfigureAwait(false);
+            UpdateSyncProgress(totalCalendars, totalCalendars - (i + 1), Translator.SyncAction_SynchronizingCalendarEvents);
         }
 
         return CalendarSynchronizationResult.Empty;

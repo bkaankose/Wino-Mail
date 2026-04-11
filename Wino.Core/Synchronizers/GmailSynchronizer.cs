@@ -22,6 +22,7 @@ using Microsoft.IdentityModel.Tokens;
 using MimeKit;
 using MoreLinq;
 using Serilog;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -388,7 +389,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                 } while (!string.IsNullOrEmpty(pageToken));
 
                 _logger.Information("Folder {FolderName}: Downloaded {Count} messages", folder.FolderName, folderDownloaded);
-                UpdateSyncProgress(0, 0, $"Downloaded {totalMessagesDownloaded} messages");
+                UpdateSyncProgress(totalFolders, 0, Translator.SyncAction_SynchronizingAccount);
             }
 
             _logger.Information("Initial sync completed. Downloaded {Count} unique messages for {Name}", downloadedMessageIds.Count, Account.Name);
@@ -521,8 +522,16 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             .Where(c => c.IsSynchronizationEnabled)
             .ToList();
 
-        foreach (var calendar in localCalendars)
+        var totalCalendars = localCalendars.Count;
+        if (totalCalendars > 0)
         {
+            UpdateSyncProgress(totalCalendars, totalCalendars, Translator.SyncAction_SynchronizingCalendarEvents);
+        }
+
+        for (int i = 0; i < totalCalendars; i++)
+        {
+            var calendar = localCalendars[i];
+
             try
             {
                 var request = _calendarService.Events.List(calendar.RemoteCalendarId);
@@ -602,6 +611,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                 }
 
                 await _gmailChangeProcessor.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
+                UpdateSyncProgress(totalCalendars, totalCalendars - (i + 1), Translator.SyncAction_SynchronizingCalendarEvents);
             }
             catch (OperationCanceledException)
             {
@@ -624,6 +634,8 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
                 if (!errorContext.CanContinueSync)
                     throw;
+
+                UpdateSyncProgress(totalCalendars, totalCalendars - (i + 1), Translator.SyncAction_SynchronizingCalendarEvents);
             }
         }
 

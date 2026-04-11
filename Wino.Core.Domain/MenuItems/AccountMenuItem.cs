@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -6,6 +6,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
+using Wino.Core.Domain.Models.Synchronization;
 
 namespace Wino.Core.Domain.MenuItems;
 
@@ -14,18 +15,22 @@ public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IM
     [ObservableProperty]
     private int unreadItemCount;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsSynchronizationProgressVisible), nameof(IsProgressIndeterminate), nameof(SynchronizationProgress), nameof(SynchronizationProgressValue))]
+    public partial bool IsSynchronizationInProgress { get; set; }
+
     /// <summary>
     /// Total items to sync. 0 means indeterminate progress.
     /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsSynchronizationProgressVisible), nameof(SynchronizationProgress), nameof(IsProgressIndeterminate))]
+    [NotifyPropertyChangedFor(nameof(SynchronizationProgress), nameof(SynchronizationProgressValue), nameof(IsProgressIndeterminate))]
     public partial int TotalItemsToSync { get; set; }
 
     /// <summary>
     /// Remaining items to sync.
     /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SynchronizationProgress))]
+    [NotifyPropertyChangedFor(nameof(SynchronizationProgress), nameof(SynchronizationProgressValue), nameof(IsProgressIndeterminate))]
     public partial int RemainingItemsToSync { get; set; }
 
     /// <summary>
@@ -39,31 +44,22 @@ public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IM
 
     public bool IsAttentionRequired => AttentionReason != AccountAttentionReason.None;
 
-    /// <summary>
-    /// Calculates synchronization progress percentage (0-100).
-    /// Returns -1 for indeterminate progress when TotalItemsToSync is 0.
-    /// </summary>
     public double SynchronizationProgress
     {
         get
         {
-            if (TotalItemsToSync == 0 || RemainingItemsToSync == 0)
-                return -1; // Indeterminate
+            if (TotalItemsToSync <= 0)
+                return 0;
 
-            return ((double)(TotalItemsToSync - RemainingItemsToSync) / TotalItemsToSync) * 100;
+            return Math.Clamp(((double)(TotalItemsToSync - RemainingItemsToSync) / TotalItemsToSync) * 100, 0, 100);
         }
     }
 
-    /// <summary>
-    /// Whether synchronization progress should be visible.
-    /// Visible when there's active synchronization (TotalItemsToSync > 0 or RemainingItemsToSync > 0).
-    /// </summary>
-    public bool IsSynchronizationProgressVisible => TotalItemsToSync > 0 || RemainingItemsToSync > 0;
+    public double SynchronizationProgressValue => SynchronizationProgress;
 
-    /// <summary>
-    /// Whether progress should be indeterminate (when total is 0 but there's still synchronization happening).
-    /// </summary>
-    public bool IsProgressIndeterminate => TotalItemsToSync == 0 && RemainingItemsToSync == 0 && IsSynchronizationProgressVisible;
+    public bool IsSynchronizationProgressVisible => IsSynchronizationInProgress;
+
+    public bool IsProgressIndeterminate => IsSynchronizationInProgress && TotalItemsToSync <= 0;
 
     public Guid AccountId => Parameter.Id;
 
@@ -77,7 +73,6 @@ public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IM
             if (SetProperty(ref attentionReason, value))
             {
                 OnPropertyChanged(nameof(IsAttentionRequired));
-
                 UpdateFixAccountIssueMenuItem();
             }
         }
@@ -108,6 +103,17 @@ public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IM
         UpdateAccount(account);
     }
 
+    public void ApplySynchronizationProgress(AccountSynchronizationProgress progress)
+    {
+        if (progress == null || progress.AccountId != AccountId)
+            return;
+
+        IsSynchronizationInProgress = progress.IsInProgress;
+        TotalItemsToSync = progress.TotalUnits;
+        RemainingItemsToSync = progress.RemainingUnits;
+        SynchronizationStatus = progress.Status ?? string.Empty;
+    }
+
     public void UpdateAccount(MailAccount account)
     {
         Parameter = account;
@@ -118,7 +124,8 @@ public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IM
         OnPropertyChanged(nameof(AccountColorHex));
         OnPropertyChanged(nameof(IsAttentionRequired));
 
-        if (SubMenuItems == null) return;
+        if (SubMenuItems == null)
+            return;
 
         foreach (var item in SubMenuItems)
         {
@@ -133,12 +140,10 @@ public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IM
     {
         if (AttentionReason != AccountAttentionReason.None && !SubMenuItems.Any(a => a is FixAccountIssuesMenuItem))
         {
-            // Add fix issue item if not exists.
             SubMenuItems.Insert(0, new FixAccountIssuesMenuItem(Parameter, this));
         }
         else
         {
-            // Remove existing if issue is resolved.
             var fixAccountIssueItem = SubMenuItems.FirstOrDefault(a => a is FixAccountIssuesMenuItem);
 
             if (fixAccountIssueItem != null)

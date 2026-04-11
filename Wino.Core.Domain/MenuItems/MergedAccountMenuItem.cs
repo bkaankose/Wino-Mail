@@ -1,9 +1,10 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Synchronization;
 
 namespace Wino.Core.Domain.MenuItems;
 
@@ -16,50 +17,37 @@ public partial class MergedAccountMenuItem : MenuItemBase<MergedInbox, IMenuItem
     [ObservableProperty]
     private int unreadItemCount;
 
-    /// <summary>
-    /// Total items to sync across all merged accounts.
-    /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SynchronizationProgress), nameof(IsSynchronizationProgressVisible), nameof(IsProgressIndeterminate))]
+    [NotifyPropertyChangedFor(nameof(IsSynchronizationProgressVisible), nameof(IsProgressIndeterminate), nameof(SynchronizationProgress), nameof(SynchronizationProgressValue))]
+    public partial bool IsSynchronizationInProgress { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SynchronizationProgress), nameof(SynchronizationProgressValue), nameof(IsProgressIndeterminate))]
     public partial int TotalItemsToSync { get; set; }
 
-    /// <summary>
-    /// Remaining items to sync across all merged accounts.
-    /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SynchronizationProgress), nameof(IsSynchronizationProgressVisible), nameof(IsProgressIndeterminate))]
+    [NotifyPropertyChangedFor(nameof(SynchronizationProgress), nameof(SynchronizationProgressValue), nameof(IsProgressIndeterminate))]
     public partial int RemainingItemsToSync { get; set; }
 
-    /// <summary>
-    /// Current synchronization status message.
-    /// </summary>
     [ObservableProperty]
     public partial string SynchronizationStatus { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Calculated synchronization progress for merged accounts.
-    /// </summary>
     public double SynchronizationProgress
     {
         get
         {
-            if (TotalItemsToSync == 0 || RemainingItemsToSync == 0)
-                return -1; // Indeterminate
+            if (TotalItemsToSync <= 0)
+                return 0;
 
             return ((double)(TotalItemsToSync - RemainingItemsToSync) / TotalItemsToSync) * 100;
         }
     }
 
-    /// <summary>
-    /// Whether synchronization progress should be visible.
-    /// Visible when there's active synchronization (TotalItemsToSync > 0 or RemainingItemsToSync > 0).
-    /// </summary>
-    public bool IsSynchronizationProgressVisible => TotalItemsToSync > 0 || RemainingItemsToSync > 0;
+    public double SynchronizationProgressValue => SynchronizationProgress;
 
-    /// <summary>
-    /// Whether progress should be indeterminate.
-    /// </summary>
-    public bool IsProgressIndeterminate => TotalItemsToSync == 0 && IsSynchronizationProgressVisible;
+    public bool IsSynchronizationProgressVisible => IsSynchronizationInProgress;
+
+    public bool IsProgressIndeterminate => IsSynchronizationInProgress && TotalItemsToSync <= 0;
 
     [ObservableProperty]
     private string mergedAccountName;
@@ -77,23 +65,34 @@ public partial class MergedAccountMenuItem : MenuItemBase<MergedInbox, IMenuItem
     {
         UnreadItemCount = SubMenuItems.OfType<IAccountMenuItem>().Sum(a => a.UnreadItemCount);
     }
-    
-    /// <summary>
-    /// Aggregates synchronization progress from all child account menu items.
-    /// </summary>
+
     public void RefreshSynchronizationProgress()
     {
-        var accountMenuItems = SubMenuItems.OfType<IAccountMenuItem>().ToList();
-        
-        TotalItemsToSync = accountMenuItems.Sum(a => a.TotalItemsToSync);
-        RemainingItemsToSync = accountMenuItems.Sum(a => a.RemainingItemsToSync);
-        
-        // Use first non-empty status message
-        SynchronizationStatus = accountMenuItems.FirstOrDefault(a => !string.IsNullOrEmpty(a.SynchronizationStatus))?.SynchronizationStatus ?? string.Empty;
+        var activeAccountMenuItems = SubMenuItems
+            .OfType<IAccountMenuItem>()
+            .Where(a => a.IsSynchronizationInProgress)
+            .ToList();
+
+        IsSynchronizationInProgress = activeAccountMenuItems.Any();
+        TotalItemsToSync = activeAccountMenuItems.Sum(a => a.TotalItemsToSync);
+        RemainingItemsToSync = activeAccountMenuItems.Sum(a => a.RemainingItemsToSync);
+        SynchronizationStatus = activeAccountMenuItems
+            .Select(a => a.SynchronizationStatus)
+            .FirstOrDefault(s => !string.IsNullOrWhiteSpace(s)) ?? string.Empty;
+    }
+
+    public void ApplySynchronizationProgress(AccountSynchronizationProgress progress)
+    {
+        if (progress == null)
+            return;
+
+        IsSynchronizationInProgress = progress.IsInProgress;
+        TotalItemsToSync = progress.TotalUnits;
+        RemainingItemsToSync = progress.RemainingUnits;
+        SynchronizationStatus = progress.Status ?? string.Empty;
     }
 
     public void UpdateAccount(MailAccount account)
     {
-
     }
 }

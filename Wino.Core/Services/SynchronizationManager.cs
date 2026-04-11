@@ -23,7 +23,7 @@ namespace Wino.Core.Services;
 /// Singleton manager that handles synchronizer instances and operations for all accounts.
 /// Replaces the old WinoServerConnectionManager functionality.
 /// </summary>
-public class SynchronizationManager : ISynchronizationManager
+public class SynchronizationManager : ISynchronizationManager, IRecipient<AccountSynchronizerStateChanged>
 {
     private static readonly Lazy<SynchronizationManager> _instance = new(() => new SynchronizationManager());
     public static SynchronizationManager Instance => _instance.Value;
@@ -31,6 +31,8 @@ public class SynchronizationManager : ISynchronizationManager
     private readonly ConcurrentDictionary<Guid, IWinoSynchronizerBase> _synchronizerCache = new();
     private readonly ConcurrentDictionary<Guid, CancellationTokenSource> _accountSynchronizationCancellationSources = new();
     private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _calendarSynchronizationLocks = new();
+    private readonly ConcurrentDictionary<Guid, AccountSynchronizationProgress> _mailSynchronizationProgress = new();
+    private readonly ConcurrentDictionary<Guid, AccountSynchronizationProgress> _calendarSynchronizationProgress = new();
     private readonly SemaphoreSlim _initializationSemaphore = new(1, 1);
     private readonly ILogger _logger = Log.ForContext<SynchronizationManager>();
 
@@ -41,6 +43,7 @@ public class SynchronizationManager : ISynchronizationManager
     private INotificationBuilder _notificationBuilder;
 
     private bool _isInitialized = false;
+    private bool _isRegisteredForProgressMessages;
 
     private SynchronizationManager() { }
 
@@ -73,6 +76,11 @@ public class SynchronizationManager : ISynchronizationManager
 
             // DO NOT create synchronizers here to avoid requiring window handles during initialization.
             // Synchronizers will be created lazily when first accessed via GetOrCreateSynchronizerAsync.
+            if (!_isRegisteredForProgressMessages)
+            {
+                WeakReferenceMessenger.Default.Register<AccountSynchronizerStateChanged>(this);
+                _isRegisteredForProgressMessages = true;
+            }
 
             _isInitialized = true;
             _logger.Information("SynchronizationManager dependencies initialized. Synchronizers will be created lazily.");
@@ -217,6 +225,21 @@ public class SynchronizationManager : ISynchronizationManager
         }
 
         return false;
+    }
+
+    public AccountSynchronizationProgress GetSynchronizationProgress(Guid accountId, SynchronizationProgressCategory category)
+    {
+        EnsureInitialized();
+
+        return category switch
+        {
+            SynchronizationProgressCategory.Calendar => _calendarSynchronizationProgress.TryGetValue(accountId, out var calendarProgress)
+                ? calendarProgress
+                : AccountSynchronizationProgress.Idle(accountId, SynchronizationProgressCategory.Calendar),
+            _ => _mailSynchronizationProgress.TryGetValue(accountId, out var mailProgress)
+                ? mailProgress
+                : AccountSynchronizationProgress.Idle(accountId, SynchronizationProgressCategory.Mail)
+        };
     }
 
     /// <summary>
@@ -651,6 +674,9 @@ public class SynchronizationManager : ISynchronizationManager
             _logger.Information("Canceled ongoing synchronizations for account {AccountId}", accountId);
         }
 
+        PublishSynchronizationProgress(AccountSynchronizationProgress.Idle(accountId, SynchronizationProgressCategory.Mail));
+        PublishSynchronizationProgress(AccountSynchronizationProgress.Idle(accountId, SynchronizationProgressCategory.Calendar));
+
         return Task.CompletedTask;
     }
 
@@ -679,6 +705,9 @@ public class SynchronizationManager : ISynchronizationManager
                 _logger.Error(ex, "Failed to destroy synchronizer for account {AccountId}", accountId);
             }
         }
+
+        PublishSynchronizationProgress(AccountSynchronizationProgress.Idle(accountId, SynchronizationProgressCategory.Mail));
+        PublishSynchronizationProgress(AccountSynchronizationProgress.Idle(accountId, SynchronizationProgressCategory.Calendar));
     }
 
     /// <summary>
@@ -770,6 +799,33 @@ public class SynchronizationManager : ISynchronizationManager
         }
     }
 
+    public void Receive(AccountSynchronizerStateChanged message)
+    {
+        var totalUnits = Math.Max(0, message.TotalItemsToSync);
+        var remainingUnits = totalUnits > 0
+            ? Math.Clamp(message.RemainingItemsToSync, 0, totalUnits)
+            : 0;
+
+        var isInProgress = message.NewState != AccountSynchronizerState.Idle;
+        var isIndeterminate = isInProgress && totalUnits <= 0;
+        var progressPercentage = totalUnits > 0
+            ? ((double)(totalUnits - remainingUnits) / totalUnits) * 100
+            : 0;
+
+        var progress = new AccountSynchronizationProgress(
+            message.AccountId,
+            message.ProgressCategory,
+            isInProgress,
+            isIndeterminate,
+            progressPercentage,
+            totalUnits,
+            remainingUnits,
+            BuildSynchronizationStatus(message.ProgressCategory, message.NewState, totalUnits, progressPercentage, message.SynchronizationStatus),
+            message.NewState);
+
+        PublishSynchronizationProgress(progress);
+    }
+
     private void EnsureInitialized()
     {
         if (!_isInitialized)
@@ -804,17 +860,67 @@ public class SynchronizationManager : ISynchronizationManager
         return account?.AttentionReason == AccountAttentionReason.InvalidCredentials;
     }
 
+    private void PublishSynchronizationProgress(AccountSynchronizationProgress progress)
+    {
+        var normalized = progress.IsInProgress
+            ? progress
+            : AccountSynchronizationProgress.Idle(progress.AccountId, progress.Category);
+
+        var cache = normalized.Category == SynchronizationProgressCategory.Calendar
+            ? _calendarSynchronizationProgress
+            : _mailSynchronizationProgress;
+
+        cache.AddOrUpdate(normalized.AccountId, normalized, (_, _) => normalized);
+
+        WeakReferenceMessenger.Default.Send(new AccountSynchronizationProgressUpdatedMessage(normalized));
+    }
+
+    private static string BuildSynchronizationStatus(
+        SynchronizationProgressCategory category,
+        AccountSynchronizerState state,
+        int totalUnits,
+        double progressPercentage,
+        string rawStatus)
+    {
+        if (state == AccountSynchronizerState.Idle)
+            return string.Empty;
+
+        if (state == AccountSynchronizerState.ExecutingRequests)
+            return Translator.SynchronizationProgress_ApplyingChanges;
+
+        if (totalUnits > 0)
+        {
+            var roundedProgress = (int)Math.Round(progressPercentage, MidpointRounding.AwayFromZero);
+
+            return category == SynchronizationProgressCategory.Calendar
+                ? string.Format(Translator.SynchronizationProgress_CalendarPercent, roundedProgress)
+                : string.Format(Translator.SynchronizationProgress_MailPercent, roundedProgress);
+        }
+
+        if (category == SynchronizationProgressCategory.Calendar && !string.IsNullOrWhiteSpace(rawStatus))
+            return rawStatus;
+
+        return category == SynchronizationProgressCategory.Calendar
+            ? Translator.SynchronizationProgress_CalendarInProgress
+            : Translator.SynchronizationProgress_MailInProgress;
+    }
+
     private void PublishCalendarSynchronizationState(
         Guid accountId,
         CalendarSynchronizationType synchronizationType,
         bool isSynchronizationInProgress,
         string synchronizationStatus = "")
     {
-        WeakReferenceMessenger.Default.Send(new AccountCalendarSynchronizationStateChanged(
+        PublishSynchronizationProgress(new AccountSynchronizationProgress(
             accountId,
-            synchronizationType,
+            SynchronizationProgressCategory.Calendar,
             isSynchronizationInProgress,
-            synchronizationStatus));
+            isSynchronizationInProgress,
+            0,
+            0,
+            0,
+            synchronizationStatus,
+            isSynchronizationInProgress ? AccountSynchronizerState.Synchronizing : AccountSynchronizerState.Idle));
     }
 
     private static string GetCalendarSynchronizationStatus(CalendarSynchronizationType synchronizationType)

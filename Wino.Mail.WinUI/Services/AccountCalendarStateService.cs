@@ -8,7 +8,9 @@ using CommunityToolkit.Mvvm.Messaging;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Services;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.UI;
 
@@ -25,7 +27,7 @@ public partial class AccountCalendarStateService : ObservableRecipient,
     IRecipient<CalendarListDeleted>,
     IRecipient<AccountRemovedMessage>,
     IRecipient<AccountUpdatedMessage>,
-    IRecipient<AccountCalendarSynchronizationStateChanged>
+    IRecipient<AccountSynchronizationProgressUpdatedMessage>
 {
     private readonly object _calendarStateLock = new();
 
@@ -90,7 +92,7 @@ public partial class AccountCalendarStateService : ObservableRecipient,
         Messenger.Register<CalendarListDeleted>(this);
         Messenger.Register<AccountRemovedMessage>(this);
         Messenger.Register<AccountUpdatedMessage>(this);
-        Messenger.Register<AccountCalendarSynchronizationStateChanged>(this);
+        Messenger.Register<AccountSynchronizationProgressUpdatedMessage>(this);
     }
 
     private void SingleGroupCalendarCollectiveStateChanged(object? sender, EventArgs e)
@@ -105,6 +107,15 @@ public partial class AccountCalendarStateService : ObservableRecipient,
         {
             groupedAccountCalendar.CalendarSelectionStateChanged += SingleCalendarSelectionStateChanged;
             groupedAccountCalendar.CollectiveSelectionStateChanged += SingleGroupCalendarCollectiveStateChanged;
+            try
+            {
+                groupedAccountCalendar.ApplySynchronizationProgress(SynchronizationManager.Instance.GetSynchronizationProgress(
+                    groupedAccountCalendar.Account.Id,
+                    SynchronizationProgressCategory.Calendar));
+            }
+            catch (InvalidOperationException)
+            {
+            }
 
             _internalGroupedAccountCalendars.Add(groupedAccountCalendar);
 
@@ -364,15 +375,18 @@ public partial class AccountCalendarStateService : ObservableRecipient,
         }
     }
 
-    public async void Receive(AccountCalendarSynchronizationStateChanged message)
+    public async void Receive(AccountSynchronizationProgressUpdatedMessage message)
     {
+        if (message.Progress.Category != SynchronizationProgressCategory.Calendar)
+            return;
+
         if (Dispatcher != null)
         {
-            await Dispatcher.ExecuteOnUIThread(() => UpdateCalendarSynchronizationState(message));
+            await Dispatcher.ExecuteOnUIThread(() => UpdateCalendarSynchronizationState(message.Progress));
         }
         else
         {
-            UpdateCalendarSynchronizationState(message);
+            UpdateCalendarSynchronizationState(message.Progress);
         }
     }
 
@@ -387,19 +401,18 @@ public partial class AccountCalendarStateService : ObservableRecipient,
         groupedAccount?.UpdateAccount(updatedAccount);
     }
 
-    private void UpdateCalendarSynchronizationState(AccountCalendarSynchronizationStateChanged message)
+    private void UpdateCalendarSynchronizationState(Wino.Core.Domain.Models.Synchronization.AccountSynchronizationProgress progress)
     {
         GroupedAccountCalendarViewModel? groupedAccount;
         lock (_calendarStateLock)
         {
-            groupedAccount = _internalGroupedAccountCalendars.FirstOrDefault(a => a.Account.Id == message.AccountId);
+            groupedAccount = _internalGroupedAccountCalendars.FirstOrDefault(a => a.Account.Id == progress.AccountId);
         }
 
         if (groupedAccount == null)
             return;
 
-        groupedAccount.IsSynchronizationInProgress = message.IsSynchronizationInProgress;
-        groupedAccount.SynchronizationStatus = message.SynchronizationStatus;
+        groupedAccount.ApplySynchronizationProgress(progress);
         UpdateAggregateSynchronizationState();
     }
 

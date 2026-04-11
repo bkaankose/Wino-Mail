@@ -147,6 +147,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
             if (shouldExecuteRequests && changeRequestQueue.Any())
             {
+                CurrentSynchronizationProgressCategory = SynchronizationProgressCategory.Mail;
                 State = AccountSynchronizerState.ExecutingRequests;
 
                 List<IRequestBundle<TBaseRequest>> nativeRequests = new();
@@ -264,6 +265,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
             await synchronizationSemaphore.WaitAsync(activeSynchronizationCancellationToken);
 
             // Set indeterminate progress for initial state
+            CurrentSynchronizationProgressCategory = SynchronizationProgressCategory.Mail;
             UpdateSyncProgress(0, 0, "Synchronizing...");
 
             State = AccountSynchronizerState.Synchronizing;
@@ -388,6 +390,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
             if (shouldExecuteRequests)
             {
                 calendarRequestsWereExecuting = true;
+                CurrentSynchronizationProgressCategory = SynchronizationProgressCategory.Calendar;
                 State = AccountSynchronizerState.ExecutingRequests;
 
                 List<IRequestBundle<TBaseRequest>> nativeRequests = new();
@@ -482,6 +485,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 await Task.Delay(maxExecutionDelay, cancellationToken);
             }
 
+            CurrentSynchronizationProgressCategory = SynchronizationProgressCategory.Calendar;
             var synchronizationResult = await SynchronizeCalendarEventsInternalAsync(options, cancellationToken);
             return FinalizeCalendarResult(synchronizationResult);
         }

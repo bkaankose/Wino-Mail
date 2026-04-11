@@ -27,6 +27,7 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
     private readonly ConcurrentDictionary<Guid, byte> _pendingCalendarOperationIds = new();
     private readonly ConcurrentQueue<SynchronizationIssue> _capturedSynchronizationIssues = new();
     protected readonly IMessenger Messenger;
+    protected SynchronizationProgressCategory CurrentSynchronizationProgressCategory { get; set; } = SynchronizationProgressCategory.Mail;
     
     public MailAccount Account { get; }
 
@@ -44,7 +45,8 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
                 value, 
                 TotalItemsToSync, 
                 RemainingItemsToSync, 
-                SynchronizationStatus));
+                SynchronizationStatus,
+                CurrentSynchronizationProgressCategory));
         }
     }
 
@@ -75,8 +77,8 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
     {
         get
         {
-            if (TotalItemsToSync == 0 || RemainingItemsToSync == 0)
-                return -1; // Indeterminate
+            if (TotalItemsToSync <= 0)
+                return 0;
 
             return ((double)(TotalItemsToSync - RemainingItemsToSync) / TotalItemsToSync) * 100;
         }
@@ -118,7 +120,8 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
             State, 
             TotalItemsToSync, 
             RemainingItemsToSync, 
-            SynchronizationStatus));
+            SynchronizationStatus,
+            CurrentSynchronizationProgressCategory));
     }
 
     /// <summary>
