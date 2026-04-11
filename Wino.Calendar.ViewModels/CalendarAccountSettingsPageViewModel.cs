@@ -87,6 +87,7 @@ public partial class CalendarAccountSettingsPageViewModel : CalendarBaseViewMode
         if (AccountCalendar != null && !string.IsNullOrEmpty(value))
         {
             AccountCalendar.BackgroundColorHex = value;
+            AccountCalendar.IsBackgroundColorUserOverridden = true;
             SaveChangesAsync();
         }
     }

@@ -342,6 +342,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
             return;
 
         calendarItem.SetBackgroundColor(color);
+        calendarItem.Calendar.IsBackgroundColorUserOverridden = true;
         await _calendarService.UpdateAccountCalendarAsync(calendarItem.Calendar);
     }
 

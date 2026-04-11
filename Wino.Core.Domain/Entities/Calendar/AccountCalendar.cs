@@ -25,6 +25,7 @@ public class AccountCalendar : IAccountCalendar
     /// </summary>
     public string TextColorHex { get; set; }
     public string BackgroundColorHex { get; set; }
+    public bool IsBackgroundColorUserOverridden { get; set; }
     public string TimeZone { get; set; }
 
     [Ignore]

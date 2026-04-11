@@ -2517,10 +2517,11 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             if (existingLocalCalendar == null)
             {
                 // Insert new calendar.
-                var fallbackColor = ColorHelpers.GetDistinctFlatColorHex(usedCalendarColors, calendar.HexColor);
+                var remoteBackgroundColor = GetRemoteOutlookCalendarBackgroundColor(calendar);
+                var fallbackColor = ColorHelpers.GetDistinctFlatColorHex(usedCalendarColors, remoteBackgroundColor);
                 var localCalendar = calendar.AsCalendar(Account, fallbackColor);
                 localCalendar.IsPrimary = string.Equals(localCalendar.RemoteCalendarId, remotePrimaryCalendarId, StringComparison.OrdinalIgnoreCase);
-                localCalendar.BackgroundColorHex = ColorHelpers.GetDistinctFlatColorHex(usedCalendarColors, localCalendar.BackgroundColorHex);
+                localCalendar.BackgroundColorHex = ResolveSynchronizedCalendarBackgroundColor(remoteBackgroundColor, localCalendar, usedCalendarColors);
                 localCalendar.TextColorHex = ColorHelpers.GetReadableTextColorHex(localCalendar.BackgroundColorHex);
                 usedCalendarColors.Add(localCalendar.BackgroundColorHex);
                 insertedCalendars.Add(localCalendar);
@@ -2528,7 +2529,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             else
             {
                 // Update existing calendar. Right now we only update the name.
-                var resolvedColor = ColorHelpers.GetDistinctFlatColorHex(usedCalendarColors, existingLocalCalendar.BackgroundColorHex);
+                var resolvedColor = ResolveSynchronizedCalendarBackgroundColor(GetRemoteOutlookCalendarBackgroundColor(calendar), existingLocalCalendar, usedCalendarColors);
                 if (ShouldUpdateCalendar(calendar, existingLocalCalendar, remotePrimaryCalendarId) ||
                     !string.Equals(existingLocalCalendar.BackgroundColorHex, resolvedColor, StringComparison.OrdinalIgnoreCase))
                 {
@@ -2570,7 +2571,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     private bool ShouldUpdateCalendar(Calendar calendar, AccountCalendar accountCalendar, string remotePrimaryCalendarId)
     {
         var remoteCalendarName = calendar.Name;
-        var remoteBackgroundColor = string.IsNullOrEmpty(calendar.HexColor) ? accountCalendar.BackgroundColorHex : calendar.HexColor;
+        var remoteBackgroundColor = ResolveSynchronizedCalendarBackgroundColor(GetRemoteOutlookCalendarBackgroundColor(calendar), accountCalendar);
         var remoteIsPrimary = string.Equals(calendar.Id, remotePrimaryCalendarId, StringComparison.OrdinalIgnoreCase);
 
         bool isNameChanged = !string.Equals(accountCalendar.Name, remoteCalendarName, StringComparison.OrdinalIgnoreCase);
@@ -2578,6 +2579,26 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         bool isPrimaryChanged = accountCalendar.IsPrimary != remoteIsPrimary;
 
         return isNameChanged || isBackgroundColorChanged || isPrimaryChanged;
+    }
+
+    private static string GetRemoteOutlookCalendarBackgroundColor(Calendar calendar)
+        => string.IsNullOrWhiteSpace(calendar?.HexColor) ? null : calendar.HexColor;
+
+    private static string ResolveSynchronizedCalendarBackgroundColor(
+        string remoteBackgroundColor,
+        AccountCalendar accountCalendar,
+        ISet<string> usedCalendarColors = null)
+    {
+        if (accountCalendar.IsBackgroundColorUserOverridden)
+            return accountCalendar.BackgroundColorHex;
+
+        var preferredColor = string.IsNullOrWhiteSpace(remoteBackgroundColor)
+            ? accountCalendar.BackgroundColorHex
+            : remoteBackgroundColor;
+
+        return string.IsNullOrWhiteSpace(remoteBackgroundColor) && usedCalendarColors != null
+            ? ColorHelpers.GetDistinctFlatColorHex(usedCalendarColors, preferredColor)
+            : preferredColor;
     }
 
     private async Task<string> GetPrimaryCalendarIdAsync(IList<Calendar> remoteCalendars, CancellationToken cancellationToken)

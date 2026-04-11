@@ -741,10 +741,11 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             if (existingLocalCalendar == null)
             {
                 // Insert new calendar.
-                var fallbackColor = ColorHelpers.GetDistinctFlatColorHex(usedCalendarColors, calendar.BackgroundColor);
+                var remoteBackgroundColor = GetRemoteGmailCalendarBackgroundColor(calendar);
+                var fallbackColor = ColorHelpers.GetDistinctFlatColorHex(usedCalendarColors, remoteBackgroundColor);
                 var localCalendar = calendar.AsCalendar(Account.Id, fallbackColor);
                 localCalendar.IsPrimary = string.Equals(localCalendar.RemoteCalendarId, remotePrimaryCalendarId, StringComparison.OrdinalIgnoreCase);
-                localCalendar.BackgroundColorHex = ColorHelpers.GetDistinctFlatColorHex(usedCalendarColors, localCalendar.BackgroundColorHex);
+                localCalendar.BackgroundColorHex = ResolveSynchronizedCalendarBackgroundColor(remoteBackgroundColor, localCalendar, usedCalendarColors);
                 localCalendar.TextColorHex = ColorHelpers.GetReadableTextColorHex(localCalendar.BackgroundColorHex);
                 usedCalendarColors.Add(localCalendar.BackgroundColorHex);
                 insertedCalendars.Add(localCalendar);
@@ -752,7 +753,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             else
             {
                 // Update existing calendar. Right now we only update the name.
-                var resolvedColor = ColorHelpers.GetDistinctFlatColorHex(usedCalendarColors, existingLocalCalendar.BackgroundColorHex);
+                var resolvedColor = ResolveSynchronizedCalendarBackgroundColor(GetRemoteGmailCalendarBackgroundColor(calendar), existingLocalCalendar, usedCalendarColors);
                 if (ShouldUpdateCalendar(calendar, existingLocalCalendar, remotePrimaryCalendarId) ||
                     !string.Equals(existingLocalCalendar.BackgroundColorHex, resolvedColor, StringComparison.OrdinalIgnoreCase))
                 {
@@ -939,8 +940,8 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     {
         var remoteCalendarName = calendarListEntry.Summary;
         var remoteTimeZone = calendarListEntry.TimeZone;
-        var remoteBackgroundColor = string.IsNullOrEmpty(calendarListEntry.BackgroundColor) ? accountCalendar.BackgroundColorHex : calendarListEntry.BackgroundColor;
-        var remoteTextColor = string.IsNullOrEmpty(calendarListEntry.ForegroundColor) ? accountCalendar.TextColorHex : calendarListEntry.ForegroundColor;
+        var remoteBackgroundColor = ResolveSynchronizedCalendarBackgroundColor(GetRemoteGmailCalendarBackgroundColor(calendarListEntry), accountCalendar);
+        var remoteTextColor = ColorHelpers.GetReadableTextColorHex(remoteBackgroundColor);
         var remoteIsPrimary = string.Equals(calendarListEntry.Id, remotePrimaryCalendarId, StringComparison.OrdinalIgnoreCase);
 
         bool isNameChanged = !string.Equals(accountCalendar.Name, remoteCalendarName, StringComparison.OrdinalIgnoreCase);
@@ -950,6 +951,26 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         bool isPrimaryChanged = accountCalendar.IsPrimary != remoteIsPrimary;
 
         return isNameChanged || isTimeZoneChanged || isBackgroundColorChanged || isTextColorChanged || isPrimaryChanged;
+    }
+
+    private static string GetRemoteGmailCalendarBackgroundColor(CalendarListEntry calendarListEntry)
+        => string.IsNullOrWhiteSpace(calendarListEntry?.BackgroundColor) ? null : calendarListEntry.BackgroundColor;
+
+    private static string ResolveSynchronizedCalendarBackgroundColor(
+        string remoteBackgroundColor,
+        AccountCalendar accountCalendar,
+        ISet<string> usedCalendarColors = null)
+    {
+        if (accountCalendar.IsBackgroundColorUserOverridden)
+            return accountCalendar.BackgroundColorHex;
+
+        var preferredColor = string.IsNullOrWhiteSpace(remoteBackgroundColor)
+            ? accountCalendar.BackgroundColorHex
+            : remoteBackgroundColor;
+
+        return string.IsNullOrWhiteSpace(remoteBackgroundColor) && usedCalendarColors != null
+            ? ColorHelpers.GetDistinctFlatColorHex(usedCalendarColors, preferredColor)
+            : preferredColor;
     }
 
     private string GetPrimaryCalendarId(IList<CalendarListEntry> remoteCalendars)
