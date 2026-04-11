@@ -345,6 +345,9 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         public bool ThumbnailUpdatedEvent { get; } = false;
         public bool IsBusy { get; } = false;
         public bool IsThreadExpanded { get; } = false;
+        public bool HasReadReceiptTracking { get; } = false;
+        public bool IsReadReceiptAcknowledged { get; } = false;
+        public string ReadReceiptDisplayText { get; } = string.Empty;
         public AccountContact SenderContact { get; } = null;
         event PropertyChangedEventHandler INotifyPropertyChanged.PropertyChanged
         {

@@ -124,6 +124,9 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     public partial bool IsSmimeEncryptionEnabled { get; set; }
 
     [ObservableProperty]
+    public partial bool IsReadReceiptRequested { get; set; }
+
+    [ObservableProperty]
     public partial X509Certificate2 SelectedSigningCertificate { get; set; }
 
     public ObservableCollection<X509Certificate2> AvailableCertificates = [];
@@ -421,6 +424,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         SaveImportance();
         SaveSubject();
         SaveFromAddress();
+        SaveReadReceiptRequest();
         SaveReplyToAddress();
 
         await SaveAttachmentsAsync();
@@ -754,6 +758,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                 IsCCBCCVisible = true;
 
             Subject = replyingMime.Subject;
+            IsReadReceiptRequested = replyingMime.HasReadReceiptRequest();
 
             Messenger.Send(new CreateNewComposeMailRequested(renderModel));
         });
@@ -814,6 +819,15 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                 CurrentMimeMessage.ReplyTo.Add(new MailboxAddress(SelectedAlias.ReplyToAddress, SelectedAlias.ReplyToAddress));
             }
         }
+    }
+
+    private void SaveReadReceiptRequest()
+    {
+        if (CurrentMimeMessage == null)
+            return;
+
+        var receiptAddress = SelectedAlias?.AliasAddress ?? ComposingAccount?.Address ?? string.Empty;
+        CurrentMimeMessage.SetReadReceiptRequest(receiptAddress, IsReadReceiptRequested);
     }
 
     private void SaveAddressInfo(IEnumerable<AccountContact> addresses, InternetAddressList list)

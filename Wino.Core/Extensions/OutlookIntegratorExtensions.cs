@@ -42,6 +42,12 @@ public static class OutlookIntegratorExtensions
     public static bool GetIsFlagged(this Message message)
         => message?.Flag?.FlagStatus != null && message.Flag.FlagStatus == FollowupFlagStatus.Flagged;
 
+    public static bool GetIsReadReceiptRequested(this Message message)
+        => message?.IsReadReceiptRequested.GetValueOrDefault() == true
+           || message?.InternetMessageHeaders?.Any(h =>
+               string.Equals(h.Name, Domain.Constants.DispositionNotificationToHeader, StringComparison.OrdinalIgnoreCase)
+               && !string.IsNullOrWhiteSpace(h.Value)) == true;
+
     public static MailCopy AsMailCopy(this Message outlookMessage)
     {
         bool isDraft = GetIsDraft(outlookMessage);
@@ -53,6 +59,7 @@ public static class OutlookIntegratorExtensions
             IsFocused = GetIsFocused(outlookMessage),
             Importance = !outlookMessage.Importance.HasValue ? MailImportance.Normal : (MailImportance)outlookMessage.Importance.Value,
             IsRead = GetIsRead(outlookMessage),
+            IsReadReceiptRequested = GetIsReadReceiptRequested(outlookMessage),
             IsDraft = isDraft,
             CreationDate = outlookMessage.ReceivedDateTime.GetValueOrDefault().DateTime,
             HasAttachments = outlookMessage.HasAttachments.GetValueOrDefault(),
@@ -156,6 +163,7 @@ public static class OutlookIntegratorExtensions
             BccRecipients = bccAddresses,
             From = fromAddress,
             InternetMessageId = MailHeaderExtensions.ToHeaderMessageId(mime.MessageId),
+            IsReadReceiptRequested = mime.HasReadReceiptRequest(),
             ReplyTo = replyToAddresses,
         };
 

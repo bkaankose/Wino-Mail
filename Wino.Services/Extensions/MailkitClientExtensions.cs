@@ -121,6 +121,9 @@ public static class MailkitClientExtensions
             MessageId = messageId,
             Subject = subject,
             IsRead = messageSummary.Flags.GetIsRead(),
+            IsReadReceiptRequested = mime?.HasReadReceiptRequest()
+                                     ?? (messageSummary.Headers?.Contains(Constants.DispositionNotificationToHeader) == true
+                                         && !string.IsNullOrWhiteSpace(messageSummary.Headers[Constants.DispositionNotificationToHeader])),
             IsFlagged = messageSummary.Flags.GetIsFlagged(),
             PreviewText = previewText,
             FromAddress = fromAddress,

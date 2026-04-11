@@ -30,6 +30,7 @@ public enum MailCopyChangeFlags
     AssignedAccount = 1 << 21,
     SenderContact = 1 << 22,
     UniqueId = 1 << 23,
+    ReadReceiptState = 1 << 24,
     All = Id |
           FolderId |
           ThreadId |
@@ -53,5 +54,6 @@ public enum MailCopyChangeFlags
           AssignedFolder |
           AssignedAccount |
           SenderContact |
-          UniqueId
+          UniqueId |
+          ReadReceiptState
 }

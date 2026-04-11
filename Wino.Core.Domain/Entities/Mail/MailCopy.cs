@@ -155,6 +155,18 @@ public class MailCopy
     [Ignore]
     public AccountContact SenderContact { get; set; }
 
+    [Ignore]
+    public bool IsReadReceiptRequested { get; set; }
+
+    [Ignore]
+    public SentMailReceiptStatus ReadReceiptStatus { get; set; }
+
+    [Ignore]
+    public DateTime? ReadReceiptAcknowledgedAtUtc { get; set; }
+
+    [Ignore]
+    public Guid? ReadReceiptMessageUniqueId { get; set; }
+
     public IEnumerable<Guid> GetContainingIds() => [UniqueId];
     public override string ToString() => $"{Subject} <-> {Id}";
 }

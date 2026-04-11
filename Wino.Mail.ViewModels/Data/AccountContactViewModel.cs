@@ -68,6 +68,9 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
     public DateTime CreationDate => default;
     public bool IsBusy => false;
     public bool IsThreadExpanded => false;
+    public bool HasReadReceiptTracking => false;
+    public bool IsReadReceiptAcknowledged => false;
+    public string ReadReceiptDisplayText => string.Empty;
     public AccountContact SenderContact => new()
     {
         Address = Address,

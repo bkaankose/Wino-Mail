@@ -6,6 +6,8 @@ public static class Constants
     /// MIME header that exists in all the drafts created from Wino.
     /// </summary>
     public const string WinoLocalDraftHeader = "X-Wino-Draft-Id";
+    public const string DispositionNotificationToHeader = "Disposition-Notification-To";
+    public const string OriginalMessageIdHeader = "Original-Message-ID";
     public const string LocalDraftStartPrefix = "localDraft_";
 
     public const string CalendarEventRecurrenceRuleSeperator = "___";
