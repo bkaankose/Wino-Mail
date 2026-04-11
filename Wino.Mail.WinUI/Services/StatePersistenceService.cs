@@ -21,7 +21,7 @@ public class StatePersistenceService : ObservableObject, IStatePersistanceServic
     {
         _configurationService = configurationService;
 
-        _openPaneLength = _configurationService.Get(OpenPaneLengthKey, 320d);
+        _openPaneLength = _configurationService.Get(OpenPaneLengthKey, 340d);
         _mailListPaneLength = _configurationService.Get(MailListPaneLengthKey, 420d);
         _appModeTitle = _configurationService.Get(AppModeTitleKey, "Wino Mail");
         _calendarDisplayType = EnsureValidCalendarDisplayType(_configurationService.Get(nameof(CalendarDisplayType), CalendarDisplayType.Week));
