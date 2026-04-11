@@ -57,6 +57,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
     private const int SELECTION_SETTLE_DELAY_MS = 120;
     private const int RENDERING_FRAME_RELEASE_DELAY_MS = 2000;
     private int _idleNavigationRequestVersion = 0;
+    private int _mailActivationRequestVersion = 0;
     private IPopoutClient? _activePopoutClient;
     private readonly Dictionary<FrameworkElement, HostedContentPopoutWindow> _hostedPopoutWindows = [];
     private PendingHostedPopoutNavigation? _pendingHostedPopoutNavigation;
@@ -108,6 +109,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         base.OnNavigatedFrom(e);
 
         InvalidatePendingIdleNavigation();
+        InvalidatePendingMailActivation();
         DetachPopoutClient();
 
         this.Bindings.StopTracking();
@@ -269,22 +271,29 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
 
         // Context menu on a thread should target the whole thread and keep it expanded.
-        await ViewModel.MailCollection.UnselectAllAsync();
-        await ViewModel.MailCollection.ExecuteWithoutRaiseSelectionChangedAsync(item =>
+        await ViewModel.MailCollection.ExecuteSelectionBatchAsync(() =>
         {
-            if (item is ThreadMailItemViewModel thread && !ReferenceEquals(thread, threadItem))
+            foreach (var group in ViewModel.MailCollection.MailItems)
             {
-                thread.IsThreadExpanded = false;
+                foreach (var item in group)
+                {
+                    if (item is ThreadMailItemViewModel thread)
+                    {
+                        thread.IsSelected = ReferenceEquals(thread, threadItem);
+                        thread.IsThreadExpanded = ReferenceEquals(thread, threadItem);
+
+                        foreach (var threadMail in thread.ThreadEmails)
+                        {
+                            threadMail.IsSelected = ReferenceEquals(thread, threadItem);
+                        }
+                    }
+                    else if (item is MailItemViewModel mailItem)
+                    {
+                        mailItem.IsSelected = false;
+                    }
+                }
             }
-        }, true);
-
-        threadItem.IsSelected = true;
-        threadItem.IsThreadExpanded = true;
-
-        foreach (var threadMail in threadItem.ThreadEmails)
-        {
-            threadMail.IsSelected = true;
-        }
+        });
     }
 
     private async Task<MailOperationMenuItem> GetMailOperationFromFlyoutAsync(IEnumerable<MailOperationMenuItem> availableActions,
@@ -312,8 +321,20 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     void IRecipient<ActiveMailItemChangedEvent>.Receive(ActiveMailItemChangedEvent message)
     {
+        int requestVersion = ++_mailActivationRequestVersion;
+
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+        {
+            if (requestVersion != _mailActivationRequestVersion) return;
+
+            ApplyActiveMailItemChange(message.SelectedMailItemViewModel);
+        });
+    }
+
+    private void ApplyActiveMailItemChange(MailItemViewModel? selectedMailItemViewModel)
+    {
         // No active mail item. Go to empty page.
-        if (message.SelectedMailItemViewModel == null)
+        if (selectedMailItemViewModel == null)
         {
             _ = NavigateIdleWhenSelectionSettlesAsync();
         }
@@ -322,7 +343,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
             InvalidatePendingIdleNavigation();
 
             // Navigate to composing page.
-            if (message.SelectedMailItemViewModel.IsDraft)
+            if (selectedMailItemViewModel.IsDraft)
             {
                 NavigationTransitionType composerPageTransition = NavigationTransitionType.None;
 
@@ -347,20 +368,18 @@ public sealed partial class MailListPage : MailListPageAbstract,
                 else
                     composerPageTransition = NavigationTransitionType.DrillIn;
 
-                ViewModel.NavigationService.Navigate(WinoPage.ComposePage, message.SelectedMailItemViewModel, NavigationReferenceFrame.RenderingFrame, composerPageTransition);
+                ViewModel.NavigationService.Navigate(WinoPage.ComposePage, selectedMailItemViewModel, NavigationReferenceFrame.RenderingFrame, composerPageTransition);
             }
             else
             {
                 // Find the MIME and go to rendering page.
-
-                if (message.SelectedMailItemViewModel == null) return;
 
                 if (IsComposingPageActive())
                 {
                     PrepareComposePageWebViewTransition();
                 }
 
-                ViewModel.NavigationService.Navigate(WinoPage.MailRenderingPage, message.SelectedMailItemViewModel, NavigationReferenceFrame.RenderingFrame);
+                ViewModel.NavigationService.Navigate(WinoPage.MailRenderingPage, selectedMailItemViewModel, NavigationReferenceFrame.RenderingFrame);
             }
         }
 
@@ -424,6 +443,14 @@ public sealed partial class MailListPage : MailListPageAbstract,
         unchecked
         {
             _idleNavigationRequestVersion++;
+        }
+    }
+
+    private void InvalidatePendingMailActivation()
+    {
+        unchecked
+        {
+            _mailActivationRequestVersion++;
         }
     }
 
@@ -765,42 +792,13 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
         // Lazily built caches for this invocation.
         List<ThreadMailItemViewModel>? threadItems = null;
-        Dictionary<string, ThreadMailItemViewModel>? threadById = null;
 
         List<ThreadMailItemViewModel> GetThreadItems()
         {
-            if (threadItems != null) return threadItems;
-
-            threadItems = [];
-
-            foreach (var group in ViewModel.MailCollection.MailItems)
-            {
-                foreach (var item in group)
-                {
-                    if (item is ThreadMailItemViewModel thread)
-                    {
-                        threadItems.Add(thread);
-                    }
-                }
-            }
-
-            return threadItems;
+            return threadItems ??= ViewModel.MailCollection.GetThreadItems();
         }
 
-        ThreadMailItemViewModel? FindParentThread(MailItemViewModel mail)
-        {
-            if (string.IsNullOrEmpty(mail.ThreadId))
-            {
-                return null;
-            }
-
-            threadById ??= GetThreadItems()
-                .Where(t => !string.IsNullOrEmpty(t.ThreadId))
-                .GroupBy(t => t.ThreadId, StringComparer.Ordinal)
-                .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
-
-            return threadById.TryGetValue(mail.ThreadId, out var threadItem) ? threadItem : null;
-        }
+        ThreadMailItemViewModel? FindParentThread(MailItemViewModel mail) => ViewModel.MailCollection.GetThreadByMailUniqueId(mail.MailCopy.UniqueId);
 
         void CollapseAllThreadsExcept(ThreadMailItemViewModel? except)
         {
@@ -809,6 +807,29 @@ public sealed partial class MailListPage : MailListPageAbstract,
                 if (!ReferenceEquals(thread, except) && thread.IsThreadExpanded)
                 {
                     thread.IsThreadExpanded = false;
+                }
+            }
+        }
+
+        void ResetSelectionState()
+        {
+            foreach (var group in ViewModel.MailCollection.MailItems)
+            {
+                foreach (var item in group)
+                {
+                    if (item is ThreadMailItemViewModel thread)
+                    {
+                        thread.IsSelected = false;
+
+                        foreach (var child in thread.ThreadEmails)
+                        {
+                            child.IsSelected = false;
+                        }
+                    }
+                    else if (item is MailItemViewModel mail)
+                    {
+                        mail.IsSelected = false;
+                    }
                 }
             }
         }
@@ -836,135 +857,117 @@ public sealed partial class MailListPage : MailListPageAbstract,
             }
         }
 
-        if (isCtrlPressed)
+        await ViewModel.MailCollection.ExecuteSelectionBatchAsync(() =>
         {
-            switch (clickedItem)
+            if (isCtrlPressed)
             {
-                case ThreadMailItemViewModel thread:
-                    {
-                        // Determine if thread + all children currently selected
-                        bool allSelected = thread.IsSelected && thread.ThreadEmails.All(e => e.IsSelected);
-                        if (allSelected)
+                switch (clickedItem)
+                {
+                    case ThreadMailItemViewModel thread:
                         {
-                            // Unselect thread & all children
-                            thread.IsSelected = false;
-                            foreach (var child in thread.ThreadEmails)
-                                child.IsSelected = false;
+                            bool allSelected = thread.IsSelected && thread.ThreadEmails.All(e => e.IsSelected);
+                            if (allSelected)
+                            {
+                                thread.IsSelected = false;
+                                foreach (var child in thread.ThreadEmails)
+                                    child.IsSelected = false;
+                            }
+                            else
+                            {
+                                thread.IsSelected = true;
+                                foreach (var child in thread.ThreadEmails)
+                                    child.IsSelected = true;
+                                thread.IsThreadExpanded = true;
+                            }
+                            break;
                         }
-                        else
+                    case MailItemViewModel mail:
                         {
-                            // Select thread & all children (do NOT disturb other selections in CTRL mode)
-                            thread.IsSelected = true;
-                            foreach (var child in thread.ThreadEmails)
-                                child.IsSelected = true;
-                            // Keep it expanded so user can see items
-                            thread.IsThreadExpanded = true;
+                            mail.IsSelected = !mail.IsSelected;
+                            SyncThreadSelectionFromChildren(FindParentThread(mail));
+                            break;
                         }
-                        break;
-                    }
-                case MailItemViewModel mail:
-                    {
-                        // Toggle just this item; no collapse/unselect of others in multi-select mode.
-                        mail.IsSelected = !mail.IsSelected;
-                        SyncThreadSelectionFromChildren(FindParentThread(mail));
-                        break;
-                    }
-            }
-            return; // Multi-select path ends here.
-        }
+                }
 
-        // SINGLE-SELECTION (exclusive) MODE WITH TOGGLE SUPPORT
-        if (clickedItem is ThreadMailItemViewModel clickedThread)
-        {
-            bool wasThreadSelected = clickedThread.IsSelected;
-            bool wasThreadExpanded = clickedThread.IsThreadExpanded;
-
-            // Check if any child in this thread is already selected (e.g., from notification click)
-            var alreadySelectedChild = clickedThread.ThreadEmails.FirstOrDefault(e => e.IsSelected);
-
-            // Reset everything first (exclusive selection scenario)
-            await ViewModel.MailCollection.UnselectAllAsync();
-            CollapseAllThreadsExcept(clickedThread);
-
-            if (wasThreadSelected && wasThreadExpanded)
-            {
-                // Toggle off -> leave nothing selected (all unselected, thread collapsed)
-                clickedThread.IsThreadExpanded = false;
                 return;
             }
 
-            // Select thread header
-            clickedThread.IsSelected = true;
+            if (clickedItem is ThreadMailItemViewModel clickedThread)
+            {
+                bool wasThreadSelected = clickedThread.IsSelected;
+                bool wasThreadExpanded = clickedThread.IsThreadExpanded;
+                var alreadySelectedChild = clickedThread.ThreadEmails.FirstOrDefault(e => e.IsSelected);
 
-            // If a child was already selected (e.g., from notification), keep that selection
-            // Otherwise, select the first child
-            if (alreadySelectedChild != null)
-            {
-                alreadySelectedChild.IsSelected = true;
-            }
-            else
-            {
-                var firstChild = clickedThread.ThreadEmails.FirstOrDefault();
-                if (firstChild != null)
+                ResetSelectionState();
+                CollapseAllThreadsExcept(clickedThread);
+
+                if (wasThreadSelected && wasThreadExpanded)
                 {
-                    firstChild.IsSelected = true;
+                    clickedThread.IsThreadExpanded = false;
+                    return;
                 }
-            }
 
-            clickedThread.IsThreadExpanded = true; // Show contents of active thread
-        }
-        else if (clickedItem is MailItemViewModel clickedMail)
-        {
-            bool wasSelected = clickedMail.IsSelected;
+                clickedThread.IsSelected = true;
 
-            // Determine if this mail belongs to an already selected & expanded thread.
-            // If so, we only want to switch the selection inside that thread without collapsing or unselecting the thread header.
-            ThreadMailItemViewModel? parentThread = FindParentThread(clickedMail);
-
-            bool isInSelectedExpandedThread = parentThread != null && parentThread.IsSelected && parentThread.IsThreadExpanded;
-
-            if (isInSelectedExpandedThread)
-            {
-                // Switch selection within the thread: unselect previously selected children, select the clicked one.
-                if (parentThread?.ThreadEmails != null)
+                if (alreadySelectedChild != null)
                 {
-                    foreach (var child in parentThread.ThreadEmails)
+                    alreadySelectedChild.IsSelected = true;
+                }
+                else
+                {
+                    var firstChild = clickedThread.ThreadEmails.FirstOrDefault();
+                    if (firstChild != null)
                     {
-                        child.IsSelected = child == clickedMail && !wasSelected; // If clicking an already selected child -> toggle off (none selected in thread except header)
+                        firstChild.IsSelected = true;
                     }
                 }
 
+                clickedThread.IsThreadExpanded = true;
+            }
+            else if (clickedItem is MailItemViewModel clickedMail)
+            {
+                bool wasSelected = clickedMail.IsSelected;
+                ThreadMailItemViewModel? parentThread = FindParentThread(clickedMail);
+                bool isInSelectedExpandedThread = parentThread != null && parentThread.IsSelected && parentThread.IsThreadExpanded;
+
+                if (isInSelectedExpandedThread)
+                {
+                    var selectedParentThread = parentThread!;
+
+                    foreach (var child in selectedParentThread.ThreadEmails)
+                    {
+                        child.IsSelected = child == clickedMail && !wasSelected;
+                    }
+
+                    SyncThreadSelectionFromChildren(selectedParentThread);
+                    return;
+                }
+
+                ResetSelectionState();
+
+                if (parentThread != null && parentThread.IsThreadExpanded)
+                {
+                    CollapseAllThreadsExcept(parentThread);
+                }
+                else
+                {
+                    CollapseAllThreadsExcept(null);
+                }
+
+                if (parentThread != null && selectExpandThread)
+                {
+                    parentThread.IsSelected = true;
+                    parentThread.IsThreadExpanded = true;
+                }
+
+                if (!wasSelected)
+                {
+                    clickedMail.IsSelected = true;
+                }
+
                 SyncThreadSelectionFromChildren(parentThread);
-                return; // Done.
             }
-
-            // Normal single-item (non-thread or entering a thread via child) behavior.
-            await ViewModel.MailCollection.UnselectAllAsync();
-
-            // If parent thread is already expanded, keep it as-is to avoid collapse/expand animation.
-            if (parentThread != null && parentThread.IsThreadExpanded)
-            {
-                CollapseAllThreadsExcept(parentThread);
-            }
-            else
-            {
-                CollapseAllThreadsExcept(null);
-            }
-
-            if (parentThread != null && selectExpandThread)
-            {
-                // We're clicking an item inside a thread; select & expand the thread header as well.
-                parentThread.IsSelected = true;
-                parentThread.IsThreadExpanded = true;
-            }
-
-            if (!wasSelected)
-            {
-                clickedMail.IsSelected = true; // Toggle on
-            }
-
-            SyncThreadSelectionFromChildren(parentThread);
-        }
+        });
     }
 
     private async void WinoListViewItemClicked(object sender, ItemClickEventArgs e)

@@ -1120,6 +1120,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             if (ActiveFolder == null)
                 return;
 
+            MailCollection.PruneSingleNonDraftItems = IsActiveDraftFolder();
+
             await ExecuteUIThread(() => { IsInitializingFolder = true; });
 
             // Folder is changed during initialization.

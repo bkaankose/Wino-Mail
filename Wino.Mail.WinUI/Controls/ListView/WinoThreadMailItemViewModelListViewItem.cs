@@ -12,6 +12,9 @@ namespace Wino.Mail.WinUI.Controls.ListView;
 [GeneratedBindableCustomProperty]
 public partial class WinoThreadMailItemViewModelListViewItem : ListViewItem
 {
+    private WinoExpander? _expander;
+    private WinoListView? _threadListView;
+
     [GeneratedDependencyProperty]
     public partial bool IsThreadExpanded { get; set; }
 
@@ -28,14 +31,27 @@ public partial class WinoThreadMailItemViewModelListViewItem : ListViewItem
 
     public WinoListView? GetWinoListViewControl()
     {
+        if (_threadListView?.XamlRoot != null)
+        {
+            return _threadListView;
+        }
+
         var expander = GetExpander();
+        _threadListView = expander?.Content as WinoListView;
 
-        if (expander?.Content is WinoListView control) return control;
-
-        return null;
+        return _threadListView;
     }
 
-    public WinoExpander? GetExpander() => WinoVisualTreeHelper.FindDescendants<WinoExpander>(this).FirstOrDefault();
+    public WinoExpander? GetExpander()
+    {
+        if (_expander?.XamlRoot != null)
+        {
+            return _expander;
+        }
+
+        _expander = WinoVisualTreeHelper.FindDescendants<WinoExpander>(this).FirstOrDefault();
+        return _expander;
+    }
 
     partial void OnItemPropertyChanged(DependencyPropertyChangedEventArgs e)
     {
@@ -51,5 +67,8 @@ public partial class WinoThreadMailItemViewModelListViewItem : ListViewItem
         {
             IsCustomSelected = false;
         }
+
+        _expander = null;
+        _threadListView = null;
     }
 }

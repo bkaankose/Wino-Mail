@@ -82,6 +82,26 @@ public class WinoMailCollectionTests
     }
 
     [Fact]
+    public async Task RemoveAsync_ShouldPruneRemainingNonDraftSingle_WhenDraftPruningIsEnabled()
+    {
+        var sut = CreateCollection();
+        sut.PruneSingleNonDraftItems = true;
+
+        var nonDraft = CreateMailCopy(threadId: "shared-thread", creationDate: DateTime.UtcNow.AddMinutes(-1));
+        var draft = CreateMailCopy(threadId: "shared-thread", creationDate: DateTime.UtcNow);
+        draft.IsDraft = true;
+        draft.AssignedFolder = new MailItemFolder { SpecialFolderType = SpecialFolderType.Draft };
+
+        await sut.AddAsync(nonDraft);
+        await sut.AddAsync(draft);
+
+        await sut.RemoveAsync(draft);
+
+        FlattenItems(sut).Should().BeEmpty();
+        sut.ContainsMailUniqueId(nonDraft.UniqueId).Should().BeFalse();
+    }
+
+    [Fact]
     public async Task RemoveAsync_ShouldRemoveSingleItem()
     {
         var sut = CreateCollection();
@@ -250,6 +270,31 @@ public class WinoMailCollectionTests
 
             thread.GetContainingIds().Should().BeEquivalentTo(expectedIds);
         }
+    }
+
+    [Fact]
+    public async Task ExecuteSelectionBatchAsync_ShouldRaiseSelectionChangedOnce()
+    {
+        var sut = CreateCollection();
+        var first = CreateMailCopy(threadId: "thread-1");
+        var second = CreateMailCopy(threadId: "thread-2");
+
+        await sut.AddAsync(first);
+        await sut.AddAsync(second);
+
+        var items = FlattenMailItems(sut);
+        var eventCount = 0;
+        sut.ItemSelectionChanged += (_, _) => eventCount++;
+
+        await sut.ExecuteSelectionBatchAsync(() =>
+        {
+            items[0].IsSelected = true;
+            items[1].IsSelected = true;
+            items[0].IsSelected = false;
+        });
+
+        eventCount.Should().Be(1);
+        sut.SelectedItems.Should().ContainSingle();
     }
 
     private static WinoMailCollection CreateCollection() => new()

@@ -44,6 +44,8 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
     private readonly ObservableGroupedCollection<object, IMailListItem> _mailItemSource = new ObservableGroupedCollection<object, IMailListItem>();
     private readonly SemaphoreSlim _mutationGate = new(1, 1);
+    private int _selectionNotificationSuppressionCount;
+    private bool _selectionNotificationPending;
 
     public ReadOnlyObservableGroupedCollection<object, IMailListItem> MailItems { get; }
 
@@ -303,6 +305,36 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         }
 
         return null;
+    }
+
+    public ThreadMailItemViewModel GetThreadByMailUniqueId(Guid uniqueId)
+    {
+        if (_uniqueIdToThreadMap.TryGetValue(uniqueId, out var threadViewModel))
+        {
+            return threadViewModel;
+        }
+
+        _ = Find(uniqueId);
+
+        return _uniqueIdToThreadMap.TryGetValue(uniqueId, out threadViewModel) ? threadViewModel : null;
+    }
+
+    public List<ThreadMailItemViewModel> GetThreadItems()
+    {
+        var threads = new List<ThreadMailItemViewModel>();
+
+        foreach (var group in _mailItemSource)
+        {
+            foreach (var item in group)
+            {
+                if (item is ThreadMailItemViewModel threadItem)
+                {
+                    threads.Add(threadItem);
+                }
+            }
+        }
+
+        return threads;
     }
 
     private async Task InsertItemInternalAsync(object groupKey, IMailListItem mailItem)
@@ -1049,43 +1081,51 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     public bool IsAllItemsSelected => AllItems.Any() && AllItems.All(a => a.IsSelected);
     public bool HasSingleItemSelected => SelectedItemsCount == 1;
 
-    public async Task ExecuteWithoutRaiseSelectionChangedAsync(Action<IMailListItem> action, bool includeThreads)
+    public async Task ExecuteSelectionBatchAsync(Action action, bool notifySelectionChanged = true)
     {
         try
         {
-            // Do not listen to individual selection changes while we are doing bulk selection.
-            Messenger.Unregister<SelectedItemsChangedMessage>(this);
-
-            await ExecuteUIThread(() =>
-            {
-                if (includeThreads)
-                {
-                    foreach (var item in AllItemsIncludingThreads)
-                    {
-                        action(item);
-                    }
-                }
-                else
-                {
-                    foreach (var item in AllItems)
-                    {
-                        action(item);
-                    }
-                }
-            });
+            _selectionNotificationSuppressionCount++;
+            await ExecuteUIThread(action);
         }
         catch (Exception)
         {
         }
         finally
         {
-            Messenger.Unregister<SelectedItemsChangedMessage>(this);
-            Messenger.Register<SelectedItemsChangedMessage>(this);
-            Messenger.Send(new SelectedItemsChangedMessage());
+            _selectionNotificationSuppressionCount = Math.Max(0, _selectionNotificationSuppressionCount - 1);
 
-            await NotifySelectionChangesAsync();
+            if (_selectionNotificationSuppressionCount == 0)
+            {
+                var shouldNotify = notifySelectionChanged || _selectionNotificationPending;
+                _selectionNotificationPending = false;
+
+                if (shouldNotify)
+                {
+                    await NotifySelectionChangesAsync();
+                }
+            }
         }
     }
+
+    public Task ExecuteWithoutRaiseSelectionChangedAsync(Action<IMailListItem> action, bool includeThreads)
+        => ExecuteSelectionBatchAsync(() =>
+        {
+            if (includeThreads)
+            {
+                foreach (var item in AllItemsIncludingThreads)
+                {
+                    action(item);
+                }
+            }
+            else
+            {
+                foreach (var item in AllItems)
+                {
+                    action(item);
+                }
+            }
+        });
 
     public Task ToggleSelectAllAsync()
     {
@@ -1144,7 +1184,16 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         }
     }
 
-    public void Receive(SelectedItemsChangedMessage message) => _ = NotifySelectionChangesAsync();
+    public void Receive(SelectedItemsChangedMessage message)
+    {
+        if (_selectionNotificationSuppressionCount > 0)
+        {
+            _selectionNotificationPending = true;
+            return;
+        }
+
+        _ = NotifySelectionChangesAsync();
+    }
 
     private async Task NotifySelectionChangesAsync()
     {
