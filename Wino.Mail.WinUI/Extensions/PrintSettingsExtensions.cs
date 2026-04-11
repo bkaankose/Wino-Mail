@@ -179,6 +179,33 @@ public static class PrintSettingsExtensions
     }
 
     /// <summary>
+    /// Creates a CoreWebView2PrintSettings object containing only document-safe settings for PDF generation.
+    /// Printer job options such as copies, duplex, printer name, N-up, and page ranges stay in the WinRT print session.
+    /// </summary>
+    public static CoreWebView2PrintSettings ToCoreWebView2PdfRenderSettings(
+        this WebView2PrintSettingsModel model,
+        CoreWebView2Environment environment)
+    {
+        var settings = environment.CreatePrintSettings();
+
+        settings.Orientation = model.Orientation.ToCoreWebView2Orientation();
+        settings.ColorMode = model.ColorMode.ToCoreWebView2ColorMode();
+        settings.MediaSize = model.MediaSize.ToCoreWebView2MediaSize();
+        settings.MarginTop = model.MarginTop;
+        settings.MarginBottom = model.MarginBottom;
+        settings.MarginLeft = model.MarginLeft;
+        settings.MarginRight = model.MarginRight;
+        settings.ShouldPrintBackgrounds = model.ShouldPrintBackgrounds;
+        settings.ShouldPrintSelectionOnly = model.ShouldPrintSelectionOnly;
+        settings.ShouldPrintHeaderAndFooter = model.ShouldPrintHeaderAndFooter;
+        settings.HeaderTitle = model.HeaderTitle;
+        settings.FooterUri = model.FooterUri;
+        settings.ScaleFactor = model.ScaleFactor;
+
+        return settings;
+    }
+
+    /// <summary>
     /// Updates a WebView2PrintSettingsModel from a CoreWebView2PrintSettings object.
     /// </summary>
     /// <param name="model">The domain model to update.</param>

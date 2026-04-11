@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -58,7 +59,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
         WebViewExtensions.EnsureWebView2Environment();
 
-        ViewModel.DirectPrintFuncAsync = DirectPrintAsync;
+        ViewModel.RenderPdfStreamFuncAsync = RenderPdfStreamAsync;
 
         ViewModel.SaveHTMLasPDFFunc = new Func<string, Task<bool>>((path) =>
         {
@@ -92,25 +93,14 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         RendererCommandBar.InvalidateCommands();
     }
 
-    private async Task<PrintingResult> DirectPrintAsync(WebView2PrintSettingsModel settings)
+    private async Task<Stream> RenderPdfStreamAsync(WebView2PrintSettingsModel settings)
     {
-        if (Chromium.CoreWebView2 == null) return PrintingResult.Failed;
+        if (Chromium.CoreWebView2 == null)
+            throw new InvalidOperationException("WebView2 is not initialized for printing.");
 
-        try
-        {
-            var nativeSettings = settings.ToCoreWebView2PrintSettings(Chromium.CoreWebView2.Environment);
-            var res = await Chromium.CoreWebView2.PrintAsync(nativeSettings);
-
-            return res switch
-            {
-                CoreWebView2PrintStatus.Succeeded => PrintingResult.Submitted,
-                _ => PrintingResult.Failed,
-            };
-        }
-        catch (Exception)
-        {
-            return PrintingResult.Failed;
-        }
+        var nativeSettings = settings.ToCoreWebView2PdfRenderSettings(Chromium.CoreWebView2.Environment);
+        var pdfStream = await Chromium.CoreWebView2.PrintToPdfStreamAsync(nativeSettings);
+        return pdfStream.AsStreamForRead();
     }
 
     public override async void OnEditorThemeChanged()
@@ -182,7 +172,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         // Make sure the WebView2 is disposed properly.
 
         ViewModel.SaveHTMLasPDFFunc = null;
-        ViewModel.DirectPrintFuncAsync = null;
+        ViewModel.RenderPdfStreamFuncAsync = null;
         ViewModel.RenderHtmlAsyncFunc = null;
         ViewModel.ClearRenderedHtmlAsyncFunc = null;
         _currentRenderedHtml = string.Empty;

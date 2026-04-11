@@ -1,10 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Common;
-using Wino.Core.Domain.Models.Printing;
 
 namespace Wino.Core.Domain.Interfaces;
 
@@ -30,5 +29,4 @@ public interface IDialogServiceBase
     Task<List<SharedFile>> PickFilesAsync(params object[] typeFilters);
     Task<List<PickedFileMetadata>> PickFilesMetadataAsync(params object[] typeFilters);
     Task<string> PickFilePathAsync(string saveFileName);
-    Task<WebView2PrintSettingsModel> ShowPrintDialogAsync(WebView2PrintSettingsModel initialSettings = null);
 }

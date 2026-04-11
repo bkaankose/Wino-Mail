@@ -15,7 +15,6 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Common;
-using Wino.Core.Domain.Models.Printing;
 using Wino.Dialogs;
 using Wino.Mail.WinUI.Dialogs;
 using Wino.Mail.WinUI.Extensions;
@@ -355,37 +354,4 @@ public class DialogServiceBase : IDialogServiceBase
         return dialog.Result ?? null!;
     }
 
-    public async Task<WebView2PrintSettingsModel> ShowPrintDialogAsync(WebView2PrintSettingsModel initialSettings = default!)
-    {
-        try
-        {
-            // Create the print dialog
-            var dialog = initialSettings != null
-                ? new PrintDialog(initialSettings)
-                : new PrintDialog();
-
-            // Set the XamlRoot for proper display
-            dialog.XamlRoot = GetXamlRoot();
-
-            // Get available printers asynchronously when the dialog is loaded
-            dialog.Loaded += async (sender, e) =>
-            {
-                await dialog.LoadAvailablePrintersAsync();
-            };
-
-            // Show the dialog
-            var result = await HandleDialogPresentationAsync(dialog);
-
-            // Return the settings if user clicked Print, otherwise null
-            return result == ContentDialogResult.Primary
-                ? dialog.PrintSettings
-                : null!;
-        }
-        catch (Exception ex)
-        {
-            // Log the exception if logging is available
-            Log.Error(ex, "Error showing print dialog");
-            return null!;
-        }
-    }
 }

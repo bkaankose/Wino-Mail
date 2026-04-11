@@ -58,9 +58,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     private MimeMessageInformation initializedMimeMessageInformation = null;
 
     // Func to get WebView2 to save current HTML as PDF to given location.
-    // Used in 'Save as' and 'Print' functionality.
+    // Used in 'Save as' functionality.
     public Func<string, Task<bool>> SaveHTMLasPDFFunc { get; set; }
-    public Func<WebView2PrintSettingsModel, Task<PrintingResult>> DirectPrintFuncAsync { get; set; }
+    public Func<WebView2PrintSettingsModel, Task<Stream>> RenderPdfStreamFuncAsync { get; set; }
     public Func<string, Task> RenderHtmlAsyncFunc { get; set; }
     public Func<Task> ClearRenderedHtmlAsyncFunc { get; set; }
 
@@ -275,16 +275,16 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             }
             else if (operation == MailOperation.Print)
             {
-                var settings = await _dialogService.ShowPrintDialogAsync();
-
-                if (settings == null) return;
-
-                var printingResult = await DirectPrintFuncAsync.Invoke(settings);
+                var printingResult = await PrintAsync();
 
                 // TODO: More detailed printing result handling.
                 if (printingResult == PrintingResult.Submitted)
                 {
                     _dialogService.InfoBarMessage(Translator.DialogMessage_PrintingSuccessTitle, Translator.DialogMessage_PrintingSuccessMessage, InfoBarMessageType.Success);
+                }
+                else if (printingResult == PrintingResult.Canceled)
+                {
+                    return;
                 }
                 else if (printingResult == PrintingResult.Failed)
                 {
@@ -782,6 +782,22 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             Log.Error(ex, "Failed to save as PDF.");
             _dialogService.InfoBarMessage(Translator.Info_PDFSaveFailedTitle, ex.Message, InfoBarMessageType.Error);
         }
+    }
+
+    private async Task<PrintingResult> PrintAsync()
+    {
+        if (RenderPdfStreamFuncAsync == null)
+            return PrintingResult.Failed;
+
+        var windowHandle = NativeAppService.GetCoreWindowHwnd();
+        if (windowHandle == IntPtr.Zero)
+            return PrintingResult.Failed;
+
+        var printTitle = string.IsNullOrWhiteSpace(Subject)
+            ? Translator.MailItemNoSubject
+            : Subject;
+
+        return await PrintService.PrintAsync(windowHandle, printTitle, RenderPdfStreamFuncAsync);
     }
 
     // Returns created file path.
