@@ -246,11 +246,13 @@ public class NotificationBuilder : INotificationBuilder
             .AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString())
             .AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar));
 
-        if (Uri.TryCreate(calendarItem.HtmlLink, UriKind.Absolute, out var joinUri))
+        if (Uri.TryCreate(calendarItem.HtmlLink, UriKind.Absolute, out _))
         {
             builder.AddButton(new AppNotificationButton(Translator.CalendarEventDetails_JoinOnline)
                 .SetIcon(GetNotificationIconUri("calendar-join"))
-                .SetInvokeUri(joinUri));
+                .AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarJoinOnlineAction)
+                .AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString())
+                .AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar));
         }
 
         var tag = $"calendar-reminder-{calendarItem.Id:N}-{reminderDurationInSeconds}";

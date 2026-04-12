@@ -593,6 +593,12 @@ public partial class App : WinoApplication,
                 await HandleCalendarToastSnoozeAsync(userInput, calendarItemId);
                 return;
             }
+
+            if (calendarAction == Constants.ToastCalendarJoinOnlineAction)
+            {
+                await HandleCalendarToastJoinOnlineAsync(calendarItemId);
+                return;
+            }
         }
 
         // Check if this is a navigation toast (user clicked the notification).
@@ -709,6 +715,21 @@ public partial class App : WinoApplication,
         var snoozedUntilLocal = DateTime.Now.AddMinutes(snoozeDurationMinutes);
 
         await calendarService.SnoozeCalendarItemAsync(calendarItemId, snoozedUntilLocal);
+    }
+
+    private async Task HandleCalendarToastJoinOnlineAsync(Guid calendarItemId)
+    {
+        var calendarService = Services.GetRequiredService<ICalendarService>();
+        var nativeAppService = Services.GetRequiredService<INativeAppService>();
+
+        var calendarItem = await calendarService.GetCalendarItemAsync(calendarItemId);
+        if (calendarItem == null ||
+            !Uri.TryCreate(calendarItem.HtmlLink, UriKind.Absolute, out var joinUri))
+        {
+            return;
+        }
+
+        await nativeAppService.LaunchUriAsync(joinUri);
     }
 
     private bool TryGetSnoozeDurationMinutes(IDictionary<string, string>? userInput, out int snoozeDurationMinutes)
