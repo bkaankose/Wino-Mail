@@ -81,6 +81,7 @@
                 <ComboBox
                     Grid.Column="3"
                     HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
                     DropDownClosed="SigningCertificateDropDownClosed"
                     IsEnabled="{x:Bind IsSmimeEncryptionEnabled}"
                     ItemsSource="{x:Bind Certificates}"
