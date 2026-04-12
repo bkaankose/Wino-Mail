@@ -45,9 +45,9 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
 
     public List<ElementThemeContainer> ElementThemes { get; } =
     [
+        new(ApplicationElementTheme.Default, Translator.ElementTheme_Default),
         new(ApplicationElementTheme.Light, Translator.ElementTheme_Light),
         new(ApplicationElementTheme.Dark, Translator.ElementTheme_Dark),
-        new(ApplicationElementTheme.Default, Translator.ElementTheme_Default),
     ];
 
     public bool HasAccounts => Accounts.Count > 0;
@@ -253,7 +253,7 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
         }
 
         SelectedElementTheme = ElementThemes.FirstOrDefault(theme => theme.NativeTheme == _newThemeService.RootTheme)
-                               ?? ElementThemes.LastOrDefault();
+                               ?? ElementThemes.FirstOrDefault();
 
         if (string.IsNullOrWhiteSpace(currentAccentColor))
         {

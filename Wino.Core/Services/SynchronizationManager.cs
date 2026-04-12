@@ -207,6 +207,15 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                 .Failed(ex)
                 .MergeIssues([SynchronizationIssue.FromException(ex, "MailSync")]);
         }
+        finally
+        {
+            if (synchronizer.State == AccountSynchronizerState.Idle)
+            {
+                PublishSynchronizationProgress(AccountSynchronizationProgress.Idle(
+                    options.AccountId,
+                    SynchronizationProgressCategory.Mail));
+            }
+        }
     }
 
     /// <summary>

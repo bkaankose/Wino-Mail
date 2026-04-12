@@ -46,9 +46,9 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
 
     public List<ElementThemeContainer> ElementThemes { get; set; } =
     [
+        new ElementThemeContainer(ApplicationElementTheme.Default, Translator.ElementTheme_Default),
         new ElementThemeContainer(ApplicationElementTheme.Light, Translator.ElementTheme_Light),
         new ElementThemeContainer(ApplicationElementTheme.Dark, Translator.ElementTheme_Dark),
-        new ElementThemeContainer(ApplicationElementTheme.Default, Translator.ElementTheme_Default),
     ];
 
     public List<MailListDisplayMode> InformationDisplayModes { get; set; } =
@@ -202,7 +202,8 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
     /// </summary>
     private void SetInitialValues()
     {
-        SelectedElementTheme = ElementThemes.Find(a => a.NativeTheme == _newThemeService.RootTheme);
+        SelectedElementTheme = ElementThemes.Find(a => a.NativeTheme == _newThemeService.RootTheme)
+            ?? ElementThemes.FirstOrDefault();
         SelectedInfoDisplayMode = PreferencesService.MailItemDisplayMode;
 
         var currentAccentColor = _newThemeService.AccentColor;
@@ -219,7 +220,9 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
 
         // Find selected theme, handling backward compatibility where theme ID might not exist
         var currentThemeId = _newThemeService.CurrentApplicationThemeId;
-        SelectedAppTheme = currentThemeId.HasValue ? AppThemes.Find(a => a.Id == currentThemeId.Value) : null;
+        SelectedAppTheme = currentThemeId.HasValue
+            ? AppThemes.Find(a => a.Id == currentThemeId.Value) ?? AppThemes.FirstOrDefault()
+            : AppThemes.FirstOrDefault();
 
         // Set the current backdrop from service - backdrop should be independent of theme selection
         var currentBackdropType = _newThemeService.CurrentBackdropType;
