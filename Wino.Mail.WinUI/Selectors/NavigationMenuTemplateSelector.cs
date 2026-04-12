@@ -24,7 +24,6 @@ public partial class NavigationMenuTemplateSelector : DataTemplateSelector
     public DataTemplate CreateNewFolderTemplate { get; set; } = null!;
     public DataTemplate SeperatorTemplate { get; set; } = null!;
     public DataTemplate NewMailTemplate { get; set; } = null!;
-    public DataTemplate NewContactTemplate { get; set; } = null!;
     public DataTemplate CalendarNewEventTemplate { get; set; } = null!;
     public DataTemplate CategoryItemsTemplate { get; set; } = null!;
     public DataTemplate FixAuthenticationIssueTemplate { get; set; } = null!;
@@ -34,8 +33,6 @@ public partial class NavigationMenuTemplateSelector : DataTemplateSelector
     {
         if (item is NewCalendarEventMenuItem)
             return CalendarNewEventTemplate;
-        else if (item is NewContactMenuItem)
-            return NewContactTemplate;
         else if (item is NewMailMenuItem)
             return NewMailTemplate;
         else if (item is ContactsMenuItem)

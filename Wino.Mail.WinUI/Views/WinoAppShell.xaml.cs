@@ -34,6 +34,7 @@ using Wino.MenuFlyouts;
 using Wino.MenuFlyouts.Context;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Client.Calendar;
+using Wino.Messaging.Client.Contacts;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
@@ -309,6 +310,24 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private Task InvokeNewCalendarEventAsync()
         => ViewModel.CalendarClient.HandleNavigationItemInvokedAsync(new NewCalendarEventMenuItem());
+
+    private void NewContactNavigationItemTapped(object sender, TappedRoutedEventArgs e)
+    {
+        e.Handled = true;
+        InvokeNewContact();
+    }
+
+    private void NewContactNavigationItemKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key is not (VirtualKey.Enter or VirtualKey.Space))
+            return;
+
+        e.Handled = true;
+        InvokeNewContact();
+    }
+
+    private static void InvokeNewContact()
+        => WeakReferenceMessenger.Default.Send(new NewContactRequested());
 
     private async void SynchronizeCalendarsNavigationItemTapped(object sender, TappedRoutedEventArgs e)
     {

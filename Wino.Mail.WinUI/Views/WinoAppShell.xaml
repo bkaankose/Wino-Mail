@@ -391,23 +391,6 @@
             </coreControls:WinoNavigationViewItem>
         </DataTemplate>
 
-        <DataTemplate x:Key="NewContactTemplate" x:DataType="menu:NewContactMenuItem">
-            <coreControls:WinoNavigationViewItem
-                Height="50"
-                DataContext="{x:Bind}"
-                SelectsOnInvoked="False">
-                <muxc:NavigationViewItem.Icon>
-                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE710;" />
-                </muxc:NavigationViewItem.Icon>
-                <TextBlock
-                    Margin="0,-2,0,0"
-                    VerticalAlignment="Center"
-                    FontSize="16"
-                    Style="{StaticResource FlyoutPickerTitleTextBlockStyle}"
-                    Text="{x:Bind domain:Translator.ContactsPane_NewContact}" />
-            </coreControls:WinoNavigationViewItem>
-        </DataTemplate>
-
         <coreSelectors:NavigationMenuTemplateSelector
             x:Key="NavigationMenuTemplateSelector"
             ClickableAccountMenuTemplate="{StaticResource ClickableAccountMenuTemplate}"
@@ -417,7 +400,6 @@
             MergedAccountFolderTemplate="{StaticResource MergedAccountFolderMenuItemTemplate}"
             MergedAccountMoreExpansionItemTemplate="{StaticResource MergedAccountMoreFolderItemTemplate}"
             MergedAccountTemplate="{StaticResource MergedAccountTemplate}"
-            NewContactTemplate="{StaticResource NewContactTemplate}"
             NewMailTemplate="{StaticResource CreateNewMailTemplate}"
             RatingItemTemplate="{StaticResource RatingItemTemplate}"
             SeperatorTemplate="{StaticResource SeperatorTemplate}"
@@ -639,6 +621,26 @@
                         VerticalScrollMode="Auto"
                         Visibility="Collapsed">
                         <StackPanel Spacing="6">
+                            <coreControls:WinoNavigationViewItem
+                                x:Name="NewContactNavigationItem"
+                                Height="50"
+                                Margin="0,0,0,12"
+                                AutomationProperties.Name="{x:Bind domain:Translator.ContactsPane_NewContact, Mode=OneTime}"
+                                IsTabStop="True"
+                                KeyDown="NewContactNavigationItemKeyDown"
+                                SelectsOnInvoked="False"
+                                Tapped="NewContactNavigationItemTapped">
+                                <muxc:NavigationViewItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE710;" />
+                                </muxc:NavigationViewItem.Icon>
+                                <TextBlock
+                                    Margin="0,-2,0,0"
+                                    VerticalAlignment="Center"
+                                    FontSize="16"
+                                    Style="{StaticResource FlyoutPickerTitleTextBlockStyle}"
+                                    Text="{x:Bind domain:Translator.ContactsPane_NewContact, Mode=OneTime}" />
+                            </coreControls:WinoNavigationViewItem>
+
                             <TextBlock
                                 FontSize="16"
                                 FontWeight="SemiBold"
