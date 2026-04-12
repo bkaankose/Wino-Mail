@@ -210,12 +210,12 @@
                         Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
                     <!--  Test Notification  -->
-                    <Button Command="{x:Bind ViewModel.CreateTestNotificationCommand}" Style="{StaticResource TransparentActionButtonStyle}">
+                    <!--<Button Command="{x:Bind ViewModel.CreateTestNotificationCommand}" Style="{StaticResource TransparentActionButtonStyle}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <coreControls:WinoFontIcon FontSize="16" Icon="Reminder" />
                             <TextBlock VerticalAlignment="Center" Text="Test notification" />
                         </StackPanel>
-                    </Button>
+                    </Button>-->
 
                     <!--  Edit Series  -->
                     <Border
