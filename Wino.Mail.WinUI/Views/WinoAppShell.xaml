@@ -121,18 +121,6 @@
                             <TextBlock Text="{x:Bind domain:Translator.Info_AccountAttentionRequiredAction}" />
                         </StackPanel>
                     </Button>
-
-                    <muxc:ProgressRing
-                        x:Name="SynchronizationProgressBar"
-                        Grid.Column="2"
-                        Width="16"
-                        Height="16"
-                        Margin="8,0"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        x:Load="{x:Bind IsProgressIndeterminate, Mode=OneWay}"
-                        IsActive="{x:Bind IsSynchronizationProgressVisible, Mode=OneWay}"
-                        IsIndeterminate="{x:Bind IsProgressIndeterminate, Mode=OneWay}" />
                 </Grid>
             </controls:AccountNavigationItem>
         </DataTemplate>
