@@ -147,6 +147,7 @@ public interface IAccountService
     /// <param name="accountId">Account id.</param>
     /// <returns>Primary alias for the account.</returns>
     Task<MailAccountAlias> GetPrimaryAccountAliasAsync(Guid accountId);
+    Task UpdateAliasSendCapabilityAsync(Guid accountId, string aliasAddress, AliasSendCapability capability);
     Task<bool> IsAccountFocusedEnabledAsync(Guid accountId);
 
     /// <summary>

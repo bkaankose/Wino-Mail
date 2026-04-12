@@ -1,6 +1,7 @@
 using System;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Dialogs;
@@ -21,7 +22,9 @@ public sealed partial class CreateAccountAliasDialog : ContentDialog, ICreateAcc
             ReplyToAddress = ReplyToTextBox.Text.Trim(),
             Id = Guid.NewGuid(),
             IsPrimary = false,
-            IsVerified = false
+            IsVerified = false,
+            Source = AliasSource.Manual,
+            SendCapability = AliasSendCapability.Unknown
         };
 
         Hide();

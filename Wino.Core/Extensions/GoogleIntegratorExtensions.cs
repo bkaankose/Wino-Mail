@@ -128,6 +128,10 @@ public static class GoogleIntegratorExtensions
             ReplyToAddress = a.ReplyToAddress,
             AliasSenderName = a.DisplayName,
             IsVerified = a.VerificationStatus == "accepted" || a.IsDefault.GetValueOrDefault(),
+            Source = AliasSource.ProviderDiscovered,
+            SendCapability = a.VerificationStatus == "accepted" || a.IsDefault.GetValueOrDefault()
+                ? AliasSendCapability.Confirmed
+                : AliasSendCapability.Unknown,
         }).ToList();
     }
 

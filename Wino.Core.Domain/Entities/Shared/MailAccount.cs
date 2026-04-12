@@ -120,7 +120,7 @@ public class MailAccount
     /// <summary>
     /// Gets whether the account can perform AliasInformation sync type.
     /// </summary>
-    public bool IsAliasSyncSupported => ProviderType == MailProviderType.Gmail;
+    public bool IsAliasSyncSupported => ProviderType == MailProviderType.Gmail || ProviderType == MailProviderType.Outlook;
 
     public override string ToString() => Name;
 }

@@ -1405,6 +1405,69 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         return new ProfileInformation(displayNameAndAddress.Item1, profilePictureData, displayNameAndAddress.Item2);
     }
 
+    protected override async Task SynchronizeAliasesAsync()
+    {
+        var userInfo = await _graphClient.Me.GetAsync((config) =>
+        {
+            config.QueryParameters.Select = ["mail", "proxyAddresses"];
+        }).ConfigureAwait(false);
+
+        var remoteAliases = GetRemoteAliases(userInfo);
+        await _outlookChangeProcessor.UpdateRemoteAliasInformationAsync(Account, remoteAliases).ConfigureAwait(false);
+    }
+
+    private List<RemoteAccountAlias> GetRemoteAliases(User userInfo)
+    {
+        var aliases = new Dictionary<string, RemoteAccountAlias>(StringComparer.OrdinalIgnoreCase);
+
+        void AddAlias(string address)
+        {
+            if (string.IsNullOrWhiteSpace(address))
+                return;
+
+            var normalizedAddress = address.Trim();
+            var isAccountAddress = normalizedAddress.Equals(Account.Address, StringComparison.OrdinalIgnoreCase);
+            var capability = isAccountAddress ? AliasSendCapability.Confirmed : AliasSendCapability.Unknown;
+
+            if (aliases.TryGetValue(normalizedAddress, out var existingAlias))
+            {
+                existingAlias.IsPrimary |= isAccountAddress;
+                existingAlias.IsRootAlias |= isAccountAddress;
+
+                if (capability == AliasSendCapability.Confirmed)
+                    existingAlias.SendCapability = AliasSendCapability.Confirmed;
+
+                return;
+            }
+
+            aliases[normalizedAddress] = new RemoteAccountAlias
+            {
+                AliasAddress = normalizedAddress,
+                ReplyToAddress = normalizedAddress,
+                IsPrimary = isAccountAddress,
+                IsRootAlias = isAccountAddress,
+                IsVerified = capability == AliasSendCapability.Confirmed,
+                Source = AliasSource.ProviderDiscovered,
+                SendCapability = capability
+            };
+        }
+
+        AddAlias(userInfo?.Mail);
+
+        foreach (var proxyAddress in userInfo?.ProxyAddresses ?? [])
+        {
+            if (string.IsNullOrWhiteSpace(proxyAddress) ||
+                !proxyAddress.StartsWith("smtp:", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            AddAlias(proxyAddress["smtp:".Length..]);
+        }
+
+        return aliases.Values.ToList();
+    }
+
     /// <summary>
     /// POST requests are handled differently in batches in Graph SDK.
     /// Batch basically ignores the step's coontent-type and body.
@@ -1959,6 +2022,16 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         var errorJson = JsonNode.Parse(content);
         var errorCode = errorJson["error"]["code"].GetValue<string>();
         var errorMessage = errorJson["error"]["message"].GetValue<string>();
+
+        if (response.StatusCode == HttpStatusCode.Forbidden &&
+            string.Equals(errorCode, "ErrorSendAsDenied", StringComparison.OrdinalIgnoreCase) &&
+            bundle?.UIChangeRequest is SendDraftRequest sendDraftRequest)
+        {
+            var sendingAlias = sendDraftRequest.Request.SendingAlias?.AliasAddress ?? Account.Address;
+            await _outlookChangeProcessor.UpdateAliasSendCapabilityAsync(Account.Id, sendingAlias, AliasSendCapability.Denied).ConfigureAwait(false);
+            errorMessage = string.Format(Translator.Exception_AliasSendDenied_Message, sendingAlias);
+        }
+
         var errorString = $"[{response.StatusCode}] {errorCode} - {errorMessage}\n";
 
         // Create error context

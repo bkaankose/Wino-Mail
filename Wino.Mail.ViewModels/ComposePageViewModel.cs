@@ -813,15 +813,13 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
     private void SaveReplyToAddress()
     {
-        if (SelectedAlias == null) return;
+        if (SelectedAlias == null || CurrentMimeMessage == null) return;
+
+        CurrentMimeMessage.ReplyTo.Clear();
 
         if (!string.IsNullOrEmpty(SelectedAlias.ReplyToAddress))
         {
-            if (!CurrentMimeMessage.ReplyTo.Any(a => a is MailboxAddress mailboxAddress && mailboxAddress.Address == SelectedAlias.ReplyToAddress))
-            {
-                CurrentMimeMessage.ReplyTo.Clear();
-                CurrentMimeMessage.ReplyTo.Add(new MailboxAddress(SelectedAlias.ReplyToAddress, SelectedAlias.ReplyToAddress));
-            }
+            CurrentMimeMessage.ReplyTo.Add(new MailboxAddress(SelectedAlias.ReplyToAddress, SelectedAlias.ReplyToAddress));
         }
     }
 

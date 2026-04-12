@@ -60,7 +60,9 @@ public class MailThreadingTests : IAsyncLifetime
             ReplyToAddress = _account.Address,
             IsPrimary = true,
             IsRootAlias = true,
-            IsVerified = true
+            IsVerified = true,
+            Source = AliasSource.Manual,
+            SendCapability = AliasSendCapability.Confirmed
         };
 
         await _databaseService.Connection.InsertAsync(_account, typeof(MailAccount));
@@ -186,6 +188,45 @@ public class MailThreadingTests : IAsyncLifetime
 
         draftMailCopy.InReplyTo.Should().Be(parentMessageId);
         draftMailCopy.References.Should().Be($"{rootMessageId};{parentMessageId}");
+    }
+
+    [Fact]
+    public async Task CreateDraftAsync_Reply_PicksAliasFromDeliveredToHeader()
+    {
+        var secondaryAlias = new MailAccountAlias
+        {
+            Id = Guid.NewGuid(),
+            AccountId = _account.Id,
+            AliasAddress = "support@test.local",
+            ReplyToAddress = "support@test.local",
+            IsPrimary = false,
+            IsRootAlias = false,
+            Source = AliasSource.Manual,
+            SendCapability = AliasSendCapability.Unknown
+        };
+
+        await _databaseService.Connection.InsertAsync(secondaryAlias, typeof(MailAccountAlias));
+
+        var referencedMimeMessage = CreateReferencedMimeMessage("Alias reply");
+        referencedMimeMessage.Headers.Add("Delivered-To", "<support@test.local>");
+
+        var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(
+            _account.Id,
+            new DraftCreationOptions
+            {
+                Reason = DraftCreationReason.Reply,
+                ReferencedMessage = new ReferencedMessage
+                {
+                    MimeMessage = referencedMimeMessage,
+                    MailCopy = new MailCopy { UniqueId = Guid.NewGuid(), Id = Guid.NewGuid().ToString(), MessageId = "alias-parent@domain.com" }
+                }
+            });
+
+        var mimeMessage = draftBase64MimeMessage.GetMimeMessageFromBase64();
+
+        draftMailCopy.FromAddress.Should().Be("support@test.local");
+        mimeMessage.From.Mailboxes.Should().ContainSingle(m => m.Address == "support@test.local");
+        mimeMessage.ReplyTo.Mailboxes.Should().ContainSingle(m => m.Address == "support@test.local");
     }
 
     private static MimeMessage CreateReferencedMimeMessage(string subject, string? messageId = null)

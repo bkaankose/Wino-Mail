@@ -41,6 +41,7 @@ public interface IDefaultChangeProcessor
     Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId);
     Task UpdateFolderLastSyncDateAsync(Guid folderId);
     Task UpdateRemoteAliasInformationAsync(MailAccount account, List<RemoteAccountAlias> remoteAccountAliases);
+    Task UpdateAliasSendCapabilityAsync(Guid accountId, string aliasAddress, AliasSendCapability capability);
     // Calendar
     Task<List<AccountCalendar>> GetAccountCalendarsAsync(Guid accountId);
 
@@ -199,6 +200,9 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
 
     public Task UpdateRemoteAliasInformationAsync(MailAccount account, List<RemoteAccountAlias> remoteAccountAliases)
         => AccountService.UpdateRemoteAliasInformationAsync(account, remoteAccountAliases);
+
+    public Task UpdateAliasSendCapabilityAsync(Guid accountId, string aliasAddress, AliasSendCapability capability)
+        => AccountService.UpdateAliasSendCapabilityAsync(accountId, aliasAddress, capability);
 
     public Task<List<AccountCalendar>> GetAccountCalendarsAsync(Guid accountId)
         => CalendarService.GetAccountCalendarsAsync(accountId);

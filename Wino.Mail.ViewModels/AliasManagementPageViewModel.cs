@@ -103,7 +103,7 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
         if (aliasSyncResult.CompletedState == SynchronizationCompletedState.Success)
             await LoadAliasesAsync();
         else
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, "Failed to synchronize aliases", InfoBarMessageType.Error);
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, Translator.Exception_FailedToSynchronizeAliases, InfoBarMessageType.Error);
     }
 
     [RelayCommand]

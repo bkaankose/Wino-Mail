@@ -34,33 +34,42 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <TextBlock FontWeight="SemiBold" Text="{x:Bind AliasAddress}" />
                     <TextBlock Grid.Row="1" Style="{StaticResource CaptionTextBlockStyle}">
+                        <Run Text="{x:Bind SourceDisplayName}" />
+                        <Run Text=" • " />
+                        <Run Text="{x:Bind CapabilityDisplayName}" />
+                    </TextBlock>
+                    <TextBlock Grid.Row="2" Style="{StaticResource CaptionTextBlockStyle}">
                         <Run Text="Reply-To:" /> <Run Text="{x:Bind ReplyToAddress}" />
                     </TextBlock>
                 </Grid>
 
-                <controls1:SwitchPresenter
+                <Grid
                     Grid.Column="1"
-                    HorizontalAlignment="Stretch"
-                    TargetType="x:Boolean"
-                    Value="{x:Bind IsVerified}">
-                    <controls1:Case Value="True">
-                        <Ellipse
-                            Width="12"
-                            Height="12"
-                            Margin="0,0,12,0"
-                            Fill="{StaticResource AliasVerifiedBrush}" />
-                    </controls1:Case>
-                    <controls1:Case Value="False">
-                        <Ellipse
-                            Width="12"
-                            Height="12"
-                            Margin="0,0,12,0"
-                            Fill="{StaticResource AliasUnverifiedBrush}" />
-                    </controls1:Case>
-                </controls1:SwitchPresenter>
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                    <Ellipse
+                        Width="12"
+                        Height="12"
+                        Margin="0,0,12,0"
+                        Fill="{StaticResource AliasVerifiedBrush}"
+                        Visibility="{x:Bind IsCapabilityConfirmed, Mode=OneWay}" />
+                    <Ellipse
+                        Width="12"
+                        Height="12"
+                        Margin="0,0,12,0"
+                        Fill="{StaticResource AliasUnknownBrush}"
+                        Visibility="{x:Bind IsCapabilityUnknown, Mode=OneWay}" />
+                    <Ellipse
+                        Width="12"
+                        Height="12"
+                        Margin="0,0,12,0"
+                        Fill="{StaticResource AliasUnverifiedBrush}"
+                        Visibility="{x:Bind IsCapabilityDenied, Mode=OneWay}" />
+                </Grid>
 
                 <RadioButton
                     Grid.Column="2"
@@ -195,7 +204,7 @@
                     Grid.Row="1"
                     Grid.Column="1"
                     HorizontalAlignment="Right"
-                    Text="{x:Bind domain:Translator.AccountAlias_Column_Verified}" />
+                    Text="{x:Bind domain:Translator.AccountAlias_Column_Status}" />
 
                 <TextBlock
                     Grid.Row="2"

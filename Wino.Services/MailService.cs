@@ -56,7 +56,8 @@ public class MailService : BaseDatabaseService, IMailService
     public async Task<(MailCopy draftMailCopy, string draftBase64MimeMessage)> CreateDraftAsync(Guid accountId, DraftCreationOptions draftCreationOptions)
     {
         var composerAccount = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
-        var createdDraftMimeMessage = await CreateDraftMimeAsync(composerAccount, draftCreationOptions);
+        var selectedAlias = await ResolveDraftAliasAsync(composerAccount, draftCreationOptions).ConfigureAwait(false);
+        var createdDraftMimeMessage = await CreateDraftMimeAsync(composerAccount, draftCreationOptions, selectedAlias).ConfigureAwait(false);
 
         var draftFolder = await _folderService.GetSpecialFolderByAccountIdAsync(composerAccount.Id, SpecialFolderType.Draft);
 
@@ -74,8 +75,8 @@ public class MailService : BaseDatabaseService, IMailService
             UniqueId = Guid.Parse(mimeUniqueId),
             Id = Guid.NewGuid().ToString(), // This will be replaced after network call with the remote draft id.
             CreationDate = DateTime.UtcNow,
-            FromAddress = primaryAlias?.AliasAddress ?? composerAccount.Address,
-            FromName = composerAccount.SenderName,
+            FromAddress = selectedAlias?.AliasAddress ?? primaryAlias?.AliasAddress ?? composerAccount.Address,
+            FromName = selectedAlias?.AliasSenderName ?? composerAccount.SenderName,
             HasAttachments = false,
             Importance = MailImportance.Normal,
             Subject = createdDraftMimeMessage.Subject,
@@ -1016,7 +1017,7 @@ public class MailService : BaseDatabaseService, IMailService
         await _contactService.SaveAddressInformationAsync(contacts).ConfigureAwait(false);
     }
 
-    private async Task<MimeMessage> CreateDraftMimeAsync(MailAccount account, DraftCreationOptions draftCreationOptions)
+    private async Task<MimeMessage> CreateDraftMimeAsync(MailAccount account, DraftCreationOptions draftCreationOptions, MailAccountAlias selectedAlias)
     {
         // This unique id is stored in mime headers for Wino to identify remote message with local copy.
         // Same unique id will be used for the local copy as well.
@@ -1028,10 +1029,15 @@ public class MailService : BaseDatabaseService, IMailService
         };
         EnsureOutgoingMessageId(message);
 
-        var primaryAlias = await _accountService.GetPrimaryAccountAliasAsync(account.Id) ?? throw new MissingAliasException();
+        selectedAlias ??= await _accountService.GetPrimaryAccountAliasAsync(account.Id) ?? throw new MissingAliasException();
 
         // Set FromName and FromAddress by alias.
-        message.From.Add(new MailboxAddress(account.SenderName, primaryAlias.AliasAddress));
+        message.From.Add(new MailboxAddress(selectedAlias.AliasSenderName ?? account.SenderName, selectedAlias.AliasAddress));
+
+        if (!string.IsNullOrWhiteSpace(selectedAlias.ReplyToAddress))
+        {
+            message.ReplyTo.Add(new MailboxAddress(selectedAlias.ReplyToAddress, selectedAlias.ReplyToAddress));
+        }
 
         var builder = new BodyBuilder();
 
@@ -1050,6 +1056,61 @@ public class MailService : BaseDatabaseService, IMailService
         message.Body = builder.ToMessageBody();
 
         return message;
+    }
+
+    private async Task<MailAccountAlias> ResolveDraftAliasAsync(MailAccount account, DraftCreationOptions draftCreationOptions)
+    {
+        var aliases = await _accountService.GetAccountAliasesAsync(account.Id).ConfigureAwait(false);
+        var primaryAlias = aliases.FirstOrDefault(a => a.IsPrimary) ?? aliases.FirstOrDefault();
+
+        if (draftCreationOptions?.ReferencedMessage?.MimeMessage == null)
+            return primaryAlias;
+
+        var referencedMessage = draftCreationOptions.ReferencedMessage.MimeMessage;
+
+        MailAccountAlias FindAlias(string address)
+        {
+            if (string.IsNullOrWhiteSpace(address))
+                return null;
+
+            return aliases.FirstOrDefault(a => a.AliasAddress.Equals(address.Trim(), StringComparison.OrdinalIgnoreCase));
+        }
+
+        var deliveredToAlias = FindAlias(ExtractAddressFromHeader(referencedMessage.Headers["Delivered-To"]))
+            ?? FindAlias(ExtractAddressFromHeader(referencedMessage.Headers["X-Original-To"]));
+        if (deliveredToAlias != null)
+            return deliveredToAlias;
+
+        foreach (var mailbox in referencedMessage.To.Mailboxes)
+        {
+            var matchedAlias = FindAlias(mailbox.Address);
+            if (matchedAlias != null)
+                return matchedAlias;
+        }
+
+        foreach (var mailbox in referencedMessage.Cc.Mailboxes)
+        {
+            var matchedAlias = FindAlias(mailbox.Address);
+            if (matchedAlias != null)
+                return matchedAlias;
+        }
+
+        return primaryAlias;
+    }
+
+    private static string ExtractAddressFromHeader(string headerValue)
+    {
+        if (string.IsNullOrWhiteSpace(headerValue))
+            return string.Empty;
+
+        var trimmed = headerValue.Trim();
+        var leftBracketIndex = trimmed.LastIndexOf('<');
+        var rightBracketIndex = trimmed.LastIndexOf('>');
+
+        if (leftBracketIndex >= 0 && rightBracketIndex > leftBracketIndex)
+            return trimmed[(leftBracketIndex + 1)..rightBracketIndex].Trim();
+
+        return trimmed.Trim().Trim('<', '>', '"', '\'');
     }
 
     private string CreateHtmlGap()

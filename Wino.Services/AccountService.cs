@@ -250,7 +250,9 @@ public class AccountService : BaseDatabaseService, IAccountService
             IsRootAlias = true,
             IsVerified = true,
             ReplyToAddress = address,
-            Id = Guid.NewGuid()
+            Id = Guid.NewGuid(),
+            Source = AliasSource.Manual,
+            SendCapability = AliasSendCapability.Confirmed
         };
 
         await Connection.InsertAsync(rootAlias, typeof(MailAccountAlias)).ConfigureAwait(false);
@@ -261,7 +263,7 @@ public class AccountService : BaseDatabaseService, IAccountService
     public async Task<List<MailAccountAlias>> GetAccountAliasesAsync(Guid accountId)
     {
         return await Connection.QueryAsync<MailAccountAlias>(
-            "SELECT * FROM MailAccountAlias WHERE AccountId = ? ORDER BY IsRootAlias DESC",
+            "SELECT * FROM MailAccountAlias WHERE AccountId = ? ORDER BY IsRootAlias DESC, IsPrimary DESC, AliasAddress ASC",
             accountId).ConfigureAwait(false);
     }
 
@@ -491,11 +493,16 @@ public class AccountService : BaseDatabaseService, IAccountService
     public async Task UpdateRemoteAliasInformationAsync(MailAccount account, List<RemoteAccountAlias> remoteAccountAliases)
     {
         var localAliases = await GetAccountAliasesAsync(account.Id).ConfigureAwait(false);
-        var rootAlias = localAliases.Find(a => a.IsRootAlias);
+        var normalizedRemoteAliases = remoteAccountAliases ?? [];
 
-        foreach (var remoteAlias in remoteAccountAliases)
+        foreach (var remoteAlias in normalizedRemoteAliases)
         {
-            var existingAlias = localAliases.Find(a => a.AccountId == account.Id && a.AliasAddress == remoteAlias.AliasAddress);
+            if (string.IsNullOrWhiteSpace(remoteAlias?.AliasAddress))
+                continue;
+
+            var existingAlias = localAliases.Find(a =>
+                a.AccountId == account.Id &&
+                a.AliasAddress.Equals(remoteAlias.AliasAddress, StringComparison.OrdinalIgnoreCase));
 
             if (existingAlias == null)
             {
@@ -509,7 +516,9 @@ public class AccountService : BaseDatabaseService, IAccountService
                     ReplyToAddress = remoteAlias.ReplyToAddress,
                     Id = Guid.NewGuid(),
                     IsRootAlias = remoteAlias.IsRootAlias,
-                    AliasSenderName = remoteAlias.AliasSenderName
+                    AliasSenderName = remoteAlias.AliasSenderName,
+                    Source = remoteAlias.Source,
+                    SendCapability = remoteAlias.SendCapability
                 };
 
                 await Connection.InsertAsync(newAlias, typeof(MailAccountAlias));
@@ -522,6 +531,8 @@ public class AccountService : BaseDatabaseService, IAccountService
                 existingAlias.IsVerified = remoteAlias.IsVerified;
                 existingAlias.ReplyToAddress = remoteAlias.ReplyToAddress;
                 existingAlias.AliasSenderName = remoteAlias.AliasSenderName;
+                existingAlias.Source = remoteAlias.Source;
+                existingAlias.SendCapability = remoteAlias.SendCapability;
 
                 await Connection.UpdateAsync(existingAlias, typeof(MailAccountAlias));
             }
@@ -551,6 +562,21 @@ public class AccountService : BaseDatabaseService, IAccountService
             idealRootAlias.IsRootAlias = true;
             await Connection.UpdateAsync(idealRootAlias, typeof(MailAccountAlias)).ConfigureAwait(false);
         }
+    }
+
+    public async Task UpdateAliasSendCapabilityAsync(Guid accountId, string aliasAddress, AliasSendCapability capability)
+    {
+        if (string.IsNullOrWhiteSpace(aliasAddress))
+            return;
+
+        var aliases = await GetAccountAliasesAsync(accountId).ConfigureAwait(false);
+        var alias = aliases.FirstOrDefault(a => a.AliasAddress.Equals(aliasAddress, StringComparison.OrdinalIgnoreCase));
+
+        if (alias == null)
+            return;
+
+        alias.SendCapability = capability;
+        await Connection.UpdateAsync(alias, typeof(MailAccountAlias)).ConfigureAwait(false);
     }
 
     public async Task DeleteAccountAliasAsync(Guid aliasId)

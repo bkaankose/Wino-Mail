@@ -2,6 +2,8 @@
 using System.Collections.ObjectModel;
 using System.Security.Cryptography.X509Certificates;
 using SQLite;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Entities.Mail;
 
@@ -42,6 +44,16 @@ public class RemoteAccountAlias
     /// Used for Gmail only.
     /// </summary>
     public string AliasSenderName { get; set; }
+
+    /// <summary>
+    /// Whether the alias was entered by the user or discovered from the provider.
+    /// </summary>
+    public AliasSource Source { get; set; } = AliasSource.Manual;
+
+    /// <summary>
+    /// Represents Wino's confidence that the alias can be used for sending.
+    /// </summary>
+    public AliasSendCapability SendCapability { get; set; } = AliasSendCapability.Unknown;
 }
 
 public class MailAccountAlias : RemoteAccountAlias
@@ -70,4 +82,28 @@ public class MailAccountAlias : RemoteAccountAlias
 
     [Ignore]
     public ObservableCollection<X509Certificate2> Certificates { get; set; } = [];
+
+    [Ignore]
+    public bool IsCapabilityConfirmed => SendCapability == AliasSendCapability.Confirmed;
+
+    [Ignore]
+    public bool IsCapabilityUnknown => SendCapability == AliasSendCapability.Unknown;
+
+    [Ignore]
+    public bool IsCapabilityDenied => SendCapability == AliasSendCapability.Denied;
+
+    [Ignore]
+    public string CapabilityDisplayName => SendCapability switch
+    {
+        AliasSendCapability.Confirmed => Translator.AccountAlias_Status_Confirmed,
+        AliasSendCapability.Denied => Translator.AccountAlias_Status_Denied,
+        _ => Translator.AccountAlias_Status_Unknown
+    };
+
+    [Ignore]
+    public string SourceDisplayName => Source switch
+    {
+        AliasSource.ProviderDiscovered => Translator.AccountAlias_Source_ProviderDiscovered,
+        _ => Translator.AccountAlias_Source_Manual
+    };
 }

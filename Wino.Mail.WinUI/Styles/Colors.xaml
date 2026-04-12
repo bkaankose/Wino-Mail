@@ -12,6 +12,7 @@
     <SolidColorBrush x:Key="DiagnosticIdCopyBrush">#ff7675</SolidColorBrush>
     <SolidColorBrush x:Key="AliasUnverifiedBrush">#ff7675</SolidColorBrush>
     <SolidColorBrush x:Key="AliasVerifiedBrush">#1abc9c</SolidColorBrush>
+    <SolidColorBrush x:Key="AliasUnknownBrush">#f39c12</SolidColorBrush>
 
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Name="Light">
