@@ -15,5 +15,6 @@ public record MailListInitializationOptions(IEnumerable<IMailItemFolder> Folders
                                             string SearchQuery,
                                             ConcurrentDictionary<Guid, bool> ExistingUniqueIds = null,
                                             List<MailCopy> PreFetchMailCopies = null,
+                                            bool DeduplicateByServerId = false,
                                             int Skip = 0,
                                             int Take = 0);

@@ -29,6 +29,7 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.ViewModels;
 using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Helpers;
+using Wino.Helpers;
 using Wino.MenuFlyouts;
 using Wino.MenuFlyouts.Context;
 using Wino.Messaging.Client.Accounts;
@@ -50,10 +51,15 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 {
     private const string StateDefaultShellContent = "DefaultShellContentState";
     private const string StateEventDetailsContent = "EventDetailsContentState";
+    private const int PaneCustomContentRowIndex = 4;
+    private const int PaneItemsContainerRowIndex = 6;
     private WinoApplicationMode? _activeMode;
     private bool _isSyncingNavigationViewSelection;
     private bool _isSynchronizingVisibleDateRangeCalendar;
     private bool _isPreparedForWindowClose;
+    private Grid? _paneContentGrid;
+    private RowDefinition? _paneCustomContentRowDefinition;
+    private RowDefinition? _paneItemsContainerRowDefinition;
 
     public WinoAppShell()
     {
@@ -681,6 +687,22 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private void UpdateNavigationPaneLayout(NavigationViewDisplayMode displayMode)
     {
+        EnsureNavigationPaneLayoutParts();
+
+        bool shouldStretchCustomPane = displayMode == NavigationViewDisplayMode.Expanded
+                                       && navigationView.IsPaneOpen
+                                       && (ViewModel.IsCalendarMode || ViewModel.IsContactsMode);
+
+        if (_paneCustomContentRowDefinition != null && _paneItemsContainerRowDefinition != null)
+        {
+            _paneCustomContentRowDefinition.Height = shouldStretchCustomPane
+                ? new GridLength(1, GridUnitType.Star)
+                : GridLength.Auto;
+            _paneItemsContainerRowDefinition.Height = shouldStretchCustomPane
+                ? GridLength.Auto
+                : new GridLength(1, GridUnitType.Star);
+        }
+
         if (displayMode == NavigationViewDisplayMode.Expanded && navigationView.IsPaneOpen)
         {
             if (ViewModel.IsCalendarMode)
@@ -708,6 +730,17 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         InnerShellFrame.Margin = displayMode == NavigationViewDisplayMode.Minimal
             ? new Thickness(7, 0, 0, 0)
             : new Thickness(0);
+    }
+
+    private void EnsureNavigationPaneLayoutParts()
+    {
+        _paneContentGrid ??= WinoVisualTreeHelper.GetChildObject<Grid>(navigationView, "PaneContentGrid");
+
+        if (_paneContentGrid == null || _paneContentGrid.RowDefinitions.Count <= PaneItemsContainerRowIndex)
+            return;
+
+        _paneCustomContentRowDefinition ??= _paneContentGrid.RowDefinitions[PaneCustomContentRowIndex];
+        _paneItemsContainerRowDefinition ??= _paneContentGrid.RowDefinitions[PaneItemsContainerRowIndex];
     }
 
     private async void OnPreviewKeyDown(object sender, KeyRoutedEventArgs e)

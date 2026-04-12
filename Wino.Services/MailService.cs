@@ -246,11 +246,13 @@ public class MailService : BaseDatabaseService, IMailService
     private static List<MailCopy> ApplyOptionsToPreFetchedMails(MailListInitializationOptions options)
     {
         var allowedFolderIds = options.Folders.Select(f => f.Id).ToHashSet();
+        var accountIdsByFolderId = options.Folders
+            .Where(folder => folder != null)
+            .GroupBy(folder => folder.Id)
+            .ToDictionary(group => group.Key, group => group.First().MailAccountId);
 
         IEnumerable<MailCopy> query = options.PreFetchMailCopies
-            .Where(m => m != null && allowedFolderIds.Contains(m.FolderId))
-            .GroupBy(m => m.UniqueId)
-            .Select(g => g.First());
+            .Where(m => m != null && allowedFolderIds.Contains(m.FolderId));
 
         switch (options.FilterType)
         {
@@ -285,6 +287,19 @@ public class MailService : BaseDatabaseService, IMailService
             query = query.Where(m => !options.ExistingUniqueIds.ContainsKey(m.UniqueId));
         }
 
+        query = options.DeduplicateByServerId
+            ? query
+                .GroupBy(m => (ResolveMailAccountId(m, accountIdsByFolderId), ResolveServerMailId(m)))
+                .Select(group => group
+                    .OrderByDescending(m => allowedFolderIds.Contains(m.FolderId))
+                    .ThenByDescending(m => m.CreationDate)
+                    .ThenBy(m => m.FolderId)
+                    .ThenBy(m => m.UniqueId)
+                    .First())
+            : query
+                .GroupBy(m => m.UniqueId)
+                .Select(group => group.First());
+
         query = options.SortingOptionType switch
         {
             SortingOptionType.Sender => query.OrderBy(m => m.FromName).ThenByDescending(m => m.CreationDate),
@@ -303,6 +318,20 @@ public class MailService : BaseDatabaseService, IMailService
 
         return query.ToList();
     }
+
+    private static Guid ResolveMailAccountId(MailCopy mail, IReadOnlyDictionary<Guid, Guid> accountIdsByFolderId)
+    {
+        if (mail?.AssignedAccount != null)
+            return mail.AssignedAccount.Id;
+
+        if (mail != null && accountIdsByFolderId.TryGetValue(mail.FolderId, out var accountId))
+            return accountId;
+
+        return Guid.Empty;
+    }
+
+    private static string ResolveServerMailId(MailCopy mail)
+        => string.IsNullOrWhiteSpace(mail?.Id) ? mail?.UniqueId.ToString("N") ?? string.Empty : mail.Id;
 
     public async Task<List<MailCopy>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default)
     {
@@ -774,6 +803,13 @@ public class MailService : BaseDatabaseService, IMailService
             _logger.Warning("Local folder not found for remote folder {RemoteFolderId}", remoteFolderId);
             _logger.Warning("Skipping assignment creation for the the message {MailCopyId}", mailCopyId);
 
+            return;
+        }
+
+        if (await IsMailExistsAsync(mailCopyId, localFolder.Id).ConfigureAwait(false))
+        {
+            _logger.Debug("Skipping assignment creation for {MailCopyId} because folder {FolderId} already has a local copy.",
+                mailCopyId, localFolder.Id);
             return;
         }
 

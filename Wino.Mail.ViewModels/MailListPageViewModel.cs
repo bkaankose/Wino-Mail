@@ -1084,7 +1084,13 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     {
         if (handlingFolders == null) return [];
 
-        var foldersByAccount = handlingFolders
+        var distinctFolders = handlingFolders
+            .Where(folder => folder != null)
+            .GroupBy(folder => folder.Id)
+            .Select(group => group.First())
+            .ToList();
+
+        var foldersByAccount = distinctFolders
             .GroupBy(a => a.MailAccountId)
             .ToList();
 
@@ -1101,12 +1107,43 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         var allResults = await Task.WhenAll(searchTasks).ConfigureAwait(false);
 
-        return allResults
-            .SelectMany(a => a)
-            .GroupBy(a => a.UniqueId)
-            .Select(a => a.First())
+        var accountIdsByFolderId = distinctFolders.ToDictionary(folder => folder.Id, folder => folder.MailAccountId);
+        var preferredFolderIds = distinctFolders.Select(folder => folder.Id).ToHashSet();
+
+        return DeduplicateOnlineSearchResults(allResults.SelectMany(a => a), accountIdsByFolderId, preferredFolderIds);
+    }
+
+    private static List<MailCopy> DeduplicateOnlineSearchResults(IEnumerable<MailCopy> results,
+                                                                 IReadOnlyDictionary<Guid, Guid> accountIdsByFolderId,
+                                                                 ISet<Guid> preferredFolderIds)
+    {
+        if (results == null) return [];
+
+        return results
+            .Where(mail => mail != null)
+            .GroupBy(mail => (ResolveMailAccountId(mail, accountIdsByFolderId), ResolveSearchMailId(mail)))
+            .Select(group => group
+                .OrderByDescending(mail => preferredFolderIds.Contains(mail.FolderId))
+                .ThenByDescending(mail => mail.CreationDate)
+                .ThenBy(mail => mail.FolderId)
+                .ThenBy(mail => mail.UniqueId)
+                .First())
             .ToList();
     }
+
+    private static Guid ResolveMailAccountId(MailCopy mail, IReadOnlyDictionary<Guid, Guid> accountIdsByFolderId)
+    {
+        if (mail?.AssignedAccount != null)
+            return mail.AssignedAccount.Id;
+
+        if (mail != null && accountIdsByFolderId.TryGetValue(mail.FolderId, out var accountId))
+            return accountId;
+
+        return Guid.Empty;
+    }
+
+    private static string ResolveSearchMailId(MailCopy mail)
+        => string.IsNullOrWhiteSpace(mail?.Id) ? mail?.UniqueId.ToString("N") ?? string.Empty : mail.Id;
 
     private async Task InitializeFolderAsync()
     {
@@ -1188,7 +1225,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                                                           SelectedFolderPivot.IsFocused,
                                                                           isDoingOnlineSearch ? string.Empty : SearchQuery,
                                                                           MailCollection.MailCopyIdHashSet,
-                                                                          onlineSearchItems);
+                                                                          onlineSearchItems,
+                                                                          DeduplicateByServerId: isDoingOnlineSearch);
 
             items = await _mailService.FetchMailsAsync(initializationOptions, cancellationToken).ConfigureAwait(false);
 

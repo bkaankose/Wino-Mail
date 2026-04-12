@@ -1053,10 +1053,15 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         {
             client = await _clientPool.GetClientAsync().ConfigureAwait(false);
 
-            List<MailCopy> searchResults = [];
-            List<string> searchResultFolderMailUids = [];
+            var distinctFolders = folders?
+                .Where(folder => folder != null)
+                .GroupBy(folder => folder.Id)
+                .Select(group => group.First())
+                .ToList() ?? [];
 
-            foreach (var folder in folders)
+            HashSet<string> searchResultFolderMailUids = new(StringComparer.Ordinal);
+
+            foreach (var folder in distinctFolders)
             {
                 if (folder is not MailItemFolder localFolder)
                     continue;

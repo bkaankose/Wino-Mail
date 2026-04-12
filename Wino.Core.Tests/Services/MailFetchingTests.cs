@@ -55,6 +55,7 @@ public class MailFetchingTests : IAsyncLifetime
             Id = Guid.NewGuid(),
             MailAccountId = _testAccount.Id,
             FolderName = "Inbox",
+            RemoteFolderId = "inbox",
             SpecialFolderType = SpecialFolderType.Inbox,
             IsSystemFolder = true,
             IsSynchronizationEnabled = true
@@ -190,6 +191,112 @@ public class MailFetchingTests : IAsyncLifetime
             "self-sent mail must use account metadata for the sender contact");
     }
 
+    [Fact]
+    public async Task FetchMailsAsync_PreFetchedOnlineSearch_DeduplicatesByServerIdWithinAccount()
+    {
+        var archiveFolder = await CreateFolderAsync(_testAccount, "Archive", "archive", SpecialFolderType.Archive);
+        var sharedId = "server-mail-1";
+        var olderCopy = BuildMail(_inboxFolder.Id, DateTime.UtcNow.AddMinutes(-5));
+        olderCopy.Id = sharedId;
+        var newerCopy = BuildMail(archiveFolder.Id, DateTime.UtcNow);
+        newerCopy.Id = sharedId;
+
+        var options = BuildOptions([_inboxFolder, archiveFolder], createThreads: false, deduplicateByServerId: true) with
+        {
+            PreFetchMailCopies = [olderCopy, newerCopy]
+        };
+
+        var result = await _mailService.FetchMailsAsync(options);
+
+        result.Should().HaveCount(1, "online search should show one visible result per server message within an account");
+        result.Single().UniqueId.Should().Be(newerCopy.UniqueId, "the newest copy should win when the searched folders tie");
+    }
+
+    [Fact]
+    public async Task FetchMailsAsync_PreFetchedOnlineSearch_KeepsSameServerIdAcrossAccountsSeparate()
+    {
+        var secondAccount = await CreateAccountAsync("Second Account", "second@test.local");
+        var secondInbox = await CreateFolderAsync(secondAccount, "Inbox", "inbox-2", SpecialFolderType.Inbox);
+        const string sharedId = "server-mail-2";
+
+        var firstAccountCopy = BuildMail(_inboxFolder.Id, DateTime.UtcNow.AddMinutes(-1));
+        firstAccountCopy.Id = sharedId;
+
+        var secondAccountCopy = BuildMail(secondInbox.Id, DateTime.UtcNow);
+        secondAccountCopy.Id = sharedId;
+
+        var options = BuildOptions([_inboxFolder, secondInbox], createThreads: false, deduplicateByServerId: true) with
+        {
+            PreFetchMailCopies = [firstAccountCopy, secondAccountCopy]
+        };
+
+        var result = await _mailService.FetchMailsAsync(options);
+
+        result.Should().HaveCount(2, "dedupe should be scoped per account, not just per server id string");
+        result.Select(m => m.AssignedAccount!.Id).Should().BeEquivalentTo([_testAccount.Id, secondAccount.Id]);
+    }
+
+    [Fact]
+    public async Task FetchMailsAsync_PreFetchedOnlineSearch_PrefersActiveFolderCopy()
+    {
+        var archiveFolder = await CreateFolderAsync(_testAccount, "Archive", "archive-active", SpecialFolderType.Archive);
+        const string sharedId = "server-mail-3";
+
+        var activeFolderCopy = BuildMail(_inboxFolder.Id, DateTime.UtcNow.AddMinutes(-5));
+        activeFolderCopy.Id = sharedId;
+
+        var newerNonActiveCopy = BuildMail(archiveFolder.Id, DateTime.UtcNow);
+        newerNonActiveCopy.Id = sharedId;
+
+        var options = BuildOptions([_inboxFolder], createThreads: false, deduplicateByServerId: true) with
+        {
+            PreFetchMailCopies = [activeFolderCopy, newerNonActiveCopy]
+        };
+
+        var result = await _mailService.FetchMailsAsync(options);
+
+        result.Should().HaveCount(1);
+        result.Single().FolderId.Should().Be(_inboxFolder.Id, "a copy from the actively searched folder should win over newer non-searched copies");
+    }
+
+    [Fact]
+    public async Task CreateAssignmentAsync_ExistingAssignment_IsIgnored()
+    {
+        var archiveFolder = await CreateFolderAsync(_testAccount, "Archive", "archive-existing", SpecialFolderType.Archive);
+        const string sharedId = "server-mail-4";
+
+        await _databaseService.Connection.InsertAllAsync(new[]
+        {
+            BuildMail(_inboxFolder.Id, DateTime.UtcNow.AddMinutes(-1), id: sharedId),
+            BuildMail(archiveFolder.Id, DateTime.UtcNow, id: sharedId)
+        });
+
+        await _mailService.CreateAssignmentAsync(_testAccount.Id, sharedId, archiveFolder.RemoteFolderId);
+
+        var count = await _databaseService.Connection.Table<MailCopy>().Where(mail => mail.Id == sharedId).CountAsync();
+        count.Should().Be(2, "re-creating an existing folder assignment must not insert another row");
+    }
+
+    [Fact]
+    public async Task CreateAssignmentAsync_NewAssignment_CreatesAdditionalRow()
+    {
+        var archiveFolder = await CreateFolderAsync(_testAccount, "Archive", "archive-new", SpecialFolderType.Archive);
+        const string sharedId = "server-mail-5";
+
+        await _databaseService.Connection.InsertAsync(
+            BuildMail(_inboxFolder.Id, DateTime.UtcNow, id: sharedId),
+            typeof(MailCopy));
+
+        await _mailService.CreateAssignmentAsync(_testAccount.Id, sharedId, archiveFolder.RemoteFolderId);
+
+        var insertedCopies = await _databaseService.Connection.Table<MailCopy>()
+            .Where(mail => mail.Id == sharedId)
+            .ToListAsync();
+
+        insertedCopies.Should().HaveCount(2, "adding a new folder assignment should still clone one additional local row");
+        insertedCopies.Select(mail => mail.FolderId).Should().BeEquivalentTo([_inboxFolder.Id, archiveFolder.Id]);
+    }
+
     // ── Performance: 1 000 mails / ~70 threads ─────────────────────────────────
 
     /// <summary>
@@ -315,12 +422,13 @@ public class MailFetchingTests : IAsyncLifetime
         Guid folderId,
         DateTime creationDate,
         string? threadId = null,
-        string fromAddress = "external@example.com")
+        string fromAddress = "external@example.com",
+        string? id = null)
     {
         return new MailCopy
         {
             UniqueId = Guid.NewGuid(),
-            Id = Guid.NewGuid().ToString(),
+            Id = id ?? Guid.NewGuid().ToString(),
             FileId = Guid.NewGuid(),
             FolderId = folderId,
             Subject = $"Subject {Guid.NewGuid():N}",
@@ -336,7 +444,8 @@ public class MailFetchingTests : IAsyncLifetime
     private static MailListInitializationOptions BuildOptions(
         IEnumerable<MailItemFolder> folders,
         bool createThreads = true,
-        int take = 0)
+        int take = 0,
+        bool deduplicateByServerId = false)
     {
         return new MailListInitializationOptions(
             Folders: folders,
@@ -345,7 +454,40 @@ public class MailFetchingTests : IAsyncLifetime
             CreateThreads: createThreads,
             IsFocusedOnly: null,
             SearchQuery: null,
+            DeduplicateByServerId: deduplicateByServerId,
             Take: take);
+    }
+
+    private async Task<MailAccount> CreateAccountAsync(string name, string address)
+    {
+        var account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Name = name,
+            Address = address,
+            SenderName = name,
+            ProviderType = MailProviderType.IMAP4
+        };
+
+        await _databaseService.Connection.InsertAsync(account, typeof(MailAccount));
+        return account;
+    }
+
+    private async Task<MailItemFolder> CreateFolderAsync(MailAccount account, string name, string remoteFolderId, SpecialFolderType specialFolderType)
+    {
+        var folder = new MailItemFolder
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = account.Id,
+            FolderName = name,
+            RemoteFolderId = remoteFolderId,
+            SpecialFolderType = specialFolderType,
+            IsSystemFolder = true,
+            IsSynchronizationEnabled = true
+        };
+
+        await _databaseService.Connection.InsertAsync(folder, typeof(MailItemFolder));
+        return folder;
     }
 
     /// <summary>

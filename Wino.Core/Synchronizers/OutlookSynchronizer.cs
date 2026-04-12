@@ -267,16 +267,30 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         return MailSynchronizationResult.CompletedWithFolderResults(unreadNewItems, folderResults);
     }
 
-    public async Task DownloadSearchResultMessageAsync(string messageId, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)
+    public Task DownloadSearchResultMessageAsync(string messageId, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)
+        => DownloadSearchResultMessageAsync(messageId, assignedFolder, existingMessageIds: null, cancellationToken);
+
+    private async Task DownloadSearchResultMessageAsync(string messageId,
+                                                        MailItemFolder assignedFolder,
+                                                        ISet<string> existingMessageIds,
+                                                        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(messageId) || assignedFolder == null) return;
 
         // Online search can return the same message across repeated invocations/races.
         // Guard before network+MIME download and before database insert.
-        var existing = await _outlookChangeProcessor.AreMailsExistsAsync([messageId]).ConfigureAwait(false);
-        if (existing.Contains(messageId))
+        if (existingMessageIds?.Contains(messageId) == true)
         {
             return;
+        }
+
+        if (existingMessageIds == null)
+        {
+            var existing = await _outlookChangeProcessor.AreMailsExistsAsync([messageId]).ConfigureAwait(false);
+            if (existing.Contains(messageId))
+            {
+                return;
+            }
         }
 
         Log.Information("Downloading search result message {messageId} for {Name} - {FolderName}", messageId, Account.Name, assignedFolder.FolderName);
@@ -314,6 +328,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             // Use safe upsert path to avoid duplicate rows when message already exists.
             await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
         }
+
+        existingMessageIds?.Add(messageId);
     }
 
     private async Task<IEnumerable<string>> SynchronizeFolderAsync(MailItemFolder folder, CancellationToken cancellationToken = default)
@@ -2226,10 +2242,11 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         if (messageIdsWithKnownFolder.Count == 0) return [];
 
         var locallyExistingMails = await _outlookChangeProcessor.AreMailsExistsAsync(messageIdsWithKnownFolder).ConfigureAwait(false);
+        var existingMessageIds = new HashSet<string>(locallyExistingMails, StringComparer.Ordinal);
 
         // Find messages that are not downloaded yet.
         List<Message> messagesToDownload = [];
-        foreach (var id in messageIdsWithKnownFolder.Except(locallyExistingMails, StringComparer.Ordinal))
+        foreach (var id in messageIdsWithKnownFolder.Except(existingMessageIds, StringComparer.Ordinal))
         {
             if (messagesById.TryGetValue(id, out var message))
             {
@@ -2239,7 +2256,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
         foreach (var message in messagesToDownload)
         {
-            await DownloadSearchResultMessageAsync(message.Id, localFolders[message.ParentFolderId], cancellationToken).ConfigureAwait(false);
+            await DownloadSearchResultMessageAsync(message.Id, localFolders[message.ParentFolderId], existingMessageIds, cancellationToken).ConfigureAwait(false);
         }
 
         // Get results from database and return.

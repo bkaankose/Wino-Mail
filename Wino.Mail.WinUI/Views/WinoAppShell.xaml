@@ -642,22 +642,27 @@
                         </ListView>
                     </Grid>
 
-                    <StackPanel
+                    <ScrollViewer
                         x:Name="ContactsPaneContent"
                         Margin="20,20,16,0"
-                        Spacing="6"
+                        HorizontalScrollBarVisibility="Disabled"
+                        HorizontalScrollMode="Disabled"
+                        VerticalScrollBarVisibility="Auto"
+                        VerticalScrollMode="Auto"
                         Visibility="Collapsed">
-                        <TextBlock
-                            FontSize="16"
-                            FontWeight="SemiBold"
-                            Text="{x:Bind domain:Translator.ContactsPane_DescriptionTitle, Mode=OneTime}"
-                            TextWrapping="WrapWholeWords" />
-                        <TextBlock
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Style="{StaticResource BodyTextBlockStyle}"
-                            Text="{x:Bind domain:Translator.ContactsPane_DescriptionBody, Mode=OneTime}"
-                            TextWrapping="WrapWholeWords" />
-                    </StackPanel>
+                        <StackPanel Spacing="6">
+                            <TextBlock
+                                FontSize="16"
+                                FontWeight="SemiBold"
+                                Text="{x:Bind domain:Translator.ContactsPane_DescriptionTitle, Mode=OneTime}"
+                                TextWrapping="WrapWholeWords" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource BodyTextBlockStyle}"
+                                Text="{x:Bind domain:Translator.ContactsPane_DescriptionBody, Mode=OneTime}"
+                                TextWrapping="WrapWholeWords" />
+                        </StackPanel>
+                    </ScrollViewer>
                 </Grid>
             </muxc:NavigationView.PaneCustomContent>
             <Grid ColumnSpacing="0">

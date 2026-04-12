@@ -1390,6 +1390,12 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         static bool IsArchiveFolder(IMailItemFolder folder)
             => folder?.SpecialFolderType == SpecialFolderType.Archive || folder?.RemoteFolderId == ServiceConstants.ARCHIVE_LABEL_ID;
 
+        var distinctFolders = folders?
+            .Where(folder => folder != null)
+            .GroupBy(folder => folder.Id)
+            .Select(group => group.First())
+            .ToList();
+
         var messageIds = new HashSet<string>(StringComparer.Ordinal);
 
         async Task CollectMessageIdsAsync(UsersResource.MessagesResource.ListRequest request)
@@ -1421,7 +1427,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         bool hasScopedQuery = queryText.StartsWith("label:", StringComparison.OrdinalIgnoreCase) ||
                               queryText.StartsWith("in:", StringComparison.OrdinalIgnoreCase);
 
-        if (hasScopedQuery || folders?.Count == 0)
+        if (hasScopedQuery || distinctFolders?.Count == 0)
         {
             var request = _gmailService.Users.Messages.List("me");
             request.Q = queryText;
@@ -1431,7 +1437,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         }
         else
         {
-            foreach (var folder in folders)
+            foreach (var folder in distinctFolders)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
