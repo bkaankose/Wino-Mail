@@ -56,6 +56,7 @@
         <Grid Visibility="{x:Bind IsProviderSelectionVisible, Mode=OneWay}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
@@ -95,6 +96,48 @@
                 </Button>
 
             </Grid>
+
+            <Border
+                x:Name="InitialSynchronizationPanel"
+                Grid.Row="1"
+                Margin="0,12,0,0"
+                Padding="12"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Visibility="Collapsed">
+                <StackPanel Spacing="10">
+                    <StackPanel Spacing="2">
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_Title}" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_Description}"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+
+                    <ComboBox
+                        x:Name="InitialSynchronizationComboBox"
+                        HorizontalAlignment="Stretch"
+                        ItemsSource="{x:Bind InitialSynchronizationRanges, Mode=OneWay}"
+                        SelectionChanged="InitialSynchronizationSelectionChanged">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="accounts:InitialSynchronizationRangeOption">
+                                <TextBlock Text="{x:Bind DisplayText}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <muxc:InfoBar
+                        x:Name="InitialSynchronizationWarningBar"
+                        IsOpen="True"
+                        Message="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_EverythingWarning}"
+                        Severity="Warning"
+                        Title="{x:Bind domain:Translator.GeneralTitle_Warning}"
+                        Visibility="Collapsed" />
+                </StackPanel>
+            </Border>
 
 
             <ListView

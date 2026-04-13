@@ -18,6 +18,9 @@ public partial class WelcomeWizardContext : ObservableObject
     [ObservableProperty]
     public partial string AccountColorHex { get; set; }
 
+    [ObservableProperty]
+    public partial InitialSynchronizationRange SelectedInitialSynchronizationRange { get; set; } = InitialSynchronizationRange.SixMonths;
+
     // Special IMAP fields (iCloud/Yahoo)
     [ObservableProperty]
     public partial string DisplayName { get; set; }
@@ -62,7 +65,8 @@ public partial class WelcomeWizardContext : ObservableObject
             SelectedProvider.Type,
             AccountName,
             BuildSpecialImapProviderDetails(),
-            AccountColorHex);
+            AccountColorHex,
+            SelectedInitialSynchronizationRange);
     }
 
     public void Reset()
@@ -70,6 +74,7 @@ public partial class WelcomeWizardContext : ObservableObject
         SelectedProvider = null;
         AccountName = null;
         AccountColorHex = null;
+        SelectedInitialSynchronizationRange = InitialSynchronizationRange.SixMonths;
         DisplayName = null;
         EmailAddress = null;
         AppSpecificPassword = null;

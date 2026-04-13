@@ -997,7 +997,12 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                 SpecialImapProvider = _editingSpecialImapProvider,
                 IsCalendarAccessGranted = mode != ImapCalendarSupportMode.Disabled
             },
-            new AccountCreationDialogResult(MailProviderType.IMAP4, DisplayName.Trim(), providerDetails, string.Empty));
+            new AccountCreationDialogResult(
+                MailProviderType.IMAP4,
+                DisplayName.Trim(),
+                providerDetails,
+                string.Empty,
+                _wizardContext.SelectedInitialSynchronizationRange));
 
         if (serverInformation == null)
             return false;

@@ -55,14 +55,14 @@ public partial class OutlookSynchronizerJsonContext : JsonSerializerContext;
 /// 
 /// SYNCHRONIZATION STRATEGY:
 /// - Uses delta API for both initial and incremental sync
-/// - Initial sync: Downloads last 30 days of emails with metadata only
+/// - Initial sync: Downloads messages using the account's configured cutoff date with metadata only
 /// - Incremental sync: Uses delta token to get only changes since last sync
 /// - Messages are downloaded with metadata only (no MIME content during sync)
 /// - MIME files are downloaded on-demand when user explicitly reads a message
 /// 
 /// Key implementation details:
 /// - SynchronizeFolderAsync: Main entry point for per-folder synchronization
-/// - DownloadMailsForInitialSyncAsync: Downloads last 30 days using delta API with filter
+/// - DownloadMailsForInitialSyncAsync: Downloads messages using delta API with an optional cutoff filter
 /// - ProcessDeltaChangesAsync: Processes incremental changes using delta token
 /// - DownloadMessageMetadataBatchAsync: Downloads metadata in batches using Graph batch API
 /// - CreateMailCopyFromMessageAsync: Creates MailCopy from Message metadata
@@ -343,9 +343,9 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         // Check if we have a delta token
         if (string.IsNullOrEmpty(folder.DeltaToken))
         {
-            _logger.Debug("No delta token for folder {FolderName}. Starting initial sync (last 30 days).", folder.FolderName);
+            _logger.Debug("No delta token for folder {FolderName}. Starting initial sync.", folder.FolderName);
 
-            // Download mails for initial sync (last 30 days)
+            // Download mails for initial sync using the account's configured cutoff date.
             await DownloadMailsForInitialSyncAsync(folder, downloadedMessageIds, cancellationToken).ConfigureAwait(false);
         }
         else
@@ -367,27 +367,37 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     }
 
     /// <summary>
-    /// Downloads mails for initial synchronization using Delta API with 30-day filter.
-    /// Downloads metadata only (no MIME content) for messages received in the last 30 days.
+    /// Downloads mails for initial synchronization using Delta API with the account's configured cutoff date.
+    /// Downloads metadata only (no MIME content) for messages received after that date.
     /// </summary>
     private async Task DownloadMailsForInitialSyncAsync(MailItemFolder folder, List<string> downloadedMessageIds, CancellationToken cancellationToken)
     {
-        _logger.Debug("Starting initial mail download for folder {FolderName} (last 6 months)", folder.FolderName);
+        _logger.Debug("Starting initial mail download for folder {FolderName}", folder.FolderName);
 
         try
         {
-            // Calculate date 6 months ago
-            var sixMonthsAgo = DateTime.UtcNow.AddMonths(-6);
-            var filterDate = sixMonthsAgo.ToString("yyyy-MM-ddTHH:mm:ssZ");
+            var referenceDateUtc = Account.CreatedAt ?? DateTime.UtcNow;
+            var initialSynchronizationCutoffDateUtc = Account.InitialSynchronizationRange.ToCutoffDateUtc(referenceDateUtc);
+            var filterDate = initialSynchronizationCutoffDateUtc?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ");
 
-            _logger.Information("Downloading messages received after {FilterDate} for folder {FolderName}", filterDate, folder.FolderName);
+            if (filterDate != null)
+            {
+                _logger.Information("Downloading messages received after {FilterDate} for folder {FolderName}", filterDate, folder.FolderName);
+            }
+            else
+            {
+                _logger.Information("Downloading all available messages for folder {FolderName}", folder.FolderName);
+            }
 
-            // Use Delta API with receivedDateTime filter for last 6 months
             var messageCollectionPage = await _graphClient.Me.MailFolders[folder.RemoteFolderId].Messages.Delta.GetAsDeltaGetResponseAsync((config) =>
             {
                 config.QueryParameters.Select = outlookMessageSelectParameters;
                 config.QueryParameters.Orderby = ["receivedDateTime desc"];
-                config.QueryParameters.Filter = $"receivedDateTime ge {filterDate}";
+
+                if (filterDate != null)
+                {
+                    config.QueryParameters.Filter = $"receivedDateTime ge {filterDate}";
+                }
             }, cancellationToken).ConfigureAwait(false);
 
             var totalProcessed = 0;

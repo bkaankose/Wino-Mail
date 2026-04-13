@@ -79,6 +79,22 @@ public class DatabaseService : IDatabaseService
     {
         await EnsureKeyboardShortcutSchemaAsync().ConfigureAwait(false);
 
+        var accountColumns = await Connection.GetTableInfoAsync(nameof(MailAccount)).ConfigureAwait(false);
+
+        if (!accountColumns.Any(c => c.Name == nameof(MailAccount.CreatedAt)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailAccount)} ADD COLUMN {nameof(MailAccount.CreatedAt)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
+        if (!accountColumns.Any(c => c.Name == nameof(MailAccount.InitialSynchronizationRange)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailAccount)} ADD COLUMN {nameof(MailAccount.InitialSynchronizationRange)} INTEGER NOT NULL DEFAULT {(int)InitialSynchronizationRange.SixMonths}")
+                .ConfigureAwait(false);
+        }
+
         var folderColumns = await Connection.GetTableInfoAsync(nameof(MailItemFolder)).ConfigureAwait(false);
 
         if (!folderColumns.Any(c => c.Name == nameof(MailItemFolder.HighestKnownUid)))

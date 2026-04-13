@@ -170,6 +170,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
         try
         {
             CustomServerInformation customServerInformation = null;
+            var accountCreatedAt = DateTime.UtcNow;
 
             // Build account in memory
             _createdAccount = new MailAccount
@@ -179,6 +180,8 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 Name = WizardContext.AccountName,
                 SpecialImapProvider = WizardContext.SelectedProvider.SpecialImapProvider,
                 AccountColorHex = WizardContext.AccountColorHex,
+                CreatedAt = accountCreatedAt,
+                InitialSynchronizationRange = WizardContext.SelectedInitialSynchronizationRange,
                 IsCalendarAccessGranted = true
             };
 

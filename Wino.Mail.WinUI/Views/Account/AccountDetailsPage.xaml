@@ -210,6 +210,13 @@
                         </TransitionCollection>
                     </StackPanel.ChildrenTransitions>
 
+                    <muxc:InfoBar
+                        IsOpen="True"
+                        Margin="0,0,0,8"
+                        Message="{x:Bind ViewModel.InitialSynchronizationSummary, Mode=OneWay}"
+                        Severity="Informational"
+                        Title="{x:Bind domain:Translator.AccountDetailsPage_InitialSynchronization_Title}"
+                        Visibility="{x:Bind ViewModel.IsInitialSynchronizationSummaryVisible, Mode=OneWay}" />
 
                     <controls:SettingsCard
                         Command="{x:Bind ViewModel.EditAliasesCommand}"

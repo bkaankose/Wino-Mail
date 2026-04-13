@@ -81,9 +81,8 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     public override uint BatchModificationSize => 1000;
 
     /// <summary>
-    /// Maximum messages to fetch per folder during initial sync (1500).
-    /// All messages are downloaded with METADATA ONLY - no raw MIME content.
-    /// Uses Gmail API's Metadata format which includes headers, labels, and snippet but NOT full message body.
+    /// Legacy page size hint kept for compatibility with shared synchronizer contracts.
+    /// Gmail initial sync now downloads all messages inside the selected cutoff window.
     /// </summary>
     public override uint InitialMessageDownloadCountPerFolder => 1500;
 
@@ -304,13 +303,18 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
     /// <summary>
     /// Performs initial synchronization by downloading messages per-folder.
-    /// Each folder gets up to 1500 messages, but we track already downloaded message IDs globally
-    /// to avoid downloading the same message multiple times (Gmail messages can have multiple labels).
+    /// Messages are filtered by the account's configured initial synchronization cutoff date when present,
+    /// and duplicates are avoided globally because Gmail messages can have multiple labels.
     /// </summary>
     private async Task<List<string>> PerformInitialSyncAsync(CancellationToken cancellationToken)
     {
         // Track all downloaded message IDs globally to avoid duplicate downloads
         var downloadedMessageIds = new HashSet<string>();
+        var referenceDateUtc = Account.CreatedAt ?? DateTime.UtcNow;
+        var initialSynchronizationCutoffDateUtc = Account.InitialSynchronizationRange.ToCutoffDateUtc(referenceDateUtc);
+        var queryText = initialSynchronizationCutoffDateUtc.HasValue
+            ? $"after:{initialSynchronizationCutoffDateUtc.Value.ToUniversalTime():yyyy/MM/dd}"
+            : null;
 
         _logger.Information("Performing initial sync for {Name} - downloading messages per folder", Account.Name);
 
@@ -337,7 +341,6 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
                 var folderDownloaded = 0;
                 string pageToken = null;
-                var remainingToDownload = (int)InitialMessageDownloadCountPerFolder;
 
                 do
                 {
@@ -345,8 +348,9 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
                     var request = _gmailService.Users.Messages.List("me");
                     request.LabelIds = new Google.Apis.Util.Repeatable<string>(new[] { folder.RemoteFolderId });
-                    request.MaxResults = Math.Min(remainingToDownload, 500); // API max is 500
+                    request.MaxResults = 500; // API max is 500
                     request.PageToken = pageToken;
+                    request.Q = queryText;
 
                     var response = await request.ExecuteAsync(cancellationToken);
 
@@ -373,18 +377,11 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                             totalMessagesDownloaded += newMessageIds.Count;
                         }
 
-                        // Count all messages (including duplicates) toward the folder limit
-                        remainingToDownload -= response.Messages.Count;
-
                         _logger.Debug("Folder {FolderName}: Downloaded {New} new messages ({Total} total in folder)",
                             folder.FolderName, newMessageIds.Count, folderDownloaded);
                     }
 
                     pageToken = response.NextPageToken;
-
-                    // Stop if we've processed enough messages for this folder or no more pages
-                    if (remainingToDownload <= 0 || string.IsNullOrEmpty(pageToken))
-                        break;
 
                 } while (!string.IsNullOrEmpty(pageToken));
 

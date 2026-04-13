@@ -9,6 +9,7 @@ using MailKit.Search;
 using MoreLinq;
 using Serilog;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
@@ -252,9 +253,20 @@ public class UnifiedImapSynchronizer
                 .OpenAsync(FolderAccess.ReadOnly, folder.UidValidity, localHighestModSeq, knownUidStructs, cancellationToken)
                 .ConfigureAwait(false);
 
-            var changedUids = await remoteFolder
-                .SearchAsync(SearchQuery.ChangedSince(localHighestModSeq), cancellationToken)
-                .ConfigureAwait(false);
+            IList<UniqueId> changedUids;
+
+            if (folder.HighestModeSeq == 0)
+            {
+                changedUids = await remoteFolder
+                    .SearchAsync(BuildInitialSyncQuery(synchronizer), cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                changedUids = await remoteFolder
+                    .SearchAsync(SearchQuery.ChangedSince(localHighestModSeq), cancellationToken)
+                    .ConfigureAwait(false);
+            }
 
             downloadedMessageIds = await DownloadMessagesByUidsAsync(client, remoteFolder, folder, changedUids, synchronizer, cancellationToken).ConfigureAwait(false);
 
@@ -308,25 +320,26 @@ public class UnifiedImapSynchronizer
             {
                 IList<UniqueId> changedUids;
 
-                if (client.Capabilities.HasFlag(ImapCapabilities.Sort))
+                if (isInitialSync)
                 {
                     changedUids = await remoteFolder
-                        .SortAsync(SearchQuery.ChangedSince(localHighestModSeq), [OrderBy.ReverseDate], cancellationToken)
+                        .SearchAsync(BuildInitialSyncQuery(synchronizer), cancellationToken)
                         .ConfigureAwait(false);
                 }
                 else
                 {
-                    changedUids = await remoteFolder
-                        .SearchAsync(SearchQuery.ChangedSince(localHighestModSeq), cancellationToken)
-                        .ConfigureAwait(false);
-                }
-
-                if (isInitialSync)
-                {
-                    changedUids = changedUids
-                        .OrderByDescending(a => a.Id)
-                        .Take((int)synchronizer.InitialMessageDownloadCountPerFolder)
-                        .ToList();
+                    if (client.Capabilities.HasFlag(ImapCapabilities.Sort))
+                    {
+                        changedUids = await remoteFolder
+                            .SortAsync(SearchQuery.ChangedSince(localHighestModSeq), [OrderBy.ReverseDate], cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        changedUids = await remoteFolder
+                            .SearchAsync(SearchQuery.ChangedSince(localHighestModSeq), cancellationToken)
+                            .ConfigureAwait(false);
+                    }
                 }
 
                 downloadedMessageIds = await DownloadMessagesByUidsAsync(client, remoteFolder, folder, changedUids, synchronizer, cancellationToken).ConfigureAwait(false);
@@ -367,15 +380,12 @@ public class UnifiedImapSynchronizer
 
             if (folder.HighestKnownUid == 0)
             {
-                var remoteUids = await remoteFolder.SearchAsync(SearchQuery.All, cancellationToken).ConfigureAwait(false);
-
-                var initialUids = remoteUids
-                    .OrderByDescending(a => a.Id)
-                    .Take((int)synchronizer.InitialMessageDownloadCountPerFolder)
-                    .ToList();
+                var initialUids = await remoteFolder
+                    .SearchAsync(BuildInitialSyncQuery(synchronizer), cancellationToken)
+                    .ConfigureAwait(false);
 
                 downloadedMessageIds = await DownloadMessagesByUidsAsync(client, remoteFolder, folder, initialUids, synchronizer, cancellationToken).ConfigureAwait(false);
-                UpdateHighestKnownUid(folder, remoteFolder, remoteUids.Select(a => a.Id));
+                UpdateHighestKnownUid(folder, remoteFolder, initialUids.Select(a => a.Id));
             }
             else
             {
@@ -409,6 +419,22 @@ public class UnifiedImapSynchronizer
     #endregion
 
     #region Shared Helpers
+
+    private static SearchQuery BuildInitialSyncQuery(IImapSynchronizer synchronizer)
+    {
+        if (synchronizer is IBaseSynchronizer { Account: { } account })
+        {
+            var referenceDateUtc = account.CreatedAt ?? DateTime.UtcNow;
+            var cutoffDateUtc = account.InitialSynchronizationRange.ToCutoffDateUtc(referenceDateUtc);
+
+            if (cutoffDateUtc.HasValue)
+            {
+                return SearchQuery.DeliveredAfter(cutoffDateUtc.Value.ToUniversalTime().Date);
+            }
+        }
+
+        return SearchQuery.All;
+    }
 
     private async Task EnsureUidValidityStateAsync(MailItemFolder folder, IMailFolder remoteFolder)
     {

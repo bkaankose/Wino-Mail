@@ -590,6 +590,11 @@ public class AccountService : BaseDatabaseService, IAccountService
     {
         Guard.IsNotNull(account);
 
+        if (!account.CreatedAt.HasValue)
+        {
+            account.CreatedAt = DateTime.UtcNow;
+        }
+
         var accountCount = await Connection.Table<MailAccount>().CountAsync();
 
         // If there are no accounts before this one, set it as startup account.

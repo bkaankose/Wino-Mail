@@ -211,6 +211,8 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             SpecialImapProvider = (SpecialImapProvider)mailbox.SpecialImapProvider,
             AccountColorHex = mailbox.AccountColorHex?.Trim(),
             Base64ProfilePictureData = string.Empty,
+            CreatedAt = DateTime.UtcNow,
+            InitialSynchronizationRange = InitialSynchronizationRange.SixMonths,
             IsCalendarAccessGranted = mailbox.IsCalendarAccessGranted,
             SynchronizationDeltaIdentifier = string.Empty,
             CalendarSynchronizationDeltaIdentifier = string.Empty,

@@ -1,5 +1,10 @@
-﻿using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Models.Accounts;
 
-public record AccountCreationDialogResult(MailProviderType ProviderType, string AccountName, SpecialImapProviderDetails SpecialImapProviderDetails, string AccountColorHex);
+public record AccountCreationDialogResult(
+    MailProviderType ProviderType,
+    string AccountName,
+    SpecialImapProviderDetails SpecialImapProviderDetails,
+    string AccountColorHex,
+    InitialSynchronizationRange InitialSynchronizationRange);

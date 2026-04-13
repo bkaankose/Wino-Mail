@@ -113,6 +113,16 @@ public class MailAccount
     public DateTime? LastFolderStructureSyncDate { get; set; }
 
     /// <summary>
+    /// Gets or sets when the account was created in Wino.
+    /// </summary>
+    public DateTime? CreatedAt { get; set; }
+
+    /// <summary>
+    /// Gets or sets the timespan used for the account's initial mail synchronization.
+    /// </summary>
+    public InitialSynchronizationRange InitialSynchronizationRange { get; set; } = InitialSynchronizationRange.SixMonths;
+
+    /// <summary>
     /// Gets whether the account can perform ProfileInformation sync type.
     /// </summary>
     public bool IsProfileInfoSyncSupported => ProviderType == MailProviderType.Outlook || ProviderType == MailProviderType.Gmail;

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -12,6 +13,7 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
@@ -101,6 +103,14 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         ? $"ms-appx:///Assets/Providers/{Account.SpecialImapProvider}.png"
         : $"ms-appx:///Assets/Providers/{Account?.ProviderType}.png";
     public string Address => Account?.Address ?? string.Empty;
+    public bool IsInitialSynchronizationSummaryVisible => Account?.CreatedAt.HasValue == true && Account.InitialSynchronizationRange != InitialSynchronizationRange.Everything;
+    public string InitialSynchronizationSummary => Account?.CreatedAt is not DateTime createdAtUtc
+        ? string.Empty
+        : Account.InitialSynchronizationRange.ToCutoffDateUtc(createdAtUtc) is not DateTime cutoffDateUtc
+            ? string.Empty
+            : string.Format(
+            Translator.AccountDetailsPage_InitialSynchronization_Description,
+            cutoffDateUtc.ToLocalTime().ToString("D", CultureInfo.CurrentUICulture));
 
     public List<ImapAuthenticationMethodModel> AvailableAuthenticationMethods { get; } =
     [
@@ -363,6 +373,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         OnPropertyChanged(nameof(IsFocusedInboxSupportedForAccount));
         OnPropertyChanged(nameof(ProviderIconPath));
         OnPropertyChanged(nameof(Address));
+        OnPropertyChanged(nameof(IsInitialSynchronizationSummaryVisible));
+        OnPropertyChanged(nameof(InitialSynchronizationSummary));
     }
 
     protected override async void OnPropertyChanged(PropertyChangedEventArgs e)

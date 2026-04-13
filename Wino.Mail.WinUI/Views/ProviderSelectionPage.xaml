@@ -10,15 +10,12 @@
     xmlns:helpers="using:Wino.Helpers"
     xmlns:interfaces="using:Wino.Core.Domain.Interfaces"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     mc:Ignorable="d">
 
-    <ScrollViewer
-        HorizontalAlignment="Center"
-        VerticalAlignment="Center"
-        VerticalScrollBarVisibility="Auto">
+    <ScrollViewer HorizontalAlignment="Center" VerticalScrollBarVisibility="Auto">
         <StackPanel
-            MaxWidth="480"
-            Margin="0,24,0,24"
+            Margin="0,12"
             HorizontalAlignment="Stretch"
             Spacing="20">
 
@@ -75,6 +72,50 @@
                     </Button.Flyout>
                 </Button>
             </Grid>
+
+            <Border
+                MaxWidth="600"
+                Padding="12"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+                <StackPanel Spacing="10">
+                    <StackPanel Spacing="2">
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_Title}" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_Description}"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+
+                    <ListView
+                        HorizontalAlignment="Center"
+                        HorizontalContentAlignment="Stretch"
+                        ItemsSource="{x:Bind ViewModel.InitialSynchronizationRanges, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.SelectedInitialSynchronizationRange, Mode=TwoWay}">
+                        <ListView.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <ItemsStackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ListView.ItemsPanel>
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="accounts:InitialSynchronizationRangeOption">
+                                <TextBlock Text="{x:Bind DisplayText}" />
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <muxc:InfoBar
+                        Title="{x:Bind domain:Translator.GeneralTitle_Warning}"
+                        Margin="0,2,0,0"
+                        IsOpen="True"
+                        Message="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_EverythingWarning}"
+                        Severity="Warning"
+                        Visibility="{x:Bind ViewModel.IsInitialSynchronizationWarningVisible, Mode=OneWay}" />
+                </StackPanel>
+            </Border>
 
             <!--  Provider List  -->
             <ItemsView

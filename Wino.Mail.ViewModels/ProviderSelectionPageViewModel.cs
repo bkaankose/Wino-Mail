@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
@@ -22,12 +23,25 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
 
     public List<IProviderDetail> Providers { get; private set; } = [];
     public List<AppColorViewModel> AvailableColors { get; private set; } = [];
+    public List<InitialSynchronizationRangeOption> InitialSynchronizationRanges { get; } =
+    [
+        new(InitialSynchronizationRange.ThreeMonths, Translator.AccountCreation_InitialSynchronization_3Months),
+        new(InitialSynchronizationRange.SixMonths, Translator.AccountCreation_InitialSynchronization_6Months),
+        new(InitialSynchronizationRange.NineMonths, Translator.AccountCreation_InitialSynchronization_9Months),
+        new(InitialSynchronizationRange.OneYear, Translator.AccountCreation_InitialSynchronization_Year),
+        new(InitialSynchronizationRange.Everything, Translator.AccountCreation_InitialSynchronization_Everything)
+    ];
 
     [ObservableProperty]
     public partial IProviderDetail SelectedProvider { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsColorSelected))]
     public partial AppColorViewModel SelectedColor { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsInitialSynchronizationWarningVisible))]
+    public partial InitialSynchronizationRangeOption SelectedInitialSynchronizationRange { get; set; }
 
     [ObservableProperty]
     public partial string AccountName { get; set; }
@@ -36,6 +50,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     public partial bool CanProceed { get; set; }
 
     public bool IsColorSelected => SelectedColor != null;
+    public bool IsInitialSynchronizationWarningVisible => SelectedInitialSynchronizationRange?.IsEverything == true;
 
     public ProviderSelectionPageViewModel(
         IProviderService providerService,
@@ -45,6 +60,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         _providerService = providerService;
         _themeService = themeService;
         WizardContext = wizardContext;
+        SelectedInitialSynchronizationRange = InitialSynchronizationRanges.First(option => option.Range == InitialSynchronizationRange.SixMonths);
     }
 
     public override void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -55,6 +71,10 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         AvailableColors = _themeService.GetAvailableAccountColors()
             .Select(hex => new AppColorViewModel(hex))
             .ToList();
+
+        SelectedInitialSynchronizationRange = InitialSynchronizationRanges
+            .FirstOrDefault(option => option.Range == WizardContext.SelectedInitialSynchronizationRange)
+            ?? InitialSynchronizationRanges.First(option => option.Range == InitialSynchronizationRange.SixMonths);
 
         // Restore from wizard context if navigating back
         if (WizardContext.SelectedProvider != null)
@@ -71,9 +91,12 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         Validate();
     }
 
-    partial void OnSelectedProviderChanged(IProviderDetail value) => Validate();
+    partial void OnSelectedProviderChanged(IProviderDetail value)
+    {
+        Validate();
+    }
+
     partial void OnAccountNameChanged(string value) => Validate();
-    partial void OnSelectedColorChanged(AppColorViewModel value) => OnPropertyChanged(nameof(IsColorSelected));
 
     [RelayCommand]
     private void ClearColor() => SelectedColor = null;
@@ -92,6 +115,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         WizardContext.SelectedProvider = SelectedProvider;
         WizardContext.AccountName = AccountName?.Trim();
         WizardContext.AccountColorHex = SelectedColor?.Hex ?? string.Empty;
+        WizardContext.SelectedInitialSynchronizationRange = SelectedInitialSynchronizationRange?.Range ?? InitialSynchronizationRange.SixMonths;
 
         if (WizardContext.IsGenericImap)
         {
