@@ -8,9 +8,8 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Wino.Core.Misc;
-using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
@@ -18,10 +17,10 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Misc;
 using Wino.Core.Services;
 using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Navigation;
 
 namespace Wino.Mail.ViewModels;
@@ -381,7 +380,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     {
         base.OnPropertyChanged(e);
 
-        if (!IsActive || !isLoaded) return;
+        if (!isLoaded) return;
 
         switch (e.PropertyName)
         {
