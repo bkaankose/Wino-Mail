@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
@@ -37,7 +36,6 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         _configurationService.Set(propertyName, value ?? string.Empty);
 
         OnPropertyChanged(propertyName);
-        Debug.WriteLine($"PreferencesService -> {propertyName}:{value?.ToString()}");
     }
 
     public MailRenderingOptions GetRenderingOptions()
