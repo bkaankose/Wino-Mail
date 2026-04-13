@@ -174,8 +174,46 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         }
     }
 
+    [RelayCommand]
+    private async Task DeleteCustomThemeAsync(AppThemeBase theme)
+    {
+        if (theme == null || theme.AppThemeType != AppThemeType.Custom)
+        {
+            return;
+        }
+
+        var shouldDelete = await _dialogService.ShowConfirmationDialogAsync(
+            string.Format(Translator.SettingsCustomTheme_DeleteConfirm_Message, theme.ThemeName),
+            Translator.SettingsCustomTheme_DeleteConfirm_Title,
+            Translator.Buttons_Delete);
+
+        if (!shouldDelete)
+        {
+            return;
+        }
+
+        var isDeleted = await _newThemeService.DeleteCustomThemeAsync(theme.Id);
+
+        if (!isDeleted)
+        {
+            _dialogService.InfoBarMessage(
+                Translator.GeneralTitle_Warning,
+                Translator.SettingsCustomTheme_DeleteMissing,
+                InfoBarMessageType.Warning);
+            return;
+        }
+
+        await InitializeSettingsAsync();
+
+        _dialogService.InfoBarMessage(
+            Translator.GeneralTitle_Info,
+            string.Format(Translator.SettingsCustomTheme_DeleteSuccess, theme.ThemeName),
+            InfoBarMessageType.Success);
+    }
+
     private void InitializeColors()
     {
+        Colors.Clear();
         Colors.Add(new AppColorViewModel("#0078d7"));
         Colors.Add(new AppColorViewModel("#00838c"));
         Colors.Add(new AppColorViewModel("#e3008c"));

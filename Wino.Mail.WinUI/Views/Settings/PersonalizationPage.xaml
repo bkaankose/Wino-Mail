@@ -49,6 +49,68 @@
             CompactTemplate="{StaticResource CompactDisplayModePreviewTemplate}"
             MediumTemplate="{StaticResource MediumDisplayModePreviewTemplate}"
             SpaciousTemplate="{StaticResource SpaciousDisplayModePreviewTemplate}" />
+
+        <DataTemplate x:Key="PersonalizationCustomAppThemeTemplate" x:DataType="personalization:CustomAppTheme">
+            <Grid
+                Width="175"
+                CornerRadius="6"
+                RowSpacing="0">
+                <Grid.ContextFlyout>
+                    <MenuFlyout Placement="BottomEdgeAlignedRight">
+                        <MenuFlyoutItem
+                            Command="{Binding ElementName=root, Path=ViewModel.DeleteCustomThemeCommand}"
+                            CommandParameter="{x:Bind}"
+                            Text="{x:Bind domain:Translator.Buttons_Delete}">
+                            <MenuFlyoutItem.Icon>
+                                <SymbolIcon Symbol="Delete" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                    </MenuFlyout>
+                </Grid.ContextFlyout>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="125" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid CornerRadius="6,6,0,0">
+                    <Grid.Background>
+                        <ImageBrush ImageSource="{x:Bind BackgroundPreviewImage}" />
+                    </Grid.Background>
+                    <Grid x:Name="AccentAssignedGrid" x:Load="{x:Bind IsAccentColorAssigned}">
+                        <Grid
+                            Width="20"
+                            Height="20"
+                            Margin="0,12,12,0"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
+                            Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(AccentColor)}" />
+                    </Grid>
+
+                    <Grid x:Name="AccentNotAssignedGrid" x:Load="{x:Bind IsAccentColorAssigned, Converter={StaticResource ReverseBooleanConverter}}">
+                        <Grid
+                            Width="20"
+                            Height="20"
+                            Margin="0,12,12,0"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
+                            Background="{ThemeResource SystemAccentColor}" />
+                    </Grid>
+                </Grid>
+
+                <Grid Grid.Row="1" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+                    <TextBlock
+                        Padding="0,8"
+                        HorizontalAlignment="Center"
+                        Text="{x:Bind ThemeName}" />
+                </Grid>
+            </Grid>
+        </DataTemplate>
+
+        <coreSelectors:AppThemePreviewTemplateSelector
+            x:Key="PersonalizationAppThemePreviewTemplateSelector"
+            CustomAppTemplate="{StaticResource PersonalizationCustomAppThemeTemplate}"
+            PreDefinedThemeTemplate="{StaticResource PreDefinedAppThemeTemplate}"
+            SystemThemeTemplate="{StaticResource SystemAppThemeTemplate}" />
     </Page.Resources>
 
     <ScrollViewer>
@@ -147,7 +209,7 @@
                         <!--  TODO: Group by custom/wino  -->
                         <GridView
                             toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
-                            ItemTemplateSelector="{StaticResource AppThemePreviewTemplateSelector}"
+                            ItemTemplateSelector="{StaticResource PersonalizationAppThemePreviewTemplateSelector}"
                             ItemsSource="{x:Bind ViewModel.AppThemes, Mode=OneWay}"
                             SelectedItem="{x:Bind ViewModel.SelectedAppTheme, Mode=TwoWay}" />
                     </controls:SettingsCard>

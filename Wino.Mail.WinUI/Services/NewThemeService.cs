@@ -587,11 +587,46 @@ public class NewThemeService : INewThemeService
         return results;
     }
 
+    public async Task<bool> DeleteCustomThemeAsync(Guid themeId)
+    {
+        var themeFolder = await ApplicationData.Current.LocalFolder.CreateFolderAsync(CustomThemeFolderName, CreationCollisionOption.OpenIfExists);
+        var metadataFileName = $"{themeId}.json";
+        var themeItem = await themeFolder.TryGetItemAsync(metadataFileName);
+
+        if (themeItem == null)
+        {
+            return false;
+        }
+
+        if (currentApplicationThemeId == themeId)
+        {
+            currentApplicationThemeId = preDefinedThemes[0].Id;
+            _configurationService.Set(CurrentApplicationThemeKey, currentApplicationThemeId);
+            await ApplyCustomThemeAsync(false);
+        }
+
+        await DeleteThemeAssetIfExistsAsync(themeFolder, metadataFileName);
+        await DeleteThemeAssetIfExistsAsync(themeFolder, $"{themeId}.jpg");
+        await DeleteThemeAssetIfExistsAsync(themeFolder, $"{themeId}_preview.jpg");
+
+        return true;
+    }
+
     private async Task<CustomThemeMetadata?> GetCustomMetadataAsync(IStorageFile file)
     {
         var fileContent = await FileIO.ReadTextAsync(file);
 
         return JsonSerializer.Deserialize(fileContent, DomainModelsJsonContext.Default.CustomThemeMetadata);
+    }
+
+    private static async Task DeleteThemeAssetIfExistsAsync(StorageFolder themeFolder, string fileName)
+    {
+        var item = await themeFolder.TryGetItemAsync(fileName);
+
+        if (item != null)
+        {
+            await item.DeleteAsync();
+        }
     }
 
     public string GetSystemAccentColorHex()
