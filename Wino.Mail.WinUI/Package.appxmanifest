@@ -97,6 +97,15 @@
 				</uap:Protocol>
 			</uap:Extension>
 
+			<!-- Share target activation -->
+			<uap:Extension Category="windows.shareTarget">
+				<uap:ShareTarget>
+					<uap:SupportedFileTypes>
+						<uap:SupportsAnyFileType />
+					</uap:SupportedFileTypes>
+				</uap:ShareTarget>
+			</uap:Extension>
+
 			<!-- File Assosication: EML -->
 			<uap:Extension Category="windows.fileTypeAssociation">
 				<uap:FileTypeAssociation Name="eml">

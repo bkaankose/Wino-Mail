@@ -15,6 +15,9 @@ using Microsoft.Windows.AppLifecycle;
 using Microsoft.Windows.AppNotifications;
 using MimeKit.Cryptography;
 using Windows.ApplicationModel.Activation;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.ApplicationModel.DataTransfer.ShareTarget;
+using Windows.Storage;
 using Wino.Calendar.ViewModels;
 using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Core;
@@ -22,6 +25,8 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.Domain.Models.Common;
+using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
@@ -30,6 +35,7 @@ using Wino.Mail.Services;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Activation;
+using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Mail.WinUI.Services;
@@ -61,6 +67,7 @@ public partial class App : WinoApplication,
     private bool _isExiting;
     private bool _activationInfrastructureInitialized;
     private int _initialNotificationActivationHandled;
+    private int _initialShareActivationHandled;
     private CancellationTokenSource? _autoSynchronizationLoopCts;
     private readonly SemaphoreSlim _autoSynchronizationSemaphore = new(1, 1);
     private readonly SemaphoreSlim _activationInfrastructureSemaphore = new(1, 1);
@@ -446,11 +453,25 @@ public partial class App : WinoApplication,
     private bool TryMarkInitialNotificationActivationHandled()
         => Interlocked.Exchange(ref _initialNotificationActivationHandled, 1) == 0;
 
+    private bool TryMarkInitialShareActivationHandled()
+        => Interlocked.Exchange(ref _initialShareActivationHandled, 1) == 0;
+
     protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
         base.OnLaunched(args);
 
         await EnsureActivationInfrastructureAsync();
+
+        var activationArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
+
+        if (activationArgs.Kind == ExtendedActivationKind.ShareTarget &&
+            TryMarkInitialShareActivationHandled())
+        {
+            LogActivation("Processing share target activation from OnLaunched.");
+
+            if (await HandleShareTargetActivationAsync(activationArgs, activateWindow: true))
+                return;
+        }
 
         var hasAnyAccount = _hasConfiguredAccounts;
         if (!IsStartupTaskLaunch() && !hasAnyAccount)
@@ -633,6 +654,89 @@ public partial class App : WinoApplication,
         }
 
         return HandleToastActivationAsync(toastArguments, userInput);
+    }
+
+    private async Task<bool> HandleShareTargetActivationAsync(AppActivationArguments activationArgs, bool activateWindow)
+    {
+        if (activationArgs.Kind != ExtendedActivationKind.ShareTarget ||
+            activationArgs.Data is not ShareTargetActivatedEventArgs shareTargetArgs)
+        {
+            return false;
+        }
+
+        var shareRequest = await ExtractMailShareRequestAsync(shareTargetArgs);
+
+        if (shareRequest?.Files == null || shareRequest.Files.Count == 0)
+        {
+            Services.GetRequiredService<IShareActivationService>().ClearPendingShareRequest();
+            return false;
+        }
+
+        var shareActivationService = Services.GetRequiredService<IShareActivationService>();
+        shareActivationService.PendingShareRequest = shareRequest;
+
+        if (!_hasConfiguredAccounts)
+        {
+            shareActivationService.ClearPendingShareRequest();
+            return false;
+        }
+
+        var shellWindowAlreadyExists = HasShellWindow();
+
+        await EnsureShellWindowAsync(WinoApplicationMode.Mail, activateWindow, suppressStartupFlows: true);
+
+        if (shellWindowAlreadyExists)
+        {
+            await Services.GetRequiredService<MailAppShellViewModel>().HandlePendingShareRequestAsync();
+        }
+
+        return true;
+    }
+
+    private async Task<MailShareRequest?> ExtractMailShareRequestAsync(ShareTargetActivatedEventArgs shareTargetArgs)
+    {
+        var shareOperation = shareTargetArgs.ShareOperation;
+
+        try
+        {
+            shareOperation.ReportStarted();
+
+            if (!shareOperation.Data.Contains(StandardDataFormats.StorageItems))
+            {
+                shareOperation.ReportCompleted();
+                return null;
+            }
+
+            var storageItems = await shareOperation.Data.GetStorageItemsAsync();
+            List<SharedFile> sharedFiles = [];
+
+            foreach (var storageFile in storageItems.OfType<StorageFile>())
+            {
+                sharedFiles.Add(await storageFile.ToSharedFileAsync());
+            }
+
+            shareOperation.ReportDataRetrieved();
+            shareOperation.ReportCompleted();
+
+            return sharedFiles.Count == 0
+                ? null
+                : new MailShareRequest(sharedFiles);
+        }
+        catch (Exception ex)
+        {
+            LogActivation($"Failed to extract share target payload: {ex.GetType().Name} - {ex.Message}");
+
+            try
+            {
+                shareOperation.ReportError(ex.Message);
+            }
+            catch
+            {
+                // Ignore share reporting failures and fall back to normal launch flow.
+            }
+
+            return null;
+        }
     }
 
     private async Task<IWinoShellWindow?> EnsureShellWindowAsync(WinoApplicationMode mode, bool activateWindow, bool suppressStartupFlows = true)
@@ -1446,6 +1550,11 @@ public partial class App : WinoApplication,
                 LogActivation($"Processing redirected notification activation. Arguments: {toastArgs.Argument}");
                 _ = HandleToastActivationAsync(toastArgs.Argument, toastArgs.UserInput);
             }
+            else if (args.Kind == ExtendedActivationKind.ShareTarget)
+            {
+                LogActivation("Processing redirected share target activation.");
+                await HandleShareTargetActivationAsync(args, activateWindow: true);
+            }
             else
             {
                 var shouldActivateWindow = true;
@@ -1525,6 +1634,12 @@ public partial class App : WinoApplication,
                 return true;
             }
 
+        }
+
+        if (activationArgs.Kind == ExtendedActivationKind.ShareTarget)
+        {
+            mode = WinoApplicationMode.Mail;
+            return true;
         }
 
         if (activationArgs.Kind == ExtendedActivationKind.File &&

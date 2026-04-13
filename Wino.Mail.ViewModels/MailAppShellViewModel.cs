@@ -15,8 +15,9 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
-using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models;
+using Wino.Core.Domain.Models.Folders;
+using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
@@ -84,6 +85,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private readonly IMimeFileService _mimeFileService;
     private readonly IWebView2RuntimeValidatorService _webView2RuntimeValidatorService;
     private readonly IStoreUpdateService _storeUpdateService;
+    private readonly IShareActivationService _shareActivationService;
 
     private readonly INativeAppService _nativeAppService;
     private readonly IMailService _mailService;
@@ -109,7 +111,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                              IConfigurationService configurationService,
                              IStartupBehaviorService startupBehaviorService,
                              IWebView2RuntimeValidatorService webView2RuntimeValidatorService,
-                             IStoreUpdateService storeUpdateService)
+                             IStoreUpdateService storeUpdateService,
+                             IShareActivationService shareActivationService)
     {
         StatePersistenceService = statePersistanceService;
 
@@ -131,6 +134,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         _winoRequestDelegator = winoRequestDelegator;
         _webView2RuntimeValidatorService = webView2RuntimeValidatorService;
         _storeUpdateService = storeUpdateService;
+        _shareActivationService = shareActivationService;
     }
 
     protected override void OnDispatcherAssigned()
@@ -274,6 +278,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         }
 
         await ProcessLaunchOptionsAsync();
+        await HandlePendingShareRequestAsync();
         await ValidateWebView2RuntimeAsync();
 
         if (shouldRunStartupFlows && !Debugger.IsAttached)
@@ -943,6 +948,9 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     }
 
     public async Task CreateNewMailForAsync(MailAccount account)
+        => await CreateNewMailForAsync(account, null);
+
+    public async Task CreateNewMailForAsync(MailAccount account, MailShareRequest shareRequest)
     {
         if (account == null) return;
 
@@ -973,6 +981,11 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         };
 
         var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(account.Id, draftOptions).ConfigureAwait(false);
+
+        if (shareRequest?.Files?.Count > 0)
+        {
+            _shareActivationService.StagePendingComposeShareRequest(draftMailCopy.UniqueId, shareRequest);
+        }
 
         var draftPreparationRequest = new DraftPreparationRequest(account, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason);
         await _winoRequestDelegator.ExecuteAsync(draftPreparationRequest);
@@ -1032,6 +1045,35 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         if (targetAccount == null) return;
 
         await CreateNewMailForAsync(targetAccount);
+    }
+
+    public async Task HandlePendingShareRequestAsync()
+    {
+        var shareRequest = _shareActivationService.ConsumePendingShareRequest();
+
+        if (shareRequest?.Files == null || shareRequest.Files.Count == 0)
+            return;
+
+        var accounts = await _accountService.GetAccountsAsync();
+
+        if (!accounts.Any())
+            return;
+
+        MailAccount targetAccount = null;
+
+        if (accounts.Count == 1)
+        {
+            targetAccount = accounts[0];
+        }
+        else
+        {
+            targetAccount = await _dialogService.ShowAccountPickerDialogAsync(accounts);
+        }
+
+        if (targetAccount == null)
+            return;
+
+        await CreateNewMailForAsync(targetAccount, shareRequest);
     }
 
     private async Task RecreateMenuItemsAsync()

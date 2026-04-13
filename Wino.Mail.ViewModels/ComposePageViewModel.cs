@@ -19,6 +19,7 @@ using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models;
+using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Extensions;
 using Wino.Core.Services;
@@ -159,6 +160,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     public readonly IPreferencesService PreferencesService;
     public readonly IContactService ContactService;
     public readonly ISmimeCertificateService _smimeCertificateService;
+    private readonly IShareActivationService _shareActivationService;
 
     public ComposePageViewModel(IMailDialogService dialogService,
                                 IMailService mailService,
@@ -172,7 +174,8 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                                 IContactService contactService,
                                 IFontService fontService,
                                 IPreferencesService preferencesService,
-                                ISmimeCertificateService smimeCertificateService)
+                                ISmimeCertificateService smimeCertificateService,
+                                IShareActivationService shareActivationService)
     {
         NativeAppService = nativeAppService;
         ContactService = contactService;
@@ -188,6 +191,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         _emailTemplateService = emailTemplateService;
         _worker = worker;
         _smimeCertificateService = smimeCertificateService;
+        _shareActivationService = shareActivationService;
 
         foreach (var cert in _smimeCertificateService.GetCertificates(emailAddress: SelectedAlias?.AliasAddress))
         {
@@ -752,6 +756,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
             await LoadAddressInfoAsync(replyingMime.Bcc, BCCItems);
 
             LoadAttachments();
+            ApplyPendingSharedAttachments();
 
             if (replyingMime.Cc.Any() || replyingMime.Bcc.Any())
                 IsCCBCCVisible = true;
@@ -780,6 +785,24 @@ public partial class ComposePageViewModel : MailBaseViewModel,
             {
                 IncludedAttachments.Add(new MailAttachmentViewModel(attachmentPart));
             }
+        }
+    }
+
+    private void ApplyPendingSharedAttachments()
+    {
+        var draftUniqueId = CurrentMailDraftItem?.MailCopy?.UniqueId ?? Guid.Empty;
+
+        if (draftUniqueId == Guid.Empty)
+            return;
+
+        var shareRequest = _shareActivationService.ConsumePendingComposeShareRequest(draftUniqueId);
+
+        if (shareRequest?.Files == null || shareRequest.Files.Count == 0)
+            return;
+
+        foreach (var sharedFile in shareRequest.Files)
+        {
+            IncludedAttachments.Add(new MailAttachmentViewModel(sharedFile));
         }
     }
 
