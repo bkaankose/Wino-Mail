@@ -16,7 +16,6 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Server;
 
@@ -319,7 +318,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         try
         {
             var minimalSettings = BuildMinimalSettingsOrThrow();
-            await AutoDiscoverAndApplySettingsAsync(minimalSettings).ConfigureAwait(false);
+            await AutoDiscoverAndApplySettingsAsync(minimalSettings);
 
             _mailDialogService.InfoBarMessage(
                 Translator.IMAPSetupDialog_ValidationSuccess_Title,
@@ -399,7 +398,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     {
         try
         {
-            await EnsureImapSettingsPreparedAsync().ConfigureAwait(false);
+            await EnsureImapSettingsPreparedAsync();
 
             var serverInformation = BuildServerInformation();
 
@@ -407,12 +406,12 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             ValidateImapSettings(serverInformation);
             ValidateCalendarModeSpecificSettings(serverInformation);
 
-            await ValidateImapConnectivityAsync(serverInformation).ConfigureAwait(false);
+            await ValidateImapConnectivityAsync(serverInformation);
             IsImapValidationSucceeded = true;
 
             if (serverInformation.CalendarSupportMode == ImapCalendarSupportMode.CalDav)
             {
-                await ValidateCalDavConnectivityAsync(serverInformation).ConfigureAwait(false);
+                await ValidateCalDavConnectivityAsync(serverInformation);
                 IsCalDavValidationSucceeded = true;
             }
             else
@@ -432,7 +431,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                 return;
             }
 
-            await SaveEditFlowAsync(serverInformation).ConfigureAwait(false);
+            await SaveEditFlowAsync(serverInformation);
         }
         catch (Exception ex)
         {
@@ -654,7 +653,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             return;
 
         var minimalSettings = BuildMinimalSettingsOrThrow();
-        await AutoDiscoverAndApplySettingsAsync(minimalSettings).ConfigureAwait(false);
+        await AutoDiscoverAndApplySettingsAsync(minimalSettings);
 
         if (!HasCompleteImapSettings())
             throw new InvalidOperationException(Translator.Exception_ImapAutoDiscoveryFailed);
@@ -676,22 +675,25 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         if (serverInformation == null)
             throw new InvalidOperationException(Translator.Exception_ImapAutoDiscoveryFailed);
 
-        ApplyServerInformation(serverInformation);
-
-        if (IsCalendarSupportEnabled && SelectedCalendarSupportMode == ImapCalendarSupportMode.CalDav)
+        await ExecuteUIThread(async () =>
         {
-            var discoveredCalDavUri = await _autoDiscoveryService.DiscoverCalDavServiceUriAsync(minimalSettings.Email).ConfigureAwait(false);
-            if (discoveredCalDavUri != null)
+            ApplyServerInformation(serverInformation);
+
+            if (IsCalendarSupportEnabled && SelectedCalendarSupportMode == ImapCalendarSupportMode.CalDav)
             {
-                CalDavServiceUrl = discoveredCalDavUri.ToString();
+                var discoveredCalDavUri = await _autoDiscoveryService.DiscoverCalDavServiceUriAsync(minimalSettings.Email);
+                if (discoveredCalDavUri != null)
+                {
+                    CalDavServiceUrl = discoveredCalDavUri.ToString();
+                }
+
+                if (string.IsNullOrWhiteSpace(CalDavUsername))
+                    CalDavUsername = minimalSettings.Email;
+
+                if (string.IsNullOrWhiteSpace(CalDavPassword))
+                    CalDavPassword = minimalSettings.Password;
             }
-
-            if (string.IsNullOrWhiteSpace(CalDavUsername))
-                CalDavUsername = minimalSettings.Email;
-
-            if (string.IsNullOrWhiteSpace(CalDavPassword))
-                CalDavPassword = minimalSettings.Password;
-        }
+        });
     }
     private async Task ValidateImapConnectivityAsync(CustomServerInformation serverInformation)
     {

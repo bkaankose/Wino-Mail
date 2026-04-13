@@ -475,7 +475,7 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     public async Task UpdateAccountCustomServerInformationAsync(CustomServerInformation customServerInformation)
     {
-        await Connection.UpdateAsync(customServerInformation, typeof(CustomServerInformation)).ConfigureAwait(false);
+        await Connection.InsertOrReplaceAsync(customServerInformation, typeof(CustomServerInformation)).ConfigureAwait(false);
     }
 
     public async Task UpdateAccountAliasesAsync(Guid accountId, List<MailAccountAlias> aliases)
