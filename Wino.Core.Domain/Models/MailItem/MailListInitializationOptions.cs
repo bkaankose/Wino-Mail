@@ -17,4 +17,8 @@ public record MailListInitializationOptions(IEnumerable<IMailItemFolder> Folders
                                             List<MailCopy> PreFetchMailCopies = null,
                                             bool DeduplicateByServerId = false,
                                             int Skip = 0,
-                                            int Take = 0);
+                                            int Take = 0)
+{
+    public IReadOnlyList<Guid> CategoryIds { get; init; }
+    public bool IsCategoryView => CategoryIds?.Count > 0;
+}

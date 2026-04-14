@@ -26,6 +26,7 @@ public partial class NavigationMenuTemplateSelector : DataTemplateSelector
     public DataTemplate NewMailTemplate { get; set; } = null!;
     public DataTemplate CalendarNewEventTemplate { get; set; } = null!;
     public DataTemplate CategoryItemsTemplate { get; set; } = null!;
+    public DataTemplate MergedCategoryItemsTemplate { get; set; } = null!;
     public DataTemplate FixAuthenticationIssueTemplate { get; set; } = null!;
     public DataTemplate FixMissingFolderConfigTemplate { get; set; } = null!;
 
@@ -58,6 +59,10 @@ public partial class NavigationMenuTemplateSelector : DataTemplateSelector
             return MergedAccountTemplate;
         else if (item is MergedAccountMoreFolderMenuItem)
             return MergedAccountMoreExpansionItemTemplate;
+        else if (item is MailCategoryMenuItem)
+            return CategoryItemsTemplate;
+        else if (item is MergedMailCategoryMenuItem)
+            return MergedCategoryItemsTemplate;
         else if (item is MergedAccountFolderMenuItem)
             return MergedAccountFolderTemplate;
         else if (item is FolderMenuItem)

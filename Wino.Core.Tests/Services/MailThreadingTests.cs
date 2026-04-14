@@ -269,7 +269,8 @@ public class MailThreadingTests : IAsyncLifetime
             preferencesService.Object,
             contactPictureFileService.Object);
 
-        var folderService = new FolderService(db, accountService);
+        var mailCategoryService = new MailCategoryService(db);
+        var folderService = new FolderService(db, accountService, mailCategoryService);
         var contactService = new ContactService(db);
         var sentMailReceiptService = new SentMailReceiptService(db, folderService, accountService);
 
@@ -281,6 +282,7 @@ public class MailThreadingTests : IAsyncLifetime
             signatureService.Object,
             mimeFileService.Object,
             preferencesService.Object,
-            sentMailReceiptService);
+            sentMailReceiptService,
+            mailCategoryService);
     }
 }

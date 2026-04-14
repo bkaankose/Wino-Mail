@@ -73,6 +73,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     public IMenuItem CreatePrimaryMenuItem => CreateMailMenuItem;
 
     private readonly IFolderService _folderService;
+    private readonly IMailCategoryService _mailCategoryService;
     private readonly IConfigurationService _configurationService;
     private readonly IStartupBehaviorService _startupBehaviorService;
     private readonly IAccountService _accountService;
@@ -99,6 +100,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                              IMimeFileService mimeFileService,
                              INativeAppService nativeAppService,
                              IMailService mailService,
+                             IMailCategoryService mailCategoryService,
                              IAccountService accountService,
                              IContextMenuItemService contextMenuItemService,
                              IStoreRatingService storeRatingService,
@@ -125,6 +127,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         _mimeFileService = mimeFileService;
         _nativeAppService = nativeAppService;
         _mailService = mailService;
+        _mailCategoryService = mailCategoryService;
         _folderService = folderService;
         _accountService = accountService;
         _contextMenuItemService = contextMenuItemService;
@@ -721,7 +724,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         {
             await HandleCreateNewMailAsync();
         }
-        else if (clickedMenuItem is IBaseFolderMenuItem baseFolderMenuItem && baseFolderMenuItem.HandlingFolders.All(a => a.IsMoveTarget))
+        else if (clickedMenuItem is IBaseFolderMenuItem baseFolderMenuItem &&
+                 (clickedMenuItem is IMailCategoryMenuItem or IMergedMailCategoryMenuItem || baseFolderMenuItem.HandlingFolders.All(a => a.IsMoveTarget)))
         {
             // Don't navigate to base folders that contain non-move target folders.
             // Theory: This is a special folder like Categories or More. Don't navigate to it.
@@ -793,11 +797,20 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     {
         // Get visible account menu items, ordered by merged accounts at the last.
         // We will update the unread counts for all single accounts and trigger UI refresh for merged menu items.
-        var accountMenuItems = MenuItems.GetAllAccountMenuItems().OrderBy(a => a.HoldingAccounts.Count());
+        List<IAccountMenuItem> accountMenuItems = null;
+
+        await ExecuteUIThread(() =>
+        {
+            accountMenuItems = MenuItems
+                .GetAllAccountMenuItems()
+                .OrderBy(a => a.HoldingAccounts.Count())
+                .ToList();
+        });
 
         // Individually get all single accounts' unread counts.
-        var accountIds = accountMenuItems.OfType<AccountMenuItem>().Select(a => a.AccountId);
+        var accountIds = accountMenuItems.OfType<AccountMenuItem>().Select(a => a.AccountId).ToList();
         var unreadCountResult = await _folderService.GetUnreadItemCountResultsAsync(accountIds).ConfigureAwait(false);
+        var unreadCategoryCountResult = await _mailCategoryService.GetUnreadCategoryCountResultsAsync(accountIds).ConfigureAwait(false);
 
         // Recursively update all folders' unread counts to 0.
         // Query above only returns unread counts that exists. We need to reset the rest to 0 first.
@@ -844,6 +857,29 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                     await ExecuteUIThread(() =>
                     {
                         folderMenuItem.UnreadItemCount = unreadCount.UnreadItemCount;
+                    });
+                }
+            }
+        }
+
+        foreach (var unreadCategoryCount in unreadCategoryCountResult)
+        {
+            if (MenuItems.TryGetCategoryMenuItem(unreadCategoryCount.CategoryId, out var categoryMenuItem))
+            {
+                if (categoryMenuItem is IMergedMailCategoryMenuItem mergedCategoryMenuItem)
+                {
+                    await ExecuteUIThread(() =>
+                    {
+                        categoryMenuItem.UnreadItemCount = unreadCategoryCountResult
+                            .Where(a => mergedCategoryMenuItem.Categories.Any(b => b.Id == a.CategoryId))
+                            .Sum(a => a.UnreadItemCount);
+                    });
+                }
+                else
+                {
+                    await ExecuteUIThread(() =>
+                    {
+                        categoryMenuItem.UnreadItemCount = unreadCategoryCount.UnreadItemCount;
                     });
                 }
             }

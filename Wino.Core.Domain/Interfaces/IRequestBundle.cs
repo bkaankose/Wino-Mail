@@ -72,3 +72,9 @@ public interface ICalendarActionRequest : IRequestBase
     Guid? LocalCalendarItemId { get; }
     CalendarSynchronizerOperation Operation { get; }
 }
+
+public interface ICategoryActionRequest : IRequestBase
+{
+    Guid AccountId { get; }
+    CategorySynchronizerOperation Operation { get; }
+}

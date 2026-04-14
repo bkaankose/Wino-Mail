@@ -32,6 +32,7 @@ public class MailService : BaseDatabaseService, IMailService
     private readonly IMimeFileService _mimeFileService;
     private readonly IPreferencesService _preferencesService;
     private readonly ISentMailReceiptService _sentMailReceiptService;
+    private readonly IMailCategoryService _mailCategoryService;
 
     private readonly ILogger _logger = Log.ForContext<MailService>();
 
@@ -42,7 +43,8 @@ public class MailService : BaseDatabaseService, IMailService
                        ISignatureService signatureService,
                        IMimeFileService mimeFileService,
                        IPreferencesService preferencesService,
-                       ISentMailReceiptService sentMailReceiptService) : base(databaseService)
+                       ISentMailReceiptService sentMailReceiptService,
+                       IMailCategoryService mailCategoryService) : base(databaseService)
     {
         _folderService = folderService;
         _contactService = contactService;
@@ -51,6 +53,7 @@ public class MailService : BaseDatabaseService, IMailService
         _mimeFileService = mimeFileService;
         _preferencesService = preferencesService;
         _sentMailReceiptService = sentMailReceiptService;
+        _mailCategoryService = mailCategoryService;
     }
 
     public async Task<(MailCopy draftMailCopy, string draftBase64MimeMessage)> CreateDraftAsync(Guid accountId, DraftCreationOptions draftCreationOptions)
@@ -171,7 +174,9 @@ public class MailService : BaseDatabaseService, IMailService
     private static (string Query, object[] Parameters) BuildMailFetchQuery(MailListInitializationOptions options)
     {
         var sql = new StringBuilder();
-        sql.Append("SELECT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id");
+        sql.Append(options.IsCategoryView
+            ? "SELECT DISTINCT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id INNER JOIN MailCategoryAssignment ON MailCopy.UniqueId = MailCategoryAssignment.MailCopyUniqueId"
+            : "SELECT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id");
 
         var whereClauses = new List<string>();
         var parameters = new List<object>();
@@ -180,6 +185,13 @@ public class MailService : BaseDatabaseService, IMailService
         var folderPlaceholders = string.Join(",", options.Folders.Select(_ => "?"));
         whereClauses.Add($"MailCopy.FolderId IN ({folderPlaceholders})");
         parameters.AddRange(options.Folders.Select(f => (object)f.Id));
+
+        if (options.IsCategoryView)
+        {
+            var categoryPlaceholders = string.Join(",", options.CategoryIds.Select(_ => "?"));
+            whereClauses.Add($"MailCategoryAssignment.MailCategoryId IN ({categoryPlaceholders})");
+            parameters.AddRange(options.CategoryIds.Select(a => (object)a));
+        }
 
         // Filter type
         switch (options.FilterType)
@@ -338,7 +350,7 @@ public class MailService : BaseDatabaseService, IMailService
     {
         List<MailCopy> mails;
 
-        if (options.PreFetchMailCopies != null)
+        if (options.PreFetchMailCopies != null && !options.IsCategoryView)
         {
             mails = ApplyOptionsToPreFetchedMails(options);
         }
@@ -398,7 +410,7 @@ public class MailService : BaseDatabaseService, IMailService
         mails.RemoveAll(m => m.AssignedAccount == null || m.AssignedFolder == null);
         await _sentMailReceiptService.PopulateReceiptStatesAsync(mails).ConfigureAwait(false);
 
-        if (!options.CreateThreads || mails.Count == 0)
+        if (!options.CreateThreads || mails.Count == 0 || options.IsCategoryView)
             return [.. mails];
 
         // 6. Expand threads: one batch query for all sibling mails across all threads.
@@ -727,6 +739,7 @@ public class MailService : BaseDatabaseService, IMailService
         _logger.Debug("Deleting mail {Id} from folder {FolderName}", mailCopy.Id, mailCopy.AssignedFolder.FolderName);
 
         await Connection.DeleteAsync<MailCopy>(mailCopy.UniqueId).ConfigureAwait(false);
+        await Connection.ExecuteAsync("DELETE FROM MailCategoryAssignment WHERE MailCopyUniqueId = ?", mailCopy.UniqueId).ConfigureAwait(false);
 
         // If there are no more copies exists of the same mail, delete the MIME file as well.
         var isMailExists = await IsMailExistsAsync(mailCopy.Id).ConfigureAwait(false);
@@ -965,6 +978,7 @@ public class MailService : BaseDatabaseService, IMailService
             mailCopy.UniqueId = existingCopyItem.UniqueId;
 
             await UpdateMailAsync(mailCopy).ConfigureAwait(false);
+            await ReplaceMailCategoriesForPackageAsync(accountId, mailCopy, package).ConfigureAwait(false);
             await _sentMailReceiptService.TrackSentMailAsync(mailCopy, mimeMessage).ConfigureAwait(false);
             await _sentMailReceiptService.ProcessIncomingReceiptAsync(mailCopy, mimeMessage).ConfigureAwait(false);
 
@@ -981,6 +995,7 @@ public class MailService : BaseDatabaseService, IMailService
             }
 
             await InsertMailAsync(mailCopy).ConfigureAwait(false);
+            await ReplaceMailCategoriesForPackageAsync(accountId, mailCopy, package).ConfigureAwait(false);
             await _sentMailReceiptService.TrackSentMailAsync(mailCopy, mimeMessage).ConfigureAwait(false);
             await _sentMailReceiptService.ProcessIncomingReceiptAsync(mailCopy, mimeMessage).ConfigureAwait(false);
 
@@ -1016,6 +1031,11 @@ public class MailService : BaseDatabaseService, IMailService
 
         await _contactService.SaveAddressInformationAsync(contacts).ConfigureAwait(false);
     }
+
+    private Task ReplaceMailCategoriesForPackageAsync(Guid accountId, MailCopy mailCopy, NewMailItemPackage package)
+        => package?.CategoryNames == null
+            ? Task.CompletedTask
+            : _mailCategoryService.ReplaceMailAssignmentsAsync(accountId, mailCopy.UniqueId, package.CategoryNames);
 
     private async Task<MimeMessage> CreateDraftMimeAsync(MailAccount account, DraftCreationOptions draftCreationOptions, MailAccountAlias selectedAlias)
     {

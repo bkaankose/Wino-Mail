@@ -41,6 +41,7 @@ using Wino.Core.Integration.Processors;
 using Wino.Core.Misc;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Calendar;
+using Wino.Core.Requests.Category;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Messaging.UI;
@@ -107,6 +108,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         "ParentFolderId",
         "InternetMessageId",
         "InternetMessageHeaders",
+        "Categories",
     ];
 
     private readonly SemaphoreSlim _handleItemRetrievalSemaphore = new(1);
@@ -116,6 +118,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     private readonly IOutlookChangeProcessor _outlookChangeProcessor;
     private readonly GraphServiceClient _graphClient;
     private readonly IOutlookSynchronizerErrorHandlerFactory _errorHandlingFactory;
+    private readonly IMailCategoryService _mailCategoryService;
     private bool _isFolderStructureChanged;
 
     private readonly SemaphoreSlim _concurrentDownloadSemaphore = new(10); // Limit to 10 concurrent downloads
@@ -123,7 +126,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     public OutlookSynchronizer(MailAccount account,
                                IAuthenticator authenticator,
                                IOutlookChangeProcessor outlookChangeProcessor,
-                               IOutlookSynchronizerErrorHandlerFactory errorHandlingFactory) : base(account, WeakReferenceMessenger.Default)
+                               IOutlookSynchronizerErrorHandlerFactory errorHandlingFactory,
+                               IMailCategoryService mailCategoryService) : base(account, WeakReferenceMessenger.Default)
     {
         var tokenProvider = new MicrosoftTokenProvider(Account, authenticator);
 
@@ -138,6 +142,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
         _outlookChangeProcessor = outlookChangeProcessor;
         _errorHandlingFactory = errorHandlingFactory;
+        _mailCategoryService = mailCategoryService;
     }
 
     #region MS Graph Handlers
@@ -1152,6 +1157,11 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                     _logger.Debug("Updating flag status for mail {MessageId}: IsFlagged={IsFlagged}", item.Id, isFlagged);
                     await _outlookChangeProcessor.ChangeFlagStatusAsync(item.Id, isFlagged).ConfigureAwait(false);
                 }
+
+                if (item.Categories != null)
+                {
+                    await ReplaceMailAssignmentsAsync(item.Id, item.Categories).ConfigureAwait(false);
+                }
             }
             else
             {
@@ -1205,6 +1215,43 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         if (_isFolderStructureChanged)
         {
             WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+        }
+    }
+
+    protected override async Task SynchronizeCategoriesAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await _graphClient.Me.Outlook.MasterCategories
+            .GetAsync(cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+
+        var categories = response?.Value?
+            .Where(a => !string.IsNullOrWhiteSpace(a?.DisplayName))
+            .Select(a =>
+            {
+                var colorOption = GetMailCategoryColorOption(a.Color);
+
+                return new MailCategory
+                {
+                    MailAccountId = Account.Id,
+                    RemoteId = a.Id,
+                    Name = a.DisplayName,
+                    BackgroundColorHex = colorOption.BackgroundColorHex,
+                    TextColorHex = colorOption.TextColorHex,
+                    Source = MailCategorySource.Outlook
+                };
+            })
+            .ToList() ?? [];
+
+        await _mailCategoryService.ReplaceCategoriesAsync(Account.Id, categories).ConfigureAwait(false);
+    }
+
+    private async Task ReplaceMailAssignmentsAsync(string messageId, IEnumerable<string> categoryNames)
+    {
+        var localMailCopies = await _outlookChangeProcessor.GetMailCopiesAsync([messageId]).ConfigureAwait(false);
+
+        foreach (var localMailCopy in localMailCopies)
+        {
+            await _mailCategoryService.ReplaceMailAssignmentsAsync(Account.Id, localMailCopy.UniqueId, categoryNames ?? []).ConfigureAwait(false);
         }
     }
 
@@ -1767,6 +1814,87 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         return Move(batchMoveRequest);
     }
 
+    public override List<IRequestBundle<RequestInformation>> UpdateCategories(BatchMailCategoryAssignmentRequest request)
+        => ForEachRequest(request, item => CreateMessageCategoryPatchRequest(item.Item.Id, item.CategoryNames));
+
+    public override List<IRequestBundle<RequestInformation>> CreateCategory(MailCategoryCreateRequest request)
+    {
+        var outlookCategory = new OutlookCategory
+        {
+            DisplayName = request.Category.Name,
+            Color = GetOutlookCategoryColor(request.Category)
+        };
+
+        var requestInfo = _graphClient.Me.Outlook.MasterCategories.ToPostRequestInformation(outlookCategory);
+        return [new HttpRequestBundle<RequestInformation>(requestInfo, request)];
+    }
+
+    public override List<IRequestBundle<RequestInformation>> UpdateCategory(MailCategoryUpdateRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.PreviousRemoteId))
+            return CreateCategory(new MailCategoryCreateRequest(request.Category));
+
+        var hasNameChanged = !string.Equals(request.PreviousName, request.Category.Name, StringComparison.Ordinal);
+        if (!hasNameChanged)
+        {
+            var requestInfo = _graphClient.Me.Outlook.MasterCategories[request.PreviousRemoteId].ToPatchRequestInformation(new OutlookCategory
+            {
+                Color = GetOutlookCategoryColor(request.Category)
+            });
+
+            return [new HttpRequestBundle<RequestInformation>(requestInfo, request)];
+        }
+
+        var bundles = new List<IRequestBundle<RequestInformation>>();
+        var createRequestInfo = _graphClient.Me.Outlook.MasterCategories.ToPostRequestInformation(new OutlookCategory
+        {
+            DisplayName = request.Category.Name,
+            Color = GetOutlookCategoryColor(request.Category)
+        });
+
+        bundles.Add(new HttpRequestBundle<RequestInformation>(createRequestInfo, request));
+
+        foreach (var target in request.AffectedMessages ?? [])
+        {
+            bundles.Add(new HttpRequestBundle<RequestInformation>(
+                CreateMessageCategoryPatchRequest(target.MessageId, target.CategoryNames),
+                request));
+        }
+
+        bundles.Add(new HttpRequestBundle<RequestInformation>(
+            _graphClient.Me.Outlook.MasterCategories[request.PreviousRemoteId].ToDeleteRequestInformation(),
+            request));
+
+        return bundles;
+    }
+
+    public override List<IRequestBundle<RequestInformation>> DeleteCategory(MailCategoryDeleteRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.PreviousRemoteId))
+            return [];
+
+        var bundles = new List<IRequestBundle<RequestInformation>>();
+
+        foreach (var target in request.AffectedMessages ?? [])
+        {
+            bundles.Add(new HttpRequestBundle<RequestInformation>(
+                CreateMessageCategoryPatchRequest(target.MessageId, target.CategoryNames),
+                request));
+        }
+
+        bundles.Add(new HttpRequestBundle<RequestInformation>(
+            _graphClient.Me.Outlook.MasterCategories[request.PreviousRemoteId].ToDeleteRequestInformation(),
+            request));
+
+        return bundles;
+    }
+
+    private RequestInformation CreateMessageCategoryPatchRequest(string messageId, IReadOnlyList<string> categoryNames)
+        => _graphClient.Me.Messages[messageId].ToPatchRequestInformation(new Message
+        {
+            Categories = categoryNames?.ToList() ?? []
+        });
+
     public override async Task DownloadMissingMimeMessageAsync(MailCopy mailItem,
                                                            MailKit.ITransferProgress transferProgress = null,
                                                            CancellationToken cancellationToken = default)
@@ -1962,7 +2090,9 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         for (int i = 0; i < itemCount; i++)
         {
             var bundle = batch.ElementAt(i);
-            requiresSerial |= bundle.UIChangeRequest is SendDraftRequest;
+            requiresSerial |= bundle.UIChangeRequest is SendDraftRequest
+                              or MailCategoryUpdateRequest
+                              or MailCategoryDeleteRequest;
 
             // UI changes are already applied in ExecuteNativeRequestsAsync before batching.
             var batchRequestId = await batchContent.AddBatchRequestStepAsync(bundle.NativeRequest);
@@ -2110,7 +2240,10 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
            || request is ChangeFlagRequest
            || request is MarkReadRequest
            || request is ArchiveRequest
+           || request is MailCategoryAssignmentRequest
            || request is RenameFolderRequest
+           || request is MailCategoryUpdateRequest
+           || request is MailCategoryDeleteRequest
            || request is DeleteFolderRequest
            || request is AcceptEventRequest
            || request is DeclineEventRequest
@@ -2165,6 +2298,26 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                     return;
 
                 await UploadCalendarEventAttachmentsAsync(createCalendarEventRequest, createdEventId, CancellationToken.None).ConfigureAwait(false);
+                return;
+            }
+
+            if (bundle?.UIChangeRequest is MailCategoryCreateRequest createCategoryRequest)
+            {
+                var createdCategoryId = json?["id"]?.GetValue<string>();
+                if (!string.IsNullOrWhiteSpace(createdCategoryId))
+                {
+                    await _mailCategoryService.UpdateRemoteIdAsync(createCategoryRequest.Category.Id, createdCategoryId).ConfigureAwait(false);
+                }
+                return;
+            }
+
+            if (bundle?.UIChangeRequest is MailCategoryUpdateRequest updateCategoryRequest)
+            {
+                var updatedCategoryId = json?["id"]?.GetValue<string>();
+                if (!string.IsNullOrWhiteSpace(updatedCategoryId))
+                {
+                    await _mailCategoryService.UpdateRemoteIdAsync(updateCategoryRequest.Category.Id, updatedCategoryId).ConfigureAwait(false);
+                }
             }
         }
         catch (Exception ex)
@@ -2367,10 +2520,67 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         // Outlook messages can only be assigned to 1 folder at a time.
         // Therefore we don't need to create multiple copies of the same message for different folders.
         var contacts = ExtractContactsFromOutlookMessage(message);
-        var package = new NewMailItemPackage(mailCopy, mimeMessage, assignedFolder.RemoteFolderId, contacts);
+        var package = new NewMailItemPackage(mailCopy, mimeMessage, assignedFolder.RemoteFolderId, contacts, message.Categories);
 
         return [package];
     }
+
+    private static MailCategoryColorOption GetMailCategoryColorOption(CategoryColor? color)
+        => color switch
+        {
+            CategoryColor.Preset0 => new("#FEE2E2", "#991B1B"),
+            CategoryColor.Preset1 => new("#FFEDD5", "#9A3412"),
+            CategoryColor.Preset2 => new("#FEF3C7", "#92400E"),
+            CategoryColor.Preset3 => new("#ECFCCB", "#3F6212"),
+            CategoryColor.Preset4 => new("#DCFCE7", "#166534"),
+            CategoryColor.Preset5 => new("#CCFBF1", "#115E59"),
+            CategoryColor.Preset6 => new("#CFFAFE", "#155E75"),
+            CategoryColor.Preset7 => new("#DBEAFE", "#1D4ED8"),
+            CategoryColor.Preset8 => new("#E0E7FF", "#4338CA"),
+            CategoryColor.Preset9 => new("#F3E8FF", "#7E22CE"),
+            CategoryColor.Preset10 => new("#FCE7F3", "#9D174D"),
+            CategoryColor.Preset11 => new("#FECACA", "#7F1D1D"),
+            CategoryColor.Preset12 => new("#FED7AA", "#7C2D12"),
+            CategoryColor.Preset13 => new("#FDE68A", "#78350F"),
+            CategoryColor.Preset14 => new("#D9F99D", "#365314"),
+            CategoryColor.Preset15 => new("#BBF7D0", "#14532D"),
+            CategoryColor.Preset16 => new("#99F6E4", "#134E4A"),
+            CategoryColor.Preset17 => new("#A5F3FC", "#164E63"),
+            CategoryColor.Preset18 => new("#BFDBFE", "#1E3A8A"),
+            CategoryColor.Preset19 => new("#DDD6FE", "#5B21B6"),
+            CategoryColor.Preset20 => new("#E5E7EB", "#374151"),
+            CategoryColor.Preset21 => new("#D1D5DB", "#1F2937"),
+            CategoryColor.Preset22 => new("#F3F4F6", "#111827"),
+            CategoryColor.Preset23 => new("#E2E8F0", "#334155"),
+            CategoryColor.Preset24 => new("#F8FAFC", "#475569"),
+            _ => new("#E5E7EB", "#374151")
+        };
+
+    private static CategoryColor GetOutlookCategoryColor(MailCategory category)
+        => (category.BackgroundColorHex?.ToUpperInvariant(), category.TextColorHex?.ToUpperInvariant()) switch
+        {
+            ("#FEE2E2", "#991B1B") => CategoryColor.Preset0,
+            ("#FFEDD5", "#9A3412") => CategoryColor.Preset1,
+            ("#FEF3C7", "#92400E") => CategoryColor.Preset2,
+            ("#ECFCCB", "#3F6212") => CategoryColor.Preset3,
+            ("#DCFCE7", "#166534") => CategoryColor.Preset4,
+            ("#CCFBF1", "#115E59") => CategoryColor.Preset5,
+            ("#CFFAFE", "#155E75") => CategoryColor.Preset6,
+            ("#DBEAFE", "#1D4ED8") => CategoryColor.Preset7,
+            ("#E0E7FF", "#4338CA") => CategoryColor.Preset8,
+            ("#F3E8FF", "#7E22CE") => CategoryColor.Preset9,
+            ("#FCE7F3", "#9D174D") => CategoryColor.Preset10,
+            ("#FECACA", "#7F1D1D") => CategoryColor.Preset11,
+            ("#FED7AA", "#7C2D12") => CategoryColor.Preset12,
+            ("#FDE68A", "#78350F") => CategoryColor.Preset13,
+            ("#D9F99D", "#365314") => CategoryColor.Preset14,
+            ("#BBF7D0", "#14532D") => CategoryColor.Preset15,
+            ("#99F6E4", "#134E4A") => CategoryColor.Preset16,
+            ("#A5F3FC", "#164E63") => CategoryColor.Preset17,
+            ("#BFDBFE", "#1E3A8A") => CategoryColor.Preset18,
+            ("#DDD6FE", "#5B21B6") => CategoryColor.Preset19,
+            _ => CategoryColor.Preset0
+        };
 
     private async Task TryMapCalendarInvitationAsync(MailCopy mailCopy, MimeMessage mimeMessage, CancellationToken cancellationToken)
     {

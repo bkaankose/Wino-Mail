@@ -240,6 +240,93 @@
             </coreControls:WinoNavigationViewItem>
         </DataTemplate>
 
+        <DataTemplate x:Key="MailCategoryMenuTemplate" x:DataType="menu:MailCategoryMenuItem">
+            <coreControls:WinoNavigationViewItem
+                MinHeight="40"
+                DataContext="{x:Bind}"
+                FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
+                IsSelected="{x:Bind IsSelected, Mode=TwoWay}"
+                SelectsOnInvoked="True"
+                ToolTipService.ToolTip="{x:Bind FolderName, Mode=OneWay}">
+                <muxc:NavigationViewItem.Icon>
+                    <FontIcon
+                        FontFamily="{StaticResource SymbolThemeFontFamily}"
+                        Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}"
+                        Glyph="&#xE8EC;" />
+                </muxc:NavigationViewItem.Icon>
+                <muxc:NavigationViewItem.InfoBadge>
+                    <muxc:InfoBadge
+                        Background="{StaticResource SystemAccentColor}"
+                        Foreground="White"
+                        Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(UnreadItemCount), Mode=OneWay}"
+                        Value="{x:Bind UnreadItemCount, Mode=OneWay}" />
+                </muxc:NavigationViewItem.InfoBadge>
+                <muxc:NavigationViewItem.Content>
+                    <TextBlock
+                        Grid.Column="1"
+                        VerticalAlignment="Center"
+                        FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightBySyncState(IsSelected), Mode=OneWay}"
+                        Style="{StaticResource BodyTextBlockStyle}"
+                        Text="{x:Bind FolderName, Mode=OneWay}"
+                        TextTrimming="CharacterEllipsis" />
+                </muxc:NavigationViewItem.Content>
+            </coreControls:WinoNavigationViewItem>
+        </DataTemplate>
+
+        <DataTemplate x:Key="MergedMailCategoryMenuTemplate" x:DataType="menu:MergedMailCategoryMenuItem">
+            <coreControls:WinoNavigationViewItem
+                MinHeight="40"
+                DataContext="{x:Bind}"
+                FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
+                IsSelected="{x:Bind IsSelected, Mode=TwoWay}"
+                SelectsOnInvoked="True"
+                ToolTipService.ToolTip="{x:Bind FolderName, Mode=OneWay}">
+                <muxc:NavigationViewItem.Icon>
+                    <FontIcon
+                        FontFamily="{StaticResource SymbolThemeFontFamily}"
+                        Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(TextColorHex), Mode=OneWay}"
+                        Glyph="&#xE8EC;" />
+                </muxc:NavigationViewItem.Icon>
+                <muxc:NavigationViewItem.InfoBadge>
+                    <muxc:InfoBadge
+                        Background="{StaticResource SystemAccentColor}"
+                        Foreground="White"
+                        Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(UnreadItemCount), Mode=OneWay}"
+                        Value="{x:Bind UnreadItemCount, Mode=OneWay}" />
+                </muxc:NavigationViewItem.InfoBadge>
+                <muxc:NavigationViewItem.Content>
+                    <Grid
+                        MaxHeight="36"
+                        Padding="2"
+                        VerticalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border
+                            Width="10"
+                            Height="10"
+                            Margin="0,0,8,0"
+                            VerticalAlignment="Center"
+                            Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}"
+                            BorderBrush="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(TextColorHex), Mode=OneWay}"
+                            BorderThickness="1"
+                            CornerRadius="3" />
+
+                        <TextBlock
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightBySyncState(IsSelected), Mode=OneWay}"
+                            Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(TextColorHex), Mode=OneWay}"
+                            Style="{StaticResource BodyTextBlockStyle}"
+                            Text="{x:Bind FolderName, Mode=OneWay}"
+                            TextTrimming="CharacterEllipsis" />
+                    </Grid>
+                </muxc:NavigationViewItem.Content>
+            </coreControls:WinoNavigationViewItem>
+        </DataTemplate>
+
         <!--  Merged Inbox  -->
         <DataTemplate x:Key="MergedAccountTemplate" x:DataType="menu:MergedAccountMenuItem">
             <controls:AccountNavigationItem
@@ -393,6 +480,7 @@
 
         <coreSelectors:NavigationMenuTemplateSelector
             x:Key="NavigationMenuTemplateSelector"
+            CategoryItemsTemplate="{StaticResource MailCategoryMenuTemplate}"
             ClickableAccountMenuTemplate="{StaticResource ClickableAccountMenuTemplate}"
             FixAuthenticationIssueTemplate="{StaticResource FixAuthenticationIssueTemplate}"
             FixMissingFolderConfigTemplate="{StaticResource FixMissingFolderConfig}"
@@ -400,6 +488,7 @@
             MergedAccountFolderTemplate="{StaticResource MergedAccountFolderMenuItemTemplate}"
             MergedAccountMoreExpansionItemTemplate="{StaticResource MergedAccountMoreFolderItemTemplate}"
             MergedAccountTemplate="{StaticResource MergedAccountTemplate}"
+            MergedCategoryItemsTemplate="{StaticResource MergedMailCategoryMenuTemplate}"
             NewMailTemplate="{StaticResource CreateNewMailTemplate}"
             RatingItemTemplate="{StaticResource RatingItemTemplate}"
             SeperatorTemplate="{StaticResource SeperatorTemplate}"

@@ -14,6 +14,22 @@ public interface IFolderMenuItem : IBaseFolderMenuItem
 
 public interface IMergedAccountFolderMenuItem : IBaseFolderMenuItem { }
 
+public interface IMailCategoryMenuItem : IBaseFolderMenuItem
+{
+    Entities.Mail.MailCategory MailCategory { get; }
+    string TextColorHex { get; }
+    string BackgroundColorHex { get; }
+    bool HasTextColor { get; }
+}
+
+public interface IMergedMailCategoryMenuItem : IBaseFolderMenuItem
+{
+    IReadOnlyList<Entities.Mail.MailCategory> Categories { get; }
+    string TextColorHex { get; }
+    string BackgroundColorHex { get; }
+    bool HasTextColor { get; }
+}
+
 public interface IBaseFolderMenuItem : IMenuItem
 {
     string FolderName { get; }

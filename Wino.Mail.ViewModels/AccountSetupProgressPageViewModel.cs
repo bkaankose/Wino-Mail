@@ -81,6 +81,10 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
             Steps.Add(new AccountSetupStepModel { Title = Translator.AccountSetup_Step_FetchingProfile });
             Steps.Add(new AccountSetupStepModel { Title = Translator.AccountSetup_Step_SavingAccount });
             Steps.Add(new AccountSetupStepModel { Title = Translator.AccountSetup_Step_SyncingFolders });
+            if (WizardContext.SelectedProvider.Type == MailProviderType.Outlook)
+            {
+                Steps.Add(new AccountSetupStepModel { Title = Translator.AccountSetup_Step_SyncingCategories });
+            }
             Steps.Add(new AccountSetupStepModel { Title = Translator.AccountSetup_Step_FetchingCalendarMetadata });
             Steps.Add(new AccountSetupStepModel { Title = Translator.AccountSetup_Step_SyncingAliases });
             Steps.Add(new AccountSetupStepModel { Title = Translator.AccountSetup_Step_Finalizing });
@@ -228,6 +232,16 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 if (folderResult == null || folderResult.CompletedState != SynchronizationCompletedState.Success)
                     throw new Exception(Translator.Exception_FailedToSynchronizeFolders);
                 SetCurrentStepSucceeded();
+
+                // Step: Categories
+                if (_createdAccount.IsCategorySyncSupported)
+                {
+                    SetStepInProgress(Translator.AccountSetup_Step_SyncingCategories);
+                    var categoryResult = await SynchronizationManager.Instance.SynchronizeCategoriesAsync(_createdAccount.Id);
+                    if (categoryResult.CompletedState != SynchronizationCompletedState.Success)
+                        throw new Exception(Translator.Exception_FailedToSynchronizeCategories);
+                    SetCurrentStepSucceeded();
+                }
 
                 // Step: Calendar metadata
                 SetStepInProgress(Translator.AccountSetup_Step_FetchingCalendarMetadata);

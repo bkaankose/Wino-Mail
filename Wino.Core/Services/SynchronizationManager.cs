@@ -371,6 +371,26 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     }
 
     /// <summary>
+    /// Handles category synchronization for the given account.
+    /// </summary>
+    /// <param name="accountId">Account ID to synchronize categories for</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Synchronization result</returns>
+    public async Task<MailSynchronizationResult> SynchronizeCategoriesAsync(Guid accountId,
+                                                                            CancellationToken cancellationToken = default)
+    {
+        EnsureInitialized();
+
+        var options = new MailSynchronizationOptions
+        {
+            AccountId = accountId,
+            Type = MailSynchronizationType.Categories
+        };
+
+        return await SynchronizeMailAsync(options, cancellationToken);
+    }
+
+    /// <summary>
     /// Handles profile synchronization for the given account.
     /// </summary>
     /// <param name="accountId">Account ID to synchronize profile for</param>

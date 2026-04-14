@@ -26,6 +26,7 @@ public class SynchronizerFactory : ISynchronizerFactory
     private readonly ICalDavClient _calDavClient;
     private readonly IAutoDiscoveryService _autoDiscoveryService;
     private readonly ICalendarService _calendarService;
+    private readonly IMailCategoryService _mailCategoryService;
 
     private readonly List<IWinoSynchronizerBase> synchronizerCache = new();
 
@@ -41,7 +42,8 @@ public class SynchronizerFactory : ISynchronizerFactory
                                UnifiedImapSynchronizer unifiedImapSynchronizer,
                                ICalDavClient calDavClient,
                                IAutoDiscoveryService autoDiscoveryService,
-                               ICalendarService calendarService)
+                               ICalendarService calendarService,
+                               IMailCategoryService mailCategoryService)
     {
         _outlookChangeProcessor = outlookChangeProcessor;
         _gmailChangeProcessor = gmailChangeProcessor;
@@ -56,6 +58,7 @@ public class SynchronizerFactory : ISynchronizerFactory
         _calDavClient = calDavClient;
         _autoDiscoveryService = autoDiscoveryService;
         _calendarService = calendarService;
+        _mailCategoryService = mailCategoryService;
     }
 
     public async Task<IWinoSynchronizerBase> GetAccountSynchronizerAsync(Guid accountId)
@@ -86,7 +89,7 @@ public class SynchronizerFactory : ISynchronizerFactory
         {
             case Domain.Enums.MailProviderType.Outlook:
                 var outlookAuthenticator = _authenticationProvider.GetAuthenticator(Domain.Enums.MailProviderType.Outlook) as IOutlookAuthenticator;
-                return new OutlookSynchronizer(mailAccount, outlookAuthenticator, _outlookChangeProcessor, _outlookSynchronizerErrorHandlerFactory);
+                return new OutlookSynchronizer(mailAccount, outlookAuthenticator, _outlookChangeProcessor, _outlookSynchronizerErrorHandlerFactory, _mailCategoryService);
             case Domain.Enums.MailProviderType.Gmail:
                 var gmailAuthenticator = _authenticationProvider.GetAuthenticator(Domain.Enums.MailProviderType.Gmail) as IGmailAuthenticator;
                 return new GmailSynchronizer(mailAccount, gmailAuthenticator, _gmailChangeProcessor, _gmailSynchronizerErrorHandlerFactory);

@@ -22,11 +22,13 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
 
     public IEnumerable<IAccountMenuItem> GetAllAccountMenuItems()
     {
-        foreach (var item in this)
+        var rootItems = this.ToList();
+
+        foreach (var item in rootItems)
         {
             if (item is MergedAccountMenuItem mergedAccountMenuItem)
             {
-                foreach (var singleItem in mergedAccountMenuItem.SubMenuItems.OfType<IAccountMenuItem>())
+                foreach (var singleItem in mergedAccountMenuItem.SubMenuItems.OfType<IAccountMenuItem>().ToList())
                 {
                     yield return singleItem;
                 }
@@ -40,9 +42,11 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
 
     public IEnumerable<IBaseFolderMenuItem> GetAllFolderMenuItems(Guid folderId)
     {
-        foreach (var item in this)
+        var rootItems = this.ToList();
+
+        foreach (var item in rootItems)
         {
-            if (item is IBaseFolderMenuItem folderMenuItem)
+            if (item is IBaseFolderMenuItem folderMenuItem && item is not IMailCategoryMenuItem && item is not IMergedMailCategoryMenuItem)
             {
                 if (folderMenuItem.HandlingFolders.Any(a => a.Id == folderId))
                 {
@@ -50,7 +54,7 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
                 }
                 else if (folderMenuItem.SubMenuItems.Any())
                 {
-                    foreach (var subItem in folderMenuItem.SubMenuItems.OfType<IBaseFolderMenuItem>())
+                    foreach (var subItem in folderMenuItem.SubMenuItems.OfType<IBaseFolderMenuItem>().ToList())
                     {
                         if (subItem.HandlingFolders.Any(a => a.Id == folderId))
                         {
@@ -65,8 +69,10 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
 
     public bool TryGetAccountMenuItem(Guid accountId, out IAccountMenuItem value)
     {
-        value = this.OfType<AccountMenuItem>().FirstOrDefault(a => a.AccountId == accountId);
-        value ??= this.OfType<MergedAccountMenuItem>().FirstOrDefault(a => a.SubMenuItems.OfType<AccountMenuItem>().Where(b => b.AccountId == accountId) != null);
+        var rootItems = this.ToList();
+
+        value = rootItems.OfType<AccountMenuItem>().FirstOrDefault(a => a.AccountId == accountId);
+        value ??= rootItems.OfType<MergedAccountMenuItem>().FirstOrDefault(a => a.SubMenuItems.OfType<AccountMenuItem>().Any(b => b.AccountId == accountId));
 
         return value != null;
     }
@@ -74,7 +80,9 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
     // Pattern: Look for special folder menu item inside the loaded folders for Windows Mail style menu items.
     public bool TryGetWindowsStyleRootSpecialFolderMenuItem(Guid accountId, SpecialFolderType specialFolderType, out FolderMenuItem value)
     {
-        value = this.OfType<IBaseFolderMenuItem>()
+        var rootItems = this.ToList();
+
+        value = rootItems.OfType<IBaseFolderMenuItem>()
                 .FirstOrDefault(a => a.HandlingFolders.Any(b => b.MailAccountId == accountId && b.SpecialFolderType == specialFolderType)) as FolderMenuItem;
 
         return value != null;
@@ -84,7 +92,9 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
     // This will not look for the folders inside individual account menu items inside merged account menu item.
     public bool TryGetMergedAccountSpecialFolderMenuItem(Guid mergedInboxId, SpecialFolderType specialFolderType, out IBaseFolderMenuItem value)
     {
-        value = this.OfType<MergedAccountFolderMenuItem>()
+        var rootItems = this.ToList();
+
+        value = rootItems.OfType<MergedAccountFolderMenuItem>()
                 .Where(a => a.MergedInbox.Id == mergedInboxId)
                 .FirstOrDefault(a => a.SpecialFolderType == specialFolderType);
 
@@ -93,11 +103,14 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
 
     public bool TryGetFolderMenuItem(Guid folderId, out IBaseFolderMenuItem value)
     {
+        var rootItems = this.ToList();
+
         // Root folders
-        value = this.OfType<IBaseFolderMenuItem>()
+        value = rootItems.OfType<IBaseFolderMenuItem>()
+                .Where(a => a is not IMailCategoryMenuItem && a is not IMergedMailCategoryMenuItem)
                 .FirstOrDefault(a => a.HandlingFolders.Any(b => b.Id == folderId));
 
-        value ??= this.OfType<FolderMenuItem>()
+        value ??= rootItems.OfType<FolderMenuItem>()
             .SelectMany(a => a.SubMenuItems)
                 .OfType<IBaseFolderMenuItem>()
                 .FirstOrDefault(a => a.HandlingFolders.Any(b => b.Id == folderId));
@@ -105,10 +118,23 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
         return value != null;
     }
 
+    public bool TryGetCategoryMenuItem(Guid categoryId, out IBaseFolderMenuItem value)
+    {
+        var rootItems = this.ToList();
+
+        value = rootItems.OfType<IMailCategoryMenuItem>()
+            .FirstOrDefault(a => a.MailCategory.Id == categoryId);
+
+        value ??= rootItems.OfType<IMergedMailCategoryMenuItem>()
+            .FirstOrDefault(a => a.Categories.Any(b => b.Id == categoryId)) as IBaseFolderMenuItem;
+
+        return value != null;
+    }
+
     public void UpdateUnreadItemCountsToZero()
     {
         // Handle the root folders.
-        foreach (var item in this.OfType<IBaseFolderMenuItem>())
+        foreach (var item in this.OfType<IBaseFolderMenuItem>().ToList())
         {
             RecursivelyResetUnreadItemCount(item);
         }
@@ -120,7 +146,7 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
 
         if (baseFolderMenuItem.SubMenuItems == null) return;
 
-        foreach (var subMenuItem in baseFolderMenuItem.SubMenuItems.OfType<IBaseFolderMenuItem>())
+        foreach (var subMenuItem in baseFolderMenuItem.SubMenuItems.OfType<IBaseFolderMenuItem>().ToList())
         {
             RecursivelyResetUnreadItemCount(subMenuItem);
         }
@@ -128,7 +154,9 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
 
     public bool TryGetSpecialFolderMenuItem(Guid accountId, SpecialFolderType specialFolderType, out FolderMenuItem value)
     {
-        value = this.OfType<IBaseFolderMenuItem>()
+        var rootItems = this.ToList();
+
+        value = rootItems.OfType<IBaseFolderMenuItem>()
                 .FirstOrDefault(a => a.HandlingFolders.Any(b => b.MailAccountId == accountId && b.SpecialFolderType == specialFolderType)) as FolderMenuItem;
 
         return value != null;
@@ -142,11 +170,12 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
     public AccountMenuItem GetSpecificAccountMenuItem(Guid accountId)
     {
         AccountMenuItem accountMenuItem = null;
+        var rootItems = this.ToList();
 
-        accountMenuItem = this.OfType<AccountMenuItem>().FirstOrDefault(a => a.HoldingAccounts.Any(b => b.Id == accountId));
+        accountMenuItem = rootItems.OfType<AccountMenuItem>().FirstOrDefault(a => a.HoldingAccounts.Any(b => b.Id == accountId));
 
         // Look for the items inside the merged accounts if regular menu item is not found.
-        accountMenuItem ??= this.OfType<MergedAccountMenuItem>()
+        accountMenuItem ??= rootItems.OfType<MergedAccountMenuItem>()
             .FirstOrDefault(a => a.HoldingAccounts.Any(b => b.Id == accountId))?.SubMenuItems
             .OfType<AccountMenuItem>()
             .FirstOrDefault(a => a.AccountId == accountId);
@@ -167,7 +196,7 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
     /// <param name="isEnabled">Whether menu items should be enabled or disabled.</param>
     public async Task SetAccountMenuItemEnabledStatusAsync(bool isEnabled)
     {
-        var accountItems = this.Where(a => a is IAccountMenuItem).Cast<IAccountMenuItem>();
+        var accountItems = this.Where(a => a is IAccountMenuItem).Cast<IAccountMenuItem>().ToList();
 
         await _dispatcher.ExecuteOnUIThread(() =>
         {
@@ -192,6 +221,7 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
     {
         // Check root-level items.
         var rootItem = this.OfType<IBaseFolderMenuItem>()
+            .Where(a => a is not IMailCategoryMenuItem && a is not IMergedMailCategoryMenuItem)
             .FirstOrDefault(a => a.HandlingFolders.Any(b => b.Id == folderId));
 
         if (rootItem != null)
@@ -201,7 +231,7 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
         }
 
         // Check sub-items of root folders.
-        foreach (var rootFolder in this.OfType<IBaseFolderMenuItem>())
+        foreach (var rootFolder in this.OfType<IBaseFolderMenuItem>().ToList())
         {
             var subItem = rootFolder.SubMenuItems
                 .OfType<IBaseFolderMenuItem>()
