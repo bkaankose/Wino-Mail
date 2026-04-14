@@ -16,6 +16,7 @@ namespace Wino.Core.Domain.Interfaces;
 
 public interface IMailDialogService : IDialogServiceBase
 {
+    void ShowReadOnlyCalendarMessage();
     Task<bool> ShowHardDeleteConfirmationAsync();
     Task HandleSystemFolderConfigurationDialogAsync(Guid accountId, IFolderService folderService);
 

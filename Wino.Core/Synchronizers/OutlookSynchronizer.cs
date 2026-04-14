@@ -2674,6 +2674,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                 {
                     existingLocalCalendar.Name = calendar.Name;
                     existingLocalCalendar.IsPrimary = string.Equals(existingLocalCalendar.RemoteCalendarId, remotePrimaryCalendarId, StringComparison.OrdinalIgnoreCase);
+                    existingLocalCalendar.IsReadOnly = !calendar.CanEdit.GetValueOrDefault(true);
                     existingLocalCalendar.BackgroundColorHex = resolvedColor;
                     existingLocalCalendar.TextColorHex = ColorHelpers.GetReadableTextColorHex(existingLocalCalendar.BackgroundColorHex);
 
@@ -2712,12 +2713,14 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         var remoteCalendarName = calendar.Name;
         var remoteBackgroundColor = ResolveSynchronizedCalendarBackgroundColor(GetRemoteOutlookCalendarBackgroundColor(calendar), accountCalendar);
         var remoteIsPrimary = string.Equals(calendar.Id, remotePrimaryCalendarId, StringComparison.OrdinalIgnoreCase);
+        var remoteIsReadOnly = !calendar.CanEdit.GetValueOrDefault(true);
 
         bool isNameChanged = !string.Equals(accountCalendar.Name, remoteCalendarName, StringComparison.OrdinalIgnoreCase);
         bool isBackgroundColorChanged = !string.Equals(accountCalendar.BackgroundColorHex, remoteBackgroundColor, StringComparison.OrdinalIgnoreCase);
         bool isPrimaryChanged = accountCalendar.IsPrimary != remoteIsPrimary;
+        bool isReadOnlyChanged = accountCalendar.IsReadOnly != remoteIsReadOnly;
 
-        return isNameChanged || isBackgroundColorChanged || isPrimaryChanged;
+        return isNameChanged || isBackgroundColorChanged || isPrimaryChanged || isReadOnlyChanged;
     }
 
     private static string GetRemoteOutlookCalendarBackgroundColor(Calendar calendar)

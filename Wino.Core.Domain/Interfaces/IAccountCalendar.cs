@@ -10,6 +10,7 @@ public interface IAccountCalendar
     string TextColorHex { get; set; }
     string BackgroundColorHex { get; set; }
     bool IsPrimary { get; set; }
+    bool IsReadOnly { get; set; }
     bool IsSynchronizationEnabled { get; set; }
     Guid AccountId { get; set; }
     string RemoteCalendarId { get; set; }

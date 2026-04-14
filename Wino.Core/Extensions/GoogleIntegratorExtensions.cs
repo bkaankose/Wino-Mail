@@ -145,6 +145,8 @@ public static class GoogleIntegratorExtensions
             Id = Guid.NewGuid(),
             TimeZone = calendarListEntry.TimeZone,
             IsPrimary = calendarListEntry.Primary.GetValueOrDefault(),
+            IsReadOnly = !string.Equals(calendarListEntry.AccessRole, "owner", StringComparison.OrdinalIgnoreCase)
+                         && !string.Equals(calendarListEntry.AccessRole, "writer", StringComparison.OrdinalIgnoreCase),
             IsSynchronizationEnabled = true,
         };
 

@@ -190,6 +190,7 @@ public static class OutlookIntegratorExtensions
             Id = Guid.NewGuid(),
             RemoteCalendarId = outlookCalendar.Id,
             IsPrimary = outlookCalendar.IsDefaultCalendar.GetValueOrDefault(),
+            IsReadOnly = !outlookCalendar.CanEdit.GetValueOrDefault(true),
             Name = outlookCalendar.Name,
             IsSynchronizationEnabled = true,
             IsExtended = true,

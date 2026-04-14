@@ -86,6 +86,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         get
         {
             if (SelectedQuickEventAccountCalendar == null ||
+                SelectedQuickEventAccountCalendar.IsReadOnly ||
                 SelectedQuickEventDate == null ||
                 string.IsNullOrWhiteSpace(EventName) ||
                 string.IsNullOrWhiteSpace(SelectedStartTimeString) ||
@@ -203,6 +204,12 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
         if (DisplayDetailsCalendarItemViewModel?.CalendarItem == null)
             return;
+
+        if (DisplayDetailsCalendarItemViewModel.AssignedCalendar?.IsReadOnly == true)
+        {
+            _dialogService.ShowReadOnlyCalendarMessage();
+            return;
+        }
 
         if (DisplayDetailsCalendarItemViewModel.CalendarItem.IsRecurringParent)
         {
@@ -460,6 +467,12 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     [RelayCommand(AllowConcurrentExecutions = false, CanExecute = nameof(CanSaveQuickEvent))]
     private async Task SaveQuickEventAsync()
     {
+        if (SelectedQuickEventAccountCalendar?.IsReadOnly == true)
+        {
+            _dialogService.ShowReadOnlyCalendarMessage();
+            return;
+        }
+
         var startDate = IsAllDay ? SelectedQuickEventDate.Value.Date : QuickEventStartTime;
         var endDate = IsAllDay ? SelectedQuickEventDate.Value.Date.AddDays(1) : QuickEventEndTime;
         var composeResult = new CalendarEventComposeResult
@@ -550,6 +563,12 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
                 Translator.CalendarDragDropMoveNotAllowedTitle,
                 Translator.CalendarDragDropMoveNotAllowedMessage,
                 InfoBarMessageType.Warning);
+            return;
+        }
+
+        if (calendarItem.AssignedCalendar?.IsReadOnly == true)
+        {
+            _dialogService.ShowReadOnlyCalendarMessage();
             return;
         }
 
@@ -1195,6 +1214,12 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         if (targetItem == null)
             return;
 
+        if (targetItem.AssignedCalendar?.IsReadOnly == true)
+        {
+            _dialogService.ShowReadOnlyCalendarMessage();
+            return;
+        }
+
         if (targetItem.IsRecurringParent)
         {
             var confirmed = await _dialogService.ShowConfirmationDialogAsync(
@@ -1221,6 +1246,12 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         if (targetItem == null || targetItem.ShowAs == showAs)
             return;
 
+        if (targetItem.AssignedCalendar?.IsReadOnly == true)
+        {
+            _dialogService.ShowReadOnlyCalendarMessage();
+            return;
+        }
+
         var originalItem = await _calendarService.GetCalendarItemAsync(targetItem.Id).ConfigureAwait(false);
         var attendees = await _calendarService.GetAttendeesAsync(targetItem.Id).ConfigureAwait(false);
 
@@ -1244,6 +1275,12 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
         if (targetItem == null)
             return;
+
+        if (targetItem.AssignedCalendar?.IsReadOnly == true)
+        {
+            _dialogService.ShowReadOnlyCalendarMessage();
+            return;
+        }
 
         var operation = responseStatus switch
         {

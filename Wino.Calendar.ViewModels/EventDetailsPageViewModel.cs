@@ -440,6 +440,11 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     private async Task SaveAsync()
     {
         if (CurrentEvent == null) return;
+        if (CurrentEvent.AssignedCalendar?.IsReadOnly == true)
+        {
+            _dialogService.ShowReadOnlyCalendarMessage();
+            return;
+        }
 
         try
         {
@@ -506,6 +511,11 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     private async Task DeleteAsync()
     {
         if (CurrentEvent == null) return;
+        if (CurrentEvent.AssignedCalendar?.IsReadOnly == true)
+        {
+            _dialogService.ShowReadOnlyCalendarMessage();
+            return;
+        }
 
         // If the event is a master recurring event, ask for confirmation
         if (CurrentEvent.IsRecurringParent)
@@ -610,6 +620,11 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     private async Task SendRsvpResponse(AttendeeStatus status)
     {
         if (CurrentEvent == null) return;
+        if (CurrentEvent.AssignedCalendar?.IsReadOnly == true)
+        {
+            _dialogService.ShowReadOnlyCalendarMessage();
+            return;
+        }
 
         try
         {

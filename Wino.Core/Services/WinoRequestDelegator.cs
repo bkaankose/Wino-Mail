@@ -165,6 +165,13 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         if (calendarPreparationRequest == null)
             return;
 
+        var resolvedCalendar = await ResolveCalendarAsync(calendarPreparationRequest).ConfigureAwait(false);
+        if (resolvedCalendar?.IsReadOnly == true)
+        {
+            _dialogService.ShowReadOnlyCalendarMessage();
+            return;
+        }
+
         IRequestBase request = calendarPreparationRequest.Operation switch
         {
             CalendarSynchronizerOperation.CreateEvent => await CreateCalendarEventRequestAsync(calendarPreparationRequest).ConfigureAwait(false),
@@ -210,6 +217,25 @@ public class WinoRequestDelegator : IWinoRequestDelegator
             throw new InvalidOperationException($"Calendar {composeResult.CalendarId} could not be resolved.");
 
         return new CreateCalendarEventRequest(composeResult, assignedCalendar);
+    }
+
+    private async Task<AccountCalendar> ResolveCalendarAsync(CalendarOperationPreparationRequest calendarPreparationRequest)
+    {
+        if (calendarPreparationRequest.Operation == CalendarSynchronizerOperation.CreateEvent)
+        {
+            var calendarId = calendarPreparationRequest.ComposeResult?.CalendarId ?? Guid.Empty;
+            return calendarId == Guid.Empty
+                ? null
+                : await _calendarService.GetAccountCalendarAsync(calendarId).ConfigureAwait(false);
+        }
+
+        if (calendarPreparationRequest.CalendarItem?.AssignedCalendar is AccountCalendar assignedCalendar)
+            return assignedCalendar;
+
+        var fallbackCalendarId = calendarPreparationRequest.CalendarItem?.CalendarId ?? Guid.Empty;
+        return fallbackCalendarId == Guid.Empty
+            ? null
+            : await _calendarService.GetAccountCalendarAsync(fallbackCalendarId).ConfigureAwait(false);
     }
 
     private IRequestBase CreateDeclineRequest(CalendarItem calendarItem, string responseMessage)

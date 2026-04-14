@@ -40,6 +40,12 @@ public class DialogService : DialogServiceBase, IMailDialogService
         _winoAccountDataSyncService = winoAccountDataSyncService;
     }
 
+    public void ShowReadOnlyCalendarMessage()
+        => InfoBarMessage(
+            Translator.CalendarReadOnly_Title,
+            Translator.CalendarReadOnly_Message,
+            InfoBarMessageType.Warning);
+
     public async Task<ICreateAccountAliasDialog> ShowCreateAccountAliasDialogAsync()
     {
         var createAccountAliasDialog = new CreateAccountAliasDialog()

@@ -759,6 +759,8 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                     existingLocalCalendar.BackgroundColorHex = resolvedColor;
                     existingLocalCalendar.TextColorHex = ColorHelpers.GetReadableTextColorHex(existingLocalCalendar.BackgroundColorHex);
                     existingLocalCalendar.IsPrimary = string.Equals(existingLocalCalendar.RemoteCalendarId, remotePrimaryCalendarId, StringComparison.OrdinalIgnoreCase);
+                    existingLocalCalendar.IsReadOnly = !string.Equals(calendar.AccessRole, "owner", StringComparison.OrdinalIgnoreCase)
+                                                      && !string.Equals(calendar.AccessRole, "writer", StringComparison.OrdinalIgnoreCase);
 
                     updatedCalendars.Add(existingLocalCalendar);
                 }
@@ -940,14 +942,17 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         var remoteBackgroundColor = ResolveSynchronizedCalendarBackgroundColor(GetRemoteGmailCalendarBackgroundColor(calendarListEntry), accountCalendar);
         var remoteTextColor = ColorHelpers.GetReadableTextColorHex(remoteBackgroundColor);
         var remoteIsPrimary = string.Equals(calendarListEntry.Id, remotePrimaryCalendarId, StringComparison.OrdinalIgnoreCase);
+        var remoteIsReadOnly = !string.Equals(calendarListEntry.AccessRole, "owner", StringComparison.OrdinalIgnoreCase)
+                               && !string.Equals(calendarListEntry.AccessRole, "writer", StringComparison.OrdinalIgnoreCase);
 
         bool isNameChanged = !string.Equals(accountCalendar.Name, remoteCalendarName, StringComparison.OrdinalIgnoreCase);
         bool isTimeZoneChanged = !string.Equals(accountCalendar.TimeZone, remoteTimeZone, StringComparison.OrdinalIgnoreCase);
         bool isBackgroundColorChanged = !string.Equals(accountCalendar.BackgroundColorHex, remoteBackgroundColor, StringComparison.OrdinalIgnoreCase);
         bool isTextColorChanged = !string.Equals(accountCalendar.TextColorHex, remoteTextColor, StringComparison.OrdinalIgnoreCase);
         bool isPrimaryChanged = accountCalendar.IsPrimary != remoteIsPrimary;
+        bool isReadOnlyChanged = accountCalendar.IsReadOnly != remoteIsReadOnly;
 
-        return isNameChanged || isTimeZoneChanged || isBackgroundColorChanged || isTextColorChanged || isPrimaryChanged;
+        return isNameChanged || isTimeZoneChanged || isBackgroundColorChanged || isTextColorChanged || isPrimaryChanged || isReadOnlyChanged;
     }
 
     private static string GetRemoteGmailCalendarBackgroundColor(CalendarListEntry calendarListEntry)

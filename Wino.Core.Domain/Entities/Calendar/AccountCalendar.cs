@@ -16,6 +16,7 @@ public class AccountCalendar : IAccountCalendar
     public string SynchronizationDeltaToken { get; set; }
     public string Name { get; set; }
     public bool IsPrimary { get; set; }
+    public bool IsReadOnly { get; set; }
     public bool IsSynchronizationEnabled { get; set; } = true;
     public bool IsExtended { get; set; } = true;
     public CalendarItemShowAs DefaultShowAs { get; set; } = CalendarItemShowAs.Busy;

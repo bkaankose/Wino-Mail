@@ -55,6 +55,12 @@ public partial class AccountCalendarViewModel : ObservableObject, IAccountCalend
         set => SetProperty(AccountCalendar.IsPrimary, value, AccountCalendar, (u, i) => u.IsPrimary = i);
     }
 
+    public bool IsReadOnly
+    {
+        get => AccountCalendar.IsReadOnly;
+        set => SetProperty(AccountCalendar.IsReadOnly, value, AccountCalendar, (u, i) => u.IsReadOnly = i);
+    }
+
     public bool IsSynchronizationEnabled
     {
         get => AccountCalendar.IsSynchronizationEnabled;

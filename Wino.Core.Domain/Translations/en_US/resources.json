@@ -213,6 +213,8 @@
     "CalendarEventDetails_Organizer": "Organizer",
     "CalendarEventDetails_People": "People",
     "CalendarEventDetails_ReadOnlyEvent": "Read-only event",
+    "CalendarReadOnly_Title": "Read-only calendar",
+    "CalendarReadOnly_Message": "You can't update this calendar or its events. This calendar is read-only.",
     "CalendarContextMenu_Respond": "Respond",
     "CalendarEventDetails_Reminder": "Reminder",
     "CalendarReminder_StartedHoursAgo": "Started {0} hours ago",
