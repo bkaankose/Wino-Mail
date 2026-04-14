@@ -4,8 +4,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Threading;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Dispatching;
@@ -16,7 +16,6 @@ using Microsoft.Windows.AppNotifications;
 using MimeKit.Cryptography;
 using Windows.ApplicationModel.Activation;
 using Windows.ApplicationModel.DataTransfer;
-using Windows.ApplicationModel.DataTransfer.ShareTarget;
 using Windows.Storage;
 using Wino.Calendar.ViewModels;
 using Wino.Calendar.ViewModels.Interfaces;
@@ -543,23 +542,20 @@ public partial class App : WinoApplication,
     {
         var activationArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
 
-        if (activationArgs.Kind != ExtendedActivationKind.AppNotification ||
-            activationArgs.Data is not AppNotificationActivatedEventArgs toastArgs ||
-            !TryMarkInitialNotificationActivationHandled())
+        if (activationArgs.Kind == ExtendedActivationKind.Launch &&
+            activationArgs.Data is ILaunchActivatedEventArgs launchArgs &&
+            ToastActivationResolver.TryParse(launchArgs.Arguments, out var launchToastArguments) &&
+            TryMarkInitialNotificationActivationHandled())
         {
-            return;
+            LogActivation($"Processing initial toast launch activation from application startup. Arguments: {launchArgs.Arguments}");
+
+            await EnsureActivationInfrastructureAsync();
+            await HandleToastActivationAsync(launchToastArguments);
         }
-
-        LogActivation($"Processing initial notification activation from application startup. Arguments: {toastArgs.Argument}");
-
-        await EnsureActivationInfrastructureAsync();
-        await HandleToastActivationAsync(toastArgs.Argument, toastArgs.UserInput);
     }
 
     private void AppNotificationInvoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args)
     {
-        // AppNotification callbacks are not guaranteed to run on the UI thread.
-        // Marshal toast handling to the window dispatcher before touching window APIs.
         if (MainWindow?.DispatcherQueue?.TryEnqueue(() => _ = HandleToastActivationAsync(args.Argument, args.UserInput)) == true)
             return;
 
@@ -569,19 +565,7 @@ public partial class App : WinoApplication,
 
     private void TryRegisterAppNotifications()
     {
-        var notificationManager = AppNotificationManager.Default;
-
-        notificationManager.NotificationInvoked -= AppNotificationInvoked;
-        notificationManager.NotificationInvoked += AppNotificationInvoked;
-
-        try
-        {
-            notificationManager.Register();
-        }
-        catch (Exception ex)
-        {
-            LogActivation($"App notification registration failed: {ex.GetType().Name} - {ex.Message}");
-        }
+        // Classic targeted toasts use normal launch activation instead of COM toast activators.
     }
 
     /// <summary>
@@ -611,7 +595,7 @@ public partial class App : WinoApplication,
 
             if (calendarAction == Constants.ToastCalendarSnoozeAction)
             {
-                await HandleCalendarToastSnoozeAsync(userInput, calendarItemId);
+                await HandleCalendarToastSnoozeAsync(toastArguments, userInput, calendarItemId);
                 return;
             }
 
@@ -654,6 +638,26 @@ public partial class App : WinoApplication,
         }
 
         return HandleToastActivationAsync(toastArguments, userInput);
+    }
+
+    private static int? GetToastSnoozeDurationMinutes(NotificationArguments toastArguments, IDictionary<string, string>? userInput)
+    {
+        if (toastArguments.TryGetValue(Constants.ToastCalendarSnoozeDurationMinutesKey, out var snoozeDurationValue) &&
+            int.TryParse(snoozeDurationValue, out var snoozeDurationMinutes) &&
+            snoozeDurationMinutes > 0)
+        {
+            return snoozeDurationMinutes;
+        }
+
+        if (userInput != null &&
+            userInput.TryGetValue(Constants.ToastCalendarSnoozeDurationInputId, out var selectedValue) &&
+            int.TryParse(selectedValue, out snoozeDurationMinutes) &&
+            snoozeDurationMinutes > 0)
+        {
+            return snoozeDurationMinutes;
+        }
+
+        return null;
     }
 
     private async Task<bool> HandleShareTargetActivationAsync(AppActivationArguments activationArgs, bool activateWindow)
@@ -810,9 +814,59 @@ public partial class App : WinoApplication,
         navigationService.Navigate(WinoPage.EventDetailsPage, target);
     }
 
-    private async Task HandleCalendarToastSnoozeAsync(IDictionary<string, string>? userInput, Guid calendarItemId)
+    private async Task<object?> TryCreateToastNavigationParameterAsync(NotificationArguments toastArguments)
     {
-        if (!TryGetSnoozeDurationMinutes(userInput, out var snoozeDurationMinutes))
+        if (toastArguments.TryGetValue(Constants.ToastCalendarActionKey, out string calendarAction) &&
+            calendarAction == Constants.ToastCalendarNavigateAction &&
+            toastArguments.TryGetValue(Constants.ToastCalendarItemIdKey, out string calendarItemIdString) &&
+            Guid.TryParse(calendarItemIdString, out Guid calendarItemId))
+        {
+            var calendarService = Services.GetRequiredService<ICalendarService>();
+            var calendarItem = await calendarService.GetCalendarItemAsync(calendarItemId);
+
+            if (calendarItem != null)
+            {
+                return new CalendarItemTarget(calendarItem, CalendarEventTargetType.Single);
+            }
+        }
+
+        return null;
+    }
+
+    private async Task<(WinoApplicationMode Mode, object? Parameter)?> TryResolveToastActivationTargetAsync(AppActivationArguments activationArgs)
+    {
+        NotificationArguments? toastArguments = null;
+
+        if (activationArgs.Kind == ExtendedActivationKind.Launch &&
+            activationArgs.Data is ILaunchActivatedEventArgs launchArgs &&
+            ToastActivationResolver.TryParse(launchArgs.Arguments, out var launchToastArguments))
+        {
+            toastArguments = launchToastArguments;
+        }
+        else if (activationArgs.Kind == ExtendedActivationKind.AppNotification &&
+                 activationArgs.Data is AppNotificationActivatedEventArgs appNotificationArgs &&
+                 ToastActivationResolver.TryParse(appNotificationArgs.Argument, out var appNotificationToastArguments))
+        {
+            toastArguments = appNotificationToastArguments;
+        }
+        else if (activationArgs.Data is ToastNotificationActivatedEventArgs classicToastArgs &&
+                 ToastActivationResolver.TryParse(classicToastArgs.Argument, out var classicToastArguments))
+        {
+            toastArguments = classicToastArguments;
+        }
+
+        if (toastArguments == null ||
+            !ToastActivationResolver.TryResolveMode(toastArguments, out var mode))
+        {
+            return null;
+        }
+
+        return (mode, await TryCreateToastNavigationParameterAsync(toastArguments));
+    }
+
+    private async Task HandleCalendarToastSnoozeAsync(NotificationArguments toastArguments, IDictionary<string, string>? userInput, Guid calendarItemId)
+    {
+        if (!TryGetSnoozeDurationMinutes(toastArguments, userInput, out var snoozeDurationMinutes))
             return;
 
         var calendarService = Services.GetRequiredService<ICalendarService>();
@@ -836,20 +890,13 @@ public partial class App : WinoApplication,
         await nativeAppService.LaunchUriAsync(joinUri);
     }
 
-    private bool TryGetSnoozeDurationMinutes(IDictionary<string, string>? userInput, out int snoozeDurationMinutes)
+    private bool TryGetSnoozeDurationMinutes(NotificationArguments toastArguments, IDictionary<string, string>? userInput, out int snoozeDurationMinutes)
     {
-        snoozeDurationMinutes = _preferencesService?.DefaultSnoozeDurationInMinutes ?? 0;
+        snoozeDurationMinutes = GetToastSnoozeDurationMinutes(toastArguments, userInput)
+                                ?? _preferencesService?.DefaultSnoozeDurationInMinutes
+                                ?? 0;
 
-        if (userInput == null ||
-            !userInput.TryGetValue(Constants.ToastCalendarSnoozeDurationInputId, out var selectedValue) ||
-            selectedValue == null)
-        {
-            return snoozeDurationMinutes > 0;
-        }
-
-        var selectedText = selectedValue.ToString();
-
-        return int.TryParse(selectedText, out snoozeDurationMinutes) && snoozeDurationMinutes > 0;
+        return snoozeDurationMinutes > 0;
     }
 
     /// <summary>
@@ -1584,7 +1631,22 @@ public partial class App : WinoApplication,
                     }
                     else if (TryResolveActivationMode(args, _preferencesService?.DefaultApplicationMode ?? WinoApplicationMode.Mail, out var redirectedMode))
                     {
-                        shellWindow.HandleAppActivation(AppEntryConstants.GetModeLaunchArgument(redirectedMode));
+                        var navigationService = Services.GetRequiredService<INavigationService>();
+                        var toastActivationTarget = await TryResolveToastActivationTargetAsync(args);
+
+                        if (toastActivationTarget is { Parameter: CalendarItemTarget calendarTarget })
+                        {
+                            navigationService.ChangeApplicationMode(toastActivationTarget.Value.Mode, new ShellModeActivationContext
+                            {
+                                SuppressStartupFlows = true,
+                                Parameter = calendarTarget
+                            });
+                            navigationService.Navigate(WinoPage.EventDetailsPage, calendarTarget);
+                        }
+                        else
+                        {
+                            shellWindow.HandleAppActivation(AppEntryConstants.GetModeLaunchArgument(redirectedMode));
+                        }
                     }
                 }
 
@@ -1597,7 +1659,6 @@ public partial class App : WinoApplication,
             }
         }
 
-        // Dispatch to UI thread since this is called from Program.OnActivated.
         if (MainWindow?.DispatcherQueue.TryEnqueue(() => _ = HandleRedirectedActivationAsync()) == true)
             return;
 
@@ -1639,6 +1700,13 @@ public partial class App : WinoApplication,
         if (activationArgs.Kind == ExtendedActivationKind.ShareTarget)
         {
             mode = WinoApplicationMode.Mail;
+            return true;
+        }
+
+        if (activationArgs.Data is ToastNotificationActivatedEventArgs classicToastArgs &&
+            ToastActivationResolver.TryParse(classicToastArgs.Argument, out var classicToastArguments) &&
+            ToastActivationResolver.TryResolveMode(classicToastArguments, out mode))
+        {
             return true;
         }
 

@@ -178,6 +178,18 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         await InitializeAccountCalendarsAsync();
         ValidateConfiguredNewEventCalendar();
 
+        if (activationContext?.Parameter is CalendarItemTarget calendarItemTarget)
+        {
+            NavigationService.Navigate(WinoPage.EventDetailsPage, calendarItemTarget);
+            return;
+        }
+
+        if (activationContext?.Parameter is CalendarPageNavigationArgs calendarPageNavigationArgs)
+        {
+            NavigationService.Navigate(WinoPage.CalendarPage, calendarPageNavigationArgs);
+            return;
+        }
+
         TodayClicked();
     }
 

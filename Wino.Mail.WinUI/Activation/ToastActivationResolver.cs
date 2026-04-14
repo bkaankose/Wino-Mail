@@ -1,4 +1,4 @@
-using Microsoft.Windows.AppNotifications;
+using System;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 
@@ -49,8 +49,31 @@ internal static class ToastActivationResolver
         return true;
     }
 
+    public static bool TryResolveMode(NotificationArguments toastArguments, out WinoApplicationMode mode)
+    {
+        mode = WinoApplicationMode.Mail;
+
+        if (!toastArguments.TryGetValue(Constants.ToastModeKey, out string toastMode))
+            return false;
+
+        if (string.Equals(toastMode, Constants.ToastModeCalendar, StringComparison.OrdinalIgnoreCase))
+        {
+            mode = WinoApplicationMode.Calendar;
+            return true;
+        }
+
+        if (string.Equals(toastMode, Constants.ToastModeMail, StringComparison.OrdinalIgnoreCase))
+        {
+            mode = WinoApplicationMode.Mail;
+            return true;
+        }
+
+        return false;
+    }
+
     private static bool ContainsKnownToastKey(NotificationArguments toastArguments)
         => toastArguments.TryGetValue(Constants.ToastStoreUpdateActionKey, out string _) ||
+           toastArguments.TryGetValue(Constants.ToastModeKey, out string _) ||
            toastArguments.TryGetValue(Constants.ToastCalendarActionKey, out string _) ||
            toastArguments.TryGetValue(Constants.ToastActionKey, out string _);
 }

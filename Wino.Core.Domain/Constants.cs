@@ -21,6 +21,7 @@ public static class Constants
     public const string ToastCalendarJoinOnlineAction = nameof(ToastCalendarJoinOnlineAction);
     public const string ToastCalendarSnoozeAction = nameof(ToastCalendarSnoozeAction);
     public const string ToastCalendarSnoozeDurationInputId = nameof(ToastCalendarSnoozeDurationInputId);
+    public const string ToastCalendarSnoozeDurationMinutesKey = nameof(ToastCalendarSnoozeDurationMinutesKey);
     public const string ToastModeKey = nameof(ToastModeKey);
     public const string ToastModeMail = nameof(ToastModeMail);
     public const string ToastModeCalendar = nameof(ToastModeCalendar);

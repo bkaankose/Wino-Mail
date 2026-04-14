@@ -207,6 +207,13 @@ public class Program
                 : true;
         }
 
+        if (args.Data is Windows.ApplicationModel.Activation.ToastNotificationActivatedEventArgs classicToastArgs)
+        {
+            return ToastActivationResolver.TryParse(classicToastArgs.Argument, out var toastArguments)
+                ? ToastActivationResolver.ShouldBringToForeground(toastArguments)
+                : true;
+        }
+
         if (args.Kind == ExtendedActivationKind.Launch &&
             args.Data is Windows.ApplicationModel.Activation.ILaunchActivatedEventArgs launchArgs &&
             ToastActivationResolver.TryParse(launchArgs.Arguments, out var launchToastArguments))
