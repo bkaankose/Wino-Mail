@@ -13,6 +13,7 @@ public enum MailSynchronizerOperation
     AlwaysMoveTo,
     MoveToFocused,
     Archive,
+    UpdateCategories,
 }
 
 public enum FolderSynchronizerOperation
@@ -33,6 +34,13 @@ public enum CalendarSynchronizerOperation
     AcceptEvent,
     DeclineEvent,
     TentativeEvent,
+}
+
+public enum CategorySynchronizerOperation
+{
+    CreateCategory,
+    UpdateCategory,
+    DeleteCategory,
 }
 
 // UI requests

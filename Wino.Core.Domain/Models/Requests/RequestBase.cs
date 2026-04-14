@@ -35,6 +35,10 @@ public abstract record CalendarRequestBase(CalendarItem Item) : RequestBase<Cale
     public virtual Guid? LocalCalendarItemId => Item?.Id;
 }
 
+public abstract record CategoryRequestBase(Guid AccountId) : RequestBase<CategorySynchronizerOperation>, ICategoryActionRequest
+{
+}
+
 public class BatchCollection<TRequestType> : List<TRequestType>, IUIChangeRequest where TRequestType : IUIChangeRequest
 {
     public BatchCollection(IEnumerable<TRequestType> collection) : base(collection)

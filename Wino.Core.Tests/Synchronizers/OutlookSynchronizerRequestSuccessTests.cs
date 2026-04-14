@@ -70,8 +70,9 @@ public sealed class OutlookSynchronizerRequestSuccessTests
 
         var authenticator = new Mock<IAuthenticator>(MockBehavior.Loose);
         var errorFactory = new Mock<IOutlookSynchronizerErrorHandlerFactory>(MockBehavior.Loose);
+        var mailCategoryService = new Mock<IMailCategoryService>(MockBehavior.Loose);
 
-        return new OutlookSynchronizer(account, authenticator.Object, changeProcessor, errorFactory.Object);
+        return new OutlookSynchronizer(account, authenticator.Object, changeProcessor, errorFactory.Object, mailCategoryService.Object);
     }
 
     private static MailCopy CreateMailCopy() =>

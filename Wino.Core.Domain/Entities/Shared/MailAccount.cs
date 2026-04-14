@@ -132,5 +132,10 @@ public class MailAccount
     /// </summary>
     public bool IsAliasSyncSupported => ProviderType == MailProviderType.Gmail || ProviderType == MailProviderType.Outlook;
 
+    /// <summary>
+    /// Gets whether the account can perform category definition sync type.
+    /// </summary>
+    public bool IsCategorySyncSupported => ProviderType == MailProviderType.Outlook;
+
     public override string ToString() => Name;
 }

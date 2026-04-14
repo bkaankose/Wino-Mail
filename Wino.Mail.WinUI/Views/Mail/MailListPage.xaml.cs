@@ -1,6 +1,6 @@
 using System;
-using System.Collections.ObjectModel;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Collections;
@@ -18,6 +18,7 @@ using Windows.Foundation;
 using Windows.System;
 using Wino.Controls;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
@@ -27,7 +28,6 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls.ListView;
-using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
@@ -246,14 +246,27 @@ public sealed partial class MailListPage : MailListPageAbstract,
             // Default to all selected items.
             targetItems = ViewModel.MailCollection.SelectedItems;
             var availableActions = ViewModel.GetAvailableMailActions(targetItems);
+            var (availableCategories, assignedCategoryIds) = await ViewModel.GetAvailableCategoriesAsync(targetItems);
 
             if (availableActions == null || !availableActions.Any()) return;
 
-            var clickedOperation = await GetMailOperationFromFlyoutAsync(availableActions, control, p.X, p.Y);
+            var clickedAction = await GetMailContextActionFromFlyoutAsync(
+                availableActions,
+                availableCategories,
+                assignedCategoryIds,
+                control,
+                p.X,
+                p.Y);
 
-            if (clickedOperation == null) return;
+            if (clickedAction == null) return;
 
-            var prepRequest = new MailOperationPreperationRequest(clickedOperation.Operation, targetItems.Select(a => a.MailCopy));
+            if (clickedAction.Category != null)
+            {
+                await ViewModel.ToggleCategoryAssignmentAsync(clickedAction.Category, targetItems, clickedAction.IsCategoryAssignedToAll);
+                return;
+            }
+
+            var prepRequest = new MailOperationPreperationRequest(clickedAction.Operation.Operation, targetItems.Select(a => a.MailCopy));
 
             await ViewModel.ExecuteMailOperationAsync(prepRequest);
         }
@@ -296,14 +309,68 @@ public sealed partial class MailListPage : MailListPageAbstract,
         });
     }
 
-    private async Task<MailOperationMenuItem> GetMailOperationFromFlyoutAsync(IEnumerable<MailOperationMenuItem> availableActions,
-                                                                              UIElement showAtElement,
-                                                                              double x,
-                                                                              double y)
+    private async Task<MailContextAction?> GetMailContextActionFromFlyoutAsync(
+        IEnumerable<MailOperationMenuItem> availableActions,
+        IReadOnlyList<MailCategory> availableCategories,
+        IReadOnlyCollection<Guid> assignedCategoryIds,
+        UIElement showAtElement,
+        double x,
+        double y)
     {
-        var source = new TaskCompletionSource<MailOperationMenuItem>();
+        var source = new TaskCompletionSource<MailContextAction?>();
+        var flyout = new MenuFlyout();
 
-        var flyout = new MailOperationFlyout(availableActions, source);
+        foreach (var action in availableActions)
+        {
+            if (action.Operation == MailOperation.Seperator)
+            {
+                flyout.Items.Add(new MenuFlyoutSeparator());
+                continue;
+            }
+
+            var menuFlyoutItem = new MailOperationMenuFlyoutItem(action, clicked =>
+            {
+                source.TrySetResult(new MailContextAction(clicked));
+                flyout.Hide();
+            });
+
+            flyout.Items.Add(menuFlyoutItem);
+        }
+
+        if (availableCategories?.Count > 0)
+        {
+            if (flyout.Items.LastOrDefault() is not MenuFlyoutSeparator)
+            {
+                flyout.Items.Add(new MenuFlyoutSeparator());
+            }
+
+            var categorySubItem = new MenuFlyoutSubItem
+            {
+                Text = Translator.MailCategoryMenuItem
+            };
+
+            foreach (var category in availableCategories)
+            {
+                var wasAssignedToAll = assignedCategoryIds.Contains(category.Id);
+                var categoryItem = new ToggleMenuFlyoutItem
+                {
+                    Text = category.Name,
+                    IsChecked = wasAssignedToAll
+                };
+
+                categoryItem.Click += (_, _) =>
+                {
+                    source.TrySetResult(new MailContextAction(category, wasAssignedToAll));
+                    flyout.Hide();
+                };
+
+                categorySubItem.Items.Add(categoryItem);
+            }
+
+            flyout.Items.Add(categorySubItem);
+        }
+
+        flyout.Closing += (_, _) => source.TrySetResult(null);
 
         flyout.ShowAt(showAtElement, new FlyoutShowOptions()
         {
@@ -312,6 +379,13 @@ public sealed partial class MailListPage : MailListPageAbstract,
         });
 
         return await source.Task;
+    }
+
+    private sealed record MailContextAction(MailOperationMenuItem Operation, MailCategory Category = null, bool IsCategoryAssignedToAll = false)
+    {
+        public MailContextAction(MailCategory category, bool isCategoryAssignedToAll) : this(null, category, isCategoryAssignedToAll)
+        {
+        }
     }
 
     async void IRecipient<ClearMailSelectionsRequested>.Receive(ClearMailSelectionsRequested message)

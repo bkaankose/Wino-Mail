@@ -253,7 +253,8 @@
                             BorderThickness="0"
                             Command="{x:Bind ViewModel.SyncFolderCommand}"
                             IsEnabled="{x:Bind ViewModel.CanSynchronize, Mode=OneWay}"
-                            ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Sync}">
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Sync}"
+                            Visibility="{x:Bind ViewModel.IsSyncButtonVisible, Mode=OneWay}">
                             <coreControls:WinoFontIcon FontSize="14" Icon="Sync" />
                         </Button>
                         <ToggleButton
@@ -290,9 +291,11 @@
                     </StackPanel>
 
                     <InfoBar
+                        x:Name="SyncDisabledInfoBar"
                         Title="{x:Bind domain:Translator.InfoBarTitle_SynchronizationDisabledFolder}"
                         Grid.Row="0"
                         Grid.ColumnSpan="3"
+                        x:Load="{x:Bind ViewModel.IsSyncButtonVisible, Mode=OneWay}"
                         IsClosable="True"
                         IsOpen="{x:Bind ViewModel.IsFolderSynchronizationEnabled, Converter={StaticResource ReverseBooleanConverter}, Mode=OneWay}"
                         Message="{x:Bind domain:Translator.InfoBarMessage_SynchronizationDisabledFolder}"

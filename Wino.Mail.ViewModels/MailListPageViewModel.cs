@@ -24,6 +24,7 @@ using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Requests.Mail;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
@@ -77,6 +78,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private readonly INotificationBuilder _notificationBuilder;
     private readonly IFolderService _folderService;
     private readonly IContextMenuItemService _contextMenuItemService;
+    private readonly IMailCategoryService _mailCategoryService;
     private readonly IWinoRequestDelegator _winoRequestDelegator;
     private readonly IKeyPressService _keyPressService;
     private readonly IWinoLogger _winoLogger;
@@ -156,6 +158,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSynchronize))]
     [NotifyPropertyChangedFor(nameof(IsFolderSynchronizationEnabled))]
+    [NotifyPropertyChangedFor(nameof(IsCategoryView))]
+    [NotifyPropertyChangedFor(nameof(IsSyncButtonVisible))]
     public partial IBaseFolderMenuItem ActiveFolder { get; set; }
 
     [ObservableProperty]
@@ -172,6 +176,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  INotificationBuilder notificationBuilder,
                                  IFolderService folderService,
                                  IContextMenuItemService contextMenuItemService,
+                                 IMailCategoryService mailCategoryService,
                                  IWinoRequestDelegator winoRequestDelegator,
                                  IKeyPressService keyPressService,
                                  IPreferencesService preferencesService,
@@ -185,6 +190,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         _mimeFileService = mimeFileService;
         _folderService = folderService;
         _contextMenuItemService = contextMenuItemService;
+        _mailCategoryService = mailCategoryService;
         _winoRequestDelegator = winoRequestDelegator;
         _keyPressService = keyPressService;
 
@@ -277,9 +283,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }
     }
 
-    public bool CanSynchronize => !IsAccountSynchronizerInSynchronization && IsFolderSynchronizationEnabled;
+    public bool CanSynchronize => !IsCategoryView && !IsAccountSynchronizerInSynchronization && IsFolderSynchronizationEnabled;
     public bool IsFolderSynchronizationEnabled => ActiveFolder?.IsSynchronizationEnabled ?? false;
     public bool IsArchiveSpecialFolder => ActiveFolder?.SpecialFolderType == SpecialFolderType.Archive;
+    public bool IsCategoryView => ActiveFolder is IMailCategoryMenuItem or IMergedMailCategoryMenuItem;
+    public bool IsSyncButtonVisible => !IsCategoryView;
 
     public string SelectedMessageText => IsDragInProgress
         ? string.Format(Translator.MailsDragging, DraggingItemsCount)
@@ -396,9 +404,12 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }
         else
         {
+            if (IsCategoryView)
+            {
+                PivotFolders.Add(new FolderPivotViewModel(ActiveFolder.FolderName, null));
+            }
             // Merged folders don't support focused feature.
-
-            if (ActiveFolder is IMergedAccountFolderMenuItem)
+            else if (ActiveFolder is IMergedAccountFolderMenuItem)
             {
                 PivotFolders.Add(new FolderPivotViewModel(ActiveFolder.FolderName, null));
             }
@@ -545,7 +556,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     [RelayCommand]
     private async Task EnableFolderSynchronizationAsync()
     {
-        if (ActiveFolder == null) return;
+        if (ActiveFolder == null || IsCategoryView) return;
 
         foreach (var folder in ActiveFolder.HandlingFolders)
         {
@@ -561,13 +572,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         Debug.WriteLine("Loading more...");
         await ExecuteUIThread(() => { IsInitializingFolder = true; });
 
-        var initializationOptions = new MailListInitializationOptions(ActiveFolder.HandlingFolders,
-                                                                      SelectedFilterOption.Type,
-                                                                      SelectedSortingOption.Type,
-                                                                      PreferencesService.IsThreadingEnabled,
-                                                                      SelectedFolderPivot.IsFocused,
-                                                                      IsInSearchMode ? SearchQuery : string.Empty,
-                                                                      MailCollection.MailCopyIdHashSet);
+        var initializationOptions = CreateInitializationOptions(
+            IsInSearchMode ? SearchQuery : string.Empty,
+            MailCollection.MailCopyIdHashSet);
 
         var items = await _mailService.FetchMailsAsync(initializationOptions).ConfigureAwait(false);
 
@@ -674,6 +681,60 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     public IEnumerable<MailOperationMenuItem> GetAvailableMailActions(IEnumerable<MailItemViewModel> contextMailItems)
         => _contextMenuItemService.GetMailItemContextMenuActions(contextMailItems.Select(a => a.MailCopy));
 
+    public async Task<(IReadOnlyList<MailCategory> Categories, IReadOnlyCollection<Guid> AssignedCategoryIds)> GetAvailableCategoriesAsync(IEnumerable<MailItemViewModel> targetItems)
+    {
+        var targetList = targetItems?.Where(a => a?.MailCopy?.AssignedAccount != null).ToList() ?? [];
+        if (targetList.Count == 0)
+            return ([], []);
+
+        var accountIds = targetList.Select(a => a.MailCopy.AssignedAccount.Id).Distinct().ToList();
+        if (accountIds.Count != 1)
+            return ([], []);
+
+        var accountId = accountIds[0];
+        var uniqueIds = targetList.Select(a => a.MailCopy.UniqueId).Distinct().ToList();
+
+        var categories = await _mailCategoryService.GetCategoriesAsync(accountId).ConfigureAwait(false);
+        var assignedCategoryIds = await _mailCategoryService.GetAssignedCategoryIdsForAllAsync(uniqueIds).ConfigureAwait(false);
+
+        return (categories, assignedCategoryIds);
+    }
+
+    public async Task ToggleCategoryAssignmentAsync(MailCategory category, IEnumerable<MailItemViewModel> targetItems, bool isAssignedToAll)
+    {
+        var targetList = targetItems?.Where(a => a?.MailCopy?.AssignedAccount != null).ToList() ?? [];
+        if (category == null || targetList.Count == 0)
+            return;
+
+        var accountIds = targetList.Select(a => a.MailCopy.AssignedAccount.Id).Distinct().ToList();
+        if (accountIds.Count != 1)
+            return;
+
+        var accountId = accountIds[0];
+        var uniqueIds = targetList.Select(a => a.MailCopy.UniqueId).Distinct().ToList();
+
+        if (isAssignedToAll)
+        {
+            await _mailCategoryService.UnassignCategoryAsync(category.Id, uniqueIds).ConfigureAwait(false);
+        }
+        else
+        {
+            await _mailCategoryService.AssignCategoryAsync(category.Id, uniqueIds).ConfigureAwait(false);
+        }
+
+        if (targetList.First().MailCopy.AssignedAccount.ProviderType != MailProviderType.Outlook)
+            return;
+
+        var requests = new List<IRequestBase>();
+        foreach (var mailItem in targetList.Select(a => a.MailCopy).DistinctBy(a => a.UniqueId))
+        {
+            var categoryNames = await _mailCategoryService.GetCategoryNamesForMailAsync(mailItem.UniqueId).ConfigureAwait(false);
+            requests.Add(new MailCategoryAssignmentRequest(mailItem, category.Id, category.Name, categoryNames, !isAssignedToAll));
+        }
+
+        await _winoRequestDelegator.ExecuteAsync(accountId, requests).ConfigureAwait(false);
+    }
+
     private bool ShouldPreventItemAdd(MailCopy mailItem)
     {
         bool condition = mailItem.IsRead
@@ -691,7 +752,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         => ActiveFolder?.SpecialFolderType == SpecialFolderType.Draft;
 
     private bool BelongsToActiveFolder(MailCopy mailItem)
-        => mailItem?.AssignedFolder != null && ActiveFolder?.HandlingFolders?.Any(a => a.Id == mailItem.AssignedFolder.Id) == true;
+        => !IsCategoryView && mailItem?.AssignedFolder != null && ActiveFolder?.HandlingFolders?.Any(a => a.Id == mailItem.AssignedFolder.Id) == true;
 
     private bool ShouldIncludeByThread(MailCopy mailItem)
         => PreferencesService.IsThreadingEnabled
@@ -1069,6 +1130,38 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }
     }
 
+    private MailListInitializationOptions CreateInitializationOptions(
+        string searchQuery,
+        System.Collections.Concurrent.ConcurrentDictionary<Guid, bool> existingUniqueIds,
+        List<MailCopy> preFetchedMailCopies = null,
+        bool deduplicateByServerId = false)
+    {
+        var options = new MailListInitializationOptions(ActiveFolder.HandlingFolders,
+                                                        SelectedFilterOption.Type,
+                                                        SelectedSortingOption.Type,
+                                                        PreferencesService.IsThreadingEnabled,
+                                                        SelectedFolderPivot.IsFocused,
+                                                        searchQuery,
+                                                        existingUniqueIds,
+                                                        preFetchedMailCopies,
+                                                        DeduplicateByServerId: deduplicateByServerId);
+
+        if (!IsCategoryView)
+            return options;
+
+        var categoryIds = ActiveFolder switch
+        {
+            IMailCategoryMenuItem singleCategoryMenuItem => new List<Guid> { singleCategoryMenuItem.MailCategory.Id },
+            IMergedMailCategoryMenuItem mergedCategoryMenuItem => mergedCategoryMenuItem.Categories.Select(a => a.Id).ToList(),
+            _ => []
+        };
+
+        return options with
+        {
+            CategoryIds = categoryIds
+        };
+    }
+
     [RelayCommand]
     private async Task PerformOnlineSearchAsync()
     {
@@ -1218,15 +1311,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 }
             }
 
-            var initializationOptions = new MailListInitializationOptions(ActiveFolder.HandlingFolders,
-                                                                          SelectedFilterOption.Type,
-                                                                          SelectedSortingOption.Type,
-                                                                          PreferencesService.IsThreadingEnabled,
-                                                                          SelectedFolderPivot.IsFocused,
-                                                                          isDoingOnlineSearch ? string.Empty : SearchQuery,
-                                                                          MailCollection.MailCopyIdHashSet,
-                                                                          onlineSearchItems,
-                                                                          DeduplicateByServerId: isDoingOnlineSearch);
+            var initializationOptions = CreateInitializationOptions(
+                isDoingOnlineSearch ? string.Empty : SearchQuery,
+                MailCollection.MailCopyIdHashSet,
+                onlineSearchItems,
+                isDoingOnlineSearch);
 
             items = await _mailService.FetchMailsAsync(initializationOptions, cancellationToken).ConfigureAwait(false);
 

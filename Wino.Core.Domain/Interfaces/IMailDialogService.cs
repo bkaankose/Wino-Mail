@@ -11,6 +11,7 @@ using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
+using Wino.Core.Domain.Models.MailItem;
 
 namespace Wino.Core.Domain.Interfaces;
 
@@ -51,6 +52,13 @@ public interface IMailDialogService : IDialogServiceBase
     /// </summary>
     /// <returns>Created alias model if not canceled.</returns>
     Task<ICreateAccountAliasDialog> ShowCreateAccountAliasDialogAsync();
+
+    /// <summary>
+    /// Presents a dialog to the user for mail category creation/modification.
+    /// </summary>
+#pragma warning disable CS8625
+    Task<MailCategoryDialogResult> ShowEditMailCategoryDialogAsync(MailCategory category = null);
+#pragma warning restore CS8625
 
     /// <summary>
     /// Presents a dialog to the user to show email source.

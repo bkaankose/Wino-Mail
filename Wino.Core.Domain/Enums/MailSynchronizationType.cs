@@ -3,6 +3,7 @@
 public enum MailSynchronizationType
 {
     UpdateProfile, // Only update profile information
+    Categories, // Only update mail categories
     ExecuteRequests, // Run the queued requests, and then synchronize if needed.
     FoldersOnly, // Only synchronize folder metadata.
     InboxOnly, // Only Inbox, Sent, Draft and Deleted folders.

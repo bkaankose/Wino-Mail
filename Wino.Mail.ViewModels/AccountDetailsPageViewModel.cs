@@ -170,6 +170,10 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         => Messenger.Send(new BreadcrumbNavigationRequested(Translator.SettingsManageAliases_Title, WinoPage.AliasManagementPage, Account.Id));
 
     [RelayCommand]
+    private void EditCategories()
+        => Messenger.Send(new BreadcrumbNavigationRequested(Translator.MailCategoryManagementPage_Title, WinoPage.MailCategoryManagementPage, Account.Id));
+
+    [RelayCommand]
     private void EditImapCalDavSettings()
         => Messenger.Send(new BreadcrumbNavigationRequested(
             Translator.ImapCalDavSettingsPage_TitleEdit,

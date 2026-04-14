@@ -22,6 +22,7 @@ namespace Wino.Services;
 public class FolderService : BaseDatabaseService, IFolderService
 {
     private readonly IAccountService _accountService;
+    private readonly IMailCategoryService _mailCategoryService;
     private readonly ILogger _logger = Log.ForContext<FolderService>();
 
     private readonly SpecialFolderType[] gmailCategoryFolderTypes =
@@ -34,9 +35,11 @@ public class FolderService : BaseDatabaseService, IFolderService
     ];
 
     public FolderService(IDatabaseService databaseService,
-                           IAccountService accountService) : base(databaseService)
+                           IAccountService accountService,
+                           IMailCategoryService mailCategoryService) : base(databaseService)
     {
         _accountService = accountService;
+        _mailCategoryService = mailCategoryService;
     }
 
     public async Task ChangeStickyStatusAsync(Guid folderId, bool isSticky)
@@ -269,6 +272,9 @@ public class FolderService : BaseDatabaseService, IFolderService
             }
         }
 
+        var favoriteCategories = await GetFavoriteCategoryMenuItemsAsync(mailAccount, folders, accountMenuItem).ConfigureAwait(false);
+        preparedFolderMenuItems.AddRange(favoriteCategories);
+
         // Only add category folder if it's Gmail.
         if (mailAccount.ProviderType == MailProviderType.Gmail) preparedFolderMenuItems.Add(categoryFolderMenuItem);
 
@@ -309,8 +315,61 @@ public class FolderService : BaseDatabaseService, IFolderService
             preparedFolderMenuItems.Add(menuItem);
         }
 
+        var favoriteCategories = await GetMergedFavoriteCategoryMenuItemsAsync(holdingAccounts, allAccountFolders, mergedAccountFolderMenuItem.Parameter).ConfigureAwait(false);
+        preparedFolderMenuItems.AddRange(favoriteCategories);
+
         return preparedFolderMenuItems;
     }
+
+    private async Task<IEnumerable<IMenuItem>> GetFavoriteCategoryMenuItemsAsync(MailAccount account, IEnumerable<IMailItemFolder> handlingFolders, IMenuItem parentMenuItem)
+    {
+        var favoriteCategories = await _mailCategoryService.GetFavoriteCategoriesAsync(account.Id).ConfigureAwait(false);
+
+        if (!favoriteCategories.Any())
+            return [];
+
+        var availableFolders = handlingFolders
+            .Where(a => a.IsMoveTarget)
+            .Cast<IMailItemFolder>()
+            .ToList();
+
+        return favoriteCategories
+            .Select(category => (IMenuItem)new MailCategoryMenuItem(category, account, availableFolders, parentMenuItem))
+            .ToList();
+    }
+
+    private async Task<IEnumerable<IMenuItem>> GetMergedFavoriteCategoryMenuItemsAsync(IEnumerable<MailAccount> holdingAccounts, IEnumerable<IEnumerable<MailItemFolder>> allAccountFolders, MergedInbox mergedInbox)
+    {
+        var categoriesByAccount = new List<(MailAccount Account, List<MailCategory> Categories)>();
+
+        foreach (var account in holdingAccounts)
+        {
+            var categories = await _mailCategoryService.GetFavoriteCategoriesAsync(account.Id).ConfigureAwait(false);
+            if (categories.Any())
+            {
+                categoriesByAccount.Add((account, categories));
+            }
+        }
+
+        if (!categoriesByAccount.Any())
+            return [];
+
+        var handlingFolders = allAccountFolders
+            .SelectMany(a => a)
+            .Where(a => a.IsMoveTarget)
+            .Cast<IMailItemFolder>()
+            .ToList();
+
+        return categoriesByAccount
+            .SelectMany(a => a.Categories)
+            .GroupBy(a => NormalizeCategoryName(a.Name), StringComparer.OrdinalIgnoreCase)
+            .Select(group => (IMenuItem)new MergedMailCategoryMenuItem(group.ToList(), handlingFolders, mergedInbox))
+            .OrderBy(item => ((MergedMailCategoryMenuItem)item).FolderName, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+    }
+
+    private static string NormalizeCategoryName(string name)
+        => name?.Trim() ?? string.Empty;
 
     private HashSet<SpecialFolderType> FindCommonFolders(List<List<MailItemFolder>> lists)
     {

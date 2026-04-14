@@ -9,4 +9,5 @@ public record NewMailItemPackage(
     MailCopy Copy,
     MimeMessage Mime,
     string AssignedRemoteFolderId,
-    IReadOnlyList<AccountContact> ExtractedContacts = null);
+    IReadOnlyList<AccountContact> ExtractedContacts = null,
+    IReadOnlyList<string> CategoryNames = null);

@@ -364,6 +364,7 @@ public partial class App : WinoApplication,
         services.AddTransient(typeof(StoragePageViewModel));
         services.AddTransient(typeof(WinoAccountManagementPageViewModel));
         services.AddTransient(typeof(AliasManagementPageViewModel));
+        services.AddTransient(typeof(MailCategoryManagementPageViewModel));
         services.AddTransient(typeof(ContactsPageViewModel));
         services.AddTransient(typeof(SignatureAndEncryptionPageViewModel));
         services.AddTransient(typeof(EmailTemplatesPageViewModel));
@@ -1321,6 +1322,7 @@ public partial class App : WinoApplication,
         return synchronizationType switch
         {
             MailSynchronizationType.Alias => Translator.Exception_FailedToSynchronizeAliases,
+            MailSynchronizationType.Categories => Translator.Exception_FailedToSynchronizeCategories,
             MailSynchronizationType.UpdateProfile => Translator.Exception_FailedToSynchronizeProfileInformation,
             _ => Translator.Exception_FailedToSynchronizeFolders
         };

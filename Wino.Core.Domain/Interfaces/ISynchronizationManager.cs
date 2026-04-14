@@ -64,6 +64,12 @@ public interface ISynchronizationManager
                                                             CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Handles category synchronization for the given account.
+    /// </summary>
+    Task<MailSynchronizationResult> SynchronizeCategoriesAsync(Guid accountId,
+                                                               CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Handles profile synchronization for the given account.
     /// </summary>
     Task<MailSynchronizationResult> SynchronizeProfileAsync(Guid accountId,

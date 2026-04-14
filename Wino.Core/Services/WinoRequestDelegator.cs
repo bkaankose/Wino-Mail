@@ -207,6 +207,21 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         await QueueCalendarSynchronizationAsync(accountId);
     }
 
+    public async Task ExecuteAsync(Guid accountId, IEnumerable<IRequestBase> requests)
+    {
+        var requestList = requests?.Where(a => a != null).ToList() ?? [];
+        if (requestList.Count == 0)
+            return;
+
+        foreach (var request in requestList)
+        {
+            await QueueRequestAsync(request, accountId).ConfigureAwait(false);
+        }
+
+        await SendSyncActionsAddedAsync(requestList, accountId).ConfigureAwait(false);
+        await QueueSynchronizationAsync(accountId).ConfigureAwait(false);
+    }
+
     private async Task<IRequestBase> CreateCalendarEventRequestAsync(CalendarOperationPreparationRequest calendarPreparationRequest)
     {
         var composeResult = calendarPreparationRequest.ComposeResult
