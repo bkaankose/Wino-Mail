@@ -113,6 +113,13 @@ public class DatabaseService : IDatabaseService
                 .ConfigureAwait(false);
         }
 
+        if (!folderColumns.Any(c => c.Name == nameof(MailItemFolder.Order)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailItemFolder)} ADD COLUMN \"{nameof(MailItemFolder.Order)}\" INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
+
         var customServerColumns = await Connection.GetTableInfoAsync(nameof(CustomServerInformation)).ConfigureAwait(false);
 
         if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.CalDavServiceUrl)))

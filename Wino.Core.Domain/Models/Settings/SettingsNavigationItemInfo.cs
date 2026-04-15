@@ -170,6 +170,7 @@ public static class SettingsNavigationInfoProvider
             WinoPage.AccountDetailsPage => WinoPage.ManageAccountsPage,
             WinoPage.MergedAccountDetailsPage => WinoPage.ManageAccountsPage,
             WinoPage.AliasManagementPage => WinoPage.ManageAccountsPage,
+            WinoPage.FolderCustomizationPage => WinoPage.ManageAccountsPage,
             WinoPage.MailCategoryManagementPage => WinoPage.ManageAccountsPage,
             WinoPage.SignatureManagementPage => WinoPage.ManageAccountsPage,
             WinoPage.ImapCalDavSettingsPage => WinoPage.ManageAccountsPage,

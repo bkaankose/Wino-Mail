@@ -356,6 +356,7 @@ public partial class App : WinoApplication,
 
         services.AddTransient(typeof(ImapCalDavSettingsPageViewModel));
         services.AddTransient(typeof(AccountDetailsPageViewModel));
+        services.AddTransient(typeof(FolderCustomizationPageViewModel));
         services.AddTransient(typeof(SignatureManagementPageViewModel));
         services.AddTransient(typeof(MessageListPageViewModel));
         services.AddTransient(typeof(ReadComposePanePageViewModel));

@@ -45,6 +45,60 @@ public class FolderService : BaseDatabaseService, IFolderService
     public async Task ChangeStickyStatusAsync(Guid folderId, bool isSticky)
         => await Connection.ExecuteAsync("UPDATE MailItemFolder SET IsSticky = ? WHERE Id = ?", isSticky, folderId);
 
+    public async Task ChangeFolderHiddenStatusAsync(Guid folderId, bool isHidden)
+    {
+        await Connection.ExecuteAsync("UPDATE MailItemFolder SET IsHidden = ? WHERE Id = ?", isHidden, folderId);
+
+        var folder = await GetFolderAsync(folderId).ConfigureAwait(false);
+        if (folder != null)
+        {
+            Messenger.Send(new AccountFolderConfigurationUpdated(folder.MailAccountId));
+        }
+    }
+
+    public async Task UpdateFolderOrdersAsync(Guid accountId, IReadOnlyList<Guid> orderedFolderIds)
+    {
+        if (orderedFolderIds == null || orderedFolderIds.Count == 0) return;
+
+        await Connection.RunInTransactionAsync(conn =>
+        {
+            for (int i = 0; i < orderedFolderIds.Count; i++)
+            {
+                conn.Execute("UPDATE MailItemFolder SET \"Order\" = ? WHERE Id = ? AND MailAccountId = ?",
+                    i + 1, orderedFolderIds[i], accountId);
+            }
+        }).ConfigureAwait(false);
+
+        Messenger.Send(new AccountFolderConfigurationUpdated(accountId));
+    }
+
+    public async Task ResetFolderCustomizationAsync(Guid accountId)
+    {
+        await Connection.RunInTransactionAsync(conn =>
+        {
+            conn.Execute("UPDATE MailItemFolder SET \"Order\" = 0, IsHidden = 0 WHERE MailAccountId = ?", accountId);
+
+            // Restore system folder stickiness. Category-type folders are virtual stickies too.
+            conn.Execute(
+                "UPDATE MailItemFolder SET IsSticky = 1 WHERE MailAccountId = ? AND (IsSystemFolder = 1 OR SpecialFolderType = ?)",
+                accountId, (int)SpecialFolderType.Category);
+        }).ConfigureAwait(false);
+
+        Messenger.Send(new AccountFolderConfigurationUpdated(accountId));
+    }
+
+    /// <summary>
+    /// Orders folders by user-set Order first (customized entries ahead of uncustomized ones),
+    /// then falls back to alphabetic folder name (culture-aware), then to SpecialFolderType
+    /// as a final canonical tiebreak.
+    /// </summary>
+    private static IOrderedEnumerable<MailItemFolder> ApplyFolderSort(IEnumerable<MailItemFolder> folders)
+        => folders
+            .OrderBy(a => a.Order == 0 ? 1 : 0)
+            .ThenBy(a => a.Order)
+            .ThenBy(a => a.FolderName, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(a => a.SpecialFolderType);
+
     public async Task<int> GetFolderNotificationBadgeAsync(Guid folderId)
     {
         var folder = await GetFolderAsync(folderId);
@@ -104,8 +158,10 @@ public class FolderService : BaseDatabaseService, IFolderService
         if (!includeHiddenFolders)
             folderQuery = folderQuery.Where(a => !a.IsHidden);
 
-        // Load child folders for each folder.
-        var allFolders = await folderQuery.OrderBy(a => a.SpecialFolderType).ToListAsync();
+        // Load child folders for each folder, applying user-defined ordering with
+        // alphabetic fallback for folders the user hasn't explicitly re-ordered.
+        var rawFolders = await folderQuery.ToListAsync();
+        var allFolders = ApplyFolderSort(rawFolders).ToList();
 
         if (allFolders.Any())
         {
@@ -235,7 +291,7 @@ public class FolderService : BaseDatabaseService, IFolderService
 
         var mailAccount = accountMenuItem.HoldingAccounts.First();
 
-        var listingFolders = folders.OrderBy(a => a.SpecialFolderType);
+        var listingFolders = ApplyFolderSort(folders);
 
         var moreFolder = MailItemFolder.CreateMoreFolder();
         var categoryFolder = MailItemFolder.CreateCategoriesFolder();
@@ -394,9 +450,11 @@ public class FolderService : BaseDatabaseService, IFolderService
         if (folder == null)
             return null;
 
-        var childFolders = await Connection.Table<MailItemFolder>()
+        var childFoldersRaw = await Connection.Table<MailItemFolder>()
             .Where(a => a.ParentRemoteFolderId == folder.RemoteFolderId && a.MailAccountId == folder.MailAccountId)
             .ToListAsync();
+
+        var childFolders = ApplyFolderSort(childFoldersRaw).ToList();
 
         foreach (var childFolder in childFolders)
         {
@@ -416,16 +474,20 @@ public class FolderService : BaseDatabaseService, IFolderService
     public Task<int> GetCurrentItemCountForFolder(Guid folderId)
         => Connection.Table<MailCopy>().Where(a => a.FolderId == folderId).CountAsync();
 
-    public Task<List<MailItemFolder>> GetFoldersAsync(Guid accountId)
+    public async Task<List<MailItemFolder>> GetFoldersAsync(Guid accountId)
     {
-        const string query = "SELECT * FROM MailItemFolder WHERE MailAccountId = ? ORDER BY SpecialFolderType";
-        return Connection.QueryAsync<MailItemFolder>(query, accountId);
+        // Ordering is applied in managed code so that StringComparer.CurrentCultureIgnoreCase
+        // is honored. SQLite's default ORDER BY is not culture-aware.
+        const string query = "SELECT * FROM MailItemFolder WHERE MailAccountId = ?";
+        var rows = await Connection.QueryAsync<MailItemFolder>(query, accountId).ConfigureAwait(false);
+        return ApplyFolderSort(rows).ToList();
     }
 
-    public Task<List<MailItemFolder>> GetVisibleFoldersAsync(Guid accountId)
+    public async Task<List<MailItemFolder>> GetVisibleFoldersAsync(Guid accountId)
     {
-        const string query = "SELECT * FROM MailItemFolder WHERE MailAccountId = ? AND IsHidden = ? ORDER BY SpecialFolderType";
-        return Connection.QueryAsync<MailItemFolder>(query, accountId, 0);
+        const string query = "SELECT * FROM MailItemFolder WHERE MailAccountId = ? AND IsHidden = ?";
+        var rows = await Connection.QueryAsync<MailItemFolder>(query, accountId, 0).ConfigureAwait(false);
+        return ApplyFolderSort(rows).ToList();
     }
 
     public async Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId)
@@ -528,6 +590,8 @@ public class FolderService : BaseDatabaseService, IFolderService
             folder.ShowUnreadCount = existingFolder.ShowUnreadCount;
             folder.TextColorHex = existingFolder.TextColorHex;
             folder.BackgroundColorHex = existingFolder.BackgroundColorHex;
+            folder.Order = existingFolder.Order;
+            folder.IsHidden = existingFolder.IsHidden;
 
             _logger.Debug("Folder {Id} - {FolderName} already exists. Updating.", folder.Id, folder.FolderName);
 

@@ -174,6 +174,10 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         => Messenger.Send(new BreadcrumbNavigationRequested(Translator.MailCategoryManagementPage_Title, WinoPage.MailCategoryManagementPage, Account.Id));
 
     [RelayCommand]
+    private void CustomizeFolderList()
+        => Messenger.Send(new BreadcrumbNavigationRequested(Translator.FolderCustomization_Title, WinoPage.FolderCustomizationPage, Account.Id));
+
+    [RelayCommand]
     private void EditImapCalDavSettings()
         => Messenger.Send(new BreadcrumbNavigationRequested(
             Translator.ImapCalDavSettingsPage_TitleEdit,
