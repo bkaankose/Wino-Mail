@@ -20,6 +20,7 @@ jobs:
       PROJECT_PATH: Wino.Mail.WinUI/Wino.Mail.WinUI.csproj
       MANIFEST_PATH: Wino.Mail.WinUI/Package.appxmanifest
       CHANGELOG_PATH: CHANGELOG.md
+      NUGET_CONFIG_PATH: ${{ github.workspace }}\nuget.config
       PACKAGE_OUTPUT_DIR: ${{ github.workspace }}\artifacts\package
       RELEASE_OUTPUT_DIR: ${{ github.workspace }}\artifacts\release
       CERTIFICATE_PFX_PATH: ${{ github.workspace }}\artifacts\signing\beta-signing-cert.pfx
@@ -53,7 +54,6 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
-          source-url: https://nuget.pkg.github.com/bkaankose/index.json
         env:
           NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -176,7 +176,17 @@ jobs:
           [IO.File]::WriteAllBytes($env:CERTIFICATE_CER_PATH, $certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
 
       - name: Restore WinUI project dependencies
-        run: dotnet restore ${{ env.PROJECT_PATH }} --configfile nuget.config -p:Platform=x64 -p:RuntimeIdentifier=win-x64
+        shell: pwsh
+        run: |
+          if (-not (Test-Path $env:NUGET_CONFIG_PATH)) {
+            throw "NuGet config file not found: $env:NUGET_CONFIG_PATH"
+          }
+
+          dotnet restore $env:PROJECT_PATH `
+            --configfile $env:NUGET_CONFIG_PATH `
+            -p:Platform=x64 `
+            -p:RuntimeIdentifier=win-x64 `
+            /p:RestoreConfigFile="$env:NUGET_CONFIG_PATH"
 
       - name: Build MSIX bundle
         shell: pwsh
@@ -188,8 +198,10 @@ jobs:
           dotnet build $env:PROJECT_PATH `
             --configuration Release `
             --no-restore `
+            --configfile $env:NUGET_CONFIG_PATH `
             /p:Platform=x64 `
             /p:RuntimeIdentifier=win-x64 `
+            /p:RestoreConfigFile="$env:NUGET_CONFIG_PATH" `
             /p:GenerateAppxPackageOnBuild=true `
             /p:UapAppxPackageBuildMode=SideloadOnly `
             /p:AppxBundle=Always `
