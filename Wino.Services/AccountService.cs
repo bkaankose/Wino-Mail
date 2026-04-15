@@ -538,6 +538,26 @@ public class AccountService : BaseDatabaseService, IAccountService
             }
         }
 
+        if (localAliases.Count == 0 && !string.IsNullOrWhiteSpace(account.Address))
+        {
+            var fallbackAddress = account.Address.Trim();
+            var fallbackAlias = new MailAccountAlias()
+            {
+                AccountId = account.Id,
+                AliasAddress = fallbackAddress,
+                IsPrimary = true,
+                IsRootAlias = true,
+                IsVerified = true,
+                ReplyToAddress = fallbackAddress,
+                Id = Guid.NewGuid(),
+                Source = AliasSource.ProviderDiscovered,
+                SendCapability = AliasSendCapability.Confirmed
+            };
+
+            await Connection.InsertAsync(fallbackAlias, typeof(MailAccountAlias)).ConfigureAwait(false);
+            localAliases.Add(fallbackAlias);
+        }
+
         // Make sure there is only 1 root alias and 1 primary alias selected.
 
         bool shouldUpdatePrimary = localAliases.Count(a => a.IsPrimary) != 1;
