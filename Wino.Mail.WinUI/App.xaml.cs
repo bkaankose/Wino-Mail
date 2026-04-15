@@ -358,6 +358,7 @@ public partial class App : WinoApplication,
         services.AddTransient(typeof(AccountDetailsPageViewModel));
         services.AddTransient(typeof(SignatureManagementPageViewModel));
         services.AddTransient(typeof(MessageListPageViewModel));
+        services.AddTransient(typeof(MailNotificationSettingsPageViewModel));
         services.AddTransient(typeof(ReadComposePanePageViewModel));
         services.AddTransient(typeof(MergedAccountDetailsPageViewModel));
         services.AddTransient(typeof(AppPreferencesPageViewModel));
@@ -599,6 +600,12 @@ public partial class App : WinoApplication,
             return;
         }
 
+        if (toastArguments.TryGetValue(Constants.ToastDismissActionKey, out string _))
+        {
+            LogActivation("Handling notification dismiss action.");
+            return;
+        }
+
         // Check calendar reminder toast activation first.
         if (toastArguments.TryGetValue(Constants.ToastCalendarActionKey, out string calendarAction) &&
             toastArguments.TryGetValue(Constants.ToastCalendarItemIdKey, out string calendarItemIdString) &&
@@ -631,6 +638,10 @@ public partial class App : WinoApplication,
             {
                 // User clicked notification - create window if needed and navigate.
                 await HandleToastNavigationAsync(mailItemUniqueId);
+            }
+            else if (IsComposeToastAction(action))
+            {
+                await HandleToastComposeActionAsync(action, mailItemUniqueId);
             }
             else
             {
@@ -984,6 +995,87 @@ public partial class App : WinoApplication,
             ExitApplication();
         }
     }
+
+    private async Task HandleToastComposeActionAsync(MailOperation action, Guid mailItemUniqueId)
+    {
+        LogActivation($"Handling compose toast action: {action} for mail {mailItemUniqueId}");
+
+        var mailService = Services.GetRequiredService<IMailService>();
+        var folderService = Services.GetRequiredService<IFolderService>();
+        var mimeFileService = Services.GetRequiredService<IMimeFileService>();
+        var navigationService = Services.GetRequiredService<INavigationService>();
+        var requestDelegator = Services.GetRequiredService<IWinoRequestDelegator>();
+        var mailShellViewModel = Services.GetRequiredService<MailAppShellViewModel>();
+
+        var mailItem = await mailService.GetSingleMailItemAsync(mailItemUniqueId);
+        if (mailItem == null)
+        {
+            LogActivation($"Compose toast mail item was not found for {mailItemUniqueId}.");
+            return;
+        }
+
+        var account = await mailService.GetMailAccountByUniqueIdAsync(mailItemUniqueId) ?? mailItem.AssignedAccount;
+        if (account == null)
+        {
+            LogActivation($"Compose toast account was not found for {mailItemUniqueId}.");
+            return;
+        }
+
+        var draftFolder = await folderService.GetSpecialFolderByAccountIdAsync(account.Id, SpecialFolderType.Draft);
+        if (draftFolder == null)
+        {
+            LogActivation($"Compose toast draft folder is missing for account {account.Id}.");
+            return;
+        }
+
+        var mimeInformation = await mimeFileService.GetMimeMessageInformationAsync(mailItem.FileId, account.Id);
+        if (mimeInformation?.MimeMessage == null)
+        {
+            LogActivation($"Compose toast MIME payload was not found for mail {mailItemUniqueId}.");
+            return;
+        }
+
+        await EnsureShellWindowAsync(WinoApplicationMode.Mail, activateWindow: true);
+        navigationService.ChangeApplicationMode(WinoApplicationMode.Mail);
+
+        if (mailShellViewModel.MenuItems.TryGetAccountMenuItem(account.Id, out IAccountMenuItem accountMenuItem))
+        {
+            await mailShellViewModel.ChangeLoadedAccountAsync(accountMenuItem, navigateInbox: false);
+        }
+
+        if (mailShellViewModel.MenuItems.TryGetSpecialFolderMenuItem(account.Id, SpecialFolderType.Draft, out var draftFolderMenuItem))
+        {
+            await mailShellViewModel.NavigateFolderAsync(draftFolderMenuItem);
+        }
+
+        var draftOptions = new DraftCreationOptions
+        {
+            Reason = action switch
+            {
+                MailOperation.Reply => DraftCreationReason.Reply,
+                MailOperation.ReplyAll => DraftCreationReason.ReplyAll,
+                MailOperation.Forward => DraftCreationReason.Forward,
+                _ => DraftCreationReason.Empty
+            },
+            ReferencedMessage = new ReferencedMessage
+            {
+                MimeMessage = mimeInformation.MimeMessage,
+                MailCopy = mailItem
+            }
+        };
+
+        var (draftMailCopy, draftBase64MimeMessage) = await mailService.CreateDraftAsync(account.Id, draftOptions);
+        var draftPreparationRequest = new DraftPreparationRequest(account, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason, mailItem);
+
+        await requestDelegator.ExecuteAsync(draftPreparationRequest);
+        navigationService.Navigate(WinoPage.ComposePage,
+                                   new MailItemViewModel(draftMailCopy),
+                                   NavigationReferenceFrame.RenderingFrame,
+                                   NavigationTransitionType.DrillIn);
+    }
+
+    private static bool IsComposeToastAction(MailOperation action)
+        => action is MailOperation.Reply or MailOperation.ReplyAll or MailOperation.Forward;
 
     /// <summary>
     /// Creates the main window and activates it.
