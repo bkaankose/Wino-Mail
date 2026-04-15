@@ -296,12 +296,18 @@ public sealed partial class WebViewEditorControl : Control, IDisposable, IEditor
             return;
         }
 
+        if (focusControlAsWell)
+        {
+            Focus(FocusState.Programmatic);
+            _chromium.Focus(FocusState.Programmatic);
+            _chromium.Focus(FocusState.Keyboard);
+        }
+
         await _chromium.ExecuteScriptSafeAsync("focusEditor();");
 
         if (focusControlAsWell)
         {
             _chromium.Focus(FocusState.Keyboard);
-            _chromium.Focus(FocusState.Programmatic);
         }
     }
 

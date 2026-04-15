@@ -38,7 +38,10 @@ public sealed partial class ComposePage : ComposePageAbstract,
     IPopoutClient,
     IRecipient<ApplicationThemeChanged>
 {
+    private const int InitialFocusRetryCount = 3;
+
     private bool _isPoppedOut;
+    private bool _isInitialFocusHandled;
 
     public bool SupportsPopOut => !_isPoppedOut;
     public event EventHandler<PopOutRequestedEventArgs>? PopOutRequested;
@@ -307,7 +310,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
         _disposables.Add(WebViewEditor);
 
         ViewModel.GetHTMLBodyFunction = WebViewEditor.GetHtmlBodyAsync;
-        ViewModel.RenderHtmlBodyAsyncFunc = WebViewEditor.RenderHtmlAsync;
+        ViewModel.RenderHtmlBodyAsyncFunc = RenderComposeHtmlAsync;
     }
 
     private void ShowCCBCCClicked(object sender, RoutedEventArgs e)
@@ -373,9 +376,10 @@ public sealed partial class ComposePage : ComposePageAbstract,
     {
         if (draftMailItemViewModel == null || !draftMailItemViewModel.IsDraft) return;
 
-        // Reset the initial focus flag so ToBox gets focus for the new draft.
-        isInitialFocusHandled = false;
+        // Reset the initial focus flag for the newly loaded draft.
+        _isInitialFocusHandled = false;
         await ViewModel.RefreshDraftAsync(draftMailItemViewModel);
+        await ApplyInitialFocusAsync();
     }
 
     private void ImportanceClicked(object sender, RoutedEventArgs e)
@@ -434,21 +438,19 @@ public sealed partial class ComposePage : ComposePageAbstract,
         }
     }
 
-    // Hack: Tokenizing text box losing focus somehow on page Loaded and shifting focus to this element.
-    // For once we'll switch back to it once CCBBCGotFocus element got focus.
-
-    private bool isInitialFocusHandled = false;
-
     private void ComposerLoaded(object sender, RoutedEventArgs e)
     {
-        ToBox.Focus(FocusState.Programmatic);
+        if (ShouldFocusRecipients())
+        {
+            ToBox.Focus(FocusState.Programmatic);
+        }
     }
 
     private void CCBBCGotFocus(object sender, RoutedEventArgs e)
     {
-        if (!isInitialFocusHandled)
+        if (ShouldFocusRecipients() && !_isInitialFocusHandled)
         {
-            isInitialFocusHandled = true;
+            _isInitialFocusHandled = true;
             ToBox.Focus(FocusState.Programmatic);
         }
     }
@@ -554,5 +556,65 @@ public sealed partial class ComposePage : ComposePageAbstract,
             await ViewModel.UpdateMimeChangesAsync();
         }
         finally { deferral.Complete(); }
+    }
+
+    private bool ShouldFocusRecipients()
+        => !ShouldFocusEditor();
+
+    private bool ShouldFocusEditor()
+    {
+        var inReplyTo = ViewModel.CurrentMimeMessage?.InReplyTo;
+
+        if (string.IsNullOrWhiteSpace(inReplyTo))
+        {
+            inReplyTo = ViewModel.CurrentMailDraftItem?.MailCopy?.InReplyTo;
+        }
+
+        if (string.IsNullOrWhiteSpace(inReplyTo) && ViewModel.CurrentMimeMessage?.Headers.Contains(HeaderId.InReplyTo) == true)
+        {
+            inReplyTo = ViewModel.CurrentMimeMessage.Headers[HeaderId.InReplyTo];
+        }
+
+        return !string.IsNullOrWhiteSpace(inReplyTo);
+    }
+
+    private async Task ApplyInitialFocusAsync()
+    {
+        if (_isInitialFocusHandled)
+        {
+            return;
+        }
+
+        _isInitialFocusHandled = true;
+
+        for (var attempt = 0; attempt < InitialFocusRetryCount; attempt++)
+        {
+            if (ShouldFocusEditor())
+            {
+                await WebViewEditor.FocusEditorAsync(true);
+
+                if (FocusManager.GetFocusedElement(XamlRoot) is WebView2)
+                {
+                    return;
+                }
+            }
+            else
+            {
+                ToBox.Focus(FocusState.Programmatic);
+
+                if (FocusManager.GetFocusedElement(XamlRoot) == ToBox)
+                {
+                    return;
+                }
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(50));
+        }
+    }
+
+    private async Task RenderComposeHtmlAsync(string html)
+    {
+        await WebViewEditor.RenderHtmlAsync(html);
+        await ApplyInitialFocusAsync();
     }
 }
