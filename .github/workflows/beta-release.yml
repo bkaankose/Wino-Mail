@@ -3,10 +3,6 @@ name: Manual Beta Release
 on:
   workflow_dispatch:
     inputs:
-      release_notes:
-        description: Markdown release notes for this beta release
-        required: true
-        type: string
       release_title:
         description: Optional GitHub release title override
         required: false
@@ -23,20 +19,21 @@ jobs:
     env:
       PROJECT_PATH: Wino.Mail.WinUI/Wino.Mail.WinUI.csproj
       MANIFEST_PATH: Wino.Mail.WinUI/Package.appxmanifest
+      CHANGELOG_PATH: CHANGELOG.md
       PACKAGE_OUTPUT_DIR: ${{ github.workspace }}\artifacts\package
       RELEASE_OUTPUT_DIR: ${{ github.workspace }}\artifacts\release
       CERTIFICATE_PFX_PATH: ${{ github.workspace }}\artifacts\signing\beta-signing-cert.pfx
       CERTIFICATE_CER_PATH: ${{ github.workspace }}\artifacts\release\Wino-Mail-Beta.cer
     steps:
-      - name: Checkout main branch
+      - name: Checkout selected branch
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.ref }}
           fetch-depth: 0
 
       - name: Fetch tags from origin
         shell: pwsh
-        run: git fetch origin --force --tags refs/heads/main:refs/remotes/origin/main
+        run: git fetch origin --force --tags
 
       - name: Validate release secrets
         shell: pwsh
@@ -64,12 +61,16 @@ jobs:
         id: metadata
         shell: pwsh
         env:
-          RELEASE_NOTES_INPUT: ${{ github.event.inputs.release_notes }}
           RELEASE_TITLE_INPUT: ${{ github.event.inputs.release_title }}
         run: |
           $manifestPath = Join-Path $env:GITHUB_WORKSPACE $env:MANIFEST_PATH
           if (-not (Test-Path $manifestPath)) {
             throw "Package manifest not found: $manifestPath"
+          }
+
+          $changelogPath = Join-Path $env:GITHUB_WORKSPACE $env:CHANGELOG_PATH
+          if (-not (Test-Path $changelogPath)) {
+            throw "Release notes file not found: $changelogPath"
           }
 
           [xml]$manifest = Get-Content -LiteralPath $manifestPath
@@ -102,7 +103,7 @@ jobs:
 
           $headSha = (git rev-parse HEAD).Trim()
           if ([string]::IsNullOrWhiteSpace($headSha)) {
-            throw "Failed to resolve the checked out main commit SHA."
+            throw "Failed to resolve the checked out commit SHA."
           }
 
           $previousReleaseTag = git tag --sort=-creatordate --list 'v*.*.*.*' | Select-Object -First 1
@@ -115,7 +116,12 @@ jobs:
           }
 
           $buildDateUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd HH:mm 'UTC'")
-          $notesInput = $env:RELEASE_NOTES_INPUT.Trim()
+          $notesInput = Get-Content -LiteralPath $changelogPath -Raw
+          if ([string]::IsNullOrWhiteSpace($notesInput)) {
+            throw "Release notes file is empty: $changelogPath"
+          }
+
+          $notesInput = $notesInput.Trim()
           $metadataSection = @"
           ## Build metadata
 
