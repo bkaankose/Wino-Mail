@@ -1,4 +1,5 @@
-﻿using System;
+#nullable enable
+using System;
 
 namespace Wino.Core.Domain.Models.Calendar;
 
@@ -18,4 +19,9 @@ public class CalendarPageNavigationArgs
     /// Force reloading the calendar data even when the target range does not change.
     /// </summary>
     public bool ForceReload { get; set; }
+
+    /// <summary>
+    /// Optional event target to navigate to after the calendar page loads the requested range.
+    /// </summary>
+    public CalendarItemTarget? PendingTarget { get; set; }
 }

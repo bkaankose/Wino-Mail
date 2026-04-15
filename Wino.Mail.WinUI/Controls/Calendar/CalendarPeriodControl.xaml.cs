@@ -443,10 +443,13 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
             return;
         }
 
-        calendarItemViewModel.DisplayingPeriod = new TimeRange(
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            calendarItemViewModel.DisplayingPeriod = new TimeRange(
             date.ToDateTime(TimeOnly.MinValue),
             date.AddDays(1).ToDateTime(TimeOnly.MinValue));
-        calendarItemViewModel.CalendarSettings = CalendarSettings;
+            calendarItemViewModel.CalendarSettings = CalendarSettings;
+        });
     }
 
     private static VisibleDateRange CreateLayoutRange(VisibleDateRange visibleRange, CalendarSettings calendarSettings)

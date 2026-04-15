@@ -169,6 +169,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
         var activationContext = parameters as ShellModeActivationContext;
         var shouldRunStartupFlows = activationContext?.IsInitialActivation ?? true;
+        var navigationArgs = activationContext?.Parameter as CalendarPageNavigationArgs;
 
         PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
         PreferencesService.PreferenceChanged += PreferencesServiceChanged;
@@ -178,7 +179,14 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         await InitializeAccountCalendarsAsync();
         ValidateConfiguredNewEventCalendar();
 
-        TodayClicked();
+        if (navigationArgs != null)
+        {
+            NavigationService.Navigate(WinoPage.CalendarPage, navigationArgs);
+        }
+        else if (shouldRunStartupFlows || _calendarPageViewModel.CurrentVisibleRange == null)
+        {
+            TodayClicked();
+        }
     }
 
     public override void OnNavigatedFrom(NavigationMode mode, object parameters)

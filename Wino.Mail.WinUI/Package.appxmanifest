@@ -133,18 +133,6 @@
       </uap:VisualElements>
 
       <Extensions>
-        <desktop:Extension Category="windows.toastNotificationActivation">
-          <desktop:ToastNotificationActivation ToastActivatorCLSID="44c05d2b-aa1d-4e59-9d7d-8b4c8607cb8d" />
-        </desktop:Extension>
-
-        <com:Extension Category="windows.comServer">
-          <com:ComServer>
-            <com:ExeServer Executable="Wino.Mail.WinUI.exe" Arguments="----AppNotificationActivated:" DisplayName="Calendar toast activator">
-              <com:Class Id="44c05d2b-aa1d-4e59-9d7d-8b4c8607cb8d" DisplayName="Calendar toast activator"/>
-            </com:ExeServer>
-          </com:ComServer>
-        </com:Extension>
-
         <uap:Extension Category="windows.protocol">
           <uap:Protocol Name="webcal">
             <uap:DisplayName>Calendar Protocol</uap:DisplayName>

@@ -20,8 +20,7 @@
         CornerRadius="4"
         DoubleTapped="ControlDoubleTapped"
         RightTapped="ControlRightTapped"
-        Tapped="ControlTapped"
-        ToolTipService.ToolTip="{x:Bind CalendarItem.DisplayTitle, Mode=OneWay}">
+        Tapped="ControlTapped">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="5" />
             <ColumnDefinition Width="*" />
@@ -36,6 +35,9 @@
                 Placement="BottomEdgeAlignedLeft"
                 ShowMode="Auto" />
         </Grid.ContextFlyout>
+        <ToolTipService.ToolTip>
+            <ToolTip Content="{x:Bind CalendarItem.DisplayTitle, Mode=OneWay}" />
+        </ToolTipService.ToolTip>
 
 
         <Grid

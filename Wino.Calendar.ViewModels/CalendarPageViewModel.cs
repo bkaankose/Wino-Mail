@@ -634,7 +634,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         }
     }
 
-    public async Task ApplyDisplayRequestAsync(CalendarDisplayRequest request, bool forceReload = false)
+    public async Task ApplyDisplayRequestAsync(CalendarDisplayRequest request, bool forceReload = false, CalendarItemTarget pendingTarget = null)
     {
         var lifetimeVersion = CurrentPageLifetimeVersion;
         var hasLoadingLock = await WaitForCalendarLoadingLockAsync(lifetimeVersion).ConfigureAwait(false);
@@ -718,6 +718,11 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             await _notificationBuilder.ClearCalendarTaskbarBadgeAsync().ConfigureAwait(false);
             _isCalendarBadgeClearedForPageLifetime = true;
         }
+
+        if (loadSucceeded && pendingTarget != null && IsPageActive(lifetimeVersion))
+        {
+            await NavigateToPendingCalendarTargetAsync(pendingTarget).ConfigureAwait(false);
+        }
     }
 
     public Task ReloadCurrentVisibleRangeAsync()
@@ -743,6 +748,31 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     {
         ArgumentNullException.ThrowIfNull(calendarItem);
         NavigateEvent(new CalendarItemViewModel(calendarItem), CalendarEventTargetType.Single);
+    }
+
+    private async Task NavigateToPendingCalendarTargetAsync(CalendarItemTarget target)
+    {
+        CalendarItemViewModel calendarItemViewModel = null;
+
+        if (_loadedCalendarItems.TryGetValue(target.Item.Id, out var loadedCalendarItemViewModel))
+        {
+            calendarItemViewModel = loadedCalendarItemViewModel;
+        }
+        else
+        {
+            var targetItem = await _calendarService.GetCalendarItemTargetAsync(target).ConfigureAwait(false);
+            if (targetItem == null)
+                return;
+
+            targetItem.AssignedCalendar ??= AccountCalendarStateService.ActiveCalendars.FirstOrDefault(calendar => calendar.Id == targetItem.CalendarId);
+            calendarItemViewModel = new CalendarItemViewModel(targetItem);
+        }
+
+        await ExecuteUIThread(() =>
+        {
+            DisplayDetailsCalendarItemViewModel = calendarItemViewModel;
+            NavigateEvent(calendarItemViewModel, target.TargetType);
+        }).ConfigureAwait(false);
     }
 
     private async Task<List<CalendarItemViewModel>> LoadCalendarItemsAsync(DateRange loadedDateWindow, long lifetimeVersion)
@@ -819,7 +849,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     }
 
     public async void Receive(LoadCalendarMessage message)
-        => await ApplyDisplayRequestAsync(message.DisplayRequest, message.ForceReload);
+        => await ApplyDisplayRequestAsync(message.DisplayRequest, message.ForceReload, message.PendingTarget);
 
     public void Receive(CalendarSettingsUpdatedMessage message)
     {

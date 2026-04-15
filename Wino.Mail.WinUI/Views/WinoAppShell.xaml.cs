@@ -89,7 +89,16 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     public void ActivateMode(WinoApplicationMode mode, ShellModeActivationContext activationContext)
     {
         if (_activeMode == mode && InnerShellFrame.Content != null)
+        {
+            if (activationContext.Parameter != null)
+            {
+                ViewModel.SetCurrentMode(mode);
+                ViewModel.CurrentClient.Activate(activationContext);
+                NotifyTitleBarContentChanged();
+            }
+
             return;
+        }
 
         DeactivateCurrentMode();
         ResetShellModeNavigationState();

@@ -243,7 +243,19 @@ public class NavigationService : NavigationServiceBase, INavigationService
         _statePersistanceService.AppModeTitle = GetApplicationModeTitle(mode);
 
         if (coreFrame.Content is IShellHost activeShell && activeShell.HasShellContent && currentMode == mode)
+        {
+            if (activationContext?.Parameter != null)
+            {
+                activeShell.ActivateMode(mode, new ShellModeActivationContext
+                {
+                    IsInitialActivation = false,
+                    SuppressStartupFlows = activationContext.SuppressStartupFlows,
+                    Parameter = activationContext.Parameter
+                });
+            }
+
             return true;
+        }
 
         _pendingInnerShellTransition = isInitialShellNavigation
             ? null
@@ -504,7 +516,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
             : DateOnly.FromDateTime(args.NavigationDate.Date);
 
         var displayRequest = new CalendarDisplayRequest(_statePersistanceService.CalendarDisplayType, targetDate);
-        return new LoadCalendarMessage(displayRequest, args.ForceReload);
+        return new LoadCalendarMessage(displayRequest, args.ForceReload, args.PendingTarget);
     }
 
     private bool NavigateInnerShellFrame(Frame frame, Type pageType, object? parameter, NavigationTransitionType transition)

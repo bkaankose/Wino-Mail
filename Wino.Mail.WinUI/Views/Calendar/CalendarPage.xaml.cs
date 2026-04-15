@@ -71,14 +71,20 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         }
 
         var anchorDate = DateOnly.FromDateTime(DateTime.Now.Date);
+        CalendarItemTarget? pendingTarget = null;
 
         if (e.Parameter is CalendarPageNavigationArgs args && !args.RequestDefaultNavigation)
         {
             anchorDate = DateOnly.FromDateTime(args.NavigationDate.Date);
+            pendingTarget = args.PendingTarget;
+        }
+        else if (e.Parameter is CalendarPageNavigationArgs pendingArgs)
+        {
+            pendingTarget = pendingArgs.PendingTarget;
         }
 
         var request = new CalendarDisplayRequest(ViewModel.StatePersistanceService.CalendarDisplayType, anchorDate);
-        WeakReferenceMessenger.Default.Send(new LoadCalendarMessage(request));
+        WeakReferenceMessenger.Default.Send(new LoadCalendarMessage(request, PendingTarget: pendingTarget));
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)

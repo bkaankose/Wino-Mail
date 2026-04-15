@@ -23,7 +23,6 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Reader;
-using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests.Mail;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Collections;
@@ -486,26 +485,29 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     {
         if (!CanSynchronize) return;
 
+        _notificationBuilder.CreateNotificationsAsync(MailCollection.SelectedItems.Select(a => a.MailCopy));
+        return;
+
         // Only synchronize listed folders.
 
         // When doing linked inbox sync, we need to save the sync id to report progress back only once.
         // Otherwise, we will report progress for each folder and that's what we don't want.
 
-        trackingSynchronizationId = Guid.NewGuid();
-        completedTrackingSynchronizationCount = 0;
+        //trackingSynchronizationId = Guid.NewGuid();
+        //completedTrackingSynchronizationCount = 0;
 
-        foreach (var folder in ActiveFolder.HandlingFolders)
-        {
-            var options = new MailSynchronizationOptions()
-            {
-                AccountId = folder.MailAccountId,
-                Type = MailSynchronizationType.CustomFolders,
-                SynchronizationFolderIds = [folder.Id],
-                GroupedSynchronizationTrackingId = trackingSynchronizationId
-            };
+        //foreach (var folder in ActiveFolder.HandlingFolders)
+        //{
+        //    var options = new MailSynchronizationOptions()
+        //    {
+        //        AccountId = folder.MailAccountId,
+        //        Type = MailSynchronizationType.CustomFolders,
+        //        SynchronizationFolderIds = [folder.Id],
+        //        GroupedSynchronizationTrackingId = trackingSynchronizationId
+        //    };
 
-            Messenger.Send(new NewMailSynchronizationRequested(options));
-        }
+        //    Messenger.Send(new NewMailSynchronizationRequested(options));
+        //}
     }
 
     [RelayCommand]
