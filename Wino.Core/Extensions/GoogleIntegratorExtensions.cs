@@ -14,27 +14,32 @@ namespace Wino.Core.Extensions;
 
 public static class GoogleIntegratorExtensions
 {
-    private static string GetNormalizedLabelName(string labelName)
+    private static bool TryGetKnownFolderLabelName(string labelName, out string normalizedLabelName)
     {
-        // 1. Remove CATEGORY_ prefix.
-        var normalizedLabelName = labelName.Replace(ServiceConstants.CATEGORY_PREFIX, string.Empty);
+        normalizedLabelName = string.Empty;
 
-        // 2. Normalize label name by capitalizing first letter.
-        normalizedLabelName = char.ToUpper(normalizedLabelName[0]) + normalizedLabelName.Substring(1).ToLower();
+        if (string.IsNullOrEmpty(labelName))
+            return false;
 
-        return normalizedLabelName;
+        var knownFolderKey = labelName.Replace(ServiceConstants.CATEGORY_PREFIX, string.Empty);
+
+        if (!ServiceConstants.KnownFolderDictionary.ContainsKey(knownFolderKey))
+            return false;
+
+        normalizedLabelName = char.ToUpper(knownFolderKey[0]) + knownFolderKey.Substring(1).ToLower();
+
+        return true;
     }
 
     public static MailItemFolder GetLocalFolder(this Label label, ListLabelsResponse labelsResponse, Guid accountId)
     {
-        var normalizedLabelName = GetFolderName(label.Name);
+        var folderName = GetFolderName(label.Name);
 
-        // Even though we normalize the label name, check is done by capitalizing the label name.
-        var capitalNormalizedLabelName = normalizedLabelName.ToUpper();
+        var lookupLabelName = GetLookupLabelName(label.Name);
 
-        bool isSpecialFolder = ServiceConstants.KnownFolderDictionary.ContainsKey(capitalNormalizedLabelName);
+        bool isSpecialFolder = ServiceConstants.KnownFolderDictionary.ContainsKey(lookupLabelName);
 
-        var specialFolderType = isSpecialFolder ? ServiceConstants.KnownFolderDictionary[capitalNormalizedLabelName] : SpecialFolderType.Other;
+        var specialFolderType = isSpecialFolder ? ServiceConstants.KnownFolderDictionary[lookupLabelName] : SpecialFolderType.Other;
 
         // We used to support FOLDER_HIDE_IDENTIFIER to hide invisible folders.
         // However, a lot of people complained that they don't see their folders after the initial sync
@@ -59,7 +64,7 @@ public static class GoogleIntegratorExtensions
         {
             TextColorHex = label.Color?.TextColor,
             BackgroundColorHex = label.Color?.BackgroundColor,
-            FolderName = normalizedLabelName,
+            FolderName = folderName,
             RemoteFolderId = label.Id,
             Id = Guid.NewGuid(),
             MailAccountId = accountId,
@@ -104,7 +109,29 @@ public static class GoogleIntegratorExtensions
         return labelsResponse.Labels.FirstOrDefault(a => a.Name == parentLabelName)?.Id ?? string.Empty;
     }
 
+    public static string GetLookupLabelName(string fullFolderName)
+    {
+        var folderName = GetLastFolderName(fullFolderName);
+
+        if (string.IsNullOrEmpty(folderName))
+            return string.Empty;
+
+        return folderName.Replace(ServiceConstants.CATEGORY_PREFIX, string.Empty);
+    }
+
     public static string GetFolderName(string fullFolderName)
+    {
+        var lastPart = GetLastFolderName(fullFolderName);
+
+        if (string.IsNullOrEmpty(lastPart))
+            return string.Empty;
+
+        return TryGetKnownFolderLabelName(lastPart, out var normalizedLabelName)
+            ? normalizedLabelName
+            : lastPart;
+    }
+
+    private static string GetLastFolderName(string fullFolderName)
     {
         if (string.IsNullOrEmpty(fullFolderName)) return string.Empty;
 
@@ -113,9 +140,7 @@ public static class GoogleIntegratorExtensions
 
         string[] parts = fullFolderName.Split(ServiceConstants.FOLDER_SEPERATOR_CHAR);
 
-        var lastPart = parts[parts.Length - 1];
-
-        return GetNormalizedLabelName(lastPart);
+        return parts[parts.Length - 1];
     }
 
     public static List<RemoteAccountAlias> GetRemoteAliases(this ListSendAsResponse response)

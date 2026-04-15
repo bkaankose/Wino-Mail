@@ -904,7 +904,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
                 if (ShouldUpdateFolder(remoteFolder, existingLocalFolder))
                 {
-                    existingLocalFolder.FolderName = remoteFolder.Name;
+                    existingLocalFolder.FolderName = GoogleIntegratorExtensions.GetFolderName(remoteFolder.Name);
                     existingLocalFolder.TextColorHex = remoteFolder.Color?.TextColor;
                     existingLocalFolder.BackgroundColorHex = remoteFolder.Color?.BackgroundColor;
 
@@ -998,9 +998,9 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     private bool ShouldUpdateFolder(Label remoteFolder, MailItemFolder existingLocalFolder)
     {
         var remoteFolderName = GoogleIntegratorExtensions.GetFolderName(remoteFolder.Name);
-        var localFolderName = GoogleIntegratorExtensions.GetFolderName(existingLocalFolder.FolderName);
+        var localFolderName = existingLocalFolder.FolderName ?? string.Empty;
 
-        bool isNameChanged = !localFolderName.Equals(remoteFolderName, StringComparison.OrdinalIgnoreCase);
+        bool isNameChanged = !localFolderName.Equals(remoteFolderName, StringComparison.Ordinal);
         bool isColorChanged = existingLocalFolder.BackgroundColorHex != remoteFolder.Color?.BackgroundColor ||
                 existingLocalFolder.TextColorHex != remoteFolder.Color?.TextColor;
 
