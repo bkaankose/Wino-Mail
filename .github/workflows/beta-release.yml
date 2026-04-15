@@ -20,6 +20,7 @@ jobs:
       PROJECT_PATH: Wino.Mail.WinUI/Wino.Mail.WinUI.csproj
       MANIFEST_PATH: Wino.Mail.WinUI/Package.appxmanifest
       CHANGELOG_PATH: CHANGELOG.md
+      NUGET_CONFIG_PATH: ${{ github.workspace }}\nuget.config
       PACKAGE_OUTPUT_DIR: ${{ github.workspace }}\artifacts\package
       RELEASE_OUTPUT_DIR: ${{ github.workspace }}\artifacts\release
       CERTIFICATE_PFX_PATH: ${{ github.workspace }}\artifacts\signing\beta-signing-cert.pfx
@@ -39,21 +40,15 @@ jobs:
         shell: pwsh
         env:
           BETA_SIGNING_CERT_PFX_BASE64: ${{ secrets.BETA_SIGNING_CERT_PFX_BASE64 }}
-          BETA_SIGNING_CERT_PASSWORD: ${{ secrets.BETA_SIGNING_CERT_PASSWORD }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:BETA_SIGNING_CERT_PFX_BASE64)) {
             throw "Missing required secret: BETA_SIGNING_CERT_PFX_BASE64"
-          }
-
-          if ([string]::IsNullOrWhiteSpace($env:BETA_SIGNING_CERT_PASSWORD)) {
-            throw "Missing required secret: BETA_SIGNING_CERT_PASSWORD"
           }
 
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
-          source-url: https://nuget.pkg.github.com/bkaankose/index.json
         env:
           NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -84,20 +79,8 @@ jobs:
             throw "Manifest version '$currentVersionText' is not a four-part numeric version."
           }
 
-          $baseVersion = '{0}.{1}.{2}' -f $Matches.major, $Matches.minor, $Matches.patch
-          $nextRevision = [int]$Matches.revision + 1
-          $packageVersion = '{0}.{1}.{2}.{3}' -f $Matches.major, $Matches.minor, $Matches.patch, $nextRevision
-
-          $matchingTags = git tag --list "v$baseVersion.*"
-          $releaseNumbers = @()
-          foreach ($tag in $matchingTags) {
-            if ($tag -match "^v$([regex]::Escape($baseVersion))\.(\d+)$") {
-              $releaseNumbers += [int]$Matches[1]
-            }
-          }
-
-          $nextReleaseNumber = if ($releaseNumbers.Count -gt 0) { ($releaseNumbers | Measure-Object -Maximum).Maximum + 1 } else { 1 }
-          $releaseTag = "v$baseVersion.$nextReleaseNumber"
+          $packageVersion = $currentVersionText
+          $releaseTag = "v$packageVersion"
           $releaseTitleInput = $env:RELEASE_TITLE_INPUT
           $releaseTitle = if ([string]::IsNullOrWhiteSpace($releaseTitleInput)) { $releaseTag } else { $releaseTitleInput.Trim() }
 
@@ -106,55 +89,17 @@ jobs:
             throw "Failed to resolve the checked out commit SHA."
           }
 
-          $previousReleaseTag = git tag --sort=-creatordate --list 'v*.*.*.*' | Select-Object -First 1
-          $commitLines = @()
-          if (-not [string]::IsNullOrWhiteSpace($previousReleaseTag)) {
-            $commitLines = git log "$previousReleaseTag..$headSha" --pretty=format:"- %s (%h)"
-          }
-          else {
-            $commitLines = git log $headSha -n 20 --pretty=format:"- %s (%h)"
-          }
-
-          $buildDateUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd HH:mm 'UTC'")
           $notesInput = Get-Content -LiteralPath $changelogPath -Raw
           if ([string]::IsNullOrWhiteSpace($notesInput)) {
             throw "Release notes file is empty: $changelogPath"
           }
 
           $notesInput = $notesInput.Trim()
-          $metadataSection = @"
-          ## Build metadata
-
-          - Package version: `$packageVersion`
-          - Release tag: `$releaseTag`
-          - Commit: `$headSha`
-          - Built: $buildDateUtc
-          "@
-
-          $commitSection = if ($commitLines.Count -gt 0) {
-            $commitHeader = if ([string]::IsNullOrWhiteSpace($previousReleaseTag)) { "## Recent commits" } else { "## Commits since $previousReleaseTag" }
-            @"
-          $commitHeader
-
-          $($commitLines -join [Environment]::NewLine)
-          "@
-          }
-          else {
-            ''
-          }
-
-          $releaseNotesBody = @(
-            $notesInput
-            $metadataSection.Trim()
-            $commitSection.Trim()
-          ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-
           New-Item -ItemType Directory -Path $env:RELEASE_OUTPUT_DIR -Force | Out-Null
           $releaseNotesPath = Join-Path $env:RELEASE_OUTPUT_DIR 'beta-release-notes.md'
-          $releaseNotesBody -join ([Environment]::NewLine + [Environment]::NewLine) | Set-Content -LiteralPath $releaseNotesPath -Encoding utf8
+          $notesInput | Set-Content -LiteralPath $releaseNotesPath -Encoding utf8
 
           "package_version=$packageVersion" >> $env:GITHUB_OUTPUT
-          "base_version=$baseVersion" >> $env:GITHUB_OUTPUT
           "release_tag=$releaseTag" >> $env:GITHUB_OUTPUT
           "release_title=$releaseTitle" >> $env:GITHUB_OUTPUT
           "release_notes_path=$releaseNotesPath" >> $env:GITHUB_OUTPUT
@@ -164,32 +109,39 @@ jobs:
         shell: pwsh
         env:
           BETA_SIGNING_CERT_PFX_BASE64: ${{ secrets.BETA_SIGNING_CERT_PFX_BASE64 }}
-          BETA_SIGNING_CERT_PASSWORD: ${{ secrets.BETA_SIGNING_CERT_PASSWORD }}
         run: |
           $signingDir = Split-Path -Parent $env:CERTIFICATE_PFX_PATH
           New-Item -ItemType Directory -Path $signingDir -Force | Out-Null
           [IO.File]::WriteAllBytes($env:CERTIFICATE_PFX_PATH, [Convert]::FromBase64String($env:BETA_SIGNING_CERT_PFX_BASE64))
 
-          $certificate = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($env:CERTIFICATE_PFX_PATH, $env:BETA_SIGNING_CERT_PASSWORD, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
+          $certificate = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($env:CERTIFICATE_PFX_PATH, $null, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
 
           New-Item -ItemType Directory -Path (Split-Path -Parent $env:CERTIFICATE_CER_PATH) -Force | Out-Null
           [IO.File]::WriteAllBytes($env:CERTIFICATE_CER_PATH, $certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
 
       - name: Restore WinUI project dependencies
-        run: dotnet restore ${{ env.PROJECT_PATH }} --configfile nuget.config -p:Platform=x64 -p:RuntimeIdentifier=win-x64
+        shell: pwsh
+        run: |
+          if (-not (Test-Path $env:NUGET_CONFIG_PATH)) {
+            throw "NuGet config file not found: $env:NUGET_CONFIG_PATH"
+          }
+
+          dotnet restore $env:PROJECT_PATH `
+            --configfile $env:NUGET_CONFIG_PATH `
+            -p:Platform=x64 `
+            /p:RestoreConfigFile="$env:NUGET_CONFIG_PATH"
 
       - name: Build MSIX bundle
         shell: pwsh
-        env:
-          BETA_SIGNING_CERT_PASSWORD: ${{ secrets.BETA_SIGNING_CERT_PASSWORD }}
         run: |
           New-Item -ItemType Directory -Path $env:PACKAGE_OUTPUT_DIR -Force | Out-Null
 
           dotnet build $env:PROJECT_PATH `
             --configuration Release `
             --no-restore `
+            --configfile $env:NUGET_CONFIG_PATH `
             /p:Platform=x64 `
-            /p:RuntimeIdentifier=win-x64 `
+            /p:RestoreConfigFile="$env:NUGET_CONFIG_PATH" `
             /p:GenerateAppxPackageOnBuild=true `
             /p:UapAppxPackageBuildMode=SideloadOnly `
             /p:AppxBundle=Always `
@@ -197,7 +149,7 @@ jobs:
             /p:AppxPackageDir="$env:PACKAGE_OUTPUT_DIR\\" `
             /p:AppxPackageVersion=${{ steps.metadata.outputs.package_version }} `
             /p:PackageCertificateKeyFile="$env:CERTIFICATE_PFX_PATH" `
-            /p:PackageCertificatePassword="$env:BETA_SIGNING_CERT_PASSWORD" `
+            /p:PackageCertificatePassword= `
             /p:PackageCertificateThumbprint= `
             /p:AppxPackageSigningEnabled=true
 
@@ -210,27 +162,16 @@ jobs:
             throw "No .msixbundle file was generated under $env:PACKAGE_OUTPUT_DIR"
           }
 
-          $packageZipPath = Join-Path $env:RELEASE_OUTPUT_DIR 'Wino-Mail-Beta-PackageOutput.zip'
-          if (Test-Path $packageZipPath) {
-            Remove-Item -LiteralPath $packageZipPath -Force
+          $releaseAssetPath = Join-Path $env:RELEASE_OUTPUT_DIR "Wino_${{ steps.metadata.outputs.package_version }}.zip"
+          if (Test-Path $releaseAssetPath) {
+            Remove-Item -LiteralPath $releaseAssetPath -Force
           }
 
-          Compress-Archive -Path (Join-Path $env:PACKAGE_OUTPUT_DIR '*') -DestinationPath $packageZipPath -Force
+          Compress-Archive -LiteralPath @($bundle.FullName, $env:CERTIFICATE_CER_PATH) -DestinationPath $releaseAssetPath -Force
 
           "bundle_path=$($bundle.FullName)" >> $env:GITHUB_OUTPUT
           "bundle_name=$($bundle.Name)" >> $env:GITHUB_OUTPUT
-          "package_zip_path=$packageZipPath" >> $env:GITHUB_OUTPUT
-
-      - name: Upload workflow artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: beta-release-assets-${{ steps.metadata.outputs.release_tag }}
-          path: |
-            ${{ steps.package.outputs.bundle_path }}
-            ${{ env.CERTIFICATE_CER_PATH }}
-            ${{ steps.metadata.outputs.release_notes_path }}
-            ${{ steps.package.outputs.package_zip_path }}
-          if-no-files-found: error
+          "release_asset_path=$releaseAssetPath" >> $env:GITHUB_OUTPUT
 
       - name: Create GitHub prerelease
         shell: pwsh
@@ -238,10 +179,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "${{ steps.metadata.outputs.release_tag }}" `
-            "${{ steps.package.outputs.bundle_path }}" `
-            "${{ env.CERTIFICATE_CER_PATH }}" `
-            "${{ steps.metadata.outputs.release_notes_path }}" `
-            "${{ steps.package.outputs.package_zip_path }}" `
+            "${{ steps.package.outputs.release_asset_path }}" `
             --repo "${{ github.repository }}" `
             --target "${{ steps.metadata.outputs.head_sha }}" `
             --title "${{ steps.metadata.outputs.release_title }}" `
