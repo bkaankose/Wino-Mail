@@ -80,8 +80,7 @@ jobs:
           }
 
           $baseVersion = '{0}.{1}.{2}' -f $Matches.major, $Matches.minor, $Matches.patch
-          $nextRevision = [int]$Matches.revision + 1
-          $packageVersion = '{0}.{1}.{2}.{3}' -f $Matches.major, $Matches.minor, $Matches.patch, $nextRevision
+          $packageVersion = $currentVersionText
 
           $matchingTags = git tag --list "v$baseVersion.*"
           $releaseNumbers = @()
@@ -101,52 +100,15 @@ jobs:
             throw "Failed to resolve the checked out commit SHA."
           }
 
-          $previousReleaseTag = git tag --sort=-creatordate --list 'v*.*.*.*' | Select-Object -First 1
-          $commitLines = @()
-          if (-not [string]::IsNullOrWhiteSpace($previousReleaseTag)) {
-            $commitLines = git log "$previousReleaseTag..$headSha" --pretty=format:"- %s (%h)"
-          }
-          else {
-            $commitLines = git log $headSha -n 20 --pretty=format:"- %s (%h)"
-          }
-
-          $buildDateUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd HH:mm 'UTC'")
           $notesInput = Get-Content -LiteralPath $changelogPath -Raw
           if ([string]::IsNullOrWhiteSpace($notesInput)) {
             throw "Release notes file is empty: $changelogPath"
           }
 
           $notesInput = $notesInput.Trim()
-          $metadataSection = @"
-          ## Build metadata
-
-          - Package version: `$packageVersion`
-          - Release tag: `$releaseTag`
-          - Commit: `$headSha`
-          - Built: $buildDateUtc
-          "@
-
-          $commitSection = if ($commitLines.Count -gt 0) {
-            $commitHeader = if ([string]::IsNullOrWhiteSpace($previousReleaseTag)) { "## Recent commits" } else { "## Commits since $previousReleaseTag" }
-            @"
-          $commitHeader
-
-          $($commitLines -join [Environment]::NewLine)
-          "@
-          }
-          else {
-            ''
-          }
-
-          $releaseNotesBody = @(
-            $notesInput
-            $metadataSection.Trim()
-            $commitSection.Trim()
-          ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-
           New-Item -ItemType Directory -Path $env:RELEASE_OUTPUT_DIR -Force | Out-Null
           $releaseNotesPath = Join-Path $env:RELEASE_OUTPUT_DIR 'beta-release-notes.md'
-          $releaseNotesBody -join ([Environment]::NewLine + [Environment]::NewLine) | Set-Content -LiteralPath $releaseNotesPath -Encoding utf8
+          $notesInput | Set-Content -LiteralPath $releaseNotesPath -Encoding utf8
 
           "package_version=$packageVersion" >> $env:GITHUB_OUTPUT
           "base_version=$baseVersion" >> $env:GITHUB_OUTPUT
