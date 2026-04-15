@@ -79,19 +79,8 @@ jobs:
             throw "Manifest version '$currentVersionText' is not a four-part numeric version."
           }
 
-          $baseVersion = '{0}.{1}.{2}' -f $Matches.major, $Matches.minor, $Matches.patch
           $packageVersion = $currentVersionText
-
-          $matchingTags = git tag --list "v$baseVersion.*"
-          $releaseNumbers = @()
-          foreach ($tag in $matchingTags) {
-            if ($tag -match "^v$([regex]::Escape($baseVersion))\.(\d+)$") {
-              $releaseNumbers += [int]$Matches[1]
-            }
-          }
-
-          $nextReleaseNumber = if ($releaseNumbers.Count -gt 0) { ($releaseNumbers | Measure-Object -Maximum).Maximum + 1 } else { 1 }
-          $releaseTag = "v$baseVersion.$nextReleaseNumber"
+          $releaseTag = "v$packageVersion"
           $releaseTitleInput = $env:RELEASE_TITLE_INPUT
           $releaseTitle = if ([string]::IsNullOrWhiteSpace($releaseTitleInput)) { $releaseTag } else { $releaseTitleInput.Trim() }
 
@@ -111,7 +100,6 @@ jobs:
           $notesInput | Set-Content -LiteralPath $releaseNotesPath -Encoding utf8
 
           "package_version=$packageVersion" >> $env:GITHUB_OUTPUT
-          "base_version=$baseVersion" >> $env:GITHUB_OUTPUT
           "release_tag=$releaseTag" >> $env:GITHUB_OUTPUT
           "release_title=$releaseTitle" >> $env:GITHUB_OUTPUT
           "release_notes_path=$releaseNotesPath" >> $env:GITHUB_OUTPUT
@@ -174,27 +162,16 @@ jobs:
             throw "No .msixbundle file was generated under $env:PACKAGE_OUTPUT_DIR"
           }
 
-          $packageZipPath = Join-Path $env:RELEASE_OUTPUT_DIR 'Wino-Mail-Beta-PackageOutput.zip'
-          if (Test-Path $packageZipPath) {
-            Remove-Item -LiteralPath $packageZipPath -Force
+          $releaseAssetPath = Join-Path $env:RELEASE_OUTPUT_DIR "Wino_${{ steps.metadata.outputs.package_version }}.zip"
+          if (Test-Path $releaseAssetPath) {
+            Remove-Item -LiteralPath $releaseAssetPath -Force
           }
 
-          Compress-Archive -Path (Join-Path $env:PACKAGE_OUTPUT_DIR '*') -DestinationPath $packageZipPath -Force
+          Compress-Archive -LiteralPath @($bundle.FullName, $env:CERTIFICATE_CER_PATH) -DestinationPath $releaseAssetPath -Force
 
           "bundle_path=$($bundle.FullName)" >> $env:GITHUB_OUTPUT
           "bundle_name=$($bundle.Name)" >> $env:GITHUB_OUTPUT
-          "package_zip_path=$packageZipPath" >> $env:GITHUB_OUTPUT
-
-      - name: Upload workflow artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: beta-release-assets-${{ steps.metadata.outputs.release_tag }}
-          path: |
-            ${{ steps.package.outputs.bundle_path }}
-            ${{ env.CERTIFICATE_CER_PATH }}
-            ${{ steps.metadata.outputs.release_notes_path }}
-            ${{ steps.package.outputs.package_zip_path }}
-          if-no-files-found: error
+          "release_asset_path=$releaseAssetPath" >> $env:GITHUB_OUTPUT
 
       - name: Create GitHub prerelease
         shell: pwsh
@@ -202,10 +179,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "${{ steps.metadata.outputs.release_tag }}" `
-            "${{ steps.package.outputs.bundle_path }}" `
-            "${{ env.CERTIFICATE_CER_PATH }}" `
-            "${{ steps.metadata.outputs.release_notes_path }}" `
-            "${{ steps.package.outputs.package_zip_path }}" `
+            "${{ steps.package.outputs.release_asset_path }}" `
             --repo "${{ github.repository }}" `
             --target "${{ steps.metadata.outputs.head_sha }}" `
             --title "${{ steps.metadata.outputs.release_title }}" `
