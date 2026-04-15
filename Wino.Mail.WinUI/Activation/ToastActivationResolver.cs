@@ -41,9 +41,14 @@ internal static class ToastActivationResolver
             return calendarAction == Constants.ToastCalendarNavigateAction;
         }
 
+        if (toastArguments.TryGetValue(Constants.ToastDismissActionKey, out string _))
+        {
+            return false;
+        }
+
         if (toastArguments.TryGetValue(Constants.ToastActionKey, out MailOperation mailAction))
         {
-            return mailAction == MailOperation.Navigate;
+            return mailAction is MailOperation.Navigate or MailOperation.Reply or MailOperation.ReplyAll or MailOperation.Forward;
         }
 
         return true;
@@ -52,5 +57,6 @@ internal static class ToastActivationResolver
     private static bool ContainsKnownToastKey(NotificationArguments toastArguments)
         => toastArguments.TryGetValue(Constants.ToastStoreUpdateActionKey, out string _) ||
            toastArguments.TryGetValue(Constants.ToastCalendarActionKey, out string _) ||
+           toastArguments.TryGetValue(Constants.ToastDismissActionKey, out string _) ||
            toastArguments.TryGetValue(Constants.ToastActionKey, out string _);
 }

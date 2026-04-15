@@ -237,6 +237,18 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SaveProperty(propertyName: nameof(StartupEntityId), value);
     }
 
+    public MailOperation FirstMailNotificationAction
+    {
+        get => _configurationService.Get(nameof(FirstMailNotificationAction), MailOperation.MarkAsRead);
+        set => SetPropertyAndSave(nameof(FirstMailNotificationAction), value);
+    }
+
+    public MailOperation SecondMailNotificationAction
+    {
+        get => _configurationService.Get(nameof(SecondMailNotificationAction), MailOperation.SoftDelete);
+        set => SetPropertyAndSave(nameof(SecondMailNotificationAction), value);
+    }
+
     public AppLanguage CurrentLanguage
     {
         get => _configurationService.Get(nameof(CurrentLanguage), TranslationService.DefaultAppLanguage);

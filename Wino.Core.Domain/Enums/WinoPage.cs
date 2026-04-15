@@ -19,6 +19,7 @@ public enum WinoPage
     AboutPage,
     PersonalizationPage,
     MessageListPage,
+    MailNotificationSettingsPage,
     MailListPage,
     ReadComposePanePage,
     AppPreferencesPage,

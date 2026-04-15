@@ -192,6 +192,16 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// </summary>
     Guid? StartupEntityId { get; set; }
 
+    /// <summary>
+    /// Setting: First action button displayed on mail toast notifications.
+    /// </summary>
+    MailOperation FirstMailNotificationAction { get; set; }
+
+    /// <summary>
+    /// Setting: Second action button displayed on mail toast notifications.
+    /// </summary>
+    MailOperation SecondMailNotificationAction { get; set; }
+
 
 
     /// <summary>

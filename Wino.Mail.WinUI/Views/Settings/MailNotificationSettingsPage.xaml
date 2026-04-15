@@ -1,0 +1,49 @@
+<abstract:MailNotificationSettingsPageAbstract
+    x:Class="Wino.Views.Settings.MailNotificationSettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:mailViewModels="using:Wino.Mail.ViewModels"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <ScrollViewer>
+        <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
+            <controls:SettingsExpander
+                Description="{x:Bind domain:Translator.SettingsMailNotifications_Actions_Description}"
+                Header="{x:Bind domain:Translator.SettingsMailNotifications_Actions_Title}"
+                IsExpanded="True">
+                <controls:SettingsExpander.HeaderIcon>
+                    <PathIcon Data="F1 M 6.347656 16.25 L 3.701172 16.25 C 3.375651 16.25 3.064779 16.18327 2.768555 16.049805 C 2.472331 15.916342 2.211914 15.737305 1.987305 15.512695 C 1.762695 15.288086 1.583659 15.02767 1.450195 14.731445 C 1.316732 14.435222 1.25 14.12435 1.25 13.798828 L 1.25 3.701172 C 1.25 3.375652 1.316732 3.064779 1.450195 2.768555 C 1.583659 2.472332 1.762695 2.211914 1.987305 1.987305 C 2.211914 1.762695 2.472331 1.58366 2.768555 1.450195 C 3.064779 1.316732 3.375651 1.25 3.701172 1.25 L 16.298828 1.25 C 16.624348 1.25 16.935221 1.316732 17.231445 1.450195 C 17.527668 1.58366 17.788086 1.762695 18.012695 1.987305 C 18.237305 2.211914 18.41634 2.472332 18.549805 2.768555 C 18.683268 3.064779 18.75 3.375652 18.75 3.701172 L 18.75 13.798828 C 18.75 14.13737 18.681641 14.454753 18.544922 14.750977 C 18.408203 15.047201 18.22591 15.30599 17.998047 15.527344 C 17.770182 15.748698 17.504883 15.924479 17.202148 16.054688 C 16.899414 16.184896 16.582031 16.25 16.25 16.25 L 13.652344 16.25 L 10.46875 19.794922 C 10.345052 19.931641 10.188802 20 10 20 C 9.811197 20 9.654947 19.931641 9.53125 19.794922 Z M 15.625 7.5 C 15.79427 7.5 15.940754 7.438151 16.064453 7.314453 C 16.18815 7.190756 16.25 7.044271 16.25 6.875 C 16.25 6.705729 16.18815 6.559245 16.064453 6.435547 C 15.940754 6.31185 15.79427 6.25 15.625 6.25 L 4.375 6.25 C 4.205729 6.25 4.059245 6.31185 3.935547 6.435547 C 3.811849 6.559245 3.75 6.705729 3.75 6.875 C 3.75 7.044271 3.811849 7.190756 3.935547 7.314453 C 4.059245 7.438151 4.205729 7.5 4.375 7.5 Z M 15.625 11.25 C 15.79427 11.25 15.940754 11.188151 16.064453 11.064453 C 16.18815 10.940756 16.25 10.794271 16.25 10.625 C 16.25 10.455729 16.18815 10.309245 16.064453 10.185547 C 15.940754 10.06185 15.79427 10 15.625 10 L 4.375 10 C 4.205729 10 4.059245 10.06185 3.935547 10.185547 C 3.811849 10.309245 3.75 10.455729 3.75 10.625 C 3.75 10.794271 3.811849 10.940756 3.935547 11.064453 C 4.059245 11.188151 4.205729 11.25 4.375 11.25 Z " />
+                </controls:SettingsExpander.HeaderIcon>
+                <controls:SettingsExpander.Items>
+                    <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsMailNotifications_FirstAction_Description}" Header="{x:Bind domain:Translator.SettingsMailNotifications_FirstAction_Title}">
+
+                        <ComboBox ItemsSource="{x:Bind ViewModel.AvailableNotificationActions, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.SelectedFirstAction, Mode=TwoWay}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="mailViewModels:MailNotificationActionOption">
+                                    <TextBlock Text="{x:Bind DisplayText}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </controls:SettingsCard>
+
+                    <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsMailNotifications_SecondAction_Description}" Header="{x:Bind domain:Translator.SettingsMailNotifications_SecondAction_Title}">
+
+                        <ComboBox ItemsSource="{x:Bind ViewModel.AvailableNotificationActions, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.SelectedSecondAction, Mode=TwoWay}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="mailViewModels:MailNotificationActionOption">
+                                    <TextBlock Text="{x:Bind DisplayText}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </controls:SettingsCard>
+                </controls:SettingsExpander.Items>
+            </controls:SettingsExpander>
+
+        </StackPanel>
+    </ScrollViewer>
+</abstract:MailNotificationSettingsPageAbstract>
