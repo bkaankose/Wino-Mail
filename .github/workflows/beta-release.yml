@@ -40,14 +40,9 @@ jobs:
         shell: pwsh
         env:
           BETA_SIGNING_CERT_PFX_BASE64: ${{ secrets.BETA_SIGNING_CERT_PFX_BASE64 }}
-          BETA_SIGNING_CERT_PASSWORD: ${{ secrets.BETA_SIGNING_CERT_PASSWORD }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:BETA_SIGNING_CERT_PFX_BASE64)) {
             throw "Missing required secret: BETA_SIGNING_CERT_PFX_BASE64"
-          }
-
-          if ([string]::IsNullOrWhiteSpace($env:BETA_SIGNING_CERT_PASSWORD)) {
-            throw "Missing required secret: BETA_SIGNING_CERT_PASSWORD"
           }
 
       - name: Setup .NET SDK
@@ -164,13 +159,12 @@ jobs:
         shell: pwsh
         env:
           BETA_SIGNING_CERT_PFX_BASE64: ${{ secrets.BETA_SIGNING_CERT_PFX_BASE64 }}
-          BETA_SIGNING_CERT_PASSWORD: ${{ secrets.BETA_SIGNING_CERT_PASSWORD }}
         run: |
           $signingDir = Split-Path -Parent $env:CERTIFICATE_PFX_PATH
           New-Item -ItemType Directory -Path $signingDir -Force | Out-Null
           [IO.File]::WriteAllBytes($env:CERTIFICATE_PFX_PATH, [Convert]::FromBase64String($env:BETA_SIGNING_CERT_PFX_BASE64))
 
-          $certificate = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($env:CERTIFICATE_PFX_PATH, $env:BETA_SIGNING_CERT_PASSWORD, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
+          $certificate = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($env:CERTIFICATE_PFX_PATH, $null, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
 
           New-Item -ItemType Directory -Path (Split-Path -Parent $env:CERTIFICATE_CER_PATH) -Force | Out-Null
           [IO.File]::WriteAllBytes($env:CERTIFICATE_CER_PATH, $certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
@@ -190,8 +184,6 @@ jobs:
 
       - name: Build MSIX bundle
         shell: pwsh
-        env:
-          BETA_SIGNING_CERT_PASSWORD: ${{ secrets.BETA_SIGNING_CERT_PASSWORD }}
         run: |
           New-Item -ItemType Directory -Path $env:PACKAGE_OUTPUT_DIR -Force | Out-Null
 
@@ -209,7 +201,7 @@ jobs:
             /p:AppxPackageDir="$env:PACKAGE_OUTPUT_DIR\\" `
             /p:AppxPackageVersion=${{ steps.metadata.outputs.package_version }} `
             /p:PackageCertificateKeyFile="$env:CERTIFICATE_PFX_PATH" `
-            /p:PackageCertificatePassword="$env:BETA_SIGNING_CERT_PASSWORD" `
+            /p:PackageCertificatePassword= `
             /p:PackageCertificateThumbprint= `
             /p:AppxPackageSigningEnabled=true
 
