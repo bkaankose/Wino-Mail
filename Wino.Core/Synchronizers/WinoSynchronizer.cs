@@ -140,9 +140,10 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
             PendingSynchronizationRequest.Add(options, newCancellationTokenSource);
             activeSynchronizationCancellationToken = newCancellationTokenSource.Token;
 
-            // ImapSynchronizer will send this type when an Idle client receives a notification of changes.
-            // We should not execute requests in this case.
-            bool shouldExecuteRequests = options.Type != MailSynchronizationType.IMAPIdle;
+            // Only explicit ExecuteRequests runs are allowed to drain the queued request list.
+            // Other sync types (for example the follow-up FoldersOnly refresh after folder actions)
+            // may be queued alongside ExecuteRequests and must not replay the same operations.
+            bool shouldExecuteRequests = options.Type == MailSynchronizationType.ExecuteRequests;
 
             bool shouldDelayExecution = false;
             int maxExecutionDelay = 0;
