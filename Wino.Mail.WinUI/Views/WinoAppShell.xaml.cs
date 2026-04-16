@@ -27,6 +27,7 @@ using Wino.Calendar.ViewModels;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.ViewModels;
+using Wino.Controls;
 using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Helpers;
@@ -36,6 +37,7 @@ using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Contacts;
 using Wino.Messaging.Client.Mails;
+using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
 using Wino.Views;
@@ -516,6 +518,65 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
                 await ViewModel.MailClient.PerformFolderOperationAsync(operation.Operation, baseFolderMenuItem);
             }
         }
+    }
+
+    private void AccountMenuItemContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (!ViewModel.IsMailMode)
+            return;
+
+        if (sender is not AccountNavigationItem accountNavigationItem ||
+            accountNavigationItem.DataContext is not AccountMenuItem accountMenuItem ||
+            !args.TryGetPosition(sender, out Point p))
+        {
+            return;
+        }
+
+        args.Handled = true;
+
+        var flyout = new MenuFlyout();
+
+        var manageAccountSettingsItem = new MenuFlyoutItem
+        {
+            Text = Translator.AccountContextMenu_ManageAccountSettings
+        };
+        manageAccountSettingsItem.Icon = new WinoFontIcon { Icon = WinoIconGlyph.ManageAccounts };
+        manageAccountSettingsItem.Click += (_, _) => NavigateToAccountSettings(accountMenuItem);
+        flyout.Items.Add(manageAccountSettingsItem);
+
+        var createFolderItem = new MenuFlyoutItem
+        {
+            Text = Translator.AccountContextMenu_CreateFolder
+        };
+        createFolderItem.Icon = new WinoFontIcon { Icon = WinoIconGlyph.CreateFolder };
+        createFolderItem.Click += async (_, _) => await ViewModel.MailClient.CreateRootFolderAsync(accountMenuItem);
+        flyout.Items.Add(createFolderItem);
+
+        flyout.ShowAt(accountNavigationItem, new FlyoutShowOptions
+        {
+            ShowMode = FlyoutShowMode.Standard,
+            Position = new Point(p.X + 30, p.Y - 20)
+        });
+    }
+
+    private void NavigateToAccountSettings(AccountMenuItem accountMenuItem)
+    {
+        ViewModel.NavigationService.ChangeApplicationMode(
+            WinoApplicationMode.Settings,
+            new ShellModeActivationContext
+            {
+                Parameter = WinoPage.ManageAccountsPage,
+                SuppressStartupFlows = true
+            });
+
+        _ = DispatcherQueue.EnqueueAsync(() =>
+        {
+            WeakReferenceMessenger.Default.Send(new SettingsRootNavigationRequested(WinoPage.ManageAccountsPage));
+            WeakReferenceMessenger.Default.Send(new BreadcrumbNavigationRequested(
+                accountMenuItem.AccountName,
+                WinoPage.AccountDetailsPage,
+                accountMenuItem.AccountId));
+        });
     }
 
     public void Receive(CreateNewMailWithMultipleAccountsRequested message)

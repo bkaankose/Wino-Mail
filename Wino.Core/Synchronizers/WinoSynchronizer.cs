@@ -222,6 +222,9 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                             case FolderSynchronizerOperation.CreateSubFolder:
                                 nativeRequests.AddRange(CreateSubFolder(group.ElementAt(0) as CreateSubFolderRequest));
                                 break;
+                            case FolderSynchronizerOperation.CreateRootFolder:
+                                nativeRequests.AddRange(CreateRootFolder(group.ElementAt(0) as CreateRootFolderRequest));
+                                break;
                             default:
                                 break;
                         }
@@ -658,6 +661,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     public virtual List<IRequestBundle<TBaseRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> DeleteFolder(DeleteFolderRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> CreateSubFolder(CreateSubFolderRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+    public virtual List<IRequestBundle<TBaseRequest>> CreateRootFolder(CreateRootFolderRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> UpdateCategories(BatchMailCategoryAssignmentRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> CreateCategory(MailCategoryCreateRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> UpdateCategory(MailCategoryUpdateRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));

@@ -1724,6 +1724,17 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request, request)];
     }
 
+    public override List<IRequestBundle<IClientServiceRequest>> CreateRootFolder(CreateRootFolderRequest request)
+    {
+        var label = new Label()
+        {
+            Name = request.NewFolderName
+        };
+
+        var networkCall = _gmailService.Users.Labels.Create(label, "me");
+        return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request, request)];
+    }
+
     #endregion
 
     #region Request Execution

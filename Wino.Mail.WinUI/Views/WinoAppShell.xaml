@@ -31,6 +31,7 @@
         <DataTemplate x:Key="ClickableAccountMenuTemplate" x:DataType="menu:AccountMenuItem">
             <controls:AccountNavigationItem
                 x:Name="AccountItem"
+                ContextRequested="AccountMenuItemContextRequested"
                 Height="50"
                 HorizontalContentAlignment="Stretch"
                 VerticalContentAlignment="Stretch"

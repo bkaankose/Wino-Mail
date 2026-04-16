@@ -315,6 +315,7 @@
     "DialogMessage_PrintingSuccessMessage": "Mail is sent to printer.",
     "DialogMessage_PrintingSuccessTitle": "Success",
     "DialogMessage_RenameFolderMessage": "Enter new name for this folder",
+    "DialogMessage_CreateFolderMessage": "Enter name for the new folder",
     "DialogMessage_RenameFolderTitle": "Rename Folder",
     "DialogMessage_RenameLinkedAccountsMessage": "Enter new name for linked account",
     "DialogMessage_RenameLinkedAccountsTitle": "Rename Linked Account",
@@ -1534,5 +1535,7 @@
     "AccountSetup_GoBackButton": "Go Back",
     "AccountSetup_TryAgainButton": "Try Again",
     "Exception_FailedToSynchronizeCategories": "Failed to synchronize categories",
-    "ImapCalDavSettings_AutoDiscoveryFailed": "Auto-discovery failed. Please enter settings manually in the Advanced tab."
+    "ImapCalDavSettings_AutoDiscoveryFailed": "Auto-discovery failed. Please enter settings manually in the Advanced tab.",
+    "AccountContextMenu_ManageAccountSettings": "Manage account settings",
+    "AccountContextMenu_CreateFolder": "Create folder"
 }

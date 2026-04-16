@@ -21,6 +21,7 @@ using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Requests.Folder;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Accounts;
@@ -622,6 +623,29 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         {
             Messenger.Send(new AccountsMenuRefreshRequested(true));
         }
+    }
+
+    public async Task CreateRootFolderAsync(IAccountMenuItem accountMenuItem)
+    {
+        var account = accountMenuItem?.HoldingAccounts?.FirstOrDefault();
+        if (account == null)
+            return;
+
+        var folderName = await _dialogService.ShowTextInputDialogAsync(
+            string.Empty,
+            Translator.AccountContextMenu_CreateFolder,
+            Translator.DialogMessage_CreateFolderMessage,
+            Translator.Buttons_Create);
+
+        if (string.IsNullOrWhiteSpace(folderName))
+            return;
+
+        var placeholderFolder = new MailItemFolder
+        {
+            MailAccountId = account.Id
+        };
+
+        await _winoRequestDelegator.ExecuteAsync(account.Id, [new CreateRootFolderRequest(placeholderFolder, folderName.Trim())]);
     }
 
     public Task HandleAccountAttentionAsync(MailAccount account)

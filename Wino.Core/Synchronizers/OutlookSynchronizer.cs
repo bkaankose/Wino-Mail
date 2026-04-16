@@ -2003,6 +2003,17 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         return [new HttpRequestBundle<RequestInformation>(networkCall, request)];
     }
 
+    public override List<IRequestBundle<RequestInformation>> CreateRootFolder(CreateRootFolderRequest request)
+    {
+        var requestBody = new MailFolder
+        {
+            DisplayName = request.NewFolderName
+        };
+
+        var networkCall = _graphClient.Me.MailFolders.ToPostRequestInformation(requestBody);
+        return [new HttpRequestBundle<RequestInformation>(networkCall, request)];
+    }
+
     #endregion
 
     public override async Task ExecuteNativeRequestsAsync(List<IRequestBundle<RequestInformation>> batchedRequests, CancellationToken cancellationToken = default)

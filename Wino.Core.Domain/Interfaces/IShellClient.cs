@@ -41,6 +41,7 @@ public interface IMailShellClient : IShellClient
     Task ChangeLoadedAccountAsync(IAccountMenuItem clickedBaseAccountMenuItem, bool navigateInbox = true);
     Task PerformFolderOperationAsync(FolderOperation operation, IBaseFolderMenuItem folderMenuItem);
     Task PerformMoveOperationAsync(IEnumerable<MailCopy> items, IBaseFolderMenuItem targetFolderMenuItem);
+    Task CreateRootFolderAsync(IAccountMenuItem accountMenuItem);
     Task CreateNewMailForAsync(MailAccount account);
 }
 

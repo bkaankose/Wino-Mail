@@ -124,6 +124,7 @@ public static class SynchronizationActionHelper
             MarkFolderAsReadRequest => Translator.SyncAction_MarkingFolderAsRead,
             DeleteFolderRequest => Translator.FolderOperation_Delete,
             CreateSubFolderRequest => Translator.FolderOperation_CreateSubFolder,
+            CreateRootFolderRequest => Translator.AccountContextMenu_CreateFolder,
             _ => null
         };
     }

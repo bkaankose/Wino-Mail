@@ -15,6 +15,7 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Helpers;
 using Wino.Core.Requests.Calendar;
+using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
@@ -220,6 +221,11 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
         await SendSyncActionsAddedAsync(requestList, accountId).ConfigureAwait(false);
         await QueueSynchronizationAsync(accountId).ConfigureAwait(false);
+
+        if (requestList.Any(r => r is DeleteFolderRequest or CreateSubFolderRequest or CreateRootFolderRequest))
+        {
+            await QueueFoldersOnlySynchronizationAsync(accountId).ConfigureAwait(false);
+        }
     }
 
     private async Task<IRequestBase> CreateCalendarEventRequestAsync(CalendarOperationPreparationRequest calendarPreparationRequest)

@@ -317,6 +317,15 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         }, request, request);
     }
 
+    public override List<IRequestBundle<ImapRequest>> CreateRootFolder(CreateRootFolderRequest request)
+    {
+        return CreateSingleTaskBundle(async (client, item) =>
+        {
+            var rootFolder = client.GetFolder(client.PersonalNamespaces[0]);
+            await rootFolder.CreateAsync(request.NewFolderName, true).ConfigureAwait(false);
+        }, request, request);
+    }
+
     public override List<IRequestBundle<ImapRequest>> CreateCalendarEvent(CreateCalendarEventRequest request)
     {
         var handler = ResolveCalendarOperationHandler();
