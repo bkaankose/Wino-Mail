@@ -24,6 +24,11 @@ public class MailItemFolder : IMailItemFolder
     public bool IsSynchronizationEnabled { get; set; }
     public bool IsHidden { get; set; }
     public bool ShowUnreadCount { get; set; }
+
+    // User-defined ordering within its navigation section (Pinned / Categories / More).
+    // 0 means "no custom order set" — the folder falls back to the default sort
+    // (alphabetic for More, canonical SpecialFolderType order as a tiebreak for Pinned).
+    public int Order { get; set; }
     public DateTime? LastSynchronizedDate { get; set; }
 
     // For IMAP

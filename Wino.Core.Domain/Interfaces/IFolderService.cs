@@ -22,6 +22,25 @@ public interface IFolderService
     Task<int> GetFolderNotificationBadgeAsync(Guid folderId);
     Task ChangeStickyStatusAsync(Guid folderId, bool isSticky);
 
+    /// <summary>
+    /// Toggles a folder's visibility in the navigation menu.
+    /// Hidden folders are still synchronized if sync is enabled.
+    /// </summary>
+    Task ChangeFolderHiddenStatusAsync(Guid folderId, bool isHidden);
+
+    /// <summary>
+    /// Persists a new custom ordering for the given folders.
+    /// The first id becomes Order=1, second Order=2, etc.
+    /// Caller is responsible for notifying the shell to refresh.
+    /// </summary>
+    Task UpdateFolderOrdersAsync(Guid accountId, IReadOnlyList<Guid> orderedFolderIds);
+
+    /// <summary>
+    /// Wipes every user folder customization for the account: clears custom Order,
+    /// un-hides folders, and restores IsSticky on system folders.
+    /// </summary>
+    Task ResetFolderCustomizationAsync(Guid accountId);
+
     Task<MailAccount> UpdateSystemFolderConfigurationAsync(Guid accountId, SystemFolderConfiguration configuration);
     Task ChangeFolderSynchronizationStateAsync(Guid folderId, bool isSynchronizationEnabled);
     Task ChangeFolderShowUnreadCountStateAsync(Guid folderId, bool showUnreadCount);

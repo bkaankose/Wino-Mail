@@ -12,6 +12,7 @@ public enum WinoPage
     ContactsPage,
     MailRenderingPage,
     AccountDetailsPage,
+    FolderCustomizationPage,
     MergedAccountDetailsPage,
     ManageAccountsPage,
     AccountManagementPage,

@@ -274,6 +274,10 @@ public static class XamlHelpers
         };
     }
 
+    // Segoe Fluent icon glyphs for the show/hide toggle on the folder
+    // customization page. E7B3 = "Hide" (eye with slash), E7B2 = "RedEye".
+    public static string GetHideGlyph(bool isHidden) => isHidden ? "\uE7B3" : "\uE7B2";
+
     public static WinoIconGlyph GetSpecialFolderPathIconGeometry(SpecialFolderType specialFolderType)
     {
         return specialFolderType switch

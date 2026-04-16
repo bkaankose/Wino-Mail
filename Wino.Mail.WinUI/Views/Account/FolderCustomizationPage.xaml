@@ -1,0 +1,188 @@
+<abstract:FolderCustomizationPageAbstract
+    x:Class="Wino.Views.FolderCustomizationPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:data="using:Wino.Mail.ViewModels.Data"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <DataTemplate x:Key="FolderRowTemplate" x:DataType="data:FolderCustomizationItemViewModel">
+            <Grid
+                Padding="8"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <FontIcon
+                    Grid.Column="0"
+                    VerticalAlignment="Center"
+                    FontSize="14"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Glyph="&#xE700;" />
+
+                <coreControls:WinoFontIcon
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    FontSize="18"
+                    Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(SpecialFolderType)}" />
+
+                <TextBlock
+                    Grid.Column="2"
+                    VerticalAlignment="Center"
+                    Text="{x:Bind FolderName}"
+                    TextTrimming="CharacterEllipsis" />
+
+                <Button
+                    Grid.Column="3"
+                    Click="HideToggle_Click"
+                    Style="{StaticResource SubtleButtonStyle}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.FolderCustomization_Hide}">
+                    <FontIcon FontSize="16" Glyph="{x:Bind helpers:XamlHelpers.GetHideGlyph(IsHidden), Mode=OneWay}" />
+                </Button>
+
+                <Button
+                    Grid.Column="4"
+                    Click="PinToggle_Click"
+                    Style="{StaticResource SubtleButtonStyle}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.FolderCustomization_Pin}">
+                    <FontIcon FontSize="16" Glyph="&#xE718;" />
+                </Button>
+            </Grid>
+        </DataTemplate>
+    </Page.Resources>
+
+    <ScrollViewer>
+        <Grid Padding="16,12" RowSpacing="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0" ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel>
+                    <TextBlock
+                        FontSize="20"
+                        FontWeight="SemiBold"
+                        Text="{x:Bind domain:Translator.FolderCustomization_Title}" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.FolderCustomization_Description}"
+                        TextWrapping="Wrap" />
+                </StackPanel>
+
+                <Button
+                    Grid.Column="1"
+                    VerticalAlignment="Top"
+                    Command="{x:Bind ViewModel.ResetCommand}"
+                    Content="{x:Bind domain:Translator.FolderCustomization_Reset}" />
+            </Grid>
+
+            <Expander
+                Grid.Row="1"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Stretch"
+                IsExpanded="True">
+                <Expander.Header>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <FontIcon FontSize="16" Glyph="&#xE718;" />
+                        <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.FolderCustomization_SectionPinned}" />
+                    </StackPanel>
+                </Expander.Header>
+                <ListView
+                    AllowDrop="True"
+                    CanReorderItems="True"
+                    DropCompleted="ListView_DropCompleted"
+                    ItemTemplate="{StaticResource FolderRowTemplate}"
+                    ItemsSource="{x:Bind ViewModel.PinnedFolders}"
+                    SelectionMode="None">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="Padding" Value="4" />
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                </ListView>
+            </Expander>
+
+            <Expander
+                Grid.Row="2"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Stretch"
+                IsExpanded="True"
+                Visibility="{x:Bind ViewModel.IsGmailAccount, Mode=OneWay}">
+                <Expander.Header>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <FontIcon FontSize="16" Glyph="&#xE8EC;" />
+                        <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.FolderCustomization_SectionCategories}" />
+                    </StackPanel>
+                </Expander.Header>
+                <ListView
+                    AllowDrop="True"
+                    CanReorderItems="True"
+                    DropCompleted="ListView_DropCompleted"
+                    ItemTemplate="{StaticResource FolderRowTemplate}"
+                    ItemsSource="{x:Bind ViewModel.CategoryFolders}"
+                    SelectionMode="None">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="Padding" Value="4" />
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                </ListView>
+            </Expander>
+
+            <Expander
+                Grid.Row="3"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Stretch"
+                IsExpanded="True">
+                <Expander.Header>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <FontIcon FontSize="16" Glyph="&#xE712;" />
+                        <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.FolderCustomization_SectionMore}" />
+                    </StackPanel>
+                </Expander.Header>
+                <ListView
+                    AllowDrop="True"
+                    CanReorderItems="True"
+                    DropCompleted="ListView_DropCompleted"
+                    ItemTemplate="{StaticResource FolderRowTemplate}"
+                    ItemsSource="{x:Bind ViewModel.MoreFolders}"
+                    SelectionMode="None">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="Padding" Value="4" />
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                </ListView>
+            </Expander>
+        </Grid>
+    </ScrollViewer>
+</abstract:FolderCustomizationPageAbstract>
