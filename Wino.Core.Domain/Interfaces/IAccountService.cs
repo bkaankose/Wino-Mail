@@ -24,6 +24,20 @@ public interface IAccountService
     Task<List<MailAccount>> GetAccountsAsync();
 
     /// <summary>
+    /// Checks whether an account with the same display name already exists.
+    /// </summary>
+    /// <param name="name">Account display name.</param>
+    /// <param name="excludedAccountId">Optional account id to exclude from the check.</param>
+    Task<bool> AccountNameExistsAsync(string name, Guid? excludedAccountId = null);
+
+    /// <summary>
+    /// Checks whether an account with the same primary address already exists.
+    /// </summary>
+    /// <param name="address">Primary e-mail address.</param>
+    /// <param name="excludedAccountId">Optional account id to exclude from the check.</param>
+    Task<bool> AccountAddressExistsAsync(string address, Guid? excludedAccountId = null);
+
+    /// <summary>
     /// Returns single MailAccount
     /// </summary>
     /// <param name="accountId">AccountId.</param>

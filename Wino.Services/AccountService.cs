@@ -240,6 +240,34 @@ public class AccountService : BaseDatabaseService, IAccountService
         return accounts;
     }
 
+    public async Task<bool> AccountNameExistsAsync(string name, Guid? excludedAccountId = null)
+    {
+        var normalizedName = name?.Trim();
+
+        if (string.IsNullOrWhiteSpace(normalizedName))
+            return false;
+
+        var accounts = await Connection.Table<MailAccount>().ToListAsync().ConfigureAwait(false);
+
+        return accounts.Any(account =>
+            account.Id != excludedAccountId &&
+            string.Equals(account.Name?.Trim(), normalizedName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public async Task<bool> AccountAddressExistsAsync(string address, Guid? excludedAccountId = null)
+    {
+        var normalizedAddress = address?.Trim();
+
+        if (string.IsNullOrWhiteSpace(normalizedAddress))
+            return false;
+
+        var accounts = await Connection.Table<MailAccount>().ToListAsync().ConfigureAwait(false);
+
+        return accounts.Any(account =>
+            account.Id != excludedAccountId &&
+            string.Equals(account.Address?.Trim(), normalizedAddress, StringComparison.OrdinalIgnoreCase));
+    }
+
     public async Task CreateRootAliasAsync(Guid accountId, string address)
     {
         var rootAlias = new MailAccountAlias()
@@ -609,6 +637,12 @@ public class AccountService : BaseDatabaseService, IAccountService
     public async Task CreateAccountAsync(MailAccount account, CustomServerInformation customServerInformation)
     {
         Guard.IsNotNull(account);
+
+        if (await AccountNameExistsAsync(account.Name).ConfigureAwait(false))
+            throw new InvalidOperationException(Translator.DialogMessage_AccountNameExistsMessage);
+
+        if (await AccountAddressExistsAsync(account.Address).ConfigureAwait(false))
+            throw new InvalidOperationException(Translator.DialogMessage_AccountAddressExistsMessage);
 
         if (!account.CreatedAt.HasValue)
         {

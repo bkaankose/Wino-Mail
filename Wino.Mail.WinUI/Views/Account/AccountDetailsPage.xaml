@@ -127,6 +127,16 @@
                             Text="{x:Bind ViewModel.SenderName, Mode=TwoWay}" />
                     </controls:SettingsCard>
 
+                    <controls:SettingsCard Header="{x:Bind domain:Translator.IMAPSetupDialog_MailAddress}">
+                        <controls:SettingsCard.HeaderIcon>
+                            <SymbolIcon Symbol="Mail" />
+                        </controls:SettingsCard.HeaderIcon>
+                        <TextBox
+                            Width="250"
+                            IsReadOnly="True"
+                            Text="{x:Bind ViewModel.Address, Mode=OneWay}" />
+                    </controls:SettingsCard>
+
                     <controls:SettingsCard
                         HorizontalContentAlignment="Stretch"
                         VerticalContentAlignment="Stretch"

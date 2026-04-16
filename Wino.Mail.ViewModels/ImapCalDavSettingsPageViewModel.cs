@@ -34,6 +34,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     private Guid _editingAccountId;
     private SpecialImapProvider _editingSpecialImapProvider;
     private TaskCompletionSource<ImapCalDavSetupResult> _completionSource;
+    private AccountCreationDialogResult _accountCreationContext;
     private bool _isCompletionFinalized;
     private bool _localOnlyInfoShown;
 
@@ -283,6 +284,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         _pageMode = context.Mode;
         _editingAccountId = context.AccountId;
         _completionSource = context.CompletionSource;
+        _accountCreationContext = context.AccountCreationDialogResult;
         _isCompletionFinalized = false;
         _localOnlyInfoShown = false;
         SelectedSetupTabIndex = 0;
@@ -405,6 +407,13 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             ValidateIdentitySettings();
             ValidateImapSettings(serverInformation);
             ValidateCalendarModeSpecificSettings(serverInformation);
+
+            var excludedAccountId = _pageMode == ImapCalDavSettingsPageMode.Edit
+                ? _editingAccountId
+                : (Guid?)null;
+
+            if (!await ValidateAccountUniquenessAsync(excludedAccountId).ConfigureAwait(false))
+                return;
 
             await ValidateImapConnectivityAsync(serverInformation);
             IsImapValidationSucceeded = true;
@@ -768,6 +777,34 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             InfoBarMessageType.Success);
 
         Messenger.Send(new BackBreadcrumNavigationRequested());
+    }
+
+    private async Task<bool> ValidateAccountUniquenessAsync(Guid? excludedAccountId)
+    {
+        var accountName = (_pageMode == ImapCalDavSettingsPageMode.Create || _pageMode == ImapCalDavSettingsPageMode.Wizard)
+            ? _accountCreationContext?.AccountName
+            : null;
+
+        if (!string.IsNullOrWhiteSpace(accountName) &&
+            await _accountService.AccountNameExistsAsync(accountName, excludedAccountId).ConfigureAwait(false))
+        {
+            _mailDialogService.InfoBarMessage(
+                Translator.DialogMessage_AccountExistsTitle,
+                Translator.DialogMessage_AccountNameExistsMessage,
+                InfoBarMessageType.Error);
+            return false;
+        }
+
+        if (await _accountService.AccountAddressExistsAsync(EmailAddress, excludedAccountId).ConfigureAwait(false))
+        {
+            _mailDialogService.InfoBarMessage(
+                Translator.DialogMessage_AccountExistsTitle,
+                Translator.DialogMessage_AccountAddressExistsMessage,
+                InfoBarMessageType.Error);
+            return false;
+        }
+
+        return true;
     }
 
     private async Task SaveEditFlowAsync(CustomServerInformation serverInformation)

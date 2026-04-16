@@ -15,6 +15,8 @@ namespace Wino.Mail.ViewModels;
 
 public partial class SpecialImapCredentialsPageViewModel : MailBaseViewModel
 {
+    private readonly IAccountService _accountService;
+    private readonly IDialogServiceBase _dialogService;
     private static readonly Dictionary<SpecialImapProvider, string> AppPasswordHelpLinks = new()
     {
         { SpecialImapProvider.iCloud, "https://support.apple.com/en-us/102654" },
@@ -56,9 +58,13 @@ public partial class SpecialImapCredentialsPageViewModel : MailBaseViewModel
             : Translator.ProviderSelection_CalendarMode_CalDavDescription_Yahoo;
 
     public SpecialImapCredentialsPageViewModel(
+        IAccountService accountService,
+        IDialogServiceBase dialogService,
         INativeAppService nativeAppService,
         WelcomeWizardContext wizardContext)
     {
+        _accountService = accountService;
+        _dialogService = dialogService;
         _nativeAppService = nativeAppService;
         WizardContext = wizardContext;
     }
@@ -98,9 +104,18 @@ public partial class SpecialImapCredentialsPageViewModel : MailBaseViewModel
     }
 
     [RelayCommand]
-    private void Proceed()
+    private async Task ProceedAsync()
     {
         if (!CanProceed) return;
+
+        if (await _accountService.AccountAddressExistsAsync(EmailAddress).ConfigureAwait(false))
+        {
+            await _dialogService.ShowMessageAsync(
+                Translator.DialogMessage_AccountAddressExistsMessage,
+                Translator.DialogMessage_AccountExistsTitle,
+                WinoCustomMessageDialogIcon.Warning);
+            return;
+        }
 
         WizardContext.DisplayName = DisplayName?.Trim();
         WizardContext.EmailAddress = EmailAddress?.Trim();

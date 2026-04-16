@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -16,6 +17,8 @@ namespace Wino.Mail.ViewModels;
 
 public partial class ProviderSelectionPageViewModel : MailBaseViewModel
 {
+    private readonly IAccountService _accountService;
+    private readonly IDialogServiceBase _dialogService;
     private readonly IProviderService _providerService;
     private readonly INewThemeService _themeService;
 
@@ -53,10 +56,14 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     public bool IsInitialSynchronizationWarningVisible => SelectedInitialSynchronizationRange?.IsEverything == true;
 
     public ProviderSelectionPageViewModel(
+        IAccountService accountService,
+        IDialogServiceBase dialogService,
         IProviderService providerService,
         INewThemeService themeService,
         WelcomeWizardContext wizardContext)
     {
+        _accountService = accountService;
+        _dialogService = dialogService;
         _providerService = providerService;
         _themeService = themeService;
         WizardContext = wizardContext;
@@ -107,9 +114,18 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     }
 
     [RelayCommand]
-    private void Proceed()
+    private async Task ProceedAsync()
     {
         if (!CanProceed) return;
+
+        if (await _accountService.AccountNameExistsAsync(AccountName).ConfigureAwait(false))
+        {
+            await _dialogService.ShowMessageAsync(
+                Translator.DialogMessage_AccountNameExistsMessage,
+                Translator.DialogMessage_AccountExistsTitle,
+                WinoCustomMessageDialogIcon.Warning);
+            return;
+        }
 
         // Persist to wizard context
         WizardContext.SelectedProvider = SelectedProvider;

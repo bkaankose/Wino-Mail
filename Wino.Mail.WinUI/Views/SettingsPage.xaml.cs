@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Helpers;
@@ -162,7 +163,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
         DispatcherQueue.TryEnqueue(() =>
         {
-            activePage.Title = message.Account.Name;
+            activePage.Title = GetAccountDetailsTitle(message.Account);
             _ = RefreshCurrentPageStateAsync();
             UpdateWindowTitle();
         });
@@ -248,6 +249,11 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
             ? Translator.MenuSettings
             : activeTitle;
     }
+
+    private static string GetAccountDetailsTitle(MailAccount account)
+        => !string.IsNullOrWhiteSpace(account?.Address)
+            ? string.Format(Translator.SettingsAccountDetails_NavigationTitle, account.Address)
+            : account?.Name ?? Translator.AccountDetailsPage_Title;
 
     public Task OnTitleBarSearchTextChangedAsync()
     {

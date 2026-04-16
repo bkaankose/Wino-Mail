@@ -69,7 +69,7 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
     [RelayCommand]
     private void NavigateAccountDetails(AccountProviderDetailViewModel accountDetails)
     {
-        Messenger.Send(new BreadcrumbNavigationRequested(accountDetails.Account.Name,
+        Messenger.Send(new BreadcrumbNavigationRequested(GetAccountDetailsTitle(accountDetails.Account),
                                                          WinoPage.AccountDetailsPage,
                                                          accountDetails.Account.Id));
     }
@@ -131,4 +131,9 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
     {
         OnPropertyChanged(nameof(HasAccountsDefined));
     }
+
+    private static string GetAccountDetailsTitle(MailAccount account)
+        => !string.IsNullOrWhiteSpace(account?.Address)
+            ? string.Format(Translator.SettingsAccountDetails_NavigationTitle, account.Address)
+            : account?.Name ?? Translator.AccountDetailsPage_Title;
 }
