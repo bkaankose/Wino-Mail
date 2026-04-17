@@ -118,7 +118,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     {
         if (!CanProceed) return;
 
-        if (await _accountService.AccountNameExistsAsync(AccountName).ConfigureAwait(false))
+        if (await _accountService.AccountNameExistsAsync(AccountName))
         {
             await _dialogService.ShowMessageAsync(
                 Translator.DialogMessage_AccountNameExistsMessage,

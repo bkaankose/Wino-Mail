@@ -898,7 +898,7 @@
     "FolderCustomization_Hide": "Hide from navigation",
     "FolderCustomization_Reset": "Reset to defaults",
     "FolderCustomization_ResetConfirmTitle": "Reset folder layout",
-    "FolderCustomization_ResetConfirmMessage": "This will clear any custom folder order and restore the default alphabetic layout for this account. Hidden folders will become visible again. Continue?",
+    "FolderCustomization_ResetConfirmMessage": "This will clear any custom folder order and restore the default special-folder layout for this account. Hidden folders will become visible again. Continue?",
     "FolderCustomization_EmptySection": "Drag folders here to add them to this section.",
     "SettingsEditAccountDetails_Title": "Edit Account Details",
     "SettingsEditAccountDetails_Description": "Change account name, sender name and assign a new color if you like.",

@@ -292,10 +292,15 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
             var folderStructures = (await _folderService.GetFolderStructureForAccountAsync(Account.Id, true)).Folders;
 
-            foreach (var folder in folderStructures)
+            await ExecuteUIThread(() =>
             {
-                CurrentFolders.Add(folder);
-            }
+                CurrentFolders.Clear();
+
+                foreach (var folder in folderStructures)
+                {
+                    CurrentFolders.Add(folder);
+                }
+            });
 
             // Load calendar list
             await LoadAccountCalendarsAsync();

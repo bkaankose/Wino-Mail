@@ -378,6 +378,7 @@
     <AppxBundle>Always</AppxBundle>
     <AppxBundlePlatforms>x86|x64|arm64</AppxBundlePlatforms>
     <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
-    <PackageCertificateThumbprint>2661584A2F31D3419FFF8AA09A2C16B1991B8290</PackageCertificateThumbprint>
+    <PackageCertificateThumbprint>58CE57FA3E5BF2393C86FC3B3161A925679FB3D4</PackageCertificateThumbprint>
+    <PackageCertificateKeyFile>Wino.Mail.WinUI_TemporaryKey.pfx</PackageCertificateKeyFile>
   </PropertyGroup>
 </Project>

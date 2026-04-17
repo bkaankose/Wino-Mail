@@ -1,6 +1,4 @@
-using System.Collections.ObjectModel;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using Wino.Mail.ViewModels.Data;
 using Wino.Views.Abstract;
 
@@ -13,7 +11,7 @@ public sealed partial class FolderCustomizationPage : FolderCustomizationPageAbs
         InitializeComponent();
     }
 
-    private async void ListView_DropCompleted(UIElement sender, Microsoft.UI.Xaml.Controls.Primitives.DropCompletedEventArgs args)
+    private async void ListView_DropCompleted(UIElement sender, DropCompletedEventArgs args)
     {
         // ListView.CanReorderItems automatically mutates the backing
         // ObservableCollection; persist the new order here.

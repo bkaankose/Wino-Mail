@@ -87,15 +87,21 @@ public class FolderService : BaseDatabaseService, IFolderService
         Messenger.Send(new AccountFolderConfigurationUpdated(accountId));
     }
 
+    private static int GetDefaultFolderOrder(MailItemFolder folder)
+        => folder.SpecialFolderType == SpecialFolderType.Other
+            ? int.MaxValue
+            : (int)folder.SpecialFolderType;
+
     /// <summary>
     /// Orders folders by user-set Order first (customized entries ahead of uncustomized ones),
-    /// then falls back to alphabetic folder name (culture-aware), then to SpecialFolderType
-    /// as a final canonical tiebreak.
+    /// then falls back to SpecialFolderType enum order for known special folders so defaults
+    /// like Inbox stay at the top, and finally to alphabetic folder name (culture-aware).
     /// </summary>
     private static IOrderedEnumerable<MailItemFolder> ApplyFolderSort(IEnumerable<MailItemFolder> folders)
         => folders
             .OrderBy(a => a.Order == 0 ? 1 : 0)
             .ThenBy(a => a.Order)
+            .ThenBy(GetDefaultFolderOrder)
             .ThenBy(a => a.FolderName, StringComparer.CurrentCultureIgnoreCase)
             .ThenBy(a => a.SpecialFolderType);
 

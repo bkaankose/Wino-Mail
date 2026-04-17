@@ -221,11 +221,11 @@
                     </StackPanel.ChildrenTransitions>
 
                     <muxc:InfoBar
-                        IsOpen="True"
+                        Title="{x:Bind domain:Translator.AccountDetailsPage_InitialSynchronization_Title}"
                         Margin="0,0,0,8"
+                        IsOpen="True"
                         Message="{x:Bind ViewModel.InitialSynchronizationSummary, Mode=OneWay}"
                         Severity="Informational"
-                        Title="{x:Bind domain:Translator.AccountDetailsPage_InitialSynchronization_Title}"
                         Visibility="{x:Bind ViewModel.IsInitialSynchronizationSummaryVisible, Mode=OneWay}" />
 
                     <controls:SettingsCard
@@ -248,15 +248,7 @@
                         </controls:SettingsCard.HeaderIcon>
                     </controls:SettingsCard>
 
-                    <controls:SettingsCard
-                        Command="{x:Bind ViewModel.CustomizeFolderListCommand}"
-                        Description="{x:Bind domain:Translator.FolderCustomization_EntryCardDescription}"
-                        Header="{x:Bind domain:Translator.FolderCustomization_EntryCardTitle}"
-                        IsClickEnabled="True">
-                        <controls:SettingsCard.HeaderIcon>
-                            <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8FD;" />
-                        </controls:SettingsCard.HeaderIcon>
-                    </controls:SettingsCard>
+
 
                     <controls:SettingsExpander Description="{x:Bind domain:Translator.SettingsFolderOptions_Description}" Header="{x:Bind domain:Translator.SettingsFolderOptions_Title}">
                         <controls:SettingsExpander.HeaderIcon>
@@ -264,13 +256,22 @@
                         </controls:SettingsExpander.HeaderIcon>
                         <controls:SettingsExpander.Items>
                             <controls:SettingsCard
-                                ActionIcon="Add"
+                                Command="{x:Bind ViewModel.CustomizeFolderListCommand}"
+                                Description="{x:Bind domain:Translator.FolderCustomization_EntryCardDescription}"
+                                Header="{x:Bind domain:Translator.FolderCustomization_EntryCardTitle}"
+                                IsClickEnabled="True">
+                                <controls:SettingsCard.HeaderIcon>
+                                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8FD;" />
+                                </controls:SettingsCard.HeaderIcon>
+                            </controls:SettingsCard>
+                            <controls:SettingsCard
+                                Command="{x:Bind ViewModel.SetupSpecialFoldersCommand}"
                                 Description="{x:Bind domain:Translator.SettingsConfigureSpecialFolders_Description}"
                                 Header="{x:Bind domain:Translator.SettingsConfigureSpecialFolders_Title}"
-                                IsActionIconVisible="True">
-                                <controls:SettingsCard.Content>
-                                    <Button Command="{x:Bind ViewModel.SetupSpecialFoldersCommand}" Content="{x:Bind domain:Translator.SettingConfigureSpecialFolders_Button}" />
-                                </controls:SettingsCard.Content>
+                                IsClickEnabled="True">
+                                <controls:SettingsCard.HeaderIcon>
+                                    <PathIcon Data="F1 M 10.019531 1.875 C 10.31901 1.875 10.618489 1.894531 10.917969 1.933594 C 11.230469 1.972656 11.536458 2.02474 11.835938 2.089844 C 11.966146 2.115887 12.070312 2.18099 12.148438 2.285156 C 12.239583 2.376303 12.291666 2.48698 12.304688 2.617188 L 12.460938 3.90625 C 12.473957 4.088542 12.532551 4.251303 12.636719 4.394531 C 12.740885 4.550782 12.871094 4.67448 13.027344 4.765625 C 13.183594 4.856771 13.352864 4.908854 13.535156 4.921875 C 13.717447 4.934896 13.893229 4.902344 14.0625 4.824219 L 15.234375 4.316406 C 15.351562 4.264323 15.47526 4.251303 15.605469 4.277344 C 15.735677 4.303386 15.846354 4.361979 15.9375 4.453125 C 16.354166 4.908854 16.71875 5.403646 17.03125 5.9375 C 17.34375 6.471355 17.591145 7.031251 17.773438 7.617188 C 17.786457 7.65625 17.792969 7.688803 17.792969 7.714844 C 17.792969 7.740886 17.792969 7.773438 17.792969 7.8125 C 17.792969 7.903646 17.773438 7.994792 17.734375 8.085938 C 17.695312 8.177084 17.630207 8.248698 17.539062 8.300781 L 16.503906 9.082031 C 16.360676 9.186198 16.25 9.316406 16.171875 9.472656 C 16.080729 9.641928 16.035156 9.817709 16.035156 10 C 16.035156 10.182292 16.080729 10.358073 16.171875 10.527344 C 16.25 10.683594 16.360676 10.813803 16.503906 10.917969 L 17.539062 11.699219 C 17.630207 11.751303 17.695312 11.822917 17.734375 11.914062 C 17.786457 12.005209 17.8125 12.096354 17.8125 12.1875 C 17.8125 12.226562 17.805988 12.259115 17.792969 12.285156 C 17.792969 12.311198 17.786457 12.34375 17.773438 12.382812 C 17.591145 12.96875 17.34375 13.528646 17.03125 14.0625 C 16.71875 14.596354 16.354166 15.091146 15.9375 15.546875 C 15.846354 15.638021 15.735677 15.696615 15.605469 15.722656 C 15.47526 15.748698 15.351562 15.735678 15.234375 15.683594 L 14.0625 15.175781 C 13.893229 15.097656 13.717447 15.065104 13.535156 15.078125 C 13.352864 15.091146 13.183594 15.143229 13.027344 15.234375 C 12.871094 15.325521 12.740885 15.442709 12.636719 15.585938 C 12.532551 15.742188 12.473957 15.911459 12.460938 16.09375 L 12.304688 17.363281 C 12.291666 17.49349 12.246094 17.610678 12.167969 17.714844 C 12.076822 17.81901 11.966146 17.884115 11.835938 17.910156 C 11.536458 17.97526 11.230469 18.027344 10.917969 18.066406 C 10.618489 18.105469 10.3125 18.125 10 18.125 C 9.6875 18.125 9.38151 18.105469 9.082031 18.066406 C 8.769531 18.027344 8.463541 17.97526 8.164062 17.910156 C 8.033854 17.884115 7.923177 17.81901 7.832031 17.714844 C 7.753906 17.610678 7.708333 17.49349 7.695312 17.363281 L 7.539062 16.09375 C 7.526042 15.911459 7.467448 15.748698 7.363281 15.605469 C 7.259114 15.449219 7.128906 15.325521 6.972656 15.234375 C 6.816406 15.143229 6.647135 15.091146 6.464844 15.078125 C 6.282552 15.065104 6.106771 15.097656 5.9375 15.175781 L 4.765625 15.683594 C 4.648438 15.735678 4.524739 15.748698 4.394531 15.722656 C 4.264323 15.696615 4.153646 15.638021 4.0625 15.546875 C 3.645833 15.091146 3.28125 14.596354 2.96875 14.0625 C 2.65625 13.528646 2.408854 12.96875 2.226562 12.382812 C 2.213542 12.34375 2.207031 12.311198 2.207031 12.285156 C 2.207031 12.259115 2.207031 12.226562 2.207031 12.1875 C 2.207031 12.096354 2.226562 12.005209 2.265625 11.914062 C 2.304688 11.822917 2.369792 11.751303 2.460938 11.699219 L 3.496094 10.917969 C 3.639323 10.813803 3.75 10.683594 3.828125 10.527344 C 3.919271 10.358073 3.964844 10.182292 3.964844 10 C 3.964844 9.817709 3.919271 9.641928 3.828125 9.472656 C 3.75 9.316406 3.639323 9.186198 3.496094 9.082031 L 2.460938 8.320312 C 2.369792 8.255209 2.304688 8.177084 2.265625 8.085938 C 2.226562 7.994792 2.207031 7.903646 2.207031 7.8125 C 2.207031 7.773438 2.207031 7.740886 2.207031 7.714844 C 2.207031 7.688803 2.213542 7.65625 2.226562 7.617188 C 2.408854 7.031251 2.65625 6.471355 2.96875 5.9375 C 3.28125 5.403646 3.645833 4.908854 4.0625 4.453125 C 4.153646 4.361979 4.264323 4.303386 4.394531 4.277344 C 4.524739 4.251303 4.648438 4.264323 4.765625 4.316406 L 5.9375 4.824219 C 6.106771 4.902344 6.282552 4.934896 6.464844 4.921875 C 6.647135 4.908854 6.816406 4.856771 6.972656 4.765625 C 7.141927 4.67448 7.272135 4.550782 7.363281 4.394531 C 7.467448 4.251303 7.526042 4.088542 7.539062 3.90625 L 7.695312 2.617188 C 7.708333 2.48698 7.760417 2.376303 7.851562 2.285156 C 7.942708 2.18099 8.053385 2.115887 8.183594 2.089844 C 8.483072 2.02474 8.782552 1.972656 9.082031 1.933594 C 9.38151 1.894531 9.69401 1.875 10.019531 1.875 Z M 10 7.5 C 9.544271 7.5 9.121094 7.610678 8.730469 7.832031 C 8.352864 8.053386 8.053385 8.352865 7.832031 8.730469 C 7.610677 9.121094 7.5 9.544271 7.5 10 C 7.5 10.455729 7.610677 10.878906 7.832031 11.269531 C 8.053385 11.647136 8.352864 11.946615 8.730469 12.167969 C 9.121094 12.389323 9.544271 12.5 10 12.5 C 10.455729 12.5 10.878906 12.389323 11.269531 12.167969 C 11.647135 11.946615 11.946614 11.647136 12.167969 11.269531 C 12.389322 10.878906 12.5 10.455729 12.5 10 C 12.5 9.544271 12.389322 9.121094 12.167969 8.730469 C 11.946614 8.352865 11.647135 8.053386 11.269531 7.832031 C 10.878906 7.610678 10.455729 7.5 10 7.5 Z " />
+                                </controls:SettingsCard.HeaderIcon>
                             </controls:SettingsCard>
                             <controls:SettingsCard
                                 HorizontalContentAlignment="Stretch"

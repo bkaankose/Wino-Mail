@@ -8,10 +8,10 @@ using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Calendar;
-using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Services;
@@ -221,7 +221,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
 
                     if (!string.IsNullOrEmpty(profileResult.ProfileInformation.AccountAddress))
                     {
-                        if (await _accountService.AccountAddressExistsAsync(profileResult.ProfileInformation.AccountAddress, _createdAccount.Id).ConfigureAwait(false))
+                        if (await _accountService.AccountAddressExistsAsync(profileResult.ProfileInformation.AccountAddress, _createdAccount.Id))
                             throw new InvalidOperationException(Translator.DialogMessage_AccountAddressExistsMessage);
 
                         _createdAccount.Address = profileResult.ProfileInformation.AccountAddress;

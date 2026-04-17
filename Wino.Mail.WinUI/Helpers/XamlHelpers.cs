@@ -52,6 +52,7 @@ public static class XamlHelpers
     public static Visibility CountToVisibilityConverterWithThreshold(int value, int threshold) => value > threshold ? Visibility.Visible : Visibility.Collapsed;
     public static ListViewSelectionMode BoolToSelectionMode(bool isSelectionMode) => isSelectionMode ? ListViewSelectionMode.Multiple : ListViewSelectionMode.None;
     public static string BoolToSelectionModeText(bool isSelectionMode) => isSelectionMode ? Translator.Buttons_Cancel : Translator.Buttons_Multiselect;
+    public static string ConditionalString(bool condition, string trueValue, string falseValue) => condition ? trueValue : falseValue;
 
     public static Microsoft.UI.Xaml.Media.Imaging.BitmapImage? Base64ToBitmapImage(string base64String)
     {
