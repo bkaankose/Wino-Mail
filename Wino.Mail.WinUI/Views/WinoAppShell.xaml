@@ -31,11 +31,11 @@
         <DataTemplate x:Key="ClickableAccountMenuTemplate" x:DataType="menu:AccountMenuItem">
             <controls:AccountNavigationItem
                 x:Name="AccountItem"
-                ContextRequested="AccountMenuItemContextRequested"
                 Height="50"
                 HorizontalContentAlignment="Stretch"
                 VerticalContentAlignment="Stretch"
                 BindingData="{x:Bind}"
+                ContextRequested="AccountMenuItemContextRequested"
                 DataContext="{x:Bind}"
                 IsActiveAccount="{x:Bind IsSelected, Mode=OneWay}"
                 IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
@@ -170,7 +170,7 @@
                     Margin="0,-2,0,0"
                     VerticalAlignment="Center"
                     FontSize="16"
-                    Style="{StaticResource FlyoutPickerTitleTextBlockStyle}"
+                    FontWeight="SemiBold"
                     Text="{x:Bind domain:Translator.MenuNewMail}" />
             </coreControls:WinoNavigationViewItem>
         </DataTemplate>
@@ -565,7 +565,7 @@
                                 Margin="0,-2,0,0"
                                 VerticalAlignment="Center"
                                 FontSize="16"
-                                Style="{StaticResource FlyoutPickerTitleTextBlockStyle}"
+                                FontWeight="SemiBold"
                                 Text="{x:Bind domain:Translator.CalendarEventCompose_NewEventButton, Mode=OneTime}" />
                         </coreControls:WinoNavigationViewItem>
 
@@ -587,7 +587,7 @@
                                 Margin="0,-2,0,0"
                                 VerticalAlignment="Center"
                                 FontSize="16"
-                                Style="{StaticResource FlyoutPickerTitleTextBlockStyle}"
+                                FontWeight="SemiBold"
                                 Text="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}" />
                         </coreControls:WinoNavigationViewItem>
 
@@ -727,7 +727,7 @@
                                     Margin="0,-2,0,0"
                                     VerticalAlignment="Center"
                                     FontSize="16"
-                                    Style="{StaticResource FlyoutPickerTitleTextBlockStyle}"
+                                    FontWeight="SemiBold"
                                     Text="{x:Bind domain:Translator.ContactsPane_NewContact, Mode=OneTime}" />
                             </coreControls:WinoNavigationViewItem>
 
