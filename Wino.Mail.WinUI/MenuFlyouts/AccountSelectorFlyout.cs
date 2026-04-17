@@ -9,7 +9,7 @@ using Wino.Helpers;
 
 namespace Wino.MenuFlyouts;
 
-public partial class AccountSelectorFlyout : MenuFlyout, IDisposable
+public partial class AccountSelectorFlyout : WinoMenuFlyout, IDisposable
 {
     private readonly IEnumerable<MailAccount> _accounts;
     private readonly Func<MailAccount, Task> _onItemSelection;

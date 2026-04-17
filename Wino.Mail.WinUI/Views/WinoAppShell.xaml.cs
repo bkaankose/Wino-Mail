@@ -534,7 +534,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
         args.Handled = true;
 
-        var flyout = new MenuFlyout();
+        var flyout = new WinoMenuFlyout();
 
         var manageAccountSettingsItem = new MenuFlyoutItem
         {

@@ -27,6 +27,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.WinUI;
+using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Controls.ListView;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
@@ -318,7 +319,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         double y)
     {
         var source = new TaskCompletionSource<MailContextAction?>();
-        var flyout = new MenuFlyout();
+        var flyout = new WinoMenuFlyout();
 
         foreach (var action in availableActions)
         {

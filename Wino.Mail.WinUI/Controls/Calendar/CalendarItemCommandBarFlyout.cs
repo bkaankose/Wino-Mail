@@ -60,7 +60,7 @@ public partial class CalendarItemCommandBarFlyout : CommandBarFlyout
 
         if (menuItem.HasChildren)
         {
-            var flyout = new MenuFlyout();
+            var flyout = new WinoMenuFlyout();
             PopulateMenuFlyoutItems(flyout.Items, menuItem.Children);
             button.Flyout = flyout;
         }

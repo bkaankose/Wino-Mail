@@ -80,7 +80,12 @@
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 CornerRadius="8">
-                <StackPanel Spacing="10">
+                <Grid RowSpacing="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
                     <StackPanel Spacing="2">
                         <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_Title}" />
                         <TextBlock
@@ -90,31 +95,29 @@
                             TextWrapping="WrapWholeWords" />
                     </StackPanel>
 
-                    <ListView
+                    <GridView
+                        Grid.Row="1"
                         HorizontalAlignment="Center"
-                        HorizontalContentAlignment="Stretch"
                         ItemsSource="{x:Bind ViewModel.InitialSynchronizationRanges, Mode=OneWay}"
                         SelectedItem="{x:Bind ViewModel.SelectedInitialSynchronizationRange, Mode=TwoWay}">
-                        <ListView.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <ItemsStackPanel Orientation="Horizontal" />
-                            </ItemsPanelTemplate>
-                        </ListView.ItemsPanel>
-                        <ListView.ItemTemplate>
+                        <GridView.ItemTemplate>
                             <DataTemplate x:DataType="accounts:InitialSynchronizationRangeOption">
-                                <TextBlock Text="{x:Bind DisplayText}" />
+                                <Grid Padding="12">
+                                    <TextBlock Text="{x:Bind DisplayText}" />
+                                </Grid>
                             </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
+                        </GridView.ItemTemplate>
+                    </GridView>
 
                     <muxc:InfoBar
                         Title="{x:Bind domain:Translator.GeneralTitle_Warning}"
+                        Grid.Row="2"
                         Margin="0,2,0,0"
                         IsOpen="True"
                         Message="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_EverythingWarning}"
                         Severity="Warning"
                         Visibility="{x:Bind ViewModel.IsInitialSynchronizationWarningVisible, Mode=OneWay}" />
-                </StackPanel>
+                </Grid>
             </Border>
 
             <!--  Provider List  -->

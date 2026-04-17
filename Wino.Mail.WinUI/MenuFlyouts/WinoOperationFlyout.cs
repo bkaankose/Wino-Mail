@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Microsoft.UI.Xaml.Controls;
+using Wino.Mail.WinUI.Controls;
 
 namespace Wino.MenuFlyouts;
 
-public partial class WinoOperationFlyout<TActionType> : MenuFlyout, IDisposable where TActionType : class
+public partial class WinoOperationFlyout<TActionType> : WinoMenuFlyout, IDisposable where TActionType : class
 {
     public TActionType ClickedOperation { get; set; } = null!;
 

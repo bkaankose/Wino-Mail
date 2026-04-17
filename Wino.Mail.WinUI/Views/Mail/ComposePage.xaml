@@ -35,7 +35,7 @@
                 Background="Transparent"
                 ColumnSpacing="3">
                 <Grid.ContextFlyout>
-                    <MenuFlyout>
+                    <coreControls:WinoMenuFlyout>
                         <MenuFlyoutItem
                             Click="OpenAttachment_Click"
                             CommandParameter="{x:Bind}"
@@ -44,7 +44,7 @@
                             Click="SaveAttachment_Click"
                             CommandParameter="{x:Bind}"
                             Text="{x:Bind domain:Translator.Buttons_Save}" />
-                    </MenuFlyout>
+                    </coreControls:WinoMenuFlyout>
                 </Grid.ContextFlyout>
                 <ToolTipService.ToolTip>
                     <ToolTip Content="{x:Bind FileName}" />

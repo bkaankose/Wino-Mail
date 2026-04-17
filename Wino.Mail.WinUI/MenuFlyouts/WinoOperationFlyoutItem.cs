@@ -3,8 +3,8 @@ using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Menus;
-using Wino.Mail.WinUI.Controls;
 using Wino.Helpers;
+using Wino.Mail.WinUI.Controls;
 
 namespace Wino.MenuFlyouts;
 
@@ -17,6 +17,8 @@ public partial class WinoOperationFlyoutItem<TOperationMenuItem> : MenuFlyoutIte
     {
         Operation = operationMenuItem;
         IsEnabled = operationMenuItem.IsEnabled;
+
+        MenuFlyoutLanguageHelper.Apply(this);
 
         if (Operation is FolderOperationMenuItem folderOperationMenuItem)
         {

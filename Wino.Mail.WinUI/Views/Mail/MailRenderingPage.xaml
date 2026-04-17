@@ -80,7 +80,7 @@
                         <ToolTip Content="{x:Bind FileName}" />
                     </ToolTipService.ToolTip>
                     <Grid.ContextFlyout>
-                        <MenuFlyout Placement="Right">
+                        <coreControls:WinoMenuFlyout Placement="Right">
                             <MenuFlyoutItem
                                 Click="OpenAttachment_Click"
                                 CommandParameter="{x:Bind}"
@@ -97,7 +97,7 @@
                                     <PathIcon Data="{StaticResource SaveAttachmentPathIcon}" />
                                 </MenuFlyoutItem.Icon>
                             </MenuFlyoutItem>
-                        </MenuFlyout>
+                        </coreControls:WinoMenuFlyout>
                     </Grid.ContextFlyout>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="40" />

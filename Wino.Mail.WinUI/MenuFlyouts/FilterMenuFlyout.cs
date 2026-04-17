@@ -9,7 +9,7 @@ using Wino.Helpers;
 
 namespace Wino.MenuFlyouts;
 
-public partial class FilterMenuFlyout : MenuFlyout
+public partial class FilterMenuFlyout : WinoMenuFlyout
 {
     public static readonly DependencyProperty SelectedFilterChangedCommandProperty = DependencyProperty.Register(nameof(SelectedFilterChangedCommand), typeof(IRelayCommand<FilterOption>), typeof(FilterMenuFlyout), new PropertyMetadata(null));
     public static readonly DependencyProperty FilterOptionsProperty = DependencyProperty.Register(nameof(FilterOptions), typeof(List<FilterOption>), typeof(FilterMenuFlyout), new PropertyMetadata(null, new PropertyChangedCallback(OnOptionsChanged)));

@@ -5,6 +5,7 @@
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:controls1="using:Wino.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:coreSelectors="using:Wino.Mail.WinUI.Selectors"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Core.ViewModels.Data"
@@ -56,7 +57,7 @@
                 CornerRadius="6"
                 RowSpacing="0">
                 <Grid.ContextFlyout>
-                    <MenuFlyout Placement="BottomEdgeAlignedRight">
+                    <coreControls:WinoMenuFlyout Placement="BottomEdgeAlignedRight">
                         <MenuFlyoutItem
                             Command="{Binding ElementName=root, Path=ViewModel.DeleteCustomThemeCommand}"
                             CommandParameter="{x:Bind}"
@@ -65,7 +66,7 @@
                                 <SymbolIcon Symbol="Delete" />
                             </MenuFlyoutItem.Icon>
                         </MenuFlyoutItem>
-                    </MenuFlyout>
+                    </coreControls:WinoMenuFlyout>
                 </Grid.ContextFlyout>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="125" />
