@@ -626,7 +626,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
             {
                 await WebViewEditor.FocusEditorAsync(true);
 
-                if (FocusManager.GetFocusedElement(XamlRoot) is WebView2)
+                if (FocusManager.GetFocusedElement() is WebView2)
                 {
                     return;
                 }
@@ -635,7 +635,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
             {
                 ToBox.Focus(FocusState.Programmatic);
 
-                if (FocusManager.GetFocusedElement(XamlRoot) == ToBox)
+                if (FocusManager.GetFocusedElement() == ToBox)
                 {
                     return;
                 }
