@@ -400,3 +400,4 @@ Wino/obj/x86/Debug/XamlSaveStateFile.xml
 *.cache
 .vs/Wino/v16/.suo
 /.claude/settings.local.json
+scripts/translate_resources.local.bat
