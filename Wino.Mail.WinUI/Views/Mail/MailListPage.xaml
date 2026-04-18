@@ -247,6 +247,14 @@
                         Grid.Column="2"
                         Orientation="Horizontal">
                         <Button
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Command="{x:Bind ViewModel.EmptyFolderCommand}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.FolderOperation_Empty}"
+                            Visibility="{x:Bind ViewModel.IsEmptyFolderButtonVisible, Mode=OneWay}">
+                            <coreControls:WinoFontIcon FontSize="18" Icon="EmptyFolder" />
+                        </Button>
+                        <Button
                             Width="36"
                             Height="36"
                             Background="Transparent"

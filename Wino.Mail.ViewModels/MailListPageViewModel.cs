@@ -159,10 +159,14 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     [NotifyPropertyChangedFor(nameof(IsFolderSynchronizationEnabled))]
     [NotifyPropertyChangedFor(nameof(IsCategoryView))]
     [NotifyPropertyChangedFor(nameof(IsSyncButtonVisible))]
+    [NotifyPropertyChangedFor(nameof(IsJunkFolder))]
+    [NotifyPropertyChangedFor(nameof(IsEmptyFolderButtonVisible))]
+    [NotifyCanExecuteChangedFor(nameof(EmptyFolderCommand))]
     public partial IBaseFolderMenuItem ActiveFolder { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSynchronize))]
+    [NotifyCanExecuteChangedFor(nameof(EmptyFolderCommand))]
     public partial bool IsAccountSynchronizerInSynchronization { get; set; }
 
     public MailListPageViewModel(IMailDialogService dialogService,
@@ -285,8 +289,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     public bool CanSynchronize => !IsCategoryView && !IsAccountSynchronizerInSynchronization && IsFolderSynchronizationEnabled;
     public bool IsFolderSynchronizationEnabled => ActiveFolder?.IsSynchronizationEnabled ?? false;
     public bool IsArchiveSpecialFolder => ActiveFolder?.SpecialFolderType == SpecialFolderType.Archive;
+    public bool IsJunkFolder => ActiveFolder?.SpecialFolderType == SpecialFolderType.Junk;
     public bool IsCategoryView => ActiveFolder is IMailCategoryMenuItem or IMergedMailCategoryMenuItem;
     public bool IsSyncButtonVisible => !IsCategoryView;
+    public bool IsEmptyFolderButtonVisible => IsJunkFolder;
 
     public string SelectedMessageText => IsDragInProgress
         ? string.Format(Translator.MailsDragging, DraggingItemsCount)
@@ -565,6 +571,20 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             await _folderService.ChangeFolderSynchronizationStateAsync(folder.Id, true);
         }
     }
+
+    [RelayCommand(CanExecute = nameof(CanEmptyFolder))]
+    private async Task EmptyFolderAsync()
+    {
+        if (!IsJunkFolder || ActiveFolder == null) return;
+
+        foreach (var folder in ActiveFolder.HandlingFolders.OfType<MailItemFolder>())
+        {
+            var folderPrepRequest = new FolderOperationPreperationRequest(FolderOperation.Empty, folder);
+            await _winoRequestDelegator.ExecuteAsync(folderPrepRequest);
+        }
+    }
+
+    private bool CanEmptyFolder() => IsJunkFolder && !IsAccountSynchronizerInSynchronization;
 
     [RelayCommand(CanExecute = nameof(CanLoadMoreItems))]
     private async Task LoadMoreItemsAsync()
