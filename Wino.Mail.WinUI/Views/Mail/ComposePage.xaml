@@ -162,12 +162,12 @@
                             </AppBarButton>
                             <AppBarToggleButton
                                 x:Name="ComposeAiActionsToggleButton"
-                                Checked="ComposeAiActionsToggleButton_Checked"
                                 MinWidth="40"
                                 HorizontalContentAlignment="Center"
+                                Checked="ComposeAiActionsToggleButton_Checked"
                                 LabelPosition="Collapsed"
-                                Visibility="{x:Bind GetAiActionsToggleVisibility(ViewModel.PreferencesService.IsAiActionsPanelHidden), Mode=OneWay}"
-                                ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AiActions}">
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AiActions}"
+                                Visibility="{x:Bind GetAiActionsToggleVisibility(ViewModel.PreferencesService.IsAiActionsPanelHidden), Mode=OneWay}">
                                 <AppBarToggleButton.Icon>
                                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE945;" />
                                 </AppBarToggleButton.Icon>

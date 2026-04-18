@@ -1,8 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
+using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
@@ -26,6 +31,10 @@ namespace Wino.Mail.ViewModels;
 
 public partial class AccountManagementViewModel : AccountManagementPageViewModelBase
 {
+    private const string LocalExportFileName = "wino-data-export.json";
+    private static readonly UTF8Encoding Utf8WithoutBom = new(false);
+
+    private readonly IWinoAccountDataSyncService _syncService;
     private readonly IWinoLogger _winoLogger;
     private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
     private readonly ICalDavClient _calDavClient;
@@ -38,6 +47,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                                       IProviderService providerService,
                                       IStoreManagementService storeManagementService,
                                       IWinoAccountProfileService winoAccountProfileService,
+                                      IWinoAccountDataSyncService syncService,
                                       IWinoLogger winoLogger,
                                       ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
                                       ICalDavClient calDavClient,
@@ -45,10 +55,16 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                                       IPreferencesService preferencesService) : base(dialogService, navigationService, accountService, providerService, storeManagementService, winoAccountProfileService, authenticationProvider, preferencesService)
     {
         MailDialogService = dialogService;
+        _syncService = syncService;
         _winoLogger = winoLogger;
         _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
         _calDavClient = calDavClient;
     }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ExportLocalDataCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ImportLocalDataCommand))]
+    public partial bool IsDataTransferInProgress { get; set; }
 
     [RelayCommand]
     private async Task CreateMergedAccountAsync()
@@ -208,6 +224,95 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     [RelayCommand(CanExecute = nameof(CanReorderAccounts))]
     private Task ReorderAccountsAsync() => MailDialogService.ShowAccountReorderDialogAsync(availableAccounts: Accounts);
 
+    [RelayCommand(CanExecute = nameof(CanTransferLocalData))]
+    private async Task ExportLocalDataAsync()
+    {
+        try
+        {
+            var exportPath = await ExecuteUIThreadTaskAsync(
+                () => MailDialogService.PickFilePathAsync(LocalExportFileName))
+                .ConfigureAwait(false);
+
+            if (string.IsNullOrWhiteSpace(exportPath))
+            {
+                return;
+            }
+
+            await ExecuteUIThread(() => IsDataTransferInProgress = true);
+
+            var exportResult = await _syncService.ExportToJsonAsync(new()).ConfigureAwait(false);
+            await File.WriteAllTextAsync(exportPath, exportResult.JsonContent, Utf8WithoutBom).ConfigureAwait(false);
+
+            DialogService.InfoBarMessage(
+                Translator.GeneralTitle_Info,
+                $"{BuildExportSuccessMessage(exportResult.ExportResult)} {string.Format(Translator.WinoAccount_Management_LocalDataSaved, exportPath)}",
+                InfoBarMessageType.Success);
+        }
+        catch (Exception ex)
+        {
+            DialogService.InfoBarMessage(
+                Translator.GeneralTitle_Error,
+                ex.Message,
+                InfoBarMessageType.Error);
+        }
+        finally
+        {
+            await ExecuteUIThread(() => IsDataTransferInProgress = false);
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanTransferLocalData))]
+    private async Task ImportLocalDataAsync()
+    {
+        try
+        {
+            var fileContent = await ExecuteUIThreadTaskAsync(
+                () => MailDialogService.PickWindowsFileContentAsync(".json"))
+                .ConfigureAwait(false);
+
+            if (fileContent.Length == 0)
+            {
+                return;
+            }
+
+            await ExecuteUIThread(() => IsDataTransferInProgress = true);
+
+            var jsonContent = Encoding.UTF8.GetString(fileContent);
+            var result = await _syncService.ImportFromJsonAsync(jsonContent).ConfigureAwait(false);
+
+            await InitializeAccountsAsync().ConfigureAwait(false);
+
+            var messageType = result.FailedPreferenceCount > 0
+                ? InfoBarMessageType.Warning
+                : InfoBarMessageType.Success;
+
+            DialogService.InfoBarMessage(
+                result.FailedPreferenceCount > 0 ? Translator.GeneralTitle_Warning : Translator.GeneralTitle_Info,
+                BuildImportMessage(result),
+                messageType);
+        }
+        catch (JsonException)
+        {
+            DialogService.InfoBarMessage(
+                Translator.GeneralTitle_Error,
+                Translator.WinoAccount_Management_LocalDataInvalidFile,
+                InfoBarMessageType.Error);
+        }
+        catch (Exception ex)
+        {
+            DialogService.InfoBarMessage(
+                Translator.GeneralTitle_Error,
+                ex.Message,
+                InfoBarMessageType.Error);
+        }
+        finally
+        {
+            await ExecuteUIThread(() => IsDataTransferInProgress = false);
+        }
+    }
+
+    private bool CanTransferLocalData() => !IsDataTransferInProgress;
+
     public override void OnNavigatedFrom(NavigationMode mode, object parameters)
     {
         base.OnNavigatedFrom(mode, parameters);
@@ -293,5 +398,61 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
 
         await ManageStorePurchasesAsync().ConfigureAwait(false);
+    }
+
+    private static string BuildExportSuccessMessage(Wino.Core.Domain.Models.Accounts.WinoAccountSyncExportResult result)
+    {
+        var parts = new Collection<string>();
+
+        if (result.IncludedPreferences)
+        {
+            parts.Add(Translator.WinoAccount_Management_ExportPreferencesSucceeded);
+        }
+
+        if (result.IncludedAccounts)
+        {
+            parts.Add(string.Format(Translator.WinoAccount_Management_ExportAccountsSucceeded, result.ExportedMailboxCount));
+        }
+
+        if (parts.Count == 0)
+        {
+            parts.Add(Translator.WinoAccount_Management_ExportSucceeded);
+        }
+
+        return string.Join(" ", parts);
+    }
+
+    private static string BuildImportMessage(Wino.Core.Domain.Models.Accounts.WinoAccountSyncImportResult result)
+    {
+        var parts = new Collection<string>();
+
+        if (result.HadRemotePreferences)
+        {
+            parts.Add(result.FailedPreferenceCount > 0
+                ? string.Format(Translator.WinoAccount_Management_ImportPartial, result.AppliedPreferenceCount, result.FailedPreferenceCount)
+                : string.Format(Translator.WinoAccount_Management_ImportPreferencesSucceeded, result.AppliedPreferenceCount));
+        }
+
+        if (result.ImportedMailboxCount > 0)
+        {
+            parts.Add(string.Format(Translator.WinoAccount_Management_ImportAccountsSucceeded, result.ImportedMailboxCount));
+        }
+
+        if (result.SkippedDuplicateMailboxCount > 0)
+        {
+            parts.Add(string.Format(Translator.WinoAccount_Management_ImportDuplicateAccountsSkipped, result.SkippedDuplicateMailboxCount));
+        }
+
+        if (parts.Count == 0)
+        {
+            parts.Add(Translator.WinoAccount_Management_ImportEmpty);
+        }
+
+        if (result.ImportedMailboxCount > 0)
+        {
+            parts.Add(Translator.WinoAccount_Management_ImportReloginReminder);
+        }
+
+        return string.Join(" ", parts);
     }
 }

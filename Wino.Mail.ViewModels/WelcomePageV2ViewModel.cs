@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -27,6 +30,7 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(GetStartedCommand))]
     [NotifyCanExecuteChangedFor(nameof(ImportFromWinoAccountCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ImportFromJsonCommand))]
     public partial bool IsImportInProgress { get; set; }
 
     [ObservableProperty]
@@ -90,6 +94,49 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
             }
 
             await ExecuteUIThread(() => ImportStatusMessage = BuildInlineImportMessage(result));
+        }
+        catch (Exception ex)
+        {
+            await _dialogService.ShowMessageAsync(ex.Message, Translator.GeneralTitle_Error, WinoCustomMessageDialogIcon.Error);
+        }
+        finally
+        {
+            await ExecuteUIThread(() => IsImportInProgress = false);
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanOpenWelcomeActions))]
+    private async Task ImportFromJsonAsync()
+    {
+        await ExecuteUIThread(() => ImportStatusMessage = string.Empty);
+
+        try
+        {
+            var fileContent = await _dialogService.PickWindowsFileContentAsync(".json");
+            if (fileContent.Length == 0)
+            {
+                return;
+            }
+
+            await ExecuteUIThread(() => IsImportInProgress = true);
+
+            var jsonContent = Encoding.UTF8.GetString(fileContent);
+            var result = await _syncService.ImportFromJsonAsync(jsonContent);
+            if (result.ImportedMailboxCount > 0)
+            {
+                ReportUIChange(new WelcomeImportCompletedMessage(result.ImportedMailboxCount));
+                return;
+            }
+
+            await ExecuteUIThread(() => ImportStatusMessage = BuildInlineImportMessage(result));
+        }
+        catch (JsonException ex)
+        {
+            Debug.WriteLine(ex.Message);
+            await _dialogService.ShowMessageAsync(
+                Translator.WinoAccount_Management_LocalDataInvalidFile,
+                Translator.GeneralTitle_Error,
+                WinoCustomMessageDialogIcon.Error);
         }
         catch (Exception ex)
         {

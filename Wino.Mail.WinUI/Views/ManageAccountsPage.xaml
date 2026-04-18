@@ -4,7 +4,9 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:winuiControls="using:CommunityToolkit.WinUI.Controls"
     Style="{StaticResource PageStyle}"
     mc:Ignorable="d">
 
@@ -12,6 +14,22 @@
         <Grid
             MaxWidth="900"
             Padding="20"
-            HorizontalAlignment="Stretch" />
+            HorizontalAlignment="Stretch">
+            <winuiControls:SettingsCard
+                Description="{x:Bind domain:Translator.WinoAccount_Management_LocalDataSectionDescription}"
+                Header="{x:Bind domain:Translator.WinoAccount_Management_LocalDataSectionTitle}">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <Button
+                        Command="{x:Bind ViewModel.ImportLocalDataCommand}"
+                        Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataImportAction}" />
+                    <Button
+                        Command="{x:Bind ViewModel.ExportLocalDataCommand}"
+                        Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataExportAction}" />
+                </StackPanel>
+                <winuiControls:SettingsCard.HeaderIcon>
+                    <SymbolIcon Symbol="Sync" />
+                </winuiControls:SettingsCard.HeaderIcon>
+            </winuiControls:SettingsCard>
+        </Grid>
     </Border>
 </abstract:ManageAccountsPageAbstract>

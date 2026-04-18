@@ -221,6 +221,21 @@
                             </winuiControls:SettingsCard.HeaderIcon>
                         </winuiControls:SettingsCard>
                         <winuiControls:SettingsCard
+                            Description="{x:Bind domain:Translator.WinoAccount_Management_LocalDataSectionDescription}"
+                            Header="{x:Bind domain:Translator.WinoAccount_Management_LocalDataSectionTitle}">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <Button
+                                    Command="{x:Bind ViewModel.ImportLocalDataCommand}"
+                                    Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataImportAction}" />
+                                <Button
+                                    Command="{x:Bind ViewModel.ExportLocalDataCommand}"
+                                    Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataExportAction}" />
+                            </StackPanel>
+                            <winuiControls:SettingsCard.HeaderIcon>
+                                <SymbolIcon Symbol="Sync" />
+                            </winuiControls:SettingsCard.HeaderIcon>
+                        </winuiControls:SettingsCard>
+                        <winuiControls:SettingsCard
                             Command="{x:Bind ViewModel.CreateMergedAccountCommand}"
                             Description="{x:Bind domain:Translator.SettingsLinkAccounts_Description}"
                             Header="{x:Bind domain:Translator.SettingsLinkAccounts_Title}"

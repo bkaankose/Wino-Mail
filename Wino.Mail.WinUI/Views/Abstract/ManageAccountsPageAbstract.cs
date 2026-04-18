@@ -1,7 +1,7 @@
-using Wino.Core.ViewModels;
+using Wino.Mail.ViewModels;
 
 namespace Wino.Mail.WinUI.Views.Abstract;
 
-public abstract class ManageAccountsPageAbstract : BasePage<ManageAccountsPagePageViewModel>
+public abstract class ManageAccountsPageAbstract : BasePage<AccountManagementViewModel>
 {
 }

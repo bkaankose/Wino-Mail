@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -600,6 +601,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(ApiEnvelope<UserMailboxSyncListDto>))]
 [JsonSerializable(typeof(ApiEnvelope<JsonElement>))]
 [JsonSerializable(typeof(ReplaceUserMailboxesRequestDto))]
+[JsonSerializable(typeof(List<UserMailboxSyncItemDto>))]
 internal sealed partial class WinoAccountApiJsonContext : JsonSerializerContext;
 
 internal sealed record SyncStoreEntitlementsRequest(string? StoreIdKey, string? PurchaseIdKey);
