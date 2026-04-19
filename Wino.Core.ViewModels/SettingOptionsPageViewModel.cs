@@ -160,7 +160,10 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
     public void NavigateToAddAccount()
     {
         Messenger.Send(new BreadcrumbNavigationRequested(Translator.SettingsManageAccountSettings_Title, WinoPage.ManageAccountsPage));
-        Messenger.Send(new BreadcrumbNavigationRequested(Translator.WelcomeWizard_Step2Title, WinoPage.ProviderSelectionPage));
+        Messenger.Send(new BreadcrumbNavigationRequested(
+            Translator.WelcomeWizard_Step2Title,
+            WinoPage.ProviderSelectionPage,
+            ProviderSelectionNavigationContext.CreateForSettingsAddAccount()));
     }
 
     public void NavigateToManageAccounts()

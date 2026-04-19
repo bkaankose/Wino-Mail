@@ -141,7 +141,9 @@ public static class SettingsNavigationInfoProvider
     public static SettingsNavigationItemInfo GetInfo(WinoPage pageType, string manageAccountsDescription = "")
     {
         var rootPage = GetRootPage(pageType);
-        return GetNavigationItems(manageAccountsDescription).First(item => item.PageType == rootPage);
+        return GetNavigationItems(manageAccountsDescription)
+            .FirstOrDefault(item => item.PageType == rootPage)
+            ?? GetNavigationItems(manageAccountsDescription).First(item => item.PageType == WinoPage.SettingOptionsPage);
     }
 
     public static string GetPageTitle(WinoPage pageType)
@@ -180,6 +182,9 @@ public static class SettingsNavigationInfoProvider
             WinoPage.MailCategoryManagementPage => WinoPage.ManageAccountsPage,
             WinoPage.SignatureManagementPage => WinoPage.ManageAccountsPage,
             WinoPage.ImapCalDavSettingsPage => WinoPage.ManageAccountsPage,
+            WinoPage.ProviderSelectionPage => WinoPage.ManageAccountsPage,
+            WinoPage.SpecialImapCredentialsPage => WinoPage.ManageAccountsPage,
+            WinoPage.AccountSetupProgressPage => WinoPage.ManageAccountsPage,
             WinoPage.CreateEmailTemplatePage => WinoPage.EmailTemplatesPage,
             WinoPage.CalendarSettingsPage => WinoPage.CalendarPreferenceSettingsPage,
             WinoPage.CalendarAccountSettingsPage => WinoPage.CalendarPreferenceSettingsPage,

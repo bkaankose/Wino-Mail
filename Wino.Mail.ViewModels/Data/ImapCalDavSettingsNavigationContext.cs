@@ -10,7 +10,8 @@ public enum ImapCalDavSettingsPageMode
 {
     Create,
     Edit,
-    Wizard
+    Wizard,
+    AddAccount
 }
 
 public sealed class ImapCalDavSettingsNavigationContext
@@ -42,6 +43,14 @@ public sealed class ImapCalDavSettingsNavigationContext
         => new()
         {
             Mode = ImapCalDavSettingsPageMode.Wizard,
+            AccountCreationDialogResult = accountCreationDialogResult
+        };
+
+    public static ImapCalDavSettingsNavigationContext CreateForAddAccountMode(
+        AccountCreationDialogResult accountCreationDialogResult)
+        => new()
+        {
+            Mode = ImapCalDavSettingsPageMode.AddAccount,
             AccountCreationDialogResult = accountCreationDialogResult
         };
 

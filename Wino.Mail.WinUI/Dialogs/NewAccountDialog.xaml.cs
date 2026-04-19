@@ -8,6 +8,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Validation;
 using Wino.Core.ViewModels.Data;
 using Wino.Helpers;
 
@@ -208,7 +209,7 @@ public sealed partial class NewAccountDialog : ContentDialog
             && !string.IsNullOrEmpty(AccountNameTextbox.Text)
             && (IsSpecialImapServerPartVisible ? (!string.IsNullOrEmpty(AppSpecificPassword.Password)
             && !string.IsNullOrEmpty(DisplayNameTextBox.Text)
-            && EmailValidation.EmailValidator.Validate(SpecialImapAddress.Text)) : true);
+            && MailAccountAddressValidator.IsValid(SpecialImapAddress.Text)) : true);
 
         IsPrimaryButtonEnabled = shouldEnable;
     }

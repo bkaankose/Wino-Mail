@@ -21,6 +21,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     private readonly IDialogServiceBase _dialogService;
     private readonly IProviderService _providerService;
     private readonly INewThemeService _themeService;
+    private ProviderSelectionHostMode _hostMode = ProviderSelectionHostMode.Wizard;
 
     public WelcomeWizardContext WizardContext { get; }
 
@@ -73,6 +74,16 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     public override void OnNavigatedTo(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
+
+        var navigationContext = parameters as ProviderSelectionNavigationContext
+                                ?? ProviderSelectionNavigationContext.CreateForWizard();
+
+        _hostMode = navigationContext.HostMode;
+
+        if (mode != NavigationMode.Back)
+        {
+            WizardContext.Reset();
+        }
 
         Providers = _providerService.GetAvailableProviders();
         AvailableColors = _themeService.GetAvailableAccountColors()
@@ -135,9 +146,11 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
 
         if (WizardContext.IsGenericImap)
         {
-            // Navigate to ImapCalDavSettingsPage in wizard mode
-            var context = ImapCalDavSettingsNavigationContext.CreateForWizardMode(
-                WizardContext.BuildAccountCreationDialogResult());
+            var context = _hostMode == ProviderSelectionHostMode.SettingsAddAccount
+                ? ImapCalDavSettingsNavigationContext.CreateForAddAccountMode(
+                    WizardContext.BuildAccountCreationDialogResult())
+                : ImapCalDavSettingsNavigationContext.CreateForWizardMode(
+                    WizardContext.BuildAccountCreationDialogResult());
 
             Messenger.Send(new BreadcrumbNavigationRequested(
                 Translator.ImapCalDavSettingsPage_TitleCreate,

@@ -11,6 +11,7 @@ using Serilog;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.AutoDiscovery;
+using Wino.Core.Domain.Validation;
 
 namespace Wino.Core.Services;
 
@@ -450,6 +451,9 @@ public class AutoDiscoveryService : IAutoDiscoveryService
 
     private async Task<bool> HasAnyDnsAddressRecordAsync(string host, CancellationToken cancellationToken)
     {
+        if (MailAccountAddressValidator.IsImplicitlyResolvableHost(host))
+            return true;
+
         var aRecords = await QueryDnsAsync(host, "A", cancellationToken).ConfigureAwait(false);
         if (aRecords.Count > 0)
             return true;

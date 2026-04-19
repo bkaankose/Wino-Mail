@@ -123,7 +123,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         catch (ImapClientPoolException clientPoolException)
         {
             _logger.Error(clientPoolException, "IMAP connectivity test failed");
-            return ImapConnectivityTestResults.Failure(clientPoolException);
+            return ImapConnectivityTestResults.Failure(clientPoolException.InnerException ?? clientPoolException);
         }
         catch (Exception exception)
         {

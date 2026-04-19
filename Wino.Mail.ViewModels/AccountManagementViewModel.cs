@@ -103,7 +103,10 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
             return;
         }
 
-        Messenger.Send(new BreadcrumbNavigationRequested(Translator.WelcomeWizard_Step2Title, WinoPage.ProviderSelectionPage));
+        Messenger.Send(new BreadcrumbNavigationRequested(
+            Translator.WelcomeWizard_Step2Title,
+            WinoPage.ProviderSelectionPage,
+            ProviderSelectionNavigationContext.CreateForSettingsAddAccount()));
     }
 
     public Task StartAddNewAccountAsync() => AddNewAccountAsync();

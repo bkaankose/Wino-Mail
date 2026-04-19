@@ -8,6 +8,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Validation;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
 
@@ -99,7 +100,7 @@ public partial class SpecialImapCredentialsPageViewModel : MailBaseViewModel
     {
         CanProceed = !string.IsNullOrWhiteSpace(DisplayName)
             && !string.IsNullOrWhiteSpace(EmailAddress)
-            && EmailValidation.EmailValidator.Validate(EmailAddress ?? string.Empty)
+            && MailAccountAddressValidator.IsValid(EmailAddress)
             && !string.IsNullOrWhiteSpace(AppSpecificPassword);
     }
 

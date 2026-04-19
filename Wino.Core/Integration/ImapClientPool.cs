@@ -58,6 +58,7 @@ public class ImapClientPool : IDisposable
     private readonly int _targetMinimumConnections;
 
     private DateTime _lastKeepAliveSentUtc = DateTime.MinValue;
+    private Exception _lastConnectionException;
     private WinoImapClient _dedicatedIdleClient;
     private bool _disposedValue;
     private bool _initialized;
@@ -114,7 +115,7 @@ public class ImapClientPool : IDisposable
             var initialClient = await CreateAndConnectClientAsync(cancellationToken).ConfigureAwait(false);
             if (initialClient == null)
             {
-                throw CreatePoolException("Failed to create initial IMAP connection for the pool.");
+                throw CreatePoolException("Failed to create initial IMAP connection for the pool.", _lastConnectionException);
             }
 
             _clientStates[initialClient] = ImapClientState.Available;
@@ -192,6 +193,7 @@ public class ImapClientPool : IDisposable
                         }
                         catch (Exception ex)
                         {
+                            _lastConnectionException = ex;
                             _logger.Warning(ex, "Pooled IMAP client was not ready. Marking as failed.");
                             MarkClientAsFailed(pooledClient);
                         }
@@ -215,12 +217,12 @@ public class ImapClientPool : IDisposable
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            throw CreatePoolException($"Timed out while acquiring an IMAP client after {timeout.TotalSeconds:F1} seconds. Failures: {createFailures}.");
+            throw CreatePoolException($"Timed out while acquiring an IMAP client after {timeout.TotalSeconds:F1} seconds. Failures: {createFailures}.", _lastConnectionException);
         }
 
         throw cancellationToken.IsCancellationRequested
             ? new OperationCanceledException(cancellationToken)
-            : CreatePoolException($"Failed to acquire IMAP client within {timeout.TotalSeconds:F1} seconds. Failures: {createFailures}.");
+            : CreatePoolException($"Failed to acquire IMAP client within {timeout.TotalSeconds:F1} seconds. Failures: {createFailures}.", _lastConnectionException);
     }
 
     /// <summary>
@@ -516,14 +518,17 @@ public class ImapClientPool : IDisposable
     private async Task<WinoImapClient> CreateAndConnectClientAsync(CancellationToken cancellationToken)
     {
         var client = CreateNewClient();
+        _lastConnectionException = null;
 
         try
         {
             await EnsureClientReadyAsync(client, cancellationToken).ConfigureAwait(false);
+            _lastConnectionException = null;
             return client;
         }
         catch (Exception ex)
         {
+            _lastConnectionException = ex;
             _logger.Warning(ex, "Failed to create and connect IMAP client.");
             DisposeClient(client);
             return null;

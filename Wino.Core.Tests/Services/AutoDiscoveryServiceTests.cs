@@ -150,6 +150,41 @@ public class AutoDiscoveryServiceTests
         uri.Should().Be(new Uri("https://dav.example.net/caldav/"));
     }
 
+    [Fact]
+    public async Task GetAutoDiscoverySettings_ReturnsGuessedLocalhostSettings_ForManualLocalAccounts()
+    {
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var uri = request.RequestUri!.ToString();
+
+            if (uri.StartsWith("https://dns.google/resolve", StringComparison.OrdinalIgnoreCase))
+            {
+                return CreateJsonResponse("{\"Status\":0}", request);
+            }
+
+            return CreateStatusResponse(HttpStatusCode.NotFound, request);
+        });
+
+        using var client = new HttpClient(handler);
+        var sut = new AutoDiscoveryService(client);
+
+        var settings = await sut.GetAutoDiscoverySettings(new AutoDiscoveryMinimalSettings
+        {
+            Email = "user@localhost",
+            DisplayName = "User",
+            Password = "secret"
+        });
+
+        settings.Should().NotBeNull();
+        settings!.Domain.Should().Be("localhost");
+        settings.GetImapSettings()!.Address.Should().Be("localhost");
+        settings.GetImapSettings()!.Port.Should().Be(993);
+        settings.GetImapSettings()!.Username.Should().Be("user@localhost");
+        settings.GetSmptpSettings()!.Address.Should().Be("localhost");
+        settings.GetSmptpSettings()!.Port.Should().Be(587);
+        settings.GetSmptpSettings()!.Username.Should().Be("user@localhost");
+    }
+
     private static HttpResponseMessage CreateXmlResponse(string xml, HttpRequestMessage request)
         => new(HttpStatusCode.OK)
         {

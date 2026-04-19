@@ -14,6 +14,7 @@ using Wino.Core.Domain.Models.AutoDiscovery;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Domain.Validation;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
@@ -135,7 +136,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     [NotifyPropertyChangedFor(nameof(IsAdvancedSetupSelected))]
     private int selectedSetupTabIndex;
 
-    public bool IsCreateMode => _pageMode == ImapCalDavSettingsPageMode.Create;
+    public bool IsCreateMode => _pageMode is ImapCalDavSettingsPageMode.Create or ImapCalDavSettingsPageMode.AddAccount;
     public bool IsEditMode => !IsCreateMode;
     public bool HasProviderHint => !string.IsNullOrWhiteSpace(ProviderHint);
     public bool IsBasicSetupSelected => SelectedSetupTabIndex == 0;
@@ -289,7 +290,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         _localOnlyInfoShown = false;
         SelectedSetupTabIndex = 0;
 
-        if (_pageMode == ImapCalDavSettingsPageMode.Create || _pageMode == ImapCalDavSettingsPageMode.Wizard)
+        if (_pageMode is ImapCalDavSettingsPageMode.Create or ImapCalDavSettingsPageMode.Wizard or ImapCalDavSettingsPageMode.AddAccount)
         {
             PageTitle = Translator.ImapCalDavSettingsPage_TitleCreate;
             ApplyCreateContextDefaults(context.AccountCreationDialogResult);
@@ -412,7 +413,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                 ? _editingAccountId
                 : (Guid?)null;
 
-            if (!await ValidateAccountUniquenessAsync(excludedAccountId).ConfigureAwait(false))
+            if (!await ValidateAccountUniquenessAsync(excludedAccountId))
                 return;
 
             await ValidateImapConnectivityAsync(serverInformation);
@@ -431,6 +432,12 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             if (_pageMode == ImapCalDavSettingsPageMode.Wizard)
             {
                 CompleteWizardFlow(serverInformation);
+                return;
+            }
+
+            if (_pageMode == ImapCalDavSettingsPageMode.AddAccount)
+            {
+                CompleteAddAccountFlow(serverInformation);
                 return;
             }
 
@@ -464,6 +471,12 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     }
 
     private void CompleteWizardFlow(CustomServerInformation serverInformation)
+        => ContinueAccountCreationFlow(serverInformation);
+
+    private void CompleteAddAccountFlow(CustomServerInformation serverInformation)
+        => ContinueAccountCreationFlow(serverInformation);
+
+    private void ContinueAccountCreationFlow(CustomServerInformation serverInformation)
     {
         serverInformation.Id = Guid.NewGuid();
         serverInformation.AccountId = Guid.Empty;
@@ -510,6 +523,31 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         {
             IsCalDavValidationSucceeded = false;
         }
+    }
+
+    partial void OnEmailAddressChanged(string oldValue, string newValue)
+    {
+        var previousAddress = oldValue?.Trim() ?? string.Empty;
+        var currentAddress = newValue?.Trim() ?? string.Empty;
+
+        ApplyCredentialDefaultsForAddress(previousAddress, currentAddress);
+        ApplyManualServerDefaultsForAddress(previousAddress, currentAddress);
+
+        IsImapValidationSucceeded = false;
+        IsCalDavValidationSucceeded = false;
+    }
+
+    partial void OnPasswordChanged(string oldValue, string newValue)
+    {
+        var previousPassword = oldValue ?? string.Empty;
+        var currentPassword = newValue ?? string.Empty;
+
+        IncomingServerPassword = ReplaceIfEmptyOrMatchingPrevious(IncomingServerPassword, previousPassword, currentPassword);
+        OutgoingServerPassword = ReplaceIfEmptyOrMatchingPrevious(OutgoingServerPassword, previousPassword, currentPassword);
+        CalDavPassword = ReplaceIfEmptyOrMatchingPrevious(CalDavPassword, previousPassword, currentPassword);
+
+        IsImapValidationSucceeded = false;
+        IsCalDavValidationSucceeded = false;
     }
 
     private async Task InitializeEditModeAsync(Guid accountId)
@@ -616,6 +654,50 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         SelectedIncomingServerAuthenticationMethodIndex = 0;
         SelectedOutgoingServerConnectionSecurityIndex = 0;
         SelectedOutgoingServerAuthenticationMethodIndex = 0;
+    }
+
+    private void ApplyCredentialDefaultsForAddress(string previousAddress, string currentAddress)
+    {
+        IncomingServerUsername = ReplaceIfEmptyOrMatchingPrevious(IncomingServerUsername, previousAddress, currentAddress);
+        OutgoingServerUsername = ReplaceIfEmptyOrMatchingPrevious(OutgoingServerUsername, previousAddress, currentAddress);
+        CalDavUsername = ReplaceIfEmptyOrMatchingPrevious(CalDavUsername, previousAddress, currentAddress);
+    }
+
+    private void ApplyManualServerDefaultsForAddress(string previousAddress, string currentAddress)
+    {
+        if (!MailAccountAddressValidator.TryGetDomain(currentAddress, out var currentDomain) ||
+            !MailAccountAddressValidator.IsImplicitlyResolvableHost(currentDomain))
+        {
+            return;
+        }
+
+        MailAccountAddressValidator.TryGetDomain(previousAddress, out var previousDomain);
+
+        IncomingServer = ReplaceIfEmptyOrMatchingPrevious(IncomingServer, previousDomain, currentDomain);
+        OutgoingServer = ReplaceIfEmptyOrMatchingPrevious(OutgoingServer, previousDomain, currentDomain);
+
+        if (string.IsNullOrWhiteSpace(IncomingServerPort))
+            IncomingServerPort = "993";
+
+        if (string.IsNullOrWhiteSpace(OutgoingServerPort))
+            OutgoingServerPort = "587";
+    }
+
+    private static string ReplaceIfEmptyOrMatchingPrevious(string currentValue, string previousValue, string replacementValue)
+    {
+        var normalizedCurrentValue = currentValue?.Trim() ?? string.Empty;
+        var normalizedPreviousValue = previousValue?.Trim() ?? string.Empty;
+        var normalizedReplacementValue = replacementValue?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(normalizedReplacementValue))
+            return currentValue ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(normalizedCurrentValue))
+            return normalizedReplacementValue;
+
+        return string.Equals(normalizedCurrentValue, normalizedPreviousValue, StringComparison.OrdinalIgnoreCase)
+            ? normalizedReplacementValue
+            : currentValue ?? string.Empty;
     }
 
     private void ApplyServerInformation(CustomServerInformation serverInformation)
@@ -809,7 +891,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
     private async Task SaveEditFlowAsync(CustomServerInformation serverInformation)
     {
-        var account = await _accountService.GetAccountAsync(_editingAccountId).ConfigureAwait(false);
+        var account = await _accountService.GetAccountAsync(_editingAccountId);
         if (account == null)
             throw new InvalidOperationException(Translator.Exception_NullAssignedAccount);
 
@@ -823,8 +905,8 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         account.ServerInformation = serverInformation;
         account.AttentionReason = AccountAttentionReason.None;
 
-        await _accountService.UpdateAccountCustomServerInformationAsync(serverInformation).ConfigureAwait(false);
-        await _accountService.UpdateAccountAsync(account).ConfigureAwait(false);
+        await _accountService.UpdateAccountCustomServerInformationAsync(serverInformation);
+        await _accountService.UpdateAccountAsync(account);
 
         Messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
         {
@@ -916,7 +998,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         if (string.IsNullOrWhiteSpace(EmailAddress))
             throw new InvalidOperationException(Translator.IMAPAdvancedSetupDialog_ValidationEmailRequired);
 
-        if (!EmailValidation.EmailValidator.Validate(EmailAddress.Trim()))
+        if (!MailAccountAddressValidator.IsValid(EmailAddress))
             throw new InvalidOperationException(Translator.IMAPAdvancedSetupDialog_ValidationEmailInvalid);
     }
 

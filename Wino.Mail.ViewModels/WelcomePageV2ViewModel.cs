@@ -13,6 +13,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Updates;
+using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.UI;
 
@@ -68,7 +69,8 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
     {
         Messenger.Send(new BreadcrumbNavigationRequested(
             Translator.WelcomeWizard_Step2Title,
-            WinoPage.ProviderSelectionPage));
+            WinoPage.ProviderSelectionPage,
+            ProviderSelectionNavigationContext.CreateForWizard()));
     }
 
     [RelayCommand(CanExecute = nameof(CanOpenWelcomeActions))]
