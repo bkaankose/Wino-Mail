@@ -117,6 +117,12 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SetPropertyAndSave(nameof(IsThreadingEnabled), value);
     }
 
+    public bool IsNewestThreadMailFirst
+    {
+        get => _configurationService.Get(nameof(IsNewestThreadMailFirst), true);
+        set => SetPropertyAndSave(nameof(IsNewestThreadMailFirst), value);
+    }
+
     public bool IsMailListActionBarEnabled
     {
         get => _configurationService.Get(nameof(IsMailListActionBarEnabled), false);

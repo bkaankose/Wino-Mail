@@ -133,6 +133,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsThreadingEnabled { get; set; }
 
     /// <summary>
+    /// Setting: Whether the newest message in a conversation should appear first.
+    /// </summary>
+    bool IsNewestThreadMailFirst { get; set; }
+
+    /// <summary>
     /// Setting: Show sender pictures in mail list.
     /// </summary>
     bool IsShowSenderPicturesEnabled { get; set; }

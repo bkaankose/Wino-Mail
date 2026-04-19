@@ -42,6 +42,12 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         Translator.HoverActionOption_MoveJunk
     ];
 
+    public List<string> ThreadItemSortingOptions { get; } =
+    [
+        Translator.SettingsThreadOrder_LastItemFirst,
+        Translator.SettingsThreadOrder_FirstItemFirst
+    ];
+
     public IMailItemDisplayInformation DemoPreviewMailItemInformation { get; } = new DemoMailItemDisplayInformation();
 
     public MailListDisplayMode SelectedMailSpacingMode => availableMailSpacingOptions[selectedMailSpacingIndex];
@@ -69,6 +75,19 @@ public partial class MessageListPageViewModel : MailBaseViewModel
             {
                 PreferencesService.MailItemDisplayMode = availableMailSpacingOptions[value];
                 OnPropertyChanged(nameof(SelectedMailSpacingMode));
+            }
+        }
+    }
+
+    private int selectedThreadItemSortingIndex;
+    public int SelectedThreadItemSortingIndex
+    {
+        get => selectedThreadItemSortingIndex;
+        set
+        {
+            if (SetProperty(ref selectedThreadItemSortingIndex, value) && value >= 0)
+            {
+                PreferencesService.IsNewestThreadMailFirst = value == 0;
             }
         }
     }
@@ -128,6 +147,7 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         rightHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.RightHoverAction);
         selectedMailSpacingIndex = availableMailSpacingOptions.IndexOf(PreferencesService.MailItemDisplayMode);
         SelectedMarkAsOptionIndex = Array.IndexOf(Enum.GetValues<MailMarkAsOption>(), PreferencesService.MarkAsPreference);
+        selectedThreadItemSortingIndex = PreferencesService.IsNewestThreadMailFirst ? 0 : 1;
     }
 
     [RelayCommand]

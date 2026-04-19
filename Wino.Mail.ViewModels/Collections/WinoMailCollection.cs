@@ -39,6 +39,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
     public event EventHandler<MailItemViewModel> MailItemRemoved;
     public event EventHandler ItemSelectionChanged;
+    public Func<string, ThreadMailItemViewModel> ThreadItemFactory { get; set; } = static threadId => new ThreadMailItemViewModel(threadId, true);
 
     private ListItemComparer listComparer = new();
 
@@ -457,7 +458,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
     private async Task CreateNewThreadAsync(ObservableGroup<object, IMailListItem> group, MailItemViewModel item, MailCopy addedItem)
     {
-        var threadViewModel = new ThreadMailItemViewModel(item.MailCopy.ThreadId);
+        var threadViewModel = ThreadItemFactory(item.MailCopy.ThreadId);
 
         await ExecuteUIThread(() =>
         {
@@ -710,7 +711,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
                 if (batchThreadLookup.TryGetValue(item.MailCopy.ThreadId, out var threadableItems) && threadableItems.Count > 1)
                 {
                     // Create a new thread with all matching items - defer UI operations
-                    var threadViewModel = new ThreadMailItemViewModel(item.MailCopy.ThreadId);
+                    var threadViewModel = ThreadItemFactory(item.MailCopy.ThreadId);
 
                     // Add emails without UI thread for now
                     foreach (var threadItem in threadableItems)

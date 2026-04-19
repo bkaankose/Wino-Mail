@@ -990,10 +990,10 @@ public sealed partial class MailListPage : MailListPageAbstract,
                 }
                 else
                 {
-                    var firstChild = clickedThread.ThreadEmails.FirstOrDefault();
-                    if (firstChild != null)
+                    var defaultSelectedChild = clickedThread.GetDefaultSelectedThreadEmail();
+                    if (defaultSelectedChild != null)
                     {
-                        firstChild.IsSelected = true;
+                        defaultSelectedChild.IsSelected = true;
                     }
                 }
 

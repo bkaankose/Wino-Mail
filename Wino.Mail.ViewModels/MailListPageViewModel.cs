@@ -205,6 +205,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         SelectedFilterOption = FilterOptions[0];
         SelectedSortingOption = SortingOptions[0];
+        MailCollection.ThreadItemFactory = threadId => new ThreadMailItemViewModel(threadId, PreferencesService.IsNewestThreadMailFirst);
 
         MailListLength = statePersistenceService.MailListPaneLength;
     }
