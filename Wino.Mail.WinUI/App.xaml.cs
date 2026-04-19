@@ -137,6 +137,11 @@ public partial class App : WinoApplication,
                      ?? windowManager.GetWindow(WinoWindowKind.Shell)
                      ?? windowManager.GetWindow(WinoWindowKind.Welcome);
 
+        if (window is IWinoShellWindow)
+        {
+            DisposeTrayIcon();
+        }
+
         InitializeNavigationDispatcher();
     }
 
@@ -157,6 +162,37 @@ public partial class App : WinoApplication,
             ActivatePreferredWindowAsync);
 
         _trayIcon.Create();
+    }
+
+    private void DisposeTrayIcon()
+    {
+        _trayIcon?.Dispose();
+        _trayIcon = null;
+    }
+
+    private void EnsurePreferenceChangedSubscription()
+    {
+        if (_preferencesService == null)
+            return;
+
+        _preferencesService.PreferenceChanged -= PreferencesServiceChanged;
+        _preferencesService.PreferenceChanged += PreferencesServiceChanged;
+    }
+
+    private bool ShouldCreateTrayIcon()
+        => _hasConfiguredAccounts &&
+           HasShellWindow() &&
+           (_preferencesService?.IsSystemTrayIconEnabled ?? true);
+
+    private void UpdateTrayIconState(bool allowCreation)
+    {
+        if (!allowCreation || !ShouldCreateTrayIcon())
+        {
+            DisposeTrayIcon();
+            return;
+        }
+
+        EnsureTrayIconCreated();
     }
 
     private IReadOnlyList<NativeTrayIcon.NativeTrayMenuItem> BuildTrayMenu()
@@ -268,6 +304,7 @@ public partial class App : WinoApplication,
         if (windowManager.GetWindow(WinoWindowKind.Shell) is not ShellWindow shellWindow)
             return;
 
+        DisposeTrayIcon();
         windowManager.HideWindow(shellWindow);
         if (ReferenceEquals(MainWindow, shellWindow))
         {
@@ -289,6 +326,8 @@ public partial class App : WinoApplication,
         {
             await NewThemeService.ApplyThemeToActiveWindowAsync();
         }
+
+        UpdateTrayIconState(window is IWinoShellWindow);
     }
 
     private Task ExitApplicationAsync()
@@ -303,8 +342,7 @@ public partial class App : WinoApplication,
             return;
 
         _isExiting = true;
-        _trayIcon?.Dispose();
-        _trayIcon = null;
+        DisposeTrayIcon();
 
         Services.GetRequiredService<IWinoWindowManager>().CloseAllWindows();
         Application.Current.Exit();
@@ -476,12 +514,10 @@ public partial class App : WinoApplication,
                 return;
 
             EnsureWindowManagerConfigured();
-            EnsureTrayIconCreated();
+            EnsurePreferenceChangedSubscription();
 
             if (_hasConfiguredAccounts)
             {
-                _preferencesService!.PreferenceChanged -= PreferencesServiceChanged;
-                _preferencesService.PreferenceChanged += PreferencesServiceChanged;
                 RestartAutoSynchronizationLoop();
             }
 
@@ -942,11 +978,16 @@ public partial class App : WinoApplication,
 
         if (isStartupTaskLaunch)
         {
+            UpdateTrayIconState(allowCreation: true);
             LogActivation("Launched by startup task. Window created but hidden (system tray only).");
             return;
         }
 
-        MainWindow?.Activate();
+        if (MainWindow is WindowEx window)
+        {
+            await ActivateWindowAsync(window, applyThemeToWindow: false);
+        }
+
         LogActivation("Window created and activated.");
     }
 
@@ -1186,8 +1227,10 @@ public partial class App : WinoApplication,
         // Initialize theme service after window is created.
         await NewThemeService.InitializeAsync();
 
-        if (MainWindow != null)
-            Services.GetRequiredService<IWinoWindowManager>().ActivateWindow(MainWindow);
+        if (MainWindow is WindowEx window)
+        {
+            await ActivateWindowAsync(window, applyThemeToWindow: false);
+        }
 
         LogActivation("Window created and activated.");
     }
@@ -1398,6 +1441,7 @@ public partial class App : WinoApplication,
     public void Receive(AccountCreatedMessage message)
     {
         _hasConfiguredAccounts = true;
+        EnsurePreferenceChangedSubscription();
 
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
 
@@ -1436,11 +1480,7 @@ public partial class App : WinoApplication,
 
         MainWindow?.DispatcherQueue?.TryEnqueue(async () =>
         {
-            if (_preferencesService != null)
-            {
-                _preferencesService.PreferenceChanged -= PreferencesServiceChanged;
-                _preferencesService.PreferenceChanged += PreferencesServiceChanged;
-            }
+            EnsurePreferenceChangedSubscription();
 
             CreateWindow(
                 null,
@@ -1484,6 +1524,7 @@ public partial class App : WinoApplication,
             // All accounts removed — go back to welcome wizard from step 1
             Services.GetRequiredService<WelcomeWizardContext>().Reset();
             StopAutoSynchronizationLoop();
+            UpdateTrayIconState(allowCreation: false);
             CloseShellWindowIfPresent();
             CreateWelcomeWindow();
             if (MainWindow != null)
@@ -1577,10 +1618,16 @@ public partial class App : WinoApplication,
 
     private void PreferencesServiceChanged(object? sender, string propertyName)
     {
-        if (propertyName != nameof(IPreferencesService.EmailSyncIntervalMinutes))
+        if (propertyName == nameof(IPreferencesService.EmailSyncIntervalMinutes))
+        {
+            RestartAutoSynchronizationLoop();
             return;
+        }
 
-        RestartAutoSynchronizationLoop();
+        if (propertyName == nameof(IPreferencesService.IsSystemTrayIconEnabled))
+        {
+            UpdateTrayIconState(allowCreation: true);
+        }
     }
 
     private void RestartAutoSynchronizationLoop()

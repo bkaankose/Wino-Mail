@@ -63,6 +63,13 @@
                 </controls:SettingsCard.HeaderIcon>
             </controls:SettingsCard>
 
+            <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsAppPreferences_ServerBackgroundingMode_MinimizeTray_Description}" Header="{x:Bind domain:Translator.SettingsAppPreferences_ServerBackgroundingMode_MinimizeTray_Title}">
+                <ToggleSwitch IsOn="{x:Bind ViewModel.PreferencesService.IsSystemTrayIconEnabled, Mode=TwoWay}" />
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE7F4;" />
+                </controls:SettingsCard.HeaderIcon>
+            </controls:SettingsCard>
+
 
             <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsAppPreferences_StoreUpdateNotifications_Description}" Header="{x:Bind domain:Translator.SettingsAppPreferences_StoreUpdateNotifications_Title}">
                 <ToggleSwitch IsOn="{x:Bind ViewModel.PreferencesService.IsStoreUpdateNotificationsEnabled, Mode=TwoWay}" />

@@ -387,6 +387,12 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SetPropertyAndSave(nameof(IsStoreUpdateNotificationsEnabled), value);
     }
 
+    public bool IsSystemTrayIconEnabled
+    {
+        get => _configurationService.Get(nameof(IsSystemTrayIconEnabled), true);
+        set => SetPropertyAndSave(nameof(IsSystemTrayIconEnabled), value);
+    }
+
     public bool IsWinoAccountButtonHidden
     {
         get => _configurationService.Get(nameof(IsWinoAccountButtonHidden), false);

@@ -63,6 +63,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsStoreUpdateNotificationsEnabled { get; set; }
 
     /// <summary>
+    /// Setting: Whether the system tray icon should be created while the shell is available.
+    /// </summary>
+    bool IsSystemTrayIconEnabled { get; set; }
+
+    /// <summary>
     /// Setting: Whether the Wino account profile button in the shell title bar should be hidden.
     /// </summary>
     bool IsWinoAccountButtonHidden { get; set; }
