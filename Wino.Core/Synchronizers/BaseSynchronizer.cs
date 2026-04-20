@@ -12,6 +12,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Requests.Mail;
 using Wino.Core.Requests.Bundles;
 using Wino.Messaging.UI;
 
@@ -261,5 +262,76 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
             ret.Add(new HttpRequestBundle<TBaseRequest>(action(request), request, request));
 
         return ret;
+    }
+
+    protected void ApplyOptimisticUiChanges(IEnumerable<IRequestBundle<TBaseRequest>> bundles, Func<IRequestBase, bool> shouldApply = null)
+    {
+        var bundleList = bundles?
+            .Where(b => b?.Request != null && (shouldApply?.Invoke(b.Request) ?? true))
+            .ToList() ?? [];
+
+        if (bundleList.Count == 0)
+            return;
+
+        var requestList = new List<IRequestBase>(bundleList.Count);
+
+        foreach (var bundle in bundleList)
+        {
+            if (bundle.UIChangeRequest != null && !ReferenceEquals(bundle.UIChangeRequest, bundle.Request))
+            {
+                bundle.UIChangeRequest.ApplyUIChanges();
+                continue;
+            }
+
+            requestList.Add(bundle.Request);
+        }
+
+        if (requestList.Count == 0)
+            return;
+
+        var appliedBatchRequestKeys = new HashSet<object>();
+
+        foreach (var group in requestList.GroupBy(r => r.GroupingKey()))
+        {
+            var groupRequests = group.ToList();
+            if (groupRequests.Count <= 1)
+                continue;
+
+            if (!TryApplyBatchUiChanges(groupRequests))
+                continue;
+
+            appliedBatchRequestKeys.Add(group.Key);
+        }
+
+        foreach (var request in requestList)
+        {
+            if (!appliedBatchRequestKeys.Contains(request.GroupingKey()))
+            {
+                request.ApplyUIChanges();
+            }
+        }
+    }
+
+    private static bool TryApplyBatchUiChanges(IReadOnlyList<IRequestBase> requests)
+    {
+        if (requests == null || requests.Count <= 1)
+            return false;
+
+        return requests[0] switch
+        {
+            MarkReadRequest => ApplyBatch(new BatchMarkReadRequest(requests.Cast<MarkReadRequest>())),
+            ChangeFlagRequest => ApplyBatch(new BatchChangeFlagRequest(requests.Cast<ChangeFlagRequest>())),
+            DeleteRequest => ApplyBatch(new BatchDeleteRequest(requests.Cast<DeleteRequest>())),
+            MoveRequest => ApplyBatch(new BatchMoveRequest(requests.Cast<MoveRequest>())),
+            ArchiveRequest => ApplyBatch(new BatchArchiveRequest(requests.Cast<ArchiveRequest>())),
+            ChangeJunkStateRequest => ApplyBatch(new BatchChangeJunkStateRequest(requests.Cast<ChangeJunkStateRequest>())),
+            _ => false
+        };
+
+        static bool ApplyBatch(IUIChangeRequest request)
+        {
+            request.ApplyUIChanges();
+            return true;
+        }
     }
 }

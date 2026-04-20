@@ -667,6 +667,23 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         await ExecuteUIThread(() => { InitializeCommandBarItems(); });
     }
 
+    protected override async void OnMailStateUpdated(MailStateChange updatedState, EntityUpdateSource source)
+    {
+        base.OnMailStateUpdated(updatedState, source);
+
+        if (initializedMailItemViewModel == null || updatedState == null)
+            return;
+
+        if (initializedMailItemViewModel.MailCopy.UniqueId != updatedState.UniqueId)
+            return;
+
+        await ExecuteUIThread(() =>
+        {
+            initializedMailItemViewModel.ApplyStateChanges(updatedState.IsRead, updatedState.IsFlagged);
+            InitializeCommandBarItems();
+        });
+    }
+
     protected override async void OnMailRemoved(MailCopy removedMail, EntityUpdateSource source)
     {
         base.OnMailRemoved(removedMail, source);

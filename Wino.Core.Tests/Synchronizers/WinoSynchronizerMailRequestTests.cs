@@ -10,6 +10,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Requests.Mail;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Synchronizers;
 using Xunit;
@@ -49,6 +50,38 @@ public sealed class WinoSynchronizerMailRequestTests
         synchronizer.ExecuteNativeRequestsInvocationCount.Should().Be(1);
     }
 
+    [Fact]
+    public async Task ExecuteRequests_should_dispatch_grouped_mark_read_requests_with_composite_grouping_key()
+    {
+        var synchronizer = new TestMailSynchronizer();
+        var folderId = Guid.NewGuid();
+
+        synchronizer.QueueRequest(new MarkReadRequest(new MailCopy
+        {
+            UniqueId = Guid.NewGuid(),
+            Id = Guid.NewGuid().ToString(),
+            FolderId = folderId
+        }, IsRead: true));
+
+        synchronizer.QueueRequest(new MarkReadRequest(new MailCopy
+        {
+            UniqueId = Guid.NewGuid(),
+            Id = Guid.NewGuid().ToString(),
+            FolderId = folderId
+        }, IsRead: true));
+
+        var result = await synchronizer.SynchronizeMailsAsync(new MailSynchronizationOptions
+        {
+            AccountId = synchronizer.Account.Id,
+            Type = MailSynchronizationType.ExecuteRequests
+        });
+
+        result.CompletedState.Should().Be(SynchronizationCompletedState.Success);
+        synchronizer.MarkReadInvocationCount.Should().Be(1);
+        synchronizer.LastMarkReadBatchCount.Should().Be(2);
+        synchronizer.ExecuteNativeRequestsInvocationCount.Should().Be(1);
+    }
+
     private sealed class TestMailSynchronizer
         : WinoSynchronizer<object, object, object>
     {
@@ -60,12 +93,21 @@ public sealed class WinoSynchronizerMailRequestTests
         public override uint BatchModificationSize => 1;
         public override uint InitialMessageDownloadCountPerFolder => 0;
         public int CreateRootFolderInvocationCount { get; private set; }
+        public int MarkReadInvocationCount { get; private set; }
+        public int LastMarkReadBatchCount { get; private set; }
         public int ExecuteNativeRequestsInvocationCount { get; private set; }
 
         public override List<IRequestBundle<object>> CreateRootFolder(CreateRootFolderRequest request)
         {
             CreateRootFolderInvocationCount++;
             return [new TestRequestBundle(new object(), request)];
+        }
+
+        public override List<IRequestBundle<object>> MarkRead(BatchMarkReadRequest request)
+        {
+            MarkReadInvocationCount++;
+            LastMarkReadBatchCount = request.Count;
+            return [new TestRequestBundle(new object(), request[0])];
         }
 
         public override Task ExecuteNativeRequestsAsync(List<IRequestBundle<object>> batchedRequests, CancellationToken cancellationToken = default)

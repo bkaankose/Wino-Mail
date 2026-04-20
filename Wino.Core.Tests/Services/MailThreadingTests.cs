@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using FluentAssertions;
 using MimeKit;
 using Moq;
@@ -8,6 +9,7 @@ using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Tests.Helpers;
+using Wino.Messaging.UI;
 using Wino.Services;
 using Xunit;
 
@@ -229,6 +231,102 @@ public class MailThreadingTests : IAsyncLifetime
         mimeMessage.ReplyTo.Mailboxes.Should().ContainSingle(m => m.Address == "support@test.local");
     }
 
+    [Fact]
+    public async Task ApplyMailStateUpdatesAsync_ForBatchReadStateChange_SendsBulkMailUpdatedMessage()
+    {
+        var mail1 = new MailCopy
+        {
+            UniqueId = Guid.NewGuid(),
+            Id = Guid.NewGuid().ToString(),
+            FolderId = _draftFolder.Id,
+            IsRead = true,
+            Subject = "First"
+        };
+        var mail2 = new MailCopy
+        {
+            UniqueId = Guid.NewGuid(),
+            Id = Guid.NewGuid().ToString(),
+            FolderId = _draftFolder.Id,
+            IsRead = true,
+            Subject = "Second"
+        };
+
+        await _databaseService.Connection.InsertAllAsync(new[] { mail1, mail2 }, typeof(MailCopy));
+
+        var recipient = new MailUpdateRecipient();
+        WeakReferenceMessenger.Default.Register<MailUpdatedMessage>(recipient);
+        WeakReferenceMessenger.Default.Register<BulkMailUpdatedMessage>(recipient);
+
+        try
+        {
+            await _mailService.ApplyMailStateUpdatesAsync(
+            [
+                new MailCopyStateUpdate(mail1.Id, IsRead: false),
+                new MailCopyStateUpdate(mail2.Id, IsRead: false)
+            ]);
+
+            recipient.SingleUpdates.Should().BeEmpty();
+            recipient.BulkUpdates.Should().ContainSingle();
+            recipient.BulkUpdates[0].Source.Should().Be(EntityUpdateSource.Server);
+            recipient.BulkUpdates[0].ChangedProperties.Should().Be(MailCopyChangeFlags.IsRead);
+            recipient.BulkUpdates[0].UpdatedMails.Should().HaveCount(2);
+            recipient.BulkUpdates[0].UpdatedMails.Should().OnlyContain(x => !x.IsRead);
+
+            (await _databaseService.Connection.FindAsync<MailCopy>(mail1.UniqueId))!.IsRead.Should().BeFalse();
+            (await _databaseService.Connection.FindAsync<MailCopy>(mail2.UniqueId))!.IsRead.Should().BeFalse();
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.Unregister<MailUpdatedMessage>(recipient);
+            WeakReferenceMessenger.Default.Unregister<BulkMailUpdatedMessage>(recipient);
+        }
+    }
+
+    [Fact]
+    public async Task ApplyMailStateUpdatesAsync_ForBatchMarkRead_SendsBulkMailReadStatusChanged()
+    {
+        var mail1 = new MailCopy
+        {
+            UniqueId = Guid.NewGuid(),
+            Id = Guid.NewGuid().ToString(),
+            FolderId = _draftFolder.Id,
+            IsRead = false,
+            Subject = "First unread"
+        };
+        var mail2 = new MailCopy
+        {
+            UniqueId = Guid.NewGuid(),
+            Id = Guid.NewGuid().ToString(),
+            FolderId = _draftFolder.Id,
+            IsRead = false,
+            Subject = "Second unread"
+        };
+
+        await _databaseService.Connection.InsertAllAsync(new[] { mail1, mail2 }, typeof(MailCopy));
+
+        var recipient = new MailReadStatusRecipient();
+        WeakReferenceMessenger.Default.Register<MailReadStatusChanged>(recipient);
+        WeakReferenceMessenger.Default.Register<BulkMailReadStatusChanged>(recipient);
+
+        try
+        {
+            await _mailService.ApplyMailStateUpdatesAsync(
+            [
+                new MailCopyStateUpdate(mail1.Id, IsRead: true),
+                new MailCopyStateUpdate(mail2.Id, IsRead: true)
+            ]);
+
+            recipient.SingleUpdates.Should().BeEmpty();
+            recipient.BulkUpdates.Should().ContainSingle();
+            recipient.BulkUpdates[0].UniqueIds.Should().BeEquivalentTo([mail1.UniqueId, mail2.UniqueId]);
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.Unregister<MailReadStatusChanged>(recipient);
+            WeakReferenceMessenger.Default.Unregister<BulkMailReadStatusChanged>(recipient);
+        }
+    }
+
     private static MimeMessage CreateReferencedMimeMessage(string subject, string? messageId = null)
     {
         var message = new MimeMessage();
@@ -241,6 +339,24 @@ public class MailThreadingTests : IAsyncLifetime
             message.MessageId = messageId;
 
         return message;
+    }
+
+    internal sealed class MailUpdateRecipient : IRecipient<MailUpdatedMessage>, IRecipient<BulkMailUpdatedMessage>
+    {
+        public List<MailUpdatedMessage> SingleUpdates { get; } = [];
+        public List<BulkMailUpdatedMessage> BulkUpdates { get; } = [];
+
+        public void Receive(MailUpdatedMessage message) => SingleUpdates.Add(message);
+        public void Receive(BulkMailUpdatedMessage message) => BulkUpdates.Add(message);
+    }
+
+    internal sealed class MailReadStatusRecipient : IRecipient<MailReadStatusChanged>, IRecipient<BulkMailReadStatusChanged>
+    {
+        public List<MailReadStatusChanged> SingleUpdates { get; } = [];
+        public List<BulkMailReadStatusChanged> BulkUpdates { get; } = [];
+
+        public void Receive(MailReadStatusChanged message) => SingleUpdates.Add(message);
+        public void Receive(BulkMailReadStatusChanged message) => BulkUpdates.Add(message);
     }
 
     private static MailService BuildMailService(InMemoryDatabaseService db)

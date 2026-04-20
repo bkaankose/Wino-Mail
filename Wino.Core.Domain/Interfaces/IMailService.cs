@@ -36,6 +36,7 @@ public interface IMailService
 
     Task ChangeReadStatusAsync(string mailCopyId, bool isRead);
     Task ChangeFlagStatusAsync(string mailCopyId, bool isFlagged);
+    Task ApplyMailStateUpdatesAsync(IEnumerable<MailCopyStateUpdate> updates);
 
     Task CreateAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId);
     Task DeleteAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId);

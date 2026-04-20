@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
@@ -14,18 +15,26 @@ public record EmptyFolderRequest(MailItemFolder Folder, List<MailCopy> MailsToDe
     public bool ExcludeMustHaveFolders => false;
     public override void ApplyUIChanges()
     {
-        foreach (var item in MailsToDelete)
-        {
-            WeakReferenceMessenger.Default.Send(new MailRemovedMessage(item, EntityUpdateSource.ClientUpdated));
-        }
+        var removedMails = MailsToDelete?
+            .Where(item => item != null)
+            .ToList();
+
+        if (removedMails == null || removedMails.Count == 0)
+            return;
+
+        WeakReferenceMessenger.Default.Send(new BulkMailRemovedMessage(removedMails, EntityUpdateSource.ClientUpdated));
     }
 
     public override void RevertUIChanges()
     {
-        foreach (var item in MailsToDelete)
-        {
-            WeakReferenceMessenger.Default.Send(new MailAddedMessage(item, EntityUpdateSource.ClientReverted));
-        }
+        var addedMails = MailsToDelete?
+            .Where(item => item != null)
+            .ToList();
+
+        if (addedMails == null || addedMails.Count == 0)
+            return;
+
+        WeakReferenceMessenger.Default.Send(new BulkMailAddedMessage(addedMails, EntityUpdateSource.ClientReverted));
     }
 
     public List<Guid> SynchronizationFolderIds => [Folder.Id];

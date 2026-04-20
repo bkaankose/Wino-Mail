@@ -93,13 +93,11 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         // Queue requests for each account and start synchronization.
         foreach (var accountGroup in accountIds)
         {
-            foreach (var accountRequest in accountGroup)
-            {
-                await QueueRequestAsync(accountRequest, accountGroup.Key);
-            }
+            var groupedRequests = accountGroup.Cast<IRequestBase>().ToList();
+            await QueueRequestsAsync(groupedRequests, accountGroup.Key).ConfigureAwait(false);
 
             var account = accountGroup.First().Item.AssignedAccount;
-            var actionItems = SynchronizationActionHelper.CreateActionItems(accountGroup, accountGroup.Key, account.Name);
+            var actionItems = SynchronizationActionHelper.CreateActionItems(groupedRequests, accountGroup.Key, account.Name);
 
             if (actionItems.Count > 0)
                 WeakReferenceMessenger.Default.Send(new SynchronizationActionsAdded(accountGroup.Key, account.Name, actionItems));
@@ -214,10 +212,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         if (requestList.Count == 0)
             return;
 
-        foreach (var request in requestList)
-        {
-            await QueueRequestAsync(request, accountId).ConfigureAwait(false);
-        }
+        await QueueRequestsAsync(requestList, accountId).ConfigureAwait(false);
 
         await SendSyncActionsAddedAsync(requestList, accountId).ConfigureAwait(false);
         await QueueSynchronizationAsync(accountId).ConfigureAwait(false);
@@ -274,7 +269,12 @@ public class WinoRequestDelegator : IWinoRequestDelegator
     private async Task QueueRequestAsync(IRequestBase request, Guid accountId)
     {
         // Don't trigger synchronization for individual requests - we'll trigger it once for all requests
-        await SynchronizationManager.Instance.QueueRequestAsync(request, accountId, triggerSynchronization: false);
+        await SynchronizationManager.Instance.QueueRequestAsync(request, accountId, triggerSynchronization: false).ConfigureAwait(false);
+    }
+
+    private async Task QueueRequestsAsync(IEnumerable<IRequestBase> requests, Guid accountId)
+    {
+        await SynchronizationManager.Instance.QueueRequestsAsync(requests, accountId, triggerSynchronization: false).ConfigureAwait(false);
     }
 
     private Task QueueSynchronizationAsync(Guid accountId)

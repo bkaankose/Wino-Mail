@@ -112,56 +112,104 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
     public override List<IRequestBundle<ImapRequest>> Move(BatchMoveRequest requests)
     {
-        return CreateTaskBundle(async (client, item) =>
-        {
-            var sourceFolder = await client.GetFolderAsync(item.FromFolder.RemoteFolderId);
-            var destinationFolder = await client.GetFolderAsync(item.ToFolder.RemoteFolderId);
+        if (requests == null || requests.Count == 0)
+            return [];
 
-            // Only opening source folder is enough.
+        return CreateSingleTaskBundle(async (client, _) =>
+        {
+            var sourceFolder = await client.GetFolderAsync(requests[0].FromFolder.RemoteFolderId).ConfigureAwait(false);
+            var destinationFolder = await client.GetFolderAsync(requests[0].ToFolder.RemoteFolderId).ConfigureAwait(false);
+            var uniqueIds = requests.Select(item => GetUniqueId(item.Item.Id)).ToList();
+
             await sourceFolder.OpenAsync(FolderAccess.ReadWrite).ConfigureAwait(false);
-            await sourceFolder.MoveToAsync(GetUniqueId(item.Item.Id), destinationFolder).ConfigureAwait(false);
-            await sourceFolder.CloseAsync().ConfigureAwait(false);
-        }, requests);
+            try
+            {
+                await sourceFolder.MoveToAsync(uniqueIds, destinationFolder).ConfigureAwait(false);
+            }
+            finally
+            {
+                await sourceFolder.CloseAsync().ConfigureAwait(false);
+            }
+        }, requests[0], requests);
     }
 
     public override List<IRequestBundle<ImapRequest>> ChangeFlag(BatchChangeFlagRequest requests)
     {
-        return CreateTaskBundle(async (client, item) =>
+        if (requests == null || requests.Count == 0)
+            return [];
+
+        return CreateSingleTaskBundle(async (client, _) =>
         {
-            var folder = item.Item.AssignedFolder;
-            var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId);
+            var folder = requests[0].Item.AssignedFolder;
+            var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId).ConfigureAwait(false);
+            var uniqueIds = requests.Select(item => GetUniqueId(item.Item.Id)).ToList();
+            var request = new StoreFlagsRequest(requests[0].IsFlagged ? StoreAction.Add : StoreAction.Remove, MessageFlags.Flagged)
+            {
+                Silent = true
+            };
 
             await remoteFolder.OpenAsync(FolderAccess.ReadWrite).ConfigureAwait(false);
-            await remoteFolder.StoreAsync(GetUniqueId(item.Item.Id), new StoreFlagsRequest(item.IsFlagged ? StoreAction.Add : StoreAction.Remove, MessageFlags.Flagged) { Silent = true }).ConfigureAwait(false);
-            await remoteFolder.CloseAsync().ConfigureAwait(false);
-        }, requests);
+            try
+            {
+                await remoteFolder.StoreAsync(uniqueIds, request).ConfigureAwait(false);
+            }
+            finally
+            {
+                await remoteFolder.CloseAsync().ConfigureAwait(false);
+            }
+        }, requests[0], requests);
     }
 
     public override List<IRequestBundle<ImapRequest>> Delete(BatchDeleteRequest requests)
     {
-        return CreateTaskBundle(async (client, request) =>
+        if (requests == null || requests.Count == 0)
+            return [];
+
+        return CreateSingleTaskBundle(async (client, _) =>
         {
-            var folder = request.Item.AssignedFolder;
+            var folder = requests[0].Item.AssignedFolder;
             var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId).ConfigureAwait(false);
+            var uniqueIds = requests.Select(request => GetUniqueId(request.Item.Id)).ToList();
+            var storeRequest = new StoreFlagsRequest(StoreAction.Add, MessageFlags.Deleted) { Silent = true };
 
             await remoteFolder.OpenAsync(FolderAccess.ReadWrite).ConfigureAwait(false);
-            await remoteFolder.AddFlagsAsync(GetUniqueId(request.Item.Id), MessageFlags.Deleted, true);
-            await remoteFolder.ExpungeAsync().ConfigureAwait(false);
-            await remoteFolder.CloseAsync().ConfigureAwait(false);
-        }, requests);
+            try
+            {
+                await remoteFolder.StoreAsync(uniqueIds, storeRequest).ConfigureAwait(false);
+                await remoteFolder.ExpungeAsync(uniqueIds).ConfigureAwait(false);
+            }
+            finally
+            {
+                await remoteFolder.CloseAsync().ConfigureAwait(false);
+            }
+        }, requests[0], requests);
     }
 
     public override List<IRequestBundle<ImapRequest>> MarkRead(BatchMarkReadRequest requests)
     {
-        return CreateTaskBundle(async (client, request) =>
+        if (requests == null || requests.Count == 0)
+            return [];
+
+        return CreateSingleTaskBundle(async (client, _) =>
         {
-            var folder = request.Item.AssignedFolder;
-            var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId);
+            var folder = requests[0].Item.AssignedFolder;
+            var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId).ConfigureAwait(false);
+            var uniqueIds = requests.Select(request => GetUniqueId(request.Item.Id)).ToList();
+            var storeRequest = new StoreFlagsRequest(requests[0].IsRead ? StoreAction.Add : StoreAction.Remove, MessageFlags.Seen)
+            {
+                Silent = true
+            };
 
             await remoteFolder.OpenAsync(FolderAccess.ReadWrite).ConfigureAwait(false);
-            await remoteFolder.StoreAsync(GetUniqueId(request.Item.Id), new StoreFlagsRequest(request.IsRead ? StoreAction.Add : StoreAction.Remove, MessageFlags.Seen) { Silent = true }).ConfigureAwait(false);
-            await remoteFolder.CloseAsync().ConfigureAwait(false);
-        }, requests);
+            try
+            {
+                await remoteFolder.StoreAsync(uniqueIds, storeRequest).ConfigureAwait(false);
+            }
+            finally
+            {
+                await remoteFolder.CloseAsync().ConfigureAwait(false);
+            }
+        }, requests[0], requests);
     }
 
     public override List<IRequestBundle<ImapRequest>> CreateDraft(CreateDraftRequest request)
@@ -718,13 +766,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         // First apply the UI changes for each bundle.
         // This is important to reflect changes to the UI before the network call is done.
 
-        foreach (var item in batchedRequests)
-        {
-            if (ShouldApplyOptimisticUIChanges(item.Request))
-            {
-                item.Request.ApplyUIChanges();
-            }
-        }
+        ApplyOptimisticUiChanges(batchedRequests, ShouldApplyOptimisticUIChanges);
 
         // All task bundles will execute on the same client.
         // Tasks themselves don't pull the client from the pool
@@ -754,7 +796,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
                 if (ShouldApplyOptimisticUIChanges(item.Request))
                 {
-                    item.Request.RevertUIChanges();
+                    item.UIChangeRequest?.RevertUIChanges();
                 }
 
                 isCrashed = true;
@@ -795,7 +837,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
                     if (ShouldApplyOptimisticUIChanges(item.Request))
                     {
-                        item.Request.RevertUIChanges();
+                        item.UIChangeRequest?.RevertUIChanges();
                     }
                     throw;
                 }

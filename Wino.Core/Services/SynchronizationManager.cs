@@ -259,25 +259,48 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     /// <param name="accountId">Account ID to queue the request for</param>
     /// <param name="triggerSynchronization">Whether to automatically trigger synchronization after queuing the request</param>
     public async Task QueueRequestAsync(IRequestBase request, Guid accountId, bool triggerSynchronization)
+        => await QueueRequestsAsync([request], accountId, triggerSynchronization).ConfigureAwait(false);
+
+    public async Task QueueRequestsAsync(IEnumerable<IRequestBase> requests, Guid accountId, bool triggerSynchronization)
     {
         EnsureInitialized();
+
+        var requestList = requests?.Where(request => request != null).ToList() ?? [];
+        if (requestList.Count == 0)
+            return;
 
         var synchronizer = await GetOrCreateSynchronizerAsync(accountId);
         if (synchronizer == null)
         {
-            _logger.Error("Could not find or create synchronizer for account {AccountId} to queue request", accountId);
+            _logger.Error("Could not find or create synchronizer for account {AccountId} to queue {RequestCount} request(s)", accountId, requestList.Count);
             return;
         }
 
-        _logger.Debug("Queuing request {RequestType} for account {AccountId}",
-                     request.GetType().Name, accountId);
+        if (requestList.Count == 1)
+        {
+            _logger.Debug("Queuing request {RequestType} for account {AccountId}",
+                         requestList[0].GetType().Name, accountId);
+        }
+        else
+        {
+            var requestSummary = string.Join(", ", requestList
+                .GroupBy(request => request.GetType().Name)
+                .OrderBy(group => group.Key)
+                .Select(group => $"{group.Key} x{group.Count()}"));
 
-        synchronizer.QueueRequest(request);
+            _logger.Debug("Queuing {RequestCount} requests for account {AccountId}: {RequestSummary}",
+                         requestList.Count, accountId, requestSummary);
+        }
+
+        foreach (var request in requestList)
+        {
+            synchronizer.QueueRequest(request);
+        }
 
         if (triggerSynchronization)
         {
             // Determine if this is a calendar or mail operation
-            bool isCalendarOperation = request is ICalendarActionRequest;
+            bool isCalendarOperation = requestList.All(request => request is ICalendarActionRequest);
 
             if (isCalendarOperation)
             {

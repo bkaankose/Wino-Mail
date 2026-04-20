@@ -2020,10 +2020,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     {
         // First apply all UI changes immediately before any batching.
         // This ensures UI reflects changes right away, regardless of batch processing.
-        foreach (var bundle in batchedRequests)
-        {
-            bundle.UIChangeRequest?.ApplyUIChanges();
-        }
+        ApplyOptimisticUiChanges(batchedRequests);
 
         // SendDraft requests may include large attachments, which require upload sessions.
         // Upload these attachments before the batched patch/send sequence.

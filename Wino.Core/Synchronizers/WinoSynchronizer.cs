@@ -161,11 +161,11 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
                 foreach (var group in keys)
                 {
-                    var key = group.Key;
+                    var firstRequest = group.FirstOrDefault();
 
-                    if (key is MailSynchronizerOperation mailSynchronizerOperation)
+                    if (firstRequest is IMailActionRequest mailActionRequest)
                     {
-                        switch (mailSynchronizerOperation)
+                        switch (mailActionRequest.Operation)
                         {
                             case MailSynchronizerOperation.MarkRead:
                                 nativeRequests.AddRange(MarkRead(new BatchMarkReadRequest(group.Cast<MarkReadRequest>())));
@@ -204,9 +204,9 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                                 break;
                         }
                     }
-                    else if (key is FolderSynchronizerOperation folderSynchronizerOperation)
+                    else if (firstRequest is IFolderActionRequest folderActionRequest)
                     {
-                        switch (folderSynchronizerOperation)
+                        switch (folderActionRequest.Operation)
                         {
                             case FolderSynchronizerOperation.RenameFolder:
                                 nativeRequests.AddRange(RenameFolder(group.ElementAt(0) as RenameFolderRequest));
@@ -230,9 +230,9 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                                 break;
                         }
                     }
-                    else if (key is CategorySynchronizerOperation categorySynchronizerOperation)
+                    else if (firstRequest is ICategoryActionRequest categoryActionRequest)
                     {
-                        switch (categorySynchronizerOperation)
+                        switch (categoryActionRequest.Operation)
                         {
                             case CategorySynchronizerOperation.CreateCategory:
                                 nativeRequests.AddRange(CreateCategory(group.ElementAt(0) as MailCategoryCreateRequest));

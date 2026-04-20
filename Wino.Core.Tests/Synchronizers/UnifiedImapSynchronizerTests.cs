@@ -2,12 +2,14 @@ using FluentAssertions;
 using MailKit;
 using MailKit.Net.Imap;
 using Moq;
+using System.Linq;
 using System.Reflection;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Synchronizers.ImapSync;
+using Wino.Services.Extensions;
 using Xunit;
 using IMailService = Wino.Core.Domain.Interfaces.IMailService;
 
@@ -222,5 +224,62 @@ public class UnifiedImapSynchronizerTests
         result.Should().ContainSingle().Which.Should().Be("mail-id");
         capturedPackage.Should().NotBeNull();
         capturedPackage!.MimeMessage.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ProcessSummariesAsync_ShouldBatchStateUpdates_ForExistingMailCopies()
+    {
+        var localFolder = new MailItemFolder
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = Guid.NewGuid(),
+            FolderName = "Inbox",
+            RemoteFolderId = "INBOX"
+        };
+
+        var summaryMock = new Mock<IMessageSummary>();
+        summaryMock.SetupGet(x => x.UniqueId).Returns(new UniqueId(42));
+        summaryMock.SetupGet(x => x.Flags).Returns(MessageFlags.Seen | MessageFlags.Flagged);
+
+        var existingMailCopy = new MailCopy
+        {
+            Id = MailkitClientExtensions.CreateUid(localFolder.Id, 42),
+            IsRead = false,
+            IsFlagged = false
+        };
+
+        var mailServiceMock = new Mock<IMailService>();
+        mailServiceMock
+            .Setup(x => x.GetExistingMailsAsync(localFolder.Id, It.IsAny<IEnumerable<UniqueId>>()))
+            .ReturnsAsync([existingMailCopy]);
+        mailServiceMock
+            .Setup(x => x.ApplyMailStateUpdatesAsync(It.IsAny<IEnumerable<MailCopyStateUpdate>>()))
+            .Returns(Task.CompletedTask);
+
+        var sut = new UnifiedImapSynchronizer(
+            Mock.Of<IFolderService>(),
+            mailServiceMock.Object,
+            Mock.Of<IImapSynchronizerErrorHandlerFactory>());
+
+        var imapSynchronizerMock = new Mock<IImapSynchronizer>();
+
+        var processMethod = typeof(UnifiedImapSynchronizer).GetMethod("ProcessSummariesAsync", BindingFlags.Instance | BindingFlags.NonPublic);
+        processMethod.Should().NotBeNull();
+
+        var task = (Task<List<string>>)processMethod!.Invoke(
+            sut,
+            [imapSynchronizerMock.Object, localFolder, new List<IMessageSummary> { summaryMock.Object }, CancellationToken.None])!;
+
+        var result = await task;
+
+        result.Should().BeEmpty();
+        mailServiceMock.Verify(
+            x => x.ApplyMailStateUpdatesAsync(It.Is<IEnumerable<MailCopyStateUpdate>>(updates =>
+                updates.Count() == 1
+                && updates.First().MailCopyId == existingMailCopy.Id
+                && updates.First().IsRead == true
+                && updates.First().IsFlagged == true)),
+            Times.Once);
+        mailServiceMock.Verify(x => x.CreateMailAsync(It.IsAny<Guid>(), It.IsAny<NewMailItemPackage>()), Times.Never);
     }
 }

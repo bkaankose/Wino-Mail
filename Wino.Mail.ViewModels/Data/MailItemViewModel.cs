@@ -320,6 +320,30 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
         return changedFlags;
     }
 
+    public MailCopyChangeFlags ApplyStateChanges(bool? isRead = null, bool? isFlagged = null)
+    {
+        var changedFlags = MailCopyChangeFlags.None;
+
+        if (isRead.HasValue && MailCopy.IsRead != isRead.Value)
+        {
+            MailCopy.IsRead = isRead.Value;
+            changedFlags |= MailCopyChangeFlags.IsRead;
+        }
+
+        if (isFlagged.HasValue && MailCopy.IsFlagged != isFlagged.Value)
+        {
+            MailCopy.IsFlagged = isFlagged.Value;
+            changedFlags |= MailCopyChangeFlags.IsFlagged;
+        }
+
+        if (changedFlags != MailCopyChangeFlags.None)
+        {
+            RaisePropertyChanges(changedFlags);
+        }
+
+        return changedFlags;
+    }
+
     private static MailCopyChangeFlags SetIfChanged<T>(T currentValue, T newValue, Action<T> setter, MailCopyChangeFlags flag)
     {
         if (EqualityComparer<T>.Default.Equals(currentValue, newValue))

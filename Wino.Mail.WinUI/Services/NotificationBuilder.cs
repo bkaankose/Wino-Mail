@@ -58,7 +58,12 @@ public class NotificationBuilder : INotificationBuilder
 
         WeakReferenceMessenger.Default.Register<MailReadStatusChanged>(this, (r, msg) =>
         {
-            RemoveNotification(msg.UniqueId);
+            QueueRemoveNotifications([msg.UniqueId]);
+        });
+
+        WeakReferenceMessenger.Default.Register<BulkMailReadStatusChanged>(this, (r, msg) =>
+        {
+            QueueRemoveNotifications(msg.UniqueIds);
         });
     }
 
@@ -156,16 +161,37 @@ public class NotificationBuilder : INotificationBuilder
 
     public void RemoveNotification(Guid mailUniqueId)
     {
-        try
+        QueueRemoveNotifications([mailUniqueId]);
+    }
+
+    private void QueueRemoveNotifications(IEnumerable<Guid> mailUniqueIds)
+    {
+        var uniqueIds = mailUniqueIds?
+            .Where(x => x != Guid.Empty)
+            .Distinct()
+            .ToList();
+
+        if (uniqueIds == null || uniqueIds.Count == 0)
+            return;
+
+        _ = RemoveNotificationsAsync(uniqueIds);
+    }
+
+    private static async Task RemoveNotificationsAsync(IReadOnlyList<Guid> mailUniqueIds)
+    {
+        foreach (var mailUniqueId in mailUniqueIds)
         {
-            AppNotificationManager.Default.RemoveByTagAsync(mailUniqueId.ToString()).AsTask().GetAwaiter().GetResult();
-        }
-        catch (ArgumentException)
-        {
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, $"Failed to remove notification for mail {mailUniqueId}");
+            try
+            {
+                await AppNotificationManager.Default.RemoveByTagAsync(mailUniqueId.ToString()).AsTask().ConfigureAwait(false);
+            }
+            catch (ArgumentException)
+            {
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to remove notification for mail {MailUniqueId}", mailUniqueId);
+            }
         }
     }
 

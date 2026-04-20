@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
@@ -24,25 +25,26 @@ public record MarkReadRequest(MailCopy Item, bool IsRead) : MailRequestBase(Item
     /// If the mail is already in the desired read state, no change is needed.
     /// </summary>
     public bool IsNoOp { get; } = Item.IsRead == IsRead;
+    public bool OriginalIsRead => _originalIsRead;
+
+    public override object GroupingKey() => (Operation, Item.FolderId, IsRead);
 
     public override void ApplyUIChanges()
     {
-        // Skip UI update if the mail is already in the desired state
         if (IsNoOp) return;
 
-        Item.IsRead = IsRead;
-
-        WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item, EntityUpdateSource.ClientUpdated, MailCopyChangeFlags.IsRead));
+        WeakReferenceMessenger.Default.Send(new MailStateUpdatedMessage(
+            new MailStateChange(Item.UniqueId, IsRead: IsRead),
+            EntityUpdateSource.ClientUpdated));
     }
 
     public override void RevertUIChanges()
     {
-        // Skip UI revert if this was a no-op request
         if (IsNoOp) return;
 
-        Item.IsRead = _originalIsRead;
-
-        WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item, EntityUpdateSource.ClientReverted, MailCopyChangeFlags.IsRead));
+        WeakReferenceMessenger.Default.Send(new MailStateUpdatedMessage(
+            new MailStateChange(Item.UniqueId, IsRead: _originalIsRead),
+            EntityUpdateSource.ClientReverted));
     }
 }
 
@@ -50,5 +52,35 @@ public class BatchMarkReadRequest : BatchCollection<MarkReadRequest>
 {
     public BatchMarkReadRequest(IEnumerable<MarkReadRequest> collection) : base(collection)
     {
+    }
+
+    public override void ApplyUIChanges()
+    {
+        var updatedMails = this
+            .Where(x => !x.IsNoOp)
+            .Select(x => new MailStateChange(x.Item.UniqueId, IsRead: x.IsRead))
+            .ToList();
+
+        if (updatedMails.Count == 0)
+            return;
+
+        WeakReferenceMessenger.Default.Send(new BulkMailStateUpdatedMessage(
+            updatedMails,
+            EntityUpdateSource.ClientUpdated));
+    }
+
+    public override void RevertUIChanges()
+    {
+        var updatedMails = this
+            .Where(x => !x.IsNoOp)
+            .Select(x => new MailStateChange(x.Item.UniqueId, IsRead: x.OriginalIsRead))
+            .ToList();
+
+        if (updatedMails.Count == 0)
+            return;
+
+        WeakReferenceMessenger.Default.Send(new BulkMailStateUpdatedMessage(
+            updatedMails,
+            EntityUpdateSource.ClientReverted));
     }
 }

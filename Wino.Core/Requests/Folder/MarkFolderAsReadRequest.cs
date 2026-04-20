@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
@@ -17,31 +18,31 @@ public record MarkFolderAsReadRequest(MailItemFolder Folder, List<MailCopy> Mail
 
     public override void ApplyUIChanges()
     {
-        if (MailsToMarkRead == null || MailsToMarkRead.Count == 0) return;
+        var updatedMails = MailsToMarkRead?
+            .Where(item => item != null && !item.IsRead)
+            .Select(item => new MailStateChange(item.UniqueId, IsRead: true))
+            .ToList();
 
-        foreach (var item in MailsToMarkRead)
-        {
-            // Skip if already read
-            if (item.IsRead) continue;
+        if (updatedMails == null || updatedMails.Count == 0)
+            return;
 
-            item.IsRead = true;
-
-            WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(item, EntityUpdateSource.ClientUpdated, MailCopyChangeFlags.IsRead));
-        }
+        WeakReferenceMessenger.Default.Send(new BulkMailStateUpdatedMessage(
+            updatedMails,
+            EntityUpdateSource.ClientUpdated));
     }
 
     public override void RevertUIChanges()
     {
-        if (MailsToMarkRead == null || MailsToMarkRead.Count == 0) return;
+        var updatedMails = MailsToMarkRead?
+            .Where(item => item != null && !item.IsRead)
+            .Select(item => new MailStateChange(item.UniqueId, IsRead: false))
+            .ToList();
 
-        foreach (var item in MailsToMarkRead)
-        {
-            // Skip if already unread (wasn't changed by ApplyUIChanges)
-            if (!item.IsRead) continue;
+        if (updatedMails == null || updatedMails.Count == 0)
+            return;
 
-            item.IsRead = false;
-
-            WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(item, EntityUpdateSource.ClientReverted, MailCopyChangeFlags.IsRead));
-        }
+        WeakReferenceMessenger.Default.Send(new BulkMailStateUpdatedMessage(
+            updatedMails,
+            EntityUpdateSource.ClientReverted));
     }
 }

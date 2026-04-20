@@ -54,6 +54,10 @@ public class WinoRequestProcessor : IWinoRequestProcessor
     {
         var action = preperationRequest.Action;
         var moveTargetStructure = preperationRequest.MoveTargetFolder;
+        var mailItems = preperationRequest.MailItems?.Where(item => item != null).ToList() ?? [];
+
+        if (mailItems.Count == 0)
+            return [];
 
         // Ask confirmation for permanent delete operation.
         // Drafts are always hard deleted without any protection.
@@ -78,12 +82,12 @@ public class WinoRequestProcessor : IWinoRequestProcessor
             // Handle the case when user is trying to move multiple mails that belong to different accounts.
             // We can't handle this with only 1 picker dialog.
 
-            bool isInvalidMoveTarget = preperationRequest.MailItems.Select(a => a.AssignedAccount.Id).Distinct().Count() > 1;
+            bool isInvalidMoveTarget = mailItems.Select(a => a.AssignedAccount.Id).Distinct().Count() > 1;
 
             if (isInvalidMoveTarget)
                 throw new InvalidMoveTargetException(InvalidMoveTargetReason.MultipleAccounts);
 
-            var accountId = preperationRequest.MailItems.FirstOrDefault().AssignedAccount.Id;
+            var accountId = mailItems[0].AssignedAccount.Id;
 
             moveTargetStructure = await _dialogService.PickFolderAsync(accountId, PickFolderReason.Move, _folderService);
 
@@ -94,7 +98,7 @@ public class WinoRequestProcessor : IWinoRequestProcessor
         var requests = new List<IMailActionRequest>();
 
         // TODO: Fix: Collection was modified; enumeration operation may not execute
-        foreach (var item in preperationRequest.MailItems.ToList())
+        foreach (var item in mailItems)
         {
             var singleRequest = await GetSingleRequestAsync(item, action, moveTargetStructure, preperationRequest.ToggleExecution);
 
