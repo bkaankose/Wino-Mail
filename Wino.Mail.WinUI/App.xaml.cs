@@ -4,8 +4,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Threading;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Dispatching;
@@ -16,7 +16,6 @@ using Microsoft.Windows.AppNotifications;
 using MimeKit.Cryptography;
 using Windows.ApplicationModel.Activation;
 using Windows.ApplicationModel.DataTransfer;
-using Windows.ApplicationModel.DataTransfer.ShareTarget;
 using Windows.Storage;
 using Wino.Calendar.ViewModels;
 using Wino.Calendar.ViewModels.Interfaces;
@@ -1400,7 +1399,8 @@ public partial class App : WinoApplication,
         WeakReferenceMessenger.Default.Send(new AccountSynchronizationCompleted(
             message.Options.AccountId,
             syncResult.CompletedState,
-            message.Options.GroupedSynchronizationTrackingId));
+            message.Options.GroupedSynchronizationTrackingId,
+            message.Options.Type));
 
         if (syncResult.CompletedState is SynchronizationCompletedState.Success or SynchronizationCompletedState.PartiallyCompleted)
         {

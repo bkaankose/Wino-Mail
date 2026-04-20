@@ -1698,7 +1698,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         switch (message.Result)
         {
             case SynchronizationCompletedState.Success:
-                UpdateBarMessage(InfoBarMessageType.Success, ActiveFolder.FolderName, Translator.SynchronizationFolderReport_Success);
+                // No need to pop success message when executing requests all the time...
+                if (message.Type != MailSynchronizationType.ExecuteRequests)
+                {
+                    UpdateBarMessage(InfoBarMessageType.Success, ActiveFolder.FolderName, Translator.SynchronizationFolderReport_Success);
+                }
                 break;
             case SynchronizationCompletedState.PartiallyCompleted:
                 UpdateBarMessage(InfoBarMessageType.Warning, ActiveFolder.FolderName, Translator.SynchronizationFolderReport_Failed);
