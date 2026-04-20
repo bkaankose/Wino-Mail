@@ -413,41 +413,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         if (shellPage.GetShellFrame().Content is not MailListPage mailListPage)
             return true;
 
-        var renderingFrame = mailListPage.FindName("RenderingFrame") as Frame;
-
-        if (renderingFrame?.Content is ComposePage composePage)
-        {
-            var closeResult = await MailDialogService.ShowThreeButtonDialogAsync(
-                Translator.DialogMessage_CloseDraftWindowConfirmationTitle,
-                Translator.DialogMessage_CloseDraftWindowConfirmationMessage,
-                Translator.Buttons_Save,
-                Translator.Buttons_Discard,
-                Translator.Buttons_Cancel,
-                WinoCustomMessageDialogIcon.Warning);
-
-            if (closeResult == ThreeButtonDialogResult.Cancel)
-            {
-                return false;
-            }
-
-            try
-            {
-                if (closeResult == ThreeButtonDialogResult.Primary)
-                {
-                    await composePage.ViewModel.SaveDraftAsync();
-                }
-                else
-                {
-                    await composePage.ViewModel.DiscardDraftAsync(requireConfirmation: false);
-                }
-            }
-            catch (Exception ex)
-            {
-                MailDialogService.InfoBarMessage(Translator.GeneralTitle_Error, ex.Message, InfoBarMessageType.Error);
-                return false;
-            }
-        }
-
         await mailListPage.ViewModel.MailCollection.UnselectAllAsync();
         WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
 
