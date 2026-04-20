@@ -438,6 +438,11 @@ public sealed partial class OperationCommandBar : CommandBar
             frameworkElement.DataContext = dataContext;
         }
 
+        if (element is DependencyObject dependencyObject)
+        {
+            MenuFlyoutLanguageHelper.Apply(dependencyObject);
+        }
+
         return element;
     }
 
