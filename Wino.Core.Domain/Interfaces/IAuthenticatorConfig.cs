@@ -3,8 +3,8 @@
 public interface IAuthenticatorConfig
 {
     string OutlookAuthenticatorClientId { get; }
-    string[] OutlookScope { get; }
+    string[] GetOutlookScope(bool isMailAccessGranted, bool isCalendarAccessGranted);
     string GmailAuthenticatorClientId { get; }
-    string[] GmailScope { get; }
+    string[] GetGmailScope(bool isMailAccessGranted, bool isCalendarAccessGranted);
     string GmailTokenStoreIdentifier { get; }
 }

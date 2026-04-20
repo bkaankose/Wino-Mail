@@ -61,6 +61,7 @@ public sealed class ImapCalDavSetupResult
 {
     public string DisplayName { get; init; }
     public string EmailAddress { get; init; }
+    public bool IsMailAccessGranted { get; init; }
     public bool IsCalendarAccessGranted { get; init; }
     public CustomServerInformation ServerInformation { get; init; }
 }

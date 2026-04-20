@@ -45,6 +45,6 @@ public class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
         return GoogleWebAuthorizationBroker.AuthorizeAsync(new ClientSecrets()
         {
             ClientId = ClientId
-        }, AuthenticatorConfig.GmailScope, account.Id.ToString(), CancellationToken.None, new FileDataStore(AuthenticatorConfig.GmailTokenStoreIdentifier));
+        }, AuthenticatorConfig.GetGmailScope(account?.IsMailAccessGranted != false, account?.IsCalendarAccessGranted == true), account.Id.ToString(), CancellationToken.None, new FileDataStore(AuthenticatorConfig.GmailTokenStoreIdentifier));
     }
 }

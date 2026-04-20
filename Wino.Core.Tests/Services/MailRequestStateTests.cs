@@ -13,6 +13,8 @@ public sealed class MailRequestStateTests
     [Fact]
     public void MarkReadRequest_RevertUiChanges_RestoresOriginalReadState()
     {
+        WeakReferenceMessenger.Default.Reset();
+
         var mailCopy = CreateMailCopy(isRead: false, isFlagged: false);
         var request = new MarkReadRequest(mailCopy, IsRead: true);
         var recipient = new MailRequestRecipient();
@@ -35,12 +37,15 @@ public sealed class MailRequestStateTests
         finally
         {
             WeakReferenceMessenger.Default.UnregisterAll(recipient);
+            WeakReferenceMessenger.Default.Reset();
         }
     }
 
     [Fact]
     public void ChangeFlagRequest_RevertUiChanges_RestoresOriginalFlagState()
     {
+        WeakReferenceMessenger.Default.Reset();
+
         var mailCopy = CreateMailCopy(isRead: true, isFlagged: false);
         var request = new ChangeFlagRequest(mailCopy, IsFlagged: true);
         var recipient = new MailRequestRecipient();
@@ -63,6 +68,7 @@ public sealed class MailRequestStateTests
         finally
         {
             WeakReferenceMessenger.Default.UnregisterAll(recipient);
+            WeakReferenceMessenger.Default.Reset();
         }
     }
 

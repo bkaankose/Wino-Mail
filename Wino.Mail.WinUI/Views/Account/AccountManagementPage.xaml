@@ -25,7 +25,7 @@
                 Margin="0,2,0,0"
                 Click="RootAccountTemplate_Click"
                 CommandParameter="{x:Bind}"
-                Description="{x:Bind Account.Address}"
+                Description="{x:Bind DescriptionText}"
                 Header="{x:Bind Account.Name}"
                 IsClickEnabled="True">
                 <winuiControls:SettingsCard.HeaderIcon>
@@ -199,6 +199,7 @@
                 x:Name="AccountsListView"
                 Grid.Row="1"
                 x:Load="{x:Bind ViewModel.HasAccountsDefined, Mode=OneWay}"
+                CanReorderItems="True"
                 ItemContainerStyle="{StaticResource StretchedItemContainerStyle}"
                 ItemTemplateSelector="{StaticResource AccountProviderViewModelTemplateSelector}"
                 ItemsSource="{x:Bind ViewModel.Accounts, Mode=OneWay}"
@@ -208,7 +209,7 @@
                         <winuiControls:SettingsCard Description="{x:Bind domain:Translator.SettingsStartupItem_Description}" Header="{x:Bind domain:Translator.SettingsStartupItem_Title}">
                             <ComboBox
                                 MinWidth="150"
-                                ItemsSource="{x:Bind ViewModel.Accounts, Mode=OneTime}"
+                                ItemsSource="{x:Bind ViewModel.StartupAccounts, Mode=OneWay}"
                                 SelectedItem="{x:Bind ViewModel.StartupAccount, Mode=TwoWay}">
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate x:DataType="interfaces:IAccountProviderDetailViewModel">
@@ -220,16 +221,10 @@
                                 <SymbolIcon Symbol="Account" />
                             </winuiControls:SettingsCard.HeaderIcon>
                         </winuiControls:SettingsCard>
-                        <winuiControls:SettingsCard
-                            Description="{x:Bind domain:Translator.WinoAccount_Management_LocalDataSectionDescription}"
-                            Header="{x:Bind domain:Translator.WinoAccount_Management_LocalDataSectionTitle}">
+                        <winuiControls:SettingsCard Description="{x:Bind domain:Translator.WinoAccount_Management_LocalDataSectionDescription}" Header="{x:Bind domain:Translator.WinoAccount_Management_LocalDataSectionTitle}">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <Button
-                                    Command="{x:Bind ViewModel.ImportLocalDataCommand}"
-                                    Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataImportAction}" />
-                                <Button
-                                    Command="{x:Bind ViewModel.ExportLocalDataCommand}"
-                                    Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataExportAction}" />
+                                <Button Command="{x:Bind ViewModel.ImportLocalDataCommand}" Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataImportAction}" />
+                                <Button Command="{x:Bind ViewModel.ExportLocalDataCommand}" Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataExportAction}" />
                             </StackPanel>
                             <winuiControls:SettingsCard.HeaderIcon>
                                 <SymbolIcon Symbol="Sync" />

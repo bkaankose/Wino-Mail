@@ -1,6 +1,7 @@
 ﻿using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -9,6 +10,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
 
@@ -17,6 +19,7 @@ namespace Wino.Core.ViewModels;
 public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewModel
 {
     public ObservableCollection<IAccountProviderDetailViewModel> Accounts { get; set; } = [];
+    public IEnumerable<IAccountProviderDetailViewModel> StartupAccounts => Accounts.Where(IsStartupEligible);
 
     public bool IsPurchasePanelVisible => !HasUnlimitedAccountProduct;
     public bool IsAccountCreationAlmostOnLimit => Accounts != null && Accounts.Count == FREE_ACCOUNT_COUNT - 1;
@@ -130,10 +133,21 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
     private void AccountsChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
         OnPropertyChanged(nameof(HasAccountsDefined));
+        OnPropertyChanged(nameof(StartupAccounts));
     }
 
     private static string GetAccountDetailsTitle(MailAccount account)
         => !string.IsNullOrWhiteSpace(account?.Address)
             ? string.Format(Translator.SettingsAccountDetails_NavigationTitle, account.Address)
             : account?.Name ?? Translator.AccountDetailsPage_Title;
+
+    private static bool IsStartupEligible(IAccountProviderDetailViewModel account)
+    {
+        return account switch
+        {
+            AccountProviderDetailViewModel accountViewModel => accountViewModel.Account.IsMailAccessGranted,
+            MergedAccountProviderDetailViewModel mergedAccountViewModel => mergedAccountViewModel.HoldingAccounts.Any(a => a.Account.IsMailAccessGranted),
+            _ => true
+        };
+    }
 }

@@ -17,6 +17,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Misc;
 using Wino.Core.Services;
 using Wino.Core.ViewModels.Data;
@@ -96,8 +97,14 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     [ObservableProperty]
     private bool isTaskbarBadgeEnabled;
 
+    [ObservableProperty]
+    public partial AccountCapabilityOption SelectedCapabilityOption { get; set; }
+
     public bool IsFocusedInboxSupportedForAccount => Account != null && Account.Preferences.IsFocusedInboxEnabled != null;
     public bool IsImapServer => ServerInformation != null;
+    public bool HasMailAccess => Account?.IsMailAccessGranted == true;
+    public bool HasCalendarAccess => Account?.IsCalendarAccessGranted == true;
+    public bool IsOAuthCapabilityEditable => Account?.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail;
     public string ProviderIconPath => Account?.SpecialImapProvider != SpecialImapProvider.None
         ? $"ms-appx:///Assets/Providers/{Account.SpecialImapProvider}.png"
         : $"ms-appx:///Assets/Providers/{Account?.ProviderType}.png";
@@ -128,6 +135,13 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         new ImapConnectionSecurityModel(Core.Domain.Enums.ImapConnectionSecurity.SslTls, Translator.ImapConnectionSecurity_SslTls),
         new ImapConnectionSecurityModel(Core.Domain.Enums.ImapConnectionSecurity.StartTls, Translator.ImapConnectionSecurity_StartTls),
         new ImapConnectionSecurityModel(Core.Domain.Enums.ImapConnectionSecurity.None, Translator.ImapConnectionSecurity_None)
+    ];
+
+    public List<AccountCapabilityOption> CapabilityOptions { get; } =
+    [
+        new(true, false, Translator.AccountCapability_MailOnly),
+        new(false, true, Translator.AccountCapability_CalendarOnly),
+        new(true, true, Translator.AccountCapability_MailAndCalendar)
     ];
 
 
@@ -262,6 +276,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
             AccountName = Account.Name;
             SenderName = Account.SenderName;
             ServerInformation = Account.ServerInformation;
+            SelectedCapabilityOption = ResolveCapabilityOption(Account.IsMailAccessGranted, Account.IsCalendarAccessGranted);
 
             IsFocusedInboxEnabled = Account.Preferences.IsFocusedInboxEnabled.GetValueOrDefault();
             AreNotificationsEnabled = Account.Preferences.IsNotificationsEnabled;
@@ -288,7 +303,11 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
                 SelectedOutgoingServerConnectionSecurityIndex = AvailableConnectionSecurities.FindIndex(a => a.ImapConnectionSecurity == ServerInformation.OutgoingServerSocketOption);
             }
 
-            SelectedTabIndex = _statePersistanceService.ApplicationMode == WinoApplicationMode.Calendar ? 2 : 1;
+            SelectedTabIndex = _statePersistanceService.ApplicationMode == WinoApplicationMode.Calendar && HasCalendarAccess
+                ? 2
+                : HasMailAccess
+                    ? 1
+                    : 0;
 
             var folderStructures = (await _folderService.GetFolderStructureForAccountAsync(Account.Id, true)).Folders;
 
@@ -382,11 +401,15 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
     partial void OnAccountChanged(MailAccount value)
     {
+        SelectedCapabilityOption = ResolveCapabilityOption(value?.IsMailAccessGranted == true, value?.IsCalendarAccessGranted == true);
         OnPropertyChanged(nameof(IsFocusedInboxSupportedForAccount));
         OnPropertyChanged(nameof(ProviderIconPath));
         OnPropertyChanged(nameof(Address));
         OnPropertyChanged(nameof(IsInitialSynchronizationSummaryVisible));
         OnPropertyChanged(nameof(InitialSynchronizationSummary));
+        OnPropertyChanged(nameof(HasMailAccess));
+        OnPropertyChanged(nameof(HasCalendarAccess));
+        OnPropertyChanged(nameof(IsOAuthCapabilityEditable));
     }
 
     protected override async void OnPropertyChanged(PropertyChangedEventArgs e)
@@ -417,6 +440,21 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
                 Account.Preferences.IsTaskbarBadgeEnabled = IsTaskbarBadgeEnabled;
                 await _accountService.UpdateAccountAsync(Account);
                 break;
+            case nameof(SelectedCapabilityOption) when IsOAuthCapabilityEditable && SelectedCapabilityOption != null:
+                if (Account.IsMailAccessGranted == SelectedCapabilityOption.IsMailAccessGranted &&
+                    Account.IsCalendarAccessGranted == SelectedCapabilityOption.IsCalendarAccessGranted)
+                    break;
+
+                try
+                {
+                    await UpdateOAuthCapabilityAsync(SelectedCapabilityOption);
+                }
+                catch (Exception ex)
+                {
+                    await ExecuteUIThread(() => SelectedCapabilityOption = ResolveCapabilityOption(Account.IsMailAccessGranted, Account.IsCalendarAccessGranted));
+                    _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, ex.Message, InfoBarMessageType.Error);
+                }
+                break;
             case nameof(SelectedPrimaryCalendar) when SelectedPrimaryCalendar != null:
                 foreach (var calendar in AccountCalendars)
                 {
@@ -425,6 +463,111 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
                 await _calendarService.SetPrimaryCalendarAsync(Account.Id, SelectedPrimaryCalendar.Id);
                 break;
+        }
+    }
+
+    private AccountCapabilityOption ResolveCapabilityOption(bool isMailAccessGranted, bool isCalendarAccessGranted)
+        => CapabilityOptions.First(option =>
+            option.IsMailAccessGranted == isMailAccessGranted &&
+            option.IsCalendarAccessGranted == isCalendarAccessGranted);
+
+    private async Task UpdateOAuthCapabilityAsync(AccountCapabilityOption selectedOption)
+    {
+        var previousMailAccess = Account.IsMailAccessGranted;
+        var previousCalendarAccess = Account.IsCalendarAccessGranted;
+        var requiresReauthorization = (selectedOption.IsMailAccessGranted && !previousMailAccess) ||
+                                      (selectedOption.IsCalendarAccessGranted && !previousCalendarAccess);
+
+        try
+        {
+            if (requiresReauthorization)
+            {
+                Account.IsMailAccessGranted = selectedOption.IsMailAccessGranted;
+                Account.IsCalendarAccessGranted = selectedOption.IsCalendarAccessGranted;
+
+                await SynchronizationManager.Instance.HandleAuthorizationAsync(
+                    Account.ProviderType,
+                    Account,
+                    Account.ProviderType == MailProviderType.Gmail);
+            }
+        }
+        catch
+        {
+            Account.IsMailAccessGranted = previousMailAccess;
+            Account.IsCalendarAccessGranted = previousCalendarAccess;
+            throw;
+        }
+
+        Account.IsMailAccessGranted = selectedOption.IsMailAccessGranted;
+        Account.IsCalendarAccessGranted = selectedOption.IsCalendarAccessGranted;
+
+        await _accountService.UpdateAccountAsync(Account);
+
+        if (selectedOption.IsMailAccessGranted && !previousMailAccess)
+        {
+            await SynchronizationManager.Instance.SynchronizeProfileAsync(Account.Id);
+            await SynchronizationManager.Instance.SynchronizeMailAsync(new MailSynchronizationOptions
+            {
+                AccountId = Account.Id,
+                Type = MailSynchronizationType.FullFolders
+            });
+
+            if (Account.ProviderType == MailProviderType.Outlook)
+            {
+                await SynchronizationManager.Instance.SynchronizeMailAsync(new MailSynchronizationOptions
+                {
+                    AccountId = Account.Id,
+                    Type = MailSynchronizationType.Categories
+                });
+            }
+
+            if (!string.IsNullOrWhiteSpace(Account.Address))
+            {
+                var aliases = await _accountService.GetAccountAliasesAsync(Account.Id);
+                var hasRootAlias = aliases.Any(alias => alias.IsRootAlias);
+
+                if (!hasRootAlias)
+                {
+                    await _accountService.CreateRootAliasAsync(Account.Id, Account.Address);
+                }
+            }
+
+            await SynchronizationManager.Instance.SynchronizeMailAsync(new MailSynchronizationOptions
+            {
+                AccountId = Account.Id,
+                Type = MailSynchronizationType.Alias
+            });
+        }
+
+        if (selectedOption.IsCalendarAccessGranted && !previousCalendarAccess)
+        {
+            await SynchronizationManager.Instance.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
+            {
+                AccountId = Account.Id,
+                Type = CalendarSynchronizationType.CalendarMetadata
+            });
+        }
+
+        var refreshedAccount = await _accountService.GetAccountAsync(Account.Id);
+
+        await ExecuteUIThread(() =>
+        {
+            Account = refreshedAccount;
+            AccountName = refreshedAccount.Name;
+            SenderName = refreshedAccount.SenderName;
+            EnsureSelectedTabForCapabilities();
+        });
+    }
+
+    private void EnsureSelectedTabForCapabilities()
+    {
+        if (SelectedTabIndex == 1 && !HasMailAccess)
+        {
+            SelectedTabIndex = HasCalendarAccess ? 2 : 0;
+        }
+        else if (SelectedTabIndex == 2 && !HasCalendarAccess)
+        {
+            SelectedTabIndex = HasMailAccess ? 1 : 0;
         }
     }
 }
@@ -437,6 +580,20 @@ public sealed class AccountCalendarShowAsOption
     public AccountCalendarShowAsOption(CalendarItemShowAs showAs, string displayText)
     {
         ShowAs = showAs;
+        DisplayText = displayText;
+    }
+}
+
+public sealed class AccountCapabilityOption
+{
+    public bool IsMailAccessGranted { get; }
+    public bool IsCalendarAccessGranted { get; }
+    public string DisplayText { get; }
+
+    public AccountCapabilityOption(bool isMailAccessGranted, bool isCalendarAccessGranted, string displayText)
+    {
+        IsMailAccessGranted = isMailAccessGranted;
+        IsCalendarAccessGranted = isCalendarAccessGranted;
         DisplayText = displayText;
     }
 }

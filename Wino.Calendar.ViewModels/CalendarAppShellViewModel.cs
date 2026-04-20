@@ -299,6 +299,9 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
         foreach (var account in accounts)
         {
+            if (!GroupedAccountCalendarViewModel.SupportsCalendar(account))
+                continue;
+
             var accountCalendars = await _calendarService.GetAccountCalendarsAsync(account.Id).ConfigureAwait(false);
             var calendarViewModels = accountCalendars.Select(calendar => new AccountCalendarViewModel(account, calendar)).ToList();
             var groupedAccountCalendarViewModel = new GroupedAccountCalendarViewModel(account, calendarViewModels);

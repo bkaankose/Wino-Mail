@@ -105,6 +105,9 @@ public partial class AccountCalendarStateService : ObservableRecipient,
     {
         lock (_calendarStateLock)
         {
+            if (!GroupedAccountCalendarViewModel.SupportsCalendar(groupedAccountCalendar.Account))
+                return;
+
             groupedAccountCalendar.CalendarSelectionStateChanged += SingleCalendarSelectionStateChanged;
             groupedAccountCalendar.CollectiveSelectionStateChanged += SingleGroupCalendarCollectiveStateChanged;
             try
@@ -180,6 +183,9 @@ public partial class AccountCalendarStateService : ObservableRecipient,
     {
         lock (_calendarStateLock)
         {
+            if (!GroupedAccountCalendarViewModel.SupportsCalendar(accountCalendar.Account))
+                return;
+
             // Find the group that this calendar belongs to.
             var group = _internalGroupedAccountCalendars.FirstOrDefault(g => g.Account.Id == accountCalendar.Account.Id);
 
@@ -396,6 +402,16 @@ public partial class AccountCalendarStateService : ObservableRecipient,
         lock (_calendarStateLock)
         {
             groupedAccount = _internalGroupedAccountCalendars.FirstOrDefault(a => a.Account.Id == updatedAccount.Id);
+
+            if (!GroupedAccountCalendarViewModel.SupportsCalendar(updatedAccount))
+            {
+                if (groupedAccount != null)
+                {
+                    RemoveGroupedAccountCalendar(groupedAccount);
+                }
+
+                return;
+            }
         }
 
         groupedAccount?.UpdateAccount(updatedAccount);

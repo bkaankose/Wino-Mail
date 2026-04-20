@@ -1,5 +1,6 @@
 ﻿using System;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 
@@ -9,6 +10,8 @@ public partial class AccountProviderDetailViewModel : ObservableObject, IAccount
 {
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CapabilitySummary))]
+    [NotifyPropertyChangedFor(nameof(DescriptionText))]
     private MailAccount account;
 
     public IProviderDetail ProviderDetail { get; set; }
@@ -20,6 +23,10 @@ public partial class AccountProviderDetailViewModel : ObservableObject, IAccount
     public int Order => Account.Order;
 
     public string StartupEntityAddresses => Account.Address;
+    public string CapabilitySummary => BuildCapabilitySummary(Account);
+    public string DescriptionText => string.IsNullOrWhiteSpace(Account.Address)
+        ? CapabilitySummary
+        : $"{CapabilitySummary} | {Account.Address}";
 
     public int HoldingAccountCount => 1;
 
@@ -29,5 +36,16 @@ public partial class AccountProviderDetailViewModel : ObservableObject, IAccount
     {
         ProviderDetail = providerDetail;
         Account = account;
+    }
+
+    private static string BuildCapabilitySummary(MailAccount account)
+    {
+        if (account?.IsMailAccessGranted == true && account.IsCalendarAccessGranted)
+            return Translator.AccountCapability_MailAndCalendar;
+
+        if (account?.IsMailAccessGranted == true)
+            return Translator.AccountCapability_MailOnly;
+
+        return Translator.AccountCapability_CalendarOnly;
     }
 }

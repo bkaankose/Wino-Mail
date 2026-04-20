@@ -21,6 +21,8 @@ public sealed class BaseSynchronizerUiChangeTests
     [Fact]
     public void ApplyOptimisticUiChanges_UsesBundleUiChangeRequest_ForBatchBundle()
     {
+        WeakReferenceMessenger.Default.Reset();
+
         var folderId = Guid.NewGuid();
         var account = new MailAccount { Id = Guid.NewGuid(), Name = "Test account" };
         var synchronizer = new TestSynchronizer(account);
@@ -48,6 +50,7 @@ public sealed class BaseSynchronizerUiChangeTests
         {
             WeakReferenceMessenger.Default.Unregister<MailStateUpdatedMessage>(recipient);
             WeakReferenceMessenger.Default.Unregister<BulkMailStateUpdatedMessage>(recipient);
+            WeakReferenceMessenger.Default.Reset();
         }
     }
 

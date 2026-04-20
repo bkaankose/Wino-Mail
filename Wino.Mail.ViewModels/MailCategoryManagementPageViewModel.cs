@@ -10,9 +10,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests.Category;
 using Wino.Core.Services;
 
@@ -53,11 +51,11 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
         if (parameters is not Guid accountId)
             return;
 
-        Account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+        Account = await _accountService.GetAccountAsync(accountId);
 
         if (Account != null)
         {
-            await LoadCategoriesAsync().ConfigureAwait(false);
+            await LoadCategoriesAsync();
         }
     }
 

@@ -72,6 +72,26 @@ public static class XamlHelpers
             return null;
         }
     }
+
+    public static Microsoft.UI.Xaml.Media.Imaging.BitmapImage? StringToBitmapImage(string? imagePath)
+    {
+        if (string.IsNullOrWhiteSpace(imagePath))
+            return null;
+
+        try
+        {
+            var uri = imagePath.StartsWith("/")
+                ? new Uri($"ms-appx://{imagePath}")
+                : new Uri(imagePath, UriKind.Absolute);
+
+            return new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(uri);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public static InfoBarSeverity InfoBarSeverityConverter(InfoBarMessageType messageType)
     {
         return messageType switch

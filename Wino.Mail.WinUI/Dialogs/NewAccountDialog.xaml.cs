@@ -158,7 +158,9 @@ public sealed partial class NewAccountDialog : ContentDialog
                 AccountNameTextbox.Text.Trim(),
                 details,
                 SelectedColor?.Hex ?? string.Empty,
-                initialSynchronizationRange);
+                initialSynchronizationRange,
+                true,
+                calendarSupportMode != ImapCalendarSupportMode.Disabled);
             Hide();
 
             return;
@@ -185,7 +187,9 @@ public sealed partial class NewAccountDialog : ContentDialog
                     AccountNameTextbox.Text.Trim(),
                     null,
                     SelectedColor?.Hex ?? string.Empty,
-                    initialSynchronizationRange);
+                    initialSynchronizationRange,
+                    true,
+                    true);
                 Hide();
             }
         }

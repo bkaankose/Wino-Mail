@@ -38,10 +38,14 @@ public partial class SpecialImapCredentialsPageViewModel : MailBaseViewModel
     public partial string AppSpecificPassword { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RequiresAppSpecificPassword))]
     public partial int SelectedCalendarModeIndex { get; set; }
 
     [ObservableProperty]
     public partial bool CanProceed { get; set; }
+
+    public bool IsCalendarModeSelectionVisible => WizardContext.IsCalendarAccessEnabled;
+    public bool RequiresAppSpecificPassword => WizardContext.IsMailAccessEnabled || SelectedCalendarModeIndex == 1;
 
     public string AppPasswordHelpUrl
     {
@@ -86,8 +90,15 @@ public partial class SpecialImapCredentialsPageViewModel : MailBaseViewModel
             _ => 0
         };
 
+        if (!WizardContext.IsCalendarAccessEnabled)
+        {
+            SelectedCalendarModeIndex = 0;
+        }
+
         OnPropertyChanged(nameof(AppPasswordHelpUrl));
         OnPropertyChanged(nameof(CalendarModeCalDavDescription));
+        OnPropertyChanged(nameof(IsCalendarModeSelectionVisible));
+        OnPropertyChanged(nameof(RequiresAppSpecificPassword));
 
         Validate();
     }
@@ -95,13 +106,18 @@ public partial class SpecialImapCredentialsPageViewModel : MailBaseViewModel
     partial void OnDisplayNameChanged(string value) => Validate();
     partial void OnEmailAddressChanged(string value) => Validate();
     partial void OnAppSpecificPasswordChanged(string value) => Validate();
+    partial void OnSelectedCalendarModeIndexChanged(int value)
+    {
+        OnPropertyChanged(nameof(RequiresAppSpecificPassword));
+        Validate();
+    }
 
     private void Validate()
     {
         CanProceed = !string.IsNullOrWhiteSpace(DisplayName)
             && !string.IsNullOrWhiteSpace(EmailAddress)
             && MailAccountAddressValidator.IsValid(EmailAddress)
-            && !string.IsNullOrWhiteSpace(AppSpecificPassword);
+            && (!RequiresAppSpecificPassword || !string.IsNullOrWhiteSpace(AppSpecificPassword));
     }
 
     [RelayCommand]
@@ -121,12 +137,14 @@ public partial class SpecialImapCredentialsPageViewModel : MailBaseViewModel
         WizardContext.DisplayName = DisplayName?.Trim();
         WizardContext.EmailAddress = EmailAddress?.Trim();
         WizardContext.AppSpecificPassword = AppSpecificPassword?.Trim();
-        WizardContext.CalendarSupportMode = SelectedCalendarModeIndex switch
-        {
-            1 => ImapCalendarSupportMode.CalDav,
-            2 => ImapCalendarSupportMode.LocalOnly,
-            _ => ImapCalendarSupportMode.Disabled
-        };
+        WizardContext.CalendarSupportMode = WizardContext.IsCalendarAccessEnabled
+            ? SelectedCalendarModeIndex switch
+            {
+                1 => ImapCalendarSupportMode.CalDav,
+                2 => ImapCalendarSupportMode.LocalOnly,
+                _ => ImapCalendarSupportMode.Disabled
+            }
+            : ImapCalendarSupportMode.Disabled;
 
         Messenger.Send(new BreadcrumbNavigationRequested(
             Translator.WelcomeWizard_Step3Title,

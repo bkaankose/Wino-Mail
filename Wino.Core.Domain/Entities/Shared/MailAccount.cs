@@ -79,6 +79,13 @@ public class MailAccount
     public SpecialImapProvider SpecialImapProvider { get; set; }
 
     /// <summary>
+    /// Gets or sets whether mail access is granted for this account.
+    /// When false, mail folders, aliases, compose flows, and mail synchronization are unavailable.
+    /// Default is true for legacy accounts to preserve existing behavior.
+    /// </summary>
+    public bool IsMailAccessGranted { get; set; } = true;
+
+    /// <summary>
     /// Gets or sets whether calendar access is granted for this account.
     /// When false, synchronizers will not process EventMessages or calendar invitations.
     /// Default is false for existing accounts to prevent scope issues.

@@ -7,4 +7,6 @@ public record AccountCreationDialogResult(
     string AccountName,
     SpecialImapProviderDetails SpecialImapProviderDetails,
     string AccountColorHex,
-    InitialSynchronizationRange InitialSynchronizationRange);
+    InitialSynchronizationRange InitialSynchronizationRange,
+    bool IsMailAccessGranted,
+    bool IsCalendarAccessGranted);

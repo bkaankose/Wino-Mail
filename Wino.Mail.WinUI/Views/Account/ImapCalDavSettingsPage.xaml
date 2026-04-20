@@ -76,12 +76,18 @@
                                 Grid.Row="1"
                                 Grid.ColumnSpan="2"
                                 Header="{x:Bind ViewModel.PasswordHeaderText, Mode=OneWay}"
-                                Password="{x:Bind ViewModel.Password, Mode=TwoWay}" />
+                                Password="{x:Bind ViewModel.Password, Mode=TwoWay}"
+                                Visibility="{x:Bind ViewModel.IsMailPasswordInputVisible, Mode=OneWay}" />
                         </Grid>
 
-                        <CheckBox
-                            Content="{x:Bind ViewModel.EnableCalendarSupportText, Mode=OneWay}"
-                            IsChecked="{x:Bind ViewModel.IsCalendarSupportEnabled, Mode=TwoWay}" />
+                        <StackPanel Spacing="10">
+                            <CheckBox
+                                Content="{x:Bind ViewModel.EnableMailSupportText, Mode=OneWay}"
+                                IsChecked="{x:Bind ViewModel.IsMailSupportEnabled, Mode=TwoWay}" />
+                            <CheckBox
+                                Content="{x:Bind ViewModel.EnableCalendarSupportText, Mode=OneWay}"
+                                IsChecked="{x:Bind ViewModel.IsCalendarSupportEnabled, Mode=TwoWay}" />
+                        </StackPanel>
 
                         <StackPanel Spacing="8">
                             <TextBlock
@@ -93,7 +99,8 @@
                                 HorizontalAlignment="Left"
                                 Command="{x:Bind ViewModel.AutoDiscoverSettingsCommand}"
                                 Content="{x:Bind ViewModel.AutoDiscoverButtonText, Mode=OneWay}"
-                                Style="{ThemeResource AccentButtonStyle}" />
+                                Style="{ThemeResource AccentButtonStyle}"
+                                Visibility="{x:Bind ViewModel.IsMailActionsVisible, Mode=OneWay}" />
                         </StackPanel>
                     </StackPanel>
                 </Border>
@@ -103,7 +110,8 @@
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
-                    CornerRadius="8">
+                    CornerRadius="8"
+                    Visibility="{x:Bind ViewModel.IsMailSettingsVisible, Mode=OneWay}">
                     <StackPanel Spacing="16">
                         <StackPanel Spacing="2">
                             <TextBlock
@@ -176,7 +184,8 @@
                         <Button
                             HorizontalAlignment="Right"
                             Command="{x:Bind ViewModel.TestImapConnectionCommand}"
-                            Content="{x:Bind ViewModel.TestImapButtonText, Mode=OneWay}" />
+                            Content="{x:Bind ViewModel.TestImapButtonText, Mode=OneWay}"
+                            Visibility="{x:Bind ViewModel.IsMailActionsVisible, Mode=OneWay}" />
                     </StackPanel>
                 </Border>
 

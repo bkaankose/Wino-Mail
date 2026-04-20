@@ -83,7 +83,7 @@ public class AccountServiceTests : IAsyncLifetime
         var secondAccountId = Guid.NewGuid();
 
         await _accountService.CreateAccountAsync(
-            CreateImapAccount(firstAccountId),
+            CreateImapAccount(firstAccountId, "IMAP Test Account 1", "imap1@test.local"),
             new CustomServerInformation
             {
                 Id = Guid.NewGuid(),
@@ -92,7 +92,7 @@ public class AccountServiceTests : IAsyncLifetime
             });
 
         await _accountService.CreateAccountAsync(
-            CreateImapAccount(secondAccountId),
+            CreateImapAccount(secondAccountId, "IMAP Test Account 2", "imap2@test.local"),
             new CustomServerInformation
             {
                 Id = Guid.NewGuid(),
@@ -119,13 +119,13 @@ public class AccountServiceTests : IAsyncLifetime
             .BeGreaterThanOrEqualTo(50);
     }
 
-    private static MailAccount CreateImapAccount(Guid accountId)
+    private static MailAccount CreateImapAccount(Guid accountId, string name = "IMAP Test Account", string address = "imap@test.local")
     {
         return new MailAccount
         {
             Id = accountId,
-            Name = "IMAP Test Account",
-            Address = "imap@test.local",
+            Name = name,
+            Address = address,
             SenderName = "IMAP Test",
             ProviderType = MailProviderType.IMAP4
         };

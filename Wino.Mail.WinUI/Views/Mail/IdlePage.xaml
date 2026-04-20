@@ -9,7 +9,39 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <!--  Empty page for disposing composer or renderer page.  -->
-    <Grid />
+    <Grid>
+        <StackPanel
+            MaxWidth="440"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Spacing="12"
+            Visibility="{x:Bind ViewModel.IsMailEmptyStateVisible, Mode=OneWay}">
+            <TextBlock
+                HorizontalAlignment="Center"
+                Style="{StaticResource TitleTextBlockStyle}"
+                Text="{x:Bind ViewModel.MailEmptyStateTitle, Mode=OneWay}"
+                TextAlignment="Center"
+                TextWrapping="WrapWholeWords" />
+            <TextBlock
+                HorizontalAlignment="Center"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource BodyTextBlockStyle}"
+                Text="{x:Bind ViewModel.MailEmptyStateMessage, Mode=OneWay}"
+                TextAlignment="Center"
+                TextWrapping="WrapWholeWords" />
+            <StackPanel
+                HorizontalAlignment="Center"
+                Orientation="Horizontal"
+                Spacing="12">
+                <Button
+                    Command="{x:Bind ViewModel.AddAccountCommand}"
+                    Content="{x:Bind ViewModel.AddAccountText, Mode=OneWay}"
+                    Style="{ThemeResource AccentButtonStyle}" />
+                <Button
+                    Command="{x:Bind ViewModel.ManageAccountsCommand}"
+                    Content="{x:Bind ViewModel.ManageAccountsText, Mode=OneWay}" />
+            </StackPanel>
+        </StackPanel>
+    </Grid>
 
 </abstract:IdlePageAbstract>

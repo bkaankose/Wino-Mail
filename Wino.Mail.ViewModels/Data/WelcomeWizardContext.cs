@@ -21,6 +21,12 @@ public partial class WelcomeWizardContext : ObservableObject
     [ObservableProperty]
     public partial InitialSynchronizationRange SelectedInitialSynchronizationRange { get; set; } = InitialSynchronizationRange.SixMonths;
 
+    [ObservableProperty]
+    public partial bool IsMailAccessEnabled { get; set; } = true;
+
+    [ObservableProperty]
+    public partial bool IsCalendarAccessEnabled { get; set; } = true;
+
     // Special IMAP fields (iCloud/Yahoo)
     [ObservableProperty]
     public partial string DisplayName { get; set; }
@@ -66,7 +72,9 @@ public partial class WelcomeWizardContext : ObservableObject
             AccountName,
             BuildSpecialImapProviderDetails(),
             AccountColorHex,
-            SelectedInitialSynchronizationRange);
+            SelectedInitialSynchronizationRange,
+            IsMailAccessEnabled,
+            IsCalendarAccessEnabled);
     }
 
     public void Reset()
@@ -75,6 +83,8 @@ public partial class WelcomeWizardContext : ObservableObject
         AccountName = null;
         AccountColorHex = null;
         SelectedInitialSynchronizationRange = InitialSynchronizationRange.SixMonths;
+        IsMailAccessEnabled = true;
+        IsCalendarAccessEnabled = true;
         DisplayName = null;
         EmailAddress = null;
         AppSpecificPassword = null;

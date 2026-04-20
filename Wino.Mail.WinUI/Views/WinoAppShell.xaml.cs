@@ -371,8 +371,13 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     {
         _ = DispatcherQueue.EnqueueAsync(async () =>
         {
-            ViewModel.NavigationService.ChangeApplicationMode(WinoApplicationMode.Mail);
             await ViewModel.MailClient.HandleAccountCreatedAsync(message.Account);
+
+            var targetMode = !message.Account.IsMailAccessGranted && message.Account.IsCalendarAccessGranted
+                ? WinoApplicationMode.Calendar
+                : WinoApplicationMode.Mail;
+
+            ViewModel.NavigationService.ChangeApplicationMode(targetMode);
         });
     }
 

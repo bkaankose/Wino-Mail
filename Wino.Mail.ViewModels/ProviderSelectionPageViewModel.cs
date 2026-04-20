@@ -15,6 +15,13 @@ using Wino.Messaging.Client.Navigation;
 
 namespace Wino.Mail.ViewModels;
 
+public enum ProviderSelectionWizardStep
+{
+    Provider = 0,
+    Identity = 1,
+    Capabilities = 2
+}
+
 public partial class ProviderSelectionPageViewModel : MailBaseViewModel
 {
     private readonly IAccountService _accountService;
@@ -45,16 +52,50 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsInitialSynchronizationWarningVisible))]
+    [NotifyPropertyChangedFor(nameof(IsMailSynchronizationRangeVisible))]
     public partial InitialSynchronizationRangeOption SelectedInitialSynchronizationRange { get; set; }
 
     [ObservableProperty]
     public partial string AccountName { get; set; }
 
     [ObservableProperty]
-    public partial bool CanProceed { get; set; }
+    [NotifyPropertyChangedFor(nameof(IsMailSynchronizationRangeVisible))]
+    public partial bool IsMailAccessEnabled { get; set; } = true;
+
+    [ObservableProperty]
+    public partial bool IsCalendarAccessEnabled { get; set; } = true;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CurrentStepNumber))]
+    [NotifyPropertyChangedFor(nameof(StepProgressValue))]
+    [NotifyPropertyChangedFor(nameof(StepProgressText))]
+    [NotifyPropertyChangedFor(nameof(IsProviderStepVisible))]
+    [NotifyPropertyChangedFor(nameof(IsIdentityStepVisible))]
+    [NotifyPropertyChangedFor(nameof(IsCapabilityStepVisible))]
+    [NotifyPropertyChangedFor(nameof(CanGoBack))]
+    [NotifyCanExecuteChangedFor(nameof(ContinueCommand))]
+    [NotifyCanExecuteChangedFor(nameof(GoBackCommand))]
+    public partial ProviderSelectionWizardStep CurrentStep { get; set; } = ProviderSelectionWizardStep.Provider;
 
     public bool IsColorSelected => SelectedColor != null;
-    public bool IsInitialSynchronizationWarningVisible => SelectedInitialSynchronizationRange?.IsEverything == true;
+    public bool IsInitialSynchronizationWarningVisible => IsMailSynchronizationRangeVisible && SelectedInitialSynchronizationRange?.IsEverything == true;
+    public bool IsMailSynchronizationRangeVisible => IsMailAccessEnabled;
+    public int CurrentStepNumber => (int)CurrentStep + 1;
+    public double StepProgressValue => CurrentStepNumber;
+    public string StepProgressText => string.Format(Translator.ProviderSelection_StepProgress, CurrentStepNumber);
+    public bool IsProviderStepVisible => CurrentStep == ProviderSelectionWizardStep.Provider;
+    public bool IsIdentityStepVisible => CurrentStep == ProviderSelectionWizardStep.Identity;
+    public bool IsCapabilityStepVisible => CurrentStep == ProviderSelectionWizardStep.Capabilities;
+    public bool CanGoBack => CurrentStep != ProviderSelectionWizardStep.Provider;
+    public string SelectedProviderName => SelectedProvider?.Name ?? string.Empty;
+    public string SelectedProviderDescription => SelectedProvider?.Description ?? string.Empty;
+    public string SelectedProviderImage => SelectedProvider?.ProviderImage ?? string.Empty;
+    public string SelectedProviderCapabilityDescription => GetSelectedProviderCapabilityDescription();
+    public bool IsCapabilitySelectionMissing => !IsMailAccessEnabled && !IsCalendarAccessEnabled;
+    public bool IsCalendarOnlyServerHintVisible =>
+        SelectedProvider?.Type == MailProviderType.IMAP4 &&
+        !IsMailAccessEnabled &&
+        IsCalendarAccessEnabled;
 
     public ProviderSelectionPageViewModel(
         IAccountService accountService,
@@ -101,48 +142,110 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
                 p.Type == WizardContext.SelectedProvider.Type &&
                 p.SpecialImapProvider == WizardContext.SelectedProvider.SpecialImapProvider);
             AccountName = WizardContext.AccountName;
+            IsMailAccessEnabled = WizardContext.IsMailAccessEnabled;
+            IsCalendarAccessEnabled = WizardContext.IsCalendarAccessEnabled;
 
             if (WizardContext.AccountColorHex != null)
                 SelectedColor = AvailableColors.FirstOrDefault(c => c.Hex == WizardContext.AccountColorHex);
         }
+        else
+        {
+            IsMailAccessEnabled = true;
+            IsCalendarAccessEnabled = true;
+        }
 
-        Validate();
+        CurrentStep = mode == NavigationMode.Back && SelectedProvider != null
+            ? ProviderSelectionWizardStep.Capabilities
+            : ProviderSelectionWizardStep.Provider;
     }
 
     partial void OnSelectedProviderChanged(IProviderDetail value)
     {
-        Validate();
+        OnPropertyChanged(nameof(SelectedProviderName));
+        OnPropertyChanged(nameof(SelectedProviderDescription));
+        OnPropertyChanged(nameof(SelectedProviderImage));
+        OnPropertyChanged(nameof(SelectedProviderCapabilityDescription));
+        OnPropertyChanged(nameof(IsCapabilitySelectionMissing));
+        OnPropertyChanged(nameof(IsCalendarOnlyServerHintVisible));
+        ContinueCommand.NotifyCanExecuteChanged();
     }
 
-    partial void OnAccountNameChanged(string value) => Validate();
+    partial void OnAccountNameChanged(string value) => ContinueCommand.NotifyCanExecuteChanged();
+
+    partial void OnIsMailAccessEnabledChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsCapabilitySelectionMissing));
+        OnPropertyChanged(nameof(IsCalendarOnlyServerHintVisible));
+        ContinueCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnIsCalendarAccessEnabledChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsCapabilitySelectionMissing));
+        OnPropertyChanged(nameof(IsCalendarOnlyServerHintVisible));
+        ContinueCommand.NotifyCanExecuteChanged();
+    }
 
     [RelayCommand]
     private void ClearColor() => SelectedColor = null;
 
-    private void Validate()
+    private bool CanContinue()
     {
-        CanProceed = SelectedProvider != null && !string.IsNullOrWhiteSpace(AccountName);
+        return CurrentStep switch
+        {
+            ProviderSelectionWizardStep.Provider => SelectedProvider != null,
+            ProviderSelectionWizardStep.Identity => !string.IsNullOrWhiteSpace(AccountName),
+            ProviderSelectionWizardStep.Capabilities => IsMailAccessEnabled || IsCalendarAccessEnabled,
+            _ => false
+        };
     }
 
-    [RelayCommand]
-    private async Task ProceedAsync()
+    [RelayCommand(CanExecute = nameof(CanGoBack))]
+    private void GoBack()
     {
-        if (!CanProceed) return;
-
-        if (await _accountService.AccountNameExistsAsync(AccountName))
-        {
-            await _dialogService.ShowMessageAsync(
-                Translator.DialogMessage_AccountNameExistsMessage,
-                Translator.DialogMessage_AccountExistsTitle,
-                WinoCustomMessageDialogIcon.Warning);
+        if (!CanGoBack)
             return;
-        }
 
-        // Persist to wizard context
+        CurrentStep--;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanContinue))]
+    private async Task ContinueAsync()
+    {
+        switch (CurrentStep)
+        {
+            case ProviderSelectionWizardStep.Provider:
+                CurrentStep = ProviderSelectionWizardStep.Identity;
+                return;
+            case ProviderSelectionWizardStep.Identity:
+                if (await _accountService.AccountNameExistsAsync(AccountName?.Trim()))
+                {
+                    await _dialogService.ShowMessageAsync(
+                        Translator.DialogMessage_AccountNameExistsMessage,
+                        Translator.DialogMessage_AccountExistsTitle,
+                        WinoCustomMessageDialogIcon.Warning);
+                    return;
+                }
+
+                CurrentStep = ProviderSelectionWizardStep.Capabilities;
+                return;
+            case ProviderSelectionWizardStep.Capabilities:
+                await CompleteWizardAsync();
+                return;
+        }
+    }
+
+    private async Task CompleteWizardAsync()
+    {
+        if (!CanContinue())
+            return;
+
         WizardContext.SelectedProvider = SelectedProvider;
         WizardContext.AccountName = AccountName?.Trim();
         WizardContext.AccountColorHex = SelectedColor?.Hex ?? string.Empty;
         WizardContext.SelectedInitialSynchronizationRange = SelectedInitialSynchronizationRange?.Range ?? InitialSynchronizationRange.SixMonths;
+        WizardContext.IsMailAccessEnabled = IsMailAccessEnabled;
+        WizardContext.IsCalendarAccessEnabled = IsCalendarAccessEnabled;
 
         if (WizardContext.IsGenericImap)
         {
@@ -171,5 +274,24 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
                 Translator.WelcomeWizard_Step3Title,
                 WinoPage.AccountSetupProgressPage));
         }
+    }
+
+    partial void OnSelectedProviderChanging(IProviderDetail value)
+    {
+
+    }
+
+    private string GetSelectedProviderCapabilityDescription()
+    {
+        if (SelectedProvider == null)
+            return string.Empty;
+
+        if (SelectedProvider.Type is MailProviderType.Outlook or MailProviderType.Gmail)
+            return Translator.ProviderSelection_CapabilityProviderDescription_OAuth;
+
+        if (SelectedProvider.SpecialImapProvider is SpecialImapProvider.iCloud or SpecialImapProvider.Yahoo)
+            return Translator.ProviderSelection_CapabilityProviderDescription_SpecialImap;
+
+        return Translator.ProviderSelection_CapabilityProviderDescription_CustomServer;
     }
 }

@@ -90,12 +90,12 @@
                         <SymbolIcon Symbol="ContactInfo" />
                     </controls:SegmentedItem.Icon>
                 </controls:SegmentedItem>
-                <controls:SegmentedItem Content="{x:Bind domain:Translator.AccountDetailsPage_TabMail, Mode=OneTime}">
+                <controls:SegmentedItem Content="{x:Bind domain:Translator.AccountDetailsPage_TabMail, Mode=OneTime}" Visibility="{x:Bind ViewModel.HasMailAccess, Mode=OneWay}">
                     <controls:SegmentedItem.Icon>
                         <SymbolIcon Symbol="Mail" />
                     </controls:SegmentedItem.Icon>
                 </controls:SegmentedItem>
-                <controls:SegmentedItem Content="{x:Bind domain:Translator.AccountDetailsPage_TabCalendar, Mode=OneTime}">
+                <controls:SegmentedItem Content="{x:Bind domain:Translator.AccountDetailsPage_TabCalendar, Mode=OneTime}" Visibility="{x:Bind ViewModel.HasCalendarAccess, Mode=OneWay}">
                     <controls:SegmentedItem.Icon>
                         <FontIcon Glyph="&#xE163;" />
                     </controls:SegmentedItem.Icon>
@@ -117,7 +117,10 @@
                             Text="{x:Bind ViewModel.AccountName, Mode=TwoWay}" />
                     </controls:SettingsCard>
 
-                    <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsEditAccountDetails_Description}" Header="{x:Bind domain:Translator.AccountSettingsDialog_AccountName}">
+                    <controls:SettingsCard
+                        Description="{x:Bind domain:Translator.SettingsEditAccountDetails_Description}"
+                        Header="{x:Bind domain:Translator.AccountSettingsDialog_AccountName}"
+                        Visibility="{x:Bind ViewModel.HasMailAccess, Mode=OneWay}">
                         <controls:SettingsCard.HeaderIcon>
                             <SymbolIcon Symbol="Mail" />
                         </controls:SettingsCard.HeaderIcon>
@@ -127,7 +130,9 @@
                             Text="{x:Bind ViewModel.SenderName, Mode=TwoWay}" />
                     </controls:SettingsCard>
 
-                    <controls:SettingsCard Header="{x:Bind domain:Translator.IMAPSetupDialog_MailAddress}">
+                    <controls:SettingsCard
+                        Header="{x:Bind domain:Translator.IMAPSetupDialog_MailAddress}"
+                        Visibility="{x:Bind ViewModel.HasMailAccess, Mode=OneWay}">
                         <controls:SettingsCard.HeaderIcon>
                             <SymbolIcon Symbol="Mail" />
                         </controls:SettingsCard.HeaderIcon>
@@ -135,6 +140,25 @@
                             Width="250"
                             IsReadOnly="True"
                             Text="{x:Bind ViewModel.Address, Mode=OneWay}" />
+                    </controls:SettingsCard>
+
+                    <controls:SettingsCard
+                        Description="{x:Bind domain:Translator.AccountDetailsPage_CapabilityDescription, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.AccountDetailsPage_CapabilityTitle, Mode=OneTime}"
+                        Visibility="{x:Bind ViewModel.IsOAuthCapabilityEditable, Mode=OneWay}">
+                        <controls:SettingsCard.HeaderIcon>
+                            <FontIcon Glyph="&#xE787;" />
+                        </controls:SettingsCard.HeaderIcon>
+                        <ComboBox
+                            MinWidth="220"
+                            ItemsSource="{x:Bind ViewModel.CapabilityOptions, Mode=OneWay}"
+                            SelectedItem="{x:Bind ViewModel.SelectedCapabilityOption, Mode=TwoWay}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="mailViewModels:AccountCapabilityOption">
+                                    <TextBlock Text="{x:Bind DisplayText}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
                     </controls:SettingsCard>
 
                     <controls:SettingsCard
@@ -212,6 +236,7 @@
             <Grid
                 x:Name="MailSettingsPanel"
                 Grid.Row="2"
+                x:Load="{x:Bind ViewModel.HasMailAccess, Mode=OneWay}"
                 Visibility="Collapsed">
                 <StackPanel Spacing="4">
                     <StackPanel.ChildrenTransitions>
@@ -403,6 +428,7 @@
             <Grid
                 x:Name="CalendarSettingsPanel"
                 Grid.Row="2"
+                x:Load="{x:Bind ViewModel.HasCalendarAccess, Mode=OneWay}"
                 Visibility="Collapsed">
                 <StackPanel MaxWidth="900" Spacing="12">
 

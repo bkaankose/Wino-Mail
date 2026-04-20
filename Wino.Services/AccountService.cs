@@ -211,9 +211,6 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         Guard.IsNotNull(token);
 
-        // Enable calendar access since new token includes calendar scopes
-        account.IsCalendarAccessGranted = true;
-
         await UpdateAccountAsync(account);
     }
 
@@ -270,6 +267,9 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     public async Task CreateRootAliasAsync(Guid accountId, string address)
     {
+        if (string.IsNullOrWhiteSpace(address))
+            return;
+
         var rootAlias = new MailAccountAlias()
         {
             AccountId = accountId,

@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -245,7 +246,11 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
                 var serverInformation = CreateImportedServerInformation(mailbox, account.Id);
 
                 await _accountService.CreateAccountAsync(account, serverInformation).ConfigureAwait(false);
-                await _accountService.CreateRootAliasAsync(account.Id, account.Address).ConfigureAwait(false);
+
+                if (account.IsMailAccessGranted)
+                {
+                    await _accountService.CreateRootAliasAsync(account.Id, account.Address).ConfigureAwait(false);
+                }
 
                 if (account.ProviderType == MailProviderType.IMAP4)
                 {
@@ -289,7 +294,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             ? account.ServerInformation
             : null;
 
-        return new UserMailboxSyncItemDto
+        var mailbox = new UserMailboxSyncItemDto
         {
             Address = account.Address ?? string.Empty,
             ProviderType = (int)account.ProviderType,
@@ -316,6 +321,10 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             ProxyServerPort = serverInformation?.ProxyServerPort,
             MaxConcurrentClients = serverInformation?.MaxConcurrentClients
         };
+
+        SetOptionalBooleanProperty(mailbox, "IsMailAccessGranted", account.IsMailAccessGranted);
+
+        return mailbox;
     }
 
     private static MailAccount CreateImportedAccount(UserMailboxSyncItemDto mailbox)
@@ -334,6 +343,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             Base64ProfilePictureData = string.Empty,
             CreatedAt = DateTime.UtcNow,
             InitialSynchronizationRange = InitialSynchronizationRange.SixMonths,
+            IsMailAccessGranted = GetOptionalBooleanProperty(mailbox, "IsMailAccessGranted", defaultValue: true),
             IsCalendarAccessGranted = mailbox.IsCalendarAccessGranted,
             SynchronizationDeltaIdentifier = string.Empty,
             CalendarSynchronizationDeltaIdentifier = string.Empty,
@@ -409,6 +419,38 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
 
     private static string CreateMailboxKey(string? address, int providerType)
         => $"{address?.Trim().ToLowerInvariant()}|{providerType}";
+
+    private static bool GetOptionalBooleanProperty<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(
+        T instance,
+        string propertyName,
+        bool defaultValue)
+    {
+        if (instance == null)
+            return defaultValue;
+
+        var property = typeof(T).GetProperty(propertyName);
+        if (property?.PropertyType != typeof(bool) || !property.CanRead)
+            return defaultValue;
+
+        return property.GetValue(instance) is bool boolValue
+            ? boolValue
+            : defaultValue;
+    }
+
+    private static void SetOptionalBooleanProperty<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(
+        T instance,
+        string propertyName,
+        bool value)
+    {
+        if (instance == null)
+            return;
+
+        var property = typeof(T).GetProperty(propertyName);
+        if (property?.PropertyType == typeof(bool) && property.CanWrite)
+        {
+            property.SetValue(instance, value);
+        }
+    }
 
     private static string TrimUtf8Bom(string jsonContent)
         => !string.IsNullOrEmpty(jsonContent) && jsonContent[0] == '\uFEFF'

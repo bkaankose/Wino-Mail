@@ -408,6 +408,9 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
 
         foreach (var account in accounts)
         {
+            if (!GroupedAccountCalendarViewModel.SupportsCalendar(account))
+                continue;
+
             var calendars = await _calendarService.GetAccountCalendarsAsync(account.Id).ConfigureAwait(false);
             var viewModels = calendars
                 .Select(calendar => new AccountCalendarViewModel(account, calendar))
