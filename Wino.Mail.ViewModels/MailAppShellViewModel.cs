@@ -190,7 +190,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         // First clear all account menu items.
         MenuItems.RemoveRange(MenuItems.Where(a => a is IAccountMenuItem));
 
-        var accounts = await GetMailEnabledAccountsAsync().ConfigureAwait(false);
+        var accounts = await GetMailEnabledAccountsAsync();
 
         List<Guid> initializedAccountIds = new();
 
@@ -375,7 +375,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private async Task ForceAllAccountSynchronizationsAsync()
     {
         // Run Inbox synchronization for all accounts on startup.
-        var accounts = await GetMailEnabledAccountsAsync().ConfigureAwait(false);
+        var accounts = await GetMailEnabledAccountsAsync();
 
         foreach (var account in accounts)
         {
@@ -403,7 +403,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                 if (_launchProtocolService.LaunchParameter is AccountMenuItemExtended accountExtendedMessage)
                 {
                     // Find the account that this folder and mail belongs to.
-                    var account = await _mailService.GetMailAccountByUniqueIdAsync(accountExtendedMessage.NavigateMailItem.UniqueId).ConfigureAwait(false);
+                    var account = await _mailService.GetMailAccountByUniqueIdAsync(accountExtendedMessage.NavigateMailItem.UniqueId);
 
                     if (account != null && MenuItems.TryGetAccountMenuItem(account.Id, out IAccountMenuItem accountMenuItem))
                     {
@@ -444,7 +444,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     private async Task ProcessLaunchDefaultAsync()
     {
-        if (await NavigateToMailEmptyStateIfNeededAsync().ConfigureAwait(false))
+        if (await NavigateToMailEmptyStateIfNeededAsync())
             return;
 
         if (PreferencesService.StartupEntityId == null)
@@ -974,7 +974,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             // No selected account.
             // List all accounts and let user pick one.
 
-            var accounts = await GetMailEnabledAccountsAsync().ConfigureAwait(false);
+            var accounts = await GetMailEnabledAccountsAsync();
 
             if (!accounts.Any())
             {
@@ -1099,7 +1099,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     public async void Receive(MailtoProtocolMessageRequested message)
     {
-        var accounts = await GetMailEnabledAccountsAsync().ConfigureAwait(false);
+        var accounts = await GetMailEnabledAccountsAsync();
 
         MailAccount targetAccount = null;
 
@@ -1132,7 +1132,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         if (shareRequest?.Files == null || shareRequest.Files.Count == 0)
             return;
 
-        var accounts = await GetMailEnabledAccountsAsync().ConfigureAwait(false);
+        var accounts = await GetMailEnabledAccountsAsync();
 
         if (!accounts.Any())
             return;
@@ -1156,7 +1156,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     private async Task RecreateMenuItemsAsync()
     {
-        await _menuRefreshSemaphore.WaitAsync().ConfigureAwait(false);
+        await _menuRefreshSemaphore.WaitAsync();
         try
         {
             await ExecuteUIThread(() =>
@@ -1206,7 +1206,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         else
         {
             await ExecuteUIThread(() => SelectedMenuItem = null);
-            if (!await NavigateToMailEmptyStateIfNeededAsync().ConfigureAwait(false))
+            if (!await NavigateToMailEmptyStateIfNeededAsync())
             {
                 NavigateToWelcomeWizard();
             }
@@ -1225,7 +1225,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     private async Task<List<MailAccount>> GetAccountsByCapabilityAsync(bool requireMail = false, bool requireCalendar = false)
     {
-        var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
+        var accounts = await _accountService.GetAccountsAsync();
 
         return accounts
             .Where(account => (!requireMail || account.IsMailAccessGranted) &&
@@ -1235,7 +1235,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     private async Task<bool> NavigateToMailEmptyStateIfNeededAsync()
     {
-        var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
+        var accounts = await _accountService.GetAccountsAsync();
         if (!accounts.Any() || accounts.Any(account => account.IsMailAccessGranted))
             return false;
 
@@ -1451,7 +1451,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
             if (remainingAccounts.Any())
             {
-                await NavigateToMailEmptyStateIfNeededAsync().ConfigureAwait(false);
+                await NavigateToMailEmptyStateIfNeededAsync();
             }
 
             return;
@@ -1475,7 +1475,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
         if (!createdAccount.IsMailAccessGranted)
         {
-            await NavigateToMailEmptyStateIfNeededAsync().ConfigureAwait(false);
+            await NavigateToMailEmptyStateIfNeededAsync();
         }
 
         if (!MenuItems.TryGetAccountMenuItem(createdAccount.Id, out IAccountMenuItem createdMenuItem))

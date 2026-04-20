@@ -98,6 +98,7 @@ public partial class GroupedAccountCalendarViewModel : ObservableObject
     public bool CanSynchronize => !IsSynchronizationInProgress;
     public bool IsSynchronizationProgressVisible => IsSynchronizationInProgress;
     public bool IsProgressIndeterminate => IsSynchronizationInProgress && TotalItemsToSync <= 0;
+    public string AccountAddressDisplay => string.IsNullOrWhiteSpace(Account?.Address) ? string.Empty : $" ({Account.Address})";
 
     public double SynchronizationProgress
     {
@@ -201,5 +202,6 @@ public partial class GroupedAccountCalendarViewModel : ObservableObject
         Account.MergedInboxId = updatedAccount.MergedInboxId;
         AccountColorHex = updatedAccount.AccountColorHex;
         OnPropertyChanged(nameof(Account));
+        OnPropertyChanged(nameof(AccountAddressDisplay));
     }
 }

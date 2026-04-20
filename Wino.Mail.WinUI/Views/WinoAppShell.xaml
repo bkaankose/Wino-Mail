@@ -644,7 +644,7 @@
                                                     Spacing="2">
                                                     <TextBlock VerticalAlignment="Center" TextWrapping="Wrap">
                                                         <Run FontWeight="SemiBold" Text="{x:Bind Account.Name}" />
-                                                        <Run FontSize="12" Text=" (" /><Run FontSize="12" Text="{x:Bind Account.Address}" /><Run FontSize="12" Text=")" />
+                                                        <Run FontSize="12" Text="{x:Bind AccountAddressDisplay, Mode=OneWay}" />
                                                     </TextBlock>
                                                     <TextBlock
                                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
