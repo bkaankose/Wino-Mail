@@ -19,6 +19,12 @@ public interface IMailDialogService : IDialogServiceBase
 {
     void ShowReadOnlyCalendarMessage();
     Task<bool> ShowHardDeleteConfirmationAsync();
+    Task<ThreeButtonDialogResult> ShowThreeButtonDialogAsync(string title,
+                                                             string description,
+                                                             string primaryButtonText,
+                                                             string secondaryButtonText,
+                                                             string cancelButtonText,
+                                                             WinoCustomMessageDialogIcon? icon = null);
     Task HandleSystemFolderConfigurationDialogAsync(Guid accountId, IFolderService folderService);
 
     // Custom dialogs

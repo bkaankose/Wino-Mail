@@ -305,6 +305,8 @@
     "DialogMessage_DeleteRecurringSeriesTitle": "Delete Recurring Series",
     "DialogMessage_DiscardDraftConfirmationMessage": "This draft will be discarded. Do you want to continue?",
     "DialogMessage_DiscardDraftConfirmationTitle": "Discard Draft",
+    "DialogMessage_CloseDraftWindowConfirmationMessage": "A draft is still open. Save it before closing the window?",
+    "DialogMessage_CloseDraftWindowConfirmationTitle": "Close Window",
     "DialogMessage_EmptySubjectConfirmation": "Missing Subject",
     "DialogMessage_EmptySubjectConfirmationMessage": "Message has no subject. Do you want to continue?",
     "DialogMessage_EnableStartupLaunchDeniedMessage": "You can enable startup launch from Settings -> App Preferences.",

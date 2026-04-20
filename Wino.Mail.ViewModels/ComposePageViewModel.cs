@@ -488,6 +488,12 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
     [RelayCommand(CanExecute = nameof(canSendMail))]
     private async Task DiscardAsync()
+        => await DiscardDraftAsync();
+
+    public Task SaveDraftAsync()
+        => UpdateMimeChangesAsync();
+
+    public async Task DiscardDraftAsync(bool requireConfirmation = true)
     {
         if (ComposingAccount == null)
         {
@@ -495,14 +501,19 @@ public partial class ComposePageViewModel : MailBaseViewModel,
             return;
         }
 
-        var confirmation = await _dialogService.ShowConfirmationDialogAsync(Translator.DialogMessage_DiscardDraftConfirmationMessage,
-                                                                           Translator.DialogMessage_DiscardDraftConfirmationTitle,
-                                                                           Translator.Buttons_Yes);
+        var confirmation = !requireConfirmation || await _dialogService.ShowConfirmationDialogAsync(Translator.DialogMessage_DiscardDraftConfirmationMessage,
+                                                                                                    Translator.DialogMessage_DiscardDraftConfirmationTitle,
+                                                                                                    Translator.Buttons_Yes);
 
-        if (confirmation)
+        if (!confirmation)
         {
-            isUpdatingMimeBlocked = true;
+            return;
+        }
 
+        isUpdatingMimeBlocked = true;
+
+        try
+        {
             // Don't send delete request for local drafts. Just delete the record and mime locally.
             if (CurrentMailDraftItem.MailCopy.IsLocalDraft)
             {
@@ -513,6 +524,11 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                 var deletePackage = new MailOperationPreperationRequest(MailOperation.HardDelete, CurrentMailDraftItem.MailCopy, ignoreHardDeleteProtection: true);
                 await _worker.ExecuteAsync(deletePackage).ConfigureAwait(false);
             }
+        }
+        catch
+        {
+            isUpdatingMimeBlocked = false;
+            throw;
         }
     }
 

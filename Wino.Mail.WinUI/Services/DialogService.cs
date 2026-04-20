@@ -137,6 +137,41 @@ public class DialogService : DialogServiceBase, IMailDialogService
                                            WinoCustomMessageDialogIcon.Warning,
                                            Translator.Buttons_No);
 
+    public async Task<ThreeButtonDialogResult> ShowThreeButtonDialogAsync(string title,
+                                                                          string description,
+                                                                          string primaryButtonText,
+                                                                          string secondaryButtonText,
+                                                                          string cancelButtonText,
+                                                                          WinoCustomMessageDialogIcon? icon = null)
+    {
+        var informationContainer = new CustomMessageDialogInformationContainer(
+            title,
+            description,
+            icon ?? WinoCustomMessageDialogIcon.Information,
+            false);
+
+        var dialog = new ContentDialog
+        {
+            Style = ApplicationResourceManager.GetResource<Style>("WinoDialogStyle"),
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme(),
+            DefaultButton = ContentDialogButton.Primary,
+            PrimaryButtonText = primaryButtonText,
+            SecondaryButtonText = secondaryButtonText,
+            CloseButtonText = cancelButtonText,
+            ContentTemplate = ApplicationResourceManager.GetResource<DataTemplate>("CustomWinoContentDialogContentTemplate"),
+            Content = informationContainer
+        };
+
+        var dialogResult = await HandleDialogPresentationAsync(dialog);
+
+        return dialogResult switch
+        {
+            ContentDialogResult.Primary => ThreeButtonDialogResult.Primary,
+            ContentDialogResult.Secondary => ThreeButtonDialogResult.Secondary,
+            _ => ThreeButtonDialogResult.Cancel
+        };
+    }
+
     public async Task<MailAccount> ShowAccountPickerDialogAsync(List<MailAccount> availableAccounts)
     {
         var accountPicker = new AccountPickerDialog(availableAccounts)
