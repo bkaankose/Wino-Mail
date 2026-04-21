@@ -106,10 +106,6 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
 
             return await GenerateTokenInformationAsync(account);
         }
-        catch (Exception)
-        {
-            throw;
-        }
     }
 
     public async Task<TokenInformationEx> GenerateTokenInformationAsync(MailAccount account)
@@ -128,14 +124,8 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
                 .AcquireTokenInteractive(GetScope(account))
                 .ExecuteAsync();
 
-            // If the account is null, it means it's the initial creation of it.
-            // If not, make sure the authenticated user address matches the username.
-            // When people refresh their token, accounts must match.
-
-            if (account?.Address != null && !account.Address.Equals(authResult.Account.Username, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new AuthenticationException("Authenticated address does not match with your account address. If you are signing with a Office365, it is not officially supported yet.");
-            }
+            // Microsoft 365 work/school tenants can use a sign-in UPN that differs from
+            // the mailbox primary SMTP address, so interactive reauth must not reject them.
 
             return new TokenInformationEx(authResult.AccessToken, authResult.Account.Username);
         }
