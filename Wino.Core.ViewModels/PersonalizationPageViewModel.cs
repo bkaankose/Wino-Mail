@@ -389,6 +389,24 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         public bool HasReadReceiptTracking { get; } = false;
         public bool IsReadReceiptAcknowledged { get; } = false;
         public string ReadReceiptDisplayText { get; } = string.Empty;
+        public IReadOnlyList<MailCategory> Categories { get; } =
+        [
+            new()
+            {
+                Id = Guid.NewGuid(),
+                Name = "Follow Up",
+                BackgroundColorHex = "#DCEBFF",
+                TextColorHex = "#0B5CAD"
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                Name = "Planning",
+                BackgroundColorHex = "#DDF5D7",
+                TextColorHex = "#236A1E"
+            }
+        ];
+        public bool HasCategories => Categories.Count > 0;
         public AccountContact SenderContact { get; } = null;
         event PropertyChangedEventHandler INotifyPropertyChanged.PropertyChanged
         {

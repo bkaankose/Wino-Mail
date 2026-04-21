@@ -152,6 +152,12 @@ public static class XamlHelpers
     public static Color GetWindowsColorFromHex(string hex) => hex.ToColor();
 
     public static SolidColorBrush GetSolidColorBrushFromHex(string colorHex) => string.IsNullOrEmpty(colorHex) ? new SolidColorBrush(Colors.Transparent) : new SolidColorBrush(colorHex.ToColor());
+    public static SolidColorBrush GetCategoryTextBrush(string textColorHex, string backgroundColorHex)
+        => !string.IsNullOrWhiteSpace(textColorHex)
+            ? GetSolidColorBrushFromHex(textColorHex)
+            : string.IsNullOrWhiteSpace(backgroundColorHex)
+                ? new SolidColorBrush(Colors.Black)
+                : GetReadableTextColor(backgroundColorHex);
     public static FontWeight GetFontWeightBySyncState(bool isSyncing) => isSyncing ? FontWeights.SemiBold : FontWeights.Normal;
 
     public static Brush GetWizardStepBadgeBrush(bool isActive)

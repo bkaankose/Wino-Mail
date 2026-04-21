@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -187,6 +188,24 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         public bool HasReadReceiptTracking => true;
         public bool IsReadReceiptAcknowledged => false;
         public string ReadReceiptDisplayText => Translator.MailReceiptStatus_Requested;
+        public IReadOnlyList<MailCategory> Categories =>
+        [
+            new()
+            {
+                Id = Guid.NewGuid(),
+                Name = "Urgent",
+                BackgroundColorHex = "#FFE1DE",
+                TextColorHex = "#A1260D"
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                Name = "Client",
+                BackgroundColorHex = "#E4E8FF",
+                TextColorHex = "#4255C5"
+            }
+        ];
+        public bool HasCategories => Categories.Count > 0;
         public AccountContact SenderContact => new()
         {
             Address = "hi@bkaan.dev",

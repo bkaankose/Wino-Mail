@@ -288,6 +288,39 @@ public class MailCategoryService : BaseDatabaseService, IMailCategoryService
             [accountId, .. uniqueIds.Cast<object>()]).ConfigureAwait(false);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<MailCategory>>> GetCategoriesByMailAsync(Guid accountId, IEnumerable<Guid> mailCopyUniqueIds)
+    {
+        var uniqueIds = mailCopyUniqueIds?.Distinct().ToList() ?? [];
+        if (uniqueIds.Count == 0)
+            return new Dictionary<Guid, IReadOnlyList<MailCategory>>();
+
+        var placeholders = string.Join(",", uniqueIds.Select(_ => "?"));
+        var sql =
+            $"SELECT {nameof(MailCategoryAssignment)}.{nameof(MailCategoryAssignment.MailCopyUniqueId)} as {nameof(MailCategoryRow.MailCopyUniqueId)}, " +
+            $"{nameof(MailCategory)}.{nameof(MailCategory.Id)} as {nameof(MailCategoryRow.Id)}, " +
+            $"{nameof(MailCategory)}.{nameof(MailCategory.MailAccountId)} as {nameof(MailCategoryRow.MailAccountId)}, " +
+            $"{nameof(MailCategory)}.{nameof(MailCategory.RemoteId)} as {nameof(MailCategoryRow.RemoteId)}, " +
+            $"{nameof(MailCategory)}.{nameof(MailCategory.Name)} as {nameof(MailCategoryRow.Name)}, " +
+            $"{nameof(MailCategory)}.{nameof(MailCategory.IsFavorite)} as {nameof(MailCategoryRow.IsFavorite)}, " +
+            $"{nameof(MailCategory)}.{nameof(MailCategory.BackgroundColorHex)} as {nameof(MailCategoryRow.BackgroundColorHex)}, " +
+            $"{nameof(MailCategory)}.{nameof(MailCategory.TextColorHex)} as {nameof(MailCategoryRow.TextColorHex)}, " +
+            $"{nameof(MailCategory)}.{nameof(MailCategory.Source)} as {nameof(MailCategoryRow.Source)} " +
+            $"FROM {nameof(MailCategory)} " +
+            $"INNER JOIN {nameof(MailCategoryAssignment)} ON {nameof(MailCategory)}.{nameof(MailCategory.Id)} = {nameof(MailCategoryAssignment)}.{nameof(MailCategoryAssignment.MailCategoryId)} " +
+            $"WHERE {nameof(MailCategory)}.{nameof(MailCategory.MailAccountId)} = ? AND {nameof(MailCategoryAssignment)}.{nameof(MailCategoryAssignment.MailCopyUniqueId)} IN ({placeholders}) " +
+            $"ORDER BY {nameof(MailCategoryAssignment)}.{nameof(MailCategoryAssignment.MailCopyUniqueId)}, {nameof(MailCategory)}.{nameof(MailCategory.Name)} COLLATE NOCASE";
+
+        var rows = await Connection.QueryAsync<MailCategoryRow>(
+            sql,
+            [accountId, .. uniqueIds.Cast<object>()]).ConfigureAwait(false);
+
+        return rows
+            .GroupBy(a => a.MailCopyUniqueId)
+            .ToDictionary(
+                a => a.Key,
+                a => (IReadOnlyList<MailCategory>)a.Select(static row => row.ToMailCategory()).ToList());
+    }
+
     public async Task<List<Guid>> GetAssignedCategoryIdsForAllAsync(IEnumerable<Guid> mailCopyUniqueIds)
     {
         var uniqueIds = mailCopyUniqueIds?.Distinct().ToList() ?? [];
@@ -355,4 +388,21 @@ public class MailCategoryService : BaseDatabaseService, IMailCategoryService
 
     private static string NormalizeCategoryName(string name)
         => name?.Trim() ?? string.Empty;
+
+    private sealed class MailCategoryRow : MailCategory
+    {
+        public Guid MailCopyUniqueId { get; set; }
+
+        public MailCategory ToMailCategory() => new()
+        {
+            Id = Id,
+            MailAccountId = MailAccountId,
+            RemoteId = RemoteId,
+            Name = Name,
+            IsFavorite = IsFavorite,
+            BackgroundColorHex = BackgroundColorHex,
+            TextColorHex = TextColorHex,
+            Source = Source
+        };
+    }
 }

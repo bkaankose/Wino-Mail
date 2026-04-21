@@ -8,6 +8,7 @@
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
+    xmlns:mail="using:Wino.Core.Domain.Entities.Mail"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     HorizontalAlignment="Stretch"
     VerticalAlignment="Stretch"
@@ -23,6 +24,28 @@
     Unloaded="OnUnloaded">
 
     <UserControl.Resources>
+        <DataTemplate x:Key="DetailedMailCategoryTemplate" x:DataType="mail:MailCategory">
+            <Border
+                Margin="0,0,4,0"
+                Padding="6,2"
+                Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}"
+                CornerRadius="8">
+                <TextBlock
+                    Foreground="{x:Bind helpers:XamlHelpers.GetCategoryTextBrush(TextColorHex, BackgroundColorHex), Mode=OneWay}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind Name, Mode=OneWay}"
+                    TextTrimming="CharacterEllipsis" />
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="CompactMailCategoryTemplate" x:DataType="mail:MailCategory">
+            <Ellipse
+                Width="8"
+                Height="8"
+                Margin="0,0,4,0"
+                Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}" />
+        </DataTemplate>
+
         <Style
             x:Key="HoverActionButtonStyle"
             BasedOn="{StaticResource DefaultButtonStyle}"
@@ -86,6 +109,7 @@
                     <!--  Sender + Title  -->
                     <Grid x:Name="ContentStackpanel" VerticalAlignment="Center">
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
@@ -206,6 +230,21 @@
                                 Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(MailItemInformation.IsDraft, MailItemInformation.CreationDate, Prefer24HourTimeFormat), Mode=OneWay}" />
                         </Grid>
 
+                        <ItemsControl
+                            x:Name="DetailedCategoriesContainer"
+                            Grid.Row="3"
+                            Margin="0,4,0,0"
+                            HorizontalAlignment="Left"
+                            ItemTemplate="{StaticResource DetailedMailCategoryTemplate}"
+                            ItemsSource="{x:Bind MailItemInformation.Categories, Mode=OneWay}"
+                            Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(MailItemInformation.Categories.Count), Mode=OneWay}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+
                         <!--  Message  -->
                         <Grid
                             x:Name="PreviewTextContainerRoot"
@@ -233,6 +272,18 @@
                                 Margin="4,4,1,4"
                                 Orientation="Horizontal"
                                 Spacing="2">
+                                <ItemsControl
+                                    x:Name="CompactCategoriesContainer"
+                                    VerticalAlignment="Center"
+                                    ItemTemplate="{StaticResource CompactMailCategoryTemplate}"
+                                    ItemsSource="{x:Bind MailItemInformation.Categories, Mode=OneWay}"
+                                    Visibility="Collapsed">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
 
                                 <TextBlock
                                     Margin="0,0,4,0"
@@ -288,8 +339,13 @@
             <VisualStateGroup x:Name="SizingStates">
                 <VisualState x:Name="Compact">
                     <VisualState.Setters>
-                        <Setter Target="RootContainer.Height" Value="60" />
-                        <Setter Target="ContentGrid.Padding" Value="8,0" />
+                        <Setter Target="RootContainer.Height" Value="64" />
+                        <Setter Target="ContentGrid.Padding" Value="8,6,8,6" />
+                        <Setter Target="ContentStackpanel.VerticalAlignment" Value="Center" />
+                        <Setter Target="PreviewTextContainerRoot.Margin" Value="0" />
+                        <Setter Target="IconsContainer.Margin" Value="4,0,1,0" />
+                        <Setter Target="DetailedCategoriesContainer.Visibility" Value="Collapsed" />
+                        <Setter Target="CompactCategoriesContainer.Visibility" Value="Visible" />
                         <Setter Target="PreviewTextContainer.Visibility" Value="Collapsed" />
                     </VisualState.Setters>
                     <VisualState.StateTriggers>
@@ -300,8 +356,13 @@
                 <!--  Medium  -->
                 <VisualState x:Name="Medium">
                     <VisualState.Setters>
-                        <Setter Target="RootContainer.Height" Value="80" />
-                        <Setter Target="ContentGrid.Padding" Value="6,0" />
+                        <Setter Target="RootContainer.Height" Value="96" />
+                        <Setter Target="ContentGrid.Padding" Value="6,8,6,6" />
+                        <Setter Target="ContentStackpanel.VerticalAlignment" Value="Top" />
+                        <Setter Target="DetailedCategoriesContainer.Margin" Value="0,2,0,0" />
+                        <Setter Target="PreviewTextContainerRoot.Margin" Value="0,2,0,0" />
+                        <Setter Target="IconsContainer.Margin" Value="4,2,1,0" />
+                        <Setter Target="CompactCategoriesContainer.Visibility" Value="Collapsed" />
                         <Setter Target="PreviewTextContainer.Visibility" Value="Visible" />
                     </VisualState.Setters>
                     <VisualState.StateTriggers>
@@ -314,6 +375,11 @@
                     <VisualState.Setters>
                         <Setter Target="RootContainer.Height" Value="Auto" />
                         <Setter Target="ContentGrid.Padding" Value="12,12,6,12" />
+                        <Setter Target="ContentStackpanel.VerticalAlignment" Value="Center" />
+                        <Setter Target="DetailedCategoriesContainer.Margin" Value="0,4,0,0" />
+                        <Setter Target="PreviewTextContainerRoot.Margin" Value="0" />
+                        <Setter Target="IconsContainer.Margin" Value="4,4,1,4" />
+                        <Setter Target="CompactCategoriesContainer.Visibility" Value="Collapsed" />
                         <Setter Target="PreviewTextContainer.Visibility" Value="Visible" />
                     </VisualState.Setters>
                     <VisualState.StateTriggers>

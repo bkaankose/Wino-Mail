@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
@@ -39,6 +40,8 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
     [NotifyPropertyChangedFor(nameof(UniqueId))]
     [NotifyPropertyChangedFor(nameof(ContactPictureFileId))]
     [NotifyPropertyChangedFor(nameof(SenderContact))]
+    [NotifyPropertyChangedFor(nameof(Categories))]
+    [NotifyPropertyChangedFor(nameof(HasCategories))]
     public partial MailCopy MailCopy { get; set; } = mailCopy;
 
     [ObservableProperty]
@@ -123,6 +126,10 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
         SentMailReceiptStatus.Requested => Translator.MailReceiptStatus_Requested,
         _ => string.Empty
     };
+
+    public IReadOnlyList<MailCategory> Categories => MailCopy.Categories;
+
+    public bool HasCategories => Categories.Count > 0;
 
     public string DraftId
     {
@@ -262,6 +269,7 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
             nameof(FolderId) => MailCopyChangeFlags.FolderId,
             nameof(UniqueId) => MailCopyChangeFlags.UniqueId,
             nameof(ContactPictureFileId) or nameof(SenderContact) => MailCopyChangeFlags.SenderContact,
+            nameof(Categories) or nameof(HasCategories) => MailCopyChangeFlags.Categories,
             _ => MailCopyChangeFlags.None
         };
     }
@@ -474,9 +482,21 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
             Queue(nameof(SenderContact));
         }
 
+        if ((changedFlags & MailCopyChangeFlags.Categories) != 0)
+        {
+            Queue(nameof(Categories));
+            Queue(nameof(HasCategories));
+        }
+
         foreach (var changedProperty in changedProperties)
         {
             OnPropertyChanged(changedProperty);
         }
+    }
+
+    public void UpdateCategories(IReadOnlyList<MailCategory> categories)
+    {
+        MailCopy.Categories = categories?.ToList() ?? [];
+        RaisePropertyChanges(MailCopyChangeFlags.Categories);
     }
 }

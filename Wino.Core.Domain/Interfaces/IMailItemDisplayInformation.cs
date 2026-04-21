@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 
 namespace Wino.Core.Domain.Interfaces;
@@ -27,4 +29,6 @@ public interface IMailItemDisplayInformation : INotifyPropertyChanged
     bool HasReadReceiptTracking { get; }
     bool IsReadReceiptAcknowledged { get; }
     string ReadReceiptDisplayText { get; }
+    IReadOnlyList<MailCategory> Categories { get; }
+    bool HasCategories { get; }
 }

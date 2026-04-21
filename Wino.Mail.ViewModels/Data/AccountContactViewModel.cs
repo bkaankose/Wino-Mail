@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 
@@ -71,6 +73,8 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
     public bool HasReadReceiptTracking => false;
     public bool IsReadReceiptAcknowledged => false;
     public string ReadReceiptDisplayText => string.Empty;
+    public IReadOnlyList<MailCategory> Categories => [];
+    public bool HasCategories => false;
     public AccountContact SenderContact => new()
     {
         Address = Address,

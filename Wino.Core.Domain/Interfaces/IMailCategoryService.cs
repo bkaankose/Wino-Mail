@@ -23,6 +23,7 @@ public interface IMailCategoryService
     Task AssignCategoryAsync(Guid categoryId, IEnumerable<Guid> mailCopyUniqueIds);
     Task UnassignCategoryAsync(Guid categoryId, IEnumerable<Guid> mailCopyUniqueIds);
     Task<List<MailCategory>> GetCategoriesForMailAsync(Guid accountId, IEnumerable<Guid> mailCopyUniqueIds);
+    Task<IReadOnlyDictionary<Guid, IReadOnlyList<MailCategory>>> GetCategoriesByMailAsync(Guid accountId, IEnumerable<Guid> mailCopyUniqueIds);
     Task<List<Guid>> GetAssignedCategoryIdsForAllAsync(IEnumerable<Guid> mailCopyUniqueIds);
     Task<List<string>> GetCategoryNamesForMailAsync(Guid mailCopyUniqueId);
     Task<List<MailCopy>> GetMailCopiesForCategoryAsync(Guid categoryId);

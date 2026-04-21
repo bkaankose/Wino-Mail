@@ -172,6 +172,9 @@ public class MailCopy
     [Ignore]
     public Guid? ReadReceiptMessageUniqueId { get; set; }
 
+    [Ignore]
+    public List<MailCategory> Categories { get; set; } = [];
+
     public IEnumerable<Guid> GetContainingIds() => [UniqueId];
     public override string ToString() => $"{Subject} <-> {Id}";
 }

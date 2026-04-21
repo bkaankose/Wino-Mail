@@ -1329,6 +1329,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     private async Task<List<MailItemViewModel>> PrepareMailViewModelsAsync(IEnumerable<MailCopy> mailItems, CancellationToken cancellationToken = default)
     {
+        await PopulateMailCategoriesAsync(mailItems, cancellationToken).ConfigureAwait(false);
+
         // Run ViewModel creation on background thread to avoid blocking UI
         return await Task.Run(() =>
         {
@@ -1340,6 +1342,38 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             }
             return viewModels;
         }, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task PopulateMailCategoriesAsync(IEnumerable<MailCopy> mailItems, CancellationToken cancellationToken)
+    {
+        var mails = mailItems?.Where(a => a != null).ToList() ?? [];
+        if (mails.Count == 0)
+            return;
+
+        var accountIdsByFolderId = ActiveFolder?.HandlingFolders?
+            .GroupBy(a => a.Id)
+            .ToDictionary(a => a.Key, a => a.First().MailAccountId) ?? new Dictionary<Guid, Guid>();
+
+        var mailsByAccount = mails
+            .GroupBy(mail => ResolveMailAccountId(mail, accountIdsByFolderId))
+            .Where(group => group.Key != Guid.Empty)
+            .ToList();
+
+        foreach (var groupedMails in mailsByAccount)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var categoriesByMail = await _mailCategoryService
+                .GetCategoriesByMailAsync(groupedMails.Key, groupedMails.Select(a => a.UniqueId))
+                .ConfigureAwait(false);
+
+            foreach (var mail in groupedMails)
+            {
+                mail.Categories = categoriesByMail.TryGetValue(mail.UniqueId, out var categories)
+                    ? categories.ToList()
+                    : [];
+            }
+        }
     }
 
     private async Task<HashSet<Guid>> GetPendingOperationUniqueIdsForActiveFolderAccountsAsync(CancellationToken cancellationToken = default)

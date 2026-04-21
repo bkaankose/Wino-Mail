@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -111,6 +112,13 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     public bool IsReadReceiptAcknowledged => newestMailViewModel?.IsReadReceiptAcknowledged ?? false;
 
     public string ReadReceiptDisplayText => newestMailViewModel?.ReadReceiptDisplayText ?? string.Empty;
+    public IReadOnlyList<MailCategory> Categories => ThreadEmails
+        .SelectMany(a => a.Categories)
+        .GroupBy(a => a.Id)
+        .Select(a => a.First())
+        .OrderBy(a => a.Name)
+        .ToList();
+    public bool HasCategories => ThreadEmails.Any(a => a.HasCategories);
 
     /// <summary>
     /// Gets whether any email in this thread is a draft
@@ -206,6 +214,8 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     [NotifyPropertyChangedFor(nameof(UniqueId))]
     [NotifyPropertyChangedFor(nameof(ContactPictureFileId))]
     [NotifyPropertyChangedFor(nameof(SenderContact))]
+    [NotifyPropertyChangedFor(nameof(Categories))]
+    [NotifyPropertyChangedFor(nameof(HasCategories))]
     public partial ObservableCollection<MailItemViewModel> ThreadEmails { get; set; } = [];
 
     private MailItemViewModel newestMailViewModel => _cachedNewestMailViewModel;
@@ -467,6 +477,12 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
                     Queue(nameof(ContactPictureFileId));
                     Queue(nameof(SenderContact));
                 }
+
+                if ((changedFlags & MailCopyChangeFlags.Categories) != 0)
+                {
+                    Queue(nameof(Categories));
+                    Queue(nameof(HasCategories));
+                }
             }
         }
 
@@ -494,6 +510,12 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
 
         if ((changedFlags & MailCopyChangeFlags.IsDraft) != 0 || changedFlags == MailCopyChangeFlags.All)
             Queue(nameof(IsDraft));
+
+        if ((changedFlags & MailCopyChangeFlags.Categories) != 0 || changedFlags == MailCopyChangeFlags.All)
+        {
+            Queue(nameof(Categories));
+            Queue(nameof(HasCategories));
+        }
 
         foreach (var changedProperty in changedProperties)
         {
