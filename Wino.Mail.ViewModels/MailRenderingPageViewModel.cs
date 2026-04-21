@@ -499,7 +499,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             // Use the received date from MailCopy if available, otherwise fall back to the sent date from MIME message
             CreationDate = initializedMailItemViewModel?.MailCopy.CreationDate ?? message.Date.DateTime;
 
-            // Automatically disable images for Junk folder to prevent pixel tracking.
+            // Automatically block remote image loading for Junk folder to reduce pixel tracking.
             // This can only work for selected mail item rendering, not for EML file rendering.
             if (initializedMailItemViewModel != null &&
                 initializedMailItemViewModel.MailCopy.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk)

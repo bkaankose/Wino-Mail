@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using HtmlAgilityPack;
 
 namespace Wino.Services.Extensions;
@@ -8,16 +9,64 @@ namespace Wino.Services.Extensions;
 public static class HtmlAgilityPackExtensions
 {
     /// <summary>
-    /// Clears out the src attribute for all `img` and `v:fill` tags.
+    /// Clears passive remote image-loading hooks while preserving already-embedded inline images.
     /// </summary>
-    /// <param name="document"></param>
     public static void ClearImages(this HtmlDocument document)
     {
-        if (document.DocumentNode.InnerHtml.Contains("<img"))
+        if (document?.DocumentNode == null)
         {
-            foreach (var eachNode in document.DocumentNode.SelectNodes("//img"))
+            return;
+        }
+
+        foreach (var eachNode in document.DocumentNode.Descendants().ToList())
+        {
+            ClearRemoteImageAttribute(eachNode, "src");
+            ClearRemoteImageAttribute(eachNode, "background");
+            ClearRemoteImageAttribute(eachNode, "poster");
+            ClearRemoteImageAttribute(eachNode, "data");
+
+            if (eachNode.Attributes.Contains("srcset"))
             {
-                eachNode.Attributes.Remove("src");
+                eachNode.Attributes.Remove("srcset");
+            }
+
+            if (eachNode.Attributes.Contains("imagesrcset"))
+            {
+                eachNode.Attributes.Remove("imagesrcset");
+            }
+
+            if (eachNode.Attributes.Contains("style"))
+            {
+                var sanitizedStyle = SanitizeCss(eachNode.GetAttributeValue("style", string.Empty));
+
+                if (string.IsNullOrWhiteSpace(sanitizedStyle))
+                {
+                    eachNode.Attributes.Remove("style");
+                }
+                else
+                {
+                    eachNode.SetAttributeValue("style", sanitizedStyle);
+                }
+            }
+
+            if (IsSvgImageReferenceElement(eachNode))
+            {
+                ClearRemoteImageAttribute(eachNode, "href");
+                ClearRemoteImageAttribute(eachNode, "xlink:href");
+            }
+        }
+
+        foreach (var styleNode in document.DocumentNode.Descendants("style").ToList())
+        {
+            var sanitizedCss = SanitizeCss(styleNode.InnerHtml);
+
+            if (string.IsNullOrWhiteSpace(sanitizedCss))
+            {
+                styleNode.Remove();
+            }
+            else
+            {
+                styleNode.InnerHtml = sanitizedCss;
             }
         }
     }
@@ -115,5 +164,48 @@ public static class HtmlAgilityPackExtensions
                 }
                 break;
         }
+    }
+
+    private static void ClearRemoteImageAttribute(HtmlNode node, string attributeName)
+    {
+        var value = node.GetAttributeValue(attributeName, null);
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        if (!IsEmbeddedImageSource(value))
+        {
+            node.Attributes.Remove(attributeName);
+        }
+    }
+
+    private static bool IsEmbeddedImageSource(string value)
+    {
+        var trimmed = value.Trim().Trim('"', '\'');
+
+        return trimmed.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase)
+               || trimmed.StartsWith("cid:", StringComparison.OrdinalIgnoreCase)
+               || trimmed.StartsWith('#');
+    }
+
+    private static bool IsSvgImageReferenceElement(HtmlNode node)
+        => node.Name.Equals("image", StringComparison.OrdinalIgnoreCase)
+           || node.Name.Equals("feImage", StringComparison.OrdinalIgnoreCase)
+           || node.Name.Equals("use", StringComparison.OrdinalIgnoreCase);
+
+    private static string SanitizeCss(string css)
+    {
+        if (string.IsNullOrWhiteSpace(css))
+        {
+            return string.Empty;
+        }
+
+        var sanitizedCss = Regex.Replace(css, @"(?is)url\s*\([^)]*\)", "none");
+        sanitizedCss = Regex.Replace(sanitizedCss, @"(?is)image-set\s*\([^)]*\)", "none");
+        sanitizedCss = Regex.Replace(sanitizedCss, @"(?is)@import\s+[^;]+;?", string.Empty);
+
+        return sanitizedCss.Trim();
     }
 }

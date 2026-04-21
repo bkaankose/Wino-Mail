@@ -15,7 +15,7 @@ public class HtmlPreviewVisitor : MimeVisitor
 {
     private static readonly HashSet<string> BlockedTags = new(StringComparer.OrdinalIgnoreCase)
     {
-        "script", "iframe", "frame", "frameset", "object", "embed", "applet", "base", "meta", "form"
+        "script", "iframe", "frame", "frameset", "object", "embed", "applet", "base", "meta", "form", "link"
     };
 
     private static readonly HashSet<string> AllowedDataImageMimeTypes = new(StringComparer.OrdinalIgnoreCase)

@@ -15,6 +15,7 @@ public class HtmlPreviewVisitorTests
             <html>
                 <body onload="alert('x')">
                     <h1 onclick="evil()">hello</h1>
+                    <link rel="stylesheet" href="https://tracker.example/mail.css" />
                     <script>alert('xss')</script>
                     <iframe src="https://malicious.example"></iframe>
                     <object data="https://malicious.example/file.swf"></object>
@@ -34,6 +35,7 @@ public class HtmlPreviewVisitorTests
 
         // Assert
         output.Should().NotContain("<script", "script tags must be blocked in rendered html");
+        output.Should().NotContain("<link", "external stylesheet tags must be blocked in rendered html");
         output.Should().NotContain("<iframe", "iframe tags must be blocked in rendered html");
         output.Should().NotContain("<object", "object tags must be blocked in rendered html");
         output.Should().NotContain("onload=", "event handler attributes must be stripped");
