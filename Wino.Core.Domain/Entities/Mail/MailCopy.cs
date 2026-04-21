@@ -93,6 +93,11 @@ public class MailCopy
     public bool IsFlagged { get; set; }
 
     /// <summary>
+    /// Whether this mail should stay pinned to the top locally.
+    /// </summary>
+    public bool IsPinned { get; set; }
+
+    /// <summary>
     /// To support Outlook.
     /// Gmail doesn't use it.
     /// </summary>

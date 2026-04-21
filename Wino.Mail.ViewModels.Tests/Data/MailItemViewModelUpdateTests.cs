@@ -60,6 +60,29 @@ public class MailItemViewModelUpdateTests
     }
 
     [Fact]
+    public void UpdateFrom_ShouldNotifyPinnedState_WhenPinnedChanges()
+    {
+        var original = CreateMailCopy("thread-1", DateTime.UtcNow);
+        var updated = CloneMailCopy(original);
+        updated.IsPinned = true;
+
+        var sut = new MailItemViewModel(original);
+        var raisedProperties = new List<string>();
+
+        sut.PropertyChanged += (_, e) =>
+        {
+            if (!string.IsNullOrEmpty(e.PropertyName))
+            {
+                raisedProperties.Add(e.PropertyName);
+            }
+        };
+
+        sut.UpdateFrom(updated);
+
+        raisedProperties.Should().Contain(nameof(MailItemViewModel.IsPinned));
+    }
+
+    [Fact]
     public async Task UpdateMailCopy_ShouldNotifyThreadOnlyForReadState_WhenReadStateChanges()
     {
         var collection = new WinoMailCollection
@@ -125,6 +148,7 @@ public class MailItemViewModelUpdateTests
             Importance = MailImportance.Normal,
             IsRead = false,
             IsFlagged = false,
+            IsPinned = false,
             IsFocused = false,
             HasAttachments = false,
             ItemType = MailItemType.Mail,
@@ -151,6 +175,7 @@ public class MailItemViewModelUpdateTests
             Importance = source.Importance,
             IsRead = source.IsRead,
             IsFlagged = source.IsFlagged,
+            IsPinned = source.IsPinned,
             IsFocused = source.IsFocused,
             HasAttachments = source.HasAttachments,
             ItemType = source.ItemType,

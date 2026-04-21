@@ -604,6 +604,15 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         if (initializedMailItemViewModel == null)
             return;
 
+        var assignedFolder = initializedMailItemViewModel.MailCopy.AssignedFolder;
+
+        if (assignedFolder == null)
+        {
+            Log.Warning("Skipping folder-specific mail commands because AssignedFolder is missing for {MailUniqueId}",
+                initializedMailItemViewModel.MailCopy.UniqueId);
+            return;
+        }
+
         MenuItems.Add(MailOperationMenuItem.Create(MailOperation.Seperator));
 
         // You can't do these to draft items.
@@ -625,7 +634,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         }
 
         // Archive - Unarchive
-        if (initializedMailItemViewModel.MailCopy.AssignedFolder.SpecialFolderType == SpecialFolderType.Archive)
+        if (assignedFolder.SpecialFolderType == SpecialFolderType.Archive)
             MenuItems.Add(MailOperationMenuItem.Create(MailOperation.UnArchive));
         else
             MenuItems.Add(MailOperationMenuItem.Create(MailOperation.Archive));
@@ -647,10 +656,10 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         else
             MenuItems.Add(MailOperationMenuItem.Create(MailOperation.MarkAsRead, true, false));
 
-        if (initializedMailItemViewModel.MailCopy.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk)
+        if (assignedFolder.SpecialFolderType == SpecialFolderType.Junk)
             MenuItems.Add(MailOperationMenuItem.Create(MailOperation.MarkAsNotJunk, true, true));
         else if (!initializedMailItemViewModel.IsDraft &&
-                 initializedMailItemViewModel.MailCopy.AssignedFolder.SpecialFolderType != SpecialFolderType.Sent)
+                 assignedFolder.SpecialFolderType != SpecialFolderType.Sent)
             MenuItems.Add(MailOperationMenuItem.Create(MailOperation.MoveToJunk, true, true));
     }
 

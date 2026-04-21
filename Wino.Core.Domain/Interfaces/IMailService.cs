@@ -26,6 +26,7 @@ public interface IMailService
     /// </summary>
     Task<List<MailCopy>> GetMailItemsAsync(IEnumerable<string> mailCopyIds);
     Task<List<MailCopy>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default);
+    Task<List<MailCopy>> FetchPinnedMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Deletes all mail copies for all folders.
@@ -36,6 +37,7 @@ public interface IMailService
 
     Task ChangeReadStatusAsync(string mailCopyId, bool isRead);
     Task ChangeFlagStatusAsync(string mailCopyId, bool isFlagged);
+    Task ChangePinnedStatusAsync(IEnumerable<Guid> uniqueMailIds, bool isPinned);
     Task ApplyMailStateUpdatesAsync(IEnumerable<MailCopyStateUpdate> updates);
 
     Task CreateAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId);

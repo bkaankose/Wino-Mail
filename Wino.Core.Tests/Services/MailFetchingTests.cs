@@ -260,6 +260,26 @@ public class MailFetchingTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task FetchPinnedMailsAsync_ReturnsPinnedMailsOutsideRegularPage()
+    {
+        var oldPinned = BuildMail(_inboxFolder.Id, DateTime.UtcNow.AddDays(-5));
+        oldPinned.IsPinned = true;
+
+        var recentMails = Enumerable.Range(0, 120)
+            .Select(i => BuildMail(_inboxFolder.Id, DateTime.UtcNow.AddMinutes(-i)))
+            .ToList();
+
+        await _databaseService.Connection.InsertAsync(oldPinned, typeof(MailCopy));
+        await _databaseService.Connection.InsertAllAsync(recentMails, typeof(MailCopy));
+
+        var options = BuildOptions([_inboxFolder], createThreads: false, take: 20);
+
+        var result = await _mailService.FetchPinnedMailsAsync(options);
+
+        result.Should().ContainSingle(mail => mail.UniqueId == oldPinned.UniqueId);
+    }
+
+    [Fact]
     public async Task CreateAssignmentAsync_ExistingAssignment_IsIgnored()
     {
         var archiveFolder = await CreateFolderAsync(_testAccount, "Archive", "archive-existing", SpecialFolderType.Archive);
@@ -295,6 +315,27 @@ public class MailFetchingTests : IAsyncLifetime
 
         insertedCopies.Should().HaveCount(2, "adding a new folder assignment should still clone one additional local row");
         insertedCopies.Select(mail => mail.FolderId).Should().BeEquivalentTo([_inboxFolder.Id, archiveFolder.Id]);
+    }
+
+    [Fact]
+    public async Task UpdateMailAsync_PreservesLocalPinnedState()
+    {
+        var existingMail = BuildMail(_inboxFolder.Id, DateTime.UtcNow.AddHours(-1));
+        existingMail.IsPinned = true;
+
+        await _databaseService.Connection.InsertAsync(existingMail, typeof(MailCopy));
+
+        var refreshedMail = BuildMail(_inboxFolder.Id, DateTime.UtcNow, id: existingMail.Id);
+        refreshedMail.UniqueId = existingMail.UniqueId;
+        refreshedMail.FileId = existingMail.FileId;
+        refreshedMail.Subject = "Updated subject";
+
+        await _mailService.UpdateMailAsync(refreshedMail);
+
+        var storedMail = await _databaseService.Connection.FindAsync<MailCopy>(existingMail.UniqueId);
+        storedMail.Should().NotBeNull();
+        storedMail!.IsPinned.Should().BeTrue();
+        storedMail.Subject.Should().Be("Updated subject");
     }
 
     // ── Performance: 1 000 mails / ~70 threads ─────────────────────────────────

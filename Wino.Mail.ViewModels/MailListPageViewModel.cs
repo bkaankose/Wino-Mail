@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
@@ -758,6 +759,17 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }
 
         await _winoRequestDelegator.ExecuteAsync(accountId, requests).ConfigureAwait(false);
+    }
+
+    public Task ChangePinnedStatusAsync(IEnumerable<MailItemViewModel> targetItems, bool isPinned)
+    {
+        var uniqueIds = targetItems?
+            .Where(a => a?.MailCopy != null)
+            .Select(a => a.MailCopy.UniqueId)
+            .Distinct()
+            .ToList() ?? [];
+
+        return _mailService.ChangePinnedStatusAsync(uniqueIds, isPinned);
     }
 
     private bool ShouldPreventItemAdd(MailCopy mailItem)
@@ -1553,13 +1565,28 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 }
             }
 
+            var initialExistingIds = new ConcurrentDictionary<Guid, bool>(MailCollection.MailCopyIdHashSet);
+            var localPinnedItems = new List<MailCopy>();
+
+            if (!isDoingOnlineSearch)
+            {
+                var pinnedOptions = CreateInitializationOptions(SearchQuery, MailCollection.MailCopyIdHashSet);
+                localPinnedItems = await _mailService.FetchPinnedMailsAsync(pinnedOptions, cancellationToken).ConfigureAwait(false);
+
+                foreach (var pinnedItem in localPinnedItems)
+                {
+                    initialExistingIds.TryAdd(pinnedItem.UniqueId, true);
+                }
+            }
+
             var initializationOptions = CreateInitializationOptions(
                 isDoingOnlineSearch ? string.Empty : SearchQuery,
-                MailCollection.MailCopyIdHashSet,
+                initialExistingIds,
                 onlineSearchItems,
                 isDoingOnlineSearch);
 
             items = await _mailService.FetchMailsAsync(initializationOptions, cancellationToken).ConfigureAwait(false);
+            items = localPinnedItems.Count > 0 ? [.. localPinnedItems, .. items] : items;
 
             if (!listManipulationCancellationTokenSource.IsCancellationRequested)
             {

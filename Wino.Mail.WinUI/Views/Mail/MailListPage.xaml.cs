@@ -245,26 +245,35 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
             // Default to all selected items.
             targetItems = ViewModel.MailCollection.SelectedItems;
+            var areAllPinned = targetItems.Any() && targetItems.All(item => item.MailCopy.IsPinned);
             var availableActions = ViewModel.GetAvailableMailActions(targetItems);
             var (availableCategories, assignedCategoryIds) = await ViewModel.GetAvailableCategoriesAsync(targetItems);
-
-            if (availableActions == null || !availableActions.Any()) return;
 
             var clickedAction = await GetMailContextActionFromFlyoutAsync(
                 availableActions,
                 availableCategories,
                 assignedCategoryIds,
+                areAllPinned,
                 control,
                 p.X,
                 p.Y);
 
             if (clickedAction == null) return;
 
+            if (clickedAction.PinState.HasValue)
+            {
+                await ViewModel.ChangePinnedStatusAsync(targetItems, clickedAction.PinState.Value);
+                return;
+            }
+
             if (clickedAction.Category != null)
             {
                 await ViewModel.ToggleCategoryAssignmentAsync(clickedAction.Category, targetItems, clickedAction.IsCategoryAssignedToAll);
                 return;
             }
+
+            if (clickedAction.Operation == null)
+                return;
 
             var prepRequest = new MailOperationPreperationRequest(clickedAction.Operation.Operation, targetItems.Select(a => a.MailCopy));
 
@@ -313,6 +322,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         IEnumerable<MailOperationMenuItem> availableActions,
         IReadOnlyList<MailCategory> availableCategories,
         IReadOnlyCollection<Guid> assignedCategoryIds,
+        bool areAllPinned,
         UIElement showAtElement,
         double x,
         double y)
@@ -320,7 +330,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         var source = new TaskCompletionSource<MailContextAction?>();
         var flyout = new WinoMenuFlyout();
 
-        foreach (var action in availableActions)
+        foreach (var action in availableActions ?? [])
         {
             if (action.Operation == MailOperation.Seperator)
             {
@@ -336,6 +346,27 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
             flyout.Items.Add(menuFlyoutItem);
         }
+
+        if (flyout.Items.Count > 0 && flyout.Items.LastOrDefault() is not MenuFlyoutSeparator)
+        {
+            flyout.Items.Add(new MenuFlyoutSeparator());
+        }
+
+        var pinItem = new MenuFlyoutItem
+        {
+            Text = areAllPinned ? Translator.FolderOperation_Unpin : Translator.FolderOperation_Pin,
+            Icon = new WinoFontIcon { Icon = areAllPinned ? WinoIconGlyph.UnPin : WinoIconGlyph.Pin }
+        };
+
+        MenuFlyoutLanguageHelper.Apply(pinItem);
+
+        pinItem.Click += (_, _) =>
+        {
+            source.TrySetResult(new MailContextAction(!areAllPinned));
+            flyout.Hide();
+        };
+
+        flyout.Items.Add(pinItem);
 
         if (availableCategories?.Count > 0)
         {
@@ -381,9 +412,13 @@ public sealed partial class MailListPage : MailListPageAbstract,
         return await source.Task;
     }
 
-    private sealed record MailContextAction(MailOperationMenuItem Operation, MailCategory Category = null, bool IsCategoryAssignedToAll = false)
+    private sealed record MailContextAction(MailOperationMenuItem? Operation = null, MailCategory? Category = null, bool IsCategoryAssignedToAll = false, bool? PinState = null)
     {
-        public MailContextAction(MailCategory category, bool isCategoryAssignedToAll) : this(null, category, isCategoryAssignedToAll)
+        public MailContextAction(MailCategory category, bool isCategoryAssignedToAll) : this((MailOperationMenuItem?)null, category, isCategoryAssignedToAll)
+        {
+        }
+
+        public MailContextAction(bool pinState) : this((MailOperationMenuItem?)null, (MailCategory?)null, false, pinState)
         {
         }
     }

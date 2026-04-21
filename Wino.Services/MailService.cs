@@ -158,7 +158,7 @@ public class MailService : BaseDatabaseService, IMailService
         return await HydrateMailCopyAsync(mailCopy).ConfigureAwait(false);
     }
 
-    private static (string Query, object[] Parameters) BuildMailFetchQuery(MailListInitializationOptions options)
+    private static (string Query, object[] Parameters) BuildMailFetchQuery(MailListInitializationOptions options, bool pinnedOnly = false)
     {
         var sql = new StringBuilder();
         sql.Append(options.IsCategoryView
@@ -194,6 +194,11 @@ public class MailService : BaseDatabaseService, IMailService
                 break;
         }
 
+        if (pinnedOnly)
+        {
+            whereClauses.Add("MailCopy.IsPinned = 1");
+        }
+
         // Focused filter
         if (options.IsFocusedOnly != null)
         {
@@ -227,23 +232,26 @@ public class MailService : BaseDatabaseService, IMailService
 
         // Sorting
         if (options.SortingOptionType == SortingOptionType.ReceiveDate)
-            sql.Append(" ORDER BY CreationDate DESC");
+            sql.Append(" ORDER BY IsPinned DESC, CreationDate DESC");
         else if (options.SortingOptionType == SortingOptionType.Sender)
-            sql.Append(" ORDER BY FromName ASC");
+            sql.Append(" ORDER BY IsPinned DESC, FromName ASC, CreationDate DESC");
 
         // Pagination
-        var limit = options.Take > 0 ? options.Take : ItemLoadCount;
-        sql.Append($" LIMIT {limit}");
-
-        if (options.Skip > 0)
+        if (!pinnedOnly)
         {
-            sql.Append($" OFFSET {options.Skip}");
+            var limit = options.Take > 0 ? options.Take : ItemLoadCount;
+            sql.Append($" LIMIT {limit}");
+
+            if (options.Skip > 0)
+            {
+                sql.Append($" OFFSET {options.Skip}");
+            }
         }
 
         return (sql.ToString(), parameters.ToArray());
     }
 
-    private static List<MailCopy> ApplyOptionsToPreFetchedMails(MailListInitializationOptions options)
+    private static List<MailCopy> ApplyOptionsToPreFetchedMails(MailListInitializationOptions options, bool pinnedOnly = false)
     {
         var allowedFolderIds = options.Folders.Select(f => f.Id).ToHashSet();
         var accountIdsByFolderId = options.Folders
@@ -287,6 +295,11 @@ public class MailService : BaseDatabaseService, IMailService
             query = query.Where(m => !options.ExistingUniqueIds.ContainsKey(m.UniqueId));
         }
 
+        if (pinnedOnly)
+        {
+            query = query.Where(m => m.IsPinned);
+        }
+
         query = options.DeduplicateByServerId
             ? query
                 .GroupBy(m => (ResolveMailAccountId(m, accountIdsByFolderId), ResolveServerMailId(m)))
@@ -302,16 +315,21 @@ public class MailService : BaseDatabaseService, IMailService
 
         query = options.SortingOptionType switch
         {
-            SortingOptionType.Sender => query.OrderBy(m => m.FromName).ThenByDescending(m => m.CreationDate),
-            _ => query.OrderByDescending(m => m.CreationDate)
+            SortingOptionType.Sender => query
+                .OrderByDescending(m => m.IsPinned)
+                .ThenBy(m => m.FromName)
+                .ThenByDescending(m => m.CreationDate),
+            _ => query
+                .OrderByDescending(m => m.IsPinned)
+                .ThenByDescending(m => m.CreationDate)
         };
 
-        if (options.Skip > 0)
+        if (!pinnedOnly && options.Skip > 0)
         {
             query = query.Skip(options.Skip);
         }
 
-        if (options.Take > 0)
+        if (!pinnedOnly && options.Take > 0)
         {
             query = query.Take(options.Take);
         }
@@ -333,17 +351,23 @@ public class MailService : BaseDatabaseService, IMailService
     private static string ResolveServerMailId(MailCopy mail)
         => string.IsNullOrWhiteSpace(mail?.Id) ? mail?.UniqueId.ToString("N") ?? string.Empty : mail.Id;
 
-    public async Task<List<MailCopy>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default)
+    public Task<List<MailCopy>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default)
+        => FetchMailsInternalAsync(options, pinnedOnly: false, cancellationToken);
+
+    public Task<List<MailCopy>> FetchPinnedMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default)
+        => FetchMailsInternalAsync(options, pinnedOnly: true, cancellationToken);
+
+    private async Task<List<MailCopy>> FetchMailsInternalAsync(MailListInitializationOptions options, bool pinnedOnly, CancellationToken cancellationToken = default)
     {
         List<MailCopy> mails;
 
         if (options.PreFetchMailCopies != null && !options.IsCategoryView)
         {
-            mails = ApplyOptionsToPreFetchedMails(options);
+            mails = ApplyOptionsToPreFetchedMails(options, pinnedOnly);
         }
         else
         {
-            var (query, parameters) = BuildMailFetchQuery(options);
+            var (query, parameters) = BuildMailFetchQuery(options, pinnedOnly);
             mails = await Connection.QueryAsync<MailCopy>(query, parameters);
         }
 
@@ -735,7 +759,8 @@ public class MailService : BaseDatabaseService, IMailService
 
         await Connection.InsertAsync(mailCopy, typeof(MailCopy)).ConfigureAwait(false);
 
-        ReportUIChange(new MailAddedMessage(mailCopy, EntityUpdateSource.Server));
+        var hydratedMailCopy = await HydrateMailCopyAsync(mailCopy).ConfigureAwait(false);
+        ReportUIChange(new MailAddedMessage(hydratedMailCopy, EntityUpdateSource.Server));
     }
 
     public async Task UpdateMailAsync(MailCopy mailCopy)
@@ -749,9 +774,20 @@ public class MailService : BaseDatabaseService, IMailService
 
         _logger.Debug("Updating mail {MailCopyId} with Folder {FolderId}", mailCopy.Id, mailCopy.FolderId);
 
+        var existingMailCopy = mailCopy.UniqueId != Guid.Empty
+            ? await Connection.FindAsync<MailCopy>(mailCopy.UniqueId).ConfigureAwait(false)
+            : null;
+
+        if (existingMailCopy != null)
+        {
+            // Pinning is managed locally for now, so server refreshes should not clear it.
+            mailCopy.IsPinned = existingMailCopy.IsPinned;
+        }
+
         await Connection.UpdateAsync(mailCopy, typeof(MailCopy)).ConfigureAwait(false);
 
-        ReportUIChange(new MailUpdatedMessage(mailCopy, EntityUpdateSource.Server));
+        var hydratedMailCopy = await HydrateMailCopyAsync(mailCopy).ConfigureAwait(false);
+        ReportUIChange(new MailUpdatedMessage(hydratedMailCopy, EntityUpdateSource.Server));
     }
 
     private async Task DeleteMailInternalAsync(MailCopy mailCopy, bool preserveMimeFile)
@@ -807,12 +843,23 @@ public class MailService : BaseDatabaseService, IMailService
             WeakReferenceMessenger.Default.Send(new BulkMailReadStatusChanged(readMailUniqueIds));
         }
 
+        var hydratedUpdatesByUniqueId = (await HydrateMailCopiesAsync(
+                pendingUpdates
+                    .Where(x => x.MailCopy != null)
+                    .Select(x => x.MailCopy)
+                    .GroupBy(x => x.UniqueId)
+                    .Select(group => group.First())
+                    .ToList())
+            .ConfigureAwait(false))
+            .Where(x => x != null)
+            .ToDictionary(x => x.UniqueId);
+
         foreach (var updateGroup in pendingUpdates
                      .Where(x => x.MailCopy != null)
                      .GroupBy(x => x.ChangedProperties))
         {
             var updatedMails = updateGroup
-                .Select(x => x.MailCopy)
+                .Select(x => hydratedUpdatesByUniqueId.GetValueOrDefault(x.MailCopy.UniqueId, x.MailCopy))
                 .Where(x => x != null)
                 .ToList();
 
@@ -874,6 +921,41 @@ public class MailService : BaseDatabaseService, IMailService
 
             return MailCopyChangeFlags.IsFlagged;
         });
+
+    public async Task ChangePinnedStatusAsync(IEnumerable<Guid> uniqueMailIds, bool isPinned)
+    {
+        var distinctUniqueIds = uniqueMailIds?
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToList() ?? [];
+
+        if (distinctUniqueIds.Count == 0)
+            return;
+
+        var placeholders = string.Join(",", distinctUniqueIds.Select(_ => "?"));
+        var mailCopies = await Connection
+            .QueryAsync<MailCopy>($"SELECT * FROM MailCopy WHERE UniqueId IN ({placeholders})", distinctUniqueIds.Cast<object>().ToArray())
+            .ConfigureAwait(false);
+
+        if (mailCopies.Count == 0)
+        {
+            _logger.Warning("Changing pin status failed because there are no matching copies for {MailCopyCount} unique ids.", distinctUniqueIds.Count);
+            return;
+        }
+
+        var pendingUpdates = new List<(MailCopy MailCopy, MailCopyChangeFlags ChangedProperties)>();
+
+        foreach (var mailCopy in mailCopies)
+        {
+            if (mailCopy.IsPinned == isPinned)
+                continue;
+
+            mailCopy.IsPinned = isPinned;
+            pendingUpdates.Add((mailCopy, MailCopyChangeFlags.IsPinned));
+        }
+
+        await PersistMailCopyUpdatesAsync(pendingUpdates).ConfigureAwait(false);
+    }
 
     public async Task ApplyMailStateUpdatesAsync(IEnumerable<MailCopyStateUpdate> updates)
     {

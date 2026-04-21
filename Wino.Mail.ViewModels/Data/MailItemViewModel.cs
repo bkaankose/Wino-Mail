@@ -17,6 +17,7 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CreationDate))]
     [NotifyPropertyChangedFor(nameof(IsFlagged))]
+    [NotifyPropertyChangedFor(nameof(IsPinned))]
     [NotifyPropertyChangedFor(nameof(FromName))]
     [NotifyPropertyChangedFor(nameof(IsFocused))]
     [NotifyPropertyChangedFor(nameof(IsRead))]
@@ -80,6 +81,12 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
     {
         get => MailCopy.IsFlagged;
         set => SetProperty(MailCopy.IsFlagged, value, MailCopy, (u, n) => u.IsFlagged = n);
+    }
+
+    public bool IsPinned
+    {
+        get => MailCopy.IsPinned;
+        set => SetProperty(MailCopy.IsPinned, value, MailCopy, (u, n) => u.IsPinned = n);
     }
 
     public string FromName
@@ -233,6 +240,7 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
         {
             nameof(CreationDate) or nameof(SortingDate) => MailCopyChangeFlags.CreationDate,
             nameof(IsFlagged) => MailCopyChangeFlags.IsFlagged,
+            nameof(IsPinned) => MailCopyChangeFlags.IsPinned,
             nameof(FromName) or nameof(SortingName) => MailCopyChangeFlags.FromName,
             nameof(IsFocused) => MailCopyChangeFlags.IsFocused,
             nameof(IsRead) => MailCopyChangeFlags.IsRead,
@@ -293,12 +301,13 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
             changedFlags |= SetIfChanged(MailCopy.Importance, source.Importance, value => MailCopy.Importance = value, MailCopyChangeFlags.Importance);
             changedFlags |= SetIfChanged(MailCopy.IsRead, source.IsRead, value => MailCopy.IsRead = value, MailCopyChangeFlags.IsRead);
             changedFlags |= SetIfChanged(MailCopy.IsFlagged, source.IsFlagged, value => MailCopy.IsFlagged = value, MailCopyChangeFlags.IsFlagged);
+            changedFlags |= SetIfChanged(MailCopy.IsPinned, source.IsPinned, value => MailCopy.IsPinned = value, MailCopyChangeFlags.IsPinned);
             changedFlags |= SetIfChanged(MailCopy.IsFocused, source.IsFocused, value => MailCopy.IsFocused = value, MailCopyChangeFlags.IsFocused);
             changedFlags |= SetIfChanged(MailCopy.FileId, source.FileId, value => MailCopy.FileId = value, MailCopyChangeFlags.FileId);
             changedFlags |= SetIfChanged(MailCopy.ItemType, source.ItemType, value => MailCopy.ItemType = value, MailCopyChangeFlags.ItemType);
-            changedFlags |= SetIfChanged(MailCopy.SenderContact, source.SenderContact, value => MailCopy.SenderContact = value, MailCopyChangeFlags.SenderContact);
-            changedFlags |= SetIfChanged(MailCopy.AssignedAccount, source.AssignedAccount, value => MailCopy.AssignedAccount = value, MailCopyChangeFlags.AssignedAccount);
-            changedFlags |= SetIfChanged(MailCopy.AssignedFolder, source.AssignedFolder, value => MailCopy.AssignedFolder = value, MailCopyChangeFlags.AssignedFolder);
+            changedFlags |= SetIfChangedIfNotNull(MailCopy.SenderContact, source.SenderContact, value => MailCopy.SenderContact = value, MailCopyChangeFlags.SenderContact);
+            changedFlags |= SetIfChangedIfNotNull(MailCopy.AssignedAccount, source.AssignedAccount, value => MailCopy.AssignedAccount = value, MailCopyChangeFlags.AssignedAccount);
+            changedFlags |= SetIfChangedIfNotNull(MailCopy.AssignedFolder, source.AssignedFolder, value => MailCopy.AssignedFolder = value, MailCopyChangeFlags.AssignedFolder);
             changedFlags |= SetIfChanged(MailCopy.UniqueId, source.UniqueId, value => MailCopy.UniqueId = value, MailCopyChangeFlags.UniqueId);
             changedFlags |= SetIfChanged(MailCopy.IsReadReceiptRequested, source.IsReadReceiptRequested, value => MailCopy.IsReadReceiptRequested = value, MailCopyChangeFlags.ReadReceiptState);
             changedFlags |= SetIfChanged(MailCopy.ReadReceiptStatus, source.ReadReceiptStatus, value => MailCopy.ReadReceiptStatus = value, MailCopyChangeFlags.ReadReceiptState);
@@ -353,6 +362,14 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
         return flag;
     }
 
+    private static MailCopyChangeFlags SetIfChangedIfNotNull<T>(T currentValue, T newValue, Action<T> setter, MailCopyChangeFlags flag) where T : class
+    {
+        if (newValue == null)
+            return MailCopyChangeFlags.None;
+
+        return SetIfChanged(currentValue, newValue, setter, flag);
+    }
+
     private void RaisePropertyChanges(MailCopyChangeFlags changedFlags)
     {
         if (changedFlags == MailCopyChangeFlags.None)
@@ -376,6 +393,9 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
 
         if ((changedFlags & MailCopyChangeFlags.IsFlagged) != 0)
             Queue(nameof(IsFlagged));
+
+        if ((changedFlags & MailCopyChangeFlags.IsPinned) != 0)
+            Queue(nameof(IsPinned));
 
         if ((changedFlags & MailCopyChangeFlags.FromName) != 0)
         {

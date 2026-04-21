@@ -327,6 +327,94 @@ public class MailThreadingTests : IAsyncLifetime
         }
     }
 
+    [Fact]
+    public async Task ChangePinnedStatusAsync_SendsHydratedBulkMailUpdatedMessage()
+    {
+        var mail = new MailCopy
+        {
+            UniqueId = Guid.NewGuid(),
+            Id = Guid.NewGuid().ToString(),
+            FolderId = _draftFolder.Id,
+            IsPinned = false,
+            Subject = "Pinned draft"
+        };
+
+        await _databaseService.Connection.InsertAsync(mail, typeof(MailCopy));
+
+        var recipient = new MailUpdateRecipient();
+        WeakReferenceMessenger.Default.Register<MailUpdatedMessage>(recipient);
+        WeakReferenceMessenger.Default.Register<BulkMailUpdatedMessage>(recipient);
+
+        try
+        {
+            await _mailService.ChangePinnedStatusAsync([mail.UniqueId], true);
+
+            recipient.SingleUpdates.Should().BeEmpty();
+            recipient.BulkUpdates.Should().ContainSingle();
+            recipient.BulkUpdates[0].ChangedProperties.Should().Be(MailCopyChangeFlags.IsPinned);
+            recipient.BulkUpdates[0].UpdatedMails.Should().ContainSingle();
+
+            var updatedMail = recipient.BulkUpdates[0].UpdatedMails[0];
+            updatedMail.IsPinned.Should().BeTrue();
+            updatedMail.AssignedFolder.Should().NotBeNull();
+            updatedMail.AssignedFolder!.Id.Should().Be(_draftFolder.Id);
+            updatedMail.AssignedAccount.Should().NotBeNull();
+            updatedMail.AssignedAccount!.Id.Should().Be(_account.Id);
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.Unregister<MailUpdatedMessage>(recipient);
+            WeakReferenceMessenger.Default.Unregister<BulkMailUpdatedMessage>(recipient);
+        }
+    }
+
+    [Fact]
+    public async Task CreateAssignmentAsync_SendsHydratedMailAddedMessage()
+    {
+        var archiveFolder = new MailItemFolder
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = _account.Id,
+            FolderName = "Archive",
+            RemoteFolderId = "archive",
+            SpecialFolderType = SpecialFolderType.Archive,
+            IsSystemFolder = true,
+            IsSynchronizationEnabled = true
+        };
+
+        var mail = new MailCopy
+        {
+            UniqueId = Guid.NewGuid(),
+            Id = "assignment-mail",
+            FolderId = _draftFolder.Id,
+            Subject = "Assigned copy"
+        };
+
+        await _databaseService.Connection.InsertAsync(archiveFolder, typeof(MailItemFolder));
+        await _databaseService.Connection.InsertAsync(mail, typeof(MailCopy));
+
+        var recipient = new MailAddRecipient();
+        WeakReferenceMessenger.Default.Register<MailAddedMessage>(recipient);
+
+        try
+        {
+            await _mailService.CreateAssignmentAsync(_account.Id, mail.Id, archiveFolder.RemoteFolderId);
+
+            recipient.Added.Should().ContainSingle();
+
+            var addedMail = recipient.Added[0].AddedMail;
+            addedMail.UniqueId.Should().NotBe(mail.UniqueId);
+            addedMail.AssignedFolder.Should().NotBeNull();
+            addedMail.AssignedFolder!.Id.Should().Be(archiveFolder.Id);
+            addedMail.AssignedAccount.Should().NotBeNull();
+            addedMail.AssignedAccount!.Id.Should().Be(_account.Id);
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.Unregister<MailAddedMessage>(recipient);
+        }
+    }
+
     private static MimeMessage CreateReferencedMimeMessage(string subject, string? messageId = null)
     {
         var message = new MimeMessage();
@@ -348,6 +436,13 @@ public class MailThreadingTests : IAsyncLifetime
 
         public void Receive(MailUpdatedMessage message) => SingleUpdates.Add(message);
         public void Receive(BulkMailUpdatedMessage message) => BulkUpdates.Add(message);
+    }
+
+    internal sealed class MailAddRecipient : IRecipient<MailAddedMessage>
+    {
+        public List<MailAddedMessage> Added { get; } = [];
+
+        public void Receive(MailAddedMessage message) => Added.Add(message);
     }
 
     internal sealed class MailReadStatusRecipient : IRecipient<MailReadStatusChanged>, IRecipient<BulkMailReadStatusChanged>

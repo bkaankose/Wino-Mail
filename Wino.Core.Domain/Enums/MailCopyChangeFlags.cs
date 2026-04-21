@@ -20,17 +20,18 @@ public enum MailCopyChangeFlags
     Importance = 1 << 11,
     IsRead = 1 << 12,
     IsFlagged = 1 << 13,
-    IsFocused = 1 << 14,
-    HasAttachments = 1 << 15,
-    ItemType = 1 << 16,
-    DraftId = 1 << 17,
-    IsDraft = 1 << 18,
-    FileId = 1 << 19,
-    AssignedFolder = 1 << 20,
-    AssignedAccount = 1 << 21,
-    SenderContact = 1 << 22,
-    UniqueId = 1 << 23,
-    ReadReceiptState = 1 << 24,
+    IsPinned = 1 << 14,
+    IsFocused = 1 << 15,
+    HasAttachments = 1 << 16,
+    ItemType = 1 << 17,
+    DraftId = 1 << 18,
+    IsDraft = 1 << 19,
+    FileId = 1 << 20,
+    AssignedFolder = 1 << 21,
+    AssignedAccount = 1 << 22,
+    SenderContact = 1 << 23,
+    UniqueId = 1 << 24,
+    ReadReceiptState = 1 << 25,
     All = Id |
           FolderId |
           ThreadId |
@@ -45,6 +46,7 @@ public enum MailCopyChangeFlags
           Importance |
           IsRead |
           IsFlagged |
+          IsPinned |
           IsFocused |
           HasAttachments |
           ItemType |

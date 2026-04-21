@@ -6,4 +6,5 @@ public interface IMailListItemSorting
 {
     DateTime SortingDate { get; }
     string SortingName { get; }
+    bool IsPinned { get; }
 }

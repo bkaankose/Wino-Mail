@@ -6,6 +6,7 @@ using FluentAssertions;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.MailItem;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
 using Xunit;
@@ -167,7 +168,7 @@ public class WinoMailCollectionTests
                 groupItems.Add(item);
             }
 
-            groups.Add(((DateTime)group.Key, groupItems));
+            groups.Add((((MailListGroupKey)group.Key).Value is DateTime keyDate ? keyDate : default, groupItems));
         }
 
         groups.Should().NotBeEmpty();
@@ -186,6 +187,45 @@ public class WinoMailCollectionTests
 
             creationDates.Should().BeInDescendingOrder();
         }
+    }
+
+    [Fact]
+    public async Task AddRangeAsync_ShouldPlacePinnedItemsBeforeUnpinnedItems()
+    {
+        var sut = CreateCollection();
+        var olderPinned = CreateMailCopy(threadId: "pinned", creationDate: DateTime.UtcNow.AddDays(-3));
+        olderPinned.IsPinned = true;
+
+        var newerUnpinned = CreateMailCopy(threadId: "regular", creationDate: DateTime.UtcNow);
+
+        await sut.AddRangeAsync(
+            [
+                new MailItemViewModel(newerUnpinned),
+                new MailItemViewModel(olderPinned)
+            ],
+            clearIdCache: true);
+
+        var firstItem = FlattenItems(sut).First().Should().BeOfType<MailItemViewModel>().Subject;
+        firstItem.MailCopy.UniqueId.Should().Be(olderPinned.UniqueId);
+    }
+
+    [Fact]
+    public async Task UpdateMailCopy_ShouldMovePinnedItemToTop()
+    {
+        var sut = CreateCollection();
+        var older = CreateMailCopy(threadId: "older", creationDate: DateTime.UtcNow.AddDays(-2));
+        var newer = CreateMailCopy(threadId: "newer", creationDate: DateTime.UtcNow);
+
+        await sut.AddAsync(older);
+        await sut.AddAsync(newer);
+
+        var updatedOlder = CloneMailCopy(older);
+        updatedOlder.IsPinned = true;
+
+        await sut.UpdateMailCopy(updatedOlder, EntityUpdateSource.Server, MailCopyChangeFlags.IsPinned);
+
+        var firstItem = FlattenItems(sut).First().Should().BeOfType<MailItemViewModel>().Subject;
+        firstItem.MailCopy.UniqueId.Should().Be(older.UniqueId);
     }
 
     [Fact]
@@ -371,6 +411,7 @@ public class WinoMailCollectionTests
             Importance = source.Importance,
             IsRead = source.IsRead,
             IsFlagged = source.IsFlagged,
+            IsPinned = source.IsPinned,
             IsFocused = source.IsFocused,
             HasAttachments = source.HasAttachments,
             ItemType = source.ItemType,

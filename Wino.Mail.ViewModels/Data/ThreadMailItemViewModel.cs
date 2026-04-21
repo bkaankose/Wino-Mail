@@ -92,6 +92,11 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     public bool IsFlagged => ThreadEmails.Any(e => e.IsFlagged);
 
     /// <summary>
+    /// Gets whether any email in this thread is pinned.
+    /// </summary>
+    public bool IsPinned => ThreadEmails.Any(e => e.IsPinned);
+
+    /// <summary>
     /// Gets whether the latest email is focused
     /// </summary>
     public bool IsFocused => newestMailViewModel?.IsFocused ?? false;
@@ -182,6 +187,7 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     [NotifyPropertyChangedFor(nameof(HasAttachments))]
     [NotifyPropertyChangedFor(nameof(IsCalendarEvent))]
     [NotifyPropertyChangedFor(nameof(IsFlagged))]
+    [NotifyPropertyChangedFor(nameof(IsPinned))]
     [NotifyPropertyChangedFor(nameof(IsFocused))]
     [NotifyPropertyChangedFor(nameof(IsRead))]
     [NotifyPropertyChangedFor(nameof(HasReadReceiptTracking))]
@@ -472,6 +478,9 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
 
         if ((changedFlags & MailCopyChangeFlags.IsFlagged) != 0 || changedFlags == MailCopyChangeFlags.All)
             Queue(nameof(IsFlagged));
+
+        if ((changedFlags & MailCopyChangeFlags.IsPinned) != 0 || changedFlags == MailCopyChangeFlags.All)
+            Queue(nameof(IsPinned));
 
         if ((changedFlags & MailCopyChangeFlags.IsRead) != 0 || changedFlags == MailCopyChangeFlags.All)
             Queue(nameof(IsRead));

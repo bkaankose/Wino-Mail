@@ -12,6 +12,7 @@ using Serilog;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.MailItem;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.UI;
@@ -139,10 +140,24 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
     private object GetGroupingKey(IMailListItem mailItem)
     {
+        if (mailItem.IsPinned)
+            return MailListGroupKey.Pinned;
+
         if (SortingType == SortingOptionType.ReceiveDate)
-            return mailItem.CreationDate.ToLocalTime().Date;
-        else
-            return mailItem.FromName;
+            return new MailListGroupKey(false, mailItem.CreationDate.ToLocalTime().Date);
+
+        return new MailListGroupKey(false, mailItem.FromName);
+    }
+
+    private bool ShouldReinsertForChanges(MailCopyChangeFlags changedProperties)
+    {
+        if ((changedProperties & (MailCopyChangeFlags.ThreadId | MailCopyChangeFlags.IsPinned)) != 0)
+            return true;
+
+        if (SortingType == SortingOptionType.ReceiveDate)
+            return (changedProperties & MailCopyChangeFlags.CreationDate) != 0;
+
+        return (changedProperties & (MailCopyChangeFlags.FromName | MailCopyChangeFlags.FromAddress)) != 0;
     }
 
     private void UpdateUniqueIdHashes(IMailHashContainer itemContainer, bool isAdd)
@@ -608,7 +623,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
             }
         });
 
-        if ((appliedChanges & MailCopyChangeFlags.ThreadId) != 0)
+        if (ShouldReinsertForChanges(appliedChanges))
         {
             await ReinsertUpdatedItemAsync(updatedItem, wasSelected, existingItem.IsBusy);
             return;
@@ -992,6 +1007,16 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
         if (updates.Count == 0)
             return;
+
+        if (changedProperties == MailCopyChangeFlags.None || ShouldReinsertForChanges(changedProperties))
+        {
+            foreach (var update in updates)
+            {
+                await UpdateExistingItemAsync(update.ItemContainer, update.UpdatedMail, mailUpdateSource, changedProperties);
+            }
+
+            return;
+        }
 
         await ExecuteUIThread(() =>
         {

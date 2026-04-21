@@ -81,6 +81,15 @@ public class DatabaseService : IDatabaseService
     {
         await EnsureKeyboardShortcutSchemaAsync().ConfigureAwait(false);
 
+        var mailCopyColumns = await Connection.GetTableInfoAsync(nameof(MailCopy)).ConfigureAwait(false);
+
+        if (!mailCopyColumns.Any(c => c.Name == nameof(MailCopy.IsPinned)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailCopy)} ADD COLUMN {nameof(MailCopy.IsPinned)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
+
         var accountColumns = await Connection.GetTableInfoAsync(nameof(MailAccount)).ConfigureAwait(false);
 
         if (!accountColumns.Any(c => c.Name == nameof(MailAccount.CreatedAt)))

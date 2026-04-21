@@ -16,6 +16,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.MailItem;
 using Wino.Mail.WinUI.Controls;
 
 namespace Wino.Helpers;
@@ -184,6 +185,14 @@ public static class XamlHelpers
     }
     public static string GetMailGroupDateString(object groupObject)
     {
+        if (groupObject is MailListGroupKey pinnedGroupKey)
+        {
+            if (pinnedGroupKey.IsPinned)
+                return Translator.FolderCustomization_SectionPinned;
+
+            groupObject = pinnedGroupKey.Value!;
+        }
+
         if (groupObject is string stringObject)
             return stringObject;
 
