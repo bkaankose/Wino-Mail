@@ -125,7 +125,7 @@ public partial class SpecialImapCredentialsPageViewModel : MailBaseViewModel
     {
         if (!CanProceed) return;
 
-        if (await _accountService.AccountAddressExistsAsync(EmailAddress).ConfigureAwait(false))
+        if (await _accountService.AccountAddressExistsAsync(EmailAddress))
         {
             await _dialogService.ShowMessageAsync(
                 Translator.DialogMessage_AccountAddressExistsMessage,

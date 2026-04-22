@@ -44,12 +44,19 @@ public sealed class CalDavClient : ICalDavClient
         var homeSetUri = await DiscoverCalendarHomeSetUriAsync(connectionSettings, principalUri, cancellationToken).ConfigureAwait(false);
 
         var body = """
-            <D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav" xmlns:CS="http://calendarserver.org/ns/">
+            <D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav" xmlns:CS="http://calendarserver.org/ns/" xmlns:ICAL="http://apple.com/ns/ical/">
               <D:prop>
                 <D:resourcetype />
                 <D:displayname />
+                <D:current-user-privilege-set />
                 <CS:getctag />
                 <D:sync-token />
+                <C:calendar-description />
+                <C:calendar-timezone />
+                <C:supported-calendar-component-set />
+                <C:schedule-calendar-transp />
+                <ICAL:calendar-color />
+                <ICAL:calendar-order />
               </D:prop>
             </D:propfind>
             """;
@@ -344,9 +351,31 @@ public sealed class CalDavClient : ICalDavClient
                     continue;
 
                 var displayName = prop.Descendants().FirstOrDefault(e => e.Name.LocalName == "displayname")?.Value ?? string.Empty;
+                var description = prop.Descendants().FirstOrDefault(e => e.Name.LocalName == "calendar-description")?.Value ?? string.Empty;
                 var ctag = prop.Descendants().FirstOrDefault(e => e.Name.LocalName == "getctag")?.Value ?? string.Empty;
                 var syncToken = prop.Descendants().FirstOrDefault(e => e.Name.LocalName == "sync-token")?.Value ?? string.Empty;
+                var timeZone = ExtractCalendarTimeZoneId(
+                    prop.Descendants().FirstOrDefault(e => e.Name.LocalName == "calendar-timezone")?.Value);
+                var backgroundColor = NormalizeCalendarColor(
+                    prop.Descendants().FirstOrDefault(e => e.Name.LocalName == "calendar-color")?.Value);
+                var supportedComponents = prop
+                    .Descendants()
+                    .Where(e => e.Name.LocalName == "supported-calendar-component-set")
+                    .Descendants()
+                    .Where(e => e.Name.LocalName == "comp")
+                    .Select(e => e.Attribute("name")?.Value?.Trim())
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .ToList();
+                var supportsEvents = supportedComponents.Count == 0 ||
+                                     supportedComponents.Contains("VEVENT", StringComparer.OrdinalIgnoreCase);
+                var isReadOnly = IsCalendarReadOnly(prop);
+                var defaultShowAs = GetDefaultShowAs(prop);
+                var calendarOrder = ParseCalendarOrder(
+                    prop.Descendants().FirstOrDefault(e => e.Name.LocalName == "calendar-order")?.Value);
                 var remoteUri = CreateAbsoluteUri(baseUri, href).ToString().TrimEnd('/');
+
+                if (!supportsEvents)
+                    continue;
 
                 if (string.IsNullOrWhiteSpace(displayName))
                 {
@@ -357,8 +386,15 @@ public sealed class CalDavClient : ICalDavClient
                 {
                     RemoteCalendarId = remoteUri,
                     Name = displayName,
+                    Description = description,
                     CTag = ctag,
-                    SyncToken = syncToken
+                    SyncToken = syncToken,
+                    TimeZone = timeZone,
+                    BackgroundColorHex = backgroundColor,
+                    IsReadOnly = isReadOnly,
+                    SupportsEvents = supportsEvents,
+                    DefaultShowAs = defaultShowAs,
+                    Order = calendarOrder
                 });
             }
         }
@@ -818,6 +854,152 @@ public sealed class CalDavClient : ICalDavClient
             return true;
 
         return false;
+    }
+
+    private static bool IsCalendarReadOnly(XElement prop)
+    {
+        var privilegeSet = prop.Descendants().FirstOrDefault(e => e.Name.LocalName == "current-user-privilege-set");
+        if (privilegeSet == null)
+            return false;
+
+        var privilegeNames = privilegeSet
+            .Descendants()
+            .Where(e => e.Name.LocalName == "privilege")
+            .Descendants()
+            .Select(e => e.Name.LocalName)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return !privilegeNames.Contains("all")
+               && !privilegeNames.Contains("write")
+               && !privilegeNames.Contains("write-content");
+    }
+
+    private static CalendarItemShowAs GetDefaultShowAs(XElement prop)
+    {
+        var transparency = prop.Descendants().FirstOrDefault(e => e.Name.LocalName == "schedule-calendar-transp");
+        if (transparency?.Descendants().Any(e => e.Name.LocalName == "transparent") == true)
+            return CalendarItemShowAs.Free;
+
+        return CalendarItemShowAs.Busy;
+    }
+
+    private static double? ParseCalendarOrder(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        return double.TryParse(value.Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var result)
+            ? result
+            : null;
+    }
+
+    private static string ExtractCalendarTimeZoneId(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var unfoldedValue = UnfoldIcsText(TrimCommonIndentation(value));
+        foreach (var rawLine in unfoldedValue.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var line = rawLine.Trim();
+            if (string.IsNullOrWhiteSpace(line))
+                continue;
+
+            var separatorIndex = line.IndexOf(':');
+            if (separatorIndex <= 0)
+                continue;
+
+            var propertyName = line[..separatorIndex];
+            var propertyValue = line[(separatorIndex + 1)..].Trim();
+
+            if (propertyName.StartsWith("TZID", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(propertyValue))
+                return propertyValue;
+
+            if (propertyName.StartsWith("X-WR-TIMEZONE", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(propertyValue))
+                return propertyValue;
+        }
+
+        return value.Trim();
+    }
+
+    private static string UnfoldIcsText(string value)
+    {
+        var normalizedValue = value
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n');
+        var unfoldedLines = new List<string>();
+
+        foreach (var rawLine in normalizedValue.Split('\n'))
+        {
+            if ((rawLine.StartsWith(' ') || rawLine.StartsWith('\t')) && unfoldedLines.Count > 0)
+            {
+                unfoldedLines[^1] += rawLine.TrimStart(' ', '\t');
+                continue;
+            }
+
+            unfoldedLines.Add(rawLine);
+        }
+
+        return string.Join("\n", unfoldedLines);
+    }
+
+    private static string TrimCommonIndentation(string value)
+    {
+        var normalizedValue = value
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n');
+        var lines = normalizedValue.Split('\n');
+        var nonEmptyLines = lines
+            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .ToList();
+
+        if (nonEmptyLines.Count == 0)
+            return normalizedValue;
+
+        var commonIndentation = nonEmptyLines
+            .Select(line => line.TakeWhile(ch => ch is ' ' or '\t').Count())
+            .Min();
+
+        if (commonIndentation <= 0)
+            return normalizedValue;
+
+        return string.Join(
+            "\n",
+            lines.Select(line =>
+            {
+                if (string.IsNullOrWhiteSpace(line))
+                    return string.Empty;
+
+                return line.Length >= commonIndentation
+                    ? line[commonIndentation..]
+                    : line.TrimStart(' ', '\t');
+            }));
+    }
+
+    private static string NormalizeCalendarColor(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var color = value.Trim();
+        if (color.StartsWith('#'))
+        {
+            color = color[1..];
+        }
+
+        if (color.Length == 8)
+        {
+            color = color[..6];
+        }
+        else if (color.Length == 3)
+        {
+            color = string.Concat(color.Select(c => $"{c}{c}"));
+        }
+
+        if (color.Length != 6 || !int.TryParse(color, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out _))
+            return string.Empty;
+
+        return $"#{color.ToUpperInvariant()}";
     }
 
     private static Uri CreateAbsoluteUri(Uri baseUri, string href)

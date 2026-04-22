@@ -613,6 +613,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         var normalizedEmail = !string.IsNullOrWhiteSpace(EmailAddress) && !EmailAddress.Contains('@')
             ? $"{EmailAddress}@icloud.com"
             : EmailAddress;
+        var iCloudMailboxUsername = GetICloudMailboxUsername(normalizedEmail);
 
         if (!string.IsNullOrWhiteSpace(accountCreationDialogResult?.SpecialImapProviderDetails?.SenderName))
             DisplayName = accountCreationDialogResult.SpecialImapProviderDetails.SenderName;
@@ -632,10 +633,10 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                 ApplySpecialProviderDefaults(
                     "imap.mail.me.com",
                     "993",
-                    normalizedEmail,
+                    iCloudMailboxUsername,
                     "smtp.mail.me.com",
                     "587",
-                    normalizedEmail,
+                    iCloudMailboxUsername,
                     Password,
                     "https://caldav.icloud.com/",
                     normalizedEmail,
@@ -712,6 +713,19 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
         if (string.IsNullOrWhiteSpace(OutgoingServerPort))
             OutgoingServerPort = "587";
+    }
+
+    private static string GetICloudMailboxUsername(string emailAddress)
+    {
+        if (string.IsNullOrWhiteSpace(emailAddress))
+            return string.Empty;
+
+        var normalizedAddress = emailAddress.Trim();
+        var atIndex = normalizedAddress.IndexOf('@');
+
+        return atIndex > 0
+            ? normalizedAddress[..atIndex]
+            : normalizedAddress;
     }
 
     private static string ReplaceIfEmptyOrMatchingPrevious(string currentValue, string previousValue, string replacementValue)

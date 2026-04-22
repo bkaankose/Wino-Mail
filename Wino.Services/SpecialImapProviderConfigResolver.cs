@@ -14,6 +14,8 @@ public class SpecialImapProviderConfigResolver : ISpecialImapProviderConfigResol
 
         if (details.SpecialImapProvider == SpecialImapProvider.iCloud)
         {
+            var iCloudMailboxUsername = GetICloudMailboxUsername(details.Address);
+
             resolvedConfig = new CustomServerInformation()
             {
                 IncomingServer = "imap.mail.me.com",
@@ -29,9 +31,9 @@ public class SpecialImapProviderConfigResolver : ISpecialImapProviderConfigResol
                 CalDavServiceUrl = "https://caldav.icloud.com/"
             };
 
-            // iCloud takes username before the @icloud part for incoming, but full address as outgoing.
-            resolvedConfig.IncomingServerUsername = details.Address.Split('@')[0];
-            resolvedConfig.OutgoingServerUsername = details.Address;
+            // iCloud IMAP/SMTP authentication uses only the local-part mailbox username.
+            resolvedConfig.IncomingServerUsername = iCloudMailboxUsername;
+            resolvedConfig.OutgoingServerUsername = iCloudMailboxUsername;
         }
         else if (details.SpecialImapProvider == SpecialImapProvider.Yahoo)
         {
@@ -72,5 +74,18 @@ public class SpecialImapProviderConfigResolver : ISpecialImapProviderConfigResol
         }
 
         return resolvedConfig;
+    }
+
+    private static string GetICloudMailboxUsername(string address)
+    {
+        if (string.IsNullOrWhiteSpace(address))
+            return string.Empty;
+
+        var normalizedAddress = address.Trim();
+        var atIndex = normalizedAddress.IndexOf('@');
+
+        return atIndex > 0
+            ? normalizedAddress[..atIndex]
+            : normalizedAddress;
     }
 }
