@@ -1,5 +1,4 @@
 using System;
-using System.Text.RegularExpressions;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
@@ -24,9 +23,6 @@ public sealed partial class SignatureEditorDialog : ContentDialog
     {
         InitializeComponent();
 
-        SignatureNameTextBox.Text = signatureModel.Name.Trim();
-        SignatureNameTextBox.Header = string.Format(Translator.SignatureEditorDialog_SignatureName_TitleEdit, signatureModel.Name);
-
         Result = new AccountSignature
         {
             Id = signatureModel.Id,
@@ -34,6 +30,9 @@ public sealed partial class SignatureEditorDialog : ContentDialog
             MailAccountId = signatureModel.MailAccountId,
             HtmlBody = signatureModel.HtmlBody
         };
+
+        SignatureNameTextBox.Text = Result.Name.Trim();
+        SignatureNameTextBox.Header = string.Format(Translator.SignatureEditorDialog_SignatureName_TitleEdit, Result.Name);
 
         // TODO: Should be added additional logic to enable/disable primary button when webview content changed.
         IsPrimaryButtonEnabled = true;
@@ -51,7 +50,7 @@ public sealed partial class SignatureEditorDialog : ContentDialog
 
     private async void SaveClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
-        var newSignature = Regex.Unescape((await WebViewEditor.GetHtmlBodyAsync())!);
+        var newSignature = await WebViewEditor.GetHtmlBodyAsync() ?? string.Empty;
 
         if (Result == null)
         {

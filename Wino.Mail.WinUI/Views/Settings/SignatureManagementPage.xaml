@@ -77,7 +77,7 @@
                     IsActionIconVisible="False"
                     IsClickEnabled="False"
                     IsEnabled="{x:Bind ViewModel.IsSignatureEnabled, Mode=OneWay}">
-                    <ComboBox ItemsSource="{x:Bind ViewModel.Signatures}" SelectedIndex="{x:Bind ViewModel.SignatureForNewMessagesIndex, Mode=TwoWay}">
+                    <ComboBox ItemsSource="{x:Bind ViewModel.Signatures}" SelectedItem="{x:Bind ViewModel.SelectedSignatureForNewMessages, Mode=TwoWay}">
                         <ComboBox.ItemTemplate>
                             <DataTemplate x:DataType="entities:AccountSignature">
                                 <TextBlock Text="{x:Bind Name}" />
@@ -91,7 +91,7 @@
                     IsActionIconVisible="False"
                     IsClickEnabled="False"
                     IsEnabled="{x:Bind ViewModel.IsSignatureEnabled, Mode=OneWay}">
-                    <ComboBox ItemsSource="{x:Bind ViewModel.Signatures}" SelectedIndex="{x:Bind ViewModel.SignatureForFollowingMessagesIndex, Mode=TwoWay}">
+                    <ComboBox ItemsSource="{x:Bind ViewModel.Signatures}" SelectedItem="{x:Bind ViewModel.SelectedSignatureForFollowingMessages, Mode=TwoWay}">
                         <ComboBox.ItemTemplate>
                             <DataTemplate x:DataType="entities:AccountSignature">
                                 <TextBlock Text="{x:Bind Name}" />
