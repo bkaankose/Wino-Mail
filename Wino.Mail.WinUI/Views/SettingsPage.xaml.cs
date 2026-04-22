@@ -147,9 +147,30 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
     public void Receive(SettingsRootNavigationRequested message)
     {
-        var currentRootPage = SettingsNavigationInfoProvider.GetRootPage(PageHistory.LastOrDefault()?.Request.PageType ?? WinoPage.SettingOptionsPage);
-        if (message.PageType != WinoPage.SettingOptionsPage && currentRootPage == message.PageType)
+        var activePage = PageHistory.LastOrDefault()?.Request.PageType ?? WinoPage.SettingOptionsPage;
+        var currentRootPage = SettingsNavigationInfoProvider.GetRootPage(activePage);
+
+        if (message.PageType == currentRootPage)
+        {
+            if (activePage == currentRootPage)
+                return;
+
+            var currentRootIndex = PageHistory
+                .Select((item, index) => new { item.Request.PageType, Index = index })
+                .FirstOrDefault(item => item.PageType == currentRootPage)?.Index ?? -1;
+
+            if (TryNavigateToBreadcrumbIndex(currentRootIndex))
+                return;
+        }
+
+        if (message.PageType == WinoPage.SettingOptionsPage)
+        {
+            if (activePage == WinoPage.SettingOptionsPage)
+                return;
+
+            NavigateToSettingsHome();
             return;
+        }
 
         NavigateToRootPage(message.PageType);
     }
@@ -196,11 +217,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
     private void NavigateToRootPage(WinoPage targetPage)
     {
-        PageHistory.Clear();
-        SettingsFrame.BackStack.Clear();
-        SettingsFrame.ForwardStack.Clear();
-
-        NavigateBreadcrumb(new BreadcrumbNavigationRequested(Translator.MenuSettings, WinoPage.SettingOptionsPage));
+        NavigateToSettingsHome();
 
         if (targetPage != WinoPage.SettingOptionsPage)
         {
@@ -211,6 +228,43 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         }
 
         UpdateWindowTitle();
+    }
+
+    private void NavigateToSettingsHome()
+    {
+        if (PageHistory.Count == 0 || SettingsFrame.Content == null)
+        {
+            ResetToSettingsHome();
+            return;
+        }
+
+        if (PageHistory.Count == 1)
+            return;
+
+        if (!TryNavigateToBreadcrumbIndex(0))
+        {
+            ResetToSettingsHome();
+        }
+    }
+
+    private bool TryNavigateToBreadcrumbIndex(int targetIndex)
+    {
+        if (!BreadcrumbNavigationHelper.NavigateTo(SettingsFrame, PageHistory, targetIndex))
+            return false;
+
+        UpdateBackNavigationState();
+        _ = RefreshCurrentPageStateAsync();
+        UpdateWindowTitle();
+        return true;
+    }
+
+    private void ResetToSettingsHome()
+    {
+        PageHistory.Clear();
+        SettingsFrame.BackStack.Clear();
+        SettingsFrame.ForwardStack.Clear();
+
+        NavigateBreadcrumb(new BreadcrumbNavigationRequested(Translator.MenuSettings, WinoPage.SettingOptionsPage));
     }
 
     public void ResetForModeSwitch()

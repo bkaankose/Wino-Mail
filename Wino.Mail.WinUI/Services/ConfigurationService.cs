@@ -9,6 +9,9 @@ namespace Wino.Mail.WinUI.Services;
 
 public class ConfigurationService : IConfigurationService
 {
+    public bool Contains(string key)
+        => ApplicationData.Current.LocalSettings.Values.ContainsKey(key);
+
     public T Get<T>(string key, T defaultValue = default!)
         => GetInternal(key, ApplicationData.Current.LocalSettings.Values, defaultValue);
 

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -19,17 +20,19 @@ public class TranslationService : ITranslationService
 
     private ILogger _logger = Log.ForContext<TranslationService>();
     private readonly IPreferencesService _preferencesService;
+    private readonly IConfigurationService _configurationService;
     private bool isInitialized = false;
 
     public AppLanguageModel CurrentLanguageModel { get; private set; }
 
-    public TranslationService(IPreferencesService preferencesService)
+    public TranslationService(IPreferencesService preferencesService, IConfigurationService configurationService)
     {
         _preferencesService = preferencesService;
+        _configurationService = configurationService;
     }
 
     // Initialize default language with ignoring current language check.
-    public Task InitializeAsync() => InitializeLanguageAsync(_preferencesService.CurrentLanguage, ignoreCurrentLanguageCheck: true);
+    public Task InitializeAsync() => InitializeLanguageAsync(GetInitialLanguage(), ignoreCurrentLanguageCheck: true);
 
     public async Task InitializeLanguageAsync(AppLanguage language, bool ignoreCurrentLanguageCheck = false)
     {
@@ -63,6 +66,66 @@ public class TranslationService : ITranslationService
 
         isInitialized = true;
         WeakReferenceMessenger.Default.Send(new LanguageChanged());
+    }
+
+    private AppLanguage GetInitialLanguage()
+    {
+        if (_configurationService.Contains(nameof(IPreferencesService.CurrentLanguage)))
+            return _preferencesService.CurrentLanguage;
+
+        var windowsDisplayLanguage = CultureInfo.CurrentUICulture?.Name;
+        var initialLanguage = ResolveSupportedLanguage(
+        [
+            windowsDisplayLanguage ?? string.Empty,
+            CultureInfo.CurrentUICulture?.TwoLetterISOLanguageName ?? string.Empty
+        ]);
+
+        _logger.Information("No saved app language preference found. Using Windows display language {LanguageTag} -> {Language}.",
+            string.IsNullOrWhiteSpace(windowsDisplayLanguage) ? "<unknown>" : windowsDisplayLanguage,
+            initialLanguage);
+
+        return initialLanguage;
+    }
+
+    internal static AppLanguage ResolveSupportedLanguage(IEnumerable<string> languageTags)
+    {
+        foreach (var languageTag in languageTags)
+        {
+            if (string.IsNullOrWhiteSpace(languageTag))
+                continue;
+
+            var normalizedLanguageTag = languageTag.Replace('_', '-').Trim();
+            var languageCode = normalizedLanguageTag.Split('-')[0];
+
+            if (TryResolveSupportedLanguage(languageCode, out var supportedLanguage))
+                return supportedLanguage;
+        }
+
+        return DefaultAppLanguage;
+    }
+
+    private static bool TryResolveSupportedLanguage(string languageCode, out AppLanguage supportedLanguage)
+    {
+        supportedLanguage = languageCode.ToLowerInvariant() switch
+        {
+            "cs" => AppLanguage.Czech,
+            "de" => AppLanguage.Deutsch,
+            "el" => AppLanguage.Greek,
+            "en" => AppLanguage.English,
+            "es" => AppLanguage.Spanish,
+            "fr" => AppLanguage.French,
+            "id" => AppLanguage.Indonesian,
+            "it" => AppLanguage.Italian,
+            "pl" => AppLanguage.Polish,
+            "pt" => AppLanguage.PortugeseBrazil,
+            "ro" => AppLanguage.Romanian,
+            "ru" => AppLanguage.Russian,
+            "tr" => AppLanguage.Turkish,
+            "zh" => AppLanguage.Chinese,
+            _ => AppLanguage.None
+        };
+
+        return supportedLanguage != AppLanguage.None;
     }
 
     public List<AppLanguageModel> GetAvailableLanguages()
