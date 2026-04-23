@@ -20,6 +20,32 @@ namespace Wino.Core.Tests.Synchronizers;
 public sealed class GmailSynchronizerRequestSuccessTests
 {
     [Fact]
+    public async Task UpdateAccountSyncIdentifierAsync_EmptyStoredIdentifier_PersistsFirstHistoryCursor()
+    {
+        var changeProcessor = new Mock<IGmailChangeProcessor>(MockBehavior.Strict);
+        changeProcessor
+            .Setup(x => x.UpdateAccountDeltaSynchronizationIdentifierAsync(It.IsAny<Guid>(), "123"))
+            .ReturnsAsync("123");
+
+        var synchronizer = CreateSynchronizer(changeProcessor.Object, synchronizationDeltaIdentifier: string.Empty);
+
+        await InvokeUpdateAccountSyncIdentifierAsync(synchronizer, 123);
+
+        changeProcessor.Verify(x => x.UpdateAccountDeltaSynchronizationIdentifierAsync(It.IsAny<Guid>(), "123"), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateAccountSyncIdentifierAsync_OlderHistoryCursor_DoesNotRegressStoredCursor()
+    {
+        var changeProcessor = new Mock<IGmailChangeProcessor>(MockBehavior.Strict);
+        var synchronizer = CreateSynchronizer(changeProcessor.Object, synchronizationDeltaIdentifier: "456");
+
+        await InvokeUpdateAccountSyncIdentifierAsync(synchronizer, 123);
+
+        changeProcessor.Verify(x => x.UpdateAccountDeltaSynchronizationIdentifierAsync(It.IsAny<Guid>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
     public async Task ProcessSingleNativeRequestResponseAsync_BatchMarkReadRequest_PersistsLocalReadStateForEachMail()
     {
         var changeProcessor = new Mock<IGmailChangeProcessor>(MockBehavior.Strict);
@@ -209,13 +235,15 @@ public sealed class GmailSynchronizerRequestSuccessTests
 
     private static GmailSynchronizer CreateSynchronizer(
         IGmailChangeProcessor changeProcessor,
-        IGmailSynchronizerErrorHandlerFactory? errorFactory = null)
+        IGmailSynchronizerErrorHandlerFactory? errorFactory = null,
+        string? synchronizationDeltaIdentifier = null)
     {
         var account = new MailAccount
         {
             Id = Guid.NewGuid(),
             Name = "Gmail",
-            Address = "user@example.com"
+            Address = "user@example.com",
+            SynchronizationDeltaIdentifier = synchronizationDeltaIdentifier
         };
 
         var authenticator = new Mock<IGmailAuthenticator>(MockBehavior.Loose);
@@ -246,6 +274,19 @@ public sealed class GmailSynchronizerRequestSuccessTests
         method.Should().NotBeNull();
 
         var task = method!.Invoke(synchronizer, [bundle, error, response, CancellationToken.None]) as Task;
+        task.Should().NotBeNull();
+        await task!;
+    }
+
+    private static async Task InvokeUpdateAccountSyncIdentifierAsync(GmailSynchronizer synchronizer, ulong historyId)
+    {
+        var method = typeof(GmailSynchronizer).GetMethod(
+            "UpdateAccountSyncIdentifierAsync",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        method.Should().NotBeNull();
+
+        var task = method!.Invoke(synchronizer, [historyId]) as Task;
         task.Should().NotBeNull();
         await task!;
     }

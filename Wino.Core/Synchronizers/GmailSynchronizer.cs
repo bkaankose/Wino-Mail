@@ -1897,9 +1897,19 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         if (historyId == null) return false;
 
         var newHistoryId = historyId.Value;
+        var currentSynchronizationIdentifier = Account.SynchronizationDeltaIdentifier;
 
-        return Account.SynchronizationDeltaIdentifier == null ||
-            (ulong.TryParse(Account.SynchronizationDeltaIdentifier, out ulong currentIdentifier) && newHistoryId > currentIdentifier);
+        if (string.IsNullOrWhiteSpace(currentSynchronizationIdentifier))
+            return true;
+
+        if (!ulong.TryParse(currentSynchronizationIdentifier, out ulong currentIdentifier))
+        {
+            _logger.Warning("Current Gmail history ID '{HistoryId}' is invalid for {Name}. Replacing it with {NewHistoryId}.",
+                currentSynchronizationIdentifier, Account.Name, newHistoryId);
+            return true;
+        }
+
+        return newHistoryId > currentIdentifier;
     }
 
     private async Task UpdateAccountSyncIdentifierAsync(ulong? historyId)
