@@ -479,8 +479,8 @@ public partial class App : WinoApplication,
 
             EnsureAppNotificationRegistration();
 
-            await Services.GetRequiredService<ReleaseLocalAccountDataCleanupService>()
-                .RunIfNeededAsync();
+            await Services.GetRequiredService<ILegacyLocalMigrationService>()
+                .DetectAsync();
 
             await InitializeServicesAsync();
 
@@ -489,6 +489,9 @@ public partial class App : WinoApplication,
             _accountService = Services.GetRequiredService<IAccountService>();
 
             _hasConfiguredAccounts = (await _accountService.GetAccountsAsync()).Any();
+
+            await Services.GetRequiredService<ReleaseLocalAccountDataCleanupService>()
+                .RunIfNeededAsync();
 
             _activationInfrastructureInitialized = true;
         }
@@ -1502,7 +1505,9 @@ public partial class App : WinoApplication,
 
             Services.GetRequiredService<IMailDialogService>().InfoBarMessage(
                 Translator.GeneralTitle_Info,
-                Translator.WinoAccount_Management_ImportReloginReminder,
+                string.IsNullOrWhiteSpace(message.CompletionMessage)
+                    ? Translator.WinoAccount_Management_ImportReloginReminder
+                    : message.CompletionMessage,
                 InfoBarMessageType.Information);
         });
     }

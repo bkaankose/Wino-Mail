@@ -90,10 +90,12 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private readonly IWebView2RuntimeValidatorService _webView2RuntimeValidatorService;
     private readonly IStoreUpdateService _storeUpdateService;
     private readonly IShareActivationService _shareActivationService;
+    private readonly ILegacyLocalMigrationService _legacyLocalMigrationService;
 
     private readonly INativeAppService _nativeAppService;
     private readonly IMailService _mailService;
     private bool _hasRegisteredPersistentRecipients;
+    private bool _hasHandledLegacyMigrationPrompt;
     private readonly SemaphoreSlim _menuRefreshSemaphore = new(1, 1);
 
     private readonly SemaphoreSlim accountInitFolderUpdateSlim = new SemaphoreSlim(1);
@@ -117,7 +119,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                              IStartupBehaviorService startupBehaviorService,
                              IWebView2RuntimeValidatorService webView2RuntimeValidatorService,
                              IStoreUpdateService storeUpdateService,
-                             IShareActivationService shareActivationService)
+                             IShareActivationService shareActivationService,
+                             ILegacyLocalMigrationService legacyLocalMigrationService)
     {
         StatePersistenceService = statePersistanceService;
 
@@ -141,6 +144,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         _webView2RuntimeValidatorService = webView2RuntimeValidatorService;
         _storeUpdateService = storeUpdateService;
         _shareActivationService = shareActivationService;
+        _legacyLocalMigrationService = legacyLocalMigrationService;
     }
 
     protected override void OnDispatcherAssigned()
@@ -286,6 +290,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         await ProcessLaunchOptionsAsync();
         await HandlePendingShareRequestAsync();
         await ValidateWebView2RuntimeAsync();
+        await PromptLegacyMigrationIfNeededAsync(shouldRunStartupFlows);
 
         if (shouldRunStartupFlows && !Debugger.IsAttached)
         {
@@ -296,6 +301,53 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         {
             await MakeSureEnableStartupLaunchAsync();
         }
+    }
+
+    private async Task PromptLegacyMigrationIfNeededAsync(bool shouldRunStartupFlows)
+    {
+        if (!shouldRunStartupFlows || _hasHandledLegacyMigrationPrompt)
+        {
+            return;
+        }
+
+        _hasHandledLegacyMigrationPrompt = true;
+
+        var currentAccounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
+        if (!currentAccounts.Any())
+        {
+            return;
+        }
+
+        var preview = await _legacyLocalMigrationService.DetectAsync().ConfigureAwait(false);
+        if (!preview.ShouldPrompt || !preview.HasImportableData)
+        {
+            return;
+        }
+
+        var shouldImport = await _dialogService.ShowConfirmationDialogAsync(
+            LegacyLocalMigrationFormatter.BuildPromptMessage(preview),
+            Translator.LegacyLocalMigration_PromptTitle,
+            Translator.LegacyLocalMigration_ImportAction);
+
+        if (!shouldImport)
+        {
+            _legacyLocalMigrationService.MarkPromptDeferred();
+            return;
+        }
+
+        var result = await _legacyLocalMigrationService.ImportAsync().ConfigureAwait(false);
+
+        await RecreateMenuItemsAsync().ConfigureAwait(false);
+        await RestoreSelectedAccountAfterMenuRefreshAsync(false).ConfigureAwait(false);
+
+        var messageType = result.FailedAccountCount > 0
+            ? InfoBarMessageType.Warning
+            : InfoBarMessageType.Success;
+
+        _dialogService.InfoBarMessage(
+            result.FailedAccountCount > 0 ? Translator.GeneralTitle_Warning : Translator.GeneralTitle_Info,
+            LegacyLocalMigrationFormatter.BuildImportMessage(result),
+            messageType);
     }
 
     private async Task ValidateWebView2RuntimeAsync()

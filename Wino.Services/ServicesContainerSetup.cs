@@ -30,6 +30,7 @@ public static class ServicesContainerSetup
         services.AddTransient<IContextMenuItemService, ContextMenuItemService>();
         services.AddTransient<ICalendarContextMenuItemService, CalendarContextMenuItemService>();
         services.AddTransient<ISpecialImapProviderConfigResolver, SpecialImapProviderConfigResolver>();
+        services.AddTransient<ILegacyLocalMigrationService, LegacyLocalMigrationService>();
         services.AddTransient<IKeyboardShortcutService, KeyboardShortcutService>();
         services.AddSingleton<IWinoAccountApiClient, WinoAccountApiClient>();
         services.AddSingleton<IWinoAccountProfileService, WinoAccountProfileService>();

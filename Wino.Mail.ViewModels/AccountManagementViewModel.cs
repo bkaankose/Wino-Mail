@@ -17,6 +17,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
@@ -35,6 +36,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     private static readonly UTF8Encoding Utf8WithoutBom = new(false);
 
     private readonly IWinoAccountDataSyncService _syncService;
+    private readonly ILegacyLocalMigrationService _legacyLocalMigrationService;
     private readonly IWinoLogger _winoLogger;
     private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
     private readonly ICalDavClient _calDavClient;
@@ -48,6 +50,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                                       IStoreManagementService storeManagementService,
                                       IWinoAccountProfileService winoAccountProfileService,
                                       IWinoAccountDataSyncService syncService,
+                                      ILegacyLocalMigrationService legacyLocalMigrationService,
                                       IWinoLogger winoLogger,
                                       ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
                                       ICalDavClient calDavClient,
@@ -56,6 +59,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     {
         MailDialogService = dialogService;
         _syncService = syncService;
+        _legacyLocalMigrationService = legacyLocalMigrationService;
         _winoLogger = winoLogger;
         _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
         _calDavClient = calDavClient;
@@ -64,7 +68,25 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ExportLocalDataCommand))]
     [NotifyCanExecuteChangedFor(nameof(ImportLocalDataCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ImportLegacyDatabaseCommand))]
     public partial bool IsDataTransferInProgress { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLegacyImportAvailable))]
+    [NotifyPropertyChangedFor(nameof(HasLegacyImportWarnings))]
+    [NotifyPropertyChangedFor(nameof(LegacyMigrationSummary))]
+    [NotifyPropertyChangedFor(nameof(LegacyMigrationWarningSummary))]
+    [NotifyCanExecuteChangedFor(nameof(ImportLegacyDatabaseCommand))]
+    public partial LegacyLocalMigrationPreview LegacyMigrationPreview { get; set; }
+
+    public bool HasLegacyImportAvailable => LegacyMigrationPreview?.HasImportableData == true;
+    public bool HasLegacyImportWarnings => !string.IsNullOrWhiteSpace(LegacyMigrationWarningSummary);
+    public string LegacyMigrationSummary => HasLegacyImportAvailable
+        ? LegacyLocalMigrationFormatter.BuildPreviewSummary(LegacyMigrationPreview)
+        : string.Empty;
+    public string LegacyMigrationWarningSummary => HasLegacyImportAvailable
+        ? LegacyLocalMigrationFormatter.BuildWarningSummary(LegacyMigrationPreview)
+        : string.Empty;
 
     [RelayCommand]
     private async Task CreateMergedAccountAsync()
@@ -314,7 +336,42 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
         }
     }
 
+    [RelayCommand(CanExecute = nameof(CanImportLegacyDatabase))]
+    private async Task ImportLegacyDatabaseAsync()
+    {
+        try
+        {
+            await ExecuteUIThread(() => IsDataTransferInProgress = true);
+
+            var result = await _legacyLocalMigrationService.ImportAsync().ConfigureAwait(false);
+
+            await InitializeAccountsAsync().ConfigureAwait(false);
+            await RefreshLegacyMigrationPreviewAsync().ConfigureAwait(false);
+
+            var messageType = result.FailedAccountCount > 0
+                ? InfoBarMessageType.Warning
+                : InfoBarMessageType.Success;
+
+            DialogService.InfoBarMessage(
+                result.FailedAccountCount > 0 ? Translator.GeneralTitle_Warning : Translator.GeneralTitle_Info,
+                LegacyLocalMigrationFormatter.BuildImportMessage(result),
+                messageType);
+        }
+        catch (Exception ex)
+        {
+            DialogService.InfoBarMessage(
+                Translator.GeneralTitle_Error,
+                ex.Message,
+                InfoBarMessageType.Error);
+        }
+        finally
+        {
+            await ExecuteUIThread(() => IsDataTransferInProgress = false);
+        }
+    }
+
     private bool CanTransferLocalData() => !IsDataTransferInProgress;
+    private bool CanImportLegacyDatabase() => !IsDataTransferInProgress && HasLegacyImportAvailable;
 
     public override void OnNavigatedFrom(NavigationMode mode, object parameters)
     {
@@ -350,6 +407,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
         Accounts.CollectionChanged += AccountCollectionChanged;
 
         await InitializeAccountsAsync();
+        await RefreshLegacyMigrationPreviewAsync();
 
         PropertyChanged -= PagePropertyChanged;
         PropertyChanged += PagePropertyChanged;
@@ -401,6 +459,19 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
 
         await ManageStorePurchasesAsync().ConfigureAwait(false);
+    }
+
+    private async Task RefreshLegacyMigrationPreviewAsync()
+    {
+        try
+        {
+            var preview = await _legacyLocalMigrationService.DetectAsync().ConfigureAwait(false);
+            await ExecuteUIThread(() => LegacyMigrationPreview = preview);
+        }
+        catch (Exception)
+        {
+            await ExecuteUIThread(() => LegacyMigrationPreview = null);
+        }
     }
 
     private static string BuildExportSuccessMessage(Wino.Core.Domain.Models.Accounts.WinoAccountSyncExportResult result)

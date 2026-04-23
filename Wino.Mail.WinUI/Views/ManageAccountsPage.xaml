@@ -15,21 +15,43 @@
             MaxWidth="900"
             Padding="20"
             HorizontalAlignment="Stretch">
-            <winuiControls:SettingsCard
-                Description="{x:Bind domain:Translator.WinoAccount_Management_LocalDataSectionDescription}"
-                Header="{x:Bind domain:Translator.WinoAccount_Management_LocalDataSectionTitle}">
-                <StackPanel Orientation="Horizontal" Spacing="12">
-                    <Button
-                        Command="{x:Bind ViewModel.ImportLocalDataCommand}"
-                        Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataImportAction}" />
-                    <Button
-                        Command="{x:Bind ViewModel.ExportLocalDataCommand}"
-                        Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataExportAction}" />
-                </StackPanel>
-                <winuiControls:SettingsCard.HeaderIcon>
-                    <SymbolIcon Symbol="Sync" />
-                </winuiControls:SettingsCard.HeaderIcon>
-            </winuiControls:SettingsCard>
+            <StackPanel Spacing="12">
+                <winuiControls:SettingsCard
+                    Description="{x:Bind ViewModel.LegacyMigrationSummary, Mode=OneWay}"
+                    Header="{x:Bind domain:Translator.LegacyLocalMigration_SettingsSectionTitle, Mode=OneTime}"
+                    Visibility="{x:Bind ViewModel.HasLegacyImportAvailable, Mode=OneWay}">
+                    <StackPanel Spacing="8">
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind ViewModel.LegacyMigrationWarningSummary, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords"
+                            Visibility="{x:Bind ViewModel.HasLegacyImportWarnings, Mode=OneWay}" />
+                        <Button
+                            Command="{x:Bind ViewModel.ImportLegacyDatabaseCommand}"
+                            Content="{x:Bind domain:Translator.LegacyLocalMigration_ImportAction, Mode=OneTime}" />
+                    </StackPanel>
+                    <winuiControls:SettingsCard.HeaderIcon>
+                        <SymbolIcon Symbol="Sync" />
+                    </winuiControls:SettingsCard.HeaderIcon>
+                </winuiControls:SettingsCard>
+
+                <winuiControls:SettingsCard
+                    Description="{x:Bind domain:Translator.WinoAccount_Management_LocalDataSectionDescription}"
+                    Header="{x:Bind domain:Translator.WinoAccount_Management_LocalDataSectionTitle}">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Button
+                            Command="{x:Bind ViewModel.ImportLocalDataCommand}"
+                            Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataImportAction}" />
+                        <Button
+                            Command="{x:Bind ViewModel.ExportLocalDataCommand}"
+                            Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataExportAction}" />
+                    </StackPanel>
+                    <winuiControls:SettingsCard.HeaderIcon>
+                        <SymbolIcon Symbol="Sync" />
+                    </winuiControls:SettingsCard.HeaderIcon>
+                </winuiControls:SettingsCard>
+            </StackPanel>
         </Grid>
     </Border>
 </abstract:ManageAccountsPageAbstract>

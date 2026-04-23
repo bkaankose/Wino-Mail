@@ -127,6 +127,40 @@
                 Grid.Row="3"
                 MaxWidth="600"
                 HorizontalAlignment="Center">
+                <Border
+                    Margin="0,0,0,16"
+                    Padding="16"
+                    HorizontalAlignment="Stretch"
+                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Visibility="{x:Bind ViewModel.HasLegacyImportPreview, Mode=OneWay}">
+                    <StackPanel Spacing="8">
+                        <TextBlock
+                            FontSize="16"
+                            FontWeight="SemiBold"
+                            Text="{x:Bind domain:Translator.LegacyLocalMigration_WelcomeSectionTitle, Mode=OneTime}" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="{x:Bind domain:Translator.LegacyLocalMigration_WelcomeSectionDescription, Mode=OneTime}"
+                            TextWrapping="WrapWholeWords" />
+                        <TextBlock
+                            Text="{x:Bind ViewModel.LegacyImportSummary, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind ViewModel.LegacyImportWarnings, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords"
+                            Visibility="{x:Bind ViewModel.HasLegacyImportWarnings, Mode=OneWay}" />
+                        <Button
+                            HorizontalAlignment="Left"
+                            Command="{x:Bind ViewModel.ImportLegacyDatabaseCommand}"
+                            Content="{x:Bind domain:Translator.LegacyLocalMigration_ImportAction, Mode=OneTime}" />
+                    </StackPanel>
+                </Border>
+
                 <HyperlinkButton
                     HorizontalAlignment="Center"
                     Command="{x:Bind ViewModel.ImportFromWinoAccountCommand}"

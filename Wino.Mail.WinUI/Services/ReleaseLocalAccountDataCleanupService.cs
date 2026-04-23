@@ -10,7 +10,6 @@ namespace Wino.Mail.WinUI.Services;
 public sealed class ReleaseLocalAccountDataCleanupService
 {
     private const string CleanupCompletedSettingKey = "ReleaseLocalAccountDataCleanup_v1_Completed";
-    private const string LegacyDatabaseFileName = "Wino180.db";
 
     private readonly IConfigurationService _configurationService;
     private readonly IApplicationConfiguration _applicationConfiguration;
@@ -29,7 +28,6 @@ public sealed class ReleaseLocalAccountDataCleanupService
             return;
 
         var localFolderPath = _applicationConfiguration.ApplicationDataFolderPath;
-        var publisherPath = _applicationConfiguration.PublisherSharedFolderPath;
 
         if (string.IsNullOrWhiteSpace(localFolderPath) || !Directory.Exists(localFolderPath))
         {
@@ -41,8 +39,7 @@ public sealed class ReleaseLocalAccountDataCleanupService
         {
             Path.Combine(localFolderPath, "Mime"),
             Path.Combine(localFolderPath, "contacts"),
-            Path.Combine(localFolderPath, "CalendarAttachments"),
-            Path.Combine(publisherPath, LegacyDatabaseFileName)
+            Path.Combine(localFolderPath, "CalendarAttachments")
         };
 
         foreach (var targetPath in cleanupTargets)

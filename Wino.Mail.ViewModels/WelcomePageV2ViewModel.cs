@@ -24,6 +24,7 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
     private readonly IUpdateManager _updateManager;
     private readonly IMailDialogService _dialogService;
     private readonly IWinoAccountDataSyncService _syncService;
+    private readonly ILegacyLocalMigrationService _legacyLocalMigrationService;
 
     [ObservableProperty]
     public partial List<UpdateNoteSection> UpdateSections { get; set; } = [];
@@ -32,21 +33,40 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
     [NotifyCanExecuteChangedFor(nameof(GetStartedCommand))]
     [NotifyCanExecuteChangedFor(nameof(ImportFromWinoAccountCommand))]
     [NotifyCanExecuteChangedFor(nameof(ImportFromJsonCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ImportLegacyDatabaseCommand))]
     public partial bool IsImportInProgress { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasImportStatus))]
     public partial string ImportStatusMessage { get; set; } = string.Empty;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLegacyImportPreview))]
+    [NotifyPropertyChangedFor(nameof(HasLegacyImportWarnings))]
+    [NotifyPropertyChangedFor(nameof(LegacyImportSummary))]
+    [NotifyPropertyChangedFor(nameof(LegacyImportWarnings))]
+    [NotifyCanExecuteChangedFor(nameof(ImportLegacyDatabaseCommand))]
+    public partial LegacyLocalMigrationPreview LegacyMigrationPreview { get; set; }
+
     public bool HasImportStatus => !string.IsNullOrWhiteSpace(ImportStatusMessage);
+    public bool HasLegacyImportPreview => LegacyMigrationPreview?.HasImportableData == true;
+    public bool HasLegacyImportWarnings => !string.IsNullOrWhiteSpace(LegacyImportWarnings);
+    public string LegacyImportSummary => HasLegacyImportPreview
+        ? LegacyLocalMigrationFormatter.BuildPreviewSummary(LegacyMigrationPreview)
+        : string.Empty;
+    public string LegacyImportWarnings => HasLegacyImportPreview
+        ? LegacyLocalMigrationFormatter.BuildWarningSummary(LegacyMigrationPreview)
+        : string.Empty;
 
     public WelcomePageV2ViewModel(IUpdateManager updateManager,
                                   IMailDialogService dialogService,
-                                  IWinoAccountDataSyncService syncService)
+                                  IWinoAccountDataSyncService syncService,
+                                  ILegacyLocalMigrationService legacyLocalMigrationService)
     {
         _updateManager = updateManager;
         _dialogService = dialogService;
         _syncService = syncService;
+        _legacyLocalMigrationService = legacyLocalMigrationService;
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -61,6 +81,15 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
         catch (Exception)
         {
             UpdateSections = [];
+        }
+
+        try
+        {
+            LegacyMigrationPreview = await _legacyLocalMigrationService.DetectAsync();
+        }
+        catch (Exception)
+        {
+            LegacyMigrationPreview = null;
         }
     }
 
@@ -150,7 +179,52 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
         }
     }
 
+    [RelayCommand(CanExecute = nameof(CanImportLegacyDatabase))]
+    private async Task ImportLegacyDatabaseAsync()
+    {
+        await ExecuteUIThread(() => ImportStatusMessage = string.Empty);
+
+        try
+        {
+            await ExecuteUIThread(() => IsImportInProgress = true);
+
+            var result = await _legacyLocalMigrationService.ImportAsync().ConfigureAwait(false);
+            if (result.ImportedAccountCount > 0)
+            {
+                ReportUIChange(new WelcomeImportCompletedMessage(
+                    result.ImportedAccountCount,
+                    LegacyLocalMigrationFormatter.BuildImportMessage(result)));
+                return;
+            }
+
+            await ExecuteUIThread(() =>
+            {
+                ImportStatusMessage = LegacyLocalMigrationFormatter.BuildImportMessage(result);
+                LegacyMigrationPreview = result.Preview;
+            });
+        }
+        catch (Exception ex)
+        {
+            await _dialogService.ShowMessageAsync(ex.Message, Translator.GeneralTitle_Error, WinoCustomMessageDialogIcon.Error);
+        }
+        finally
+        {
+            try
+            {
+                var preview = await _legacyLocalMigrationService.DetectAsync().ConfigureAwait(false);
+                await ExecuteUIThread(() => LegacyMigrationPreview = preview);
+            }
+            catch (Exception)
+            {
+                // Keep the current preview if detection fails after import.
+            }
+
+            await ExecuteUIThread(() => IsImportInProgress = false);
+        }
+    }
+
     private bool CanOpenWelcomeActions() => !IsImportInProgress;
+    private bool CanImportLegacyDatabase() => !IsImportInProgress && HasLegacyImportPreview;
 
     private static string BuildInlineImportMessage(WinoAccountSyncImportResult result)
     {
