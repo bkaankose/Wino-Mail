@@ -836,6 +836,8 @@
     "SettingsDeleteAccount_Title": "Bu hesabı sil",
     "SettingsDeleteProtection_Description": "Should Wino ask you for confirmation every time you try to permanently delete a mail using Shift + Del keys?",
     "SettingsDeleteProtection_Title": "Kalıcı Silme Koruması",
+    "SettingsEmptyJunkFolderCommand_Description": "Gereksiz Posta/Spam klasörlerinde boş klasör komutunu göster. Bu işlem onay istemeyecek ve spam klasöründeki tüm mailleri hemen silecektir.",
+    "SettingsEmptyJunkFolderCommand_Title": "Boş Spam Klasörü Komutunu Göster",
     "SettingsDiagnostics_Description": "Geliştiriciler için",
     "SettingsDiagnostics_DiagnosticId_Description": "Bu ID'yi geliştiriciler ile paylaşarak Wino Mail ile yaşadığınız sorunlar hakkında çözümlere ulaşabilirsiniz.",
     "SettingsDiagnostics_DiagnosticId_Title": "Hata Ayıklama ID'si",

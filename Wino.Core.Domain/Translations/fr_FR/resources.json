@@ -836,6 +836,8 @@
     "SettingsDeleteAccount_Title": "Supprimer ce compte",
     "SettingsDeleteProtection_Description": "Should Wino ask you for confirmation every time you try to permanently delete a mail using Shift + Del keys?",
     "SettingsDeleteProtection_Title": "Protection contre la suppression permanente",
+    "SettingsEmptyJunkFolderCommand_Description": "Afficher la commande de vidage du dossier dans les dossiers de courrier indésirable. Cette action ne demandera pas de confirmation et supprimera immédiatement tous les courriels du dossier de courrier indésirable.",
+    "SettingsEmptyJunkFolderCommand_Title": "Afficher la commande pour vider le dossier de courrier indésirable",
     "SettingsDiagnostics_Description": "Pour les développeurs",
     "SettingsDiagnostics_DiagnosticId_Description": "Partagez cet identifiant avec les développeurs lorsqu'ils vous aideront à résoudre les problèmes que vous rencontrez dans Wino Mail.",
     "SettingsDiagnostics_DiagnosticId_Title": "ID de diagnostic",

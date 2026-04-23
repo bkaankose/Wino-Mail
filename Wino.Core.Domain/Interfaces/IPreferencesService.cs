@@ -128,6 +128,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsHardDeleteProtectionEnabled { get; set; }
 
     /// <summary>
+    /// Setting: Show the empty-folder command for junk/spam folders.
+    /// </summary>
+    bool IsShowEmptyJunkFolderEnabled { get; set; }
+
+    /// <summary>
     /// Setting: Thread mails into conversations.
     /// </summary>
     bool IsThreadingEnabled { get; set; }

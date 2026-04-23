@@ -111,6 +111,12 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SetPropertyAndSave(nameof(IsHardDeleteProtectionEnabled), value);
     }
 
+    public bool IsShowEmptyJunkFolderEnabled
+    {
+        get => _configurationService.Get(nameof(IsShowEmptyJunkFolderEnabled), false);
+        set => SetPropertyAndSave(nameof(IsShowEmptyJunkFolderEnabled), value);
+    }
+
     public bool IsThreadingEnabled
     {
         get => _configurationService.Get(nameof(IsThreadingEnabled), true);

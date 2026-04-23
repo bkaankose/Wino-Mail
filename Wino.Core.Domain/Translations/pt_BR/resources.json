@@ -836,6 +836,8 @@
     "SettingsDeleteAccount_Title": "Apagar esta conta",
     "SettingsDeleteProtection_Description": "O Wino deve solicitar confirmação sempre que você tentar excluir permanentemente um e-mail usando as teclas Shift + Del?",
     "SettingsDeleteProtection_Title": "Proteção de exclusão permanente",
+    "SettingsEmptyJunkFolderCommand_Description": "Mostrar o comando para esvaziar a pasta nas pastas de Lixo/Spam. Esta ação não solicitará confirmação e excluirá imediatamente todas as mensagens na pasta de spam.",
+    "SettingsEmptyJunkFolderCommand_Title": "Mostrar o comando para esvaziar a pasta de Spam",
     "SettingsDiagnostics_Description": "Para desenvolvedores",
     "SettingsDiagnostics_DiagnosticId_Description": "Compartilhe esta identificação com os desenvolvedores quando solicitado para obter ajuda para os problemas que você experimentar no Wino Mail.",
     "SettingsDiagnostics_DiagnosticId_Title": "ID de diagnóstico",

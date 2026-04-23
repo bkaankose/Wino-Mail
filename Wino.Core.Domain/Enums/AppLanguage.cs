@@ -16,5 +16,6 @@ public enum AppLanguage
     Greek,
     PortugeseBrazil,
     Italian,
-    Romanian
+    Romanian,
+    Korean
 }

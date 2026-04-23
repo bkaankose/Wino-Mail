@@ -836,6 +836,8 @@
     "SettingsDeleteAccount_Title": "Delete this account",
     "SettingsDeleteProtection_Description": "Should Wino ask you for confirmation every time you try to permanently delete a mail using Shift + Del keys?",
     "SettingsDeleteProtection_Title": "Permanent Delete Protection",
+    "SettingsEmptyJunkFolderCommand_Description": "Vis kommandoen til at tøm mappen i Junk/Spam-mapperne. Denne handling vil ikke bede om bekræftelse og vil straks slette alle mails i spam-mappen.",
+    "SettingsEmptyJunkFolderCommand_Title": "Vis kommandoen til at tømme spam-mappen",
     "SettingsDiagnostics_Description": "For developers",
     "SettingsDiagnostics_DiagnosticId_Description": "Share this ID with the developers when asked to get help for the issues you experience in Wino Mail.",
     "SettingsDiagnostics_DiagnosticId_Title": "Diagnostic ID",

@@ -836,6 +836,8 @@
     "SettingsDeleteAccount_Title": "Delete this account",
     "SettingsDeleteProtection_Description": "Should Wino ask you for confirmation every time you try to permanently delete a mail using Shift + Del keys?",
     "SettingsDeleteProtection_Title": "Permanent Delete Protection",
+    "SettingsEmptyJunkFolderCommand_Description": "Mostra la comanda per buidar la carpeta de correu brossa. Aquesta acció no demanarà confirmació i eliminarà immediatament tots els correus de la carpeta de correu brossa.",
+    "SettingsEmptyJunkFolderCommand_Title": "Mostra la comanda per buidar la carpeta de correu brossa",
     "SettingsDiagnostics_Description": "For developers",
     "SettingsDiagnostics_DiagnosticId_Description": "Share this ID with the developers when asked to get help for the issues you experience in Wino Mail.",
     "SettingsDiagnostics_DiagnosticId_Title": "Diagnostic ID",

@@ -160,6 +160,10 @@
                 <ToggleSwitch IsOn="{x:Bind ViewModel.PreferencesService.IsHardDeleteProtectionEnabled, Mode=TwoWay}" />
             </controls:SettingsCard>
 
+            <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsEmptyJunkFolderCommand_Description}" Header="{x:Bind domain:Translator.SettingsEmptyJunkFolderCommand_Title}">
+                <ToggleSwitch IsOn="{x:Bind ViewModel.PreferencesService.IsShowEmptyJunkFolderEnabled, Mode=TwoWay}" />
+            </controls:SettingsCard>
+
             <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsAutoSelectNextItem_Description}" Header="{x:Bind domain:Translator.SettingsAutoSelectNextItem_Title}">
                 <ToggleSwitch IsOn="{x:Bind ViewModel.PreferencesService.AutoSelectNextItem, Mode=TwoWay}" />
                 <controls:SettingsCard.HeaderIcon>

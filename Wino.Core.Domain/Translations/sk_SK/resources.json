@@ -836,6 +836,8 @@
     "SettingsDeleteAccount_Title": "Odstrániť tento účet",
     "SettingsDeleteProtection_Description": "Should Wino ask you for confirmation every time you try to permanently delete a mail using Shift + Del keys?",
     "SettingsDeleteProtection_Title": "Ochrana pred trvalým odstránením",
+    "SettingsEmptyJunkFolderCommand_Description": "Zobraziť príkaz na vyprázdnenie priečinka v priečinkoch Nevyžiadaná pošta / Spam. Táto akcia nepožaduje potvrdenie a okamžite vymaže všetky e-maily zo spamového priečinka.",
+    "SettingsEmptyJunkFolderCommand_Title": "Zobraziť príkaz na vyprázdnenie spamového priečinka",
     "SettingsDiagnostics_Description": "Pre vývojárov",
     "SettingsDiagnostics_DiagnosticId_Description": "Zdieľajte toto ID s vývojármi, keď budete požiadaní o pomoc pri problémoch, ktoré sa vám vyskytnú v aplikácii Wino Mail.",
     "SettingsDiagnostics_DiagnosticId_Title": "Diagnostické ID",

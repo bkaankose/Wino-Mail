@@ -836,6 +836,8 @@
     "SettingsDeleteAccount_Title": "Dieses Konto löschen",
     "SettingsDeleteProtection_Description": "Sollte Wino jedes Mal nachfragen, wenn Sie eine Mail mit Umschalten + Entfernen permanent löschen möchten?",
     "SettingsDeleteProtection_Title": "Schutz vor permanenter Löschung",
+    "SettingsEmptyJunkFolderCommand_Description": "Zeige den Befehl zum Leeren des Junk-/Spam-Ordners an. Diese Aktion wird keine Bestätigung erfordern und löscht sofort alle E-Mails im Spam-Ordner.",
+    "SettingsEmptyJunkFolderCommand_Title": "Befehl zum Leeren des Spam-Ordners anzeigen",
     "SettingsDiagnostics_Description": "Für Entwickler",
     "SettingsDiagnostics_DiagnosticId_Description": "Teilen Sie diese ID mit den Entwicklern, wenn Sie um Hilfe bei Problemen in Wino Mail gebeten werden.",
     "SettingsDiagnostics_DiagnosticId_Title": "Diagnose-ID",

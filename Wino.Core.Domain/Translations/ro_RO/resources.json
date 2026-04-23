@@ -836,6 +836,8 @@
     "SettingsDeleteAccount_Title": "Ștergeți acest cont",
     "SettingsDeleteProtection_Description": "Should Wino ask you for confirmation every time you try to permanently delete a mail using Shift + Del keys?",
     "SettingsDeleteProtection_Title": "Protecție Ștergere Permanentă",
+    "SettingsEmptyJunkFolderCommand_Description": "Afișează comanda de golire a folderelor Junk/Spam. Această acțiune nu va solicita confirmare și va șterge imediat toate mesajele din folderul de spam.",
+    "SettingsEmptyJunkFolderCommand_Title": "Afișează comanda pentru golirea folderului de spam.",
     "SettingsDiagnostics_Description": "Pentru dezvoltatori",
     "SettingsDiagnostics_DiagnosticId_Description": "Partajați acest ID cu dezvoltatorii atunci când le cereți ajutor pentru problemele pe care le întâmpinați în Wino Mail.",
     "SettingsDiagnostics_DiagnosticId_Title": "ID de Diagnosticare",

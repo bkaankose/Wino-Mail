@@ -217,6 +217,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     {
         base.OnNavigatedTo(mode, parameters);
 
+        PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
+        PreferencesService.PreferenceChanged += PreferencesServiceChanged;
         MailCollection.ItemSelectionChanged += MailItemSelectionChanged;
     }
 
@@ -224,6 +226,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     {
         base.OnNavigatedFrom(mode, parameters);
 
+        PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
         MailCollection.ItemSelectionChanged -= MailItemSelectionChanged;
 
         await MailCollection.ClearAsync();
@@ -296,7 +299,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     public bool IsJunkFolder => ActiveFolder?.SpecialFolderType == SpecialFolderType.Junk;
     public bool IsCategoryView => ActiveFolder is IMailCategoryMenuItem or IMergedMailCategoryMenuItem;
     public bool IsSyncButtonVisible => !IsCategoryView;
-    public bool IsEmptyFolderButtonVisible => IsJunkFolder;
+    public bool IsEmptyFolderButtonVisible => IsJunkFolder && PreferencesService.IsShowEmptyJunkFolderEnabled;
 
     public string SelectedMessageText => IsDragInProgress
         ? string.Format(Translator.MailsDragging, DraggingItemsCount)
@@ -384,6 +387,18 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     {
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(IsFolderEmpty));
+    }
+
+    private async void PreferencesServiceChanged(object sender, string propertyName)
+    {
+        if (propertyName != nameof(IPreferencesService.IsShowEmptyJunkFolderEnabled))
+            return;
+
+        await ExecuteUIThread(() =>
+        {
+            OnPropertyChanged(nameof(IsEmptyFolderButtonVisible));
+            EmptyFolderCommand.NotifyCanExecuteChanged();
+        });
     }
 
     private async void UpdateBarMessage(InfoBarMessageType severity, string title, string message)
@@ -588,7 +603,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }
     }
 
-    private bool CanEmptyFolder() => IsJunkFolder && !IsAccountSynchronizerInSynchronization;
+    private bool CanEmptyFolder() => IsEmptyFolderButtonVisible && !IsAccountSynchronizerInSynchronization;
 
     [RelayCommand(CanExecute = nameof(CanLoadMoreItems))]
     private async Task LoadMoreItemsAsync()

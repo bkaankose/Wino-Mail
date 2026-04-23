@@ -836,6 +836,8 @@
     "SettingsDeleteAccount_Title": "Usuń to konto",
     "SettingsDeleteProtection_Description": "Should Wino ask you for confirmation every time you try to permanently delete a mail using Shift + Del keys?",
     "SettingsDeleteProtection_Title": "Ochrona przed trwałym usunięciem",
+    "SettingsEmptyJunkFolderCommand_Description": "Pokaż polecenie opróżniania pustego folderu w folderach Junk/Spam. Ta akcja nie poprosi o potwierdzenie i natychmiast usunie wszystkie wiadomości z folderu Spam.",
+    "SettingsEmptyJunkFolderCommand_Title": "Pokaż polecenie opróżniania pustego folderu Spam",
     "SettingsDiagnostics_Description": "Dla programistów",
     "SettingsDiagnostics_DiagnosticId_Description": "Share this ID with the developers when asked to get help for the issues you experience in Wino Mail.",
     "SettingsDiagnostics_DiagnosticId_Title": "Diagnostic ID",

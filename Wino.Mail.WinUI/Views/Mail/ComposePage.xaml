@@ -185,6 +185,17 @@
                                     <coreControls:WinoFontIcon Icon="{x:Bind GetEditorThemeIcon(WebViewEditor.IsEditorDarkMode), Mode=OneWay}" />
                                 </AppBarButton.Icon>
                             </AppBarButton>
+                            <AppBarButton Label="{x:Bind domain:Translator.MailOperation_SaveAs}">
+                                <AppBarButton.Icon>
+                                    <coreControls:WinoFontIcon Icon="Save" />
+                                </AppBarButton.Icon>
+                                <AppBarButton.Flyout>
+                                    <coreControls:WinoMenuFlyout Placement="BottomEdgeAlignedRight">
+                                        <MenuFlyoutItem Click="ExportPdf_Click" Text="{x:Bind domain:Translator.Buttons_PDF}" />
+                                        <MenuFlyoutItem Click="ExportEml_Click" Text="{x:Bind domain:Translator.Buttons_EML}" />
+                                    </coreControls:WinoMenuFlyout>
+                                </AppBarButton.Flyout>
+                            </AppBarButton>
                             <AppBarButton Command="{x:Bind ViewModel.DiscardCommand}" Label="{x:Bind domain:Translator.Buttons_Discard}">
                                 <AppBarButton.Icon>
                                     <coreControls:WinoFontIcon Icon="Delete" />

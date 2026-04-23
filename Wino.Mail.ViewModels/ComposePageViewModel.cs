@@ -10,6 +10,7 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using MimeKit;
 using MimeKit.Cryptography;
+using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -37,9 +38,11 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     public event EventHandler CloseRequested;
 
     private static readonly TimeSpan LocalDraftRetryGracePeriod = TimeSpan.FromSeconds(15);
+    private const string MimeFileName = "mail.eml";
 
     public Func<Task<string>> GetHTMLBodyFunction;
     public Func<string, Task> RenderHtmlBodyAsyncFunc { get; set; }
+    public Func<string, Task<bool>> SaveHTMLasPDFFunc { get; set; }
 
     public override async Task KeyboardShortcutHook(KeyboardShortcutTriggerDetails args)
     {
@@ -438,6 +441,77 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         // Save mime file.
         await _mimeFileService.SaveMimeMessageAsync(CurrentMailDraftItem.MailCopy.FileId, CurrentMimeMessage, ComposingAccount.Id).ConfigureAwait(false);
+    }
+
+    public async Task ExportAsPdfAsync()
+    {
+        if (SaveHTMLasPDFFunc == null)
+        {
+            return;
+        }
+
+        try
+        {
+            var pickedFilePath = await _dialogService.PickFilePathAsync($"{GetSuggestedExportFileName()}.pdf").ConfigureAwait(false);
+
+            if (string.IsNullOrWhiteSpace(pickedFilePath))
+            {
+                return;
+            }
+
+            bool isSaved = await SaveHTMLasPDFFunc(pickedFilePath).ConfigureAwait(false);
+
+            if (isSaved)
+            {
+                _dialogService.InfoBarMessage(
+                    Translator.Info_PDFSaveSuccessTitle,
+                    string.Format(Translator.Info_PDFSaveSuccessMessage, pickedFilePath),
+                    InfoBarMessageType.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to save compose draft as PDF.");
+            _dialogService.InfoBarMessage(Translator.Info_PDFSaveFailedTitle, ex.Message, InfoBarMessageType.Error);
+        }
+    }
+
+    public async Task ExportAsEmlAsync()
+    {
+        if (CurrentMailDraftItem?.MailCopy == null || ComposingAccount == null)
+        {
+            _dialogService.InfoBarMessage(Translator.Info_ComposerMissingMIMETitle, Translator.Info_ComposerMissingMIMEMessage, InfoBarMessageType.Error);
+            return;
+        }
+
+        try
+        {
+            await UpdateMimeChangesAsync().ConfigureAwait(false);
+
+            var pickedFilePath = await _dialogService.PickFilePathAsync($"{GetSuggestedExportFileName()}.eml").ConfigureAwait(false);
+
+            if (string.IsNullOrWhiteSpace(pickedFilePath))
+            {
+                return;
+            }
+
+            var resourcePath = await _mimeFileService
+                .GetMimeResourcePathAsync(ComposingAccount.Id, CurrentMailDraftItem.MailCopy.FileId)
+                .ConfigureAwait(false);
+            var sourceFilePath = Path.Combine(resourcePath, MimeFileName);
+
+            File.Copy(sourceFilePath, pickedFilePath, true);
+
+            _dialogService.InfoBarMessage(
+                Translator.Info_EMLSaveSuccessTitle,
+                string.Format(Translator.Info_EMLSaveSuccessMessage, pickedFilePath),
+                InfoBarMessageType.Success);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to save compose draft as EML.");
+            _dialogService.InfoBarMessage(Translator.Info_EMLSaveFailedTitle, ex.Message, InfoBarMessageType.Error);
+        }
     }
 
     private async Task UpdateMailCopyAsync()
@@ -877,6 +951,29 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         foreach (var item in addresses)
             list.Add(new MailboxAddress(item.Name, item.Address));
+    }
+
+    private string GetSuggestedExportFileName()
+    {
+        var subject = string.IsNullOrWhiteSpace(Subject) ? Translator.MailItemNoSubject : Subject;
+        return SanitizeFileNamePart(subject);
+    }
+
+    private static string SanitizeFileNamePart(string value)
+    {
+        var invalidCharacters = Path.GetInvalidFileNameChars();
+        var sanitizedChars = value.Trim().ToCharArray();
+
+        for (var i = 0; i < sanitizedChars.Length; i++)
+        {
+            if (Array.IndexOf(invalidCharacters, sanitizedChars[i]) >= 0)
+            {
+                sanitizedChars[i] = '_';
+            }
+        }
+
+        var sanitized = new string(sanitizedChars).Trim();
+        return string.IsNullOrWhiteSpace(sanitized) ? "email" : sanitized;
     }
 
     private async Task<(DraftCreationReason reason, MailCopy referenceMailCopy)> ResolveRetryDraftContextAsync()

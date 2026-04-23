@@ -836,6 +836,8 @@
     "SettingsDeleteAccount_Title": "Verwijder dit account",
     "SettingsDeleteProtection_Description": "Moet Wino u om bevestiging vragen elke keer wanneer u een e-mail permanent verwijdert met de Shift + Del toetsen?",
     "SettingsDeleteProtection_Title": "Bescherming tegen permanent verwijderen",
+    "SettingsEmptyJunkFolderCommand_Description": "Toon het lege-map-commando in de Junk/Spam-mappen. Deze actie vraagt geen bevestiging en verwijdert onmiddellijk alle e-mails in de spam-map.",
+    "SettingsEmptyJunkFolderCommand_Title": "Toon leeg-map-commando",
     "SettingsDiagnostics_Description": "Voor ontwikkelaars",
     "SettingsDiagnostics_DiagnosticId_Description": "Deel dit ID met de ontwikkelaars wanneer er om hulp gevraagd wordt voor de problemen die u in Wino Mail ervaart.",
     "SettingsDiagnostics_DiagnosticId_Title": "Diagnostische ID",

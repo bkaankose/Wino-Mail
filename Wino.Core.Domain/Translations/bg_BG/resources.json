@@ -836,6 +836,8 @@
     "SettingsDeleteAccount_Title": "Изтриване на този акаунт",
     "SettingsDeleteProtection_Description": "Should Wino ask you for confirmation every time you try to permanently delete a mail using Shift + Del keys?",
     "SettingsDeleteProtection_Title": "Защита от окончателно изтриване",
+    "SettingsEmptyJunkFolderCommand_Description": "Покажи командата за изпразване на папка в папките Спам. Това действие няма да изисква потвърждение и ще изтрие всички имейли в папката за спам веднага.",
+    "SettingsEmptyJunkFolderCommand_Title": "Покажи командата за изпразване на папка Спам",
     "SettingsDiagnostics_Description": "За разработчици",
     "SettingsDiagnostics_DiagnosticId_Description": "Споделете този идентификационен номер с разработчиците, когато ви помолят, за да получите помощ за проблемите, с които се сблъсквате в Wino Mail.",
     "SettingsDiagnostics_DiagnosticId_Title": "Идентификатор за диагностика",

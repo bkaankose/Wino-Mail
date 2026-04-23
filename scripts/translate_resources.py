@@ -47,6 +47,7 @@ LOCALE_LABELS = {
     "id_ID": "Indonesian (Indonesia)",
     "it_IT": "Italian (Italy)",
     "ja_JP": "Japanese (Japan)",
+    "ko_KR": "Korean (South Korea)",
     "lt_LT": "Lithuanian (Lithuania)",
     "nl_NL": "Dutch (Netherlands)",
     "pl_PL": "Polish (Poland)",

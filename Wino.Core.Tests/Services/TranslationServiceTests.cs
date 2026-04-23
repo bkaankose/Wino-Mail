@@ -13,6 +13,7 @@ public class TranslationServiceTests
     [InlineData("pt-PT", AppLanguage.PortugeseBrazil)]
     [InlineData("zh-TW", AppLanguage.Chinese)]
     [InlineData("tr_TR", AppLanguage.Turkish)]
+    [InlineData("ko-KR", AppLanguage.Korean)]
     [InlineData("nl-NL", AppLanguage.English)]
     public void ResolveSupportedLanguage_ReturnsExpectedLanguage(string languageTag, AppLanguage expectedLanguage)
     {

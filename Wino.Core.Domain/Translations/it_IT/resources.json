@@ -836,6 +836,8 @@
     "SettingsDeleteAccount_Title": "Elimina questo account",
     "SettingsDeleteProtection_Description": "Dovrebbe Wino chiederti la conferma ogni volta che provi a eliminare definitivamente un messaggio utilizzando Maiusc + Canc?",
     "SettingsDeleteProtection_Title": "Protezione eliminazione permanente",
+    "SettingsEmptyJunkFolderCommand_Description": "Mostra il comando per svuotare le cartelle Junk/Spam. Questa azione non richiederà alcuna conferma e eliminerà immediatamente tutte le email nelle cartelle Junk/Spam.",
+    "SettingsEmptyJunkFolderCommand_Title": "Mostra il comando per svuotare la cartella Junk/Spam",
     "SettingsDiagnostics_Description": "Per gli sviluppatori",
     "SettingsDiagnostics_DiagnosticId_Description": "Condividi questo ID con gli sviluppatori quando richiesto per ricevere aiuto in merito ai problemi che hai con Wino Mail.",
     "SettingsDiagnostics_DiagnosticId_Title": "ID diagnostica",

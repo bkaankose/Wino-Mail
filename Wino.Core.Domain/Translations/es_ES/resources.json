@@ -836,6 +836,8 @@
     "SettingsDeleteAccount_Title": "Eliminar esta cuenta",
     "SettingsDeleteProtection_Description": "¿Debería Wino pedirte confirmación cada vez que intentas eliminar un correo usando las teclas Shift + Supr?",
     "SettingsDeleteProtection_Title": "Protección de Eliminación Permanente",
+    "SettingsEmptyJunkFolderCommand_Description": "Mostrar el comando para vaciar la carpeta en las carpetas de correo no deseado. Esta acción no solicitará confirmación y eliminará todos los correos de la carpeta de correo no deseado de inmediato.",
+    "SettingsEmptyJunkFolderCommand_Title": "Mostrar el comando para vaciar la carpeta de correo no deseado",
     "SettingsDiagnostics_Description": "Para desarrolladores",
     "SettingsDiagnostics_DiagnosticId_Description": "Comparte este ID con los desarrolladores cuando se les pida ayuda para los problemas que experimentas en Wino Mail.",
     "SettingsDiagnostics_DiagnosticId_Title": "ID de Diagnóstico",

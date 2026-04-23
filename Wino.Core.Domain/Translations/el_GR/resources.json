@@ -836,6 +836,8 @@
     "SettingsDeleteAccount_Title": "Διαγραφή αυτού του λογαριασμού",
     "SettingsDeleteProtection_Description": "Should Wino ask you for confirmation every time you try to permanently delete a mail using Shift + Del keys?",
     "SettingsDeleteProtection_Title": "Προστασία Μόνιμης Διαγραφής",
+    "SettingsEmptyJunkFolderCommand_Description": "Εμφάνιση της εντολής εκκένωσης φακέλου στους φακέλους Junk/Spam. Αυτή η ενέργεια δεν θα ζητήσει επιβεβαίωση και θα διαγράψει αμέσως όλα τα ηλεκτρονικά μηνύματα στον φάκελο Spam.",
+    "SettingsEmptyJunkFolderCommand_Title": "Εμφάνιση εντολής εκκένωσης φακέλου Spam",
     "SettingsDiagnostics_Description": "Για προγραμματιστές",
     "SettingsDiagnostics_DiagnosticId_Description": "Μοιραστείτε αυτό το ID με τους προγραμματιστές όταν σας ζητηθεί να λάβετε βοήθεια για τα θέματα που αντιμετωπίζετε στο Wino Mail.",
     "SettingsDiagnostics_DiagnosticId_Title": "Διαγνωστικό ID",

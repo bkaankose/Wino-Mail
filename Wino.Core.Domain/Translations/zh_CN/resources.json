@@ -836,6 +836,8 @@
     "SettingsDeleteAccount_Title": "删除此账户",
     "SettingsDeleteProtection_Description": "Should Wino ask you for confirmation every time you try to permanently delete a mail using Shift + Del keys?",
     "SettingsDeleteProtection_Title": "永久性删除保护",
+    "SettingsEmptyJunkFolderCommand_Description": "在垃圾邮件/垃圾箱文件夹中显示清空文件夹命令。此操作不会要求确认，将立即删除垃圾邮件文件夹中的所有邮件。",
+    "SettingsEmptyJunkFolderCommand_Title": "显示清空垃圾邮件文件夹的命令",
     "SettingsDiagnostics_Description": "开发者选项",
     "SettingsDiagnostics_DiagnosticId_Description": "如需联系开发人员请求帮助，请提供此 ID。",
     "SettingsDiagnostics_DiagnosticId_Title": "诊断 ID",

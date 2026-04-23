@@ -45,6 +45,7 @@ public class WinoTranslationDictionary : Dictionary<string, string>
             AppLanguage.Greek => "el_GR",
             AppLanguage.PortugeseBrazil => "pt_BR",
             AppLanguage.Romanian => "ro_RO",
+            AppLanguage.Korean => "ko_KR",
             _ => "en_US",
         };
     }
