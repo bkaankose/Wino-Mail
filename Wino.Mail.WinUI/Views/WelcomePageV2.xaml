@@ -138,6 +138,7 @@
                     Visibility="{x:Bind ViewModel.HasLegacyImportPreview, Mode=OneWay}">
                     <StackPanel Spacing="8">
                         <TextBlock
+                            HorizontalAlignment="Center"
                             FontSize="16"
                             FontWeight="SemiBold"
                             Text="{x:Bind domain:Translator.LegacyLocalMigration_WelcomeSectionTitle, Mode=OneTime}" />
@@ -145,9 +146,7 @@
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             Text="{x:Bind domain:Translator.LegacyLocalMigration_WelcomeSectionDescription, Mode=OneTime}"
                             TextWrapping="WrapWholeWords" />
-                        <TextBlock
-                            Text="{x:Bind ViewModel.LegacyImportSummary, Mode=OneWay}"
-                            TextWrapping="WrapWholeWords" />
+                        <TextBlock Text="{x:Bind ViewModel.LegacyImportSummary, Mode=OneWay}" TextWrapping="WrapWholeWords" />
                         <TextBlock
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             Style="{StaticResource CaptionTextBlockStyle}"
@@ -155,9 +154,10 @@
                             TextWrapping="WrapWholeWords"
                             Visibility="{x:Bind ViewModel.HasLegacyImportWarnings, Mode=OneWay}" />
                         <Button
-                            HorizontalAlignment="Left"
+                            HorizontalAlignment="Center"
                             Command="{x:Bind ViewModel.ImportLegacyDatabaseCommand}"
-                            Content="{x:Bind domain:Translator.LegacyLocalMigration_ImportAction, Mode=OneTime}" />
+                            Content="{x:Bind domain:Translator.LegacyLocalMigration_ImportAction, Mode=OneTime}"
+                            Style="{ThemeResource AccentButtonStyle}" />
                     </StackPanel>
                 </Border>
 
