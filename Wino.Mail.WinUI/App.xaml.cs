@@ -479,6 +479,8 @@ public partial class App : WinoApplication,
 
             EnsureAppNotificationRegistration();
 
+            await TranslationService.InitializeAsync();
+
             await Services.GetRequiredService<ReleaseLocalAccountDataCleanupService>()
                 .RunIfNeededAsync();
 
