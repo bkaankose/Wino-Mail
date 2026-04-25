@@ -571,6 +571,19 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             }
 
             var aiStatus = aiStatusResponse.Result;
+            if (IsExpiredAiEntitlement(aiStatus.EntitlementStatus))
+            {
+                await ExecuteUIThread(() =>
+                {
+                    _aiPackAddOn.IsPurchased = false;
+                    _aiPackAddOn.HasUsageData = false;
+                    _aiPackAddOn.ErrorText = string.Empty;
+                    _aiPackAddOn.RenewalText = string.Empty;
+                    _aiPackAddOn.UsageResetText = string.Empty;
+                });
+                return;
+            }
+
             if (aiStatus.MonthlyLimit is not int usageLimit || usageLimit <= 0 || aiStatus.Used is not int usageCount)
             {
                 await ExecuteUIThread(() =>
@@ -613,4 +626,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             });
         }
     }
+
+    private static bool IsExpiredAiEntitlement(string? entitlementStatus)
+        => string.Equals(entitlementStatus, "Expired", StringComparison.OrdinalIgnoreCase);
 }
