@@ -30,7 +30,9 @@ public interface IDefaultChangeProcessor
     Task ChangeMailReadStatusAsync(string mailCopyId, bool isRead);
     Task ChangeFlagStatusAsync(string mailCopyId, bool isFlagged);
     Task<bool> CreateMailAsync(Guid AccountId, NewMailItemPackage package);
+    Task CreateMailsAsync(Guid accountId, IReadOnlyList<NewMailItemPackage> packages);
     Task DeleteMailAsync(Guid accountId, string mailId);
+    Task DeleteMailsAsync(Guid accountId, IEnumerable<string> mailIds);
     Task<List<MailCopy>> GetDownloadedUnreadMailsAsync(Guid accountId, IEnumerable<string> downloadedMailCopyIds);
     Task SaveMimeFileAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId);
     Task DeleteFolderAsync(Guid accountId, string remoteFolderId);
@@ -56,6 +58,9 @@ public interface IDefaultChangeProcessor
     Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken);
     Task<List<MailCopy>> GetMailCopiesAsync(IEnumerable<string> mailCopyIds);
     Task CreateMailRawAsync(MailAccount account, MailItemFolder mailItemFolder, NewMailItemPackage package);
+    Task ApplyMailStateUpdatesAsync(IEnumerable<MailCopyStateUpdate> updates);
+    Task CreateAssignmentsAsync(Guid accountId, IEnumerable<MailFolderAssignmentUpdate> assignments);
+    Task DeleteAssignmentsAsync(Guid accountId, IEnumerable<MailFolderAssignmentUpdate> assignments);
     Task DeleteUserMailCacheAsync(Guid accountId);
     Task UpsertMailInvitationCalendarMappingAsync(MailInvitationCalendarMapping mapping);
     Task<MailInvitationCalendarMapping> GetMailInvitationCalendarMappingAsync(Guid accountId, string mailCopyId);
@@ -156,17 +161,32 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
     public Task ChangeMailReadStatusAsync(string mailCopyId, bool isRead)
         => MailService.ChangeReadStatusAsync(mailCopyId, isRead);
 
+    public Task ApplyMailStateUpdatesAsync(IEnumerable<MailCopyStateUpdate> updates)
+        => MailService.ApplyMailStateUpdatesAsync(updates);
+
     public Task DeleteAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId)
         => MailService.DeleteAssignmentAsync(accountId, mailCopyId, remoteFolderId);
+
+    public Task DeleteAssignmentsAsync(Guid accountId, IEnumerable<MailFolderAssignmentUpdate> assignments)
+        => MailService.DeleteAssignmentsAsync(accountId, assignments);
 
     public Task DeleteMailAsync(Guid accountId, string mailId)
         => MailService.DeleteMailAsync(accountId, mailId);
 
+    public Task DeleteMailsAsync(Guid accountId, IEnumerable<string> mailIds)
+        => MailService.DeleteMailsAsync(accountId, mailIds);
+
     public Task<bool> CreateMailAsync(Guid accountId, NewMailItemPackage package)
         => MailService.CreateMailAsync(accountId, package);
 
+    public Task CreateMailsAsync(Guid accountId, IReadOnlyList<NewMailItemPackage> packages)
+        => MailService.CreateMailsAsync(accountId, packages);
+
     public Task CreateMailRawAsync(MailAccount account, MailItemFolder mailItemFolder, NewMailItemPackage package)
         => MailService.CreateMailRawAsync(account, mailItemFolder, package);
+
+    public Task CreateAssignmentsAsync(Guid accountId, IEnumerable<MailFolderAssignmentUpdate> assignments)
+        => MailService.CreateAssignmentsAsync(accountId, assignments);
 
     public Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId)
         => MailService.MapLocalDraftAsync(accountId, localDraftCopyUniqueId, newMailCopyId, newDraftId, newThreadId);

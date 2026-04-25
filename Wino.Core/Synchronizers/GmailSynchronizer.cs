@@ -1050,6 +1050,11 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     {
         _logger.Debug("Processing delta change {HistoryId} for {Name}", listHistoryResponse.HistoryId.GetValueOrDefault(), Account.Name);
 
+        var pendingStateUpdates = new List<MailCopyStateUpdate>();
+        var pendingAssignmentCreates = new Dictionary<string, MailFolderAssignmentUpdate>(StringComparer.Ordinal);
+        var pendingAssignmentDeletes = new Dictionary<string, MailFolderAssignmentUpdate>(StringComparer.Ordinal);
+        var deletedMessageIds = new HashSet<string>(StringComparer.Ordinal);
+
         foreach (var history in listHistoryResponse.History)
         {
             // Handle label additions.
@@ -1057,7 +1062,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             {
                 foreach (var addedLabel in history.LabelsAdded)
                 {
-                    await HandleLabelAssignmentAsync(addedLabel);
+                    await HandleLabelAssignmentAsync(addedLabel, pendingStateUpdates, pendingAssignmentCreates, pendingAssignmentDeletes).ConfigureAwait(false);
                 }
             }
 
@@ -1066,7 +1071,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             {
                 foreach (var removedLabel in history.LabelsRemoved)
                 {
-                    await HandleLabelRemovalAsync(removedLabel);
+                    await HandleLabelRemovalAsync(removedLabel, pendingStateUpdates, pendingAssignmentCreates, pendingAssignmentDeletes).ConfigureAwait(false);
                 }
             }
 
@@ -1079,36 +1084,108 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
                     _logger.Debug("Processing message deletion for {MessageId}", messageId);
 
-                    await _gmailChangeProcessor.DeleteMailAsync(Account.Id, messageId).ConfigureAwait(false);
+                    deletedMessageIds.Add(messageId);
                 }
             }
         }
+
+        if (pendingStateUpdates.Count > 0)
+        {
+            await _gmailChangeProcessor.ApplyMailStateUpdatesAsync(pendingStateUpdates).ConfigureAwait(false);
+        }
+
+        if (pendingAssignmentCreates.Count > 0)
+        {
+            await _gmailChangeProcessor.CreateAssignmentsAsync(Account.Id, pendingAssignmentCreates.Values.ToList()).ConfigureAwait(false);
+        }
+
+        if (pendingAssignmentDeletes.Count > 0)
+        {
+            await _gmailChangeProcessor.DeleteAssignmentsAsync(Account.Id, pendingAssignmentDeletes.Values.ToList()).ConfigureAwait(false);
+        }
+
+        if (deletedMessageIds.Count > 0)
+        {
+            await _gmailChangeProcessor.DeleteMailsAsync(Account.Id, deletedMessageIds).ConfigureAwait(false);
+        }
     }
 
-    private async Task HandleArchiveAssignmentAsync(string archivedMessageId)
+    private static string GetAssignmentChangeKey(string messageId, string labelId)
+        => $"{messageId}\u001f{labelId}";
+
+    private static void QueueAssignmentChange(
+        Dictionary<string, MailFolderAssignmentUpdate> creates,
+        Dictionary<string, MailFolderAssignmentUpdate> deletes,
+        MailFolderAssignmentUpdate assignment,
+        bool shouldCreate)
     {
+        if (assignment == null ||
+            string.IsNullOrWhiteSpace(assignment.MailCopyId) ||
+            string.IsNullOrWhiteSpace(assignment.RemoteFolderId))
+        {
+            return;
+        }
+
+        var key = GetAssignmentChangeKey(assignment.MailCopyId, assignment.RemoteFolderId);
+
+        if (shouldCreate)
+        {
+            deletes.Remove(key);
+            creates[key] = assignment;
+        }
+        else
+        {
+            creates.Remove(key);
+            deletes[key] = assignment;
+        }
+    }
+
+    private async Task HandleArchiveAssignmentAsync(
+        string archivedMessageId,
+        Dictionary<string, MailFolderAssignmentUpdate> pendingAssignmentCreates,
+        Dictionary<string, MailFolderAssignmentUpdate> pendingAssignmentDeletes)
+    {
+        if (!archiveFolderId.HasValue)
+            return;
+
         // Ignore if the message is already in the archive.
-        bool archived = await _gmailChangeProcessor.IsMailExistsInFolderAsync(archivedMessageId, archiveFolderId.Value);
+        bool archived = await _gmailChangeProcessor.IsMailExistsInFolderAsync(archivedMessageId, archiveFolderId.Value).ConfigureAwait(false);
 
         if (archived) return;
 
         _logger.Debug("Processing archive assignment for message {Id}", archivedMessageId);
-
-        await _gmailChangeProcessor.CreateAssignmentAsync(Account.Id, archivedMessageId, ServiceConstants.ARCHIVE_LABEL_ID).ConfigureAwait(false);
+        QueueAssignmentChange(
+            pendingAssignmentCreates,
+            pendingAssignmentDeletes,
+            new MailFolderAssignmentUpdate(archivedMessageId, ServiceConstants.ARCHIVE_LABEL_ID),
+            shouldCreate: true);
     }
 
-    private async Task HandleUnarchiveAssignmentAsync(string unarchivedMessageId)
+    private async Task HandleUnarchiveAssignmentAsync(
+        string unarchivedMessageId,
+        Dictionary<string, MailFolderAssignmentUpdate> pendingAssignmentCreates,
+        Dictionary<string, MailFolderAssignmentUpdate> pendingAssignmentDeletes)
     {
+        if (!archiveFolderId.HasValue)
+            return;
+
         // Ignore if the message is not in the archive.
-        bool archived = await _gmailChangeProcessor.IsMailExistsInFolderAsync(unarchivedMessageId, archiveFolderId.Value);
+        bool archived = await _gmailChangeProcessor.IsMailExistsInFolderAsync(unarchivedMessageId, archiveFolderId.Value).ConfigureAwait(false);
         if (!archived) return;
 
         _logger.Debug("Processing un-archive assignment for message {Id}", unarchivedMessageId);
-
-        await _gmailChangeProcessor.DeleteAssignmentAsync(Account.Id, unarchivedMessageId, ServiceConstants.ARCHIVE_LABEL_ID).ConfigureAwait(false);
+        QueueAssignmentChange(
+            pendingAssignmentCreates,
+            pendingAssignmentDeletes,
+            new MailFolderAssignmentUpdate(unarchivedMessageId, ServiceConstants.ARCHIVE_LABEL_ID),
+            shouldCreate: false);
     }
 
-    private async Task HandleLabelAssignmentAsync(HistoryLabelAdded addedLabel)
+    private async Task HandleLabelAssignmentAsync(
+        HistoryLabelAdded addedLabel,
+        List<MailCopyStateUpdate> pendingStateUpdates,
+        Dictionary<string, MailFolderAssignmentUpdate> pendingAssignmentCreates,
+        Dictionary<string, MailFolderAssignmentUpdate> pendingAssignmentDeletes)
     {
         var messageId = addedLabel.Message.Id;
 
@@ -1119,23 +1196,31 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             // ARCHIVE is a virtual folder - handle it separately
             if (labelId == ServiceConstants.ARCHIVE_LABEL_ID)
             {
-                await HandleArchiveAssignmentAsync(messageId).ConfigureAwait(false);
+                await HandleArchiveAssignmentAsync(messageId, pendingAssignmentCreates, pendingAssignmentDeletes).ConfigureAwait(false);
                 continue;
             }
 
             // When UNREAD label is added mark the message as un-read.
             if (labelId == ServiceConstants.UNREAD_LABEL_ID)
-                await _gmailChangeProcessor.ChangeMailReadStatusAsync(messageId, false).ConfigureAwait(false);
+                pendingStateUpdates.Add(new MailCopyStateUpdate(messageId, IsRead: false));
 
             // When STARRED label is added mark the message as flagged.
             if (labelId == ServiceConstants.STARRED_LABEL_ID)
-                await _gmailChangeProcessor.ChangeFlagStatusAsync(messageId, true).ConfigureAwait(false);
+                pendingStateUpdates.Add(new MailCopyStateUpdate(messageId, IsFlagged: true));
 
-            await _gmailChangeProcessor.CreateAssignmentAsync(Account.Id, messageId, labelId).ConfigureAwait(false);
+            QueueAssignmentChange(
+                pendingAssignmentCreates,
+                pendingAssignmentDeletes,
+                new MailFolderAssignmentUpdate(messageId, labelId),
+                shouldCreate: true);
         }
     }
 
-    private async Task HandleLabelRemovalAsync(HistoryLabelRemoved removedLabel)
+    private async Task HandleLabelRemovalAsync(
+        HistoryLabelRemoved removedLabel,
+        List<MailCopyStateUpdate> pendingStateUpdates,
+        Dictionary<string, MailFolderAssignmentUpdate> pendingAssignmentCreates,
+        Dictionary<string, MailFolderAssignmentUpdate> pendingAssignmentDeletes)
     {
         var messageId = removedLabel.Message.Id;
 
@@ -1146,20 +1231,23 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             // ARCHIVE is a virtual folder - handle it separately
             if (labelId == ServiceConstants.ARCHIVE_LABEL_ID)
             {
-                await HandleUnarchiveAssignmentAsync(messageId).ConfigureAwait(false);
+                await HandleUnarchiveAssignmentAsync(messageId, pendingAssignmentCreates, pendingAssignmentDeletes).ConfigureAwait(false);
                 continue;
             }
 
             // When UNREAD label is removed mark the message as read.
             if (labelId == ServiceConstants.UNREAD_LABEL_ID)
-                await _gmailChangeProcessor.ChangeMailReadStatusAsync(messageId, true).ConfigureAwait(false);
+                pendingStateUpdates.Add(new MailCopyStateUpdate(messageId, IsRead: true));
 
             // When STARRED label is removed mark the message as un-flagged.
             if (labelId == ServiceConstants.STARRED_LABEL_ID)
-                await _gmailChangeProcessor.ChangeFlagStatusAsync(messageId, false).ConfigureAwait(false);
+                pendingStateUpdates.Add(new MailCopyStateUpdate(messageId, IsFlagged: false));
 
-            // For other labels remove the mail assignment.
-            await _gmailChangeProcessor.DeleteAssignmentAsync(Account.Id, messageId, labelId).ConfigureAwait(false);
+            QueueAssignmentChange(
+                pendingAssignmentCreates,
+                pendingAssignmentDeletes,
+                new MailFolderAssignmentUpdate(messageId, labelId),
+                shouldCreate: false);
         }
     }
 
@@ -1542,6 +1630,8 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             await Task.WhenAll(batchTasks).ConfigureAwait(false);
 
             // Process all downloaded messages
+            var pendingPackages = new List<NewMailItemPackage>();
+
             foreach (var gmailMessage in downloadedMessages)
             {
                 try
@@ -1552,12 +1642,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                     var packages = await CreateNewMailPackagesAsync(gmailMessage, null, cancellationToken).ConfigureAwait(false);
 
                     if (packages != null)
-                    {
-                        foreach (var package in packages)
-                        {
-                            await _gmailChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
-                        }
-                    }
+                        pendingPackages.AddRange(packages);
 
                     // Update sync identifier if available
                     if (gmailMessage.HistoryId.HasValue)
@@ -1569,6 +1654,11 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                 {
                     _logger.Error(ex, "Failed to process downloaded message {MessageId}", gmailMessage.Id);
                 }
+            }
+
+            if (pendingPackages.Count > 0)
+            {
+                await _gmailChangeProcessor.CreateMailsAsync(Account.Id, pendingPackages).ConfigureAwait(false);
             }
         }
     }
@@ -1592,12 +1682,9 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         // Create mail packages from metadata
         var packages = await CreateNewMailPackagesAsync(gmailMessage, null, cancellationToken).ConfigureAwait(false);
 
-        if (packages != null)
+        if (packages != null && packages.Count > 0)
         {
-            foreach (var package in packages)
-            {
-                await _gmailChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
-            }
+            await _gmailChangeProcessor.CreateMailsAsync(Account.Id, packages).ConfigureAwait(false);
         }
 
         // Update sync identifier if available
@@ -1942,12 +2029,9 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             // Create mail packages from the downloaded message
             var packages = await CreateNewMailPackagesAsync(gmailMessage, null, cancellationToken).ConfigureAwait(false);
 
-            if (packages != null)
+            if (packages != null && packages.Count > 0)
             {
-                foreach (var package in packages)
-                {
-                    await _gmailChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
-                }
+                await _gmailChangeProcessor.CreateMailsAsync(Account.Id, packages).ConfigureAwait(false);
             }
 
             await UpdateAccountSyncIdentifierAsync(gmailMessage.HistoryId).ConfigureAwait(false);
@@ -1999,25 +2083,27 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         switch (bundle.UIChangeRequest)
         {
             case BatchMarkReadRequest batchMarkReadRequest:
-                foreach (var request in batchMarkReadRequest)
-                {
-                    await _gmailChangeProcessor.ChangeMailReadStatusAsync(request.Item.Id, request.IsRead).ConfigureAwait(false);
-                }
+                await _gmailChangeProcessor.ApplyMailStateUpdatesAsync(
+                    batchMarkReadRequest.Select(request => new MailCopyStateUpdate(request.Item.Id, IsRead: request.IsRead)))
+                    .ConfigureAwait(false);
                 break;
 
             case MarkReadRequest markReadRequest:
-                await _gmailChangeProcessor.ChangeMailReadStatusAsync(markReadRequest.Item.Id, markReadRequest.IsRead).ConfigureAwait(false);
+                await _gmailChangeProcessor.ApplyMailStateUpdatesAsync(
+                    [new MailCopyStateUpdate(markReadRequest.Item.Id, IsRead: markReadRequest.IsRead)])
+                    .ConfigureAwait(false);
                 break;
 
             case BatchChangeFlagRequest batchChangeFlagRequest:
-                foreach (var request in batchChangeFlagRequest)
-                {
-                    await _gmailChangeProcessor.ChangeFlagStatusAsync(request.Item.Id, request.IsFlagged).ConfigureAwait(false);
-                }
+                await _gmailChangeProcessor.ApplyMailStateUpdatesAsync(
+                    batchChangeFlagRequest.Select(request => new MailCopyStateUpdate(request.Item.Id, IsFlagged: request.IsFlagged)))
+                    .ConfigureAwait(false);
                 break;
 
             case ChangeFlagRequest changeFlagRequest:
-                await _gmailChangeProcessor.ChangeFlagStatusAsync(changeFlagRequest.Item.Id, changeFlagRequest.IsFlagged).ConfigureAwait(false);
+                await _gmailChangeProcessor.ApplyMailStateUpdatesAsync(
+                    [new MailCopyStateUpdate(changeFlagRequest.Item.Id, IsFlagged: changeFlagRequest.IsFlagged)])
+                    .ConfigureAwait(false);
                 break;
         }
     }
@@ -2075,16 +2161,31 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             }
 
             var existingAfterDownload = await _gmailChangeProcessor.AreMailsExistsAsync(addedArchiveIds).ConfigureAwait(false);
+            var pendingArchiveCreates = new Dictionary<string, MailFolderAssignmentUpdate>(StringComparer.Ordinal);
+            var pendingArchiveDeletes = new Dictionary<string, MailFolderAssignmentUpdate>(StringComparer.Ordinal);
 
             foreach (var archiveAddedItem in existingAfterDownload)
             {
-                await HandleArchiveAssignmentAsync(archiveAddedItem).ConfigureAwait(false);
+                await HandleArchiveAssignmentAsync(archiveAddedItem, pendingArchiveCreates, pendingArchiveDeletes).ConfigureAwait(false);
+            }
+
+            if (pendingArchiveCreates.Count > 0)
+            {
+                await _gmailChangeProcessor.CreateAssignmentsAsync(Account.Id, pendingArchiveCreates.Values.ToList()).ConfigureAwait(false);
             }
         }
 
+        var pendingArchiveRemovals = new Dictionary<string, MailFolderAssignmentUpdate>(StringComparer.Ordinal);
+        var pendingArchiveCreateOverrides = new Dictionary<string, MailFolderAssignmentUpdate>(StringComparer.Ordinal);
+
         foreach (var unAarchivedRemovedItem in removedArchiveIds)
         {
-            await HandleUnarchiveAssignmentAsync(unAarchivedRemovedItem).ConfigureAwait(false);
+            await HandleUnarchiveAssignmentAsync(unAarchivedRemovedItem, pendingArchiveCreateOverrides, pendingArchiveRemovals).ConfigureAwait(false);
+        }
+
+        if (pendingArchiveRemovals.Count > 0)
+        {
+            await _gmailChangeProcessor.DeleteAssignmentsAsync(Account.Id, pendingArchiveRemovals.Values.ToList()).ConfigureAwait(false);
         }
     }
 

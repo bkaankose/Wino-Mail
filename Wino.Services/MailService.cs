@@ -727,32 +727,70 @@ public class MailService : BaseDatabaseService, IMailService
 
     public async Task DeleteMailAsync(Guid accountId, string mailCopyId)
     {
-        var allMails = await GetMailCopiesByIdAsync([mailCopyId]).ConfigureAwait(false);
+        await DeleteMailsAsync(accountId, [mailCopyId]).ConfigureAwait(false);
+    }
 
-        foreach (var mailItem in allMails)
-        {
-            // Delete mime file as well.
-            // Even though Gmail might have multiple copies for the same mail, we only have one MIME file for all.
-            // Their FileId is inserted same.
+    public async Task DeleteMailsAsync(Guid accountId, IEnumerable<string> mailCopyIds)
+    {
+        var targetMailIds = mailCopyIds?
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.Ordinal)
+            .ToList() ?? [];
 
-            await DeleteMailInternalAsync(mailItem, preserveMimeFile: false).ConfigureAwait(false);
-        }
+        if (targetMailIds.Count == 0)
+            return;
+
+        var allMails = await GetMailCopiesByIdAsync(targetMailIds).ConfigureAwait(false);
+        await DeleteMailCopiesAsync(allMails, preserveMimeFile: false, reportUiChange: true).ConfigureAwait(false);
+    }
+
+    private void ReportAddedMails(IReadOnlyList<MailCopy> addedMails)
+    {
+        if (addedMails == null || addedMails.Count == 0)
+            return;
+
+        if (addedMails.Count == 1)
+            ReportUIChange(new MailAddedMessage(addedMails[0], EntityUpdateSource.Server));
+        else
+            ReportUIChange(new BulkMailAddedMessage(addedMails, EntityUpdateSource.Server));
+    }
+
+    private void ReportUpdatedMails(IReadOnlyList<MailCopy> updatedMails, MailCopyChangeFlags changedProperties = MailCopyChangeFlags.None)
+    {
+        if (updatedMails == null || updatedMails.Count == 0)
+            return;
+
+        if (updatedMails.Count == 1)
+            ReportUIChange(new MailUpdatedMessage(updatedMails[0], EntityUpdateSource.Server, changedProperties));
+        else
+            ReportUIChange(new BulkMailUpdatedMessage(updatedMails, EntityUpdateSource.Server, changedProperties));
+    }
+
+    private void ReportRemovedMails(IReadOnlyList<MailCopy> removedMails)
+    {
+        if (removedMails == null || removedMails.Count == 0)
+            return;
+
+        if (removedMails.Count == 1)
+            ReportUIChange(new MailRemovedMessage(removedMails[0], EntityUpdateSource.Server));
+        else
+            ReportUIChange(new BulkMailRemovedMessage(removedMails, EntityUpdateSource.Server));
     }
 
     #region Repository Calls
 
-    private async Task InsertMailAsync(MailCopy mailCopy)
+    private async Task<MailCopy> InsertMailAsync(MailCopy mailCopy, bool reportUiChange)
     {
         if (mailCopy == null)
         {
             _logger.Warning("Null mail passed to InsertMailAsync call.");
-            return;
+            return null;
         }
 
         if (mailCopy.FolderId == Guid.Empty)
         {
             _logger.Warning("Invalid FolderId for MailCopyId {Id} for InsertMailAsync", mailCopy.Id);
-            return;
+            return null;
         }
 
         _logger.Debug("Inserting mail {MailCopyId} to {FolderName}", mailCopy.Id, mailCopy.AssignedFolder.FolderName);
@@ -760,21 +798,27 @@ public class MailService : BaseDatabaseService, IMailService
         await Connection.InsertAsync(mailCopy, typeof(MailCopy)).ConfigureAwait(false);
 
         var hydratedMailCopy = await HydrateMailCopyAsync(mailCopy).ConfigureAwait(false);
-        ReportUIChange(new MailAddedMessage(hydratedMailCopy, EntityUpdateSource.Server));
+        if (reportUiChange)
+            ReportAddedMails([hydratedMailCopy]);
+
+        return hydratedMailCopy;
     }
 
     public async Task UpdateMailAsync(MailCopy mailCopy)
+        => await UpdateMailAsync(mailCopy, reportUiChange: true).ConfigureAwait(false);
+
+    private async Task<MailCopy> UpdateMailAsync(MailCopy mailCopy, bool reportUiChange, MailCopy existingMailCopy = null)
     {
         if (mailCopy == null)
         {
             _logger.Warning("Null mail passed to UpdateMailAsync call.");
 
-            return;
+            return null;
         }
 
         _logger.Debug("Updating mail {MailCopyId} with Folder {FolderId}", mailCopy.Id, mailCopy.FolderId);
 
-        var existingMailCopy = mailCopy.UniqueId != Guid.Empty
+        existingMailCopy ??= mailCopy.UniqueId != Guid.Empty
             ? await Connection.FindAsync<MailCopy>(mailCopy.UniqueId).ConfigureAwait(false)
             : null;
 
@@ -787,16 +831,19 @@ public class MailService : BaseDatabaseService, IMailService
         await Connection.UpdateAsync(mailCopy, typeof(MailCopy)).ConfigureAwait(false);
 
         var hydratedMailCopy = await HydrateMailCopyAsync(mailCopy).ConfigureAwait(false);
-        ReportUIChange(new MailUpdatedMessage(hydratedMailCopy, EntityUpdateSource.Server));
+        if (reportUiChange)
+            ReportUpdatedMails([hydratedMailCopy]);
+
+        return hydratedMailCopy;
     }
 
-    private async Task DeleteMailInternalAsync(MailCopy mailCopy, bool preserveMimeFile)
+    private async Task<MailCopy> DeleteMailInternalAsync(MailCopy mailCopy, bool preserveMimeFile, bool reportUiChange)
     {
         if (mailCopy == null)
         {
             _logger.Warning("Null mail passed to DeleteMailAsync call.");
 
-            return;
+            return null;
         }
 
         _logger.Debug("Deleting mail {Id} from folder {FolderName}", mailCopy.Id, mailCopy.AssignedFolder.FolderName);
@@ -812,7 +859,31 @@ public class MailService : BaseDatabaseService, IMailService
             await _mimeFileService.DeleteMimeMessageAsync(mailCopy.AssignedAccount.Id, mailCopy.FileId).ConfigureAwait(false);
         }
 
-        ReportUIChange(new MailRemovedMessage(mailCopy, EntityUpdateSource.Server));
+        if (reportUiChange)
+            ReportRemovedMails([mailCopy]);
+
+        return mailCopy;
+    }
+
+    private async Task<List<MailCopy>> DeleteMailCopiesAsync(IReadOnlyList<MailCopy> mailCopies, bool preserveMimeFile, bool reportUiChange)
+    {
+        if (mailCopies == null || mailCopies.Count == 0)
+            return [];
+
+        var removedMails = new List<MailCopy>(mailCopies.Count);
+
+        foreach (var mailCopy in mailCopies)
+        {
+            var removedMail = await DeleteMailInternalAsync(mailCopy, preserveMimeFile, reportUiChange: false).ConfigureAwait(false);
+
+            if (removedMail != null)
+                removedMails.Add(removedMail);
+        }
+
+        if (reportUiChange)
+            ReportRemovedMails(removedMails);
+
+        return removedMails;
     }
 
     #endregion
@@ -1021,6 +1092,40 @@ public class MailService : BaseDatabaseService, IMailService
     }
 
     public async Task CreateAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId)
+        => await CreateAssignmentsAsync(accountId, [new MailFolderAssignmentUpdate(mailCopyId, remoteFolderId)]).ConfigureAwait(false);
+
+    public async Task CreateAssignmentsAsync(Guid accountId, IEnumerable<MailFolderAssignmentUpdate> assignments)
+    {
+        var targetAssignments = assignments?
+            .Where(x => x != null &&
+                        !string.IsNullOrWhiteSpace(x.MailCopyId) &&
+                        !string.IsNullOrWhiteSpace(x.RemoteFolderId))
+            .GroupBy(x => $"{x.MailCopyId}\u001f{x.RemoteFolderId}", StringComparer.Ordinal)
+            .Select(group => group.First())
+            .ToList() ?? [];
+
+        if (targetAssignments.Count == 0)
+            return;
+
+        var addedMails = new List<MailCopy>(targetAssignments.Count);
+        var removedMails = new List<MailCopy>();
+
+        foreach (var assignment in targetAssignments)
+        {
+            var (addedMail, removedMail) = await CreateAssignmentInternalAsync(accountId, assignment.MailCopyId, assignment.RemoteFolderId).ConfigureAwait(false);
+
+            if (removedMail != null)
+                removedMails.Add(removedMail);
+
+            if (addedMail != null)
+                addedMails.Add(addedMail);
+        }
+
+        ReportRemovedMails(removedMails);
+        ReportAddedMails(addedMails);
+    }
+
+    private async Task<(MailCopy AddedMail, MailCopy RemovedMail)> CreateAssignmentInternalAsync(Guid accountId, string mailCopyId, string remoteFolderId)
     {
         // Note: Folder might not be available at the moment due to user not syncing folders before the delta processing.
         // This is a problem, because assignments won't be created.
@@ -1033,14 +1138,14 @@ public class MailService : BaseDatabaseService, IMailService
             _logger.Warning("Local folder not found for remote folder {RemoteFolderId}", remoteFolderId);
             _logger.Warning("Skipping assignment creation for the the message {MailCopyId}", mailCopyId);
 
-            return;
+            return (null, null);
         }
 
         if (await IsMailExistsAsync(mailCopyId, localFolder.Id).ConfigureAwait(false))
         {
             _logger.Debug("Skipping assignment creation for {MailCopyId} because folder {FolderId} already has a local copy.",
                 mailCopyId, localFolder.Id);
-            return;
+            return (null, null);
         }
 
         var mailCopy = await GetSingleMailItemWithoutFolderAssignmentAsync(mailCopyId);
@@ -1049,8 +1154,11 @@ public class MailService : BaseDatabaseService, IMailService
         {
             _logger.Warning("Can't create assignment for mail {MailCopyId} because it does not exist.", mailCopyId);
 
-            return;
+            return (null, null);
         }
+
+        MailCopy removedMail = null;
+        var mailCopyToInsert = mailCopy;
 
         if (mailCopy.AssignedFolder.SpecialFolderType == SpecialFolderType.Sent &&
             localFolder.SpecialFolderType == SpecialFolderType.Deleted)
@@ -1062,21 +1170,52 @@ public class MailService : BaseDatabaseService, IMailService
             // This way item will only be visible in Trash folder as in Gmail Web UI.
             // Don't delete MIME file since if exists.
 
-            await DeleteMailInternalAsync(mailCopy, preserveMimeFile: true).ConfigureAwait(false);
+            mailCopyToInsert = CloneMailCopy(mailCopy);
+            removedMail = await DeleteMailInternalAsync(mailCopy, preserveMimeFile: true, reportUiChange: false).ConfigureAwait(false);
         }
 
         // Copy one of the mail copy and assign it to the new folder.
         // We don't need to create a new MIME pack.
         // Therefore FileId is not changed for the new MailCopy.
 
-        mailCopy.UniqueId = Guid.NewGuid();
-        mailCopy.FolderId = localFolder.Id;
-        mailCopy.AssignedFolder = localFolder;
+        mailCopyToInsert.UniqueId = Guid.NewGuid();
+        mailCopyToInsert.FolderId = localFolder.Id;
+        mailCopyToInsert.AssignedFolder = localFolder;
 
-        await InsertMailAsync(mailCopy).ConfigureAwait(false);
+        var addedMail = await InsertMailAsync(mailCopyToInsert, reportUiChange: false).ConfigureAwait(false);
+        return (addedMail, removedMail);
     }
 
     public async Task DeleteAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId)
+        => await DeleteAssignmentsAsync(accountId, [new MailFolderAssignmentUpdate(mailCopyId, remoteFolderId)]).ConfigureAwait(false);
+
+    public async Task DeleteAssignmentsAsync(Guid accountId, IEnumerable<MailFolderAssignmentUpdate> assignments)
+    {
+        var targetAssignments = assignments?
+            .Where(x => x != null &&
+                        !string.IsNullOrWhiteSpace(x.MailCopyId) &&
+                        !string.IsNullOrWhiteSpace(x.RemoteFolderId))
+            .GroupBy(x => $"{x.MailCopyId}\u001f{x.RemoteFolderId}", StringComparer.Ordinal)
+            .Select(group => group.First())
+            .ToList() ?? [];
+
+        if (targetAssignments.Count == 0)
+            return;
+
+        var removedMails = new List<MailCopy>(targetAssignments.Count);
+
+        foreach (var assignment in targetAssignments)
+        {
+            var removedMail = await DeleteAssignmentInternalAsync(accountId, assignment.MailCopyId, assignment.RemoteFolderId).ConfigureAwait(false);
+
+            if (removedMail != null)
+                removedMails.Add(removedMail);
+        }
+
+        ReportRemovedMails(removedMails);
+    }
+
+    private async Task<MailCopy> DeleteAssignmentInternalAsync(Guid accountId, string mailCopyId, string remoteFolderId)
     {
         var mailItem = await GetSingleMailItemAsync(mailCopyId, remoteFolderId).ConfigureAwait(false);
 
@@ -1084,7 +1223,7 @@ public class MailService : BaseDatabaseService, IMailService
         {
             _logger.Warning("Mail not found with id {MailCopyId} with remote folder {RemoteFolderId}", mailCopyId, remoteFolderId);
 
-            return;
+            return null;
         }
 
         var localFolder = await _folderService.GetFolderAsync(accountId, remoteFolderId);
@@ -1093,10 +1232,50 @@ public class MailService : BaseDatabaseService, IMailService
         {
             _logger.Warning("Local folder not found for remote folder {RemoteFolderId}", remoteFolderId);
 
-            return;
+            return null;
         }
 
-        await DeleteMailInternalAsync(mailItem, preserveMimeFile: false).ConfigureAwait(false);
+        return await DeleteMailInternalAsync(mailItem, preserveMimeFile: false, reportUiChange: false).ConfigureAwait(false);
+    }
+
+    private static MailCopy CloneMailCopy(MailCopy source)
+    {
+        if (source == null)
+            return null;
+
+        return new MailCopy
+        {
+            UniqueId = source.UniqueId,
+            Id = source.Id,
+            FolderId = source.FolderId,
+            ThreadId = source.ThreadId,
+            MessageId = source.MessageId,
+            References = source.References,
+            InReplyTo = source.InReplyTo,
+            FromName = source.FromName,
+            FromAddress = source.FromAddress,
+            Subject = source.Subject,
+            PreviewText = source.PreviewText,
+            CreationDate = source.CreationDate,
+            Importance = source.Importance,
+            IsRead = source.IsRead,
+            IsFlagged = source.IsFlagged,
+            IsPinned = source.IsPinned,
+            IsFocused = source.IsFocused,
+            HasAttachments = source.HasAttachments,
+            ItemType = source.ItemType,
+            DraftId = source.DraftId,
+            IsDraft = source.IsDraft,
+            FileId = source.FileId,
+            AssignedFolder = source.AssignedFolder,
+            AssignedAccount = source.AssignedAccount,
+            SenderContact = source.SenderContact,
+            IsReadReceiptRequested = source.IsReadReceiptRequested,
+            ReadReceiptStatus = source.ReadReceiptStatus,
+            ReadReceiptAcknowledgedAtUtc = source.ReadReceiptAcknowledgedAtUtc,
+            ReadReceiptMessageUniqueId = source.ReadReceiptMessageUniqueId,
+            Categories = source.Categories == null ? [] : [.. source.Categories]
+        };
     }
 
     public async Task CreateMailRawAsync(MailAccount account, MailItemFolder mailItemFolder, NewMailItemPackage package)
@@ -1113,7 +1292,7 @@ public class MailService : BaseDatabaseService, IMailService
         await SaveContactsForPackageAsync(package).ConfigureAwait(false);
 
         var mimeSaveTask = _mimeFileService.SaveMimeMessageAsync(mailCopy.FileId, mimeMessage, account.Id);
-        var insertMailTask = InsertMailAsync(mailCopy);
+        var insertMailTask = InsertMailAsync(mailCopy, reportUiChange: true);
 
         await Task.WhenAll(mimeSaveTask, insertMailTask).ConfigureAwait(false);
         await _sentMailReceiptService.TrackSentMailAsync(mailCopy, mimeMessage).ConfigureAwait(false);
@@ -1123,6 +1302,129 @@ public class MailService : BaseDatabaseService, IMailService
     public async Task CreateMailAsyncEx(Guid accountId, NewMailItemPackage package)
     {
 
+    }
+
+    public async Task CreateMailsAsync(Guid accountId, IReadOnlyList<NewMailItemPackage> packages)
+    {
+        var targetPackages = packages?
+            .Where(package => package != null)
+            .ToList() ?? [];
+
+        if (targetPackages.Count == 0)
+            return;
+
+        var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+
+        if (account == null)
+            return;
+
+        if (account.ProviderType != MailProviderType.Gmail)
+        {
+            foreach (var package in targetPackages)
+                await CreateMailAsync(accountId, package).ConfigureAwait(false);
+
+            return;
+        }
+
+        var pendingInserts = new List<(MailCopy MailCopy, NewMailItemPackage Package, MimeMessage MimeMessage)>();
+        var pendingUpdates = new List<(MailCopy MailCopy, MailCopy ExistingMailCopy, NewMailItemPackage Package, MimeMessage MimeMessage)>();
+
+        foreach (var package in targetPackages)
+        {
+            if (string.IsNullOrEmpty(package.AssignedRemoteFolderId))
+            {
+                _logger.Warning("Remote folder id is not set for {MailCopyId}.", package.Copy?.Id);
+                _logger.Warning("Ignoring creation of mail.");
+                continue;
+            }
+
+            var assignedFolder = await _folderService.GetFolderAsync(accountId, package.AssignedRemoteFolderId).ConfigureAwait(false);
+
+            if (assignedFolder == null)
+            {
+                _logger.Warning("Assigned folder not found for {MailCopyId}.", package.Copy?.Id);
+                _logger.Warning("Ignoring creation of mail.");
+                continue;
+            }
+
+            var mailCopy = package.Copy;
+            var mimeMessage = package.Mime;
+
+            mailCopy.UniqueId = Guid.NewGuid();
+            mailCopy.AssignedAccount = account;
+            mailCopy.AssignedFolder = assignedFolder;
+            mailCopy.SenderContact = await GetSenderContactForAccountAsync(account, mailCopy.FromAddress).ConfigureAwait(false);
+            mailCopy.FolderId = assignedFolder.Id;
+
+            if (mimeMessage != null)
+            {
+                var isMimeExists = await _mimeFileService.IsMimeExistAsync(accountId, mailCopy.FileId).ConfigureAwait(false);
+
+                if (!isMimeExists)
+                {
+                    bool isMimeSaved = await _mimeFileService.SaveMimeMessageAsync(mailCopy.FileId, mimeMessage, accountId).ConfigureAwait(false);
+
+                    if (!isMimeSaved)
+                    {
+                        _logger.Warning("Failed to save mime file for {MailCopyId}.", mailCopy.Id);
+                    }
+                }
+            }
+
+            await SaveContactsForPackageAsync(package).ConfigureAwait(false);
+
+            var existingCopyItem = await Connection.Table<MailCopy>()
+                                                   .FirstOrDefaultAsync(a => a.Id == mailCopy.Id && a.FolderId == assignedFolder.Id)
+                                                   .ConfigureAwait(false);
+
+            if (existingCopyItem != null)
+            {
+                mailCopy.UniqueId = existingCopyItem.UniqueId;
+                pendingUpdates.Add((mailCopy, existingCopyItem, package, mimeMessage));
+            }
+            else
+            {
+                pendingInserts.Add((mailCopy, package, mimeMessage));
+            }
+        }
+
+        var insertedMails = new List<MailCopy>(pendingInserts.Count);
+        foreach (var pendingInsert in pendingInserts)
+        {
+            var insertedMail = await InsertMailAsync(pendingInsert.MailCopy, reportUiChange: false).ConfigureAwait(false);
+
+            if (insertedMail != null)
+                insertedMails.Add(insertedMail);
+        }
+
+        var updatedMails = new List<MailCopy>(pendingUpdates.Count);
+        foreach (var pendingUpdate in pendingUpdates)
+        {
+            var updatedMail = await UpdateMailAsync(
+                pendingUpdate.MailCopy,
+                reportUiChange: false,
+                existingMailCopy: pendingUpdate.ExistingMailCopy).ConfigureAwait(false);
+
+            if (updatedMail != null)
+                updatedMails.Add(updatedMail);
+        }
+
+        ReportAddedMails(insertedMails);
+        ReportUpdatedMails(updatedMails);
+
+        foreach (var pendingInsert in pendingInserts)
+        {
+            await ReplaceMailCategoriesForPackageAsync(accountId, pendingInsert.MailCopy, pendingInsert.Package).ConfigureAwait(false);
+            await _sentMailReceiptService.TrackSentMailAsync(pendingInsert.MailCopy, pendingInsert.MimeMessage).ConfigureAwait(false);
+            await _sentMailReceiptService.ProcessIncomingReceiptAsync(pendingInsert.MailCopy, pendingInsert.MimeMessage).ConfigureAwait(false);
+        }
+
+        foreach (var pendingUpdate in pendingUpdates)
+        {
+            await ReplaceMailCategoriesForPackageAsync(accountId, pendingUpdate.MailCopy, pendingUpdate.Package).ConfigureAwait(false);
+            await _sentMailReceiptService.TrackSentMailAsync(pendingUpdate.MailCopy, pendingUpdate.MimeMessage).ConfigureAwait(false);
+            await _sentMailReceiptService.ProcessIncomingReceiptAsync(pendingUpdate.MailCopy, pendingUpdate.MimeMessage).ConfigureAwait(false);
+        }
     }
 
     public async Task<bool> CreateMailAsync(Guid accountId, NewMailItemPackage package)
@@ -1193,7 +1495,7 @@ public class MailService : BaseDatabaseService, IMailService
         {
             mailCopy.UniqueId = existingCopyItem.UniqueId;
 
-            await UpdateMailAsync(mailCopy).ConfigureAwait(false);
+            await UpdateMailAsync(mailCopy, reportUiChange: true, existingMailCopy: existingCopyItem).ConfigureAwait(false);
             await ReplaceMailCategoriesForPackageAsync(accountId, mailCopy, package).ConfigureAwait(false);
             await _sentMailReceiptService.TrackSentMailAsync(mailCopy, mimeMessage).ConfigureAwait(false);
             await _sentMailReceiptService.ProcessIncomingReceiptAsync(mailCopy, mimeMessage).ConfigureAwait(false);
@@ -1210,7 +1512,7 @@ public class MailService : BaseDatabaseService, IMailService
                 await DeleteMailAsync(accountId, mailCopy.Id).ConfigureAwait(false);
             }
 
-            await InsertMailAsync(mailCopy).ConfigureAwait(false);
+            await InsertMailAsync(mailCopy, reportUiChange: true).ConfigureAwait(false);
             await ReplaceMailCategoriesForPackageAsync(accountId, mailCopy, package).ConfigureAwait(false);
             await _sentMailReceiptService.TrackSentMailAsync(mailCopy, mimeMessage).ConfigureAwait(false);
             await _sentMailReceiptService.ProcessIncomingReceiptAsync(mailCopy, mimeMessage).ConfigureAwait(false);

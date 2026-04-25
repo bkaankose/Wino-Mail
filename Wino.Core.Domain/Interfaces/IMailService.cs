@@ -34,6 +34,7 @@ public interface IMailService
     /// <param name="accountId">Account to remove from</param>
     /// <param name="mailCopyId">Mail copy id to remove.</param>
     Task DeleteMailAsync(Guid accountId, string mailCopyId);
+    Task DeleteMailsAsync(Guid accountId, IEnumerable<string> mailCopyIds);
 
     Task ChangeReadStatusAsync(string mailCopyId, bool isRead);
     Task ChangeFlagStatusAsync(string mailCopyId, bool isFlagged);
@@ -42,8 +43,11 @@ public interface IMailService
 
     Task CreateAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId);
     Task DeleteAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId);
+    Task CreateAssignmentsAsync(Guid accountId, IEnumerable<MailFolderAssignmentUpdate> assignments);
+    Task DeleteAssignmentsAsync(Guid accountId, IEnumerable<MailFolderAssignmentUpdate> assignments);
 
     Task<bool> CreateMailAsync(Guid accountId, NewMailItemPackage package);
+    Task CreateMailsAsync(Guid accountId, IReadOnlyList<NewMailItemPackage> packages);
 
     /// <summary>
     /// Maps new mail item with the existing local draft copy.

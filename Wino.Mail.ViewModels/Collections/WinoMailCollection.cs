@@ -21,6 +21,8 @@ namespace Wino.Mail.ViewModels.Collections;
 
 public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsChangedMessage>
 {
+    private const int UiMutationBatchSize = 40;
+
     // We cache each mail copy id for faster access on updates.
     // If the item provider here for update or removal doesn't exist here
     // we can ignore the operation.
@@ -763,18 +765,21 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         // Execute all updates in a single UI thread call
         if (itemsToUpdate.Count > 0)
         {
-            await ExecuteUIThread(() =>
+            foreach (var updateBatch in itemsToUpdate.Chunk(UiMutationBatchSize))
             {
-                foreach (var (existing, updated) in itemsToUpdate)
+                await ExecuteUIThread(() =>
                 {
-                    UpdateUniqueIdHashes(existing, false);
-                    existing.UpdateFrom(updated);
-                    UpdateUniqueIdHashes(existing, true);
-                }
-            });
+                    foreach (var (existing, updated) in updateBatch)
+                    {
+                        UpdateUniqueIdHashes(existing, false);
+                        existing.UpdateFrom(updated);
+                        UpdateUniqueIdHashes(existing, true);
+                    }
+                });
+            }
         }
 
-        // Group items by their grouping key and add them in a single UI thread call
+        // Group items by their grouping key and add them in bounded UI thread calls.
         if (itemsToAdd.Count > 0)
         {
             var groupedItems = await Task.Run(() => itemsToAdd
@@ -787,32 +792,35 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
                 })
                 .ToList()).ConfigureAwait(false);
 
-            await ExecuteUIThread(() =>
+            foreach (var groupedItem in groupedItems)
             {
-                foreach (var groupedItem in groupedItems)
+                var groupKey = groupedItem.Key;
+                var groupItems = groupedItem.Items;
+
+                foreach (var groupBatch in groupItems.Chunk(UiMutationBatchSize))
                 {
-                    var groupKey = groupedItem.Key;
-                    var groupItems = groupedItem.Items;
-
-                    // Update caches first
-                    foreach (var item in groupItems)
+                    await ExecuteUIThread(() =>
                     {
-                        UpdateUniqueIdHashes(item, true);
-                        UpdateThreadIdCache(item, true);
-                    }
-
-                    foreach (var item in groupItems)
-                    {
-                        _mailItemSource.InsertItem(groupKey, listComparer, item, listComparer);
-
-                        var targetGroup = _mailItemSource.FirstGroupByKeyOrDefault(groupKey);
-                        if (targetGroup != null)
+                        // Update caches first so lookup helpers remain consistent during inserts.
+                        foreach (var item in groupBatch)
                         {
-                            _itemToGroupMap[item] = targetGroup;
+                            UpdateUniqueIdHashes(item, true);
+                            UpdateThreadIdCache(item, true);
                         }
-                    }
+
+                        foreach (var item in groupBatch)
+                        {
+                            _mailItemSource.InsertItem(groupKey, listComparer, item, listComparer);
+
+                            var targetGroup = _mailItemSource.FirstGroupByKeyOrDefault(groupKey);
+                            if (targetGroup != null)
+                            {
+                                _itemToGroupMap[item] = targetGroup;
+                            }
+                        }
+                    });
                 }
-            });
+            }
         }
     }
 
@@ -972,20 +980,23 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         if (updates.Count == 0)
             return;
 
-        await ExecuteUIThread(() =>
+        foreach (var updateBatch in updates.Chunk(UiMutationBatchSize))
         {
-            foreach (var update in updates)
+            await ExecuteUIThread(() =>
             {
-                var existingItem = update.ItemContainer.ItemViewModel;
-                var appliedChanges = existingItem.ApplyStateChanges(update.UpdatedState.IsRead, update.UpdatedState.IsFlagged);
-                existingItem.IsBusy = mailUpdateSource == EntityUpdateSource.ClientUpdated;
-
-                if (update.ItemContainer.ThreadViewModel != null && appliedChanges != MailCopyChangeFlags.None)
+                foreach (var update in updateBatch)
                 {
-                    update.ItemContainer.ThreadViewModel.NotifyMailItemUpdated(existingItem, appliedChanges);
+                    var existingItem = update.ItemContainer.ItemViewModel;
+                    var appliedChanges = existingItem.ApplyStateChanges(update.UpdatedState.IsRead, update.UpdatedState.IsFlagged);
+                    existingItem.IsBusy = mailUpdateSource == EntityUpdateSource.ClientUpdated;
+
+                    if (update.ItemContainer.ThreadViewModel != null && appliedChanges != MailCopyChangeFlags.None)
+                    {
+                        update.ItemContainer.ThreadViewModel.NotifyMailItemUpdated(existingItem, appliedChanges);
+                    }
                 }
-            }
-        });
+            });
+        }
     }
 
     private async Task UpdateMailCopiesInternalAsync(IEnumerable<MailCopy> updatedMailCopies, EntityUpdateSource mailUpdateSource, MailCopyChangeFlags changedProperties)
@@ -1018,22 +1029,25 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
             return;
         }
 
-        await ExecuteUIThread(() =>
+        foreach (var updateBatch in updates.Chunk(UiMutationBatchSize))
         {
-            foreach (var update in updates)
+            await ExecuteUIThread(() =>
             {
-                var updatedMail = update.UpdatedMail;
-                var itemContainer = update.ItemContainer;
-                var existingItem = itemContainer.ItemViewModel;
-                var appliedChanges = existingItem.UpdateFrom(updatedMail, changedProperties);
-                existingItem.IsBusy = mailUpdateSource == EntityUpdateSource.ClientUpdated;
-
-                if (itemContainer.ThreadViewModel != null && appliedChanges != MailCopyChangeFlags.None)
+                foreach (var update in updateBatch)
                 {
-                    itemContainer.ThreadViewModel.NotifyMailItemUpdated(existingItem, appliedChanges);
+                    var updatedMail = update.UpdatedMail;
+                    var itemContainer = update.ItemContainer;
+                    var existingItem = itemContainer.ItemViewModel;
+                    var appliedChanges = existingItem.UpdateFrom(updatedMail, changedProperties);
+                    existingItem.IsBusy = mailUpdateSource == EntityUpdateSource.ClientUpdated;
+
+                    if (itemContainer.ThreadViewModel != null && appliedChanges != MailCopyChangeFlags.None)
+                    {
+                        itemContainer.ThreadViewModel.NotifyMailItemUpdated(existingItem, appliedChanges);
+                    }
                 }
-            }
-        });
+            });
+        }
     }
 
     public MailItemViewModel GetFirst() => AllItems.ElementAtOrDefault(0);
