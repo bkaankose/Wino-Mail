@@ -704,6 +704,8 @@
     "Notifications_WinoUpdatedTitle": "Wino Mail has been updated.",
     "Notifications_StoreUpdateAvailableTitle": "Update available",
     "Notifications_StoreUpdateAvailableMessage": "A newer version of Wino Mail is ready to install from Microsoft Store.",
+    "Notifications_ReleaseMigrationTitle": "New Wino Mail & Calendar",
+    "Notifications_ReleaseMigrationMessage": "Wino Mail got updated to the next version. Please re-create your accounts and start using the next version including calendar, mail templates, shortcuts, and a bunch of other improvements.",
     "OnlineSearchFailed_Message": "Failed to perform search\n{0}\n\nListing offline mails.",
     "OnlineSearchTry_Line1": "Can't find what you are looking for?",
     "OnlineSearchTry_Line2": "Try online search.",

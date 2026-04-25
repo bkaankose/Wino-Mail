@@ -233,6 +233,17 @@ public class NotificationBuilder : INotificationBuilder
         ShowNotification(builder, "store-update-available");
     }
 
+    public void CreateReleaseMigrationNotification()
+    {
+        var builder = CreateBuilder();
+        builder.AddText(Translator.Notifications_ReleaseMigrationTitle);
+        builder.AddText(Translator.Notifications_ReleaseMigrationMessage);
+        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
+        builder.AddButton(CreateDismissButton());
+
+        ShowNotification(builder, "release-migration-v2");
+    }
+
     public Task CreateCalendarReminderNotificationAsync(CalendarItem calendarItem, long reminderDurationInSeconds)
     {
         if (calendarItem == null)

@@ -52,6 +52,11 @@ public interface INotificationBuilder
     void CreateStoreUpdateNotification();
 
     /// <summary>
+    /// Shows the one-time release migration notification.
+    /// </summary>
+    void CreateReleaseMigrationNotification();
+
+    /// <summary>
     /// Creates a calendar reminder toast for the specified calendar item.
     /// </summary>
     Task CreateCalendarReminderNotificationAsync(CalendarItem calendarItem, long reminderDurationInSeconds);
