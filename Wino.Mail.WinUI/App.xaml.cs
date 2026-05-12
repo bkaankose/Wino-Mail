@@ -82,6 +82,16 @@ public partial class App : WinoApplication,
 
     internal bool IsExiting => _isExiting;
 
+    internal bool ShouldKeepShellWindowAliveOnClose()
+    {
+        if (_isExiting)
+            return false;
+
+        var preferencesService = _preferencesService ?? Services.GetService<IPreferencesService>();
+
+        return preferencesService?.IsSystemTrayIconEnabled ?? true;
+    }
+
     public App()
     {
         InitializeComponent();
