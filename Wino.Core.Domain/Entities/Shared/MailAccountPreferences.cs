@@ -42,6 +42,11 @@ public class MailAccountPreferences
     public bool IsTaskbarBadgeEnabled { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets whether this account's enabled folders should be included in the taskbar jump list.
+    /// </summary>
+    public bool IsJumpListEnabled { get; set; } = true;
+
+    /// <summary>
     /// Gets or sets signature for new messages. Null if signature is not needed.
     /// </summary>
     public Guid? SignatureIdForNewMessages { get; set; }

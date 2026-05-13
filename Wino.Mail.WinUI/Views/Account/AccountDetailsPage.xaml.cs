@@ -39,6 +39,14 @@ public sealed partial class AccountDetailsPage : AccountDetailsPageAbstract
         }
     }
 
+    private async void JumpListCheckboxToggled(object sender, RoutedEventArgs e)
+    {
+        if (sender is CheckBox checkBox && checkBox.Tag is IMailItemFolder folder)
+        {
+            await ViewModel.FolderJumpListToggledAsync(folder, checkBox.IsChecked.GetValueOrDefault());
+        }
+    }
+
     private async void CalendarSynchronizationToggled(object sender, RoutedEventArgs e)
     {
         if (sender is ToggleSwitch { Tag: AccountCalendarSettingsItemViewModel calendarItem } toggleSwitch)

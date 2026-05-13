@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -10,6 +11,7 @@ using Microsoft.Windows.AppNotifications.Builder;
 using Serilog;
 using Windows.Data.Xml.Dom;
 using Windows.UI.Notifications;
+using Windows.UI.StartScreen;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
@@ -26,6 +28,8 @@ namespace Wino.Mail.WinUI.Services;
 public class NotificationBuilder : INotificationBuilder
 {
     private const string NotificationIconRootUri = "ms-appx:///Assets/NotificationIcons/";
+    private const string ProviderIconRootUri = "ms-appx:///Assets/Providers/";
+    private static readonly Uri DefaultJumpListIconUri = new("ms-appx:///Assets/AppEntries/MailAssets/Square44x44Logo.scale-200.png");
     private static int _calendarTaskbarBadgeCount;
     private static readonly MailOperation[] SupportedMailNotificationActions =
     [
@@ -139,6 +143,38 @@ public class NotificationBuilder : INotificationBuilder
         catch (Exception ex)
         {
             Log.Error(ex, "Error while updating taskbar badge.");
+        }
+    }
+
+    public async Task UpdateJumpListOptionsAsync()
+    {
+        try
+        {
+            if (!JumpList.IsSupported())
+                return;
+
+            var jumpList = await JumpList.LoadCurrentAsync();
+
+            await ApplyRemovedJumpListItemsAsync(jumpList.Items.Where(item => item.RemovedByUser));
+
+            jumpList.SystemGroupKind = JumpListSystemGroupKind.None;
+            jumpList.Items.Clear();
+
+            var accounts = await _accountService.GetAccountsAsync();
+            foreach (var account in accounts.Where(account => account.IsMailAccessGranted && account.Preferences.IsJumpListEnabled))
+            {
+                var folders = await _folderService.GetFoldersAsync(account.Id);
+                foreach (var folder in folders.Where(folder => folder.IsMoveTarget && folder.IsJumpListEnabled))
+                {
+                    jumpList.Items.Add(CreateMailFolderJumpListItem(account, folder));
+                }
+            }
+
+            await jumpList.SaveAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error while updating taskbar jump list.");
         }
     }
 
@@ -470,4 +506,94 @@ public class NotificationBuilder : INotificationBuilder
 
     private static Uri GetNotificationIconUri(string iconName)
         => new($"{NotificationIconRootUri}{iconName}.png");
+
+    private async Task ApplyRemovedJumpListItemsAsync(IEnumerable<JumpListItem> removedItems)
+    {
+        foreach (var removedItem in removedItems)
+        {
+            try
+            {
+                if (TryGetJumpListFolderId(removedItem.Arguments, out var folderId))
+                {
+                    await _folderService.ChangeFolderJumpListStateAsync(folderId, false);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to sync removed jump list item {Arguments}.", removedItem.Arguments);
+            }
+        }
+    }
+
+    private static JumpListItem CreateMailFolderJumpListItem(MailAccount account, MailItemFolder folder)
+    {
+        var accountDisplayName = GetJumpListAccountDisplayName(account);
+        var item = JumpListItem.CreateWithArguments(
+            CreateMailFolderJumpListArguments(account.Id, folder.Id),
+            $"{folder.FolderName} - {accountDisplayName}");
+
+        TrySetJumpListItemLogo(item, GetProviderIconUri(account));
+
+        return item;
+    }
+
+    private static string GetJumpListAccountDisplayName(MailAccount account)
+        => string.IsNullOrWhiteSpace(account.Name)
+            ? account.Address
+            : account.Name;
+
+    private static string CreateMailFolderJumpListArguments(Guid accountId, Guid folderId)
+    {
+        var arguments = new Dictionary<string, string>
+        {
+            [Constants.JumpListActionKey] = Constants.JumpListOpenMailFolderAction,
+            [Constants.JumpListAccountIdKey] = accountId.ToString(),
+            [Constants.JumpListFolderIdKey] = folderId.ToString()
+        };
+
+        return $"{AppEntryConstants.MailLaunchArgument};{string.Join(';', arguments.Select(pair => $"{WebUtility.UrlEncode(pair.Key)}={WebUtility.UrlEncode(pair.Value)}"))}";
+    }
+
+    private static bool TryGetJumpListFolderId(string arguments, out Guid folderId)
+    {
+        folderId = Guid.Empty;
+
+        var parsedArguments = NotificationArguments.Parse(arguments);
+
+        return parsedArguments.TryGetValue(Constants.JumpListActionKey, out var action) &&
+               string.Equals(action, Constants.JumpListOpenMailFolderAction, StringComparison.Ordinal) &&
+               parsedArguments.TryGetValue(Constants.JumpListFolderIdKey, out var folderIdString) &&
+               Guid.TryParse(folderIdString, out folderId);
+    }
+
+    private static void TrySetJumpListItemLogo(JumpListItem item, Uri providerIconUri)
+    {
+        if (TrySetJumpListItemLogo(item, providerIconUri, "provider"))
+            return;
+
+        TrySetJumpListItemLogo(item, DefaultJumpListIconUri, "default");
+    }
+
+    private static bool TrySetJumpListItemLogo(JumpListItem item, Uri iconUri, string iconKind)
+    {
+        try
+        {
+            item.Logo = iconUri;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to set {IconKind} jump list icon {IconUri}.", iconKind, iconUri);
+            return false;
+        }
+    }
+
+    private static Uri GetProviderIconUri(MailAccount account)
+    {
+        var iconName = account.SpecialImapProvider != SpecialImapProvider.None
+            ? account.SpecialImapProvider.ToString()
+            : account.ProviderType.ToString();
+
+        return new Uri($"{ProviderIconRootUri}{iconName}.png");
+    }
 }

@@ -44,6 +44,7 @@ public interface IFolderService
     Task<MailAccount> UpdateSystemFolderConfigurationAsync(Guid accountId, SystemFolderConfiguration configuration);
     Task ChangeFolderSynchronizationStateAsync(Guid folderId, bool isSynchronizationEnabled);
     Task ChangeFolderShowUnreadCountStateAsync(Guid folderId, bool showUnreadCount);
+    Task ChangeFolderJumpListStateAsync(Guid folderId, bool isEnabled);
 
     Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(MailSynchronizationOptions options);
 

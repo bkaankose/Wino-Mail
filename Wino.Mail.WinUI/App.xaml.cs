@@ -54,6 +54,7 @@ public partial class App : WinoApplication,
     IRecipient<NewCalendarSynchronizationRequested>,
     IRecipient<AccountCreatedMessage>,
     IRecipient<AccountRemovedMessage>,
+    IRecipient<AccountUpdatedMessage>,
     IRecipient<GetStartedFromWelcomeRequested>,
     IRecipient<WelcomeImportCompletedMessage>
 {
@@ -81,6 +82,16 @@ public partial class App : WinoApplication,
     private readonly record struct ShellWindowActivationResult(IWinoShellWindow? ShellWindow, bool WasCreated);
 
     internal bool IsExiting => _isExiting;
+
+    internal bool ShouldKeepShellWindowAliveOnClose()
+    {
+        if (_isExiting)
+            return false;
+
+        var preferencesService = _preferencesService ?? Services.GetService<IPreferencesService>();
+
+        return preferencesService?.IsSystemTrayIconEnabled ?? true;
+    }
 
     public App()
     {
@@ -132,7 +143,11 @@ public partial class App : WinoApplication,
     private void OnManagedWindowRemoved(object? sender, WindowEx window)
     {
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
-        MainWindow = windowManager.ActiveWindow
+        var activeWindow = windowManager.ActiveWindow;
+
+        MainWindow = ReferenceEquals(activeWindow, window)
+                     ? null
+                     : activeWindow
                      ?? windowManager.GetWindow(WinoWindowKind.Shell)
                      ?? windowManager.GetWindow(WinoWindowKind.Welcome);
 
@@ -1378,6 +1393,7 @@ public partial class App : WinoApplication,
         WeakReferenceMessenger.Default.Register<NewCalendarSynchronizationRequested>(this);
         WeakReferenceMessenger.Default.Register<AccountCreatedMessage>(this);
         WeakReferenceMessenger.Default.Register<AccountRemovedMessage>(this);
+        WeakReferenceMessenger.Default.Register<AccountUpdatedMessage>(this);
         WeakReferenceMessenger.Default.Register<GetStartedFromWelcomeRequested>(this);
         WeakReferenceMessenger.Default.Register<WelcomeImportCompletedMessage>(this);
     }
@@ -1407,6 +1423,11 @@ public partial class App : WinoApplication,
         if (syncResult.CompletedState is SynchronizationCompletedState.Success or SynchronizationCompletedState.PartiallyCompleted)
         {
             await ClearInvalidCredentialAttentionIfNeededAsync(message.Options.AccountId);
+
+            if (message.Options.Type is MailSynchronizationType.FullFolders or MailSynchronizationType.FoldersOnly)
+            {
+                QueueJumpListOptionsUpdateOnUiThread();
+            }
         }
 
         if (syncResult.CompletedState == SynchronizationCompletedState.Failed ||
@@ -1444,6 +1465,7 @@ public partial class App : WinoApplication,
     {
         _hasConfiguredAccounts = true;
         EnsurePreferenceChangedSubscription();
+        QueueJumpListOptionsUpdateOnUiThread();
 
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
 
@@ -1501,6 +1523,7 @@ public partial class App : WinoApplication,
             }
 
             RestartAutoSynchronizationLoop();
+            await UpdateJumpListOptionsSafeAsync();
 
             Services.GetRequiredService<IMailDialogService>().InfoBarMessage(
                 Translator.GeneralTitle_Info,
@@ -1511,6 +1534,8 @@ public partial class App : WinoApplication,
 
     public void Receive(AccountRemovedMessage message)
     {
+        QueueJumpListOptionsUpdateOnUiThread();
+
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
 
         // Only handle when ShellWindow is active (not during wizard rollback)
@@ -1532,6 +1557,23 @@ public partial class App : WinoApplication,
             if (MainWindow != null)
                 await ActivateWindowAsync(MainWindow);
         });
+    }
+
+    public void Receive(AccountUpdatedMessage message)
+        => QueueJumpListOptionsUpdateOnUiThread();
+
+    private void QueueJumpListOptionsUpdateOnUiThread()
+        => TryEnqueueActivationOnUiThread(() => _ = UpdateJumpListOptionsSafeAsync());
+
+    private async Task UpdateJumpListOptionsSafeAsync()
+    {
+        try
+        {
+            await Services.GetRequiredService<INotificationBuilder>().UpdateJumpListOptionsAsync();
+        }
+        catch
+        {
+        }
     }
 
     public void Receive(GetStartedFromWelcomeRequested message)
@@ -1813,8 +1855,11 @@ public partial class App : WinoApplication,
             else
             {
                 var shouldActivateWindow = true;
+                var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+                var shellWindow = MainWindow as IWinoShellWindow
+                                  ?? windowManager.GetWindow(WinoWindowKind.Shell) as IWinoShellWindow;
 
-                if (MainWindow is IWinoShellWindow shellWindow)
+                if (shellWindow != null)
                 {
                     if (args.Kind == ExtendedActivationKind.Launch &&
                         args.Data is ILaunchActivatedEventArgs launchArgs)
@@ -1845,9 +1890,14 @@ public partial class App : WinoApplication,
 
                 // Redirected launches can target a shell window that is currently hidden in the tray.
                 // Restore it through the window manager so Show/BringToFront/Activate happen together.
-                if (shouldActivateWindow && MainWindow is WindowEx mainWindow)
+                var activationWindow = shellWindow as WindowEx
+                                       ?? windowManager.GetWindow(WinoWindowKind.Welcome)
+                                       ?? MainWindow;
+
+                if (shouldActivateWindow && activationWindow != null)
                 {
-                    Services.GetRequiredService<IWinoWindowManager>().ActivateWindow(mainWindow);
+                    MainWindow = activationWindow;
+                    windowManager.ActivateWindow(activationWindow);
                 }
             }
         }
@@ -2018,17 +2068,11 @@ public partial class App : WinoApplication,
 
     private bool TryEnqueueActivationOnUiThread(Action action)
     {
-        var dispatcherQueue = MainWindow?.DispatcherQueue;
-
-        if (dispatcherQueue == null)
-        {
-            var windowManager = Services.GetService<IWinoWindowManager>();
-            var currentWindow = windowManager?.ActiveWindow
-                               ?? windowManager?.GetWindow(WinoWindowKind.Shell)
-                               ?? windowManager?.GetWindow(WinoWindowKind.Welcome);
-
-            dispatcherQueue = currentWindow?.DispatcherQueue;
-        }
+        var windowManager = Services.GetService<IWinoWindowManager>();
+        var currentWindow = windowManager?.ActiveWindow
+                           ?? windowManager?.GetWindow(WinoWindowKind.Shell)
+                           ?? windowManager?.GetWindow(WinoWindowKind.Welcome);
+        var dispatcherQueue = currentWindow?.DispatcherQueue ?? MainWindow?.DispatcherQueue;
 
         if (dispatcherQueue == null)
             return false;

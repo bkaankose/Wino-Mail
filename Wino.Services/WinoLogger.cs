@@ -1,7 +1,9 @@
 ﻿using System.Collections.Generic;
+using System.ComponentModel;
 using Sentry;
 using Serilog;
 using Serilog.Core;
+using Serilog.Events;
 using Serilog.Exceptions;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
@@ -10,6 +12,9 @@ namespace Wino.Services;
 
 public class WinoLogger : IWinoLogger
 {
+    private const string SentryDiagnosticIdTag = "diagnostic_id";
+    private const string DiagnosticIdLogProperty = "DiagnosticId";
+
     private readonly LoggingLevelSwitch _levelSwitch = new LoggingLevelSwitch();
     private readonly IPreferencesService _preferencesService;
     private readonly IApplicationConfiguration _applicationConfiguration;
@@ -33,14 +38,13 @@ public class WinoLogger : IWinoLogger
 
     public void SetupLogger(string fullLogFilePath)
     {
-        // Make sure to set the diagnostic id for the telemetry converter.
-        // This call seems weird, but it is necessary to make sure the diagnostic id is set.
-        _preferencesService.DiagnosticId = _preferencesService.DiagnosticId;
+        var diagnosticId = _preferencesService.DiagnosticId;
 
         // Initialize Sentry
         SentrySdk.Init(options =>
         {
             options.Dsn = _applicationConfiguration.SentryDNS;
+            options.DefaultTags[SentryDiagnosticIdTag] = diagnosticId;
 #if DEBUG
             options.Debug = false;
 #else
@@ -55,13 +59,13 @@ public class WinoLogger : IWinoLogger
                 if (sentryEvent.Exception is SynchronizerException)
                     return null;
 
-                sentryEvent.User = new SentryUser
-                {
-                    Id = _preferencesService.DiagnosticId
-                };
+                ApplyDiagnosticId(sentryEvent, _preferencesService.DiagnosticId);
                 return sentryEvent;
             });
         });
+
+        ApplyDiagnosticIdToScope(diagnosticId);
+        RegisterPreferenceChangedHandler();
 
         Log.Logger = new LoggerConfiguration()
                     .MinimumLevel.ControlledBy(_levelSwitch)
@@ -70,6 +74,7 @@ public class WinoLogger : IWinoLogger
                                    minimumEventLevel: Serilog.Events.LogEventLevel.Error)
                     .WriteTo.Debug()
                     .Enrich.FromLogContext()
+                    .Enrich.With(new DiagnosticIdEnricher(_preferencesService))
                     .Enrich.WithExceptionDetails()
                     .CreateLogger();
     }
@@ -80,6 +85,8 @@ public class WinoLogger : IWinoLogger
 
         SentrySdk.ConfigureScope(scope =>
         {
+            ApplyDiagnosticId(scope, _preferencesService.DiagnosticId);
+
             if (properties != null)
             {
                 foreach (var prop in properties)
@@ -88,5 +95,50 @@ public class WinoLogger : IWinoLogger
                 }
             }
         });
+    }
+
+    private void RegisterPreferenceChangedHandler()
+    {
+        _preferencesService.PropertyChanged -= PreferencesServicePropertyChanged;
+        _preferencesService.PropertyChanged += PreferencesServicePropertyChanged;
+    }
+
+    private void PreferencesServicePropertyChanged(object sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(IPreferencesService.DiagnosticId))
+        {
+            ApplyDiagnosticIdToScope(_preferencesService.DiagnosticId);
+        }
+    }
+
+    private static void ApplyDiagnosticIdToScope(string diagnosticId)
+        => SentrySdk.ConfigureScope(scope => ApplyDiagnosticId(scope, diagnosticId));
+
+    private static void ApplyDiagnosticId(Scope scope, string diagnosticId)
+    {
+        scope.User = new SentryUser
+        {
+            Id = diagnosticId
+        };
+        scope.SetTag(SentryDiagnosticIdTag, diagnosticId);
+        scope.SetExtra(DiagnosticIdLogProperty, diagnosticId);
+    }
+
+    private static void ApplyDiagnosticId(SentryEvent sentryEvent, string diagnosticId)
+    {
+        sentryEvent.User ??= new SentryUser();
+        sentryEvent.User.Id = diagnosticId;
+        sentryEvent.SetTag(SentryDiagnosticIdTag, diagnosticId);
+        sentryEvent.SetExtra(DiagnosticIdLogProperty, diagnosticId);
+    }
+
+    private sealed class DiagnosticIdEnricher(IPreferencesService preferencesService) : ILogEventEnricher
+    {
+        public void Enrich(LogEvent logEvent, ILogEventPropertyFactory propertyFactory)
+        {
+            var diagnosticId = preferencesService.DiagnosticId;
+
+            logEvent.AddPropertyIfAbsent(propertyFactory.CreateProperty(DiagnosticIdLogProperty, diagnosticId));
+        }
     }
 }

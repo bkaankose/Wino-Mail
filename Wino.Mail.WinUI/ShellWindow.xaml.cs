@@ -13,6 +13,8 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Launch;
+using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Extensions;
 using Wino.Mail.WinUI.Activation;
@@ -64,7 +66,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         ConfigureTitleBar();
         ApplyTitleBarSearchHost();
 
-        // Handle window closing event to minimize to tray instead of closing
+        // Handle window closing event to minimize to tray when the preference is enabled.
         Closed += OnWindowClosed;
 
         // Use the AppWindow.Closing event to handle the close request
@@ -121,7 +123,38 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     {
         var targetMode = AppModeActivationResolver.Resolve(launchArguments, tileId, appId, PreferencesService.DefaultApplicationMode);
         WindowAppUserModelIdHelper.TrySet(this, AppEntryConstants.GetAppUserModelId(targetMode));
+
+        if (TryCreateMailFolderLaunchRequest(launchArguments, out var folderLaunchRequest))
+        {
+            NavigationService.ChangeApplicationMode(targetMode, new ShellModeActivationContext
+            {
+                Parameter = folderLaunchRequest
+            });
+
+            return;
+        }
+
         NavigationService.ChangeApplicationMode(targetMode);
+    }
+
+    private static bool TryCreateMailFolderLaunchRequest(string? launchArguments, out MailFolderLaunchRequest? request)
+    {
+        request = null;
+
+        var arguments = NotificationArguments.Parse(launchArguments);
+
+        if (!arguments.TryGetValue(Constants.JumpListActionKey, out var action) ||
+            !string.Equals(action, Constants.JumpListOpenMailFolderAction, StringComparison.Ordinal) ||
+            !arguments.TryGetValue(Constants.JumpListAccountIdKey, out var accountIdString) ||
+            !arguments.TryGetValue(Constants.JumpListFolderIdKey, out var folderIdString) ||
+            !Guid.TryParse(accountIdString, out var accountId) ||
+            !Guid.TryParse(folderIdString, out var folderId))
+        {
+            return false;
+        }
+
+        request = new MailFolderLaunchRequest(accountId, folderId);
+        return true;
     }
 
     public Microsoft.UI.Xaml.Controls.TitleBar GetTitleBar() => ShellTitleBar;
@@ -361,7 +394,9 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     private async void OnAppWindowClosing(object sender, AppWindowClosingEventArgs e)
     {
-        if (_allowClose || (Application.Current as App)?.IsExiting == true)
+        var app = Application.Current as App;
+
+        if (_allowClose || app?.IsExiting == true || app?.ShouldKeepShellWindowAliveOnClose() != true)
             return;
 
         e.Cancel = true;

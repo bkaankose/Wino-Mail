@@ -13,6 +13,7 @@ public interface IMailItemFolder
     uint HighestKnownUid { get; set; }
     Guid Id { get; set; }
     bool IsHidden { get; set; }
+    bool IsJumpListEnabled { get; set; }
     bool IsSticky { get; set; }
     bool IsSynchronizationEnabled { get; set; }
     bool IsSystemFolder { get; set; }

@@ -136,6 +136,26 @@ public class DatabaseService : IDatabaseService
                 .ConfigureAwait(false);
         }
 
+        if (!folderColumns.Any(c => c.Name == nameof(MailItemFolder.IsJumpListEnabled)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailItemFolder)} ADD COLUMN {nameof(MailItemFolder.IsJumpListEnabled)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+
+            await Connection
+                .ExecuteAsync($"UPDATE {nameof(MailItemFolder)} SET {nameof(MailItemFolder.IsJumpListEnabled)} = 1 WHERE {nameof(MailItemFolder.SpecialFolderType)} = {(int)SpecialFolderType.Inbox}")
+                .ConfigureAwait(false);
+        }
+
+        var accountPreferencesColumns = await Connection.GetTableInfoAsync(nameof(MailAccountPreferences)).ConfigureAwait(false);
+
+        if (!accountPreferencesColumns.Any(c => c.Name == nameof(MailAccountPreferences.IsJumpListEnabled)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailAccountPreferences)} ADD COLUMN {nameof(MailAccountPreferences.IsJumpListEnabled)} INTEGER NOT NULL DEFAULT 1")
+                .ConfigureAwait(false);
+        }
+
         var customServerColumns = await Connection.GetTableInfoAsync(nameof(CustomServerInformation)).ConfigureAwait(false);
 
         if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.CalDavServiceUrl)))
