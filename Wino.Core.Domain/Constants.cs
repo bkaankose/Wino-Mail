@@ -27,6 +27,10 @@ public static class Constants
     public const string ToastDismissActionKey = nameof(ToastDismissActionKey);
     public const string ToastStoreUpdateActionKey = nameof(ToastStoreUpdateActionKey);
     public const string ToastStoreUpdateActionInstall = nameof(ToastStoreUpdateActionInstall);
+    public const string JumpListActionKey = "JumpListAction";
+    public const string JumpListOpenMailFolderAction = "OpenMailFolder";
+    public const string JumpListAccountIdKey = "JumpListAccountId";
+    public const string JumpListFolderIdKey = "JumpListFolderId";
     public const string ClientLogFile = "Client_.log";
     public const string ServerLogFile = "Server_.log";
     public const string LogArchiveFileName = "WinoLogs.zip";

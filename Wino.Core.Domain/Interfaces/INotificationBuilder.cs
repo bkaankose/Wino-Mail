@@ -21,6 +21,11 @@ public interface INotificationBuilder
     Task UpdateTaskbarIconBadgeAsync();
 
     /// <summary>
+    /// Rebuilds the taskbar jump list entries for accounts and folders that opt in.
+    /// </summary>
+    Task UpdateJumpListOptionsAsync();
+
+    /// <summary>
     /// Adds to the calendar app-entry badge count for newly downloaded events.
     /// </summary>
     Task AddCalendarTaskbarBadgeCountAsync(int newlyDownloadedCount);

@@ -98,6 +98,7 @@ private string searchQuery = string.Empty;
 - ViewModels inherit from CoreBaseViewModel or MailBaseViewModel
 - Register handlers in `RegisterRecipients()`, unregister in `UnregisterRecipients()`
 - Send via `WeakReferenceMessenger.Default.Send(new MessageType(...))`
+- Messenger recipients are raised from a background thread by default. In any `Receive(...)` handler, marshal UI-bound work and UI-affine WinRT APIs through `ExecuteUIThread(...)`, `DispatcherQueue.TryEnqueue(...)`, or an existing dispatcher helper before touching XAML state, navigation, windows, AppWindow/taskbar APIs, JumpList, or observable collections.
 
 ### Data Binding - No Converters
 - **NEVER** create IValueConverter classes
@@ -151,7 +152,7 @@ private string searchQuery = string.Empty;
 - When a `[RelayCommand]` needs enable/disable logic, prefer the command's `CanExecute` over binding `Button.IsEnabled` in XAML; use `[NotifyCanExecuteChangedFor]` on dependent properties and call `NotifyCanExecuteChanged()` explicitly when non-generated state affects the command.
 - In ViewModels, update all UI-bound properties/collections via `ExecuteUIThread(...)` (especially after awaited calls and any use of `ConfigureAwait(false)`).
 - `ConfigureAwait(false)` continues execution on a background thread. Any UI-bound property change, `INotifyPropertyChanged` notification, collection mutation, or similar UI-facing state update after that point must be marshaled back with `ExecuteUIThread(...)` or the appropriate dispatcher call, otherwise the app can crash.
-- Messenger messages are raised from a background thread by default, while UI control event handlers such as `Button.Click` start on the UI thread. Be deliberate when combining dispatcher usage with `ConfigureAwait(false)` so post-await UI updates always return to the UI thread.
+- Messenger messages are raised from a background thread by default, while UI control event handlers such as `Button.Click` start on the UI thread. Never assume a `Receive(...)` handler is on the UI thread; dispatch before calling UI-affine WinRT APIs such as `JumpList.LoadCurrentAsync()`, taskbar/window APIs, navigation, or before updating UI-bound state.
 - ViewModels should only handle UI interaction/state and delegate business logic to services; account-management work belongs in `WinoAccountProfileService`, and preferences import/export/apply logic belongs in `PreferencesService`.
 - In `EventDetailsPageViewModel.LoadAttendeesAsync`, never mutate `CurrentEvent.Attendees` outside `ExecuteUIThread(...)`.
 - Never create pure C# controls or controls that heavily manipulate UI structure from `.cs` files. Define controls in XAML and keep UI composition in XAML.

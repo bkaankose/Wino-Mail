@@ -305,8 +305,8 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
 
     public string DiagnosticId
     {
-        get => _configurationService.Get(nameof(DiagnosticId), Guid.NewGuid().ToString());
-        set => SaveProperty(propertyName: nameof(DiagnosticId), value);
+        get => GetOrCreateDiagnosticId();
+        set => SetPropertyAndSave(nameof(DiagnosticId), value);
     }
 
     public SearchMode DefaultSearchMode
@@ -591,11 +591,29 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         return Convert.ChangeType(value.GetString(), targetType, CultureInfo.InvariantCulture);
     }
 
+    private string GetOrCreateDiagnosticId()
+    {
+        var diagnosticId = _configurationService.Get(nameof(DiagnosticId), string.Empty);
+
+        if (!Guid.TryParse(diagnosticId, out _))
+        {
+            diagnosticId = Guid.NewGuid().ToString();
+            SaveProperty(nameof(DiagnosticId), diagnosticId);
+        }
+
+        return diagnosticId;
+    }
+
     private static IEnumerable<PropertyInfo> GetSyncablePreferenceProperties()
     {
         foreach (var property in typeof(IPreferencesService).GetProperties(BindingFlags.Instance | BindingFlags.Public))
         {
             if (!property.CanRead || !property.CanWrite || property.GetIndexParameters().Length > 0)
+            {
+                continue;
+            }
+
+            if (property.Name == nameof(IPreferencesService.DiagnosticId))
             {
                 continue;
             }

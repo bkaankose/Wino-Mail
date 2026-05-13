@@ -16,6 +16,8 @@ using MimeKit;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Storage;
+using Windows.System;
+using Windows.UI.Core;
 using Windows.UI.Core.Preview;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
@@ -124,6 +126,20 @@ public sealed partial class ComposePage : ComposePageAbstract,
             await WebViewEditor.FocusEditorAsync(true);
         }
     }
+
+    private async void SubjectTextBoxPreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key != VirtualKey.Tab || IsShiftKeyDown())
+        {
+            return;
+        }
+
+        e.Handled = true;
+        await WebViewEditor.FocusEditorAsync(true);
+    }
+
+    private static bool IsShiftKeyDown()
+        => Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift).HasFlag(CoreVirtualKeyStates.Down);
 
     private IDisposable GetSuggestionBoxDisposable(TokenizingTextBox box)
     {

@@ -29,12 +29,12 @@
                 CanDrag="False"
                 IsExpanded="True"
                 ItemsSource="{x:Bind ChildFolders}">
-                <Grid Height="32">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="200" />
-                    </Grid.ColumnDefinitions>
+                    <Grid Height="32">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="300" />
+                        </Grid.ColumnDefinitions>
                     <coreControls:WinoFontIcon FontSize="20" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(SpecialFolderType)}" />
                     <TextBlock
                         Grid.Column="1"
@@ -44,6 +44,7 @@
 
                     <Grid Grid.Column="2">
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
@@ -66,6 +67,18 @@
                             IsChecked="{x:Bind ShowUnreadCount}"
                             Tag="{x:Bind}"
                             Unchecked="UnreadBadgeCheckboxToggled"
+                            Visibility="{x:Bind IsMoveTarget}" />
+
+                        <CheckBox
+                            Grid.Column="2"
+                            MinWidth="0"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Checked="JumpListCheckboxToggled"
+                            IsChecked="{x:Bind IsJumpListEnabled}"
+                            IsEnabled="{Binding ViewModel.IsJumpListEnabled, ElementName=PageRoot}"
+                            Tag="{x:Bind}"
+                            Unchecked="JumpListCheckboxToggled"
                             Visibility="{x:Bind IsMoveTarget}" />
                     </Grid>
                 </Grid>
@@ -306,7 +319,7 @@
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="200" />
+                                            <ColumnDefinition Width="300" />
                                         </Grid.ColumnDefinitions>
 
                                         <Grid.RowDefinitions>
@@ -319,6 +332,7 @@
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
 
                                             <TextBlock
@@ -329,6 +343,11 @@
                                                 Grid.Column="1"
                                                 FontWeight="SemiBold"
                                                 Text="Unread Badge"
+                                                TextWrapping="Wrap" />
+                                            <TextBlock
+                                                Grid.Column="2"
+                                                FontWeight="SemiBold"
+                                                Text="{x:Bind domain:Translator.SettingsFolderJumpList_Title, Mode=OneTime}"
                                                 TextWrapping="Wrap" />
                                         </Grid>
 
@@ -368,6 +387,12 @@
                                     <PathIcon Data="F1 M 3.330078 10 C 3.330078 9.388021 3.409831 8.797201 3.569336 8.227539 C 3.728841 7.657879 3.95345 7.125652 4.243164 6.630859 C 4.532877 6.136068 4.879557 5.68685 5.283203 5.283203 C 5.686849 4.879559 6.136067 4.532879 6.630859 4.243164 C 7.125651 3.953451 7.657877 3.728842 8.227539 3.569336 C 8.7972 3.409832 9.388021 3.330078 10 3.330078 C 10.611979 3.330078 11.202799 3.409832 11.772461 3.569336 C 12.342121 3.728842 12.874348 3.953451 13.369141 4.243164 C 13.863932 4.532879 14.31315 4.879559 14.716797 5.283203 C 15.120441 5.68685 15.467121 6.136068 15.756836 6.630859 C 16.046549 7.125652 16.271158 7.657879 16.430664 8.227539 C 16.590168 8.797201 16.669922 9.388021 16.669922 10 C 16.669922 10.611979 16.590168 11.2028 16.430664 11.772461 C 16.271158 12.342123 16.046549 12.87435 15.756836 13.369141 C 15.467121 13.863933 15.120441 14.313151 14.716797 14.716797 C 14.31315 15.120443 13.863932 15.467123 13.369141 15.756836 C 12.874348 16.046551 12.342121 16.27116 11.772461 16.430664 C 11.202799 16.59017 10.611979 16.669922 10 16.669922 C 9.388021 16.669922 8.7972 16.59017 8.227539 16.430664 C 7.657877 16.27116 7.125651 16.046551 6.630859 15.756836 C 6.136067 15.467123 5.686849 15.120443 5.283203 14.716797 C 4.879557 14.313151 4.532877 13.863933 4.243164 13.369141 C 3.95345 12.87435 3.728841 12.342123 3.569336 11.772461 C 3.409831 11.2028 3.330078 10.611979 3.330078 10 Z " />
                                 </controls:SettingsCard.HeaderIcon>
                                 <ToggleSwitch IsOn="{x:Bind ViewModel.IsTaskbarBadgeEnabled, Mode=TwoWay}" />
+                            </controls:SettingsCard>
+                            <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsJumpList_Description}" Header="{x:Bind domain:Translator.SettingsJumpList_Title}">
+                                <controls:SettingsCard.HeaderIcon>
+                                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE71D;" />
+                                </controls:SettingsCard.HeaderIcon>
+                                <ToggleSwitch IsOn="{x:Bind ViewModel.IsJumpListEnabled, Mode=TwoWay}" />
                             </controls:SettingsCard>
                         </controls:SettingsExpander.Items>
                     </controls:SettingsExpander>

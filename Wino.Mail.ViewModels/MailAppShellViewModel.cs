@@ -283,7 +283,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             await RecreateMenuItemsAsync();
         }
 
-        await ProcessLaunchOptionsAsync();
+        await ProcessLaunchOptionsAsync(activationContext?.Parameter as MailFolderLaunchRequest);
         await HandlePendingShareRequestAsync();
         await ValidateWebView2RuntimeAsync();
 
@@ -390,10 +390,16 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     }
 
     // Navigate to startup account's Inbox.
-    private async Task ProcessLaunchOptionsAsync()
+    private async Task ProcessLaunchOptionsAsync(MailFolderLaunchRequest mailFolderLaunchRequest = null)
     {
         try
         {
+            if (mailFolderLaunchRequest != null &&
+                await TryProcessMailFolderLaunchRequestAsync(mailFolderLaunchRequest))
+            {
+                return;
+            }
+
             // Check whether we have saved navigation item from toast.
 
             bool hasToastActivation = _launchProtocolService.LaunchParameter != null;
@@ -440,6 +446,50 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         {
             Log.Error(ex, "Failed to process launch options.");
         }
+    }
+
+    private async Task<bool> TryProcessMailFolderLaunchRequestAsync(MailFolderLaunchRequest request)
+    {
+        try
+        {
+            if (await NavigateToMailEmptyStateIfNeededAsync())
+                return true;
+
+            var account = await _accountService.GetAccountAsync(request.AccountId);
+            if (account == null || !account.IsMailAccessGranted)
+                return false;
+
+            if (!MenuItems.TryGetAccountMenuItem(request.AccountId, out IAccountMenuItem accountMenuItem))
+            {
+                await RecreateMenuItemsAsync();
+            }
+
+            if (!MenuItems.TryGetAccountMenuItem(request.AccountId, out accountMenuItem))
+            {
+                Log.Warning("Jump list account {AccountId} could not be found in menu items.", request.AccountId);
+                return false;
+            }
+
+            if (latestSelectedAccountMenuItem != accountMenuItem)
+            {
+                await ChangeLoadedAccountAsync(accountMenuItem, false);
+            }
+
+            if (MenuItems.TryGetFolderMenuItem(request.FolderId, out IBaseFolderMenuItem folderMenuItem))
+            {
+                folderMenuItem.Expand();
+                await NavigateFolderAsync(folderMenuItem);
+                return true;
+            }
+
+            Log.Warning("Jump list folder {FolderId} could not be found for account {AccountId}.", request.FolderId, request.AccountId);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to process jump list folder activation.");
+        }
+
+        return false;
     }
 
     private async Task ProcessLaunchDefaultAsync()

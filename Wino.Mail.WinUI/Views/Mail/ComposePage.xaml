@@ -370,7 +370,8 @@
                         Grid.Column="1"
                         IsEditable="False"
                         ItemsSource="{x:Bind ViewModel.AvailableAliases, Mode=OneWay}"
-                        SelectedItem="{x:Bind ViewModel.SelectedAlias, Mode=TwoWay}">
+                        SelectedItem="{x:Bind ViewModel.SelectedAlias, Mode=TwoWay}"
+                        TabIndex="0">
                         <ComboBox.ItemTemplate>
                             <DataTemplate x:DataType="mail:MailAccountAlias">
                                 <TextBlock Text="{x:Bind AliasAddress}" />
@@ -405,6 +406,7 @@
                             PlaceholderText="{x:Bind domain:Translator.ComposerToPlaceholder}"
                             SuggestedItemTemplate="{StaticResource ContactSuggestionTemplate}"
                             Tag="ToBox"
+                            TabIndex="1"
                             TokenDelimiter=";"
                             TokenItemAdding="TokenItemAdding"
                             TokenItemTemplate="{StaticResource ContactTokenTemplate}" />
@@ -416,6 +418,7 @@
                             VerticalAlignment="Center"
                             Click="ShowCCBCCClicked"
                             GotFocus="CCBBCGotFocus"
+                            TabIndex="2"
                             Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsCCBCCVisible), Mode=OneWay}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <PathIcon
@@ -447,6 +450,7 @@
                         PlaceholderText="{x:Bind domain:Translator.ComposerToPlaceholder}"
                         SuggestedItemTemplate="{StaticResource ContactSuggestionTemplate}"
                         Tag="CCBox"
+                        TabIndex="3"
                         TokenDelimiter=";"
                         TokenItemAdding="TokenItemAdding"
                         TokenItemTemplate="{StaticResource ContactTokenTemplate}"
@@ -470,6 +474,7 @@
                         PlaceholderText="{x:Bind domain:Translator.ComposerToPlaceholder}"
                         SuggestedItemTemplate="{StaticResource ContactSuggestionTemplate}"
                         Tag="BCCBox"
+                        TabIndex="4"
                         TokenDelimiter=";"
                         TokenItemAdding="TokenItemAdding"
                         TokenItemTemplate="{StaticResource ContactTokenTemplate}"
@@ -484,10 +489,13 @@
                         Text="{x:Bind domain:Translator.ComposerSubject}" />
 
                     <TextBox
+                        x:Name="SubjectTextBox"
                         Grid.Row="4"
                         Grid.Column="1"
                         Margin="0,4,0,0"
                         BorderThickness="0"
+                        PreviewKeyDown="SubjectTextBoxPreviewKeyDown"
+                        TabIndex="5"
                         Text="{x:Bind ViewModel.Subject, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                     <coreControls:AiActionsPanel
@@ -556,7 +564,10 @@
             BorderThickness="1"
             CornerRadius="7">
             <Grid Margin="1" CornerRadius="7">
-                <controls1:WebViewEditorControl x:Name="WebViewEditor" />
+                <controls1:WebViewEditorControl
+                    x:Name="WebViewEditor"
+                    IsTabStop="True"
+                    TabIndex="6" />
 
                 <!--  Dropzone for images  -->
                 <Grid
