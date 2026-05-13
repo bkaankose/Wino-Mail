@@ -142,7 +142,11 @@ public partial class App : WinoApplication,
     private void OnManagedWindowRemoved(object? sender, WindowEx window)
     {
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
-        MainWindow = windowManager.ActiveWindow
+        var activeWindow = windowManager.ActiveWindow;
+
+        MainWindow = ReferenceEquals(activeWindow, window)
+                     ? null
+                     : activeWindow
                      ?? windowManager.GetWindow(WinoWindowKind.Shell)
                      ?? windowManager.GetWindow(WinoWindowKind.Welcome);
 
@@ -1823,8 +1827,11 @@ public partial class App : WinoApplication,
             else
             {
                 var shouldActivateWindow = true;
+                var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+                var shellWindow = MainWindow as IWinoShellWindow
+                                  ?? windowManager.GetWindow(WinoWindowKind.Shell) as IWinoShellWindow;
 
-                if (MainWindow is IWinoShellWindow shellWindow)
+                if (shellWindow != null)
                 {
                     if (args.Kind == ExtendedActivationKind.Launch &&
                         args.Data is ILaunchActivatedEventArgs launchArgs)
@@ -1855,9 +1862,14 @@ public partial class App : WinoApplication,
 
                 // Redirected launches can target a shell window that is currently hidden in the tray.
                 // Restore it through the window manager so Show/BringToFront/Activate happen together.
-                if (shouldActivateWindow && MainWindow is WindowEx mainWindow)
+                var activationWindow = shellWindow as WindowEx
+                                       ?? windowManager.GetWindow(WinoWindowKind.Welcome)
+                                       ?? MainWindow;
+
+                if (shouldActivateWindow && activationWindow != null)
                 {
-                    Services.GetRequiredService<IWinoWindowManager>().ActivateWindow(mainWindow);
+                    MainWindow = activationWindow;
+                    windowManager.ActivateWindow(activationWindow);
                 }
             }
         }
@@ -2028,17 +2040,11 @@ public partial class App : WinoApplication,
 
     private bool TryEnqueueActivationOnUiThread(Action action)
     {
-        var dispatcherQueue = MainWindow?.DispatcherQueue;
-
-        if (dispatcherQueue == null)
-        {
-            var windowManager = Services.GetService<IWinoWindowManager>();
-            var currentWindow = windowManager?.ActiveWindow
-                               ?? windowManager?.GetWindow(WinoWindowKind.Shell)
-                               ?? windowManager?.GetWindow(WinoWindowKind.Welcome);
-
-            dispatcherQueue = currentWindow?.DispatcherQueue;
-        }
+        var windowManager = Services.GetService<IWinoWindowManager>();
+        var currentWindow = windowManager?.ActiveWindow
+                           ?? windowManager?.GetWindow(WinoWindowKind.Shell)
+                           ?? windowManager?.GetWindow(WinoWindowKind.Welcome);
+        var dispatcherQueue = currentWindow?.DispatcherQueue ?? MainWindow?.DispatcherQueue;
 
         if (dispatcherQueue == null)
             return false;

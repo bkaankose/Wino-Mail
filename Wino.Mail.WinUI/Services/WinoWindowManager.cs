@@ -179,14 +179,20 @@ public class WinoWindowManager : IWinoWindowManager
             window.Activated -= WindowActivated;
             window.Closed -= WindowClosed;
 
+            var wasActiveWindow = ReferenceEquals(ActiveWindow, window);
+
+            if (wasActiveWindow)
+            {
+                ActiveWindow = null;
+            }
+
             _windowKeys.Remove(window);
             _windows.Remove(key);
             _primaryNavigationFrames.Remove(key);
             WindowRemoved?.Invoke(this, window);
 
-            if (ReferenceEquals(ActiveWindow, window))
+            if (wasActiveWindow)
             {
-                ActiveWindow = null;
                 ActiveWindowChanged?.Invoke(this, null);
             }
         }
