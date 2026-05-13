@@ -54,6 +54,7 @@ public partial class App : WinoApplication,
     IRecipient<NewCalendarSynchronizationRequested>,
     IRecipient<AccountCreatedMessage>,
     IRecipient<AccountRemovedMessage>,
+    IRecipient<AccountUpdatedMessage>,
     IRecipient<GetStartedFromWelcomeRequested>,
     IRecipient<WelcomeImportCompletedMessage>
 {
@@ -1392,6 +1393,7 @@ public partial class App : WinoApplication,
         WeakReferenceMessenger.Default.Register<NewCalendarSynchronizationRequested>(this);
         WeakReferenceMessenger.Default.Register<AccountCreatedMessage>(this);
         WeakReferenceMessenger.Default.Register<AccountRemovedMessage>(this);
+        WeakReferenceMessenger.Default.Register<AccountUpdatedMessage>(this);
         WeakReferenceMessenger.Default.Register<GetStartedFromWelcomeRequested>(this);
         WeakReferenceMessenger.Default.Register<WelcomeImportCompletedMessage>(this);
     }
@@ -1421,6 +1423,11 @@ public partial class App : WinoApplication,
         if (syncResult.CompletedState is SynchronizationCompletedState.Success or SynchronizationCompletedState.PartiallyCompleted)
         {
             await ClearInvalidCredentialAttentionIfNeededAsync(message.Options.AccountId);
+
+            if (message.Options.Type is MailSynchronizationType.FullFolders or MailSynchronizationType.FoldersOnly)
+            {
+                QueueJumpListOptionsUpdateOnUiThread();
+            }
         }
 
         if (syncResult.CompletedState == SynchronizationCompletedState.Failed ||
@@ -1458,6 +1465,7 @@ public partial class App : WinoApplication,
     {
         _hasConfiguredAccounts = true;
         EnsurePreferenceChangedSubscription();
+        QueueJumpListOptionsUpdateOnUiThread();
 
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
 
@@ -1515,6 +1523,7 @@ public partial class App : WinoApplication,
             }
 
             RestartAutoSynchronizationLoop();
+            await UpdateJumpListOptionsSafeAsync();
 
             Services.GetRequiredService<IMailDialogService>().InfoBarMessage(
                 Translator.GeneralTitle_Info,
@@ -1525,6 +1534,8 @@ public partial class App : WinoApplication,
 
     public void Receive(AccountRemovedMessage message)
     {
+        QueueJumpListOptionsUpdateOnUiThread();
+
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
 
         // Only handle when ShellWindow is active (not during wizard rollback)
@@ -1546,6 +1557,23 @@ public partial class App : WinoApplication,
             if (MainWindow != null)
                 await ActivateWindowAsync(MainWindow);
         });
+    }
+
+    public void Receive(AccountUpdatedMessage message)
+        => QueueJumpListOptionsUpdateOnUiThread();
+
+    private void QueueJumpListOptionsUpdateOnUiThread()
+        => TryEnqueueActivationOnUiThread(() => _ = UpdateJumpListOptionsSafeAsync());
+
+    private async Task UpdateJumpListOptionsSafeAsync()
+    {
+        try
+        {
+            await Services.GetRequiredService<INotificationBuilder>().UpdateJumpListOptionsAsync();
+        }
+        catch
+        {
+        }
     }
 
     public void Receive(GetStartedFromWelcomeRequested message)

@@ -24,6 +24,7 @@ public class MailItemFolder : IMailItemFolder
     public bool IsSynchronizationEnabled { get; set; }
     public bool IsHidden { get; set; }
     public bool ShowUnreadCount { get; set; }
+    public bool IsJumpListEnabled { get; set; }
 
     // User-defined ordering within its navigation section (Pinned / Categories / More).
     // 0 means "no custom order set" — the folder falls back to the default sort

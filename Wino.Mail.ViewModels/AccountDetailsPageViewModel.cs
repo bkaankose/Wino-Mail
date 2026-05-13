@@ -35,6 +35,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     private readonly IStatePersistanceService _statePersistanceService;
     private readonly INewThemeService _themeService;
     private readonly IImapTestService _imapTestService;
+    private readonly INotificationBuilder _notificationBuilder;
     private bool isLoaded = false;
 
     [ObservableProperty]
@@ -98,6 +99,9 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     private bool isTaskbarBadgeEnabled;
 
     [ObservableProperty]
+    public partial bool IsJumpListEnabled { get; set; }
+
+    [ObservableProperty]
     public partial AccountCapabilityOption SelectedCapabilityOption { get; set; }
 
     public bool IsFocusedInboxSupportedForAccount => Account != null && Account.Preferences.IsFocusedInboxEnabled != null;
@@ -151,7 +155,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         ICalendarService calendarService,
         IStatePersistanceService statePersistanceService,
         INewThemeService themeService,
-        IImapTestService imapTestService)
+        IImapTestService imapTestService,
+        INotificationBuilder notificationBuilder)
     {
         _dialogService = dialogService;
         _accountService = accountService;
@@ -160,6 +165,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         _statePersistanceService = statePersistanceService;
         _themeService = themeService;
         _imapTestService = imapTestService;
+        _notificationBuilder = notificationBuilder;
 
         var colorHexList = _themeService.GetAvailableAccountColors();
         AvailableColors = colorHexList.Select(a => new AppColorViewModel(a)).ToList();
@@ -266,6 +272,13 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     public Task FolderShowUnreadToggled(IMailItemFolder folderStructure, bool isEnabled)
         => _folderService.ChangeFolderShowUnreadCountStateAsync(folderStructure.Id, isEnabled);
 
+    public async Task FolderJumpListToggledAsync(IMailItemFolder folderStructure, bool isEnabled)
+    {
+        await _folderService.ChangeFolderJumpListStateAsync(folderStructure.Id, isEnabled);
+        folderStructure.IsJumpListEnabled = isEnabled;
+        await _notificationBuilder.UpdateJumpListOptionsAsync();
+    }
+
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
@@ -285,6 +298,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
             IsAppendMessageSettingVisible = Account.ProviderType == MailProviderType.IMAP4;
             IsAppendMessageSettinEnabled = Account.Preferences.ShouldAppendMessagesToSentFolder;
             IsTaskbarBadgeEnabled = Account.Preferences.IsTaskbarBadgeEnabled;
+            IsJumpListEnabled = Account.Preferences.IsJumpListEnabled;
 
             if (!string.IsNullOrEmpty(Account.AccountColorHex))
             {
@@ -439,6 +453,11 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
             case nameof(IsTaskbarBadgeEnabled):
                 Account.Preferences.IsTaskbarBadgeEnabled = IsTaskbarBadgeEnabled;
                 await _accountService.UpdateAccountAsync(Account);
+                break;
+            case nameof(IsJumpListEnabled):
+                Account.Preferences.IsJumpListEnabled = IsJumpListEnabled;
+                await _accountService.UpdateAccountAsync(Account);
+                await _notificationBuilder.UpdateJumpListOptionsAsync();
                 break;
             case nameof(SelectedCapabilityOption) when IsOAuthCapabilityEditable && SelectedCapabilityOption != null:
                 if (Account.IsMailAccessGranted == SelectedCapabilityOption.IsMailAccessGranted &&

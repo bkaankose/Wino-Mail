@@ -581,6 +581,8 @@ public class FolderService : BaseDatabaseService, IFolderService
 
         if (existingFolder == null)
         {
+            folder.IsJumpListEnabled = folder.SpecialFolderType == SpecialFolderType.Inbox;
+
             _logger.Debug("Inserting folder {Id} - {FolderName}", folder.Id, folder.FolderName, folder.MailAccountId);
 
             await Connection.InsertAsync(folder, typeof(MailItemFolder)).ConfigureAwait(false);
@@ -598,6 +600,7 @@ public class FolderService : BaseDatabaseService, IFolderService
             folder.BackgroundColorHex = existingFolder.BackgroundColorHex;
             folder.Order = existingFolder.Order;
             folder.IsHidden = existingFolder.IsHidden;
+            folder.IsJumpListEnabled = existingFolder.IsJumpListEnabled;
 
             _logger.Debug("Folder {Id} - {FolderName} already exists. Updating.", folder.Id, folder.FolderName);
 
@@ -801,6 +804,18 @@ public class FolderService : BaseDatabaseService, IFolderService
         if (localFolder != null)
         {
             localFolder.ShowUnreadCount = showUnreadCount;
+
+            await UpdateFolderAsync(localFolder).ConfigureAwait(false);
+        }
+    }
+
+    public async Task ChangeFolderJumpListStateAsync(Guid folderId, bool isEnabled)
+    {
+        var localFolder = await GetFolderAsync(folderId);
+
+        if (localFolder != null)
+        {
+            localFolder.IsJumpListEnabled = isEnabled;
 
             await UpdateFolderAsync(localFolder).ConfigureAwait(false);
         }
