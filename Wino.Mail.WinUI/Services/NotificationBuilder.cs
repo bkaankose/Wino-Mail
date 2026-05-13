@@ -527,18 +527,20 @@ public class NotificationBuilder : INotificationBuilder
 
     private static JumpListItem CreateMailFolderJumpListItem(MailAccount account, MailItemFolder folder)
     {
+        var accountDisplayName = GetJumpListAccountDisplayName(account);
         var item = JumpListItem.CreateWithArguments(
             CreateMailFolderJumpListArguments(account.Id, folder.Id),
-            folder.FolderName);
+            $"{folder.FolderName} - {accountDisplayName}");
 
-        item.GroupName = account.Name;
-        item.Description = string.IsNullOrWhiteSpace(account.Address)
-            ? account.Name
-            : account.Address;
         TrySetJumpListItemLogo(item, GetProviderIconUri(account));
 
         return item;
     }
+
+    private static string GetJumpListAccountDisplayName(MailAccount account)
+        => string.IsNullOrWhiteSpace(account.Name)
+            ? account.Address
+            : account.Name;
 
     private static string CreateMailFolderJumpListArguments(Guid accountId, Guid folderId)
     {

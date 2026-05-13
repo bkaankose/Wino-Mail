@@ -457,7 +457,6 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
             case nameof(IsJumpListEnabled):
                 Account.Preferences.IsJumpListEnabled = IsJumpListEnabled;
                 await _accountService.UpdateAccountAsync(Account);
-                await _notificationBuilder.UpdateJumpListOptionsAsync();
                 break;
             case nameof(SelectedCapabilityOption) when IsOAuthCapabilityEditable && SelectedCapabilityOption != null:
                 if (Account.IsMailAccessGranted == SelectedCapabilityOption.IsMailAccessGranted &&
