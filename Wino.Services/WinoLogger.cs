@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System;
 using System.ComponentModel;
 using Sentry;
 using Serilog;
@@ -14,6 +15,8 @@ public class WinoLogger : IWinoLogger
 {
     private const string SentryDiagnosticIdTag = "diagnostic_id";
     private const string DiagnosticIdLogProperty = "DiagnosticId";
+    private const string ErrorOriginTag = "error_origin";
+    private const string AccountSetupErrorOrigin = "AccountSetup";
 
     private readonly LoggingLevelSwitch _levelSwitch = new LoggingLevelSwitch();
     private readonly IPreferencesService _preferencesService;
@@ -56,7 +59,10 @@ public class WinoLogger : IWinoLogger
             options.SetBeforeSend((sentryEvent, hint) =>
             {
                 // Don't send synchronization failure exceptions to Sentry.
-                if (sentryEvent.Exception is SynchronizerException)
+                var isAccountSetupError = sentryEvent.Tags.TryGetValue(ErrorOriginTag, out var errorOrigin)
+                    && string.Equals(errorOrigin, AccountSetupErrorOrigin, System.StringComparison.Ordinal);
+
+                if (sentryEvent.Exception is SynchronizerException && !isAccountSetupError)
                     return null;
 
                 ApplyDiagnosticId(sentryEvent, _preferencesService.DiagnosticId);
@@ -93,6 +99,32 @@ public class WinoLogger : IWinoLogger
                 {
                     scope.SetTag(prop.Key, prop.Value);
                 }
+            }
+        });
+    }
+
+    public void CaptureException(Exception exception, string operationName = null, Dictionary<string, string> properties = null)
+    {
+        if (exception == null) return;
+
+        SentrySdk.CaptureException(exception, scope =>
+        {
+            ApplyDiagnosticId(scope, _preferencesService.DiagnosticId);
+
+            if (!string.IsNullOrWhiteSpace(operationName))
+            {
+                scope.SetTag("operation", operationName);
+                scope.SetExtra("Operation", operationName);
+            }
+
+            if (properties == null) return;
+
+            foreach (var property in properties)
+            {
+                if (string.IsNullOrWhiteSpace(property.Key) || property.Value == null) continue;
+
+                scope.SetTag(property.Key, property.Value);
+                scope.SetExtra(property.Key, property.Value);
             }
         });
     }
