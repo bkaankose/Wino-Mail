@@ -27,7 +27,8 @@ public class MailAuthenticatorConfiguration : IAuthenticatorConfig
                 "mail.readwrite",
                 "mail.send",
                 "Mail.Send.Shared",
-                "Mail.ReadWrite.Shared"
+                "Mail.ReadWrite.Shared",
+                "MailboxSettings.ReadWrite"
             ]);
         }
 
