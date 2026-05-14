@@ -68,6 +68,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsSystemTrayIconEnabled { get; set; }
 
     /// <summary>
+    /// Setting: What Wino should do when the shell window is closed.
+    /// </summary>
+    AppCloseBehavior AppCloseBehavior { get; set; }
+
+    /// <summary>
     /// Setting: Whether the Wino account profile button in the shell title bar should be hidden.
     /// </summary>
     bool IsWinoAccountButtonHidden { get; set; }

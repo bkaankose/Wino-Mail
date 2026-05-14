@@ -396,7 +396,10 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     {
         var app = Application.Current as App;
 
-        if (_allowClose || app?.IsExiting == true || app?.ShouldKeepShellWindowAliveOnClose() != true)
+        if (_allowClose || app?.IsExiting == true)
+            return;
+
+        if (app?.TryExitApplicationOnShellWindowClose() == true)
             return;
 
         e.Cancel = true;

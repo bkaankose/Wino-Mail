@@ -77,9 +77,16 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         var rootElement = document.RootElement;
         var appliedCount = 0;
         var failedCount = 0;
+        var hasAppCloseBehavior = rootElement.TryGetProperty(nameof(IPreferencesService.AppCloseBehavior), out var appCloseBehaviorElement)
+                                  && appCloseBehaviorElement.ValueKind is not JsonValueKind.Null and not JsonValueKind.Undefined;
 
         foreach (var property in GetSyncablePreferenceProperties())
         {
+            if (hasAppCloseBehavior && property.Name == nameof(IPreferencesService.IsSystemTrayIconEnabled))
+            {
+                continue;
+            }
+
             if (!rootElement.TryGetProperty(property.Name, out var value) || value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
             {
                 continue;
@@ -401,8 +408,41 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
 
     public bool IsSystemTrayIconEnabled
     {
-        get => _configurationService.Get(nameof(IsSystemTrayIconEnabled), true);
-        set => SetPropertyAndSave(nameof(IsSystemTrayIconEnabled), value);
+        get => AppCloseBehavior == AppCloseBehavior.RunInBackgroundWithTrayIcon;
+        set => AppCloseBehavior = value
+            ? AppCloseBehavior.RunInBackgroundWithTrayIcon
+            : AppCloseBehavior.Terminate;
+    }
+
+    public AppCloseBehavior AppCloseBehavior
+    {
+        get
+        {
+            if (!_configurationService.Contains(nameof(AppCloseBehavior)))
+            {
+                return _configurationService.Get(nameof(IsSystemTrayIconEnabled), true)
+                    ? AppCloseBehavior.RunInBackgroundWithTrayIcon
+                    : AppCloseBehavior.Terminate;
+            }
+
+            var configuredBehavior = _configurationService.Get(nameof(AppCloseBehavior), AppCloseBehavior.RunInBackgroundWithTrayIcon);
+
+            return Enum.IsDefined(typeof(AppCloseBehavior), configuredBehavior)
+                ? configuredBehavior
+                : AppCloseBehavior.RunInBackgroundWithTrayIcon;
+        }
+        set
+        {
+            var closeBehavior = Enum.IsDefined(typeof(AppCloseBehavior), value)
+                ? value
+                : AppCloseBehavior.RunInBackgroundWithTrayIcon;
+
+            _configurationService.Set(nameof(AppCloseBehavior), closeBehavior);
+            _configurationService.Set(nameof(IsSystemTrayIconEnabled), closeBehavior == AppCloseBehavior.RunInBackgroundWithTrayIcon);
+
+            OnPropertyChanged(nameof(AppCloseBehavior));
+            OnPropertyChanged(nameof(IsSystemTrayIconEnabled));
+        }
     }
 
     public bool IsWinoAccountButtonHidden

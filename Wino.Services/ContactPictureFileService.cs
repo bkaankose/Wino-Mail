@@ -27,7 +27,7 @@ public class ContactPictureFileService : BaseDatabaseService, IContactPictureFil
         : base(databaseService)
     {
         _contactPicturesFolder = Path.Combine(applicationConfiguration.ApplicationDataFolderPath, ContactsSubFolder);
-        Directory.CreateDirectory(_contactPicturesFolder);
+        EnsureContactPicturesFolder();
     }
 
     public string GetContactPicturePath(Guid fileId)
@@ -40,6 +40,9 @@ public class ContactPictureFileService : BaseDatabaseService, IContactPictureFil
     {
         var fileId = Guid.NewGuid();
         var filePath = BuildFilePath(fileId);
+
+        EnsureContactPicturesFolder();
+
         await File.WriteAllBytesAsync(filePath, imageData).ConfigureAwait(false);
         return fileId;
     }
@@ -51,5 +54,11 @@ public class ContactPictureFileService : BaseDatabaseService, IContactPictureFil
             File.Delete(filePath);
         return Task.CompletedTask;
     }
+
+    private void EnsureContactPicturesFolder()
+    {
+        Directory.CreateDirectory(_contactPicturesFolder);
+    }
+
     private string BuildFilePath(Guid fileId) => Path.Combine(_contactPicturesFolder, $"{fileId}.jpg");
 }

@@ -90,7 +90,20 @@ public partial class App : WinoApplication,
 
         var preferencesService = _preferencesService ?? Services.GetService<IPreferencesService>();
 
-        return preferencesService?.IsSystemTrayIconEnabled ?? true;
+        return preferencesService?.AppCloseBehavior != AppCloseBehavior.Terminate;
+    }
+
+    internal bool TryExitApplicationOnShellWindowClose()
+    {
+        if (_isExiting)
+            return true;
+
+        if (ShouldKeepShellWindowAliveOnClose())
+            return false;
+
+        ExitApplication();
+
+        return true;
     }
 
     public App()
@@ -196,7 +209,7 @@ public partial class App : WinoApplication,
     private bool ShouldCreateTrayIcon()
         => _hasConfiguredAccounts &&
            HasShellWindow() &&
-           (_preferencesService?.IsSystemTrayIconEnabled ?? true);
+           (_preferencesService?.AppCloseBehavior ?? AppCloseBehavior.RunInBackgroundWithTrayIcon) == AppCloseBehavior.RunInBackgroundWithTrayIcon;
 
     private void UpdateTrayIconState(bool allowCreation)
     {
@@ -1668,7 +1681,7 @@ public partial class App : WinoApplication,
             return;
         }
 
-        if (propertyName == nameof(IPreferencesService.IsSystemTrayIconEnabled))
+        if (propertyName is nameof(IPreferencesService.AppCloseBehavior) or nameof(IPreferencesService.IsSystemTrayIconEnabled))
         {
             UpdateTrayIconState(allowCreation: true);
         }

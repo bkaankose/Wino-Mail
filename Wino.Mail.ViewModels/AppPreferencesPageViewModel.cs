@@ -41,8 +41,16 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
             Translator.MenuSettings
         ];
 
+        CloseBehaviorModes =
+        [
+            Translator.SettingsAppPreferences_ServerBackgroundingMode_MinimizeTray_Title,
+            Translator.SettingsAppPreferences_ServerBackgroundingMode_Invisible_Title,
+            Translator.SettingsAppPreferences_ServerBackgroundingMode_Terminate_Title
+        ];
+
         SelectedDefaultSearchMode = SearchModes[(int)PreferencesService.DefaultSearchMode];
         SelectedDefaultApplicationMode = ApplicationModes[(int)PreferencesService.DefaultApplicationMode];
+        SelectedCloseBehaviorMode = CloseBehaviorModes[(int)PreferencesService.AppCloseBehavior];
         EmailSyncIntervalMinutes = PreferencesService.EmailSyncIntervalMinutes;
         SummarySavePath = PreferencesService.AiSummarySavePath;
     }
@@ -54,6 +62,9 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
 
     [ObservableProperty]
     public partial List<string> ApplicationModes { get; set; }
+
+    [ObservableProperty]
+    public partial List<string> CloseBehaviorModes { get; set; }
 
     [ObservableProperty]
     public partial List<AppLanguageModel> AvailableLanguages { get; set; } = [];
@@ -90,6 +101,7 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
     private int _emailSyncIntervalMinutes;
     private string _selectedDefaultSearchMode;
     private string _selectedDefaultApplicationMode;
+    private string _selectedCloseBehaviorMode;
 
     public int EmailSyncIntervalMinutes
     {
@@ -121,6 +133,23 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
         {
             SetProperty(ref _selectedDefaultApplicationMode, value);
             PreferencesService.DefaultApplicationMode = (WinoApplicationMode)ApplicationModes.IndexOf(value);
+        }
+    }
+
+    public string SelectedCloseBehaviorMode
+    {
+        get => _selectedCloseBehaviorMode;
+        set
+        {
+            if (!SetProperty(ref _selectedCloseBehaviorMode, value))
+                return;
+
+            var selectedIndex = CloseBehaviorModes.IndexOf(value);
+
+            if (selectedIndex >= 0)
+            {
+                PreferencesService.AppCloseBehavior = (AppCloseBehavior)selectedIndex;
+            }
         }
     }
 

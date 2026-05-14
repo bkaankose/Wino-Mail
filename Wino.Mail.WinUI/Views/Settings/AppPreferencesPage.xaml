@@ -63,8 +63,8 @@
                 </controls:SettingsCard.HeaderIcon>
             </controls:SettingsCard>
 
-            <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsAppPreferences_ServerBackgroundingMode_MinimizeTray_Description}" Header="{x:Bind domain:Translator.SettingsAppPreferences_ServerBackgroundingMode_MinimizeTray_Title}">
-                <ToggleSwitch IsOn="{x:Bind ViewModel.PreferencesService.IsSystemTrayIconEnabled, Mode=TwoWay}" />
+            <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsAppPreferences_CloseBehavior_Description}" Header="{x:Bind domain:Translator.SettingsAppPreferences_CloseBehavior_Title}">
+                <ComboBox ItemsSource="{x:Bind ViewModel.CloseBehaviorModes, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.SelectedCloseBehaviorMode, Mode=TwoWay}" />
                 <controls:SettingsCard.HeaderIcon>
                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE7F4;" />
                 </controls:SettingsCard.HeaderIcon>
