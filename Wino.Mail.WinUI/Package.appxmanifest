@@ -53,7 +53,13 @@
         BackgroundColor="transparent"
         Square150x150Logo="Assets\AppEntries\MailAssets\Square150x150Logo.png"
         Square44x44Logo="Assets\AppEntries\MailAssets\Square44x44Logo.png">
-        <uap:DefaultTile Wide310x150Logo="Assets\AppEntries\MailAssets\Wide310x150Logo.png"  Square71x71Logo="Assets\AppEntries\MailAssets\SmallTile.png" Square310x310Logo="Assets\AppEntries\MailAssets\LargeTile.png"/>
+        <uap:DefaultTile Wide310x150Logo="Assets\AppEntries\MailAssets\Wide310x150Logo.png" Square71x71Logo="Assets\AppEntries\MailAssets\SmallTile.png" Square310x310Logo="Assets\AppEntries\MailAssets\LargeTile.png">
+          <uap:ShowNameOnTiles>
+            <uap:ShowOn Tile="square150x150Logo" />
+            <uap:ShowOn Tile="wide310x150Logo" />
+            <uap:ShowOn Tile="square310x310Logo" />
+          </uap:ShowNameOnTiles>
+        </uap:DefaultTile>
         <uap:SplashScreen Image="Assets\AppEntries\MailAssets\SplashScreen.png" />
       </uap:VisualElements>
 
@@ -128,7 +134,13 @@
         BackgroundColor="transparent"
         Square150x150Logo="Assets\AppEntries\CalendarAssets\Square150x150Logo.png"
         Square44x44Logo="Assets\AppEntries\CalendarAssets\Square44x44Logo.png">
-        <uap:DefaultTile Wide310x150Logo="Assets\AppEntries\CalendarAssets\Wide310x150Logo.png"  Square71x71Logo="Assets\AppEntries\CalendarAssets\SmallTile.png" Square310x310Logo="Assets\AppEntries\CalendarAssets\LargeTile.png"/>
+        <uap:DefaultTile Wide310x150Logo="Assets\AppEntries\CalendarAssets\Wide310x150Logo.png" Square71x71Logo="Assets\AppEntries\CalendarAssets\SmallTile.png" Square310x310Logo="Assets\AppEntries\CalendarAssets\LargeTile.png">
+          <uap:ShowNameOnTiles>
+            <uap:ShowOn Tile="square150x150Logo" />
+            <uap:ShowOn Tile="wide310x150Logo" />
+            <uap:ShowOn Tile="square310x310Logo" />
+          </uap:ShowNameOnTiles>
+        </uap:DefaultTile>
         <uap:SplashScreen Image="Assets\AppEntries\CalendarAssets\SplashScreen.png" />
       </uap:VisualElements>
 
