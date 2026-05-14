@@ -412,10 +412,17 @@ public class AccountService : BaseDatabaseService, IAccountService
             account.SenderName = profileInformation.SenderName;
             account.Base64ProfilePictureData = profileInformation.Base64ProfilePictureData;
 
-            if (string.IsNullOrEmpty(account.Address))
+            var profileAddress = profileInformation.AccountAddress?.Trim();
+
+            if (!string.IsNullOrWhiteSpace(profileAddress) &&
+                !string.Equals(account.Address?.Trim(), profileAddress, StringComparison.OrdinalIgnoreCase))
             {
-                account.Address = profileInformation.AccountAddress;
+                if (await AccountAddressExistsAsync(profileAddress, account.Id).ConfigureAwait(false))
+                    throw new InvalidOperationException(Translator.DialogMessage_AccountAddressExistsMessage);
+
+                account.Address = profileAddress;
             }
+
             // Forcefully add or update a contact data with the provided information.
 
             var existingContact = await Connection.Table<AccountContact>()

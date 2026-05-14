@@ -6,5 +6,6 @@
 /// Now we store it in the memory.
 /// </summary>
 /// <param name="AccessToken">Access token/</param>
-/// <param name="AccountAddress">Address of the authenticated user.</param>
-public record TokenInformationEx(string AccessToken, string AccountAddress);
+/// <param name="AccountAddress">Mailbox address of the authenticated user.</param>
+/// <param name="AuthenticationAddress">Provider account address used for token cache lookup.</param>
+public record TokenInformationEx(string AccessToken, string AccountAddress, string AuthenticationAddress = null);

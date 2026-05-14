@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System;
 using System.ComponentModel;
+using System.Threading.Tasks;
 using Sentry;
 using Serilog;
 using Serilog.Core;
@@ -17,6 +18,7 @@ public class WinoLogger : IWinoLogger
     private const string DiagnosticIdLogProperty = "DiagnosticId";
     private const string ErrorOriginTag = "error_origin";
     private const string AccountSetupErrorOrigin = "AccountSetup";
+    private const string DiagnosticLogsUploadOperation = "DiagnosticLogsUpload";
 
     private readonly LoggingLevelSwitch _levelSwitch = new LoggingLevelSwitch();
     private readonly IPreferencesService _preferencesService;
@@ -127,6 +129,31 @@ public class WinoLogger : IWinoLogger
                 scope.SetExtra(property.Key, property.Value);
             }
         });
+    }
+
+    public async Task UploadDiagnosticLogsAsync(string logArchivePath, string diagnosticId)
+    {
+        if (string.IsNullOrWhiteSpace(logArchivePath)) return;
+
+        var sentryEvent = new SentryEvent
+        {
+            Level = SentryLevel.Info,
+            Message = $"Diagnostic logs uploaded: {diagnosticId}"
+        };
+
+        ApplyDiagnosticId(sentryEvent, diagnosticId);
+        sentryEvent.SetTag("operation", DiagnosticLogsUploadOperation);
+
+        var hint = new SentryHint();
+        hint.AddAttachment(logArchivePath, AttachmentType.Default, "application/zip");
+
+        SentrySdk.CaptureEvent(sentryEvent, hint, scope =>
+        {
+            ApplyDiagnosticId(scope, diagnosticId);
+            scope.SetTag("operation", DiagnosticLogsUploadOperation);
+        });
+
+        await SentrySdk.FlushAsync(TimeSpan.FromSeconds(5));
     }
 
     private void RegisterPreferenceChangedHandler()

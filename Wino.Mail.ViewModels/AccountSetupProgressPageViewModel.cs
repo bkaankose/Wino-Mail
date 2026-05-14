@@ -243,6 +243,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                     _createdAccount,
                     _createdAccount.ProviderType == MailProviderType.Gmail);
 
+                _createdAccount.AuthenticationAddress = authTokenInfo.AuthenticationAddress;
                 _createdAccount.Address = authTokenInfo.AccountAddress;
                 SetCurrentStepSucceeded();
 

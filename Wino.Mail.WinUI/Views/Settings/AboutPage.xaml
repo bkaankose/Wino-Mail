@@ -164,6 +164,7 @@
                     <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsEnableLogs_Description}" Header="{x:Bind domain:Translator.SettingsEnableLogs_Title}">
                         <StackPanel Orientation="Horizontal" Spacing="12">
                             <Button Command="{x:Bind ViewModel.ShareWinoLogCommand}" Content="{x:Bind domain:Translator.Buttons_Share}" />
+                            <Button Command="{x:Bind ViewModel.UploadWinoLogsCommand}" Content="{x:Bind domain:Translator.Buttons_UploadLogs}" />
                             <ToggleSwitch IsOn="{x:Bind ViewModel.PreferencesService.IsLoggingEnabled, Mode=TwoWay}" />
                         </StackPanel>
                     </controls:SettingsCard>

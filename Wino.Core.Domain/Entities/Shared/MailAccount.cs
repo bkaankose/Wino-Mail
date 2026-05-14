@@ -29,6 +29,12 @@ public class MailAccount
     public string Address { get; set; }
 
     /// <summary>
+    /// Provider account address used for token cache lookup.
+    /// This can differ from the mailbox address for Microsoft accounts that sign in with an alias.
+    /// </summary>
+    public string AuthenticationAddress { get; set; }
+
+    /// <summary>
     /// Provider type of the account. Outlook,Gmail etc...
     /// </summary>
     public MailProviderType ProviderType { get; set; }

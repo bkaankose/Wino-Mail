@@ -38,12 +38,15 @@ public class FileService : IFileService
     }
 
     public async Task<bool> SaveLogsToFolderAsync(string logsFolder, string destinationFolder)
+        => !string.IsNullOrEmpty(await CreateLogsArchiveAsync(logsFolder, destinationFolder, Constants.LogArchiveFileName));
+
+    public async Task<string> CreateLogsArchiveAsync(string logsFolder, string destinationFolder, string archiveFileName)
     {
         var logFiles = Directory.GetFiles(logsFolder, "*.log");
 
-        if (logFiles.Length == 0) return false;
+        if (logFiles.Length == 0) return string.Empty;
 
-        using var fileStream = await GetFileStreamAsync(destinationFolder, Constants.LogArchiveFileName);
+        using var fileStream = await GetFileStreamAsync(destinationFolder, archiveFileName);
         using var archive = new ZipArchive(fileStream, ZipArchiveMode.Create, true);
 
         foreach (var logFile in logFiles)
@@ -56,6 +59,6 @@ public class FileService : IFileService
             await logFileStream.CopyToAsync(zipStream);
         }
 
-        return true;
+        return Path.Combine(destinationFolder, archiveFileName);
     }
 }

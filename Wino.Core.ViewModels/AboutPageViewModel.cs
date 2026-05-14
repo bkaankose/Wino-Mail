@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using Serilog;
@@ -96,7 +97,7 @@ public partial class AboutPageViewModel : CoreBaseViewModel
 
         if (string.IsNullOrEmpty(selectedFolderPath)) return;
 
-        var areLogsSaved = await _fileService.SaveLogsToFolderAsync(appDataFolder, selectedFolderPath).ConfigureAwait(false);
+        var areLogsSaved = await _fileService.SaveLogsToFolderAsync(appDataFolder, selectedFolderPath);
 
         if (areLogsSaved)
         {
@@ -105,6 +106,33 @@ public partial class AboutPageViewModel : CoreBaseViewModel
         else
         {
             _dialogService.InfoBarMessage(Translator.Info_LogsNotFoundTitle, Translator.Info_LogsNotFoundMessage, InfoBarMessageType.Error);
+        }
+    }
+
+    [RelayCommand]
+    private async Task UploadWinoLogsAsync()
+    {
+        var diagnosticId = PreferencesService.DiagnosticId;
+        var archiveFileName = $"{GetSafeFileName(diagnosticId)}.zip";
+        var archivePath = await _fileService.CreateLogsArchiveAsync(_appInitializerService.ApplicationDataFolderPath,
+                                                                     _appInitializerService.ApplicationTempFolderPath,
+                                                                     archiveFileName);
+
+        if (string.IsNullOrEmpty(archivePath))
+        {
+            _dialogService.InfoBarMessage(Translator.Info_LogsNotFoundTitle, Translator.Info_LogsNotFoundMessage, InfoBarMessageType.Error);
+            return;
+        }
+
+        try
+        {
+            await _logInitializer.UploadDiagnosticLogsAsync(archivePath, diagnosticId);
+            _dialogService.InfoBarMessage(Translator.Info_LogsUploadedTitle, string.Format(Translator.Info_LogsUploadedMessage, archiveFileName), InfoBarMessageType.Success);
+        }
+        catch (Exception ex)
+        {
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, Translator.Info_LogsUploadFailedMessage, InfoBarMessageType.Error);
+            Log.Error(ex, "Failed to upload diagnostic logs to Sentry.");
         }
     }
 
@@ -129,4 +157,14 @@ public partial class AboutPageViewModel : CoreBaseViewModel
     }
 
     private Task ShowRateDialogAsync() => _storeRatingService.LaunchStorePageForReviewAsync();
+
+    private static string GetSafeFileName(string fileName)
+    {
+        foreach (var invalidChar in Path.GetInvalidFileNameChars())
+        {
+            fileName = fileName.Replace(invalidChar, '_');
+        }
+
+        return fileName;
+    }
 }

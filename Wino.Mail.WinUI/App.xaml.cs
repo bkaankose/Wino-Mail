@@ -1484,7 +1484,11 @@ public partial class App : WinoApplication,
 
         // Only transition when the account was created from the WelcomeWindow.
         if (windowManager.GetWindow(WinoWindowKind.Welcome) == null)
+        {
+            EnsureAutoSynchronizationLoop();
+            QueueCreatedAccountSynchronization(message.Account);
             return;
+        }
 
         MainWindow?.DispatcherQueue?.TryEnqueue(async () =>
         {
@@ -1505,6 +1509,35 @@ public partial class App : WinoApplication,
 
             RestartAutoSynchronizationLoop();
         });
+    }
+
+    private void QueueCreatedAccountSynchronization(Wino.Core.Domain.Entities.Shared.MailAccount account)
+    {
+        if (account.IsMailAccessGranted)
+        {
+            WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+            {
+                AccountId = account.Id,
+                Type = MailSynchronizationType.FullFolders
+            }));
+        }
+
+        if (account.IsCalendarAccessGranted)
+        {
+            WeakReferenceMessenger.Default.Send(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
+            {
+                AccountId = account.Id,
+                Type = CalendarSynchronizationType.CalendarEvents
+            }));
+        }
+    }
+
+    private void EnsureAutoSynchronizationLoop()
+    {
+        if (_autoSynchronizationLoopCts != null)
+            return;
+
+        RestartAutoSynchronizationLoop();
     }
 
     public void Receive(WelcomeImportCompletedMessage message)

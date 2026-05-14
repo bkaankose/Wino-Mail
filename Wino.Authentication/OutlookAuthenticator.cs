@@ -1,5 +1,8 @@
 ﻿using System;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Identity.Client;
 using Microsoft.Identity.Client.Broker;
@@ -16,6 +19,7 @@ namespace Wino.Authentication;
 public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
 {
     private const string TokenCacheFileName = "OutlookCache.bin";
+    private static readonly HttpClient GraphProfileHttpClient = new();
     private bool isTokenCacheAttached = false;
 
     // Outlook
@@ -86,17 +90,27 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
     {
         await EnsureTokenCacheAttachedAsync();
 
+        var authenticationAddress = string.IsNullOrWhiteSpace(account.AuthenticationAddress)
+            ? account.Address
+            : account.AuthenticationAddress;
+
         var storedAccount = (await _publicClientApplication.GetAccountsAsync()).FirstOrDefault(
-            a => string.Equals(a.Username?.Trim(), account.Address?.Trim(), StringComparison.OrdinalIgnoreCase));
+            a => string.Equals(a.Username?.Trim(), authenticationAddress?.Trim(), StringComparison.OrdinalIgnoreCase));
 
         if (storedAccount == null)
-            return await GenerateTokenInformationAsync(account);
+        {
+            var generatedTokenInfo = await GenerateTokenInformationAsync(account).ConfigureAwait(false);
+            account.AuthenticationAddress = generatedTokenInfo.AuthenticationAddress;
+
+            return generatedTokenInfo;
+        }
 
         try
         {
             var authResult = await _publicClientApplication.AcquireTokenSilent(GetScope(account), storedAccount).ExecuteAsync();
+            account.AuthenticationAddress = authResult.Account.Username;
 
-            return new TokenInformationEx(authResult.AccessToken, authResult.Account.Username);
+            return new TokenInformationEx(authResult.AccessToken, account.Address, authResult.Account.Username);
         }
         catch (MsalUiRequiredException)
         {
@@ -104,7 +118,10 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
             // Force interactive login which will include calendar scopes.
             // The calling code should update account.IsCalendarAccessGranted = true after successful authentication.
 
-            return await GenerateTokenInformationAsync(account);
+            var generatedTokenInfo = await GenerateTokenInformationAsync(account).ConfigureAwait(false);
+            account.AuthenticationAddress = generatedTokenInfo.AuthenticationAddress;
+
+            return generatedTokenInfo;
         }
     }
 
@@ -127,7 +144,10 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
             // Microsoft 365 work/school tenants can use a sign-in UPN that differs from
             // the mailbox primary SMTP address, so interactive reauth must not reject them.
 
-            return new TokenInformationEx(authResult.AccessToken, authResult.Account.Username);
+            var mailboxAddress = await ResolveMailboxAddressAsync(authResult.AccessToken, authResult.Account.Username)
+                .ConfigureAwait(false);
+
+            return new TokenInformationEx(authResult.AccessToken, mailboxAddress, authResult.Account.Username);
         }
         catch (MsalClientException msalClientException)
         {
@@ -139,4 +159,39 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
 
         throw new AuthenticationException(Translator.Exception_UnknowErrorDuringAuthentication, new Exception(Translator.Exception_TokenGenerationFailed));
     }
+
+    private static async Task<string> ResolveMailboxAddressAsync(string accessToken, string fallbackAddress)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, "https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+            using var response = await GraphProfileHttpClient.SendAsync(request).ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+                return fallbackAddress;
+
+            await using var responseStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+            using var document = await JsonDocument.ParseAsync(responseStream).ConfigureAwait(false);
+
+            var root = document.RootElement;
+            var mail = GetStringProperty(root, "mail");
+
+            if (!string.IsNullOrWhiteSpace(mail))
+                return mail;
+
+            var userPrincipalName = GetStringProperty(root, "userPrincipalName");
+            return string.IsNullOrWhiteSpace(userPrincipalName) ? fallbackAddress : userPrincipalName;
+        }
+        catch
+        {
+            return fallbackAddress;
+        }
+    }
+
+    private static string GetStringProperty(JsonElement jsonElement, string propertyName)
+        => jsonElement.TryGetProperty(propertyName, out var property) && property.ValueKind == JsonValueKind.String
+            ? property.GetString()
+            : null;
 }

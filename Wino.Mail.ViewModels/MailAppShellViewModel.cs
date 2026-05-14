@@ -1540,29 +1540,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
         await ChangeLoadedAccountAsync(createdMenuItem);
 
-        if (createdAccount.IsMailAccessGranted)
-        {
-            // Each created account should start a new synchronization automatically.
-            var options = new MailSynchronizationOptions()
-            {
-                AccountId = createdAccount.Id,
-                Type = MailSynchronizationType.FullFolders,
-            };
-
-            Messenger.Send(new NewMailSynchronizationRequested(options));
-        }
-
-        if (createdAccount.IsCalendarAccessGranted)
-        {
-            var calendarOptions = new CalendarSynchronizationOptions()
-            {
-                AccountId = createdAccount.Id,
-                Type = CalendarSynchronizationType.CalendarEvents
-            };
-
-            Messenger.Send(new NewCalendarSynchronizationRequested(calendarOptions));
-        }
-
         try
         {
             await _nativeAppService.PinAppToTaskbarAsync();
