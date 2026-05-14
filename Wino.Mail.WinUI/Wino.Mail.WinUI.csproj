@@ -69,11 +69,6 @@
     <Content Remove="Assets\Square44x44Logo.targetsize-32.png" />
     <Content Remove="Assets\Square44x44Logo.targetsize-48.png" />
     <Content Remove="Assets\StoreLogo.backup.png" />
-    <Content Remove="Assets\StoreLogo.scale-100.png" />
-    <Content Remove="Assets\StoreLogo.scale-125.png" />
-    <Content Remove="Assets\StoreLogo.scale-150.png" />
-    <Content Remove="Assets\StoreLogo.scale-200.png" />
-    <Content Remove="Assets\StoreLogo.scale-400.png" />
     <Content Remove="Assets\Wide310x150Logo.scale-100.png" />
     <Content Remove="Assets\Wide310x150Logo.scale-125.png" />
     <Content Remove="Assets\Wide310x150Logo.scale-150.png" />
@@ -84,6 +79,11 @@
   <ItemGroup>
     <None Remove="Assets\AIPackIcon.png" />
     <None Remove="Assets\CalendarWide310x150Logo.png" />
+    <None Remove="Assets\StoreLogo.scale-100.png" />
+    <None Remove="Assets\StoreLogo.scale-125.png" />
+    <None Remove="Assets\StoreLogo.scale-150.png" />
+    <None Remove="Assets\StoreLogo.scale-200.png" />
+    <None Remove="Assets\StoreLogo.scale-400.png" />
     <None Remove="Assets\UpdateNotes\Images\Calendar.svg" />
     <None Remove="Assets\UpdateNotes\Images\Security.svg" />
     <None Remove="Assets\UpdateNotes\Images\Thread.svg" />
