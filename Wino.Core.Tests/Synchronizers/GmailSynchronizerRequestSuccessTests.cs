@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http;
 using System.Reflection;
@@ -8,6 +9,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Requests.Bundles;
@@ -19,6 +21,33 @@ namespace Wino.Core.Tests.Synchronizers;
 
 public sealed class GmailSynchronizerRequestSuccessTests
 {
+    [Fact]
+    public void BuildGmailSearchQuery_FormatsCutoffDateWithInvariantSlashSeparator()
+    {
+        var previousCulture = CultureInfo.CurrentCulture;
+
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("tr-TR");
+
+            var query = GmailSynchronizer.BuildGmailSearchQuery(null, new DateTime(2026, 5, 15, 12, 30, 0, DateTimeKind.Utc));
+
+            query.Should().Be("after:2026/05/15");
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previousCulture;
+        }
+    }
+
+    [Fact]
+    public void BuildGmailSearchQuery_AppendsCutoffDateToExistingQuery()
+    {
+        var query = GmailSynchronizer.BuildGmailSearchQuery("in:archive", new DateTime(2026, 5, 15, 12, 30, 0, DateTimeKind.Utc));
+
+        query.Should().Be("in:archive after:2026/05/15");
+    }
+
     [Fact]
     public async Task UpdateAccountSyncIdentifierAsync_EmptyStoredIdentifier_PersistsFirstHistoryCursor()
     {
@@ -49,11 +78,11 @@ public sealed class GmailSynchronizerRequestSuccessTests
     public async Task ProcessSingleNativeRequestResponseAsync_BatchMarkReadRequest_PersistsLocalReadStateForEachMail()
     {
         var changeProcessor = new Mock<IGmailChangeProcessor>(MockBehavior.Strict);
+        List<MailCopyStateUpdate>? capturedUpdates = null;
+
         changeProcessor
-            .Setup(x => x.ChangeMailReadStatusAsync("mail-1", true))
-            .Returns(Task.CompletedTask);
-        changeProcessor
-            .Setup(x => x.ChangeMailReadStatusAsync("mail-2", true))
+            .Setup(x => x.ApplyMailStateUpdatesAsync(It.IsAny<IEnumerable<MailCopyStateUpdate>>()))
+            .Callback<IEnumerable<MailCopyStateUpdate>>(updates => capturedUpdates = updates.ToList())
             .Returns(Task.CompletedTask);
 
         var synchronizer = CreateSynchronizer(changeProcessor.Object);
@@ -70,19 +99,22 @@ public sealed class GmailSynchronizerRequestSuccessTests
 
         await InvokeProcessSingleNativeRequestResponseAsync(synchronizer, bundle, response);
 
-        changeProcessor.Verify(x => x.ChangeMailReadStatusAsync("mail-1", true), Times.Once);
-        changeProcessor.Verify(x => x.ChangeMailReadStatusAsync("mail-2", true), Times.Once);
+        capturedUpdates.Should().BeEquivalentTo(
+        [
+            new MailCopyStateUpdate("mail-1", IsRead: true),
+            new MailCopyStateUpdate("mail-2", IsRead: true)
+        ]);
     }
 
     [Fact]
     public async Task ProcessSingleNativeRequestResponseAsync_BatchChangeFlagRequest_PersistsLocalFlagStateForEachMail()
     {
         var changeProcessor = new Mock<IGmailChangeProcessor>(MockBehavior.Strict);
+        List<MailCopyStateUpdate>? capturedUpdates = null;
+
         changeProcessor
-            .Setup(x => x.ChangeFlagStatusAsync("mail-1", true))
-            .Returns(Task.CompletedTask);
-        changeProcessor
-            .Setup(x => x.ChangeFlagStatusAsync("mail-2", true))
+            .Setup(x => x.ApplyMailStateUpdatesAsync(It.IsAny<IEnumerable<MailCopyStateUpdate>>()))
+            .Callback<IEnumerable<MailCopyStateUpdate>>(updates => capturedUpdates = updates.ToList())
             .Returns(Task.CompletedTask);
 
         var synchronizer = CreateSynchronizer(changeProcessor.Object);
@@ -99,8 +131,11 @@ public sealed class GmailSynchronizerRequestSuccessTests
 
         await InvokeProcessSingleNativeRequestResponseAsync(synchronizer, bundle, response);
 
-        changeProcessor.Verify(x => x.ChangeFlagStatusAsync("mail-1", true), Times.Once);
-        changeProcessor.Verify(x => x.ChangeFlagStatusAsync("mail-2", true), Times.Once);
+        capturedUpdates.Should().BeEquivalentTo(
+        [
+            new MailCopyStateUpdate("mail-1", IsFlagged: true),
+            new MailCopyStateUpdate("mail-2", IsFlagged: true)
+        ]);
     }
 
     [Fact]

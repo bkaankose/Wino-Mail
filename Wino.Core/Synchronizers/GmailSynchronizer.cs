@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -268,7 +269,9 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             // Keep virtual Archive folder assignments in sync with Gmail "in:archive" query.
             try
             {
-                await MapArchivedMailsAsync(cancellationToken).ConfigureAwait(false);
+                var referenceDateUtc = Account.CreatedAt ?? DateTime.UtcNow;
+                var initialSynchronizationCutoffDateUtc = Account.InitialSynchronizationRange.ToCutoffDateUtc(referenceDateUtc);
+                await MapArchivedMailsAsync(initialSynchronizationCutoffDateUtc, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -301,6 +304,20 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     /// </summary>
     private record DeltaSyncResult(List<string> DownloadedMessageIds, bool RequiresFullResync);
 
+    internal static string BuildGmailSearchQuery(string queryText, DateTime? cutoffDateUtc)
+    {
+        var afterTerm = cutoffDateUtc.HasValue
+            ? $"after:{cutoffDateUtc.Value.ToUniversalTime().ToString("yyyy'/'MM'/'dd", CultureInfo.InvariantCulture)}"
+            : null;
+
+        if (string.IsNullOrWhiteSpace(queryText))
+            return afterTerm;
+
+        return string.IsNullOrEmpty(afterTerm)
+            ? queryText
+            : $"{queryText} {afterTerm}";
+    }
+
     /// <summary>
     /// Performs initial synchronization by downloading messages per-folder.
     /// Messages are filtered by the account's configured initial synchronization cutoff date when present,
@@ -312,9 +329,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         var downloadedMessageIds = new HashSet<string>();
         var referenceDateUtc = Account.CreatedAt ?? DateTime.UtcNow;
         var initialSynchronizationCutoffDateUtc = Account.InitialSynchronizationRange.ToCutoffDateUtc(referenceDateUtc);
-        var queryText = initialSynchronizationCutoffDateUtc.HasValue
-            ? $"after:{initialSynchronizationCutoffDateUtc.Value.ToUniversalTime():yyyy/MM/dd}"
-            : null;
+        var queryText = BuildGmailSearchQuery(null, initialSynchronizationCutoffDateUtc);
 
         _logger.Information("Performing initial sync for {Name} - downloading messages per folder", Account.Name);
 
@@ -348,6 +363,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
                     var request = _gmailService.Users.Messages.List("me");
                     request.LabelIds = new Google.Apis.Util.Repeatable<string>(new[] { folder.RemoteFolderId });
+                    request.IncludeSpamTrash = true;
                     request.MaxResults = 500; // API max is 500
                     request.PageToken = pageToken;
                     request.Q = queryText;
@@ -2113,12 +2129,12 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     /// We need to handle it separately.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    private async Task MapArchivedMailsAsync(CancellationToken cancellationToken)
+    private async Task MapArchivedMailsAsync(DateTime? initialSynchronizationCutoffDateUtc, CancellationToken cancellationToken)
     {
         if (!archiveFolderId.HasValue) return;
 
         var request = _gmailService.Users.Messages.List("me");
-        request.Q = "in:archive";
+        request.Q = BuildGmailSearchQuery("in:archive", initialSynchronizationCutoffDateUtc);
         request.MaxResults = 500;
 
         string pageToken = null;
