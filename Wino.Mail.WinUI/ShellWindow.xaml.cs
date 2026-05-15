@@ -18,7 +18,6 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Extensions;
 using Wino.Mail.WinUI.Activation;
-using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
@@ -40,6 +39,9 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     IRecipient<WinoAccountProfileUpdatedMessage>,
     IRecipient<WinoAccountProfileDeletedMessage>
 {
+    private const int AutomaticPlacementRestorationBehaviorValue = 1;
+    private static readonly Guid ShellWindowPersistedStateId = new("6BEB6E1D-BEAF-4CE7-9967-13B2A4F46187");
+
     private bool _allowClose;
     public IStatePersistanceService StatePersistanceService { get; } = WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception("StatePersistanceService not registered in DI container.");
     public IPreferencesService PreferencesService { get; } = WinoApplication.Current.Services.GetService<IPreferencesService>() ?? throw new Exception("PreferencesService not registered in DI container.");
@@ -63,6 +65,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
         MinWidth = 420;
         MinHeight = 420;
+        ConfigureWindowPlacementPersistence();
         ConfigureTitleBar();
         ApplyTitleBarSearchHost();
 
@@ -93,6 +96,14 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
                 UpdateTitleBarColors(underlyingThemeService.IsUnderlyingThemeDark());
             }
         }
+    }
+
+    private void ConfigureWindowPlacementPersistence()
+    {
+        AppWindow.PersistedStateId = ShellWindowPersistedStateId;
+#pragma warning disable CS8305 // PlacementRestorationBehavior is experimental in Windows App SDK 2.0.
+        AppWindow.PlacementRestorationBehavior = (PlacementRestorationBehavior)AutomaticPlacementRestorationBehaviorValue;
+#pragma warning restore CS8305
     }
 
     private void RegisterMouseBackButtonListener()
@@ -407,6 +418,8 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         if (!await PrepareMailModeForHideAsync())
             return;
 
+        SaveWindowPlacement();
+
         var windowManager = WinoApplication.Current.Services.GetService<IWinoWindowManager>();
         windowManager?.HideWindow(this);
     }
@@ -430,9 +443,15 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     private void OnWindowClosed(object sender, WindowEventArgs e)
     {
+        SaveWindowPlacement();
+
         Closed -= OnWindowClosed;
         AppWindow.Closing -= OnAppWindowClosing;
         StatePersistanceService.StatePropertyChanged -= StatePersistenceServiceChanged;
+
+        // No need to prepare for close or cleanup if the application is exiting, as the process will be terminated shortly after.
+        if ((Application.Current as App)?.IsExiting == true)
+            return;
 
         if (MainShellFrame.Content is WinoAppShell shellPage)
         {
@@ -441,6 +460,18 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
         WindowCleanupHelper.CleanupFrame(MainShellFrame);
         UnregisterRecipients();
+    }
+
+    private void SaveWindowPlacement()
+    {
+        try
+        {
+            AppWindow.SaveCurrentPlacement();
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Error(ex, "Failed to save shell window placement.");
+        }
     }
 
     private async Task<bool> PrepareMailModeForHideAsync()

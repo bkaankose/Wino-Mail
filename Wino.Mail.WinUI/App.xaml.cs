@@ -371,7 +371,6 @@ public partial class App : WinoApplication,
         _isExiting = true;
         DisposeTrayIcon();
 
-        Services.GetRequiredService<IWinoWindowManager>().CloseAllWindows();
         Application.Current.Exit();
     }
 
