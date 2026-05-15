@@ -25,6 +25,7 @@ public class HtmlPreviewVisitor : MimeVisitor
 
     private readonly List<MultipartRelated> stack = [];
     private readonly List<MimeEntity> attachments = [];
+    private int allowedJsonLdScriptDepth;
 
     readonly string tempDir;
 
@@ -188,7 +189,7 @@ public class HtmlPreviewVisitor : MimeVisitor
     {
         var tagName = ctx.TagName;
 
-        if (BlockedTags.Contains(tagName))
+        if (BlockedTags.Contains(tagName) && !ShouldKeepBlockedTag(ctx))
         {
             ctx.DeleteTag = true;
             ctx.DeleteEndTag = true;
@@ -296,6 +297,49 @@ public class HtmlPreviewVisitor : MimeVisitor
 
         if (string.Equals(attributeName, "srcdoc", StringComparison.OrdinalIgnoreCase))
             return true;
+
+        return false;
+    }
+
+    private bool ShouldKeepBlockedTag(HtmlTagContext ctx)
+    {
+        if (!string.Equals(ctx.TagName, "script", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (ctx.IsEndTag)
+        {
+            if (allowedJsonLdScriptDepth == 0)
+                return false;
+
+            allowedJsonLdScriptDepth--;
+            return true;
+        }
+
+        if (!IsAllowedJsonLdScript(ctx))
+            return false;
+
+        allowedJsonLdScriptDepth++;
+        return true;
+    }
+
+    private static bool IsAllowedJsonLdScript(HtmlTagContext ctx)
+    {
+        if (!string.Equals(ctx.TagName, "script", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        foreach (var attribute in ctx.Attributes)
+        {
+            if (!string.Equals(attribute.Name, "type", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var scriptType = attribute.Value?.Trim().Trim('"', '\'');
+            var mimeTypeEnd = scriptType?.IndexOf(';', StringComparison.Ordinal) ?? -1;
+
+            if (mimeTypeEnd >= 0)
+                scriptType = scriptType[..mimeTypeEnd].Trim();
+
+            return string.Equals(scriptType, "application/ld+json", StringComparison.OrdinalIgnoreCase);
+        }
 
         return false;
     }

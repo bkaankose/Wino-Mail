@@ -75,4 +75,39 @@ public class HtmlPreviewVisitorTests
         output.Should().Contain("id=\"allowed\" src=\"data:image/png;base64", "safe image data URLs should be preserved");
         output.Should().NotContain("id=\"svg-script\" src=\"data:text/html", "non-image data URLs should be removed");
     }
+
+    [Fact]
+    public void HtmlPreviewVisitor_Should_Preserve_JsonLd_Script_Blocks()
+    {
+        // Arrange
+        var html = """
+            <html>
+                <body>
+                    <script type="application/ld+json; charset=utf-8">
+                    {
+                        "@context": "https://schema.org",
+                        "@type": "EmailMessage",
+                        "description": "Structured metadata"
+                    }
+                    </script>
+                    <script type="text/javascript">alert('xss')</script>
+                </body>
+            </html>
+            """;
+
+        var message = new MimeMessage();
+        message.Body = new TextPart("html") { Text = html };
+
+        var visitor = new HtmlPreviewVisitor(Path.GetTempPath());
+
+        // Act
+        message.Accept(visitor);
+        var output = visitor.HtmlBody;
+
+        // Assert
+        output.Should().Contain("<script type=\"application/ld+json; charset=utf-8\">", "JSON-LD scripts are inert data blocks and should not render as visible JSON");
+        output.Should().Contain("\"@context\": \"https://schema.org\"", "JSON-LD content should stay inside the script block");
+        output.Should().Contain("</script>", "the JSON-LD block should remain closed");
+        output.Should().NotContain("<script type=\"text/javascript\">", "executable scripts must still be blocked");
+    }
 }
