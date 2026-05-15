@@ -108,20 +108,30 @@ public class TranslationService : ITranslationService
     {
         supportedLanguage = languageCode.ToLowerInvariant() switch
         {
+            "bg" => AppLanguage.Bulgarian,
+            "ca" => AppLanguage.Catalan,
             "cs" => AppLanguage.Czech,
+            "da" => AppLanguage.Danish,
             "de" => AppLanguage.Deutsch,
             "el" => AppLanguage.Greek,
             "en" => AppLanguage.English,
             "es" => AppLanguage.Spanish,
+            "fi" => AppLanguage.Finnish,
             "fr" => AppLanguage.French,
+            "gl" => AppLanguage.Galician,
             "id" => AppLanguage.Indonesian,
             "it" => AppLanguage.Italian,
+            "ja" => AppLanguage.Japanese,
             "ko" => AppLanguage.Korean,
+            "lt" => AppLanguage.Lithuanian,
+            "nl" => AppLanguage.Dutch,
             "pl" => AppLanguage.Polish,
             "pt" => AppLanguage.PortugeseBrazil,
             "ro" => AppLanguage.Romanian,
             "ru" => AppLanguage.Russian,
+            "sk" => AppLanguage.Slovak,
             "tr" => AppLanguage.Turkish,
+            "uk" => AppLanguage.Ukrainian,
             "zh" => AppLanguage.Chinese,
             _ => AppLanguage.None
         };
@@ -147,7 +157,17 @@ public class TranslationService : ITranslationService
             new AppLanguageModel(AppLanguage.Russian, "Russian", "ru-RU"),
             new AppLanguageModel(AppLanguage.Romanian, "Romanian", "ro-RO"),
             new AppLanguageModel(AppLanguage.Spanish, "Spanish", "es-ES"),
-            new AppLanguageModel(AppLanguage.Turkish, "Turkish", "tr-TR")
+            new AppLanguageModel(AppLanguage.Turkish, "Turkish", "tr-TR"),
+            new AppLanguageModel(AppLanguage.Bulgarian, "Bulgarian", "bg-BG"),
+            new AppLanguageModel(AppLanguage.Catalan, "Catalan", "ca-ES"),
+            new AppLanguageModel(AppLanguage.Danish, "Danish", "da-DK"),
+            new AppLanguageModel(AppLanguage.Dutch, "Dutch", "nl-NL"),
+            new AppLanguageModel(AppLanguage.Finnish, "Finnish", "fi-FI"),
+            new AppLanguageModel(AppLanguage.Galician, "Galician", "gl-ES"),
+            new AppLanguageModel(AppLanguage.Japanese, "Japanese", "ja-JP"),
+            new AppLanguageModel(AppLanguage.Lithuanian, "Lithuanian", "lt-LT"),
+            new AppLanguageModel(AppLanguage.Slovak, "Slovak", "sk-SK"),
+            new AppLanguageModel(AppLanguage.Ukrainian, "Ukrainian", "uk-UA")
         ];
     }
 }

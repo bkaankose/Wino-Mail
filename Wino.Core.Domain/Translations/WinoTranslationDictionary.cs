@@ -46,6 +46,16 @@ public class WinoTranslationDictionary : Dictionary<string, string>
             AppLanguage.PortugeseBrazil => "pt_BR",
             AppLanguage.Romanian => "ro_RO",
             AppLanguage.Korean => "ko_KR",
+            AppLanguage.Bulgarian => "bg_BG",
+            AppLanguage.Catalan => "ca_ES",
+            AppLanguage.Danish => "da_DK",
+            AppLanguage.Dutch => "nl_NL",
+            AppLanguage.Finnish => "fi_FI",
+            AppLanguage.Galician => "gl_ES",
+            AppLanguage.Japanese => "ja_JP",
+            AppLanguage.Lithuanian => "lt_LT",
+            AppLanguage.Slovak => "sk_SK",
+            AppLanguage.Ukrainian => "uk_UA",
             _ => "en_US",
         };
     }

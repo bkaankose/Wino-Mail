@@ -17,5 +17,15 @@ public enum AppLanguage
     PortugeseBrazil,
     Italian,
     Romanian,
-    Korean
+    Korean,
+    Bulgarian,
+    Catalan,
+    Danish,
+    Dutch,
+    Finnish,
+    Galician,
+    Japanese,
+    Lithuanian,
+    Slovak,
+    Ukrainian
 }
