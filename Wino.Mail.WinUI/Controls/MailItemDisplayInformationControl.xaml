@@ -217,7 +217,7 @@
                                 x:Name="TitleText"
                                 Grid.Column="1"
                                 MaxLines="1"
-                                Text="{x:Bind MailItemInformation.Subject, Mode=OneWay}"
+                                Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(MailItemInformation.Subject), Mode=OneWay}"
                                 TextTrimming="CharacterEllipsis" />
 
                             <TextBlock
