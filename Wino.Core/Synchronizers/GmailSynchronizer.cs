@@ -134,22 +134,107 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         var profileRequest = _peopleService.People.Get("people/me");
         profileRequest.PersonFields = "names,photos,emailAddresses";
 
-        string senderName = string.Empty, base64ProfilePicture = string.Empty, address = string.Empty;
+        string base64ProfilePicture = string.Empty;
 
-        var userProfile = await profileRequest.ExecuteAsync();
+        Google.Apis.PeopleService.v1.Data.Person userProfile = null;
 
-        senderName = userProfile.Names?.FirstOrDefault()?.DisplayName ?? Account.SenderName;
+        try
+        {
+            userProfile = await profileRequest.ExecuteAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to fetch Gmail People profile for {Name}. Falling back to Gmail profile APIs.", Account.Name);
+        }
+
+        var primarySendAs = await GetPrimarySendAsAsync().ConfigureAwait(false);
+        var gmailProfileAddress = await GetGmailProfileAddressAsync().ConfigureAwait(false);
+
+        var address = GetPrimaryProfileEmail(userProfile)
+            ?? primarySendAs?.SendAsEmail
+            ?? gmailProfileAddress
+            ?? Account.Address;
+
+        var senderName = userProfile.Names?
+            .FirstOrDefault(name => name?.Metadata?.Primary == true)?.DisplayName;
+
+        senderName = string.IsNullOrWhiteSpace(senderName)
+            ? userProfile.Names?.FirstOrDefault(name => !string.IsNullOrWhiteSpace(name?.DisplayName))?.DisplayName
+            : senderName;
+
+        senderName = string.IsNullOrWhiteSpace(senderName)
+            ? primarySendAs?.DisplayName
+            : senderName;
+
+        senderName = string.IsNullOrWhiteSpace(senderName)
+            ? Account.SenderName
+            : senderName;
+
+        senderName = string.IsNullOrWhiteSpace(senderName)
+            ? GetDisplayNameFallback(address)
+            : senderName;
 
         var profilePicture = userProfile.Photos?.FirstOrDefault()?.Url ?? string.Empty;
 
         if (!string.IsNullOrEmpty(profilePicture))
         {
-            base64ProfilePicture = await GetProfilePictureBase64EncodedAsync(profilePicture).ConfigureAwait(false);
+            try
+            {
+                base64ProfilePicture = await GetProfilePictureBase64EncodedAsync(profilePicture).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Failed to fetch Gmail profile picture for {Name}", Account.Name);
+            }
         }
 
-        address = userProfile.EmailAddresses.FirstOrDefault(a => a.Metadata.Primary == true).Value;
-
         return new ProfileInformation(senderName, base64ProfilePicture, address);
+    }
+
+    private async Task<SendAs> GetPrimarySendAsAsync()
+    {
+        try
+        {
+            var sendAsListResponse = await _gmailService.Users.Settings.SendAs.List("me").ExecuteAsync().ConfigureAwait(false);
+
+            return sendAsListResponse?.SendAs?
+                .FirstOrDefault(sendAs => sendAs?.IsPrimary == true)
+                ?? sendAsListResponse?.SendAs?.FirstOrDefault(sendAs => sendAs?.IsDefault == true)
+                ?? sendAsListResponse?.SendAs?.FirstOrDefault();
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to fetch Gmail send-as profile fallback for {Name}", Account.Name);
+            return null;
+        }
+    }
+
+    private async Task<string> GetGmailProfileAddressAsync()
+    {
+        try
+        {
+            var profile = await _gmailService.Users.GetProfile("me").ExecuteAsync().ConfigureAwait(false);
+            return profile?.EmailAddress;
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to fetch Gmail profile address fallback for {Name}", Account.Name);
+            return null;
+        }
+    }
+
+    private static string GetPrimaryProfileEmail(Google.Apis.PeopleService.v1.Data.Person userProfile)
+        => userProfile?.EmailAddresses?
+            .FirstOrDefault(email => email?.Metadata?.Primary == true)?.Value
+            ?? userProfile?.EmailAddresses?.FirstOrDefault(email => !string.IsNullOrWhiteSpace(email?.Value))?.Value;
+
+    private static string GetDisplayNameFallback(string address)
+    {
+        if (string.IsNullOrWhiteSpace(address))
+            return string.Empty;
+
+        var atIndex = address.IndexOf('@');
+        return atIndex > 0 ? address[..atIndex] : address;
     }
 
     protected override async Task SynchronizeAliasesAsync()

@@ -16,6 +16,8 @@ public interface IAuthenticator
 
     Task<TokenInformationEx> GenerateTokenInformationAsync(MailAccount account);
 
+    Task DeleteTokenInformationAsync(MailAccount account);
+
     ///// <summary>
     ///// Gets the token for the given account from the cache.
     ///// Forces interactive login if the token is not found.

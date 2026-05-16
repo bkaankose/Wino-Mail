@@ -493,8 +493,9 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     {
         var previousMailAccess = Account.IsMailAccessGranted;
         var previousCalendarAccess = Account.IsCalendarAccessGranted;
-        var requiresReauthorization = (selectedOption.IsMailAccessGranted && !previousMailAccess) ||
-                                      (selectedOption.IsCalendarAccessGranted && !previousCalendarAccess);
+        var requiresReauthorization = IsOAuthCapabilityEditable &&
+                                      (selectedOption.IsMailAccessGranted != previousMailAccess ||
+                                       selectedOption.IsCalendarAccessGranted != previousCalendarAccess);
 
         try
         {
@@ -506,7 +507,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
                 await SynchronizationManager.Instance.HandleAuthorizationAsync(
                     Account.ProviderType,
                     Account,
-                    Account.ProviderType == MailProviderType.Gmail);
+                    Account.ProviderType == MailProviderType.Gmail,
+                    forceInteractive: true);
             }
         }
         catch

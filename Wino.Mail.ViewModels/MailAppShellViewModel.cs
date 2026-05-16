@@ -743,7 +743,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                     await SynchronizationManager.Instance.HandleAuthorizationAsync(
                         account.ProviderType,
                         account,
-                        account.ProviderType == MailProviderType.Gmail);
+                        account.ProviderType == MailProviderType.Gmail,
+                        forceInteractive: true);
 
                     await _accountService.ClearAccountAttentionAsync(account.Id);
 

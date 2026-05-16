@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -90,39 +91,28 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
     {
         await EnsureTokenCacheAttachedAsync();
 
-        var authenticationAddress = string.IsNullOrWhiteSpace(account.AuthenticationAddress)
-            ? account.Address
-            : account.AuthenticationAddress;
-
-        var storedAccount = (await _publicClientApplication.GetAccountsAsync()).FirstOrDefault(
-            a => string.Equals(a.Username?.Trim(), authenticationAddress?.Trim(), StringComparison.OrdinalIgnoreCase));
-
-        if (storedAccount == null)
-        {
-            var generatedTokenInfo = await GenerateTokenInformationAsync(account).ConfigureAwait(false);
-            account.AuthenticationAddress = generatedTokenInfo.AuthenticationAddress;
-
-            return generatedTokenInfo;
-        }
-
         try
         {
-            var authResult = await _publicClientApplication.AcquireTokenSilent(GetScope(account), storedAccount).ExecuteAsync();
-            account.AuthenticationAddress = authResult.Account.Username;
+            var cachedTokenInfo = await TryGetCachedTokenInformationAsync(account).ConfigureAwait(false);
 
-            return new TokenInformationEx(authResult.AccessToken, account.Address, authResult.Account.Username);
+            if (cachedTokenInfo != null)
+            {
+                ApplyTokenInformation(account, cachedTokenInfo);
+                return cachedTokenInfo;
+            }
         }
         catch (MsalUiRequiredException)
         {
             // Somehow MSAL is not able to refresh the token silently.
-            // Force interactive login which will include calendar scopes.
-            // The calling code should update account.IsCalendarAccessGranted = true after successful authentication.
-
-            var generatedTokenInfo = await GenerateTokenInformationAsync(account).ConfigureAwait(false);
-            account.AuthenticationAddress = generatedTokenInfo.AuthenticationAddress;
-
-            return generatedTokenInfo;
         }
+
+        // Force interactive login which will include calendar scopes.
+        // The calling code should update account.IsCalendarAccessGranted = true after successful authentication.
+
+        var generatedTokenInfo = await GenerateTokenInformationAsync(account).ConfigureAwait(false);
+        ApplyTokenInformation(account, generatedTokenInfo);
+
+        return generatedTokenInfo;
     }
 
     public async Task<TokenInformationEx> GenerateTokenInformationAsync(MailAccount account)
@@ -137,9 +127,13 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
 
             if (_nativeAppService.GetCoreWindowHwnd == null) throw new AuthenticationAttentionException(account);
 
-            AuthenticationResult authResult = await _publicClientApplication
-                .AcquireTokenInteractive(GetScope(account))
-                .ExecuteAsync();
+            var interactiveBuilder = _publicClientApplication.AcquireTokenInteractive(GetScope(account));
+            var loginHint = GetAuthenticationAddress(account);
+
+            if (!string.IsNullOrWhiteSpace(loginHint))
+                interactiveBuilder = interactiveBuilder.WithLoginHint(loginHint);
+
+            AuthenticationResult authResult = await interactiveBuilder.ExecuteAsync();
 
             // Microsoft 365 work/school tenants can use a sign-in UPN that differs from
             // the mailbox primary SMTP address, so interactive reauth must not reject them.
@@ -158,6 +152,26 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
         }
 
         throw new AuthenticationException(Translator.Exception_UnknowErrorDuringAuthentication, new Exception(Translator.Exception_TokenGenerationFailed));
+    }
+
+    public async Task DeleteTokenInformationAsync(MailAccount account)
+    {
+        await EnsureTokenCacheAttachedAsync().ConfigureAwait(false);
+
+        if (account == null)
+            return;
+
+        var authenticationAddress = string.IsNullOrWhiteSpace(account.AuthenticationAddress)
+            ? account.Address
+            : account.AuthenticationAddress;
+
+        var storedAccount = (await _publicClientApplication.GetAccountsAsync().ConfigureAwait(false)).FirstOrDefault(
+            a => string.Equals(a.Username?.Trim(), authenticationAddress?.Trim(), StringComparison.OrdinalIgnoreCase));
+
+        if (storedAccount != null)
+        {
+            await _publicClientApplication.RemoveAsync(storedAccount).ConfigureAwait(false);
+        }
     }
 
     private static async Task<string> ResolveMailboxAddressAsync(string accessToken, string fallbackAddress)
@@ -194,4 +208,104 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
         => jsonElement.TryGetProperty(propertyName, out var property) && property.ValueKind == JsonValueKind.String
             ? property.GetString()
             : null;
+
+    private async Task<TokenInformationEx> TryGetCachedTokenInformationAsync(MailAccount account)
+    {
+        var scopes = GetScope(account);
+        var cachedAccounts = (await _publicClientApplication.GetAccountsAsync().ConfigureAwait(false)).ToList();
+        var storedAccount = FindStoredAccount(cachedAccounts, account);
+
+        if (storedAccount != null)
+        {
+            var authResult = await _publicClientApplication
+                .AcquireTokenSilent(scopes, storedAccount)
+                .ExecuteAsync()
+                .ConfigureAwait(false);
+
+            return new TokenInformationEx(authResult.AccessToken, account?.Address, authResult.Account.Username);
+        }
+
+        foreach (var cachedAccount in cachedAccounts)
+        {
+            var tokenInfo = await TryGetMatchingTokenInformationAsync(account, scopes, cachedAccount).ConfigureAwait(false);
+
+            if (tokenInfo != null)
+                return tokenInfo;
+        }
+
+        return await TryGetMatchingTokenInformationAsync(account, scopes, PublicClientApplication.OperatingSystemAccount).ConfigureAwait(false);
+    }
+
+    private async Task<TokenInformationEx> TryGetMatchingTokenInformationAsync(MailAccount account, IEnumerable<string> scopes, IAccount cachedAccount)
+    {
+        try
+        {
+            var authResult = await _publicClientApplication
+                .AcquireTokenSilent(scopes, cachedAccount)
+                .ExecuteAsync()
+                .ConfigureAwait(false);
+
+            return await GetValidatedTokenInformationAsync(account, authResult).ConfigureAwait(false);
+        }
+        catch (MsalUiRequiredException)
+        {
+            return null;
+        }
+        catch (MsalClientException)
+        {
+            return null;
+        }
+    }
+
+    private async Task<TokenInformationEx> GetValidatedTokenInformationAsync(MailAccount account, AuthenticationResult authResult)
+    {
+        if (account == null)
+            return new TokenInformationEx(authResult.AccessToken, authResult.Account.Username, authResult.Account.Username);
+
+        var authenticationAddress = GetAuthenticationAddress(account);
+
+        if (AddressesMatch(authResult.Account.Username, authenticationAddress) ||
+            AddressesMatch(authResult.Account.Username, account.Address))
+        {
+            return new TokenInformationEx(authResult.AccessToken, account.Address, authResult.Account.Username);
+        }
+
+        var mailboxAddress = await ResolveMailboxAddressAsync(authResult.AccessToken, authResult.Account.Username)
+            .ConfigureAwait(false);
+
+        return AddressesMatch(mailboxAddress, account.Address)
+            ? new TokenInformationEx(authResult.AccessToken, mailboxAddress, authResult.Account.Username)
+            : null;
+    }
+
+    private static IAccount FindStoredAccount(IEnumerable<IAccount> cachedAccounts, MailAccount account)
+    {
+        var authenticationAddress = GetAuthenticationAddress(account);
+
+        return cachedAccounts.FirstOrDefault(a =>
+            AddressesMatch(a.Username, authenticationAddress) ||
+            AddressesMatch(a.Username, account?.Address));
+    }
+
+    private static string GetAuthenticationAddress(MailAccount account)
+        => string.IsNullOrWhiteSpace(account?.AuthenticationAddress)
+            ? account?.Address
+            : account.AuthenticationAddress;
+
+    private static bool AddressesMatch(string firstAddress, string secondAddress)
+        => !string.IsNullOrWhiteSpace(firstAddress) &&
+           !string.IsNullOrWhiteSpace(secondAddress) &&
+           string.Equals(firstAddress.Trim(), secondAddress.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    private static void ApplyTokenInformation(MailAccount account, TokenInformationEx tokenInformation)
+    {
+        if (account == null || tokenInformation == null)
+            return;
+
+        if (!string.IsNullOrWhiteSpace(tokenInformation.AccountAddress))
+            account.Address = tokenInformation.AccountAddress;
+
+        if (!string.IsNullOrWhiteSpace(tokenInformation.AuthenticationAddress))
+            account.AuthenticationAddress = tokenInformation.AuthenticationAddress;
+    }
 }

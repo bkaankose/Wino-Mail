@@ -211,6 +211,12 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         Guard.IsNotNull(token);
 
+        if (!string.IsNullOrWhiteSpace(token.AccountAddress))
+            account.Address = token.AccountAddress;
+
+        if (!string.IsNullOrWhiteSpace(token.AuthenticationAddress))
+            account.AuthenticationAddress = token.AuthenticationAddress;
+
         await UpdateAccountAsync(account);
     }
 
@@ -309,6 +315,8 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     public async Task DeleteAccountAsync(MailAccount account)
     {
+        await DeleteProviderTokenAsync(account).ConfigureAwait(false);
+
         // Collect calendar entities before deletion so we can notify UI subscribers.
         var accountCalendars = await Connection.Table<AccountCalendar>()
             .Where(a => a.AccountId == account.Id)
@@ -403,14 +411,37 @@ public class AccountService : BaseDatabaseService, IAccountService
         ReportUIChange(new AccountRemovedMessage(account));
     }
 
+    private async Task DeleteProviderTokenAsync(MailAccount account)
+    {
+        if (account == null || account.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook))
+            return;
+
+        try
+        {
+            var authenticator = _authenticationProvider.GetAuthenticator(account.ProviderType);
+            await authenticator.DeleteTokenInformationAsync(account).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to delete cached token for account {AccountId}. Continuing account deletion.", account.Id);
+        }
+    }
+
     public async Task UpdateProfileInformationAsync(Guid accountId, ProfileInformation profileInformation)
     {
         var account = await GetAccountAsync(accountId).ConfigureAwait(false);
 
         if (account != null)
         {
-            account.SenderName = profileInformation.SenderName;
-            account.Base64ProfilePictureData = profileInformation.Base64ProfilePictureData;
+            if (!string.IsNullOrWhiteSpace(profileInformation.SenderName))
+            {
+                account.SenderName = profileInformation.SenderName;
+            }
+
+            if (!string.IsNullOrWhiteSpace(profileInformation.Base64ProfilePictureData))
+            {
+                account.Base64ProfilePictureData = profileInformation.Base64ProfilePictureData;
+            }
 
             var profileAddress = profileInformation.AccountAddress?.Trim();
 
@@ -424,6 +455,12 @@ public class AccountService : BaseDatabaseService, IAccountService
             }
 
             // Forcefully add or update a contact data with the provided information.
+
+            if (string.IsNullOrWhiteSpace(account.Address))
+            {
+                await UpdateAccountAsync(account).ConfigureAwait(false);
+                return;
+            }
 
             var existingContact = await Connection.Table<AccountContact>()
                 .FirstOrDefaultAsync(a => a.Address == account.Address)

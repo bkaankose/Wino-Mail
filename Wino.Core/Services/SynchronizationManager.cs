@@ -787,6 +787,13 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     {
         if (_synchronizerCache.TryGetValue(accountId, out var existingSynchronizer))
         {
+            var currentAccount = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+            if (currentAccount != null && RequiresSynchronizerRefresh(existingSynchronizer.Account, currentAccount))
+            {
+                await DestroySynchronizerAsync(accountId).ConfigureAwait(false);
+                return CreateSynchronizerForAccount(currentAccount);
+            }
+
             return existingSynchronizer;
         }
 
@@ -800,6 +807,15 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         return null;
     }
 
+    public static bool CanSynchronizeCalendar(MailAccount account)
+        => account?.IsCalendarAccessGranted == true;
+
+    public static bool RequiresSynchronizerRefresh(MailAccount cachedAccount, MailAccount currentAccount)
+        => cachedAccount == null ||
+           currentAccount == null ||
+           cachedAccount.IsMailAccessGranted != currentAccount.IsMailAccessGranted ||
+           cachedAccount.IsCalendarAccessGranted != currentAccount.IsCalendarAccessGranted;
+
     /// <summary>
     /// Handles OAuth authentication for the specified provider.
     /// </summary>
@@ -809,7 +825,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     /// <returns>Token information containing access token and username</returns>
     public async Task<TokenInformationEx> HandleAuthorizationAsync(MailProviderType providerType,
                                                                   MailAccount account = null,
-                                                                  bool proposeCopyAuthorizationURL = false)
+                                                                  bool proposeCopyAuthorizationURL = false,
+                                                                  bool forceInteractive = false)
     {
         EnsureInitialized();
 
@@ -830,8 +847,17 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
             if (account != null)
             {
-                // Get token for existing account (may trigger interactive auth if token is expired)
-                tokenInfo = await authenticator.GetTokenInformationAsync(account);
+                // Get token for existing account. Capability upgrades must force a fresh
+                // consent prompt so the locally cached Google token cannot keep old scopes.
+                if (forceInteractive)
+                {
+                    await authenticator.DeleteTokenInformationAsync(account).ConfigureAwait(false);
+                    tokenInfo = await authenticator.GenerateTokenInformationAsync(account).ConfigureAwait(false);
+                }
+                else
+                {
+                    tokenInfo = await authenticator.GetTokenInformationAsync(account).ConfigureAwait(false);
+                }
                 _logger.Information("Retrieved token for existing account {AccountAddress}", account.Address);
             }
             else
