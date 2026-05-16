@@ -14,6 +14,7 @@
     <DataTemplate x:Key="OperationCommandBarMailOperationTemplate" x:DataType="controls:OperationCommandBarMenuOperationItemViewModel">
         <AppBarButton
             MinWidth="40"
+            AutomationProperties.Name="{x:Bind ToolTip}"
             IsEnabled="{x:Bind IsEnabled}"
             Label="{x:Bind Label}"
             LabelPosition="{x:Bind LabelPosition}"
@@ -27,6 +28,7 @@
     <DataTemplate x:Key="OperationCommandBarFolderOperationTemplate" x:DataType="controls:OperationCommandBarMenuOperationItemViewModel">
         <AppBarButton
             MinWidth="40"
+            AutomationProperties.Name="{x:Bind ToolTip}"
             IsEnabled="{x:Bind IsEnabled}"
             Label="{x:Bind Label}"
             LabelPosition="{x:Bind LabelPosition}"
@@ -40,6 +42,7 @@
     <DataTemplate x:Key="OperationCommandBarAIActionsTemplate" x:DataType="controls:OperationCommandBarAIActionsItemViewModel">
         <AppBarToggleButton
             MinWidth="40"
+            AutomationProperties.Name="{x:Bind ToolTip}"
             LabelPosition="Collapsed"
             ToolTipService.ToolTip="{x:Bind ToolTip}">
             <AppBarToggleButton.Icon>
@@ -51,6 +54,7 @@
     <DataTemplate x:Key="OperationCommandBarThemeToggleTemplate" x:DataType="controls:OperationCommandBarThemeItemViewModel">
         <AppBarButton
             MinWidth="40"
+            AutomationProperties.Name="{x:Bind ToolTip}"
             LabelPosition="Collapsed"
             ToolTipService.ToolTip="{x:Bind ToolTip}">
             <AppBarButton.Icon>

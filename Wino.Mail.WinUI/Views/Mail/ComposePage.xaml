@@ -163,6 +163,7 @@
                             <AppBarToggleButton
                                 x:Name="ComposeAiActionsToggleButton"
                                 MinWidth="40"
+                                AutomationProperties.Name="{x:Bind domain:Translator.Composer_AiActions, Mode=OneTime}"
                                 HorizontalContentAlignment="Center"
                                 Checked="ComposeAiActionsToggleButton_Checked"
                                 LabelPosition="Collapsed"
@@ -173,6 +174,7 @@
                                 </AppBarToggleButton.Icon>
                             </AppBarToggleButton>
                             <AppBarButton
+                                AutomationProperties.Name="{x:Bind domain:Translator.Buttons_PopOut, Mode=OneTime}"
                                 Click="PopOutButton_Click"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_PopOut}"
                                 Visibility="{x:Bind GetPopOutButtonVisibility(), Mode=OneWay}">
@@ -180,7 +182,10 @@
                                     <coreControls:WinoFontIcon Icon="OpenInNewWindow" />
                                 </AppBarButton.Icon>
                             </AppBarButton>
-                            <AppBarButton Click="ToggleEditorThemeClicked" ToolTipService.ToolTip="{x:Bind GetEditorThemeToolTip(WebViewEditor.IsEditorDarkMode), Mode=OneWay}">
+                            <AppBarButton
+                                AutomationProperties.Name="{x:Bind GetEditorThemeToolTip(WebViewEditor.IsEditorDarkMode), Mode=OneWay}"
+                                Click="ToggleEditorThemeClicked"
+                                ToolTipService.ToolTip="{x:Bind GetEditorThemeToolTip(WebViewEditor.IsEditorDarkMode), Mode=OneWay}">
                                 <AppBarButton.Icon>
                                     <coreControls:WinoFontIcon Icon="{x:Bind GetEditorThemeIcon(WebViewEditor.IsEditorDarkMode), Mode=OneWay}" />
                                 </AppBarButton.Icon>
@@ -226,6 +231,7 @@
                         <StackPanel Orientation="Horizontal">
                             <AppBarButton
                                 x:Name="FilesButton"
+                                AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_AddAttachment, Mode=OneTime}"
                                 Command="{x:Bind ViewModel.AttachFilesCommand}"
                                 LabelPosition="Collapsed">
                                 <AppBarButton.Icon>
@@ -237,7 +243,10 @@
 
                     <controls1:EditorTabbedCommandBarControl.OptionsCustomContent>
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <ToggleSplitButton x:Name="ImportanceSplitButton" IsChecked="{x:Bind ViewModel.IsImportanceSelected, Mode=TwoWay}">
+                            <ToggleSplitButton
+                                x:Name="ImportanceSplitButton"
+                                AutomationProperties.Name="{x:Bind domain:Translator.Composer_Importance, Mode=OneTime}"
+                                IsChecked="{x:Bind ViewModel.IsImportanceSelected, Mode=TwoWay}">
                                 <ToggleSplitButton.Content>
                                     <Viewbox Width="16" Height="16">
                                         <SymbolIcon x:Name="ImportanceSplitButtonContent" Symbol="Important" />
@@ -255,13 +264,17 @@
                                                     <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
                                                 </Style>
                                             </StackPanel.Resources>
-                                            <Button Click="ImportanceClicked">
+                                            <Button
+                                                AutomationProperties.Name="{x:Bind domain:Translator.Composer_HighImportance, Mode=OneTime}"
+                                                Click="ImportanceClicked">
                                                 <Button.Tag>
                                                     <mailkit:MessageImportance>High</mailkit:MessageImportance>
                                                 </Button.Tag>
                                                 <SymbolIcon Symbol="Important" />
                                             </Button>
-                                            <Button Click="ImportanceClicked">
+                                            <Button
+                                                AutomationProperties.Name="{x:Bind domain:Translator.Composer_LowImportance, Mode=OneTime}"
+                                                Click="ImportanceClicked">
                                                 <Button.Tag>
                                                     <mailkit:MessageImportance>Low</mailkit:MessageImportance>
                                                 </Button.Tag>
@@ -274,6 +287,7 @@
                             <muxc:ToggleSplitButton
                                 x:Name="SignatureToggleButton"
                                 Margin="8,0,0,0"
+                                AutomationProperties.Name="{x:Bind domain:Translator.Composer_EnableSmimeSignature, Mode=OneTime}"
                                 IsChecked="{x:Bind ViewModel.IsSmimeSignatureEnabled, Mode=TwoWay}"
                                 IsEnabled="{x:Bind ViewModel.AreCertificatesAvailable, Mode=OneWay}"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_EnableSmimeSignature}">
@@ -310,6 +324,7 @@
                             <ToggleButton
                                 x:Name="EncryptionToggleButton"
                                 Margin="8,0,0,0"
+                                AutomationProperties.Name="{x:Bind domain:Translator.Composer_EnableSmimeEncryption, Mode=OneTime}"
                                 IsChecked="{x:Bind ViewModel.IsSmimeEncryptionEnabled, Mode=TwoWay}"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_EnableSmimeEncryption}">
                                 <ToggleButton.Content>
@@ -323,6 +338,7 @@
                             </ToggleButton>
                             <ToggleButton
                                 Margin="8,0,0,0"
+                                AutomationProperties.Name="{x:Bind domain:Translator.Composer_RequestReadReceipt, Mode=OneTime}"
                                 IsChecked="{x:Bind ViewModel.IsReadReceiptRequested, Mode=TwoWay}"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_RequestReadReceipt}">
                                 <ToggleButton.Content>

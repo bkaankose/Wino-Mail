@@ -16,6 +16,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Printing;
+using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Models;
 using Wino.Mail.WinUI;
@@ -138,7 +139,29 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
                 JsonSerializer.Serialize(shouldLinkifyText, BasicTypesJsonContext.Default.Boolean));
         }
 
+        await UpdateAccessibleMailContextAsync();
+
         isRenderingInProgress = false;
+    }
+
+    private async Task UpdateAccessibleMailContextAsync()
+    {
+        var subject = string.IsNullOrWhiteSpace(ViewModel.Subject) ? Translator.MailItemNoSubject : ViewModel.Subject;
+        var sender = string.IsNullOrWhiteSpace(ViewModel.FromName)
+            ? ViewModel.FromAddress
+            : string.IsNullOrWhiteSpace(ViewModel.FromAddress)
+                ? ViewModel.FromName
+                : $"{ViewModel.FromName} <{ViewModel.FromAddress}>";
+        var creationDate = XamlHelpers.GetCreationDateString(ViewModel.CreationDate, _preferencesService.Prefer24HourTimeFormat);
+        var accessibleText = ViewModel.CurrentRenderModel?.AccessibleText ?? string.Empty;
+
+        await Chromium.ExecuteScriptFunctionAsync("SetAccessibleMailContext",
+            JsonSerializer.Serialize(subject, BasicTypesJsonContext.Default.String),
+            JsonSerializer.Serialize(sender, BasicTypesJsonContext.Default.String),
+            JsonSerializer.Serialize(creationDate, BasicTypesJsonContext.Default.String),
+            JsonSerializer.Serialize(Translator.Reader_MessageBodyAutomationName, BasicTypesJsonContext.Default.String),
+            JsonSerializer.Serialize(Translator.Reader_PlainTextFallbackAutomationName, BasicTypesJsonContext.Default.String),
+            JsonSerializer.Serialize(accessibleText, BasicTypesJsonContext.Default.String));
     }
 
     private async void WindowRequested(CoreWebView2 sender, CoreWebView2NewWindowRequestedEventArgs args)

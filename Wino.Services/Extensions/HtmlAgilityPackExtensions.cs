@@ -105,6 +105,22 @@ public static class HtmlAgilityPackExtensions
         return sw.ToString().Replace(Environment.NewLine, "");
     }
 
+    /// <summary>
+    /// Returns readable text for assistive technology while preserving useful block boundaries.
+    /// </summary>
+    public static string GetAccessibleText(string htmlContent)
+    {
+        if (string.IsNullOrWhiteSpace(htmlContent)) return string.Empty;
+
+        var doc = new HtmlDocument();
+        doc.LoadHtml(htmlContent);
+
+        using var writer = new StringWriter();
+        ConvertToAccessibleText(doc.DocumentNode, writer);
+
+        return NormalizeAccessibleText(writer.ToString());
+    }
+
     private static void ConvertContentTo(HtmlNode node, TextWriter outText)
     {
         foreach (HtmlNode subnode in node.ChildNodes)
@@ -164,6 +180,97 @@ public static class HtmlAgilityPackExtensions
                 }
                 break;
         }
+    }
+
+    private static void ConvertToAccessibleText(HtmlNode node, TextWriter outText)
+    {
+        switch (node.NodeType)
+        {
+            case HtmlNodeType.Comment:
+                return;
+
+            case HtmlNodeType.Document:
+                ConvertAccessibleChildren(node, outText);
+                return;
+
+            case HtmlNodeType.Text:
+                var parentName = node.ParentNode?.Name;
+
+                if (string.Equals(parentName, "script", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(parentName, "style", StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+
+                var html = ((HtmlTextNode)node).Text;
+
+                if (!HtmlNode.IsOverlappedClosingElement(html) && html.Trim().Length > 0)
+                {
+                    outText.Write(HtmlEntity.DeEntitize(html));
+                    outText.Write(' ');
+                }
+
+                return;
+
+            case HtmlNodeType.Element:
+                var nodeName = node.Name.ToLowerInvariant();
+
+                if (nodeName is "br")
+                {
+                    outText.WriteLine();
+                    return;
+                }
+
+                if (nodeName is "img")
+                {
+                    var altText = node.GetAttributeValue("alt", string.Empty);
+
+                    if (!string.IsNullOrWhiteSpace(altText))
+                    {
+                        outText.Write(HtmlEntity.DeEntitize(altText));
+                        outText.WriteLine();
+                    }
+
+                    return;
+                }
+
+                if (nodeName is "li")
+                {
+                    outText.Write("- ");
+                }
+
+                ConvertAccessibleChildren(node, outText);
+
+                if (nodeName is "p" or "div" or "section" or "article" or "header" or "footer" or "li" or "tr"
+                    or "table" or "h1" or "h2" or "h3" or "h4" or "h5" or "h6")
+                {
+                    outText.WriteLine();
+                }
+
+                return;
+        }
+    }
+
+    private static void ConvertAccessibleChildren(HtmlNode node, TextWriter outText)
+    {
+        foreach (var subnode in node.ChildNodes)
+        {
+            ConvertToAccessibleText(subnode, outText);
+        }
+    }
+
+    private static string NormalizeAccessibleText(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+
+        var normalizedLineEndings = text.Replace("\r\n", "\n").Replace('\r', '\n');
+        var lines = normalizedLineEndings
+            .Split('\n')
+            .Select(line => Regex.Replace(line, @"[ \t\f\v]+", " ").Trim())
+            .Select(line => Regex.Replace(line, @"\s+([.,;:!?])", "$1"))
+            .Where(line => line.Length > 0);
+
+        return string.Join(Environment.NewLine, lines);
     }
 
     private static void ClearRemoteImageAttribute(HtmlNode node, string attributeName)

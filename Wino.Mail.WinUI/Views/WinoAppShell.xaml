@@ -32,6 +32,7 @@
             <controls:AccountNavigationItem
                 x:Name="AccountItem"
                 Height="50"
+                AutomationProperties.Name="{x:Bind AccountName, Mode=OneWay}"
                 HorizontalContentAlignment="Stretch"
                 VerticalContentAlignment="Stretch"
                 BindingData="{x:Bind}"
@@ -161,6 +162,7 @@
         <DataTemplate x:Key="CreateNewMailTemplate" x:DataType="menu:NewMailMenuItem">
             <coreControls:WinoNavigationViewItem
                 Height="50"
+                AutomationProperties.Name="{x:Bind domain:Translator.MenuNewMail, Mode=OneTime}"
                 DataContext="{x:Bind}"
                 SelectsOnInvoked="False">
                 <muxc:NavigationViewItem.Icon>
@@ -180,6 +182,7 @@
             <coreControls:WinoNavigationViewItem
                 MinHeight="40"
                 AllowDrop="True"
+                AutomationProperties.Name="{x:Bind FolderName, Mode=OneWay}"
                 ContextRequested="MenuItemContextRequested"
                 DataContext="{x:Bind}"
                 DragEnter="ItemDragEnterOnFolder"
@@ -244,6 +247,7 @@
         <DataTemplate x:Key="MailCategoryMenuTemplate" x:DataType="menu:MailCategoryMenuItem">
             <coreControls:WinoNavigationViewItem
                 MinHeight="40"
+                AutomationProperties.Name="{x:Bind FolderName, Mode=OneWay}"
                 DataContext="{x:Bind}"
                 FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
                 IsSelected="{x:Bind IsSelected, Mode=TwoWay}"
@@ -277,6 +281,7 @@
         <DataTemplate x:Key="MergedMailCategoryMenuTemplate" x:DataType="menu:MergedMailCategoryMenuItem">
             <coreControls:WinoNavigationViewItem
                 MinHeight="40"
+                AutomationProperties.Name="{x:Bind FolderName, Mode=OneWay}"
                 DataContext="{x:Bind}"
                 FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
                 IsSelected="{x:Bind IsSelected, Mode=TwoWay}"

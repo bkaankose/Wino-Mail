@@ -220,6 +220,7 @@
                     <HyperlinkButton
                         Grid.Column="2"
                         Margin="0,0,0,4"
+                        AutomationProperties.Name="{x:Bind domain:Translator.SmimeSignedTooltip, Mode=OneTime}"
                         VerticalAlignment="Center"
                         Command="{x:Bind ViewModel.ShowSmimeSigningCertificateInfoCommand}"
                         ToolTipService.ToolTip="{x:Bind domain:Translator.SmimeSignedTooltip}"
@@ -488,7 +489,11 @@
 
                 <Grid Background="White" Visibility="{x:Bind IsDarkEditor, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />
 
-                <WebView2 x:Name="Chromium" NavigationStarting="WebViewNavigationStarting">
+                <WebView2
+                    x:Name="Chromium"
+                    AutomationProperties.HelpText="{x:Bind domain:Translator.Reader_MessageBodyAutomationHelpText, Mode=OneTime}"
+                    AutomationProperties.Name="{x:Bind domain:Translator.Reader_MessageBodyAutomationName, Mode=OneTime}"
+                    NavigationStarting="WebViewNavigationStarting">
                     <WebView2.KeyboardAccelerators>
                         <KeyboardAccelerator Key="Escape" Invoked="EscapeInvoked" />
                     </WebView2.KeyboardAccelerators>

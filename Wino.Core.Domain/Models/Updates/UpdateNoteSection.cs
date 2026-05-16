@@ -24,4 +24,22 @@ public class UpdateNoteSection
 
     /// <summary>Gets the image height for binding, returning NaN for auto-sizing when not specified.</summary>
     public double ActualImageHeight => ImageHeight ?? double.NaN;
+
+    public string AccessibilityName
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(Title))
+            {
+                return Description ?? string.Empty;
+            }
+
+            if (string.IsNullOrWhiteSpace(Description))
+            {
+                return Title;
+            }
+
+            return $"{Title}. {Description}";
+        }
+    }
 }

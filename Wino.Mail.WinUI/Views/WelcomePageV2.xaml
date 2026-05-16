@@ -65,12 +65,22 @@
                     <FlipView
                         x:Name="UpdateFlipView"
                         MinHeight="200"
+                        AutomationProperties.HelpText="{x:Bind domain:Translator.WelcomeWindow_UpdateCarouselAutomationHelpText, Mode=OneTime}"
+                        AutomationProperties.Name="{x:Bind domain:Translator.WelcomeWindow_UpdateCarouselAutomationName, Mode=OneTime}"
                         Background="Transparent"
                         ItemsSource="{x:Bind ViewModel.UpdateSections, Mode=OneWay}"
                         SelectionChanged="OnFlipViewSelectionChanged">
+                        <FlipView.ItemContainerStyle>
+                            <Style TargetType="FlipViewItem">
+                                <Setter Property="AutomationProperties.Name" Value="{Binding AccessibilityName}" />
+                            </Style>
+                        </FlipView.ItemContainerStyle>
                         <FlipView.ItemTemplate>
                             <DataTemplate x:DataType="models:UpdateNoteSection">
-                                <Grid Padding="48,40" ColumnSpacing="40">
+                                <Grid
+                                    Padding="48,40"
+                                    AutomationProperties.Name="{x:Bind AccessibilityName, Mode=OneWay}"
+                                    ColumnSpacing="40">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="200" />
                                         <ColumnDefinition Width="*" />
@@ -81,6 +91,7 @@
                                         <Image
                                             Width="{x:Bind ActualImageWidth, Mode=OneTime}"
                                             Height="{x:Bind ActualImageHeight, Mode=OneTime}"
+                                            AutomationProperties.AccessibilityView="Raw"
                                             HorizontalAlignment="Center"
                                             VerticalAlignment="Center"
                                             Source="{x:Bind ImageUrl, Mode=OneTime}"
@@ -110,6 +121,7 @@
                     Grid.Row="1"
                     Margin="0,16,0,0"
                     HorizontalAlignment="Center"
+                    AutomationProperties.Name="{x:Bind domain:Translator.WelcomeWindow_UpdateCarouselPagerAutomationName, Mode=OneTime}"
                     NumberOfPages="{x:Bind ViewModel.UpdateSections.Count, Mode=OneWay}"
                     SelectedIndexChanged="OnPipsPagerSelectedIndexChanged"
                     SelectedPageIndex="0" />

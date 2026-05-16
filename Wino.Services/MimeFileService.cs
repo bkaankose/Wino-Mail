@@ -226,7 +226,11 @@ public class MimeFileService : IMimeFileService
             finalRenderHtml = document.DocumentNode.OuterHtml;
         }
 
-        var renderingModel = new MailRenderModel(finalRenderHtml, options);
+        var accessibleText = !string.IsNullOrWhiteSpace(message.TextBody)
+            ? message.TextBody.Trim()
+            : HtmlAgilityPackExtensions.GetAccessibleText(finalRenderHtml);
+
+        var renderingModel = new MailRenderModel(finalRenderHtml, options, accessibleText);
 
         renderingModel.Signatures = visitor.Signatures;
 

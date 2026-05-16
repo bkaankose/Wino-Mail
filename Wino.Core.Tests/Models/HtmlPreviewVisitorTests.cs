@@ -2,6 +2,8 @@ using Xunit;
 using FluentAssertions;
 using MimeKit;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Updates;
+using Wino.Services.Extensions;
 
 namespace Wino.Core.Tests.Models;
 
@@ -111,5 +113,50 @@ public class HtmlPreviewVisitorTests
         output.Should().NotContain("Structured metadata", "JSON-LD content should not remain in the rendered mail html");
         output.Should().Contain("Visible mail content", "removing JSON-LD must not suppress the rest of the message body");
         output.Should().NotContain("<script type=\"text/javascript\">", "executable scripts must still be blocked");
+    }
+
+    [Fact]
+    public void HtmlAgilityPackExtensions_Should_Create_Accessible_Text_With_Block_Boundaries()
+    {
+        // Arrange
+        var html = """
+            <html>
+                <body>
+                    <h1>Project update</h1>
+                    <p>Hello <strong>team</strong>.</p>
+                    <ul><li>First item</li><li>Second item</li></ul>
+                    <img alt="Status chart" src="cid:chart" />
+                    <script>ignored()</script>
+                </body>
+            </html>
+            """;
+
+        // Act
+        var accessibleText = HtmlAgilityPackExtensions.GetAccessibleText(html);
+
+        // Assert
+        accessibleText.Should().Be(string.Join(Environment.NewLine,
+            "Project update",
+            "Hello team.",
+            "- First item",
+            "- Second item",
+            "Status chart"));
+    }
+
+    [Fact]
+    public void UpdateNoteSection_Should_Use_Title_And_Description_For_Accessibility_Name()
+    {
+        // Arrange
+        var section = new UpdateNoteSection
+        {
+            Title = "Better inbox",
+            Description = "Mail actions are easier to find."
+        };
+
+        // Act
+        var accessibilityName = section.AccessibilityName;
+
+        // Assert
+        accessibilityName.Should().Be("Better inbox. Mail actions are easier to find.");
     }
 }

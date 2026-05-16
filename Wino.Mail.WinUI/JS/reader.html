@@ -25,6 +25,18 @@
                 color: inherit !important;
                 text-decoration: underline dotted !important;
             }
+
+            .screen-reader-only {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                padding: 0;
+                margin: -1px;
+                overflow: hidden;
+                clip: rect(0, 0, 0, 0);
+                white-space: pre-wrap;
+                border: 0;
+            }
         </style>
     </head>
     <body>
@@ -32,6 +44,8 @@
         <script>
             var _htmlString = "";
             var _shouldLinkifyText = true;
+            var _bodyLabel = "Message body";
+            var _fallbackLabel = "Plain text message body";
 
             // Called when rendering a new email for the first time
             function RenderHTML(htmlString, shouldLinkifyText = true) {
@@ -89,6 +103,35 @@
                 return _htmlString || "";
             }
 
+            function SetAccessibleMailContext(subject, sender, creationDate, bodyLabel, fallbackLabel, accessibleText) {
+                _bodyLabel = bodyLabel || _bodyLabel;
+                _fallbackLabel = fallbackLabel || _fallbackLabel;
+
+                var contextParts = [];
+
+                if (subject) {
+                    document.title = subject;
+                    contextParts.push(subject);
+                }
+
+                if (sender) {
+                    contextParts.push(sender);
+                }
+
+                if (creationDate) {
+                    contextParts.push(creationDate);
+                }
+
+                var containerDiv = document.getElementById("readerDiv");
+                var fallbackDiv = document.getElementById("accessibleTextFallback");
+                var contextLabel = contextParts.length > 0 ? _bodyLabel + ". " + contextParts.join(". ") : _bodyLabel;
+
+                containerDiv.setAttribute("aria-label", contextLabel);
+                fallbackDiv.setAttribute("aria-label", _fallbackLabel);
+                fallbackDiv.textContent = accessibleText || "";
+                fallbackDiv.hidden = !accessibleText;
+            }
+
             function SetLightEditor() {
                 document.documentElement.setAttribute("data-theme", "light");
                 DarkReader.disable();
@@ -115,6 +158,9 @@
                 });
             }
         </script>
-        <div id="readerDiv"></div>
+        <main>
+            <article id="readerDiv" role="document" tabindex="0" aria-label="Message body"></article>
+            <section id="accessibleTextFallback" class="screen-reader-only" tabindex="0" aria-label="Plain text message body" hidden></section>
+        </main>
     </body>
 </html>

@@ -11,6 +11,7 @@ namespace Wino.Core.Domain.Models.Reader;
 public class MailRenderModel
 {
     public string RenderHtml { get; }
+    public string AccessibleText { get; }
     public MailRenderingOptions MailRenderingOptions { get; }
     public List<MimePart> Attachments { get; set; } = [];
 
@@ -21,10 +22,11 @@ public class MailRenderModel
     // Indicates if the mail is S/MIME encrypted
     public bool IsSmimeEncrypted { get; set; }
 
-    public MailRenderModel(string renderHtml, MailRenderingOptions mailRenderingOptions = null)
+    public MailRenderModel(string renderHtml, MailRenderingOptions mailRenderingOptions = null, string accessibleText = "")
     {
         RenderHtml = renderHtml;
         MailRenderingOptions = mailRenderingOptions;
+        AccessibleText = accessibleText ?? string.Empty;
     }
 }
 

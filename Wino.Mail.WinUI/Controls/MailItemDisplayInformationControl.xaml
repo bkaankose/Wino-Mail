@@ -160,19 +160,28 @@
                                 Orientation="Horizontal"
                                 Spacing="12"
                                 Visibility="Collapsed">
-                                <Button Click="FirstActionClicked" Style="{StaticResource HoverActionButtonStyle}">
+                                <Button
+                                    AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetOperationString(LeftHoverAction), Mode=OneWay}"
+                                    Click="FirstActionClicked"
+                                    Style="{StaticResource HoverActionButtonStyle}">
                                     <Button.Content>
                                         <coreControls:WinoFontIcon FontSize="16" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(LeftHoverAction), Mode=OneWay}" />
                                     </Button.Content>
                                 </Button>
 
-                                <Button Click="SecondActionClicked" Style="{StaticResource HoverActionButtonStyle}">
+                                <Button
+                                    AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetOperationString(CenterHoverAction), Mode=OneWay}"
+                                    Click="SecondActionClicked"
+                                    Style="{StaticResource HoverActionButtonStyle}">
                                     <Button.Content>
                                         <coreControls:WinoFontIcon FontSize="16" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(CenterHoverAction), Mode=OneWay}" />
                                     </Button.Content>
                                 </Button>
 
-                                <Button Click="ThirdActionClicked" Style="{StaticResource HoverActionButtonStyle}">
+                                <Button
+                                    AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetOperationString(RightHoverAction), Mode=OneWay}"
+                                    Click="ThirdActionClicked"
+                                    Style="{StaticResource HoverActionButtonStyle}">
                                     <Button.Content>
                                         <coreControls:WinoFontIcon FontSize="16" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(RightHoverAction), Mode=OneWay}" />
                                     </Button.Content>
