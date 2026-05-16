@@ -43,6 +43,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SelectedQuickEventAccountCalendarName))]
+    [NotifyPropertyChangedFor(nameof(CanSaveQuickEvent))]
     [NotifyCanExecuteChangedFor(nameof(SaveQuickEventCommand))]
     public partial AccountCalendarViewModel SelectedQuickEventAccountCalendar { get; set; }
 
@@ -56,18 +57,22 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     private string _previousSelectedEndTimeString = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanSaveQuickEvent))]
     [NotifyCanExecuteChangedFor(nameof(SaveQuickEventCommand))]
     public partial DateTime? SelectedQuickEventDate { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanSaveQuickEvent))]
     [NotifyCanExecuteChangedFor(nameof(SaveQuickEventCommand))]
     public partial bool IsAllDay { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanSaveQuickEvent))]
     [NotifyCanExecuteChangedFor(nameof(SaveQuickEventCommand))]
     public partial string SelectedStartTimeString { get; set; } = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanSaveQuickEvent))]
     [NotifyCanExecuteChangedFor(nameof(SaveQuickEventCommand))]
     public partial string SelectedEndTimeString { get; set; } = string.Empty;
 
@@ -75,6 +80,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     public partial string Location { get; set; } = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanSaveQuickEvent))]
     [NotifyCanExecuteChangedFor(nameof(SaveQuickEventCommand))]
     public partial string EventName { get; set; } = string.Empty;
 
@@ -163,6 +169,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     private Dictionary<Guid, CalendarItemViewModel> _loadedCalendarItems = new();
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanSaveQuickEvent))]
     public partial CalendarSettings CurrentSettings { get; set; }
 
     public IStatePersistanceService StatePersistanceService { get; }

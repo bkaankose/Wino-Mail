@@ -1899,7 +1899,7 @@ public partial class App : WinoApplication,
             }
             else
             {
-                var shouldActivateWindow = true;
+                var shouldActivateWindow = args.Kind != ExtendedActivationKind.StartupTask;
                 var windowManager = Services.GetRequiredService<IWinoWindowManager>();
                 var shellWindow = MainWindow as IWinoShellWindow
                                   ?? windowManager.GetWindow(WinoWindowKind.Shell) as IWinoShellWindow;

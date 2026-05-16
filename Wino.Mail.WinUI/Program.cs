@@ -302,6 +302,9 @@ public class Program
 
     private static bool ShouldBringWindowToForegroundAfterRedirection(AppActivationArguments args)
     {
+        if (args.Kind == ExtendedActivationKind.StartupTask)
+            return false;
+
         if (args.Kind == ExtendedActivationKind.AppNotification &&
             args.Data is AppNotificationActivatedEventArgs toastArgs)
         {

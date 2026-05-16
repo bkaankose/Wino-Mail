@@ -367,6 +367,41 @@ public class CalendarPageViewModelTests
         viewModel.DisplayDetailsCalendarItemViewModel.Should().BeSameAs(itemViewModel);
     }
 
+    [Fact]
+    public void QuickEventInputChanges_RaiseCanSaveQuickEventForDialogSaveButton()
+    {
+        var settings = CreateSettings();
+        var preferencesService = CreatePreferencesService(settings);
+        var calendarService = new Mock<ICalendarService>();
+        var viewModel = CreateViewModel(calendarService.Object, preferencesService.Object, new DateOnly(2026, 3, 20));
+        var changedProperties = new List<string>();
+
+        viewModel.OnNavigatedTo(NavigationMode.New, null!);
+
+        try
+        {
+            viewModel.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName != null)
+                {
+                    changedProperties.Add(args.PropertyName);
+                }
+            };
+
+            viewModel.SelectedQuickEventDate = new DateTime(2026, 3, 20);
+            viewModel.SelectQuickEventTimeRange(TimeSpan.FromHours(9), TimeSpan.FromHours(9.5));
+            viewModel.EventName = "Planning";
+
+            viewModel.CanSaveQuickEvent.Should().BeTrue();
+            viewModel.SaveQuickEventCommand.CanExecute(null).Should().BeTrue();
+            changedProperties.Should().Contain(nameof(CalendarPageViewModel.CanSaveQuickEvent));
+        }
+        finally
+        {
+            viewModel.OnNavigatedFrom(NavigationMode.Back, null!);
+        }
+    }
+
     private static CalendarPageViewModel CreateViewModel(
         ICalendarService calendarService,
         IPreferencesService preferencesService,
