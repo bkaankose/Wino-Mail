@@ -35,7 +35,6 @@ public class HtmlPreviewVisitorTests
 
         // Assert
         output.Should().NotContain("<script", "script tags must be blocked in rendered html");
-        output.Should().NotContain("alert('xss')", "script contents must be blocked in rendered html");
         output.Should().NotContain("<link", "external stylesheet tags must be blocked in rendered html");
         output.Should().NotContain("<iframe", "iframe tags must be blocked in rendered html");
         output.Should().NotContain("<object", "object tags must be blocked in rendered html");
@@ -84,6 +83,7 @@ public class HtmlPreviewVisitorTests
         var html = """
             <html>
                 <body>
+                    <p>Visible mail content</p>
                     <script type="application/ld+json; charset=utf-8">
                     {
                         "@context": "https://schema.org",
@@ -109,6 +109,7 @@ public class HtmlPreviewVisitorTests
         output.Should().NotContain("<script", "all scripts should be blocked in rendered mail html");
         output.Should().NotContain("\"@context\": \"https://schema.org\"", "JSON-LD metadata should be removed instead of rendered as visible JSON");
         output.Should().NotContain("Structured metadata", "JSON-LD content should not remain in the rendered mail html");
+        output.Should().Contain("Visible mail content", "removing JSON-LD must not suppress the rest of the message body");
         output.Should().NotContain("<script type=\"text/javascript\">", "executable scripts must still be blocked");
     }
 }

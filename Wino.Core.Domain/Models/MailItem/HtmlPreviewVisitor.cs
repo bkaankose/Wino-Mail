@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 using MimeKit;
 using MimeKit.Cryptography;
 using MimeKit.Text;
@@ -22,6 +23,10 @@ public class HtmlPreviewVisitor : MimeVisitor
     {
         "image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp", "image/bmp", "image/x-icon", "image/avif", "image/svg+xml"
     };
+
+    private static readonly Regex JsonLdScriptRegex = new(
+        """<script\b(?=[^>]*\btype\s*=\s*(?:"application/ld\+json(?:\s*;[^"]*)?"|'application/ld\+json(?:\s*;[^']*)?'|application/ld\+json(?:\s*;[^\s>]*)?))[^>]*>.*?</script\s*>""",
+        RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant);
 
     private readonly List<MultipartRelated> stack = [];
     private readonly List<MimeEntity> attachments = [];
@@ -192,7 +197,6 @@ public class HtmlPreviewVisitor : MimeVisitor
         {
             ctx.DeleteTag = true;
             ctx.DeleteEndTag = true;
-            ctx.SuppressInnerContent = true;
             return;
         }
 
@@ -383,8 +387,13 @@ public class HtmlPreviewVisitor : MimeVisitor
             converter = new TextToHtml();
         }
 
-        Body = converter.Convert(entity.Text);
+        var text = entity.IsHtml ? RemoveJsonLdScripts(entity.Text) : entity.Text;
+
+        Body = converter.Convert(text);
     }
+
+    private static string RemoveJsonLdScripts(string html)
+        => string.IsNullOrEmpty(html) ? html : JsonLdScriptRegex.Replace(html, string.Empty);
 
     private static bool IsCalendarText(MimeEntity entity)
         => entity is TextPart textPart &&
