@@ -498,14 +498,25 @@ public class FolderService : BaseDatabaseService, IFolderService
 
     public async Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId)
     {
-        var mailCopyIds = await GetMailCopyIdsByFolderIdAsync(folderId);
+        var mailCopies = await Connection.QueryAsync<MailCopy>(
+            "SELECT Id, ImapUid FROM MailCopy WHERE FolderId = ?",
+            folderId).ConfigureAwait(false);
 
-        // Make sure we don't include Ids that doesn't have uid separator.
-        // Local drafts might not have it for example.
+        var knownUids = new HashSet<uint>();
 
-        return new List<uint>(mailCopyIds
-            .Where(a => a.Contains(MailkitClientExtensions.MailCopyUidSeparator))
-            .Select(a => MailkitClientExtensions.ResolveUid(a)));
+        foreach (var mailCopy in mailCopies)
+        {
+            if (mailCopy.ImapUid > 0)
+            {
+                knownUids.Add(mailCopy.ImapUid);
+                continue;
+            }
+
+            if (MailkitClientExtensions.TryResolveUid(mailCopy.Id, out var parsedUid))
+                knownUids.Add(parsedUid);
+        }
+
+        return knownUids.ToList();
     }
 
     public async Task<MailAccount> UpdateSystemFolderConfigurationAsync(Guid accountId, SystemFolderConfiguration configuration)

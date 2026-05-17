@@ -865,6 +865,52 @@ public class MailService : BaseDatabaseService, IMailService
         return mailCopy;
     }
 
+    private async Task RemoveOtherImapCopiesWithSameMessageIdAsync(MailAccount account, MailItemFolder assignedFolder, MailCopy mailCopy, bool hasFreshMime)
+    {
+        if (account?.ProviderType != MailProviderType.IMAP4 || assignedFolder == null || mailCopy == null)
+            return;
+
+        var normalizedMessageId = MailHeaderExtensions.NormalizeMessageId(mailCopy.MessageId);
+        if (string.IsNullOrWhiteSpace(normalizedMessageId))
+            return;
+
+        mailCopy.MessageId = normalizedMessageId;
+
+        var duplicates = await Connection.QueryAsync<MailCopy>(
+            "SELECT MailCopy.* FROM MailCopy " +
+            "INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id " +
+            "WHERE MailItemFolder.MailAccountId = ? " +
+            "AND MailCopy.MessageId = ? " +
+            "AND MailCopy.FolderId <> ? " +
+            "AND MailCopy.IsDraft = 0",
+            account.Id,
+            normalizedMessageId,
+            assignedFolder.Id).ConfigureAwait(false);
+
+        duplicates = await HydrateMailCopiesAsync(duplicates).ConfigureAwait(false);
+
+        if (duplicates.Count == 0)
+            return;
+
+        if (!hasFreshMime)
+        {
+            var reusableMimeCopy = duplicates.FirstOrDefault(duplicate => duplicate.FileId != Guid.Empty);
+            if (reusableMimeCopy != null)
+                mailCopy.FileId = reusableMimeCopy.FileId;
+        }
+
+        var removedMails = new List<MailCopy>();
+
+        foreach (var duplicate in duplicates)
+        {
+            var removedMail = await DeleteMailInternalAsync(duplicate, preserveMimeFile: true, reportUiChange: false).ConfigureAwait(false);
+            if (removedMail != null)
+                removedMails.Add(removedMail);
+        }
+
+        ReportRemovedMails(removedMails);
+    }
+
     private async Task<List<MailCopy>> DeleteMailCopiesAsync(IReadOnlyList<MailCopy> mailCopies, bool preserveMimeFile, bool reportUiChange)
     {
         if (mailCopies == null || mailCopies.Count == 0)
@@ -1248,6 +1294,8 @@ public class MailService : BaseDatabaseService, IMailService
             UniqueId = source.UniqueId,
             Id = source.Id,
             FolderId = source.FolderId,
+            ImapUid = source.ImapUid,
+            ImapUidValidity = source.ImapUidValidity,
             ThreadId = source.ThreadId,
             MessageId = source.MessageId,
             References = source.References,
@@ -1460,6 +1508,8 @@ public class MailService : BaseDatabaseService, IMailService
         mailCopy.SenderContact = await GetSenderContactForAccountAsync(account, mailCopy.FromAddress).ConfigureAwait(false);
         mailCopy.FolderId = assignedFolder.Id;
 
+        await RemoveOtherImapCopiesWithSameMessageIdAsync(account, assignedFolder, mailCopy, mimeMessage != null).ConfigureAwait(false);
+
         // Only save MIME files if they don't exists.
         // This is because 1 mail may have multiple copies in different folders.
         // but only single MIME to represent all.
@@ -1507,8 +1557,6 @@ public class MailService : BaseDatabaseService, IMailService
             if (account.ProviderType != MailProviderType.Gmail)
             {
                 // Make sure there is only 1 instance left of this mail copy id.
-                var allMails = await GetMailCopiesByIdAsync([mailCopy.Id]).ConfigureAwait(false);
-
                 await DeleteMailAsync(accountId, mailCopy.Id).ConfigureAwait(false);
             }
 
@@ -1963,12 +2011,25 @@ public class MailService : BaseDatabaseService, IMailService
 
     public async Task<List<MailCopy>> GetExistingMailsAsync(Guid folderId, IEnumerable<MailKit.UniqueId> uniqueIds)
     {
-        var localMailIds = uniqueIds.Select(a => MailkitClientExtensions.CreateUid(folderId, a.Id)).ToArray();
+        var uidList = uniqueIds?
+            .Where(a => a.IsValid)
+            .Select(a => a.Id)
+            .Distinct()
+            .ToList() ?? [];
 
-        var placeholders = string.Join(",", localMailIds.Select(_ => "?"));
-        var sql = $"SELECT * FROM MailCopy WHERE Id IN ({placeholders})";
+        if (uidList.Count == 0)
+            return [];
 
-        var mailCopies = await Connection.QueryAsync<MailCopy>(sql, localMailIds.Cast<object>().ToArray()).ConfigureAwait(false);
+        var localMailIds = uidList.Select(a => MailkitClientExtensions.CreateUid(folderId, a)).ToArray();
+        var uidPlaceholders = string.Join(",", uidList.Select(_ => "?"));
+        var idPlaceholders = string.Join(",", localMailIds.Select(_ => "?"));
+        var sql = $"SELECT * FROM MailCopy WHERE FolderId = ? AND (ImapUid IN ({uidPlaceholders}) OR Id IN ({idPlaceholders}))";
+
+        var parameters = new List<object> { folderId };
+        parameters.AddRange(uidList.Cast<object>());
+        parameters.AddRange(localMailIds.Cast<object>());
+
+        var mailCopies = await Connection.QueryAsync<MailCopy>(sql, parameters.ToArray()).ConfigureAwait(false);
         return await HydrateMailCopiesAsync(mailCopies).ConfigureAwait(false);
     }
 

@@ -90,6 +90,37 @@ public class DatabaseService : IDatabaseService
                 .ConfigureAwait(false);
         }
 
+        if (!mailCopyColumns.Any(c => c.Name == nameof(MailCopy.ImapUid)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailCopy)} ADD COLUMN {nameof(MailCopy.ImapUid)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+
+            await Connection.ExecuteAsync($@"
+UPDATE {nameof(MailCopy)}
+SET {nameof(MailCopy.ImapUid)} = CAST(SUBSTR({nameof(MailCopy.Id)}, INSTR({nameof(MailCopy.Id)}, '_') + 1) AS INTEGER)
+WHERE {nameof(MailCopy.Id)} IS NOT NULL
+  AND INSTR({nameof(MailCopy.Id)}, '_') > 0
+  AND SUBSTR({nameof(MailCopy.Id)}, INSTR({nameof(MailCopy.Id)}, '_') + 1) <> ''
+  AND SUBSTR({nameof(MailCopy.Id)}, INSTR({nameof(MailCopy.Id)}, '_') + 1) NOT GLOB '*[^0-9]*'").ConfigureAwait(false);
+        }
+
+        if (!mailCopyColumns.Any(c => c.Name == nameof(MailCopy.ImapUidValidity)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailCopy)} ADD COLUMN {nameof(MailCopy.ImapUidValidity)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+
+            await Connection.ExecuteAsync($@"
+UPDATE {nameof(MailCopy)}
+SET {nameof(MailCopy.ImapUidValidity)} = COALESCE((
+    SELECT {nameof(MailItemFolder.UidValidity)}
+    FROM {nameof(MailItemFolder)}
+    WHERE {nameof(MailItemFolder)}.{nameof(MailItemFolder.Id)} = {nameof(MailCopy)}.{nameof(MailCopy.FolderId)}
+), 0)
+WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
+        }
+
         var accountColumns = await Connection.GetTableInfoAsync(nameof(MailAccount)).ConfigureAwait(false);
 
         if (!accountColumns.Any(c => c.Name == nameof(MailAccount.CreatedAt)))
@@ -301,6 +332,7 @@ SET {nameof(KeyboardShortcut.Action)} =
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailCopy_Id ON MailCopy(Id)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailCopy_FolderId ON MailCopy(FolderId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailCopy_Id_FolderId ON MailCopy(Id, FolderId)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailCopy_FolderId_ImapUid ON MailCopy(FolderId, ImapUidValidity, ImapUid)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailCopy_ThreadId ON MailCopy(ThreadId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailCopy_MessageId ON MailCopy(MessageId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailCopy_FolderId_IsRead ON MailCopy(FolderId, IsRead)").ConfigureAwait(false);

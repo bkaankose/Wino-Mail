@@ -30,6 +30,17 @@ public class MailCopy
     public Guid FolderId { get; set; }
 
     /// <summary>
+    /// IMAP UID for this mail inside <see cref="FolderId"/>.
+    /// UIDs are folder-local and must not be used as message identity.
+    /// </summary>
+    public uint ImapUid { get; set; }
+
+    /// <summary>
+    /// IMAP UIDVALIDITY captured with <see cref="ImapUid"/>.
+    /// </summary>
+    public uint ImapUidValidity { get; set; }
+
+    /// <summary>
     /// Conversation id for the mail.
     /// </summary>
     public string ThreadId { get; set; }

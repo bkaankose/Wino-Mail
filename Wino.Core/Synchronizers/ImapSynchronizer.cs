@@ -103,6 +103,45 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
     /// Returns UniqueId for the given mail copy id.
     /// </summary>
     private UniqueId GetUniqueId(string mailCopyId) => new(MailkitClientExtensions.ResolveUid(mailCopyId));
+    private UniqueId GetUniqueId(MailCopy mailCopy) => MailkitClientExtensions.ResolveUidStruct(mailCopy);
+
+    private async Task DeleteLocalCopiesMissingFromRemoteAsync(
+        IMailFolder remoteFolder,
+        IEnumerable<(MailCopy MailCopy, UniqueId UniqueId)> candidates)
+    {
+        var candidateList = candidates?
+            .Where(candidate => candidate.MailCopy != null && candidate.UniqueId.IsValid)
+            .GroupBy(candidate => candidate.UniqueId.Id)
+            .Select(group => group.First())
+            .ToList() ?? [];
+
+        if (candidateList.Count == 0)
+            return;
+
+        var requestedUids = candidateList.Select(candidate => candidate.UniqueId).ToList();
+        var existingUids = await remoteFolder
+            .SearchAsync(SearchQuery.Uids(new UniqueIdSet(requestedUids, SortOrder.Ascending)))
+            .ConfigureAwait(false);
+
+        var existingUidSet = existingUids.Select(uid => uid.Id).ToHashSet();
+        var confirmedMissing = candidateList
+            .Where(candidate => !existingUidSet.Contains(candidate.UniqueId.Id))
+            .ToList();
+
+        foreach (var candidate in confirmedMissing)
+        {
+            await _imapChangeProcessor.DeleteMailAsync(Account.Id, candidate.MailCopy.Id).ConfigureAwait(false);
+        }
+
+        foreach (var candidate in candidateList.Except(confirmedMissing))
+        {
+            _logger.Warning(
+                "IMAP message {MailId} with UID {Uid} still exists in folder {FolderName} after remote operation. Keeping local copy.",
+                candidate.MailCopy.Id,
+                candidate.UniqueId.Id,
+                candidate.MailCopy.AssignedFolder?.FolderName);
+        }
+    }
 
     #region Mail Integrations
 
@@ -119,12 +158,14 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         {
             var sourceFolder = await client.GetFolderAsync(requests[0].FromFolder.RemoteFolderId).ConfigureAwait(false);
             var destinationFolder = await client.GetFolderAsync(requests[0].ToFolder.RemoteFolderId).ConfigureAwait(false);
-            var uniqueIds = requests.Select(item => GetUniqueId(item.Item.Id)).ToList();
+            var candidates = requests.Select(item => (item.Item, UniqueId: GetUniqueId(item.Item))).ToList();
+            var uniqueIds = candidates.Select(item => item.UniqueId).ToList();
 
             await sourceFolder.OpenAsync(FolderAccess.ReadWrite).ConfigureAwait(false);
             try
             {
                 await sourceFolder.MoveToAsync(uniqueIds, destinationFolder).ConfigureAwait(false);
+                await DeleteLocalCopiesMissingFromRemoteAsync(sourceFolder, candidates).ConfigureAwait(false);
             }
             finally
             {
@@ -142,7 +183,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         {
             var folder = requests[0].Item.AssignedFolder;
             var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId).ConfigureAwait(false);
-            var uniqueIds = requests.Select(item => GetUniqueId(item.Item.Id)).ToList();
+            var uniqueIds = requests.Select(item => GetUniqueId(item.Item)).ToList();
             var request = new StoreFlagsRequest(requests[0].IsFlagged ? StoreAction.Add : StoreAction.Remove, MessageFlags.Flagged)
             {
                 Silent = true
@@ -169,7 +210,8 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         {
             var folder = requests[0].Item.AssignedFolder;
             var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId).ConfigureAwait(false);
-            var uniqueIds = requests.Select(request => GetUniqueId(request.Item.Id)).ToList();
+            var candidates = requests.Select(request => (request.Item, UniqueId: GetUniqueId(request.Item))).ToList();
+            var uniqueIds = candidates.Select(item => item.UniqueId).ToList();
             var storeRequest = new StoreFlagsRequest(StoreAction.Add, MessageFlags.Deleted) { Silent = true };
 
             await remoteFolder.OpenAsync(FolderAccess.ReadWrite).ConfigureAwait(false);
@@ -177,6 +219,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             {
                 await remoteFolder.StoreAsync(uniqueIds, storeRequest).ConfigureAwait(false);
                 await remoteFolder.ExpungeAsync(uniqueIds).ConfigureAwait(false);
+                await DeleteLocalCopiesMissingFromRemoteAsync(remoteFolder, candidates).ConfigureAwait(false);
             }
             finally
             {
@@ -194,7 +237,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         {
             var folder = requests[0].Item.AssignedFolder;
             var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId).ConfigureAwait(false);
-            var uniqueIds = requests.Select(request => GetUniqueId(request.Item.Id)).ToList();
+            var uniqueIds = requests.Select(request => GetUniqueId(request.Item)).ToList();
             var storeRequest = new StoreFlagsRequest(requests[0].IsRead ? StoreAction.Add : StoreAction.Remove, MessageFlags.Seen)
             {
                 Silent = true
@@ -268,7 +311,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             var folder = await client.GetFolderAsync(draftFolder.RemoteFolderId);
 
             await folder.OpenAsync(FolderAccess.ReadWrite);
-            await folder.AddFlagsAsync(new UniqueId(MailkitClientExtensions.ResolveUid(singleRequest.MailItem.Id)), MessageFlags.Deleted, true);
+            await folder.AddFlagsAsync(GetUniqueId(singleRequest.MailItem), MessageFlags.Deleted, true);
             await folder.ExpungeAsync();
             await folder.CloseAsync();
 
@@ -299,7 +342,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         {
             var remoteFolder = await client.GetFolderAsync(remoteFolderId, cancellationToken).ConfigureAwait(false);
 
-            var uniqueId = new UniqueId(MailkitClientExtensions.ResolveUid(mailItem.Id));
+            var uniqueId = GetUniqueId(mailItem);
 
             await remoteFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
 

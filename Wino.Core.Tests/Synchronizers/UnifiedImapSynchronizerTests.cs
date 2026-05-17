@@ -303,4 +303,60 @@ public class UnifiedImapSynchronizerTests
             Times.Once);
         mailServiceMock.Verify(x => x.CreateMailAsync(It.IsAny<Guid>(), It.IsAny<NewMailItemPackage>()), Times.Never);
     }
+
+    [Fact]
+    public async Task ProcessSummariesAsync_ShouldUseExplicitImapUid_ForExistingMailLookup()
+    {
+        var localFolder = new MailItemFolder
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = Guid.NewGuid(),
+            FolderName = "Inbox",
+            RemoteFolderId = "INBOX"
+        };
+
+        var summaryMock = new Mock<IMessageSummary>();
+        summaryMock.SetupGet(x => x.UniqueId).Returns(new UniqueId(42));
+        summaryMock.SetupGet(x => x.Flags).Returns(MessageFlags.Seen);
+
+        var existingMailCopy = new MailCopy
+        {
+            Id = "provider-id-without-imap-uid",
+            ImapUid = 42,
+            IsRead = false
+        };
+
+        var mailServiceMock = new Mock<IMailService>();
+        mailServiceMock
+            .Setup(x => x.GetExistingMailsAsync(localFolder.Id, It.IsAny<IEnumerable<UniqueId>>()))
+            .ReturnsAsync([existingMailCopy]);
+        mailServiceMock
+            .Setup(x => x.ApplyMailStateUpdatesAsync(It.IsAny<IEnumerable<MailCopyStateUpdate>>()))
+            .Returns(Task.CompletedTask);
+
+        var sut = new UnifiedImapSynchronizer(
+            Mock.Of<IFolderService>(),
+            mailServiceMock.Object,
+            Mock.Of<IImapSynchronizerErrorHandlerFactory>());
+
+        var imapSynchronizerMock = new Mock<IImapSynchronizer>();
+
+        var processMethod = typeof(UnifiedImapSynchronizer).GetMethod("ProcessSummariesAsync", BindingFlags.Instance | BindingFlags.NonPublic);
+        processMethod.Should().NotBeNull();
+
+        var task = (Task<List<string>>)processMethod!.Invoke(
+            sut,
+            [imapSynchronizerMock.Object, localFolder, new List<IMessageSummary> { summaryMock.Object }, CancellationToken.None])!;
+
+        var result = await task;
+
+        result.Should().BeEmpty();
+        mailServiceMock.Verify(
+            x => x.ApplyMailStateUpdatesAsync(It.Is<IEnumerable<MailCopyStateUpdate>>(updates =>
+                updates.Count() == 1
+                && updates.First().MailCopyId == existingMailCopy.Id
+                && updates.First().IsRead == true)),
+            Times.Once);
+        mailServiceMock.Verify(x => x.CreateMailAsync(It.IsAny<Guid>(), It.IsAny<NewMailItemPackage>()), Times.Never);
+    }
 }

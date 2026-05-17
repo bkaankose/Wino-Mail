@@ -618,12 +618,12 @@ public class UnifiedImapSynchronizer
 
         foreach (var mail in existingMails ?? [])
         {
-            if (mail == null || string.IsNullOrEmpty(mail.Id))
+            if (mail == null)
                 continue;
 
             try
             {
-                lookup[MailkitClientExtensions.ResolveUidStruct(mail.Id).Id] = mail;
+                lookup[MailkitClientExtensions.ResolveUidStruct(mail).Id] = mail;
             }
             catch (ArgumentOutOfRangeException)
             {
@@ -656,8 +656,12 @@ public class UnifiedImapSynchronizer
 
         foreach (var uniqueId in uniqueIds.Distinct())
         {
-            var localMailCopyId = MailkitClientExtensions.CreateUid(folder.Id, uniqueId.Id);
-            await _mailService.DeleteMailAsync(folder.MailAccountId, localMailCopyId).ConfigureAwait(false);
+            var existingMails = await _mailService.GetExistingMailsAsync(folder.Id, [uniqueId]).ConfigureAwait(false);
+
+            foreach (var localMail in existingMails)
+            {
+                await _mailService.DeleteMailAsync(folder.MailAccountId, localMail.Id).ConfigureAwait(false);
+            }
         }
     }
 
@@ -689,13 +693,13 @@ public class UnifiedImapSynchronizer
 
         foreach (var localMail in localMails)
         {
-            if (localMail == null || string.IsNullOrEmpty(localMail.Id))
+            if (localMail == null)
                 continue;
 
             uint uid;
             try
             {
-                uid = MailkitClientExtensions.ResolveUid(localMail.Id);
+                uid = MailkitClientExtensions.ResolveUid(localMail);
             }
             catch (ArgumentOutOfRangeException)
             {

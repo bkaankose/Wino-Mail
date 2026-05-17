@@ -15,6 +15,9 @@ public static class MailkitClientExtensions
 
     public static uint ResolveUid(string mailCopyId)
     {
+        if (string.IsNullOrWhiteSpace(mailCopyId))
+            throw new ArgumentOutOfRangeException(nameof(mailCopyId), mailCopyId, "Invalid mailCopyId format.");
+
         var splitted = mailCopyId.Split(MailCopyUidSeparator);
 
         if (splitted.Length > 1 && uint.TryParse(splitted[1], out uint parsedUint)) return parsedUint;
@@ -22,8 +25,31 @@ public static class MailkitClientExtensions
         throw new ArgumentOutOfRangeException(nameof(mailCopyId), mailCopyId, "Invalid mailCopyId format.");
     }
 
+    public static bool TryResolveUid(string mailCopyId, out uint uid)
+    {
+        uid = 0;
+
+        if (string.IsNullOrWhiteSpace(mailCopyId))
+            return false;
+
+        var splitted = mailCopyId.Split(MailCopyUidSeparator);
+
+        return splitted.Length > 1 && uint.TryParse(splitted[1], out uid);
+    }
+
+    public static uint ResolveUid(MailCopy mailCopy)
+    {
+        if (mailCopy?.ImapUid > 0)
+            return mailCopy.ImapUid;
+
+        return ResolveUid(mailCopy?.Id);
+    }
+
     public static UniqueId ResolveUidStruct(string mailCopyId)
         => new UniqueId(ResolveUid(mailCopyId));
+
+    public static UniqueId ResolveUidStruct(MailCopy mailCopy)
+        => new UniqueId(ResolveUid(mailCopy));
 
     public static string CreateUid(Guid folderId, uint messageUid)
         => $"{folderId}{MailCopyUidSeparator}{messageUid}";
@@ -116,6 +142,8 @@ public static class MailkitClientExtensions
         var copy = new MailCopy()
         {
             Id = messageUid,
+            ImapUid = messageSummary.UniqueId.Id,
+            ImapUidValidity = folder.UidValidity,
             CreationDate = creationDate,
             ThreadId = threadId,
             MessageId = messageId,
