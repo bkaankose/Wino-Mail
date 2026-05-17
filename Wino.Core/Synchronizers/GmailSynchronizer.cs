@@ -392,7 +392,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     internal static string BuildGmailSearchQuery(string queryText, DateTime? cutoffDateUtc)
     {
         var afterTerm = cutoffDateUtc.HasValue
-            ? $"after:{cutoffDateUtc.Value.ToUniversalTime().ToString("yyyy'/'MM'/'dd", CultureInfo.InvariantCulture)}"
+            ? $"after:{FormatGmailSearchDate(cutoffDateUtc.Value)}"
             : null;
 
         if (string.IsNullOrWhiteSpace(queryText))
@@ -402,6 +402,12 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             ? queryText
             : $"{queryText} {afterTerm}";
     }
+
+    private static string FormatGmailSearchDate(DateTime value)
+        => value.ToUniversalTime().ToString("yyyy'/'MM'/'dd", CultureInfo.InvariantCulture);
+
+    private static string FormatGoogleCalendarDate(DateTime value)
+        => value.ToString("yyyy'-'MM'-'dd", CultureInfo.InvariantCulture);
 
     /// <summary>
     /// Performs initial synchronization by downloading messages per-folder.
@@ -2818,12 +2824,12 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         {
             googleEvent.Start = new EventDateTime
             {
-                Date = calendarItem.StartDate.ToString("yyyy-MM-dd"),
+                Date = FormatGoogleCalendarDate(calendarItem.StartDate),
                 TimeZone = NormalizeGoogleTimeZoneId(calendarItem.StartTimeZone)
             };
             googleEvent.End = new EventDateTime
             {
-                Date = calendarItem.EndDate.ToString("yyyy-MM-dd"),
+                Date = FormatGoogleCalendarDate(calendarItem.EndDate),
                 TimeZone = NormalizeGoogleTimeZoneId(calendarItem.EndTimeZone)
             };
         }
@@ -3042,11 +3048,11 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             // All-day events use Date instead of DateTime
             googleEvent.Start = new EventDateTime
             {
-                Date = calendarItem.StartDate.ToString("yyyy-MM-dd")
+                Date = FormatGoogleCalendarDate(calendarItem.StartDate)
             };
             googleEvent.End = new EventDateTime
             {
-                Date = calendarItem.EndDate.ToString("yyyy-MM-dd")
+                Date = FormatGoogleCalendarDate(calendarItem.EndDate)
             };
         }
         else

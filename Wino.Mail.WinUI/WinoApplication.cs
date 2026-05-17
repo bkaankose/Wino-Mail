@@ -57,12 +57,14 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
         DatabaseService = Services.GetRequiredService<IDatabaseService>();
         TranslationService = Services.GetRequiredService<ITranslationService>();
         UnderlyingThemeService = Services.GetRequiredService<IUnderlyingThemeService>();
-        ThumbnailService = Services.GetRequiredService<IThumbnailService>();
 
         // Make sure the paths are setup on app start.
         AppConfiguration.ApplicationDataFolderPath = ApplicationData.Current.LocalFolder.Path;
         AppConfiguration.PublisherSharedFolderPath = ApplicationData.Current.GetPublisherCacheFolder(ApplicationConfiguration.SharedFolderName).Path;
         AppConfiguration.ApplicationTempFolderPath = ApplicationData.Current.TemporaryFolder.Path;
+
+        // ThumbnailService requires ApplicationData paths to be setup, so we initialize it after setting up the paths.
+        ThumbnailService = Services.GetRequiredService<IThumbnailService>();
 
         ConfigureLogging();
     }

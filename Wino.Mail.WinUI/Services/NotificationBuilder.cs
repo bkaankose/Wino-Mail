@@ -356,19 +356,9 @@ public class NotificationBuilder : INotificationBuilder
         var builder = CreateBuilder();
 
         var avatarThumbnail = await _thumbnailService.GetThumbnailAsync(mailItem.FromAddress, awaitLoad: true);
-        if (!string.IsNullOrEmpty(avatarThumbnail))
+        if (avatarThumbnail != null)
         {
-            var tempFile = await Windows.Storage.ApplicationData.Current.TemporaryFolder.CreateFileAsync(
-                $"{Guid.NewGuid()}.png",
-                Windows.Storage.CreationCollisionOption.ReplaceExisting);
-
-            await using (var stream = await tempFile.OpenStreamForWriteAsync())
-            {
-                var bytes = Convert.FromBase64String(avatarThumbnail);
-                await stream.WriteAsync(bytes);
-            }
-
-            builder.SetAppLogoOverride(new Uri($"ms-appdata:///temp/{tempFile.Name}"), AppNotificationImageCrop.Default);
+            builder.SetAppLogoOverride(new Uri(avatarThumbnail.AppDataUri), AppNotificationImageCrop.Default);
         }
 
         builder.SetTimeStamp(mailItem.CreationDate.ToLocalTime());

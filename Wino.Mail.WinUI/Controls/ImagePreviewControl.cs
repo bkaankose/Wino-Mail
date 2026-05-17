@@ -228,13 +228,13 @@ public sealed partial class ImagePreviewControl : PersonPicture
                 !string.IsNullOrWhiteSpace(snapshot.Address) &&
                 EmailValidator.Validate(snapshot.Address))
             {
-                var thumbnailBase64 = await _thumbnailService
+                var thumbnailResult = await _thumbnailService
                     .GetThumbnailAsync(snapshot.Address.Trim().ToLowerInvariant(), awaitLoad: true)
                     .ConfigureAwait(false);
 
-                if (!string.IsNullOrWhiteSpace(thumbnailBase64))
+                if (thumbnailResult != null)
                 {
-                    var thumbnailBitmap = await CreateBitmapFromBase64Async(thumbnailBase64, cancellationToken).ConfigureAwait(false);
+                    var thumbnailBitmap = await CreateBitmapFromFileAsync(thumbnailResult.FilePath, cancellationToken).ConfigureAwait(false);
                     if (thumbnailBitmap != null)
                     {
                         await ApplyProfilePictureAsync(thumbnailBitmap, refreshVersion, cancellationToken).ConfigureAwait(false);
@@ -420,38 +420,30 @@ public sealed partial class ImagePreviewControl : PersonPicture
 
             using var memoryStream = new MemoryStream(bytes);
             var bitmapImage = new BitmapImage();
+            SetDecodePixelSize(bitmapImage);
             bitmapImage.SetSource(memoryStream.AsRandomAccessStream());
             return bitmapImage;
         }).ConfigureAwait(false);
     }
 
-    private async Task<BitmapImage?> CreateBitmapFromBase64Async(string base64, CancellationToken cancellationToken)
+    private void SetDecodePixelSize(BitmapImage bitmapImage)
     {
-        if (string.IsNullOrWhiteSpace(base64))
-            return null;
+        var requestedSize = Math.Max(ActualWidth, ActualHeight);
 
-        byte[] bytes;
-
-        try
+        if (double.IsNaN(requestedSize) || requestedSize <= 0)
         {
-            bytes = await Task.Run(() => Convert.FromBase64String(base64), cancellationToken).ConfigureAwait(false);
-        }
-        catch
-        {
-            return null;
+            requestedSize = Math.Max(Width, Height);
         }
 
-        cancellationToken.ThrowIfCancellationRequested();
-
-        return await ExecuteOnUiThreadAsync(() =>
+        if (double.IsNaN(requestedSize) || requestedSize <= 0)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            requestedSize = 48;
+        }
 
-            using var memoryStream = new MemoryStream(bytes);
-            var bitmapImage = new BitmapImage();
-            bitmapImage.SetSource(memoryStream.AsRandomAccessStream());
-            return bitmapImage;
-        }).ConfigureAwait(false);
+        var decodePixelSize = Math.Max(1, (int)Math.Ceiling(requestedSize));
+
+        bitmapImage.DecodePixelType = DecodePixelType.Logical;
+        bitmapImage.DecodePixelWidth = decodePixelSize;
+        bitmapImage.DecodePixelHeight = decodePixelSize;
     }
-
 }

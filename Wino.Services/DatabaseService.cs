@@ -211,6 +211,33 @@ public class DatabaseService : IDatabaseService
                 .ConfigureAwait(false);
         }
 
+        var thumbnailColumns = await Connection.GetTableInfoAsync(nameof(Thumbnail)).ConfigureAwait(false);
+
+        var isThumbnailFileCacheMigrationNeeded = false;
+
+        if (!thumbnailColumns.Any(c => c.Name == nameof(Thumbnail.GravatarFileName)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(Thumbnail)} ADD COLUMN {nameof(Thumbnail.GravatarFileName)} TEXT NULL")
+                .ConfigureAwait(false);
+
+            isThumbnailFileCacheMigrationNeeded = true;
+        }
+
+        if (!thumbnailColumns.Any(c => c.Name == nameof(Thumbnail.FaviconFileName)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(Thumbnail)} ADD COLUMN {nameof(Thumbnail.FaviconFileName)} TEXT NULL")
+                .ConfigureAwait(false);
+
+            isThumbnailFileCacheMigrationNeeded = true;
+        }
+
+        if (isThumbnailFileCacheMigrationNeeded)
+        {
+            await Connection.DeleteAllAsync<Thumbnail>().ConfigureAwait(false);
+        }
+
         var accountCalendarColumns = await Connection.GetTableInfoAsync(nameof(AccountCalendar)).ConfigureAwait(false);
 
         if (!accountCalendarColumns.Any(c => c.Name == nameof(AccountCalendar.IsBackgroundColorUserOverridden)))

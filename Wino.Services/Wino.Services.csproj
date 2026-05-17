@@ -22,6 +22,7 @@
 		<PackageReference Include="Serilog.Sinks.Debug" />
 		<PackageReference Include="Serilog.Sinks.File" />
 		<PackageReference Include="Serilog.Exceptions" />
+		<PackageReference Include="SkiaSharp" />
 		<PackageReference Include="Wino.Mail.Contracts" />
 	</ItemGroup>
 	<ItemGroup>

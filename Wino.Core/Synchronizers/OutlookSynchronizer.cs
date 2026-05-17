@@ -45,6 +45,7 @@ using Wino.Core.Requests.Category;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Messaging.UI;
+using GlobalizationCultureInfo = System.Globalization.CultureInfo;
 
 namespace Wino.Core.Synchronizers.Mail;
 
@@ -122,6 +123,18 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     private bool _isFolderStructureChanged;
 
     private readonly SemaphoreSlim _concurrentDownloadSemaphore = new(10); // Limit to 10 concurrent downloads
+
+    private static string FormatGraphDate(DateTime value)
+        => value.ToString("yyyy'-'MM'-'dd", GlobalizationCultureInfo.InvariantCulture);
+
+    private static string FormatGraphDateTime(DateTime value)
+        => value.ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss", GlobalizationCultureInfo.InvariantCulture);
+
+    private static string FormatGraphUtcDateTimeOffset(DateTime value)
+        => value.ToUniversalTime().ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss'Z'", GlobalizationCultureInfo.InvariantCulture);
+
+    private static string FormatGraphDateTimeOffset(DateTimeOffset value)
+        => value.ToString("yyyy'-'MM'-'dd'T'HH':'mm':'sszzz", GlobalizationCultureInfo.InvariantCulture);
 
     public OutlookSynchronizer(MailAccount account,
                                IAuthenticator authenticator,
@@ -383,7 +396,9 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         {
             var referenceDateUtc = Account.CreatedAt ?? DateTime.UtcNow;
             var initialSynchronizationCutoffDateUtc = Account.InitialSynchronizationRange.ToCutoffDateUtc(referenceDateUtc);
-            var filterDate = initialSynchronizationCutoffDateUtc?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ");
+            var filterDate = initialSynchronizationCutoffDateUtc.HasValue
+                ? FormatGraphUtcDateTimeOffset(initialSynchronizationCutoffDateUtc.Value)
+                : null;
 
             if (filterDate != null)
             {
@@ -2696,8 +2711,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                     _logger.Information("No calendar sync identifier for calendar {Name}. Performing initial sync.", calendar.Name);
 
                     // ISO 8601 format as expected by Microsoft Graph API (e.g., "2019-11-08T19:00:00-08:00")
-                    var startDate = DateTimeOffset.Now.AddYears(-2).ToString("yyyy-MM-ddTHH:mm:sszzz");
-                    var endDate = DateTimeOffset.Now.AddYears(2).ToString("yyyy-MM-ddTHH:mm:sszzz");
+                    var startDate = FormatGraphDateTimeOffset(DateTimeOffset.Now.AddYears(-2));
+                    var endDate = FormatGraphDateTimeOffset(DateTimeOffset.Now.AddYears(2));
 
                     // Get Id only. We will always download the full event.
                     eventsDeltaResponse = await _graphClient.Me.Calendars[calendar.RemoteCalendarId].CalendarView.Delta.GetAsDeltaGetResponseAsync((requestConfiguration) =>
@@ -3022,12 +3037,12 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             outlookEvent.IsAllDay = true;
             outlookEvent.Start = new Microsoft.Graph.Models.DateTimeTimeZone
             {
-                DateTime = calendarItem.StartDate.ToString("yyyy-MM-dd"),
+                DateTime = FormatGraphDate(calendarItem.StartDate),
                 TimeZone = calendarItem.StartTimeZone ?? TimeZoneInfo.Local.Id
             };
             outlookEvent.End = new Microsoft.Graph.Models.DateTimeTimeZone
             {
-                DateTime = calendarItem.EndDate.ToString("yyyy-MM-dd"),
+                DateTime = FormatGraphDate(calendarItem.EndDate),
                 TimeZone = calendarItem.EndTimeZone ?? calendarItem.StartTimeZone ?? TimeZoneInfo.Local.Id
             };
         }
@@ -3036,12 +3051,12 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             outlookEvent.IsAllDay = false;
             outlookEvent.Start = new Microsoft.Graph.Models.DateTimeTimeZone
             {
-                DateTime = calendarItem.StartDate.ToString("yyyy-MM-ddTHH:mm:ss"),
+                DateTime = FormatGraphDateTime(calendarItem.StartDate),
                 TimeZone = calendarItem.StartTimeZone ?? TimeZoneInfo.Local.Id
             };
             outlookEvent.End = new Microsoft.Graph.Models.DateTimeTimeZone
             {
-                DateTime = calendarItem.EndDate.ToString("yyyy-MM-ddTHH:mm:ss"),
+                DateTime = FormatGraphDateTime(calendarItem.EndDate),
                 TimeZone = calendarItem.EndTimeZone ?? TimeZoneInfo.Local.Id
             };
         }
@@ -3202,12 +3217,12 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             outlookEvent.IsAllDay = true;
             outlookEvent.Start = new Microsoft.Graph.Models.DateTimeTimeZone
             {
-                DateTime = calendarItem.StartDate.ToString("yyyy-MM-dd"),
+                DateTime = FormatGraphDate(calendarItem.StartDate),
                 TimeZone = "UTC"
             };
             outlookEvent.End = new Microsoft.Graph.Models.DateTimeTimeZone
             {
-                DateTime = calendarItem.EndDate.ToString("yyyy-MM-dd"),
+                DateTime = FormatGraphDate(calendarItem.EndDate),
                 TimeZone = "UTC"
             };
         }
@@ -3219,12 +3234,12 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             outlookEvent.IsAllDay = false;
             outlookEvent.Start = new Microsoft.Graph.Models.DateTimeTimeZone
             {
-                DateTime = calendarItem.StartDate.ToString("yyyy-MM-ddTHH:mm:ss"),
+                DateTime = FormatGraphDateTime(calendarItem.StartDate),
                 TimeZone = calendarItem.StartTimeZone ?? TimeZoneInfo.Local.Id
             };
             outlookEvent.End = new Microsoft.Graph.Models.DateTimeTimeZone
             {
-                DateTime = calendarItem.EndDate.ToString("yyyy-MM-ddTHH:mm:ss"),
+                DateTime = FormatGraphDateTime(calendarItem.EndDate),
                 TimeZone = calendarItem.EndTimeZone ?? TimeZoneInfo.Local.Id
             };
         }

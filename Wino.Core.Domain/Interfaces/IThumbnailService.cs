@@ -1,4 +1,6 @@
+#nullable enable
 using System.Threading.Tasks;
+using Wino.Core.Domain.Models.Thumbnails;
 
 namespace Wino.Core.Domain.Interfaces;
 
@@ -16,5 +18,5 @@ public interface IThumbnailService
     /// <param name="awaitLoad">Force to wait for thumbnail loading.
     /// Should be used in non-UI threads or where delay is acceptable
     /// </param>
-    ValueTask<string> GetThumbnailAsync(string email, bool awaitLoad = false);
+    ValueTask<ThumbnailResult?> GetThumbnailAsync(string email, bool awaitLoad = false);
 }
