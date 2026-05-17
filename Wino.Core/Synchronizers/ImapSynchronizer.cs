@@ -155,7 +155,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             }
             finally
             {
-                await remoteFolder.CloseAsync().ConfigureAwait(false);
+                await client.CloseSelectedMailboxAsync(remoteFolder, _logger).ConfigureAwait(false);
             }
         }, requests[0], requests);
     }
@@ -180,7 +180,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             }
             finally
             {
-                await remoteFolder.CloseAsync().ConfigureAwait(false);
+                await client.CloseSelectedMailboxAsync(remoteFolder, _logger).ConfigureAwait(false);
             }
         }, requests[0], requests);
     }
@@ -207,7 +207,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             }
             finally
             {
-                await remoteFolder.CloseAsync().ConfigureAwait(false);
+                await client.CloseSelectedMailboxAsync(remoteFolder, _logger).ConfigureAwait(false);
             }
         }, requests[0], requests);
     }

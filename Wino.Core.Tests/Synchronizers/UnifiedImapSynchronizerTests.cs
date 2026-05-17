@@ -8,6 +8,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Extensions;
 using Wino.Core.Synchronizers.ImapSync;
 using Wino.Services.Extensions;
 using Xunit;
@@ -101,6 +102,26 @@ public class UnifiedImapSynchronizerTests
             serverHost: "imap.163.com");
 
         strategy.Should().Be(ImapSyncStrategy.UidBased);
+    }
+
+    [Fact]
+    public void IsBenignCloseWithoutSelectedMailboxError_ShouldMatchICloudUnselectBad()
+    {
+        var isBenign = ImapMailFolderCloseExtensions.IsBenignCloseWithoutSelectedMailboxError(
+            ImapCommandResponse.Bad,
+            "Inbox: The IMAP server replied to the 'UNSELECT' command with a 'BAD' response: Please select a mailbox first");
+
+        isBenign.Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsBenignCloseWithoutSelectedMailboxError_ShouldRejectOtherBadResponses()
+    {
+        var isBenign = ImapMailFolderCloseExtensions.IsBenignCloseWithoutSelectedMailboxError(
+            ImapCommandResponse.Bad,
+            "Inbox: The IMAP server replied to the 'UNSELECT' command with a 'BAD' response: Permission denied");
+
+        isBenign.Should().BeFalse();
     }
 
     [Fact]

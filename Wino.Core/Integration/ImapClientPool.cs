@@ -255,8 +255,16 @@ public class ImapClientPool : IDisposable
             return;
         }
 
-        _clientStates[client] = ImapClientState.Available;
-        _availableClients.Writer.TryWrite(client);
+        if (!_clientStates.TryGetValue(client, out var state) || state != ImapClientState.InUse)
+        {
+            _logger.Debug("Ignoring IMAP client return because it is in {State} state.", state);
+            return;
+        }
+
+        if (_clientStates.TryUpdate(client, ImapClientState.Available, ImapClientState.InUse))
+        {
+            _availableClients.Writer.TryWrite(client);
+        }
     }
 
     /// <summary>

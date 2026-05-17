@@ -14,6 +14,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Extensions;
 using Wino.Core.Integration;
 using Wino.Services.Extensions;
 using IMailService = Wino.Core.Domain.Interfaces.IMailService;
@@ -265,7 +266,7 @@ public class UnifiedImapSynchronizer
             // Open once to validate UIDVALIDITY and reset local state if needed.
             await remoteFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
             await EnsureUidValidityStateAsync(folder, remoteFolder).ConfigureAwait(false);
-            await remoteFolder.CloseAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+            await client.CloseSelectedMailboxAsync(remoteFolder, _logger, cancellationToken).ConfigureAwait(false);
 
             var knownUids = await _folderService.GetKnownUidsForFolderAsync(folder.Id).ConfigureAwait(false);
             var knownUidStructs = knownUids.Select(a => new UniqueId(a)).ToList();
@@ -336,7 +337,7 @@ public class UnifiedImapSynchronizer
 
                 if (remoteFolder.IsOpen && !cancellationToken.IsCancellationRequested)
                 {
-                    await remoteFolder.CloseAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+                    await client.CloseSelectedMailboxAsync(remoteFolder, _logger, cancellationToken).ConfigureAwait(false);
                 }
             }
         }
@@ -402,7 +403,7 @@ public class UnifiedImapSynchronizer
         {
             if (remoteFolder?.IsOpen == true && !cancellationToken.IsCancellationRequested)
             {
-                await remoteFolder.CloseAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+                await client.CloseSelectedMailboxAsync(remoteFolder, _logger, cancellationToken).ConfigureAwait(false);
             }
         }
 
@@ -456,7 +457,7 @@ public class UnifiedImapSynchronizer
         {
             if (remoteFolder?.IsOpen == true && !cancellationToken.IsCancellationRequested)
             {
-                await remoteFolder.CloseAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+                await client.CloseSelectedMailboxAsync(remoteFolder, _logger, cancellationToken).ConfigureAwait(false);
             }
         }
 
