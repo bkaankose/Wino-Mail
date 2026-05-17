@@ -22,7 +22,7 @@ namespace Wino.Controls;
 /// 2) Gravatar thumbnail (if enabled)
 /// 3) Initials from display name fallback
 /// </summary>
-public sealed partial class ImagePreviewControl : PersonPicture
+public sealed partial class ImagePreviewControl : PersonPicture, IDisposable
 {
     private sealed record RefreshSnapshot(string DisplayName, string Address, Guid? ContactPictureFileId);
 
@@ -94,6 +94,9 @@ public sealed partial class ImagePreviewControl : PersonPicture
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
+        => Dispose();
+
+    public void Dispose()
     {
         if (_mailItemInformationPropertySource != null)
         {
@@ -103,6 +106,7 @@ public sealed partial class ImagePreviewControl : PersonPicture
 
         CancelScheduledRefresh();
         CancelActiveRefresh();
+        ProfilePicture = null;
     }
 
     private void MailItemInformationPropertyChanged(object? sender, PropertyChangedEventArgs e)

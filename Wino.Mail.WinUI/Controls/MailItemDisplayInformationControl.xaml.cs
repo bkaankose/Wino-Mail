@@ -187,6 +187,7 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
             _actionItemPropertySource = null;
         }
 
+        ContactImage.Dispose();
         StopBusyAnimation();
     }
 
