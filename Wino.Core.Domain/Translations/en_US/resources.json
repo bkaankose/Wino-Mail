@@ -1478,7 +1478,7 @@
     "WinoAccount_Management_LoadFailed": "Wino could not load the latest Wino Account information.",
     "WinoAccount_Management_ActionFailed": "The Wino Account request could not be completed.",
     "WinoAccount_SettingsSection_Title": "Wino Account",
-    "WinoAccount_SettingsSection_Description": "Create or sign in to a Wino Account using your localhost auth service.",
+    "WinoAccount_SettingsSection_Description": "Create or sign in to a Wino Account. It's optional and completely free of charge.",
     "WinoAccount_RegisterButton_Title": "Register account",
     "WinoAccount_RegisterButton_Description": "Create a Wino Account with email and password.",
     "WinoAccount_RegisterButton_Action": "Open registration",
