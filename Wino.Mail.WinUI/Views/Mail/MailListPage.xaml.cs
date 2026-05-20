@@ -58,6 +58,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
     private const int SELECTION_SETTLE_DELAY_MS = 120;
     private int _idleNavigationRequestVersion = 0;
     private int _mailActivationRequestVersion = 0;
+    private readonly Dictionary<WinoListView, object> _selectionRangeAnchors = [];
     private IPopoutClient? _activePopoutClient;
     private readonly Dictionary<FrameworkElement, HostedContentPopoutWindow> _hostedPopoutWindows = [];
     private PendingHostedPopoutNavigation? _pendingHostedPopoutNavigation;
@@ -121,6 +122,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         ViewModel.SetDragState(false);
 
         MailListView.Cleanup();
+        _selectionRangeAnchors.Clear();
 
         RenderingFrame.Navigate(typeof(IdlePage));
 
@@ -669,7 +671,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
                 }
             }
 
-            await WinoClickItemInternalAsync(item, true);
+            await WinoClickItemInternalAsync(item, true, MailListView);
         });
     }
 
@@ -722,7 +724,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
         if (control.ActionItem is ThreadMailItemViewModel threadItem)
         {
-            await WinoClickItemInternalAsync(threadItem);
+            await WinoClickItemInternalAsync(threadItem, sourceListView: MailListView);
         }
     }
 
@@ -876,7 +878,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
     }
 
-    private async Task WinoClickItemInternalAsync(object? clickedItem, bool selectExpandThread = false)
+    private async Task WinoClickItemInternalAsync(object? clickedItem, bool selectExpandThread = false, WinoListView? sourceListView = null)
     {
         if (clickedItem == null) return;
 
@@ -893,6 +895,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
         // Treat toolbar multi-select mode the same as holding CTRL for click selection behavior.
         bool isCtrlPressed = KeyPressService.IsCtrlKeyPressed() || ViewModel.IsMultiSelectionModeEnabled;
+        bool isShiftPressed = sourceListView != null && KeyPressService.IsShiftKeyPressed();
 
         // Lazily built caches for this invocation.
         List<ThreadMailItemViewModel>? threadItems = null;
@@ -903,6 +906,14 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
 
         ThreadMailItemViewModel? FindParentThread(MailItemViewModel mail) => ViewModel.MailCollection.GetThreadByMailUniqueId(mail.MailCopy.UniqueId);
+
+        List<object> GetSelectionScope(WinoListView listView)
+        {
+            return listView.Items
+                .Cast<object>()
+                .Where(static item => item is IMailListItem)
+                .ToList();
+        }
 
         void CollapseAllThreadsExcept(ThreadMailItemViewModel? except)
         {
@@ -961,8 +972,78 @@ public sealed partial class MailListPage : MailListPageAbstract,
             }
         }
 
+        void SelectMailListItem(object item)
+        {
+            switch (item)
+            {
+                case ThreadMailItemViewModel thread:
+                    thread.IsSelected = true;
+                    foreach (var child in thread.ThreadEmails)
+                    {
+                        child.IsSelected = true;
+                    }
+                    break;
+                case MailItemViewModel mail:
+                    mail.IsSelected = true;
+                    SyncThreadSelectionFromChildren(FindParentThread(mail));
+                    break;
+            }
+        }
+
+        bool TrySelectRange()
+        {
+            if (!isShiftPressed || sourceListView == null)
+            {
+                return false;
+            }
+
+            var selectionScope = GetSelectionScope(sourceListView);
+            if (!_selectionRangeAnchors.TryGetValue(sourceListView, out var anchorItem))
+            {
+                return false;
+            }
+
+            int anchorIndex = selectionScope.IndexOf(anchorItem);
+            int clickedIndex = selectionScope.IndexOf(clickedItem);
+
+            if (anchorIndex < 0 || clickedIndex < 0)
+            {
+                return false;
+            }
+
+            if (!isCtrlPressed)
+            {
+                ResetSelectionState();
+            }
+
+            int startIndex = Math.Min(anchorIndex, clickedIndex);
+            int endIndex = Math.Max(anchorIndex, clickedIndex);
+
+            for (int i = startIndex; i <= endIndex; i++)
+            {
+                SelectMailListItem(selectionScope[i]);
+            }
+
+            return true;
+        }
+
+        void UpdateSelectionRangeAnchor()
+        {
+            if (sourceListView == null || !GetSelectionScope(sourceListView).Contains(clickedItem))
+            {
+                return;
+            }
+
+            _selectionRangeAnchors[sourceListView] = clickedItem;
+        }
+
         await ViewModel.MailCollection.ExecuteSelectionBatchAsync(() =>
         {
+            if (TrySelectRange())
+            {
+                return;
+            }
+
             if (isCtrlPressed)
             {
                 switch (clickedItem)
@@ -993,6 +1074,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
                         }
                 }
 
+                UpdateSelectionRangeAnchor();
+
                 return;
             }
 
@@ -1008,6 +1091,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
                 if (wasThreadSelected && wasThreadExpanded)
                 {
                     clickedThread.IsThreadExpanded = false;
+                    UpdateSelectionRangeAnchor();
                     return;
                 }
 
@@ -1044,6 +1128,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
                     }
 
                     SyncThreadSelectionFromChildren(selectedParentThread);
+                    UpdateSelectionRangeAnchor();
                     return;
                 }
 
@@ -1071,6 +1156,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
                 SyncThreadSelectionFromChildren(parentThread);
             }
+
+            UpdateSelectionRangeAnchor();
         });
     }
 
@@ -1078,7 +1165,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
     {
         if (sender is not WinoListView listView) return;
 
-        await WinoClickItemInternalAsync(e.ClickedItem);
+        await WinoClickItemInternalAsync(e.ClickedItem, sourceListView: listView);
     }
 
     public void OnTitleBarSearchSuggestionChosen(TitleBarSearchSuggestion suggestion)
