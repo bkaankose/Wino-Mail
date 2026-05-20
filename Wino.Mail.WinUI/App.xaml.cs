@@ -208,7 +208,6 @@ public partial class App : WinoApplication,
 
     private bool ShouldCreateTrayIcon()
         => _hasConfiguredAccounts &&
-           HasShellWindow() &&
            (_preferencesService?.AppCloseBehavior ?? AppCloseBehavior.RunInBackgroundWithTrayIcon) == AppCloseBehavior.RunInBackgroundWithTrayIcon;
 
     private void UpdateTrayIconState(bool allowCreation)
@@ -245,30 +244,21 @@ public partial class App : WinoApplication,
         if (!_hasConfiguredAccounts)
             return ActivateWelcomeWindowAsync();
 
-        return LaunchEntryOrActivateShellAsync(_preferencesService?.DefaultApplicationMode ?? WinoApplicationMode.Mail);
+        return ActivateShellFromTrayAsync(_preferencesService?.DefaultApplicationMode ?? WinoApplicationMode.Mail);
     }
 
     private Task OpenMailFromTrayAsync()
         => _hasConfiguredAccounts
-            ? LaunchEntryOrActivateShellAsync(WinoApplicationMode.Mail)
+            ? ActivateShellFromTrayAsync(WinoApplicationMode.Mail)
             : ActivateWelcomeWindowAsync();
 
     private Task OpenCalendarFromTrayAsync()
         => _hasConfiguredAccounts
-            ? LaunchEntryOrActivateShellAsync(WinoApplicationMode.Calendar)
+            ? ActivateShellFromTrayAsync(WinoApplicationMode.Calendar)
             : ActivateWelcomeWindowAsync();
 
-    private async Task LaunchEntryOrActivateShellAsync(WinoApplicationMode mode)
-    {
-        if (AppEntryConstants.GetPackagedApplicationId(mode) != null)
-        {
-            var appEntryLauncher = Services.GetRequiredService<PackagedAppEntryLauncher>();
-            if (await appEntryLauncher.LaunchAsync(mode))
-                return;
-        }
-
-        await ActivateShellWindowAsync(mode);
-    }
+    private Task ActivateShellFromTrayAsync(WinoApplicationMode mode)
+        => ActivateShellWindowAsync(mode);
 
     private async Task ActivateWelcomeWindowAsync()
     {
@@ -579,7 +569,13 @@ public partial class App : WinoApplication,
         var hasAnyAccount = _hasConfiguredAccounts;
         var isStartupTaskLaunch = activationArgs.Kind == ExtendedActivationKind.StartupTask;
 
-        if (!hasAnyAccount && !isStartupTaskLaunch)
+        if (isStartupTaskLaunch)
+        {
+            CompleteStartupTaskLaunch(hasAnyAccount);
+            return;
+        }
+
+        if (!hasAnyAccount)
         {
             await LaunchWelcomeWindowAsync();
             return;
@@ -588,7 +584,7 @@ public partial class App : WinoApplication,
         if (await TryHandleLaunchActivationAsync(args, activationArgs))
             return;
 
-        await CompleteStandardLaunchAsync(args, hasAnyAccount, isStartupTaskLaunch);
+        await CompleteStandardLaunchAsync(args, hasAnyAccount);
     }
 
     private AppActivationArguments ResolveStartupActivation()
@@ -982,18 +978,23 @@ public partial class App : WinoApplication,
         await nativeAppService.LaunchUriAsync(joinUri);
     }
 
-    private async Task CompleteStandardLaunchAsync(Microsoft.UI.Xaml.LaunchActivatedEventArgs args,
-                                                   bool hasAnyAccount,
-                                                   bool isStartupTaskLaunch)
+    private void CompleteStartupTaskLaunch(bool hasAnyAccount)
     {
-        if (isStartupTaskLaunch && !hasAnyAccount)
+        if (!hasAnyAccount)
         {
-            CreateWelcomeWindow();
+            LogActivation("Launched by startup task without configured accounts. Exiting without creating a window.");
+            ExitApplication();
+            return;
         }
-        else
-        {
-            CreateWindow(args);
-        }
+
+        UpdateTrayIconState(allowCreation: true);
+        LogActivation("Launched by startup task. Running in background without creating a window.");
+    }
+
+    private async Task CompleteStandardLaunchAsync(Microsoft.UI.Xaml.LaunchActivatedEventArgs args,
+                                                   bool hasAnyAccount)
+    {
+        CreateWindow(args);
 
         await NewThemeService.InitializeAsync();
 
@@ -1003,13 +1004,6 @@ public partial class App : WinoApplication,
         }
 
         LogActivation("Theme service initialized.");
-
-        if (isStartupTaskLaunch)
-        {
-            UpdateTrayIconState(allowCreation: true);
-            LogActivation("Launched by startup task. Window created but hidden (system tray only).");
-            return;
-        }
 
         if (MainWindow is WindowEx window)
         {
