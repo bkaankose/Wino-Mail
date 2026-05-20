@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -76,11 +75,12 @@ public class NotificationBuilder : INotificationBuilder
         try
         {
             var inboxMailItems = new List<MailCopy>();
+            var accounts = await _accountService.GetAccountsAsync();
 
             foreach (var item in downloadedMailItems)
             {
                 var mailItem = await _mailService.GetSingleMailItemAsync(item.UniqueId);
-                if (mailItem != null)
+                if (ShouldCreateMailNotification(mailItem, accounts))
                 {
                     inboxMailItems.Add(mailItem);
                 }
@@ -107,9 +107,9 @@ public class NotificationBuilder : INotificationBuilder
                 {
                     await CreateSingleNotificationAsync(mailItem);
                 }
-
-                await UpdateTaskbarIconBadgeAsync();
             }
+
+            await UpdateTaskbarIconBadgeAsync();
         }
         catch (Exception ex)
         {
@@ -233,6 +233,9 @@ public class NotificationBuilder : INotificationBuilder
 
     public void CreateAttentionRequiredNotification(MailAccount account)
     {
+        if (account?.Preferences?.IsNotificationsEnabled != true)
+            return;
+
         var builder = CreateBuilder();
         builder.AddText(Translator.Exception_AccountNeedsAttention_Title);
         builder.AddText(string.Format(Translator.Exception_AccountNeedsAttention_Message, account.Name));
@@ -376,6 +379,13 @@ public class NotificationBuilder : INotificationBuilder
         builder.SetAudioUri(new Uri("ms-winsoundevent:Notification.Mail"));
 
         ShowNotification(builder, mailItem.UniqueId.ToString());
+    }
+
+    private static bool ShouldCreateMailNotification(MailCopy mailItem, IReadOnlyCollection<MailAccount> accounts)
+    {
+        var account = accounts.FirstOrDefault(account => account.Id == mailItem.AssignedFolder.MailAccountId);
+
+        return account?.Preferences?.IsNotificationsEnabled == true;
     }
 
     private void UpdateBadge(string applicationId, int? badgeCount)
