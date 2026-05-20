@@ -258,7 +258,7 @@ public partial class App : WinoApplication,
             : ActivateWelcomeWindowAsync();
 
     private Task ActivateShellFromTrayAsync(WinoApplicationMode mode)
-        => ActivateShellWindowAsync(mode);
+        => EnsureShellWindowAsync(mode, activateWindow: true);
 
     private async Task ActivateWelcomeWindowAsync()
     {
@@ -276,32 +276,6 @@ public partial class App : WinoApplication,
 
         CloseShellWindowIfPresent();
         await ActivateWindowAsync(welcomeWindow);
-    }
-
-    private async Task ActivateShellWindowAsync(WinoApplicationMode? mode, IWinoShellWindow? existingShellWindow = null)
-    {
-        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
-        var shellWindow = existingShellWindow;
-
-        if (shellWindow == null)
-        {
-            shellWindow = windowManager.GetWindow(WinoWindowKind.Shell) as IWinoShellWindow;
-
-            if (shellWindow == null)
-            {
-                CreateWindow(null);
-                shellWindow = MainWindow as IWinoShellWindow;
-            }
-        }
-
-        if (shellWindow == null)
-            return;
-
-        if (mode.HasValue)
-            shellWindow.HandleAppActivation(AppEntryConstants.GetModeLaunchArgument(mode.Value));
-
-        CloseWelcomeWindowIfPresent();
-        await ActivateWindowAsync((WindowEx)shellWindow);
     }
 
     private void CloseWelcomeWindowIfPresent()
@@ -1897,34 +1871,50 @@ public partial class App : WinoApplication,
                 var windowManager = Services.GetRequiredService<IWinoWindowManager>();
                 var shellWindow = MainWindow as IWinoShellWindow
                                   ?? windowManager.GetWindow(WinoWindowKind.Shell) as IWinoShellWindow;
+                var activationMode = _preferencesService?.DefaultApplicationMode ?? WinoApplicationMode.Mail;
 
-                if (shellWindow != null)
+                if (args.Kind == ExtendedActivationKind.Launch &&
+                    args.Data is ILaunchActivatedEventArgs launchArgs)
                 {
-                    if (args.Kind == ExtendedActivationKind.Launch &&
-                        args.Data is ILaunchActivatedEventArgs launchArgs)
+                    if (ToastActivationResolver.TryParse(launchArgs.Arguments, out var launchToastArguments))
                     {
-                        if (ToastActivationResolver.TryParse(launchArgs.Arguments, out var launchToastArguments))
+                        shouldActivateWindow = ToastActivationResolver.ShouldBringToForeground(launchToastArguments);
+                        LogActivation($"Processing redirected toast launch activation. Arguments: {launchArgs.Arguments}");
+                        await HandleToastActivationAsync(launchToastArguments);
+                        shouldActivateWindow = false;
+                    }
+                    else
+                    {
+                        var launchArguments = launchArgs.Arguments;
+
+                        if (Program.TryConsumeRedirectedAlternateModeOverride())
                         {
-                            shouldActivateWindow = ToastActivationResolver.ShouldBringToForeground(launchToastArguments);
-                            LogActivation($"Processing redirected toast launch activation. Arguments: {launchArgs.Arguments}");
-                            await HandleToastActivationAsync(launchToastArguments);
+                            launchArguments = AppendLaunchArgument(launchArguments, ToggleDefaultModeLaunchArgument);
                         }
-                        else
-                        {
-                            var launchArguments = launchArgs.Arguments;
 
-                            if (Program.TryConsumeRedirectedAlternateModeOverride())
-                            {
-                                launchArguments = AppendLaunchArgument(launchArguments, ToggleDefaultModeLaunchArgument);
-                            }
+                        activationMode = AppModeActivationResolver.Resolve(
+                            launchArguments,
+                            launchArgs.TileId,
+                            null,
+                            activationMode);
 
+                        if (shellWindow != null)
                             shellWindow.HandleAppActivation(launchArguments, launchArgs.TileId);
-                        }
                     }
-                    else if (TryResolveActivationMode(args, _preferencesService?.DefaultApplicationMode ?? WinoApplicationMode.Mail, out var redirectedMode))
-                    {
+                }
+                else if (TryResolveActivationMode(args, activationMode, out var redirectedMode))
+                {
+                    activationMode = redirectedMode;
+
+                    if (shellWindow != null)
                         shellWindow.HandleAppActivation(AppEntryConstants.GetModeLaunchArgument(redirectedMode));
-                    }
+                }
+
+                if (shouldActivateWindow && shellWindow == null && _hasConfiguredAccounts)
+                {
+                    var result = await EnsureShellWindowAsync(activationMode, activateWindow: true);
+                    shellWindow = result.ShellWindow;
+                    shouldActivateWindow = false;
                 }
 
                 // Redirected launches can target a shell window that is currently hidden in the tray.
