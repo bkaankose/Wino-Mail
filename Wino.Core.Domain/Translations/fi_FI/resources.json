@@ -1110,6 +1110,7 @@
     "SettingsJumpList_Description": "Näytä kansion pikakuvakkeet, kun napsautat tehtäväpalkin kuvaketta hiiren oikealla painikkeella.",
     "SettingsJumpList_Title": "Tehtäväpalkin pikavalikko",
     "SettingsFolderJumpList_Title": "Kansion pikavalikko",
+    "JumpList_QuickFoldersGroup": "Pikakansiot",
     "SettingsThreads_Description": "Organize messages into conversation threads.",
     "SettingsThreads_Title": "Conversation Threading",
     "SettingsThreads_Enabled_Description": "Ryhmittele liittyvät viestit yhdeksi keskusteluksi.",

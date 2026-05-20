@@ -1110,6 +1110,7 @@
     "SettingsJumpList_Description": "タスクバーのアイコンを右クリックすると、よく使うフォルダーのショートカットを表示します。",
     "SettingsJumpList_Title": "タスクバーのジャンプリスト",
     "SettingsFolderJumpList_Title": "ジャンプリスト",
+    "JumpList_QuickFoldersGroup": "クイック フォルダ",
     "SettingsThreads_Description": "Organize messages into conversation threads.",
     "SettingsThreads_Title": "Conversation Threading",
     "SettingsThreads_Enabled_Description": "関連するメッセージを1つの会話にまとめます。",

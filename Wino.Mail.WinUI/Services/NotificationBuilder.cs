@@ -522,6 +522,8 @@ public class NotificationBuilder : INotificationBuilder
             CreateMailFolderJumpListArguments(account.Id, folder.Id),
             $"{folder.FolderName} - {accountDisplayName}");
 
+        item.GroupName = Translator.JumpList_QuickFoldersGroup;
+
         TrySetJumpListItemLogo(item, GetProviderIconUri(account));
 
         return item;

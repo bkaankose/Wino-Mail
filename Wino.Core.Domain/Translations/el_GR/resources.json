@@ -1110,6 +1110,7 @@
     "SettingsJumpList_Description": "Εμφάνιση γρήγορων συντομεύσεων φακέλων όταν κάνετε δεξί κλικ στο εικονίδιο της γραμμής εργασιών.",
     "SettingsJumpList_Title": "Λίστα συντομεύσεων γραμμής εργασιών",
     "SettingsFolderJumpList_Title": "Λίστα συντομεύσεων φακέλων",
+    "JumpList_QuickFoldersGroup": "Γρήγοροι φάκελοι",
     "SettingsThreads_Description": "Οργάνωση μηνυμάτων σε νήματα συνομιλίας.",
     "SettingsThreads_Title": "Νηματοποίηση Συζήτησης",
     "SettingsThreads_Enabled_Description": "Ομαδοποιήστε σχετικά μηνύματα σε μια ενιαία συνομιλία.",

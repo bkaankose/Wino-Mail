@@ -1110,6 +1110,7 @@
     "SettingsJumpList_Description": "Zobrazuje rychlé zkratky složek po kliknutí pravým tlačítkem na ikonu na liště úloh.",
     "SettingsJumpList_Title": "Rychlý seznam na liště úloh",
     "SettingsFolderJumpList_Title": "Rychlý seznam",
+    "JumpList_QuickFoldersGroup": "Rychlé složky",
     "SettingsThreads_Description": "Uspořádat zprávy do konverzačních vláken.",
     "SettingsThreads_Title": "Vlákna konverzací",
     "SettingsThreads_Enabled_Description": "Seskupovat související zprávy do jedné konverzace.",

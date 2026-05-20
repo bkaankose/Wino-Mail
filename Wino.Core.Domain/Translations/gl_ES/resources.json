@@ -1110,6 +1110,7 @@
     "SettingsJumpList_Description": "Mostrar accesos directos rápidos ás carpetas ao facer clic co botón dereito no icono da barra de tarefas.",
     "SettingsJumpList_Title": "Listaxe de saltos da barra de tarefas",
     "SettingsFolderJumpList_Title": "Listaxe de saltos",
+    "JumpList_QuickFoldersGroup": "Cartafoles rápidos",
     "SettingsThreads_Description": "Organize messages into conversation threads.",
     "SettingsThreads_Title": "Conversation Threading",
     "SettingsThreads_Enabled_Description": "Agrupa as mensaxes relacionadas nunha única conversa.",

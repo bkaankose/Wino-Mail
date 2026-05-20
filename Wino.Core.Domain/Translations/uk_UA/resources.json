@@ -1110,6 +1110,7 @@
     "SettingsJumpList_Description": "Показати швидкі ярлики папок під час натискання правою кнопкою миші на значок панелі задач.",
     "SettingsJumpList_Title": "Перелік швидких переходів панелі задач",
     "SettingsFolderJumpList_Title": "Перелік швидких переходів",
+    "JumpList_QuickFoldersGroup": "Швидкі папки",
     "SettingsThreads_Description": "Організуйте повідомлення в ланцюжки розмов.",
     "SettingsThreads_Title": "Ланцюжки розмов",
     "SettingsThreads_Enabled_Description": "Групуйте пов'язані повідомлення в одну розмову.",

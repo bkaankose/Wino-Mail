@@ -1110,6 +1110,7 @@
     "SettingsJumpList_Description": "Mostra enllaços ràpids de carpetes quan facis clic amb el botó dret a la icona de la barra de tasques.",
     "SettingsJumpList_Title": "Llista d'accés ràpid de la barra de tasques",
     "SettingsFolderJumpList_Title": "Llista d'accés ràpid de carpetes",
+    "JumpList_QuickFoldersGroup": "Carpetes ràpides",
     "SettingsThreads_Description": "Organize messages into conversation threads.",
     "SettingsThreads_Title": "Conversation Threading",
     "SettingsThreads_Enabled_Description": "Agrupa els missatges relacionats en una única conversa.",

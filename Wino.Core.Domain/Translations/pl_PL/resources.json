@@ -1110,6 +1110,7 @@
     "SettingsJumpList_Description": "Pokaż szybkie skróty do folderów po kliknięciu prawym przyciskiem myszy ikony paska zadań.",
     "SettingsJumpList_Title": "Lista szybkich skrótów na pasku zadań",
     "SettingsFolderJumpList_Title": "Lista szybkich skrótów",
+    "JumpList_QuickFoldersGroup": "Szybkie foldery",
     "SettingsThreads_Description": "Organizuj wiadomości w wątki konwersacji.",
     "SettingsThreads_Title": "Wątkowanie konwersacji",
     "SettingsThreads_Enabled_Description": "Łącz powiązane wiadomości w jedną rozmowę.",

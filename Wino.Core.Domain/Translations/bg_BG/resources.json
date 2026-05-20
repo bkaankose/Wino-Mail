@@ -1110,6 +1110,7 @@
     "SettingsJumpList_Description": "Показва бързи пътечки към папки, когато щракнете с десния бутон върху иконата на лентата на задачите.",
     "SettingsJumpList_Title": "Списък за бърз достъп до лентата на задачите",
     "SettingsFolderJumpList_Title": "Списък за бърз достъп до папки",
+    "JumpList_QuickFoldersGroup": "Бързи папки",
     "SettingsThreads_Description": "Организиране на съобщенията в разговори.",
     "SettingsThreads_Title": "Групиране в разговори",
     "SettingsThreads_Enabled_Description": "Групирайте свързаните съобщения в един разговор.",

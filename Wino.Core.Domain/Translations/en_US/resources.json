@@ -1110,6 +1110,7 @@
     "SettingsJumpList_Description": "Show quick folder shortcuts when right-clicking the taskbar icon.",
     "SettingsJumpList_Title": "Taskbar Jump List",
     "SettingsFolderJumpList_Title": "Jump List",
+    "JumpList_QuickFoldersGroup": "Quick folders",
     "SettingsThreads_Description": "Organize messages into conversation threads.",
     "SettingsThreads_Title": "Conversation Threading",
     "SettingsThreads_Enabled_Description": "Group related messages into a single conversation.",

@@ -1110,6 +1110,7 @@
     "SettingsJumpList_Description": "Schnelle Ordner-Verknüpfungen anzeigen, wenn Sie mit der rechten Maustaste auf das Taskleistensymbol klicken.",
     "SettingsJumpList_Title": "Sprungliste der Taskleiste",
     "SettingsFolderJumpList_Title": "Sprungliste",
+    "JumpList_QuickFoldersGroup": "Schnellordner",
     "SettingsThreads_Description": "Nachrichten in Unterhaltungsthreads organisieren.",
     "SettingsThreads_Title": "Unterhaltungsthreading",
     "SettingsThreads_Enabled_Description": "Verwandte Nachrichten zu einer einzigen Unterhaltung bündeln.",

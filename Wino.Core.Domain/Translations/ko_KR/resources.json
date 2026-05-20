@@ -1110,6 +1110,7 @@
     "SettingsJumpList_Description": "작업 표시줄 아이콘을 마우스 오른쪽 버튼으로 클릭하면 빠른 폴더 바로가기가 표시됩니다.",
     "SettingsJumpList_Title": "작업 표시줄 점프 목록",
     "SettingsFolderJumpList_Title": "폴더 점프 목록",
+    "JumpList_QuickFoldersGroup": "빠른 폴더",
     "SettingsThreads_Description": "메시지를 대화 스레드로 구성합니다.",
     "SettingsThreads_Title": "대화 스레딩",
     "SettingsThreads_Enabled_Description": "관련 메시지를 하나의 대화로 그룹화합니다.",

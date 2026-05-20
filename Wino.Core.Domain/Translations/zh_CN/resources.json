@@ -1110,6 +1110,7 @@
     "SettingsJumpList_Description": "在任务栏图标上右键单击时显示快速文件夹快捷方式。",
     "SettingsJumpList_Title": "任务栏跳转列表",
     "SettingsFolderJumpList_Title": "跳转列表",
+    "JumpList_QuickFoldersGroup": "快速文件夹",
     "SettingsThreads_Description": "将邮件组织成对话主题。",
     "SettingsThreads_Title": "邮件会话",
     "SettingsThreads_Enabled_Description": "将相关邮件聚合为一个对话。",

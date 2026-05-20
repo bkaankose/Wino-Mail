@@ -1110,6 +1110,7 @@
     "SettingsJumpList_Description": "Vis hurtige mappegenveje, når du højreklikker på proceslinjeikonet.",
     "SettingsJumpList_Title": "Proceslinjens genvejsliste",
     "SettingsFolderJumpList_Title": "Mappegenvejsliste",
+    "JumpList_QuickFoldersGroup": "Hurtige mapper",
     "SettingsThreads_Description": "Organize messages into conversation threads.",
     "SettingsThreads_Title": "Conversation Threading",
     "SettingsThreads_Enabled_Description": "Grupper relaterede meddelelser i en enkelt samtale.",

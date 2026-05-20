@@ -1110,6 +1110,7 @@
     "SettingsJumpList_Description": "Mostra scorciatoie rapide per le cartelle quando fai clic con il pulsante destro sull'icona della barra delle applicazioni.",
     "SettingsJumpList_Title": "Elenco rapido della barra delle applicazioni",
     "SettingsFolderJumpList_Title": "Elenco rapido delle cartelle",
+    "JumpList_QuickFoldersGroup": "Cartelle rapide",
     "SettingsThreads_Description": "Organizza i messaggi in gruppi di conversazione.",
     "SettingsThreads_Title": "Raggruppamento conversazioni",
     "SettingsThreads_Enabled_Description": "Raggruppa i messaggi correlati in una singola conversazione.",
