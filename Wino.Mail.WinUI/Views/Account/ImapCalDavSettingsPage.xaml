@@ -4,24 +4,32 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <ScrollViewer>
-        <Grid
-            MaxWidth="980"
-            Padding="36,28,36,36"
-            HorizontalAlignment="Center">
-            <StackPanel Spacing="20">
+    <Grid>
+        <ScrollViewer>
+            <Grid
+                MaxWidth="980"
+                Padding="36,28,36,36"
+                HorizontalAlignment="Center">
+                <StackPanel Spacing="20">
                 <StackPanel Spacing="4">
                     <TextBlock
                         FontSize="28"
                         FontWeight="SemiBold"
-                        Text="{x:Bind ViewModel.PageTitle, Mode=OneWay}" />
+                        Text="{x:Bind domain:Translator.ImapCalDavSettingsPage_TitleCreate, Mode=OneTime}"
+                        Visibility="{x:Bind ViewModel.IsCreateMode, Mode=OneWay}" />
+                    <TextBlock
+                        FontSize="28"
+                        FontWeight="SemiBold"
+                        Text="{x:Bind domain:Translator.ImapCalDavSettingsPage_TitleEdit, Mode=OneTime}"
+                        Visibility="{x:Bind ViewModel.IsEditMode, Mode=OneWay}" />
                     <TextBlock
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         Style="{StaticResource BodyTextBlockStyle}"
-                        Text="{x:Bind ViewModel.SubtitleText, Mode=OneWay}"
+                        Text="{x:Bind domain:Translator.ImapCalDavSettingsPage_Subtitle, Mode=OneTime}"
                         TextWrapping="WrapWholeWords" />
                     <TextBlock
                         Foreground="{ThemeResource TextFillColorTertiaryBrush}"
@@ -42,11 +50,11 @@
                             <TextBlock
                                 FontSize="16"
                                 FontWeight="SemiBold"
-                                Text="{x:Bind ViewModel.BasicSectionTitleText, Mode=OneWay}" />
+                                Text="{x:Bind domain:Translator.ImapCalDavSettingsPage_BasicSectionTitle, Mode=OneTime}" />
                             <TextBlock
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                 Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind ViewModel.BasicSectionDescriptionText, Mode=OneWay}"
+                                Text="{x:Bind domain:Translator.ImapCalDavSettingsPage_BasicSectionDescription, Mode=OneTime}"
                                 TextWrapping="WrapWholeWords" />
                         </StackPanel>
 
@@ -63,29 +71,29 @@
                             <TextBox
                                 Grid.Row="0"
                                 Grid.Column="0"
-                                Header="{x:Bind ViewModel.DisplayNameHeaderText, Mode=OneWay}"
-                                PlaceholderText="{x:Bind ViewModel.DisplayNamePlaceholderText, Mode=OneWay}"
+                                Header="{x:Bind domain:Translator.IMAPSetupDialog_DisplayName, Mode=OneTime}"
+                                PlaceholderText="{x:Bind domain:Translator.IMAPSetupDialog_DisplayNamePlaceholder, Mode=OneTime}"
                                 Text="{x:Bind ViewModel.DisplayName, Mode=TwoWay}" />
                             <TextBox
                                 Grid.Row="0"
                                 Grid.Column="1"
-                                Header="{x:Bind ViewModel.EmailAddressHeaderText, Mode=OneWay}"
-                                PlaceholderText="{x:Bind ViewModel.EmailAddressPlaceholderText, Mode=OneWay}"
+                                Header="{x:Bind domain:Translator.IMAPSetupDialog_MailAddress, Mode=OneTime}"
+                                PlaceholderText="{x:Bind domain:Translator.IMAPSetupDialog_MailAddressPlaceholder, Mode=OneTime}"
                                 Text="{x:Bind ViewModel.EmailAddress, Mode=TwoWay}" />
                             <PasswordBox
                                 Grid.Row="1"
                                 Grid.ColumnSpan="2"
-                                Header="{x:Bind ViewModel.PasswordHeaderText, Mode=OneWay}"
+                                Header="{x:Bind domain:Translator.IMAPSetupDialog_Password, Mode=OneTime}"
                                 Password="{x:Bind ViewModel.Password, Mode=TwoWay}"
                                 Visibility="{x:Bind ViewModel.IsMailPasswordInputVisible, Mode=OneWay}" />
                         </Grid>
 
                         <StackPanel Spacing="10">
                             <CheckBox
-                                Content="{x:Bind ViewModel.EnableMailSupportText, Mode=OneWay}"
+                                Content="{x:Bind domain:Translator.ProviderSelection_UseForMail, Mode=OneTime}"
                                 IsChecked="{x:Bind ViewModel.IsMailSupportEnabled, Mode=TwoWay}" />
                             <CheckBox
-                                Content="{x:Bind ViewModel.EnableCalendarSupportText, Mode=OneWay}"
+                                Content="{x:Bind domain:Translator.ImapCalDavSettingsPage_EnableCalendarSupport, Mode=OneTime}"
                                 IsChecked="{x:Bind ViewModel.IsCalendarSupportEnabled, Mode=TwoWay}" />
                         </StackPanel>
 
@@ -93,12 +101,12 @@
                             <TextBlock
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                 Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind ViewModel.AdvancedSectionDescriptionText, Mode=OneWay}"
+                                Text="{x:Bind domain:Translator.ImapCalDavSettingsPage_AdvancedSectionDescription, Mode=OneTime}"
                                 TextWrapping="WrapWholeWords" />
                             <Button
                                 HorizontalAlignment="Left"
                                 Command="{x:Bind ViewModel.AutoDiscoverSettingsCommand}"
-                                Content="{x:Bind ViewModel.AutoDiscoverButtonText, Mode=OneWay}"
+                                Content="{x:Bind domain:Translator.ImapCalDavSettingsPage_AutoDiscoverButton, Mode=OneTime}"
                                 Style="{ThemeResource AccentButtonStyle}"
                                 Visibility="{x:Bind ViewModel.IsMailActionsVisible, Mode=OneWay}" />
                         </StackPanel>
@@ -117,11 +125,11 @@
                             <TextBlock
                                 FontSize="16"
                                 FontWeight="SemiBold"
-                                Text="{x:Bind ViewModel.AdvancedSectionTitleText, Mode=OneWay}" />
+                                Text="{x:Bind domain:Translator.ImapCalDavSettingsPage_AdvancedSectionTitle, Mode=OneTime}" />
                             <TextBlock
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                 Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind ViewModel.AdvancedSectionDescriptionText, Mode=OneWay}"
+                                Text="{x:Bind domain:Translator.ImapCalDavSettingsPage_AdvancedSectionDescription, Mode=OneTime}"
                                 TextWrapping="WrapWholeWords" />
                         </StackPanel>
 
@@ -138,18 +146,18 @@
                                 <StackPanel Spacing="10">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <FontIcon FontSize="14" Glyph="&#xE896;" />
-                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.IncomingSectionTitleText, Mode=OneWay}" />
+                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.IMAPSetupDialog_IMAPSettings, Mode=OneTime}" />
                                     </StackPanel>
-                                    <TextBox Header="{x:Bind ViewModel.IncomingServerHeaderText, Mode=OneWay}" Text="{x:Bind ViewModel.IncomingServer, Mode=TwoWay}" />
-                                    <TextBox Header="{x:Bind ViewModel.PortHeaderText, Mode=OneWay}" Text="{x:Bind ViewModel.IncomingServerPort, Mode=TwoWay}" />
-                                    <TextBox Header="{x:Bind ViewModel.IncomingUsernameHeaderText, Mode=OneWay}" Text="{x:Bind ViewModel.IncomingServerUsername, Mode=TwoWay}" />
-                                    <PasswordBox Header="{x:Bind ViewModel.IncomingPasswordHeaderText, Mode=OneWay}" Password="{x:Bind ViewModel.IncomingServerPassword, Mode=TwoWay}" />
+                                    <TextBox Header="{x:Bind domain:Translator.IMAPSetupDialog_IncomingMailServer, Mode=OneTime}" Text="{x:Bind ViewModel.IncomingServer, Mode=TwoWay}" />
+                                    <TextBox Header="{x:Bind domain:Translator.IMAPSetupDialog_IncomingMailServerPort, Mode=OneTime}" Text="{x:Bind ViewModel.IncomingServerPort, Mode=TwoWay}" />
+                                    <TextBox Header="{x:Bind domain:Translator.IMAPSetupDialog_Username, Mode=OneTime}" Text="{x:Bind ViewModel.IncomingServerUsername, Mode=TwoWay}" />
+                                    <PasswordBox Header="{x:Bind domain:Translator.IMAPSetupDialog_Password, Mode=OneTime}" Password="{x:Bind ViewModel.IncomingServerPassword, Mode=TwoWay}" />
                                     <ComboBox
-                                        Header="{x:Bind ViewModel.ConnectionSecurityHeaderText, Mode=OneWay}"
+                                        Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_ConnectionSecurityHeader, Mode=OneTime}"
                                         ItemsSource="{x:Bind ViewModel.AvailableConnectionSecurityDisplayNames}"
                                         SelectedIndex="{x:Bind ViewModel.SelectedIncomingServerConnectionSecurityIndex, Mode=TwoWay}" />
                                     <ComboBox
-                                        Header="{x:Bind ViewModel.AuthenticationMethodHeaderText, Mode=OneWay}"
+                                        Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_AuthenticationMethodHeader, Mode=OneTime}"
                                         ItemsSource="{x:Bind ViewModel.AvailableAuthenticationMethodDisplayNames}"
                                         SelectedIndex="{x:Bind ViewModel.SelectedIncomingServerAuthenticationMethodIndex, Mode=TwoWay}" />
                                 </StackPanel>
@@ -163,18 +171,18 @@
                                 <StackPanel Spacing="10">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <FontIcon FontSize="14" Glyph="&#xE898;" />
-                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.OutgoingSectionTitleText, Mode=OneWay}" />
+                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.IMAPSetupDialog_SMTPSettings, Mode=OneTime}" />
                                     </StackPanel>
-                                    <TextBox Header="{x:Bind ViewModel.OutgoingServerHeaderText, Mode=OneWay}" Text="{x:Bind ViewModel.OutgoingServer, Mode=TwoWay}" />
-                                    <TextBox Header="{x:Bind ViewModel.PortHeaderText, Mode=OneWay}" Text="{x:Bind ViewModel.OutgoingServerPort, Mode=TwoWay}" />
-                                    <TextBox Header="{x:Bind ViewModel.OutgoingUsernameHeaderText, Mode=OneWay}" Text="{x:Bind ViewModel.OutgoingServerUsername, Mode=TwoWay}" />
-                                    <PasswordBox Header="{x:Bind ViewModel.OutgoingPasswordHeaderText, Mode=OneWay}" Password="{x:Bind ViewModel.OutgoingServerPassword, Mode=TwoWay}" />
+                                    <TextBox Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServer, Mode=OneTime}" Text="{x:Bind ViewModel.OutgoingServer, Mode=TwoWay}" />
+                                    <TextBox Header="{x:Bind domain:Translator.IMAPSetupDialog_IncomingMailServerPort, Mode=OneTime}" Text="{x:Bind ViewModel.OutgoingServerPort, Mode=TwoWay}" />
+                                    <TextBox Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServerUsername, Mode=OneTime}" Text="{x:Bind ViewModel.OutgoingServerUsername, Mode=TwoWay}" />
+                                    <PasswordBox Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServerPassword, Mode=OneTime}" Password="{x:Bind ViewModel.OutgoingServerPassword, Mode=TwoWay}" />
                                     <ComboBox
-                                        Header="{x:Bind ViewModel.ConnectionSecurityHeaderText, Mode=OneWay}"
+                                        Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_ConnectionSecurityHeader, Mode=OneTime}"
                                         ItemsSource="{x:Bind ViewModel.AvailableConnectionSecurityDisplayNames}"
                                         SelectedIndex="{x:Bind ViewModel.SelectedOutgoingServerConnectionSecurityIndex, Mode=TwoWay}" />
                                     <ComboBox
-                                        Header="{x:Bind ViewModel.AuthenticationMethodHeaderText, Mode=OneWay}"
+                                        Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_AuthenticationMethodHeader, Mode=OneTime}"
                                         ItemsSource="{x:Bind ViewModel.AvailableAuthenticationMethodDisplayNames}"
                                         SelectedIndex="{x:Bind ViewModel.SelectedOutgoingServerAuthenticationMethodIndex, Mode=TwoWay}" />
                                 </StackPanel>
@@ -184,7 +192,7 @@
                         <Button
                             HorizontalAlignment="Right"
                             Command="{x:Bind ViewModel.TestImapConnectionCommand}"
-                            Content="{x:Bind ViewModel.TestImapButtonText, Mode=OneWay}"
+                            Content="{x:Bind domain:Translator.ImapCalDavSettingsPage_TestImapButton, Mode=OneTime}"
                             Visibility="{x:Bind ViewModel.IsMailActionsVisible, Mode=OneWay}" />
                     </StackPanel>
                 </Border>
@@ -202,17 +210,17 @@
                                 <TextBlock
                                     FontSize="16"
                                     FontWeight="SemiBold"
-                                    Text="{x:Bind ViewModel.CalendarSectionTitleText, Mode=OneWay}" />
+                                    Text="{x:Bind domain:Translator.ImapCalDavSettingsPage_CalendarSectionTitle, Mode=OneTime}" />
                             </StackPanel>
                             <TextBlock
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                 Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind ViewModel.CalendarSectionDescriptionText, Mode=OneWay}"
+                                Text="{x:Bind domain:Translator.ImapCalDavSettingsPage_CalendarSectionDescription, Mode=OneTime}"
                                 TextWrapping="WrapWholeWords" />
                         </StackPanel>
 
                         <ComboBox
-                            Header="{x:Bind ViewModel.CalendarModeHeaderText, Mode=OneWay}"
+                            Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_CalendarModeHeader, Mode=OneTime}"
                             IsEnabled="{x:Bind ViewModel.IsCalendarModeSelectionVisible, Mode=OneWay}"
                             ItemsSource="{x:Bind ViewModel.AvailableCalendarSupportModeTitles}"
                             SelectedIndex="{x:Bind ViewModel.SelectedCalendarSupportModeIndex, Mode=TwoWay}" />
@@ -220,12 +228,25 @@
                         <TextBlock
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="{x:Bind ViewModel.SelectedCalendarSupportDescription, Mode=OneWay}"
-                            TextWrapping="WrapWholeWords" />
+                            Text="{x:Bind domain:Translator.ImapCalDavSettingsPage_CalendarModeCalDavDescription, Mode=OneTime}"
+                            TextWrapping="WrapWholeWords"
+                            Visibility="{x:Bind ViewModel.IsCalDavCalendarModeSelected, Mode=OneWay}" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind domain:Translator.ImapCalDavSettingsPage_CalendarModeLocalOnlyDescription, Mode=OneTime}"
+                            TextWrapping="WrapWholeWords"
+                            Visibility="{x:Bind ViewModel.IsLocalCalendarModeSelected, Mode=OneWay}" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind domain:Translator.ImapCalDavSettingsPage_CalendarModeDisabledDescription, Mode=OneTime}"
+                            TextWrapping="WrapWholeWords"
+                            Visibility="{x:Bind ViewModel.IsDisabledCalendarModeSelected, Mode=OneWay}" />
 
                         <HyperlinkButton
                             Command="{x:Bind ViewModel.ShowLocalCalendarExplanationCommand}"
-                            Content="{x:Bind ViewModel.LocalCalendarLearnMoreText, Mode=OneWay}"
+                            Content="{x:Bind domain:Translator.ImapCalDavSettingsPage_LocalCalendarLearnMore, Mode=OneTime}"
                             HorizontalAlignment="Left"
                             IsEnabled="{x:Bind ViewModel.IsLocalCalendarModeSelected, Mode=OneWay}" />
 
@@ -236,23 +257,23 @@
                             </Grid.ColumnDefinitions>
                             <TextBox
                                 Grid.Column="0"
-                                Header="{x:Bind ViewModel.CalDavServiceUrlHeaderText, Mode=OneWay}"
+                                Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_CalDavServiceUrl, Mode=OneTime}"
                                 Text="{x:Bind ViewModel.CalDavServiceUrl, Mode=TwoWay}" />
                             <TextBox
                                 Grid.Column="1"
-                                Header="{x:Bind ViewModel.CalDavUsernameHeaderText, Mode=OneWay}"
+                                Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_CalDavUsername, Mode=OneTime}"
                                 Text="{x:Bind ViewModel.CalDavUsername, Mode=TwoWay}" />
                         </Grid>
 
                         <PasswordBox
-                            Header="{x:Bind ViewModel.CalDavPasswordHeaderText, Mode=OneWay}"
+                            Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_CalDavPassword, Mode=OneTime}"
                             Password="{x:Bind ViewModel.CalDavPassword, Mode=TwoWay}"
                             Visibility="{x:Bind ViewModel.IsCalDavSettingsVisible, Mode=OneWay}" />
 
                         <Button
                             HorizontalAlignment="Right"
                             Command="{x:Bind ViewModel.TestCalDavConnectionCommand}"
-                            Content="{x:Bind ViewModel.TestCalDavButtonText, Mode=OneWay}"
+                            Content="{x:Bind domain:Translator.ImapCalDavSettingsPage_TestCalDavButton, Mode=OneTime}"
                             IsEnabled="{x:Bind ViewModel.IsCalDavSettingsVisible, Mode=OneWay}" />
                     </StackPanel>
                 </Border>
@@ -266,14 +287,62 @@
                     <Button
                         Grid.Column="1"
                         Command="{x:Bind ViewModel.CancelCommand}"
-                        Content="{x:Bind ViewModel.CancelButtonText, Mode=OneWay}" />
+                        Content="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}" />
                     <Button
                         Grid.Column="2"
                         Command="{x:Bind ViewModel.SaveCommand}"
-                        Content="{x:Bind ViewModel.SaveButtonText, Mode=OneWay}"
+                        Content="{x:Bind domain:Translator.Buttons_Save, Mode=OneTime}"
                         Style="{ThemeResource AccentButtonStyle}" />
                 </Grid>
-            </StackPanel>
-        </Grid>
-    </ScrollViewer>
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+
+        <Border
+            MaxWidth="700"
+            Margin="24"
+            Padding="14,12"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            Background="{ThemeResource InfoBarErrorSeverityBackgroundBrush}"
+            BorderBrush="{ThemeResource InfoBarErrorSeverityIconBackground}"
+            BorderThickness="1"
+            CornerRadius="6"
+            Visibility="{x:Bind ViewModel.IsPageInfoBarOpen, Mode=OneWay}">
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <FontIcon
+                    FontSize="16"
+                    Foreground="{ThemeResource InfoBarErrorSeverityIconBackground}"
+                    Glyph="&#xE783;" />
+
+                <StackPanel Grid.Column="1" Spacing="2">
+                    <TextBlock
+                        FontWeight="SemiBold"
+                        Text="{x:Bind ViewModel.PageInfoBarTitle, Mode=OneWay}"
+                        TextWrapping="WrapWholeWords" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="{x:Bind ViewModel.PageInfoBarMessage, Mode=OneWay}"
+                        TextWrapping="WrapWholeWords" />
+                </StackPanel>
+
+                <Button
+                    Grid.Column="2"
+                    Width="32"
+                    Height="32"
+                    Padding="0"
+                    VerticalAlignment="Top"
+                    AutomationProperties.Name="{x:Bind domain:Translator.Buttons_Close, Mode=OneTime}"
+                    Command="{x:Bind ViewModel.HidePageErrorCommand}">
+                    <FontIcon FontSize="12" Glyph="&#xE711;" />
+                </Button>
+            </Grid>
+        </Border>
+    </Grid>
 </abstract:ImapCalDavSettingsPageAbstract>
