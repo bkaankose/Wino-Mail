@@ -69,6 +69,8 @@ public enum MailOperation
     ReplyAll,
     Zoom,
     SaveAs,
+    SaveAsPdf,
+    SaveAsEml,
     Find,
     Forward,
     DarkEditor,

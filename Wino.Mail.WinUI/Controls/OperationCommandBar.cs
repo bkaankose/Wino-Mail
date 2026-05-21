@@ -308,7 +308,16 @@ public sealed partial class OperationCommandBar : CommandBar
             }
 
             button.Tag = mailOperationItem;
-            button.Click += OperationButton_Click;
+
+            if (mailOperationItem.Operation == MailOperation.SaveAs)
+            {
+                button.Flyout = CreateSaveAsFlyout();
+            }
+            else
+            {
+                button.Click += OperationButton_Click;
+            }
+
             return button;
         }
 
@@ -382,6 +391,33 @@ public sealed partial class OperationCommandBar : CommandBar
         {
             ItemInvokedCommand?.Execute(operation);
         }
+    }
+
+    private MenuFlyout CreateSaveAsFlyout()
+    {
+        var flyout = new MenuFlyout();
+        flyout.Items.Add(CreateSaveAsFlyoutItem(MailOperation.SaveAsPdf, Translator.Buttons_PDF, WinoIconGlyph.Save));
+        flyout.Items.Add(CreateSaveAsFlyoutItem(MailOperation.SaveAsEml, Translator.Buttons_EML, WinoIconGlyph.ViewMessageSource));
+
+        MenuFlyoutLanguageHelper.Apply(flyout);
+
+        return flyout;
+    }
+
+    private MenuFlyoutItem CreateSaveAsFlyoutItem(MailOperation operation, string text, WinoIconGlyph icon)
+    {
+        var item = new MenuFlyoutItem
+        {
+            Text = text,
+            Icon = new WinoFontIcon
+            {
+                Icon = icon
+            },
+            Command = ItemInvokedCommand,
+            CommandParameter = MailOperationMenuItem.Create(operation)
+        };
+
+        return item;
     }
 
     private void ThemeButton_Click(object sender, RoutedEventArgs e)

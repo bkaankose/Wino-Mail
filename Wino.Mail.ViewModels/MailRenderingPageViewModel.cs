@@ -271,7 +271,15 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         {
             if (operation == MailOperation.SaveAs)
             {
-                await SaveAsAsync();
+                await SaveAsPdfAsync();
+            }
+            else if (operation == MailOperation.SaveAsPdf)
+            {
+                await SaveAsPdfAsync();
+            }
+            else if (operation == MailOperation.SaveAsEml)
+            {
+                await SaveAsEmlAsync();
             }
             else if (operation == MailOperation.Print)
             {
@@ -784,7 +792,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         }
     }
 
-    private async Task SaveAsAsync()
+    private async Task SaveAsPdfAsync()
     {
         try
         {
@@ -792,7 +800,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
             if (string.IsNullOrEmpty(pickedFolder)) return;
 
-            var pdfFilePath = Path.Combine(pickedFolder, $"{initializedMailItemViewModel.FromAddress}.pdf");
+            var pdfFilePath = Path.Combine(pickedFolder, $"{GetSuggestedSaveAsFileName()}.pdf");
 
             bool isSaved = await SaveHTMLasPDFFunc(pdfFilePath);
 
@@ -807,6 +815,40 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         {
             Log.Error(ex, "Failed to save as PDF.");
             _dialogService.InfoBarMessage(Translator.Info_PDFSaveFailedTitle, ex.Message, InfoBarMessageType.Error);
+        }
+    }
+
+    private async Task SaveAsEmlAsync()
+    {
+        try
+        {
+            if (initializedMimeMessageInformation?.MimeMessage == null)
+            {
+                _dialogService.InfoBarMessage(Translator.Info_EMLSaveFailedTitle, Translator.Info_ComposerMissingMIMEMessage, InfoBarMessageType.Error);
+                return;
+            }
+
+            var pickedFolder = await _dialogService.PickWindowsFolderAsync();
+
+            if (string.IsNullOrEmpty(pickedFolder)) return;
+
+            var fileName = $"{GetSuggestedSaveAsFileName()}.eml";
+            var emlFilePath = Path.Combine(pickedFolder, fileName);
+
+            await using (var stream = await _fileService.GetFileStreamAsync(pickedFolder, fileName))
+            {
+                await initializedMimeMessageInformation.MimeMessage.WriteToAsync(stream);
+            }
+
+            _dialogService.InfoBarMessage(
+                Translator.Info_EMLSaveSuccessTitle,
+                string.Format(Translator.Info_EMLSaveSuccessMessage, emlFilePath),
+                InfoBarMessageType.Success);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to save as EML.");
+            _dialogService.InfoBarMessage(Translator.Info_EMLSaveFailedTitle, ex.Message, InfoBarMessageType.Error);
         }
     }
 
@@ -850,6 +892,35 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         {
             _dialogService.InfoBarMessage(Translator.Info_FileLaunchFailedTitle, ex.Message, InfoBarMessageType.Error);
         }
+    }
+
+    private string GetSuggestedSaveAsFileName()
+    {
+        var suggestedName = initializedMailItemViewModel?.FromAddress;
+
+        if (string.IsNullOrWhiteSpace(suggestedName))
+        {
+            suggestedName = string.IsNullOrWhiteSpace(Subject) ? Translator.MailItemNoSubject : Subject;
+        }
+
+        return SanitizeFileNamePart(suggestedName);
+    }
+
+    private static string SanitizeFileNamePart(string value)
+    {
+        var invalidCharacters = Path.GetInvalidFileNameChars();
+        var sanitizedChars = value.Trim().ToCharArray();
+
+        for (var i = 0; i < sanitizedChars.Length; i++)
+        {
+            if (Array.IndexOf(invalidCharacters, sanitizedChars[i]) >= 0)
+            {
+                sanitizedChars[i] = '_';
+            }
+        }
+
+        var sanitized = new string(sanitizedChars).Trim();
+        return string.IsNullOrWhiteSpace(sanitized) ? "email" : sanitized;
     }
 
     void ITransferProgress.Report(long bytesTransferred, long totalSize)
