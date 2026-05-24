@@ -463,13 +463,9 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         var end = AlignToWeekEnd(visibleRange.EndDate, calendarSettings.FirstDayOfWeek);
         var totalDays = end.DayNumber - start.DayNumber + 1;
 
-        if (totalDays <= 35)
+        if (totalDays != MonthCalendarLayoutCalculator.ColumnCount * MonthCalendarLayoutCalculator.RowCount)
         {
-            end = start.AddDays(34);
-        }
-        else if (totalDays < 42)
-        {
-            end = start.AddDays(41);
+            end = start.AddDays((MonthCalendarLayoutCalculator.ColumnCount * MonthCalendarLayoutCalculator.RowCount) - 1);
         }
 
         var dates = Enumerable.Range(0, end.DayNumber - start.DayNumber + 1)
@@ -652,8 +648,10 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
             return;
         }
 
-        var cellWidth = (float)(e.Info.Width / MonthCalendarLayoutCalculator.ColumnCount);
-        var cellHeight = (float)(e.Info.Height / MonthCalendarLayoutCalculator.RowCount);
+        var scaleX = (float)(e.Info.Width / (_monthLayout.CellWidth * MonthCalendarLayoutCalculator.ColumnCount));
+        var scaleY = (float)(e.Info.Height / (_monthLayout.CellHeight * MonthCalendarLayoutCalculator.RowCount));
+        var cellWidth = (float)(_monthLayout.CellWidth * scaleX);
+        var cellHeight = (float)(_monthLayout.CellHeight * scaleY);
         var today = DateOnly.FromDateTime(DateTime.Now.Date);
 
         foreach (var cell in _monthLayout.Cells)
@@ -663,16 +661,16 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
                 continue;
             }
 
-            canvas.DrawRect((float)cell.Bounds.X, (float)cell.Bounds.Y, (float)cell.Bounds.Width, (float)cell.Bounds.Height, todayPaint);
+            canvas.DrawRect(ToScaledSkRect(cell.Bounds, scaleX, scaleY), todayPaint);
         }
 
-        var hoveredMonthCellRect = GetHoveredMonthCellRect();
+        var hoveredMonthCellRect = GetHoveredMonthCellRect(scaleX, scaleY);
         if (hoveredMonthCellRect.HasValue && hoverPaint.Color.Alpha > 0)
         {
             canvas.DrawRect(hoveredMonthCellRect.Value, hoverPaint);
         }
 
-        var selectedMonthCellRect = GetSelectedMonthCellRect();
+        var selectedMonthCellRect = GetSelectedMonthCellRect(scaleX, scaleY);
         if (selectedMonthCellRect.HasValue && selectedPaint.Color.Alpha > 0)
         {
             canvas.DrawRect(selectedMonthCellRect.Value, selectedPaint);
@@ -816,7 +814,11 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
             return;
         }
 
-        var position = e.GetPosition(TimedViewport);
+        var position = GetPositionInLayoutBounds(
+            e.GetPosition(TimedViewport),
+            TimedViewport,
+            _timedLayout.DayWidth * _timedLayout.VisibleDates.Count,
+            TimelineHeight);
         var dayIndex = Math.Clamp((int)(position.X / _timedLayout.DayWidth), 0, _timedLayout.VisibleDates.Count - 1);
         var intervalHeight = GetTimedSelectionIntervalHeight();
         var slotIndex = Math.Clamp((int)(position.Y / intervalHeight), 0, (int)((24d * 60d / TimedSelectionIntervalMinutes) - 1));
@@ -839,12 +841,18 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
             return;
         }
 
-        var position = e.GetPosition(MonthViewport);
-        var column = Math.Clamp((int)(position.X / _monthLayout.CellWidth), 0, MonthCalendarLayoutCalculator.ColumnCount - 1);
-        var row = Math.Clamp((int)(position.Y / _monthLayout.CellHeight), 0, MonthCalendarLayoutCalculator.RowCount - 1);
-        var cellIndex = Math.Clamp((row * MonthCalendarLayoutCalculator.ColumnCount) + column, 0, _monthLayout.Cells.Count - 1);
-        var cell = _monthLayout.Cells[cellIndex];
+        var position = GetPositionInLayoutBounds(
+            e.GetPosition(MonthViewport),
+            MonthViewport,
+            _monthLayout.CellWidth * MonthCalendarLayoutCalculator.ColumnCount,
+            _monthLayout.CellHeight * MonthCalendarLayoutCalculator.RowCount);
+        var cell = GetMonthCellAtPosition(position);
         var anchorPoint = MonthViewport.TransformToVisual(Root).TransformPoint(position);
+
+        if (cell is null)
+        {
+            return;
+        }
 
         EmptySlotTapped?.Invoke(
             this,
@@ -1007,6 +1015,12 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
             return null;
         }
 
+        position = GetPositionInLayoutBounds(
+            position,
+            TimedViewport,
+            _timedLayout.DayWidth * _timedLayout.VisibleDates.Count,
+            TimelineHeight);
+
         var dayIndex = Math.Clamp((int)(position.X / _timedLayout.DayWidth), 0, _timedLayout.VisibleDates.Count - 1);
         var intervalHeight = GetTimedSelectionIntervalHeight();
         var slotIndex = Math.Clamp((int)(position.Y / intervalHeight), 0, (int)((24d * 60d / TimedSelectionIntervalMinutes) - 1));
@@ -1031,6 +1045,12 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
             return null;
         }
 
+        position = GetPositionInLayoutBounds(
+            position,
+            TimedAllDayHost,
+            _timedLayout.DayWidth * _timedLayout.VisibleDates.Count,
+            TimedAllDayHeight);
+
         var dayIndex = Math.Clamp((int)(position.X / _timedLayout.DayWidth), 0, _timedLayout.VisibleDates.Count - 1);
         var date = _timedLayout.VisibleDates[dayIndex];
 
@@ -1049,10 +1069,19 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
             return null;
         }
 
-        var column = Math.Clamp((int)(position.X / _monthLayout.CellWidth), 0, MonthCalendarLayoutCalculator.ColumnCount - 1);
-        var row = Math.Clamp((int)(position.Y / _monthLayout.CellHeight), 0, MonthCalendarLayoutCalculator.RowCount - 1);
-        var cellIndex = Math.Clamp((row * MonthCalendarLayoutCalculator.ColumnCount) + column, 0, _monthLayout.Cells.Count - 1);
-        var cell = _monthLayout.Cells[cellIndex];
+        position = GetPositionInLayoutBounds(
+            position,
+            MonthViewport,
+            _monthLayout.CellWidth * MonthCalendarLayoutCalculator.ColumnCount,
+            _monthLayout.CellHeight * MonthCalendarLayoutCalculator.RowCount);
+
+        var cell = GetMonthCellAtPosition(position);
+
+        if (cell is null)
+        {
+            return null;
+        }
+
         var targetStart = cell.Date.ToDateTime(TimeOnly.MinValue);
 
         if (draggedItem is { IsAllDayEvent: false })
@@ -1124,7 +1153,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         return new SKRect(x, 0, x + dayWidth, height);
     }
 
-    private SKRect? GetSelectedMonthCellRect()
+    private SKRect? GetSelectedMonthCellRect(float scaleX, float scaleY)
     {
         if (SelectedDateTime is not DateTime selectedDateTime)
         {
@@ -1139,17 +1168,13 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
                 continue;
             }
 
-            return new SKRect(
-                (float)cell.Bounds.X,
-                (float)cell.Bounds.Y,
-                (float)(cell.Bounds.X + cell.Bounds.Width),
-                (float)(cell.Bounds.Y + cell.Bounds.Height));
+            return ToScaledSkRect(cell.Bounds, scaleX, scaleY);
         }
 
         return null;
     }
 
-    private SKRect? GetHoveredMonthCellRect()
+    private SKRect? GetHoveredMonthCellRect(float scaleX, float scaleY)
     {
         if (_hoverTarget is not { Kind: CalendarDropTargetKind.MonthCell } hoverTarget)
         {
@@ -1163,15 +1188,56 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
                 continue;
             }
 
-            return new SKRect(
-                (float)cell.Bounds.X,
-                (float)cell.Bounds.Y,
-                (float)(cell.Bounds.X + cell.Bounds.Width),
-                (float)(cell.Bounds.Y + cell.Bounds.Height));
+            return ToScaledSkRect(cell.Bounds, scaleX, scaleY);
         }
 
         return null;
     }
+
+    private MonthCellLayout? GetMonthCellAtPosition(Point position)
+    {
+        foreach (var cell in _monthLayout.Cells)
+        {
+            if (position.X >= cell.Bounds.X &&
+                position.X < cell.Bounds.X + cell.Bounds.Width &&
+                position.Y >= cell.Bounds.Y &&
+                position.Y < cell.Bounds.Y + cell.Bounds.Height)
+            {
+                return cell;
+            }
+        }
+
+        return _monthLayout.Cells.LastOrDefault(cell =>
+            position.X >= cell.Bounds.X &&
+            position.X <= cell.Bounds.X + cell.Bounds.Width &&
+            position.Y >= cell.Bounds.Y &&
+            position.Y <= cell.Bounds.Y + cell.Bounds.Height);
+    }
+
+    private static Point GetPositionInLayoutBounds(Point position, FrameworkElement element, double layoutWidth, double layoutHeight)
+    {
+        var x = NormalizeCoordinate(position.X, element.ActualWidth, layoutWidth);
+        var y = NormalizeCoordinate(position.Y, element.ActualHeight, layoutHeight);
+
+        return new Point(x, y);
+    }
+
+    private static double NormalizeCoordinate(double coordinate, double actualSize, double layoutSize)
+    {
+        if (actualSize <= 0d || layoutSize <= 0d || Math.Abs(actualSize - layoutSize) <= SizeChangeThreshold)
+        {
+            return coordinate;
+        }
+
+        return coordinate * layoutSize / actualSize;
+    }
+
+    private static SKRect ToScaledSkRect(LayoutRect bounds, float scaleX, float scaleY)
+        => new(
+            (float)(bounds.X * scaleX),
+            (float)(bounds.Y * scaleY),
+            (float)((bounds.X + bounds.Width) * scaleX),
+            (float)((bounds.Y + bounds.Height) * scaleY));
 
     private int FindVisibleDateIndex(DateOnly date)
     {
