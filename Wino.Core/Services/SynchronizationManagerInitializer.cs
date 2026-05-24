@@ -24,10 +24,16 @@ public class SynchronizationManagerInitializer : IInitializeAsync
         var accountService = _serviceProvider.GetRequiredService<IAccountService>();
         var authenticationProvider = _serviceProvider.GetRequiredService<IAuthenticationProvider>();
         var notificationBuilder = _serviceProvider.GetRequiredService<INotificationBuilder>();
+        var remoteSynchronizationManager = _serviceProvider.GetService<IRemoteSynchronizationManager>();
 
         // Cast to concrete type to access CreateNewSynchronizer method
         var concreteSynchronizerFactory = synchronizerFactory as SynchronizerFactory;
 
         await SynchronizationManager.Instance.InitializeAsync(concreteSynchronizerFactory, imapTestService, accountService, notificationBuilder, authenticationProvider);
+
+        if (remoteSynchronizationManager != null)
+        {
+            SynchronizationManager.Instance.UseRemoteManager(remoteSynchronizationManager);
+        }
     }
 }

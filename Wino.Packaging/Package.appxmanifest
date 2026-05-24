@@ -1,25 +1,22 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-
+<?xml version="1.0" encoding="utf-8"?>
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
-  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
   xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
   xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
   xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   IgnorableNamespaces="uap uap10 rescap com desktop">
-	
-	<!-- Publisher Cache Folders -->
-	<Extensions>
-		<Extension Category="windows.publisherCacheFolders">
-			<PublisherCacheFolders>
-				<Folder Name="WinoShared" />
-			</PublisherCacheFolders>
-		</Extension>
-	</Extensions>
-	
+
+  <Extensions>
+    <Extension Category="windows.publisherCacheFolders">
+      <PublisherCacheFolders>
+        <Folder Name="WinoShared" />
+      </PublisherCacheFolders>
+    </Extension>
+  </Extensions>
+
   <Identity
     Name="58272BurakKSE.WinoMailPreview"
     Publisher="CN=51FBDAF3-E212-4149-89A2-A2636B3BC911"
@@ -43,9 +40,10 @@
   </Resources>
 
   <Applications>
-    <Application Id="App"
-      Executable="$targetnametoken$.exe"
-      EntryPoint="$targetentrypoint$"
+    <Application
+      Id="App"
+      Executable="Wino.Mail.WinUI\Wino.Mail.WinUI.exe"
+      EntryPoint="Windows.FullTrustApplication"
       uap10:Parameters="--wino-mail">
       <uap:VisualElements
         DisplayName="Wino Mail"
@@ -63,50 +61,74 @@
         <uap:SplashScreen Image="Assets\AppEntries\MailAssets\SplashScreen.png" />
       </uap:VisualElements>
 
-		<Extensions>
-			<!-- Protocol activation: mailto -->
-			<uap:Extension Category="windows.protocol">
-				<uap:Protocol Name="mailto" />
-			</uap:Extension>
+      <Extensions>
+        <desktop:Extension Category="windows.fullTrustProcess" Executable="Wino.SyncHost\Wino.SyncHost.exe">
+          <desktop:FullTrustProcess>
+            <desktop:ParameterGroup GroupId="SyncHost" Parameters="--background" />
+          </desktop:FullTrustProcess>
+        </desktop:Extension>
 
-			<!-- Protocol activation: Google oAuth -->
-			<uap:Extension Category="windows.protocol">
-				<uap:Protocol Name="google.pw.oauth2">
-					<uap:DisplayName>Google Auth Protocol</uap:DisplayName>
-				</uap:Protocol>
-			</uap:Extension>
+        <desktop:Extension Category="windows.startupTask" Executable="Wino.SyncHost\Wino.SyncHost.exe" EntryPoint="Windows.FullTrustApplication">
+          <desktop:StartupTask
+            TaskId="WinoStartupId"
+            Enabled="true"
+            DisplayName="Wino Startup Service" />
+        </desktop:Extension>
 
-			<!-- Protocol activation: Wino deep links -->
-			<uap:Extension Category="windows.protocol">
-				<uap:Protocol Name="wino">
-					<uap:DisplayName>Wino Mail Protocol</uap:DisplayName>
-				</uap:Protocol>
-			</uap:Extension>
+        <desktop:Extension Category="windows.toastNotificationActivation">
+          <desktop:ToastNotificationActivation ToastActivatorCLSID="72c6d2d0-2538-44fe-a1b1-499f47bb1181" />
+        </desktop:Extension>
 
-			<!-- Share target activation -->
-			<uap:Extension Category="windows.shareTarget">
-				<uap:ShareTarget>
-					<uap:SupportedFileTypes>
-						<uap:SupportsAnyFileType />
-					</uap:SupportedFileTypes>
-				</uap:ShareTarget>
-			</uap:Extension>
+        <com:Extension Category="windows.comServer">
+          <com:ComServer>
+            <com:ExeServer Executable="Wino.SyncHost\Wino.SyncHost.exe" Arguments="----AppNotificationActivated:" DisplayName="Toast activator">
+              <com:Class Id="72c6d2d0-2538-44fe-a1b1-499f47bb1181" DisplayName="Toast activator"/>
+            </com:ExeServer>
+            <com:ExeServer Executable="Wino.SyncHost\Wino.SyncHost.exe" Arguments="--com" DisplayName="Wino sync host">
+              <com:Class Id="18fe0d3b-c4f9-4cd3-96d2-5c45fa176be2" DisplayName="Wino sync host"/>
+            </com:ExeServer>
+          </com:ComServer>
+        </com:Extension>
 
-			<!-- File Assosication: EML -->
-			<uap:Extension Category="windows.fileTypeAssociation">
-				<uap:FileTypeAssociation Name="eml">
-					<uap:Logo>EML\eml.png</uap:Logo>
-					<uap:SupportedFileTypes>
-						<uap:FileType>.eml</uap:FileType>
-					</uap:SupportedFileTypes>
-				</uap:FileTypeAssociation>
-			</uap:Extension>
-		</Extensions>
+        <uap:Extension Category="windows.protocol">
+          <uap:Protocol Name="mailto" />
+        </uap:Extension>
+
+        <uap:Extension Category="windows.protocol">
+          <uap:Protocol Name="google.pw.oauth2">
+            <uap:DisplayName>Google Auth Protocol</uap:DisplayName>
+          </uap:Protocol>
+        </uap:Extension>
+
+        <uap:Extension Category="windows.protocol">
+          <uap:Protocol Name="wino">
+            <uap:DisplayName>Wino Mail Protocol</uap:DisplayName>
+          </uap:Protocol>
+        </uap:Extension>
+
+        <uap:Extension Category="windows.shareTarget">
+          <uap:ShareTarget>
+            <uap:SupportedFileTypes>
+              <uap:SupportsAnyFileType />
+            </uap:SupportedFileTypes>
+          </uap:ShareTarget>
+        </uap:Extension>
+
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap:FileTypeAssociation Name="eml">
+            <uap:Logo>EML\eml.png</uap:Logo>
+            <uap:SupportedFileTypes>
+              <uap:FileType>.eml</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap:FileTypeAssociation>
+        </uap:Extension>
+      </Extensions>
     </Application>
 
-    <Application Id="CalendarApp"
-      Executable="$targetnametoken$.exe"
-      EntryPoint="$targetentrypoint$"
+    <Application
+      Id="CalendarApp"
+      Executable="Wino.Mail.WinUI\Wino.Mail.WinUI.exe"
+      EntryPoint="Windows.FullTrustApplication"
       uap10:Parameters="--wino-calendar">
       <uap:VisualElements
         DisplayName="Wino Calendar"
@@ -125,6 +147,12 @@
       </uap:VisualElements>
 
       <Extensions>
+        <desktop:Extension Category="windows.fullTrustProcess" Executable="Wino.SyncHost\Wino.SyncHost.exe">
+          <desktop:FullTrustProcess>
+            <desktop:ParameterGroup GroupId="SyncHost" Parameters="--background" />
+          </desktop:FullTrustProcess>
+        </desktop:Extension>
+
         <uap:Extension Category="windows.protocol">
           <uap:Protocol Name="webcal">
             <uap:DisplayName>Calendar Protocol</uap:DisplayName>

@@ -5,6 +5,7 @@ using Wino.Core.ViewModels;
 using Wino.Core.WinUI.Services;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Services;
+using Wino.Mail.WinUI.Services.SyncHost;
 using Wino.Services;
 
 namespace Wino.Mail.WinUI;
@@ -40,6 +41,10 @@ public static class CoreUWPContainerSetup
         services.AddTransient<IClipboardService, ClipboardService>();
         services.AddTransient<IStartupBehaviorService, StartupBehaviorService>();
         services.AddSingleton<IPrintService, PrintService>();
+        services.AddSingleton<SyncHostProcessLauncher>();
+        services.AddSingleton<SyncHostPipeClient>();
+        services.AddSingleton<SyncHostEventBridge>();
+        services.AddSingleton<IRemoteSynchronizationManager, SyncHostSynchronizationManagerProxy>();
 
     }
 

@@ -39,6 +39,7 @@ using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Mail.WinUI.Services;
+using Wino.Mail.WinUI.Services.SyncHost;
 using Wino.Mail.WinUI.ViewModels;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Client.Navigation;
@@ -483,6 +484,8 @@ public partial class App : WinoApplication,
 
             _hasConfiguredAccounts = (await _accountService.GetAccountsAsync()).Any();
 
+            Services.GetRequiredService<SyncHostEventBridge>().Start();
+
             _activationInfrastructureInitialized = true;
         }
         finally
@@ -531,6 +534,8 @@ public partial class App : WinoApplication,
     {
         base.OnLaunched(args);
 
+        StartSyncHostForAppLaunch();
+
         await EnsureCoreActivationInfrastructureAsync();
 
         var activationArgs = ResolveStartupActivation();
@@ -559,6 +564,19 @@ public partial class App : WinoApplication,
             return;
 
         await CompleteStandardLaunchAsync(args, hasAnyAccount);
+    }
+
+    private void StartSyncHostForAppLaunch()
+    {
+        try
+        {
+            Services.GetRequiredService<SyncHostProcessLauncher>().StartInBackground();
+            LogActivation("Sync host launch requested.");
+        }
+        catch (Exception ex)
+        {
+            LogActivation($"Failed to request sync host launch: {ex.Message}");
+        }
     }
 
     private AppActivationArguments ResolveStartupActivation()
@@ -645,29 +663,13 @@ public partial class App : WinoApplication,
 
     private void EnsureAppNotificationRegistration()
     {
-        if (!Program.ShouldRegisterAppNotifications())
-        {
-            LogActivation("Skipping app notification registration for non-host entry activation.");
-            return;
-        }
-
         if (_appNotificationsRegistered)
             return;
 
-        var notificationManager = AppNotificationManager.Default;
-
-        notificationManager.NotificationInvoked -= AppNotificationInvoked;
-        notificationManager.NotificationInvoked += AppNotificationInvoked;
-
-        try
-        {
-            notificationManager.Register();
-            _appNotificationsRegistered = true;
-        }
-        catch (Exception ex)
-        {
-            LogActivation($"App notification registration failed: {ex.GetType().Name} - {ex.Message}");
-        }
+        // The package manifest now declares Wino.SyncHost.exe as the toast COM server.
+        // Windows App SDK requires Register() to be called by that manifest-defined process.
+        LogActivation("Skipping app notification registration in UI; Wino.SyncHost owns toast activation.");
+        _appNotificationsRegistered = true;
     }
 
     /// <summary>
@@ -756,11 +758,61 @@ public partial class App : WinoApplication,
                 return true;
         }
 
+        if (await TryHandleWinoProtocolActivationAsync(activationArgs))
+            return true;
+
         if (ToastActivationResolver.TryParse(args.Arguments, out var launchToastArguments) &&
             TryMarkInitialNotificationActivationHandled())
         {
             LogActivation($"Processing toast launch activation from OnLaunched. Arguments: {args.Arguments}");
             await HandleToastActivationAsync(launchToastArguments);
+            return true;
+        }
+
+        return false;
+    }
+
+    private async Task<bool> TryHandleWinoProtocolActivationAsync(AppActivationArguments activationArgs)
+    {
+        if (activationArgs.Kind != ExtendedActivationKind.Protocol ||
+            activationArgs.Data is not IProtocolActivatedEventArgs protocolArgs ||
+            protocolArgs.Uri == null ||
+            !string.Equals(protocolArgs.Uri.Scheme, "wino", StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(protocolArgs.Uri.Host, "notification", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var segments = protocolArgs.Uri.AbsolutePath
+            .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (segments.Length < 2 || !Guid.TryParse(segments[1], out var targetId))
+            return false;
+
+        var queryValues = ParseQuery(protocolArgs.Uri.Query);
+        queryValues.TryGetValue("action", out var action);
+
+        if (string.Equals(segments[0], "mail", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!Enum.TryParse<MailOperation>(action, ignoreCase: true, out var mailAction))
+                mailAction = MailOperation.Navigate;
+
+            if (mailAction == MailOperation.Navigate)
+            {
+                await HandleToastNavigationAsync(targetId);
+                return true;
+            }
+
+            if (IsComposeToastAction(mailAction))
+            {
+                await HandleToastComposeActionAsync(mailAction, targetId);
+                return true;
+            }
+        }
+
+        if (string.Equals(segments[0], "calendar", StringComparison.OrdinalIgnoreCase))
+        {
+            await HandleCalendarToastNavigationAsync(targetId);
             return true;
         }
 
@@ -1692,6 +1744,13 @@ public partial class App : WinoApplication,
         if (_preferencesService == null)
             return;
 
+        if (Wino.Core.Services.SynchronizationManager.Instance.IsRemoteManagerEnabled)
+        {
+            StopAutoSynchronizationLoop();
+            LogActivation("Automatic sync loop is owned by the background sync host.");
+            return;
+        }
+
         StopAutoSynchronizationLoop();
 
         int intervalMinutes = Math.Max(1, _preferencesService.EmailSyncIntervalMinutes);
@@ -2022,6 +2081,31 @@ public partial class App : WinoApplication,
             : $"{launchArguments} {launchArgument}";
     }
 
+    private static Dictionary<string, string> ParseQuery(string query)
+    {
+        var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(query))
+            return values;
+
+        foreach (var pair in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var separatorIndex = pair.IndexOf('=');
+            if (separatorIndex < 0)
+            {
+                values[Uri.UnescapeDataString(pair)] = string.Empty;
+                continue;
+            }
+
+            var key = Uri.UnescapeDataString(pair[..separatorIndex]);
+            var value = Uri.UnescapeDataString(pair[(separatorIndex + 1)..]);
+
+            values[key] = value;
+        }
+
+        return values;
+    }
+
     private static bool TryResolveActivationMode(AppActivationArguments activationArgs, WinoApplicationMode defaultMode, out WinoApplicationMode mode)
     {
         mode = defaultMode;
@@ -2042,6 +2126,14 @@ public partial class App : WinoApplication,
                 string.Equals(scheme, "google.pw.oauth2", StringComparison.OrdinalIgnoreCase))
             {
                 mode = WinoApplicationMode.Mail;
+                return true;
+            }
+
+            if (string.Equals(scheme, "wino", StringComparison.OrdinalIgnoreCase))
+            {
+                mode = protocolArgs.Uri?.AbsolutePath.Contains("/calendar/", StringComparison.OrdinalIgnoreCase) == true
+                    ? WinoApplicationMode.Calendar
+                    : WinoApplicationMode.Mail;
                 return true;
             }
 

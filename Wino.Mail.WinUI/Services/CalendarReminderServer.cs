@@ -61,6 +61,42 @@ public class CalendarReminderServer : ICalendarReminderServer
         }
     }
 
+    public async Task StopAsync()
+    {
+        Task? loopTask;
+
+        await _startLock.WaitAsync().ConfigureAwait(false);
+
+        try
+        {
+            if (_loopCts == null)
+                return;
+
+            await _loopCts.CancelAsync().ConfigureAwait(false);
+            loopTask = _loopTask;
+            _loopCts.Dispose();
+            _loopCts = null;
+            _loopTask = null;
+        }
+        finally
+        {
+            _startLock.Release();
+        }
+
+        if (loopTask != null)
+        {
+            try
+            {
+                await loopTask.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+
+        _logger.Information("Calendar reminder server stopped.");
+    }
+
     private async Task RunLoopAsync(CancellationToken cancellationToken)
     {
         using var timer = new PeriodicTimer(PollingInterval);

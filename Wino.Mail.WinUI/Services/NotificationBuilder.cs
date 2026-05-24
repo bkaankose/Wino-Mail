@@ -18,7 +18,6 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
-using Wino.Helpers;
 using Wino.Mail.WinUI.Activation;
 using Wino.Messaging.UI;
 
@@ -457,7 +456,7 @@ public class NotificationBuilder : INotificationBuilder
 
     private AppNotificationButton CreateMailNotificationActionButton(MailOperation action, Guid mailUniqueId)
     {
-        var button = new AppNotificationButton(XamlHelpers.GetOperationString(action))
+        var button = new AppNotificationButton(GetOperationString(action))
             .AddArgument(Constants.ToastMailUniqueIdKey, mailUniqueId.ToString())
             .AddArgument(Constants.ToastActionKey, action.ToString())
             .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
@@ -482,6 +481,20 @@ public class NotificationBuilder : INotificationBuilder
             MailOperation.ReplyAll => GetNotificationIconUri("mail-replyall"),
             MailOperation.Forward => GetNotificationIconUri("mail-forward"),
             _ => null
+        };
+
+    private static string GetOperationString(MailOperation operation)
+        => operation switch
+        {
+            MailOperation.MarkAsRead => Translator.MailOperation_MarkAsRead,
+            MailOperation.MarkAsUnread => Translator.MailOperation_MarkAsUnread,
+            MailOperation.SoftDelete => Translator.MailOperation_Delete,
+            MailOperation.MoveToJunk => Translator.MailOperation_MarkAsJunk,
+            MailOperation.Archive => Translator.MailOperation_Archive,
+            MailOperation.Reply => Translator.MailOperation_Reply,
+            MailOperation.ReplyAll => Translator.MailOperation_ReplyAll,
+            MailOperation.Forward => Translator.MailOperation_Forward,
+            _ => operation.ToString()
         };
 
     private static AppNotificationButton CreateDismissButton()

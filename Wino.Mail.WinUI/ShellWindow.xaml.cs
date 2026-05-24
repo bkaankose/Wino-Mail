@@ -196,6 +196,9 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     {
         try
         {
+            if (Wino.Core.Services.SynchronizationManager.Instance.IsRemoteManagerEnabled)
+                return;
+
             var reminderServer = WinoApplication.Current.Services.GetService<ICalendarReminderServer>();
             if (reminderServer != null)
             {

@@ -5,4 +5,5 @@ namespace Wino.Mail.WinUI.Interfaces;
 public interface ICalendarReminderServer
 {
     Task StartAsync();
+    Task StopAsync();
 }

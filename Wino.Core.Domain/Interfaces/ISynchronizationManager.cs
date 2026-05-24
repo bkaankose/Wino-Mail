@@ -52,6 +52,11 @@ public interface ISynchronizationManager
     Task QueueRequestAsync(IRequestBase request, Guid accountId, bool triggerSynchronization);
 
     /// <summary>
+    /// Queues multiple action requests to the corresponding account's synchronizer with optional synchronization triggering.
+    /// </summary>
+    Task QueueRequestsAsync(IEnumerable<IRequestBase> requests, Guid accountId, bool triggerSynchronization);
+
+    /// <summary>
     /// Handles folder synchronization for the given account.
     /// </summary>
     Task<MailSynchronizationResult> SynchronizeFoldersAsync(Guid accountId,
@@ -86,6 +91,15 @@ public interface ISynchronizationManager
     /// </summary>
     Task<string> DownloadMimeMessageAsync(MailCopy mailItem, Guid accountId,
                                          CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Downloads a calendar attachment for the given calendar item.
+    /// </summary>
+    Task DownloadCalendarAttachmentAsync(
+        Wino.Core.Domain.Entities.Calendar.CalendarItem calendarItem,
+        Wino.Core.Domain.Entities.Calendar.CalendarAttachment attachment,
+        string localFilePath,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Creates a new synchronizer for a newly added account.

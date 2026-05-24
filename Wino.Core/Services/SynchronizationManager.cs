@@ -41,11 +41,20 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     private IAccountService _accountService;
     private IAuthenticationProvider _authenticationProvider;
     private INotificationBuilder _notificationBuilder;
+    private IRemoteSynchronizationManager _remoteManager;
 
     private bool _isInitialized = false;
     private bool _isRegisteredForProgressMessages;
 
     private SynchronizationManager() { }
+
+    public bool IsRemoteManagerEnabled => _remoteManager != null;
+
+    public void UseRemoteManager(IRemoteSynchronizationManager remoteManager)
+    {
+        _remoteManager = remoteManager ?? throw new ArgumentNullException(nameof(remoteManager));
+        _logger.Information("SynchronizationManager is delegating synchronization work to the background sync host.");
+    }
 
     /// <summary>
     /// Initializes the SynchronizationManager with required dependencies.
@@ -143,6 +152,9 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     {
         EnsureInitialized();
 
+        if (_remoteManager != null)
+            return await _remoteManager.SynchronizeMailAsync(options, cancellationToken).ConfigureAwait(false);
+
         if (await IsSynchronizationBlockedByAttentionAsync(options.AccountId).ConfigureAwait(false))
         {
             _logger.Information("Skipping mail synchronization for account {AccountId} because it requires credential attention.", options.AccountId);
@@ -227,6 +239,9 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     {
         EnsureInitialized();
 
+        if (_remoteManager != null)
+            return _remoteManager.IsAccountSynchronizing(accountId);
+
         if (_synchronizerCache.TryGetValue(accountId, out var synchronizer))
         {
             return synchronizer.State == AccountSynchronizerState.Synchronizing ||
@@ -239,6 +254,9 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     public AccountSynchronizationProgress GetSynchronizationProgress(Guid accountId, SynchronizationProgressCategory category)
     {
         EnsureInitialized();
+
+        if (_remoteManager != null)
+            return _remoteManager.GetSynchronizationProgress(accountId, category);
 
         return category switch
         {
@@ -264,6 +282,12 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     public async Task QueueRequestsAsync(IEnumerable<IRequestBase> requests, Guid accountId, bool triggerSynchronization)
     {
         EnsureInitialized();
+
+        if (_remoteManager != null)
+        {
+            await _remoteManager.QueueRequestsAsync(requests, accountId, triggerSynchronization).ConfigureAwait(false);
+            return;
+        }
 
         var requestList = requests?.Where(request => request != null).ToList() ?? [];
         if (requestList.Count == 0)
@@ -441,12 +465,19 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     /// <returns>Synchronization result</returns>
     public async Task<CalendarSynchronizationResult> SynchronizeCalendarAsync(CalendarSynchronizationOptions options,
                                                                                CancellationToken cancellationToken = default)
-        => options.Type == CalendarSynchronizationType.Strict
+    {
+        EnsureInitialized();
+
+        if (_remoteManager != null)
+            return await _remoteManager.SynchronizeCalendarAsync(options, cancellationToken).ConfigureAwait(false);
+
+        return options.Type == CalendarSynchronizationType.Strict
             ? await SynchronizeCalendarStrictAsync(options, cancellationToken).ConfigureAwait(false)
             : await RunCalendarSynchronizationWithLockAsync(
                 options.AccountId,
                 cancellationToken,
                 () => SynchronizeCalendarCoreAsync(options, cancellationToken, reportState: true)).ConfigureAwait(false);
+    }
 
     private async Task<CalendarSynchronizationResult> SynchronizeCalendarStrictAsync(
         CalendarSynchronizationOptions options,
@@ -597,6 +628,9 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     {
         EnsureInitialized();
 
+        if (_remoteManager != null)
+            return await _remoteManager.DownloadMimeMessageAsync(mailItem, accountId, cancellationToken).ConfigureAwait(false);
+
         var synchronizer = await GetOrCreateSynchronizerAsync(accountId);
         if (synchronizer == null)
         {
@@ -633,6 +667,12 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         CancellationToken cancellationToken = default)
     {
         EnsureInitialized();
+
+        if (_remoteManager != null)
+        {
+            await _remoteManager.DownloadCalendarAttachmentAsync(calendarItem, attachment, localFilePath, cancellationToken).ConfigureAwait(false);
+            return;
+        }
 
         if (calendarItem == null)
             throw new ArgumentNullException(nameof(calendarItem));
@@ -679,6 +719,12 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     {
         EnsureInitialized();
 
+        if (_remoteManager != null)
+        {
+            _logger.Debug("Skipping local synchronizer creation for account {AccountId}; sync host owns synchronizers.", account?.Id);
+            return null;
+        }
+
         try
         {
             var synchronizer = _concreteSynchronizerFactory.CreateNewSynchronizer(account);
@@ -704,6 +750,9 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     public Task CancelSynchronizationsAsync(Guid accountId)
     {
         EnsureInitialized();
+
+        if (_remoteManager != null)
+            return _remoteManager.CancelSynchronizationsAsync(accountId);
 
         if (_accountSynchronizationCancellationSources.TryRemove(accountId, out var cancellationSource))
         {
@@ -739,6 +788,13 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     public async Task DestroySynchronizerAsync(Guid accountId)
     {
         EnsureInitialized();
+
+        if (_remoteManager != null)
+        {
+            await _remoteManager.DestroySynchronizerAsync(accountId).ConfigureAwait(false);
+            return;
+        }
+
         await CancelSynchronizationsAsync(accountId);
 
         if (_synchronizerCache.TryRemove(accountId, out var synchronizer))
@@ -769,6 +825,10 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     public IEnumerable<IWinoSynchronizerBase> GetAllSynchronizers()
     {
         EnsureInitialized();
+
+        if (_remoteManager != null)
+            return _remoteManager.GetAllSynchronizers();
+
         return _synchronizerCache.Values.ToList();
     }
 
@@ -780,6 +840,10 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     public async Task<IWinoSynchronizerBase> GetSynchronizerAsync(Guid accountId)
     {
         EnsureInitialized();
+
+        if (_remoteManager != null)
+            return await _remoteManager.GetSynchronizerAsync(accountId).ConfigureAwait(false);
+
         return await GetOrCreateSynchronizerAsync(accountId);
     }
 

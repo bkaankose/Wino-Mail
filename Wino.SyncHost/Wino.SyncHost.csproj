@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>Wino.SyncHost</RootNamespace>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">x64</Platform>
+    <Platforms>x86;x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="gravatar-dotnet" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.MSIX">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.WindowsAppSDK" />
+    <PackageReference Include="Sentry.Serilog" />
+    <PackageReference Include="sqlite-net-pcl" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Wino.Core\Wino.Core.csproj" />
+    <ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
+    <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Wino.Mail.WinUI\Activation\AppEntryConstants.cs" Link="Shared\AppEntryConstants.cs" />
+    <Compile Include="..\Wino.Mail.WinUI\Interfaces\ICalendarReminderServer.cs" Link="Shared\ICalendarReminderServer.cs" />
+    <Compile Include="..\Wino.Mail.WinUI\NotificationArguments.cs" Link="Shared\NotificationArguments.cs" />
+    <Compile Include="..\Wino.Mail.WinUI\Services\CalendarReminderServer.cs" Link="Shared\CalendarReminderServer.cs" />
+    <Compile Include="..\Wino.Mail.WinUI\Services\ConfigurationService.cs" Link="Shared\ConfigurationService.cs" />
+    <Compile Include="..\Wino.Mail.WinUI\Services\MailAuthenticatorConfiguration.cs" Link="Shared\MailAuthenticatorConfiguration.cs" />
+    <Compile Include="..\Wino.Mail.WinUI\Services\NotificationBuilder.cs" Link="Shared\NotificationBuilder.cs" />
+    <Compile Include="..\Wino.Mail.WinUI\Services\PackagedAppEntryLauncher.cs" Link="Shared\PackagedAppEntryLauncher.cs" />
+    <Compile Include="..\Wino.Mail.WinUI\Services\PreferencesService.cs" Link="Shared\PreferencesService.cs" />
+    <Compile Include="..\Wino.Mail.WinUI\Services\ThumbnailService.cs" Link="Shared\ThumbnailService.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\Wino.Mail.WinUI\Assets\Wino_Icon.ico" Link="Assets\Wino_Icon.ico" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\Wino.Mail.WinUI\Assets\NotificationIcons\**\*" LinkBase="Assets\NotificationIcons" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\Wino.Mail.WinUI\Assets\Providers\**\*" LinkBase="Assets\Providers" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\Wino.Mail.WinUI\Assets\AppEntries\MailAssets\Square44x44Logo.scale-200.png" Link="Assets\AppEntries\MailAssets\Square44x44Logo.scale-200.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
