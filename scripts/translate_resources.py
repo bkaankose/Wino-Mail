@@ -14,8 +14,8 @@ Examples:
 
 Usage:
     $env:OPENAI_API_KEY="{open ai key here}"
-    python .\scripts\translate_resources.py --dry-run
-    python .\scripts\translate_resources.py --apply --model gpt-5-nano --workers 4
+    python .\\scripts\\translate_resources.py --dry-run
+    python .\\scripts\\translate_resources.py --apply --model gpt-5-nano --workers 4
 """
 
 from __future__ import annotations
