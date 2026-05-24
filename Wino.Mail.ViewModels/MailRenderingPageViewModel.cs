@@ -78,16 +78,22 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     {
         get
         {
+            if (forceImageLoading)
+                return false;
+
             if (IsJunkMail)
-            {
-                return !forceImageLoading;
-            }
-            else
-            {
-                return !CurrentRenderModel?.MailRenderingOptions?.LoadImages ?? false;
-            }
+                return true;
+
+            if (PreferencesService.IsSecurityModeEnabled)
+                return true;
+
+            return !CurrentRenderModel?.MailRenderingOptions?.LoadImages ?? false;
         }
     }
+
+    public string ImageBlockedInfoBarMessage => PreferencesService.IsSecurityModeEnabled && !IsJunkMail
+        ? Translator.SecurityMode_ImageRenderingDisabled
+        : Translator.ImageRenderingDisabled;
 
     private bool isDarkWebviewRenderer;
     public bool IsDarkWebviewRenderer
@@ -508,14 +514,19 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             CreationDate = initializedMailItemViewModel?.MailCopy.CreationDate ?? message.Date.DateTime;
 
             // Automatically block remote image loading for Junk folder to reduce pixel tracking.
-            // This can only work for selected mail item rendering, not for EML file rendering.
             if (initializedMailItemViewModel != null &&
                 initializedMailItemViewModel.MailCopy.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk)
             {
                 renderingOptions.LoadImages = false;
             }
 
-            // Load images if forced.
+            // Block remote images when Security Mode is enabled.
+            if (PreferencesService.IsSecurityModeEnabled)
+            {
+                renderingOptions.LoadImages = false;
+            }
+
+            // Manual override: user explicitly chose to load images for this message.
             if (ignoreJunkFilter)
             {
                 renderingOptions.LoadImages = true;
@@ -529,6 +540,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             }
 
             OnPropertyChanged(nameof(IsImageRenderingDisabled));
+            OnPropertyChanged(nameof(ImageBlockedInfoBarMessage));
 
             StatePersistenceService.IsReadingMail = true;
         });

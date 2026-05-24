@@ -172,6 +172,12 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SetPropertyAndSave(nameof(RenderPlaintextLinks), value);
     }
 
+    public bool IsSecurityModeEnabled
+    {
+        get => _configurationService.Get(nameof(IsSecurityModeEnabled), false);
+        set => SetPropertyAndSave(nameof(IsSecurityModeEnabled), value);
+    }
+
     public bool RenderImages
     {
         get => _configurationService.Get(nameof(RenderImages), true);
@@ -653,7 +659,8 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
                 continue;
             }
 
-            if (property.Name == nameof(IPreferencesService.DiagnosticId))
+            if (property.Name == nameof(IPreferencesService.DiagnosticId)
+                || property.Name == nameof(IPreferencesService.IsSecurityModeEnabled))
             {
                 continue;
             }
