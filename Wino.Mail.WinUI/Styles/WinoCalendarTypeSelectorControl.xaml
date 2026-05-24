@@ -17,8 +17,7 @@
                             <CommandBar.PrimaryCommands>
                                 <AppBarButton
                                     x:Name="PART_TodayButton"
-                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}"
-                                    Label="Today">
+                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
                                     <AppBarButton.Icon>
                                         <controls1:WinoFontIcon Icon="CalendarToday" />
                                     </AppBarButton.Icon>
@@ -28,8 +27,7 @@
 
                                 <AppBarToggleButton
                                     x:Name="PART_DayToggle"
-                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}"
-                                    Label="Day">
+                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
                                     <AppBarToggleButton.Icon>
                                         <controls1:WinoFontIcon Icon="CalendarDay" />
                                     </AppBarToggleButton.Icon>
@@ -37,8 +35,7 @@
 
                                 <AppBarToggleButton
                                     x:Name="PART_WeekToggle"
-                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}"
-                                    Label="Week">
+                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
                                     <AppBarToggleButton.Icon>
                                         <controls1:WinoFontIcon Icon="CalendarWeek" />
                                     </AppBarToggleButton.Icon>
@@ -46,8 +43,7 @@
 
                                 <AppBarToggleButton
                                     x:Name="PART_WorkWeekToggle"
-                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}"
-                                    Label="Work Week">
+                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
                                     <AppBarToggleButton.Icon>
                                         <controls1:WinoFontIcon Icon="CalendarWorkWeek" />
                                     </AppBarToggleButton.Icon>
@@ -55,8 +51,7 @@
 
                                 <AppBarToggleButton
                                     x:Name="PART_MonthToggle"
-                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}"
-                                    Label="Month">
+                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
                                     <AppBarToggleButton.Icon>
                                         <controls1:WinoFontIcon FontSize="44" Icon="CalendarMonth" />
                                     </AppBarToggleButton.Icon>

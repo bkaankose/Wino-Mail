@@ -11,7 +11,7 @@
 
     <ScrollViewer>
         <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
-            <controls:SettingsCard Description="Set a default reminder for all new calendar events." Header="Default reminder">
+            <controls:SettingsCard Description="{x:Bind domain:Translator.CalendarSettings_DefaultReminder_Description, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarSettings_DefaultReminder_Header, Mode=OneTime}">
                 <controls:SettingsCard.HeaderIcon>
                     <FontIcon Glyph="&#xE7F4;" />
                 </controls:SettingsCard.HeaderIcon>

@@ -178,8 +178,8 @@
                     <TextBlock
                         Margin="20,16,0,0"
                         Style="{StaticResource BodyStrongTextBlockStyle}"
-                        Text="Quick settings" />
-                    <TextBlock Margin="20,0,0,12" Text="Use navigation menu to fully customize and access all features of Wino." />
+                        Text="{x:Bind domain:Translator.SettingsHome_QuickSettings_Title, Mode=OneTime}" />
+                    <TextBlock Margin="20,0,0,12" Text="{x:Bind domain:Translator.SettingsHome_QuickSettings_Description, Mode=OneTime}" />
 
                     <controls:SettingsCard
                         Margin="16,0,0,0"
@@ -217,8 +217,8 @@
                     <TextBlock
                         Margin="20,16,0,0"
                         Style="{StaticResource BodyStrongTextBlockStyle}"
-                        Text="Manage account settings" />
-                    <TextBlock Margin="20,0,0,12" Text="Add new account or manage individidual account settings." />
+                        Text="{x:Bind domain:Translator.SettingsHome_ManageAccounts_Title, Mode=OneTime}" />
+                    <TextBlock Margin="20,0,0,12" Text="{x:Bind domain:Translator.SettingsHome_ManageAccounts_Description, Mode=OneTime}" />
                     <Button
                         Margin="20,0,0,12"
                         HorizontalAlignment="Left"

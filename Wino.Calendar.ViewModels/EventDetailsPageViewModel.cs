@@ -817,9 +817,10 @@ public partial class ReminderOption : ObservableObject
             if (Minutes >= 60)
             {
                 var hours = Minutes / 60;
-                return hours == 1 ? "1 Hour" : $"{hours} Hours";
+                return string.Format(hours == 1 ? Translator.CalendarReminder_HourOption : Translator.CalendarReminder_HoursOption, hours);
             }
-            return Minutes == 1 ? "1 Minute" : $"{Minutes} Minutes";
+
+            return string.Format(Minutes == 1 ? Translator.CalendarReminder_MinuteOption : Translator.CalendarReminder_MinutesOption, Minutes);
         }
     }
 

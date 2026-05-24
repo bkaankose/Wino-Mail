@@ -1,5 +1,7 @@
 using System;
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Wino.Core.Domain;
 
 namespace Wino.Mail.ViewModels.Collections;
 
@@ -53,13 +55,15 @@ public partial class DateGroupHeader : GroupHeaderBase
 
         return date.Date switch
         {
-            var d when d == today => "Today",
-            var d when d == yesterday => "Yesterday",
-            var d when d >= today.AddDays(-7) => date.ToString("dddd"), // This week
-            var d when d.Year == today.Year => date.ToString("MMMM dd"), // This year
-            _ => date.ToString("MMMM dd, yyyy") // Other years
+            var d when d == today => Translator.Today,
+            var d when d == yesterday => Translator.Yesterday,
+            var d when d >= today.AddDays(-7) => date.ToString("dddd", AppDisplayCulture), // This week
+            var d when d.Year == today.Year => date.ToString("MMMM dd", AppDisplayCulture), // This year
+            _ => date.ToString("MMMM dd, yyyy", AppDisplayCulture) // Other years
         };
     }
+
+    private static CultureInfo AppDisplayCulture => CultureInfo.DefaultThreadCurrentUICulture ?? CultureInfo.CurrentUICulture;
 }
 
 /// <summary>

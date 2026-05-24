@@ -42,6 +42,7 @@ using Wino.Mail.WinUI.Services;
 using Wino.Mail.WinUI.ViewModels;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Client.Navigation;
+using Wino.Messaging.Client.Shell;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 using Wino.Services;
@@ -1251,6 +1252,7 @@ public partial class App : WinoApplication,
         WeakReferenceMessenger.Default.Register<AccountUpdatedMessage>(this);
         WeakReferenceMessenger.Default.Register<GetStartedFromWelcomeRequested>(this);
         WeakReferenceMessenger.Default.Register<WelcomeImportCompletedMessage>(this);
+        WeakReferenceMessenger.Default.Register<LanguageChanged>(this);
     }
 
     public async void Receive(NewMailSynchronizationRequested message)

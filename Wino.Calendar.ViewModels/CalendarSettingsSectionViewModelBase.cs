@@ -57,14 +57,18 @@ public abstract class CalendarSettingsSectionViewModelBase : CalendarBaseViewMod
         ReminderOptions.Clear();
 
         var predefinedMinutes = CalendarService.GetPredefinedReminderMinutes();
-        ReminderOptions.Add("None");
+        ReminderOptions.Add(Translator.CalendarReminder_None);
 
         foreach (var minutes in predefinedMinutes)
         {
             var displayText = minutes switch
             {
-                >= 60 => $"{minutes / 60} Hour{(minutes / 60 > 1 ? "s" : "")}",
-                _ => $"{minutes} Minute{(minutes > 1 ? "s" : "")}"
+                >= 60 => string.Format(minutes / 60 == 1
+                    ? Translator.CalendarReminder_HourOption
+                    : Translator.CalendarReminder_HoursOption, minutes / 60),
+                _ => string.Format(minutes == 1
+                    ? Translator.CalendarReminder_MinuteOption
+                    : Translator.CalendarReminder_MinutesOption, minutes)
             };
 
             ReminderOptions.Add(displayText);

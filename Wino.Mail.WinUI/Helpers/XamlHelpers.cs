@@ -25,6 +25,7 @@ public static class XamlHelpers
 {
     private const string TwentyFourHourTimeFormat = "HH:mm";
     private const string TwelveHourTimeFormat = "hh:mm tt";
+    private static CultureInfo AppDisplayCulture => CultureInfo.DefaultThreadCurrentUICulture ?? CultureInfo.CurrentUICulture;
 
     #region Converters
 
@@ -188,7 +189,7 @@ public static class XamlHelpers
     public static string GetCreationDateString(DateTime date, bool prefer24HourTime)
     {
         var localTime = date.ToLocalTime();
-        return $"{localTime.ToString("D", CultureInfo.DefaultThreadCurrentUICulture)} {(prefer24HourTime ? localTime.ToString(TwentyFourHourTimeFormat) : localTime.ToString(TwelveHourTimeFormat))}";
+        return $"{localTime.ToString("D", AppDisplayCulture)} {(prefer24HourTime ? localTime.ToString(TwentyFourHourTimeFormat) : localTime.ToString(TwelveHourTimeFormat))}";
     }
     public static string GetMailGroupDateString(object groupObject)
     {
@@ -224,7 +225,7 @@ public static class XamlHelpers
                     return Translator.Yesterday;
                 else
                 {
-                    return dateTimeValue.ToString("D", CultureInfo.DefaultThreadCurrentUICulture);
+                    return dateTimeValue.ToString("D", AppDisplayCulture);
                 }
 
             }

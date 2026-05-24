@@ -64,6 +64,13 @@ public class TranslationService : ITranslationService
         _preferencesService.CurrentLanguage = language;
         CurrentLanguageModel = GetAvailableLanguages().FirstOrDefault(a => a.Language == language);
 
+        if (CurrentLanguageModel != null)
+        {
+            var newCulture = new CultureInfo(CurrentLanguageModel.Code);
+            CultureInfo.DefaultThreadCurrentCulture = newCulture;
+            CultureInfo.DefaultThreadCurrentUICulture = newCulture;
+        }
+
         isInitialized = true;
         WeakReferenceMessenger.Default.Send(new LanguageChanged());
     }

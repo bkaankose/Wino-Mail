@@ -2,6 +2,7 @@ using System.Windows.Input;
 using CommunityToolkit.Diagnostics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.WinUI.Controls;
 
@@ -76,6 +77,8 @@ public partial class WinoCalendarTypeSelectorControl : Control
         _workWeekToggle!.Click += WorkWeekToggleClicked;
         _monthToggle!.Click += MonthToggleClicked;
 
+        ApplyLocalizedLabels();
+
         UpdateToggleButtonStates();
     }
 
@@ -142,5 +145,23 @@ public partial class WinoCalendarTypeSelectorControl : Control
         _weekToggle.IsChecked = SelectedType == CalendarDisplayType.Week;
         _workWeekToggle.IsChecked = SelectedType == CalendarDisplayType.WorkWeek;
         _monthToggle.IsChecked = SelectedType == CalendarDisplayType.Month;
+    }
+
+    private void ApplyLocalizedLabels()
+    {
+        if (_todayButton != null)
+            _todayButton.Label = Translator.Today;
+
+        if (_dayToggle != null)
+            _dayToggle.Label = Translator.CalendarTypeSelector_Day;
+
+        if (_weekToggle != null)
+            _weekToggle.Label = Translator.CalendarTypeSelector_Week;
+
+        if (_workWeekToggle != null)
+            _workWeekToggle.Label = Translator.CalendarTypeSelector_WorkWeek;
+
+        if (_monthToggle != null)
+            _monthToggle.Label = Translator.CalendarTypeSelector_Month;
     }
 }
