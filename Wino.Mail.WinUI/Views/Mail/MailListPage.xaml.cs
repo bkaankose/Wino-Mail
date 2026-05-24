@@ -229,24 +229,28 @@ public sealed partial class MailListPage : MailListPageAbstract,
     private async void MailItemContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
         // Context is requested from a single mail point, but we might have multiple selected items.
-        // This menu should be calculated based on all selected items by providers.
+        // If the clicked mail is already selected, keep calculating against all selected mails.
+        // Otherwise, target only the clicked mail/thread without activating it in the reader.
 
         if (sender is MailItemDisplayInformationControl control && args.TryGetPosition(sender, out Point p))
         {
-            IEnumerable<MailItemViewModel> targetItems;
+            IReadOnlyList<MailItemViewModel> targetItems;
 
             if (control.ActionItem is ThreadMailItemViewModel threadItem)
             {
-                await SelectThreadForContextMenuAsync(threadItem);
+                targetItems = threadItem.ThreadEmails.ToList();
             }
-            else if (control.ActionItem is MailItemViewModel mailItem && !ViewModel.MailCollection.SelectedItems.Contains(mailItem))
+            else if (control.ActionItem is MailItemViewModel mailItem)
             {
-                // Right clicked item is not selected. Select.
-                await WinoClickItemInternalAsync(mailItem, true);
+                targetItems = mailItem.IsSelected
+                    ? ViewModel.MailCollection.SelectedItems.ToList()
+                    : [mailItem];
+            }
+            else
+            {
+                return;
             }
 
-            // Default to all selected items.
-            targetItems = ViewModel.MailCollection.SelectedItems;
             var areAllPinned = targetItems.Any() && targetItems.All(item => item.MailCopy.IsPinned);
             var availableActions = ViewModel.GetAvailableMailActions(targetItems);
             var (availableCategories, assignedCategoryIds) = await ViewModel.GetAvailableCategoriesAsync(targetItems);
@@ -281,43 +285,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
             await ViewModel.ExecuteMailOperationAsync(prepRequest);
         }
-    }
-
-    private async Task SelectThreadForContextMenuAsync(ThreadMailItemViewModel threadItem)
-    {
-        bool isThreadFullySelected = threadItem.IsSelected && threadItem.ThreadEmails.All(a => a.IsSelected);
-        bool hasSelectionsOutsideThread = ViewModel.MailCollection.SelectedItems.Any(a => !threadItem.ThreadEmails.Contains(a));
-
-        // No-op to avoid visual collapse/re-expand flicker on right-click.
-        if (threadItem.IsThreadExpanded && isThreadFullySelected && !hasSelectionsOutsideThread)
-        {
-            return;
-        }
-
-        // Context menu on a thread should target the whole thread and keep it expanded.
-        await ViewModel.MailCollection.ExecuteSelectionBatchAsync(() =>
-        {
-            foreach (var group in ViewModel.MailCollection.MailItems)
-            {
-                foreach (var item in group)
-                {
-                    if (item is ThreadMailItemViewModel thread)
-                    {
-                        thread.IsSelected = ReferenceEquals(thread, threadItem);
-                        thread.IsThreadExpanded = ReferenceEquals(thread, threadItem);
-
-                        foreach (var threadMail in thread.ThreadEmails)
-                        {
-                            threadMail.IsSelected = ReferenceEquals(thread, threadItem);
-                        }
-                    }
-                    else if (item is MailItemViewModel mailItem)
-                    {
-                        mailItem.IsSelected = false;
-                    }
-                }
-            }
-        });
     }
 
     private async Task<MailContextAction?> GetMailContextActionFromFlyoutAsync(
