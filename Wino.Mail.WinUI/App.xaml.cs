@@ -77,8 +77,10 @@ public partial class App : WinoApplication,
     private readonly SemaphoreSlim _appHostInfrastructureSemaphore = new(1, 1);
     private readonly ConcurrentDictionary<Guid, int> _inboxSyncCounters = [];
     private readonly AppNotificationActivationBuffer _bufferedAppNotificationActivations = new();
+    private readonly AppNotificationHandler _notificationHandler;
+    private readonly AppActivationHandler _activationHandler;
+    private readonly DispatcherQueue? _applicationDispatcherQueue;
     private NativeTrayIcon? _trayIcon;
-    private readonly record struct NotificationActivationRoute(bool RequiresForegroundWindow, Func<Task>? ExecuteAsync);
     private readonly record struct ShellWindowActivationResult(IWinoShellWindow? ShellWindow, bool WasCreated);
 
     internal bool IsExiting => _isExiting;
@@ -108,6 +110,10 @@ public partial class App : WinoApplication,
 
     public App()
     {
+        _applicationDispatcherQueue = DispatcherQueue.GetForCurrentThread();
+        _notificationHandler = new AppNotificationHandler(this);
+        _activationHandler = new AppActivationHandler(this, _notificationHandler);
+
         InitializeComponent();
 
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
@@ -534,31 +540,7 @@ public partial class App : WinoApplication,
         await EnsureCoreActivationInfrastructureAsync();
 
         var activationArgs = ResolveStartupActivation();
-
-        if (await TryHandleStartupAppNotificationActivationAsync(activationArgs))
-            return;
-
-        await EnsureAppHostInfrastructureAsync();
-
-        var hasAnyAccount = _hasConfiguredAccounts;
-        var isStartupTaskLaunch = activationArgs.Kind == ExtendedActivationKind.StartupTask;
-
-        if (isStartupTaskLaunch)
-        {
-            CompleteStartupTaskLaunch(hasAnyAccount);
-            return;
-        }
-
-        if (!hasAnyAccount)
-        {
-            await LaunchWelcomeWindowAsync();
-            return;
-        }
-
-        if (await TryHandleLaunchActivationAsync(args, activationArgs))
-            return;
-
-        await CompleteStandardLaunchAsync(args, hasAnyAccount);
+        await _activationHandler.HandleLaunchAsync(args, activationArgs);
     }
 
     private AppActivationArguments ResolveStartupActivation()
@@ -570,48 +552,6 @@ public partial class App : WinoApplication,
         }
 
         return activationArgs;
-    }
-
-    private async Task<bool> TryHandleStartupAppNotificationActivationAsync(AppActivationArguments activationArgs)
-    {
-        if (activationArgs.Kind != ExtendedActivationKind.AppNotification ||
-            activationArgs.Data is not AppNotificationActivatedEventArgs toastArgs ||
-            !TryMarkInitialNotificationActivationHandled())
-        {
-            return false;
-        }
-
-        LogActivation($"Processing app-notification activation from startup. Arguments: {toastArgs.Argument}");
-
-        if (!TryResolveNotificationActivationRoute(toastArgs, out var route))
-        {
-            await HandleToastActivationAsync(toastArgs.Argument, toastArgs.UserInput);
-
-            if (!IsAppRunning())
-            {
-                LogActivation("Startup app-notification activation completed without a window. Exiting transient process.");
-                ExitApplication();
-            }
-
-            return true;
-        }
-
-        if (route.RequiresForegroundWindow)
-        {
-            await EnsureAppHostInfrastructureAsync();
-            await route.ExecuteAsync!.Invoke();
-            return true;
-        }
-
-        await route.ExecuteAsync!.Invoke();
-
-        if (!IsAppRunning())
-        {
-            LogActivation("Background startup app-notification activation completed. Exiting without creating app host.");
-            ExitApplication();
-        }
-
-        return true;
     }
 
     private void AppNotificationInvoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args)
@@ -630,17 +570,6 @@ public partial class App : WinoApplication,
 
         LogActivation($"Processing notification activation from NotificationInvoked. Arguments: {args.Argument}");
         _ = HandleToastActivationAsync(args.Argument, args.UserInput);
-    }
-
-    private bool TryResolveNotificationActivationRoute(AppNotificationActivatedEventArgs notificationArgs,
-                                                       out NotificationActivationRoute route)
-    {
-        route = default;
-
-        if (!ToastActivationResolver.TryParse(notificationArgs.Argument, out var toastArguments))
-            return false;
-
-        return TryCreateNotificationActivationRoute(toastArguments, notificationArgs.UserInput, out route);
     }
 
     private void EnsureAppNotificationRegistration()
@@ -673,31 +602,11 @@ public partial class App : WinoApplication,
     /// <summary>
     /// Handles toast notification activation scenarios.
     /// </summary>
-    private async Task HandleToastActivationAsync(NotificationArguments toastArguments, IDictionary<string, string>? userInput = null)
-    {
-        if (!TryCreateNotificationActivationRoute(toastArguments, userInput, out var route))
-        {
-            LogActivation("App notification activation did not match any known handler.");
-            return;
-        }
-
-        LogActivation(route.RequiresForegroundWindow
-            ? "Handling foreground app notification activation."
-            : "Handling background app notification activation.");
-
-        await route.ExecuteAsync!.Invoke();
-    }
+    private Task HandleToastActivationAsync(NotificationArguments toastArguments, IDictionary<string, string>? userInput = null)
+        => _notificationHandler.HandleActivationAsync(toastArguments, userInput);
 
     private Task HandleToastActivationAsync(string toastArgument, IDictionary<string, string>? userInput = null)
-    {
-        if (!ToastActivationResolver.TryParse(toastArgument, out var toastArguments))
-        {
-            LogActivation($"Ignoring non-toast launch argument: {toastArgument}");
-            return Task.CompletedTask;
-        }
-
-        return HandleToastActivationAsync(toastArguments, userInput);
-    }
+        => _notificationHandler.HandleActivationAsync(toastArgument, userInput);
 
     private async Task<bool> HandleShareTargetActivationAsync(AppActivationArguments activationArgs, bool activateWindow)
     {
@@ -734,37 +643,6 @@ public partial class App : WinoApplication,
         }
 
         return true;
-    }
-
-    private async Task<bool> TryHandleLaunchActivationAsync(Microsoft.UI.Xaml.LaunchActivatedEventArgs args,
-                                                            AppActivationArguments activationArgs)
-    {
-        if (activationArgs.Kind == ExtendedActivationKind.ShareTarget &&
-            TryMarkInitialShareActivationHandled())
-        {
-            LogActivation("Processing share target activation from OnLaunched.");
-
-            if (await HandleShareTargetActivationAsync(activationArgs, activateWindow: true))
-                return true;
-        }
-
-        if (Program.TryConsumePendingBootstrapActivation(out var pendingBootstrapActivation))
-        {
-            LogActivation($"Processing pending bootstrap activation. Kind: {pendingBootstrapActivation.Kind}, Mode: {pendingBootstrapActivation.Mode}");
-
-            if (await HandlePendingBootstrapActivationAsync(pendingBootstrapActivation))
-                return true;
-        }
-
-        if (ToastActivationResolver.TryParse(args.Arguments, out var launchToastArguments) &&
-            TryMarkInitialNotificationActivationHandled())
-        {
-            LogActivation($"Processing toast launch activation from OnLaunched. Arguments: {args.Arguments}");
-            await HandleToastActivationAsync(launchToastArguments);
-            return true;
-        }
-
-        return false;
     }
 
     private async Task<MailShareRequest?> ExtractMailShareRequestAsync(ShareTargetActivatedEventArgs shareTargetArgs)
@@ -1209,9 +1087,6 @@ public partial class App : WinoApplication,
                                    NavigationReferenceFrame.RenderingFrame,
                                    NavigationTransitionType.DrillIn);
     }
-
-    private static bool IsComposeToastAction(MailOperation action)
-        => action is MailOperation.Reply or MailOperation.ReplyAll or MailOperation.Forward;
 
     /// <summary>
     /// Creates the main window and activates it.
@@ -1850,85 +1725,7 @@ public partial class App : WinoApplication,
     {
         async Task HandleRedirectedActivationAsync()
         {
-            await EnsureActivationInfrastructureAsync();
-
-            // Handle different activation kinds
-            if (args.Kind == ExtendedActivationKind.AppNotification)
-            {
-                // Handle toast notification activation
-                var toastArgs = (AppNotificationActivatedEventArgs)args.Data;
-                LogActivation($"Processing redirected notification activation. Arguments: {toastArgs.Argument}");
-                await HandleToastActivationAsync(toastArgs.Argument, toastArgs.UserInput);
-            }
-            else if (args.Kind == ExtendedActivationKind.ShareTarget)
-            {
-                LogActivation("Processing redirected share target activation.");
-                await HandleShareTargetActivationAsync(args, activateWindow: true);
-            }
-            else
-            {
-                var shouldActivateWindow = args.Kind != ExtendedActivationKind.StartupTask;
-                var windowManager = Services.GetRequiredService<IWinoWindowManager>();
-                var shellWindow = MainWindow as IWinoShellWindow
-                                  ?? windowManager.GetWindow(WinoWindowKind.Shell) as IWinoShellWindow;
-                var activationMode = _preferencesService?.DefaultApplicationMode ?? WinoApplicationMode.Mail;
-
-                if (args.Kind == ExtendedActivationKind.Launch &&
-                    args.Data is ILaunchActivatedEventArgs launchArgs)
-                {
-                    if (ToastActivationResolver.TryParse(launchArgs.Arguments, out var launchToastArguments))
-                    {
-                        shouldActivateWindow = ToastActivationResolver.ShouldBringToForeground(launchToastArguments);
-                        LogActivation($"Processing redirected toast launch activation. Arguments: {launchArgs.Arguments}");
-                        await HandleToastActivationAsync(launchToastArguments);
-                        shouldActivateWindow = false;
-                    }
-                    else
-                    {
-                        var launchArguments = launchArgs.Arguments;
-
-                        if (Program.TryConsumeRedirectedAlternateModeOverride())
-                        {
-                            launchArguments = AppendLaunchArgument(launchArguments, ToggleDefaultModeLaunchArgument);
-                        }
-
-                        activationMode = AppModeActivationResolver.Resolve(
-                            launchArguments,
-                            launchArgs.TileId,
-                            null,
-                            activationMode);
-
-                        if (shellWindow != null)
-                            shellWindow.HandleAppActivation(launchArguments, launchArgs.TileId);
-                    }
-                }
-                else if (TryResolveActivationMode(args, activationMode, out var redirectedMode))
-                {
-                    activationMode = redirectedMode;
-
-                    if (shellWindow != null)
-                        shellWindow.HandleAppActivation(AppEntryConstants.GetModeLaunchArgument(redirectedMode));
-                }
-
-                if (shouldActivateWindow && shellWindow == null && _hasConfiguredAccounts)
-                {
-                    var result = await EnsureShellWindowAsync(activationMode, activateWindow: true);
-                    shellWindow = result.ShellWindow;
-                    shouldActivateWindow = false;
-                }
-
-                // Redirected launches can target a shell window that is currently hidden in the tray.
-                // Restore it through the window manager so Show/BringToFront/Activate happen together.
-                var activationWindow = shellWindow as WindowEx
-                                       ?? windowManager.GetWindow(WinoWindowKind.Welcome)
-                                       ?? MainWindow;
-
-                if (shouldActivateWindow && activationWindow != null)
-                {
-                    MainWindow = activationWindow;
-                    windowManager.ActivateWindow(activationWindow);
-                }
-            }
+            await _activationHandler.HandleRedirectedActivationAsync(args);
         }
 
         // Dispatch to UI thread since this is called from Program.OnActivated.
@@ -1938,63 +1735,35 @@ public partial class App : WinoApplication,
         _ = HandleRedirectedActivationAsync();
     }
 
-    private bool TryCreateNotificationActivationRoute(NotificationArguments toastArguments,
-                                                      IDictionary<string, string>? userInput,
-                                                      out NotificationActivationRoute route)
+    private async Task ActivateRedirectedShellAsync(RedirectedActivationRoute route)
     {
-        if (toastArguments.TryGetValue(Constants.ToastStoreUpdateActionKey, out string storeUpdateAction) &&
-            storeUpdateAction == Constants.ToastStoreUpdateActionInstall)
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        var shellWindow = MainWindow as IWinoShellWindow
+                          ?? windowManager.GetWindow(WinoWindowKind.Shell) as IWinoShellWindow;
+
+        if (!string.IsNullOrWhiteSpace(route.ShellActivationArguments) && shellWindow != null)
         {
-            route = new NotificationActivationRoute(true, HandleStoreUpdateToastAsync);
-            return true;
+            shellWindow.HandleAppActivation(route.ShellActivationArguments, route.ShellActivationTileId);
         }
 
-        if (toastArguments.TryGetValue(Constants.ToastDismissActionKey, out string _))
+        if (route.ShouldActivateWindow && shellWindow == null && _hasConfiguredAccounts)
         {
-            route = new NotificationActivationRoute(false, () =>
-            {
-                LogActivation("Handling notification dismiss action.");
-                return Task.CompletedTask;
-            });
-            return true;
+            var result = await EnsureShellWindowAsync(route.ActivationMode, activateWindow: true);
+            shellWindow = result.ShellWindow;
+            route = route with { ShouldActivateWindow = false };
         }
 
-        if (toastArguments.TryGetValue(Constants.ToastCalendarActionKey, out string calendarAction) &&
-            toastArguments.TryGetValue(Constants.ToastCalendarItemIdKey, out string calendarItemIdString) &&
-            Guid.TryParse(calendarItemIdString, out Guid calendarItemId))
+        // Redirected launches can target a shell window that is currently hidden in the tray.
+        // Restore it through the window manager so Show/BringToFront/Activate happen together.
+        var activationWindow = shellWindow as WindowEx
+                               ?? windowManager.GetWindow(WinoWindowKind.Welcome)
+                               ?? MainWindow;
+
+        if (route.ShouldActivateWindow && activationWindow != null)
         {
-            route = calendarAction switch
-            {
-                Constants.ToastCalendarNavigateAction => new NotificationActivationRoute(true, () => HandleCalendarToastNavigationAsync(calendarItemId)),
-                Constants.ToastCalendarSnoozeAction => new NotificationActivationRoute(false, () => HandleCalendarToastSnoozeAsync(userInput, calendarItemId)),
-                Constants.ToastCalendarJoinOnlineAction => new NotificationActivationRoute(false, () => HandleCalendarToastJoinOnlineAsync(calendarItemId)),
-                _ => default
-            };
-
-            return route.ExecuteAsync != null;
+            MainWindow = activationWindow;
+            windowManager.ActivateWindow(activationWindow);
         }
-
-        if (toastArguments.TryGetValue(Constants.ToastActionKey, out MailOperation action) &&
-            Guid.TryParse(toastArguments[Constants.ToastMailUniqueIdKey], out Guid mailItemUniqueId))
-        {
-            if (action == MailOperation.Navigate)
-            {
-                route = new NotificationActivationRoute(true, () => HandleToastNavigationAsync(mailItemUniqueId));
-                return true;
-            }
-
-            if (IsComposeToastAction(action))
-            {
-                route = new NotificationActivationRoute(true, () => HandleToastComposeActionAsync(action, mailItemUniqueId));
-                return true;
-            }
-
-            route = new NotificationActivationRoute(false, () => HandleToastActionAsync(action, mailItemUniqueId));
-            return true;
-        }
-
-        route = default;
-        return false;
     }
 
     private async Task<bool> HandlePendingBootstrapActivationAsync(PendingBootstrapActivation pendingBootstrapActivation)
@@ -2101,7 +1870,9 @@ public partial class App : WinoApplication,
         var currentWindow = windowManager?.ActiveWindow
                            ?? windowManager?.GetWindow(WinoWindowKind.Shell)
                            ?? windowManager?.GetWindow(WinoWindowKind.Welcome);
-        var dispatcherQueue = currentWindow?.DispatcherQueue ?? MainWindow?.DispatcherQueue;
+        var dispatcherQueue = currentWindow?.DispatcherQueue
+                              ?? MainWindow?.DispatcherQueue
+                              ?? _applicationDispatcherQueue;
 
         if (dispatcherQueue == null)
             return false;
