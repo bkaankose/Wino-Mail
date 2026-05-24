@@ -158,6 +158,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsShowPreviewEnabled { get; set; }
 
     /// <summary>
+    /// Setting: Whether Mail Security Mode is enabled to block external content by default.
+    /// </summary>
+    bool IsSecurityModeEnabled { get; set; }
+
+    /// <summary>
     /// Setting: Set whether 'img' tags in rendered HTMLs should be removed.
     /// </summary>
     bool RenderImages { get; set; }

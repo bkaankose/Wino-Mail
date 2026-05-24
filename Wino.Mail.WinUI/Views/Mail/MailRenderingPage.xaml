@@ -457,7 +457,7 @@
                     HorizontalContentAlignment="Stretch"
                     x:Load="{x:Bind ViewModel.IsImageRenderingDisabled, Mode=OneWay}"
                     IsOpen="True"
-                    Message="{x:Bind domain:Translator.ImageRenderingDisabled}"
+                    Message="{x:Bind ViewModel.ImageBlockedInfoBarMessage, Mode=OneWay}"
                     Severity="Warning">
                     <InfoBar.ActionButton>
                         <Button
