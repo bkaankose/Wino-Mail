@@ -33,12 +33,13 @@ public static class DateTimeExtensions
 
     /// <summary>
     /// Converts a datetime from source timezone into local timezone.
+    /// If source timezone is missing, UTC is assumed.
     /// If timezone lookup fails, returns original value.
     /// </summary>
     public static DateTime ToLocalTimeFromTimeZone(this DateTime dateTime, string sourceTimeZoneId)
     {
         if (string.IsNullOrWhiteSpace(sourceTimeZoneId))
-            return dateTime;
+            return DateTime.SpecifyKind(dateTime, DateTimeKind.Utc).ToLocalTime();
 
         try
         {

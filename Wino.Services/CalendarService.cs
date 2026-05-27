@@ -241,8 +241,10 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
             calendarItem.AssignedCalendar = calendar;
 
-            // Check if the event overlaps with the requested period
-            if (calendarItem.Period.OverlapsWith(period))
+            var localPeriod = new TimeRange(calendarItem.LocalStartDate, calendarItem.LocalEndDate);
+
+            // Check if the event overlaps with the requested local display period.
+            if (localPeriod.OverlapsWith(period))
             {
                 result.Add(calendarItem);
             }

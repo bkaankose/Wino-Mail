@@ -209,7 +209,7 @@ public static class GoogleIntegratorExtensions
         return null;
     }
 
-    public static DateTime? GetEventLocalDateTime(EventDateTime calendarEvent)
+    public static DateTime? GetEventLocalDateTime(EventDateTime calendarEvent, string eventTimeZoneId = null)
     {
         if (calendarEvent == null)
         {
@@ -218,7 +218,24 @@ public static class GoogleIntegratorExtensions
 
         if (calendarEvent.DateTimeDateTimeOffset != null)
         {
-            return DateTime.SpecifyKind(calendarEvent.DateTimeDateTimeOffset.Value.DateTime, DateTimeKind.Unspecified);
+            var dateTimeOffset = calendarEvent.DateTimeDateTimeOffset.Value;
+
+            if (!string.IsNullOrWhiteSpace(eventTimeZoneId))
+            {
+                try
+                {
+                    var eventTimeZone = TimeZoneInfo.FindSystemTimeZoneById(eventTimeZoneId);
+                    var eventDateTime = TimeZoneInfo.ConvertTime(dateTimeOffset, eventTimeZone);
+
+                    return DateTime.SpecifyKind(eventDateTime.DateTime, DateTimeKind.Unspecified);
+                }
+                catch
+                {
+                    // Fall through to UTC storage when Google only gives an offset or the timezone id is unknown.
+                }
+            }
+
+            return DateTime.SpecifyKind(dateTimeOffset.UtcDateTime, DateTimeKind.Unspecified);
         }
 
         if (calendarEvent.Date != null)
@@ -236,11 +253,23 @@ public static class GoogleIntegratorExtensions
 
     /// <summary>
     /// Extracts the timezone string from EventDateTime.
-    /// Returns null for all-day events or if timezone is not specified.
+    /// Returns null for all-day events. Timed events fall back to the supplied calendar timezone,
+    /// then UTC when Google only supplies an offset.
     /// </summary>
-    public static string GetEventTimeZone(EventDateTime eventDateTime)
+    public static string GetEventTimeZone(EventDateTime eventDateTime, string fallbackTimeZoneId = null)
     {
-        return eventDateTime?.TimeZone;
+        if (eventDateTime == null || !string.IsNullOrWhiteSpace(eventDateTime.Date))
+            return null;
+
+        if (!string.IsNullOrWhiteSpace(eventDateTime.TimeZone))
+            return eventDateTime.TimeZone;
+
+        if (!string.IsNullOrWhiteSpace(fallbackTimeZoneId))
+            return fallbackTimeZoneId;
+
+        return eventDateTime.DateTimeDateTimeOffset.HasValue
+            ? TimeZoneInfo.Utc.Id
+            : null;
     }
 
     /// <summary>

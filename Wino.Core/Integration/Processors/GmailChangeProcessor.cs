@@ -53,14 +53,22 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
             parentRecurringEvent = await CalendarService.GetCalendarItemAsync(assignedCalendar.Id, recurringEventId).ConfigureAwait(false);
         }
 
+        var parentStartTimeZone = parentRecurringEvent?.StartTimeZone;
+        var parentEndTimeZone = parentRecurringEvent?.EndTimeZone;
+        var startTimeZone = GoogleIntegratorExtensions.GetEventTimeZone(calendarEvent.Start, parentStartTimeZone ?? assignedCalendar.TimeZone);
+        var endTimeZone = GoogleIntegratorExtensions.GetEventTimeZone(calendarEvent.End, parentEndTimeZone ?? startTimeZone ?? assignedCalendar.TimeZone);
         var eventStartDateTimeOffset = GoogleIntegratorExtensions.GetEventDateTimeOffset(calendarEvent.Start);
         var eventEndDateTimeOffset = GoogleIntegratorExtensions.GetEventDateTimeOffset(calendarEvent.End);
-        var eventStartLocalDateTime = GoogleIntegratorExtensions.GetEventLocalDateTime(calendarEvent.Start);
-        var eventEndLocalDateTime = GoogleIntegratorExtensions.GetEventLocalDateTime(calendarEvent.End);
+        var eventStartLocalDateTime = GoogleIntegratorExtensions.GetEventLocalDateTime(calendarEvent.Start, startTimeZone);
+        var eventEndLocalDateTime = GoogleIntegratorExtensions.GetEventLocalDateTime(calendarEvent.End, endTimeZone);
 
         double totalDurationInSeconds = 0;
 
-        if (eventStartLocalDateTime != null && eventEndLocalDateTime != null)
+        if (eventStartDateTimeOffset != null && eventEndDateTimeOffset != null)
+        {
+            totalDurationInSeconds = (eventEndDateTimeOffset.Value - eventStartDateTimeOffset.Value).TotalSeconds;
+        }
+        else if (eventStartLocalDateTime != null && eventEndLocalDateTime != null)
         {
             totalDurationInSeconds = (eventEndLocalDateTime.Value - eventStartLocalDateTime.Value).TotalSeconds;
         }
@@ -103,8 +111,8 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                     Location = string.IsNullOrEmpty(calendarEvent.Location) ? parentRecurringEvent.Location : calendarEvent.Location,
 
                     // Store timezone information
-                    StartTimeZone = GoogleIntegratorExtensions.GetEventTimeZone(calendarEvent.Start) ?? parentRecurringEvent.StartTimeZone,
-                    EndTimeZone = GoogleIntegratorExtensions.GetEventTimeZone(calendarEvent.End) ?? parentRecurringEvent.EndTimeZone,
+                    StartTimeZone = startTimeZone ?? parentRecurringEvent.StartTimeZone,
+                    EndTimeZone = endTimeZone ?? parentRecurringEvent.EndTimeZone,
 
                     // Leave it empty if it's not populated.
                     Recurrence = GoogleIntegratorExtensions.GetRecurrenceString(calendarEvent) == null ? string.Empty : GoogleIntegratorExtensions.GetRecurrenceString(calendarEvent),
@@ -142,8 +150,8 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                     Location = calendarEvent.Location,
 
                     // Store timezone information from Google Calendar event
-                    StartTimeZone = GoogleIntegratorExtensions.GetEventTimeZone(calendarEvent.Start),
-                    EndTimeZone = GoogleIntegratorExtensions.GetEventTimeZone(calendarEvent.End),
+                    StartTimeZone = startTimeZone,
+                    EndTimeZone = endTimeZone,
 
                     Recurrence = GoogleIntegratorExtensions.GetRecurrenceString(calendarEvent),
                     Status = GetStatus(calendarEvent.Status),
@@ -341,8 +349,8 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
             existingCalendarItem.RemoteEventId = calendarEvent.Id;
             existingCalendarItem.Description = calendarEvent.Description ?? parentRecurringEvent?.Description ?? existingCalendarItem.Description;
             existingCalendarItem.Location = string.IsNullOrEmpty(calendarEvent.Location) ? parentRecurringEvent?.Location ?? existingCalendarItem.Location : calendarEvent.Location;
-            existingCalendarItem.StartTimeZone = GoogleIntegratorExtensions.GetEventTimeZone(calendarEvent.Start) ?? parentRecurringEvent?.StartTimeZone ?? existingCalendarItem.StartTimeZone;
-            existingCalendarItem.EndTimeZone = GoogleIntegratorExtensions.GetEventTimeZone(calendarEvent.End) ?? parentRecurringEvent?.EndTimeZone ?? existingCalendarItem.EndTimeZone;
+            existingCalendarItem.StartTimeZone = startTimeZone ?? parentRecurringEvent?.StartTimeZone ?? existingCalendarItem.StartTimeZone;
+            existingCalendarItem.EndTimeZone = endTimeZone ?? parentRecurringEvent?.EndTimeZone ?? existingCalendarItem.EndTimeZone;
             existingCalendarItem.Recurrence = GoogleIntegratorExtensions.GetRecurrenceString(calendarEvent) ?? existingCalendarItem.Recurrence ?? string.Empty;
             existingCalendarItem.Status = GetStatus(calendarEvent.Status);
             existingCalendarItem.Title = string.IsNullOrEmpty(calendarEvent.Summary) ? parentRecurringEvent?.Title ?? existingCalendarItem.Title : calendarEvent.Summary;

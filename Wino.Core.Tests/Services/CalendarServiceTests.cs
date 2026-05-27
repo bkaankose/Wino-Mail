@@ -89,6 +89,37 @@ public class CalendarServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task GetCalendarEventsAsync_UsesLocalDisplayPeriod_ForTimezoneAwareEvents()
+    {
+        // Arrange
+        var storedUtcStart = new DateTime(2025, 1, 15, 23, 30, 0);
+        var localStart = DateTime.SpecifyKind(storedUtcStart, DateTimeKind.Utc).ToLocalTime();
+        var calendarItem = new CalendarItem
+        {
+            Id = Guid.NewGuid(),
+            Title = "Late Meeting",
+            StartDate = storedUtcStart,
+            DurationInSeconds = 3600,
+            StartTimeZone = TimeZoneInfo.Utc.Id,
+            EndTimeZone = TimeZoneInfo.Utc.Id,
+            CalendarId = _testCalendar.Id,
+            IsHidden = false
+        };
+
+        await _calendarService.CreateNewCalendarItemAsync(calendarItem, null);
+
+        var period = new TimeRange(localStart.Date, localStart.Date.AddDays(1));
+
+        // Act
+        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar, period);
+
+        // Assert
+        result.Should().ContainSingle();
+        result[0].Title.Should().Be("Late Meeting");
+        result[0].LocalStartDate.Should().Be(localStart);
+    }
+
+    [Fact]
     public async Task GetCalendarEventsAsync_WithNonRecurringEvent_OutsidePeriod_ReturnsEmpty()
     {
         // Arrange

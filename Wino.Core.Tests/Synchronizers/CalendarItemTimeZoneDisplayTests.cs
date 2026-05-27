@@ -58,4 +58,67 @@ public sealed class CalendarItemTimeZoneDisplayTests
 
         GoogleIntegratorExtensions.GetEventDateTimeOffset(start)!.Value.UtcDateTime.Should().Be(new DateTime(2026, 4, 23, 0, 0, 0, DateTimeKind.Utc));
     }
+
+    [Fact]
+    public void TimedEventsWithoutStoredTimezone_AreDisplayedFromUtcInLocalTime()
+    {
+        var storedUtcStart = new DateTime(2026, 4, 23, 12, 30, 0);
+        var calendarItem = new CalendarItem
+        {
+            Id = Guid.NewGuid(),
+            Title = "Flight",
+            StartDate = storedUtcStart,
+            DurationInSeconds = TimeSpan.FromHours(1).TotalSeconds,
+            StartTimeZone = string.Empty,
+            EndTimeZone = string.Empty
+        };
+
+        var expectedLocalStart = DateTime.SpecifyKind(storedUtcStart, DateTimeKind.Utc).ToLocalTime();
+
+        calendarItem.LocalStartDate.Should().Be(expectedLocalStart);
+    }
+
+    [Fact]
+    public void GmailTimedEvents_UseCalendarTimezoneFallbackForStoredWallClock()
+    {
+        var turkeyTimeZoneId = GetTurkeyTimeZoneId();
+        var start = new EventDateTime
+        {
+            DateTimeDateTimeOffset = new DateTimeOffset(2026, 4, 23, 21, 0, 0, TimeSpan.Zero)
+        };
+
+        var resolvedTimeZone = GoogleIntegratorExtensions.GetEventTimeZone(start, turkeyTimeZoneId);
+        var storedStart = GoogleIntegratorExtensions.GetEventLocalDateTime(start, resolvedTimeZone);
+
+        resolvedTimeZone.Should().Be(turkeyTimeZoneId);
+        storedStart.Should().Be(new DateTime(2026, 4, 24, 0, 0, 0));
+    }
+
+    [Fact]
+    public void GmailTimedEventsWithoutAnyTimezone_FallBackToUtcStorage()
+    {
+        var start = new EventDateTime
+        {
+            DateTimeDateTimeOffset = new DateTimeOffset(2026, 4, 23, 15, 0, 0, TimeSpan.FromHours(3))
+        };
+
+        var resolvedTimeZone = GoogleIntegratorExtensions.GetEventTimeZone(start);
+        var storedStart = GoogleIntegratorExtensions.GetEventLocalDateTime(start, resolvedTimeZone);
+
+        resolvedTimeZone.Should().Be(TimeZoneInfo.Utc.Id);
+        storedStart.Should().Be(new DateTime(2026, 4, 23, 12, 0, 0));
+    }
+
+    private static string GetTurkeyTimeZoneId()
+    {
+        try
+        {
+            _ = TimeZoneInfo.FindSystemTimeZoneById("Turkey Standard Time");
+            return "Turkey Standard Time";
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return "Europe/Istanbul";
+        }
+    }
 }
