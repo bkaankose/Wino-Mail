@@ -27,9 +27,7 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <Grid
-                    VerticalAlignment="Center"
-                    ColumnSpacing="12">
+                <Grid VerticalAlignment="Center" ColumnSpacing="12">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -54,9 +52,7 @@
                             Style="{StaticResource BodyTextBlockStyle}"
                             Text="{x:Bind Name}"
                             TextTrimming="CharacterEllipsis" />
-                        <TextBlock
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Style="{StaticResource CaptionTextBlockStyle}">
+                        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}">
                             <Run Text="{x:Bind BackgroundColorHex}" />
                             <Run Text=" / " />
                             <Run Text="{x:Bind TextColorHex}" />
@@ -107,9 +103,7 @@
             </TransitionCollection>
         </ListView.ItemContainerTransitions>
         <ListView.Header>
-            <Grid
-                Padding="16,0,24,20"
-                ColumnSpacing="16">
+            <Grid Padding="16,0,24,20" ColumnSpacing="16">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
@@ -131,12 +125,8 @@
                     Command="{x:Bind ViewModel.RefreshCategoriesCommand}"
                     Visibility="{x:Bind ViewModel.CanRefresh, Mode=OneWay}">
                     <StackPanel Spacing="6">
-                        <FontIcon
-                            HorizontalAlignment="Center"
-                            Glyph="&#xE72C;" />
-                        <TextBlock
-                            HorizontalAlignment="Center"
-                            Text="{x:Bind domain:Translator.Buttons_Refresh, Mode=OneTime}" />
+                        <FontIcon HorizontalAlignment="Center" Glyph="&#xE72C;" />
+                        <TextBlock HorizontalAlignment="Center" Text="{x:Bind domain:Translator.Buttons_Refresh, Mode=OneTime}" />
                     </StackPanel>
                 </Button>
 
@@ -146,12 +136,8 @@
                     VerticalAlignment="Stretch"
                     Command="{x:Bind ViewModel.AddCategoryCommand}">
                     <StackPanel Spacing="6">
-                        <FontIcon
-                            HorizontalAlignment="Center"
-                            Glyph="&#xE710;" />
-                        <TextBlock
-                            HorizontalAlignment="Center"
-                            Text="{x:Bind domain:Translator.Buttons_Add, Mode=OneTime}" />
+                        <FontIcon HorizontalAlignment="Center" Glyph="&#xE710;" />
+                        <TextBlock HorizontalAlignment="Center" Text="{x:Bind domain:Translator.Buttons_Add, Mode=OneTime}" />
                     </StackPanel>
                 </Button>
             </Grid>

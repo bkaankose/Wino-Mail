@@ -4,8 +4,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
-    xmlns:domain="using:Wino.Core.Domain"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
@@ -23,7 +23,10 @@
                     <FontIcon Glyph="&#xE8EF;" />
                 </controls:SettingsExpander.HeaderIcon>
                 <controls:SettingsExpander.Items>
-                    <controls:SettingsCard HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" ContentAlignment="Vertical">
+                    <controls:SettingsCard
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch"
+                        ContentAlignment="Vertical">
                         <controls:SettingsCard.Content>
                             <StackPanel Spacing="16">
                                 <StackPanel Spacing="6">
@@ -46,7 +49,10 @@
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{x:Bind domain:Translator.CalendarSettings_WorkingDays_From, Mode=OneTime}" />
+                                        <TextBlock
+                                            VerticalAlignment="Center"
+                                            FontWeight="SemiBold"
+                                            Text="{x:Bind domain:Translator.CalendarSettings_WorkingDays_From, Mode=OneTime}" />
                                         <ComboBox
                                             Grid.Column="1"
                                             IsEnabled="{x:Bind ViewModel.IsWorkingHoursEnabled, Mode=OneWay}"
@@ -66,7 +72,10 @@
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{x:Bind domain:Translator.CalendarSettings_WorkingDays_To, Mode=OneTime}" />
+                                        <TextBlock
+                                            VerticalAlignment="Center"
+                                            FontWeight="SemiBold"
+                                            Text="{x:Bind domain:Translator.CalendarSettings_WorkingDays_To, Mode=OneTime}" />
                                         <ComboBox
                                             Grid.Column="1"
                                             IsEnabled="{x:Bind ViewModel.IsWorkingHoursEnabled, Mode=OneWay}"
@@ -86,7 +95,10 @@
                 </controls:SettingsExpander.Items>
             </controls:SettingsExpander>
 
-            <controls:SettingsExpander Description="{x:Bind domain:Translator.CalendarSettings_CalendarRendering_Description, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarSettings_CalendarRendering_Header, Mode=OneTime}" IsExpanded="True">
+            <controls:SettingsExpander
+                Description="{x:Bind domain:Translator.CalendarSettings_CalendarRendering_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.CalendarSettings_CalendarRendering_Header, Mode=OneTime}"
+                IsExpanded="True">
                 <controls:SettingsExpander.HeaderIcon>
                     <FontIcon Glyph="&#xE9D2;" />
                 </controls:SettingsExpander.HeaderIcon>
@@ -124,7 +136,11 @@
                                         <RowDefinition Height="1" />
                                         <RowDefinition Height="*" />
                                     </Grid.RowDefinitions>
-                                    <Rectangle Grid.Row="1" HorizontalAlignment="Stretch" Stroke="Black" StrokeThickness="0.5" />
+                                    <Rectangle
+                                        Grid.Row="1"
+                                        HorizontalAlignment="Stretch"
+                                        Stroke="Black"
+                                        StrokeThickness="0.5" />
                                 </Grid>
                             </Grid>
                         </StackPanel>

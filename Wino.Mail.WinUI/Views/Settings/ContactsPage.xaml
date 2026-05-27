@@ -106,9 +106,7 @@
 
         <Grid Grid.Row="0">
             <StackPanel>
-                <TextBlock
-                Style="{StaticResource TitleTextBlockStyle}"
-                    Text="{x:Bind domain:Translator.ContactsPage_Title, Mode=OneTime}" />
+                <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="{x:Bind domain:Translator.ContactsPage_Title, Mode=OneTime}" />
                 <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind domain:Translator.ContactsPage_Subtitle, Mode=OneTime}" />
             </StackPanel>
         </Grid>

@@ -131,10 +131,10 @@
 
                     <muxc:InfoBar
                         x:Name="InitialSynchronizationWarningBar"
+                        Title="{x:Bind domain:Translator.GeneralTitle_Warning}"
                         IsOpen="True"
                         Message="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_EverythingWarning}"
                         Severity="Warning"
-                        Title="{x:Bind domain:Translator.GeneralTitle_Warning}"
                         Visibility="Collapsed" />
                 </StackPanel>
             </Border>

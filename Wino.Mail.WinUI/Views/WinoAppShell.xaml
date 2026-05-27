@@ -29,9 +29,9 @@
             <controls:AccountNavigationItem
                 x:Name="AccountItem"
                 Height="50"
-                AutomationProperties.Name="{x:Bind AccountName, Mode=OneWay}"
                 HorizontalContentAlignment="Stretch"
                 VerticalContentAlignment="Stretch"
+                AutomationProperties.Name="{x:Bind AccountName, Mode=OneWay}"
                 BindingData="{x:Bind}"
                 ContextRequested="AccountMenuItemContextRequested"
                 DataContext="{x:Bind}"
@@ -166,9 +166,9 @@
                     <coreControls:WinoFontIcon Icon="NewMail" />
                 </muxc:NavigationViewItem.Icon>
                 <TextBlock
-                Style="{StaticResource BodyStrongTextBlockStyle}"
                     Margin="0"
                     VerticalAlignment="Center"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
                     Text="{x:Bind domain:Translator.MenuNewMail}" />
             </coreControls:WinoNavigationViewItem>
         </DataTemplate>
@@ -561,9 +561,9 @@
                                 <coreControls:WinoFontIcon Icon="NewMail" />
                             </muxc:NavigationViewItem.Icon>
                             <TextBlock
-                Style="{StaticResource BodyStrongTextBlockStyle}"
                                 Margin="0"
                                 VerticalAlignment="Center"
+                                Style="{StaticResource BodyStrongTextBlockStyle}"
                                 Text="{x:Bind domain:Translator.CalendarEventCompose_NewEventButton, Mode=OneTime}" />
                         </coreControls:WinoNavigationViewItem>
 
@@ -582,9 +582,9 @@
                                 <coreControls:WinoFontIcon Icon="Sync" />
                             </muxc:NavigationViewItem.Icon>
                             <TextBlock
-                Style="{StaticResource BodyStrongTextBlockStyle}"
                                 Margin="0"
                                 VerticalAlignment="Center"
+                                Style="{StaticResource BodyStrongTextBlockStyle}"
                                 Text="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}" />
                         </coreControls:WinoNavigationViewItem>
 
@@ -603,8 +603,8 @@
                             SelectionMode="None">
                             <ListView.Header>
                                 <TextBlock
-                Style="{StaticResource BodyStrongTextBlockStyle}"
                                     Margin="20,12,12,12"
+                                    Style="{StaticResource BodyStrongTextBlockStyle}"
                                     Text="Calendars" />
                             </ListView.Header>
                             <ListView.ItemTemplate>
@@ -720,14 +720,14 @@
                                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE710;" />
                                 </muxc:NavigationViewItem.Icon>
                                 <TextBlock
-                Style="{StaticResource BodyStrongTextBlockStyle}"
                                     Margin="0"
                                     VerticalAlignment="Center"
+                                    Style="{StaticResource BodyStrongTextBlockStyle}"
                                     Text="{x:Bind domain:Translator.ContactsPane_NewContact, Mode=OneTime}" />
                             </coreControls:WinoNavigationViewItem>
 
                             <TextBlock
-                Style="{StaticResource BodyStrongTextBlockStyle}"
+                                Style="{StaticResource BodyStrongTextBlockStyle}"
                                 Text="{x:Bind domain:Translator.ContactsPane_DescriptionTitle, Mode=OneTime}"
                                 TextWrapping="WrapWholeWords" />
                             <TextBlock

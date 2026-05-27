@@ -29,12 +29,12 @@
                 CanDrag="False"
                 IsExpanded="True"
                 ItemsSource="{x:Bind ChildFolders}">
-                    <Grid Height="32">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="300" />
-                        </Grid.ColumnDefinitions>
+                <Grid Height="32">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="300" />
+                    </Grid.ColumnDefinitions>
                     <coreControls:WinoFontIcon FontSize="20" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(SpecialFolderType)}" />
                     <TextBlock
                         Grid.Column="1"
@@ -143,9 +143,7 @@
                             Text="{x:Bind ViewModel.SenderName, Mode=TwoWay}" />
                     </controls:SettingsCard>
 
-                    <controls:SettingsCard
-                        Header="{x:Bind domain:Translator.IMAPSetupDialog_MailAddress}"
-                        Visibility="{x:Bind ViewModel.HasMailAccess, Mode=OneWay}">
+                    <controls:SettingsCard Header="{x:Bind domain:Translator.IMAPSetupDialog_MailAddress}" Visibility="{x:Bind ViewModel.HasMailAccess, Mode=OneWay}">
                         <controls:SettingsCard.HeaderIcon>
                             <SymbolIcon Symbol="Mail" />
                         </controls:SettingsCard.HeaderIcon>

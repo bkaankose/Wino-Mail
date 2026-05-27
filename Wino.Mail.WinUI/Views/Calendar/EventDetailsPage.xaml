@@ -456,9 +456,9 @@
 
                                             <TextBlock FontWeight="SemiBold" Text="{x:Bind Name}" />
                                             <TextBlock
-                Style="{StaticResource CaptionTextBlockStyle}"
                                                 Grid.Row="1"
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Style="{StaticResource CaptionTextBlockStyle}"
                                                 Text="{x:Bind Email}" />
                                             <StackPanel
                                                 Grid.Row="2"
@@ -470,9 +470,9 @@
                                                     CornerRadius="4"
                                                     Visibility="{x:Bind IsOrganizer}">
                                                     <TextBlock
-                Style="{StaticResource CaptionTextBlockStyle}"
                                                         FontWeight="SemiBold"
                                                         Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                                        Style="{StaticResource CaptionTextBlockStyle}"
                                                         Text="{x:Bind domain:Translator.CalendarEventDetails_Organizer}" />
                                                 </Border>
 
@@ -487,8 +487,8 @@
                                             CornerRadius="4"
                                             Visibility="{x:Bind calendarHelpers:CalendarXamlHelpers.GetAttendeeStatusVisibility(AttendenceStatus)}">
                                             <TextBlock
-                Style="{StaticResource CaptionTextBlockStyle}"
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Style="{StaticResource CaptionTextBlockStyle}"
                                                 Text="{x:Bind calendarHelpers:CalendarXamlHelpers.GetAttendeeStatusText(AttendenceStatus)}" />
                                         </Border>
                                     </Grid>
@@ -577,18 +577,18 @@
                                             </Grid.RowDefinitions>
 
                                             <TextBlock
-                Style="{StaticResource CaptionTextBlockStyle}"
                                                 MaxLines="1"
+                                                Style="{StaticResource CaptionTextBlockStyle}"
                                                 Text="{x:Bind FileName}"
                                                 TextTrimming="CharacterEllipsis"
                                                 TextWrapping="Wrap" />
 
                                             <TextBlock
-                Style="{StaticResource CaptionTextBlockStyle}"
                                                 Grid.Row="1"
                                                 HorizontalAlignment="Right"
                                                 VerticalAlignment="Bottom"
                                                 Foreground="Gray"
+                                                Style="{StaticResource CaptionTextBlockStyle}"
                                                 Text="{x:Bind ReadableSize}" />
                                         </Grid>
                                     </Grid>
