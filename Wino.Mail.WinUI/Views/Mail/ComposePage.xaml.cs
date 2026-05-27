@@ -28,6 +28,7 @@ using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
+using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
 using Wino.Views.Abstract;
 
@@ -356,7 +357,13 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     private void ViewModel_CloseRequested(object? sender, EventArgs e)
     {
-        HostActionRequested?.Invoke(this, new PopoutHostActionRequestedEventArgs(PopoutHostActionKind.CloseHostedInstance));
+        if (_isPoppedOut)
+        {
+            HostActionRequested?.Invoke(this, new PopoutHostActionRequestedEventArgs(PopoutHostActionKind.CloseHostedInstance));
+            return;
+        }
+
+        WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
     }
 
     private async void ComposeAiActionsToggleButton_Checked(object sender, RoutedEventArgs e)

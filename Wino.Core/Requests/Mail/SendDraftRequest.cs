@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -13,6 +14,8 @@ public record SendDraftRequest(SendDraftPreparationRequest Request)
     : MailRequestBase(Request.MailItem),
     ICustomFolderSynchronizationRequest
 {
+    private int isUiChangeApplied;
+
     public List<Guid> SynchronizationFolderIds
     {
         get
@@ -34,11 +37,17 @@ public record SendDraftRequest(SendDraftPreparationRequest Request)
 
     public override void ApplyUIChanges()
     {
+        if (Interlocked.Exchange(ref isUiChangeApplied, 1) == 1)
+            return;
+
         WeakReferenceMessenger.Default.Send(new MailRemovedMessage(Item, EntityUpdateSource.ClientUpdated));
     }
 
     public override void RevertUIChanges()
     {
+        if (Interlocked.Exchange(ref isUiChangeApplied, 0) == 0)
+            return;
+
         WeakReferenceMessenger.Default.Send(new MailAddedMessage(Item, EntityUpdateSource.ClientReverted));
     }
 }

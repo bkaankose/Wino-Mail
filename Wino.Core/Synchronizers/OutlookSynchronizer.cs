@@ -1726,10 +1726,10 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         var outlookMessage = mimeMessage.AsOutlookMessage(false, conversationId);
 
         var patchDraftRequest = _graphClient.Me.Messages[mailCopyId].ToPatchRequestInformation(outlookMessage);
-        var patchDraftBundle = new HttpRequestBundle<RequestInformation>(patchDraftRequest, request);
+        var patchDraftBundle = new HttpRequestBundle<RequestInformation>(patchDraftRequest, request, request);
 
         var sendRequest = PreparePostRequestInformation(_graphClient.Me.Messages[mailCopyId].Send.ToPostRequestInformation());
-        var sendBundle = new HttpRequestBundle<RequestInformation>(sendRequest, request);
+        var sendBundle = new HttpRequestBundle<RequestInformation>(sendRequest, request, request);
 
         // Attachment uploads are handled outside batching because large attachments
         // require upload sessions whose URLs are generated dynamically.
