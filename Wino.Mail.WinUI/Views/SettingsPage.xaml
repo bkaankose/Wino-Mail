@@ -46,7 +46,7 @@
 
             <TextBlock
                 Grid.Row="1"
-                Margin="0,-4,0,4"
+                Margin="0,0,0,4"
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                 Style="{StaticResource BodyStrongTextBlockStyle}"
                 Text="{x:Bind ViewModel.CurrentDescription, Mode=OneWay}"

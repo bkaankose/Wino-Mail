@@ -67,13 +67,13 @@
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="1" Text="{x:Bind Subject}" />
                                         <TextBlock
+                Style="{StaticResource CaptionTextBlockStyle}"
                                             Grid.Column="2"
-                                            FontSize="10"
                                             Foreground="Gray"
                                             Text="{x:Bind NotAfter}" />
                                         <TextBlock
+                Style="{StaticResource CaptionTextBlockStyle}"
                                             Grid.Column="3"
-                                            FontSize="10"
                                             Foreground="Gray"
                                             Text="{x:Bind Thumbprint}" />
                                     </Grid>
@@ -148,13 +148,13 @@
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="1" Text="{x:Bind Subject}" />
                                         <TextBlock
+                Style="{StaticResource CaptionTextBlockStyle}"
                                             Grid.Column="2"
-                                            FontSize="10"
                                             Foreground="Gray"
                                             Text="{x:Bind NotAfter}" />
                                         <TextBlock
+                Style="{StaticResource CaptionTextBlockStyle}"
                                             Grid.Column="3"
-                                            FontSize="10"
                                             Foreground="Gray"
                                             Text="{x:Bind Thumbprint}" />
                                     </Grid>

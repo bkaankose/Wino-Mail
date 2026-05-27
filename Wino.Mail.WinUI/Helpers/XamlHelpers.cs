@@ -152,7 +152,16 @@ public static class XamlHelpers
     public static string GetColorFromHex(Color color) => color.ToHex();
     public static Color GetWindowsColorFromHex(string hex) => hex.ToColor();
 
-    public static SolidColorBrush GetSolidColorBrushFromHex(string colorHex) => string.IsNullOrEmpty(colorHex) ? new SolidColorBrush(Colors.Transparent) : new SolidColorBrush(colorHex.ToColor());
+    public static SolidColorBrush GetSolidColorBrushFromHex(string? colorHex)
+        => string.IsNullOrWhiteSpace(colorHex)
+            ? GetDefaultBrushForUnderlyingTheme()
+            : new SolidColorBrush(colorHex.ToColor());
+
+    private static SolidColorBrush GetDefaultBrushForUnderlyingTheme()
+        => new(Wino.Mail.WinUI.WinoApplication.Current.UnderlyingThemeService.IsUnderlyingThemeDark()
+            ? Colors.White
+            : Colors.Black);
+
     public static SolidColorBrush GetCategoryTextBrush(string textColorHex, string backgroundColorHex)
         => !string.IsNullOrWhiteSpace(textColorHex)
             ? GetSolidColorBrushFromHex(textColorHex)

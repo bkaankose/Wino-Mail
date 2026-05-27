@@ -56,7 +56,7 @@
                         VerticalContentAlignment="Stretch"
                         ContentAlignment="Vertical">
                         <ListView
-                            Padding="-12,0"
+                            Padding="0"
                             IsItemClickEnabled="False"
                             ItemTemplate="{StaticResource RootAccountTemplate}"
                             ItemsSource="{x:Bind HoldingAccounts}"

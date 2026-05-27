@@ -187,7 +187,7 @@
                             </Button>
                             <TextBlock
                                 VerticalAlignment="Center"
-                                FontWeight="Bold"
+                                FontWeight="SemiBold"
                                 Foreground="{StaticResource DiagnosticIdCopyBrush}"
                                 IsTextSelectionEnabled="True"
                                 Text="{x:Bind ViewModel.PreferencesService.DiagnosticId}" />

@@ -46,7 +46,7 @@
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock VerticalAlignment="Center" FontWeight="Bold" Text="{x:Bind domain:Translator.CalendarSettings_WorkingDays_From, Mode=OneTime}" />
+                                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{x:Bind domain:Translator.CalendarSettings_WorkingDays_From, Mode=OneTime}" />
                                         <ComboBox
                                             Grid.Column="1"
                                             IsEnabled="{x:Bind ViewModel.IsWorkingHoursEnabled, Mode=OneWay}"
@@ -66,7 +66,7 @@
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock VerticalAlignment="Center" FontWeight="Bold" Text="{x:Bind domain:Translator.CalendarSettings_WorkingDays_To, Mode=OneTime}" />
+                                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{x:Bind domain:Translator.CalendarSettings_WorkingDays_To, Mode=OneTime}" />
                                         <ComboBox
                                             Grid.Column="1"
                                             IsEnabled="{x:Bind ViewModel.IsWorkingHoursEnabled, Mode=OneWay}"

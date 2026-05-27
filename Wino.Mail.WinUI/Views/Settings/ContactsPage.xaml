@@ -42,7 +42,6 @@
                         VerticalAlignment="Center"
                         Spacing="2">
                         <TextBlock
-                            FontSize="14"
                             FontWeight="SemiBold"
                             Text="{x:Bind Name, Mode=OneTime, TargetNullValue=''}"
                             TextTrimming="CharacterEllipsis" />
@@ -108,8 +107,7 @@
         <Grid Grid.Row="0">
             <StackPanel>
                 <TextBlock
-                    FontSize="28"
-                    FontWeight="SemiBold"
+                Style="{StaticResource TitleTextBlockStyle}"
                     Text="{x:Bind domain:Translator.ContactsPage_Title, Mode=OneTime}" />
                 <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind domain:Translator.ContactsPage_Subtitle, Mode=OneTime}" />
             </StackPanel>

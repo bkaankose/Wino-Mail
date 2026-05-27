@@ -14,6 +14,7 @@ public sealed partial class SettingOptionsPage : SettingOptionsPageAbstract
     public SettingOptionsPage()
     {
         InitializeComponent();
+        NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Required;
     }
 
     private void SettingOptionClicked(object sender, RoutedEventArgs e)

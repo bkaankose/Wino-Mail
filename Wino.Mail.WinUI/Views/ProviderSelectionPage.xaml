@@ -328,7 +328,7 @@
                         <ComboBox
                             Grid.Row="2"
                             MinWidth="260"
-                            Margin="-6,12"
+                            Margin="0,12"
                             HorizontalAlignment="Left"
                             ItemsSource="{x:Bind ViewModel.InitialSynchronizationRanges, Mode=OneWay}"
                             SelectedItem="{x:Bind ViewModel.SelectedInitialSynchronizationRange, Mode=TwoWay}">

@@ -86,8 +86,8 @@
                             Background="{ThemeResource SystemAccentColor}"
                             CornerRadius="4">
                             <TextBlock
-                                FontSize="10"
-                                FontWeight="Bold"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                                FontWeight="SemiBold"
                                 Foreground="White"
                                 Text="PRO" />
                         </Border>
@@ -119,8 +119,7 @@
                                     Visibility="{x:Bind ShowUsageSummary, Mode=OneWay}">
                                     <StackPanel Orientation="Horizontal" Spacing="4">
                                         <TextBlock
-                                            FontSize="24"
-                                            FontWeight="Bold"
+                Style="{StaticResource SubtitleTextBlockStyle}"
                                             Text="{x:Bind UsageCount, Mode=OneWay}" />
                                         <TextBlock
                                             Margin="0,0,0,2"
@@ -257,9 +256,8 @@
                         Source="ms-appx:///Assets/AppEntries/MailAssets/Square150x150Logo.png" />
 
                     <TextBlock
+                Style="{StaticResource SubtitleTextBlockStyle}"
                         HorizontalAlignment="Center"
-                        FontSize="20"
-                        FontWeight="SemiBold"
                         Text="{x:Bind domain:Translator.WinoAccount_Management_SignedOutTitle}" />
 
                     <TextBlock

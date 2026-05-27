@@ -8,7 +8,6 @@
     xmlns:controls="using:Wino.Controls"
     xmlns:controls1="using:CommunityToolkit.WinUI.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
-    xmlns:coreConverters="using:Wino.Mail.WinUI.Converters"
     xmlns:coreSelectors="using:Wino.Mail.WinUI.Selectors"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Calendar.ViewModels.Data"
@@ -24,8 +23,6 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-
-        <coreConverters:HexToColorBrushConverter x:Key="HexToColorBrushConverter" />
 
         <!--  Clickable New Style Account Template  -->
         <DataTemplate x:Key="ClickableAccountMenuTemplate" x:DataType="menu:AccountMenuItem">
@@ -50,7 +47,7 @@
                 <muxc:NavigationViewItem.Icon>
                     <coreControls:WinoFontIcon
                         FontSize="12"
-                        Foreground="{x:Bind AccountColorHex, Converter={StaticResource HexToColorBrushConverter}, Mode=OneWay}"
+                        Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(AccountColorHex), Mode=OneWay}"
                         Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(Parameter)}" />
                 </muxc:NavigationViewItem.Icon>
                 <muxc:NavigationViewItem.InfoBadge>
@@ -169,10 +166,9 @@
                     <coreControls:WinoFontIcon Icon="NewMail" />
                 </muxc:NavigationViewItem.Icon>
                 <TextBlock
-                    Margin="0,-2,0,0"
+                Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Margin="0"
                     VerticalAlignment="Center"
-                    FontSize="16"
-                    FontWeight="SemiBold"
                     Text="{x:Bind domain:Translator.MenuNewMail}" />
             </coreControls:WinoNavigationViewItem>
         </DataTemplate>
@@ -234,7 +230,7 @@
                         <TextBlock
                             x:Name="NormalTitle"
                             VerticalAlignment="Center"
-                            x:Load="{x:Bind HasTextColor, Converter={StaticResource ReverseBooleanConverter}}"
+                            x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(HasTextColor)}"
                             FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightBySyncState(IsSelected), Mode=OneWay}"
                             Style="{StaticResource BodyTextBlockStyle}"
                             Text="{x:Bind FolderName, Mode=OneWay}"
@@ -378,7 +374,6 @@
                             TextTrimming="CharacterEllipsis" />
 
                         <TextBlock
-                            FontSize="12"
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             MaxLines="1"
                             Style="{StaticResource CaptionTextBlockStyle}"
@@ -396,7 +391,6 @@
                             Value="{x:Bind SynchronizationProgressValue, Mode=OneWay}" />
 
                         <TextBlock
-                            FontSize="12"
                             MaxLines="1"
                             Style="{StaticResource CaptionTextBlockStyle}"
                             TextTrimming="CharacterEllipsis"
@@ -514,7 +508,7 @@
             x:Name="navigationView"
             Grid.Row="1"
             Grid.ColumnSpan="3"
-            Margin="-1,-1,0,0"
+            Margin="0"
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
             AlwaysShowHeader="True"
@@ -567,10 +561,9 @@
                                 <coreControls:WinoFontIcon Icon="NewMail" />
                             </muxc:NavigationViewItem.Icon>
                             <TextBlock
-                                Margin="0,-2,0,0"
+                Style="{StaticResource BodyStrongTextBlockStyle}"
+                                Margin="0"
                                 VerticalAlignment="Center"
-                                FontSize="16"
-                                FontWeight="SemiBold"
                                 Text="{x:Bind domain:Translator.CalendarEventCompose_NewEventButton, Mode=OneTime}" />
                         </coreControls:WinoNavigationViewItem>
 
@@ -589,10 +582,9 @@
                                 <coreControls:WinoFontIcon Icon="Sync" />
                             </muxc:NavigationViewItem.Icon>
                             <TextBlock
-                                Margin="0,-2,0,0"
+                Style="{StaticResource BodyStrongTextBlockStyle}"
+                                Margin="0"
                                 VerticalAlignment="Center"
-                                FontSize="16"
-                                FontWeight="SemiBold"
                                 Text="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}" />
                         </coreControls:WinoNavigationViewItem>
 
@@ -611,8 +603,8 @@
                             SelectionMode="None">
                             <ListView.Header>
                                 <TextBlock
+                Style="{StaticResource BodyStrongTextBlockStyle}"
                                     Margin="20,12,12,12"
-                                    FontSize="16"
                                     Text="Calendars" />
                             </ListView.Header>
                             <ListView.ItemTemplate>
@@ -641,7 +633,7 @@
                                                     Height="12"
                                                     Margin="8,0,10,0"
                                                     VerticalAlignment="Center"
-                                                    Fill="{x:Bind AccountColorHex, Converter={StaticResource HexToColorBrushConverter}, Mode=OneWay}" />
+                                                    Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(AccountColorHex), Mode=OneWay}" />
 
                                                 <StackPanel
                                                     Grid.Column="2"
@@ -692,7 +684,6 @@
                                                                 <TextBlock
                                                                     Grid.Column="1"
                                                                     VerticalAlignment="Center"
-                                                                    FontSize="14"
                                                                     Text="{x:Bind Name, Mode=OneWay}"
                                                                     TextWrapping="Wrap" />
                                                             </Grid>
@@ -729,16 +720,14 @@
                                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE710;" />
                                 </muxc:NavigationViewItem.Icon>
                                 <TextBlock
-                                    Margin="0,-2,0,0"
+                Style="{StaticResource BodyStrongTextBlockStyle}"
+                                    Margin="0"
                                     VerticalAlignment="Center"
-                                    FontSize="16"
-                                    FontWeight="SemiBold"
                                     Text="{x:Bind domain:Translator.ContactsPane_NewContact, Mode=OneTime}" />
                             </coreControls:WinoNavigationViewItem>
 
                             <TextBlock
-                                FontSize="16"
-                                FontWeight="SemiBold"
+                Style="{StaticResource BodyStrongTextBlockStyle}"
                                 Text="{x:Bind domain:Translator.ContactsPane_DescriptionTitle, Mode=OneTime}"
                                 TextWrapping="WrapWholeWords" />
                             <TextBlock

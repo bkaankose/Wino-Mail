@@ -35,7 +35,7 @@
                 <DataTemplate>
                     <coreControls:WinoFontIcon
                         FontSize="20"
-                        Foreground="#527257"
+                        Foreground="{ThemeResource SystemFillColorSuccessBrush}"
                         Icon="EventAccept" />
                 </DataTemplate>
             </selectors:RsvpStatusIconTemplateSelector.ConfirmedTemplate>
@@ -43,7 +43,7 @@
                 <DataTemplate>
                     <coreControls:WinoFontIcon
                         FontSize="20"
-                        Foreground="#805682"
+                        Foreground="{ThemeResource SystemFillColorAttentionBrush}"
                         Icon="EventTentative" />
                 </DataTemplate>
             </selectors:RsvpStatusIconTemplateSelector.TentativeTemplate>
@@ -281,7 +281,7 @@
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <coreControls:WinoFontIcon
                                 FontSize="20"
-                                Foreground="#527257"
+                                Foreground="{ThemeResource SystemFillColorSuccessBrush}"
                                 Icon="EventAccept" />
                             <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventRsvpPanel_Accept, Mode=OneTime}" />
                         </StackPanel>
@@ -295,7 +295,7 @@
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <coreControls:WinoFontIcon
                                 FontSize="20"
-                                Foreground="#805682"
+                                Foreground="{ThemeResource SystemFillColorAttentionBrush}"
                                 Icon="EventTentative" />
                             <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventRsvpPanel_Tentative, Mode=OneTime}" />
                         </StackPanel>
@@ -323,7 +323,7 @@
                     VerticalAlignment="Center"
                     AcceptsReturn="True"
                     PlaceholderText="{x:Bind domain:Translator.CalendarEventRsvpPanel_AddMessage, Mode=OneTime}"
-                    Text="{x:Bind ViewModel.RsvpMessage, Mode=TwoWay}"
+                    Text="{x:Bind ViewModel.RsvpMessage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                     TextWrapping="Wrap">
                     <TextBox.Header>
                         <StackPanel Orientation="Horizontal" />
@@ -428,7 +428,7 @@
 
                         <ListView
                             Grid.Row="1"
-                            Margin="-12,0"
+                            Margin="0"
                             IsItemClickEnabled="True"
                             ItemsSource="{x:Bind ViewModel.CurrentEvent.Attendees, Mode=OneWay}"
                             SelectionMode="None">
@@ -456,8 +456,8 @@
 
                                             <TextBlock FontWeight="SemiBold" Text="{x:Bind Name}" />
                                             <TextBlock
+                Style="{StaticResource CaptionTextBlockStyle}"
                                                 Grid.Row="1"
-                                                FontSize="13"
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Text="{x:Bind Email}" />
                                             <StackPanel
@@ -470,7 +470,7 @@
                                                     CornerRadius="4"
                                                     Visibility="{x:Bind IsOrganizer}">
                                                     <TextBlock
-                                                        FontSize="11"
+                Style="{StaticResource CaptionTextBlockStyle}"
                                                         FontWeight="SemiBold"
                                                         Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
                                                         Text="{x:Bind domain:Translator.CalendarEventDetails_Organizer}" />
@@ -487,7 +487,7 @@
                                             CornerRadius="4"
                                             Visibility="{x:Bind calendarHelpers:CalendarXamlHelpers.GetAttendeeStatusVisibility(AttendenceStatus)}">
                                             <TextBlock
-                                                FontSize="11"
+                Style="{StaticResource CaptionTextBlockStyle}"
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Text="{x:Bind calendarHelpers:CalendarXamlHelpers.GetAttendeeStatusText(AttendenceStatus)}" />
                                         </Border>
@@ -513,7 +513,7 @@
 
                     <ListView
                         Grid.Row="1"
-                        Margin="-12,0"
+                        Margin="0"
                         IsItemClickEnabled="True"
                         ItemClick="AttachmentClicked"
                         ItemsSource="{x:Bind ViewModel.Attachments, Mode=OneWay}"
@@ -528,7 +528,7 @@
                                     <Grid
                                         Grid.Row="0"
                                         Height="50"
-                                        Margin="-8,0,0,0"
+                                        Margin="0"
                                         Background="Transparent"
                                         ColumnSpacing="3">
                                         <ToolTipService.ToolTip>
@@ -577,24 +577,24 @@
                                             </Grid.RowDefinitions>
 
                                             <TextBlock
-                                                FontSize="13"
+                Style="{StaticResource CaptionTextBlockStyle}"
                                                 MaxLines="1"
                                                 Text="{x:Bind FileName}"
                                                 TextTrimming="CharacterEllipsis"
                                                 TextWrapping="Wrap" />
 
                                             <TextBlock
+                Style="{StaticResource CaptionTextBlockStyle}"
                                                 Grid.Row="1"
                                                 HorizontalAlignment="Right"
                                                 VerticalAlignment="Bottom"
-                                                FontSize="11"
                                                 Foreground="Gray"
                                                 Text="{x:Bind ReadableSize}" />
                                         </Grid>
                                     </Grid>
                                     <ProgressBar
                                         Grid.Row="1"
-                                        Margin="0,-5,0,0"
+                                        Margin="0"
                                         HorizontalAlignment="Stretch"
                                         VerticalAlignment="Top"
                                         IsIndeterminate="{x:Bind IsBusy, Mode=OneWay}"

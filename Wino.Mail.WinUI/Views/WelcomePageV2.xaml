@@ -34,9 +34,8 @@
                     Source="ms-appx:///Assets/AppEntries/MailAssets/Square150x150Logo.png"
                     Stretch="Uniform" />
                 <TextBlock
+                Style="{StaticResource TitleTextBlockStyle}"
                     HorizontalAlignment="Center"
-                    FontSize="28"
-                    FontWeight="SemiBold"
                     Text="{x:Bind domain:Translator.WelcomeWindow_Title}" />
                 <TextBlock
                     HorizontalAlignment="Center"
@@ -79,7 +78,7 @@
                             <DataTemplate x:DataType="models:UpdateNoteSection">
                                 <Grid
                                     Padding="48,40"
-                                    AutomationProperties.Name="{x:Bind AccessibilityName, Mode=OneWay}"
+                                    AutomationProperties.Name="{x:Bind AccessibilityName, Mode=OneTime}"
                                     ColumnSpacing="40">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="200" />
@@ -188,7 +187,6 @@
                     Style="{StaticResource AccentButtonStyle}">
                     <TextBlock
                         HorizontalAlignment="Center"
-                        FontSize="14"
                         FontWeight="SemiBold"
                         Text="{x:Bind domain:Translator.WelcomeWindow_GetStartedButton}" />
                 </Button>

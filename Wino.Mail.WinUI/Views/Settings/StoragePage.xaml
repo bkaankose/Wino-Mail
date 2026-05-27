@@ -58,7 +58,7 @@
                         Margin="12,0,0,0"
                         Command="{x:Bind ViewModel.RefreshStorageCommand}"
                         Content="{x:Bind domain:Translator.SettingsStorage_ScanFolder}"
-                        IsEnabled="{x:Bind ViewModel.IsBusy, Mode=OneWay, Converter={StaticResource ReverseBooleanConverter}}"
+                        IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsBusy), Mode=OneWay}"
                         Style="{StaticResource AccentButtonStyle}" />
                 </Grid>
             </Grid>
@@ -77,7 +77,7 @@
                                         Command="{x:Bind DeleteAllCommand}"
                                         CommandParameter="{x:Bind}"
                                         Content="{x:Bind domain:Translator.SettingsStorage_DeleteAll_Button}"
-                                        IsEnabled="{x:Bind IsBusy, Mode=OneWay, Converter={StaticResource ReverseBooleanConverter}}" />
+                                        IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsBusy), Mode=OneWay}" />
                                 </controls:SettingsCard>
 
                                 <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsStorage_DeleteOld_Description}" Header="{x:Bind domain:Translator.SettingsStorage_DeleteOld_Title}">
@@ -86,22 +86,22 @@
                                             Command="{x:Bind DeleteOneMonthCommand}"
                                             CommandParameter="{x:Bind}"
                                             Content="{x:Bind domain:Translator.SettingsStorage_DeleteOld_1Month}"
-                                            IsEnabled="{x:Bind IsBusy, Mode=OneWay, Converter={StaticResource ReverseBooleanConverter}}" />
+                                            IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsBusy), Mode=OneWay}" />
                                         <Button
                                             Command="{x:Bind DeleteThreeMonthsCommand}"
                                             CommandParameter="{x:Bind}"
                                             Content="{x:Bind domain:Translator.SettingsStorage_DeleteOld_3Months}"
-                                            IsEnabled="{x:Bind IsBusy, Mode=OneWay, Converter={StaticResource ReverseBooleanConverter}}" />
+                                            IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsBusy), Mode=OneWay}" />
                                         <Button
                                             Command="{x:Bind DeleteSixMonthsCommand}"
                                             CommandParameter="{x:Bind}"
                                             Content="{x:Bind domain:Translator.SettingsStorage_DeleteOld_6Months}"
-                                            IsEnabled="{x:Bind IsBusy, Mode=OneWay, Converter={StaticResource ReverseBooleanConverter}}" />
+                                            IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsBusy), Mode=OneWay}" />
                                         <Button
                                             Command="{x:Bind DeleteYearCommand}"
                                             CommandParameter="{x:Bind}"
                                             Content="{x:Bind domain:Translator.SettingsStorage_DeleteOld_1Year}"
-                                            IsEnabled="{x:Bind IsBusy, Mode=OneWay, Converter={StaticResource ReverseBooleanConverter}}" />
+                                            IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsBusy), Mode=OneWay}" />
                                     </StackPanel>
                                 </controls:SettingsCard>
                             </controls:SettingsExpander.Items>

@@ -56,19 +56,19 @@
                         Height="12"
                         Margin="0,0,12,0"
                         Fill="{StaticResource AliasVerifiedBrush}"
-                        Visibility="{x:Bind IsCapabilityConfirmed, Mode=OneWay}" />
+                        Visibility="{x:Bind IsCapabilityConfirmed, Mode=OneTime}" />
                     <Ellipse
                         Width="12"
                         Height="12"
                         Margin="0,0,12,0"
                         Fill="{StaticResource AliasUnknownBrush}"
-                        Visibility="{x:Bind IsCapabilityUnknown, Mode=OneWay}" />
+                        Visibility="{x:Bind IsCapabilityUnknown, Mode=OneTime}" />
                     <Ellipse
                         Width="12"
                         Height="12"
                         Margin="0,0,12,0"
                         Fill="{StaticResource AliasUnverifiedBrush}"
-                        Visibility="{x:Bind IsCapabilityDenied, Mode=OneWay}" />
+                        Visibility="{x:Bind IsCapabilityDenied, Mode=OneTime}" />
                 </Grid>
 
                 <RadioButton

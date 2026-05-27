@@ -30,7 +30,7 @@
         <DataTemplate x:Key="ComposerFileAttachmentTemplate" x:DataType="data:MailAttachmentViewModel">
             <Grid
                 Height="50"
-                Margin="-8,0,0,0"
+                Margin="0"
                 Padding="0"
                 Background="Transparent"
                 ColumnSpacing="3">
@@ -72,23 +72,23 @@
                     </Grid.RowDefinitions>
 
                     <TextBlock
-                        FontSize="13"
+                Style="{StaticResource CaptionTextBlockStyle}"
                         MaxLines="2"
                         Text="{x:Bind FileName}"
                         TextTrimming="CharacterEllipsis" />
 
                     <TextBlock
+                Style="{StaticResource CaptionTextBlockStyle}"
                         Grid.Row="1"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Bottom"
-                        FontSize="11"
                         Foreground="Gray"
                         Text="{x:Bind ReadableSize}" />
                 </Grid>
 
                 <Button
                     Grid.Column="2"
-                    Margin="0,4,-8,4"
+                    Margin="0,4"
                     VerticalAlignment="Stretch"
                     Background="Transparent"
                     BorderThickness="0"
@@ -168,7 +168,7 @@
                                 Checked="ComposeAiActionsToggleButton_Checked"
                                 LabelPosition="Collapsed"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AiActions}"
-                                Visibility="{x:Bind GetAiActionsToggleVisibility(ViewModel.PreferencesService.IsAiActionsPanelHidden), Mode=OneWay}">
+                                Visibility="{x:Bind GetAiActionsToggleVisibility(ViewModel.PreferencesService.IsAiActionsPanelHidden), Mode=OneTime}">
                                 <AppBarToggleButton.Icon>
                                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE945;" />
                                 </AppBarToggleButton.Icon>
@@ -309,7 +309,8 @@
                                                 <DataTemplate xmlns:x509="using:System.Security.Cryptography.X509Certificates" x:DataType="x509:X509Certificate2">
                                                     <StackPanel Padding="8,4" Orientation="Vertical">
                                                         <TextBlock FontWeight="SemiBold" Text="{x:Bind Subject}" />
-                                                        <TextBlock FontSize="12" Text="{x:Bind Issuer}" />
+                                                        <TextBlock
+                Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind Issuer}" />
                                                         <TextBlock>
                                                             <Run Text="{x:Bind domain:Translator.Composer_CertificateExpires, Mode=OneTime}" />
                                                             <Run Text="{x:Bind NotAfter, Mode=OneTime}" />
@@ -562,11 +563,10 @@
                             StrokeDashArray="3,4"
                             StrokeThickness="2" />
                         <TextBlock
+                Style="{StaticResource SubtitleTextBlockStyle}"
                             x:Name="FilesDropZoneText"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
-                            FontSize="20"
-                            FontWeight="SemiBold"
                             Opacity="0.5"
                             Text="{x:Bind domain:Translator.ComposerAttachmentsDropZone_Message}" />
                     </Grid>
@@ -603,11 +603,10 @@
                             StrokeDashArray="3,4"
                             StrokeThickness="2" />
                         <TextBlock
+                Style="{StaticResource SubtitleTextBlockStyle}"
                             x:Name="ImagesDropZoneText"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
-                            FontSize="20"
-                            FontWeight="SemiBold"
                             Opacity="0.5"
                             Text="{x:Bind domain:Translator.ComposerImagesDropZone_Message}" />
                     </Grid>

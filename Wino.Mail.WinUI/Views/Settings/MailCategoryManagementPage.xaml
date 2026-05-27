@@ -39,8 +39,8 @@
                         Width="28"
                         Height="28"
                         VerticalAlignment="Top"
-                        Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}"
-                        BorderBrush="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(TextColorHex), Mode=OneWay}"
+                        Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneTime}"
+                        BorderBrush="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(TextColorHex), Mode=OneTime}"
                         BorderThickness="1"
                         CornerRadius="8" />
 
@@ -50,7 +50,7 @@
                         Spacing="2">
                         <TextBlock
                             FontWeight="SemiBold"
-                            Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(TextColorHex), Mode=OneWay}"
+                            Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(TextColorHex), Mode=OneTime}"
                             Style="{StaticResource BodyTextBlockStyle}"
                             Text="{x:Bind Name}"
                             TextTrimming="CharacterEllipsis" />
@@ -67,7 +67,7 @@
                 <ToggleButton
                     Grid.Column="1"
                     Checked="FavoriteCategoryChecked"
-                    IsChecked="{x:Bind IsFavorite, Mode=OneWay}"
+                    IsChecked="{x:Bind IsFavorite, Mode=OneTime}"
                     Tag="{x:Bind}"
                     Unchecked="FavoriteCategoryUnchecked">
                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE208;" />

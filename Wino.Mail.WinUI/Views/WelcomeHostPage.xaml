@@ -41,9 +41,9 @@
                                             Background="{x:Bind helpers:XamlHelpers.GetWizardStepBadgeBrush(IsActive), Mode=OneWay}"
                                             CornerRadius="12">
                                             <TextBlock
+                Style="{StaticResource CaptionTextBlockStyle}"
                                                 HorizontalAlignment="Center"
                                                 VerticalAlignment="Center"
-                                                FontSize="11"
                                                 FontWeight="SemiBold"
                                                 Foreground="{x:Bind helpers:XamlHelpers.GetWizardStepNumberForeground(IsActive), Mode=OneWay}"
                                                 Text="{x:Bind StepNumber, Mode=OneWay}" />
