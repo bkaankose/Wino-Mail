@@ -44,6 +44,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     public event EventHandler<MailItemViewModel> MailItemRemoved;
     public event EventHandler ItemSelectionChanged;
     public Func<string, ThreadMailItemViewModel> ThreadItemFactory { get; set; } = static threadId => new ThreadMailItemViewModel(threadId, true);
+    public bool IsThreadingEnabled { get; set; } = true;
 
     private ListItemComparer listComparer = new();
 
@@ -508,7 +509,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         }
 
         // Check if this item should be threaded with an existing item
-        if (!string.IsNullOrEmpty(addedItem.ThreadId))
+        if (IsThreadingEnabled && !string.IsNullOrEmpty(addedItem.ThreadId))
         {
             var threadableItem = FindThreadableItem(addedItem.ThreadId);
             if (threadableItem != null)
@@ -677,16 +678,19 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
         // Build thread lookup from the batch items
         var batchThreadLookup = new Dictionary<string, List<MailItemViewModel>>();
-        foreach (var item in itemsList)
+        if (IsThreadingEnabled)
         {
-            if (!string.IsNullOrEmpty(item.MailCopy.ThreadId))
+            foreach (var item in itemsList)
             {
-                if (!batchThreadLookup.TryGetValue(item.MailCopy.ThreadId, out var list))
+                if (!string.IsNullOrEmpty(item.MailCopy.ThreadId))
                 {
-                    list = new List<MailItemViewModel>();
-                    batchThreadLookup[item.MailCopy.ThreadId] = list;
+                    if (!batchThreadLookup.TryGetValue(item.MailCopy.ThreadId, out var list))
+                    {
+                        list = new List<MailItemViewModel>();
+                        batchThreadLookup[item.MailCopy.ThreadId] = list;
+                    }
+                    list.Add(item);
                 }
-                list.Add(item);
             }
         }
 
@@ -709,7 +713,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
             }
 
             // Check if this item should be threaded
-            if (!string.IsNullOrEmpty(item.MailCopy.ThreadId))
+            if (IsThreadingEnabled && !string.IsNullOrEmpty(item.MailCopy.ThreadId))
             {
                 // Look for existing item with same ThreadId
                 var existingThreadableItem = FindThreadableItem(item.MailCopy.ThreadId);

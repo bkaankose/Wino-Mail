@@ -6,4 +6,19 @@ internal static class AppModeActivationResolver
 {
     public static WinoApplicationMode Resolve(string? launchArguments, string? tileId, string? appId, WinoApplicationMode defaultMode = WinoApplicationMode.Mail)
         => Wino.Core.Activation.AppModeActivationResolver.Resolve(launchArguments, tileId, appId, defaultMode);
+
+    public static bool TryResolveExplicit(string? launchArguments, string? tileId, string? appId, out WinoApplicationMode mode)
+    {
+        var mailDefaultMode = Resolve(launchArguments, tileId, appId, WinoApplicationMode.Mail);
+        var calendarDefaultMode = Resolve(launchArguments, tileId, appId, WinoApplicationMode.Calendar);
+
+        if (mailDefaultMode == calendarDefaultMode)
+        {
+            mode = mailDefaultMode;
+            return true;
+        }
+
+        mode = default;
+        return false;
+    }
 }

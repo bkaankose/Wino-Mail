@@ -173,7 +173,7 @@ public partial class App : WinoApplication,
 
         if (window is IWinoShellWindow)
         {
-            DisposeTrayIcon();
+            UpdateTrayIconState(allowCreation: !_isExiting);
         }
 
         InitializeNavigationDispatcher();
@@ -640,8 +640,28 @@ public partial class App : WinoApplication,
 
         if (shellWindowAlreadyExists)
         {
-            await Services.GetRequiredService<MailAppShellViewModel>().HandlePendingShareRequestAsync();
+            await ExecuteOnActivationUiThreadAsync(
+                () => Services.GetRequiredService<MailAppShellViewModel>().HandlePendingShareRequestAsync());
         }
+
+        return true;
+    }
+
+    private async Task<bool> HandleMailToProtocolActivationAsync(MailToUri mailToUri, bool activateWindow)
+    {
+        if (mailToUri == null)
+            return false;
+
+        Services.GetRequiredService<ILaunchProtocolService>().MailToUri = mailToUri;
+
+        if (!_hasConfiguredAccounts)
+            return false;
+
+        await EnsureShellWindowAsync(
+            WinoApplicationMode.Mail,
+            activateWindow,
+            suppressStartupFlows: true,
+            activationParameter: mailToUri);
 
         return true;
     }
@@ -694,6 +714,12 @@ public partial class App : WinoApplication,
 
     private async Task LaunchWelcomeWindowAsync()
     {
+        if (!HasActivationUiThreadAccess())
+        {
+            await ExecuteOnActivationUiThreadAsync(LaunchWelcomeWindowAsync);
+            return;
+        }
+
         CreateWelcomeWindow();
         await NewThemeService.InitializeAsync();
         MainWindow?.Activate();
@@ -705,6 +731,12 @@ public partial class App : WinoApplication,
                                                                            bool suppressStartupFlows = true,
                                                                            object? activationParameter = null)
     {
+        if (!HasActivationUiThreadAccess())
+        {
+            return await ExecuteOnActivationUiThreadAsync(
+                () => EnsureShellWindowAsync(mode, activateWindow, suppressStartupFlows, activationParameter));
+        }
+
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
         var navigationService = Services.GetRequiredService<INavigationService>();
         var shellWindow = windowManager.GetWindow(WinoWindowKind.Shell) as IWinoShellWindow;
@@ -758,7 +790,11 @@ public partial class App : WinoApplication,
         if (!IsAppRunning())
             await CreateAndActivateWindow(null!);
         else
-            EnsureMainWindowVisibleAndForeground();
+            await ExecuteOnActivationUiThreadAsync(() =>
+            {
+                EnsureMainWindowVisibleAndForeground();
+                return Task.CompletedTask;
+            });
 
         var storeUpdateService = Services.GetRequiredService<IStoreUpdateService>();
         await storeUpdateService.StartUpdateAsync();
@@ -840,13 +876,24 @@ public partial class App : WinoApplication,
             return;
         }
 
-        UpdateTrayIconState(allowCreation: true);
+        _ = ExecuteOnActivationUiThreadAsync(() =>
+        {
+            UpdateTrayIconState(allowCreation: true);
+            return Task.CompletedTask;
+        });
+
         LogActivation("Launched by startup task. Running in background without creating a window.");
     }
 
     private async Task CompleteStandardLaunchAsync(Microsoft.UI.Xaml.LaunchActivatedEventArgs args,
                                                    bool hasAnyAccount)
     {
+        if (!HasActivationUiThreadAccess())
+        {
+            await ExecuteOnActivationUiThreadAsync(() => CompleteStandardLaunchAsync(args, hasAnyAccount));
+            return;
+        }
+
         CreateWindow(args);
 
         await NewThemeService.InitializeAsync();
@@ -916,8 +963,12 @@ public partial class App : WinoApplication,
 
         if (shellWindowAlreadyExists)
         {
-            WeakReferenceMessenger.Default.Send(message);
-            launchProtocolService.LaunchParameter = null;
+            await ExecuteOnActivationUiThreadAsync(() =>
+            {
+                WeakReferenceMessenger.Default.Send(message);
+                launchProtocolService.LaunchParameter = null;
+                return Task.CompletedTask;
+            });
         }
     }
 
@@ -1053,15 +1104,18 @@ public partial class App : WinoApplication,
 
         await EnsureShellWindowAsync(WinoApplicationMode.Mail, activateWindow: true);
 
-        if (mailShellViewModel.MenuItems.TryGetAccountMenuItem(account.Id, out IAccountMenuItem accountMenuItem))
+        await ExecuteOnActivationUiThreadAsync(async () =>
         {
-            await mailShellViewModel.ChangeLoadedAccountAsync(accountMenuItem, navigateInbox: false);
-        }
+            if (mailShellViewModel.MenuItems.TryGetAccountMenuItem(account.Id, out IAccountMenuItem accountMenuItem))
+            {
+                await mailShellViewModel.ChangeLoadedAccountAsync(accountMenuItem, navigateInbox: false);
+            }
 
-        if (mailShellViewModel.MenuItems.TryGetSpecialFolderMenuItem(account.Id, SpecialFolderType.Draft, out var draftFolderMenuItem))
-        {
-            await mailShellViewModel.NavigateFolderAsync(draftFolderMenuItem);
-        }
+            if (mailShellViewModel.MenuItems.TryGetSpecialFolderMenuItem(account.Id, SpecialFolderType.Draft, out var draftFolderMenuItem))
+            {
+                await mailShellViewModel.NavigateFolderAsync(draftFolderMenuItem);
+            }
+        });
 
         var draftOptions = new DraftCreationOptions
         {
@@ -1083,10 +1137,16 @@ public partial class App : WinoApplication,
         var draftPreparationRequest = new DraftPreparationRequest(account, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason, mailItem);
 
         await requestDelegator.ExecuteAsync(draftPreparationRequest);
-        navigationService.Navigate(WinoPage.ComposePage,
-                                   new MailItemViewModel(draftMailCopy),
-                                   NavigationReferenceFrame.RenderingFrame,
-                                   NavigationTransitionType.DrillIn);
+
+        await ExecuteOnActivationUiThreadAsync(() =>
+        {
+            navigationService.Navigate(WinoPage.ComposePage,
+                                       new MailItemViewModel(draftMailCopy),
+                                       NavigationReferenceFrame.RenderingFrame,
+                                       NavigationTransitionType.DrillIn);
+
+            return Task.CompletedTask;
+        });
     }
 
     /// <summary>
@@ -1094,6 +1154,12 @@ public partial class App : WinoApplication,
     /// </summary>
     private async Task CreateAndActivateWindow(Microsoft.UI.Xaml.LaunchActivatedEventArgs? args)
     {
+        if (!HasActivationUiThreadAccess())
+        {
+            await ExecuteOnActivationUiThreadAsync(() => CreateAndActivateWindow(args));
+            return;
+        }
+
         CreateWindow(args);
 
         // Initialize theme service after window is created.
@@ -1723,29 +1789,36 @@ public partial class App : WinoApplication,
     /// Handles activation redirected from another instance (single-instancing).
     /// This is called when a second instance tries to launch and redirects to this existing instance.
     /// </summary>
-    public void HandleRedirectedActivation(AppActivationArguments args)
+    public async void HandleRedirectedActivation(AppActivationArguments args)
     {
-        async Task HandleRedirectedActivationAsync()
+        try
         {
             await _activationHandler.HandleRedirectedActivationAsync(args);
         }
-
-        // Dispatch to UI thread since this is called from Program.OnActivated.
-        if (TryEnqueueActivationOnUiThread(() => _ = HandleRedirectedActivationAsync()))
-            return;
-
-        _ = HandleRedirectedActivationAsync();
+        catch (Exception ex)
+        {
+            LogActivation($"Redirected activation failed: {ex.GetType().Name} - {ex.Message}");
+        }
     }
 
     private async Task ActivateRedirectedShellAsync(RedirectedActivationRoute route)
     {
+        if (!HasActivationUiThreadAccess())
+        {
+            await ExecuteOnActivationUiThreadAsync(() => ActivateRedirectedShellAsync(route));
+            return;
+        }
+
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
         var shellWindow = MainWindow as IWinoShellWindow
                           ?? windowManager.GetWindow(WinoWindowKind.Shell) as IWinoShellWindow;
+        var shellActivationHandled = false;
+        var shellActivationAppId = AppEntryConstants.GetAppUserModelId(route.ActivationMode);
 
         if (!string.IsNullOrWhiteSpace(route.ShellActivationArguments) && shellWindow != null)
         {
-            shellWindow.HandleAppActivation(route.ShellActivationArguments, route.ShellActivationTileId);
+            shellWindow.HandleAppActivation(route.ShellActivationArguments, route.ShellActivationTileId, shellActivationAppId);
+            shellActivationHandled = true;
         }
 
         if (route.ShouldActivateWindow && shellWindow == null && _hasConfiguredAccounts)
@@ -1753,6 +1826,13 @@ public partial class App : WinoApplication,
             var result = await EnsureShellWindowAsync(route.ActivationMode, activateWindow: true);
             shellWindow = result.ShellWindow;
             route = route with { ShouldActivateWindow = false };
+        }
+
+        if (!shellActivationHandled &&
+            !string.IsNullOrWhiteSpace(route.ShellActivationArguments) &&
+            shellWindow != null)
+        {
+            shellWindow.HandleAppActivation(route.ShellActivationArguments, route.ShellActivationTileId, shellActivationAppId);
         }
 
         // Redirected launches can target a shell window that is currently hidden in the tray.
@@ -1846,7 +1926,7 @@ public partial class App : WinoApplication,
         if (activationArgs.Kind == ExtendedActivationKind.Launch &&
             activationArgs.Data is ILaunchActivatedEventArgs launchArgs)
         {
-            mode = AppModeActivationResolver.Resolve(launchArgs.Arguments, launchArgs.TileId, null, defaultMode);
+            mode = AppModeActivationResolver.Resolve(launchArgs.Arguments, launchArgs.TileId, Environment.CommandLine, defaultMode);
             return true;
         }
 
@@ -1866,15 +1946,62 @@ public partial class App : WinoApplication,
         return null;
     }
 
-    private bool TryEnqueueActivationOnUiThread(Action action)
+    private bool HasActivationUiThreadAccess()
+        => GetActivationDispatcherQueue()?.HasThreadAccess == true;
+
+    private DispatcherQueue? GetActivationDispatcherQueue()
     {
         var windowManager = Services.GetService<IWinoWindowManager>();
         var currentWindow = windowManager?.ActiveWindow
                            ?? windowManager?.GetWindow(WinoWindowKind.Shell)
                            ?? windowManager?.GetWindow(WinoWindowKind.Welcome);
-        var dispatcherQueue = currentWindow?.DispatcherQueue
-                              ?? MainWindow?.DispatcherQueue
-                              ?? _applicationDispatcherQueue;
+
+        return currentWindow?.DispatcherQueue
+               ?? MainWindow?.DispatcherQueue
+               ?? _applicationDispatcherQueue;
+    }
+
+    private Task ExecuteOnActivationUiThreadAsync(Func<Task> action)
+        => ExecuteOnActivationUiThreadAsync(async () =>
+        {
+            await action();
+            return true;
+        });
+
+    private Task<T> ExecuteOnActivationUiThreadAsync<T>(Func<Task<T>> action)
+    {
+        if (action == null)
+            throw new ArgumentNullException(nameof(action));
+
+        var dispatcherQueue = GetActivationDispatcherQueue()
+                              ?? throw new InvalidOperationException("Activation UI dispatcher is not available.");
+
+        if (dispatcherQueue.HasThreadAccess)
+            return action();
+
+        var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        if (!dispatcherQueue.TryEnqueue(async () =>
+        {
+            try
+            {
+                completion.SetResult(await action());
+            }
+            catch (Exception ex)
+            {
+                completion.SetException(ex);
+            }
+        }))
+        {
+            completion.SetException(new InvalidOperationException("Failed to enqueue activation work on the UI dispatcher."));
+        }
+
+        return completion.Task;
+    }
+
+    private bool TryEnqueueActivationOnUiThread(Action action)
+    {
+        var dispatcherQueue = GetActivationDispatcherQueue();
 
         if (dispatcherQueue == null)
             return false;

@@ -77,6 +77,12 @@ public class WinoWindowManager : IWinoWindowManager
 
     public void ActivateWindow(WindowEx window)
     {
+        if (!window.DispatcherQueue.HasThreadAccess)
+        {
+            window.DispatcherQueue.TryEnqueue(() => ActivateWindow(window));
+            return;
+        }
+
         window.Show();
         window.BringToFront();
         window.Activate();
@@ -101,6 +107,12 @@ public class WinoWindowManager : IWinoWindowManager
 
     public void HideWindow(WindowEx window)
     {
+        if (!window.DispatcherQueue.HasThreadAccess)
+        {
+            window.DispatcherQueue.TryEnqueue(() => HideWindow(window));
+            return;
+        }
+
         window.Hide();
 
         lock (_syncLock)
@@ -210,9 +222,21 @@ public class WinoWindowManager : IWinoWindowManager
         {
             try
             {
-                window.Activated -= WindowActivated;
-                window.Closed -= WindowClosed;
-                window.Close();
+                if (window.DispatcherQueue.HasThreadAccess)
+                {
+                    window.Activated -= WindowActivated;
+                    window.Closed -= WindowClosed;
+                    window.Close();
+                }
+                else
+                {
+                    window.DispatcherQueue.TryEnqueue(() =>
+                    {
+                        window.Activated -= WindowActivated;
+                        window.Closed -= WindowClosed;
+                        window.Close();
+                    });
+                }
             }
             catch
             {

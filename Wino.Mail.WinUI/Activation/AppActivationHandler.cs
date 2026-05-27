@@ -1,9 +1,11 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Windows.AppLifecycle;
 using Microsoft.Windows.AppNotifications;
 using Windows.ApplicationModel.Activation;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Launch;
 using Wino.Mail.WinUI;
 
 namespace Wino.Mail.WinUI.Activation;
@@ -36,9 +38,10 @@ internal sealed class AppActivationHandler
 
     public async Task HandleRedirectedActivationAsync(AppActivationArguments args)
     {
+        var route = ResolveRedirectedActivationRoute(args);
+
         await _host.EnsureActivationInfrastructureAsync();
 
-        var route = ResolveRedirectedActivationRoute(args);
         await HandleRedirectedActivationRouteAsync(route);
     }
 
@@ -58,6 +61,15 @@ internal sealed class AppActivationHandler
             _host.TryMarkInitialShareActivationHandled())
         {
             return new LaunchActivationRoute(AppActivationPath.ShareTarget, launchArgs, activationArgs);
+        }
+
+        if (TryCreateMailToUri(activationArgs, out var mailToUri))
+        {
+            return new LaunchActivationRoute(
+                AppActivationPath.MailToProtocol,
+                launchArgs,
+                activationArgs,
+                MailToUri: mailToUri);
         }
 
         if (Program.TryConsumePendingBootstrapActivation(out var pendingBootstrapActivation) &&
@@ -130,6 +142,14 @@ internal sealed class AppActivationHandler
                     await _host.CompleteStandardLaunchAsync(route.LaunchArgs, _host.HasConfiguredAccounts);
                 }
                 break;
+            case AppActivationPath.MailToProtocol:
+                _host.LogActivation("Processing mailto protocol activation from OnLaunched.");
+                if (route.MailToUri == null ||
+                    !await _host.HandleMailToProtocolActivationAsync(route.MailToUri, activateWindow: true))
+                {
+                    await _host.CompleteStandardLaunchAsync(route.LaunchArgs, _host.HasConfiguredAccounts);
+                }
+                break;
             case AppActivationPath.CalendarEntryBootstrap:
                 if (route.PendingBootstrapActivation != null)
                 {
@@ -158,12 +178,15 @@ internal sealed class AppActivationHandler
         if (args.Kind == ExtendedActivationKind.AppNotification &&
             args.Data is AppNotificationActivatedEventArgs notificationArgs)
         {
+            ToastActivationResolver.TryParse(notificationArgs.Argument, out var notificationToastArguments);
+
             return new RedirectedActivationRoute(
                 AppActivationPath.AppNotification,
                 args,
                 activationMode,
                 shouldActivateWindow,
-                AppNotificationArgs: notificationArgs);
+                ToastArguments: notificationToastArguments,
+                UserInput: CopyUserInput(notificationArgs.UserInput));
         }
 
         if (args.Kind == ExtendedActivationKind.ShareTarget)
@@ -173,6 +196,16 @@ internal sealed class AppActivationHandler
                 args,
                 WinoApplicationMode.Mail,
                 shouldActivateWindow);
+        }
+
+        if (TryCreateMailToUri(args, out var mailToUri))
+        {
+            return new RedirectedActivationRoute(
+                AppActivationPath.MailToProtocol,
+                args,
+                WinoApplicationMode.Mail,
+                shouldActivateWindow,
+                MailToUri: mailToUri);
         }
 
         if (args.Kind == ExtendedActivationKind.Launch &&
@@ -189,6 +222,14 @@ internal sealed class AppActivationHandler
             }
 
             var launchArguments = launchArgs.Arguments;
+            var shellActivationTileId = launchArgs.TileId;
+
+            if (RedirectedLaunchActivationOverride.TryConsume(args, out var redirectedLaunchActivation))
+            {
+                activationMode = redirectedLaunchActivation.Mode;
+                launchArguments = redirectedLaunchActivation.LaunchArguments;
+                shellActivationTileId = redirectedLaunchActivation.TileId ?? shellActivationTileId;
+            }
 
             if (Program.TryConsumeRedirectedAlternateModeOverride())
             {
@@ -197,9 +238,10 @@ internal sealed class AppActivationHandler
 
             activationMode = AppModeActivationResolver.Resolve(
                 launchArguments,
-                launchArgs.TileId,
+                shellActivationTileId,
                 null,
                 activationMode);
+            launchArguments = EnsureModeLaunchArgument(launchArguments, activationMode);
 
             return new RedirectedActivationRoute(
                 AppActivationPath.StandardLaunch,
@@ -207,7 +249,7 @@ internal sealed class AppActivationHandler
                 activationMode,
                 shouldActivateWindow,
                 ShellActivationArguments: launchArguments,
-                ShellActivationTileId: launchArgs.TileId);
+                ShellActivationTileId: shellActivationTileId);
         }
 
         if (TryResolveActivationMode(args, activationMode, out var redirectedMode))
@@ -231,11 +273,18 @@ internal sealed class AppActivationHandler
     {
         _host.LogActivation($"Handling redirected activation path: {ActivationPathNames.GetDisplayName(route.Path)}.");
 
-        if (route.Path == AppActivationPath.AppNotification &&
-            route.AppNotificationArgs != null)
+        if (route.Path == AppActivationPath.AppNotification)
         {
-            _host.LogActivation($"Processing redirected notification activation. Arguments: {route.AppNotificationArgs.Argument}");
-            await _notificationHandler.HandleActivationAsync(route.AppNotificationArgs.Argument, route.AppNotificationArgs.UserInput);
+            if (route.ToastArguments != null)
+            {
+                _host.LogActivation("Processing redirected notification activation.");
+                await _notificationHandler.HandleActivationAsync(route.ToastArguments, route.UserInput);
+            }
+            else
+            {
+                _host.LogActivation("Redirected app notification activation did not contain a toast payload.");
+            }
+
             return;
         }
 
@@ -243,6 +292,16 @@ internal sealed class AppActivationHandler
         {
             _host.LogActivation("Processing redirected share target activation.");
             await _host.HandleShareTargetActivationAsync(route.ActivationArgs, activateWindow: true);
+            return;
+        }
+
+        if (route.Path == AppActivationPath.MailToProtocol)
+        {
+            _host.LogActivation("Processing redirected mailto protocol activation.");
+            if (route.MailToUri != null)
+            {
+                await _host.HandleMailToProtocolActivationAsync(route.MailToUri, activateWindow: true);
+            }
             return;
         }
 
@@ -259,11 +318,43 @@ internal sealed class AppActivationHandler
     private static bool CanHandlePendingBootstrapActivation(PendingBootstrapActivation pendingBootstrapActivation)
         => pendingBootstrapActivation.Mode == WinoApplicationMode.Calendar;
 
+    private static bool TryCreateMailToUri(AppActivationArguments activationArgs, out MailToUri? mailToUri)
+    {
+        mailToUri = null;
+
+        if (activationArgs.Kind != ExtendedActivationKind.Protocol ||
+            activationArgs.Data is not IProtocolActivatedEventArgs { Uri: { } protocolUri } ||
+            !string.Equals(protocolUri.Scheme, "mailto", System.StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        try
+        {
+            mailToUri = new MailToUri(protocolUri.AbsoluteUri);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static IDictionary<string, string>? CopyUserInput(IDictionary<string, string>? userInput)
+        => userInput == null ? null : new Dictionary<string, string>(userInput);
+
     private static string AppendLaunchArgument(string? launchArguments, string launchArgument)
     {
         return string.IsNullOrWhiteSpace(launchArguments)
             ? launchArgument
             : $"{launchArguments} {launchArgument}";
+    }
+
+    private static string EnsureModeLaunchArgument(string? launchArguments, WinoApplicationMode mode)
+    {
+        return string.IsNullOrWhiteSpace(launchArguments)
+            ? AppEntryConstants.GetModeLaunchArgument(mode)
+            : launchArguments;
     }
 
     private static bool TryResolveActivationMode(AppActivationArguments activationArgs, WinoApplicationMode defaultMode, out WinoApplicationMode mode)

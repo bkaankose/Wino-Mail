@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Windows.AppLifecycle;
 using Microsoft.Windows.AppNotifications;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Launch;
 
 namespace Wino.Mail.WinUI.Activation;
 
@@ -13,6 +15,7 @@ internal enum AppActivationPath
     WelcomeWithoutAccounts,
     StandardLaunch,
     ShareTarget,
+    MailToProtocol,
     CalendarEntryBootstrap,
     AppNotification,
     ToastLaunch,
@@ -44,6 +47,7 @@ internal readonly record struct LaunchActivationRoute(
     AppNotificationActivatedEventArgs? AppNotificationArgs = null,
     NotificationActivationRoute NotificationRoute = default,
     NotificationArguments? ToastArguments = null,
+    MailToUri? MailToUri = null,
     PendingBootstrapActivation? PendingBootstrapActivation = null)
 {
     public bool RequiresAppHostInfrastructure => Path switch
@@ -61,6 +65,8 @@ internal readonly record struct RedirectedActivationRoute(
     string? ShellActivationArguments = null,
     string? ShellActivationTileId = null,
     NotificationArguments? ToastArguments = null,
+    IDictionary<string, string>? UserInput = null,
+    MailToUri? MailToUri = null,
     AppNotificationActivatedEventArgs? AppNotificationArgs = null);
 
 internal static class ActivationPathNames
@@ -72,6 +78,7 @@ internal static class ActivationPathNames
             AppActivationPath.WelcomeWithoutAccounts => "welcome window without accounts",
             AppActivationPath.StandardLaunch => "standard launch",
             AppActivationPath.ShareTarget => "share target",
+            AppActivationPath.MailToProtocol => "mailto protocol",
             AppActivationPath.CalendarEntryBootstrap => "calendar entry bootstrap",
             AppActivationPath.AppNotification => "app notification",
             AppActivationPath.ToastLaunch => "toast launch",

@@ -112,6 +112,7 @@ public class Program
                 SignalForceAlternateMode();
             }
 
+            RedirectedLaunchActivationOverride.QueueIfNeeded(args);
             RedirectActivationTo(args, keyInstance);
         }
 
@@ -187,6 +188,9 @@ public class Program
 
     [DllImport("user32.dll")]
     static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool AllowSetForegroundWindow(uint dwProcessId);
 
     [DllImport("user32.dll")]
     private static extern short GetAsyncKeyState(int vKey);
@@ -270,6 +274,13 @@ public class Program
     public static void RedirectActivationTo(AppActivationArguments args,
                                             AppInstance keyInstance)
     {
+        var shouldBringWindowToForeground = ShouldBringWindowToForegroundAfterRedirection(args);
+
+        if (shouldBringWindowToForeground)
+        {
+            AllowSetForegroundWindow(keyInstance.ProcessId);
+        }
+
         redirectEventHandle = CreateEvent(IntPtr.Zero, true, false, null!);
         Task.Run(() =>
         {
@@ -283,10 +294,15 @@ public class Program
            CWMO_DEFAULT, INFINITE, 1,
            [redirectEventHandle], out uint handleIndex);
 
-        if (ShouldBringWindowToForegroundAfterRedirection(args))
+        if (shouldBringWindowToForeground)
         {
             Process process = Process.GetProcessById((int)keyInstance.ProcessId);
-            SetForegroundWindow(process.MainWindowHandle);
+            process.Refresh();
+
+            if (process.MainWindowHandle != IntPtr.Zero)
+            {
+                SetForegroundWindow(process.MainWindowHandle);
+            }
         }
     }
 

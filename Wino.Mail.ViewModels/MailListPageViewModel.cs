@@ -208,6 +208,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         SelectedFilterOption = FilterOptions[0];
         SelectedSortingOption = SortingOptions[0];
+        MailCollection.IsThreadingEnabled = PreferencesService.IsThreadingEnabled;
         MailCollection.ThreadItemFactory = threadId => new ThreadMailItemViewModel(threadId, PreferencesService.IsNewestThreadMailFirst);
 
         MailListLength = statePersistenceService.MailListPaneLength;
@@ -391,6 +392,18 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     private async void PreferencesServiceChanged(object sender, string propertyName)
     {
+        if (propertyName == nameof(IPreferencesService.IsThreadingEnabled))
+        {
+            MailCollection.IsThreadingEnabled = PreferencesService.IsThreadingEnabled;
+
+            if (ActiveFolder != null)
+            {
+                await InitializeFolderAsync();
+            }
+
+            return;
+        }
+
         if (propertyName != nameof(IPreferencesService.IsShowEmptyJunkFolderEnabled))
             return;
 

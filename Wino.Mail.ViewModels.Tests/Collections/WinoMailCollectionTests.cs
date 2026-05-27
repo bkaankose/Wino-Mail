@@ -62,6 +62,23 @@ public class WinoMailCollectionTests
     }
 
     [Fact]
+    public async Task AddAsync_ShouldKeepItemsSeparate_WhenThreadingIsDisabled()
+    {
+        var sut = CreateCollection();
+        sut.IsThreadingEnabled = false;
+
+        var first = CreateMailCopy(threadId: "shared-thread", creationDate: DateTime.UtcNow.AddMinutes(-1));
+        var second = CreateMailCopy(threadId: "shared-thread", creationDate: DateTime.UtcNow);
+
+        await sut.AddAsync(first);
+        await sut.AddAsync(second);
+
+        var items = FlattenItems(sut);
+        items.Should().HaveCount(2);
+        items.Should().OnlyContain(item => item is MailItemViewModel);
+    }
+
+    [Fact]
     public async Task RemoveAsync_ShouldConvertThreadToSingleItem_WhenThreadDropsToOneItem()
     {
         var sut = CreateCollection();
@@ -136,6 +153,22 @@ public class WinoMailCollectionTests
         var threadItems = items.OfType<ThreadMailItemViewModel>().ToList();
         threadItems.Should().Contain(item => item.ThreadId == "thread-a" && item.EmailCount == 2);
         threadItems.Should().Contain(item => item.ThreadId == "thread-c" && item.EmailCount == 2);
+    }
+
+    [Fact]
+    public async Task AddRangeAsync_ShouldKeepItemsSeparate_WhenThreadingIsDisabled()
+    {
+        var sut = CreateCollection();
+        sut.IsThreadingEnabled = false;
+
+        var first = new MailItemViewModel(CreateMailCopy(threadId: "shared-thread", creationDate: DateTime.UtcNow.AddMinutes(-1)));
+        var second = new MailItemViewModel(CreateMailCopy(threadId: "shared-thread", creationDate: DateTime.UtcNow));
+
+        await sut.AddRangeAsync([first, second], clearIdCache: true);
+
+        var items = FlattenItems(sut);
+        items.Should().HaveCount(2);
+        items.Should().OnlyContain(item => item is MailItemViewModel);
     }
 
     [Fact]

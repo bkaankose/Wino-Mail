@@ -14,8 +14,17 @@ internal static class WindowCleanupHelper
             return;
 
         CleanupObject(frame.Content);
-        frame.BackStack.Clear();
-        frame.ForwardStack.Clear();
+
+        if (frame.BackStack.Count > 0)
+        {
+            frame.BackStack.Clear();
+        }
+
+        if (frame.ForwardStack.Count > 0)
+        {
+            frame.ForwardStack.Clear();
+        }
+
         frame.Content = null;
     }
 

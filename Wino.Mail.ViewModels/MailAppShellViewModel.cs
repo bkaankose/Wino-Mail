@@ -1148,32 +1148,53 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         accountMenuItem.UpdateAccount(accountModel);
     }
 
-    public async void Receive(MailtoProtocolMessageRequested message)
+    public void Receive(MailtoProtocolMessageRequested message)
+        => _ = ExecuteUIThread(() => _ = HandleMailToProtocolMessageAsync());
+
+    private async Task HandleMailToProtocolMessageAsync()
     {
+        var mailToUri = _launchProtocolService.MailToUri;
+        if (mailToUri == null)
+            return;
+
         var accounts = await GetMailEnabledAccountsAsync();
 
         MailAccount targetAccount = null;
 
-        if (!accounts.Any())
+        try
         {
-            await _dialogService.ShowMessageAsync(Translator.DialogMessage_NoAccountsForCreateMailMessage,
-                                                 Translator.DialogMessage_NoAccountsForCreateMailTitle,
-                                                 WinoCustomMessageDialogIcon.Warning);
+            if (!accounts.Any())
+            {
+                await _dialogService.ShowMessageAsync(Translator.DialogMessage_NoAccountsForCreateMailMessage,
+                                                     Translator.DialogMessage_NoAccountsForCreateMailTitle,
+                                                     WinoCustomMessageDialogIcon.Warning);
+            }
+            else if (accounts.Count == 1)
+            {
+                targetAccount = accounts[0];
+            }
+            else
+            {
+                // User must pick an account.
+
+                targetAccount = await _dialogService.ShowAccountPickerDialogAsync(accounts);
+            }
+
+            if (targetAccount == null) return;
+
+            await CreateNewMailForAsync(targetAccount);
         }
-        else if (accounts.Count == 1)
+        catch (Exception ex)
         {
-            targetAccount = accounts[0];
+            Log.Error(ex, "Failed to handle mailto protocol activation.");
         }
-        else
+        finally
         {
-            // User must pick an account.
-
-            targetAccount = await _dialogService.ShowAccountPickerDialogAsync(accounts);
+            if (ReferenceEquals(_launchProtocolService.MailToUri, mailToUri))
+            {
+                _launchProtocolService.MailToUri = null;
+            }
         }
-
-        if (targetAccount == null) return;
-
-        await CreateNewMailForAsync(targetAccount);
     }
 
     public async Task HandlePendingShareRequestAsync()

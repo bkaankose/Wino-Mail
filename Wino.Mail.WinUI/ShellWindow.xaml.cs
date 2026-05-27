@@ -69,7 +69,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         ConfigureTitleBar();
         ApplyTitleBarSearchHost();
 
-        // Handle window closing event to minimize to tray when the preference is enabled.
+        // Handle window closing event for terminate vs background/tray behavior.
         Closed += OnWindowClosed;
 
         // Use the AppWindow.Closing event to handle the close request
