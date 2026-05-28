@@ -30,6 +30,8 @@ public class ImapTestService : IImapTestService
 
         // Test SMTP connectivity.
         using var smtpClient = new SmtpClient();
+        smtpClient.ServerCertificateValidationCallback = (_, certificate, _, sslPolicyErrors)
+            => MailKitServerCertificateValidator.Validate(certificate, sslPolicyErrors, !allowSSLHandShake);
 
         if (!smtpClient.IsConnected)
             await smtpClient.ConnectAsync(serverInformation.OutgoingServer, int.Parse(serverInformation.OutgoingServerPort), MailKit.Security.SecureSocketOptions.Auto);

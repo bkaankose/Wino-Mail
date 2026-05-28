@@ -11,6 +11,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authentication;
 using Wino.Core.Domain.Models.Connectivity;
@@ -115,22 +116,47 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         catch (ImapTestSSLCertificateException sslTestException)
         {
             _logger.Warning("IMAP connectivity test requires SSL certificate confirmation");
-            return ImapConnectivityTestResults.CertificateUIRequired(
-                sslTestException.Issuer,
-                sslTestException.ExpirationDateString,
-                sslTestException.ValidFromDateString);
+            return CreateCertificateUIRequiredResult(sslTestException);
         }
         catch (ImapClientPoolException clientPoolException)
         {
+            if (TryGetSslCertificateException(clientPoolException, out var sslTestException))
+            {
+                _logger.Warning("IMAP connectivity test requires SSL certificate confirmation");
+                return CreateCertificateUIRequiredResult(sslTestException);
+            }
+
             _logger.Error(clientPoolException, "IMAP connectivity test failed");
             return ImapConnectivityTestResults.Failure(clientPoolException.InnerException ?? clientPoolException);
         }
         catch (Exception exception)
         {
+            if (TryGetSslCertificateException(exception, out var sslTestException))
+            {
+                _logger.Warning("IMAP connectivity test requires SSL certificate confirmation");
+                return CreateCertificateUIRequiredResult(sslTestException);
+            }
+
             _logger.Error(exception, "IMAP connectivity test failed");
             return ImapConnectivityTestResults.Failure(exception);
         }
     }
+
+    internal static bool TryGetSslCertificateException(Exception exception, out ImapTestSSLCertificateException sslException)
+    {
+        sslException = exception?
+            .GetInnerExceptions()
+            .OfType<ImapTestSSLCertificateException>()
+            .FirstOrDefault();
+
+        return sslException != null;
+    }
+
+    private static ImapConnectivityTestResults CreateCertificateUIRequiredResult(ImapTestSSLCertificateException sslTestException)
+        => ImapConnectivityTestResults.CertificateUIRequired(
+            sslTestException.Issuer,
+            sslTestException.ExpirationDateString,
+            sslTestException.ValidFromDateString);
 
     /// <summary>
     /// Starts a new mail synchronization for the given account.

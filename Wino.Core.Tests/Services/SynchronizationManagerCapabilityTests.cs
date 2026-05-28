@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Services;
 using Xunit;
 
@@ -55,5 +56,28 @@ public sealed class SynchronizationManagerCapabilityTests
         };
 
         SynchronizationManager.RequiresSynchronizerRefresh(cachedAccount, currentAccount).Should().BeFalse();
+    }
+
+    [Fact]
+    public void TryGetSslCertificateException_ReturnsTrue_WhenCertificateExceptionIsNested()
+    {
+        var certificateException = new ImapTestSSLCertificateException("issuer", "expires", "valid-from");
+        var exception = new ImapClientPoolException(new InvalidOperationException("wrapped", certificateException));
+
+        var found = SynchronizationManager.TryGetSslCertificateException(exception, out var result);
+
+        found.Should().BeTrue();
+        result.Should().BeSameAs(certificateException);
+    }
+
+    [Fact]
+    public void TryGetSslCertificateException_ReturnsFalse_WhenNoCertificateExceptionExists()
+    {
+        var exception = new ImapClientPoolException(new InvalidOperationException("wrapped"));
+
+        var found = SynchronizationManager.TryGetSslCertificateException(exception, out var result);
+
+        found.Should().BeFalse();
+        result.Should().BeNull();
     }
 }

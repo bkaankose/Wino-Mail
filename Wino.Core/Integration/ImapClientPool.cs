@@ -726,19 +726,7 @@ public class ImapClientPool : IDisposable
     };
 
     private bool MyServerCertificateValidationCallback(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
-    {
-        if (sslPolicyErrors == SslPolicyErrors.None) return true;
-
-        if (ThrowOnSSLHandshakeCallback)
-        {
-            throw new ImapTestSSLCertificateException(
-                certificate.Issuer,
-                certificate.GetExpirationDateString(),
-                certificate.GetEffectiveDateString());
-        }
-
-        return true;
-    }
+        => MailKitServerCertificateValidator.Validate(certificate, sslPolicyErrors, ThrowOnSSLHandshakeCallback);
 
     // Legacy compatibility methods
     public Task<bool> EnsureConnectedAsync(IImapClient client) =>
