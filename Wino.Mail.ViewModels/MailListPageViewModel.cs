@@ -776,6 +776,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             await _mailCategoryService.AssignCategoryAsync(category.Id, uniqueIds).ConfigureAwait(false);
         }
 
+        await ApplyCategoryAssignmentToVisibleItemsAsync(category, targetList, isAssignedToAll).ConfigureAwait(false);
+
         if (targetList.First().MailCopy.AssignedAccount.ProviderType != MailProviderType.Outlook)
             return;
 
@@ -787,6 +789,61 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }
 
         await _winoRequestDelegator.ExecuteAsync(accountId, requests).ConfigureAwait(false);
+    }
+
+    private Task ApplyCategoryAssignmentToVisibleItemsAsync(MailCategory category, IReadOnlyList<MailItemViewModel> targetItems, bool wasAssignedToAll)
+    {
+        if (category == null || targetItems == null || targetItems.Count == 0)
+            return Task.CompletedTask;
+
+        return ExecuteUIThread(() =>
+        {
+            foreach (var targetItem in targetItems.GroupBy(a => a.UniqueId).Select(a => a.First()))
+            {
+                if (targetItem?.MailCopy == null)
+                    continue;
+
+                if (TryGetUpdatedCategories(targetItem.Categories, category, wasAssignedToAll, out var updatedCategories))
+                {
+                    targetItem.UpdateCategories(updatedCategories);
+                }
+            }
+        });
+    }
+
+    private static bool TryGetUpdatedCategories(IReadOnlyList<MailCategory> currentCategories,
+                                                MailCategory category,
+                                                bool wasAssignedToAll,
+                                                out IReadOnlyList<MailCategory> updatedCategories)
+    {
+        currentCategories ??= [];
+
+        if (wasAssignedToAll)
+        {
+            if (!currentCategories.Any(a => a?.Id == category.Id))
+            {
+                updatedCategories = currentCategories;
+                return false;
+            }
+
+            updatedCategories = currentCategories
+                .Where(a => a?.Id != category.Id)
+                .ToList();
+            return true;
+        }
+
+        if (currentCategories.Any(a => a?.Id == category.Id))
+        {
+            updatedCategories = currentCategories;
+            return false;
+        }
+
+        updatedCategories = currentCategories
+            .Where(a => a != null)
+            .Append(category)
+            .OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        return true;
     }
 
     public Task ChangePinnedStatusAsync(IEnumerable<MailItemViewModel> targetItems, bool isPinned)

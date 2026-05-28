@@ -29,7 +29,7 @@
                 Margin="0,0,4,0"
                 Padding="6,2"
                 Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}"
-                CornerRadius="8">
+                CornerRadius="4">
                 <TextBlock
                     Foreground="{x:Bind helpers:XamlHelpers.GetCategoryTextBrush(TextColorHex, BackgroundColorHex), Mode=OneWay}"
                     Style="{StaticResource CaptionTextBlockStyle}"
@@ -246,7 +246,7 @@
                             HorizontalAlignment="Left"
                             ItemTemplate="{StaticResource DetailedMailCategoryTemplate}"
                             ItemsSource="{x:Bind MailItemInformation.Categories, Mode=OneWay}"
-                            Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(MailItemInformation.Categories.Count), Mode=OneWay}">
+                            Visibility="{x:Bind MailItemInformation.HasCategories, Mode=OneWay}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <StackPanel Orientation="Horizontal" />
