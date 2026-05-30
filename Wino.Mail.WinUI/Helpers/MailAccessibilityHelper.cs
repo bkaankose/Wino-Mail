@@ -1,8 +1,12 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Mail.WinUI;
 
 namespace Wino.Mail.WinUI.Helpers;
 
@@ -42,7 +46,7 @@ public static class MailAccessibilityHelper
 
         parts.Add(GetSubject(mailItem.Subject));
         parts.Add(GetSender(mailItem));
-        parts.Add(mailItem.CreationDate.ToLocalTime().ToString("g", CultureInfo.CurrentUICulture));
+        parts.Add(GetDateTimeText(mailItem.CreationDate.ToLocalTime()));
 
         if (!string.IsNullOrWhiteSpace(mailItem.PreviewText))
         {
@@ -65,5 +69,16 @@ public static class MailAccessibilityHelper
         return string.IsNullOrWhiteSpace(mailItem.FromAddress)
             ? Translator.UnknownSender
             : mailItem.FromAddress.Trim();
+    }
+
+    private static string GetDateTimeText(DateTime dateTime)
+    {
+        var culture = CultureInfo.DefaultThreadCurrentUICulture ?? CultureInfo.CurrentUICulture;
+        var preferencesService = WinoApplication.Current.Services.GetRequiredService<IPreferencesService>();
+        var displayType = preferencesService.Prefer24HourTimeFormat
+            ? DayHeaderDisplayType.TwentyFourHour
+            : DayHeaderDisplayType.TwelveHour;
+
+        return $"{dateTime.ToString("d", culture)} {DateTimeDisplayFormatter.FormatTime(dateTime, displayType, culture)}";
     }
 }

@@ -626,10 +626,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         {
             for (int minute = 0; minute < 60; minute += 30)
             {
-                var time = new DateTime(1, 1, 1, hour, minute, 0);
-                timeStrings.Add(CurrentSettings.DayHeaderDisplayType == DayHeaderDisplayType.TwentyFourHour
-                    ? time.ToString("HH:mm")
-                    : time.ToString("h:mm tt"));
+                timeStrings.Add(CurrentSettings.GetTimeString(new TimeSpan(hour, minute, 0)));
             }
         }
 

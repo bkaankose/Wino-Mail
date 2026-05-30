@@ -21,7 +21,7 @@ namespace Wino.Controls;
 
 public sealed partial class CalendarMailItemDisplayInformationControl : UserControl
 {
-    private static readonly ConcurrentDictionary<Guid, string> EventDateRangeCache = [];
+    private static readonly ConcurrentDictionary<(Guid FileId, string CultureName, bool Prefer24HourTimeFormat), string> EventDateRangeCache = [];
 
     private readonly IMimeFileService _mimeFileService;
     private readonly IPreferencesService _preferencesService;
@@ -72,7 +72,8 @@ public sealed partial class CalendarMailItemDisplayInformationControl : UserCont
             return;
         }
 
-        if (EventDateRangeCache.TryGetValue(MailItem.MailCopy.FileId, out var cachedValue))
+        var cacheKey = (MailItem.MailCopy.FileId, GetDisplayCulture().Name, Prefer24HourTimeFormat);
+        if (EventDateRangeCache.TryGetValue(cacheKey, out var cachedValue))
         {
             EventDateRangeText = cachedValue;
             return;
@@ -104,7 +105,7 @@ public sealed partial class CalendarMailItemDisplayInformationControl : UserCont
             var renderedDateRange = ExtractCalendarDateRange(mimeInfo.MimeMessage);
 
             EventDateRangeText = string.IsNullOrWhiteSpace(renderedDateRange) ? Translator.UnknownDateHeader : renderedDateRange;
-            EventDateRangeCache.TryAdd(MailItem.MailCopy.FileId, EventDateRangeText);
+            EventDateRangeCache.TryAdd(cacheKey, EventDateRangeText);
         }
         catch (OperationCanceledException)
         {
@@ -351,7 +352,7 @@ public sealed partial class CalendarMailItemDisplayInformationControl : UserCont
             endLocal = startLocal;
         }
 
-        var culture = CultureInfo.DefaultThreadCurrentUICulture;
+        var culture = GetDisplayCulture();
         if (isAllDay)
         {
             var adjustedEnd = endLocal.Date > startLocal.Date ? endLocal.Date.AddDays(-1) : startLocal.Date;
@@ -364,7 +365,8 @@ public sealed partial class CalendarMailItemDisplayInformationControl : UserCont
             return $"{startLocal.ToString("d", culture)} ({Translator.CalendarItemAllDay})";
         }
 
-        var timeFormat = Prefer24HourTimeFormat ? "HH:mm" : "h:mm tt";
+        var displayType = Prefer24HourTimeFormat ? DayHeaderDisplayType.TwentyFourHour : DayHeaderDisplayType.TwelveHour;
+        var timeFormat = DateTimeDisplayFormatter.GetTimeFormat(displayType);
 
         if (startLocal.Date == endLocal.Date)
         {
@@ -373,6 +375,9 @@ public sealed partial class CalendarMailItemDisplayInformationControl : UserCont
 
         return $"{startLocal.ToString($"ddd, MMM d {timeFormat}", culture)} - {endLocal.ToString($"ddd, MMM d {timeFormat}", culture)}";
     }
+
+    private static CultureInfo GetDisplayCulture()
+        => CultureInfo.DefaultThreadCurrentUICulture ?? CultureInfo.CurrentUICulture;
 
     private void OnControlUnloaded(object sender, RoutedEventArgs e)
     {

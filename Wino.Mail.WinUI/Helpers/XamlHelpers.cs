@@ -23,8 +23,6 @@ namespace Wino.Helpers;
 
 public static class XamlHelpers
 {
-    private const string TwentyFourHourTimeFormat = "HH:mm";
-    private const string TwelveHourTimeFormat = "hh:mm tt";
     private static CultureInfo AppDisplayCulture => CultureInfo.DefaultThreadCurrentUICulture ?? CultureInfo.CurrentUICulture;
 
     #region Converters
@@ -191,15 +189,20 @@ public static class XamlHelpers
         else
         {
             var localTime = receivedDate.ToLocalTime();
+            var displayType = GetDisplayType(prefer24HourTime);
 
-            return prefer24HourTime ? localTime.ToString(TwentyFourHourTimeFormat) : localTime.ToString(TwelveHourTimeFormat);
+            return DateTimeDisplayFormatter.FormatTime(localTime, displayType, AppDisplayCulture);
         }
     }
     public static string GetCreationDateString(DateTime date, bool prefer24HourTime)
     {
         var localTime = date.ToLocalTime();
-        return $"{localTime.ToString("D", AppDisplayCulture)} {(prefer24HourTime ? localTime.ToString(TwentyFourHourTimeFormat) : localTime.ToString(TwelveHourTimeFormat))}";
+        var displayType = GetDisplayType(prefer24HourTime);
+        return $"{localTime.ToString("D", AppDisplayCulture)} {DateTimeDisplayFormatter.FormatTime(localTime, displayType, AppDisplayCulture)}";
     }
+
+    private static DayHeaderDisplayType GetDisplayType(bool prefer24HourTime)
+        => prefer24HourTime ? DayHeaderDisplayType.TwentyFourHour : DayHeaderDisplayType.TwelveHour;
     public static string GetMailGroupDateString(object groupObject)
     {
         if (groupObject is MailListGroupKey pinnedGroupKey)

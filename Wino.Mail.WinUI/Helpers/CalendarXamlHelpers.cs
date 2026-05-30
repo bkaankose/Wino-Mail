@@ -25,8 +25,8 @@ public static class CalendarXamlHelpers
         var start = calendarItemViewModel.Period.Start;
         var end = calendarItemViewModel.Period.End;
 
-        string timeFormat = settings.DayHeaderDisplayType == DayHeaderDisplayType.TwelveHour ? "h:mm tt" : "HH:mm";
-        string dateFormat = settings.DayHeaderDisplayType == DayHeaderDisplayType.TwelveHour ? "dddd, dd MMMM h:mm tt" : "dddd, dd MMMM HH:mm";
+        var timeFormat = DateTimeDisplayFormatter.GetTimeFormat(settings.DayHeaderDisplayType);
+        var dateFormat = $"dddd, dd MMMM {timeFormat}";
 
         if (calendarItemViewModel.IsMultiDayEvent)
         {

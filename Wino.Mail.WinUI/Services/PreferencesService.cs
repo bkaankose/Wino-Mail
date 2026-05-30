@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
@@ -180,7 +181,7 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
 
     public bool Prefer24HourTimeFormat
     {
-        get => _configurationService.Get(nameof(Prefer24HourTimeFormat), false);
+        get => _configurationService.Get(nameof(Prefer24HourTimeFormat), DateTimeDisplayFormatter.UsesTwentyFourHourClock(GetCurrentLanguageCulture()));
         set => SetPropertyAndSave(nameof(Prefer24HourTimeFormat), value);
     }
 
@@ -501,9 +502,12 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
                                     WorkingHourEnd,
                                     HourHeight,
                                     Prefer24HourTimeFormat ? DayHeaderDisplayType.TwentyFourHour : DayHeaderDisplayType.TwelveHour,
-                                    new CultureInfo(WinoTranslationDictionary.GetLanguageFileNameRelativePath(CurrentLanguage)),
+                                    GetCurrentLanguageCulture(),
                                     CalendarTimedDayHeaderDateFormat);
     }
+
+    private CultureInfo GetCurrentLanguageCulture()
+        => new(WinoTranslationDictionary.GetLanguageFileNameRelativePath(CurrentLanguage));
 
     private List<DayOfWeek> GetDaysBetween(DayOfWeek startDay, DayOfWeek endDay)
     {

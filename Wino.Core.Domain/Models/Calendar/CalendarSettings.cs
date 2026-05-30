@@ -42,7 +42,9 @@ public record CalendarSettings(DayOfWeek FirstDayOfWeek,
         // User may list as 14:00 but enters 2:00 PM by input.
         // Be flexible, not annoying.
 
-        if (DateTime.TryParse(selectedTime, out DateTime parsedTime))
+        if (DateTime.TryParse(selectedTime, CultureInfo, DateTimeStyles.None, out DateTime parsedTime) ||
+            DateTime.TryParse(selectedTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out parsedTime) ||
+            DateTime.TryParse(selectedTime, CultureInfo.GetCultureInfo("en-US"), DateTimeStyles.None, out parsedTime))
         {
             return parsedTime.TimeOfDay;
         }
@@ -57,15 +59,7 @@ public record CalendarSettings(DayOfWeek FirstDayOfWeek,
         // Here we don't need to be flexible cuz we're saving back the value to the combos.
         // They are populated based on the format and must be returned with the format.
 
-        var format = DayHeaderDisplayType switch
-        {
-            DayHeaderDisplayType.TwelveHour => "h:mm tt",
-            DayHeaderDisplayType.TwentyFourHour => "HH:mm",
-            _ => throw new ArgumentOutOfRangeException(nameof(DayHeaderDisplayType))
-        };
-
-        var dateTime = DateTime.Today.Add(timeSpan);
-        return dateTime.ToString(format, CultureInfo.InvariantCulture);
+        return DateTimeDisplayFormatter.FormatTime(timeSpan, DayHeaderDisplayType, CultureInfo);
     }
 
     public string GetTimedDayHeaderText(DateOnly date)

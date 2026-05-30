@@ -121,7 +121,7 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
                 {
                     result.AssignedCalendar?.MailAccount?.Name,
                     result.AssignedCalendar?.Name,
-                    result.LocalStartDate.ToString("g")
+                    GetSearchResultDateTimeText(result.LocalStartDate)
                 }.Where(part => !string.IsNullOrWhiteSpace(part));
 
                 SearchSuggestions.Add(new TitleBarSearchSuggestion(result.Title, string.Join(" • ", subtitleParts), result));
@@ -135,6 +135,17 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
     public void OnTitleBarSearchSuggestionChosen(TitleBarSearchSuggestion suggestion)
     {
         SearchText = suggestion.Title;
+    }
+
+    private string GetSearchResultDateTimeText(DateTime dateTime)
+    {
+        var settings = ViewModel.CurrentSettings;
+        if (settings == null)
+        {
+            return dateTime.ToString("g");
+        }
+
+        return $"{dateTime.ToString("d", settings.CultureInfo)} {DateTimeDisplayFormatter.FormatTime(dateTime, settings.DayHeaderDisplayType, settings.CultureInfo)}";
     }
 
     public async Task OnTitleBarSearchSubmittedAsync(string queryText, TitleBarSearchSuggestion? chosenSuggestion)
