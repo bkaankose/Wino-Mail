@@ -23,7 +23,8 @@ public interface ISynchronizationManager
                         IImapTestService imapTestService,
                         IAccountService accountService,
                         INotificationBuilder notificationBuilder,
-                        IAuthenticationProvider authenticationProvider);
+                        IAuthenticationProvider authenticationProvider,
+                        IWinoTelemetryService telemetryService);
 
     /// <summary>
     /// Tests IMAP server connectivity for the given server information.

@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Animation;
@@ -17,6 +18,7 @@ using MimeKit.Cryptography;
 using Windows.ApplicationModel.Activation;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
+using Serilog;
 using Wino.Calendar.ViewModels;
 using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Core;
@@ -432,6 +434,12 @@ public partial class App : WinoApplication,
     public override IServiceProvider ConfigureServices()
     {
         var services = new ServiceCollection();
+
+        services.AddLogging(builder =>
+        {
+            builder.ClearProviders();
+            builder.AddSerilog(dispose: false);
+        });
 
         services.RegisterCoreServices();
         services.RegisterSharedServices();
