@@ -16,6 +16,10 @@ public class WinoLogger : IWinoLogger
 {
     private const string SentryDiagnosticIdTag = "diagnostic_id";
     private const string DiagnosticIdLogProperty = "DiagnosticId";
+    private const string AppVersionTag = "app_version";
+    private const string BuildConfigurationTag = "build_configuration";
+    private const string PackageNameTag = "package_name";
+    private const string DistTag = "dist";
     private const string ErrorOriginTag = "error_origin";
     private const string AccountSetupErrorOrigin = "AccountSetup";
     private const string DiagnosticLogsUploadOperation = "DiagnosticLogsUpload";
@@ -23,11 +27,16 @@ public class WinoLogger : IWinoLogger
     private readonly LoggingLevelSwitch _levelSwitch = new LoggingLevelSwitch();
     private readonly IPreferencesService _preferencesService;
     private readonly IApplicationConfiguration _applicationConfiguration;
+    private readonly IAppMetadataService _appMetadataService;
 
-    public WinoLogger(IPreferencesService preferencesService, IApplicationConfiguration applicationConfiguration)
+    public WinoLogger(
+        IPreferencesService preferencesService,
+        IApplicationConfiguration applicationConfiguration,
+        IAppMetadataService appMetadataService)
     {
         _preferencesService = preferencesService;
         _applicationConfiguration = applicationConfiguration;
+        _appMetadataService = appMetadataService;
 
         RefreshLoggingLevel();
     }
@@ -49,11 +58,17 @@ public class WinoLogger : IWinoLogger
         SentrySdk.Init(options =>
         {
             options.Dsn = _applicationConfiguration.SentryDNS;
+            options.Environment = _appMetadataService.SentryEnvironment;
+            options.Release = _appMetadataService.SentryRelease;
             options.DefaultTags[SentryDiagnosticIdTag] = diagnosticId;
+            options.DefaultTags[AppVersionTag] = _appMetadataService.AppVersion;
+            options.DefaultTags[BuildConfigurationTag] = _appMetadataService.BuildConfiguration;
+            options.DefaultTags[PackageNameTag] = _appMetadataService.PackageName;
+            options.DefaultTags[DistTag] = _appMetadataService.SentryDist;
 #if DEBUG
             options.Debug = false;
 #else
-            options.Debug = true;
+            options.Debug = false;
 #endif
             options.AutoSessionTracking = true;
 
@@ -64,22 +79,24 @@ public class WinoLogger : IWinoLogger
                 var isAccountSetupError = sentryEvent.Tags.TryGetValue(ErrorOriginTag, out var errorOrigin)
                     && string.Equals(errorOrigin, AccountSetupErrorOrigin, System.StringComparison.Ordinal);
 
-                if (sentryEvent.Exception is SynchronizerException && !isAccountSetupError)
+                if (ShouldDropHandledSynchronizationEvent(sentryEvent, isAccountSetupError))
                     return null;
 
                 ApplyDiagnosticId(sentryEvent, _preferencesService.DiagnosticId);
+                ApplyAppMetadata(sentryEvent);
                 return sentryEvent;
             });
         });
 
         ApplyDiagnosticIdToScope(diagnosticId);
+        ApplyAppMetadataToScope();
         RegisterPreferenceChangedHandler();
 
         Log.Logger = new LoggerConfiguration()
                     .MinimumLevel.ControlledBy(_levelSwitch)
                     .WriteTo.File(fullLogFilePath, retainedFileCountLimit: 3, rollOnFileSizeLimit: true, rollingInterval: RollingInterval.Day)
                     .WriteTo.Sentry(minimumBreadcrumbLevel: Serilog.Events.LogEventLevel.Information,
-                                   minimumEventLevel: Serilog.Events.LogEventLevel.Error)
+                                   minimumEventLevel: Serilog.Events.LogEventLevel.Fatal)
                     .WriteTo.Debug()
                     .Enrich.FromLogContext()
                     .Enrich.With(new DiagnosticIdEnricher(_preferencesService))
@@ -94,6 +111,7 @@ public class WinoLogger : IWinoLogger
         SentrySdk.ConfigureScope(scope =>
         {
             ApplyDiagnosticId(scope, _preferencesService.DiagnosticId);
+            ApplyAppMetadata(scope);
 
             if (properties != null)
             {
@@ -112,6 +130,7 @@ public class WinoLogger : IWinoLogger
         SentrySdk.CaptureException(exception, scope =>
         {
             ApplyDiagnosticId(scope, _preferencesService.DiagnosticId);
+            ApplyAppMetadata(scope);
 
             if (!string.IsNullOrWhiteSpace(operationName))
             {
@@ -142,6 +161,7 @@ public class WinoLogger : IWinoLogger
         };
 
         ApplyDiagnosticId(sentryEvent, diagnosticId);
+        ApplyAppMetadata(sentryEvent);
         sentryEvent.SetTag("operation", DiagnosticLogsUploadOperation);
 
         var hint = new SentryHint();
@@ -150,6 +170,7 @@ public class WinoLogger : IWinoLogger
         SentrySdk.CaptureEvent(sentryEvent, hint, scope =>
         {
             ApplyDiagnosticId(scope, diagnosticId);
+            ApplyAppMetadata(scope);
             scope.SetTag("operation", DiagnosticLogsUploadOperation);
         });
 
@@ -189,6 +210,53 @@ public class WinoLogger : IWinoLogger
         sentryEvent.User.Id = diagnosticId;
         sentryEvent.SetTag(SentryDiagnosticIdTag, diagnosticId);
         sentryEvent.SetExtra(DiagnosticIdLogProperty, diagnosticId);
+    }
+
+    private void ApplyAppMetadataToScope()
+        => SentrySdk.ConfigureScope(ApplyAppMetadata);
+
+    private void ApplyAppMetadata(Scope scope)
+    {
+        scope.SetTag(AppVersionTag, _appMetadataService.AppVersion);
+        scope.SetTag(BuildConfigurationTag, _appMetadataService.BuildConfiguration);
+        scope.SetTag(PackageNameTag, _appMetadataService.PackageName);
+        scope.SetTag(DistTag, _appMetadataService.SentryDist);
+        scope.SetExtra("SentryEnvironment", _appMetadataService.SentryEnvironment);
+        scope.SetExtra("SentryRelease", _appMetadataService.SentryRelease);
+        scope.SetExtra("SentryDist", _appMetadataService.SentryDist);
+    }
+
+    private void ApplyAppMetadata(SentryEvent sentryEvent)
+    {
+        sentryEvent.SetTag(AppVersionTag, _appMetadataService.AppVersion);
+        sentryEvent.SetTag(BuildConfigurationTag, _appMetadataService.BuildConfiguration);
+        sentryEvent.SetTag(PackageNameTag, _appMetadataService.PackageName);
+        sentryEvent.SetTag(DistTag, _appMetadataService.SentryDist);
+        sentryEvent.SetExtra("SentryEnvironment", _appMetadataService.SentryEnvironment);
+        sentryEvent.SetExtra("SentryRelease", _appMetadataService.SentryRelease);
+        sentryEvent.SetExtra("SentryDist", _appMetadataService.SentryDist);
+    }
+
+    private static bool ShouldDropHandledSynchronizationEvent(SentryEvent sentryEvent, bool isAccountSetupError)
+    {
+        if (isAccountSetupError || sentryEvent.Level == SentryLevel.Fatal)
+            return false;
+
+        if (sentryEvent.Exception is SynchronizerException)
+            return true;
+
+        var logger = sentryEvent.Logger ?? string.Empty;
+        if (logger.Contains("Synchronizer", StringComparison.Ordinal) ||
+            logger.Contains("ImapClientPool", StringComparison.Ordinal) ||
+            logger.Contains("GraphRateLimitHandler", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        var exceptionType = sentryEvent.Exception?.GetType().FullName ?? string.Empty;
+        return exceptionType.Contains("MailKit", StringComparison.Ordinal) ||
+               exceptionType.Contains("Google.GoogleApiException", StringComparison.Ordinal) ||
+               exceptionType.Contains("Microsoft.Graph", StringComparison.Ordinal);
     }
 
     private sealed class DiagnosticIdEnricher(IPreferencesService preferencesService) : ILogEventEnricher

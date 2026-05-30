@@ -4,6 +4,7 @@ using Windows.ApplicationModel;
 using Windows.Storage;
 using Windows.System;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Telemetry;
 
 
 
@@ -14,7 +15,7 @@ using Microsoft.UI.Xaml.Controls;
 
 namespace Wino.Services;
 
-public class NativeAppService : INativeAppService
+public class NativeAppService : INativeAppService, IAppMetadataService
 {
     private string _mimeMessagesFolder = string.Empty;
     private string _editorBundlePath = string.Empty;
@@ -85,6 +86,22 @@ public class NativeAppService : INativeAppService
 
         return string.Format("{0}.{1}.{2}.{3}", version.Major, version.Minor, version.Build, version.Revision);
     }
+
+    public string AppVersion => GetFullAppVersion();
+
+    public string PackageName => Package.Current.Id.Name;
+
+#if DEBUG
+    public string BuildConfiguration => AppTelemetryMetadata.GetBuildConfiguration(isDebug: true);
+    public string SentryEnvironment => AppTelemetryMetadata.GetEnvironment(isDebug: true);
+#else
+    public string BuildConfiguration => AppTelemetryMetadata.GetBuildConfiguration(isDebug: false);
+    public string SentryEnvironment => AppTelemetryMetadata.GetEnvironment(isDebug: false);
+#endif
+
+    public string SentryRelease => AppTelemetryMetadata.GetRelease(AppVersion);
+
+    public string SentryDist => AppTelemetryMetadata.NormalizeAppVersion(AppVersion);
 
     [Obsolete("Not supported for Win SDK")]
     public async Task PinAppToTaskbarAsync()

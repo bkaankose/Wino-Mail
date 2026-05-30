@@ -19,7 +19,9 @@ public static class CoreUWPContainerSetup
 
         services.AddSingleton<IUnderlyingThemeService, UnderlyingThemeService>();
         services.AddSingleton<IWinoWindowManager, WinoWindowManager>();
-        services.AddSingleton<INativeAppService, NativeAppService>();
+        services.AddSingleton<NativeAppService>();
+        services.AddSingleton<INativeAppService>(provider => provider.GetRequiredService<NativeAppService>());
+        services.AddSingleton<IAppMetadataService>(provider => provider.GetRequiredService<NativeAppService>());
         services.AddSingleton<IStoreManagementService, StoreManagementService>();
         services.AddSingleton<IPreferencesService, PreferencesService>();
         services.AddSingleton<INewThemeService, NewThemeService>();

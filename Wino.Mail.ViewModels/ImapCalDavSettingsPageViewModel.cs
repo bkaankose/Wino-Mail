@@ -14,6 +14,7 @@ using Wino.Core.Domain.Models.AutoDiscovery;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Domain.Models.Telemetry;
 using Wino.Core.Domain.Validation;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
@@ -29,6 +30,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     private readonly IAccountService _accountService;
     private readonly IMailDialogService _mailDialogService;
     private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
+    private readonly IWinoTelemetryService _telemetryService;
     private readonly WelcomeWizardContext _wizardContext;
 
     private ImapCalDavSettingsPageMode _pageMode;
@@ -239,6 +241,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                                            IAccountService accountService,
                                            IMailDialogService mailDialogService,
                                            ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
+                                           IWinoTelemetryService telemetryService,
                                            WelcomeWizardContext wizardContext)
     {
         _autoDiscoveryService = autoDiscoveryService;
@@ -246,6 +249,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         _accountService = accountService;
         _mailDialogService = mailDialogService;
         _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
+        _telemetryService = telemetryService;
         _wizardContext = wizardContext;
     }
 
@@ -276,6 +280,8 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
         OnPropertyChanged(nameof(IsCreateMode));
         OnPropertyChanged(nameof(IsEditMode));
+
+        TrackImapSetupEvent("imap_setup_opened", result: "opened");
     }
 
     public override void OnNavigatedFrom(NavigationMode mode, object parameters)
@@ -300,6 +306,12 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         {
             var minimalSettings = BuildMinimalSettingsOrThrow();
             await AutoDiscoverAndApplySettingsAsync(minimalSettings);
+            var serverInformation = TryBuildServerInformationForTelemetry();
+
+            TrackImapSetupEvent(
+                "imap_autodiscovery_completed",
+                result: "success",
+                serverInformation: serverInformation);
 
             _mailDialogService.InfoBarMessage(
                 Translator.IMAPSetupDialog_ValidationSuccess_Title,
@@ -308,6 +320,15 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         }
         catch (Exception ex)
         {
+            TrackImapSetupEvent(
+                "imap_autodiscovery_completed",
+                result: "failure",
+                failureStage: "autodiscovery",
+                failureCategory: ClassifySetupFailure(ex),
+                exception: ex,
+                serverInformation: TryBuildServerInformationForTelemetry(),
+                level: WinoTelemetryLevel.Warning);
+
             await ShowPageErrorAsync(
                 Translator.IMAPSetupDialog_ValidationFailed_Title,
                 ex.Message);
@@ -318,17 +339,23 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     private async Task TestImapConnectionAsync()
     {
         await HidePageErrorAsync();
+        CustomServerInformation serverInformation = null;
 
         try
         {
             ValidateCapabilitySelection();
             await EnsureImapSettingsPreparedAsync().ConfigureAwait(false);
-            var serverInformation = BuildServerInformation();
+            serverInformation = BuildServerInformation();
 
             ValidateImapSettings(serverInformation);
             await ValidateImapConnectivityAsync(serverInformation).ConfigureAwait(false);
 
             await ExecuteUIThread(() => IsImapValidationSucceeded = true);
+
+            TrackImapSetupEvent(
+                "imap_connection_test_completed",
+                result: "success",
+                serverInformation: serverInformation);
 
             _mailDialogService.InfoBarMessage(
                 Translator.IMAPSetupDialog_ValidationSuccess_Title,
@@ -338,6 +365,15 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         catch (Exception ex)
         {
             await ExecuteUIThread(() => IsImapValidationSucceeded = false);
+
+            TrackImapSetupEvent(
+                "imap_connection_test_completed",
+                result: "failure",
+                failureStage: "imap_connection_test",
+                failureCategory: ClassifySetupFailure(ex),
+                exception: ex,
+                serverInformation: serverInformation ?? TryBuildServerInformationForTelemetry(),
+                level: WinoTelemetryLevel.Warning);
 
             await ShowPageErrorAsync(
                 Translator.IMAPSetupDialog_ValidationFailed_Title,
@@ -349,6 +385,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     private async Task TestCalDavConnectionAsync()
     {
         await HidePageErrorAsync();
+        CustomServerInformation serverInformation = null;
 
         try
         {
@@ -356,11 +393,16 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                 throw new InvalidOperationException(Translator.ImapCalDavSettingsPage_CalDavNotRequiredMessage);
 
             TryApplyKnownProviderSettingsIfNeeded(requireCompleteImapSettings: false, requireCompleteCalDavSettings: true);
-            var serverInformation = BuildServerInformation();
+            serverInformation = BuildServerInformation();
             ValidateCalDavSettings(serverInformation);
             await ValidateCalDavConnectivityAsync(serverInformation).ConfigureAwait(false);
 
             await ExecuteUIThread(() => IsCalDavValidationSucceeded = true);
+
+            TrackImapSetupEvent(
+                "caldav_test_completed",
+                result: "success",
+                serverInformation: serverInformation);
 
             _mailDialogService.InfoBarMessage(
                 Translator.IMAPSetupDialog_ValidationSuccess_Title,
@@ -371,6 +413,15 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         {
             await ExecuteUIThread(() => IsCalDavValidationSucceeded = false);
 
+            TrackImapSetupEvent(
+                "caldav_test_completed",
+                result: "failure",
+                failureStage: "caldav_test",
+                failureCategory: ClassifySetupFailure(ex),
+                exception: ex,
+                serverInformation: serverInformation ?? TryBuildServerInformationForTelemetry(),
+                level: WinoTelemetryLevel.Warning);
+
             await ShowPageErrorAsync(
                 Translator.IMAPSetupDialog_ValidationFailed_Title,
                 ex.Message);
@@ -380,13 +431,14 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     private async Task SaveAsync()
     {
         await HidePageErrorAsync();
+        CustomServerInformation serverInformation = null;
 
         try
         {
             ValidateCapabilitySelection();
             await EnsureImapSettingsPreparedAsync();
 
-            var serverInformation = BuildServerInformation();
+            serverInformation = BuildServerInformation();
 
             ValidateIdentitySettings();
             ValidateImapSettings(serverInformation);
@@ -419,6 +471,11 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                 IsCalDavValidationSucceeded = false;
             }
 
+            TrackImapSetupEvent(
+                "imap_setup_saved",
+                result: "success",
+                serverInformation: serverInformation);
+
             if (_pageMode == ImapCalDavSettingsPageMode.Wizard)
             {
                 CompleteWizardFlow(serverInformation);
@@ -441,6 +498,15 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         }
         catch (Exception ex)
         {
+            TrackImapSetupEvent(
+                "imap_setup_saved",
+                result: "failure",
+                failureStage: "save",
+                failureCategory: ClassifySetupFailure(ex),
+                exception: ex,
+                serverInformation: serverInformation ?? TryBuildServerInformationForTelemetry(),
+                level: WinoTelemetryLevel.Warning);
+
             await ShowPageErrorAsync(
                 Translator.IMAPSetupDialog_ValidationFailed_Title,
                 ex.Message);
@@ -824,6 +890,16 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
         if (connectivityResult.IsCertificateUIRequired)
         {
+            TrackImapSetupEvent(
+                "imap_certificate_prompted",
+                result: "prompted",
+                serverInformation: serverInformation,
+                additionalProperties: new Dictionary<string, string>
+                {
+                    ["certificate_action"] = "prompted"
+                },
+                level: WinoTelemetryLevel.Warning);
+
             var certificateMessage =
                 $"{Translator.IMAPSetupDialog_CertificateAllowanceRequired_Row0}\n\n" +
                 $"{Translator.IMAPSetupDialog_CertificateIssuer}: {connectivityResult.CertificateIssuer}\n" +
@@ -834,6 +910,16 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             var allowCertificate = await _mailDialogService
                 .ShowConfirmationDialogAsync(certificateMessage, Translator.GeneralTitle_Warning, Translator.Buttons_Allow)
                 .ConfigureAwait(false);
+
+            TrackImapSetupEvent(
+                "imap_certificate_prompted",
+                result: allowCertificate ? "accepted" : "denied",
+                serverInformation: serverInformation,
+                additionalProperties: new Dictionary<string, string>
+                {
+                    ["certificate_action"] = allowCertificate ? "accepted" : "denied"
+                },
+                level: WinoTelemetryLevel.Warning);
 
             if (!allowCertificate)
                 throw new InvalidOperationException(Translator.IMAPSetupDialog_CertificateDenied);
@@ -1108,6 +1194,95 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
         if (string.IsNullOrWhiteSpace(serverInformation.CalDavPassword))
             throw new InvalidOperationException(Translator.ImapCalDavSettingsPage_CalDavPasswordRequired);
+    }
+
+    private void TrackImapSetupEvent(
+        string eventName,
+        string result = null,
+        string failureStage = null,
+        string failureCategory = null,
+        Exception exception = null,
+        CustomServerInformation serverInformation = null,
+        IReadOnlyDictionary<string, string> additionalProperties = null,
+        WinoTelemetryLevel level = WinoTelemetryLevel.Info)
+    {
+        var properties = ImapSetupTelemetrySanitizer.CreateBaseProperties(
+            _pageMode.ToString(),
+            MailProviderType.IMAP4.ToString(),
+            _editingSpecialImapProvider.ToString(),
+            IsMailSupportEnabled,
+            IsCalendarSupportEnabled);
+
+        AddProperties(properties, ImapSetupTelemetrySanitizer.CreateServerProperties(serverInformation));
+        AddProperties(properties, additionalProperties);
+
+        if (!string.IsNullOrWhiteSpace(result))
+            properties["result"] = result;
+
+        if (!string.IsNullOrWhiteSpace(failureStage))
+            properties["failure_stage"] = failureStage;
+
+        if (!string.IsNullOrWhiteSpace(failureCategory))
+            properties["failure_category"] = failureCategory;
+
+        if (exception != null)
+            properties["exception_type"] = exception.GetType().Name;
+
+        _telemetryService.TrackEvent(
+            eventName,
+            ImapSetupTelemetrySanitizer.FilterAllowed(properties),
+            level);
+    }
+
+    private static void AddProperties(IDictionary<string, string> target, IReadOnlyDictionary<string, string> source)
+    {
+        if (source == null)
+            return;
+
+        foreach (var property in source)
+        {
+            target[property.Key] = property.Value;
+        }
+    }
+
+    private CustomServerInformation TryBuildServerInformationForTelemetry()
+    {
+        try
+        {
+            return BuildServerInformation();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string ClassifySetupFailure(Exception exception)
+    {
+        if (exception == null)
+            return "unknown";
+
+        var exceptionType = exception.GetType().Name;
+        if (exception is InvalidOperationException)
+            return "validation";
+
+        if (exceptionType.Contains("Certificate", StringComparison.OrdinalIgnoreCase))
+            return "certificate";
+
+        if (exceptionType.Contains("Authentication", StringComparison.OrdinalIgnoreCase))
+            return "authentication";
+
+        if (exceptionType.Contains("Socket", StringComparison.OrdinalIgnoreCase) ||
+            exceptionType.Contains("Timeout", StringComparison.OrdinalIgnoreCase) ||
+            exceptionType.Contains("Network", StringComparison.OrdinalIgnoreCase))
+        {
+            return "network";
+        }
+
+        if (exceptionType.Contains("CalDav", StringComparison.OrdinalIgnoreCase))
+            return "caldav";
+
+        return "unknown";
     }
 
     private void ApplyProviderHint(SpecialImapProvider provider)

@@ -12,6 +12,7 @@ public static class ServicesContainerSetup
 
         services.AddSingleton<IApplicationConfiguration, ApplicationConfiguration>();
         services.AddSingleton<IWinoLogger, WinoLogger>();
+        services.AddSingleton<IWinoTelemetryService, WinoTelemetryService>();
         services.AddSingleton<ILaunchProtocolService, LaunchProtocolService>();
         services.AddSingleton<IShareActivationService, ShareActivationService>();
         services.AddSingleton<IMimeFileService, MimeFileService>();

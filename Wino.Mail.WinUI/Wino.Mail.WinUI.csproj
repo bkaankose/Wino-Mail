@@ -195,11 +195,13 @@
     <PackageReference Include="Microsoft.WindowsAppSDK" />
 	<PackageReference Include="Microsoft.Xaml.Behaviors.WinUI.Managed" />
 	<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+	<PackageReference Include="Microsoft.Extensions.Logging" />
 	<PackageReference Include="Microsoft.Identity.Client" />
 	  
 	<PackageReference Include="ColorHashSharp" />
 	<PackageReference Include="gravatar-dotnet" />
 	<PackageReference Include="Sentry.Serilog" />
+	<PackageReference Include="Serilog.Extensions.Logging" />
 	<PackageReference Include="sqlite-net-pcl" />
 	<PackageReference Include="EmailValidation" />
 	<PackageReference Include="SkiaSharp.Views.WinUI" />

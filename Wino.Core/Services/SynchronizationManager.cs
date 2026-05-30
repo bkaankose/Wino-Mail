@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,6 +17,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authentication;
 using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Domain.Models.Telemetry;
 using Wino.Messaging.UI;
 
 namespace Wino.Core.Services;
@@ -42,6 +44,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     private IAccountService _accountService;
     private IAuthenticationProvider _authenticationProvider;
     private INotificationBuilder _notificationBuilder;
+    private IWinoTelemetryService _telemetryService;
 
     private bool _isInitialized = false;
     private bool _isRegisteredForProgressMessages;
@@ -61,7 +64,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                                      IImapTestService imapTestService,
                                      IAccountService accountService,
                                      INotificationBuilder notificationBuilder,
-                                     IAuthenticationProvider authenticationProvider)
+                                     IAuthenticationProvider authenticationProvider,
+                                     IWinoTelemetryService telemetryService)
     {
         await _initializationSemaphore.WaitAsync();
 
@@ -74,6 +78,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             _accountService = accountService ?? throw new ArgumentNullException(nameof(accountService));
             _authenticationProvider = authenticationProvider ?? throw new ArgumentNullException(nameof(authenticationProvider));
             _notificationBuilder = notificationBuilder ?? throw new ArgumentNullException(nameof(notificationBuilder));
+            _telemetryService = telemetryService ?? throw new ArgumentNullException(nameof(telemetryService));
 
             // DO NOT create synchronizers here to avoid requiring window handles during initialization.
             // Synchronizers will be created lazily when first accessed via GetOrCreateSynchronizerAsync.
@@ -168,11 +173,14 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                                                                       CancellationToken cancellationToken = default)
     {
         EnsureInitialized();
+        var stopwatch = Stopwatch.StartNew();
 
         if (await IsSynchronizationBlockedByAttentionAsync(options.AccountId).ConfigureAwait(false))
         {
             _logger.Information("Skipping mail synchronization for account {AccountId} because it requires credential attention.", options.AccountId);
-            return MailSynchronizationResult.Canceled;
+            var result = MailSynchronizationResult.Canceled;
+            TrackMailSynchronizationSummary(options, null, result, stopwatch.Elapsed);
+            return result;
         }
 
         var synchronizer = await GetOrCreateSynchronizerAsync(options.AccountId);
@@ -181,9 +189,11 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             _logger.Error("Could not find or create synchronizer for account {AccountId}", options.AccountId);
 
             var exception = new InvalidOperationException("Can't create/get synchronizer.");
-            return MailSynchronizationResult
+            var result = MailSynchronizationResult
                 .Failed(exception)
                 .MergeIssues([SynchronizationIssue.FromException(exception, "MailSync")]);
+            TrackMailSynchronizationSummary(options, null, result, stopwatch.Elapsed);
+            return result;
         }
 
         _logger.Information("Starting mail synchronization for account {AccountId} with type {SyncType}",
@@ -207,12 +217,15 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
             await _notificationBuilder.UpdateTaskbarIconBadgeAsync();
 
+            TrackMailSynchronizationSummary(options, synchronizer, result, stopwatch.Elapsed);
             return result;
         }
         catch (OperationCanceledException)
         {
             _logger.Information("Mail synchronization canceled for account {AccountId}", options.AccountId);
-            return MailSynchronizationResult.Canceled;
+            var result = MailSynchronizationResult.Canceled;
+            TrackMailSynchronizationSummary(options, synchronizer, result, stopwatch.Elapsed);
+            return result;
         }
         catch (AuthenticationAttentionException authEx)
         {
@@ -222,16 +235,20 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             // Create app notification for authentication attention
             _notificationBuilder.CreateAttentionRequiredNotification(authEx.Account);
 
-            return MailSynchronizationResult
+            var result = MailSynchronizationResult
                 .Failed(authEx)
                 .MergeIssues([SynchronizationIssue.FromException(authEx, "MailSync", SynchronizerErrorSeverity.AuthRequired)]);
+            TrackMailSynchronizationSummary(options, synchronizer, result, stopwatch.Elapsed);
+            return result;
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Mail synchronization failed for account {AccountId}", options.AccountId);
-            return MailSynchronizationResult
+            var result = MailSynchronizationResult
                 .Failed(ex)
                 .MergeIssues([SynchronizationIssue.FromException(ex, "MailSync")]);
+            TrackMailSynchronizationSummary(options, synchronizer, result, stopwatch.Elapsed);
+            return result;
         }
         finally
         {
@@ -529,11 +546,14 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         bool reportState)
     {
         EnsureInitialized();
+        var stopwatch = Stopwatch.StartNew();
 
         if (await IsSynchronizationBlockedByAttentionAsync(options.AccountId).ConfigureAwait(false))
         {
             _logger.Information("Skipping calendar synchronization for account {AccountId} because it requires credential attention.", options.AccountId);
-            return CalendarSynchronizationResult.Canceled;
+            var result = CalendarSynchronizationResult.Canceled;
+            TrackCalendarSynchronizationSummary(options, null, result, stopwatch.Elapsed);
+            return result;
         }
 
         var synchronizer = await GetOrCreateSynchronizerAsync(options.AccountId);
@@ -541,9 +561,11 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         {
             _logger.Error("Could not find or create synchronizer for account {AccountId}", options.AccountId);
             var exception = new InvalidOperationException("Can't create/get synchronizer.");
-            return CalendarSynchronizationResult
+            var result = CalendarSynchronizationResult
                 .Failed(exception)
                 .MergeIssues([SynchronizationIssue.FromException(exception, "CalendarSync")]);
+            TrackCalendarSynchronizationSummary(options, null, result, stopwatch.Elapsed);
+            return result;
         }
 
         _logger.Information("Starting calendar synchronization for account {AccountId} with type {SyncType}",
@@ -576,12 +598,15 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                 await _notificationBuilder.AddCalendarTaskbarBadgeCountAsync(downloadedEventCount).ConfigureAwait(false);
             }
 
+            TrackCalendarSynchronizationSummary(options, synchronizer, result, stopwatch.Elapsed);
             return result;
         }
         catch (OperationCanceledException)
         {
             _logger.Information("Calendar synchronization canceled for account {AccountId}", options.AccountId);
-            return CalendarSynchronizationResult.Canceled;
+            var result = CalendarSynchronizationResult.Canceled;
+            TrackCalendarSynchronizationSummary(options, synchronizer, result, stopwatch.Elapsed);
+            return result;
         }
         catch (AuthenticationAttentionException authEx)
         {
@@ -591,16 +616,20 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             // Create app notification for authentication attention
             _notificationBuilder.CreateAttentionRequiredNotification(authEx.Account);
 
-            return CalendarSynchronizationResult
+            var result = CalendarSynchronizationResult
                 .Failed(authEx)
                 .MergeIssues([SynchronizationIssue.FromException(authEx, "CalendarSync", SynchronizerErrorSeverity.AuthRequired)]);
+            TrackCalendarSynchronizationSummary(options, synchronizer, result, stopwatch.Elapsed);
+            return result;
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Calendar synchronization failed for account {AccountId}", options.AccountId);
-            return CalendarSynchronizationResult
+            var result = CalendarSynchronizationResult
                 .Failed(ex)
                 .MergeIssues([SynchronizationIssue.FromException(ex, "CalendarSync")]);
+            TrackCalendarSynchronizationSummary(options, synchronizer, result, stopwatch.Elapsed);
+            return result;
         }
         finally
         {
@@ -808,6 +837,148 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         EnsureInitialized();
         return await GetOrCreateSynchronizerAsync(accountId);
     }
+
+    private void TrackMailSynchronizationSummary(
+        MailSynchronizationOptions options,
+        IWinoSynchronizerBase synchronizer,
+        MailSynchronizationResult result,
+        TimeSpan duration)
+    {
+        if (_telemetryService == null || options == null || result == null)
+            return;
+
+        var properties = CreateSynchronizationTelemetryProperties(
+            synchronizer?.Account,
+            "mail",
+            options.Type.ToString(),
+            result.CompletedState,
+            duration);
+
+        properties["successful_folder_count"] = result.SuccessfulFolderCount.ToString();
+        properties["failed_folder_count"] = result.FailedFolderCount.ToString();
+        properties["total_folder_count"] = result.FolderResults.Count.ToString();
+        properties["downloaded_count_bucket"] = GetCountBucket(result.TotalDownloadedCount);
+        properties["updated_count_bucket"] = GetCountBucket(result.TotalUpdatedCount);
+        properties["deleted_count_bucket"] = GetCountBucket(result.TotalDeletedCount);
+
+        AddIssueTelemetry(properties, result.AllIssues?.ToList(), result.Exception);
+
+        _telemetryService.TrackEvent(
+            "sync_summary",
+            properties,
+            GetTelemetryLevel(result.CompletedState));
+    }
+
+    private void TrackCalendarSynchronizationSummary(
+        CalendarSynchronizationOptions options,
+        IWinoSynchronizerBase synchronizer,
+        CalendarSynchronizationResult result,
+        TimeSpan duration)
+    {
+        if (_telemetryService == null || options == null || result == null)
+            return;
+
+        var properties = CreateSynchronizationTelemetryProperties(
+            synchronizer?.Account,
+            "calendar",
+            options.Type.ToString(),
+            result.CompletedState,
+            duration);
+
+        properties["downloaded_count_bucket"] = GetCountBucket(result.DownloadedEvents?.Count() ?? 0);
+        AddIssueTelemetry(properties, result.AllIssues?.ToList(), result.Exception);
+
+        _telemetryService.TrackEvent(
+            "sync_summary",
+            properties,
+            GetTelemetryLevel(result.CompletedState));
+    }
+
+    private static Dictionary<string, string> CreateSynchronizationTelemetryProperties(
+        MailAccount account,
+        string syncArea,
+        string syncType,
+        SynchronizationCompletedState completedState,
+        TimeSpan duration)
+    {
+        var properties = new Dictionary<string, string>
+        {
+            ["feature"] = "sync",
+            ["sync_area"] = syncArea,
+            ["sync_type"] = syncType,
+            ["state"] = completedState.ToString(),
+            ["duration_bucket"] = GetDurationBucket(duration),
+            ["provider"] = account?.ProviderType.ToString() ?? "unknown",
+            ["special_provider"] = account?.SpecialImapProvider.ToString() ?? "unknown",
+            ["mail_enabled"] = (account?.IsMailAccessGranted == true).ToString(),
+            ["calendar_enabled"] = (account?.IsCalendarAccessGranted == true).ToString()
+        };
+
+        if (account?.ProviderType == MailProviderType.IMAP4 && account.ServerInformation != null)
+        {
+            foreach (var property in ImapSetupTelemetrySanitizer.CreateServerProperties(account.ServerInformation))
+            {
+                properties[property.Key] = property.Value;
+            }
+
+            properties["feature"] = "sync";
+        }
+
+        return properties;
+    }
+
+    private static void AddIssueTelemetry(
+        IDictionary<string, string> properties,
+        IReadOnlyCollection<SynchronizationIssue> issues,
+        Exception exception)
+    {
+        var firstIssue = issues?.FirstOrDefault();
+
+        properties["issue_count"] = (issues?.Count ?? 0).ToString();
+
+        if (firstIssue != null)
+        {
+            properties["issue_category"] = firstIssue.Category.ToString();
+            properties["issue_severity"] = firstIssue.Severity.ToString();
+
+            if (!string.IsNullOrWhiteSpace(firstIssue.ExceptionType))
+                properties["exception_type"] = firstIssue.ExceptionType;
+        }
+
+        if (exception != null && !properties.ContainsKey("exception_type"))
+            properties["exception_type"] = exception.GetType().Name;
+    }
+
+    private static WinoTelemetryLevel GetTelemetryLevel(SynchronizationCompletedState completedState)
+        => completedState switch
+        {
+            SynchronizationCompletedState.Failed => WinoTelemetryLevel.Warning,
+            SynchronizationCompletedState.PartiallyCompleted => WinoTelemetryLevel.Warning,
+            _ => WinoTelemetryLevel.Info
+        };
+
+    private static string GetDurationBucket(TimeSpan duration)
+        => duration.TotalSeconds switch
+        {
+            < 1 => "<1s",
+            < 5 => "1-5s",
+            < 30 => "5-30s",
+            < 120 => "30s-2m",
+            < 600 => "2-10m",
+            < 1800 => "10-30m",
+            _ => "30m+"
+        };
+
+    private static string GetCountBucket(int count)
+        => count switch
+        {
+            <= 0 => "0",
+            1 => "1",
+            <= 10 => "2-10",
+            <= 100 => "11-100",
+            <= 1000 => "101-1000",
+            _ => "1000+"
+        };
 
     private async Task<IWinoSynchronizerBase> GetOrCreateSynchronizerAsync(Guid accountId)
     {
