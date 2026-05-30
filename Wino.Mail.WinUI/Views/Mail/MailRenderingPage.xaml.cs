@@ -11,6 +11,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using Microsoft.Web.WebView2.Core;
+using Serilog;
 using Windows.System;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
@@ -44,6 +45,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     private TaskCompletionSource<bool> DOMLoadedTask = new TaskCompletionSource<bool>();
     private string _currentRenderedHtml = string.Empty;
     private bool _isPoppedOut;
+    private Task? _chromiumInitializationTask;
 
     public bool SupportsPopOut => !_isPoppedOut;
     public event EventHandler<PopOutRequestedEventArgs>? PopOutRequested;
@@ -111,10 +113,27 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         await UpdateEditorThemeAsync();
     }
 
-    private async Task EnsureChromiumInitializedAsync()
+    private Task EnsureChromiumInitializedAsync()
+        => _chromiumInitializationTask ??= InitializeChromiumAsync();
+
+    private async Task InitializeChromiumAsync()
     {
-        var sharedEnvironment = await WebViewExtensions.GetSharedEnvironmentAsync();
-        await Chromium.EnsureCoreWebView2Async(sharedEnvironment);
+        try
+        {
+            var sharedEnvironment = await WebViewExtensions.GetSharedEnvironmentAsync();
+            await Chromium.EnsureCoreWebView2Async(sharedEnvironment);
+        }
+        catch (Exception ex)
+        {
+            _chromiumInitializationTask = null;
+
+            var initializationException = CreateWebView2InitializationException(ex);
+            DOMLoadedTask.TrySetException(initializationException);
+
+            Log.Error(ex, "Failed to initialize WebView2 for mail rendering.");
+
+            throw initializationException;
+        }
     }
 
     private async Task RenderInternalAsync(string htmlBody)
@@ -122,26 +141,34 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         isRenderingInProgress = true;
         _currentRenderedHtml = htmlBody ?? string.Empty;
 
-        await DOMLoadedTask.Task;
-
-        await UpdateEditorThemeAsync();
-        await UpdateReaderFontPropertiesAsync();
-
-        if (string.IsNullOrEmpty(htmlBody))
+        try
         {
-            await Chromium.ExecuteScriptFunctionAsync("RenderHTML", JsonSerializer.Serialize(" ", BasicTypesJsonContext.Default.String));
+            await DOMLoadedTask.Task;
+
+            if (Chromium.CoreWebView2 == null)
+                throw CreateWebView2InitializationException();
+
+            await UpdateEditorThemeAsync();
+            await UpdateReaderFontPropertiesAsync();
+
+            if (string.IsNullOrEmpty(htmlBody))
+            {
+                await Chromium.ExecuteScriptFunctionAsync("RenderHTML", JsonSerializer.Serialize(" ", BasicTypesJsonContext.Default.String));
+            }
+            else
+            {
+                var shouldLinkifyText = ViewModel.CurrentRenderModel?.MailRenderingOptions?.RenderPlaintextLinks ?? true;
+                await Chromium.ExecuteScriptFunctionAsync("RenderHTML",
+                    JsonSerializer.Serialize(htmlBody, BasicTypesJsonContext.Default.String),
+                    JsonSerializer.Serialize(shouldLinkifyText, BasicTypesJsonContext.Default.Boolean));
+            }
+
+            await UpdateAccessibleMailContextAsync();
         }
-        else
+        finally
         {
-            var shouldLinkifyText = ViewModel.CurrentRenderModel?.MailRenderingOptions?.RenderPlaintextLinks ?? true;
-            await Chromium.ExecuteScriptFunctionAsync("RenderHTML",
-                JsonSerializer.Serialize(htmlBody, BasicTypesJsonContext.Default.String),
-                JsonSerializer.Serialize(shouldLinkifyText, BasicTypesJsonContext.Default.Boolean));
+            isRenderingInProgress = false;
         }
-
-        await UpdateAccessibleMailContextAsync();
-
-        isRenderingInProgress = false;
     }
 
     private async Task UpdateAccessibleMailContextAsync()
@@ -176,6 +203,21 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     }
 
     private void DOMContentLoaded(CoreWebView2 sender, CoreWebView2DOMContentLoadedEventArgs args) => DOMLoadedTask.TrySetResult(true);
+
+    private async Task ObserveChromiumInitializationAsync(Task initializationTask)
+    {
+        try
+        {
+            await initializationTask;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Mail rendering WebView2 initialization failed.");
+        }
+    }
+
+    private static InvalidOperationException CreateWebView2InitializationException(Exception? innerException = null)
+        => new InvalidOperationException(Translator.Exception_WebView2RuntimeMissing_Message, innerException);
 
     public async Task ClearRenderedContentAsync()
     {
@@ -332,7 +374,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         RendererCommandBar.IsAIActionsEnabled = false;
         Chromium.CoreWebView2Initialized -= CoreWebViewInitialized;
         Chromium.CoreWebView2Initialized += CoreWebViewInitialized;
-        _ = EnsureChromiumInitializedAsync();
+        _ = ObserveChromiumInitializationAsync(EnsureChromiumInitializedAsync());
 
         base.OnNavigatedTo(e);
 
@@ -350,19 +392,33 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     private async void CoreWebViewInitialized(WebView2 sender, CoreWebView2InitializedEventArgs args)
     {
-        if (Chromium.CoreWebView2 == null) return;
+        if (Chromium.CoreWebView2 == null)
+        {
+            var initializationException = CreateWebView2InitializationException();
+            DOMLoadedTask.TrySetException(initializationException);
+            Log.Error(initializationException, "WebView2 initialized without a CoreWebView2 instance for mail rendering.");
+            return;
+        }
 
-        var editorBundlePath = (await ViewModel.NativeAppService.GetEditorBundlePathAsync()).Replace("editor.html", string.Empty);
+        try
+        {
+            var editorBundlePath = (await ViewModel.NativeAppService.GetEditorBundlePathAsync()).Replace("editor.html", string.Empty);
 
-        Chromium.CoreWebView2.SetVirtualHostNameToFolderMapping("wino.mail", editorBundlePath, CoreWebView2HostResourceAccessKind.Allow);
+            Chromium.CoreWebView2.SetVirtualHostNameToFolderMapping("wino.mail", editorBundlePath, CoreWebView2HostResourceAccessKind.Allow);
 
-        Chromium.CoreWebView2.DOMContentLoaded -= DOMContentLoaded;
-        Chromium.CoreWebView2.DOMContentLoaded += DOMContentLoaded;
+            Chromium.CoreWebView2.DOMContentLoaded -= DOMContentLoaded;
+            Chromium.CoreWebView2.DOMContentLoaded += DOMContentLoaded;
 
-        Chromium.CoreWebView2.NewWindowRequested -= WindowRequested;
-        Chromium.CoreWebView2.NewWindowRequested += WindowRequested;
+            Chromium.CoreWebView2.NewWindowRequested -= WindowRequested;
+            Chromium.CoreWebView2.NewWindowRequested += WindowRequested;
 
-        Chromium.Source = new Uri("https://wino.mail/reader.html");
+            Chromium.Source = new Uri("https://wino.mail/reader.html");
+        }
+        catch (Exception ex)
+        {
+            DOMLoadedTask.TrySetException(ex);
+            Log.Error(ex, "Failed to configure mail rendering WebView2.");
+        }
     }
 
     private async void WebViewNavigationStarting(WebView2 sender, CoreWebView2NavigationStartingEventArgs args)

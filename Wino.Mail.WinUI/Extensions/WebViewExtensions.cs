@@ -32,7 +32,11 @@ public static class WebViewExtensions
 
         lock (_environmentLock)
         {
-            _sharedEnvironmentTask ??= CoreWebView2Environment.CreateAsync().AsTask();
+            if (_sharedEnvironmentTask == null || _sharedEnvironmentTask.IsFaulted || _sharedEnvironmentTask.IsCanceled)
+            {
+                _sharedEnvironmentTask = CoreWebView2Environment.CreateAsync().AsTask();
+            }
+
             return _sharedEnvironmentTask;
         }
     }

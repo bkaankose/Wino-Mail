@@ -383,26 +383,26 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         initializedMimeMessageInformation = null;
         CurrentMailItemDisplayInformation = null;
 
-        if (ClearRenderedHtmlAsyncFunc != null)
-        {
-            await ExecuteUIThread(async () => await ClearRenderedHtmlAsyncFunc());
-        }
-
-        // This page can be accessed for 2 purposes.
-        // 1. Rendering a mail item when the user selects.
-        // 2. Rendering an existing EML file with MimeMessage.
-
-        // MimeMessage rendering must be readonly and no command bar items must be shown except common
-        // items like dark/light editor, zoom, print etc.
-
-        // Configure common rendering properties first.
-        IsDarkWebviewRenderer = _underlyingThemeService.IsUnderlyingThemeDark();
-
-        renderCancellationTokenSource = new CancellationTokenSource();
-
-        // Mime content might not be available for now and might require a download.
         try
         {
+            if (ClearRenderedHtmlAsyncFunc != null)
+            {
+                await ExecuteUIThread(async () => await ClearRenderedHtmlAsyncFunc());
+            }
+
+            // This page can be accessed for 2 purposes.
+            // 1. Rendering a mail item when the user selects.
+            // 2. Rendering an existing EML file with MimeMessage.
+
+            // MimeMessage rendering must be readonly and no command bar items must be shown except common
+            // items like dark/light editor, zoom, print etc.
+
+            // Configure common rendering properties first.
+            IsDarkWebviewRenderer = _underlyingThemeService.IsUnderlyingThemeDark();
+
+            renderCancellationTokenSource = new CancellationTokenSource();
+
+            // Mime content might not be available for now and might require a download.
             if (parameters is MailItemViewModel selectedMailItemViewModel)
                 await RenderAsync(selectedMailItemViewModel, renderCancellationTokenSource.Token);
             else if (parameters is MimeMessageInformation mimeMessageInformation)
@@ -416,9 +416,21 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         }
         catch (Exception ex)
         {
-            _dialogService.InfoBarMessage(Translator.Info_MailRenderingFailedTitle, string.Format(Translator.Info_MailRenderingFailedMessage, ex.Message), InfoBarMessageType.Error);
+            ShowMailRenderingFailedMessage(ex);
 
             Log.Error(ex, "Failed to render mail.");
+        }
+    }
+
+    private void ShowMailRenderingFailedMessage(Exception ex)
+    {
+        if (string.Equals(ex.Message, Translator.Exception_WebView2RuntimeMissing_Message, StringComparison.Ordinal))
+        {
+            _dialogService.InfoBarMessage(Translator.Exception_WebView2RuntimeMissing_Title, Translator.Exception_WebView2RuntimeMissing_Message, InfoBarMessageType.Error);
+        }
+        else
+        {
+            _dialogService.InfoBarMessage(Translator.Info_MailRenderingFailedTitle, string.Format(Translator.Info_MailRenderingFailedMessage, ex.Message), InfoBarMessageType.Error);
         }
     }
 
@@ -983,7 +995,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         }
         catch (Exception ex)
         {
-            _dialogService.InfoBarMessage(Translator.Info_MailRenderingFailedTitle, string.Format(Translator.Info_MailRenderingFailedMessage, ex.Message), InfoBarMessageType.Error);
+            ShowMailRenderingFailedMessage(ex);
 
             Log.Error(ex, "Failed to render mail.");
         }
