@@ -421,7 +421,7 @@
                     Visibility="{x:Bind GetAiActionsPanelVisibility(RendererCommandBar.IsAIActionsEnabled, ViewModel.PreferencesService.IsAiActionsPanelHidden), Mode=OneWay}" />
 
                 <!--  Attachments  -->
-                <Grid Grid.Row="4">
+                <Grid Grid.Row="4" ColumnSpacing="8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
@@ -429,12 +429,11 @@
                     <ListView
                         x:Name="AttachmentsListView"
                         Grid.Row="3"
-                        Height="55"
                         x:Load="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.Attachments.Count), Mode=OneWay}"
                         IsItemClickEnabled="True"
                         ItemClick="AttachmentClicked"
                         ItemTemplate="{StaticResource FileAttachmentTemplate}"
-                        ItemsSource="{x:Bind ViewModel.Attachments, Mode=OneWay}"
+                        ItemsSource="{x:Bind ViewModel.DisplayedAttachments, Mode=OneWay}"
                         SelectionMode="None">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -443,12 +442,22 @@
                         </ItemsControl.ItemsPanel>
                     </ListView>
 
-                    <HyperlinkButton
+                    <StackPanel
                         Grid.Column="1"
+                        HorizontalAlignment="Right"
                         VerticalAlignment="Center"
-                        Command="{x:Bind ViewModel.SaveAllAttachmentsCommand}"
-                        Content="{x:Bind domain:Translator.Reader_SaveAllAttachmentButtonText}"
-                        Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverterWithThreshold(ViewModel.Attachments.Count, 1), Mode=OneWay}" />
+                        Orientation="Horizontal"
+                        Spacing="8">
+                        <HyperlinkButton
+                            Command="{x:Bind ViewModel.ShowAllAttachmentsCommand}"
+                            Content="{x:Bind domain:Translator.Reader_ShowAllAttachmentsButtonText, Mode=OneTime}"
+                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.CanShowAllAttachments), Mode=OneWay}" />
+
+                        <HyperlinkButton
+                            Command="{x:Bind ViewModel.SaveAllAttachmentsCommand}"
+                            Content="{x:Bind domain:Translator.Reader_SaveAllAttachmentButtonText}"
+                            Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverterWithThreshold(ViewModel.Attachments.Count, 1), Mode=OneWay}" />
+                    </StackPanel>
                 </Grid>
 
                 <InfoBar

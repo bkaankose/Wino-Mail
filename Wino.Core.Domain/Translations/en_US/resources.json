@@ -754,6 +754,7 @@
     "Reader_MessageBodyAutomationName": "Message body",
     "Reader_PlainTextFallbackAutomationName": "Plain text message body",
     "Reader_SaveAllAttachmentButtonText": "Save all attachments",
+    "Reader_ShowAllAttachmentsButtonText": "Show all attachments",
     "Results": "Results",
     "Right": "Right",
     "SearchBarPlaceholder": "Search",

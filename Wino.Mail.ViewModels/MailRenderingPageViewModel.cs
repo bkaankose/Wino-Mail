@@ -37,6 +37,8 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     IRecipient<ThumbnailAdded>,
     ITransferProgress // For listening IMAP message download progress.
 {
+    private const int AttachmentPreviewLimit = 5;
+
     public event EventHandler CloseRequested;
     public event EventHandler<ComposeDraftRequestedEventArgs> ComposeRequested;
 
@@ -73,6 +75,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     public bool IsJunkMail => initializedMailItemViewModel?.MailCopy.AssignedFolder != null && initializedMailItemViewModel.MailCopy.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk;
     public bool SmimeSignaturesValid => CurrentRenderModel?.Signatures?.Any(x => x.Value) ?? false;
     public bool SmimeSignaturesInvalid => !SmimeSignaturesValid;
+    public bool CanShowAllAttachments => Attachments.Count > AttachmentPreviewLimit && !IsShowingAllAttachments;
 
     public bool IsImageRenderingDisabled
     {
@@ -132,10 +135,16 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
     [ObservableProperty]
     public partial DateTime CreationDate { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanShowAllAttachments))]
+    public partial bool IsShowingAllAttachments { get; set; }
+
     public ObservableCollection<AccountContactViewModel> ToItems { get; set; } = [];
     public ObservableCollection<AccountContactViewModel> CcItems { get; set; } = [];
     public ObservableCollection<AccountContactViewModel> BccItems { get; set; } = [];
     public ObservableCollection<MailAttachmentViewModel> Attachments { get; set; } = [];
+    public ObservableCollection<MailAttachmentViewModel> DisplayedAttachments { get; set; } = [];
     public ObservableCollection<IMenuOperation> MenuItems { get; set; } = [];
 
     #endregion
@@ -487,9 +496,11 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         await ExecuteUIThread(() =>
         {
             Attachments.Clear();
+            DisplayedAttachments.Clear();
             ToItems.Clear();
             CcItems.Clear();
             BccItems.Clear();
+            IsShowingAllAttachments = false;
 
             foreach (var item in toAccountContacts)
                 ToItems.Add(item);
@@ -527,6 +538,8 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             {
                 Attachments.Add(new MailAttachmentViewModel(attachment));
             }
+
+            RefreshDisplayedAttachments();
 
             OnPropertyChanged(nameof(IsImageRenderingDisabled));
 
@@ -765,6 +778,33 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         {
             attachmentViewModel.IsBusy = false;
         }
+    }
+
+    [RelayCommand]
+    private void ShowAllAttachments()
+    {
+        IsShowingAllAttachments = true;
+    }
+
+    partial void OnIsShowingAllAttachmentsChanged(bool value)
+    {
+        RefreshDisplayedAttachments();
+    }
+
+    private void RefreshDisplayedAttachments()
+    {
+        DisplayedAttachments.Clear();
+
+        var attachmentsToDisplay = IsShowingAllAttachments
+            ? Attachments
+            : Attachments.Take(AttachmentPreviewLimit);
+
+        foreach (var attachment in attachmentsToDisplay)
+        {
+            DisplayedAttachments.Add(attachment);
+        }
+
+        OnPropertyChanged(nameof(CanShowAllAttachments));
     }
 
     [RelayCommand]
