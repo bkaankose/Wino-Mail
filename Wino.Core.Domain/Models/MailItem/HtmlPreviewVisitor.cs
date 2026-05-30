@@ -224,7 +224,7 @@ public class HtmlPreviewVisitor : MimeVisitor
 
             if (IsUrlAttribute(attributeName))
             {
-                if (!TrySanitizeUrlValue(attribute.Value, out var sanitizedUrl))
+                if (!TrySanitizeUrlValue(attributeName, attribute.Value, out var sanitizedUrl))
                     continue;
 
                 htmlWriter.WriteAttributeName(attributeName);
@@ -313,7 +313,11 @@ public class HtmlPreviewVisitor : MimeVisitor
            || string.Equals(attributeName, "background", StringComparison.OrdinalIgnoreCase)
            || string.Equals(attributeName, "poster", StringComparison.OrdinalIgnoreCase);
 
-    private static bool TrySanitizeUrlValue(string rawValue, out string sanitizedValue)
+    private static bool IsLinkAttribute(string attributeName)
+        => string.Equals(attributeName, "href", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(attributeName, "xlink:href", StringComparison.OrdinalIgnoreCase);
+
+    private static bool TrySanitizeUrlValue(string attributeName, string rawValue, out string sanitizedValue)
     {
         sanitizedValue = null;
 
@@ -329,8 +333,67 @@ public class HtmlPreviewVisitor : MimeVisitor
         if (value.StartsWith("data:", StringComparison.OrdinalIgnoreCase) && !IsAllowedImageDataUrl(value))
             return false;
 
-        sanitizedValue = value;
+        sanitizedValue = IsLinkAttribute(attributeName) ? NormalizeLinkUrl(value) : value;
         return true;
+    }
+
+    private static string NormalizeLinkUrl(string value)
+    {
+        if (value.StartsWith("//", StringComparison.Ordinal))
+            return $"https:{value}";
+
+        if (Uri.TryCreate(value, UriKind.Absolute, out _))
+            return value;
+
+        if (IsExplicitRelativeUrl(value))
+            return value;
+
+        return LooksLikeHostRelativeUrl(value) ? $"https://{value}" : value;
+    }
+
+    private static bool IsExplicitRelativeUrl(string value)
+        => value.StartsWith("/", StringComparison.Ordinal)
+           || value.StartsWith("./", StringComparison.Ordinal)
+           || value.StartsWith("../", StringComparison.Ordinal)
+           || value.StartsWith("#", StringComparison.Ordinal)
+           || value.StartsWith("?", StringComparison.Ordinal);
+
+    private static bool LooksLikeHostRelativeUrl(string value)
+    {
+        if (value.Contains('\\'))
+            return false;
+
+        foreach (var character in value)
+        {
+            if (char.IsWhiteSpace(character))
+                return false;
+        }
+
+        var hostCandidate = value;
+        var separatorIndex = value.IndexOfAny(['/', '?', '#']);
+
+        if (separatorIndex >= 0)
+            hostCandidate = value[..separatorIndex];
+
+        if (string.IsNullOrWhiteSpace(hostCandidate) || hostCandidate.Contains('@'))
+            return false;
+
+        var portIndex = hostCandidate.LastIndexOf(':');
+
+        if (portIndex > 0)
+        {
+            var portCandidate = hostCandidate[(portIndex + 1)..];
+
+            if (!int.TryParse(portCandidate, out _))
+                return false;
+
+            hostCandidate = hostCandidate[..portIndex];
+        }
+
+        if (!hostCandidate.Contains('.', StringComparison.Ordinal))
+            return false;
+
+        return Uri.CheckHostName(hostCandidate.TrimEnd('.')) != UriHostNameType.Unknown;
     }
 
     private static bool IsAllowedImageDataUrl(string value)

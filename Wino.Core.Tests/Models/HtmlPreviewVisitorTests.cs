@@ -79,6 +79,47 @@ public class HtmlPreviewVisitorTests
     }
 
     [Fact]
+    public void HtmlPreviewVisitor_Should_Normalize_Host_Like_Link_Hrefs()
+    {
+        // Arrange
+        var html = """
+            <html>
+                <body>
+                    <a id="host-link" href="id.mi.com">host</a>
+                    <a id="host-path-link" href="www.example.com/path?q=1#top">host path</a>
+                    <a id="protocol-relative-link" href="//example.com/path">protocol relative</a>
+                    <a id="root-relative-link" href="/unsubscribe/123">root relative</a>
+                    <a id="dot-relative-link" href="./local/page.html">dot relative</a>
+                    <a id="parent-relative-link" href="../help">parent relative</a>
+                    <a id="fragment-link" href="#details">fragment</a>
+                    <a id="query-link" href="?view=compact">query</a>
+                    <img id="relative-image" src="cdn.example.com/logo.png" />
+                </body>
+            </html>
+            """;
+
+        var message = new MimeMessage();
+        message.Body = new TextPart("html") { Text = html };
+
+        var visitor = new HtmlPreviewVisitor(Path.GetTempPath());
+
+        // Act
+        message.Accept(visitor);
+        var output = visitor.HtmlBody;
+
+        // Assert
+        output.Should().Contain("id=\"host-link\" href=\"https://id.mi.com\"", "host-like links would otherwise resolve under the wino.mail virtual host");
+        output.Should().Contain("id=\"host-path-link\" href=\"https://www.example.com/path?q=1#top\"", "host-like links with paths should keep their path/query/fragment");
+        output.Should().Contain("id=\"protocol-relative-link\" href=\"https://example.com/path\"", "protocol-relative links should be explicit before WebView2 resolves them");
+        output.Should().Contain("id=\"root-relative-link\" href=\"/unsubscribe/123\"", "explicit relative links should remain relative");
+        output.Should().Contain("id=\"dot-relative-link\" href=\"./local/page.html\"", "explicit relative links should remain relative");
+        output.Should().Contain("id=\"parent-relative-link\" href=\"../help\"", "explicit relative links should remain relative");
+        output.Should().Contain("id=\"fragment-link\" href=\"#details\"", "same-document links should remain intact");
+        output.Should().Contain("id=\"query-link\" href=\"?view=compact\"", "query-only links should remain intact");
+        output.Should().Contain("id=\"relative-image\" src=\"cdn.example.com/logo.png\"", "this fix is scoped to clickable link attributes");
+    }
+
+    [Fact]
     public void HtmlPreviewVisitor_Should_Remove_JsonLd_Script_Blocks()
     {
         // Arrange
