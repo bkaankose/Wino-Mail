@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
@@ -13,8 +15,17 @@ namespace Wino.Mail.ViewModels.Data;
 /// <summary>
 /// Single view model for IMailItem representation.
 /// </summary>
-public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient, IMailListItem, IMailItemDisplayInformation
+public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMailItemDisplayInformation
 {
+    private bool isSyncingCategories;
+
+    public MailItemViewModel(MailCopy mailCopy)
+    {
+        Categories = new ObservableCollection<MailCategory>(mailCopy?.Categories ?? []);
+        Categories.CollectionChanged += CategoriesCollectionChanged;
+        MailCopy = mailCopy;
+    }
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CreationDate))]
     [NotifyPropertyChangedFor(nameof(IsFlagged))]
@@ -42,7 +53,7 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
     [NotifyPropertyChangedFor(nameof(SenderContact))]
     [NotifyPropertyChangedFor(nameof(Categories))]
     [NotifyPropertyChangedFor(nameof(HasCategories))]
-    public partial MailCopy MailCopy { get; set; } = mailCopy;
+    public partial MailCopy MailCopy { get; set; }
 
     [ObservableProperty]
     public partial bool IsDisplayedInThread { get; set; }
@@ -127,9 +138,54 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
         _ => string.Empty
     };
 
-    public IReadOnlyList<MailCategory> Categories => MailCopy.Categories;
+    public ObservableCollection<MailCategory> Categories { get; }
+
+    IReadOnlyList<MailCategory> IMailItemDisplayInformation.Categories => Categories;
 
     public bool HasCategories => Categories.Count > 0;
+
+    partial void OnMailCopyChanged(MailCopy value)
+    {
+        ReplaceCategoryItems(value?.Categories);
+    }
+
+    private void CategoriesCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (!isSyncingCategories)
+        {
+            MailCopy.Categories = Categories.ToList();
+        }
+
+        OnPropertyChanged(nameof(Categories));
+        OnPropertyChanged(nameof(HasCategories));
+    }
+
+    private void ReplaceCategoryItems(IEnumerable<MailCategory> categories)
+    {
+        isSyncingCategories = true;
+
+        try
+        {
+            Categories.Clear();
+
+            foreach (var category in categories ?? [])
+            {
+                Categories.Add(category);
+            }
+        }
+        finally
+        {
+            isSyncingCategories = false;
+        }
+
+        if (MailCopy != null)
+        {
+            MailCopy.Categories = Categories.ToList();
+        }
+
+        OnPropertyChanged(nameof(Categories));
+        OnPropertyChanged(nameof(HasCategories));
+    }
 
     public string DraftId
     {
@@ -496,7 +552,6 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
 
     public void UpdateCategories(IReadOnlyList<MailCategory> categories)
     {
-        MailCopy.Categories = categories?.ToList() ?? [];
-        RaisePropertyChanges(MailCopyChangeFlags.Categories);
+        ReplaceCategoryItems(categories);
     }
 }
