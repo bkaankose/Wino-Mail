@@ -612,6 +612,12 @@ public class FolderService : BaseDatabaseService, IFolderService
             folder.Order = existingFolder.Order;
             folder.IsHidden = existingFolder.IsHidden;
             folder.IsJumpListEnabled = existingFolder.IsJumpListEnabled;
+            folder.LastSynchronizedDate = existingFolder.LastSynchronizedDate;
+            folder.UidValidity = existingFolder.UidValidity;
+            folder.HighestModeSeq = existingFolder.HighestModeSeq;
+            folder.HighestKnownUid = existingFolder.HighestKnownUid;
+            folder.LastUidReconcileUtc = existingFolder.LastUidReconcileUtc;
+            folder.DeltaToken = existingFolder.DeltaToken;
 
             _logger.Debug("Folder {Id} - {FolderName} already exists. Updating.", folder.Id, folder.FolderName);
 

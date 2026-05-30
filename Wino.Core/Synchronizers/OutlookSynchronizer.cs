@@ -513,13 +513,12 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
             await messageIterator.IterateAsync(cancellationToken).ConfigureAwait(false);
 
-            // Extract and store delta token for future incremental syncs
+            // The Graph deltaLink is opaque and includes the state/query options needed for the next round.
             if (!string.IsNullOrEmpty(messageIterator.Deltalink))
             {
-                var deltaToken = GetDeltaTokenFromDeltaLink(messageIterator.Deltalink);
-                await _outlookChangeProcessor.UpdateFolderDeltaSynchronizationIdentifierAsync(folder.Id, deltaToken).ConfigureAwait(false);
+                await _outlookChangeProcessor.UpdateFolderDeltaSynchronizationIdentifierAsync(folder.Id, messageIterator.Deltalink).ConfigureAwait(false);
                 await _outlookChangeProcessor.UpdateFolderLastSyncDateAsync(folder.Id).ConfigureAwait(false);
-                folder.DeltaToken = deltaToken;
+                folder.DeltaToken = messageIterator.Deltalink;
                 _logger.Information("Stored delta token for folder {FolderName} - future syncs will be incremental", folder.FolderName);
             }
             else
@@ -877,6 +876,16 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         }
     }
 
+    private static bool IsDeltaLink(string synchronizationState)
+        => Uri.TryCreate(synchronizationState, UriKind.Absolute, out _);
+
+    private static RequestInformation CreateDeltaLinkRequest(string deltaLink)
+        => new()
+        {
+            HttpMethod = Method.GET,
+            URI = new Uri(deltaLink)
+        };
+
     private string GetDeltaTokenFromDeltaLink(string deltaLink)
         => Regex.Split(deltaLink, "deltatoken=")[1];
 
@@ -973,17 +982,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
         try
         {
-            var currentDeltaToken = folder.DeltaToken;
-
-            // Always use Delta endpoint with proper configuration
-            var requestInformation = _graphClient.Me.MailFolders[folder.RemoteFolderId].Messages.Delta.ToGetRequestInformation((config) =>
-            {
-                config.QueryParameters.Select = outlookMessageSelectParameters;
-                config.QueryParameters.Orderby = ["receivedDateTime desc"]; // Sort by received date desc
-            });
-
-            requestInformation.UrlTemplate = requestInformation.UrlTemplate.Insert(requestInformation.UrlTemplate.Length - 1, ",%24deltatoken");
-            requestInformation.QueryParameters.Add("%24deltatoken", currentDeltaToken);
+            var requestInformation = CreateMessageDeltaRequest(folder);
 
             var messageCollectionPage = await _graphClient.RequestAdapter.SendAsync(requestInformation,
                 DeltaGetResponse.CreateFromDiscriminatorValue,
@@ -1012,11 +1011,11 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
             await messageIterator.IterateAsync(cancellationToken).ConfigureAwait(false);
 
-            // Update delta token for next sync - store delta token when there are no nextPageToken remaining
+            // Store the opaque deltaLink for the next sync round.
             if (!string.IsNullOrEmpty(messageIterator.Deltalink))
             {
-                var deltaToken = GetDeltaTokenFromDeltaLink(messageIterator.Deltalink);
-                await _outlookChangeProcessor.UpdateFolderDeltaSynchronizationIdentifierAsync(folder.Id, deltaToken).ConfigureAwait(false);
+                await _outlookChangeProcessor.UpdateFolderDeltaSynchronizationIdentifierAsync(folder.Id, messageIterator.Deltalink).ConfigureAwait(false);
+                folder.DeltaToken = messageIterator.Deltalink;
                 _logger.Debug("Updated delta token for folder {FolderName} after processing delta changes", folder.FolderName);
             }
         }
@@ -1039,6 +1038,20 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                 _logger.Error(apiException, "Unhandled API error during legacy delta sync for folder {FolderName}. Error: {ErrorCode}", folder.FolderName, apiException.ResponseStatusCode);
             }
         }
+    }
+
+    private RequestInformation CreateMessageDeltaRequest(MailItemFolder folder)
+    {
+        if (IsDeltaLink(folder.DeltaToken))
+        {
+            return CreateDeltaLinkRequest(folder.DeltaToken);
+        }
+
+        var requestInformation = _graphClient.Me.MailFolders[folder.RemoteFolderId].Messages.Delta.ToGetRequestInformation();
+        requestInformation.UrlTemplate = requestInformation.UrlTemplate.Insert(requestInformation.UrlTemplate.Length - 1, ",%24deltatoken");
+        requestInformation.QueryParameters.Add("%24deltatoken", folder.DeltaToken);
+
+        return requestInformation;
     }
 
     private bool IsResourceDeleted(IDictionary<string, object> additionalData)
@@ -1361,9 +1374,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
         try
         {
-            var deltaRequest = _graphClient.Me.MailFolders.Delta.ToGetRequestInformation();
-            deltaRequest.UrlTemplate = deltaRequest.UrlTemplate.Insert(deltaRequest.UrlTemplate.Length - 1, ",%24deltaToken");
-            deltaRequest.QueryParameters.Add("%24deltaToken", Account.SynchronizationDeltaIdentifier);
+            var deltaRequest = CreateMailFolderDeltaRequest();
 
             return await _graphClient.RequestAdapter.SendAsync(deltaRequest,
                 Microsoft.Graph.Me.MailFolders.Delta.DeltaGetResponse.CreateFromDiscriminatorValue,
@@ -1410,13 +1421,26 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         }
     }
 
+    private RequestInformation CreateMailFolderDeltaRequest()
+    {
+        if (IsDeltaLink(Account.SynchronizationDeltaIdentifier))
+        {
+            return CreateDeltaLinkRequest(Account.SynchronizationDeltaIdentifier);
+        }
+
+        var deltaRequest = _graphClient.Me.MailFolders.Delta.ToGetRequestInformation();
+        deltaRequest.UrlTemplate = deltaRequest.UrlTemplate.Insert(deltaRequest.UrlTemplate.Length - 1, ",%24deltaToken");
+        deltaRequest.QueryParameters.Add("%24deltaToken", Account.SynchronizationDeltaIdentifier);
+
+        return deltaRequest;
+    }
+
     private async Task UpdateDeltaSynchronizationIdentifierAsync(string deltalink)
     {
         if (string.IsNullOrEmpty(deltalink)) return;
 
-        var deltaToken = deltalink.Split('=')[1];
         var latestAccountDeltaToken = await _outlookChangeProcessor
-            .UpdateAccountDeltaSynchronizationIdentifierAsync(Account.Id, deltaToken);
+            .UpdateAccountDeltaSynchronizationIdentifierAsync(Account.Id, deltalink);
 
         if (!string.IsNullOrEmpty(latestAccountDeltaToken))
         {
