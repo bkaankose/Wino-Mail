@@ -25,6 +25,44 @@
     mc:Ignorable="d">
 
     <Page.Resources>
+        <DataTemplate x:Key="ContactTokenTemplate" x:DataType="entities:IContactDisplayItem">
+            <Grid>
+                <Grid.ContextFlyout>
+                    <coreControls:WinoMenuFlyout>
+                        <MenuFlyoutItem
+                            Click="CopyContactAddress_Click"
+                            CommandParameter="{x:Bind Address}"
+                            Text="{x:Bind domain:Translator.Buttons_Copy}">
+                            <MenuFlyoutItem.Icon>
+                                <SymbolIcon Symbol="Copy" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                    </coreControls:WinoMenuFlyout>
+                </Grid.ContextFlyout>
+
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <ToolTipService.ToolTip>
+                    <ToolTip Content="{x:Bind Address}" />
+                </ToolTipService.ToolTip>
+
+                <Viewbox Width="24">
+                    <controls:ImagePreviewControl
+                        Address="{x:Bind Address}"
+                        DisplayNameOverride="{x:Bind DisplayName}"
+                        PreviewContact="{x:Bind PreviewContact}" />
+                </Viewbox>
+
+                <TextBlock
+                    Grid.Column="1"
+                    Margin="6,0,8,0"
+                    VerticalAlignment="Center"
+                    Text="{x:Bind DisplayName}" />
+            </Grid>
+        </DataTemplate>
+
         <!--  Attachment Template  -->
         <!--  Margin -8 0 is used to remove the padding from the ListViewItem  -->
         <DataTemplate x:Key="ComposerFileAttachmentTemplate" x:DataType="data:MailAttachmentViewModel">

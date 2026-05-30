@@ -63,6 +63,8 @@ public class AccountContact : IEquatable<AccountContact>, IContactDisplayItem
         return HashCode.Combine(Address, Name);
     }
 
+    public override string ToString() => Address ?? string.Empty;
+
     public static bool operator ==(AccountContact left, AccountContact right)
     {
         return EqualityComparer<AccountContact>.Default.Equals(left, right);

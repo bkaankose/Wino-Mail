@@ -366,6 +366,18 @@ public sealed partial class ComposePage : ComposePageAbstract,
         WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
     }
 
+    private void CopyContactAddress_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuFlyoutItem { CommandParameter: string address } || string.IsNullOrWhiteSpace(address))
+        {
+            return;
+        }
+
+        var package = new DataPackage();
+        package.SetText(address);
+        Clipboard.SetContent(package);
+    }
+
     private async void ComposeAiActionsToggleButton_Checked(object sender, RoutedEventArgs e)
     {
         await ComposeAiActionsPanel.RefreshAvailabilityAsync();
