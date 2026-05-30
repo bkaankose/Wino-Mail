@@ -9,7 +9,8 @@ const joditConfig = {
     "showWordsCounter": false,
     "showXPathInStatusbar": false,
     "spellcheck": true,
-    "defaultActionOnPaste": "insert_as_text",
+    "askBeforePasteHTML": false,
+    "defaultActionOnPaste": Jodit.constants.INSERT_ONLY_TEXT,
     "link": {
         "processVideoLink": false
     },
