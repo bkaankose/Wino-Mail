@@ -121,18 +121,18 @@
                         </Grid.RowDefinitions>
 
                         <TextBlock
-                Style="{StaticResource CaptionTextBlockStyle}"
                             MaxLines="1"
+                            Style="{StaticResource CaptionTextBlockStyle}"
                             Text="{x:Bind FileName}"
                             TextTrimming="CharacterEllipsis"
                             TextWrapping="Wrap" />
 
                         <TextBlock
-                Style="{StaticResource CaptionTextBlockStyle}"
                             Grid.Row="1"
                             HorizontalAlignment="Right"
                             VerticalAlignment="Bottom"
                             Foreground="Gray"
+                            Style="{StaticResource CaptionTextBlockStyle}"
                             Text="{x:Bind ReadableSize}" />
                     </Grid>
                 </Grid>
@@ -191,9 +191,9 @@
                     </Grid.ColumnDefinitions>
 
                     <TextBlock
-                Style="{StaticResource BodyStrongTextBlockStyle}"
                         VerticalAlignment="Center"
                         IsTextSelectionEnabled="True"
+                        Style="{StaticResource BodyStrongTextBlockStyle}"
                         Text="{x:Bind ViewModel.Subject, Mode=OneWay}"
                         TextWrapping="Wrap" />
 
@@ -219,8 +219,8 @@
                     <HyperlinkButton
                         Grid.Column="2"
                         Margin="0,0,0,4"
-                        AutomationProperties.Name="{x:Bind domain:Translator.SmimeSignedTooltip, Mode=OneTime}"
                         VerticalAlignment="Center"
+                        AutomationProperties.Name="{x:Bind domain:Translator.SmimeSignedTooltip, Mode=OneTime}"
                         Command="{x:Bind ViewModel.ShowSmimeSigningCertificateInfoCommand}"
                         ToolTipService.ToolTip="{x:Bind domain:Translator.SmimeSignedTooltip}"
                         Visibility="{x:Bind ViewModel.IsSmimeSigned, Mode=OneWay}">
@@ -316,8 +316,7 @@
                                             </TextBlock>
                                         </Grid>
                                     </HyperlinkButton>
-                                    <TextBlock
-                Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind helpers:XamlHelpers.GetCreationDateString(ViewModel.CreationDate, ViewModel.PreferencesService.Prefer24HourTimeFormat), Mode=OneWay}" />
+                                    <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind helpers:XamlHelpers.GetCreationDateString(ViewModel.CreationDate, ViewModel.PreferencesService.Prefer24HourTimeFormat), Mode=OneWay}" />
                                 </StackPanel>
                             </Grid>
                         </Grid>
@@ -422,13 +421,13 @@
 
                 <!--  Attachments  -->
                 <Grid Grid.Row="4" ColumnSpacing="8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
                     <ListView
                         x:Name="AttachmentsListView"
-                        Grid.Row="3"
+                        Grid.Row="0"
                         x:Load="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.Attachments.Count), Mode=OneWay}"
                         IsItemClickEnabled="True"
                         ItemClick="AttachmentClicked"
@@ -443,11 +442,11 @@
                     </ListView>
 
                     <StackPanel
-                        Grid.Column="1"
+                        Grid.Row="1"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Center"
                         Orientation="Horizontal"
-                        Spacing="8">
+                        Spacing="4">
                         <HyperlinkButton
                             Command="{x:Bind ViewModel.ShowAllAttachmentsCommand}"
                             Content="{x:Bind domain:Translator.Reader_ShowAllAttachmentsButtonText, Mode=OneTime}"
