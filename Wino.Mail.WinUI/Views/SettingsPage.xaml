@@ -29,9 +29,12 @@
                 ItemsSource="{x:Bind PageHistory, Mode=OneWay}">
                 <winuiControls:BreadcrumbBar.ItemTemplate>
                     <DataTemplate x:DataType="viewModelData:BreadcrumbNavigationItemViewModel">
-                        <winuiControls:BreadcrumbBarItem
-                            Margin="0,0,8,0"
-                            AutomationProperties.Name="{x:Bind Title, Mode=OneWay}">
+
+                        <!--
+                            TODO: This crashes the app.
+                            AutomationProperties.Name="{x:Bind Title, Mode=OneWay}"
+                        -->
+                        <winuiControls:BreadcrumbBarItem Margin="0,0,8,0">
                             <winuiControls:BreadcrumbBarItem.ContentTemplate>
                                 <DataTemplate x:DataType="viewModelData:BreadcrumbNavigationItemViewModel">
                                     <TextBlock
