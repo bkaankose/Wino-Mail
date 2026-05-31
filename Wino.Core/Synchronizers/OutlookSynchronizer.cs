@@ -121,6 +121,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     private readonly IOutlookSynchronizerErrorHandlerFactory _errorHandlingFactory;
     private readonly IMailCategoryService _mailCategoryService;
     private bool _isFolderStructureChanged;
+    private bool _hasForcedCategoryResyncForCurrentDelta;
 
     private readonly SemaphoreSlim _concurrentDownloadSemaphore = new(10); // Limit to 10 concurrent downloads
 
@@ -171,6 +172,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     {
         var downloadedMessageIds = new List<string>();
         var folderResults = new List<FolderSyncResult>();
+        _hasForcedCategoryResyncForCurrentDelta = false;
 
         _logger.Information("Internal synchronization started for {Name}", Account.Name);
         _logger.Information("Options: {Options}", options);
@@ -474,7 +476,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                                 {
                                     // Create package without MIME
                                     var contacts = ExtractContactsFromOutlookMessage(message);
-                                    var package = new NewMailItemPackage(mailCopy, null, folder.RemoteFolderId, contacts);
+                                    var package = new NewMailItemPackage(mailCopy, null, folder.RemoteFolderId, contacts, message.Categories);
                                     bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
 
                                     if (isInserted)
@@ -667,7 +669,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                                 {
                                     // Create package without MIME
                                     var contacts = ExtractContactsFromOutlookMessage(message);
-                                    var package = new NewMailItemPackage(mailCopy, null, folder.RemoteFolderId, contacts);
+                                    var package = new NewMailItemPackage(mailCopy, null, folder.RemoteFolderId, contacts, message.Categories);
                                     bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
 
                                     if (isInserted)
@@ -1188,6 +1190,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
                 if (item.Categories != null)
                 {
+                    await EnsureDeltaMailCategoriesAvailableAsync(item.Categories, cancellationToken).ConfigureAwait(false);
                     await ReplaceMailAssignmentsAsync(item.Id, item.Categories).ConfigureAwait(false);
                 }
             }
@@ -1203,6 +1206,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
                 // Package may return null on some cases mapping the remote draft to existing local draft.
 
+                await EnsureDeltaMailCategoriesAvailableAsync(item.Categories, cancellationToken).ConfigureAwait(false);
                 var newMailPackages = await CreateNewMailPackagesAsync(item, folder, cancellationToken);
 
                 if (newMailPackages != null)
@@ -1282,6 +1286,54 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             await _mailCategoryService.ReplaceMailAssignmentsAsync(Account.Id, localMailCopy.UniqueId, categoryNames ?? []).ConfigureAwait(false);
         }
     }
+
+    private async Task EnsureDeltaMailCategoriesAvailableAsync(IEnumerable<string> categoryNames, CancellationToken cancellationToken)
+    {
+        if (_hasForcedCategoryResyncForCurrentDelta)
+            return;
+
+        var normalizedNames = NormalizeCategoryNames(categoryNames);
+        if (normalizedNames.Count == 0)
+            return;
+
+        var availableCategories = await _mailCategoryService.GetCategoriesAsync(Account.Id).ConfigureAwait(false);
+        var availableCategoryNames = new HashSet<string>(
+            NormalizeCategoryNames(availableCategories.Select(a => a.Name)),
+            StringComparer.OrdinalIgnoreCase);
+        var missingCategoryNames = normalizedNames
+            .Where(name => !availableCategoryNames.Contains(name))
+            .ToList();
+
+        if (missingCategoryNames.Count == 0)
+            return;
+
+        _hasForcedCategoryResyncForCurrentDelta = true;
+
+        try
+        {
+            _logger.Information(
+                "Delta mail references Outlook categories missing locally for {Name}. Re-synchronizing categories once. Missing categories: {Categories}",
+                Account.Name,
+                string.Join(", ", missingCategoryNames));
+
+            await SynchronizeCategoriesAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to refresh Outlook categories while processing delta mail for {Name}.", Account.Name);
+        }
+    }
+
+    private static List<string> NormalizeCategoryNames(IEnumerable<string> categoryNames)
+        => categoryNames?
+            .Select(name => name?.Trim())
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList() ?? [];
 
     private async Task<OutlookSpecialFolderIdInformation> GetSpecialFolderIdsAsync(CancellationToken cancellationToken)
     {
