@@ -624,6 +624,7 @@
                                                 <CheckBox
                                                     Width="26"
                                                     MinWidth="0"
+                                                    AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetCalendarsForAccountAutomationName(Account.Name), Mode=OneWay}"
                                                     IsChecked="{x:Bind IsCheckedState, Mode=TwoWay}"
                                                     IsThreeState="True" />
 
@@ -667,6 +668,7 @@
                                                         <CheckBox
                                                             HorizontalAlignment="Stretch"
                                                             VerticalAlignment="Center"
+                                                            AutomationProperties.Name="{x:Bind Name, Mode=OneWay}"
                                                             HorizontalContentAlignment="Stretch"
                                                             VerticalContentAlignment="Stretch"
                                                             IsChecked="{x:Bind IsChecked, Mode=TwoWay}">

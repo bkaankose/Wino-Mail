@@ -16,6 +16,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Mail.WinUI.Controls;
 
@@ -247,6 +248,45 @@ public static class XamlHelpers
 
         return Translator.UnknownDateHeader;
     }
+
+    public static string GetBreadcrumbStepAutomationName(int stepNumber, string title)
+        => stepNumber > 0
+            ? string.Format(Translator.Accessibility_BreadcrumbStep, stepNumber, title)
+            : title;
+
+    public static string GetAccountSetupStepAutomationName(AccountSetupStepModel? step)
+        => step == null
+            ? string.Empty
+            : string.Format(Translator.Accessibility_AccountSetupStep, step.Title, GetAccountSetupStepStatusText(step.Status));
+
+    public static string GetMailAddressAutomationName(string label, string? displayName, string? address)
+    {
+        var normalizedLabel = (label ?? string.Empty).Trim().TrimEnd(':');
+        var normalizedAddress = address?.Trim() ?? string.Empty;
+        var normalizedDisplayName = displayName?.Trim() ?? string.Empty;
+        var contactText = string.IsNullOrWhiteSpace(normalizedDisplayName)
+            ? normalizedAddress
+            : string.Equals(normalizedDisplayName, normalizedAddress, StringComparison.OrdinalIgnoreCase)
+                ? normalizedAddress
+                : $"{normalizedDisplayName} <{normalizedAddress}>";
+
+        return string.IsNullOrWhiteSpace(normalizedLabel)
+            ? contactText
+            : $"{normalizedLabel}: {contactText}";
+    }
+
+    public static string GetCalendarsForAccountAutomationName(string? accountName)
+        => string.Format(Translator.Accessibility_CalendarsForAccount, accountName ?? string.Empty);
+
+    private static string GetAccountSetupStepStatusText(AccountSetupStepStatus status)
+        => status switch
+        {
+            AccountSetupStepStatus.Pending => Translator.Accessibility_SetupStepPending,
+            AccountSetupStepStatus.InProgress => Translator.Accessibility_SetupStepInProgress,
+            AccountSetupStepStatus.Succeeded => Translator.Accessibility_SetupStepSucceeded,
+            AccountSetupStepStatus.Failed => Translator.Accessibility_SetupStepFailed,
+            _ => string.Empty
+        };
 
 
     #endregion

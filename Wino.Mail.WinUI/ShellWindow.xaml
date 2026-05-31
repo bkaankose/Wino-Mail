@@ -28,6 +28,7 @@
             x:Name="ShellTitleBar"
             Title="{x:Bind StatePersistanceService.AppModeTitle, Mode=OneWay}"
             Margin="-2"
+            IsTabStop="False"
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
             BackRequested="BackButtonClicked"
@@ -47,6 +48,7 @@
                     <AutoSuggestBox
                         x:Name="TitleBarSearchBox"
                         VerticalAlignment="Center"
+                        AutomationProperties.Name="{x:Bind domain:Translator.SearchBarPlaceholder}"
                         BorderBrush="Transparent"
                         PlaceholderText="{x:Bind domain:Translator.SearchBarPlaceholder}"
                         QueryIcon="Find"
@@ -74,6 +76,7 @@
                         x:Name="SyncStatusButton"
                         Padding="8,4"
                         VerticalAlignment="Center"
+                        AutomationProperties.Name="{x:Bind domain:Translator.Accessibility_SynchronizationStatus}"
                         Background="Transparent"
                         BorderThickness="0"
                         Visibility="Collapsed">
@@ -121,8 +124,10 @@
                     </Button>
                     <Button
                         x:Name="WinoAccountButton"
+                        AutomationProperties.Name="{x:Bind domain:Translator.WinoAccount_Titlebar_SignedOutTitle}"
                         Background="Transparent"
                         BorderBrush="Transparent"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.WinoAccount_Titlebar_SignedOutTitle}"
                         Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(PreferencesService.IsWinoAccountButtonHidden), Mode=OneWay}">
                         <Button.Flyout>
                             <Flyout x:Name="WinoAccountFlyout" Placement="Bottom">

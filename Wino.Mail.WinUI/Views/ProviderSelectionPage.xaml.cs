@@ -17,11 +17,4 @@ public sealed partial class ProviderSelectionPage : ProviderSelectionPageAbstrac
         ViewModel.SelectedProvider = sender.SelectedItem as Wino.Core.Domain.Interfaces.IProviderDetail;
     }
 
-    private void AccountColorGridView_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (e.AddedItems.Count > 0)
-        {
-            AccountColorFlyout.Hide();
-        }
-    }
 }

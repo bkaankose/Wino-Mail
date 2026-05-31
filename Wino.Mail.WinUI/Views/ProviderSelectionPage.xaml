@@ -65,7 +65,11 @@
                         SelectionMode="Single">
                         <ItemsView.ItemTemplate>
                             <DataTemplate x:DataType="interfaces:IProviderDetail">
-                                <ItemContainer Padding="12,10" HorizontalAlignment="Stretch">
+                                <ItemContainer
+                                    Padding="12,10"
+                                    HorizontalAlignment="Stretch"
+                                    AutomationProperties.HelpText="{x:Bind Description}"
+                                    AutomationProperties.Name="{x:Bind Name}">
                                     <Grid Padding="16" ColumnSpacing="12">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
@@ -156,6 +160,8 @@
                             Grid.Column="1"
                             Padding="12,8"
                             VerticalAlignment="Bottom"
+                            AutomationProperties.HelpText="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Description, Mode=OneTime}"
+                            AutomationProperties.Name="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Title, Mode=OneTime}"
                             ToolTipService.ToolTip="{x:Bind domain:Translator.ProviderSelection_ClearColor, Mode=OneTime}">
                             <Grid>
                                 <FontIcon
@@ -174,10 +180,10 @@
                                         <GridView
                                             x:Name="AccountColorGridView"
                                             Width="150"
+                                            AutomationProperties.Name="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Title, Mode=OneTime}"
                                             ItemTemplate="{StaticResource AccountColorTemplate}"
                                             ItemsSource="{x:Bind ViewModel.AvailableColors, Mode=OneWay}"
-                                            SelectedItem="{x:Bind ViewModel.SelectedColor, Mode=TwoWay}"
-                                            SelectionChanged="AccountColorGridView_SelectionChanged" />
+                                            SelectedItem="{x:Bind ViewModel.SelectedColor, Mode=TwoWay}" />
                                         <HyperlinkButton
                                             HorizontalAlignment="Center"
                                             Command="{x:Bind ViewModel.ClearColorCommand}"
@@ -248,6 +254,8 @@
                         </Grid.ColumnDefinitions>
 
                         <ToggleButton
+                            AutomationProperties.HelpText="{x:Bind domain:Translator.ProviderSelection_MailCapabilityHelp, Mode=OneTime}"
+                            AutomationProperties.Name="{x:Bind domain:Translator.ProviderSelection_UseForMail, Mode=OneTime}"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Stretch"
                             IsChecked="{x:Bind ViewModel.IsMailAccessEnabled, Mode=TwoWay}">
@@ -265,13 +273,15 @@
                                     Grid.Column="1"
                                     VerticalAlignment="Center"
                                     TextWrapping="Wrap">
-                                    <Run FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_UseForMail, Mode=OneTime}" /><LineBreak /><Run Text="Connect your mail account." />
+                                    <Run FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_UseForMail, Mode=OneTime}" /><LineBreak /><Run Text="{x:Bind domain:Translator.ProviderSelection_MailCapabilityHelp, Mode=OneTime}" />
                                 </TextBlock>
                             </Grid>
                         </ToggleButton>
 
                         <ToggleButton
                             Grid.Column="1"
+                            AutomationProperties.HelpText="{x:Bind domain:Translator.ProviderSelection_CalendarCapabilityHelp, Mode=OneTime}"
+                            AutomationProperties.Name="{x:Bind domain:Translator.ProviderSelection_UseForCalendar, Mode=OneTime}"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Stretch"
                             IsChecked="{x:Bind ViewModel.IsCalendarAccessEnabled, Mode=TwoWay}">
@@ -289,7 +299,7 @@
                                     Grid.Column="1"
                                     VerticalAlignment="Center"
                                     TextWrapping="Wrap">
-                                    <Run FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_UseForCalendar, Mode=OneTime}" /><LineBreak /><Run Text="Connect your calendar." />
+                                    <Run FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_UseForCalendar, Mode=OneTime}" /><LineBreak /><Run Text="{x:Bind domain:Translator.ProviderSelection_CalendarCapabilityHelp, Mode=OneTime}" />
                                 </TextBlock>
                             </Grid>
                         </ToggleButton>
@@ -330,6 +340,9 @@
                             MinWidth="260"
                             Margin="0,12"
                             HorizontalAlignment="Left"
+                            AutomationProperties.HelpText="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_Description, Mode=OneTime}"
+                            AutomationProperties.Name="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_Title, Mode=OneTime}"
+                            Header="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_Title, Mode=OneTime}"
                             ItemsSource="{x:Bind ViewModel.InitialSynchronizationRanges, Mode=OneWay}"
                             SelectedItem="{x:Bind ViewModel.SelectedInitialSynchronizationRange, Mode=TwoWay}">
                             <ComboBox.ItemTemplate>

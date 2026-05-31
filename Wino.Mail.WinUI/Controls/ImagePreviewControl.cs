@@ -51,6 +51,7 @@ public sealed partial class ImagePreviewControl : PersonPicture, IDisposable
     public ImagePreviewControl()
     {
         DefaultStyleKey = typeof(PersonPicture);
+        IsTabStop = false;
 
         try
         {

@@ -25,20 +25,15 @@
                 Text="{x:Bind domain:Translator.AccountSetup_Title}" />
 
             <!--  Steps List  -->
-            <ListView
-                IsItemClickEnabled="False"
-                ItemsSource="{x:Bind ViewModel.Steps, Mode=OneWay}"
-                SelectionMode="None">
-                <ListView.ItemContainerStyle>
-                    <Style TargetType="ListViewItem">
-                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                        <Setter Property="Padding" Value="0,6" />
-                        <Setter Property="MinHeight" Value="0" />
-                    </Style>
-                </ListView.ItemContainerStyle>
-                <ListView.ItemTemplate>
+            <ItemsControl
+                AutomationProperties.LiveSetting="Polite"
+                ItemsSource="{x:Bind ViewModel.Steps, Mode=OneWay}">
+                <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="accounts:AccountSetupStepModel">
-                        <Grid ColumnSpacing="12">
+                        <Grid
+                            Padding="0,6"
+                            ColumnSpacing="12"
+                            AutomationProperties.Name="{x:Bind AutomationName, Mode=OneWay}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="28" />
                                 <ColumnDefinition Width="*" />
@@ -92,8 +87,8 @@
                             </StackPanel>
                         </Grid>
                     </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
 
             <!--  Success InfoBar  -->
             <winuiControls:InfoBar

@@ -125,6 +125,7 @@
             <Grid
                 Margin="0,0,0,6"
                 AllowFocusOnInteraction="False"
+                AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetMailGroupDateString(Key)}"
                 Background="{ThemeResource MailListHeaderBackgroundColor}"
                 CornerRadius="6">
                 <TextBlock
@@ -210,6 +211,7 @@
                         MinWidth="0"
                         Margin="8,0,0,0"
                         VerticalAlignment="Center"
+                        AutomationProperties.Name="{x:Bind domain:Translator.Accessibility_SelectAllMessages}"
                         Canvas.ZIndex="100"
                         Checked="SelectAllCheckboxChecked"
                         Unchecked="SelectAllCheckboxUnchecked" />
@@ -228,7 +230,9 @@
                             Style="{StaticResource PivotSegmentedStyle}">
                             <toolkit:Segmented.ItemTemplate>
                                 <DataTemplate x:DataType="viewModelData:FolderPivotViewModel">
-                                    <StackPanel Orientation="Horizontal">
+                                    <StackPanel
+                                        AutomationProperties.Name="{x:Bind FolderTitle}"
+                                        Orientation="Horizontal">
                                         <TextBlock Text="{x:Bind FolderTitle}" />
                                         <TextBlock
                                             Margin="4,0,0,0"
@@ -255,6 +259,7 @@
                         Grid.Column="2"
                         Orientation="Horizontal">
                         <Button
+                            AutomationProperties.Name="{x:Bind domain:Translator.FolderOperation_Empty}"
                             Background="Transparent"
                             BorderThickness="0"
                             Command="{x:Bind ViewModel.EmptyFolderCommand}"
@@ -265,6 +270,7 @@
                         <Button
                             Width="36"
                             Height="36"
+                            AutomationProperties.Name="{x:Bind domain:Translator.Buttons_Sync}"
                             Background="Transparent"
                             BorderThickness="0"
                             Command="{x:Bind ViewModel.SyncFolderCommand}"
@@ -277,6 +283,7 @@
                             x:Name="SelectionModeToggle"
                             Width="36"
                             Height="36"
+                            AutomationProperties.Name="{x:Bind domain:Translator.Buttons_Multiselect}"
                             Background="Transparent"
                             BorderThickness="0"
                             Checked="SelectionModeToggleChecked"
@@ -287,10 +294,11 @@
                         </ToggleButton>
                         <DropDownButton
                             Height="36"
+                            AutomationProperties.Name="{x:Bind domain:Translator.Accessibility_FilterMessages}"
                             Background="Transparent"
                             BorderThickness="0"
                             Content="{x:Bind ViewModel.SelectedFilterOption.Title, Mode=OneWay}"
-                            ToolTipService.ToolTip="Filter">
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.Accessibility_FilterMessages}">
                             <DropDownButton.Flyout>
                                 <menuflyouts:FilterMenuFlyout
                                     x:Name="FilterMenuFlyout"
@@ -485,8 +493,10 @@
             Grid.Column="1"
             Width="16"
             HorizontalAlignment="Left"
+            AutomationProperties.AccessibilityView="Raw"
             Binding="{x:Bind ViewModel.MailListLength, Mode=TwoWay}"
             Canvas.ZIndex="20"
+            IsTabStop="False"
             ManipulationCompleted="MailListSizerManipulationCompleted"
             Maximum="{x:Bind ViewModel.MaxMailListLength, Mode=OneWay}"
             Minimum="270"

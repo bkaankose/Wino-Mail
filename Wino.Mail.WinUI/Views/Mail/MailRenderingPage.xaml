@@ -26,6 +26,7 @@
             <HyperlinkButton
                 Margin="0"
                 Padding="4,2"
+                AutomationProperties.Name="{x:Bind DisplayName}"
                 Click="InternetAddressClicked"
                 Content="{x:Bind ShortNameOrYou}"
                 ToolTipService.ToolTip="{x:Bind DisplayName}">
@@ -53,6 +54,7 @@
                                 Grid.Row="1"
                                 Grid.Column="1"
                                 Padding="0"
+                                AutomationProperties.Name="{x:Bind Address}"
                                 Click="CopyAddress_Click"
                                 CommandParameter="{x:Bind Address}"
                                 Content="{x:Bind Address}" />
@@ -292,7 +294,9 @@
                                 x:Name="ContactImage"
                                 Width="36"
                                 Height="36"
+                                AutomationProperties.AccessibilityView="Raw"
                                 FontSize="16"
+                                IsTabStop="False"
                                 MailItemInformation="{x:Bind ViewModel.CurrentMailItemDisplayInformation, Mode=OneWay}" />
 
                             <Grid
@@ -303,6 +307,7 @@
                                     <HyperlinkButton
                                         Margin="0"
                                         Padding="4,2"
+                                        AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetMailAddressAutomationName(domain:Translator.ComposerFrom, ViewModel.FromName, ViewModel.FromAddress), Mode=OneWay}"
                                         Command="{Binding ElementName=root, Path=ViewModel.CopyClipboardCommand}"
                                         CommandParameter="{x:Bind ViewModel.FromAddress, Mode=OneWay}"
                                         FontWeight="SemiBold">

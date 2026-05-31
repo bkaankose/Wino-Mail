@@ -9,22 +9,34 @@
     Loaded="ControlLoaded"
     SelectionChanged="ModeSegmentedControlSelectionChanged"
     Unloaded="ControlUnloaded">
-    <controls:SegmentedItem Padding="0" ToolTipService.ToolTip="{x:Bind domain:Translator.KeyboardShortcuts_ModeMail}">
+    <controls:SegmentedItem
+        Padding="0"
+        AutomationProperties.Name="{x:Bind domain:Translator.KeyboardShortcuts_ModeMail}"
+        ToolTipService.ToolTip="{x:Bind domain:Translator.KeyboardShortcuts_ModeMail}">
         <controls:SegmentedItem.Icon>
             <SymbolIcon Symbol="Mail" />
         </controls:SegmentedItem.Icon>
     </controls:SegmentedItem>
-    <controls:SegmentedItem Padding="0" ToolTipService.ToolTip="{x:Bind domain:Translator.KeyboardShortcuts_ModeCalendar}">
+    <controls:SegmentedItem
+        Padding="0"
+        AutomationProperties.Name="{x:Bind domain:Translator.KeyboardShortcuts_ModeCalendar}"
+        ToolTipService.ToolTip="{x:Bind domain:Translator.KeyboardShortcuts_ModeCalendar}">
         <controls:SegmentedItem.Icon>
             <SymbolIcon Symbol="Calendar" />
         </controls:SegmentedItem.Icon>
     </controls:SegmentedItem>
-    <controls:SegmentedItem Padding="0" ToolTipService.ToolTip="{x:Bind domain:Translator.ContactsPage_Title}">
+    <controls:SegmentedItem
+        Padding="0"
+        AutomationProperties.Name="{x:Bind domain:Translator.ContactsPage_Title}"
+        ToolTipService.ToolTip="{x:Bind domain:Translator.ContactsPage_Title}">
         <controls:SegmentedItem.Icon>
             <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE716;" />
         </controls:SegmentedItem.Icon>
     </controls:SegmentedItem>
-    <controls:SegmentedItem Padding="0" ToolTipService.ToolTip="{x:Bind domain:Translator.MenuSettings}">
+    <controls:SegmentedItem
+        Padding="0"
+        AutomationProperties.Name="{x:Bind domain:Translator.MenuSettings}"
+        ToolTipService.ToolTip="{x:Bind domain:Translator.MenuSettings}">
         <controls:SegmentedItem.Icon>
             <SymbolIcon Symbol="Setting" />
         </controls:SegmentedItem.Icon>

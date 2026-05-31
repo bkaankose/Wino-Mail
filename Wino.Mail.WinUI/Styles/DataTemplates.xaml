@@ -271,7 +271,8 @@
         <Grid
             Width="32"
             Height="32"
-            Margin="2">
+            Margin="2"
+            AutomationProperties.Name="{x:Bind DisplayName}">
             <Rectangle
                 Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(Hex)}"
                 RadiusX="4"

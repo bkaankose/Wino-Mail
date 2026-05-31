@@ -25,4 +25,6 @@ public partial class BreadcrumbNavigationItemViewModel : ObservableObject
         StepNumber = stepNumber;
         BackStackDepth = backStackDepth;
     }
+
+    public override string ToString() => Title;
 }

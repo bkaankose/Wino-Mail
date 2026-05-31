@@ -25,6 +25,8 @@
             <Grid
                 Margin="0,4"
                 Padding="12,10"
+                AutomationProperties.HelpText="{x:Bind Description}"
+                AutomationProperties.Name="{x:Bind Name}"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
@@ -74,7 +76,11 @@
                     PlaceholderText="{x:Bind domain:Translator.NewAccountDialog_AccountNamePlaceholder}"
                     TextChanged="InputChanged" />
 
-                <Button Grid.Column="1" VerticalAlignment="Bottom">
+                <Button
+                    Grid.Column="1"
+                    VerticalAlignment="Bottom"
+                    AutomationProperties.HelpText="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Description}"
+                    AutomationProperties.Name="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Title}">
                     <Grid>
                         <Ellipse
                             x:Name="SelectedColorEllipse"
@@ -88,6 +94,7 @@
                         <Flyout Placement="TopEdgeAlignedLeft">
                             <GridView
                                 Width="150"
+                                AutomationProperties.Name="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Title}"
                                 ItemTemplate="{StaticResource AccountColorTemplate}"
                                 ItemsSource="{x:Bind AvailableColors, Mode=OneWay}"
                                 SelectedItem="{x:Bind SelectedColor, Mode=TwoWay}" />
@@ -120,6 +127,9 @@
                     <ComboBox
                         x:Name="InitialSynchronizationComboBox"
                         HorizontalAlignment="Stretch"
+                        AutomationProperties.HelpText="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_Description}"
+                        AutomationProperties.Name="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_Title}"
+                        Header="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_Title}"
                         ItemsSource="{x:Bind InitialSynchronizationRanges, Mode=OneWay}"
                         SelectionChanged="InitialSynchronizationSelectionChanged">
                         <ComboBox.ItemTemplate>

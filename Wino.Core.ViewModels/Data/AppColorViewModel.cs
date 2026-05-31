@@ -1,4 +1,5 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
+using Wino.Core.Domain;
 
 namespace Wino.Core.ViewModels.Data;
 
@@ -9,8 +10,16 @@ public class AppColorViewModel : ObservableObject
     public string Hex
     {
         get => _hex;
-        set => SetProperty(ref _hex, value);
+        set
+        {
+            if (SetProperty(ref _hex, value))
+            {
+                OnPropertyChanged(nameof(DisplayName));
+            }
+        }
     }
+
+    public string DisplayName => string.Format(Translator.Accessibility_ColorOption, Hex);
 
     public bool IsAccentColor { get; }
 
@@ -19,4 +28,6 @@ public class AppColorViewModel : ObservableObject
         IsAccentColor = isAccentColor;
         Hex = hex;
     }
+
+    public override string ToString() => DisplayName;
 }

@@ -29,4 +29,6 @@ public partial class FolderPivotViewModel : ObservableObject
 
         FolderTitle = IsFocused == null ? folderName : (IsFocused == true ? Translator.Focused : Translator.Other);
     }
+
+    public override string ToString() => FolderTitle;
 }
