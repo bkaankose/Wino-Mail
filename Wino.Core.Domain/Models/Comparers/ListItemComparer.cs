@@ -12,6 +12,9 @@ public class ListItemComparer : IComparer<object>
     {
         if (x is MailListGroupKey xGroupKey && y is MailListGroupKey yGroupKey)
         {
+            if (xGroupKey.IsGroupless || yGroupKey.IsGroupless)
+                return xGroupKey.IsGroupless == yGroupKey.IsGroupless ? 0 : xGroupKey.IsGroupless.CompareTo(yGroupKey.IsGroupless);
+
             if (xGroupKey.IsPinned != yGroupKey.IsPinned)
                 return yGroupKey.IsPinned.CompareTo(xGroupKey.IsPinned);
 

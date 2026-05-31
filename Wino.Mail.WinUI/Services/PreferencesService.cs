@@ -161,6 +161,12 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SetPropertyAndSave(nameof(IsShowPreviewEnabled), value);
     }
 
+    public bool IsMailListGroupHeadersEnabled
+    {
+        get => _configurationService.Get(nameof(IsMailListGroupHeadersEnabled), true);
+        set => SetPropertyAndSave(nameof(IsMailListGroupHeadersEnabled), value);
+    }
+
     public bool RenderStyles
     {
         get => _configurationService.Get(nameof(RenderStyles), true);

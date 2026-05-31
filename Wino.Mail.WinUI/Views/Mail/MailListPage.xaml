@@ -136,6 +136,15 @@
                     Text="{x:Bind helpers:XamlHelpers.GetMailGroupDateString(Key)}" />
             </Grid>
         </DataTemplate>
+
+        <DataTemplate x:Key="MailGroupHeaderEmptyTemplate" x:DataType="collections:IReadOnlyObservableGroup">
+            <Grid />
+        </DataTemplate>
+
+        <listview:WinoMailGroupHeaderTemplateSelector
+            x:Key="MailGroupHeaderTemplateSelector"
+            DefaultHeaderTemplate="{StaticResource MailGroupHeaderDefaultTemplate}"
+            EmptyHeaderTemplate="{StaticResource MailGroupHeaderEmptyTemplate}" />
     </Page.Resources>
 
     <Grid x:Name="RootGrid" Padding="0,2,0,0">
@@ -367,6 +376,7 @@
                         ItemContainerStyleSelector="{StaticResource WinoMailItemContainerStyleSelector}"
                         ItemTemplateSelector="{StaticResource MailItemTemplateSelector}"
                         ItemsSource="{x:Bind MailCollectionViewSource.View, Mode=OneWay}"
+                        GroupHeaderTemplateSelector="{StaticResource MailGroupHeaderTemplateSelector}"
                         LoadMoreCommand="{x:Bind ViewModel.LoadMoreItemsCommand}"
                         ProcessKeyboardAccelerators="WinoListViewProcessKeyboardAccelerators"
                         SelectionMode="None">
@@ -385,9 +395,6 @@
                                 <Style BasedOn="{StaticResource MailListHeaderStyle}" TargetType="ListViewHeaderItem" />
                             </ResourceDictionary>
                         </listview:WinoListView.Resources>
-                        <listview:WinoListView.GroupStyle>
-                            <GroupStyle HeaderTemplate="{StaticResource MailGroupHeaderDefaultTemplate}" HidesIfEmpty="True" />
-                        </listview:WinoListView.GroupStyle>
                     </listview:WinoListView>
 
                     <Border

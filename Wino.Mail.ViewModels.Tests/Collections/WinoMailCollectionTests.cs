@@ -223,6 +223,30 @@ public class WinoMailCollectionTests
     }
 
     [Fact]
+    public async Task AddRangeAsync_ShouldUseSingleGrouplessGroup_WhenGroupHeadersAreDisabled()
+    {
+        var sut = CreateCollection();
+        sut.AreGroupHeadersEnabled = false;
+
+        var olderPinned = CreateMailCopy(threadId: "pinned", creationDate: DateTime.UtcNow.AddDays(-3));
+        olderPinned.IsPinned = true;
+        var newerUnpinned = CreateMailCopy(threadId: "regular", creationDate: DateTime.UtcNow);
+
+        await sut.AddRangeAsync(
+            [
+                new MailItemViewModel(newerUnpinned),
+                new MailItemViewModel(olderPinned)
+            ],
+            clearIdCache: true);
+
+        sut.MailItems.Count.Should().Be(1);
+        sut.MailItems[0].Key.Should().Be(MailListGroupKey.Groupless);
+
+        var firstItem = FlattenItems(sut).First().Should().BeOfType<MailItemViewModel>().Subject;
+        firstItem.MailCopy.UniqueId.Should().Be(olderPinned.UniqueId);
+    }
+
+    [Fact]
     public async Task AddRangeAsync_ShouldPlacePinnedItemsBeforeUnpinnedItems()
     {
         var sut = CreateCollection();

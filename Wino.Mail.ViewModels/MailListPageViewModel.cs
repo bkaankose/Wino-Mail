@@ -209,6 +209,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         SelectedFilterOption = FilterOptions[0];
         SelectedSortingOption = SortingOptions[0];
         MailCollection.IsThreadingEnabled = PreferencesService.IsThreadingEnabled;
+        MailCollection.AreGroupHeadersEnabled = PreferencesService.IsMailListGroupHeadersEnabled;
         MailCollection.ThreadItemFactory = threadId => new ThreadMailItemViewModel(threadId, PreferencesService.IsNewestThreadMailFirst);
 
         MailListLength = statePersistenceService.MailListPaneLength;
@@ -395,6 +396,18 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         if (propertyName == nameof(IPreferencesService.IsThreadingEnabled))
         {
             MailCollection.IsThreadingEnabled = PreferencesService.IsThreadingEnabled;
+
+            if (ActiveFolder != null)
+            {
+                await InitializeFolderAsync();
+            }
+
+            return;
+        }
+
+        if (propertyName == nameof(IPreferencesService.IsMailListGroupHeadersEnabled))
+        {
+            MailCollection.AreGroupHeadersEnabled = PreferencesService.IsMailListGroupHeadersEnabled;
 
             if (ActiveFolder != null)
             {

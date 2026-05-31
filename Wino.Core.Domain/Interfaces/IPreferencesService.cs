@@ -158,6 +158,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsShowPreviewEnabled { get; set; }
 
     /// <summary>
+    /// Setting: Show group headers in mail list.
+    /// </summary>
+    bool IsMailListGroupHeadersEnabled { get; set; }
+
+    /// <summary>
     /// Setting: Set whether 'img' tags in rendered HTMLs should be removed.
     /// </summary>
     bool RenderImages { get; set; }

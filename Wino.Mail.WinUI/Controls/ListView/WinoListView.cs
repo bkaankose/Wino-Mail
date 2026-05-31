@@ -23,6 +23,9 @@ public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
     [GeneratedDependencyProperty]
     public partial ICommand? LoadMoreCommand { get; set; }
 
+    [GeneratedDependencyProperty]
+    public partial DataTemplateSelector? GroupHeaderTemplateSelector { get; set; }
+
     public event EventHandler<MailDragStateChangedEventArgs>? MailDragStateChanged;
 
     protected override void OnApplyTemplate()
@@ -36,10 +39,40 @@ public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
 
         internalScrollviewer = GetTemplateChild(PART_ScrollViewer) as ScrollViewer;
 
+        ApplyGroupHeaderTemplateSelector();
+
         if (internalScrollviewer == null) return;
 
         internalScrollviewer.ViewChanged -= InternalScrollVeiwerViewChanged;
         internalScrollviewer.ViewChanged += InternalScrollVeiwerViewChanged;
+    }
+
+    partial void OnGroupHeaderTemplateSelectorPropertyChanged(DependencyPropertyChangedEventArgs e)
+    {
+        ApplyGroupHeaderTemplateSelector();
+    }
+
+    private void ApplyGroupHeaderTemplateSelector()
+    {
+        if (GroupHeaderTemplateSelector == null)
+        {
+            return;
+        }
+
+        var groupStyle = GroupStyle.FirstOrDefault();
+
+        if (groupStyle == null)
+        {
+            groupStyle = new GroupStyle
+            {
+                HidesIfEmpty = true
+            };
+
+            GroupStyle.Add(groupStyle);
+        }
+
+        groupStyle.HeaderTemplate = null;
+        groupStyle.HeaderTemplateSelector = GroupHeaderTemplateSelector;
     }
 
     private void InternalScrollVeiwerViewChanged(object? sender, ScrollViewerViewChangedEventArgs e)

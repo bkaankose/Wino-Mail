@@ -45,6 +45,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     public event EventHandler ItemSelectionChanged;
     public Func<string, ThreadMailItemViewModel> ThreadItemFactory { get; set; } = static threadId => new ThreadMailItemViewModel(threadId, true);
     public bool IsThreadingEnabled { get; set; } = true;
+    public bool AreGroupHeadersEnabled { get; set; } = true;
 
     private ListItemComparer listComparer = new();
 
@@ -143,6 +144,9 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
     private object GetGroupingKey(IMailListItem mailItem)
     {
+        if (!AreGroupHeadersEnabled)
+            return MailListGroupKey.Groupless;
+
         if (mailItem.IsPinned)
             return MailListGroupKey.Pinned;
 
