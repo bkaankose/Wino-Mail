@@ -394,6 +394,68 @@ public class WinoMailCollectionTests
         sut.SelectedItems.Should().ContainSingle();
     }
 
+    [Fact]
+    public async Task AllItemsCount_ShouldCountLeafMails_IncludingThreadChildren()
+    {
+        var sut = CreateCollection();
+        var single = CreateMailCopy(threadId: "single");
+        var threadFirst = CreateMailCopy(threadId: "shared", creationDate: DateTime.UtcNow.AddMinutes(-2));
+        var threadSecond = CreateMailCopy(threadId: "shared", creationDate: DateTime.UtcNow.AddMinutes(-1));
+
+        await sut.AddAsync(single);
+        await sut.AddAsync(threadFirst);
+        await sut.AddAsync(threadSecond);
+
+        // One single + one thread carrying two children = three leaf mails, two top-level items.
+        sut.AllItemsCount.Should().Be(3);
+        FlattenItems(sut).Should().HaveCount(2);
+        sut.AllItemsCount.Should().Be(FlattenMailItems(sut).Count);
+    }
+
+    [Fact]
+    public async Task SelectionCounters_ShouldReflectLeafSelectionAcrossThreads()
+    {
+        var sut = CreateCollection();
+        var single = CreateMailCopy(threadId: "single");
+        var threadFirst = CreateMailCopy(threadId: "shared", creationDate: DateTime.UtcNow.AddMinutes(-2));
+        var threadSecond = CreateMailCopy(threadId: "shared", creationDate: DateTime.UtcNow.AddMinutes(-1));
+
+        await sut.AddAsync(single);
+        await sut.AddAsync(threadFirst);
+        await sut.AddAsync(threadSecond);
+
+        var leaves = FlattenMailItems(sut);
+        leaves.Should().HaveCount(3);
+
+        sut.SelectedItemsCount.Should().Be(0);
+        sut.HasSingleItemSelected.Should().BeFalse();
+        sut.IsAllItemsSelected.Should().BeFalse();
+
+        leaves[0].IsSelected = true;
+        sut.SelectedItemsCount.Should().Be(1);
+        sut.HasSingleItemSelected.Should().BeTrue();
+        sut.IsAllItemsSelected.Should().BeFalse();
+
+        foreach (var leaf in leaves)
+        {
+            leaf.IsSelected = true;
+        }
+
+        sut.SelectedItemsCount.Should().Be(3);
+        sut.HasSingleItemSelected.Should().BeFalse();
+        sut.IsAllItemsSelected.Should().BeTrue();
+        sut.IsAllSelected.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task IsAllItemsSelected_ShouldBeFalse_WhenCollectionIsEmpty()
+    {
+        var sut = CreateCollection();
+
+        sut.AllItemsCount.Should().Be(0);
+        sut.IsAllItemsSelected.Should().BeFalse();
+    }
+
     private static WinoMailCollection CreateCollection() => new()
     {
         CoreDispatcher = new ImmediateDispatcher()
