@@ -30,6 +30,7 @@ public enum CalendarSynchronizerOperation
 {
     CreateEvent,
     UpdateEvent,
+    UpdateEventPersonalOptions,
     ChangeStartAndEndDate,
     DeleteEvent,
     AcceptEvent,

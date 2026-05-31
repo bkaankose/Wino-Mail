@@ -1287,18 +1287,21 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         }
 
         var originalItem = await _calendarService.GetCalendarItemAsync(targetItem.Id).ConfigureAwait(false);
+        var originalReminders = await _calendarService.GetRemindersAsync(targetItem.Id).ConfigureAwait(false);
         var attendees = await _calendarService.GetAttendeesAsync(targetItem.Id).ConfigureAwait(false);
 
         targetItem.ShowAs = showAs;
         await _calendarService.UpdateCalendarItemAsync(targetItem, attendees).ConfigureAwait(false);
 
         var preparationRequest = new CalendarOperationPreparationRequest(
-            CalendarSynchronizerOperation.UpdateEvent,
+            CalendarSynchronizerOperation.UpdateEventPersonalOptions,
             targetItem,
             attendees,
             ResponseMessage: null,
             OriginalItem: originalItem,
-            OriginalAttendees: attendees);
+            OriginalAttendees: attendees,
+            Reminders: originalReminders,
+            OriginalReminders: originalReminders);
 
         await _winoRequestDelegator.ExecuteAsync(preparationRequest).ConfigureAwait(false);
     }

@@ -3343,8 +3343,55 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             }).ToList();
         }
 
+        var reminder = request.Reminders?
+            .Where(reminder => reminder.DurationInSeconds > 0)
+            .OrderBy(reminder => reminder.DurationInSeconds)
+            .FirstOrDefault();
+
+        outlookEvent.IsReminderOn = reminder != null;
+        outlookEvent.ReminderMinutesBeforeStart = reminder == null
+            ? null
+            : (int)Math.Max(0, reminder.DurationInSeconds / 60);
+
         // Update the event using Graph API
         var updateRequest = _graphClient.Me.Events[calendarItem.RemoteEventId.GetProviderRemoteEventId()].ToPatchRequestInformation(outlookEvent);
+
+        return [new HttpRequestBundle<RequestInformation>(updateRequest, request)];
+    }
+
+    public override List<IRequestBundle<RequestInformation>> UpdateCalendarEventPersonalOptions(UpdateCalendarEventPersonalOptionsRequest request)
+    {
+        var calendarItem = request.Item;
+        var remoteEventId = calendarItem.RemoteEventId.GetProviderRemoteEventId();
+        if (string.IsNullOrEmpty(remoteEventId))
+        {
+            throw new InvalidOperationException("Cannot update event personal options without remote event ID");
+        }
+
+        var outlookEvent = new Microsoft.Graph.Models.Event
+        {
+            ShowAs = calendarItem.ShowAs switch
+            {
+                CalendarItemShowAs.Free => Microsoft.Graph.Models.FreeBusyStatus.Free,
+                CalendarItemShowAs.Tentative => Microsoft.Graph.Models.FreeBusyStatus.Tentative,
+                CalendarItemShowAs.Busy => Microsoft.Graph.Models.FreeBusyStatus.Busy,
+                CalendarItemShowAs.OutOfOffice => Microsoft.Graph.Models.FreeBusyStatus.Oof,
+                CalendarItemShowAs.WorkingElsewhere => Microsoft.Graph.Models.FreeBusyStatus.WorkingElsewhere,
+                _ => Microsoft.Graph.Models.FreeBusyStatus.Busy
+            }
+        };
+
+        var reminder = request.Reminders?
+            .Where(reminder => reminder.DurationInSeconds > 0)
+            .OrderBy(reminder => reminder.DurationInSeconds)
+            .FirstOrDefault();
+
+        outlookEvent.IsReminderOn = reminder != null;
+        outlookEvent.ReminderMinutesBeforeStart = reminder == null
+            ? null
+            : (int)Math.Max(0, reminder.DurationInSeconds / 60);
+
+        var updateRequest = _graphClient.Me.Events[remoteEventId].ToPatchRequestInformation(outlookEvent);
 
         return [new HttpRequestBundle<RequestInformation>(updateRequest, request)];
     }

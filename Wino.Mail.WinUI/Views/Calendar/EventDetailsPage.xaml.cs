@@ -1,12 +1,20 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reactive.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI;
+using CommunityToolkit.WinUI.Controls;
+using EmailValidation;
+using Microsoft.UI.Xaml;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using Microsoft.Web.WebView2.Core;
+using Windows.Foundation;
 using Windows.System;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
@@ -24,6 +32,7 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
     IRecipient<CalendarDescriptionRenderingRequested>
 {
     private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>()!;
+    private readonly List<IDisposable> _disposables = [];
     private TaskCompletionSource<bool> DOMLoadedTask = new TaskCompletionSource<bool>();
 
     public EventDetailsPage()
@@ -40,13 +49,24 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
         EventDetailsWebView.CoreWebView2Initialized -= CoreWebViewInitialized;
         EventDetailsWebView.CoreWebView2Initialized += CoreWebViewInitialized;
 
+        _disposables.Add(GetSuggestionBoxDisposable(AttendeeBox));
+        _disposables.Add(EventNotesEditor);
+        ViewModel.GetHtmlNotesAsync = async () => await EventNotesEditor.GetHtmlBodyAsync() ?? string.Empty;
+
         _ = EventDetailsWebView.EnsureCoreWebView2Async();
+        _ = RenderEditorDescriptionAsync();
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         base.OnNavigatedFrom(e);
 
+        foreach (var disposable in _disposables)
+        {
+            disposable.Dispose();
+        }
+
+        _disposables.Clear();
         DisposeWebView2();
     }
 
@@ -104,6 +124,21 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
                 JsonSerializer.Serialize(description, BasicTypesJsonContext.Default.String),
                 JsonSerializer.Serialize(true, BasicTypesJsonContext.Default.Boolean));
         }
+    }
+
+    private async Task RenderEditorDescriptionAsync()
+    {
+        if (DispatcherQueue != null && !DispatcherQueue.HasThreadAccess)
+        {
+            await DispatcherQueue.EnqueueAsync(RenderEditorDescriptionAsync);
+            return;
+        }
+
+        if (ViewModel?.CurrentEvent?.CalendarItem == null || EventNotesEditor == null)
+            return;
+
+        var description = ViewModel.CurrentEvent.CalendarItem.Description;
+        await EventNotesEditor.RenderHtmlAsync(string.IsNullOrEmpty(description) ? " " : description);
     }
 
     private async void WindowRequested(CoreWebView2 sender, CoreWebView2NewWindowRequestedEventArgs args)
@@ -181,12 +216,14 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
     void IRecipient<ApplicationThemeChanged>.Receive(ApplicationThemeChanged message)
     {
         ViewModel.IsDarkWebviewRenderer = message.IsUnderlyingThemeDark;
+        EventNotesEditor.IsEditorDarkMode = message.IsUnderlyingThemeDark;
         _ = UpdateEditorThemeAsync();
     }
 
     void IRecipient<CalendarDescriptionRenderingRequested>.Receive(CalendarDescriptionRenderingRequested message)
     {
         _ = RenderDescriptionAsync();
+        _ = RenderEditorDescriptionAsync();
     }
 
     protected override void RegisterRecipients()
@@ -224,6 +261,86 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
         if (sender is MenuFlyoutItem item && item.CommandParameter is CalendarAttachmentViewModel attachment)
         {
             ViewModel?.SaveAttachmentCommand.Execute(attachment);
+        }
+    }
+
+    private IDisposable GetSuggestionBoxDisposable(TokenizingTextBox box)
+    {
+        return Observable.FromEventPattern<TypedEventHandler<AutoSuggestBox, AutoSuggestBoxTextChangedEventArgs>, AutoSuggestBoxTextChangedEventArgs>(
+                handler => box.TextChanged += handler,
+                handler => box.TextChanged -= handler)
+            .Throttle(TimeSpan.FromMilliseconds(120))
+            .ObserveOn(SynchronizationContext.Current!)
+            .Subscribe(async eventPattern =>
+            {
+                if (eventPattern.EventArgs.Reason != AutoSuggestionBoxTextChangeReason.UserInput)
+                    return;
+
+                if (eventPattern.Sender is not AutoSuggestBox senderBox || senderBox.Text.Length < 2)
+                    return;
+
+                var addresses = await ViewModel.SearchContactsAsync(senderBox.Text).ConfigureAwait(false);
+                await ViewModel.ExecuteUIThread(() => senderBox.ItemsSource = addresses);
+            });
+    }
+
+    private async void TokenItemAdding(TokenizingTextBox sender, TokenItemAddingEventArgs args)
+    {
+        if (!EmailValidator.Validate(args.TokenText))
+        {
+            args.Cancel = true;
+            ViewModel.NotifyInvalidEmail(args.TokenText);
+            return;
+        }
+
+        var deferral = args.GetDeferral();
+
+        try
+        {
+            var attendee = await ViewModel.GetAttendeeAsync(args.TokenText);
+            if (attendee == null)
+            {
+                args.Cancel = true;
+                ViewModel.NotifyAddressExists();
+                return;
+            }
+
+            args.Item = attendee;
+        }
+        finally
+        {
+            deferral.Complete();
+        }
+    }
+
+    private async void AddressBoxLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is not TokenizingTextBox tokenizingTextBox)
+            return;
+
+        if (tokenizingTextBox.Items.LastOrDefault() is not ITokenStringContainer info)
+            return;
+
+        var currentText = info.Text;
+        if (string.IsNullOrWhiteSpace(currentText) || !EmailValidator.Validate(currentText))
+            return;
+
+        var attendee = await ViewModel.GetAttendeeAsync(currentText);
+        if (attendee == null)
+        {
+            tokenizingTextBox.Text = string.Empty;
+            return;
+        }
+
+        ViewModel.AddAttendee(attendee);
+        tokenizingTextBox.Text = string.Empty;
+    }
+
+    private void RemoveAttendeeClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: CalendarComposeAttendeeViewModel attendee })
+        {
+            ViewModel.RemoveAttendeeCommand.Execute(attendee);
         }
     }
 }

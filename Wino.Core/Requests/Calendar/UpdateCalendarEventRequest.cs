@@ -13,6 +13,8 @@ namespace Wino.Core.Requests.Calendar;
 /// </summary>
 public record UpdateCalendarEventRequest(CalendarItem Item, List<CalendarEventAttendee> Attendees) : CalendarRequestBase(Item)
 {
+    public List<Reminder> Reminders { get; init; }
+
     /// <summary>
     /// Original attendees before the update, used for reverting changes if the update fails.
     /// </summary>

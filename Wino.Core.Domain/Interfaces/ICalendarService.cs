@@ -41,6 +41,8 @@ public interface ICalendarService
     Task<List<CalendarEventAttendee>> GetAttendeesAsync(Guid calendarEventTrackingId);
     Task<List<CalendarEventAttendee>> ManageEventAttendeesAsync(Guid calendarItemId, List<CalendarEventAttendee> allAttendees);
     Task UpdateCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees);
+    Task<List<CalendarItem>> GetRecurringChildrenAsync(Guid seriesMasterId);
+    Task UpdateRecurringChildrenFromSeriesMasterAsync(CalendarItem seriesMaster, List<CalendarEventAttendee> attendees, List<Reminder> reminders);
     Task<List<CalendarItem>> SearchCalendarItemsAsync(string searchQuery, int limit, CancellationToken cancellationToken = default);
     Task<List<Reminder>> GetRemindersAsync(Guid calendarItemId);
     Task SaveRemindersAsync(Guid calendarItemId, List<Reminder> reminders);

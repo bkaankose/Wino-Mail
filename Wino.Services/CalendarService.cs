@@ -182,6 +182,98 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         }
     }
 
+    public async Task<List<CalendarItem>> GetRecurringChildrenAsync(Guid seriesMasterId)
+    {
+        var children = await Connection.Table<CalendarItem>()
+            .Where(item => item.RecurringCalendarItemId == seriesMasterId)
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        foreach (var child in children)
+        {
+            await LoadAssignedCalendarAsync(child).ConfigureAwait(false);
+        }
+
+        return children;
+    }
+
+    public async Task UpdateRecurringChildrenFromSeriesMasterAsync(CalendarItem seriesMaster, List<CalendarEventAttendee> attendees, List<Reminder> reminders)
+    {
+        if (seriesMaster == null || !seriesMaster.IsRecurringParent)
+            return;
+
+        var children = await GetRecurringChildrenAsync(seriesMaster.Id).ConfigureAwait(false);
+        if (children.Count == 0)
+            return;
+
+        try
+        {
+            await Connection.RunInTransactionAsync((conn) =>
+            {
+                foreach (var child in children)
+                {
+                    child.Title = seriesMaster.Title;
+                    child.Description = seriesMaster.Description;
+                    child.Location = seriesMaster.Location;
+                    child.DurationInSeconds = seriesMaster.DurationInSeconds;
+                    child.StartTimeZone = seriesMaster.StartTimeZone;
+                    child.EndTimeZone = seriesMaster.EndTimeZone;
+                    child.OrganizerDisplayName = seriesMaster.OrganizerDisplayName;
+                    child.OrganizerEmail = seriesMaster.OrganizerEmail;
+                    child.IsLocked = seriesMaster.IsLocked;
+                    child.CustomEventColorHex = seriesMaster.CustomEventColorHex;
+                    child.HtmlLink = seriesMaster.HtmlLink;
+                    child.Status = seriesMaster.Status;
+                    child.Visibility = seriesMaster.Visibility;
+                    child.ShowAs = seriesMaster.ShowAs;
+                    child.UpdatedAt = DateTimeOffset.UtcNow;
+
+                    conn.Update(child, typeof(CalendarItem));
+
+                    conn.Table<CalendarEventAttendee>().Delete(a => a.CalendarItemId == child.Id);
+                    if (attendees != null)
+                    {
+                        var childAttendees = attendees.Select(attendee => new CalendarEventAttendee
+                        {
+                            Id = Guid.NewGuid(),
+                            CalendarItemId = child.Id,
+                            Name = attendee.Name,
+                            Email = attendee.Email,
+                            IsOrganizer = attendee.IsOrganizer,
+                            AttendenceStatus = attendee.AttendenceStatus,
+                            IsOptionalAttendee = attendee.IsOptionalAttendee
+                        }).ToList();
+
+                        conn.InsertAll(childAttendees, typeof(CalendarEventAttendee));
+                    }
+
+                    conn.Table<Reminder>().Delete(reminder => reminder.CalendarItemId == child.Id);
+                    if (reminders != null)
+                    {
+                        var childReminders = reminders.Select(reminder => new Reminder
+                        {
+                            Id = Guid.NewGuid(),
+                            CalendarItemId = child.Id,
+                            DurationInSeconds = reminder.DurationInSeconds,
+                            ReminderType = reminder.ReminderType
+                        }).ToList();
+
+                        conn.InsertAll(childReminders, typeof(Reminder));
+                    }
+                }
+            }).ConfigureAwait(false);
+
+            foreach (var child in children)
+            {
+                WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(child, EntityUpdateSource.Server));
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error updating recurring children from series master");
+        }
+    }
+
     public async Task<List<CalendarItem>> SearchCalendarItemsAsync(string searchQuery, int limit, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

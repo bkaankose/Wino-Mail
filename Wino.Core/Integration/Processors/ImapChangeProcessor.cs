@@ -72,7 +72,6 @@ public class ImapChangeProcessor : DefaultChangeProcessor, IImapChangeProcessor
         savingItem.ShowAs = calendarEvent.ShowAs;
         savingItem.IsHidden = calendarEvent.IsHidden;
         savingItem.HtmlLink = string.Empty;
-        savingItem.IsLocked = false;
         savingItem.OrganizerDisplayName = !string.IsNullOrWhiteSpace(calendarEvent.OrganizerDisplayName)
             ? calendarEvent.OrganizerDisplayName
             : organizerAccount?.SenderName ?? string.Empty;
@@ -80,6 +79,9 @@ public class ImapChangeProcessor : DefaultChangeProcessor, IImapChangeProcessor
             ? calendarEvent.OrganizerEmail
             : organizerAccount?.Address ?? string.Empty;
         savingItem.AssignedCalendar = assignedCalendar;
+        savingItem.IsLocked = !string.IsNullOrWhiteSpace(savingItem.OrganizerEmail) &&
+                              !string.IsNullOrWhiteSpace(organizerAccount?.Address) &&
+                              !string.Equals(savingItem.OrganizerEmail, organizerAccount.Address, StringComparison.OrdinalIgnoreCase);
 
         if (savingItem.CreatedAt == default)
             savingItem.CreatedAt = DateTimeOffset.UtcNow;

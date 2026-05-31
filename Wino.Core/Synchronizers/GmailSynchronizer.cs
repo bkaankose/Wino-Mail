@@ -3083,6 +3083,19 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             }).ToList();
         }
 
+        googleEvent.Reminders = new Event.RemindersData
+        {
+            UseDefault = false,
+            Overrides = request.Reminders?
+                .Where(reminder => reminder.DurationInSeconds > 0)
+                .Select(reminder => new EventReminder
+                {
+                    Method = reminder.ReminderType == CalendarItemReminderType.Email ? "email" : "popup",
+                    Minutes = (int)Math.Max(0, reminder.DurationInSeconds / 60)
+                })
+                .ToList() ?? []
+        };
+
         // Update the event using Google Calendar API
         var updateRequest = _calendarService.Events.Update(googleEvent, calendar.RemoteCalendarId, remoteEventId);
 
@@ -3092,6 +3105,44 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             : Google.Apis.Calendar.v3.EventsResource.UpdateRequest.SendUpdatesEnum.None;
 
         return [new HttpRequestBundle<IClientServiceRequest>(updateRequest, request)];
+    }
+
+    public override List<IRequestBundle<IClientServiceRequest>> UpdateCalendarEventPersonalOptions(UpdateCalendarEventPersonalOptionsRequest request)
+    {
+        var calendarItem = request.Item;
+        var calendar = calendarItem.AssignedCalendar;
+        if (calendar == null)
+        {
+            throw new InvalidOperationException("Calendar item must have an assigned calendar");
+        }
+
+        var remoteEventId = calendarItem.RemoteEventId.GetProviderRemoteEventId();
+        if (string.IsNullOrEmpty(remoteEventId))
+        {
+            throw new InvalidOperationException("Cannot update event personal options without remote event ID");
+        }
+
+        var googleEvent = new Event
+        {
+            Transparency = calendarItem.ShowAs == CalendarItemShowAs.Free ? "transparent" : "opaque",
+            Reminders = new Event.RemindersData
+            {
+                UseDefault = false,
+                Overrides = request.Reminders?
+                    .Where(reminder => reminder.DurationInSeconds > 0)
+                    .Select(reminder => new EventReminder
+                    {
+                        Method = reminder.ReminderType == CalendarItemReminderType.Email ? "email" : "popup",
+                        Minutes = (int)Math.Max(0, reminder.DurationInSeconds / 60)
+                    })
+                    .ToList() ?? []
+            }
+        };
+
+        var patchRequest = _calendarService.Events.Patch(googleEvent, calendar.RemoteCalendarId, remoteEventId);
+        patchRequest.SendUpdates = Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
+
+        return [new HttpRequestBundle<IClientServiceRequest>(patchRequest, request)];
     }
 
     public override List<IRequestBundle<IClientServiceRequest>> ChangeStartAndEndDate(ChangeStartAndEndDateRequest request)

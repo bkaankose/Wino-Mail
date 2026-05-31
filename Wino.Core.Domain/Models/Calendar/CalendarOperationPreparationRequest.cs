@@ -20,4 +20,6 @@ public record CalendarOperationPreparationRequest(
     string ResponseMessage = null,
     CalendarItem OriginalItem = null,
     List<CalendarEventAttendee> OriginalAttendees = null,
+    List<Reminder> Reminders = null,
+    List<Reminder> OriginalReminders = null,
     CalendarEventComposeResult ComposeResult = null);

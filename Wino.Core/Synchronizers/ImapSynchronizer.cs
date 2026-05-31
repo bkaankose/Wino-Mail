@@ -435,6 +435,15 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             handler.RequiresConnectedClient);
     }
 
+    public override List<IRequestBundle<ImapRequest>> UpdateCalendarEventPersonalOptions(UpdateCalendarEventPersonalOptionsRequest request)
+    {
+        var handler = ResolveCalendarOperationHandler();
+        return CreateCalendarOperationTaskBundle(
+            request,
+            async value => await handler.UpdateCalendarEventPersonalOptionsAsync(value).ConfigureAwait(false),
+            handler.RequiresConnectedClient);
+    }
+
     public override List<IRequestBundle<ImapRequest>> ChangeStartAndEndDate(ChangeStartAndEndDateRequest request)
     {
         var handler = ResolveCalendarOperationHandler();
@@ -1681,6 +1690,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         bool RequiresConnectedClient { get; }
         Task CreateCalendarEventAsync(CreateCalendarEventRequest request);
         Task UpdateCalendarEventAsync(UpdateCalendarEventRequest request);
+        Task UpdateCalendarEventPersonalOptionsAsync(UpdateCalendarEventPersonalOptionsRequest request);
         Task DeleteCalendarEventAsync(DeleteCalendarEventRequest request);
         Task AcceptEventAsync(AcceptEventRequest request);
         Task DeclineEventAsync(DeclineEventRequest request);
@@ -1735,6 +1745,20 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             var attendees = request.Attendees ?? await _calendarService.GetAttendeesAsync(item.Id).ConfigureAwait(false);
 
             await _calendarService.UpdateCalendarItemAsync(item, attendees).ConfigureAwait(false);
+            await _calendarService.SaveRemindersAsync(item.Id, request.Reminders ?? []).ConfigureAwait(false);
+            await PersistIcsAsync(item, attendees).ConfigureAwait(false);
+        }
+
+        public async Task UpdateCalendarEventPersonalOptionsAsync(UpdateCalendarEventPersonalOptionsRequest request)
+        {
+            var item = request.Item;
+            EnsureCalendarItemDefaults(item, _account, "local");
+            item.AssignedCalendar ??= await _calendarService.GetAccountCalendarAsync(item.CalendarId).ConfigureAwait(false);
+
+            var attendees = await _calendarService.GetAttendeesAsync(item.Id).ConfigureAwait(false);
+
+            await _calendarService.UpdateCalendarItemAsync(item, attendees).ConfigureAwait(false);
+            await _calendarService.SaveRemindersAsync(item.Id, request.Reminders ?? []).ConfigureAwait(false);
             await PersistIcsAsync(item, attendees).ConfigureAwait(false);
         }
 
@@ -1850,6 +1874,9 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
         public Task UpdateCalendarEventAsync(UpdateCalendarEventRequest request)
             => UpsertCalendarEventAsync(request.Item, request.Attendees);
+
+        public Task UpdateCalendarEventPersonalOptionsAsync(UpdateCalendarEventPersonalOptionsRequest request)
+            => UpsertCalendarEventAsync(request.Item, null);
 
         public async Task DeleteCalendarEventAsync(DeleteCalendarEventRequest request)
         {

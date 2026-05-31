@@ -181,7 +181,13 @@ public class WinoRequestDelegator : IWinoRequestDelegator
             CalendarSynchronizerOperation.UpdateEvent => new UpdateCalendarEventRequest(calendarPreparationRequest.CalendarItem, calendarPreparationRequest.Attendees)
             {
                 OriginalItem = calendarPreparationRequest.OriginalItem,
-                OriginalAttendees = calendarPreparationRequest.OriginalAttendees
+                OriginalAttendees = calendarPreparationRequest.OriginalAttendees,
+                Reminders = calendarPreparationRequest.Reminders
+            },
+            CalendarSynchronizerOperation.UpdateEventPersonalOptions => new UpdateCalendarEventPersonalOptionsRequest(calendarPreparationRequest.CalendarItem, calendarPreparationRequest.Reminders)
+            {
+                OriginalItem = calendarPreparationRequest.OriginalItem,
+                OriginalReminders = calendarPreparationRequest.OriginalReminders
             },
             CalendarSynchronizerOperation.ChangeStartAndEndDate => new ChangeStartAndEndDateRequest(calendarPreparationRequest.CalendarItem, calendarPreparationRequest.Attendees)
             {

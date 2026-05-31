@@ -8,10 +8,12 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using EmailValidation;
 using Serilog;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -38,6 +40,8 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
 
     public CalendarSettings CurrentSettings { get; }
     public INativeAppService NativeAppService => _nativeAppService;
+    public Func<Task<string>> GetHtmlNotesAsync { get; set; }
+    public string TimePickerClockIdentifier => CurrentSettings.DayHeaderDisplayType == DayHeaderDisplayType.TwentyFourHour ? "24HourClock" : "12HourClock";
 
     [ObservableProperty]
     public partial bool IsDarkWebviewRenderer { get; set; }
@@ -49,12 +53,21 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     /// </summary>
     public bool HasAttachments => Attachments.Count > 0;
 
+    public ObservableCollection<CalendarComposeAttendeeViewModel> EditableAttendees { get; } = [];
+
     #region Details
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanViewSeries))]
     [NotifyPropertyChangedFor(nameof(CanEditSeries))]
     [NotifyPropertyChangedFor(nameof(IsCurrentUserOrganizer))]
+    [NotifyPropertyChangedFor(nameof(CanEditEventDetails))]
+    [NotifyPropertyChangedFor(nameof(IsEventDetailsReadOnly))]
+    [NotifyPropertyChangedFor(nameof(IsTimedEditorVisible))]
+    [NotifyPropertyChangedFor(nameof(IsAllDayEndDateEditorVisible))]
+    [NotifyPropertyChangedFor(nameof(CanEditPersonalOptions))]
+    [NotifyPropertyChangedFor(nameof(CanRespond))]
+    [NotifyPropertyChangedFor(nameof(CanDeleteEvent))]
     [NotifyPropertyChangedFor(nameof(CurrentRsvpText))]
     [NotifyPropertyChangedFor(nameof(CurrentRsvpStatus))]
     public partial CalendarItemViewModel CurrentEvent { get; set; }
@@ -72,6 +85,35 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
 
     public ObservableCollection<ReminderOption> ReminderOptions { get; } = new ObservableCollection<ReminderOption>();
 
+    [ObservableProperty]
+    public partial string Title { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string Location { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsTimedEditorVisible))]
+    [NotifyPropertyChangedFor(nameof(IsAllDayEndDateEditorVisible))]
+    public partial bool IsAllDay { get; set; }
+
+    [ObservableProperty]
+    public partial DateTimeOffset StartDate { get; set; }
+
+    [ObservableProperty]
+    public partial TimeSpan StartTime { get; set; }
+
+    [ObservableProperty]
+    public partial TimeSpan EndTime { get; set; }
+
+    [ObservableProperty]
+    public partial DateTimeOffset AllDayEndDate { get; set; }
+
+    [ObservableProperty]
+    public partial string RecurrenceSummary { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial ReminderOption SelectedReminderOption { get; set; }
+
     /// <summary>
     /// Returns true if the event is part of a recurring series (as a child occurrence).
     /// Used to enable "View Series" functionality.
@@ -88,7 +130,16 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     /// Returns true if the current user is the organizer of the event.
     /// Used to determine if the user can invite attendees or modify the event.
     /// </summary>
-    public bool IsCurrentUserOrganizer => CurrentEvent?.Attendees?.Any(a => a.IsOrganizer) ?? true;
+    private CalendarEventEditPolicy CurrentEditPolicy => CalendarEventEditPolicy.From(CurrentEvent?.CalendarItem);
+
+    public bool IsCurrentUserOrganizer => CurrentEditPolicy.IsCurrentUserOrganizer;
+    public bool CanEditEventDetails => CurrentEditPolicy.CanEditEventDetails;
+    public bool IsEventDetailsReadOnly => !CanEditEventDetails;
+    public bool IsTimedEditorVisible => CanEditEventDetails && !IsAllDay;
+    public bool IsAllDayEndDateEditorVisible => CanEditEventDetails && IsAllDay;
+    public bool CanEditPersonalOptions => CurrentEditPolicy.CanEditPersonalOptions;
+    public bool CanRespond => CurrentEditPolicy.CanRespond;
+    public bool CanDeleteEvent => CurrentEditPolicy.CanDeleteEvent;
 
     #endregion
 
@@ -288,6 +339,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
             // Load reminders for this calendar item
             Reminders = await _calendarService.GetRemindersAsync(currentEventItem.Id);
             InitializeReminderOptions();
+            InitializeDraft(currentEventItem);
 
             // Load attachments
             await LoadAttachmentsAsync(currentEventItem.Id);
@@ -367,6 +419,8 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
             {
                 CurrentEvent.Attendees.Add(attendee);
             }
+
+            InitializeEditableAttendees(attendeesForUi);
         });
     }
 
@@ -391,9 +445,40 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         }
     }
 
+    private void InitializeDraft(CalendarItem item)
+    {
+        Title = item.Title ?? string.Empty;
+        Location = item.Location ?? string.Empty;
+        IsAllDay = item.IsAllDayEvent;
+
+        var localStart = item.LocalStartDate;
+        var localEnd = item.LocalEndDate;
+
+        StartDate = localStart.Date;
+        StartTime = localStart.TimeOfDay;
+        EndTime = localEnd.TimeOfDay;
+        AllDayEndDate = item.IsAllDayEvent ? localEnd.Date : localStart.Date;
+        RecurrenceSummary = item.IsRecurringEvent
+            ? Translator.CalendarEventDetails_EditSeries
+            : string.Empty;
+
+        SelectedShowAsOption = ShowAsOptions.FirstOrDefault(o => o.ShowAs == item.ShowAs) ?? ShowAsOptions.FirstOrDefault();
+    }
+
+    private void InitializeEditableAttendees(IEnumerable<CalendarEventAttendee> attendees)
+    {
+        EditableAttendees.Clear();
+
+        foreach (var attendee in attendees.Where(attendee => !attendee.IsOrganizer && !string.IsNullOrWhiteSpace(attendee.Email)))
+        {
+            EditableAttendees.Add(new CalendarComposeAttendeeViewModel(attendee.Name, attendee.Email, attendee.ResolvedContact));
+        }
+    }
+
     private void InitializeReminderOptions()
     {
         ReminderOptions.Clear();
+        ReminderOptions.Add(new ReminderOption(0));
 
         // Add predefined options from service
         var predefinedMinutes = _calendarService.GetPredefinedReminderMinutes();
@@ -421,18 +506,17 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
             ReminderOptions.Add(option);
         }
 
-        // Set selected state based on current reminders
-        if (Reminders != null)
-        {
-            foreach (var reminder in Reminders)
-            {
-                // Convert seconds to minutes
-                var minutesDiff = (int)(reminder.DurationInSeconds / 60);
+        var firstReminderMinutes = Reminders?
+            .Where(reminder => reminder.DurationInSeconds > 0)
+            .OrderBy(reminder => reminder.DurationInSeconds)
+            .Select(reminder => (int)(reminder.DurationInSeconds / 60))
+            .FirstOrDefault() ?? 0;
 
-                var matchingOption = ReminderOptions.FirstOrDefault(o => o.Minutes == minutesDiff);
-                matchingOption?.IsSelected = true;
-            }
-        }
+        SelectedReminderOption = ReminderOptions.FirstOrDefault(option => option.Minutes == firstReminderMinutes)
+                                 ?? ReminderOptions.FirstOrDefault();
+
+        if (SelectedReminderOption != null)
+            SelectedReminderOption.IsSelected = true;
     }
 
 
@@ -446,52 +530,50 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
             return;
         }
 
+        if (!CanEditEventDetails && !CanEditPersonalOptions)
+            return;
+
         try
         {
             // Capture original state BEFORE making any changes for potential revert
             var originalItem = await _calendarService.GetCalendarItemAsync(CurrentEvent.CalendarItem.Id);
             var originalAttendees = await _calendarService.GetAttendeesAsync(CurrentEvent.CalendarItem.Id);
+            var originalReminders = await _calendarService.GetRemindersAsync(CurrentEvent.CalendarItem.Id);
+            var updatedItem = CloneCalendarItem(originalItem ?? CurrentEvent.CalendarItem);
+            var updatedAttendees = CanEditEventDetails ? BuildEditableAttendees(updatedItem) : originalAttendees;
+            var newReminders = BuildReminderDraft(updatedItem.Id);
 
-            // Get selected reminder options
-            var selectedOptions = ReminderOptions.Where(o => o.IsSelected).ToList();
+            if (SelectedShowAsOption != null)
+                updatedItem.ShowAs = SelectedShowAsOption.ShowAs;
 
-            // Create separate Reminder entities for each selected option
-            var newReminders = new List<Reminder>();
+            if (CanEditEventDetails)
+                await ApplyEventDetailsDraftAsync(updatedItem).ConfigureAwait(false);
 
-            foreach (var option in selectedOptions)
-            {
-                var durationInSeconds = option.Minutes * 60; // Convert minutes to seconds
+            await _calendarService.UpdateCalendarItemAsync(updatedItem, updatedAttendees);
+            await _calendarService.SaveRemindersAsync(updatedItem.Id, newReminders);
 
-                newReminders.Add(new Reminder
-                {
-                    Id = Guid.NewGuid(),
-                    CalendarItemId = CurrentEvent.Id,
-                    DurationInSeconds = durationInSeconds,
-                    ReminderType = CalendarItemReminderType.Popup
-                });
-            }
-
-            // Save reminders to database
-            await _calendarService.SaveRemindersAsync(CurrentEvent.CalendarItem.Id, newReminders);
+            CurrentEvent = new CalendarItemViewModel(updatedItem);
+            await LoadAttendeesAsync(updatedItem.Id, updatedItem);
             Reminders = newReminders;
 
-            // Update ShowAs if changed
-            if (SelectedShowAsOption != null)
+            if (CanEditEventDetails && ShouldUpdateRecurringChildren(updatedItem))
             {
-                CurrentEvent.CalendarItem.ShowAs = SelectedShowAsOption.ShowAs;
+                await _calendarService.UpdateRecurringChildrenFromSeriesMasterAsync(updatedItem, updatedAttendees, newReminders);
             }
 
-            // Update the calendar item and attendees in database
-            await _calendarService.UpdateCalendarItemAsync(CurrentEvent.CalendarItem, CurrentEvent.Attendees.ToList());
+            var operation = CanEditEventDetails
+                ? CalendarSynchronizerOperation.UpdateEvent
+                : CalendarSynchronizerOperation.UpdateEventPersonalOptions;
 
-            // Queue the update request to synchronizer with original state for revert capability
             var preparationRequest = new CalendarOperationPreparationRequest(
-                CalendarSynchronizerOperation.UpdateEvent,
-                CurrentEvent.CalendarItem,
-                CurrentEvent.Attendees.ToList(),
+                operation,
+                updatedItem,
+                updatedAttendees,
                 ResponseMessage: null,
                 OriginalItem: originalItem,
-                OriginalAttendees: originalAttendees);
+                OriginalAttendees: originalAttendees,
+                Reminders: newReminders,
+                OriginalReminders: originalReminders);
 
             await _winoRequestDelegator.ExecuteAsync(preparationRequest);
 
@@ -507,13 +589,136 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         }
     }
 
+    private async Task ApplyEventDetailsDraftAsync(CalendarItem item)
+    {
+        if (string.IsNullOrWhiteSpace(Title))
+        {
+            throw new InvalidOperationException(Translator.CalendarEventCompose_ValidationMissingTitle);
+        }
+
+        item.Title = Title.Trim();
+        item.Location = Location?.Trim() ?? string.Empty;
+        item.Description = GetHtmlNotesAsync == null ? item.Description : await GetHtmlNotesAsync().ConfigureAwait(false);
+
+        if (IsAllDay)
+        {
+            var start = StartDate.Date;
+            var end = AllDayEndDate.Date <= start ? start.AddDays(1) : AllDayEndDate.Date;
+            item.StartDate = start;
+            item.DurationInSeconds = (end - start).TotalSeconds;
+            item.StartTimeZone ??= TimeZoneInfo.Local.Id;
+            item.EndTimeZone ??= item.StartTimeZone;
+            return;
+        }
+
+        var localStart = StartDate.Date + StartTime;
+        var localEnd = StartDate.Date + EndTime;
+        if (localEnd <= localStart)
+            localEnd = localStart.AddMinutes(30);
+
+        item.StartTimeZone ??= TimeZoneInfo.Local.Id;
+        item.EndTimeZone ??= item.StartTimeZone;
+        item.StartDate = localStart.ToTimeZoneFromLocal(item.StartTimeZone);
+        item.DurationInSeconds = (localEnd - localStart).TotalSeconds;
+    }
+
+    private List<Reminder> BuildReminderDraft(Guid calendarItemId)
+    {
+        if (SelectedReminderOption == null || SelectedReminderOption.Minutes <= 0)
+            return [];
+
+        return
+        [
+            new Reminder
+            {
+                Id = Guid.NewGuid(),
+                CalendarItemId = calendarItemId,
+                DurationInSeconds = SelectedReminderOption.Minutes * 60L,
+                ReminderType = CalendarItemReminderType.Popup
+            }
+        ];
+    }
+
+    private List<CalendarEventAttendee> BuildEditableAttendees(CalendarItem item)
+    {
+        var attendees = new List<CalendarEventAttendee>();
+
+        if (!string.IsNullOrWhiteSpace(item.OrganizerEmail))
+        {
+            attendees.Add(new CalendarEventAttendee
+            {
+                Id = Guid.NewGuid(),
+                CalendarItemId = item.Id,
+                Name = item.OrganizerDisplayName ?? item.OrganizerEmail,
+                Email = item.OrganizerEmail,
+                IsOrganizer = true,
+                AttendenceStatus = AttendeeStatus.Accepted
+            });
+        }
+
+        attendees.AddRange(EditableAttendees
+            .Where(attendee => !string.IsNullOrWhiteSpace(attendee.Email))
+            .Select(attendee => new CalendarEventAttendee
+            {
+                Id = Guid.NewGuid(),
+                CalendarItemId = item.Id,
+                Name = attendee.DisplayName,
+                Email = attendee.Email,
+                IsOrganizer = false,
+                AttendenceStatus = AttendeeStatus.NeedsAction
+            }));
+
+        return attendees;
+    }
+
+    private static CalendarItem CloneCalendarItem(CalendarItem item)
+    {
+        return new CalendarItem
+        {
+            Id = item.Id,
+            RemoteEventId = item.RemoteEventId,
+            Title = item.Title,
+            Description = item.Description,
+            Location = item.Location,
+            StartDate = item.StartDate,
+            StartTimeZone = item.StartTimeZone,
+            EndTimeZone = item.EndTimeZone,
+            DurationInSeconds = item.DurationInSeconds,
+            Recurrence = item.Recurrence,
+            OrganizerDisplayName = item.OrganizerDisplayName,
+            OrganizerEmail = item.OrganizerEmail,
+            RecurringCalendarItemId = item.RecurringCalendarItemId,
+            IsLocked = item.IsLocked,
+            IsHidden = item.IsHidden,
+            CustomEventColorHex = item.CustomEventColorHex,
+            HtmlLink = item.HtmlLink,
+            SnoozedUntil = item.SnoozedUntil,
+            Status = item.Status,
+            Visibility = item.Visibility,
+            ShowAs = item.ShowAs,
+            CreatedAt = item.CreatedAt,
+            UpdatedAt = DateTimeOffset.UtcNow,
+            CalendarId = item.CalendarId,
+            AssignedCalendar = item.AssignedCalendar
+        };
+    }
+
+    private static bool ShouldUpdateRecurringChildren(CalendarItem item)
+    {
+        var account = item.AssignedCalendar?.MailAccount;
+        return item.IsRecurringParent &&
+               account?.ProviderType == MailProviderType.IMAP4 &&
+               account.ServerInformation?.CalendarSupportMode is ImapCalendarSupportMode.LocalOnly or ImapCalendarSupportMode.CalDav;
+    }
+
     [RelayCommand]
     private async Task DeleteAsync()
     {
         if (CurrentEvent == null) return;
-        if (CurrentEvent.AssignedCalendar?.IsReadOnly == true)
+        if (!CanDeleteEvent)
         {
-            _dialogService.ShowReadOnlyCalendarMessage();
+            if (CurrentEvent.AssignedCalendar?.IsReadOnly == true)
+                _dialogService.ShowReadOnlyCalendarMessage();
             return;
         }
 
@@ -565,6 +770,63 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
 
         await DeleteAsync();
         args.Handled = true;
+    }
+
+    public async Task<List<AccountContact>> SearchContactsAsync(string queryText)
+    {
+        if (string.IsNullOrWhiteSpace(queryText) || queryText.Length < 2)
+            return [];
+
+        return await _contactService.GetAddressInformationAsync(queryText).ConfigureAwait(false);
+    }
+
+    public async Task<CalendarComposeAttendeeViewModel> GetAttendeeAsync(string tokenText)
+    {
+        if (!EmailValidator.Validate(tokenText))
+            return null;
+
+        var existing = EditableAttendees.Any(attendee => attendee.Email.Equals(tokenText, StringComparison.OrdinalIgnoreCase));
+        if (existing)
+            return null;
+
+        var info = await _contactService.GetAddressInformationByAddressAsync(tokenText).ConfigureAwait(false);
+        if (info != null)
+            return CalendarComposeAttendeeViewModel.FromContact(info);
+
+        return new CalendarComposeAttendeeViewModel(string.Empty, tokenText);
+    }
+
+    public void AddAttendee(CalendarComposeAttendeeViewModel attendee)
+    {
+        if (attendee == null || EditableAttendees.Any(existing => existing.Email.Equals(attendee.Email, StringComparison.OrdinalIgnoreCase)))
+            return;
+
+        EditableAttendees.Add(attendee);
+    }
+
+    [RelayCommand]
+    private void RemoveAttendee(CalendarComposeAttendeeViewModel attendee)
+    {
+        if (attendee == null)
+            return;
+
+        EditableAttendees.Remove(attendee);
+    }
+
+    public void NotifyAddressExists()
+    {
+        _dialogService.InfoBarMessage(
+            Translator.Info_ContactExistsTitle,
+            Translator.Info_ContactExistsMessage,
+            InfoBarMessageType.Warning);
+    }
+
+    public void NotifyInvalidEmail(string address)
+    {
+        _dialogService.InfoBarMessage(
+            Translator.Info_InvalidAddressTitle,
+            string.Format(Translator.Info_InvalidAddressMessage, address),
+            InfoBarMessageType.Warning);
     }
 
     [RelayCommand]
@@ -620,9 +882,10 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     private async Task SendRsvpResponse(AttendeeStatus status)
     {
         if (CurrentEvent == null) return;
-        if (CurrentEvent.AssignedCalendar?.IsReadOnly == true)
+        if (!CanRespond)
         {
-            _dialogService.ShowReadOnlyCalendarMessage();
+            if (CurrentEvent.AssignedCalendar?.IsReadOnly == true)
+                _dialogService.ShowReadOnlyCalendarMessage();
             return;
         }
 
@@ -814,6 +1077,9 @@ public partial class ReminderOption : ObservableObject
     {
         get
         {
+            if (Minutes <= 0)
+                return Translator.CalendarReminder_None;
+
             if (Minutes >= 60)
             {
                 var hours = Minutes / 60;
