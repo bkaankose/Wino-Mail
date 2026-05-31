@@ -1,13 +1,14 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Collections;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
-using MoreLinq.Extensions;
 using Serilog;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
@@ -26,7 +27,10 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     // We cache each mail copy id for faster access on updates.
     // If the item provider here for update or removal doesn't exist here
     // we can ignore the operation.
-
+    //
+    // This dictionary doubles as the authoritative "all mail ids currently present"
+    // set, so its Count equals the number of leaf mail items (singles + thread
+    // children). External consumers clone it, so it must stay a ConcurrentDictionary.
     public ConcurrentDictionary<Guid, bool> MailCopyIdHashSet = [];
 
     // Cache ThreadIds to quickly find items that should be threaded together
@@ -47,7 +51,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     public bool IsThreadingEnabled { get; set; } = true;
     public bool AreGroupHeadersEnabled { get; set; } = true;
 
-    private ListItemComparer listComparer = new();
+    private readonly ListItemComparer _listComparer = new();
 
     private readonly ObservableGroupedCollection<object, IMailListItem> _mailItemSource = new ObservableGroupedCollection<object, IMailListItem>();
     private readonly SemaphoreSlim _mutationGate = new(1, 1);
@@ -68,7 +72,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         {
             _sortingType = value;
             // Update the comparer's sort mode when sorting type changes
-            listComparer.SortByName = value == SortingOptionType.Sender;
+            _listComparer.SortByName = value == SortingOptionType.Sender;
         }
     }
 
@@ -90,13 +94,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
     public int Count => _mailItemSource.Count;
 
-    public bool IsAllSelected
-    {
-        get
-        {
-            return AllItemsCount == SelectedItemsCount;
-        }
-    }
+    public bool IsAllSelected => AllItemsCount == SelectedItemsCount;
 
     public IDispatcher CoreDispatcher { get; set; }
 
@@ -199,15 +197,13 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
     private void UpdateThreadIdCache(IMailListItem item, bool isAdd)
     {
-        var threadIds = GetThreadIdsFromItem(item);
-
-        foreach (var threadId in threadIds)
+        foreach (var threadId in GetThreadIdsFromItem(item))
         {
             if (string.IsNullOrEmpty(threadId)) continue;
 
             if (isAdd)
             {
-                var list = _threadIdToItemsMap.GetOrAdd(threadId, _ => new List<IMailListItem>());
+                var list = _threadIdToItemsMap.GetOrAdd(threadId, static _ => new List<IMailListItem>());
                 list.Add(item);
             }
             else
@@ -232,13 +228,16 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         }
         else if (item is ThreadMailItemViewModel threadItem)
         {
-            var uniqueThreadIds = threadItem.ThreadEmails
-                .Where(e => !string.IsNullOrEmpty(e.MailCopy.ThreadId))
-                .Select(e => e.MailCopy.ThreadId)
-                .Distinct();
-
-            foreach (var threadId in uniqueThreadIds)
+            // A thread enforces a single ThreadId across its children (see ThreadMailItemViewModel.AddEmail),
+            // so we only ever need the distinct set. Build it without LINQ to avoid per-call allocations.
+            string seen = null;
+            foreach (var email in threadItem.ThreadEmails)
             {
+                var threadId = email.MailCopy.ThreadId;
+                if (string.IsNullOrEmpty(threadId) || string.Equals(threadId, seen, StringComparison.Ordinal))
+                    continue;
+
+                seen = threadId;
                 yield return threadId;
             }
         }
@@ -282,6 +281,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     /// </summary>
     /// <param name="threadId">The ThreadId to check for.</param>
     /// <returns>True if the ThreadId exists in the collection, false otherwise.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool ContainsThreadId(string threadId)
     {
         return !string.IsNullOrEmpty(threadId) && _threadIdToItemsMap.ContainsKey(threadId);
@@ -290,6 +290,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     /// <summary>
     /// Checks whether a mail with the given UniqueId currently exists in this collection.
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool ContainsMailUniqueId(Guid uniqueId) => MailCopyIdHashSet.ContainsKey(uniqueId);
 
     /// <summary>
@@ -315,7 +316,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
                     _uniqueIdToMailItemMap[uniqueId] = mailItem;
                     return mailItem;
                 }
-                else if (item is ThreadMailItemViewModel threadItem)
+                else if (item is ThreadMailItemViewModel threadItem && threadItem.HasUniqueId(uniqueId))
                 {
                     var foundInThread = threadItem.ThreadEmails.FirstOrDefault(e => e.MailCopy.UniqueId == uniqueId);
                     if (foundInThread != null)
@@ -367,7 +368,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         UpdateThreadIdCache(mailItem, true);
         await ExecuteUIThread(() =>
         {
-            _mailItemSource.InsertItem(groupKey, listComparer, mailItem, listComparer);
+            _mailItemSource.InsertItem(groupKey, _listComparer, mailItem, _listComparer);
 
             // Update item-to-group cache
             var group = _mailItemSource.FirstGroupByKeyOrDefault(groupKey);
@@ -792,11 +793,11 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         {
             var groupedItems = await Task.Run(() => itemsToAdd
                 .GroupBy(GetGroupingKey)
-                .OrderBy(group => group.Key, listComparer)
+                .OrderBy(group => group.Key, _listComparer)
                 .Select(group => new
                 {
                     Key = group.Key,
-                    Items = group.OrderBy(item => (object)item, listComparer).ToList()
+                    Items = group.OrderBy(item => (object)item, _listComparer).ToList()
                 })
                 .ToList()).ConfigureAwait(false);
 
@@ -818,7 +819,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
                         foreach (var item in groupBatch)
                         {
-                            _mailItemSource.InsertItem(groupKey, listComparer, item, listComparer);
+                            _mailItemSource.InsertItem(groupKey, _listComparer, item, _listComparer);
 
                             var targetGroup = _mailItemSource.FirstGroupByKeyOrDefault(groupKey);
                             if (targetGroup != null)
@@ -1095,7 +1096,8 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
                         if (singleItemViewModel == null) return null;
 
-                        var singleItemIndex = threadMailItemViewModel.ThreadEmails.ToList().IndexOf(singleItemViewModel);
+                        // ObservableCollection exposes IndexOf directly; avoid the throwaway ToList allocation.
+                        var singleItemIndex = threadMailItemViewModel.ThreadEmails.IndexOf(singleItemViewModel);
 
                         if (singleItemIndex + 1 < threadMailItemViewModel.ThreadEmails.Count)
                         {
@@ -1224,6 +1226,14 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         }
     }
 
+    /// <summary>
+    /// Allocation-free view over every leaf <see cref="MailItemViewModel"/> in the collection,
+    /// flattening thread children. This is the canonical traversal used by the selection
+    /// statistics; <see cref="AllItems"/> is a thin <see cref="IEnumerable{T}"/> adapter over it.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private LeafMailItemEnumerable EnumerateLeafItems() => new(_mailItemSource);
+
     private IEnumerable<IMailListItem> AllItemsIncludingThreads
     {
         get
@@ -1249,29 +1259,63 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     {
         get
         {
-            foreach (var group in _mailItemSource)
+            foreach (var item in EnumerateLeafItems())
             {
-                foreach (var item in group)
-                {
-                    if (item is ThreadMailItemViewModel threadMail)
-                    {
-                        foreach (var singleItem in threadMail.ThreadEmails)
-                        {
-                            yield return singleItem;
-                        }
-                    }
-                    else if (item is MailItemViewModel mailItemViewModel)
-                        yield return mailItemViewModel;
-                }
+                yield return item;
             }
         }
     }
 
     public IEnumerable<MailItemViewModel> SelectedItems => AllItems.Where(a => a.IsSelected);
-    public int SelectedItemsCount => AllItems.Count(a => a.IsSelected);
-    public int AllItemsCount => AllItems.Count();
-    public bool IsAllItemsSelected => AllItems.Any() && AllItems.All(a => a.IsSelected);
-    public bool HasSingleItemSelected => SelectedItemsCount == 1;
+
+    public int SelectedItemsCount
+    {
+        get
+        {
+            int count = 0;
+            foreach (var item in EnumerateLeafItems())
+            {
+                if (item.IsSelected) count++;
+            }
+            return count;
+        }
+    }
+
+    // Equal to the number of leaf mail items currently tracked. Derived from the id cache
+    // for O(1) access instead of re-flattening every group on each call.
+    public int AllItemsCount => MailCopyIdHashSet.Count;
+
+    public bool IsAllItemsSelected
+    {
+        get
+        {
+            int total = MailCopyIdHashSet.Count;
+            if (total == 0) return false;
+
+            int selected = 0;
+            foreach (var item in EnumerateLeafItems())
+            {
+                if (item.IsSelected) selected++;
+            }
+            return selected == total;
+        }
+    }
+
+    public bool HasSingleItemSelected
+    {
+        get
+        {
+            int count = 0;
+            foreach (var item in EnumerateLeafItems())
+            {
+                if (item.IsSelected && ++count > 1)
+                {
+                    return false;
+                }
+            }
+            return count == 1;
+        }
+    }
 
     public async Task ExecuteSelectionBatchAsync(Action action, bool notifySelectionChanged = true)
     {
@@ -1360,7 +1404,8 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     public Task UnselectAllAsync(IMailListItem exceptItem = null) => ExecuteWithoutRaiseSelectionChangedAsync(a => { if (a != exceptItem) a.IsSelected = false; }, true);
     public Task CollapseAllThreadsAsync() => ExecuteWithoutRaiseSelectionChangedAsync(a => { if (a is ThreadMailItemViewModel thread) thread.IsThreadExpanded = false; }, true);
 
-    private Task ExecuteUIThread(Action action) => CoreDispatcher?.ExecuteOnUIThread(action);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private Task ExecuteUIThread(Action action) => CoreDispatcher?.ExecuteOnUIThread(action) ?? Task.CompletedTask;
 
     private async Task RunSerializedAsync(Func<Task> action)
     {
@@ -1399,4 +1444,86 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         });
     }
 
+    /// <summary>
+    /// Lightweight, allocation-free enumerable that walks every leaf <see cref="MailItemViewModel"/>
+    /// across all groups, flattening thread children in their stored order. Mirrors the semantics of
+    /// the old <c>AllItems</c> iterator but without the compiler-generated state-machine allocation,
+    /// so the frequently re-evaluated selection counters stay garbage-free.
+    /// </summary>
+    private readonly struct LeafMailItemEnumerable
+    {
+        private readonly ObservableGroupedCollection<object, IMailListItem> _source;
+
+        public LeafMailItemEnumerable(ObservableGroupedCollection<object, IMailListItem> source) => _source = source;
+
+        public Enumerator GetEnumerator() => new(_source);
+
+        public struct Enumerator
+        {
+            private readonly ObservableGroupedCollection<object, IMailListItem> _source;
+            private int _groupIndex;
+            private int _itemIndex;
+            private ObservableCollection<MailItemViewModel> _threadEmails;
+            private int _threadItemIndex;
+            private MailItemViewModel _current;
+
+            public Enumerator(ObservableGroupedCollection<object, IMailListItem> source)
+            {
+                _source = source;
+                _groupIndex = 0;
+                _itemIndex = -1;
+                _threadEmails = null;
+                _threadItemIndex = 0;
+                _current = null;
+            }
+
+            public readonly MailItemViewModel Current => _current;
+
+            public bool MoveNext()
+            {
+                // Drain the thread we are currently walking before advancing the outer cursor.
+                if (_threadEmails != null)
+                {
+                    if (_threadItemIndex < _threadEmails.Count)
+                    {
+                        _current = _threadEmails[_threadItemIndex++];
+                        return true;
+                    }
+
+                    _threadEmails = null;
+                }
+
+                while (_groupIndex < _source.Count)
+                {
+                    var group = _source[_groupIndex];
+
+                    for (int next = _itemIndex + 1; next < group.Count; next++)
+                    {
+                        var item = group[next];
+                        _itemIndex = next;
+
+                        if (item is MailItemViewModel single)
+                        {
+                            _current = single;
+                            return true;
+                        }
+
+                        if (item is ThreadMailItemViewModel thread && thread.ThreadEmails.Count > 0)
+                        {
+                            _threadEmails = thread.ThreadEmails;
+                            _threadItemIndex = 0;
+                            _current = _threadEmails[_threadItemIndex++];
+                            return true;
+                        }
+                    }
+
+                    _groupIndex++;
+                    _itemIndex = -1;
+                }
+
+                _current = null;
+                return false;
+            }
+        }
+    }
 }
