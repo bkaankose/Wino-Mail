@@ -24,6 +24,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.WinUI;
@@ -346,25 +347,26 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
             var categorySubItem = new MenuFlyoutSubItem
             {
-                Text = Translator.MailCategoryMenuItem
+                Text = Translator.MailCategoryMenuItem,
+                Icon = new SymbolIcon(Symbol.Tag)
             };
 
-            foreach (var category in availableCategories)
+            var favoriteCategories = availableCategories.Where(category => category.IsFavorite).ToList();
+            var remainingCategories = availableCategories.Where(category => !category.IsFavorite).ToList();
+
+            foreach (var category in favoriteCategories)
             {
-                var wasAssignedToAll = assignedCategoryIds.Contains(category.Id);
-                var categoryItem = new ToggleMenuFlyoutItem
-                {
-                    Text = category.Name,
-                    IsChecked = wasAssignedToAll
-                };
+                AddCategoryFlyoutItem(categorySubItem, category, assignedCategoryIds, source, flyout);
+            }
 
-                categoryItem.Click += (_, _) =>
-                {
-                    source.TrySetResult(new MailContextAction(category, wasAssignedToAll));
-                    flyout.Hide();
-                };
+            if (favoriteCategories.Count > 0 && remainingCategories.Count > 0)
+            {
+                categorySubItem.Items.Add(new MenuFlyoutSeparator());
+            }
 
-                categorySubItem.Items.Add(categoryItem);
+            foreach (var category in remainingCategories)
+            {
+                AddCategoryFlyoutItem(categorySubItem, category, assignedCategoryIds, source, flyout);
             }
 
             flyout.Items.Add(categorySubItem);
@@ -379,6 +381,33 @@ public sealed partial class MailListPage : MailListPageAbstract,
         });
 
         return await source.Task;
+    }
+
+    private static void AddCategoryFlyoutItem(
+        MenuFlyoutSubItem categorySubItem,
+        MailCategory category,
+        IReadOnlyCollection<Guid> assignedCategoryIds,
+        TaskCompletionSource<MailContextAction?> source,
+        MenuFlyout flyout)
+    {
+        var wasAssignedToAll = assignedCategoryIds.Contains(category.Id);
+        var categoryItem = new ToggleMenuFlyoutItem
+        {
+            Text = category.Name,
+            IsChecked = wasAssignedToAll,
+            Icon = new SymbolIcon(Symbol.Tag)
+            {
+                Foreground = XamlHelpers.GetSolidColorBrushFromHex(category.TextColorHex)
+            }
+        };
+
+        categoryItem.Click += (_, _) =>
+        {
+            source.TrySetResult(new MailContextAction(category, wasAssignedToAll));
+            flyout.Hide();
+        };
+
+        categorySubItem.Items.Add(categoryItem);
     }
 
     private sealed record MailContextAction(MailOperationMenuItem? Operation = null, MailCategory? Category = null, bool IsCategoryAssignedToAll = false, bool? PinState = null)
