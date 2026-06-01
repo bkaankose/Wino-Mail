@@ -43,53 +43,68 @@
 
             <StackPanel Grid.Row="1" Spacing="8">
                 <controls1:SettingsCard
+                    AutomationProperties.AutomationId="SentCard"
                     x:Name="SentCard"
                     Description="{x:Bind domain:Translator.SystemFolderConfigDialog_SentFolderDescription}"
                     Header="{x:Bind domain:Translator.SystemFolderConfigDialog_SentFolderHeader}">
                     <controls1:SettingsCard.HeaderIcon>
                         <coreControls:WinoFontIcon FontSize="16" Icon="SpecialFolderSent" />
                     </controls1:SettingsCard.HeaderIcon>
-                    <ComboBox ItemsSource="{x:Bind AvailableFolders}" SelectedItem="{x:Bind Sent, Mode=TwoWay}" />
+                    <ComboBox
+
+                        AutomationProperties.AutomationId="SystemFolderConfigurationDialogComboBox" ItemsSource="{x:Bind AvailableFolders}" SelectedItem="{x:Bind Sent, Mode=TwoWay}" />
                 </controls1:SettingsCard>
 
                 <controls1:SettingsCard
+                    AutomationProperties.AutomationId="DraftCard"
                     x:Name="DraftCard"
                     Description="{x:Bind domain:Translator.SystemFolderConfigDialog_DraftFolderDescription}"
                     Header="{x:Bind domain:Translator.SystemFolderConfigDialog_DraftFolderHeader}">
                     <controls1:SettingsCard.HeaderIcon>
                         <coreControls:WinoFontIcon FontSize="16" Icon="SpecialFolderDraft" />
                     </controls1:SettingsCard.HeaderIcon>
-                    <ComboBox ItemsSource="{x:Bind AvailableFolders}" SelectedItem="{x:Bind Draft, Mode=TwoWay}" />
+                    <ComboBox
+
+                        AutomationProperties.AutomationId="SystemFolderConfigurationDialogComboBox2" ItemsSource="{x:Bind AvailableFolders}" SelectedItem="{x:Bind Draft, Mode=TwoWay}" />
                 </controls1:SettingsCard>
 
                 <controls1:SettingsCard
+                    AutomationProperties.AutomationId="ArchiveCard"
                     x:Name="ArchiveCard"
                     Description="{x:Bind domain:Translator.SystemFolderConfigDialog_ArchiveFolderDescription}"
                     Header="{x:Bind domain:Translator.SystemFolderConfigDialog_ArchiveFolderHeader}">
                     <controls1:SettingsCard.HeaderIcon>
                         <coreControls:WinoFontIcon FontSize="16" Icon="SpecialFolderArchive" />
                     </controls1:SettingsCard.HeaderIcon>
-                    <ComboBox ItemsSource="{x:Bind AvailableFolders}" SelectedItem="{x:Bind Archive, Mode=TwoWay}" />
+                    <ComboBox
+
+                        AutomationProperties.AutomationId="SystemFolderConfigurationDialogComboBox3" ItemsSource="{x:Bind AvailableFolders}" SelectedItem="{x:Bind Archive, Mode=TwoWay}" />
                 </controls1:SettingsCard>
 
                 <controls1:SettingsCard
+                    AutomationProperties.AutomationId="DeletedCard"
                     x:Name="DeletedCard"
                     Description="{x:Bind domain:Translator.SystemFolderConfigDialog_DeletedFolderDescription}"
                     Header="{x:Bind domain:Translator.SystemFolderConfigDialog_DeletedFolderHeader}">
                     <controls1:SettingsCard.HeaderIcon>
                         <coreControls:WinoFontIcon FontSize="16" Icon="SpecialFolderDeleted" />
                     </controls1:SettingsCard.HeaderIcon>
-                    <ComboBox ItemsSource="{x:Bind AvailableFolders}" SelectedItem="{x:Bind Trash, Mode=TwoWay}" />
+                    <ComboBox
+
+                        AutomationProperties.AutomationId="SystemFolderConfigurationDialogComboBox4" ItemsSource="{x:Bind AvailableFolders}" SelectedItem="{x:Bind Trash, Mode=TwoWay}" />
                 </controls1:SettingsCard>
 
                 <controls1:SettingsCard
+                    AutomationProperties.AutomationId="JunkCard"
                     x:Name="JunkCard"
                     Description="{x:Bind domain:Translator.SystemFolderConfigDialog_JunkFolderDescription}"
                     Header="{x:Bind domain:Translator.SystemFolderConfigDialog_JunkFolderHeader}">
                     <controls1:SettingsCard.HeaderIcon>
                         <coreControls:WinoFontIcon FontSize="16" Icon="SpecialFolderJunk" />
                     </controls1:SettingsCard.HeaderIcon>
-                    <ComboBox ItemsSource="{x:Bind AvailableFolders}" SelectedItem="{x:Bind Junk, Mode=TwoWay}" />
+                    <ComboBox
+
+                        AutomationProperties.AutomationId="SystemFolderConfigurationDialogComboBox5" ItemsSource="{x:Bind AvailableFolders}" SelectedItem="{x:Bind Junk, Mode=TwoWay}" />
                 </controls1:SettingsCard>
 
                 <Border

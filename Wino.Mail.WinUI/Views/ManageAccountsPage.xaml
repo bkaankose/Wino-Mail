@@ -16,13 +16,16 @@
             Padding="20"
             HorizontalAlignment="Stretch">
             <winuiControls:SettingsCard
+                AutomationProperties.AutomationId="ManageAccountsPageSettingsCard"
                 Description="{x:Bind domain:Translator.WinoAccount_Management_LocalDataSectionDescription}"
                 Header="{x:Bind domain:Translator.WinoAccount_Management_LocalDataSectionTitle}">
                 <StackPanel Orientation="Horizontal" Spacing="12">
                     <Button
+                        AutomationProperties.AutomationId="ManageAccountsPageButton"
                         Command="{x:Bind ViewModel.ImportLocalDataCommand}"
                         Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataImportAction}" />
                     <Button
+                        AutomationProperties.AutomationId="ManageAccountsPageButton2"
                         Command="{x:Bind ViewModel.ExportLocalDataCommand}"
                         Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataExportAction}" />
                 </StackPanel>

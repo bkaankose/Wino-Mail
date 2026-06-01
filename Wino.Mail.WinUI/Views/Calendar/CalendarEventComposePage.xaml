@@ -59,6 +59,7 @@
                         Spacing="8">
                         <coreControls:WinoFontIcon FontSize="14" Icon="Calendar" />
                         <Button
+                            AutomationProperties.AutomationId="CalendarEventComposePageButton"
                             Padding="10,6"
                             HorizontalContentAlignment="Left"
                             Style="{StaticResource DefaultButtonStyle}">
@@ -80,6 +81,7 @@
                                                         </TextBlock>
 
                                                         <ListView
+                                                            AutomationProperties.AutomationId="CalendarEventComposePageListView"
                                                             IsItemClickEnabled="True"
                                                             ItemClick="ComposeCalendarClicked"
                                                             ItemsSource="{x:Bind AccountCalendars}"
@@ -139,6 +141,7 @@
                         Spacing="8">
                         <coreControls:WinoFontIcon FontSize="14" Icon="CalendarShowAs" />
                         <ComboBox
+                            AutomationProperties.AutomationId="CalendarEventComposePageComboBox"
                             VerticalAlignment="Center"
                             ItemsSource="{x:Bind ViewModel.ShowAsOptions}"
                             SelectedItem="{x:Bind ViewModel.SelectedShowAsOption, Mode=TwoWay}">
@@ -157,6 +160,7 @@
                         Spacing="8">
                         <coreControls:WinoFontIcon FontSize="14" Icon="Reminder" />
                         <ComboBox
+                            AutomationProperties.AutomationId="CalendarEventComposePageComboBox2"
                             VerticalAlignment="Center"
                             ItemsSource="{x:Bind ViewModel.ReminderOptions}"
                             SelectedItem="{x:Bind ViewModel.SelectedReminderOption, Mode=TwoWay}">
@@ -173,12 +177,16 @@
                     Grid.Column="1"
                     Orientation="Horizontal"
                     Spacing="4">
-                    <AppBarButton Command="{x:Bind ViewModel.CancelCommand}" Label="{x:Bind domain:Translator.Buttons_Discard}">
+                    <AppBarButton
+
+                        AutomationProperties.AutomationId="CalendarEventComposePageAppBarButton" Command="{x:Bind ViewModel.CancelCommand}" Label="{x:Bind domain:Translator.Buttons_Discard}">
                         <AppBarButton.Icon>
                             <coreControls:WinoFontIcon Icon="Delete" />
                         </AppBarButton.Icon>
                     </AppBarButton>
-                    <AppBarButton Command="{x:Bind ViewModel.CreateCommand}" Label="{x:Bind domain:Translator.Buttons_Save}">
+                    <AppBarButton
+
+                        AutomationProperties.AutomationId="CalendarEventComposePageAppBarButton2" Command="{x:Bind ViewModel.CreateCommand}" Label="{x:Bind domain:Translator.Buttons_Save}">
                         <AppBarButton.Icon>
                             <coreControls:WinoFontIcon Icon="Save" />
                         </AppBarButton.Icon>
@@ -196,6 +204,7 @@
 
                 <!--  Title  -->
                 <TextBox
+                    AutomationProperties.AutomationId="CalendarEventComposePageTextBox"
                     FontSize="24"
                     PlaceholderText="{x:Bind domain:Translator.CalendarEventCompose_TitlePlaceholder}"
                     Text="{x:Bind ViewModel.Title, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
@@ -220,9 +229,12 @@
                     Margin="0,0,0,12"
                     Orientation="Horizontal"
                     Spacing="12">
-                    <DatePicker Date="{x:Bind ViewModel.StartDate, Mode=TwoWay}" Header="{x:Bind domain:Translator.CalendarEventCompose_StartDate}" />
+                    <DatePicker
+
+                        AutomationProperties.AutomationId="CalendarEventComposePageDatePicker" Date="{x:Bind ViewModel.StartDate, Mode=TwoWay}" Header="{x:Bind domain:Translator.CalendarEventCompose_StartDate}" />
 
                     <ToggleButton
+                        AutomationProperties.AutomationId="CalendarEventComposePageToggleButton"
                         VerticalAlignment="Bottom"
                         Content="{x:Bind domain:Translator.CalendarEventCompose_AllDay}"
                         IsChecked="{x:Bind ViewModel.IsAllDay, Mode=TwoWay}"
@@ -236,6 +248,7 @@
                     Spacing="12"
                     Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsAllDay), Mode=OneWay}">
                     <TimePicker
+                        AutomationProperties.AutomationId="CalendarEventComposePageTimePicker"
                         ClockIdentifier="{x:Bind ViewModel.TimePickerClockIdentifier, Mode=OneWay}"
                         Header="{x:Bind domain:Translator.CalendarEventCompose_StartTime}"
                         SelectedTime="{x:Bind ViewModel.StartTime, Mode=TwoWay}" />
@@ -247,6 +260,7 @@
                         Text="—" />
 
                     <TimePicker
+                        AutomationProperties.AutomationId="CalendarEventComposePageTimePicker2"
                         ClockIdentifier="{x:Bind ViewModel.TimePickerClockIdentifier, Mode=OneWay}"
                         Header="{x:Bind domain:Translator.CalendarEventCompose_EndTime}"
                         SelectedTime="{x:Bind ViewModel.EndTime, Mode=TwoWay}" />
@@ -254,6 +268,7 @@
 
                 <!--  All Day End Date  -->
                 <DatePicker
+                    AutomationProperties.AutomationId="CalendarEventComposePageDatePicker2"
                     Margin="0,0,0,8"
                     Date="{x:Bind ViewModel.AllDayEndDate, Mode=TwoWay}"
                     Header="{x:Bind domain:Translator.CalendarEventCompose_EndDate}"
@@ -269,12 +284,14 @@
 
                 <!--  Location  -->
                 <TextBox
+                    AutomationProperties.AutomationId="CalendarEventComposePageTextBox2"
                     Margin="0,0,0,12"
                     PlaceholderText="{x:Bind domain:Translator.CalendarEventCompose_LocationPlaceholder}"
                     Text="{x:Bind ViewModel.Location, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                 <!--  Recurring Toggle  -->
                 <ToggleButton
+                    AutomationProperties.AutomationId="CalendarEventComposePageToggleButton2"
                     Margin="0,0,0,4"
                     IsChecked="{x:Bind ViewModel.IsRecurring, Mode=TwoWay}"
                     Style="{StaticResource FieldToggleButtonStyle}">
@@ -307,6 +324,7 @@
 
                             <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventCompose_RepeatEvery}" />
                             <ComboBox
+                                AutomationProperties.AutomationId="CalendarEventComposePageComboBox3"
                                 Grid.Column="1"
                                 ItemsSource="{x:Bind ViewModel.RecurrenceIntervalOptions}"
                                 SelectedItem="{x:Bind ViewModel.SelectedRecurrenceInterval, Mode=TwoWay}" />
@@ -315,6 +333,7 @@
                                 VerticalAlignment="Center"
                                 Text="{x:Bind domain:Translator.CalendarEventCompose_Every}" />
                             <ComboBox
+                                AutomationProperties.AutomationId="CalendarEventComposePageComboBox4"
                                 Grid.Column="3"
                                 ItemsSource="{x:Bind ViewModel.RecurrenceFrequencyOptions}"
                                 SelectedItem="{x:Bind ViewModel.SelectedRecurrenceFrequencyOption, Mode=TwoWay}">
@@ -342,6 +361,7 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="calendarViewModels:CalendarComposeWeekdayOption">
                                         <ToggleButton
+                                            AutomationProperties.AutomationId="CalendarEventComposePageToggleButton3"
                                             Width="32"
                                             Height="32"
                                             Padding="0"
@@ -360,6 +380,7 @@
                                 Date="{x:Bind ViewModel.RecurrenceEndDate, Mode=TwoWay}"
                                 PlaceholderText="{x:Bind domain:Translator.CalendarEventCompose_NoEndDate}" />
                             <Button
+                                AutomationProperties.AutomationId="CalendarEventComposePageButton2"
                                 Grid.Column="8"
                                 Command="{x:Bind ViewModel.ClearRecurrenceEndDateCommand}"
                                 Style="{StaticResource TransparentActionButtonStyle}">
@@ -374,14 +395,18 @@
                     Margin="0,12,0,4"
                     Orientation="Horizontal"
                     Spacing="8">
-                    <ToggleButton x:Name="PeopleToggle" Style="{StaticResource FieldToggleButtonStyle}">
+                    <ToggleButton
+
+                        AutomationProperties.AutomationId="PeopleToggle" x:Name="PeopleToggle" Style="{StaticResource FieldToggleButtonStyle}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <coreControls:WinoFontIcon FontSize="14" Icon="People" />
                             <TextBlock Text="{x:Bind domain:Translator.CalendarEventDetails_People}" />
                         </StackPanel>
                     </ToggleButton>
 
-                    <ToggleButton x:Name="AttachmentsToggle" Style="{StaticResource FieldToggleButtonStyle}">
+                    <ToggleButton
+
+                        AutomationProperties.AutomationId="AttachmentsToggle" x:Name="AttachmentsToggle" Style="{StaticResource FieldToggleButtonStyle}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <coreControls:WinoFontIcon FontSize="14" Icon="Attachment" />
                             <TextBlock Text="{x:Bind domain:Translator.CalendarEventDetails_Attachments}" />
@@ -409,6 +434,7 @@
                             TokenItemTemplate="{StaticResource ContactTokenTemplate}" />
 
                         <ListView
+                            AutomationProperties.AutomationId="CalendarEventComposePageListView2"
                             Margin="-8,0,-8,-8"
                             ItemsSource="{x:Bind ViewModel.Attendees, Mode=OneWay}"
                             SelectionMode="None">
@@ -451,6 +477,7 @@
                                         </StackPanel>
 
                                         <Button
+                                            AutomationProperties.AutomationId="CalendarEventComposePageButton3"
                                             Grid.Column="2"
                                             Padding="6,4"
                                             VerticalAlignment="Center"
@@ -481,6 +508,7 @@
                     Visibility="{x:Bind AttachmentsToggle.IsChecked, Mode=OneWay}">
                     <StackPanel Spacing="8">
                         <Button
+                            AutomationProperties.AutomationId="CalendarEventComposePageButton4"
                             HorizontalAlignment="Left"
                             Command="{x:Bind ViewModel.AddAttachmentsCommand}"
                             IsEnabled="{x:Bind ViewModel.CanAddAttachments, Mode=OneWay}"
@@ -495,6 +523,7 @@
                         </Button>
 
                         <GridView
+                            AutomationProperties.AutomationId="CalendarEventComposePageGridView"
                             Margin="-8,0,-8,-8"
                             ItemsSource="{x:Bind ViewModel.Attachments, Mode=OneWay}"
                             SelectionMode="None">
@@ -533,6 +562,7 @@
                                         </StackPanel>
 
                                         <Button
+                                            AutomationProperties.AutomationId="CalendarEventComposePageButton5"
                                             Grid.Column="2"
                                             Padding="6,4"
                                             VerticalAlignment="Center"
@@ -569,7 +599,9 @@
                             CommandAlignment="Right"
                             IsDynamicOverflowEnabled="True"
                             OverflowButtonAlignment="Left">
-                            <AppBarButton Click="ToggleNotesEditorThemeClicked" ToolTipService.ToolTip="{x:Bind GetEditorThemeToolTip(NotesEditor.IsEditorDarkMode), Mode=OneWay}">
+                            <AppBarButton
+
+                                AutomationProperties.AutomationId="CalendarEventComposePageAppBarButton3" Click="ToggleNotesEditorThemeClicked" ToolTipService.ToolTip="{x:Bind GetEditorThemeToolTip(NotesEditor.IsEditorDarkMode), Mode=OneWay}">
                                 <AppBarButton.Icon>
                                     <coreControls:WinoFontIcon Icon="{x:Bind GetEditorThemeIcon(NotesEditor.IsEditorDarkMode), Mode=OneWay}" />
                                 </AppBarButton.Icon>

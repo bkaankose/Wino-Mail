@@ -101,7 +101,9 @@
                     VerticalSpacing="4">
 
                     <!--  Save  -->
-                    <Button Command="{x:Bind ViewModel.SaveCommand}" Style="{StaticResource TransparentActionButtonStyle}">
+                    <Button
+
+                        AutomationProperties.AutomationId="EventDetailsPageButton" Command="{x:Bind ViewModel.SaveCommand}" Style="{StaticResource TransparentActionButtonStyle}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <coreControls:WinoFontIcon FontSize="16" Icon="Save" />
                             <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Buttons_Save}" />
@@ -109,7 +111,9 @@
                     </Button>
 
                     <!--  Delete  -->
-                    <Button Command="{x:Bind ViewModel.DeleteCommand}" Style="{StaticResource TransparentActionButtonStyle}">
+                    <Button
+
+                        AutomationProperties.AutomationId="EventDetailsPageButton2" Command="{x:Bind ViewModel.DeleteCommand}" Style="{StaticResource TransparentActionButtonStyle}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <coreControls:WinoFontIcon FontSize="16" Icon="Delete" />
                             <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Buttons_Delete}" />
@@ -125,6 +129,7 @@
 
                     <!--  Join Online  -->
                     <Button
+                        AutomationProperties.AutomationId="EventDetailsPageButton3"
                         Command="{x:Bind ViewModel.JoinOnlineCommand}"
                         IsEnabled="{x:Bind calendarHelpers:CalendarXamlHelpers.HasOnlineMeetingLink(ViewModel.CurrentEvent), Mode=OneWay}"
                         Style="{StaticResource TransparentActionButtonStyle}">
@@ -143,6 +148,7 @@
 
                     <!--  RSVP Button  -->
                     <Button
+                        AutomationProperties.AutomationId="EventDetailsPageButton4"
                         Background="{ThemeResource CardBackgroundFillColorDefault}"
                         Command="{x:Bind ViewModel.ToggleRsvpPanelCommand}"
                         Style="{StaticResource TransparentActionButtonStyle}">
@@ -167,6 +173,7 @@
                         Spacing="8">
                         <coreControls:WinoFontIcon FontSize="20" Icon="CalendarShowAs" />
                         <ComboBox
+                            AutomationProperties.AutomationId="EventDetailsPageComboBox"
                             Width="150"
                             VerticalAlignment="Center"
                             ItemsSource="{x:Bind ViewModel.ShowAsOptions}"
@@ -180,7 +187,9 @@
                     </StackPanel>
 
                     <!--  Reminder  -->
-                    <Button Style="{StaticResource TransparentActionButtonStyle}">
+                    <Button
+
+                        AutomationProperties.AutomationId="EventDetailsPageButton5" Style="{StaticResource TransparentActionButtonStyle}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <coreControls:WinoFontIcon FontSize="16" Icon="Reminder" />
                             <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventDetails_Reminder}" />
@@ -188,13 +197,16 @@
                         <Button.Flyout>
                             <Flyout>
                                 <ListView
+                                    AutomationProperties.AutomationId="EventDetailsPageListView"
                                     Width="200"
                                     MaxHeight="300"
                                     ItemsSource="{x:Bind ViewModel.ReminderOptions}"
                                     SelectionMode="None">
                                     <ListView.ItemTemplate>
                                         <DataTemplate x:DataType="calendarViewModels:ReminderOption">
-                                            <CheckBox Content="{x:Bind DisplayText}" IsChecked="{x:Bind IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            <CheckBox
+
+                                                AutomationProperties.AutomationId="EventDetailsPageCheckBox" Content="{x:Bind DisplayText}" IsChecked="{x:Bind IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                         </DataTemplate>
                                     </ListView.ItemTemplate>
                                 </ListView>
@@ -210,7 +222,9 @@
                         Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
                     <!--  Test Notification  -->
-                    <!--<Button Command="{x:Bind ViewModel.CreateTestNotificationCommand}" Style="{StaticResource TransparentActionButtonStyle}">
+                    <!--<Button
+
+                        AutomationProperties.AutomationId="EventDetailsPageButton6" Command="{x:Bind ViewModel.CreateTestNotificationCommand}" Style="{StaticResource TransparentActionButtonStyle}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <coreControls:WinoFontIcon FontSize="16" Icon="Reminder" />
                             <TextBlock VerticalAlignment="Center" Text="Test notification" />
@@ -227,6 +241,7 @@
                         Visibility="{x:Bind ViewModel.CanEditSeries, Mode=OneWay}" />
 
                     <Button
+                        AutomationProperties.AutomationId="EventDetailsPageButton7"
                         Command="{x:Bind ViewModel.ViewSeriesCommand}"
                         Style="{StaticResource TransparentActionButtonStyle}"
                         Visibility="{x:Bind ViewModel.CanEditSeries, Mode=OneWay}">
@@ -263,6 +278,7 @@
 
                 <!--  Close Button  -->
                 <Button
+                    AutomationProperties.AutomationId="EventDetailsPageButton8"
                     Grid.Column="1"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Top"
@@ -275,6 +291,7 @@
                 <StackPanel Orientation="Horizontal" Spacing="4">
                     <!--  Accept  -->
                     <Button
+                        AutomationProperties.AutomationId="EventDetailsPageButton9"
                         Command="{x:Bind ViewModel.SendRsvpResponseCommand}"
                         CommandParameter="{x:Bind enums:AttendeeStatus.Accepted}"
                         Style="{StaticResource TransparentActionButtonStyle}">
@@ -289,6 +306,7 @@
 
                     <!--  Tentative  -->
                     <Button
+                        AutomationProperties.AutomationId="EventDetailsPageButton10"
                         Command="{x:Bind ViewModel.SendRsvpResponseCommand}"
                         CommandParameter="{x:Bind enums:AttendeeStatus.Tentative}"
                         Style="{StaticResource TransparentActionButtonStyle}">
@@ -303,6 +321,7 @@
 
                     <!--  Decline  -->
                     <Button
+                        AutomationProperties.AutomationId="EventDetailsPageButton11"
                         Command="{x:Bind ViewModel.SendRsvpResponseCommand}"
                         CommandParameter="{x:Bind enums:AttendeeStatus.Declined}"
                         Style="{StaticResource TransparentActionButtonStyle}">
@@ -318,6 +337,7 @@
 
                 <!--  Reply Message TextBox  -->
                 <TextBox
+                    AutomationProperties.AutomationId="EventDetailsPageTextBox"
                     Grid.Row="1"
                     Grid.ColumnSpan="2"
                     VerticalAlignment="Center"
@@ -421,12 +441,14 @@
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
                         <AutoSuggestBox
+                            AutomationProperties.AutomationId="EventDetailsPageAutoSuggestBox"
                             Margin="6,0"
                             BorderThickness="0"
                             PlaceholderText="{x:Bind domain:Translator.CalendarEventDetails_InviteSomeone}"
                             Visibility="{x:Bind ViewModel.IsCurrentUserOrganizer, Mode=OneWay}" />
 
                         <ListView
+                            AutomationProperties.AutomationId="EventDetailsPageListView2"
                             Grid.Row="1"
                             Margin="0"
                             IsItemClickEnabled="True"
@@ -512,6 +534,7 @@
                     <TextBlock Style="{StaticResource EventDetailsPanelTitleStyle}" Text="{x:Bind domain:Translator.CalendarEventDetails_Attachments}" />
 
                     <ListView
+                        AutomationProperties.AutomationId="EventDetailsPageListView3"
                         Grid.Row="1"
                         Margin="0"
                         IsItemClickEnabled="True"
@@ -537,6 +560,7 @@
                                         <Grid.ContextFlyout>
                                             <coreControls:WinoMenuFlyout Placement="Right">
                                                 <MenuFlyoutItem
+                                                    AutomationProperties.AutomationId="EventDetailsPageMenuFlyoutItem"
                                                     Click="OpenCalendarAttachment_Click"
                                                     CommandParameter="{x:Bind}"
                                                     Text="{x:Bind domain:Translator.Buttons_Open}">
@@ -545,6 +569,7 @@
                                                     </MenuFlyoutItem.Icon>
                                                 </MenuFlyoutItem>
                                                 <MenuFlyoutItem
+                                                    AutomationProperties.AutomationId="EventDetailsPageMenuFlyoutItem2"
                                                     Click="SaveCalendarAttachment_Click"
                                                     CommandParameter="{x:Bind}"
                                                     Text="{x:Bind domain:Translator.Buttons_Save}">

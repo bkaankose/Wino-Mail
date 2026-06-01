@@ -22,6 +22,7 @@
 
     <StackPanel Spacing="16">
         <TextBox
+            AutomationProperties.AutomationId="CategoryNameTextBox"
             x:Name="CategoryNameTextBox"
             Header="{x:Bind domain:Translator.MailCategoryDialog_Name, Mode=OneTime}"
             PlaceholderText="{x:Bind domain:Translator.MailCategoryDialog_NamePlaceholder, Mode=OneTime}"
@@ -32,6 +33,7 @@
             <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.MailCategoryDialog_Color, Mode=OneTime}" />
 
             <GridView
+                AutomationProperties.AutomationId="ColorsGridView"
                 x:Name="ColorsGridView"
                 IsItemClickEnabled="True"
                 ItemClick="ColorOptionClicked"

@@ -26,11 +26,13 @@
             Margin="0,16"
             Spacing="12">
             <TextBox
+                AutomationProperties.AutomationId="AliasTextBox"
                 x:Name="AliasTextBox"
                 Header="{x:Bind domain:Translator.CreateAccountAliasDialog_AliasAddress}"
                 PlaceholderText="{x:Bind domain:Translator.CreateAccountAliasDialog_AliasAddressPlaceholder}" />
 
             <TextBox
+                AutomationProperties.AutomationId="ReplyToTextBox"
                 x:Name="ReplyToTextBox"
                 Header="{x:Bind domain:Translator.CreateAccountAliasDialog_ReplyToAddress}"
                 PlaceholderText="{x:Bind domain:Translator.CreateAccountAliasDialog_ReplyToAddressPlaceholder}" />

@@ -35,6 +35,7 @@
         </Grid.RowDefinitions>
 
         <TextBox
+            AutomationProperties.AutomationId="SignatureNameTextBox"
             x:Name="SignatureNameTextBox"
             MinWidth="300"
             MaxWidth="500"

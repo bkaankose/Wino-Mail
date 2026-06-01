@@ -13,6 +13,7 @@
     <ScrollViewer>
         <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
             <controls:SettingsCard
+                AutomationProperties.AutomationId="EmailTemplatesPageSettingsCard"
                 Click="NewTemplateClicked"
                 Description="{x:Bind domain:Translator.SettingsEmailTemplates_NewTemplateDescription}"
                 Header="{x:Bind domain:Translator.SettingsEmailTemplates_NewTemplateTitle}"
@@ -26,6 +27,7 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="entities:EmailTemplate">
                         <controls:SettingsCard
+                            AutomationProperties.AutomationId="EmailTemplatesPageSettingsCard2"
                             Margin="0,0,0,4"
                             Click="TemplateClicked"
                             Description="{x:Bind Description}"

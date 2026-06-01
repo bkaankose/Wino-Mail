@@ -71,12 +71,14 @@
                 </Grid.ColumnDefinitions>
 
                 <TextBox
+                    AutomationProperties.AutomationId="AccountNameTextbox"
                     x:Name="AccountNameTextbox"
                     Header="{x:Bind domain:Translator.NewAccountDialog_AccountName}"
                     PlaceholderText="{x:Bind domain:Translator.NewAccountDialog_AccountNamePlaceholder}"
                     TextChanged="InputChanged" />
 
                 <Button
+                    AutomationProperties.AutomationId="XBindDomainTranslatorAccountDetailsPageColorPickerTitle"
                     Grid.Column="1"
                     VerticalAlignment="Bottom"
                     AutomationProperties.HelpText="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Description}"
@@ -93,6 +95,7 @@
                     <Button.Flyout>
                         <Flyout Placement="TopEdgeAlignedLeft">
                             <GridView
+                                AutomationProperties.AutomationId="XBindDomainTranslatorAccountDetailsPageColorPickerTitle2"
                                 Width="150"
                                 AutomationProperties.Name="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Title}"
                                 ItemTemplate="{StaticResource AccountColorTemplate}"
@@ -125,6 +128,7 @@
                     </StackPanel>
 
                     <ComboBox
+                        AutomationProperties.AutomationId="InitialSynchronizationComboBox"
                         x:Name="InitialSynchronizationComboBox"
                         HorizontalAlignment="Stretch"
                         AutomationProperties.HelpText="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_Description}"
@@ -151,6 +155,7 @@
 
 
             <ListView
+                AutomationProperties.AutomationId="NewAccountDialogListView"
                 Grid.Row="2"
                 Margin="0,12"
                 Padding="0"
@@ -180,7 +185,9 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <Button Click="BackClicked">
+            <Button
+
+                AutomationProperties.AutomationId="NewAccountDialogButton" Click="BackClicked">
                 <Button.Content>
                     <Viewbox Width="16">
                         <PathIcon Data="F1 M 20 9.375 C 20 9.544271 19.93815 9.690756 19.814453 9.814453 C 19.690754 9.938151 19.54427 10 19.375 10 L 2.138672 10 L 9.814453 17.685547 C 9.93815 17.809244 10 17.955729 10 18.125 C 10 18.294271 9.93815 18.440756 9.814453 18.564453 C 9.690755 18.68815 9.544271 18.75 9.375 18.75 C 9.205729 18.75 9.059244 18.68815 8.935547 18.564453 L 0.214844 9.84375 C 0.143229 9.772136 0.089518 9.700521 0.053711 9.628906 C 0.017904 9.557292 0 9.472656 0 9.375 C 0 9.277344 0.017904 9.192709 0.053711 9.121094 C 0.089518 9.049479 0.143229 8.977865 0.214844 8.90625 L 8.935547 0.185547 C 9.059244 0.06185 9.205729 0 9.375 0 C 9.544271 0 9.690755 0.06185 9.814453 0.185547 C 9.93815 0.309246 10 0.45573 10 0.625 C 10 0.794271 9.93815 0.940756 9.814453 1.064453 L 2.138672 8.75 L 19.375 8.75 C 19.54427 8.75 19.690754 8.81185 19.814453 8.935547 C 19.93815 9.059245 20 9.205729 20 9.375 Z " />
@@ -195,6 +202,7 @@
                 Source="{x:Bind SelectedMailProvider.ProviderImage, Mode=OneWay}" />
 
             <TextBox
+                AutomationProperties.AutomationId="DisplayNameTextBox"
                 x:Name="DisplayNameTextBox"
                 Grid.Row="1"
                 Header="Display Name"
@@ -202,6 +210,7 @@
                 TextChanged="InputChanged" />
 
             <TextBox
+                AutomationProperties.AutomationId="SpecialImapAddress"
                 x:Name="SpecialImapAddress"
                 Grid.Row="2"
                 Header="E-mail Address"
@@ -209,18 +218,21 @@
                 TextChanged="InputChanged" />
 
             <PasswordBox
+                AutomationProperties.AutomationId="AppSpecificPassword"
                 x:Name="AppSpecificPassword"
                 Grid.Row="3"
                 Header="App-Specific Password"
                 PasswordChanged="ImapPasswordChanged" />
 
             <ComboBox
+                AutomationProperties.AutomationId="NewAccountDialogComboBox"
                 Grid.Row="4"
                 Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_CalendarModeHeader}"
                 ItemsSource="{x:Bind CalendarModeOptions, Mode=OneWay}"
                 SelectedIndex="{x:Bind SelectedCalendarModeIndex, Mode=TwoWay}" />
 
             <HyperlinkButton
+                AutomationProperties.AutomationId="NewAccountDialogHyperlinkButton"
                 Grid.Row="5"
                 HorizontalAlignment="Right"
                 Click="AppSpecificHelpButtonClicked"

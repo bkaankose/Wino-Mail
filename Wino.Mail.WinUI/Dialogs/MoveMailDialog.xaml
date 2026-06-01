@@ -56,6 +56,7 @@
         </Border>
 
         <TreeView
+            AutomationProperties.AutomationId="FolderTreeView"
             x:Name="FolderTreeView"
             Grid.Row="1"
             CanDragItems="False"

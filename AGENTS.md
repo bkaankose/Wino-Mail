@@ -21,6 +21,15 @@ dotnet build Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore /p:Pla
 # Run tests (Debug x64)
 dotnet test Wino.Core.Tests/Wino.Core.Tests.csproj -c Debug /p:Platform=x64
 
+# Fast WinUI packaged smoke test through winapp (uses existing build output, launches, waits for a window, captures inspect JSON + screenshot)
+.\scripts\winapp-smoke.ps1 -Mode Mail
+
+# Keep the launched app open for follow-up UIA exploration with winapp ui commands
+.\scripts\winapp-smoke.ps1 -Mode Mail -KeepRunning
+
+# Audit WinUI XAML controls for stable UI Automation selectors
+.\scripts\audit-xaml-automationids.ps1
+
 # Copilot CLI build command (Debug x64)
 dotnet restore Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config -p:Platform=x64 -p:RuntimeIdentifier=win-x64 && dotnet build Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false
 ```

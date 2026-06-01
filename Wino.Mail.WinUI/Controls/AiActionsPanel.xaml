@@ -94,10 +94,12 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <Button
+                            AutomationProperties.AutomationId="AiActionsPanelButton"
                             Click="SignInButton_Click"
                             Content="{x:Bind domain:Translator.Buttons_SignIn}"
                             Style="{StaticResource AccentButtonStyle}" />
                         <Button
+                            AutomationProperties.AutomationId="AiActionsPanelButton2"
                             Grid.Column="1"
                             Click="CreateAccountButton_Click"
                             Content="{x:Bind domain:Translator.Buttons_CreateAccount}" />
@@ -137,6 +139,7 @@
                     </Border>
 
                     <Button
+                        AutomationProperties.AutomationId="AiActionsPanelButton3"
                         HorizontalAlignment="Left"
                         Click="PurchaseButton_Click"
                         Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackGetButton}"
@@ -204,6 +207,7 @@
                                 Style="{StaticResource CaptionTextBlockStyle}"
                                 Text="{x:Bind domain:Translator.Composer_AiTranslateLanguage}" />
                             <ComboBox
+                                AutomationProperties.AutomationId="TranslateLanguageComboBox"
                                 x:Name="TranslateLanguageComboBox"
                                 MinWidth="120"
                                 SelectionChanged="TranslateLanguageComboBox_SelectionChanged">
@@ -214,6 +218,7 @@
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
                             <Button
+                                AutomationProperties.AutomationId="RunTranslateButton"
                                 x:Name="RunTranslateButton"
                                 Click="RunTranslateButton_Click"
                                 Content="{x:Bind domain:Translator.Composer_AiTranslateApply}"
@@ -232,6 +237,7 @@
                                     Style="{StaticResource CaptionTextBlockStyle}"
                                     Text="{x:Bind domain:Translator.Composer_AiRewriteMode}" />
                                 <ComboBox
+                                    AutomationProperties.AutomationId="RewriteModeComboBox"
                                     x:Name="RewriteModeComboBox"
                                     MinWidth="140"
                                     SelectionChanged="RewriteModeComboBox_SelectionChanged">
@@ -242,6 +248,7 @@
                                     </ComboBox.ItemTemplate>
                                 </ComboBox>
                                 <Button
+                                    AutomationProperties.AutomationId="RunRewriteButton"
                                     x:Name="RunRewriteButton"
                                     Click="RunRewriteButton_Click"
                                     Content="{x:Bind domain:Translator.Composer_AiRewriteApply}"
@@ -253,6 +260,7 @@
                                 Style="{StaticResource CaptionTextBlockStyle}"
                                 TextWrapping="WrapWholeWords" />
                             <TextBox
+                                AutomationProperties.AutomationId="CustomRewriteTextBox"
                                 x:Name="CustomRewriteTextBox"
                                 PlaceholderText="{x:Bind domain:Translator.Composer_AiRewriteCustomPlaceholder}"
                                 Visibility="Collapsed" />
@@ -271,6 +279,7 @@
                                     Style="{StaticResource CaptionTextBlockStyle}"
                                     Text="{x:Bind domain:Translator.Composer_AiTranslateLanguage}" />
                                 <ComboBox
+                                    AutomationProperties.AutomationId="SummarizeLanguageComboBox"
                                     x:Name="SummarizeLanguageComboBox"
                                     MinWidth="120"
                                     SelectionChanged="SummarizeLanguageComboBox_SelectionChanged">
@@ -282,6 +291,7 @@
                                 </ComboBox>
 
                                 <Button
+                                    AutomationProperties.AutomationId="RunSummarizeButton"
                                     x:Name="RunSummarizeButton"
                                     HorizontalAlignment="Left"
                                     Click="RunSummarizeButton_Click"

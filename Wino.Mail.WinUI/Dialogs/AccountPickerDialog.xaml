@@ -16,6 +16,7 @@
     </ContentDialog.Resources>
 
     <ListView
+        AutomationProperties.AutomationId="AccountPickerDialogListView"
         Margin="0,8,0,0"
         IsItemClickEnabled="True"
         ItemClick="AccountClicked"

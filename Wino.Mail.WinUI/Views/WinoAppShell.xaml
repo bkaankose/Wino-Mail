@@ -105,6 +105,7 @@
                     </Grid>
 
                     <Button
+                        AutomationProperties.AutomationId="WinoAppShellButton"
                         Grid.Column="1"
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
@@ -127,7 +128,9 @@
         <!--  Fix account issues.  -->
         <!--  Authentication  -->
         <DataTemplate x:Key="FixAuthenticationIssueTemplate" x:DataType="menu:FixAccountIssuesMenuItem">
-            <coreControls:WinoNavigationViewItem SelectsOnInvoked="False">
+            <coreControls:WinoNavigationViewItem
+
+                AutomationProperties.AutomationId="WinoAppShellWinoNavigationViewItem" SelectsOnInvoked="False">
                 <coreControls:WinoNavigationViewItem.Content>
                     <TextBlock
                         Margin="0,10"
@@ -142,7 +145,9 @@
 
         <!--  Missing system folder config.  -->
         <DataTemplate x:Key="FixMissingFolderConfig" x:DataType="menu:FixAccountIssuesMenuItem">
-            <coreControls:WinoNavigationViewItem SelectsOnInvoked="False">
+            <coreControls:WinoNavigationViewItem
+
+                AutomationProperties.AutomationId="WinoAppShellWinoNavigationViewItem2" SelectsOnInvoked="False">
                 <coreControls:WinoNavigationViewItem.Content>
                     <TextBlock
                         Margin="0,10"
@@ -158,6 +163,7 @@
         <!--  New Mail  -->
         <DataTemplate x:Key="CreateNewMailTemplate" x:DataType="menu:NewMailMenuItem">
             <coreControls:WinoNavigationViewItem
+                AutomationProperties.AutomationId="XBindDomainTranslatorMenuNewMailModeOneTime"
                 Height="50"
                 AutomationProperties.Name="{x:Bind domain:Translator.MenuNewMail, Mode=OneTime}"
                 DataContext="{x:Bind}"
@@ -176,6 +182,7 @@
         <!--  Inbox or any other folders.  -->
         <DataTemplate x:Key="FolderMenuTemplate" x:DataType="menu:FolderMenuItem">
             <coreControls:WinoNavigationViewItem
+                AutomationProperties.AutomationId="XBindFolderNameModeOneWay"
                 MinHeight="40"
                 AllowDrop="True"
                 AutomationProperties.Name="{x:Bind FolderName, Mode=OneWay}"
@@ -242,6 +249,7 @@
 
         <DataTemplate x:Key="MailCategoryMenuTemplate" x:DataType="menu:MailCategoryMenuItem">
             <coreControls:WinoNavigationViewItem
+                AutomationProperties.AutomationId="XBindFolderNameModeOneWay2"
                 MinHeight="40"
                 AutomationProperties.Name="{x:Bind FolderName, Mode=OneWay}"
                 DataContext="{x:Bind}"
@@ -276,6 +284,7 @@
 
         <DataTemplate x:Key="MergedMailCategoryMenuTemplate" x:DataType="menu:MergedMailCategoryMenuItem">
             <coreControls:WinoNavigationViewItem
+                AutomationProperties.AutomationId="XBindFolderNameModeOneWay3"
                 MinHeight="40"
                 AutomationProperties.Name="{x:Bind FolderName, Mode=OneWay}"
                 DataContext="{x:Bind}"
@@ -417,6 +426,7 @@
         <!--  Merged Account Common Folder Item  -->
         <DataTemplate x:Key="MergedAccountFolderMenuItemTemplate" x:DataType="menu:MergedAccountFolderMenuItem">
             <coreControls:WinoNavigationViewItem
+                AutomationProperties.AutomationId="WinoAppShellWinoNavigationViewItem3"
                 MinHeight="30"
                 AllowDrop="True"
                 ContextRequested="MenuItemContextRequested"
@@ -462,6 +472,7 @@
         <!--  Merged Account More Expansion Item  -->
         <DataTemplate x:Key="MergedAccountMoreFolderItemTemplate" x:DataType="menu:MergedAccountMoreFolderMenuItem">
             <coreControls:WinoNavigationViewItem
+                AutomationProperties.AutomationId="WinoAppShellWinoNavigationViewItem4"
                 MinHeight="30"
                 Content="{x:Bind domain:Translator.More}"
                 FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
@@ -505,6 +516,7 @@
         ColumnSpacing="0"
         RowSpacing="0">
         <muxc:NavigationView
+            AutomationProperties.AutomationId="NavigationView"
             x:Name="navigationView"
             Grid.Row="1"
             Grid.ColumnSpan="3"
@@ -548,6 +560,7 @@
                         </Grid.RowDefinitions>
 
                         <coreControls:WinoNavigationViewItem
+                            AutomationProperties.AutomationId="NewCalendarEventNavigationItem"
                             x:Name="NewCalendarEventNavigationItem"
                             Grid.Row="0"
                             Height="50"
@@ -568,6 +581,7 @@
                         </coreControls:WinoNavigationViewItem>
 
                         <coreControls:WinoNavigationViewItem
+                            AutomationProperties.AutomationId="SynchronizeCalendarsNavigationItem"
                             x:Name="SynchronizeCalendarsNavigationItem"
                             Grid.Row="1"
                             Height="50"
@@ -589,6 +603,7 @@
                         </coreControls:WinoNavigationViewItem>
 
                         <muxc:CalendarView
+                            AutomationProperties.AutomationId="VisibleDateRangeCalendarView"
                             x:Name="VisibleDateRangeCalendarView"
                             Grid.Row="2"
                             Margin="12,0"
@@ -598,6 +613,7 @@
                             Style="{StaticResource WinoCalendarViewStyle}" />
 
                         <ListView
+                            AutomationProperties.AutomationId="CalendarHostListView"
                             x:Name="CalendarHostListView"
                             Grid.Row="3"
                             SelectionMode="None">
@@ -622,6 +638,7 @@
                                                 </Grid.ColumnDefinitions>
 
                                                 <CheckBox
+                                                    AutomationProperties.AutomationId="XBindHelpersXamlHelpersGetCalendarsForAccountAutomationNameAccountNameModeOneWay"
                                                     Width="26"
                                                     MinWidth="0"
                                                     AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetCalendarsForAccountAutomationName(Account.Name), Mode=OneWay}"
@@ -666,6 +683,7 @@
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate x:DataType="data:AccountCalendarViewModel">
                                                         <CheckBox
+                                                            AutomationProperties.AutomationId="XBindNameModeOneWay"
                                                             HorizontalAlignment="Stretch"
                                                             VerticalAlignment="Center"
                                                             AutomationProperties.Name="{x:Bind Name, Mode=OneWay}"
@@ -710,6 +728,7 @@
                         Visibility="Collapsed">
                         <StackPanel Spacing="6">
                             <coreControls:WinoNavigationViewItem
+                                AutomationProperties.AutomationId="NewContactNavigationItem"
                                 x:Name="NewContactNavigationItem"
                                 Height="50"
                                 Margin="0,0,0,12"

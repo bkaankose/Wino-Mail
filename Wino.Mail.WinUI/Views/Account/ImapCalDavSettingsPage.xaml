@@ -69,18 +69,21 @@
                                 </Grid.RowDefinitions>
 
                                 <TextBox
+                                    AutomationProperties.AutomationId="ImapCalDavSettingsPageTextBox"
                                     Grid.Row="0"
                                     Grid.Column="0"
                                     Header="{x:Bind domain:Translator.IMAPSetupDialog_DisplayName, Mode=OneTime}"
                                     PlaceholderText="{x:Bind domain:Translator.IMAPSetupDialog_DisplayNamePlaceholder, Mode=OneTime}"
                                     Text="{x:Bind ViewModel.DisplayName, Mode=TwoWay}" />
                                 <TextBox
+                                    AutomationProperties.AutomationId="ImapCalDavSettingsPageTextBox2"
                                     Grid.Row="0"
                                     Grid.Column="1"
                                     Header="{x:Bind domain:Translator.IMAPSetupDialog_MailAddress, Mode=OneTime}"
                                     PlaceholderText="{x:Bind domain:Translator.IMAPSetupDialog_MailAddressPlaceholder, Mode=OneTime}"
                                     Text="{x:Bind ViewModel.EmailAddress, Mode=TwoWay}" />
                                 <PasswordBox
+                                    AutomationProperties.AutomationId="ImapCalDavSettingsPagePasswordBox"
                                     Grid.Row="1"
                                     Grid.ColumnSpan="2"
                                     Header="{x:Bind domain:Translator.IMAPSetupDialog_Password, Mode=OneTime}"
@@ -89,8 +92,12 @@
                             </Grid>
 
                             <StackPanel Spacing="10">
-                                <CheckBox Content="{x:Bind domain:Translator.ProviderSelection_UseForMail, Mode=OneTime}" IsChecked="{x:Bind ViewModel.IsMailSupportEnabled, Mode=TwoWay}" />
-                                <CheckBox Content="{x:Bind domain:Translator.ImapCalDavSettingsPage_EnableCalendarSupport, Mode=OneTime}" IsChecked="{x:Bind ViewModel.IsCalendarSupportEnabled, Mode=TwoWay}" />
+                                <CheckBox
+
+                                    AutomationProperties.AutomationId="ImapCalDavSettingsPageCheckBox" Content="{x:Bind domain:Translator.ProviderSelection_UseForMail, Mode=OneTime}" IsChecked="{x:Bind ViewModel.IsMailSupportEnabled, Mode=TwoWay}" />
+                                <CheckBox
+
+                                    AutomationProperties.AutomationId="ImapCalDavSettingsPageCheckBox2" Content="{x:Bind domain:Translator.ImapCalDavSettingsPage_EnableCalendarSupport, Mode=OneTime}" IsChecked="{x:Bind ViewModel.IsCalendarSupportEnabled, Mode=TwoWay}" />
                             </StackPanel>
 
                             <StackPanel Spacing="8">
@@ -100,6 +107,7 @@
                                     Text="{x:Bind domain:Translator.ImapCalDavSettingsPage_AdvancedSectionDescription, Mode=OneTime}"
                                     TextWrapping="WrapWholeWords" />
                                 <Button
+                                    AutomationProperties.AutomationId="ImapCalDavSettingsPageButton"
                                     HorizontalAlignment="Left"
                                     Command="{x:Bind ViewModel.AutoDiscoverSettingsCommand}"
                                     Content="{x:Bind domain:Translator.ImapCalDavSettingsPage_AutoDiscoverButton, Mode=OneTime}"
@@ -144,15 +152,25 @@
                                             <FontIcon FontSize="14" Glyph="&#xE896;" />
                                             <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.IMAPSetupDialog_IMAPSettings, Mode=OneTime}" />
                                         </StackPanel>
-                                        <TextBox Header="{x:Bind domain:Translator.IMAPSetupDialog_IncomingMailServer, Mode=OneTime}" Text="{x:Bind ViewModel.IncomingServer, Mode=TwoWay}" />
-                                        <TextBox Header="{x:Bind domain:Translator.IMAPSetupDialog_IncomingMailServerPort, Mode=OneTime}" Text="{x:Bind ViewModel.IncomingServerPort, Mode=TwoWay}" />
-                                        <TextBox Header="{x:Bind domain:Translator.IMAPSetupDialog_Username, Mode=OneTime}" Text="{x:Bind ViewModel.IncomingServerUsername, Mode=TwoWay}" />
-                                        <PasswordBox Header="{x:Bind domain:Translator.IMAPSetupDialog_Password, Mode=OneTime}" Password="{x:Bind ViewModel.IncomingServerPassword, Mode=TwoWay}" />
+                                        <TextBox
+
+                                            AutomationProperties.AutomationId="ImapCalDavSettingsPageTextBox3" Header="{x:Bind domain:Translator.IMAPSetupDialog_IncomingMailServer, Mode=OneTime}" Text="{x:Bind ViewModel.IncomingServer, Mode=TwoWay}" />
+                                        <TextBox
+
+                                            AutomationProperties.AutomationId="ImapCalDavSettingsPageTextBox4" Header="{x:Bind domain:Translator.IMAPSetupDialog_IncomingMailServerPort, Mode=OneTime}" Text="{x:Bind ViewModel.IncomingServerPort, Mode=TwoWay}" />
+                                        <TextBox
+
+                                            AutomationProperties.AutomationId="ImapCalDavSettingsPageTextBox5" Header="{x:Bind domain:Translator.IMAPSetupDialog_Username, Mode=OneTime}" Text="{x:Bind ViewModel.IncomingServerUsername, Mode=TwoWay}" />
+                                        <PasswordBox
+
+                                            AutomationProperties.AutomationId="ImapCalDavSettingsPagePasswordBox2" Header="{x:Bind domain:Translator.IMAPSetupDialog_Password, Mode=OneTime}" Password="{x:Bind ViewModel.IncomingServerPassword, Mode=TwoWay}" />
                                         <ComboBox
+                                            AutomationProperties.AutomationId="ImapCalDavSettingsPageComboBox"
                                             Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_ConnectionSecurityHeader, Mode=OneTime}"
                                             ItemsSource="{x:Bind ViewModel.AvailableConnectionSecurityDisplayNames}"
                                             SelectedIndex="{x:Bind ViewModel.SelectedIncomingServerConnectionSecurityIndex, Mode=TwoWay}" />
                                         <ComboBox
+                                            AutomationProperties.AutomationId="ImapCalDavSettingsPageComboBox2"
                                             Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_AuthenticationMethodHeader, Mode=OneTime}"
                                             ItemsSource="{x:Bind ViewModel.AvailableAuthenticationMethodDisplayNames}"
                                             SelectedIndex="{x:Bind ViewModel.SelectedIncomingServerAuthenticationMethodIndex, Mode=TwoWay}" />
@@ -169,15 +187,25 @@
                                             <FontIcon FontSize="14" Glyph="&#xE898;" />
                                             <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.IMAPSetupDialog_SMTPSettings, Mode=OneTime}" />
                                         </StackPanel>
-                                        <TextBox Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServer, Mode=OneTime}" Text="{x:Bind ViewModel.OutgoingServer, Mode=TwoWay}" />
-                                        <TextBox Header="{x:Bind domain:Translator.IMAPSetupDialog_IncomingMailServerPort, Mode=OneTime}" Text="{x:Bind ViewModel.OutgoingServerPort, Mode=TwoWay}" />
-                                        <TextBox Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServerUsername, Mode=OneTime}" Text="{x:Bind ViewModel.OutgoingServerUsername, Mode=TwoWay}" />
-                                        <PasswordBox Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServerPassword, Mode=OneTime}" Password="{x:Bind ViewModel.OutgoingServerPassword, Mode=TwoWay}" />
+                                        <TextBox
+
+                                            AutomationProperties.AutomationId="ImapCalDavSettingsPageTextBox6" Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServer, Mode=OneTime}" Text="{x:Bind ViewModel.OutgoingServer, Mode=TwoWay}" />
+                                        <TextBox
+
+                                            AutomationProperties.AutomationId="ImapCalDavSettingsPageTextBox7" Header="{x:Bind domain:Translator.IMAPSetupDialog_IncomingMailServerPort, Mode=OneTime}" Text="{x:Bind ViewModel.OutgoingServerPort, Mode=TwoWay}" />
+                                        <TextBox
+
+                                            AutomationProperties.AutomationId="ImapCalDavSettingsPageTextBox8" Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServerUsername, Mode=OneTime}" Text="{x:Bind ViewModel.OutgoingServerUsername, Mode=TwoWay}" />
+                                        <PasswordBox
+
+                                            AutomationProperties.AutomationId="ImapCalDavSettingsPagePasswordBox3" Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServerPassword, Mode=OneTime}" Password="{x:Bind ViewModel.OutgoingServerPassword, Mode=TwoWay}" />
                                         <ComboBox
+                                            AutomationProperties.AutomationId="ImapCalDavSettingsPageComboBox3"
                                             Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_ConnectionSecurityHeader, Mode=OneTime}"
                                             ItemsSource="{x:Bind ViewModel.AvailableConnectionSecurityDisplayNames}"
                                             SelectedIndex="{x:Bind ViewModel.SelectedOutgoingServerConnectionSecurityIndex, Mode=TwoWay}" />
                                         <ComboBox
+                                            AutomationProperties.AutomationId="ImapCalDavSettingsPageComboBox4"
                                             Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_AuthenticationMethodHeader, Mode=OneTime}"
                                             ItemsSource="{x:Bind ViewModel.AvailableAuthenticationMethodDisplayNames}"
                                             SelectedIndex="{x:Bind ViewModel.SelectedOutgoingServerAuthenticationMethodIndex, Mode=TwoWay}" />
@@ -186,6 +214,7 @@
                             </Grid>
 
                             <Button
+                                AutomationProperties.AutomationId="ImapCalDavSettingsPageButton2"
                                 HorizontalAlignment="Right"
                                 Command="{x:Bind ViewModel.TestImapConnectionCommand}"
                                 Content="{x:Bind domain:Translator.ImapCalDavSettingsPage_TestImapButton, Mode=OneTime}"
@@ -216,6 +245,7 @@
                             </StackPanel>
 
                             <ComboBox
+                                AutomationProperties.AutomationId="ImapCalDavSettingsPageComboBox5"
                                 Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_CalendarModeHeader, Mode=OneTime}"
                                 IsEnabled="{x:Bind ViewModel.IsCalendarModeSelectionVisible, Mode=OneWay}"
                                 ItemsSource="{x:Bind ViewModel.AvailableCalendarSupportModeTitles}"
@@ -241,6 +271,7 @@
                                 Visibility="{x:Bind ViewModel.IsDisabledCalendarModeSelected, Mode=OneWay}" />
 
                             <HyperlinkButton
+                                AutomationProperties.AutomationId="ImapCalDavSettingsPageHyperlinkButton"
                                 HorizontalAlignment="Left"
                                 Command="{x:Bind ViewModel.ShowLocalCalendarExplanationCommand}"
                                 Content="{x:Bind domain:Translator.ImapCalDavSettingsPage_LocalCalendarLearnMore, Mode=OneTime}"
@@ -252,21 +283,25 @@
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
                                 <TextBox
+                                    AutomationProperties.AutomationId="ImapCalDavSettingsPageTextBox9"
                                     Grid.Column="0"
                                     Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_CalDavServiceUrl, Mode=OneTime}"
                                     Text="{x:Bind ViewModel.CalDavServiceUrl, Mode=TwoWay}" />
                                 <TextBox
+                                    AutomationProperties.AutomationId="ImapCalDavSettingsPageTextBox10"
                                     Grid.Column="1"
                                     Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_CalDavUsername, Mode=OneTime}"
                                     Text="{x:Bind ViewModel.CalDavUsername, Mode=TwoWay}" />
                             </Grid>
 
                             <PasswordBox
+                                AutomationProperties.AutomationId="ImapCalDavSettingsPagePasswordBox4"
                                 Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_CalDavPassword, Mode=OneTime}"
                                 Password="{x:Bind ViewModel.CalDavPassword, Mode=TwoWay}"
                                 Visibility="{x:Bind ViewModel.IsCalDavSettingsVisible, Mode=OneWay}" />
 
                             <Button
+                                AutomationProperties.AutomationId="ImapCalDavSettingsPageButton3"
                                 HorizontalAlignment="Right"
                                 Command="{x:Bind ViewModel.TestCalDavConnectionCommand}"
                                 Content="{x:Bind domain:Translator.ImapCalDavSettingsPage_TestCalDavButton, Mode=OneTime}"
@@ -281,10 +316,12 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <Button
+                            AutomationProperties.AutomationId="ImapCalDavSettingsPageButton4"
                             Grid.Column="1"
                             Command="{x:Bind ViewModel.CancelCommand}"
                             Content="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}" />
                         <Button
+                            AutomationProperties.AutomationId="ImapCalDavSettingsPageButton5"
                             Grid.Column="2"
                             Command="{x:Bind ViewModel.SaveCommand}"
                             Content="{x:Bind domain:Translator.Buttons_Save, Mode=OneTime}"
@@ -329,6 +366,7 @@
                 </StackPanel>
 
                 <Button
+                    AutomationProperties.AutomationId="XBindDomainTranslatorButtonsCloseModeOneTime"
                     Grid.Column="2"
                     Width="32"
                     Height="32"

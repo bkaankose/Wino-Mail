@@ -54,6 +54,7 @@
                         TextWrapping="WrapWholeWords" />
 
                     <Button
+                        AutomationProperties.AutomationId="StoragePageButton"
                         Grid.Column="1"
                         Margin="12,0,0,0"
                         Command="{x:Bind ViewModel.RefreshStorageCommand}"
@@ -66,38 +67,49 @@
             <ItemsControl ItemsSource="{x:Bind ViewModel.AccountStorageItems, Mode=OneWay}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="mailData:AccountStorageItemViewModel">
-                        <controls:SettingsExpander Description="{x:Bind SizeDescription}" Header="{x:Bind AccountName}">
+                        <controls:SettingsExpander
+
+                            AutomationProperties.AutomationId="StoragePageSettingsExpander" Description="{x:Bind SizeDescription}" Header="{x:Bind AccountName}">
                             <controls:SettingsExpander.HeaderIcon>
                                 <coreControls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(Account)}" />
                             </controls:SettingsExpander.HeaderIcon>
 
                             <controls:SettingsExpander.Items>
-                                <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsStorage_DeleteAll_Description}" Header="{x:Bind domain:Translator.SettingsStorage_DeleteAll_Title}">
+                                <controls:SettingsCard
+
+                                    AutomationProperties.AutomationId="StoragePageSettingsCard" Description="{x:Bind domain:Translator.SettingsStorage_DeleteAll_Description}" Header="{x:Bind domain:Translator.SettingsStorage_DeleteAll_Title}">
                                     <Button
+                                        AutomationProperties.AutomationId="StoragePageButton2"
                                         Command="{x:Bind DeleteAllCommand}"
                                         CommandParameter="{x:Bind}"
                                         Content="{x:Bind domain:Translator.SettingsStorage_DeleteAll_Button}"
                                         IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsBusy), Mode=OneWay}" />
                                 </controls:SettingsCard>
 
-                                <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsStorage_DeleteOld_Description}" Header="{x:Bind domain:Translator.SettingsStorage_DeleteOld_Title}">
+                                <controls:SettingsCard
+
+                                    AutomationProperties.AutomationId="StoragePageSettingsCard2" Description="{x:Bind domain:Translator.SettingsStorage_DeleteOld_Description}" Header="{x:Bind domain:Translator.SettingsStorage_DeleteOld_Title}">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <Button
+                                            AutomationProperties.AutomationId="StoragePageButton3"
                                             Command="{x:Bind DeleteOneMonthCommand}"
                                             CommandParameter="{x:Bind}"
                                             Content="{x:Bind domain:Translator.SettingsStorage_DeleteOld_1Month}"
                                             IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsBusy), Mode=OneWay}" />
                                         <Button
+                                            AutomationProperties.AutomationId="StoragePageButton4"
                                             Command="{x:Bind DeleteThreeMonthsCommand}"
                                             CommandParameter="{x:Bind}"
                                             Content="{x:Bind domain:Translator.SettingsStorage_DeleteOld_3Months}"
                                             IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsBusy), Mode=OneWay}" />
                                         <Button
+                                            AutomationProperties.AutomationId="StoragePageButton5"
                                             Command="{x:Bind DeleteSixMonthsCommand}"
                                             CommandParameter="{x:Bind}"
                                             Content="{x:Bind domain:Translator.SettingsStorage_DeleteOld_6Months}"
                                             IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsBusy), Mode=OneWay}" />
                                         <Button
+                                            AutomationProperties.AutomationId="StoragePageButton6"
                                             Command="{x:Bind DeleteYearCommand}"
                                             CommandParameter="{x:Bind}"
                                             Content="{x:Bind domain:Translator.SettingsStorage_DeleteOld_1Year}"

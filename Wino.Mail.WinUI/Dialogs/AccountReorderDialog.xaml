@@ -101,6 +101,7 @@
     </ContentDialog.Resources>
 
     <ListView
+        AutomationProperties.AutomationId="AccountReorderDialogListView"
         AllowDrop="True"
         CanReorderItems="True"
         ItemTemplateSelector="{StaticResource AccountReorderTemplateSelector}"

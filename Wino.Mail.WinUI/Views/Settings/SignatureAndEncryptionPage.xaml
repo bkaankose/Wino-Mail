@@ -18,17 +18,21 @@
                 </TransitionCollection>
             </StackPanel.ChildrenTransitions>
             <controls:SettingsExpander
+                AutomationProperties.AutomationId="SignatureAndEncryptionPageSettingsExpander"
                 Description="{x:Bind domain:Translator.SettingsSignatureAndEncryption_MyCertificatesDescription, Mode=OneTime}"
                 Header="{x:Bind domain:Translator.SettingsSignatureAndEncryption_MyCertificatesHeader, Mode=OneTime}"
                 IsExpanded="True">
                 <controls:SettingsExpander.Items>
-                    <controls:SettingsCard>
+                    <controls:SettingsCard
+
+                        AutomationProperties.AutomationId="SignatureAndEncryptionPageSettingsCard">
                         <!--TODO: Not working
                         <TextBlock Visibility="{Binding ViewModel.PersonalCertificatesEmpty, Mode=OneWay}">
                             <Run Text="There are no items." />
                         </TextBlock>-->
 
                         <ListView
+                            AutomationProperties.AutomationId="PersonalCertList"
                             x:Name="PersonalCertList"
                             MaxHeight="180"
                             ItemsSource="{x:Bind ViewModel.PersonalCertificates, Mode=OneWay}"
@@ -87,16 +91,25 @@
                             </ListView.ItemContainerStyle>
                         </ListView>
                     </controls:SettingsCard>
-                    <controls:SettingsCard>
+                    <controls:SettingsCard
+
+                        AutomationProperties.AutomationId="SignatureAndEncryptionPageSettingsCard2">
                         <StackPanel Orientation="Horizontal" Spacing="12">
-                            <Button Command="{x:Bind ViewModel.RemovePersonalCertificatesCommand}" Content="{x:Bind domain:Translator.Buttons_Remove}" />
-                            <Button Command="{x:Bind ViewModel.ExportPersonalCertificatesCommand}" Content="{x:Bind domain:Translator.Buttons_Export}" />
-                            <Button Command="{x:Bind ViewModel.ImportPersonalCertificatesCommand}" Content="{x:Bind domain:Translator.Buttons_Import}" />
+                            <Button
+
+                                AutomationProperties.AutomationId="SignatureAndEncryptionPageButton" Command="{x:Bind ViewModel.RemovePersonalCertificatesCommand}" Content="{x:Bind domain:Translator.Buttons_Remove}" />
+                            <Button
+
+                                AutomationProperties.AutomationId="SignatureAndEncryptionPageButton2" Command="{x:Bind ViewModel.ExportPersonalCertificatesCommand}" Content="{x:Bind domain:Translator.Buttons_Export}" />
+                            <Button
+
+                                AutomationProperties.AutomationId="SignatureAndEncryptionPageButton3" Command="{x:Bind ViewModel.ImportPersonalCertificatesCommand}" Content="{x:Bind domain:Translator.Buttons_Import}" />
                         </StackPanel>
                     </controls:SettingsCard>
                 </controls:SettingsExpander.Items>
             </controls:SettingsExpander>
             <controls:SettingsExpander
+                AutomationProperties.AutomationId="SignatureAndEncryptionPageSettingsExpander2"
                 Description="{x:Bind domain:Translator.SettingsSignatureAndEncryption_RecipientCertificatesDescription, Mode=OneTime}"
                 Header="{x:Bind domain:Translator.SettingsSignatureAndEncryption_RecipientCertificatesHeader, Mode=OneTime}"
                 IsExpanded="False">
@@ -110,6 +123,7 @@
 
                     <controls:SettingsCard>
                         <ListView
+                            AutomationProperties.AutomationId="RecipientCertList"
                             x:Name="RecipientCertList"
                             Height="180"
                             ItemsSource="{x:Bind ViewModel.RecipientCertificates, Mode=OneWay}"
@@ -168,14 +182,21 @@
                             </ListView.ItemContainerStyle>
                         </ListView>
                     </controls:SettingsCard>
-                    <controls:SettingsCard>
+                    <controls:SettingsCard
+                            AutomationProperties.AutomationId="SignatureAndEncryptionPageSettingsCard3">
                         <StackPanel
                             HorizontalAlignment="Right"
                             Orientation="Horizontal"
                             Spacing="12">
-                            <Button Command="{x:Bind ViewModel.RemoveRecipientCertificatesCommand}" Content="{x:Bind domain:Translator.Buttons_Remove}" />
-                            <Button Command="{x:Bind ViewModel.ExportRecipientCertificatesCommand}" Content="{x:Bind domain:Translator.Buttons_Export}" />
-                            <Button Command="{x:Bind ViewModel.ImportRecipientCertificatesCommand}" Content="{x:Bind domain:Translator.Buttons_Import}" />
+                            <Button
+
+                                AutomationProperties.AutomationId="SignatureAndEncryptionPageButton4" Command="{x:Bind ViewModel.RemoveRecipientCertificatesCommand}" Content="{x:Bind domain:Translator.Buttons_Remove}" />
+                            <Button
+
+                                AutomationProperties.AutomationId="SignatureAndEncryptionPageButton5" Command="{x:Bind ViewModel.ExportRecipientCertificatesCommand}" Content="{x:Bind domain:Translator.Buttons_Export}" />
+                            <Button
+
+                                AutomationProperties.AutomationId="SignatureAndEncryptionPageButton6" Command="{x:Bind ViewModel.ImportRecipientCertificatesCommand}" Content="{x:Bind domain:Translator.Buttons_Import}" />
                         </StackPanel>
                     </controls:SettingsCard>
                 </controls:SettingsExpander.Items>

@@ -11,6 +11,7 @@
         ColumnSpacing="0"
         RowSpacing="0">
         <muxc:NavigationView
+            AutomationProperties.AutomationId="NavigationView"
             x:Name="navigationView"
             Grid.Row="1"
             Grid.ColumnSpan="3"

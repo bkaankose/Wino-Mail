@@ -32,6 +32,7 @@
             TextWrapping="WrapWholeWords" />
 
         <HyperlinkButton
+            AutomationProperties.AutomationId="SingleCalendarPickerDialogHyperlinkButton"
             HorizontalAlignment="Left"
             Click="OpenCalendarSettingsClicked"
             Content="{x:Bind domain:Translator.CalendarEventCompose_DefaultCalendarSettingsLink}"
@@ -50,6 +51,7 @@
                             </TextBlock>
 
                             <ListView
+                                AutomationProperties.AutomationId="SingleCalendarPickerDialogListView"
                                 IsItemClickEnabled="True"
                                 ItemClick="CalendarClicked"
                                 ItemContainerStyle="{StaticResource CalendarPickerListItemStyle}"

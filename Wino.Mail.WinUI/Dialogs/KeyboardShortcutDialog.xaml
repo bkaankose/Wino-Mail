@@ -31,10 +31,12 @@
                 Text="{x:Bind domain:Translator.KeyboardShortcuts_Mode}" />
             <StackPanel Orientation="Horizontal" Spacing="16">
                 <RadioButton
+                    AutomationProperties.AutomationId="KeyboardShortcutDialogRadioButton"
                     Content="{x:Bind domain:Translator.KeyboardShortcuts_ModeMail}"
                     GroupName="ShortcutMode"
                     IsChecked="{x:Bind IsMailModeSelected, Mode=TwoWay}" />
                 <RadioButton
+                    AutomationProperties.AutomationId="KeyboardShortcutDialogRadioButton2"
                     Content="{x:Bind domain:Translator.KeyboardShortcuts_ModeCalendar}"
                     GroupName="ShortcutMode"
                     IsChecked="{x:Bind IsCalendarModeSelected, Mode=TwoWay}" />
@@ -48,6 +50,7 @@
                 Style="{ThemeResource BodyStrongTextBlockStyle}"
                 Text="{x:Bind domain:Translator.KeyboardShortcuts_Action}" />
             <ComboBox
+                AutomationProperties.AutomationId="ActionComboBox"
                 x:Name="ActionComboBox"
                 HorizontalAlignment="Stretch"
                 ItemsSource="{x:Bind AvailableActions}"
@@ -68,6 +71,7 @@
                 Style="{ThemeResource BodyStrongTextBlockStyle}"
                 Text="{x:Bind domain:Translator.KeyboardShortcuts_KeyCombination}" />
             <TextBox
+                AutomationProperties.AutomationId="KeyInputTextBox"
                 x:Name="KeyInputTextBox"
                 IsReadOnly="True"
                 PlaceholderText="{x:Bind domain:Translator.KeyboardShortcuts_PressKeysHere}"

@@ -27,6 +27,7 @@
 
             <StackPanel Spacing="12">
                 <CheckBox
+                    AutomationProperties.AutomationId="PreferencesCheckBox"
                     x:Name="PreferencesCheckBox"
                     Checked="SelectionChanged"
                     Content="{x:Bind domain:Translator.WinoAccount_Management_ExportDialog_IncludePreferences, Mode=OneTime}"
@@ -35,6 +36,7 @@
 
                 <StackPanel Spacing="8">
                     <CheckBox
+                        AutomationProperties.AutomationId="AccountsCheckBox"
                         x:Name="AccountsCheckBox"
                         Checked="SelectionChanged"
                         Content="{x:Bind domain:Translator.WinoAccount_Management_ExportDialog_IncludeAccounts, Mode=OneTime}"

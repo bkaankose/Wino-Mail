@@ -20,20 +20,24 @@
         </Grid.RowDefinitions>
 
         <controls:SettingsCard
+            AutomationProperties.AutomationId="CreateEmailTemplatePageSettingsCard"
             Grid.Row="0"
             Header="{x:Bind domain:Translator.SettingsEmailTemplates_NameTitle}"
             IsClickEnabled="False">
             <TextBox
+                AutomationProperties.AutomationId="TemplateNameTextBox"
                 x:Name="TemplateNameTextBox"
                 PlaceholderText="{x:Bind domain:Translator.SettingsEmailTemplates_NamePlaceholder}"
                 Text="{x:Bind ViewModel.TemplateName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
         </controls:SettingsCard>
 
         <controls:SettingsCard
+            AutomationProperties.AutomationId="CreateEmailTemplatePageSettingsCard2"
             Grid.Row="1"
             Header="{x:Bind domain:Translator.SettingsEmailTemplates_DescriptionTitle}"
             IsClickEnabled="False">
             <TextBox
+                AutomationProperties.AutomationId="CreateEmailTemplatePageTextBox"
                 AcceptsReturn="True"
                 PlaceholderText="{x:Bind domain:Translator.SettingsEmailTemplates_DescriptionPlaceholder}"
                 Text="{x:Bind ViewModel.TemplateDescription, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
@@ -59,11 +63,13 @@
             Orientation="Horizontal"
             Spacing="8">
             <Button
+                AutomationProperties.AutomationId="CreateEmailTemplatePageButton"
                 Click="DeleteClicked"
                 Content="{x:Bind domain:Translator.Buttons_Delete}"
                 Style="{StaticResource AccentButtonStyle}"
                 Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsExistingTemplate), Mode=OneWay}" />
             <Button
+                AutomationProperties.AutomationId="CreateEmailTemplatePageButton2"
                 Click="SaveClicked"
                 Content="{x:Bind domain:Translator.Buttons_Save}"
                 Style="{StaticResource AccentButtonStyle}" />

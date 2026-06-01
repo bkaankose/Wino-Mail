@@ -11,19 +11,26 @@
 
     <ScrollViewer>
         <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
-            <controls:SettingsCard Description="{x:Bind domain:Translator.CalendarSettings_FirstDayOfWeek_Description, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarSettings_FirstDayOfWeek_Header, Mode=OneTime}">
+            <controls:SettingsCard
+
+                AutomationProperties.AutomationId="CalendarRenderingSettingsPageSettingsCard" Description="{x:Bind domain:Translator.CalendarSettings_FirstDayOfWeek_Description, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarSettings_FirstDayOfWeek_Header, Mode=OneTime}">
                 <controls:SettingsCard.HeaderIcon>
                     <FontIcon Glyph="&#xE787;" />
                 </controls:SettingsCard.HeaderIcon>
-                <ComboBox ItemsSource="{x:Bind ViewModel.DayNames, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedFirstDayOfWeekIndex, Mode=TwoWay}" />
+                <ComboBox
+
+                    AutomationProperties.AutomationId="CalendarRenderingSettingsPageComboBox" ItemsSource="{x:Bind ViewModel.DayNames, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedFirstDayOfWeekIndex, Mode=TwoWay}" />
             </controls:SettingsCard>
 
-            <controls:SettingsExpander Description="{x:Bind domain:Translator.CalendarSettings_WorkingDays_Description, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarSettings_WorkingDays_Header, Mode=OneTime}">
+            <controls:SettingsExpander
+
+                AutomationProperties.AutomationId="CalendarRenderingSettingsPageSettingsExpander" Description="{x:Bind domain:Translator.CalendarSettings_WorkingDays_Description, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarSettings_WorkingDays_Header, Mode=OneTime}">
                 <controls:SettingsExpander.HeaderIcon>
                     <FontIcon Glyph="&#xE8EF;" />
                 </controls:SettingsExpander.HeaderIcon>
                 <controls:SettingsExpander.Items>
                     <controls:SettingsCard
+                        AutomationProperties.AutomationId="CalendarRenderingSettingsPageSettingsCard2"
                         HorizontalContentAlignment="Stretch"
                         VerticalContentAlignment="Stretch"
                         ContentAlignment="Vertical">
@@ -32,6 +39,7 @@
                                 <StackPanel Spacing="6">
                                     <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.CalendarSettings_HighlightWorkingHours_Label, Mode=OneTime}" />
                                     <ToggleSwitch
+                                        AutomationProperties.AutomationId="CalendarRenderingSettingsPageToggleSwitch"
                                         IsOn="{x:Bind ViewModel.IsWorkingHoursEnabled, Mode=TwoWay}"
                                         OffContent="{x:Bind domain:Translator.CalendarSettings_Toggle_Off, Mode=OneTime}"
                                         OnContent="{x:Bind domain:Translator.CalendarSettings_Toggle_On, Mode=OneTime}" />
@@ -54,11 +62,13 @@
                                             FontWeight="SemiBold"
                                             Text="{x:Bind domain:Translator.CalendarSettings_WorkingDays_From, Mode=OneTime}" />
                                         <ComboBox
+                                            AutomationProperties.AutomationId="CalendarRenderingSettingsPageComboBox2"
                                             Grid.Column="1"
                                             IsEnabled="{x:Bind ViewModel.IsWorkingHoursEnabled, Mode=OneWay}"
                                             ItemsSource="{x:Bind ViewModel.DayNames, Mode=OneWay}"
                                             SelectedIndex="{x:Bind ViewModel.WorkingDayStartIndex, Mode=TwoWay}" />
                                         <TimePicker
+                                            AutomationProperties.AutomationId="WorkHourStartPicker"
                                             x:Name="WorkHourStartPicker"
                                             Grid.Column="2"
                                             Margin="12,0"
@@ -77,11 +87,13 @@
                                             FontWeight="SemiBold"
                                             Text="{x:Bind domain:Translator.CalendarSettings_WorkingDays_To, Mode=OneTime}" />
                                         <ComboBox
+                                            AutomationProperties.AutomationId="CalendarRenderingSettingsPageComboBox3"
                                             Grid.Column="1"
                                             IsEnabled="{x:Bind ViewModel.IsWorkingHoursEnabled, Mode=OneWay}"
                                             ItemsSource="{x:Bind ViewModel.DayNames, Mode=OneWay}"
                                             SelectedIndex="{x:Bind ViewModel.WorkingDayEndIndex, Mode=TwoWay}" />
                                         <TimePicker
+                                            AutomationProperties.AutomationId="WorkHourEndPicker"
                                             x:Name="WorkHourEndPicker"
                                             Grid.Column="2"
                                             Margin="12,0"
@@ -96,6 +108,7 @@
             </controls:SettingsExpander>
 
             <controls:SettingsExpander
+                AutomationProperties.AutomationId="CalendarRenderingSettingsPageSettingsExpander2"
                 Description="{x:Bind domain:Translator.CalendarSettings_CalendarRendering_Description, Mode=OneTime}"
                 Header="{x:Bind domain:Translator.CalendarSettings_CalendarRendering_Header, Mode=OneTime}"
                 IsExpanded="True">
@@ -104,6 +117,7 @@
                 </controls:SettingsExpander.HeaderIcon>
                 <controls:SettingsExpander.Items>
                     <controls:SettingsCard
+                        AutomationProperties.AutomationId="CalendarRenderingSettingsPageSettingsCard3"
                         HorizontalContentAlignment="Stretch"
                         VerticalContentAlignment="Stretch"
                         ContentAlignment="Vertical"
@@ -111,6 +125,7 @@
                         Header="{x:Bind domain:Translator.CalendarSettings_HourHeight_Header, Mode=OneTime}">
                         <StackPanel Spacing="12">
                             <Slider
+                                AutomationProperties.AutomationId="HourCellSlider"
                                 x:Name="HourCellSlider"
                                 LargeChange="10"
                                 Maximum="120"
@@ -146,9 +161,12 @@
                         </StackPanel>
                     </controls:SettingsCard>
 
-                    <controls:SettingsCard Description="{x:Bind domain:Translator.CalendarSettings_ClockIdentifierForHeaders_Description, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarSettings_ClockIdentifierForHeaders_Header, Mode=OneTime}">
+                    <controls:SettingsCard
+
+                        AutomationProperties.AutomationId="CalendarRenderingSettingsPageSettingsCard4" Description="{x:Bind domain:Translator.CalendarSettings_ClockIdentifierForHeaders_Description, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarSettings_ClockIdentifierForHeaders_Header, Mode=OneTime}">
                         <StackPanel Spacing="8">
                             <ToggleSwitch
+                                AutomationProperties.AutomationId="CalendarRenderingSettingsPageToggleSwitch2"
                                 HorizontalAlignment="Right"
                                 IsOn="{x:Bind ViewModel.Is24HourHeaders, Mode=TwoWay}"
                                 OffContent="12h"
@@ -160,10 +178,16 @@
                         </StackPanel>
                     </controls:SettingsCard>
 
-                    <controls:SettingsCard Description="{x:Bind domain:Translator.CalendarSettings_TimedDayHeaderFormat_Description, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarSettings_TimedDayHeaderFormat_Header, Mode=OneTime}">
+                    <controls:SettingsCard
+
+                        AutomationProperties.AutomationId="CalendarRenderingSettingsPageSettingsCard5" Description="{x:Bind domain:Translator.CalendarSettings_TimedDayHeaderFormat_Description, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarSettings_TimedDayHeaderFormat_Header, Mode=OneTime}">
                         <StackPanel Spacing="8">
-                            <TextBox PlaceholderText="{x:Bind domain:Translator.CalendarSettings_TimedDayHeaderFormat_Placeholder, Mode=OneTime}" Text="{x:Bind ViewModel.TimedDayHeaderDateFormat, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                            <ComboBox ItemsSource="{x:Bind ViewModel.TimedDayHeaderFormatPresets, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedTimedDayHeaderFormatPresetIndex, Mode=TwoWay}" />
+                            <TextBox
+
+                                AutomationProperties.AutomationId="CalendarRenderingSettingsPageTextBox" PlaceholderText="{x:Bind domain:Translator.CalendarSettings_TimedDayHeaderFormat_Placeholder, Mode=OneTime}" Text="{x:Bind ViewModel.TimedDayHeaderDateFormat, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <ComboBox
+
+                                AutomationProperties.AutomationId="CalendarRenderingSettingsPageComboBox4" ItemsSource="{x:Bind ViewModel.TimedDayHeaderFormatPresets, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedTimedDayHeaderFormatPresetIndex, Mode=TwoWay}" />
                             <TextBlock
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                 Text="{x:Bind ViewModel.TimedDayHeaderFormatPreview, Mode=OneWay}"

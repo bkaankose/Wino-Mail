@@ -23,6 +23,7 @@
     <StackPanel Spacing="20">
         <!--  Contact Name  -->
         <TextBox
+            AutomationProperties.AutomationId="ContactNameTextBox"
             x:Name="ContactNameTextBox"
             Header="{x:Bind domain:Translator.ContactEditDialog_NameHeader, Mode=OneTime}"
             PlaceholderText="{x:Bind domain:Translator.ContactEditDialog_NamePlaceholder, Mode=OneTime}"
@@ -30,6 +31,7 @@
 
         <!--  Email Address  -->
         <TextBox
+            AutomationProperties.AutomationId="EmailAddressTextBox"
             x:Name="EmailAddressTextBox"
             Header="{x:Bind domain:Translator.ContactEditDialog_EmailHeader, Mode=OneTime}"
             PlaceholderText="{x:Bind domain:Translator.ContactEditDialog_EmailPlaceholder, Mode=OneTime}"
@@ -65,10 +67,12 @@
                         VerticalAlignment="Center"
                         Spacing="8">
                         <Button
+                            AutomationProperties.AutomationId="ChoosePhotoButton"
                             x:Name="ChoosePhotoButton"
                             Click="ChoosePhotoClicked"
                             Content="{x:Bind domain:Translator.ContactEditDialog_ChoosePhoto, Mode=OneTime}" />
                         <Button
+                            AutomationProperties.AutomationId="RemovePhotoButton"
                             x:Name="RemovePhotoButton"
                             Click="RemovePhotoClicked"
                             Content="{x:Bind domain:Translator.ContactEditDialog_RemovePhoto, Mode=OneTime}"

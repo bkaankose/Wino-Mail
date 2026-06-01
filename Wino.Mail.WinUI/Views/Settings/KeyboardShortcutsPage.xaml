@@ -24,16 +24,19 @@
             Margin="0,0,0,12"
             Orientation="Horizontal">
             <Button
+                AutomationProperties.AutomationId="KeyboardShortcutsPageButton"
                 Margin="0,0,8,0"
                 Command="{x:Bind ViewModel.StartAddingShortcutCommand}"
                 Content="{x:Bind domain:Translator.KeyboardShortcuts_Add}" />
             <Button
+                AutomationProperties.AutomationId="KeyboardShortcutsPageButton2"
                 Command="{x:Bind ViewModel.ResetToDefaultsCommand}"
                 Content="{x:Bind domain:Translator.KeyboardShortcuts_ResetToDefaults}"
                 Style="{ThemeResource AccentButtonStyle}" />
         </StackPanel>
 
         <ListView
+            AutomationProperties.AutomationId="KeyboardShortcutsPageListView"
             Grid.Row="1"
             ItemsSource="{x:Bind ViewModel.Shortcuts, Mode=OneWay}"
             SelectionMode="None">
@@ -75,6 +78,7 @@
                                 Text="{x:Bind ModeDisplayName}" />
 
                             <Button
+                                AutomationProperties.AutomationId="KeyboardShortcutsPageButton3"
                                 Grid.Column="2"
                                 Margin="4,0"
                                 Click="EditShortcut_Click"
@@ -85,6 +89,7 @@
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Edit}" />
 
                             <Button
+                                AutomationProperties.AutomationId="KeyboardShortcutsPageButton4"
                                 Grid.Column="3"
                                 Margin="4,0"
                                 Click="DeleteShortcut_Click"

@@ -62,6 +62,7 @@
                     BorderThickness="1"
                     CornerRadius="12">
                     <FlipView
+                        AutomationProperties.AutomationId="UpdateFlipView"
                         x:Name="UpdateFlipView"
                         MinHeight="200"
                         AutomationProperties.HelpText="{x:Bind domain:Translator.WelcomeWindow_UpdateCarouselAutomationHelpText, Mode=OneTime}"
@@ -116,6 +117,7 @@
 
                 <!--  PipsPager  -->
                 <PipsPager
+                    AutomationProperties.AutomationId="FlipViewPager"
                     x:Name="FlipViewPager"
                     Grid.Row="1"
                     Margin="0,16,0,0"
@@ -139,11 +141,13 @@
                 MaxWidth="600"
                 HorizontalAlignment="Center">
                 <HyperlinkButton
+                    AutomationProperties.AutomationId="WelcomePageV2HyperlinkButton"
                     HorizontalAlignment="Center"
                     Command="{x:Bind ViewModel.ImportFromWinoAccountCommand}"
                     Content="{x:Bind domain:Translator.WelcomeWindow_ImportFromWinoAccount}" />
 
                 <HyperlinkButton
+                    AutomationProperties.AutomationId="WelcomePageV2HyperlinkButton2"
                     HorizontalAlignment="Center"
                     Command="{x:Bind ViewModel.ImportFromJsonCommand}"
                     Content="{x:Bind domain:Translator.WelcomeWindow_ImportFromJsonFile}" />
@@ -179,6 +183,7 @@
                     Text="{x:Bind domain:Translator.WelcomeWindow_GetStartedDescription}" />
 
                 <Button
+                    AutomationProperties.AutomationId="WelcomePageV2Button"
                     MinWidth="240"
                     Margin="0,12,0,0"
                     Padding="12,10"

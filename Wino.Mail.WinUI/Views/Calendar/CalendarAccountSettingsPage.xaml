@@ -32,7 +32,9 @@
             <StackPanel MaxWidth="900" Spacing="4">
 
                 <!--  Account Color  -->
-                <controls:SettingsCard Description="{x:Bind domain:Translator.CalendarAccountSettings_AccountColorDescription, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarAccountSettings_AccountColor, Mode=OneTime}">
+                <controls:SettingsCard
+
+                    AutomationProperties.AutomationId="CalendarAccountSettingsPageSettingsCard" Description="{x:Bind domain:Translator.CalendarAccountSettings_AccountColorDescription, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarAccountSettings_AccountColor, Mode=OneTime}">
                     <controls:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE790;" />
                     </controls:SettingsCard.HeaderIcon>
@@ -44,19 +46,26 @@
                 </controls:SettingsCard>
 
                 <!--  Enable Synchronization  -->
-                <controls:SettingsCard Description="{x:Bind domain:Translator.CalendarAccountSettings_SyncEnabledDescription, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarAccountSettings_SyncEnabled, Mode=OneTime}">
+                <controls:SettingsCard
+
+                    AutomationProperties.AutomationId="CalendarAccountSettingsPageSettingsCard2" Description="{x:Bind domain:Translator.CalendarAccountSettings_SyncEnabledDescription, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarAccountSettings_SyncEnabled, Mode=OneTime}">
                     <controls:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE895;" />
                     </controls:SettingsCard.HeaderIcon>
-                    <ToggleSwitch IsOn="{x:Bind ViewModel.IsSyncEnabled, Mode=TwoWay}" />
+                    <ToggleSwitch
+
+                        AutomationProperties.AutomationId="CalendarAccountSettingsPageToggleSwitch" IsOn="{x:Bind ViewModel.IsSyncEnabled, Mode=TwoWay}" />
                 </controls:SettingsCard>
 
                 <!--  Default Show As Status  -->
-                <controls:SettingsCard Description="{x:Bind domain:Translator.CalendarAccountSettings_DefaultShowAsDescription, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarAccountSettings_DefaultShowAs, Mode=OneTime}">
+                <controls:SettingsCard
+
+                    AutomationProperties.AutomationId="CalendarAccountSettingsPageSettingsCard3" Description="{x:Bind domain:Translator.CalendarAccountSettings_DefaultShowAsDescription, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarAccountSettings_DefaultShowAs, Mode=OneTime}">
                     <controls:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE163;" />
                     </controls:SettingsCard.HeaderIcon>
                     <ComboBox
+                        AutomationProperties.AutomationId="CalendarAccountSettingsPageComboBox"
                         MinWidth="150"
                         ItemsSource="{x:Bind ViewModel.ShowAsOptions, Mode=OneWay}"
                         SelectedItem="{x:Bind ViewModel.SelectedDefaultShowAsOption, Mode=TwoWay}">

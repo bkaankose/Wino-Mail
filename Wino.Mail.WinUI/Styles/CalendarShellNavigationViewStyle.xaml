@@ -36,6 +36,7 @@
                                 Grid.Row="1"
                                 Margin="{ThemeResource NavigationViewButtonHolderGridMargin}">
                                 <Button
+                                    AutomationProperties.AutomationId="NavigationViewBackButton"
                                     x:Name="NavigationViewBackButton"
                                     Width="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=TemplateSettings.SmallerPaneToggleButtonWidth}"
                                     VerticalAlignment="Top"
@@ -47,6 +48,7 @@
                                     </ToolTipService.ToolTip>
                                 </Button>
                                 <Button
+                                    AutomationProperties.AutomationId="NavigationViewCloseButton"
                                     x:Name="NavigationViewCloseButton"
                                     VerticalAlignment="Top"
                                     Style="{StaticResource NavigationBackButtonNormalStyle}">
@@ -55,6 +57,7 @@
                                     </ToolTipService.ToolTip>
                                 </Button>
                                 <Button
+                                    AutomationProperties.AutomationId="TogglePaneButton"
                                     x:Name="TogglePaneButton"
                                     MinWidth="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=TemplateSettings.SmallerPaneToggleButtonWidth}"
                                     HorizontalAlignment="Center"
@@ -157,6 +160,7 @@
                                         </ScrollViewer>
                                     </controls:ItemsRepeaterScrollHost>
                                     <Button
+                                        AutomationProperties.AutomationId="TopNavOverflowButton"
                                         x:Name="TopNavOverflowButton"
                                         Grid.Column="4"
                                         Margin="{ThemeResource TopNavigationViewOverflowButtonMargin}"
@@ -313,6 +317,7 @@
                                                 VerticalContentAlignment="Center"
                                                 IsTabStop="False" />
                                             <Button
+                                                AutomationProperties.AutomationId="PaneAutoSuggestButton"
                                                 x:Name="PaneAutoSuggestButton"
                                                 Width="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=TemplateSettings.SmallerPaneToggleButtonWidth}"
                                                 Style="{ThemeResource NavigationViewPaneSearchButtonStyle}"

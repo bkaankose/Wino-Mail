@@ -34,10 +34,12 @@
                 Orientation="Horizontal"
                 Spacing="12">
                 <Button
+                    AutomationProperties.AutomationId="IdlePageButton"
                     Command="{x:Bind ViewModel.AddAccountCommand}"
                     Content="{x:Bind ViewModel.AddAccountText, Mode=OneWay}"
                     Style="{ThemeResource AccentButtonStyle}" />
                 <Button
+                    AutomationProperties.AutomationId="IdlePageButton2"
                     Command="{x:Bind ViewModel.ManageAccountsCommand}"
                     Content="{x:Bind ViewModel.ManageAccountsText, Mode=OneWay}" />
             </StackPanel>

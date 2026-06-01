@@ -29,7 +29,9 @@
     <!--#region Navigation Menu Templates-->
 
     <DataTemplate x:Key="ContactsTemplate" x:DataType="menu:ContactsMenuItem">
-        <coreControls:WinoNavigationViewItem Content="{x:Bind domain:Translator.ContactsPage_Title}" DataContext="{x:Bind}">
+        <coreControls:WinoNavigationViewItem
+
+            AutomationProperties.AutomationId="DataTemplatesWinoNavigationViewItem" Content="{x:Bind domain:Translator.ContactsPage_Title}" DataContext="{x:Bind}">
             <muxc:NavigationViewItem.Icon>
                 <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE716;" />
             </muxc:NavigationViewItem.Icon>
@@ -42,7 +44,9 @@
 
     <!--  Settings Item  -->
     <DataTemplate x:Key="SettingsItemTemplate" x:DataType="menu:SettingsItem">
-        <coreControls:WinoNavigationViewItem Content="{x:Bind domain:Translator.MenuSettings}" DataContext="{x:Bind}">
+        <coreControls:WinoNavigationViewItem
+
+            AutomationProperties.AutomationId="DataTemplatesWinoNavigationViewItem2" Content="{x:Bind domain:Translator.MenuSettings}" DataContext="{x:Bind}">
             <coreControls:WinoNavigationViewItem.Icon>
                 <muxc:AnimatedIcon>
                     <muxc:AnimatedIcon.Source>
@@ -57,7 +61,9 @@
     </DataTemplate>
 
     <DataTemplate x:Key="SettingsShellPageItemTemplate" x:DataType="menu:SettingsShellPageMenuItem">
-        <coreControls:WinoNavigationViewItem Content="{x:Bind Title}" DataContext="{x:Bind}">
+        <coreControls:WinoNavigationViewItem
+
+            AutomationProperties.AutomationId="DataTemplatesWinoNavigationViewItem3" Content="{x:Bind Title}" DataContext="{x:Bind}">
             <muxc:NavigationViewItem.Icon>
                 <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="{x:Bind Glyph}" />
             </muxc:NavigationViewItem.Icon>
@@ -65,7 +71,9 @@
     </DataTemplate>
 
     <DataTemplate x:Key="SettingsShellWinoAccountItemTemplate" x:DataType="menu:SettingsShellPageMenuItem">
-        <coreControls:WinoNavigationViewItem Content="{x:Bind Title}" DataContext="{x:Bind}">
+        <coreControls:WinoNavigationViewItem
+
+            AutomationProperties.AutomationId="DataTemplatesWinoNavigationViewItem4" Content="{x:Bind Title}" DataContext="{x:Bind}">
             <muxc:NavigationViewItem.Icon>
                 <BitmapIcon ShowAsMonochrome="False" UriSource="/Assets/Wino_Icon.ico" />
                 <!--<FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="{x:Bind Glyph}" />-->
@@ -75,6 +83,7 @@
 
     <DataTemplate x:Key="SettingsShellSectionItemTemplate" x:DataType="menu:SettingsShellSectionMenuItem">
         <coreControls:WinoNavigationViewItem
+            AutomationProperties.AutomationId="DataTemplatesWinoNavigationViewItem5"
             Margin="0,12,0,4"
             HorizontalContentAlignment="Stretch"
             DataContext="{x:Bind}"
@@ -125,7 +134,9 @@
 
     <!--  Store Update Item  -->
     <DataTemplate x:Key="StoreUpdateItemTemplate" x:DataType="menu:StoreUpdateMenuItem">
-        <coreControls:WinoNavigationViewItem Content="{x:Bind domain:Translator.MenuUpdateAvailable}" DataContext="{x:Bind}">
+        <coreControls:WinoNavigationViewItem
+
+            AutomationProperties.AutomationId="DataTemplatesWinoNavigationViewItem6" Content="{x:Bind domain:Translator.MenuUpdateAvailable}" DataContext="{x:Bind}">
             <muxc:NavigationViewItem.Icon>
                 <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE896;" />
             </muxc:NavigationViewItem.Icon>
@@ -135,6 +146,7 @@
     <!--  Rating Item  -->
     <DataTemplate x:Key="RatingItemTemplate" x:DataType="menu:RateMenuItem">
         <coreControls:WinoNavigationViewItem
+            AutomationProperties.AutomationId="DataTemplatesWinoNavigationViewItem7"
             Content="{x:Bind domain:Translator.MenuRate}"
             DataContext="{x:Bind}"
             SelectsOnInvoked="False">

@@ -206,6 +206,7 @@
 
                     <!--  Select All Checkbox  -->
                     <CheckBox
+                        AutomationProperties.AutomationId="SelectAllCheckbox"
                         x:Name="SelectAllCheckbox"
                         Grid.Row="1"
                         MinWidth="0"
@@ -259,6 +260,7 @@
                         Grid.Column="2"
                         Orientation="Horizontal">
                         <Button
+                            AutomationProperties.AutomationId="XBindDomainTranslatorFolderOperationEmpty"
                             AutomationProperties.Name="{x:Bind domain:Translator.FolderOperation_Empty}"
                             Background="Transparent"
                             BorderThickness="0"
@@ -268,6 +270,7 @@
                             <coreControls:WinoFontIcon FontSize="18" Icon="EmptyFolder" />
                         </Button>
                         <Button
+                            AutomationProperties.AutomationId="XBindDomainTranslatorButtonsSync"
                             Width="36"
                             Height="36"
                             AutomationProperties.Name="{x:Bind domain:Translator.Buttons_Sync}"
@@ -280,6 +283,7 @@
                             <coreControls:WinoFontIcon FontSize="14" Icon="Sync" />
                         </Button>
                         <ToggleButton
+                            AutomationProperties.AutomationId="SelectionModeToggle"
                             x:Name="SelectionModeToggle"
                             Width="36"
                             Height="36"
@@ -325,7 +329,9 @@
                         Message="{x:Bind domain:Translator.InfoBarMessage_SynchronizationDisabledFolder}"
                         Severity="Informational">
                         <InfoBar.ActionButton>
-                            <Button Command="{x:Bind ViewModel.EnableFolderSynchronizationCommand}" Content="Enable" />
+                            <Button
+
+                                AutomationProperties.AutomationId="MailListPageButton" Command="{x:Bind ViewModel.EnableFolderSynchronizationCommand}" Content="Enable" />
                         </InfoBar.ActionButton>
                     </InfoBar>
                 </Grid>
@@ -426,6 +432,7 @@
                     <!--  Try online search panel.  -->
                     <Grid Grid.Row="1" Visibility="{x:Bind ViewModel.IsOnlineSearchButtonVisible, Mode=OneWay}">
                         <Button
+                            AutomationProperties.AutomationId="MailListPageButton2"
                             Margin="24"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Stretch"

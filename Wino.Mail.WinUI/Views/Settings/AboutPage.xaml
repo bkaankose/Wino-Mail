@@ -36,6 +36,7 @@
                 Text="{x:Bind domain:Translator.SettingsAboutWinoDescription}" />
 
             <controls:SettingsCard
+                AutomationProperties.AutomationId="AboutPageSettingsCard"
                 Command="{x:Bind ViewModel.NavigateCommand}"
                 CommandParameter="{x:Bind ViewModel.WebsiteUrl}"
                 Description="{x:Bind domain:Translator.SettingsWebsite_Description}"
@@ -56,6 +57,7 @@
             </controls:SettingsCard>
 
             <controls:SettingsCard
+                AutomationProperties.AutomationId="AboutPageSettingsCard2"
                 Command="{x:Bind ViewModel.NavigateCommand}"
                 CommandParameter="{x:Bind ViewModel.GitHubUrl}"
                 Description="{x:Bind domain:Translator.SettingsAboutGithub_Description}"
@@ -76,6 +78,7 @@
             </controls:SettingsCard>
 
             <controls:SettingsCard
+                AutomationProperties.AutomationId="AboutPageSettingsCard3"
                 Command="{x:Bind ViewModel.NavigateCommand}"
                 CommandParameter="{x:Bind ViewModel.DiscordChannelUrl}"
                 Description="{x:Bind domain:Translator.SettingsDiscord_Description}"
@@ -96,6 +99,7 @@
             </controls:SettingsCard>
 
             <controls:SettingsCard
+                AutomationProperties.AutomationId="AboutPageSettingsCard4"
                 Command="{x:Bind ViewModel.NavigateCommand}"
                 CommandParameter="Store"
                 Description="{x:Bind domain:Translator.SettingsStore_Description}"
@@ -116,6 +120,7 @@
             </controls:SettingsCard>
 
             <controls:SettingsCard
+                AutomationProperties.AutomationId="AboutPageSettingsCard5"
                 Command="{x:Bind ViewModel.NavigateCommand}"
                 CommandParameter="{x:Bind ViewModel.PaypalUrl}"
                 Description="{x:Bind domain:Translator.SettingsPaypal_Description}"
@@ -133,6 +138,7 @@
             </controls:SettingsCard>
 
             <controls:SettingsCard
+                AutomationProperties.AutomationId="AboutPageSettingsCard6"
                 Command="{x:Bind ViewModel.NavigateCommand}"
                 CommandParameter="{x:Bind ViewModel.PrivacyPolicyUrl}"
                 Description="{x:Bind domain:Translator.SettingsPrivacyPolicy_Description}"
@@ -152,7 +158,9 @@
                 </controls:SettingsCard.ActionIcon>
             </controls:SettingsCard>
 
-            <controls:SettingsExpander Description="{x:Bind domain:Translator.SettingsDiagnostics_Description}" Header="{x:Bind domain:Translator.SettingsDiagnostics_Title}">
+            <controls:SettingsExpander
+
+                AutomationProperties.AutomationId="AboutPageSettingsExpander" Description="{x:Bind domain:Translator.SettingsDiagnostics_Description}" Header="{x:Bind domain:Translator.SettingsDiagnostics_Title}">
                 <controls:SettingsExpander.HeaderIcon>
                     <PathIcon
                         HorizontalAlignment="Center"
@@ -161,14 +169,23 @@
                 </controls:SettingsExpander.HeaderIcon>
 
                 <controls:SettingsExpander.Items>
-                    <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsEnableLogs_Description}" Header="{x:Bind domain:Translator.SettingsEnableLogs_Title}">
+                    <controls:SettingsCard
+
+                        AutomationProperties.AutomationId="AboutPageSettingsCard7" Description="{x:Bind domain:Translator.SettingsEnableLogs_Description}" Header="{x:Bind domain:Translator.SettingsEnableLogs_Title}">
                         <StackPanel Orientation="Horizontal" Spacing="12">
-                            <Button Command="{x:Bind ViewModel.ShareWinoLogCommand}" Content="{x:Bind domain:Translator.Buttons_Share}" />
-                            <Button Command="{x:Bind ViewModel.UploadWinoLogsCommand}" Content="{x:Bind domain:Translator.Buttons_UploadLogs}" />
-                            <ToggleSwitch IsOn="{x:Bind ViewModel.PreferencesService.IsLoggingEnabled, Mode=TwoWay}" />
+                            <Button
+
+                                AutomationProperties.AutomationId="AboutPageButton" Command="{x:Bind ViewModel.ShareWinoLogCommand}" Content="{x:Bind domain:Translator.Buttons_Share}" />
+                            <Button
+
+                                AutomationProperties.AutomationId="AboutPageButton2" Command="{x:Bind ViewModel.UploadWinoLogsCommand}" Content="{x:Bind domain:Translator.Buttons_UploadLogs}" />
+                            <ToggleSwitch
+
+                                AutomationProperties.AutomationId="AboutPageToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsLoggingEnabled, Mode=TwoWay}" />
                         </StackPanel>
                     </controls:SettingsCard>
                     <controls:SettingsCard
+                        AutomationProperties.AutomationId="AboutPageSettingsCard8"
                         HorizontalContentAlignment="Stretch"
                         VerticalContentAlignment="Stretch"
                         ContentAlignment="Vertical"
@@ -177,6 +194,7 @@
                         <StackPanel Orientation="Horizontal" Spacing="16">
 
                             <Button
+                                AutomationProperties.AutomationId="AboutPageButton3"
                                 Grid.Column="1"
                                 HorizontalAlignment="Right"
                                 Command="{x:Bind ViewModel.CopyDiagnosticIdCommand}">
@@ -196,7 +214,9 @@
                 </controls:SettingsExpander.Items>
             </controls:SettingsExpander>
 
-            <controls:SettingsCard Header="Wino Mail">
+            <controls:SettingsCard
+
+                AutomationProperties.AutomationId="AboutPageSettingsCard9" Header="Wino Mail">
                 <controls:SettingsCard.HeaderIcon>
                     <BitmapIcon ShowAsMonochrome="False" UriSource="ms-appx:///Assets/AppEntries/MailAssets/Square150x150Logo.png" />
                 </controls:SettingsCard.HeaderIcon>

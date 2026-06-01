@@ -11,18 +11,26 @@
 
     <ScrollViewer>
         <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
-            <controls:SettingsCard Description="{x:Bind domain:Translator.CalendarSettings_DefaultReminder_Description, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarSettings_DefaultReminder_Header, Mode=OneTime}">
+            <controls:SettingsCard
+
+                AutomationProperties.AutomationId="CalendarNotificationSettingsPageSettingsCard" Description="{x:Bind domain:Translator.CalendarSettings_DefaultReminder_Description, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarSettings_DefaultReminder_Header, Mode=OneTime}">
                 <controls:SettingsCard.HeaderIcon>
                     <FontIcon Glyph="&#xE7F4;" />
                 </controls:SettingsCard.HeaderIcon>
-                <ComboBox ItemsSource="{x:Bind ViewModel.ReminderOptions, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedDefaultReminderIndex, Mode=TwoWay}" />
+                <ComboBox
+
+                    AutomationProperties.AutomationId="CalendarNotificationSettingsPageComboBox" ItemsSource="{x:Bind ViewModel.ReminderOptions, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedDefaultReminderIndex, Mode=TwoWay}" />
             </controls:SettingsCard>
 
-            <controls:SettingsCard Description="{x:Bind domain:Translator.CalendarSettings_DefaultSnoozeDuration_Description}" Header="{x:Bind domain:Translator.CalendarSettings_DefaultSnoozeDuration_Header}">
+            <controls:SettingsCard
+
+                AutomationProperties.AutomationId="CalendarNotificationSettingsPageSettingsCard2" Description="{x:Bind domain:Translator.CalendarSettings_DefaultSnoozeDuration_Description}" Header="{x:Bind domain:Translator.CalendarSettings_DefaultSnoozeDuration_Header}">
                 <controls:SettingsCard.HeaderIcon>
                     <FontIcon Glyph="&#xE823;" />
                 </controls:SettingsCard.HeaderIcon>
-                <ComboBox ItemsSource="{x:Bind ViewModel.SnoozeOptions, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedDefaultSnoozeIndex, Mode=TwoWay}" />
+                <ComboBox
+
+                    AutomationProperties.AutomationId="CalendarNotificationSettingsPageComboBox2" ItemsSource="{x:Bind ViewModel.SnoozeOptions, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedDefaultSnoozeIndex, Mode=TwoWay}" />
             </controls:SettingsCard>
         </StackPanel>
     </ScrollViewer>

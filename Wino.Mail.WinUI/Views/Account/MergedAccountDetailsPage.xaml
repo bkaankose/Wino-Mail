@@ -17,6 +17,7 @@
     <Page.Resources>
         <DataTemplate x:Key="LinkedAccountTemplate" x:DataType="data:AccountProviderDetailViewModel">
             <controls:SettingsCard
+                AutomationProperties.AutomationId="MergedAccountDetailsPageSettingsCard"
                 Margin="0,2,0,0"
                 Click="UnlinkAccount_Click"
                 CommandParameter="{x:Bind}"
@@ -37,6 +38,7 @@
 
         <DataTemplate x:Key="UnlinkedAccountTemplate" x:DataType="data:AccountProviderDetailViewModel">
             <controls:SettingsCard
+                AutomationProperties.AutomationId="MergedAccountDetailsPageSettingsCard2"
                 Margin="0,2,0,0"
                 Click="LinkAccount_Click"
                 CommandParameter="{x:Bind}"
@@ -61,6 +63,7 @@
     <ScrollViewer>
         <StackPanel>
             <controls:SettingsCard
+                AutomationProperties.AutomationId="MergedAccountDetailsPageSettingsCard3"
                 Command="{x:Bind ViewModel.RenameLinkCommand}"
                 Description="{x:Bind domain:Translator.SettingsRenameMergeAccount_Description}"
                 Header="{x:Bind domain:Translator.SettingsRenameMergeAccount_Title}"
@@ -71,6 +74,7 @@
                 </controls:SettingsCard.HeaderIcon>
             </controls:SettingsCard>
             <controls:SettingsCard
+                AutomationProperties.AutomationId="MergedAccountDetailsPageSettingsCard4"
                 Grid.Row="2"
                 Grid.ColumnSpan="3"
                 Command="{x:Bind ViewModel.UnlinkAccountsCommand}"
@@ -83,6 +87,7 @@
                 </controls:SettingsCard.HeaderIcon>
             </controls:SettingsCard>
             <controls:SettingsCard
+                AutomationProperties.AutomationId="MergedAccountDetailsPageSettingsCard5"
                 HorizontalContentAlignment="Stretch"
                 VerticalContentAlignment="Stretch"
                 ContentAlignment="Vertical"
@@ -118,6 +123,7 @@
                             FontWeight="SemiBold"
                             Text="{x:Bind domain:Translator.LinkedAccountsTitle}" />
                         <ListView
+                            AutomationProperties.AutomationId="MergedAccountDetailsPageListView"
                             Grid.Row="1"
                             IsItemClickEnabled="False"
                             ItemTemplate="{StaticResource LinkedAccountTemplate}"
@@ -147,6 +153,7 @@
                             FontWeight="SemiBold"
                             Text="{x:Bind domain:Translator.MergedAccountsAvailableAccountsTitle}" />
                         <ListView
+                            AutomationProperties.AutomationId="MergedAccountDetailsPageListView2"
                             Grid.Row="1"
                             IsItemClickEnabled="False"
                             ItemTemplate="{StaticResource UnlinkedAccountTemplate}"
@@ -155,6 +162,7 @@
                     </Grid>
 
                     <controls:SettingsCard
+                        AutomationProperties.AutomationId="MergedAccountDetailsPageSettingsCard6"
                         Grid.Row="1"
                         Grid.ColumnSpan="3"
                         Margin="0,24,0,6"

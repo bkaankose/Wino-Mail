@@ -46,6 +46,7 @@
                     MaxWidth="520"
                     Margin="12,0,16,0">
                     <AutoSuggestBox
+                        AutomationProperties.AutomationId="TitleBarSearchBox"
                         x:Name="TitleBarSearchBox"
                         VerticalAlignment="Center"
                         AutomationProperties.Name="{x:Bind domain:Translator.SearchBarPlaceholder}"
@@ -73,6 +74,7 @@
             <TitleBar.RightHeader>
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <Button
+                        AutomationProperties.AutomationId="SyncStatusButton"
                         x:Name="SyncStatusButton"
                         Padding="8,4"
                         VerticalAlignment="Center"
@@ -123,6 +125,7 @@
                         </Button.Flyout>
                     </Button>
                     <Button
+                        AutomationProperties.AutomationId="WinoAccountButton"
                         x:Name="WinoAccountButton"
                         AutomationProperties.Name="{x:Bind domain:Translator.WinoAccount_Titlebar_SignedOutTitle}"
                         Background="Transparent"
@@ -239,11 +242,13 @@
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
                                             <Button
+                                                AutomationProperties.AutomationId="ShellWindowButton"
                                                 HorizontalAlignment="Stretch"
                                                 Click="LoginWinoAccountClicked"
                                                 Content="{x:Bind domain:Translator.WinoAccount_LoginButton_Title}"
                                                 Style="{ThemeResource AccentButtonStyle}" />
                                             <Button
+                                                AutomationProperties.AutomationId="ShellWindowButton2"
                                                 Grid.Column="1"
                                                 HorizontalAlignment="Stretch"
                                                 Click="RegisterWinoAccountClicked"
@@ -291,6 +296,7 @@
 
                                         <!--  Sign out button  -->
                                         <Button
+                                            AutomationProperties.AutomationId="ShellWindowButton3"
                                             HorizontalAlignment="Stretch"
                                             Click="SignOutWinoAccountClicked"
                                             Content="{x:Bind domain:Translator.WinoAccount_SignOutButton_Action}" />

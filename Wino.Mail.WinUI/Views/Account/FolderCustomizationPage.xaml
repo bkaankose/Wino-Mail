@@ -49,6 +49,7 @@
                     TextTrimming="CharacterEllipsis" />
 
                 <ToggleButton
+                    AutomationProperties.AutomationId="FolderCustomizationPageToggleButton"
                     Grid.Column="3"
                     Click="HideToggle_Click"
                     IsChecked="{x:Bind IsHidden, Mode=OneWay}"
@@ -60,6 +61,7 @@
                 </ToggleButton>
 
                 <Button
+                    AutomationProperties.AutomationId="FolderCustomizationPageButton"
                     Grid.Column="4"
                     Click="PinToggle_Click"
                     Style="{StaticResource SubtleButtonStyle}"
@@ -99,6 +101,7 @@
                 </StackPanel>
 
                 <Button
+                    AutomationProperties.AutomationId="FolderCustomizationPageButton2"
                     Grid.Column="1"
                     VerticalAlignment="Top"
                     Command="{x:Bind ViewModel.ResetCommand}"
@@ -117,6 +120,7 @@
                     </StackPanel>
                 </Expander.Header>
                 <ListView
+                    AutomationProperties.AutomationId="FolderCustomizationPageListView"
                     AllowDrop="True"
                     CanReorderItems="True"
                     DropCompleted="ListView_DropCompleted"
@@ -145,6 +149,7 @@
                     </StackPanel>
                 </Expander.Header>
                 <ListView
+                    AutomationProperties.AutomationId="FolderCustomizationPageListView2"
                     AllowDrop="True"
                     CanReorderItems="True"
                     DropCompleted="ListView_DropCompleted"
@@ -172,6 +177,7 @@
                     </StackPanel>
                 </Expander.Header>
                 <ListView
+                    AutomationProperties.AutomationId="FolderCustomizationPageListView3"
                     AllowDrop="True"
                     CanReorderItems="True"
                     DropCompleted="ListView_DropCompleted"

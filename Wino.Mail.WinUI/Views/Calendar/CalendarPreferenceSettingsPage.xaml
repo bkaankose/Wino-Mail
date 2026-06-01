@@ -13,13 +13,17 @@
 
     <ScrollViewer>
         <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
-            <controls:SettingsCard Description="{x:Bind domain:Translator.CalendarSettings_NewEventBehavior_Description}" Header="{x:Bind domain:Translator.CalendarSettings_NewEventBehavior_Header}">
+            <controls:SettingsCard
+
+                AutomationProperties.AutomationId="CalendarPreferenceSettingsPageSettingsCard" Description="{x:Bind domain:Translator.CalendarSettings_NewEventBehavior_Description}" Header="{x:Bind domain:Translator.CalendarSettings_NewEventBehavior_Header}">
                 <controls:SettingsCard.HeaderIcon>
                     <FontIcon Glyph="&#xE163;" />
                 </controls:SettingsCard.HeaderIcon>
                 <controls:SettingsCard.Content>
                     <StackPanel Spacing="12">
-                        <ComboBox ItemsSource="{x:Bind ViewModel.NewEventBehaviorOptions, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.SelectedNewEventBehaviorOption, Mode=TwoWay}">
+                        <ComboBox
+
+                            AutomationProperties.AutomationId="CalendarPreferenceSettingsPageComboBox" ItemsSource="{x:Bind ViewModel.NewEventBehaviorOptions, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.SelectedNewEventBehaviorOption, Mode=TwoWay}">
                             <ComboBox.ItemTemplate>
                                 <DataTemplate x:DataType="calendarViewModels:CalendarNewEventBehaviorOption">
                                     <TextBlock Text="{x:Bind DisplayText}" />
@@ -28,6 +32,7 @@
                         </ComboBox>
 
                         <ComboBox
+                            AutomationProperties.AutomationId="CalendarPreferenceSettingsPageComboBox2"
                             ItemsSource="{x:Bind ViewModel.AvailableNewEventCalendars, Mode=OneWay}"
                             SelectedItem="{x:Bind ViewModel.SelectedNewEventCalendar, Mode=TwoWay}"
                             Visibility="{x:Bind ViewModel.ShouldShowSpecificNewEventCalendar, Mode=OneWay}">

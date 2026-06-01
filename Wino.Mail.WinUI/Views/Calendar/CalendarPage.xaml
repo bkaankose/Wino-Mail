@@ -89,6 +89,7 @@
                     </Grid.RowDefinitions>
 
                     <Button
+                        AutomationProperties.AutomationId="CalendarPageButton"
                         HorizontalAlignment="Stretch"
                         VerticalAlignment="Stretch"
                         HorizontalContentAlignment="Stretch"
@@ -129,6 +130,7 @@
                         <Button.Flyout>
                             <Flyout x:Name="QuickEventAccountSelectorFlyout" Placement="Bottom">
                                 <ListView
+                                    AutomationProperties.AutomationId="CalendarPageListView"
                                     MaxHeight="300"
                                     ItemsSource="{x:Bind GroupedCalendarEnumerableViewSource.View, Mode=OneWay}"
                                     SelectedItem="{x:Bind ViewModel.SelectedQuickEventAccountCalendar, Mode=TwoWay}"
@@ -179,11 +181,13 @@
                             </Grid.ColumnDefinitions>
 
                             <TextBox
+                                AutomationProperties.AutomationId="CalendarPageTextBox"
                                 FontSize="16"
                                 PlaceholderText="{x:Bind domain:Translator.QuickEventDialog_EventName}"
                                 Text="{x:Bind ViewModel.EventName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                             <CheckBox
+                                AutomationProperties.AutomationId="CalendarPageCheckBox"
                                 Grid.Column="1"
                                 VerticalAlignment="Center"
                                 Content="{x:Bind domain:Translator.QuickEventDialog_IsAllDay}"
@@ -198,6 +202,7 @@
                             </Grid.ColumnDefinitions>
 
                             <ComboBox
+                                AutomationProperties.AutomationId="CalendarPageComboBox"
                                 IsEditable="True"
                                 IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsAllDay), Mode=OneWay}"
                                 ItemsSource="{x:Bind ViewModel.HourSelectionStrings, Mode=OneWay}"
@@ -210,6 +215,7 @@
                                 Text="-" />
 
                             <ComboBox
+                                AutomationProperties.AutomationId="CalendarPageComboBox2"
                                 Grid.Column="2"
                                 IsEditable="True"
                                 IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsAllDay), Mode=OneWay}"
@@ -219,6 +225,7 @@
                         </Grid>
 
                         <TextBox
+                            AutomationProperties.AutomationId="CalendarPageTextBox2"
                             Grid.Row="2"
                             PlaceholderText="{x:Bind domain:Translator.QuickEventDialog_Location}"
                             Text="{x:Bind ViewModel.Location, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
@@ -230,11 +237,13 @@
                             </Grid.ColumnDefinitions>
 
                             <Button
+                                AutomationProperties.AutomationId="CalendarPageButton2"
                                 HorizontalAlignment="Stretch"
                                 Click="MoreDetailsClicked"
                                 Content="{x:Bind domain:Translator.QuickEventDialogMoreDetailsButtonText}" />
 
                             <Button
+                                AutomationProperties.AutomationId="CalendarPageButton3"
                                 Grid.Column="1"
                                 HorizontalAlignment="Stretch"
                                 Click="SaveQuickEventClicked"

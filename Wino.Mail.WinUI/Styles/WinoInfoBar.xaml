@@ -259,6 +259,7 @@
                                 ContentTemplate="{TemplateBinding ContentTemplate}" />
 
                             <Button
+                                AutomationProperties.AutomationId="CloseButton"
                                 Name="CloseButton"
                                 Grid.Column="2"
                                 Command="{TemplateBinding CloseButtonCommand}"

@@ -26,6 +26,8 @@
             x:Name="DialogDescription"
             Style="{ThemeResource BodyTextBlockStyle}"
             TextWrapping="Wrap" />
-        <TextBox x:Name="FolderTextBox" Text="{x:Bind CurrentInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+        <TextBox
+
+            AutomationProperties.AutomationId="FolderTextBox" x:Name="FolderTextBox" Text="{x:Bind CurrentInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
     </StackPanel>
 </ContentDialog>

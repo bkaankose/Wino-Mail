@@ -15,7 +15,9 @@
 
     <Page.Resources>
         <DataTemplate x:Key="AddOnNotPurchasedTemplate" x:DataType="viewModelData:WinoAddOnItemViewModel">
-            <controls:SettingsCard ActionIcon="Add" IsActionIconVisible="True">
+            <controls:SettingsCard
+
+                AutomationProperties.AutomationId="WinoAccountManagementPageSettingsCard" ActionIcon="Add" IsActionIconVisible="True">
                 <controls:SettingsCard.HeaderIcon>
                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="{x:Bind IconGlyph}" />
                 </controls:SettingsCard.HeaderIcon>
@@ -57,6 +59,7 @@
                             Orientation="Horizontal"
                             Spacing="12">
                             <Button
+                                AutomationProperties.AutomationId="WinoAccountManagementPageButton"
                                 Command="{x:Bind PurchaseCommand}"
                                 CommandParameter="{x:Bind}"
                                 Content="{x:Bind domain:Translator.Buttons_Purchase}"
@@ -74,7 +77,9 @@
         </DataTemplate>
 
         <DataTemplate x:Key="AiPackPurchasedTemplate" x:DataType="viewModelData:WinoAddOnItemViewModel">
-            <controls:SettingsExpander IsExpanded="True">
+            <controls:SettingsExpander
+
+                AutomationProperties.AutomationId="WinoAccountManagementPageSettingsExpander" IsExpanded="True">
                 <controls:SettingsExpander.HeaderIcon>
                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="{x:Bind IconGlyph}" />
                 </controls:SettingsExpander.HeaderIcon>
@@ -110,7 +115,9 @@
                     </StackPanel>
                 </controls:SettingsExpander.Description>
                 <controls:SettingsExpander.Items>
-                    <controls:SettingsCard HorizontalContentAlignment="Stretch">
+                    <controls:SettingsCard
+
+                        AutomationProperties.AutomationId="WinoAccountManagementPageSettingsCard2" HorizontalContentAlignment="Stretch">
                         <controls:SettingsCard.Header>
                             <StackPanel Spacing="8">
                                 <StackPanel
@@ -175,7 +182,9 @@
         </DataTemplate>
 
         <DataTemplate x:Key="UnlimitedAccountsPurchasedTemplate" x:DataType="viewModelData:WinoAddOnItemViewModel">
-            <controls:SettingsCard>
+            <controls:SettingsCard
+
+                AutomationProperties.AutomationId="WinoAccountManagementPageSettingsCard3">
                 <controls:SettingsCard.HeaderIcon>
                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="{x:Bind IconGlyph}" />
                 </controls:SettingsCard.HeaderIcon>
@@ -274,10 +283,13 @@
                         Orientation="Horizontal"
                         Spacing="12">
                         <Button
+                            AutomationProperties.AutomationId="WinoAccountManagementPageButton2"
                             Command="{x:Bind ViewModel.SignInCommand}"
                             Content="{x:Bind domain:Translator.Buttons_SignIn}"
                             Style="{StaticResource AccentButtonStyle}" />
-                        <Button Command="{x:Bind ViewModel.RegisterCommand}" Content="{x:Bind domain:Translator.Buttons_CreateAccount}" />
+                        <Button
+
+                            AutomationProperties.AutomationId="WinoAccountManagementPageButton3" Command="{x:Bind ViewModel.RegisterCommand}" Content="{x:Bind domain:Translator.Buttons_CreateAccount}" />
                     </StackPanel>
 
                     <TextBlock
@@ -287,6 +299,7 @@
                         Text="{x:Bind domain:Translator.WinoAccount_Management_AddOnsSectionHeader}" />
 
                     <ListView
+                        AutomationProperties.AutomationId="SignedOutAddOnsList"
                         x:Name="SignedOutAddOnsList"
                         ItemContainerStyle="{StaticResource StretchedItemContainerStyle}"
                         ItemTemplateSelector="{StaticResource WinoAddOnTemplateSelector}"
@@ -305,7 +318,9 @@
                     Style="{StaticResource BodyStrongTextBlockStyle}"
                     Text="{x:Bind domain:Translator.WinoAccount_Management_ProfileSectionHeader}" />
 
-                <controls:SettingsCard Header="{x:Bind ViewModel.AccountEmail, Mode=OneWay}">
+                <controls:SettingsCard
+
+                    AutomationProperties.AutomationId="WinoAccountManagementPageSettingsCard4" Header="{x:Bind ViewModel.AccountEmail, Mode=OneWay}">
                     <controls:SettingsCard.HeaderIcon>
                         <PathIcon
                             HorizontalAlignment="Center"
@@ -341,6 +356,7 @@
                 </controls:SettingsCard>
 
                 <controls:SettingsCard
+                    AutomationProperties.AutomationId="WinoAccountManagementPageSettingsCard5"
                     Command="{x:Bind ViewModel.ChangePasswordCommand}"
                     Description="{x:Bind domain:Translator.WinoAccount_ChangePassword_Description}"
                     Header="{x:Bind domain:Translator.WinoAccount_ChangePassword_Title}"
@@ -351,6 +367,7 @@
                 </controls:SettingsCard>
 
                 <controls:SettingsCard
+                    AutomationProperties.AutomationId="WinoAccountManagementPageSettingsCard6"
                     Command="{x:Bind ViewModel.SignOutCommand}"
                     Description="{x:Bind domain:Translator.WinoAccount_Management_SignOutDescription}"
                     Header="{x:Bind domain:Translator.WinoAccount_Management_SignOutTitle}"
@@ -366,6 +383,7 @@
                     Text="{x:Bind domain:Translator.WinoAccount_Management_AddOnsSectionHeader}" />
 
                 <ListView
+                    AutomationProperties.AutomationId="SignedInAddOnsList"
                     x:Name="SignedInAddOnsList"
                     ItemContainerStyle="{StaticResource StretchedItemContainerStyle}"
                     ItemTemplateSelector="{StaticResource WinoAddOnTemplateSelector}"
@@ -377,7 +395,9 @@
                     Style="{StaticResource BodyStrongTextBlockStyle}"
                     Text="{x:Bind domain:Translator.WinoAccount_Management_DataSectionHeader}" />
 
-                <controls:SettingsCard Description="{x:Bind domain:Translator.WinoAccount_Management_SyncPreferencesDescription}" Header="{x:Bind domain:Translator.WinoAccount_Management_SyncPreferencesTitle}">
+                <controls:SettingsCard
+
+                    AutomationProperties.AutomationId="WinoAccountManagementPageSettingsCard7" Description="{x:Bind domain:Translator.WinoAccount_Management_SyncPreferencesDescription}" Header="{x:Bind domain:Translator.WinoAccount_Management_SyncPreferencesTitle}">
                     <controls:SettingsCard.HeaderIcon>
                         <PathIcon
                             HorizontalAlignment="Center"
@@ -385,8 +405,12 @@
                             Data="F1 M 18.330078 3.330078 L 18.330078 7.5 C 18.330078 7.727865 18.248697 7.923178 18.085938 8.085938 C 17.923176 8.248698 17.727863 8.330078 17.5 8.330078 L 13.330078 8.330078 C 13.102213 8.330078 12.9069 8.248698 12.744141 8.085938 C 12.58138 7.923178 12.5 7.727865 12.5 7.5 C 12.5 7.272136 12.58138 7.076823 12.744141 6.914062 C 12.9069 6.751303 13.102213 6.669923 13.330078 6.669922 L 15.78125 6.669922 C 15.481771 6.149089 15.120442 5.681967 14.697266 5.268555 C 14.274088 4.855145 13.808593 4.505209 13.300781 4.21875 C 12.792968 3.932293 12.25423 3.712566 11.68457 3.55957 C 11.114908 3.406576 10.530599 3.330078 9.931641 3.330078 C 9.384766 3.330078 8.846028 3.401693 8.31543 3.544922 C 7.784831 3.688152 7.280273 3.891602 6.801758 4.155273 C 6.323242 4.418945 5.878906 4.737956 5.46875 5.112305 C 5.058594 5.486654 4.703776 5.901693 4.404297 6.357422 C 4.254557 6.585287 4.127604 6.816407 4.023438 7.050781 C 3.919271 7.285157 3.815104 7.526043 3.710938 7.773438 C 3.639323 7.942709 3.538411 8.0778 3.408203 8.178711 C 3.277995 8.279623 3.11849 8.330078 2.929688 8.330078 C 2.701823 8.330078 2.504883 8.250326 2.338867 8.09082 C 2.172852 7.931315 2.089844 7.734375 2.089844 7.5 C 2.089844 7.415365 2.10612 7.32422 2.138672 7.226562 C 2.41862 6.412761 2.81901 5.66569 3.339844 4.985352 C 3.860677 4.305014 4.464518 3.719076 5.151367 3.227539 C 5.838216 2.736004 6.588541 2.353516 7.402344 2.080078 C 8.216146 1.806641 9.052734 1.669922 9.912109 1.669922 C 10.576172 1.669922 11.227213 1.743164 11.865234 1.889648 C 12.503255 2.036133 13.111979 2.250977 13.691406 2.53418 C 14.270832 2.817383 14.811197 3.167318 15.3125 3.583984 C 15.813802 4.000652 16.266275 4.475912 16.669922 5.009766 L 16.669922 3.330078 C 16.669922 3.102215 16.751301 2.906902 16.914062 2.744141 C 17.076822 2.581381 17.272135 2.5 17.5 2.5 C 17.727863 2.5 17.923176 2.581381 18.085938 2.744141 C 18.248697 2.906902 18.330078 3.102215 18.330078 3.330078 Z M 17.861328 12.5 C 17.861328 12.584636 17.845051 12.675781 17.8125 12.773438 C 17.532551 13.58724 17.13216 14.334311 16.611328 15.014648 C 16.090494 15.694987 15.486653 16.280924 14.799805 16.772461 C 14.112955 17.263998 13.362629 17.646484 12.548828 17.919922 C 11.735025 18.193359 10.898438 18.330078 10.039062 18.330078 C 9.375 18.330078 8.728841 18.258463 8.100586 18.115234 C 7.472331 17.972006 6.871745 17.762045 6.298828 17.485352 C 5.725911 17.208658 5.188802 16.865234 4.6875 16.455078 C 4.186198 16.044922 3.733724 15.576172 3.330078 15.048828 L 3.330078 16.669922 C 3.330078 16.897787 3.248698 17.0931 3.085938 17.255859 C 2.923177 17.418619 2.727865 17.5 2.5 17.5 C 2.272135 17.5 2.076823 17.418619 1.914062 17.255859 C 1.751302 17.0931 1.669922 16.897787 1.669922 16.669922 L 1.669922 12.5 C 1.669922 12.272136 1.751302 12.076823 1.914062 11.914062 C 2.076823 11.751303 2.272135 11.669922 2.5 11.669922 L 6.669922 11.669922 C 6.897786 11.669922 7.093099 11.751303 7.255859 11.914062 C 7.418619 12.076823 7.5 12.272136 7.5 12.5 C 7.5 12.727865 7.418619 12.923178 7.255859 13.085938 C 7.093099 13.248698 6.897786 13.330078 6.669922 13.330078 L 4.179688 13.330078 C 4.479167 13.850912 4.840495 14.318034 5.263672 14.731445 C 5.686849 15.144857 6.150716 15.494792 6.655273 15.78125 C 7.15983 16.067709 7.696939 16.287436 8.266602 16.44043 C 8.836263 16.593424 9.420572 16.669922 10.019531 16.669922 C 10.566406 16.669922 11.106771 16.598307 11.640625 16.455078 C 12.174479 16.31185 12.680664 16.108398 13.15918 15.844727 C 13.637695 15.581055 14.080403 15.262045 14.487305 14.887695 C 14.894205 14.513347 15.247396 14.095053 15.546875 13.632812 C 15.696614 13.404948 15.821939 13.173828 15.922852 12.939453 C 16.023762 12.705078 16.129557 12.464193 16.240234 12.216797 C 16.311848 12.047526 16.414387 11.912436 16.547852 11.811523 C 16.681314 11.710612 16.842447 11.660156 17.03125 11.660156 C 17.148438 11.660156 17.257486 11.682943 17.358398 11.728516 C 17.459309 11.774089 17.547199 11.834311 17.62207 11.90918 C 17.696939 11.98405 17.755533 12.07194 17.797852 12.172852 C 17.840168 12.273764 17.861328 12.382812 17.861328 12.5 Z " />
                     </controls:SettingsCard.HeaderIcon>
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <Button Command="{x:Bind ViewModel.ExportSettingsCommand}" Content="{x:Bind domain:Translator.Buttons_Export}" />
-                        <Button Command="{x:Bind ViewModel.ImportSettingsCommand}" Content="{x:Bind domain:Translator.Buttons_Import}" />
+                        <Button
+
+                            AutomationProperties.AutomationId="WinoAccountManagementPageButton4" Command="{x:Bind ViewModel.ExportSettingsCommand}" Content="{x:Bind domain:Translator.Buttons_Export}" />
+                        <Button
+
+                            AutomationProperties.AutomationId="WinoAccountManagementPageButton5" Command="{x:Bind ViewModel.ImportSettingsCommand}" Content="{x:Bind domain:Translator.Buttons_Import}" />
                     </StackPanel>
                 </controls:SettingsCard>
 

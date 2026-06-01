@@ -78,6 +78,7 @@
         <toolkit:TabbedCommandBar.MenuItems>
             <toolkit:TabbedCommandBarItem DefaultLabelPosition="Collapsed" Header="Format">
                 <AppBarToggleButton
+                    AutomationProperties.AutomationId="BoldButton"
                     x:Name="BoldButton"
                     Click="BoldButton_Click"
                     Label="Bold"
@@ -88,6 +89,7 @@
                 </AppBarToggleButton>
 
                 <AppBarToggleButton
+                    AutomationProperties.AutomationId="ItalicButton"
                     x:Name="ItalicButton"
                     Click="ItalicButton_Click"
                     Label="Italic"
@@ -98,6 +100,7 @@
                 </AppBarToggleButton>
 
                 <AppBarToggleButton
+                    AutomationProperties.AutomationId="UnderlineButton"
                     x:Name="UnderlineButton"
                     Click="UnderlineButton_Click"
                     Label="Underline"
@@ -108,6 +111,7 @@
                 </AppBarToggleButton>
 
                 <AppBarToggleButton
+                    AutomationProperties.AutomationId="StrikeButton"
                     x:Name="StrikeButton"
                     Click="StrikeButton_Click"
                     Label="Strikethrough"
@@ -120,6 +124,7 @@
                 <AppBarSeparator />
 
                 <AppBarToggleButton
+                    AutomationProperties.AutomationId="BulletListButton"
                     x:Name="BulletListButton"
                     Click="BulletListButton_Click"
                     Label="Bullets"
@@ -130,6 +135,7 @@
                 </AppBarToggleButton>
 
                 <AppBarToggleButton
+                    AutomationProperties.AutomationId="OrderedListButton"
                     x:Name="OrderedListButton"
                     Click="OrderedListButton_Click"
                     Label="Numbered list"
@@ -140,6 +146,7 @@
                 </AppBarToggleButton>
 
                 <AppBarButton
+                    AutomationProperties.AutomationId="OutdentButton"
                     x:Name="OutdentButton"
                     Click="OutdentButton_Click"
                     Label="Outdent"
@@ -150,6 +157,7 @@
                 </AppBarButton>
 
                 <AppBarButton
+                    AutomationProperties.AutomationId="IndentButton"
                     x:Name="IndentButton"
                     Click="IndentButton_Click"
                     Label="Indent"
@@ -175,6 +183,7 @@
                                 Data="{StaticResource AlignLeftPathIcon}"
                                 Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                             <ComboBox
+                                AutomationProperties.AutomationId="AlignmentComboBox"
                                 x:Name="AlignmentComboBox"
                                 Grid.Column="1"
                                 MinWidth="94"
@@ -198,6 +207,7 @@
                                 FontSize="14"
                                 Glyph="&#xE8D2;" />
                             <ComboBox
+                                AutomationProperties.AutomationId="FontFamilyComboBox"
                                 x:Name="FontFamilyComboBox"
                                 Grid.Column="1"
                                 MinWidth="110"
@@ -205,6 +215,7 @@
                                 SelectionChanged="FontFamilyComboBox_SelectionChanged"
                                 Style="{StaticResource CompactComboBoxStyle}" />
                             <ComboBox
+                                AutomationProperties.AutomationId="FontSizeComboBox"
                                 x:Name="FontSizeComboBox"
                                 Grid.Column="2"
                                 MinWidth="72"
@@ -232,6 +243,7 @@
                                 Data="{StaticResource ParagraphPathIcon}"
                                 Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                             <ComboBox
+                                AutomationProperties.AutomationId="ParagraphStyleComboBox"
                                 x:Name="ParagraphStyleComboBox"
                                 Grid.Column="1"
                                 MinWidth="104"
@@ -269,6 +281,7 @@
                                     Text="A" />
                             </Grid>
                             <ComboBox
+                                AutomationProperties.AutomationId="TextColorComboBox"
                                 x:Name="TextColorComboBox"
                                 Grid.Column="1"
                                 MinWidth="104"
@@ -306,6 +319,7 @@
                                     Fill="{ThemeResource TextFillColorPrimaryBrush}" />
                             </Grid>
                             <ComboBox
+                                AutomationProperties.AutomationId="HighlightColorComboBox"
                                 x:Name="HighlightColorComboBox"
                                 Grid.Column="1"
                                 MinWidth="108"
@@ -330,6 +344,7 @@
                                 FontSize="14"
                                 Glyph="&#xE8C8;" />
                             <ComboBox
+                                AutomationProperties.AutomationId="LineHeightComboBox"
                                 x:Name="LineHeightComboBox"
                                 Grid.Column="1"
                                 MinWidth="72"
@@ -343,6 +358,7 @@
 
             <toolkit:TabbedCommandBarItem DefaultLabelPosition="Collapsed" Header="Insert">
                 <AppBarButton
+                    AutomationProperties.AutomationId="ImageButton"
                     x:Name="ImageButton"
                     Click="ImageButton_Click"
                     Label="Image"
@@ -353,6 +369,7 @@
                 </AppBarButton>
 
                 <AppBarButton
+                    AutomationProperties.AutomationId="EmojiButton"
                     x:Name="EmojiButton"
                     Click="EmojiButton_Click"
                     Label="Emoji"
@@ -363,6 +380,7 @@
                 </AppBarButton>
 
                 <AppBarButton
+                    AutomationProperties.AutomationId="LinkButton"
                     x:Name="LinkButton"
                     Click="LinkButton_Click"
                     Label="Link"
@@ -373,6 +391,7 @@
                 </AppBarButton>
 
                 <AppBarButton
+                    AutomationProperties.AutomationId="RemoveLinkButton"
                     x:Name="RemoveLinkButton"
                     Click="RemoveLinkButton_Click"
                     Label="Remove link"
@@ -384,6 +403,7 @@
                 </AppBarButton>
 
                 <AppBarButton
+                    AutomationProperties.AutomationId="TableButton"
                     x:Name="TableButton"
                     Click="TableButton_Click"
                     Label="Table"
@@ -400,6 +420,7 @@
 
             <toolkit:TabbedCommandBarItem DefaultLabelPosition="Collapsed" Header="Options">
                 <AppBarToggleButton
+                    AutomationProperties.AutomationId="BuiltInToolbarButton"
                     x:Name="BuiltInToolbarButton"
                     Click="BuiltInToolbarButton_Click"
                     Label="Web toolbar"
@@ -410,6 +431,7 @@
                 </AppBarToggleButton>
 
                 <AppBarToggleButton
+                    AutomationProperties.AutomationId="SpellCheckButton"
                     x:Name="SpellCheckButton"
                     Click="SpellCheckButton_Click"
                     Label="Spell check"

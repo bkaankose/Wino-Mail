@@ -223,6 +223,7 @@
             <!--  Input fields  -->
             <StackPanel Spacing="12">
                 <TextBox
+                    AutomationProperties.AutomationId="EmailTextBox"
                     x:Name="EmailTextBox"
                     Header="{x:Bind domain:Translator.WinoAccount_EmailLabel}"
                     KeyDown="EmailTextBox_KeyDown"
@@ -231,6 +232,7 @@
 
                 <StackPanel x:Name="PasswordPanel">
                     <PasswordBox
+                        AutomationProperties.AutomationId="PasswordBox"
                         x:Name="PasswordBox"
                         Header="{x:Bind domain:Translator.WinoAccount_PasswordLabel}"
                         KeyDown="PasswordBox_KeyDown"
@@ -250,6 +252,7 @@
             </StackPanel>
 
             <HyperlinkButton
+                AutomationProperties.AutomationId="ModeToggleButton"
                 x:Name="ModeToggleButton"
                 HorizontalAlignment="Left"
                 Click="ModeToggleButton_Click"

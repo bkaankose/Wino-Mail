@@ -152,11 +152,13 @@
                         </Grid.ColumnDefinitions>
 
                         <TextBox
+                            AutomationProperties.AutomationId="ProviderSelectionPageTextBox"
                             Header="{x:Bind domain:Translator.ProviderSelection_AccountNameHeader, Mode=OneTime}"
                             PlaceholderText="{x:Bind domain:Translator.ProviderSelection_AccountNamePlaceholder, Mode=OneTime}"
                             Text="{x:Bind ViewModel.AccountName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                         <Button
+                            AutomationProperties.AutomationId="XBindDomainTranslatorAccountDetailsPageColorPickerTitleModeOneTime"
                             Grid.Column="1"
                             Padding="12,8"
                             VerticalAlignment="Bottom"
@@ -178,6 +180,7 @@
                                 <Flyout x:Name="AccountColorFlyout" Placement="TopEdgeAlignedLeft">
                                     <StackPanel Spacing="8">
                                         <GridView
+                                            AutomationProperties.AutomationId="AccountColorGridView"
                                             x:Name="AccountColorGridView"
                                             Width="150"
                                             AutomationProperties.Name="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Title, Mode=OneTime}"
@@ -185,6 +188,7 @@
                                             ItemsSource="{x:Bind ViewModel.AvailableColors, Mode=OneWay}"
                                             SelectedItem="{x:Bind ViewModel.SelectedColor, Mode=TwoWay}" />
                                         <HyperlinkButton
+                                            AutomationProperties.AutomationId="ProviderSelectionPageHyperlinkButton"
                                             HorizontalAlignment="Center"
                                             Command="{x:Bind ViewModel.ClearColorCommand}"
                                             Content="{x:Bind domain:Translator.ProviderSelection_ClearColor, Mode=OneTime}"
@@ -254,6 +258,7 @@
                         </Grid.ColumnDefinitions>
 
                         <ToggleButton
+                            AutomationProperties.AutomationId="XBindDomainTranslatorProviderSelectionUseForMailModeOneTime"
                             AutomationProperties.HelpText="{x:Bind domain:Translator.ProviderSelection_MailCapabilityHelp, Mode=OneTime}"
                             AutomationProperties.Name="{x:Bind domain:Translator.ProviderSelection_UseForMail, Mode=OneTime}"
                             HorizontalAlignment="Stretch"
@@ -279,6 +284,7 @@
                         </ToggleButton>
 
                         <ToggleButton
+                            AutomationProperties.AutomationId="XBindDomainTranslatorProviderSelectionUseForCalendarModeOneTime"
                             Grid.Column="1"
                             AutomationProperties.HelpText="{x:Bind domain:Translator.ProviderSelection_CalendarCapabilityHelp, Mode=OneTime}"
                             AutomationProperties.Name="{x:Bind domain:Translator.ProviderSelection_UseForCalendar, Mode=OneTime}"
@@ -336,6 +342,7 @@
                             Text="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_Description, Mode=OneTime}" />
 
                         <ComboBox
+                            AutomationProperties.AutomationId="XBindDomainTranslatorAccountCreationInitialSynchronizationTitleModeOneTime"
                             Grid.Row="2"
                             MinWidth="260"
                             Margin="0,12"
@@ -372,11 +379,13 @@
                 </Grid.ColumnDefinitions>
 
                 <Button
+                    AutomationProperties.AutomationId="ProviderSelectionPageButton"
                     Command="{x:Bind ViewModel.GoBackCommand}"
                     Content="{x:Bind domain:Translator.Buttons_Back, Mode=OneTime}"
                     Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.CanGoBack), Mode=OneWay}" />
 
                 <Button
+                    AutomationProperties.AutomationId="ProviderSelectionPageButton2"
                     Grid.Column="1"
                     MinWidth="140"
                     HorizontalAlignment="Right"

@@ -67,6 +67,7 @@
                         Orientation="Horizontal"
                         Spacing="4">
                         <Button
+                            AutomationProperties.AutomationId="ContactsPageButton"
                             Click="EditContact_Click"
                             CommandParameter="{x:Bind}"
                             Style="{StaticResource SubtleButtonStyle}"
@@ -74,6 +75,7 @@
                             <FontIcon FontSize="14" Glyph="&#xE70F;" />
                         </Button>
                         <Button
+                            AutomationProperties.AutomationId="ContactsPageButton2"
                             Click="PickContactPhoto_Click"
                             CommandParameter="{x:Bind}"
                             Style="{StaticResource SubtleButtonStyle}"
@@ -81,6 +83,7 @@
                             <FontIcon FontSize="14" Glyph="&#xE91B;" />
                         </Button>
                         <Button
+                            AutomationProperties.AutomationId="ContactsPageButton3"
                             Click="DeleteContact_Click"
                             CommandParameter="{x:Bind}"
                             Style="{StaticResource SubtleButtonStyle}"
@@ -119,6 +122,7 @@
             </Grid.ColumnDefinitions>
 
             <Button
+                AutomationProperties.AutomationId="ContactsPageButton4"
                 Grid.Column="1"
                 Command="{x:Bind ViewModel.ReloadContactsCommand}"
                 Style="{StaticResource SubtleButtonStyle}"
@@ -127,6 +131,7 @@
             </Button>
 
             <Button
+                AutomationProperties.AutomationId="ContactsPageButton5"
                 Grid.Column="2"
                 Command="{x:Bind ViewModel.ToggleSelectionCommand}"
                 Style="{StaticResource SubtleButtonStyle}">
@@ -156,6 +161,7 @@
             </TextBlock>
 
             <Button
+                AutomationProperties.AutomationId="ContactsPageButton6"
                 Grid.Column="1"
                 Click="SelectAllContacts_Click"
                 Style="{StaticResource SubtleButtonStyle}">
@@ -163,6 +169,7 @@
             </Button>
 
             <Button
+                AutomationProperties.AutomationId="ContactsPageButton7"
                 Grid.Column="2"
                 Click="ClearSelection_Click"
                 Style="{StaticResource SubtleButtonStyle}">
@@ -170,6 +177,7 @@
             </Button>
 
             <Button
+                AutomationProperties.AutomationId="ContactsPageButton8"
                 Grid.Column="3"
                 Command="{x:Bind ViewModel.DeleteSelectedContactsCommand}"
                 Style="{StaticResource SubtleButtonStyle}">
@@ -262,7 +270,9 @@
                     HorizontalAlignment="Center"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                     Text="{x:Bind domain:Translator.ContactsPage_NoContacts, Mode=OneTime}" />
-                <Button Command="{x:Bind ViewModel.AddContactCommand}" Style="{StaticResource AccentButtonStyle}">
+                <Button
+
+                    AutomationProperties.AutomationId="ContactsPageButton9" Command="{x:Bind ViewModel.AddContactCommand}" Style="{StaticResource AccentButtonStyle}">
                     <TextBlock Text="{x:Bind domain:Translator.ContactsPage_AddFirstContact, Mode=OneTime}" />
                 </Button>
             </StackPanel>
