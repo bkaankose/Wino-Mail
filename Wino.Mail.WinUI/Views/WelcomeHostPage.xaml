@@ -28,7 +28,11 @@
                 ItemsSource="{x:Bind PageHistory, Mode=OneWay}">
                 <winuiControls:BreadcrumbBar.ItemTemplate>
                     <DataTemplate x:DataType="viewModelData:BreadcrumbNavigationItemViewModel">
-                        <winuiControls:BreadcrumbBarItem AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetBreadcrumbStepAutomationName(StepNumber, Title), Mode=OneWay}">
+                        <!--
+                            TODO: This crashes.
+                            AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetBreadcrumbStepAutomationName(StepNumber, Title), Mode=OneWay}"
+                        -->
+                        <winuiControls:BreadcrumbBarItem>
                             <winuiControls:BreadcrumbBarItem.ContentTemplate>
                                 <DataTemplate x:DataType="viewModelData:BreadcrumbNavigationItemViewModel">
                                     <StackPanel
@@ -41,11 +45,11 @@
                                             Background="{x:Bind helpers:XamlHelpers.GetWizardStepBadgeBrush(IsActive), Mode=OneWay}"
                                             CornerRadius="12">
                                             <TextBlock
-                Style="{StaticResource CaptionTextBlockStyle}"
                                                 HorizontalAlignment="Center"
                                                 VerticalAlignment="Center"
                                                 FontWeight="SemiBold"
                                                 Foreground="{x:Bind helpers:XamlHelpers.GetWizardStepNumberForeground(IsActive), Mode=OneWay}"
+                                                Style="{StaticResource CaptionTextBlockStyle}"
                                                 Text="{x:Bind StepNumber, Mode=OneWay}" />
                                         </Border>
                                         <TextBlock
