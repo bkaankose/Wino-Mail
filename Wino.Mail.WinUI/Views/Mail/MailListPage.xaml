@@ -498,22 +498,10 @@
                     Tapped="ThreadHeaderTapped">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <Grid Width="12" VerticalAlignment="Center">
-                        <FontIcon
-                            FontSize="10"
-                            Glyph="&#xE76C;"
-                            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
-                        <FontIcon
-                            FontSize="10"
-                            Glyph="&#xE70E;"
-                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
-                    </Grid>
                     <controls:ImagePreviewControl
-                        Grid.Column="1"
                         Width="28"
                         Height="28"
                         VerticalAlignment="Center"
@@ -522,7 +510,7 @@
                         MailItemInformation="{x:Bind}"
                         Visibility="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneWay}" />
                     <Grid
-                        Grid.Column="2"
+                        Grid.Column="1"
                         VerticalAlignment="Center"
                         RowSpacing="2">
                         <Grid.RowDefinitions>
@@ -552,15 +540,31 @@
                                 TextTrimming="CharacterEllipsis"
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(FromName), Mode=OneWay}" />
                         </Grid>
-                        <TextBlock
-                            Grid.Row="1"
-                            FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
-                            Foreground="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForegroundByReadState(IsRead), Mode=OneWay}"
-                            Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
-                            TextTrimming="CharacterEllipsis" />
+                        <Grid Grid.Row="1" ColumnSpacing="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid Width="12" VerticalAlignment="Center">
+                                <FontIcon
+                                    FontSize="10"
+                                    Glyph="&#xE76C;"
+                                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
+                                <FontIcon
+                                    FontSize="10"
+                                    Glyph="&#xE96E;"
+                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
+                            </Grid>
+                            <TextBlock
+                                Grid.Column="1"
+                                FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
+                                Foreground="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForegroundByReadState(IsRead), Mode=OneWay}"
+                                Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis" />
+                        </Grid>
                     </Grid>
                     <StackPanel
-                        Grid.Column="3"
+                        Grid.Column="2"
                         VerticalAlignment="Center"
                         Spacing="2">
                         <StackPanel
@@ -643,22 +647,10 @@
                     Tapped="ThreadHeaderTapped">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <Grid Width="12" VerticalAlignment="Center">
-                        <FontIcon
-                            FontSize="10"
-                            Glyph="&#xE76C;"
-                            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
-                        <FontIcon
-                            FontSize="10"
-                            Glyph="&#xE70E;"
-                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
-                    </Grid>
                     <controls:ImagePreviewControl
-                        Grid.Column="1"
                         Width="30"
                         Height="30"
                         VerticalAlignment="Center"
@@ -667,7 +659,7 @@
                         MailItemInformation="{x:Bind}"
                         Visibility="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneWay}" />
                     <StackPanel
-                        Grid.Column="2"
+                        Grid.Column="1"
                         VerticalAlignment="Center"
                         Spacing="2">
                         <Grid>
@@ -693,11 +685,28 @@
                                 TextTrimming="CharacterEllipsis"
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(FromName), Mode=OneWay}" />
                         </Grid>
-                        <TextBlock
-                            FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
-                            Foreground="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForegroundByReadState(IsRead), Mode=OneWay}"
-                            Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
-                            TextTrimming="CharacterEllipsis" />
+                        <Grid ColumnSpacing="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid Width="12" VerticalAlignment="Center">
+                                <FontIcon
+                                    FontSize="10"
+                                    Glyph="&#xE76C;"
+                                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
+                                <FontIcon
+                                    FontSize="10"
+                                    Glyph="&#xE96E;"
+                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
+                            </Grid>
+                            <TextBlock
+                                Grid.Column="1"
+                                FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
+                                Foreground="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForegroundByReadState(IsRead), Mode=OneWay}"
+                                Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis" />
+                        </Grid>
                         <TextBlock
                             x:Phase="1"
                             MaxLines="1"
@@ -707,7 +716,7 @@
                             Visibility="{x:Bind helpers:XamlHelpers.GetMailItemPreviewTextVisibility(PreviewText), Mode=OneWay}" />
                     </StackPanel>
                     <StackPanel
-                        Grid.Column="3"
+                        Grid.Column="2"
                         VerticalAlignment="Center"
                         Spacing="2">
                         <StackPanel
@@ -790,22 +799,11 @@
                     Tapped="ThreadHeaderTapped">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <Grid Width="12" VerticalAlignment="Center">
-                        <FontIcon
-                            FontSize="10"
-                            Glyph="&#xE76C;"
-                            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
-                        <FontIcon
-                            FontSize="10"
-                            Glyph="&#xE70E;"
-                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
-                    </Grid>
+
                     <controls:ImagePreviewControl
-                        Grid.Column="1"
                         Width="36"
                         Height="36"
                         VerticalAlignment="Center"
@@ -814,7 +812,7 @@
                         MailItemInformation="{x:Bind}"
                         Visibility="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneWay}" />
                     <StackPanel
-                        Grid.Column="2"
+                        Grid.Column="1"
                         VerticalAlignment="Center"
                         Spacing="2">
                         <Grid>
@@ -840,11 +838,28 @@
                                 TextTrimming="CharacterEllipsis"
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(FromName), Mode=OneWay}" />
                         </Grid>
-                        <TextBlock
-                            FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
-                            Foreground="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForegroundByReadState(IsRead), Mode=OneWay}"
-                            Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
-                            TextTrimming="CharacterEllipsis" />
+                        <Grid ColumnSpacing="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid Width="12" VerticalAlignment="Center">
+                                <FontIcon
+                                    FontSize="10"
+                                    Glyph="&#xE76C;"
+                                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
+                                <FontIcon
+                                    FontSize="10"
+                                    Glyph="&#xE96E;"
+                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
+                            </Grid>
+                            <TextBlock
+                                Grid.Column="1"
+                                FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
+                                Foreground="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForegroundByReadState(IsRead), Mode=OneWay}"
+                                Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis" />
+                        </Grid>
                         <TextBlock
                             x:Phase="1"
                             MaxLines="1"
@@ -854,7 +869,7 @@
                             Visibility="{x:Bind helpers:XamlHelpers.GetMailItemPreviewTextVisibility(PreviewText), Mode=OneWay}" />
                     </StackPanel>
                     <StackPanel
-                        Grid.Column="3"
+                        Grid.Column="2"
                         VerticalAlignment="Center"
                         Spacing="2">
                         <StackPanel
@@ -1203,7 +1218,7 @@
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Stretch"
                         toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
-                        toolkitExt:ScrollViewerExtensions.VerticalScrollBarMargin="0"
+                        toolkitExt:ScrollViewerExtensions.VerticalScrollBarMargin="-6"
                         CanDragItems="True"
                         GroupHeaderTemplateSelector="{StaticResource MailGroupHeaderTemplateSelector}"
                         IsItemClickEnabled="True"

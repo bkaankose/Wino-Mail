@@ -18,10 +18,7 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ListViewItem">
-                            <SwipeControl
-                                x:Name="ThreadSwipeControl"
-                                Padding="-2,0,6,0"
-                                Tag="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}">
+                            <SwipeControl x:Name="ThreadSwipeControl" Tag="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}">
                                 <SwipeControl.LeftItems>
                                     <controls:WinoSwipeControlItems
                                         x:Name="LeftSwipeItems"
@@ -58,7 +55,6 @@
                                     <ContentPresenter
                                         x:Name="ThreadContent"
                                         Grid.Column="1"
-                                        Margin="6,0,0,0"
                                         HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
                                         VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
                                         Content="{TemplateBinding Content}"
@@ -114,10 +110,7 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ListViewItem">
-                            <SwipeControl
-                                x:Name="MailSwipeControl"
-                                Padding="-2,0,0,0"
-                                Tag="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}">
+                            <SwipeControl x:Name="MailSwipeControl" Tag="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}">
                                 <SwipeControl.LeftItems>
                                     <controls:WinoSwipeControlItems
                                         x:Name="LeftSwipeItems"
@@ -133,6 +126,7 @@
                                 <Grid
                                     x:Name="RootGrid"
                                     Margin="0,2"
+                                    Padding="-2,0,0,0"
                                     Background="{ThemeResource ListViewItemBackground}"
                                     CornerRadius="{ThemeResource ControlCornerRadius}">
                                     <Grid.ColumnDefinitions>
@@ -157,7 +151,6 @@
                                     <ContentPresenter
                                         x:Name="MailContent"
                                         Grid.Column="1"
-                                        Margin="6,0,0,0"
                                         HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
                                         VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
                                         Background="Transparent"
