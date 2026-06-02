@@ -119,50 +119,13 @@
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-
-                            <Border
-                                x:Name="AccountNicknameLabelLeft"
-                                Grid.Column="0"
-                                Margin="0,0,5,0"
-                                Padding="6,1"
-                                VerticalAlignment="Center"
-                                Background="{ThemeResource MailListHeaderBackgroundColor}"
-                                CornerRadius="4"
-                                MinHeight="16"
-                                Visibility="{x:Bind GetIndicatorVisibility(IsAccountNicknameVisible, NicknamePosition, enums:AccountNicknamePosition.Left), Mode=OneWay}">
-                                <TextBlock
-                                    FontSize="10"
-                                    FontWeight="SemiBold"
-                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}"
-                                    Text="{x:Bind MailItemInformation.AccountNickname, Mode=OneWay}" />
-                            </Border>
-
-                            <Border
-                                x:Name="AccountNicknameLabelRight"
-                                Grid.Column="3"
-                                Margin="13,0,13,0"
-                                Padding="6,1"
-                                VerticalAlignment="Center"
-                                Background="{ThemeResource MailListHeaderBackgroundColor}"
-                                CornerRadius="4"
-                                MinHeight="16"
-                                Visibility="{x:Bind GetIndicatorVisibility(IsAccountNicknameVisible, NicknamePosition, enums:AccountNicknamePosition.Right), Mode=OneWay}">
-                                <TextBlock
-                                    FontSize="10"
-                                    FontWeight="SemiBold"
-                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}"
-                                    Text="{x:Bind MailItemInformation.AccountNickname, Mode=OneWay}" />
-                            </Border>
 
                             <!--  IsDraft Tag  -->
                             <TextBlock
                                 x:Name="DraftTitle"
-                                Grid.Column="1"
                                 Margin="0,0,4,0"
                                 x:Load="{x:Bind MailItemInformation.IsDraft, Mode=OneWay}"
                                 Foreground="{StaticResource DeleteBrush}">
@@ -173,7 +136,7 @@
                             <!--  Sender  -->
                             <TextBlock
                                 x:Name="SenderTextFromName"
-                                Grid.Column="2"
+                                Grid.Column="1"
                                 Text="{x:Bind MailItemInformation.FromName, Mode=OneWay}"
                                 TextTrimming="WordEllipsis"
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(MailItemInformation.FromName), Mode=OneWay}" />
@@ -181,7 +144,7 @@
                             <!--  Sender  -->
                             <TextBlock
                                 x:Name="SenderTextFromAddress"
-                                Grid.Column="2"
+                                Grid.Column="1"
                                 Text="{x:Bind MailItemInformation.FromAddress}"
                                 TextTrimming="CharacterEllipsis"
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(MailItemInformation.FromName), Mode=OneWay}" />
@@ -189,7 +152,7 @@
                             <!--  Hover button  -->
                             <StackPanel
                                 x:Name="HoverActionButtons"
-                                Grid.Column="4"
+                                Grid.Column="2"
                                 HorizontalAlignment="Right"
                                 Background="Transparent"
                                 Canvas.ZIndex="999"

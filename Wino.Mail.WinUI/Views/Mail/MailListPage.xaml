@@ -53,8 +53,6 @@
                 ActionItem="{x:Bind}"
                 ContextRequested="MailItemContextRequested"
                 HoverActionExecuted="MailItemDisplayInformationControl_HoverActionExecuted"
-                IsAccountNicknameVisible="{Binding ViewModel.IsAccountIndicatorVisible, ElementName=root}"
-                NicknamePosition="{Binding ViewModel.PreferencesService.AccountNicknamePosition, ElementName=root}"
                 MailItemInformation="{x:Bind}" />
         </DataTemplate>
 
@@ -72,8 +70,6 @@
                         DragStarting="ThreadHeaderDragStart"
                         DropCompleted="ThreadHeaderDragFinished"
                         HoverActionExecuted="MailItemDisplayInformationControl_HoverActionExecuted"
-                        IsAccountNicknameVisible="{Binding ViewModel.IsAccountIndicatorVisible, ElementName=root}"
-                        NicknamePosition="{Binding ViewModel.PreferencesService.AccountNicknamePosition, ElementName=root}"
                         IsThreadExpanderVisible="True"
                         MailItemInformation="{x:Bind}"
                         Tapped="ThreadHeaderTapped" />

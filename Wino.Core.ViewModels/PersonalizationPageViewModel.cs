@@ -389,8 +389,6 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         public bool HasReadReceiptTracking { get; } = false;
         public bool IsReadReceiptAcknowledged { get; } = false;
         public string ReadReceiptDisplayText { get; } = string.Empty;
-        public string AccountNickname { get; } = "Work";
-        public string AccountColorHex { get; } = "#FF0000";
         public IReadOnlyList<MailCategory> Categories { get; } =
         [
             new()
