@@ -157,13 +157,6 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         await _thumbnailService.ClearCache();
     }
 
-    [RelayCommand]
-    private void ResetMailListPaneLength()
-    {
-        _statePersistenceService.MailListPaneLength = 420;
-        _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.Info_MailListSizeResetSuccessMessage, InfoBarMessageType.Success);
-    }
-
     private sealed class DemoMailItemDisplayInformation : IMailItemDisplayInformation
     {
         public event PropertyChangedEventHandler PropertyChanged
