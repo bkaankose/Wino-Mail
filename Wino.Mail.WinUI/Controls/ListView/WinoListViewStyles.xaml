@@ -18,7 +18,10 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ListViewItem">
-                            <SwipeControl x:Name="ThreadSwipeControl" Tag="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}">
+                            <SwipeControl
+                                x:Name="ThreadSwipeControl"
+                                Padding="-2,0,6,0"
+                                Tag="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}">
                                 <SwipeControl.LeftItems>
                                     <controls:WinoSwipeControlItems
                                         x:Name="LeftSwipeItems"
@@ -111,7 +114,10 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ListViewItem">
-                            <SwipeControl x:Name="MailSwipeControl" Tag="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}">
+                            <SwipeControl
+                                x:Name="MailSwipeControl"
+                                Padding="-2,0,0,0"
+                                Tag="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}">
                                 <SwipeControl.LeftItems>
                                     <controls:WinoSwipeControlItems
                                         x:Name="LeftSwipeItems"
