@@ -138,6 +138,9 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
         _ => string.Empty
     };
 
+    public string AccountNickname => MailCopy.AssignedAccount?.Name;
+    public string AccountColorHex => MailCopy.AssignedAccount?.AccountColorHex;
+
     public ObservableCollection<MailCategory> Categories { get; }
 
     IReadOnlyList<MailCategory> IMailItemDisplayInformation.Categories => Categories;

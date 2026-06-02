@@ -27,6 +27,8 @@
         <DataTemplate x:Key="CompactDisplayModePreviewTemplate" x:DataType="enums:MailListDisplayMode">
             <controls1:MailItemDisplayInformationControl
                 DisplayMode="Compact"
+                IsAccountNicknameVisible="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowAccountNicknameInMergedViewsEnabled}"
+                NicknamePosition="{Binding ElementName=root, Path=ViewModel.PreferencesService.AccountNicknamePosition}"
                 MailItemInformation="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailItemInformation}"
                 ShowPreviewText="False" />
         </DataTemplate>
@@ -34,6 +36,8 @@
         <DataTemplate x:Key="MediumDisplayModePreviewTemplate" x:DataType="enums:MailListDisplayMode">
             <controls1:MailItemDisplayInformationControl
                 DisplayMode="Medium"
+                IsAccountNicknameVisible="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowAccountNicknameInMergedViewsEnabled}"
+                NicknamePosition="{Binding ElementName=root, Path=ViewModel.PreferencesService.AccountNicknamePosition}"
                 MailItemInformation="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailItemInformation}"
                 ShowPreviewText="True" />
         </DataTemplate>
@@ -41,6 +45,8 @@
         <DataTemplate x:Key="SpaciousDisplayModePreviewTemplate" x:DataType="enums:MailListDisplayMode">
             <controls1:MailItemDisplayInformationControl
                 DisplayMode="Spacious"
+                IsAccountNicknameVisible="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowAccountNicknameInMergedViewsEnabled}"
+                NicknamePosition="{Binding ElementName=root, Path=ViewModel.PreferencesService.AccountNicknamePosition}"
                 MailItemInformation="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailItemInformation}"
                 ShowPreviewText="True" />
         </DataTemplate>

@@ -276,6 +276,16 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// </summary>
     bool IsFaviconEnabled { get; set; }
 
+    /// <summary>
+    /// Setting: Whether account nickname indicator should be shown in merged views.
+    /// </summary>
+    bool IsShowAccountNicknameInMergedViewsEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: The position of the account nickname indicator.
+    /// </summary>
+    AccountNicknamePosition AccountNicknamePosition { get; set; }
+
     #endregion
 
     #region Calendar

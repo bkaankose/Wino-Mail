@@ -39,6 +39,17 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
     [GeneratedDependencyProperty(DefaultValue = true)]
     public partial bool IsAvatarVisible { get; set; }
 
+    [GeneratedDependencyProperty(DefaultValue = false)]
+    public partial bool IsAccountNicknameVisible { get; set; }
+
+    [GeneratedDependencyProperty(DefaultValue = AccountNicknamePosition.Right)]
+    public partial AccountNicknamePosition NicknamePosition { get; set; }
+
+    public Visibility GetIndicatorVisibility(bool isVisible, AccountNicknamePosition position, AccountNicknamePosition targetPosition)
+    {
+        return isVisible && position == targetPosition ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     [GeneratedDependencyProperty(DefaultValue = true)]
     public partial bool IsSubjectVisible { get; set; }
 
@@ -79,6 +90,7 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
         ShowPreviewText = preferencesService.IsShowPreviewEnabled;
         IsAvatarVisible = preferencesService.IsShowSenderPicturesEnabled;
         IsHoverActionsEnabled = preferencesService.IsHoverActionsEnabled;
+        NicknamePosition = preferencesService.AccountNicknamePosition;
         Prefer24HourTimeFormat = preferencesService.Prefer24HourTimeFormat;
         LeftHoverAction = preferencesService.LeftHoverAction;
         CenterHoverAction = preferencesService.CenterHoverAction;
