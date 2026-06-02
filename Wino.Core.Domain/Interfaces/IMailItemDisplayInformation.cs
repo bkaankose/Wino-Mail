@@ -29,6 +29,8 @@ public interface IMailItemDisplayInformation : INotifyPropertyChanged
     bool HasReadReceiptTracking { get; }
     bool IsReadReceiptAcknowledged { get; }
     string ReadReceiptDisplayText { get; }
+    string AccountNickname { get; }
+    string AccountColorHex { get; }
     IReadOnlyList<MailCategory> Categories { get; }
     bool HasCategories { get; }
 }

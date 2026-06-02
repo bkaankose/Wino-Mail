@@ -112,6 +112,11 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     public bool IsReadReceiptAcknowledged => newestMailViewModel?.IsReadReceiptAcknowledged ?? false;
 
     public string ReadReceiptDisplayText => newestMailViewModel?.ReadReceiptDisplayText ?? string.Empty;
+
+    public string AccountNickname => newestMailViewModel?.AccountNickname ?? string.Empty;
+
+    public string AccountColorHex => newestMailViewModel?.AccountColorHex ?? string.Empty;
+
     public IReadOnlyList<MailCategory> Categories => ThreadEmails
         .SelectMany(a => a.Categories)
         .GroupBy(a => a.Id)

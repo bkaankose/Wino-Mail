@@ -257,6 +257,18 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SetPropertyAndSave(nameof(IsFaviconEnabled), value);
     }
 
+    public bool IsShowAccountNicknameInMergedViewsEnabled
+    {
+        get => _configurationService.Get(nameof(IsShowAccountNicknameInMergedViewsEnabled), true);
+        set => SetPropertyAndSave(nameof(IsShowAccountNicknameInMergedViewsEnabled), value);
+    }
+
+    public AccountNicknamePosition AccountNicknamePosition
+    {
+        get => _configurationService.Get(nameof(AccountNicknamePosition), AccountNicknamePosition.Right);
+        set => SetPropertyAndSave(nameof(AccountNicknamePosition), value);
+    }
+
     public Guid? StartupEntityId
     {
         get => _configurationService.Get<Guid?>(nameof(StartupEntityId), null);

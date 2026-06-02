@@ -49,9 +49,28 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         Translator.SettingsThreadOrder_FirstItemFirst
     ];
 
+    public List<string> AccountNicknamePositionOptions { get; } =
+    [
+        Translator.AccountNicknamePosition_Right,
+        Translator.AccountNicknamePosition_Left
+    ];
+
     public IMailItemDisplayInformation DemoPreviewMailItemInformation { get; } = new DemoMailItemDisplayInformation();
 
     public MailListDisplayMode SelectedMailSpacingMode => availableMailSpacingOptions[selectedMailSpacingIndex];
+
+    private int selectedAccountNicknamePositionIndex;
+    public int SelectedAccountNicknamePositionIndex
+    {
+        get => selectedAccountNicknamePositionIndex;
+        set
+        {
+            if (SetProperty(ref selectedAccountNicknamePositionIndex, value) && value >= 0)
+            {
+                PreferencesService.AccountNicknamePosition = (AccountNicknamePosition)value;
+            }
+        }
+    }
 
     private int selectedMarkAsOptionIndex;
     public int SelectedMarkAsOptionIndex
@@ -149,6 +168,7 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         selectedMailSpacingIndex = availableMailSpacingOptions.IndexOf(PreferencesService.MailItemDisplayMode);
         SelectedMarkAsOptionIndex = Array.IndexOf(Enum.GetValues<MailMarkAsOption>(), PreferencesService.MarkAsPreference);
         selectedThreadItemSortingIndex = PreferencesService.IsNewestThreadMailFirst ? 0 : 1;
+        selectedAccountNicknamePositionIndex = (int)PreferencesService.AccountNicknamePosition;
     }
 
     [RelayCommand]
@@ -188,6 +208,8 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         public bool HasReadReceiptTracking => true;
         public bool IsReadReceiptAcknowledged => false;
         public string ReadReceiptDisplayText => Translator.MailReceiptStatus_Requested;
+        public string AccountNickname => "Personal";
+        public string AccountColorHex => "#00FF00";
         public IReadOnlyList<MailCategory> Categories =>
         [
             new()

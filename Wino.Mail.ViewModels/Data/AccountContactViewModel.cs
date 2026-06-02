@@ -73,6 +73,8 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
     public bool HasReadReceiptTracking => false;
     public bool IsReadReceiptAcknowledged => false;
     public string ReadReceiptDisplayText => string.Empty;
+    public string AccountNickname => string.Empty;
+    public string AccountColorHex => string.Empty;
     public IReadOnlyList<MailCategory> Categories => [];
     public bool HasCategories => false;
     public AccountContact SenderContact => new()

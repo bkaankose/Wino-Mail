@@ -72,6 +72,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     public IPreferencesService PreferencesService { get; }
     public INewThemeService ThemeService { get; }
 
+    public bool IsAccountIndicatorVisible => IsMergedAccountView && PreferencesService.IsShowAccountNicknameInMergedViewsEnabled;
+
     private readonly IAccountService _accountService;
     private readonly IMailDialogService _mailDialogService;
     private readonly IMailService _mailService;
@@ -164,8 +166,12 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     [NotifyPropertyChangedFor(nameof(IsSyncButtonVisible))]
     [NotifyPropertyChangedFor(nameof(IsJunkFolder))]
     [NotifyPropertyChangedFor(nameof(IsEmptyFolderButtonVisible))]
+    [NotifyPropertyChangedFor(nameof(IsMergedAccountView))]
+    [NotifyPropertyChangedFor(nameof(IsAccountIndicatorVisible))]
     [NotifyCanExecuteChangedFor(nameof(EmptyFolderCommand))]
     public partial IBaseFolderMenuItem ActiveFolder { get; set; }
+
+    public bool IsMergedAccountView => ActiveFolder is IMergedAccountFolderMenuItem or IMergedMailCategoryMenuItem;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSynchronize))]
@@ -414,6 +420,12 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 await InitializeFolderAsync();
             }
 
+            return;
+        }
+
+        if (propertyName == nameof(IPreferencesService.IsShowAccountNicknameInMergedViewsEnabled))
+        {
+            OnPropertyChanged(nameof(IsAccountIndicatorVisible));
             return;
         }
 
