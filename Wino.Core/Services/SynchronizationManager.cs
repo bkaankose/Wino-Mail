@@ -847,6 +847,9 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         if (_telemetryService == null || options == null || result == null)
             return;
 
+        if (!ShouldTrackSynchronizationTelemetry(result.CompletedState))
+            return;
+
         var properties = CreateSynchronizationTelemetryProperties(
             synchronizer?.Account,
             "mail",
@@ -876,6 +879,9 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         TimeSpan duration)
     {
         if (_telemetryService == null || options == null || result == null)
+            return;
+
+        if (!ShouldTrackSynchronizationTelemetry(result.CompletedState))
             return;
 
         var properties = CreateSynchronizationTelemetryProperties(
@@ -956,6 +962,9 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             SynchronizationCompletedState.PartiallyCompleted => WinoTelemetryLevel.Warning,
             _ => WinoTelemetryLevel.Info
         };
+
+    public static bool ShouldTrackSynchronizationTelemetry(SynchronizationCompletedState completedState)
+        => completedState is SynchronizationCompletedState.Failed or SynchronizationCompletedState.PartiallyCompleted;
 
     private static string GetDurationBucket(TimeSpan duration)
         => duration.TotalSeconds switch

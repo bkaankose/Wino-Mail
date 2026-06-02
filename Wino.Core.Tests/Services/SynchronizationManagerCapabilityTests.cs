@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Services;
 using Xunit;
@@ -79,5 +80,17 @@ public sealed class SynchronizationManagerCapabilityTests
 
         found.Should().BeFalse();
         result.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(SynchronizationCompletedState.Success, false)]
+    [InlineData(SynchronizationCompletedState.Canceled, false)]
+    [InlineData(SynchronizationCompletedState.Failed, true)]
+    [InlineData(SynchronizationCompletedState.PartiallyCompleted, true)]
+    public void ShouldTrackSynchronizationTelemetry_OnlyTracksFailures(
+        SynchronizationCompletedState completedState,
+        bool expected)
+    {
+        SynchronizationManager.ShouldTrackSynchronizationTelemetry(completedState).Should().Be(expected);
     }
 }
