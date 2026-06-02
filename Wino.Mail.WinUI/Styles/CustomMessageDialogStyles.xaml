@@ -78,8 +78,8 @@
                 TextWrapping="WrapWholeWords" />
 
             <CheckBox
-                AutomationProperties.AutomationId="CustomMessageDialogStylesCheckBox"
                 Grid.Row="2"
+                AutomationProperties.AutomationId="CustomMessageDialogStylesCheckBox"
                 Content="{x:Bind domain:Translator.Dialog_DontAskAgain}"
                 IsChecked="{x:Bind IsDontAskChecked, Mode=TwoWay}"
                 Visibility="{x:Bind IsDontAskAgainEnabled}" />

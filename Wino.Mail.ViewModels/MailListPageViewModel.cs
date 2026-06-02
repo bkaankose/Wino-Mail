@@ -1,6 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
@@ -1638,7 +1638,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             MailCollection.PruneSingleNonDraftItems = IsActiveDraftFolder();
 
-            await ExecuteUIThread(() => { IsInitializingFolder = true; });
+            await ExecuteUIThread(() =>
+            {
+                IsInitializingFolder = true;
+                FinishedLoading = false;
+            });
 
             // Folder is changed during initialization.
             // Just cancel the existing one and wait for new initialization.

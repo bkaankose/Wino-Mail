@@ -1,8 +1,8 @@
 using System;
-using CommunityToolkit.Mvvm.Collections;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Mail.ViewModels.Collections;
 
 namespace Wino.Mail.WinUI.Controls.ListView;
 
@@ -19,7 +19,7 @@ public partial class WinoMailGroupHeaderTemplateSelector : DataTemplateSelector
 
     private DataTemplate SelectGroupHeaderTemplate(object item)
     {
-        if (item is IReadOnlyObservableGroup group
+        if (item is WinoMailGroup group
             && group.Key is MailListGroupKey { IsGroupless: true })
         {
             return EmptyHeaderTemplate ?? throw new ArgumentNullException(nameof(EmptyHeaderTemplate));

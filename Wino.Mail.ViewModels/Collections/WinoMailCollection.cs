@@ -2,11 +2,12 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using CommunityToolkit.Mvvm.Collections;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
@@ -20,316 +21,216 @@ using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels.Collections;
 
+public class BulkObservableCollection<T> : ObservableCollection<T>
+{
+    public void AddRange(IEnumerable<T> items)
+    {
+        var itemList = items?.Where(static item => item != null).ToList() ?? [];
+        if (itemList.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var item in itemList)
+        {
+            Items.Add(item);
+        }
+
+        RaiseReset();
+    }
+
+    public void ReplaceAll(IEnumerable<T> items)
+    {
+        Items.Clear();
+
+        foreach (var item in items?.Where(static item => item != null) ?? [])
+        {
+            Items.Add(item);
+        }
+
+        RaiseReset();
+    }
+
+    public void RemoveRange(IEnumerable<T> items)
+    {
+        var itemList = items?.Where(static item => item != null).ToList() ?? [];
+
+        if (itemList.Count == 0)
+        {
+            return;
+        }
+
+        if (itemList.Count == 1)
+        {
+            Remove(itemList[0]);
+            return;
+        }
+
+        var removedAny = false;
+
+        foreach (var item in itemList)
+        {
+            removedAny |= Items.Remove(item);
+        }
+
+        if (removedAny)
+        {
+            RaiseReset();
+        }
+    }
+
+    private void RaiseReset()
+    {
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(Count)));
+        OnPropertyChanged(new PropertyChangedEventArgs("Item[]"));
+        OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
+}
+
+public sealed class WinoMailGroup : BulkObservableCollection<IMailListItem>
+{
+    public WinoMailGroup(object key, IEnumerable<IMailListItem> items)
+    {
+        Key = key;
+        AddRange(items);
+    }
+
+    public object Key { get; }
+
+    public new WinoMailGroup Items => this;
+}
+
 public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsChangedMessage>
 {
-    private const int UiMutationBatchSize = 40;
-
-    // We cache each mail copy id for faster access on updates.
-    // If the item provider here for update or removal doesn't exist here
-    // we can ignore the operation.
-    //
-    // This dictionary doubles as the authoritative "all mail ids currently present"
-    // set, so its Count equals the number of leaf mail items (singles + thread
-    // children). External consumers clone it, so it must stay a ConcurrentDictionary.
-    public ConcurrentDictionary<Guid, bool> MailCopyIdHashSet = [];
-
-    // Cache ThreadIds to quickly find items that should be threaded together
+    private readonly List<IMailListItem> _topLevelItems = [];
+    private readonly ListItemComparer _listComparer = new();
+    private readonly SemaphoreSlim _mutationGate = new(1, 1);
     private readonly ConcurrentDictionary<string, List<IMailListItem>> _threadIdToItemsMap = new();
-
-    // Cache item to group mapping for faster lookups
-    private readonly ConcurrentDictionary<IMailListItem, ObservableGroup<object, IMailListItem>> _itemToGroupMap = new();
-
-    // Cache uniqueId to MailItemViewModel for faster GetMailItemContainer lookups
     private readonly ConcurrentDictionary<Guid, MailItemViewModel> _uniqueIdToMailItemMap = new();
-
-    // Cache uniqueId to ThreadMailItemViewModel for O(1) thread membership checks
     private readonly ConcurrentDictionary<Guid, ThreadMailItemViewModel> _uniqueIdToThreadMap = new();
+    private readonly ConcurrentDictionary<IMailListItem, WinoMailGroup> _itemToGroupMap = new();
+
+    private int _selectionNotificationSuppressionCount;
+    private bool _selectionNotificationPending;
+    private SortingOptionType _sortingType;
+
+    public ConcurrentDictionary<Guid, bool> MailCopyIdHashSet = [];
 
     public event EventHandler<MailItemViewModel> MailItemRemoved;
     public event EventHandler ItemSelectionChanged;
+
     public Func<string, ThreadMailItemViewModel> ThreadItemFactory { get; set; } = static threadId => new ThreadMailItemViewModel(threadId, true);
     public bool IsThreadingEnabled { get; set; } = true;
     public bool AreGroupHeadersEnabled { get; set; } = true;
+    public bool PruneSingleNonDraftItems { get; set; }
+    public IDispatcher CoreDispatcher { get; set; }
 
-    private readonly ListItemComparer _listComparer = new();
+    public BulkObservableCollection<WinoMailGroup> MailItems { get; } = [];
 
-    private readonly ObservableGroupedCollection<object, IMailListItem> _mailItemSource = new ObservableGroupedCollection<object, IMailListItem>();
-    private readonly SemaphoreSlim _mutationGate = new(1, 1);
-    private int _selectionNotificationSuppressionCount;
-    private bool _selectionNotificationPending;
+    private sealed class AddMailResult
+    {
+        public static AddMailResult NoChange { get; } = new();
+        public static AddMailResult FullRebuild { get; } = new() { RequiresFullGroupRebuild = true };
 
-    public ReadOnlyObservableGroupedCollection<object, IMailListItem> MailItems { get; }
+        public bool RequiresFullGroupRebuild { get; private init; }
+        public IReadOnlyList<IMailListItem> TouchedItems { get; private init; } = [];
 
-    private SortingOptionType _sortingType;
+        public static AddMailResult For(params IMailListItem[] touchedItems)
+            => new() { TouchedItems = touchedItems.Where(static item => item != null).ToList() };
+    }
 
-    /// <summary>
-    /// Property that defines how the item sorting should be done in the collection.
-    /// </summary>
+    private sealed class RemoveMailResult
+    {
+        public static RemoveMailResult NoChange { get; } = new();
+
+        public IReadOnlyList<IMailListItem> TouchedItems { get; private init; } = [];
+
+        public static RemoveMailResult For(params IMailListItem[] touchedItems)
+            => new() { TouchedItems = touchedItems.Where(static item => item != null).ToList() };
+    }
+
+    private sealed class UpdateMailResult
+    {
+        public static UpdateMailResult NoChange { get; } = new();
+
+        public IReadOnlyList<IMailListItem> TouchedItems { get; private init; } = [];
+
+        public static UpdateMailResult For(params IMailListItem[] touchedItems)
+            => new() { TouchedItems = touchedItems.Where(static item => item != null).ToList() };
+    }
+
     public SortingOptionType SortingType
     {
         get => _sortingType;
         set
         {
+            if (_sortingType == value)
+            {
+                return;
+            }
+
             _sortingType = value;
-            // Update the comparer's sort mode when sorting type changes
             _listComparer.SortByName = value == SortingOptionType.Sender;
+            _ = ExecuteUIThread(() =>
+            {
+                SortTopLevelItems();
+                RebuildGroups();
+            });
         }
     }
 
-    /// <summary>
-    /// Gets or sets the grouping type for emails.
-    /// Note: WinoMailCollection groups automatically on the UI, so this just affects the grouping key logic.
-    /// </summary>
     public EmailGroupingType GroupingType
     {
         get => SortingType == SortingOptionType.ReceiveDate ? EmailGroupingType.ByDate : EmailGroupingType.ByFromName;
         set => SortingType = value == EmailGroupingType.ByDate ? SortingOptionType.ReceiveDate : SortingOptionType.Sender;
     }
 
-    /// <summary>
-    /// Automatically deletes single mail items after the delete operation or thread->single transition.
-    /// This is useful when reply draft is discarded in the thread. Only enabled for Draft folder for now.
-    /// </summary>
-    public bool PruneSingleNonDraftItems { get; set; }
-
-    public int Count => _mailItemSource.Count;
-
+    public int Count => _topLevelItems.Count;
     public bool IsAllSelected => AllItemsCount == SelectedItemsCount;
-
-    public IDispatcher CoreDispatcher { get; set; }
+    public int AllItemsCount => MailCopyIdHashSet.Count;
 
     public WinoMailCollection()
     {
-        MailItems = new ReadOnlyObservableGroupedCollection<object, IMailListItem>(_mailItemSource);
-
-        // Initialize sorting type to default (date-based)
         SortingType = SortingOptionType.ReceiveDate;
-
-        Messenger.Register<SelectedItemsChangedMessage>(this);
+        Messenger.Register(this);
     }
 
     public void Cleanup()
     {
         Messenger.Unregister<SelectedItemsChangedMessage>(this);
+        DetachThreadHandlers();
     }
 
-    public async Task ClearAsync()
-    {
-        await RunSerializedAsync(async () =>
+    public Task ClearAsync()
+        => RunSerializedAsync(async () =>
         {
             await ExecuteUIThread(() =>
             {
-                foreach (var group in _mailItemSource)
-                {
-                    foreach (var item in group)
-                    {
-                        if (item is ThreadMailItemViewModel threadItem)
-                        {
-                            threadItem.UnregisterThreadEmailPropertyChangedHandlers();
-                        }
-                    }
-                }
-
-                _mailItemSource.Clear();
-                MailCopyIdHashSet.Clear();
-                _threadIdToItemsMap.Clear();
-                _itemToGroupMap.Clear();
-                _uniqueIdToMailItemMap.Clear();
-                _uniqueIdToThreadMap.Clear();
+                DetachThreadHandlers();
+                _topLevelItems.Clear();
+                MailItems.Clear();
+                ClearIndexes();
             });
+
+            await NotifySelectionChangesAsync();
         });
-    }
 
-    private object GetGroupingKey(IMailListItem mailItem)
-    {
-        if (!AreGroupHeadersEnabled)
-            return MailListGroupKey.Groupless;
-
-        if (mailItem.IsPinned)
-            return MailListGroupKey.Pinned;
-
-        if (SortingType == SortingOptionType.ReceiveDate)
-            return new MailListGroupKey(false, mailItem.CreationDate.ToLocalTime().Date);
-
-        return new MailListGroupKey(false, mailItem.FromName);
-    }
-
-    private bool ShouldReinsertForChanges(MailCopyChangeFlags changedProperties)
-    {
-        if ((changedProperties & (MailCopyChangeFlags.ThreadId | MailCopyChangeFlags.IsPinned)) != 0)
-            return true;
-
-        if (SortingType == SortingOptionType.ReceiveDate)
-            return (changedProperties & MailCopyChangeFlags.CreationDate) != 0;
-
-        return (changedProperties & (MailCopyChangeFlags.FromName | MailCopyChangeFlags.FromAddress)) != 0;
-    }
-
-    private void UpdateUniqueIdHashes(IMailHashContainer itemContainer, bool isAdd)
-    {
-        if (isAdd)
-        {
-            if (itemContainer is MailItemViewModel mailItemVM)
-            {
-                MailCopyIdHashSet.TryAdd(mailItemVM.MailCopy.UniqueId, true);
-                _uniqueIdToMailItemMap[mailItemVM.MailCopy.UniqueId] = mailItemVM;
-            }
-            else if (itemContainer is ThreadMailItemViewModel threadVM)
-            {
-                foreach (var email in threadVM.ThreadEmails)
-                {
-                    MailCopyIdHashSet.TryAdd(email.MailCopy.UniqueId, true);
-                    _uniqueIdToMailItemMap[email.MailCopy.UniqueId] = email;
-                    _uniqueIdToThreadMap[email.MailCopy.UniqueId] = threadVM;
-                }
-            }
-        }
-        else
-        {
-            foreach (var id in itemContainer.GetContainingIds())
-            {
-                MailCopyIdHashSet.TryRemove(id, out _);
-                _uniqueIdToMailItemMap.TryRemove(id, out _);
-                _uniqueIdToThreadMap.TryRemove(id, out _);
-            }
-        }
-    }
-
-    private void UpdateThreadIdCache(IMailListItem item, bool isAdd)
-    {
-        foreach (var threadId in GetThreadIdsFromItem(item))
-        {
-            if (string.IsNullOrEmpty(threadId)) continue;
-
-            if (isAdd)
-            {
-                var list = _threadIdToItemsMap.GetOrAdd(threadId, static _ => new List<IMailListItem>());
-                list.Add(item);
-            }
-            else
-            {
-                if (_threadIdToItemsMap.TryGetValue(threadId, out var list))
-                {
-                    list.Remove(item);
-                    if (list.Count == 0)
-                    {
-                        _threadIdToItemsMap.TryRemove(threadId, out _);
-                    }
-                }
-            }
-        }
-    }
-
-    private IEnumerable<string> GetThreadIdsFromItem(IMailListItem item)
-    {
-        if (item is MailItemViewModel mailItem && !string.IsNullOrEmpty(mailItem.MailCopy.ThreadId))
-        {
-            yield return mailItem.MailCopy.ThreadId;
-        }
-        else if (item is ThreadMailItemViewModel threadItem)
-        {
-            // A thread enforces a single ThreadId across its children (see ThreadMailItemViewModel.AddEmail),
-            // so we only ever need the distinct set. Build it without LINQ to avoid per-call allocations.
-            string seen = null;
-            foreach (var email in threadItem.ThreadEmails)
-            {
-                var threadId = email.MailCopy.ThreadId;
-                if (string.IsNullOrEmpty(threadId) || string.Equals(threadId, seen, StringComparison.Ordinal))
-                    continue;
-
-                seen = threadId;
-                yield return threadId;
-            }
-        }
-    }
-
-    private IMailListItem FindThreadableItem(string threadId, Guid? excludedUniqueId = null, IMailListItem excludedItem = null)
-    {
-        if (string.IsNullOrEmpty(threadId) || !_threadIdToItemsMap.TryGetValue(threadId, out var items))
-        {
-            return null;
-        }
-
-        foreach (var item in items)
-        {
-            if (ReferenceEquals(item, excludedItem))
-            {
-                continue;
-            }
-
-            if (excludedUniqueId.HasValue)
-            {
-                if (item is MailItemViewModel mailItem && mailItem.MailCopy.UniqueId == excludedUniqueId.Value)
-                {
-                    continue;
-                }
-
-                if (item is ThreadMailItemViewModel threadItem && threadItem.HasUniqueId(excludedUniqueId.Value))
-                {
-                    continue;
-                }
-            }
-
-            return item;
-        }
-
-        return null;
-    }
-
-    /// <summary>
-    /// Checks if a ThreadId exists in the collection.
-    /// </summary>
-    /// <param name="threadId">The ThreadId to check for.</param>
-    /// <returns>True if the ThreadId exists in the collection, false otherwise.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool ContainsThreadId(string threadId)
-    {
-        return !string.IsNullOrEmpty(threadId) && _threadIdToItemsMap.ContainsKey(threadId);
-    }
+        => !string.IsNullOrEmpty(threadId) && _threadIdToItemsMap.ContainsKey(threadId);
 
-    /// <summary>
-    /// Checks whether a mail with the given UniqueId currently exists in this collection.
-    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool ContainsMailUniqueId(Guid uniqueId) => MailCopyIdHashSet.ContainsKey(uniqueId);
 
-    /// <summary>
-    /// Finds a MailItemViewModel by its UniqueId, searching through all items including those inside threads.
-    /// </summary>
-    /// <param name="uniqueId">The UniqueId of the mail item to find.</param>
-    /// <returns>The MailItemViewModel if found, otherwise null.</returns>
     public MailItemViewModel Find(Guid uniqueId)
     {
-        // Fast path: check the cache for O(1) lookup
         if (_uniqueIdToMailItemMap.TryGetValue(uniqueId, out var cachedMailItem))
         {
             return cachedMailItem;
         }
 
-        // Fallback: scan all groups and populate caches
-        foreach (var group in _mailItemSource)
-        {
-            foreach (var item in group)
-            {
-                if (item is MailItemViewModel mailItem && mailItem.MailCopy.UniqueId == uniqueId)
-                {
-                    _uniqueIdToMailItemMap[uniqueId] = mailItem;
-                    return mailItem;
-                }
-                else if (item is ThreadMailItemViewModel threadItem && threadItem.HasUniqueId(uniqueId))
-                {
-                    var foundInThread = threadItem.ThreadEmails.FirstOrDefault(e => e.MailCopy.UniqueId == uniqueId);
-                    if (foundInThread != null)
-                    {
-                        _uniqueIdToMailItemMap[uniqueId] = foundInThread;
-                        _uniqueIdToThreadMap[uniqueId] = threadItem;
-                        return foundInThread;
-                    }
-                }
-            }
-        }
-
-        return null;
+        RebuildMailLookupIndexes();
+        return _uniqueIdToMailItemMap.TryGetValue(uniqueId, out cachedMailItem) ? cachedMailItem : null;
     }
 
     public ThreadMailItemViewModel GetThreadByMailUniqueId(Guid uniqueId)
@@ -339,983 +240,299 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
             return threadViewModel;
         }
 
-        _ = Find(uniqueId);
-
+        RebuildMailLookupIndexes();
         return _uniqueIdToThreadMap.TryGetValue(uniqueId, out threadViewModel) ? threadViewModel : null;
     }
 
     public List<ThreadMailItemViewModel> GetThreadItems()
-    {
-        var threads = new List<ThreadMailItemViewModel>();
-
-        foreach (var group in _mailItemSource)
-        {
-            foreach (var item in group)
-            {
-                if (item is ThreadMailItemViewModel threadItem)
-                {
-                    threads.Add(threadItem);
-                }
-            }
-        }
-
-        return threads;
-    }
-
-    private async Task InsertItemInternalAsync(object groupKey, IMailListItem mailItem)
-    {
-        UpdateUniqueIdHashes(mailItem, true);
-        UpdateThreadIdCache(mailItem, true);
-        await ExecuteUIThread(() =>
-        {
-            _mailItemSource.InsertItem(groupKey, _listComparer, mailItem, _listComparer);
-
-            // Update item-to-group cache
-            var group = _mailItemSource.FirstGroupByKeyOrDefault(groupKey);
-            if (group != null)
-            {
-                _itemToGroupMap[mailItem] = group;
-            }
-        });
-    }
-
-    private async Task RemoveItemInternalAsync(ObservableGroup<object, IMailListItem> group, IMailListItem mailItem, bool detachThreadHandlers = true)
-    {
-        UpdateUniqueIdHashes(mailItem, false);
-        UpdateThreadIdCache(mailItem, false);
-
-        if (mailItem is MailItemViewModel singleMailItem)
-        {
-            MailItemRemoved?.Invoke(this, singleMailItem);
-        }
-        else if (mailItem is ThreadMailItemViewModel threadViewModel)
-        {
-            foreach (var threadMailItem in threadViewModel.ThreadEmails)
-            {
-                MailItemRemoved?.Invoke(this, threadMailItem);
-            }
-
-            if (detachThreadHandlers)
-            {
-                threadViewModel.UnregisterThreadEmailPropertyChangedHandlers();
-            }
-        }
-
-        await ExecuteUIThread(() =>
-        {
-            group.Remove(mailItem);
-
-            // Remove from item-to-group cache
-            _itemToGroupMap.TryRemove(mailItem, out _);
-
-            if (group.Count == 0)
-            {
-                _mailItemSource.RemoveGroup(group.Key);
-            }
-        });
-    }
-
-    private async Task HandleThreadingAsync(ObservableGroup<object, IMailListItem> group, IMailListItem item, MailCopy addedItem)
-    {
-        if (item is ThreadMailItemViewModel threadViewModel)
-        {
-            await HandleExistingThreadAsync(group, threadViewModel, addedItem);
-        }
-        else if (item is MailItemViewModel mailViewModel)
-        {
-            await HandleNewThreadAsync(group, mailViewModel, addedItem);
-        }
-    }
-
-    private async Task HandleExistingThreadAsync(ObservableGroup<object, IMailListItem> group, ThreadMailItemViewModel threadViewModel, MailCopy addedItem)
-    {
-        var existingGroupKey = GetGroupingKey(threadViewModel);
-
-        // Update ThreadId cache before modifying the thread
-        UpdateThreadIdCache(threadViewModel, false);
-
-        var newMailItem = new MailItemViewModel(addedItem);
-
-        await ExecuteUIThread(() =>
-        {
-            threadViewModel.AddEmail(newMailItem);
-        });
-
-        // Update ThreadId cache after modifying the thread
-        UpdateThreadIdCache(threadViewModel, true);
-
-        // Update caches for the new mail item (use the actual instance, not a throwaway)
-        MailCopyIdHashSet.TryAdd(addedItem.UniqueId, true);
-        _uniqueIdToMailItemMap[addedItem.UniqueId] = newMailItem;
-        _uniqueIdToThreadMap[addedItem.UniqueId] = threadViewModel;
-
-        var newGroupKey = GetGroupingKey(threadViewModel);
-
-        if (!existingGroupKey.Equals(newGroupKey))
-        {
-            await MoveThreadToNewGroupAsync(group, threadViewModel, newGroupKey);
-        }
-        else
-        {
-            await ExecuteUIThread(() => { threadViewModel.ThreadEmails = threadViewModel.ThreadEmails; });
-        }
-    }
-
-    private async Task HandleNewThreadAsync(ObservableGroup<object, IMailListItem> group, MailItemViewModel item, MailCopy addedItem)
-    {
-        if (item.MailCopy.UniqueId == addedItem.UniqueId)
-        {
-            var existingItemContainer = GetMailItemContainer(addedItem.UniqueId);
-            await UpdateExistingItemAsync(existingItemContainer, addedItem);
-        }
-        else
-        {
-            await CreateNewThreadAsync(group, item, addedItem);
-        }
-    }
-
-    private async Task MoveThreadToNewGroupAsync(ObservableGroup<object, IMailListItem> currentGroup, ThreadMailItemViewModel threadViewModel, object newGroupKey)
-    {
-        await RemoveItemInternalAsync(currentGroup, threadViewModel, detachThreadHandlers: false);
-        await InsertItemInternalAsync(newGroupKey, threadViewModel);
-    }
-
-    private async Task CreateNewThreadAsync(ObservableGroup<object, IMailListItem> group, MailItemViewModel item, MailCopy addedItem)
-    {
-        var threadViewModel = ThreadItemFactory(item.MailCopy.ThreadId);
-
-        await ExecuteUIThread(() =>
-        {
-            threadViewModel.AddEmail(item);
-            threadViewModel.AddEmail(new MailItemViewModel(addedItem));
-        });
-
-        var newGroupKey = GetGroupingKey(threadViewModel);
-
-        await RemoveItemInternalAsync(group, item);
-        await InsertItemInternalAsync(newGroupKey, threadViewModel);
-    }
+        => _topLevelItems.OfType<ThreadMailItemViewModel>().ToList();
 
     public Task AddAsync(MailCopy addedItem)
-        => RunSerializedAsync(() => AddInternalAsync(addedItem));
-
-    private async Task AddInternalAsync(MailCopy addedItem)
-    {
-        // First check if this is an update to an existing item
-        if (MailCopyIdHashSet.ContainsKey(addedItem.UniqueId))
+        => RunSerializedAsync(async () =>
         {
-            // Find and update the existing item
-            var existingItemContainer = GetMailItemContainer(addedItem.UniqueId);
-            if (existingItemContainer?.ItemViewModel != null)
+            if (addedItem == null)
             {
-                await UpdateExistingItemAsync(existingItemContainer, addedItem);
                 return;
             }
-        }
 
-        // Check if this item should be threaded with an existing item
-        if (IsThreadingEnabled && !string.IsNullOrEmpty(addedItem.ThreadId))
-        {
-            var threadableItem = FindThreadableItem(addedItem.ThreadId);
-            if (threadableItem != null)
-            {
-                // Find the group containing this item
-                var targetGroup = FindGroupContainingItem(threadableItem);
-                if (targetGroup != null)
-                {
-                    await HandleThreadingAsync(targetGroup, threadableItem, addedItem);
-                    return;
-                }
-            }
-        }
-
-        // No threading needed, add as new item
-        await AddNewItemAsync(addedItem);
-    }
-
-    private ObservableGroup<object, IMailListItem> FindGroupContainingItem(IMailListItem item)
-    {
-        // Try cache first
-        if (_itemToGroupMap.TryGetValue(item, out var cachedGroup))
-        {
-            // Cache can become stale during concurrent list refreshes/moves.
-            // Validate before returning so we don't mutate a detached group.
-            if (_mailItemSource.Contains(cachedGroup) && cachedGroup.Contains(item))
-            {
-                return cachedGroup;
-            }
-
-            _itemToGroupMap.TryRemove(item, out _);
-        }
-
-        // Fallback to search if not in cache
-        foreach (var group in _mailItemSource)
-        {
-            if (group.Contains(item))
-            {
-                _itemToGroupMap[item] = group;
-                return group;
-            }
-        }
-        return null;
-    }
-
-    private async Task AddNewItemAsync(MailCopy addedItem)
-    {
-        var newMailItem = new MailItemViewModel(addedItem);
-        var groupKey = GetGroupingKey(newMailItem);
-        await InsertItemInternalAsync(groupKey, newMailItem);
-    }
-
-    private async Task ReinsertUpdatedItemAsync(MailCopy updatedItem, bool isSelected, bool isBusy)
-    {
-        await RemoveInternalAsync(updatedItem);
-        await AddInternalAsync(updatedItem);
-
-        var updatedContainer = GetMailItemContainer(updatedItem.UniqueId);
-        if (updatedContainer?.ItemViewModel == null)
-        {
-            return;
-        }
-
-        await ExecuteUIThread(() =>
-        {
-            updatedContainer.ItemViewModel.IsSelected = isSelected;
-            updatedContainer.ItemViewModel.IsBusy = isBusy;
-        });
-    }
-
-    private async Task UpdateExistingItemAsync(MailItemContainer itemContainer,
-                                               MailCopy updatedItem,
-                                               EntityUpdateSource mailUpdateSource = EntityUpdateSource.Server,
-                                               MailCopyChangeFlags changeHint = MailCopyChangeFlags.None)
-    {
-        if (itemContainer?.ItemViewModel == null)
-        {
-            return;
-        }
-
-        var existingItem = itemContainer.ItemViewModel;
-        var threadOwner = itemContainer.ThreadViewModel as IMailListItem ?? existingItem;
-        var wasSelected = existingItem.IsSelected;
-        MailCopyChangeFlags appliedChanges = MailCopyChangeFlags.None;
-
-        await ExecuteUIThread(() =>
-        {
-            UpdateUniqueIdHashes(existingItem, false);
-            UpdateThreadIdCache(threadOwner, false);
-
-            itemContainer.ThreadViewModel?.SuspendChildPropertyNotifications();
-
-            try
-            {
-                appliedChanges = existingItem.UpdateFrom(updatedItem, changeHint);
-            }
-            finally
-            {
-                itemContainer.ThreadViewModel?.ResumeChildPropertyNotifications();
-            }
-
-            existingItem.IsBusy = mailUpdateSource == EntityUpdateSource.ClientUpdated;
-
-            UpdateUniqueIdHashes(existingItem, true);
-            UpdateThreadIdCache(threadOwner, true);
-
-            if (itemContainer.ThreadViewModel != null)
-            {
-                _uniqueIdToThreadMap[existingItem.MailCopy.UniqueId] = itemContainer.ThreadViewModel;
-            }
-            else
-            {
-                _uniqueIdToThreadMap.TryRemove(existingItem.MailCopy.UniqueId, out _);
-            }
-        });
-
-        if (ShouldReinsertForChanges(appliedChanges))
-        {
-            await ReinsertUpdatedItemAsync(updatedItem, wasSelected, existingItem.IsBusy);
-            return;
-        }
-
-        if (itemContainer.ThreadViewModel != null && appliedChanges != MailCopyChangeFlags.None)
-        {
             await ExecuteUIThread(() =>
             {
-                itemContainer.ThreadViewModel.NotifyMailItemUpdated(existingItem, appliedChanges);
+                var addResult = AddMailCore(new MailItemViewModel(addedItem));
+                SortTopLevelItems();
+                RebuildMailLookupIndexes();
+
+                if (addResult.RequiresFullGroupRebuild)
+                {
+                    RebuildGroups();
+                }
+                else
+                {
+                    RefreshGroupsIncrementally(addResult.TouchedItems);
+                }
             });
-        }
-    }
+        });
 
-    /// <summary>
-    /// Adds multiple emails to the collection.
-    /// </summary>
     public Task AddRangeAsync(IEnumerable<MailItemViewModel> items, bool clearIdCache)
-        => RunSerializedAsync(() => AddRangeInternalAsync(items, clearIdCache));
-
-    private async Task AddRangeInternalAsync(IEnumerable<MailItemViewModel> items, bool clearIdCache)
-    {
-        if (clearIdCache)
+        => RunSerializedAsync(async () =>
         {
-            MailCopyIdHashSet.Clear();
-            _threadIdToItemsMap.Clear();
-            _itemToGroupMap.Clear();
-            _uniqueIdToMailItemMap.Clear();
-            _uniqueIdToThreadMap.Clear();
-        }
-
-        var itemsList = items as List<MailItemViewModel> ?? items.ToList();
-        if (itemsList.Count == 0) return;
-
-        var itemsToAdd = new List<IMailListItem>(itemsList.Count);
-        var processedItems = new HashSet<MailItemViewModel>(itemsList.Count);
-        var itemsToUpdate = new List<(MailItemViewModel existing, MailCopy updated)>();
-        var threadingOperations = new List<(ObservableGroup<object, IMailListItem> group, IMailListItem item, MailCopy addedItem)>();
-
-        // Build a lookup for existing groups to avoid repeated searches
-        var groupLookup = new Dictionary<IMailListItem, ObservableGroup<object, IMailListItem>>(_mailItemSource.Count * 10);
-        foreach (var group in _mailItemSource)
-        {
-            foreach (var item in group)
+            var mailItems = items?.Where(static item => item != null).ToList() ?? [];
+            if (mailItems.Count == 0 && !clearIdCache)
             {
-                groupLookup[item] = group;
-            }
-        }
-
-        // Build thread lookup from the batch items
-        var batchThreadLookup = new Dictionary<string, List<MailItemViewModel>>();
-        if (IsThreadingEnabled)
-        {
-            foreach (var item in itemsList)
-            {
-                if (!string.IsNullOrEmpty(item.MailCopy.ThreadId))
-                {
-                    if (!batchThreadLookup.TryGetValue(item.MailCopy.ThreadId, out var list))
-                    {
-                        list = new List<MailItemViewModel>();
-                        batchThreadLookup[item.MailCopy.ThreadId] = list;
-                    }
-                    list.Add(item);
-                }
-            }
-        }
-
-        // Process items and handle threading
-        foreach (var item in itemsList)
-        {
-            if (processedItems.Contains(item))
-                continue;
-
-            // Check if this is an update to an existing item
-            if (MailCopyIdHashSet.ContainsKey(item.MailCopy.UniqueId))
-            {
-                var existingItemContainer = GetMailItemContainer(item.MailCopy.UniqueId);
-                if (existingItemContainer?.ItemViewModel != null)
-                {
-                    itemsToUpdate.Add((existingItemContainer.ItemViewModel, item.MailCopy));
-                    processedItems.Add(item);
-                    continue;
-                }
+                return;
             }
 
-            // Check if this item should be threaded
-            if (IsThreadingEnabled && !string.IsNullOrEmpty(item.MailCopy.ThreadId))
+            await ExecuteUIThread(() =>
             {
-                // Look for existing item with same ThreadId
-                var existingThreadableItem = FindThreadableItem(item.MailCopy.ThreadId);
-
-                if (existingThreadableItem != null)
+                if (clearIdCache)
                 {
-                    // Thread with existing item
-                    if (groupLookup.TryGetValue(existingThreadableItem, out var targetGroup))
-                    {
-                        threadingOperations.Add((targetGroup, existingThreadableItem, item.MailCopy));
-                        processedItems.Add(item);
-                        continue;
-                    }
+                    DetachThreadHandlers();
+                    _topLevelItems.Clear();
+                    ClearIndexes();
                 }
 
-                // Look for other items in the current batch with same ThreadId
-                if (batchThreadLookup.TryGetValue(item.MailCopy.ThreadId, out var threadableItems) && threadableItems.Count > 1)
+                var touchedItems = new List<IMailListItem>();
+                var requiresFullRebuild = clearIdCache;
+
+                foreach (var item in mailItems)
                 {
-                    // Create a new thread with all matching items - defer UI operations
-                    var threadViewModel = ThreadItemFactory(item.MailCopy.ThreadId);
-
-                    // Add emails without UI thread for now
-                    foreach (var threadItem in threadableItems)
-                    {
-                        threadViewModel.AddEmail(threadItem);
-                    }
-
-                    itemsToAdd.Add(threadViewModel);
-
-                    // Mark all threaded items as processed
-                    foreach (var threadItem in threadableItems)
-                    {
-                        processedItems.Add(threadItem);
-                    }
-                    continue;
+                    var addResult = AddMailCore(item);
+                    requiresFullRebuild |= addResult.RequiresFullGroupRebuild;
+                    touchedItems.AddRange(addResult.TouchedItems);
+                    RebuildMailLookupIndexes();
                 }
-            }
 
-            // No threading needed, add as single item
-            itemsToAdd.Add(item);
-            processedItems.Add(item);
-        }
+                SortTopLevelItems();
+                RebuildMailLookupIndexes();
 
-        // Execute all threading operations in a single UI thread call
-        if (threadingOperations.Count > 0)
-        {
-            foreach (var (group, existingItem, addedItem) in threadingOperations)
-            {
-                await HandleThreadingAsync(group, existingItem, addedItem);
-            }
-        }
-
-        // Execute all updates in a single UI thread call
-        if (itemsToUpdate.Count > 0)
-        {
-            foreach (var updateBatch in itemsToUpdate.Chunk(UiMutationBatchSize))
-            {
-                await ExecuteUIThread(() =>
+                if (requiresFullRebuild)
                 {
-                    foreach (var (existing, updated) in updateBatch)
-                    {
-                        UpdateUniqueIdHashes(existing, false);
-                        existing.UpdateFrom(updated);
-                        UpdateUniqueIdHashes(existing, true);
-                    }
-                });
-            }
-        }
-
-        // Group items by their grouping key and add them in bounded UI thread calls.
-        if (itemsToAdd.Count > 0)
-        {
-            var groupedItems = await Task.Run(() => itemsToAdd
-                .GroupBy(GetGroupingKey)
-                .OrderBy(group => group.Key, _listComparer)
-                .Select(group => new
-                {
-                    Key = group.Key,
-                    Items = group.OrderBy(item => (object)item, _listComparer).ToList()
-                })
-                .ToList()).ConfigureAwait(false);
-
-            foreach (var groupedItem in groupedItems)
-            {
-                var groupKey = groupedItem.Key;
-                var groupItems = groupedItem.Items;
-
-                foreach (var groupBatch in groupItems.Chunk(UiMutationBatchSize))
-                {
-                    await ExecuteUIThread(() =>
-                    {
-                        // Update caches first so lookup helpers remain consistent during inserts.
-                        foreach (var item in groupBatch)
-                        {
-                            UpdateUniqueIdHashes(item, true);
-                            UpdateThreadIdCache(item, true);
-                        }
-
-                        foreach (var item in groupBatch)
-                        {
-                            _mailItemSource.InsertItem(groupKey, _listComparer, item, _listComparer);
-
-                            var targetGroup = _mailItemSource.FirstGroupByKeyOrDefault(groupKey);
-                            if (targetGroup != null)
-                            {
-                                _itemToGroupMap[item] = targetGroup;
-                            }
-                        }
-                    });
+                    RebuildGroups();
                 }
-            }
-        }
-    }
-
-    public MailItemContainer GetMailItemContainer(Guid uniqueMailId)
-    {
-        // Fast path: use caches for O(1) lookup
-        if (_uniqueIdToMailItemMap.TryGetValue(uniqueMailId, out var cachedMailItem))
-        {
-            if (_uniqueIdToThreadMap.TryGetValue(uniqueMailId, out var threadVM))
-            {
-                return new MailItemContainer(cachedMailItem, threadVM);
-            }
-
-            return new MailItemContainer(cachedMailItem);
-        }
-
-        // Fallback: scan all groups and populate caches
-        for (int i = 0; i < _mailItemSource.Count; i++)
-        {
-            var group = _mailItemSource[i];
-
-            for (int k = 0; k < group.Count; k++)
-            {
-                var item = group[k];
-
-                if (item is MailItemViewModel singleMailItemViewModel && singleMailItemViewModel.MailCopy.UniqueId == uniqueMailId)
+                else
                 {
-                    _uniqueIdToMailItemMap[uniqueMailId] = singleMailItemViewModel;
-                    return new MailItemContainer(singleMailItemViewModel);
+                    RefreshGroupsIncrementally(touchedItems);
                 }
-                else if (item is ThreadMailItemViewModel threadMailItemViewModel && threadMailItemViewModel.HasUniqueId(uniqueMailId))
-                {
-                    var singleItemViewModel = threadMailItemViewModel.ThreadEmails.FirstOrDefault(e => e.MailCopy.UniqueId == uniqueMailId);
+            });
+        });
 
-                    if (singleItemViewModel != null)
-                    {
-                        _uniqueIdToMailItemMap[uniqueMailId] = singleItemViewModel;
-                        _uniqueIdToThreadMap[uniqueMailId] = threadMailItemViewModel;
-                    }
-
-                    return new MailItemContainer(singleItemViewModel, threadMailItemViewModel);
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /// <summary>
-    /// Updates thumbnails for all mail items with the specified address.
-    /// </summary>
     public Task UpdateThumbnailsForAddressAsync(string address)
     {
-        if (CoreDispatcher == null) return Task.CompletedTask;
-
-        return RunSerializedAsync(() => CoreDispatcher.ExecuteOnUIThread(() =>
+        if (string.IsNullOrWhiteSpace(address))
         {
-            foreach (var group in _mailItemSource)
+            return Task.CompletedTask;
+        }
+
+        return RunSerializedAsync(() => ExecuteUIThread(() =>
+        {
+            foreach (var mailItem in EnumerateLeafItems())
             {
-                foreach (var item in group)
+                if (mailItem.MailCopy.FromAddress?.Equals(address, StringComparison.OrdinalIgnoreCase) == true)
                 {
-                    if (item is MailItemViewModel mailItemViewModel && mailItemViewModel.MailCopy.FromAddress?.Equals(address, StringComparison.OrdinalIgnoreCase) == true)
-                    {
-                        mailItemViewModel.ThumbnailUpdatedEvent = !mailItemViewModel.ThumbnailUpdatedEvent;
-                    }
-                    else if (item is ThreadMailItemViewModel threadViewModel)
-                    {
-                        foreach (var threadMailItem in threadViewModel.ThreadEmails)
-                        {
-                            if (threadMailItem.MailCopy.FromAddress?.Equals(address, StringComparison.OrdinalIgnoreCase) == true)
-                            {
-                                threadMailItem.ThumbnailUpdatedEvent = !threadMailItem.ThumbnailUpdatedEvent;
-                            }
-                        }
-                    }
+                    mailItem.ThumbnailUpdatedEvent = !mailItem.ThumbnailUpdatedEvent;
                 }
             }
         }));
     }
 
-    /// <summary>
-    /// Finds the item container that updated mail copy belongs to and updates it.
-    /// </summary>
-    /// <param name="updatedMailCopy">Updated mail copy.</param>
-    /// <returns></returns>
     public Task UpdateMailCopy(MailCopy updatedMailCopy, EntityUpdateSource mailUpdateSource, MailCopyChangeFlags changedProperties = MailCopyChangeFlags.None)
-        => RunSerializedAsync(() =>
+        => RunSerializedAsync(async () =>
         {
-            var itemContainer = GetMailItemContainer(updatedMailCopy.UniqueId);
-
-            if (itemContainer?.ItemViewModel == null)
+            if (updatedMailCopy == null)
             {
-                return Task.CompletedTask;
+                return;
             }
 
-            return UpdateExistingItemAsync(itemContainer, updatedMailCopy, mailUpdateSource, changedProperties);
+            await ExecuteUIThread(() =>
+            {
+                var updateResult = UpdateMailCopyCore(updatedMailCopy, mailUpdateSource, changedProperties);
+                SortTopLevelItems();
+                RebuildMailLookupIndexes();
+                RefreshGroupsIncrementally(updateResult.TouchedItems);
+            });
         });
 
     public Task UpdateMailStateAsync(MailStateChange updatedState, EntityUpdateSource mailUpdateSource)
-        => RunSerializedAsync(() =>
+        => RunSerializedAsync(async () =>
         {
             if (updatedState == null)
-                return Task.CompletedTask;
-
-            var itemContainer = GetMailItemContainer(updatedState.UniqueId);
-
-            if (itemContainer?.ItemViewModel == null)
             {
-                return Task.CompletedTask;
+                return;
             }
 
-            return UpdateExistingMailStateAsync(itemContainer, updatedState, mailUpdateSource);
+            await ExecuteUIThread(() => UpdateMailStateCore(updatedState, mailUpdateSource));
         });
 
     public Task UpdateMailStatesAsync(IEnumerable<MailStateChange> updatedStates, EntityUpdateSource mailUpdateSource)
-        => RunSerializedAsync(() => UpdateMailStatesInternalAsync(updatedStates, mailUpdateSource));
+        => RunSerializedAsync(async () =>
+        {
+            var states = updatedStates?
+                .Where(static state => state != null)
+                .GroupBy(static state => state.UniqueId)
+                .Select(static group => group.Last())
+                .ToList() ?? [];
+
+            if (states.Count == 0)
+            {
+                return;
+            }
+
+            await ExecuteUIThread(() =>
+            {
+                foreach (var state in states)
+                {
+                    UpdateMailStateCore(state, mailUpdateSource);
+                }
+            });
+        });
 
     public Task UpdateMailCopiesAsync(IEnumerable<MailCopy> updatedMailCopies, EntityUpdateSource mailUpdateSource, MailCopyChangeFlags changedProperties = MailCopyChangeFlags.None)
-        => RunSerializedAsync(() => UpdateMailCopiesInternalAsync(updatedMailCopies, mailUpdateSource, changedProperties));
-
-    private async Task UpdateExistingMailStateAsync(MailItemContainer itemContainer, MailStateChange updatedState, EntityUpdateSource mailUpdateSource)
-    {
-        if (itemContainer?.ItemViewModel == null || updatedState == null)
-            return;
-
-        var existingItem = itemContainer.ItemViewModel;
-
-        await ExecuteUIThread(() =>
+        => RunSerializedAsync(async () =>
         {
-            var appliedChanges = existingItem.ApplyStateChanges(updatedState.IsRead, updatedState.IsFlagged);
-            existingItem.IsBusy = mailUpdateSource == EntityUpdateSource.ClientUpdated;
+            var copies = updatedMailCopies?
+                .Where(static copy => copy != null)
+                .GroupBy(static copy => copy.UniqueId)
+                .Select(static group => group.Last())
+                .ToList() ?? [];
 
-            if (itemContainer.ThreadViewModel != null && appliedChanges != MailCopyChangeFlags.None)
+            if (copies.Count == 0)
             {
-                itemContainer.ThreadViewModel.NotifyMailItemUpdated(existingItem, appliedChanges);
+                return;
             }
+
+            await ExecuteUIThread(() =>
+            {
+                var touchedItems = new List<IMailListItem>();
+
+                foreach (var copy in copies)
+                {
+                    touchedItems.AddRange(UpdateMailCopyCore(copy, mailUpdateSource, changedProperties).TouchedItems);
+                    RebuildMailLookupIndexes();
+                }
+
+                SortTopLevelItems();
+                RebuildMailLookupIndexes();
+                RefreshGroupsIncrementally(touchedItems);
+            });
         });
-    }
 
-    private async Task UpdateMailStatesInternalAsync(IEnumerable<MailStateChange> updatedStates, EntityUpdateSource mailUpdateSource)
-    {
-        var updates = updatedStates?
-            .Where(x => x != null)
-            .GroupBy(x => x.UniqueId)
-            .Select(group =>
-            {
-                var updatedState = group.Last();
-                return new
-                {
-                    UpdatedState = updatedState,
-                    ItemContainer = GetMailItemContainer(updatedState.UniqueId)
-                };
-            })
-            .Where(x => x.ItemContainer?.ItemViewModel != null)
-            .ToList() ?? [];
-
-        if (updates.Count == 0)
-            return;
-
-        foreach (var updateBatch in updates.Chunk(UiMutationBatchSize))
-        {
-            await ExecuteUIThread(() =>
-            {
-                foreach (var update in updateBatch)
-                {
-                    var existingItem = update.ItemContainer.ItemViewModel;
-                    var appliedChanges = existingItem.ApplyStateChanges(update.UpdatedState.IsRead, update.UpdatedState.IsFlagged);
-                    existingItem.IsBusy = mailUpdateSource == EntityUpdateSource.ClientUpdated;
-
-                    if (update.ItemContainer.ThreadViewModel != null && appliedChanges != MailCopyChangeFlags.None)
-                    {
-                        update.ItemContainer.ThreadViewModel.NotifyMailItemUpdated(existingItem, appliedChanges);
-                    }
-                }
-            });
-        }
-    }
-
-    private async Task UpdateMailCopiesInternalAsync(IEnumerable<MailCopy> updatedMailCopies, EntityUpdateSource mailUpdateSource, MailCopyChangeFlags changedProperties)
-    {
-        var updates = updatedMailCopies?
-            .Where(x => x != null)
-            .GroupBy(x => x.UniqueId)
-            .Select(group =>
-            {
-                var updatedMail = group.First();
-                return new
-                {
-                    UpdatedMail = updatedMail,
-                    ItemContainer = GetMailItemContainer(updatedMail.UniqueId)
-                };
-            })
-            .Where(x => x.ItemContainer?.ItemViewModel != null)
-            .ToList() ?? [];
-
-        if (updates.Count == 0)
-            return;
-
-        if (changedProperties == MailCopyChangeFlags.None || ShouldReinsertForChanges(changedProperties))
-        {
-            foreach (var update in updates)
-            {
-                await UpdateExistingItemAsync(update.ItemContainer, update.UpdatedMail, mailUpdateSource, changedProperties);
-            }
-
-            return;
-        }
-
-        foreach (var updateBatch in updates.Chunk(UiMutationBatchSize))
-        {
-            await ExecuteUIThread(() =>
-            {
-                foreach (var update in updateBatch)
-                {
-                    var updatedMail = update.UpdatedMail;
-                    var itemContainer = update.ItemContainer;
-                    var existingItem = itemContainer.ItemViewModel;
-                    var appliedChanges = existingItem.UpdateFrom(updatedMail, changedProperties);
-                    existingItem.IsBusy = mailUpdateSource == EntityUpdateSource.ClientUpdated;
-
-                    if (itemContainer.ThreadViewModel != null && appliedChanges != MailCopyChangeFlags.None)
-                    {
-                        itemContainer.ThreadViewModel.NotifyMailItemUpdated(existingItem, appliedChanges);
-                    }
-                }
-            });
-        }
-    }
-
-    public MailItemViewModel GetFirst() => AllItems.ElementAtOrDefault(0);
+    public MailItemViewModel GetFirst() => EnumerateLeafItems().FirstOrDefault();
 
     public MailItemViewModel GetNextItem(MailCopy mailCopy)
     {
         try
         {
-            var groupCount = _mailItemSource.Count;
-
-            for (int i = 0; i < groupCount; i++)
-            {
-                var group = _mailItemSource[i];
-
-                for (int k = 0; k < group.Count; k++)
-                {
-                    var item = group[k];
-
-                    if (item is MailItemViewModel singleMailItemViewModel && singleMailItemViewModel.MailCopy.UniqueId == mailCopy.UniqueId)
-                    {
-                        if (k + 1 < group.Count)
-                        {
-                            return group[k + 1] as MailItemViewModel;
-                        }
-                        else if (i + 1 < groupCount)
-                        {
-                            return _mailItemSource[i + 1][0] as MailItemViewModel;
-                        }
-                        else
-                        {
-                            return null;
-                        }
-                    }
-                    else if (item is ThreadMailItemViewModel threadMailItemViewModel && threadMailItemViewModel.HasUniqueId(mailCopy.UniqueId))
-                    {
-                        var singleItemViewModel = threadMailItemViewModel.ThreadEmails.FirstOrDefault(e => e.MailCopy.UniqueId == mailCopy.UniqueId);
-
-                        if (singleItemViewModel == null) return null;
-
-                        // ObservableCollection exposes IndexOf directly; avoid the throwaway ToList allocation.
-                        var singleItemIndex = threadMailItemViewModel.ThreadEmails.IndexOf(singleItemViewModel);
-
-                        if (singleItemIndex + 1 < threadMailItemViewModel.ThreadEmails.Count)
-                        {
-                            return threadMailItemViewModel.ThreadEmails[singleItemIndex + 1];
-                        }
-                        else if (i + 1 < groupCount)
-                        {
-                            return _mailItemSource[i + 1][0] as MailItemViewModel;
-                        }
-                        else
-                        {
-                            return null;
-                        }
-                    }
-                }
-            }
-
-            return null;
+            var leaves = EnumerateLeafItems().ToList();
+            var index = leaves.FindIndex(item => item.MailCopy.UniqueId == mailCopy.UniqueId);
+            return index >= 0 && index + 1 < leaves.Count ? leaves[index + 1] : null;
         }
         catch (Exception ex)
         {
             Log.Warning(ex, "Failed to find the next item to select.");
+            return null;
         }
-
-        return null;
     }
 
     public Task RemoveAsync(MailCopy removeItem)
-        => RunSerializedAsync(() => RemoveInternalAsync(removeItem));
+        => RunSerializedAsync(async () =>
+        {
+            if (removeItem == null)
+            {
+                return;
+            }
+
+            await ExecuteUIThread(() =>
+            {
+                var removeResult = RemoveMailCore(removeItem.UniqueId);
+                SortTopLevelItems();
+                RebuildMailLookupIndexes();
+                RefreshGroupsIncrementally(removeResult.TouchedItems);
+            });
+
+            await NotifySelectionChangesAsync();
+        });
 
     public Task RemoveRangeAsync(IEnumerable<MailCopy> removeItems)
-        => RunSerializedAsync(() => RemoveRangeInternalAsync(removeItems));
-
-    private async Task RemoveInternalAsync(MailCopy removeItem)
-        => await RemoveInternalAsync(removeItem, notifySelectionChanges: true);
-
-    private async Task RemoveRangeInternalAsync(IEnumerable<MailCopy> removeItems)
-    {
-        var distinctItems = removeItems?
-            .Where(x => x != null)
-            .GroupBy(x => x.UniqueId)
-            .Select(group => group.First())
-            .ToList() ?? [];
-
-        if (distinctItems.Count == 0)
-            return;
-
-        foreach (var removeItem in distinctItems)
+        => RunSerializedAsync(async () =>
         {
-            await RemoveInternalAsync(removeItem, notifySelectionChanges: false);
-        }
+            var uniqueIds = removeItems?
+                .Where(static item => item != null)
+                .Select(static item => item.UniqueId)
+                .Distinct()
+                .ToList() ?? [];
 
-        await NotifySelectionChangesAsync();
-    }
-
-    private async Task RemoveInternalAsync(MailCopy removeItem, bool notifySelectionChanges)
-    {
-        var itemContainer = GetMailItemContainer(removeItem.UniqueId);
-
-        // This item doesn't exist in the list.
-        if (itemContainer?.ItemViewModel == null) return;
-
-        if (itemContainer.ThreadViewModel != null)
-        {
-            // Item is inside a thread - use cached lookups instead of scanning all groups.
-            var threadMailItemViewModel = itemContainer.ThreadViewModel;
-            var group = FindGroupContainingItem(threadMailItemViewModel);
-            if (group == null) return;
-
-            var removalItem = itemContainer.ItemViewModel;
-
-            // Update ThreadId cache before modifying the thread
-            UpdateThreadIdCache(threadMailItemViewModel, false);
-
-            await ExecuteUIThread(() => { threadMailItemViewModel.RemoveEmail(removalItem); });
-
-            // Always clean up the removed item's hashes (fixes leak when thread converts to single)
-            UpdateUniqueIdHashes(removalItem, false);
-
-            // Update ThreadId cache after modifying the thread
-            if (threadMailItemViewModel.EmailCount > 0)
+            if (uniqueIds.Count == 0)
             {
-                UpdateThreadIdCache(threadMailItemViewModel, true);
+                return;
             }
 
-            if (threadMailItemViewModel.EmailCount == 1)
+            await ExecuteUIThread(() =>
             {
-                // Convert to single item.
-                var singleViewModel = threadMailItemViewModel.ThreadEmails.First();
-                var groupKey = GetGroupingKey(singleViewModel);
+                var touchedItems = new List<IMailListItem>();
 
-                await RemoveItemInternalAsync(group, threadMailItemViewModel);
-                await InsertItemInternalAsync(groupKey, singleViewModel);
-
-                // If thread->single conversion is being done, we should ignore it for non-draft items.
-                // eg. Deleting a reply message from draft folder. Single non-draft item should not be re-added.
-                if (PruneSingleNonDraftItems && !singleViewModel.IsDraft)
+                foreach (var uniqueId in uniqueIds)
                 {
-                    var newGroup = _mailItemSource.FirstGroupByKeyOrDefault(groupKey);
-                    if (newGroup != null)
-                    {
-                        await RemoveItemInternalAsync(newGroup, singleViewModel);
-                    }
+                    touchedItems.AddRange(RemoveMailCore(uniqueId).TouchedItems);
+                    RebuildMailLookupIndexes();
                 }
-            }
-            else if (threadMailItemViewModel.EmailCount == 0)
-            {
-                await RemoveItemInternalAsync(group, threadMailItemViewModel);
-            }
-        }
-        else
-        {
-            // Standalone item.
-            IMailListItem mailItem = itemContainer.ItemViewModel;
-            var group = FindGroupContainingItem(mailItem);
 
-            if (group != null)
-            {
-                await RemoveItemInternalAsync(group, mailItem);
-            }
-        }
+                SortTopLevelItems();
+                RebuildMailLookupIndexes();
+                RefreshGroupsIncrementally(touchedItems);
+            });
 
-        if (notifySelectionChanges)
-        {
             await NotifySelectionChangesAsync();
-        }
-    }
+        });
 
-    /// <summary>
-    /// Allocation-free view over every leaf <see cref="MailItemViewModel"/> in the collection,
-    /// flattening thread children. This is the canonical traversal used by the selection
-    /// statistics; <see cref="AllItems"/> is a thin <see cref="IEnumerable{T}"/> adapter over it.
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private LeafMailItemEnumerable EnumerateLeafItems() => new(_mailItemSource);
-
-    private IEnumerable<IMailListItem> AllItemsIncludingThreads
+    public MailItemContainer GetMailItemContainer(Guid uniqueMailId)
     {
-        get
+        if (_uniqueIdToMailItemMap.TryGetValue(uniqueMailId, out var mailItem))
         {
-            foreach (var group in _mailItemSource)
-            {
-                foreach (var item in group)
-                {
-                    if (item is ThreadMailItemViewModel threadMailItemViewModel)
-                    {
-                        foreach (var child in threadMailItemViewModel.ThreadEmails)
-                        {
-                            yield return child;
-                        }
-                    }
-                    yield return item;
-                }
-            }
+            return _uniqueIdToThreadMap.TryGetValue(uniqueMailId, out var thread)
+                ? new MailItemContainer(mailItem, thread)
+                : new MailItemContainer(mailItem);
         }
+
+        RebuildMailLookupIndexes();
+
+        if (!_uniqueIdToMailItemMap.TryGetValue(uniqueMailId, out mailItem))
+        {
+            return null;
+        }
+
+        return _uniqueIdToThreadMap.TryGetValue(uniqueMailId, out var rebuiltThread)
+            ? new MailItemContainer(mailItem, rebuiltThread)
+            : new MailItemContainer(mailItem);
     }
 
-    private IEnumerable<MailItemViewModel> AllItems
-    {
-        get
-        {
-            foreach (var item in EnumerateLeafItems())
-            {
-                yield return item;
-            }
-        }
-    }
-
-    public IEnumerable<MailItemViewModel> SelectedItems => AllItems.Where(a => a.IsSelected);
+    public IEnumerable<MailItemViewModel> SelectedItems => EnumerateLeafItems().Where(static item => item.IsSelected);
 
     public int SelectedItemsCount
     {
         get
         {
-            int count = 0;
+            var count = 0;
             foreach (var item in EnumerateLeafItems())
             {
-                if (item.IsSelected) count++;
+                if (item.IsSelected)
+                {
+                    count++;
+                }
             }
+
             return count;
         }
     }
-
-    // Equal to the number of leaf mail items currently tracked. Derived from the id cache
-    // for O(1) access instead of re-flattening every group on each call.
-    public int AllItemsCount => MailCopyIdHashSet.Count;
 
     public bool IsAllItemsSelected
     {
         get
         {
-            int total = MailCopyIdHashSet.Count;
-            if (total == 0) return false;
-
-            int selected = 0;
-            foreach (var item in EnumerateLeafItems())
-            {
-                if (item.IsSelected) selected++;
-            }
-            return selected == total;
+            var total = MailCopyIdHashSet.Count;
+            return total > 0 && SelectedItemsCount == total;
         }
     }
 
-    public bool HasSingleItemSelected
-    {
-        get
-        {
-            int count = 0;
-            foreach (var item in EnumerateLeafItems())
-            {
-                if (item.IsSelected && ++count > 1)
-                {
-                    return false;
-                }
-            }
-            return count == 1;
-        }
-    }
+    public bool HasSingleItemSelected => SelectedItemsCount == 1;
 
     public async Task ExecuteSelectionBatchAsync(Action action, bool notifySelectionChanged = true)
     {
@@ -1323,9 +540,6 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         {
             _selectionNotificationSuppressionCount++;
             await ExecuteUIThread(action);
-        }
-        catch (Exception)
-        {
         }
         finally
         {
@@ -1347,77 +561,320 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     public Task ExecuteWithoutRaiseSelectionChangedAsync(Action<IMailListItem> action, bool includeThreads)
         => ExecuteSelectionBatchAsync(() =>
         {
-            if (includeThreads)
+            var items = includeThreads
+                ? EnumerateTopLevelAndLeafItems()
+                : EnumerateLeafItems().Cast<IMailListItem>();
+
+            foreach (var item in items)
             {
-                foreach (var item in AllItemsIncludingThreads)
-                {
-                    action(item);
-                }
+                action(item);
             }
-            else
+        });
+
+    public Task ToggleSelectAllAsync() => IsAllItemsSelected ? UnselectAllAsync() : SelectAllAsync();
+
+    public int IndexOf(object item) => _topLevelItems.FindIndex(topLevelItem => ReferenceEquals(topLevelItem, item));
+
+    public Task SelectTopLevelItemAsync(IMailListItem item, bool isMultiSelectionEnabled)
+        => ExecuteSelectionBatchAsync(() =>
+        {
+            if (item == null)
             {
-                foreach (var item in AllItems)
+                return;
+            }
+
+            if (isMultiSelectionEnabled)
+            {
+                switch (item)
                 {
-                    action(item);
+                    case MailItemViewModel mail:
+                        mail.IsSelected = !mail.IsSelected;
+                        break;
+                    case ThreadMailItemViewModel thread:
+                        var shouldSelectThread = !thread.IsSelected || !thread.ThreadEmails.All(static child => child.IsSelected);
+                        SetThreadAndChildrenSelection(thread, shouldSelectThread);
+
+                        if (shouldSelectThread)
+                        {
+                            thread.IsThreadExpanded = true;
+                        }
+
+                        break;
+                }
+
+                return;
+            }
+
+            var wasSelected = item switch
+            {
+                MailItemViewModel mail => mail.IsSelected,
+                ThreadMailItemViewModel thread => thread.IsSelected || thread.ThreadEmails.Any(static child => child.IsSelected),
+                _ => false
+            };
+
+            ClearSelectionState();
+
+            switch (item)
+            {
+                case MailItemViewModel mail:
+                    CollapseAllThreadsExcept(null);
+                    mail.IsSelected = !wasSelected;
+                    break;
+                case ThreadMailItemViewModel thread:
+                    var isExpanding = !thread.IsThreadExpanded;
+                    CollapseAllThreadsExcept(thread);
+                    thread.IsThreadExpanded = isExpanding;
+                    if (wasSelected)
+                    {
+                        break;
+                    }
+
+                    thread.IsSelected = true;
+
+                    var selectedChild = thread.GetDefaultSelectedThreadEmail();
+                    if (selectedChild != null)
+                    {
+                        selectedChild.IsSelected = true;
+                    }
+
+                    break;
+            }
+        });
+
+    public Task SelectThreadMailAsync(ThreadMailItemViewModel thread, MailItemViewModel mail, bool isMultiSelectionEnabled)
+        => ExecuteSelectionBatchAsync(() =>
+        {
+            if (thread == null || mail == null)
+            {
+                return;
+            }
+
+            if (isMultiSelectionEnabled)
+            {
+                mail.IsSelected = !mail.IsSelected;
+                SyncThreadSelectionFromChildren(thread);
+                return;
+            }
+
+            var wasSelected = mail.IsSelected;
+
+            ClearSelectionState();
+            CollapseAllThreadsExcept(thread);
+            thread.IsThreadExpanded = true;
+
+            if (wasSelected)
+            {
+                return;
+            }
+
+            thread.IsSelected = true;
+            mail.IsSelected = true;
+        });
+
+    public Task ToggleThreadExpansionAsync(ThreadMailItemViewModel thread)
+        => ExecuteSelectionBatchAsync(() =>
+        {
+            if (thread == null)
+            {
+                return;
+            }
+
+            var isExpanding = !thread.IsThreadExpanded;
+            CollapseAllThreadsExcept(thread);
+            thread.IsThreadExpanded = isExpanding;
+        }, notifySelectionChanged: false);
+
+    public Task SelectRangeAsync(IReadOnlyList<IMailListItem> scope, IMailListItem anchor, IMailListItem target, bool preserveExistingSelection)
+        => ExecuteSelectionBatchAsync(() =>
+        {
+            if (scope == null || anchor == null || target == null)
+            {
+                return;
+            }
+
+            var anchorIndex = IndexOfReference(scope, anchor);
+            var targetIndex = IndexOfReference(scope, target);
+
+            if (anchorIndex < 0 || targetIndex < 0)
+            {
+                return;
+            }
+
+            if (!preserveExistingSelection)
+            {
+                ClearSelectionState();
+            }
+
+            var startIndex = Math.Min(anchorIndex, targetIndex);
+            var endIndex = Math.Max(anchorIndex, targetIndex);
+
+            for (var i = startIndex; i <= endIndex; i++)
+            {
+                SelectListItemForRange(scope[i]);
+            }
+
+            SyncAllThreadSelectionsFromChildren();
+        });
+
+    public Task KeepNewestSelectionOnlyAsync()
+        => ExecuteSelectionBatchAsync(() =>
+        {
+            var selectedMail = EnumerateLeafItems()
+                .Where(static item => item.IsSelected)
+                .OrderByDescending(static item => item.CreationDate)
+                .FirstOrDefault();
+
+            ClearSelectionState();
+
+            if (selectedMail == null)
+            {
+                return;
+            }
+
+            selectedMail.IsSelected = true;
+            var parentThread = GetThreadByMailUniqueId(selectedMail.UniqueId);
+            if (parentThread != null)
+            {
+                parentThread.IsSelected = true;
+                parentThread.IsThreadExpanded = true;
+            }
+        });
+
+    public Task SelectAllAsync()
+        => ExecuteSelectionBatchAsync(() =>
+        {
+            foreach (var item in _topLevelItems)
+            {
+                switch (item)
+                {
+                    case MailItemViewModel mail:
+                        mail.IsSelected = true;
+                        break;
+                    case ThreadMailItemViewModel thread:
+                        thread.IsSelected = true;
+                        foreach (var child in thread.ThreadEmails)
+                        {
+                            child.IsSelected = true;
+                        }
+
+                        break;
                 }
             }
         });
 
-    public Task ToggleSelectAllAsync()
+    public Task UnselectAllAsync(IMailListItem exceptItem = null)
+        => ExecuteSelectionBatchAsync(() =>
+        {
+            foreach (var item in _topLevelItems)
+            {
+                if (!ReferenceEquals(item, exceptItem))
+                {
+                    item.IsSelected = false;
+                }
+
+                if (item is ThreadMailItemViewModel thread)
+                {
+                    foreach (var child in thread.ThreadEmails)
+                    {
+                        if (!ReferenceEquals(child, exceptItem))
+                        {
+                            child.IsSelected = false;
+                        }
+                    }
+
+                    thread.IsSelected = thread.ThreadEmails.Any(static child => child.IsSelected);
+                }
+            }
+        });
+
+    public Task CollapseAllThreadsAsync()
+        => ExecuteSelectionBatchAsync(() =>
+        {
+            foreach (var thread in _topLevelItems.OfType<ThreadMailItemViewModel>())
+            {
+                thread.IsThreadExpanded = false;
+            }
+        });
+
+    private void ClearSelectionState()
     {
-        if (IsAllItemsSelected)
+        foreach (var item in _topLevelItems)
         {
-            return UnselectAllAsync();
-        }
-        else
-        {
-            return SelectAllAsync();
+            switch (item)
+            {
+                case MailItemViewModel mail:
+                    mail.IsSelected = false;
+                    break;
+                case ThreadMailItemViewModel thread:
+                    SetThreadAndChildrenSelection(thread, false);
+                    break;
+            }
         }
     }
 
-    /// <summary>
-    /// Gets the index of an item in the flat Items collection.
-    /// Note: WinoMailCollection doesn't have a flat Items collection like GroupedEmailCollection.
-    /// This returns -1 as it's not applicable to the grouped structure.
-    /// </summary>
-    public int IndexOf(object item)
+    private void CollapseAllThreadsExcept(ThreadMailItemViewModel exceptThread)
     {
-        // WinoMailCollection uses grouped structure, so we need to search through groups
-        int currentIndex = 0;
-
-        foreach (var group in _mailItemSource)
+        foreach (var thread in _topLevelItems.OfType<ThreadMailItemViewModel>())
         {
-            foreach (var groupItem in group)
+            if (!ReferenceEquals(thread, exceptThread))
             {
-                if (ReferenceEquals(groupItem, item))
-                {
-                    return currentIndex;
-                }
-                currentIndex++;
+                thread.IsThreadExpanded = false;
+            }
+        }
+    }
+
+    private static void SetThreadAndChildrenSelection(ThreadMailItemViewModel thread, bool isSelected)
+    {
+        thread.IsSelected = isSelected;
+
+        foreach (var child in thread.ThreadEmails)
+        {
+            child.IsSelected = isSelected;
+        }
+    }
+
+    private static void SyncThreadSelectionFromChildren(ThreadMailItemViewModel thread)
+    {
+        thread.IsSelected = thread.ThreadEmails.Any(static child => child.IsSelected);
+
+        if (thread.IsSelected)
+        {
+            thread.IsThreadExpanded = true;
+        }
+    }
+
+    private void SyncAllThreadSelectionsFromChildren()
+    {
+        foreach (var thread in _topLevelItems.OfType<ThreadMailItemViewModel>())
+        {
+            SyncThreadSelectionFromChildren(thread);
+        }
+    }
+
+    private static int IndexOfReference(IReadOnlyList<IMailListItem> items, IMailListItem target)
+    {
+        for (var i = 0; i < items.Count; i++)
+        {
+            if (ReferenceEquals(items[i], target))
+            {
+                return i;
             }
         }
 
         return -1;
     }
 
-    public Task SelectAllAsync() => ExecuteWithoutRaiseSelectionChangedAsync(a => a.IsSelected = true, true);
-    public Task UnselectAllAsync(IMailListItem exceptItem = null) => ExecuteWithoutRaiseSelectionChangedAsync(a => { if (a != exceptItem) a.IsSelected = false; }, true);
-    public Task CollapseAllThreadsAsync() => ExecuteWithoutRaiseSelectionChangedAsync(a => { if (a is ThreadMailItemViewModel thread) thread.IsThreadExpanded = false; }, true);
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task ExecuteUIThread(Action action) => CoreDispatcher?.ExecuteOnUIThread(action) ?? Task.CompletedTask;
-
-    private async Task RunSerializedAsync(Func<Task> action)
+    private static void SelectListItemForRange(IMailListItem item)
     {
-        await _mutationGate.WaitAsync().ConfigureAwait(false);
-
-        try
+        switch (item)
         {
-            await action().ConfigureAwait(false);
-        }
-        finally
-        {
-            _mutationGate.Release();
+            case MailItemViewModel mail:
+                mail.IsSelected = true;
+                break;
+            case ThreadMailItemViewModel thread:
+                SetThreadAndChildrenSelection(thread, true);
+                thread.IsThreadExpanded = true;
+                break;
         }
     }
 
@@ -1432,98 +889,639 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         _ = NotifySelectionChangesAsync();
     }
 
+    private AddMailResult AddMailCore(MailItemViewModel item)
+    {
+        if (MailCopyIdHashSet.ContainsKey(item.MailCopy.UniqueId))
+        {
+            UpdateMailCopyCore(item.MailCopy, EntityUpdateSource.Server);
+            return AddMailResult.FullRebuild;
+        }
+
+        var threadId = item.MailCopy.ThreadId;
+        if (IsThreadingEnabled && !string.IsNullOrEmpty(threadId))
+        {
+            var threadableItem = FindThreadableItem(threadId, item.MailCopy.UniqueId);
+            if (threadableItem != null)
+            {
+                return AddToThread(threadableItem, item);
+            }
+        }
+
+        _topLevelItems.Add(item);
+        return AddMailResult.For(item);
+    }
+
+    private AddMailResult AddToThread(IMailListItem threadableItem, MailItemViewModel newItem)
+    {
+        if (threadableItem is ThreadMailItemViewModel thread)
+        {
+            thread.AddEmail(newItem);
+            thread.IsSelected = thread.IsSelected || thread.ThreadEmails.Any(static child => child.IsSelected);
+            return AddMailResult.For(thread);
+        }
+
+        if (threadableItem is not MailItemViewModel existingMail)
+        {
+            return AddMailResult.NoChange;
+        }
+
+        var threadViewModel = ThreadItemFactory(existingMail.MailCopy.ThreadId);
+        var existingIndex = _topLevelItems.IndexOf(existingMail);
+
+        threadViewModel.AddEmail(existingMail);
+        threadViewModel.AddEmail(newItem);
+        threadViewModel.IsSelected = existingMail.IsSelected || newItem.IsSelected;
+
+        if (existingIndex >= 0)
+        {
+            _topLevelItems[existingIndex] = threadViewModel;
+        }
+        else
+        {
+            _topLevelItems.Add(threadViewModel);
+        }
+
+        return AddMailResult.For(existingMail, threadViewModel);
+    }
+
+    private RemoveMailResult RemoveMailCore(Guid uniqueId)
+    {
+        var container = GetMailItemContainer(uniqueId);
+        if (container?.ItemViewModel == null)
+        {
+            return RemoveMailResult.NoChange;
+        }
+
+        var removedMail = container.ItemViewModel;
+        RemoveMailResult result;
+
+        if (container.ThreadViewModel != null)
+        {
+            result = RemoveThreadMail(container.ThreadViewModel, removedMail);
+        }
+        else
+        {
+            _topLevelItems.Remove(removedMail);
+            result = RemoveMailResult.For(removedMail);
+        }
+
+        MailItemRemoved?.Invoke(this, removedMail);
+        return result;
+    }
+
+    private RemoveMailResult RemoveThreadMail(ThreadMailItemViewModel thread, MailItemViewModel mail)
+    {
+        var threadIndex = _topLevelItems.IndexOf(thread);
+        thread.RemoveEmail(mail);
+
+        if (thread.EmailCount == 0)
+        {
+            thread.UnregisterThreadEmailPropertyChangedHandlers();
+            _topLevelItems.Remove(thread);
+            return RemoveMailResult.For(thread, mail);
+        }
+
+        if (thread.EmailCount != 1)
+        {
+            thread.IsSelected = thread.ThreadEmails.Any(static child => child.IsSelected);
+            return RemoveMailResult.For(thread, mail);
+        }
+
+        var singleViewModel = thread.ThreadEmails[0];
+        thread.RemoveEmail(singleViewModel);
+        thread.UnregisterThreadEmailPropertyChangedHandlers();
+
+        if (PruneSingleNonDraftItems && !singleViewModel.IsDraft)
+        {
+            _topLevelItems.Remove(thread);
+            MailItemRemoved?.Invoke(this, singleViewModel);
+            return RemoveMailResult.For(thread, mail, singleViewModel);
+        }
+
+        singleViewModel.IsDisplayedInThread = false;
+
+        if (threadIndex >= 0)
+        {
+            _topLevelItems[threadIndex] = singleViewModel;
+        }
+        else
+        {
+            _topLevelItems.Remove(thread);
+            _topLevelItems.Add(singleViewModel);
+        }
+
+        return RemoveMailResult.For(thread, mail, singleViewModel);
+    }
+
+    private UpdateMailResult UpdateMailCopyCore(MailCopy updatedMailCopy, EntityUpdateSource mailUpdateSource, MailCopyChangeFlags changedProperties = MailCopyChangeFlags.None)
+    {
+        var itemContainer = GetMailItemContainer(updatedMailCopy.UniqueId);
+        if (itemContainer?.ItemViewModel == null)
+        {
+            return UpdateMailResult.NoChange;
+        }
+
+        var existingItem = itemContainer.ItemViewModel;
+        var wasSelected = existingItem.IsSelected;
+        var wasBusy = existingItem.IsBusy;
+        var shouldReinsertFromHint = ShouldReinsertBeforeApplyingUpdate(existingItem, updatedMailCopy, changedProperties);
+
+        if (shouldReinsertFromHint)
+        {
+            var removeResult = RemoveMailCore(existingItem.MailCopy.UniqueId);
+            RebuildMailLookupIndexes();
+            var replacement = new MailItemViewModel(updatedMailCopy)
+            {
+                IsSelected = wasSelected,
+                IsBusy = mailUpdateSource == EntityUpdateSource.ClientUpdated || wasBusy
+            };
+            var addResult = AddMailCore(replacement);
+            return UpdateMailResult.For(removeResult.TouchedItems.Concat(addResult.TouchedItems).ToArray());
+        }
+
+        MailCopyChangeFlags appliedChanges = MailCopyChangeFlags.None;
+
+        itemContainer.ThreadViewModel?.SuspendChildPropertyNotifications();
+        try
+        {
+            appliedChanges = existingItem.UpdateFrom(updatedMailCopy, changedProperties);
+            existingItem.IsBusy = mailUpdateSource == EntityUpdateSource.ClientUpdated;
+        }
+        finally
+        {
+            itemContainer.ThreadViewModel?.ResumeChildPropertyNotifications();
+        }
+
+        if (ShouldReinsertForChanges(appliedChanges))
+        {
+            var removeResult = RemoveMailCore(existingItem.MailCopy.UniqueId);
+            RebuildMailLookupIndexes();
+            existingItem.IsSelected = wasSelected;
+            existingItem.IsBusy = mailUpdateSource == EntityUpdateSource.ClientUpdated || wasBusy;
+            var addResult = AddMailCore(existingItem);
+            return UpdateMailResult.For(removeResult.TouchedItems.Concat(addResult.TouchedItems).ToArray());
+        }
+
+        itemContainer.ThreadViewModel?.NotifyMailItemUpdated(existingItem, appliedChanges);
+        return itemContainer.ThreadViewModel == null
+            ? UpdateMailResult.For(existingItem)
+            : UpdateMailResult.For(itemContainer.ThreadViewModel);
+    }
+
+    private void UpdateMailStateCore(MailStateChange updatedState, EntityUpdateSource mailUpdateSource)
+    {
+        var itemContainer = GetMailItemContainer(updatedState.UniqueId);
+        if (itemContainer?.ItemViewModel == null)
+        {
+            return;
+        }
+
+        var existingItem = itemContainer.ItemViewModel;
+        var appliedChanges = existingItem.ApplyStateChanges(updatedState.IsRead, updatedState.IsFlagged);
+        existingItem.IsBusy = mailUpdateSource == EntityUpdateSource.ClientUpdated;
+
+        itemContainer.ThreadViewModel?.NotifyMailItemUpdated(existingItem, appliedChanges);
+    }
+
+    private IMailListItem FindThreadableItem(string threadId, Guid? excludedUniqueId = null)
+    {
+        if (string.IsNullOrEmpty(threadId) || !_threadIdToItemsMap.TryGetValue(threadId, out var items))
+        {
+            return null;
+        }
+
+        foreach (var item in items)
+        {
+            if (excludedUniqueId.HasValue)
+            {
+                if (item is MailItemViewModel mail && mail.MailCopy.UniqueId == excludedUniqueId.Value)
+                {
+                    continue;
+                }
+
+                if (item is ThreadMailItemViewModel thread && thread.HasUniqueId(excludedUniqueId.Value))
+                {
+                    continue;
+                }
+            }
+
+            return item;
+        }
+
+        return null;
+    }
+
+    private object GetGroupingKey(IMailListItem mailItem)
+    {
+        if (!AreGroupHeadersEnabled)
+        {
+            return MailListGroupKey.Groupless;
+        }
+
+        if (mailItem.IsPinned)
+        {
+            return MailListGroupKey.Pinned;
+        }
+
+        return SortingType == SortingOptionType.ReceiveDate
+            ? new MailListGroupKey(false, mailItem.CreationDate.ToLocalTime().Date)
+            : new MailListGroupKey(false, mailItem.FromName);
+    }
+
+    private bool ShouldReinsertForChanges(MailCopyChangeFlags changedProperties)
+    {
+        if (changedProperties == MailCopyChangeFlags.None)
+        {
+            return false;
+        }
+
+        if ((changedProperties & (MailCopyChangeFlags.ThreadId | MailCopyChangeFlags.IsPinned)) != 0)
+        {
+            return true;
+        }
+
+        return SortingType == SortingOptionType.ReceiveDate
+            ? (changedProperties & MailCopyChangeFlags.CreationDate) != 0
+            : (changedProperties & (MailCopyChangeFlags.FromName | MailCopyChangeFlags.FromAddress)) != 0;
+    }
+
+    private bool ShouldReinsertBeforeApplyingUpdate(MailItemViewModel existingItem, MailCopy updatedMailCopy, MailCopyChangeFlags changedProperties)
+    {
+        if (changedProperties == MailCopyChangeFlags.None)
+        {
+            return false;
+        }
+
+        if (changedProperties != MailCopyChangeFlags.All || ReferenceEquals(existingItem.MailCopy, updatedMailCopy))
+        {
+            return ShouldReinsertForChanges(changedProperties);
+        }
+
+        var structuralChanges = MailCopyChangeFlags.None;
+
+        if (existingItem.MailCopy.ThreadId != updatedMailCopy.ThreadId)
+        {
+            structuralChanges |= MailCopyChangeFlags.ThreadId;
+        }
+
+        if (existingItem.MailCopy.IsPinned != updatedMailCopy.IsPinned)
+        {
+            structuralChanges |= MailCopyChangeFlags.IsPinned;
+        }
+
+        if (existingItem.MailCopy.CreationDate != updatedMailCopy.CreationDate)
+        {
+            structuralChanges |= MailCopyChangeFlags.CreationDate;
+        }
+
+        if (existingItem.MailCopy.FromName != updatedMailCopy.FromName)
+        {
+            structuralChanges |= MailCopyChangeFlags.FromName;
+        }
+
+        if (existingItem.MailCopy.FromAddress != updatedMailCopy.FromAddress)
+        {
+            structuralChanges |= MailCopyChangeFlags.FromAddress;
+        }
+
+        return ShouldReinsertForChanges(structuralChanges);
+    }
+
+    private void SortTopLevelItems()
+    {
+        _topLevelItems.Sort(_listComparer.Compare);
+
+        foreach (var thread in _topLevelItems.OfType<ThreadMailItemViewModel>())
+        {
+            thread.IsSelected = thread.IsSelected || thread.ThreadEmails.Any(static child => child.IsSelected);
+        }
+    }
+
+    private void RebuildGroups()
+    {
+        _itemToGroupMap.Clear();
+
+        var groupedItems = _topLevelItems
+            .GroupBy(GetGroupingKey)
+            .OrderBy(static group => group.Key, _listComparer)
+            .Select(group =>
+            {
+                var sortedItems = group.OrderBy(static item => item, _listComparer).ToList();
+                return new WinoMailGroup(group.Key, sortedItems);
+            })
+            .ToList();
+
+        MailItems.ReplaceAll(groupedItems);
+
+        foreach (var mailGroup in MailItems)
+        {
+            foreach (var item in mailGroup)
+            {
+                _itemToGroupMap[item] = mailGroup;
+            }
+        }
+    }
+
+    private void RefreshGroupsIncrementally(IReadOnlyList<IMailListItem> touchedItems)
+    {
+        var touchedItemList = touchedItems?
+            .Where(static item => item != null)
+            .Distinct()
+            .ToList() ?? [];
+
+        if (touchedItemList.Count == 0)
+        {
+            return;
+        }
+
+        var removedItemsByGroup = new Dictionary<WinoMailGroup, List<IMailListItem>>();
+        var changedGroups = new HashSet<WinoMailGroup>();
+        var stableTouchedItems = new HashSet<IMailListItem>();
+
+        foreach (var item in touchedItemList)
+        {
+            if (!_itemToGroupMap.TryRemove(item, out var group))
+            {
+                group = MailItems.FirstOrDefault(mailGroup => mailGroup.Contains(item));
+            }
+
+            if (group == null)
+            {
+                continue;
+            }
+
+            if (_topLevelItems.Contains(item) && Equals(group.Key, GetGroupingKey(item)))
+            {
+                _itemToGroupMap[item] = group;
+                changedGroups.Add(group);
+                stableTouchedItems.Add(item);
+                continue;
+            }
+
+            if (!removedItemsByGroup.TryGetValue(group, out var removedItems))
+            {
+                removedItems = [];
+                removedItemsByGroup[group] = removedItems;
+            }
+
+            removedItems.Add(item);
+        }
+
+        foreach (var (group, removedItems) in removedItemsByGroup)
+        {
+            group.RemoveRange(removedItems);
+
+            if (group.Count == 0)
+            {
+                MailItems.Remove(group);
+            }
+        }
+
+        foreach (var groupItems in touchedItemList
+            .Where(_topLevelItems.Contains)
+            .Where(item => !stableTouchedItems.Contains(item))
+            .GroupBy(GetGroupingKey))
+        {
+            var group = GetOrCreateGroup(groupItems.Key);
+            var mergedItems = group
+                .Concat(groupItems)
+                .Distinct()
+                .OrderBy(static item => item, _listComparer)
+                .ToList();
+
+            group.ReplaceAll(mergedItems);
+
+            foreach (var item in mergedItems)
+            {
+                _itemToGroupMap[item] = group;
+            }
+        }
+
+        foreach (var group in changedGroups)
+        {
+            foreach (var item in stableTouchedItems.Where(group.Contains).ToList())
+            {
+                MoveItemToSortedPosition(group, item);
+                _itemToGroupMap[item] = group;
+            }
+        }
+    }
+
+    private void MoveItemToSortedPosition(WinoMailGroup group, IMailListItem item)
+    {
+        var currentIndex = group.IndexOf(item);
+
+        if (currentIndex < 0)
+        {
+            return;
+        }
+
+        var targetIndex = 0;
+
+        for (var i = 0; i < group.Count; i++)
+        {
+            if (i == currentIndex)
+            {
+                continue;
+            }
+
+            if (_listComparer.Compare(item, group[i]) < 0)
+            {
+                break;
+            }
+
+            targetIndex++;
+        }
+
+        if (targetIndex != currentIndex)
+        {
+            group.Move(currentIndex, targetIndex);
+        }
+    }
+
+    private WinoMailGroup GetOrCreateGroup(object groupKey)
+    {
+        var group = MailItems.FirstOrDefault(mailGroup => Equals(mailGroup.Key, groupKey));
+
+        if (group == null)
+        {
+            group = new WinoMailGroup(groupKey, []);
+            MailItems.Insert(GetGroupInsertIndex(groupKey), group);
+        }
+
+        return group;
+    }
+
+    private int GetGroupInsertIndex(object groupKey)
+    {
+        for (var i = 0; i < MailItems.Count; i++)
+        {
+            if (_listComparer.Compare(groupKey, MailItems[i].Key) < 0)
+            {
+                return i;
+            }
+        }
+
+        return MailItems.Count;
+    }
+
+    private void RebuildIndexes()
+    {
+        ClearIndexes();
+        RebuildMailLookupIndexes();
+    }
+
+    private void RebuildMailLookupIndexes()
+    {
+        ClearMailLookupIndexes();
+
+        foreach (var item in _topLevelItems)
+        {
+            IndexTopLevelItem(item);
+        }
+    }
+
+    private void IndexTopLevelItem(IMailListItem item)
+    {
+        foreach (var threadId in GetThreadIdsFromItem(item))
+        {
+            var list = _threadIdToItemsMap.GetOrAdd(threadId, static _ => []);
+            if (!list.Contains(item))
+            {
+                list.Add(item);
+            }
+        }
+
+        if (item is MailItemViewModel mail)
+        {
+            MailCopyIdHashSet.TryAdd(mail.MailCopy.UniqueId, true);
+            _uniqueIdToMailItemMap[mail.MailCopy.UniqueId] = mail;
+            return;
+        }
+
+        if (item is ThreadMailItemViewModel thread)
+        {
+            foreach (var child in thread.ThreadEmails)
+            {
+                MailCopyIdHashSet.TryAdd(child.MailCopy.UniqueId, true);
+                _uniqueIdToMailItemMap[child.MailCopy.UniqueId] = child;
+                _uniqueIdToThreadMap[child.MailCopy.UniqueId] = thread;
+            }
+        }
+    }
+
+    private static IEnumerable<string> GetThreadIdsFromItem(IMailListItem item)
+    {
+        if (item is MailItemViewModel mailItem && !string.IsNullOrEmpty(mailItem.MailCopy.ThreadId))
+        {
+            yield return mailItem.MailCopy.ThreadId;
+            yield break;
+        }
+
+        if (item is ThreadMailItemViewModel threadItem)
+        {
+            foreach (var threadId in threadItem.ThreadEmails
+                         .Select(static email => email.MailCopy.ThreadId)
+                         .Where(static threadId => !string.IsNullOrEmpty(threadId))
+                         .Distinct(StringComparer.Ordinal))
+            {
+                yield return threadId;
+            }
+        }
+    }
+
+    private void ClearIndexes()
+    {
+        ClearMailLookupIndexes();
+        _itemToGroupMap.Clear();
+    }
+
+    private void ClearMailLookupIndexes()
+    {
+        MailCopyIdHashSet.Clear();
+        _threadIdToItemsMap.Clear();
+        _uniqueIdToMailItemMap.Clear();
+        _uniqueIdToThreadMap.Clear();
+    }
+
+    private void DetachThreadHandlers()
+    {
+        foreach (var thread in _topLevelItems.OfType<ThreadMailItemViewModel>())
+        {
+            thread.UnregisterThreadEmailPropertyChangedHandlers();
+        }
+    }
+
+    private IEnumerable<MailItemViewModel> EnumerateLeafItems()
+    {
+        foreach (var item in _topLevelItems)
+        {
+            if (item is MailItemViewModel mailItem)
+            {
+                yield return mailItem;
+            }
+            else if (item is ThreadMailItemViewModel threadItem)
+            {
+                foreach (var threadMailItem in threadItem.ThreadEmails)
+                {
+                    yield return threadMailItem;
+                }
+            }
+        }
+    }
+
+    private IEnumerable<IMailListItem> EnumerateTopLevelAndLeafItems()
+    {
+        foreach (var item in _topLevelItems)
+        {
+            yield return item;
+
+            if (item is ThreadMailItemViewModel thread)
+            {
+                foreach (var child in thread.ThreadEmails)
+                {
+                    yield return child;
+                }
+            }
+        }
+    }
+
     private async Task NotifySelectionChangesAsync()
     {
         await ExecuteUIThread(() =>
         {
             OnPropertyChanged(nameof(IsAllItemsSelected));
+            OnPropertyChanged(nameof(IsAllSelected));
             OnPropertyChanged(nameof(SelectedItemsCount));
             OnPropertyChanged(nameof(HasSingleItemSelected));
 
-            ItemSelectionChanged?.Invoke(this, null);
+            ItemSelectionChanged?.Invoke(this, EventArgs.Empty);
         });
     }
 
-    /// <summary>
-    /// Lightweight, allocation-free enumerable that walks every leaf <see cref="MailItemViewModel"/>
-    /// across all groups, flattening thread children in their stored order. Mirrors the semantics of
-    /// the old <c>AllItems</c> iterator but without the compiler-generated state-machine allocation,
-    /// so the frequently re-evaluated selection counters stay garbage-free.
-    /// </summary>
-    private readonly struct LeafMailItemEnumerable
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private Task ExecuteUIThread(Action action)
     {
-        private readonly ObservableGroupedCollection<object, IMailListItem> _source;
-
-        public LeafMailItemEnumerable(ObservableGroupedCollection<object, IMailListItem> source) => _source = source;
-
-        public Enumerator GetEnumerator() => new(_source);
-
-        public struct Enumerator
+        if (CoreDispatcher == null)
         {
-            private readonly ObservableGroupedCollection<object, IMailListItem> _source;
-            private int _groupIndex;
-            private int _itemIndex;
-            private ObservableCollection<MailItemViewModel> _threadEmails;
-            private int _threadItemIndex;
-            private MailItemViewModel _current;
+            action();
+            return Task.CompletedTask;
+        }
 
-            public Enumerator(ObservableGroupedCollection<object, IMailListItem> source)
-            {
-                _source = source;
-                _groupIndex = 0;
-                _itemIndex = -1;
-                _threadEmails = null;
-                _threadItemIndex = 0;
-                _current = null;
-            }
+        return CoreDispatcher.ExecuteOnUIThread(action);
+    }
 
-            public readonly MailItemViewModel Current => _current;
+    private async Task RunSerializedAsync(Func<Task> action)
+    {
+        await _mutationGate.WaitAsync().ConfigureAwait(false);
 
-            public bool MoveNext()
-            {
-                // Drain the thread we are currently walking before advancing the outer cursor.
-                if (_threadEmails != null)
-                {
-                    if (_threadItemIndex < _threadEmails.Count)
-                    {
-                        _current = _threadEmails[_threadItemIndex++];
-                        return true;
-                    }
-
-                    _threadEmails = null;
-                }
-
-                while (_groupIndex < _source.Count)
-                {
-                    var group = _source[_groupIndex];
-
-                    for (int next = _itemIndex + 1; next < group.Count; next++)
-                    {
-                        var item = group[next];
-                        _itemIndex = next;
-
-                        if (item is MailItemViewModel single)
-                        {
-                            _current = single;
-                            return true;
-                        }
-
-                        if (item is ThreadMailItemViewModel thread && thread.ThreadEmails.Count > 0)
-                        {
-                            _threadEmails = thread.ThreadEmails;
-                            _threadItemIndex = 0;
-                            _current = _threadEmails[_threadItemIndex++];
-                            return true;
-                        }
-                    }
-
-                    _groupIndex++;
-                    _itemIndex = -1;
-                }
-
-                _current = null;
-                return false;
-            }
+        try
+        {
+            await action().ConfigureAwait(false);
+        }
+        finally
+        {
+            _mutationGate.Release();
         }
     }
 }

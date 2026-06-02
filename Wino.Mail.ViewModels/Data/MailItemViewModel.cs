@@ -63,15 +63,6 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
     public partial bool IsSelected { get; set; }
 
     /// <summary>
-    /// Direct callback invoked when <see cref="IsSelected"/> changes.
-    /// Used by the ListViewItem container to update its IsCustomSelected DP
-    /// without subscribing to INotifyPropertyChanged (faster, AOT-safe).
-    /// </summary>
-    public Action<bool> OnSelectionChanged { get; set; }
-
-    partial void OnIsSelectedChanged(bool value) => OnSelectionChanged?.Invoke(value);
-
-    /// <summary>
     /// Indicates if this mail item is currently being processed by a network operation.
     /// Used to show loading state in the UI.
     /// </summary>
@@ -379,7 +370,19 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
             changedFlags |= SetIfChanged(MailCopy.ReadReceiptMessageUniqueId, source.ReadReceiptMessageUniqueId, value => MailCopy.ReadReceiptMessageUniqueId = value, MailCopyChangeFlags.ReadReceiptState);
         }
 
-        changedFlags |= changeHint;
+        if (changeHint == MailCopyChangeFlags.All)
+        {
+            if (isSameReference && changedFlags == MailCopyChangeFlags.None)
+            {
+                // Without a hint there is no reliable way to diff in-place updates on the same instance.
+                // Fall back to full refresh to preserve correctness.
+                changedFlags = MailCopyChangeFlags.All;
+            }
+        }
+        else
+        {
+            changedFlags |= changeHint;
+        }
 
         if (isSameReference && changedFlags == MailCopyChangeFlags.None)
         {

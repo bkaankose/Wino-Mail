@@ -221,29 +221,29 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <Button
-                                    AutomationProperties.AutomationId="HeaderButton"
                                     x:Name="HeaderButton"
                                     HorizontalContentAlignment="Left"
+                                    AutomationProperties.AutomationId="HeaderButton"
                                     Content="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=TemplateSettings.HeaderText}"
                                     Foreground="{TemplateBinding Foreground}"
                                     IsEnabled="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=TemplateSettings.HasMoreViews}"
                                     Style="{StaticResource HeaderNavigationButtonStyle}" />
                                 <Button
-                                    AutomationProperties.AutomationId="PreviousButton"
                                     x:Name="PreviousButton"
                                     Grid.Column="1"
                                     Margin="{ThemeResource CalendarViewNavigationPreviousButtonMargin}"
                                     HorizontalContentAlignment="Center"
+                                    AutomationProperties.AutomationId="PreviousButton"
                                     Content="&#xEDDB;"
                                     Foreground="{TemplateBinding Foreground}"
                                     IsEnabled="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=TemplateSettings.HasMoreContentBefore}"
                                     Style="{StaticResource NavigationButtonStyle}" />
                                 <Button
-                                    AutomationProperties.AutomationId="NextButton"
                                     x:Name="NextButton"
                                     Grid.Column="2"
                                     Margin="{ThemeResource CalendarViewNavigationNextButtonMargin}"
                                     HorizontalContentAlignment="Center"
+                                    AutomationProperties.AutomationId="NextButton"
                                     Content="&#xEDDC;"
                                     Foreground="{TemplateBinding Foreground}"
                                     IsEnabled="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=TemplateSettings.HasMoreContentAfter}"
