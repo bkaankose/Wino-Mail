@@ -33,14 +33,6 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
             Translator.SettingsAppPreferences_SearchMode_Online
         ];
 
-        ApplicationModes =
-        [
-            Translator.SettingsAppPreferences_ApplicationMode_Mail,
-            Translator.SettingsAppPreferences_ApplicationMode_Calendar,
-            Translator.ContactsPage_Title,
-            Translator.MenuSettings
-        ];
-
         CloseBehaviorModes =
         [
             Translator.SettingsAppPreferences_ServerBackgroundingMode_MinimizeTray_Title,
@@ -49,7 +41,6 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
         ];
 
         SelectedDefaultSearchMode = SearchModes[(int)PreferencesService.DefaultSearchMode];
-        SelectedDefaultApplicationMode = ApplicationModes[(int)PreferencesService.DefaultApplicationMode];
         SelectedCloseBehaviorMode = CloseBehaviorModes[(int)PreferencesService.AppCloseBehavior];
         EmailSyncIntervalMinutes = PreferencesService.EmailSyncIntervalMinutes;
         SummarySavePath = PreferencesService.AiSummarySavePath;
@@ -59,9 +50,6 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
 
     [ObservableProperty]
     public partial List<string> SearchModes { get; set; }
-
-    [ObservableProperty]
-    public partial List<string> ApplicationModes { get; set; }
 
     [ObservableProperty]
     public partial List<string> CloseBehaviorModes { get; set; }
@@ -100,7 +88,6 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
     private bool _isAiPreferencesInitialized;
     private int _emailSyncIntervalMinutes;
     private string _selectedDefaultSearchMode;
-    private string _selectedDefaultApplicationMode;
     private string _selectedCloseBehaviorMode;
 
     public int EmailSyncIntervalMinutes
@@ -123,16 +110,6 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
         {
             SetProperty(ref _selectedDefaultSearchMode, value);
             PreferencesService.DefaultSearchMode = (SearchMode)SearchModes.IndexOf(value);
-        }
-    }
-
-    public string SelectedDefaultApplicationMode
-    {
-        get => _selectedDefaultApplicationMode;
-        set
-        {
-            SetProperty(ref _selectedDefaultApplicationMode, value);
-            PreferencesService.DefaultApplicationMode = (WinoApplicationMode)ApplicationModes.IndexOf(value);
         }
     }
 

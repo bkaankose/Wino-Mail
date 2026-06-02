@@ -132,7 +132,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     public void HandleAppActivation(string? launchArguments, string? tileId = null, string? appId = null)
     {
-        var targetMode = AppModeActivationResolver.Resolve(launchArguments, tileId, appId, PreferencesService.DefaultApplicationMode);
+        var targetMode = AppModeActivationResolver.Resolve(launchArguments, tileId, appId, WinoApplicationMode.Mail);
         WindowAppUserModelIdHelper.TrySet(this, AppEntryConstants.GetAppUserModelId(targetMode));
 
         if (TryCreateMailFolderLaunchRequest(launchArguments, out var folderLaunchRequest))

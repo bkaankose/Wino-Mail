@@ -15,16 +15,13 @@ public sealed class ReleaseLocalAccountDataCleanupService
 
     private readonly IConfigurationService _configurationService;
     private readonly IApplicationConfiguration _applicationConfiguration;
-    private readonly INotificationBuilder _notificationBuilder;
     private readonly ILogger _logger = Log.ForContext<ReleaseLocalAccountDataCleanupService>();
 
     public ReleaseLocalAccountDataCleanupService(IConfigurationService configurationService,
-                                                 IApplicationConfiguration applicationConfiguration,
-                                                 INotificationBuilder notificationBuilder)
+                                                 IApplicationConfiguration applicationConfiguration)
     {
         _configurationService = configurationService;
         _applicationConfiguration = applicationConfiguration;
-        _notificationBuilder = notificationBuilder;
     }
 
     public async Task RunIfNeededAsync()
@@ -49,19 +46,12 @@ public sealed class ReleaseLocalAccountDataCleanupService
             Path.Combine(publisherPath, LegacyDatabaseFileName)
         };
 
-        var hadLegacyData = false;
-
         foreach (var targetPath in cleanupTargets)
         {
-            hadLegacyData |= await DeletePathIfExistsAsync(targetPath, localFolderPath, publisherPath).ConfigureAwait(false);
+            await DeletePathIfExistsAsync(targetPath, localFolderPath, publisherPath).ConfigureAwait(false);
         }
 
         _configurationService.Set(CleanupCompletedSettingKey, true);
-
-        if (hadLegacyData)
-        {
-            _notificationBuilder.CreateReleaseMigrationNotification();
-        }
 
         _logger.Information("Completed one-time local account data cleanup for release migration.");
     }

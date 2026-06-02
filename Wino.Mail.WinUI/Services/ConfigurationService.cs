@@ -12,6 +12,9 @@ public class ConfigurationService : IConfigurationService
     public bool Contains(string key)
         => ApplicationData.Current.LocalSettings.Values.ContainsKey(key);
 
+    public bool Remove(string key)
+        => ApplicationData.Current.LocalSettings.Values.Remove(key);
+
     public T Get<T>(string key, T defaultValue = default!)
         => GetInternal(key, ApplicationData.Current.LocalSettings.Values, defaultValue);
 

@@ -11,7 +11,6 @@ namespace Wino.Mail.WinUI;
 internal interface IAppActivationHandlerHost
 {
     bool HasConfiguredAccounts { get; }
-    WinoApplicationMode DefaultApplicationMode { get; }
     void LogActivation(string message);
     bool TryMarkInitialNotificationActivationHandled();
     bool TryMarkInitialShareActivationHandled();
@@ -44,7 +43,6 @@ internal interface IAppNotificationHandlerHost
 public partial class App : IAppActivationHandlerHost, IAppNotificationHandlerHost
 {
     bool IAppActivationHandlerHost.HasConfiguredAccounts => _hasConfiguredAccounts;
-    WinoApplicationMode IAppActivationHandlerHost.DefaultApplicationMode => _preferencesService?.DefaultApplicationMode ?? WinoApplicationMode.Mail;
     void IAppActivationHandlerHost.LogActivation(string message) => LogActivation(message);
     bool IAppActivationHandlerHost.TryMarkInitialNotificationActivationHandled() => TryMarkInitialNotificationActivationHandled();
     bool IAppActivationHandlerHost.TryMarkInitialShareActivationHandled() => TryMarkInitialShareActivationHandled();

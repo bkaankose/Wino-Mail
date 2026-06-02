@@ -505,7 +505,6 @@
             SeperatorTemplate="{StaticResource SeperatorTemplate}"
             SettingsShellPageItemTemplate="{StaticResource SettingsShellPageItemTemplate}"
             SettingsShellSectionItemTemplate="{StaticResource SettingsShellSectionItemTemplate}"
-            StoreUpdateItemTemplate="{StaticResource StoreUpdateItemTemplate}"
             WinoAccountSettingsShellPageItemTemplate="{StaticResource SettingsShellWinoAccountItemTemplate}" />
 
     </Page.Resources>

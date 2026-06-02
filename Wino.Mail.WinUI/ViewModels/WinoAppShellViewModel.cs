@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading.Tasks;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
@@ -11,6 +13,8 @@ namespace Wino.Mail.WinUI.ViewModels;
 public sealed class WinoAppShellViewModel : CoreBaseViewModel, IShellViewModel
 {
     private readonly Dictionary<WinoApplicationMode, IShellClient> _shellClients;
+    private readonly IStoreUpdateService _storeUpdateService;
+    private readonly IMailDialogService _dialogService;
     private WinoApplicationMode _currentMode;
 
     public WinoAppShellViewModel(IMailShellClient mailClient,
@@ -18,13 +22,17 @@ public sealed class WinoAppShellViewModel : CoreBaseViewModel, IShellViewModel
                                  IEnumerable<IShellClient> shellClients,
                                  IPreferencesService preferencesService,
                                  IStatePersistanceService statePersistenceService,
-                                 INavigationService navigationService)
+                                 INavigationService navigationService,
+                                 IStoreUpdateService storeUpdateService,
+                                 IMailDialogService dialogService)
     {
         MailClient = mailClient;
         CalendarClient = calendarClient;
         PreferencesService = preferencesService;
         StatePersistenceService = statePersistenceService;
         NavigationService = navigationService;
+        _storeUpdateService = storeUpdateService;
+        _dialogService = dialogService;
 
         _shellClients = shellClients.ToDictionary(client => client.Mode);
 
@@ -84,6 +92,31 @@ public sealed class WinoAppShellViewModel : CoreBaseViewModel, IShellViewModel
     {
         base.OnNavigatedTo(mode, parameters);
         CurrentMode = StatePersistenceService.ApplicationMode;
+        _ = ShowStoreUpdateDialogIfNeededAsync();
+    }
+
+    private async Task ShowStoreUpdateDialogIfNeededAsync()
+    {
+        if (!PreferencesService.IsStoreUpdateNotificationsEnabled)
+            return;
+
+        var hasAvailableUpdate = await _storeUpdateService.RefreshAvailabilityAsync();
+
+        if (!hasAvailableUpdate || !PreferencesService.IsStoreUpdateNotificationsEnabled)
+            return;
+
+        var shouldUpdate = await _dialogService.ShowWinoCustomMessageDialogAsync(
+            Translator.Notifications_StoreUpdateAvailableTitle,
+            Translator.Notifications_StoreUpdateAvailableMessage,
+            Translator.Buttons_Update,
+            WinoCustomMessageDialogIcon.Information,
+            Translator.Buttons_NotNow,
+            Constants.StoreUpdateNotificationSuppressionKey);
+
+        if (shouldUpdate)
+        {
+            await _storeUpdateService.StartUpdateAsync();
+        }
     }
 
     public IShellClient GetClient(WinoApplicationMode mode)

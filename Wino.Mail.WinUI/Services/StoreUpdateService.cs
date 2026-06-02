@@ -1,33 +1,26 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using CommunityToolkit.WinUI;
 using Windows.Services.Store;
 using Wino.Core.Domain.Interfaces;
+using WinRT.Interop;
+using WinUIEx;
 
 namespace Wino.Mail.WinUI.Services;
 
 public class StoreUpdateService : IStoreUpdateService
 {
-    private const string NotificationShownKeyFormat = "StoreUpdateNotificationShown_{0}";
-
-    private readonly IConfigurationService _configurationService;
-    private readonly INotificationBuilder _notificationBuilder;
-    private readonly IPreferencesService _preferencesService;
-    private readonly INativeAppService _nativeAppService;
+    private readonly IWinoLogger _logger;
     private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
     private readonly StoreContext _storeContext = StoreContext.GetDefault();
 
     public bool HasAvailableUpdate { get; private set; }
 
-    public StoreUpdateService(IConfigurationService configurationService,
-                              INotificationBuilder notificationBuilder,
-                              IPreferencesService preferencesService,
-                              INativeAppService nativeAppService)
+    public StoreUpdateService(IWinoLogger logger)
     {
-        _configurationService = configurationService;
-        _notificationBuilder = notificationBuilder;
-        _preferencesService = preferencesService;
-        _nativeAppService = nativeAppService;
+        _logger = logger;
     }
 
     public async Task<bool> RefreshAvailabilityAsync(bool showNotification = false)
@@ -39,19 +32,11 @@ public class StoreUpdateService : IStoreUpdateService
             var updates = await _storeContext.GetAppAndOptionalStorePackageUpdatesAsync();
             HasAvailableUpdate = updates?.Count > 0;
 
-            if (showNotification &&
-                HasAvailableUpdate &&
-                _preferencesService.IsStoreUpdateNotificationsEnabled &&
-                !HasShownNotificationForCurrentVersion())
-            {
-                _notificationBuilder.CreateStoreUpdateNotification();
-                MarkNotificationShownForCurrentVersion();
-            }
-
             return HasAvailableUpdate;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.CaptureException(ex, nameof(RefreshAvailabilityAsync));
             HasAvailableUpdate = false;
             return false;
         }
@@ -73,22 +58,48 @@ public class StoreUpdateService : IStoreUpdateService
                 return false;
             }
 
-            await _storeContext.RequestDownloadAndInstallStorePackageUpdatesAsync(updates);
-            await RefreshAvailabilityAsync(false).ConfigureAwait(false);
-            return true;
+            var result = await RequestDownloadAndInstallOnMainWindowAsync(updates);
+            var isCompleted = result?.OverallState == StorePackageUpdateState.Completed;
+
+            if (!isCompleted && result != null)
+            {
+                _logger.TrackEvent("Store update installation did not complete", new Dictionary<string, string>
+                {
+                    { nameof(result.OverallState), result.OverallState.ToString() }
+                });
+            }
+
+            return isCompleted;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.CaptureException(ex, nameof(StartUpdateAsync));
             return false;
         }
     }
 
-    private bool HasShownNotificationForCurrentVersion()
-        => _configurationService.Get(GetNotificationShownKey(), false);
+    private async Task<StorePackageUpdateResult> RequestDownloadAndInstallOnMainWindowAsync(IReadOnlyList<StorePackageUpdate> updates)
+    {
+        var mainWindow = WinoApplication.MainWindow
+            ?? throw new InvalidOperationException("Main window is not available for Store update installation.");
 
-    private void MarkNotificationShownForCurrentVersion()
-        => _configurationService.Set(GetNotificationShownKey(), true);
+        var dispatcherQueue = mainWindow.DispatcherQueue
+            ?? throw new InvalidOperationException("Main window dispatcher is not available for Store update installation.");
 
-    private string GetNotificationShownKey()
-        => string.Format(NotificationShownKeyFormat, _nativeAppService.GetFullAppVersion().Replace(".", "_"));
+        if (dispatcherQueue.HasThreadAccess)
+        {
+            InitializeStoreContextWithWindow(mainWindow);
+            return await _storeContext.RequestDownloadAndInstallStorePackageUpdatesAsync(updates);
+        }
+
+        return await dispatcherQueue.EnqueueAsync(async () =>
+        {
+            InitializeStoreContextWithWindow(mainWindow);
+            return await _storeContext.RequestDownloadAndInstallStorePackageUpdatesAsync(updates);
+        });
+    }
+
+    private void InitializeStoreContextWithWindow(WindowEx mainWindow)
+        => InitializeWithWindow.Initialize(_storeContext, WindowNative.GetWindowHandle(mainWindow));
+
 }

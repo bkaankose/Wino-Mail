@@ -70,15 +70,10 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
     public bool IsVerticalCalendar => StatePersistenceService.CalendarDisplayType == CalendarDisplayType.Month;
 
-    [ObservableProperty]
-    private bool isStoreUpdateItemVisible;
-
     private readonly SettingsItem _settingsItem = new();
-    private readonly StoreUpdateMenuItem _storeUpdateMenuItem = new();
     private readonly SemaphoreSlim _accountCalendarUpdateSemaphoreSlim = new(1);
     private readonly CalendarPageViewModel _calendarPageViewModel;
     private readonly IMailDialogService _dialogService;
-    private readonly IStoreUpdateService _storeUpdateService;
     private readonly IAccountService _accountService;
     private readonly ICalendarService _calendarService;
     private readonly IDateContextProvider _dateContextProvider;
@@ -95,7 +90,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         INavigationService navigationService,
         CalendarPageViewModel calendarPageViewModel,
         IMailDialogService dialogService,
-        IStoreUpdateService storeUpdateService,
         IDateContextProvider dateContextProvider)
     {
         PreferencesService = preferencesService;
@@ -106,7 +100,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         _calendarService = calendarService;
         _calendarPageViewModel = calendarPageViewModel;
         _dialogService = dialogService;
-        _storeUpdateService = storeUpdateService;
         _dateContextProvider = dateContextProvider;
 
         _calendarPageViewModel.PropertyChanged += CalendarPageViewModelPropertyChanged;
@@ -261,12 +254,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         });
     }
 
-    private async Task StartStoreUpdateAsync()
-    {
-        await _storeUpdateService.StartUpdateAsync().ConfigureAwait(false);
-        await RefreshFooterItemsAsync(false).ConfigureAwait(false);
-    }
-
     private async void AccountCalendarStateCollectivelyChanged(object sender, GroupedAccountCalendarViewModel e)
     {
         try
@@ -391,9 +378,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
                 break;
             case SettingsItem:
                 NavigationService.Navigate(WinoPage.SettingsPage);
-                break;
-            case StoreUpdateMenuItem:
-                await StartStoreUpdateAsync().ConfigureAwait(false);
                 break;
         }
     }

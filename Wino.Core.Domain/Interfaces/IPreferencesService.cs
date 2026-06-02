@@ -53,11 +53,6 @@ public interface IPreferencesService : INotifyPropertyChanged
     int EmailSyncIntervalMinutes { get; set; }
 
     /// <summary>
-    /// Setting: Default application mode to open when activation does not specify one.
-    /// </summary>
-    WinoApplicationMode DefaultApplicationMode { get; set; }
-
-    /// <summary>
     /// Setting: Whether Microsoft Store update notifications should be shown.
     /// </summary>
     bool IsStoreUpdateNotificationsEnabled { get; set; }
@@ -277,9 +272,9 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsFaviconEnabled { get; set; }
 
     /// <summary>
-    /// Setting: Whether account nickname indicator should be shown in merged views.
+    /// Setting: Whether account nickname indicator should be shown in linked accounts list in account settings.
     /// </summary>
-    bool IsShowAccountNicknameInMergedViewsEnabled { get; set; }
+    bool IsShowAccountNicknameInLinkedAccountsEnabled { get; set; }
 
     /// <summary>
     /// Setting: The position of the account nickname indicator.

@@ -27,6 +27,7 @@ public static class Constants
     public const string ToastDismissActionKey = nameof(ToastDismissActionKey);
     public const string ToastStoreUpdateActionKey = nameof(ToastStoreUpdateActionKey);
     public const string ToastStoreUpdateActionInstall = nameof(ToastStoreUpdateActionInstall);
+    public const string StoreUpdateNotificationSuppressionKey = nameof(StoreUpdateNotificationSuppressionKey);
     public const string JumpListActionKey = "JumpListAction";
     public const string JumpListOpenMailFolderAction = "OpenMailFolder";
     public const string JumpListAccountIdKey = "JumpListAccountId";

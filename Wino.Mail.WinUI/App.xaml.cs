@@ -253,7 +253,7 @@ public partial class App : WinoApplication,
         if (!_hasConfiguredAccounts)
             return ActivateWelcomeWindowAsync();
 
-        return ActivateShellFromTrayAsync(_preferencesService?.DefaultApplicationMode ?? WinoApplicationMode.Mail);
+        return ActivateShellFromTrayAsync(WinoApplicationMode.Mail);
     }
 
     private Task OpenMailFromTrayAsync()
@@ -1208,7 +1208,7 @@ public partial class App : WinoApplication,
         windowManager.SetPrimaryNavigationFrame(WinoWindowKind.Shell, shellWindow.GetMainFrame());
 
         var navigationService = Services.GetRequiredService<INavigationService>();
-        var defaultMode = _preferencesService?.DefaultApplicationMode ?? WinoApplicationMode.Mail;
+        var defaultMode = WinoApplicationMode.Mail;
         var activationArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
 
         if (activationContextOverride != null)

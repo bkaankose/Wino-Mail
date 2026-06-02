@@ -60,7 +60,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     private readonly SettingsItem SettingsItem = new SettingsItem();
     private readonly ContactsMenuItem ContactsMenuItem = new ContactsMenuItem();
-    private readonly StoreUpdateMenuItem StoreUpdateMenuItem = new StoreUpdateMenuItem();
 
     public IMenuItem CreateMailMenuItem = new NewMailMenuItem();
 
@@ -88,7 +87,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private readonly IMailDialogService _dialogService;
     private readonly IMimeFileService _mimeFileService;
     private readonly IWebView2RuntimeValidatorService _webView2RuntimeValidatorService;
-    private readonly IStoreUpdateService _storeUpdateService;
     private readonly IShareActivationService _shareActivationService;
 
     private readonly INativeAppService _nativeAppService;
@@ -116,7 +114,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                              IConfigurationService configurationService,
                              IStartupBehaviorService startupBehaviorService,
                              IWebView2RuntimeValidatorService webView2RuntimeValidatorService,
-                             IStoreUpdateService storeUpdateService,
                              IShareActivationService shareActivationService)
     {
         StatePersistenceService = statePersistanceService;
@@ -139,7 +136,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         _notificationBuilder = notificationBuilder;
         _winoRequestDelegator = winoRequestDelegator;
         _webView2RuntimeValidatorService = webView2RuntimeValidatorService;
-        _storeUpdateService = storeUpdateService;
         _shareActivationService = shareActivationService;
     }
 
@@ -252,14 +248,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         }
     }
 
-    private async void PreferencesServiceChanged(object sender, string e)
-    {
-        if (e == nameof(IPreferencesService.IsStoreUpdateNotificationsEnabled))
-        {
-            await CreateFooterItemsAsync();
-        }
-    }
-
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
     {
         if (!_hasRegisteredPersistentRecipients)
@@ -272,9 +260,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         var shouldRunStartupFlows = (activationContext?.IsInitialActivation ?? true) &&
                                     activationContext?.SuppressStartupFlows != true;
         var hasExistingAccountMenuItems = MenuItems?.OfType<IAccountMenuItem>().Any() == true;
-
-        PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
-        PreferencesService.PreferenceChanged += PreferencesServiceChanged;
 
         await CreateFooterItemsAsync(true);
 
@@ -308,15 +293,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         }
     }
 
-    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
-    {
-        PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
-    }
-
     public void PrepareForShellShutdown()
     {
-        PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
-
         if (_hasRegisteredPersistentRecipients)
         {
             UnregisterRecipients();

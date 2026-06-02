@@ -172,7 +172,7 @@ internal sealed class AppActivationHandler
 
     private RedirectedActivationRoute ResolveRedirectedActivationRoute(AppActivationArguments args)
     {
-        var activationMode = _host.DefaultApplicationMode;
+        var activationMode = WinoApplicationMode.Mail;
         var shouldActivateWindow = args.Kind != ExtendedActivationKind.StartupTask;
 
         if (args.Kind == ExtendedActivationKind.AppNotification &&

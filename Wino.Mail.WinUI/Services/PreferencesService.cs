@@ -257,10 +257,10 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SetPropertyAndSave(nameof(IsFaviconEnabled), value);
     }
 
-    public bool IsShowAccountNicknameInMergedViewsEnabled
+    public bool IsShowAccountNicknameInLinkedAccountsEnabled
     {
-        get => _configurationService.Get(nameof(IsShowAccountNicknameInMergedViewsEnabled), true);
-        set => SetPropertyAndSave(nameof(IsShowAccountNicknameInMergedViewsEnabled), value);
+        get => _configurationService.Get(nameof(IsShowAccountNicknameInLinkedAccountsEnabled), true);
+        set => SetPropertyAndSave(nameof(IsShowAccountNicknameInLinkedAccountsEnabled), value);
     }
 
     public AccountNicknamePosition AccountNicknamePosition
@@ -421,8 +421,21 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
 
     public bool IsStoreUpdateNotificationsEnabled
     {
-        get => _configurationService.Get(nameof(IsStoreUpdateNotificationsEnabled), true);
-        set => SetPropertyAndSave(nameof(IsStoreUpdateNotificationsEnabled), value);
+        get => !_configurationService.Contains(Constants.StoreUpdateNotificationSuppressionKey);
+        set
+        {
+            if (value)
+            {
+                _configurationService.Remove(Constants.StoreUpdateNotificationSuppressionKey);
+            }
+            else
+            {
+                _configurationService.Set(Constants.StoreUpdateNotificationSuppressionKey, true);
+            }
+
+            OnPropertyChanged();
+            PreferenceChanged?.Invoke(this, nameof(IsStoreUpdateNotificationsEnabled));
+        }
     }
 
     public bool IsSystemTrayIconEnabled
@@ -492,19 +505,6 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
     {
         get => _configurationService.Get(nameof(AiSummarySavePath), string.Empty);
         set => SetPropertyAndSave(nameof(AiSummarySavePath), value?.Trim() ?? string.Empty);
-    }
-
-    public WinoApplicationMode DefaultApplicationMode
-    {
-        get
-        {
-            var configuredMode = _configurationService.Get(nameof(DefaultApplicationMode), WinoApplicationMode.Mail);
-
-            return Enum.IsDefined(typeof(WinoApplicationMode), configuredMode)
-                ? configuredMode
-                : WinoApplicationMode.Mail;
-        }
-        set => SaveProperty(propertyName: nameof(DefaultApplicationMode), value);
     }
 
     public CalendarSettings GetCurrentCalendarSettings()

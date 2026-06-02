@@ -18,7 +18,6 @@ public partial class NavigationMenuTemplateSelector : DataTemplateSelector
     public DataTemplate SettingsShellPageItemTemplate { get; set; } = null!;
     public DataTemplate SettingsShellSectionItemTemplate { get; set; } = null!;
     public DataTemplate WinoAccountSettingsShellPageItemTemplate { get; set; } = null!;
-    public DataTemplate StoreUpdateItemTemplate { get; set; } = null!;
     public DataTemplate MoreItemsFolderTemplate { get; set; } = null!;
     public DataTemplate RatingItemTemplate { get; set; } = null!;
     public DataTemplate CreateNewFolderTemplate { get; set; } = null!;
@@ -46,8 +45,6 @@ public partial class NavigationMenuTemplateSelector : DataTemplateSelector
                 : SettingsShellPageItemTemplate;
         else if (item is SettingsShellSectionMenuItem)
             return SettingsShellSectionItemTemplate;
-        else if (item is StoreUpdateMenuItem)
-            return StoreUpdateItemTemplate;
         else if (item is SeperatorItem)
             return SeperatorTemplate;
         else if (item is AccountMenuItem)

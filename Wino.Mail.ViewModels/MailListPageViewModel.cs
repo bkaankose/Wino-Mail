@@ -72,7 +72,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     public IPreferencesService PreferencesService { get; }
     public INewThemeService ThemeService { get; }
 
-    public bool IsAccountIndicatorVisible => IsMergedAccountView && PreferencesService.IsShowAccountNicknameInMergedViewsEnabled;
+    public bool IsAccountIndicatorVisible => IsMergedAccountView && PreferencesService.IsShowAccountNicknameInLinkedAccountsEnabled;
 
     private readonly IAccountService _accountService;
     private readonly IMailDialogService _mailDialogService;
@@ -423,7 +423,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             return;
         }
 
-        if (propertyName == nameof(IPreferencesService.IsShowAccountNicknameInMergedViewsEnabled))
+        if (propertyName == nameof(IPreferencesService.IsShowAccountNicknameInLinkedAccountsEnabled))
         {
             OnPropertyChanged(nameof(IsAccountIndicatorVisible));
             return;
