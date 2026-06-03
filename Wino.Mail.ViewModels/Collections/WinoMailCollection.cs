@@ -119,6 +119,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     public event EventHandler<MailItemViewModel> MailItemRemoved;
     public event EventHandler ItemSelectionChanged;
 
+    public Func<MailCopy, MailItemViewModel> MailItemFactory { get; set; } = static mailCopy => new MailItemViewModel(mailCopy);
     public Func<string, ThreadMailItemViewModel> ThreadItemFactory { get; set; } = static threadId => new ThreadMailItemViewModel(threadId, true);
     public bool IsThreadingEnabled { get; set; } = true;
     public bool AreGroupHeadersEnabled { get; set; } = true;
@@ -247,6 +248,19 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     public List<ThreadMailItemViewModel> GetThreadItems()
         => _topLevelItems.OfType<ThreadMailItemViewModel>().ToList();
 
+    public void UpdateAccountNicknamePosition(AccountNicknamePosition position)
+    {
+        foreach (var mailItem in _uniqueIdToMailItemMap.Values.Distinct())
+        {
+            mailItem.AccountNicknamePosition = position;
+        }
+
+        foreach (var threadItem in _topLevelItems.OfType<ThreadMailItemViewModel>())
+        {
+            threadItem.AccountNicknamePosition = position;
+        }
+    }
+
     public Task AddAsync(MailCopy addedItem)
         => RunSerializedAsync(async () =>
         {
@@ -257,7 +271,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
             await ExecuteUIThread(() =>
             {
-                var addResult = AddMailCore(new MailItemViewModel(addedItem));
+                var addResult = AddMailCore(MailItemFactory(addedItem));
                 SortTopLevelItems();
                 RebuildMailLookupIndexes();
 
@@ -1061,11 +1075,9 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         {
             var removeResult = RemoveMailCore(existingItem.MailCopy.UniqueId);
             RebuildMailLookupIndexes();
-            var replacement = new MailItemViewModel(updatedMailCopy)
-            {
-                IsSelected = wasSelected,
-                IsBusy = mailUpdateSource == EntityUpdateSource.ClientUpdated || wasBusy
-            };
+            var replacement = MailItemFactory(updatedMailCopy);
+            replacement.IsSelected = wasSelected;
+            replacement.IsBusy = mailUpdateSource == EntityUpdateSource.ClientUpdated || wasBusy;
             var addResult = AddMailCore(replacement);
             return UpdateMailResult.For(removeResult.TouchedItems.Concat(addResult.TouchedItems).ToArray());
         }

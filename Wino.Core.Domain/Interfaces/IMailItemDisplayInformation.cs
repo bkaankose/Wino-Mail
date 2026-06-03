@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Interfaces;
 
@@ -31,6 +32,7 @@ public interface IMailItemDisplayInformation : INotifyPropertyChanged
     string ReadReceiptDisplayText { get; }
     string AccountNickname { get; }
     string AccountColorHex { get; }
+    AccountNicknamePosition AccountNicknamePosition { get; }
     IReadOnlyList<MailCategory> Categories { get; }
     bool HasCategories { get; }
 }

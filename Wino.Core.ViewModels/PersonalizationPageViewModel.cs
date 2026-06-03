@@ -391,6 +391,7 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         public string ReadReceiptDisplayText { get; } = string.Empty;
         public string AccountNickname { get; } = "Personal";
         public string AccountColorHex { get; } = "#00FF00";
+        public AccountNicknamePosition AccountNicknamePosition { get; } = Wino.Core.Domain.Enums.AccountNicknamePosition.Right;
         public IReadOnlyList<MailCategory> Categories { get; } =
         [
             new()

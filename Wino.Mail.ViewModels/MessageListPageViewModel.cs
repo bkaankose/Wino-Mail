@@ -62,13 +62,36 @@ public partial class MessageListPageViewModel : MailBaseViewModel
     private int selectedAccountNicknamePositionIndex;
     public int SelectedAccountNicknamePositionIndex
     {
-        get => selectedAccountNicknamePositionIndex;
+        get => PreferencesService.AccountNicknamePosition == AccountNicknamePosition.None
+            ? selectedAccountNicknamePositionIndex
+            : (int)PreferencesService.AccountNicknamePosition - 1;
         set
         {
             if (SetProperty(ref selectedAccountNicknamePositionIndex, value) && value >= 0)
             {
-                PreferencesService.AccountNicknamePosition = (AccountNicknamePosition)value;
+                PreferencesService.AccountNicknamePosition = (AccountNicknamePosition)(value + 1);
+                OnPropertyChanged(nameof(IsAccountNicknameIndicatorEnabled));
             }
+        }
+    }
+
+    public bool IsAccountNicknameIndicatorEnabled
+    {
+        get => PreferencesService.AccountNicknamePosition != AccountNicknamePosition.None;
+        set
+        {
+            var newPosition = value
+                ? selectedAccountNicknamePositionIndex >= 0
+                    ? (AccountNicknamePosition)(selectedAccountNicknamePositionIndex + 1)
+                    : AccountNicknamePosition.Right
+                : AccountNicknamePosition.None;
+
+            if (PreferencesService.AccountNicknamePosition == newPosition)
+                return;
+
+            PreferencesService.AccountNicknamePosition = newPosition;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SelectedAccountNicknamePositionIndex));
         }
     }
 
@@ -168,7 +191,7 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         selectedMailSpacingIndex = availableMailSpacingOptions.IndexOf(PreferencesService.MailItemDisplayMode);
         SelectedMarkAsOptionIndex = Array.IndexOf(Enum.GetValues<MailMarkAsOption>(), PreferencesService.MarkAsPreference);
         selectedThreadItemSortingIndex = PreferencesService.IsNewestThreadMailFirst ? 0 : 1;
-        selectedAccountNicknamePositionIndex = (int)PreferencesService.AccountNicknamePosition;
+        selectedAccountNicknamePositionIndex = PreferencesService.AccountNicknamePosition == AccountNicknamePosition.Left ? 1 : 0;
     }
 
     [RelayCommand]
@@ -203,6 +226,7 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         public string ReadReceiptDisplayText => Translator.MailReceiptStatus_Requested;
         public string AccountNickname => "Personal";
         public string AccountColorHex => "#00FF00";
+        public AccountNicknamePosition AccountNicknamePosition => Wino.Core.Domain.Enums.AccountNicknamePosition.Right;
         public IReadOnlyList<MailCategory> Categories =>
         [
             new()

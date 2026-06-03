@@ -19,11 +19,12 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
 {
     private bool isSyncingCategories;
 
-    public MailItemViewModel(MailCopy mailCopy)
+    public MailItemViewModel(MailCopy mailCopy, AccountNicknamePosition accountNicknamePosition = AccountNicknamePosition.None)
     {
         Categories = new ObservableCollection<MailCategory>(mailCopy?.Categories ?? []);
         Categories.CollectionChanged += CategoriesCollectionChanged;
         MailCopy = mailCopy;
+        AccountNicknamePosition = accountNicknamePosition;
     }
 
     [ObservableProperty]
@@ -131,6 +132,9 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
 
     public string AccountNickname => MailCopy.AssignedAccount?.Name;
     public string AccountColorHex => MailCopy.AssignedAccount?.AccountColorHex;
+
+    [ObservableProperty]
+    public partial AccountNicknamePosition AccountNicknamePosition { get; set; }
 
     public ObservableCollection<MailCategory> Categories { get; }
 

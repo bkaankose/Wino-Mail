@@ -272,11 +272,6 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsFaviconEnabled { get; set; }
 
     /// <summary>
-    /// Setting: Whether account nickname indicator should be shown in linked accounts list in account settings.
-    /// </summary>
-    bool IsShowAccountNicknameInLinkedAccountsEnabled { get; set; }
-
-    /// <summary>
     /// Setting: The position of the account nickname indicator.
     /// </summary>
     AccountNicknamePosition AccountNicknamePosition { get; set; }

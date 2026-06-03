@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Mail.ViewModels.Data;
@@ -75,6 +76,7 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
     public string ReadReceiptDisplayText => string.Empty;
     public string AccountNickname => string.Empty;
     public string AccountColorHex => string.Empty;
+    public AccountNicknamePosition AccountNicknamePosition => Wino.Core.Domain.Enums.AccountNicknamePosition.None;
     public IReadOnlyList<MailCategory> Categories => [];
     public bool HasCategories => false;
     public AccountContact SenderContact => new()

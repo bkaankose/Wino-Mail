@@ -72,8 +72,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     public IPreferencesService PreferencesService { get; }
     public INewThemeService ThemeService { get; }
 
-    public bool IsAccountIndicatorVisible => IsMergedAccountView && PreferencesService.IsShowAccountNicknameInLinkedAccountsEnabled;
-
     private readonly IAccountService _accountService;
     private readonly IMailDialogService _mailDialogService;
     private readonly IMailService _mailService;
@@ -167,11 +165,13 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     [NotifyPropertyChangedFor(nameof(IsJunkFolder))]
     [NotifyPropertyChangedFor(nameof(IsEmptyFolderButtonVisible))]
     [NotifyPropertyChangedFor(nameof(IsMergedAccountView))]
-    [NotifyPropertyChangedFor(nameof(IsAccountIndicatorVisible))]
     [NotifyCanExecuteChangedFor(nameof(EmptyFolderCommand))]
     public partial IBaseFolderMenuItem ActiveFolder { get; set; }
 
     public bool IsMergedAccountView => ActiveFolder is IMergedAccountFolderMenuItem or IMergedMailCategoryMenuItem;
+
+    private AccountNicknamePosition CurrentAccountNicknamePosition
+        => IsMergedAccountView ? PreferencesService.AccountNicknamePosition : AccountNicknamePosition.None;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSynchronize))]
@@ -216,10 +216,22 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         SelectedSortingOption = SortingOptions[0];
         MailCollection.IsThreadingEnabled = PreferencesService.IsThreadingEnabled;
         MailCollection.AreGroupHeadersEnabled = PreferencesService.IsMailListGroupHeadersEnabled;
-        MailCollection.ThreadItemFactory = threadId => new ThreadMailItemViewModel(threadId, PreferencesService.IsNewestThreadMailFirst);
+        MailCollection.MailItemFactory = CreateMailItemViewModel;
+        MailCollection.ThreadItemFactory = threadId => new ThreadMailItemViewModel(threadId, PreferencesService.IsNewestThreadMailFirst, CurrentAccountNicknamePosition);
 
         MailListLength = statePersistenceService.MailListPaneLength;
     }
+
+    partial void OnActiveFolderChanged(IBaseFolderMenuItem value)
+    {
+        UpdateAccountNicknamePositionForItems();
+    }
+
+    private MailItemViewModel CreateMailItemViewModel(MailCopy mailCopy)
+        => new(mailCopy, CurrentAccountNicknamePosition);
+
+    private void UpdateAccountNicknamePositionForItems()
+        => MailCollection.UpdateAccountNicknamePosition(CurrentAccountNicknamePosition);
 
     public override void OnNavigatedTo(NavigationMode mode, object parameters)
     {
@@ -423,9 +435,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             return;
         }
 
-        if (propertyName == nameof(IPreferencesService.IsShowAccountNicknameInLinkedAccountsEnabled))
+        if (propertyName == nameof(IPreferencesService.AccountNicknamePosition))
         {
-            OnPropertyChanged(nameof(IsAccountIndicatorVisible));
+            UpdateAccountNicknamePositionForItems();
             return;
         }
 
@@ -1371,7 +1383,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             if (mailsToAdd.Count == 0)
                 return;
 
-            await MailCollection.AddRangeAsync(mailsToAdd.Select(mail => new MailItemViewModel(mail)), false);
+            await MailCollection.AddRangeAsync(mailsToAdd.Select(CreateMailItemViewModel), false);
 
             await ExecuteUIThread(() =>
             {
@@ -1449,7 +1461,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             foreach (var mailItem in mailItems)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                viewModels.Add(new MailItemViewModel(mailItem));
+                viewModels.Add(CreateMailItemViewModel(mailItem));
             }
             return viewModels;
         }, cancellationToken).ConfigureAwait(false);

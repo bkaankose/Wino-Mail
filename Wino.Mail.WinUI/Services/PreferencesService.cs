@@ -257,12 +257,6 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SetPropertyAndSave(nameof(IsFaviconEnabled), value);
     }
 
-    public bool IsShowAccountNicknameInLinkedAccountsEnabled
-    {
-        get => _configurationService.Get(nameof(IsShowAccountNicknameInLinkedAccountsEnabled), true);
-        set => SetPropertyAndSave(nameof(IsShowAccountNicknameInLinkedAccountsEnabled), value);
-    }
-
     public AccountNicknamePosition AccountNicknamePosition
     {
         get => _configurationService.Get(nameof(AccountNicknamePosition), AccountNicknamePosition.Right);

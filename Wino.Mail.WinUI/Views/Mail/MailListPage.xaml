@@ -112,31 +112,47 @@
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
+                        <controls:AccountNicknameIndicatorControl
+                            x:Name="LeftAccountNicknameIndicator"
+                            Margin="0,0,4,0"
+                            x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Left), Mode=OneWay}"
+                            AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
+                            AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                         <TextBlock
+                            Grid.Column="1"
                             Margin="0,0,4,0"
                             Foreground="{StaticResource DeleteBrush}"
                             Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}"
                             Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsDraft), Mode=OneWay}" />
                         <TextBlock
-                            Grid.Column="1"
+                            Grid.Column="2"
                             FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
                             Text="{x:Bind FromName, Mode=OneWay}"
                             TextTrimming="CharacterEllipsis"
                             Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(FromName), Mode=OneWay}" />
                         <TextBlock
-                            Grid.Column="1"
+                            Grid.Column="2"
                             FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
                             Text="{x:Bind FromAddress, Mode=OneWay}"
                             TextTrimming="CharacterEllipsis"
                             Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(FromName), Mode=OneWay}" />
+                        <controls:AccountNicknameIndicatorControl
+                            x:Name="RightAccountNicknameIndicator"
+                            Grid.Column="3"
+                            Margin="0,0,4,0"
+                            x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Right), Mode=OneWay}"
+                            AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
+                            AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                     </Grid>
                     <TextBlock
                         Grid.Row="1"
                         x:Phase="0"
                         FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
-                        Foreground="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForegroundByReadState(IsRead), Mode=OneWay}"
+                        
                         Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
                         TextTrimming="CharacterEllipsis" />
                 </Grid>
@@ -239,30 +255,46 @@
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
+                        <controls:AccountNicknameIndicatorControl
+                            x:Name="LeftAccountNicknameIndicator"
+                            Margin="0,0,4,0"
+                            x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Left), Mode=OneWay}"
+                            AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
+                            AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                         <TextBlock
+                            Grid.Column="1"
                             Margin="0,0,4,0"
                             Foreground="{StaticResource DeleteBrush}"
                             Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}"
                             Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsDraft), Mode=OneWay}" />
                         <TextBlock
-                            Grid.Column="1"
+                            Grid.Column="2"
                             FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
                             Text="{x:Bind FromName, Mode=OneWay}"
                             TextTrimming="CharacterEllipsis"
                             Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(FromName), Mode=OneWay}" />
                         <TextBlock
-                            Grid.Column="1"
+                            Grid.Column="2"
                             FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
                             Text="{x:Bind FromAddress, Mode=OneWay}"
                             TextTrimming="CharacterEllipsis"
                             Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(FromName), Mode=OneWay}" />
+                        <controls:AccountNicknameIndicatorControl
+                            x:Name="RightAccountNicknameIndicator"
+                            Grid.Column="3"
+                            Margin="0,0,4,0"
+                            x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Right), Mode=OneWay}"
+                            AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
+                            AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                     </Grid>
                     <TextBlock
                         Grid.Row="1"
                         FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
-                        Foreground="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForegroundByReadState(IsRead), Mode=OneWay}"
+                        
                         Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
                         TextTrimming="CharacterEllipsis" />
                     <TextBlock
@@ -379,25 +411,41 @@
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
+                            <controls:AccountNicknameIndicatorControl
+                                x:Name="LeftNicknameIndicator"
+                                Margin="0,0,4,0"
+                                x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Left), Mode=OneWay}"
+                                AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
+                                AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                             <TextBlock
+                                Grid.Column="1"
                                 Margin="0,0,4,0"
                                 Foreground="{StaticResource DeleteBrush}"
                                 Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}"
                                 Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsDraft), Mode=OneWay}" />
                             <TextBlock
-                                Grid.Column="1"
+                                Grid.Column="2"
                                 FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
                                 Text="{x:Bind FromName, Mode=OneWay}"
                                 TextTrimming="CharacterEllipsis"
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(FromName), Mode=OneWay}" />
                             <TextBlock
-                                Grid.Column="1"
+                                Grid.Column="2"
                                 FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
                                 Text="{x:Bind FromAddress, Mode=OneWay}"
                                 TextTrimming="CharacterEllipsis"
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(FromName), Mode=OneWay}" />
+                            <controls:AccountNicknameIndicatorControl
+                                x:Name="RightNicknameIndicator"
+                                Grid.Column="3"
+                                Margin="0,0,4,0"
+                                x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Right), Mode=OneWay}"
+                                AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
+                                AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                         </Grid>
                         <TextBlock
                             Grid.Column="1"
@@ -418,7 +466,7 @@
                     <TextBlock
                         Grid.Row="1"
                         FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
-                        Foreground="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForegroundByReadState(IsRead), Mode=OneWay}"
+                        
                         Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
                         TextTrimming="CharacterEllipsis" />
 
@@ -520,25 +568,41 @@
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
+                            <controls:AccountNicknameIndicatorControl
+                                x:Name="LeftAccountNicknameIndicator"
+                                Margin="0,0,4,0"
+                                x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Left), Mode=OneWay}"
+                                AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
+                                AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                             <TextBlock
+                                Grid.Column="1"
                                 Margin="0,0,4,0"
                                 Foreground="{StaticResource DeleteBrush}"
                                 Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}"
                                 Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsDraft), Mode=OneWay}" />
                             <TextBlock
-                                Grid.Column="1"
+                                Grid.Column="2"
                                 FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
                                 Text="{x:Bind FromName, Mode=OneWay}"
                                 TextTrimming="CharacterEllipsis"
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(FromName), Mode=OneWay}" />
                             <TextBlock
-                                Grid.Column="1"
+                                Grid.Column="2"
                                 FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
                                 Text="{x:Bind FromAddress, Mode=OneWay}"
                                 TextTrimming="CharacterEllipsis"
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(FromName), Mode=OneWay}" />
+                            <controls:AccountNicknameIndicatorControl
+                                x:Name="RightAccountNicknameIndicator"
+                                Grid.Column="3"
+                                Margin="0,0,4,0"
+                                x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Right), Mode=OneWay}"
+                                AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
+                                AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                         </Grid>
                         <Grid Grid.Row="1" ColumnSpacing="4">
                             <Grid.ColumnDefinitions>
@@ -558,7 +622,7 @@
                             <TextBlock
                                 Grid.Column="1"
                                 FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
-                                Foreground="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForegroundByReadState(IsRead), Mode=OneWay}"
+                                
                                 Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
                                 TextTrimming="CharacterEllipsis" />
                         </Grid>
@@ -665,25 +729,41 @@
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
+                            <controls:AccountNicknameIndicatorControl
+                                x:Name="LeftAccountNicknameIndicator"
+                                Margin="0,0,4,0"
+                                x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Left), Mode=OneWay}"
+                                AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
+                                AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                             <TextBlock
+                                Grid.Column="1"
                                 Margin="0,0,4,0"
                                 Foreground="{StaticResource DeleteBrush}"
                                 Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}"
                                 Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsDraft), Mode=OneWay}" />
                             <TextBlock
-                                Grid.Column="1"
+                                Grid.Column="2"
                                 FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
                                 Text="{x:Bind FromName, Mode=OneWay}"
                                 TextTrimming="CharacterEllipsis"
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(FromName), Mode=OneWay}" />
                             <TextBlock
-                                Grid.Column="1"
+                                Grid.Column="2"
                                 FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
                                 Text="{x:Bind FromAddress, Mode=OneWay}"
                                 TextTrimming="CharacterEllipsis"
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(FromName), Mode=OneWay}" />
+                            <controls:AccountNicknameIndicatorControl
+                                x:Name="RightAccountNicknameIndicator"
+                                Grid.Column="3"
+                                Margin="0,0,4,0"
+                                x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Right), Mode=OneWay}"
+                                AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
+                                AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                         </Grid>
                         <Grid ColumnSpacing="4">
                             <Grid.ColumnDefinitions>
@@ -703,7 +783,7 @@
                             <TextBlock
                                 Grid.Column="1"
                                 FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
-                                Foreground="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForegroundByReadState(IsRead), Mode=OneWay}"
+                                
                                 Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
                                 TextTrimming="CharacterEllipsis" />
                         </Grid>
@@ -818,25 +898,41 @@
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
+                            <controls:AccountNicknameIndicatorControl
+                                x:Name="LeftAccountNicknameIndicator"
+                                Margin="0,0,4,0"
+                                x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Left), Mode=OneWay}"
+                                AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
+                                AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                             <TextBlock
+                                Grid.Column="1"
                                 Margin="0,0,4,0"
                                 Foreground="{StaticResource DeleteBrush}"
                                 Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}"
                                 Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsDraft), Mode=OneWay}" />
                             <TextBlock
-                                Grid.Column="1"
+                                Grid.Column="2"
                                 FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
                                 Text="{x:Bind FromName, Mode=OneWay}"
                                 TextTrimming="CharacterEllipsis"
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(FromName), Mode=OneWay}" />
                             <TextBlock
-                                Grid.Column="1"
+                                Grid.Column="2"
                                 FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
                                 Text="{x:Bind FromAddress, Mode=OneWay}"
                                 TextTrimming="CharacterEllipsis"
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(FromName), Mode=OneWay}" />
+                            <controls:AccountNicknameIndicatorControl
+                                x:Name="RightAccountNicknameIndicator"
+                                Grid.Column="3"
+                                Margin="0,0,4,0"
+                                x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Right), Mode=OneWay}"
+                                AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
+                                AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                         </Grid>
                         <Grid ColumnSpacing="4">
                             <Grid.ColumnDefinitions>
@@ -856,7 +952,7 @@
                             <TextBlock
                                 Grid.Column="1"
                                 FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
-                                Foreground="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForegroundByReadState(IsRead), Mode=OneWay}"
+                                
                                 Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
                                 TextTrimming="CharacterEllipsis" />
                         </Grid>

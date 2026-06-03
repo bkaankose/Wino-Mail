@@ -186,29 +186,11 @@ public static class XamlHelpers
     public static FontWeight GetFontWeightByReadState(bool isChildSelected) => isChildSelected ? FontWeights.Normal : FontWeights.SemiBold;
     public static FontWeight GetMailItemSenderFontWeightByReadState(bool isRead) => isRead ? FontWeights.Normal : FontWeights.Bold;
     public static FontWeight GetMailItemSubjectFontWeightByReadState(bool isRead) => isRead ? FontWeights.Normal : FontWeights.SemiBold;
-    public static Brush GetMailItemSubjectForegroundByReadState(bool isRead)
-        => GetApplicationBrush(isRead ? "TextFillColorPrimaryBrush" : "SystemAccentColor");
-
-    private static Brush GetApplicationBrush(string resourceKey)
-    {
-        if (Application.Current.Resources.TryGetValue(resourceKey, out var resource))
-        {
-            if (resource is Brush brush)
-            {
-                return brush;
-            }
-
-            if (resource is Color color)
-            {
-                return new SolidColorBrush(color);
-            }
-        }
-
-        return GetDefaultBrushForUnderlyingTheme();
-    }
 
     public static Visibility StringToVisibilityConverter(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Collapsed : Visibility.Visible;
     public static Visibility StringToVisibilityReversedConverter(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Visible : Visibility.Collapsed;
+    public static bool IsAccountNicknameVisible(string accountNickname, AccountNicknamePosition position, AccountNicknamePosition targetPosition)
+        => !string.IsNullOrWhiteSpace(accountNickname) && position == targetPosition;
     public static string GetDraftTagText() => $"[{Translator.Draft}]";
     public static string GetMailItemSubjectForListing(string? subject) => string.IsNullOrWhiteSpace(subject) ? $"({Translator.MailItemNoSubject})" : subject;
     public static string GetMailItemDisplaySummaryForListing(bool isDraft, DateTime receivedDate)

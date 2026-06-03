@@ -108,6 +108,9 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
 
     public string AccountColorHex => newestMailViewModel?.AccountColorHex ?? string.Empty;
 
+    [ObservableProperty]
+    public partial AccountNicknamePosition AccountNicknamePosition { get; set; }
+
     public IReadOnlyList<MailCategory> Categories => ThreadEmails
         .SelectMany(a => a.Categories)
         .GroupBy(a => a.Id)
@@ -220,10 +223,11 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
 
     public string SortingName => FromName;
 
-    public ThreadMailItemViewModel(string threadId, bool isNewestEmailFirst)
+    public ThreadMailItemViewModel(string threadId, bool isNewestEmailFirst, AccountNicknamePosition accountNicknamePosition = AccountNicknamePosition.None)
     {
         _threadId = threadId;
         _isNewestEmailFirst = isNewestEmailFirst;
+        AccountNicknamePosition = accountNicknamePosition;
     }
 
     internal void SuspendChildPropertyNotifications() => _suspendChildPropertyNotificationsCount++;
