@@ -259,6 +259,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         var activationContext = parameters as ShellModeActivationContext;
         var shouldRunStartupFlows = (activationContext?.IsInitialActivation ?? true) &&
                                     activationContext?.SuppressStartupFlows != true;
+        var isModeReactivation = activationContext?.IsInitialActivation == false;
         var hasExistingAccountMenuItems = MenuItems?.OfType<IAccountMenuItem>().Any() == true;
 
         await CreateFooterItemsAsync(true);
@@ -266,6 +267,11 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         if (!hasExistingAccountMenuItems)
         {
             await RecreateMenuItemsAsync();
+        }
+        else if (isModeReactivation)
+        {
+            await RecreateMenuItemsAsync();
+            await RestoreSelectedAccountAfterMenuRefreshAsync(false);
         }
 
         await RefreshAccountSynchronizationProgressAsync();
