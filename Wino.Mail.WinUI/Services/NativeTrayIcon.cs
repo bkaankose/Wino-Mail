@@ -11,6 +11,7 @@ internal sealed class NativeTrayIcon : IDisposable
 {
     private const int ImageIcon = 1;
     private const int LoadFromFile = 0x0010;
+    private const int NotifyIconVersion4 = 4;
     private const int WmApp = 0x8000;
     private const int WmNull = 0x0000;
     private const int WmDestroy = 0x0002;
@@ -33,6 +34,7 @@ internal sealed class NativeTrayIcon : IDisposable
     private const int NimAdd = 0x00000000;
     private const int NimModify = 0x00000001;
     private const int NimDelete = 0x00000002;
+    private const int NimSetVersion = 0x00000004;
     private const int TrayCallbackMessage = WmApp + 1;
     private const string WindowClassName = "WinoMail.NativeTrayIconWindow";
     private static readonly Guid TrayIconGuid = new("6E1330D0-22D5-4F0B-A3BF-C9B2AE536F77");
@@ -73,6 +75,7 @@ internal sealed class NativeTrayIcon : IDisposable
         if (_isDisposed || _isCreated)
             return;
 
+        Log.Information("Creating native tray icon. IconPath: {IconPath}, OS: {OSVersion}", _iconPath, Environment.OSVersion);
         EnsureWindowClassRegistered();
 
         _messageWindowHandle = CreateWindowExW(
@@ -90,7 +93,9 @@ internal sealed class NativeTrayIcon : IDisposable
             nint.Zero);
 
         if (_messageWindowHandle == nint.Zero)
-            throw new InvalidOperationException("Failed to create native tray icon message window.");
+            throw CreateWin32Exception("Failed to create native tray icon message window.");
+
+        Log.Information("Native tray icon message window created. Hwnd: {Hwnd}", _messageWindowHandle);
 
         lock (Instances)
         {
@@ -99,10 +104,14 @@ internal sealed class NativeTrayIcon : IDisposable
 
         _iconHandle = LoadImageW(nint.Zero, _iconPath, ImageIcon, 0, 0, LoadFromFile);
         if (_iconHandle == nint.Zero)
-            throw new InvalidOperationException($"Failed to load tray icon from '{_iconPath}'.");
+            throw CreateWin32Exception($"Failed to load tray icon from '{_iconPath}'.");
+
+        Log.Information("Native tray icon image loaded. IconHandle: {IconHandle}", _iconHandle);
 
         AddOrUpdateIcon(NimAdd);
+        SetNotifyIconVersion();
         _isCreated = true;
+        Log.Information("Native tray icon created successfully.");
     }
 
     public void Dispose()
@@ -136,13 +145,45 @@ internal sealed class NativeTrayIcon : IDisposable
     private void AddOrUpdateIcon(int message)
     {
         var notifyIconData = CreateNotifyIconData();
-        Shell_NotifyIconW(message, ref notifyIconData);
+        if (!Shell_NotifyIconW(message, ref notifyIconData))
+        {
+            throw CreateWin32Exception($"Shell_NotifyIcon failed. Message: {message}");
+        }
+
+        Log.Information("Shell_NotifyIcon succeeded. Message: {Message}, Hwnd: {Hwnd}, IconHandle: {IconHandle}",
+            message,
+            _messageWindowHandle,
+            _iconHandle);
+    }
+
+    private void SetNotifyIconVersion()
+    {
+        var notifyIconData = CreateNotifyIconData();
+        notifyIconData.uTimeoutOrVersion = NotifyIconVersion4;
+
+        if (!Shell_NotifyIconW(NimSetVersion, ref notifyIconData))
+        {
+            Log.Warning("Shell_NotifyIcon version setup failed. LastError: {LastError}, Hwnd: {Hwnd}",
+                Marshal.GetLastWin32Error(),
+                _messageWindowHandle);
+            return;
+        }
+
+        Log.Information("Shell_NotifyIcon version setup succeeded. Version: {Version}", NotifyIconVersion4);
     }
 
     private void RemoveIcon()
     {
         var notifyIconData = CreateNotifyIconData();
-        Shell_NotifyIconW(NimDelete, ref notifyIconData);
+        if (!Shell_NotifyIconW(NimDelete, ref notifyIconData))
+        {
+            Log.Warning("Failed to remove native tray icon. LastError: {LastError}, Hwnd: {Hwnd}",
+                Marshal.GetLastWin32Error(),
+                _messageWindowHandle);
+            return;
+        }
+
+        Log.Information("Native tray icon removed.");
     }
 
     private NOTIFYICONDATAW CreateNotifyIconData()
@@ -241,7 +282,11 @@ internal sealed class NativeTrayIcon : IDisposable
         if (message == _taskbarCreatedMessage)
         {
             if (_isCreated && !_isDisposed)
+            {
+                Log.Information("TaskbarCreated received. Re-adding native tray icon.");
                 AddOrUpdateIcon(NimAdd);
+                SetNotifyIconVersion();
+            }
 
             return nint.Zero;
         }
@@ -273,6 +318,8 @@ internal sealed class NativeTrayIcon : IDisposable
                 return;
 
             _taskbarCreatedMessage = RegisterWindowMessageW("TaskbarCreated");
+            if (_taskbarCreatedMessage == 0)
+                throw CreateWin32Exception("Failed to register TaskbarCreated message.");
 
             var windowClass = new WNDCLASSW
             {
@@ -283,10 +330,19 @@ internal sealed class NativeTrayIcon : IDisposable
 
             _windowClassAtom = RegisterClassW(ref windowClass);
             if (_windowClassAtom == 0)
-                throw new InvalidOperationException("Failed to register native tray icon window class.");
+                throw CreateWin32Exception("Failed to register native tray icon window class.");
 
             _windowClassRegistered = true;
+            Log.Information("Native tray icon window class registered. Atom: {Atom}, TaskbarCreatedMessage: {TaskbarCreatedMessage}",
+                _windowClassAtom,
+                _taskbarCreatedMessage);
         }
+    }
+
+    private static InvalidOperationException CreateWin32Exception(string message)
+    {
+        var lastError = Marshal.GetLastWin32Error();
+        return new InvalidOperationException($"{message} LastError: {lastError}");
     }
 
     private static nint StaticWindowProc(nint windowHandle, uint message, nuint wParam, nint lParam)
@@ -387,7 +443,7 @@ internal sealed class NativeTrayIcon : IDisposable
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
     private static extern nint GetModuleHandleW(string? moduleName);
 
-    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern bool Shell_NotifyIconW(int message, ref NOTIFYICONDATAW notifyIconData);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
