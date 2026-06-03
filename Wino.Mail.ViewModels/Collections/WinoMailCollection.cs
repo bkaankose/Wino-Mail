@@ -671,6 +671,37 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
             mail.IsSelected = true;
         });
 
+    public Task SelectMailAsync(Guid uniqueId)
+        => ExecuteSelectionBatchAsync(() =>
+        {
+            if (uniqueId == Guid.Empty)
+            {
+                return;
+            }
+
+            var selectedMail = Find(uniqueId);
+            if (selectedMail == null)
+            {
+                return;
+            }
+
+            ClearSelectionState();
+
+            var parentThread = GetThreadByMailUniqueId(uniqueId);
+            if (parentThread != null)
+            {
+                CollapseAllThreadsExcept(parentThread);
+                parentThread.IsThreadExpanded = true;
+                parentThread.IsSelected = true;
+            }
+            else
+            {
+                CollapseAllThreadsExcept(null);
+            }
+
+            selectedMail.IsSelected = true;
+        });
+
     public Task ToggleThreadExpansionAsync(ThreadMailItemViewModel thread)
         => ExecuteSelectionBatchAsync(() =>
         {

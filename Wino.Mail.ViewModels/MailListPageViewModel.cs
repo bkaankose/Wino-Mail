@@ -1399,11 +1399,12 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             // AddAsync already handles UI threading internally
             await MailCollection.AddAsync(draftMail);
+            await MailCollection.SelectMailAsync(draftMail.UniqueId);
 
             await ExecuteUIThread(() =>
             {
-                // New draft is created by user. Select the item.
-                Messenger.Send(new MailItemNavigationRequested(draftMail.UniqueId, ScrollToItem: true));
+                // New draft is created by user. Bring the selected item into view.
+                Messenger.Send(new SelectMailItemContainerEvent(draftMail.UniqueId, ScrollToItem: true));
 
                 NotifyItemFoundState();
             });
