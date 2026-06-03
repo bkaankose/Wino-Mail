@@ -978,6 +978,7 @@
     "SettingsShowAccountNickname_Description": "Отображать метку, указывающую, к какому аккаунту относится сообщение, при использовании связанных почтовых ящиков.",
     "SettingsShowAccountNickname_Title": "Показывать имя аккаунта в объединённых представлениях",
     "SettingsAccountNicknamePosition_Title": "Положение",
+    "AccountNicknamePosition_None": "Нет",
     "AccountNicknamePosition_Right": "Справа",
     "AccountNicknamePosition_Left": "Слева",
     "SettingsMailNotifications_Title": "Уведомления",

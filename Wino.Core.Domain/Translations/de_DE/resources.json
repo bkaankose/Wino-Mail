@@ -978,6 +978,7 @@
     "SettingsShowAccountNickname_Description": "Eine Kennzeichnung anzeigen, die angibt, zu welchem Konto eine Nachricht gehört, wenn verknüpfte Postfächer verwendet werden.",
     "SettingsShowAccountNickname_Title": "Kontonamen in zusammengeführten Ansichten anzeigen",
     "SettingsAccountNicknamePosition_Title": "Position",
+    "AccountNicknamePosition_None": "Keine",
     "AccountNicknamePosition_Right": "Rechte Seite",
     "AccountNicknamePosition_Left": "Linke Seite",
     "SettingsMailNotifications_Title": "Benachrichtigungen",

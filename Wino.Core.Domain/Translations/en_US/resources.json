@@ -978,6 +978,7 @@
     "SettingsShowAccountNickname_Description": "Display a label indicating which account a message belongs to when using linked inboxes.",
     "SettingsShowAccountNickname_Title": "Show account name in linked accounts.",
     "SettingsAccountNicknamePosition_Title": "Position",
+    "AccountNicknamePosition_None": "None",
     "AccountNicknamePosition_Right": "Right side",
     "AccountNicknamePosition_Left": "Left side",
     "SettingsMailNotifications_Title": "Notifications",

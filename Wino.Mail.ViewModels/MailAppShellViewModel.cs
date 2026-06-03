@@ -184,7 +184,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private async Task LoadAccountsAsync()
     {
         // First clear all account menu items.
-        MenuItems.RemoveRange(MenuItems.Where(a => a is IAccountMenuItem));
+        await ExecuteUIThread(() => MenuItems.RemoveRange(MenuItems.Where(a => a is IAccountMenuItem).ToList()));
 
         var accounts = await GetMailEnabledAccountsAsync();
 
@@ -268,6 +268,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             await RecreateMenuItemsAsync();
         }
 
+        await RefreshAccountSynchronizationProgressAsync();
         await ProcessLaunchOptionsAsync(activationContext?.Parameter as MailFolderLaunchRequest);
         await HandlePendingShareRequestAsync();
         await ValidateWebView2RuntimeAsync();
@@ -281,6 +282,29 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         {
             await MakeSureEnableStartupLaunchAsync();
         }
+    }
+
+    private async Task RefreshAccountSynchronizationProgressAsync()
+    {
+        await ExecuteUIThread(() =>
+        {
+            foreach (var accountMenuItem in MenuItems.GetAllAccountMenuItems().OfType<AccountMenuItem>().ToList())
+            {
+                ApplySynchronizationProgress(accountMenuItem, SynchronizationProgressCategory.Mail);
+            }
+
+            foreach (var mergedAccountMenuItem in MenuItems.OfType<MergedAccountMenuItem>().ToList())
+            {
+                mergedAccountMenuItem.RefreshSynchronizationProgress();
+            }
+        });
+    }
+
+    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    {
+        base.OnNavigatedFrom(mode, parameters);
+
+        _hasRegisteredPersistentRecipients = false;
     }
 
     private async Task ValidateWebView2RuntimeAsync()

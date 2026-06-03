@@ -978,6 +978,7 @@
     "SettingsShowAccountNickname_Description": "Toon een label dat aangeeft bij welk account een bericht hoort wanneer u gekoppelde inboxen gebruikt.",
     "SettingsShowAccountNickname_Title": "Toon accountnaam in samengevoegde weergaven",
     "SettingsAccountNicknamePosition_Title": "Positie",
+    "AccountNicknamePosition_None": "Geen",
     "AccountNicknamePosition_Right": "Rechterkant",
     "AccountNicknamePosition_Left": "Linkerkant",
     "SettingsMailNotifications_Title": "Meldingen",

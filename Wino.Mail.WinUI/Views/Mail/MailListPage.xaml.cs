@@ -7,9 +7,11 @@ using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using MoreLinq;
@@ -811,7 +813,11 @@ public sealed partial class MailListPage : MailListPageAbstract,
         if (propertyName == nameof(IPreferencesService.MailItemDisplayMode) ||
             propertyName == nameof(IPreferencesService.IsShowPreviewEnabled) ||
             propertyName == nameof(IPreferencesService.IsShowSenderPicturesEnabled) ||
-            propertyName == nameof(IPreferencesService.Prefer24HourTimeFormat))
+            propertyName == nameof(IPreferencesService.Prefer24HourTimeFormat) ||
+            propertyName == nameof(IPreferencesService.IsHoverActionsEnabled) ||
+            propertyName == nameof(IPreferencesService.LeftHoverAction) ||
+            propertyName == nameof(IPreferencesService.CenterHoverAction) ||
+            propertyName == nameof(IPreferencesService.RightHoverAction))
         {
             DispatcherQueue.TryEnqueue(RefreshMailItemTemplates);
         }
@@ -955,12 +961,102 @@ public sealed partial class MailListPage : MailListPageAbstract,
     private static IMailListItem? ResolveMailListItem(FrameworkElement element)
         => element.DataContext as IMailListItem;
 
-    private void MailRowHoverActionClicked(object sender, RoutedEventArgs e)
+    private void MailRowPointerEntered(object sender, PointerRoutedEventArgs e)
+        => SetMailRowHoverActionVisibility(sender as DependencyObject, true);
+
+    private void MailRowPointerExited(object sender, PointerRoutedEventArgs e)
+        => SetMailRowHoverActionVisibility(sender as DependencyObject, false);
+
+    private void SetMailRowHoverActionVisibility(DependencyObject? rowRoot, bool isVisible)
     {
-        if (sender is not FrameworkElement { DataContext: IMailListItem actionItem, Tag: MailOperation operation })
+        var hoverActionButtons = FindDescendantByName<FrameworkElement>(rowRoot, "HoverActionButtons");
+
+        if (hoverActionButtons == null)
+            return;
+
+        if (isVisible && ViewModel.PreferencesService.IsHoverActionsEnabled)
+        {
+            RefreshHoverActionButtons(hoverActionButtons);
+        }
+
+        hoverActionButtons.Visibility = isVisible && ViewModel.PreferencesService.IsHoverActionsEnabled
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private static void RefreshHoverActionButtons(DependencyObject hoverActionButtons)
+    {
+        foreach (var button in FindDescendants<Button>(hoverActionButtons))
+        {
+            if (button.Tag is not string actionIndexText || !int.TryParse(actionIndexText, out var actionIndex))
+                continue;
+
+            AutomationProperties.SetName(button, XamlHelpers.GetHoverActionOperationString(actionIndex));
+
+            if (button.Content is WinoFontIcon icon)
+            {
+                icon.Icon = XamlHelpers.GetHoverActionWinoIconGlyph(actionIndex);
+            }
+        }
+    }
+
+    private static T? FindDescendantByName<T>(DependencyObject? rootElement, string name)
+        where T : FrameworkElement
+    {
+        if (rootElement == null)
+            return null;
+
+        var childrenCount = VisualTreeHelper.GetChildrenCount(rootElement);
+
+        for (var i = 0; i < childrenCount; i++)
+        {
+            var child = VisualTreeHelper.GetChild(rootElement, i);
+
+            if (child is T frameworkElement && frameworkElement.Name == name)
+                return frameworkElement;
+
+            var descendant = FindDescendantByName<T>(child, name);
+
+            if (descendant != null)
+                return descendant;
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<T> FindDescendants<T>(DependencyObject? rootElement)
+        where T : DependencyObject
+    {
+        if (rootElement == null)
+            yield break;
+
+        var childrenCount = VisualTreeHelper.GetChildrenCount(rootElement);
+
+        for (var i = 0; i < childrenCount; i++)
+        {
+            var child = VisualTreeHelper.GetChild(rootElement, i);
+
+            if (child is T match)
+                yield return match;
+
+            foreach (var descendant in FindDescendants<T>(child))
+            {
+                yield return descendant;
+            }
+        }
+    }
+
+    private void MailRowHoverActionTapped(object sender, TappedRoutedEventArgs e)
+    {
+        e.Handled = true;
+
+        if (sender is not FrameworkElement { DataContext: IMailListItem actionItem, Tag: string actionIndexText } ||
+            !int.TryParse(actionIndexText, out var actionIndex))
         {
             return;
         }
+
+        var operation = XamlHelpers.GetHoverAction(actionIndex);
 
         ExecuteHoverAction(actionItem, operation);
     }

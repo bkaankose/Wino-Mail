@@ -978,6 +978,7 @@
     "SettingsShowAccountNickname_Description": "リンク済み受信箱を使用する場合、メッセージがどのアカウントに属しているかを示すラベルを表示します。",
     "SettingsShowAccountNickname_Title": "統合ビューでアカウント名を表示",
     "SettingsAccountNicknamePosition_Title": "表示位置",
+    "AccountNicknamePosition_None": "なし",
     "AccountNicknamePosition_Right": "右側",
     "AccountNicknamePosition_Left": "左側",
     "SettingsMailNotifications_Title": "通知",

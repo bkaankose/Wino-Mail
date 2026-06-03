@@ -978,6 +978,7 @@
     "SettingsShowAccountNickname_Description": "Mostrar unha etiqueta que indique a conta á que pertence a mensaxe cando se utilizan caixas de entrada conectadas.",
     "SettingsShowAccountNickname_Title": "Mostrar o nome da conta nas vistas mesturadas",
     "SettingsAccountNicknamePosition_Title": "Posición",
+    "AccountNicknamePosition_None": "Ningún",
     "AccountNicknamePosition_Right": "Lado dereito",
     "AccountNicknamePosition_Left": "Lado esquerdo",
     "SettingsMailNotifications_Title": "Notificacións",

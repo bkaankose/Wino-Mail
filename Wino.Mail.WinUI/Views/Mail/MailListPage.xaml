@@ -77,6 +77,38 @@
             <Setter Property="BorderThickness" Value="0" />
         </Style>
 
+        <DataTemplate x:Key="MailRowHoverActionButtonsTemplate">
+            <StackPanel
+                HorizontalAlignment="Right"
+                Background="Transparent"
+                Orientation="Horizontal"
+                Spacing="12">
+                <Button
+                    AutomationProperties.AutomationId="MailRowLeftHoverActionButton"
+                    Style="{StaticResource MailRowHoverActionButtonStyle}"
+                    Tag="0"
+                    Tapped="MailRowHoverActionTapped">
+                    <coreControls:WinoFontIcon FontSize="16" />
+                </Button>
+
+                <Button
+                    AutomationProperties.AutomationId="MailRowCenterHoverActionButton"
+                    Style="{StaticResource MailRowHoverActionButtonStyle}"
+                    Tag="1"
+                    Tapped="MailRowHoverActionTapped">
+                    <coreControls:WinoFontIcon FontSize="16" />
+                </Button>
+
+                <Button
+                    AutomationProperties.AutomationId="MailRowRightHoverActionButton"
+                    Style="{StaticResource MailRowHoverActionButtonStyle}"
+                    Tag="2"
+                    Tapped="MailRowHoverActionTapped">
+                    <coreControls:WinoFontIcon FontSize="16" />
+                </Button>
+            </StackPanel>
+        </DataTemplate>
+
         <DataTemplate x:Key="CompactSingleMailItemTemplate" x:DataType="viewModelData:MailItemViewModel">
             <Grid
                 MinHeight="56"
@@ -84,7 +116,9 @@
                 x:DefaultBindMode="OneWay"
                 Background="Transparent"
                 ColumnSpacing="6"
-                ContextRequested="MailItemContextRequested">
+                ContextRequested="MailItemContextRequested"
+                PointerEntered="MailRowPointerEntered"
+                PointerExited="MailRowPointerExited">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
@@ -148,35 +182,39 @@
                             AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
                             AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                     </Grid>
-                    <TextBlock
+                    <Grid Grid.Row="1" ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
                         Grid.Row="1"
                         x:Phase="0"
                         FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
-                        
+                        Foreground="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForegroundByReadState(IsRead), Mode=OneWay}"
                         Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
                         TextTrimming="CharacterEllipsis" />
-                </Grid>
-
-                <StackPanel
-                    Grid.Column="2"
-                    VerticalAlignment="Center"
-                    Spacing="2">
-                    <StackPanel
-                        HorizontalAlignment="Right"
-                        Orientation="Horizontal"
-                        Spacing="4">
                         <TextBlock
+                            Grid.Column="1"
                             Opacity="0.7"
                             Style="{StaticResource CaptionTextBlockStyle}"
                             Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate), Mode=OneWay}" />
                         <Ellipse
+                            Grid.Column="2"
                             Width="6"
                             Height="6"
                             VerticalAlignment="Center"
                             Fill="{ThemeResource SystemAccentColor}"
                             IsHitTestVisible="False"
                             Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsRead), Mode=OneWay}" />
-                    </StackPanel>
+                    </Grid>
+                </Grid>
+
+                <StackPanel
+                    Grid.Column="2"
+                    VerticalAlignment="Center"
+                    Spacing="2">
                     <StackPanel
                         HorizontalAlignment="Right"
                         Orientation="Horizontal"
@@ -214,6 +252,15 @@
                             Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsBusy), Mode=OneWay}" />
                     </StackPanel>
                 </StackPanel>
+                <ContentControl
+                    x:Name="HoverActionButtons"
+                    Grid.ColumnSpan="3"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Canvas.ZIndex="999"
+                    Content="{x:Bind}"
+                    ContentTemplate="{StaticResource MailRowHoverActionButtonsTemplate}"
+                    Visibility="Collapsed" />
             </Grid>
         </DataTemplate>
 
@@ -224,7 +271,9 @@
                 x:DefaultBindMode="OneWay"
                 Background="Transparent"
                 ColumnSpacing="8"
-                ContextRequested="MailItemContextRequested">
+                ContextRequested="MailItemContextRequested"
+                PointerEntered="MailRowPointerEntered"
+                PointerExited="MailRowPointerExited">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
@@ -291,12 +340,31 @@
                             AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
                             AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                     </Grid>
-                    <TextBlock
-                        Grid.Row="1"
-                        FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
-                        
-                        Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
-                        TextTrimming="CharacterEllipsis" />
+                    <Grid Grid.Row="1" ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
+                            Foreground="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForegroundByReadState(IsRead), Mode=OneWay}"
+                            Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
+                            TextTrimming="CharacterEllipsis" />
+                        <TextBlock
+                            Grid.Column="1"
+                            Opacity="0.7"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate), Mode=OneWay}" />
+                        <Ellipse
+                            Grid.Column="2"
+                            Width="6"
+                            Height="6"
+                            VerticalAlignment="Center"
+                            Fill="{ThemeResource SystemAccentColor}"
+                            IsHitTestVisible="False"
+                            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsRead), Mode=OneWay}" />
+                    </Grid>
                     <TextBlock
                         Grid.Row="2"
                         x:Phase="1"
@@ -329,22 +397,6 @@
                     <StackPanel
                         HorizontalAlignment="Right"
                         Orientation="Horizontal"
-                        Spacing="4">
-                        <TextBlock
-                            Opacity="0.7"
-                            Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate), Mode=OneWay}" />
-                        <Ellipse
-                            Width="6"
-                            Height="6"
-                            VerticalAlignment="Center"
-                            Fill="{ThemeResource SystemAccentColor}"
-                            IsHitTestVisible="False"
-                            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsRead), Mode=OneWay}" />
-                    </StackPanel>
-                    <StackPanel
-                        HorizontalAlignment="Right"
-                        Orientation="Horizontal"
                         Spacing="2">
                         <TextBlock
                             Margin="0,0,4,0"
@@ -368,6 +420,15 @@
                             Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsBusy), Mode=OneWay}" />
                     </StackPanel>
                 </StackPanel>
+                <ContentControl
+                    x:Name="HoverActionButtons"
+                    Grid.ColumnSpan="3"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Canvas.ZIndex="999"
+                    Content="{x:Bind}"
+                    ContentTemplate="{StaticResource MailRowHoverActionButtonsTemplate}"
+                    Visibility="Collapsed" />
             </Grid>
         </DataTemplate>
 
@@ -378,7 +439,9 @@
                 x:DefaultBindMode="OneWay"
                 Background="Transparent"
                 ColumnSpacing="8"
-                ContextRequested="MailItemContextRequested">
+                ContextRequested="MailItemContextRequested"
+                PointerEntered="MailRowPointerEntered"
+                PointerExited="MailRowPointerExited">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
@@ -405,8 +468,6 @@
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -447,6 +508,19 @@
                                 AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
                                 AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                         </Grid>
+                    </Grid>
+
+                    <Grid Grid.Row="1" ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
+                            Foreground="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForegroundByReadState(IsRead), Mode=OneWay}"
+                            Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
+                            TextTrimming="CharacterEllipsis" />
                         <TextBlock
                             Grid.Column="1"
                             Opacity="0.7"
@@ -456,19 +530,11 @@
                             Grid.Column="2"
                             Width="6"
                             Height="6"
-                            Margin="4,0,0,0"
                             VerticalAlignment="Center"
                             Fill="{ThemeResource SystemAccentColor}"
                             IsHitTestVisible="False"
                             Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsRead), Mode=OneWay}" />
                     </Grid>
-
-                    <TextBlock
-                        Grid.Row="1"
-                        FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
-                        
-                        Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
-                        TextTrimming="CharacterEllipsis" />
 
                     <Grid Grid.Row="2">
                         <Grid.ColumnDefinitions>
@@ -524,6 +590,15 @@
                         </ItemsControl.ItemsPanel>
                     </ItemsControl>
                 </Grid>
+                <ContentControl
+                    x:Name="HoverActionButtons"
+                    Grid.ColumnSpan="2"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Canvas.ZIndex="999"
+                    Content="{x:Bind}"
+                    ContentTemplate="{StaticResource MailRowHoverActionButtonsTemplate}"
+                    Visibility="Collapsed" />
             </Grid>
         </DataTemplate>
 
@@ -543,6 +618,8 @@
                     ColumnSpacing="6"
                     DragStarting="ThreadHeaderDragStart"
                     DropCompleted="ThreadHeaderDragFinished"
+                    PointerEntered="MailRowPointerEntered"
+                    PointerExited="MailRowPointerExited"
                     Tapped="ThreadHeaderTapped">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
@@ -608,6 +685,8 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <Grid Width="12" VerticalAlignment="Center">
                                 <FontIcon
@@ -622,31 +701,28 @@
                             <TextBlock
                                 Grid.Column="1"
                                 FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
-                                
+                                Foreground="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForegroundByReadState(IsRead), Mode=OneWay}"
                                 Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
                                 TextTrimming="CharacterEllipsis" />
-                        </Grid>
-                    </Grid>
-                    <StackPanel
-                        Grid.Column="2"
-                        VerticalAlignment="Center"
-                        Spacing="2">
-                        <StackPanel
-                            HorizontalAlignment="Right"
-                            Orientation="Horizontal"
-                            Spacing="4">
                             <TextBlock
+                                Grid.Column="2"
                                 Opacity="0.7"
                                 Style="{StaticResource CaptionTextBlockStyle}"
                                 Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate), Mode=OneWay}" />
                             <Ellipse
+                                Grid.Column="3"
                                 Width="6"
                                 Height="6"
                                 VerticalAlignment="Center"
                                 Fill="{ThemeResource SystemAccentColor}"
                                 IsHitTestVisible="False"
                                 Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsRead), Mode=OneWay}" />
-                        </StackPanel>
+                        </Grid>
+                    </Grid>
+                    <StackPanel
+                        Grid.Column="2"
+                        VerticalAlignment="Center"
+                        Spacing="2">
                         <StackPanel
                             HorizontalAlignment="Right"
                             Orientation="Horizontal"
@@ -669,10 +745,19 @@
                             <ProgressRing
                                 Width="12"
                                 Height="12"
-                                IsActive="{x:Bind IsBusy, Mode=OneWay}"
-                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsBusy), Mode=OneWay}" />
+                            IsActive="{x:Bind IsBusy, Mode=OneWay}"
+                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsBusy), Mode=OneWay}" />
                         </StackPanel>
                     </StackPanel>
+                    <ContentControl
+                        x:Name="HoverActionButtons"
+                        Grid.ColumnSpan="3"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Canvas.ZIndex="999"
+                        Content="{x:Bind}"
+                        ContentTemplate="{StaticResource MailRowHoverActionButtonsTemplate}"
+                        Visibility="Collapsed" />
                 </Grid>
                 <ListView
                     Grid.Row="1"
@@ -708,6 +793,8 @@
                     ColumnSpacing="8"
                     DragStarting="ThreadHeaderDragStart"
                     DropCompleted="ThreadHeaderDragFinished"
+                    PointerEntered="MailRowPointerEntered"
+                    PointerExited="MailRowPointerExited"
                     Tapped="ThreadHeaderTapped">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
@@ -769,6 +856,8 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <Grid Width="12" VerticalAlignment="Center">
                                 <FontIcon
@@ -783,9 +872,22 @@
                             <TextBlock
                                 Grid.Column="1"
                                 FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
-                                
+                                Foreground="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForegroundByReadState(IsRead), Mode=OneWay}"
                                 Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
                                 TextTrimming="CharacterEllipsis" />
+                            <TextBlock
+                                Grid.Column="2"
+                                Opacity="0.7"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate), Mode=OneWay}" />
+                            <Ellipse
+                                Grid.Column="3"
+                                Width="6"
+                                Height="6"
+                                VerticalAlignment="Center"
+                                Fill="{ThemeResource SystemAccentColor}"
+                                IsHitTestVisible="False"
+                                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsRead), Mode=OneWay}" />
                         </Grid>
                         <TextBlock
                             x:Phase="1"
@@ -799,22 +901,6 @@
                         Grid.Column="2"
                         VerticalAlignment="Center"
                         Spacing="2">
-                        <StackPanel
-                            HorizontalAlignment="Right"
-                            Orientation="Horizontal"
-                            Spacing="4">
-                            <TextBlock
-                                Opacity="0.7"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate), Mode=OneWay}" />
-                            <Ellipse
-                                Width="6"
-                                Height="6"
-                                VerticalAlignment="Center"
-                                Fill="{ThemeResource SystemAccentColor}"
-                                IsHitTestVisible="False"
-                                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsRead), Mode=OneWay}" />
-                        </StackPanel>
                         <StackPanel
                             HorizontalAlignment="Right"
                             Orientation="Horizontal"
@@ -837,10 +923,19 @@
                             <ProgressRing
                                 Width="12"
                                 Height="12"
-                                IsActive="{x:Bind IsBusy, Mode=OneWay}"
-                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsBusy), Mode=OneWay}" />
+                            IsActive="{x:Bind IsBusy, Mode=OneWay}"
+                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsBusy), Mode=OneWay}" />
                         </StackPanel>
                     </StackPanel>
+                    <ContentControl
+                        x:Name="HoverActionButtons"
+                        Grid.ColumnSpan="3"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Canvas.ZIndex="999"
+                        Content="{x:Bind}"
+                        ContentTemplate="{StaticResource MailRowHoverActionButtonsTemplate}"
+                        Visibility="Collapsed" />
                 </Grid>
                 <ListView
                     Grid.Row="1"
@@ -876,6 +971,8 @@
                     ColumnSpacing="8"
                     DragStarting="ThreadHeaderDragStart"
                     DropCompleted="ThreadHeaderDragFinished"
+                    PointerEntered="MailRowPointerEntered"
+                    PointerExited="MailRowPointerExited"
                     Tapped="ThreadHeaderTapped">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
@@ -938,6 +1035,8 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <Grid Width="12" VerticalAlignment="Center">
                                 <FontIcon
@@ -952,9 +1051,22 @@
                             <TextBlock
                                 Grid.Column="1"
                                 FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
-                                
+                                Foreground="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForegroundByReadState(IsRead), Mode=OneWay}"
                                 Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
                                 TextTrimming="CharacterEllipsis" />
+                            <TextBlock
+                                Grid.Column="2"
+                                Opacity="0.7"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate), Mode=OneWay}" />
+                            <Ellipse
+                                Grid.Column="3"
+                                Width="6"
+                                Height="6"
+                                VerticalAlignment="Center"
+                                Fill="{ThemeResource SystemAccentColor}"
+                                IsHitTestVisible="False"
+                                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsRead), Mode=OneWay}" />
                         </Grid>
                         <TextBlock
                             x:Phase="1"
@@ -968,22 +1080,6 @@
                         Grid.Column="2"
                         VerticalAlignment="Center"
                         Spacing="2">
-                        <StackPanel
-                            HorizontalAlignment="Right"
-                            Orientation="Horizontal"
-                            Spacing="4">
-                            <TextBlock
-                                Opacity="0.7"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate), Mode=OneWay}" />
-                            <Ellipse
-                                Width="6"
-                                Height="6"
-                                VerticalAlignment="Center"
-                                Fill="{ThemeResource SystemAccentColor}"
-                                IsHitTestVisible="False"
-                                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsRead), Mode=OneWay}" />
-                        </StackPanel>
                         <StackPanel
                             HorizontalAlignment="Right"
                             Orientation="Horizontal"
@@ -1006,10 +1102,19 @@
                             <ProgressRing
                                 Width="12"
                                 Height="12"
-                                IsActive="{x:Bind IsBusy, Mode=OneWay}"
-                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsBusy), Mode=OneWay}" />
+                            IsActive="{x:Bind IsBusy, Mode=OneWay}"
+                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsBusy), Mode=OneWay}" />
                         </StackPanel>
                     </StackPanel>
+                    <ContentControl
+                        x:Name="HoverActionButtons"
+                        Grid.ColumnSpan="3"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Canvas.ZIndex="999"
+                        Content="{x:Bind}"
+                        ContentTemplate="{StaticResource MailRowHoverActionButtonsTemplate}"
+                        Visibility="Collapsed" />
                 </Grid>
                 <ListView
                     Grid.Row="1"

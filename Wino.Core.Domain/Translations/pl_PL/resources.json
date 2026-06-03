@@ -978,6 +978,7 @@
     "SettingsShowAccountNickname_Description": "Wyświetl etykietę informującą, do którego konta należy wiadomość, gdy używane są powiązane skrzynki odbiorcze.",
     "SettingsShowAccountNickname_Title": "Pokaż nazwę konta w widokach scalonych",
     "SettingsAccountNicknamePosition_Title": "Pozycja",
+    "AccountNicknamePosition_None": "Brak",
     "AccountNicknamePosition_Right": "Prawa strona",
     "AccountNicknamePosition_Left": "Lewa strona",
     "SettingsMailNotifications_Title": "Powiadomienia",

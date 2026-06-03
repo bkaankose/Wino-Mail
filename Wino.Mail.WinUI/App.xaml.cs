@@ -15,6 +15,7 @@ using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.Windows.AppLifecycle;
 using Microsoft.Windows.AppNotifications;
 using MimeKit.Cryptography;
+using Sentry;
 using Windows.ApplicationModel.Activation;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
@@ -184,24 +185,72 @@ public partial class App : WinoApplication,
     private void EnsureTrayIconCreated()
     {
         if (_trayIcon != null)
+        {
+            LogActivation("System tray icon creation skipped because an icon instance already exists.");
             return;
+        }
 
         var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "Wino_Icon.ico");
+        var iconExists = File.Exists(iconPath);
+        var appCloseBehavior = _preferencesService?.AppCloseBehavior ?? AppCloseBehavior.RunInBackgroundWithTrayIcon;
+
+        LogActivation($"Creating system tray icon. IconPath: {iconPath}, IconExists: {iconExists}, AppCloseBehavior: {appCloseBehavior}, HasConfiguredAccounts: {_hasConfiguredAccounts}, OS: {Environment.OSVersion}");
+        SentrySdk.AddBreadcrumb(
+            "Creating system tray icon.",
+            category: "system-tray",
+            data: new Dictionary<string, string>
+            {
+                ["icon_path"] = iconPath,
+                ["icon_exists"] = iconExists.ToString(),
+                ["app_close_behavior"] = appCloseBehavior.ToString(),
+                ["has_configured_accounts"] = _hasConfiguredAccounts.ToString(),
+                ["os_version"] = Environment.OSVersion.ToString()
+            });
+
         var dispatcherQueue = DispatcherQueue.GetForCurrentThread()
                              ?? throw new InvalidOperationException("Tray icon must be created on a thread with a DispatcherQueue.");
 
-        _trayIcon = new NativeTrayIcon(
+        var trayIcon = new NativeTrayIcon(
             dispatcherQueue,
             iconPath,
             "Wino Mail",
             BuildTrayMenu,
             ActivatePreferredWindowAsync);
 
-        _trayIcon.Create();
+        try
+        {
+            trayIcon.Create();
+            _trayIcon = trayIcon;
+            LogActivation("System tray icon created successfully.");
+            SentrySdk.AddBreadcrumb("System tray icon created successfully.", category: "system-tray");
+        }
+        catch (Exception ex)
+        {
+            trayIcon.Dispose();
+            Log.Error(ex, "Failed to create system tray icon. IconPath: {IconPath}, IconExists: {IconExists}, AppCloseBehavior: {AppCloseBehavior}, HasConfiguredAccounts: {HasConfiguredAccounts}, OS: {OSVersion}",
+                iconPath,
+                iconExists,
+                appCloseBehavior,
+                _hasConfiguredAccounts,
+                Environment.OSVersion);
+
+            LogInitializer.CaptureException(ex, "SystemTrayIconCreation", new Dictionary<string, string>
+            {
+                ["icon_path"] = iconPath,
+                ["icon_exists"] = iconExists.ToString(),
+                ["app_close_behavior"] = appCloseBehavior.ToString(),
+                ["has_configured_accounts"] = _hasConfiguredAccounts.ToString(),
+                ["os_version"] = Environment.OSVersion.ToString()
+            });
+        }
     }
 
     private void DisposeTrayIcon()
     {
+        if (_trayIcon == null)
+            return;
+
+        LogActivation("Disposing system tray icon.");
         _trayIcon?.Dispose();
         _trayIcon = null;
     }
@@ -221,7 +270,10 @@ public partial class App : WinoApplication,
 
     private void UpdateTrayIconState(bool allowCreation)
     {
-        if (!allowCreation || !ShouldCreateTrayIcon())
+        var shouldCreateTrayIcon = ShouldCreateTrayIcon();
+        LogActivation($"Updating system tray icon state. AllowCreation: {allowCreation}, ShouldCreate: {shouldCreateTrayIcon}, HasConfiguredAccounts: {_hasConfiguredAccounts}, AppCloseBehavior: {_preferencesService?.AppCloseBehavior.ToString() ?? "Unknown"}");
+
+        if (!allowCreation || !shouldCreateTrayIcon)
         {
             DisposeTrayIcon();
             return;

@@ -978,6 +978,7 @@
     "SettingsShowAccountNickname_Description": "Mostrar una etiqueta que indique a qué cuenta pertenece un mensaje cuando se utilizan bandejas de entrada vinculadas.",
     "SettingsShowAccountNickname_Title": "Mostrar el nombre de la cuenta en vistas unificadas",
     "SettingsAccountNicknamePosition_Title": "Posición",
+    "AccountNicknamePosition_None": "Ninguno",
     "AccountNicknamePosition_Right": "Lado derecho",
     "AccountNicknamePosition_Left": "Lado izquierdo",
     "SettingsMailNotifications_Title": "Notificaciones",

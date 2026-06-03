@@ -978,6 +978,7 @@
     "SettingsShowAccountNickname_Description": "Показувати мітку, що вказує, до якого облікового запису належить повідомлення, при використанні пов'язаних вхідних скриньок.",
     "SettingsShowAccountNickname_Title": "Показати ім'я облікового запису у об'єднаних переглядах.",
     "SettingsAccountNicknamePosition_Title": "Позиція",
+    "AccountNicknamePosition_None": "Немає",
     "AccountNicknamePosition_Right": "З правого боку",
     "AccountNicknamePosition_Left": "З лівого боку",
     "SettingsMailNotifications_Title": "Сповіщення",

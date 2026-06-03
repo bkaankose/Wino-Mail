@@ -978,6 +978,7 @@
     "SettingsShowAccountNickname_Description": "Показва етикет, който указва към кой акаунт принадлежи съобщението при използване на свързани входящи кутии.",
     "SettingsShowAccountNickname_Title": "Показване на името на акаунта в обединените изгледи",
     "SettingsAccountNicknamePosition_Title": "Позиция",
+    "AccountNicknamePosition_None": "Няма",
     "AccountNicknamePosition_Right": "Дясна страна",
     "AccountNicknamePosition_Left": "Лява страна",
     "SettingsMailNotifications_Title": "Уведомления",

@@ -978,6 +978,7 @@
     "SettingsShowAccountNickname_Description": "Näytä tunnus, joka osoittaa mihin tiliin viesti kuuluu, käytettäessä linkitettyjä postilaatikoita.",
     "SettingsShowAccountNickname_Title": "Näytä tilin nimi yhdistetyissä näkymissä",
     "SettingsAccountNicknamePosition_Title": "Sijainti",
+    "AccountNicknamePosition_None": "Ei",
     "AccountNicknamePosition_Right": "Oikea puoli",
     "AccountNicknamePosition_Left": "Vasen puoli",
     "SettingsMailNotifications_Title": "Ilmoitukset",

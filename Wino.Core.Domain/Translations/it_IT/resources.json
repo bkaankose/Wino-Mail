@@ -978,6 +978,7 @@
     "SettingsShowAccountNickname_Description": "Mostra un'etichetta che indica a quale account appartiene un messaggio quando si utilizzano caselle di posta collegate.",
     "SettingsShowAccountNickname_Title": "Mostra il nome dell'account nelle viste unite",
     "SettingsAccountNicknamePosition_Title": "Posizione",
+    "AccountNicknamePosition_None": "Nessuno",
     "AccountNicknamePosition_Right": "Lato destro",
     "AccountNicknamePosition_Left": "Lato sinistro",
     "SettingsMailNotifications_Title": "Notifiche",

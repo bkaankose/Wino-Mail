@@ -978,6 +978,7 @@
     "SettingsShowAccountNickname_Description": "Exibir um rótulo indicando a qual conta uma mensagem pertence ao usar caixas de entrada vinculadas.",
     "SettingsShowAccountNickname_Title": "Mostrar o nome da conta em visualizações mescladas",
     "SettingsAccountNicknamePosition_Title": "Posição",
+    "AccountNicknamePosition_None": "Nenhum",
     "AccountNicknamePosition_Right": "Lado direito",
     "AccountNicknamePosition_Left": "Lado esquerdo",
     "SettingsMailNotifications_Title": "Notificações",

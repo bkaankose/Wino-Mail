@@ -978,6 +978,7 @@
     "SettingsShowAccountNickname_Description": "Afișează o etichetă care indică din ce cont face parte un mesaj atunci când se utilizează inboxuri conectate.",
     "SettingsShowAccountNickname_Title": "Afișează numele contului în vizualizările combinate",
     "SettingsAccountNicknamePosition_Title": "Poziție",
+    "AccountNicknamePosition_None": "Niciunul",
     "AccountNicknamePosition_Right": "Partea dreaptă",
     "AccountNicknamePosition_Left": "Partea stângă",
     "SettingsMailNotifications_Title": "Notificări",

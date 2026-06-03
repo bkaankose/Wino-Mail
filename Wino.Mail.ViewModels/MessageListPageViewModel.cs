@@ -51,8 +51,16 @@ public partial class MessageListPageViewModel : MailBaseViewModel
 
     public List<string> AccountNicknamePositionOptions { get; } =
     [
+        Translator.AccountNicknamePosition_None,
         Translator.AccountNicknamePosition_Right,
         Translator.AccountNicknamePosition_Left
+    ];
+
+    private readonly List<AccountNicknamePosition> accountNicknamePositions =
+    [
+        AccountNicknamePosition.None,
+        AccountNicknamePosition.Right,
+        AccountNicknamePosition.Left
     ];
 
     public IMailItemDisplayInformation DemoPreviewMailItemInformation { get; } = new DemoMailItemDisplayInformation();
@@ -62,36 +70,13 @@ public partial class MessageListPageViewModel : MailBaseViewModel
     private int selectedAccountNicknamePositionIndex;
     public int SelectedAccountNicknamePositionIndex
     {
-        get => PreferencesService.AccountNicknamePosition == AccountNicknamePosition.None
-            ? selectedAccountNicknamePositionIndex
-            : (int)PreferencesService.AccountNicknamePosition - 1;
+        get => selectedAccountNicknamePositionIndex;
         set
         {
-            if (SetProperty(ref selectedAccountNicknamePositionIndex, value) && value >= 0)
+            if (SetProperty(ref selectedAccountNicknamePositionIndex, value) && value >= 0 && value < accountNicknamePositions.Count)
             {
-                PreferencesService.AccountNicknamePosition = (AccountNicknamePosition)(value + 1);
-                OnPropertyChanged(nameof(IsAccountNicknameIndicatorEnabled));
+                PreferencesService.AccountNicknamePosition = accountNicknamePositions[value];
             }
-        }
-    }
-
-    public bool IsAccountNicknameIndicatorEnabled
-    {
-        get => PreferencesService.AccountNicknamePosition != AccountNicknamePosition.None;
-        set
-        {
-            var newPosition = value
-                ? selectedAccountNicknamePositionIndex >= 0
-                    ? (AccountNicknamePosition)(selectedAccountNicknamePositionIndex + 1)
-                    : AccountNicknamePosition.Right
-                : AccountNicknamePosition.None;
-
-            if (PreferencesService.AccountNicknamePosition == newPosition)
-                return;
-
-            PreferencesService.AccountNicknamePosition = newPosition;
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(SelectedAccountNicknamePositionIndex));
         }
     }
 
@@ -191,7 +176,12 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         selectedMailSpacingIndex = availableMailSpacingOptions.IndexOf(PreferencesService.MailItemDisplayMode);
         SelectedMarkAsOptionIndex = Array.IndexOf(Enum.GetValues<MailMarkAsOption>(), PreferencesService.MarkAsPreference);
         selectedThreadItemSortingIndex = PreferencesService.IsNewestThreadMailFirst ? 0 : 1;
-        selectedAccountNicknamePositionIndex = PreferencesService.AccountNicknamePosition == AccountNicknamePosition.Left ? 1 : 0;
+        selectedAccountNicknamePositionIndex = accountNicknamePositions.IndexOf(PreferencesService.AccountNicknamePosition);
+
+        if (selectedAccountNicknamePositionIndex < 0)
+        {
+            selectedAccountNicknamePositionIndex = accountNicknamePositions.IndexOf(AccountNicknamePosition.Right);
+        }
     }
 
     [RelayCommand]

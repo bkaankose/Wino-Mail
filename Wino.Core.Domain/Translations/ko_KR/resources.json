@@ -978,6 +978,7 @@
     "SettingsShowAccountNickname_Description": "연동된 받은편지함 사용 시 메시지가 어느 계정에 속하는지 표시하는 레이블을 보여줍니다.",
     "SettingsShowAccountNickname_Title": "통합 뷰에서 계정 이름 표시",
     "SettingsAccountNicknamePosition_Title": "위치",
+    "AccountNicknamePosition_None": "없음",
     "AccountNicknamePosition_Right": "오른쪽",
     "AccountNicknamePosition_Left": "왼쪽",
     "SettingsMailNotifications_Title": "알림",

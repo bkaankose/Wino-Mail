@@ -978,6 +978,7 @@
     "SettingsShowAccountNickname_Description": "Zobraziť štítok určujúci, ku ktorému účtu patrí správa pri používaní prepojených inboxov.",
     "SettingsShowAccountNickname_Title": "Zobraziť názov účtu v zlúčených zobrazeniach",
     "SettingsAccountNicknamePosition_Title": "Pozícia",
+    "AccountNicknamePosition_None": "Žiadne",
     "AccountNicknamePosition_Right": "Pravá strana",
     "AccountNicknamePosition_Left": "Ľavá strana",
     "SettingsMailNotifications_Title": "Notifikácie",

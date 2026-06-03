@@ -978,6 +978,7 @@
     "SettingsShowAccountNickname_Description": "Bağlı gelen kutuları kullanırken mesajın hangi hesaba ait olduğunu gösteren bir etiket görüntüleyin.",
     "SettingsShowAccountNickname_Title": "Birleşik görünümlerde hesap adını göster",
     "SettingsAccountNicknamePosition_Title": "Pozisyon",
+    "AccountNicknamePosition_None": "Yok",
     "AccountNicknamePosition_Right": "Sağ taraf",
     "AccountNicknamePosition_Left": "Sol taraf",
     "SettingsMailNotifications_Title": "Bildirimler",

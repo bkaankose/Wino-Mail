@@ -978,6 +978,7 @@
     "SettingsShowAccountNickname_Description": "Tampilkan label yang menunjukkan akun mana pesan tersebut berasal saat menggunakan kotak masuk yang terhubung.",
     "SettingsShowAccountNickname_Title": "Tampilkan nama akun pada tampilan gabungan",
     "SettingsAccountNicknamePosition_Title": "Posisi",
+    "AccountNicknamePosition_None": "Tidak ada",
     "AccountNicknamePosition_Right": "Sisi kanan",
     "AccountNicknamePosition_Left": "Sisi kiri",
     "SettingsMailNotifications_Title": "Notifikasi",

@@ -110,25 +110,17 @@
                 <ToggleSwitch AutomationProperties.AutomationId="MessageListPageToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsMailListActionBarEnabled, Mode=TwoWay}" />
             </controls:SettingsCard>
 
-            <controls:SettingsExpander Description="{x:Bind domain:Translator.SettingsShowAccountNickname_Description}" Header="{x:Bind domain:Translator.SettingsShowAccountNickname_Title}">
-                <controls:SettingsExpander.HeaderIcon>
+            <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsShowAccountNickname_Description}" Header="{x:Bind domain:Translator.SettingsShowAccountNickname_Title}">
+                <controls:SettingsCard.HeaderIcon>
                     <PathIcon Data="F1 M 3.125 18.75 C 2.646484 18.75 2.255859 18.666992 1.884766 18.500977 C 1.513672 18.334961 1.189779 18.113607 0.913086 17.836914 C 0.636393 17.560221 0.415039 17.236328 0.249023 16.865234 C 0.083008 16.494141 0 16.103516 0 15.693359 L 0 4.306641 C 0 3.896484 0.083008 3.505859 0.249023 3.134766 C 0.415039 2.763672 0.636393 2.439779 0.913086 2.163086 C 1.189779 1.886395 1.513672 1.665039 1.884766 1.499023 C 2.255859 1.333008 2.646484 1.25 3.056641 1.25 L 16.943359 1.25 C 17.353516 1.25 17.744141 1.333008 18.115234 1.499023 C 18.486328 1.665039 18.810221 1.886395 19.086914 2.163086 C 19.363605 2.439779 19.584961 2.763672 19.750977 3.134766 C 19.916992 3.505859 20 3.896484 20 4.306641 L 20 15.693359 C 20 16.103516 19.916992 16.494141 19.750977 16.865234 C 19.584961 17.236328 19.363605 17.560221 19.086914 17.836914 C 18.810221 18.113607 18.486328 18.334961 18.115234 18.500977 C 17.744141 18.666992 17.353516 18.75 16.943359 18.75 Z M 16.875 17.5 C 17.128906 17.5 17.369791 17.451172 17.597656 17.353516 C 17.82552 17.255859 18.025715 17.120768 18.198242 16.948242 C 18.370768 16.775717 18.505859 16.575521 18.603516 16.347656 C 18.701172 16.119791 18.75 15.878906 18.75 15.625 L 18.75 4.375 C 18.75 4.121094 18.701172 3.880209 18.603516 3.652344 C 18.505859 3.42448 18.370768 3.224285 18.198242 3.051758 C 18.025715 2.879232 17.82552 2.744141 17.597656 2.646484 C 17.369791 2.548828 17.128906 2.5 16.875 2.5 L 3.125 2.5 C 2.871094 2.5 2.630208 2.548828 2.402344 2.646484 C 2.174479 2.744141 1.974284 2.879232 1.801758 3.051758 C 1.629232 3.224285 1.494141 3.42448 1.396484 3.652344 C 1.298828 3.880209 1.25 4.121094 1.25 4.375 L 1.25 15.625 C 1.25 15.878906 1.298828 16.119791 1.396484 16.347656 C 1.494141 16.575521 1.629232 16.775717 1.801758 16.948242 C 1.974284 17.120768 2.174479 17.255859 2.402344 17.353516 C 2.630208 17.451172 2.871094 17.5 3.125 17.5 Z" />
-                </controls:SettingsExpander.HeaderIcon>
-                <ToggleSwitch
-                    x:Name="AccountNicknameToggle"
-                    IsOn="{x:Bind ViewModel.IsAccountNicknameIndicatorEnabled, Mode=TwoWay}" />
-                <controls:SettingsExpander.Items>
-                    <controls:SettingsCard Header="{x:Bind domain:Translator.SettingsAccountNicknamePosition_Title}">
-                        <controls:SettingsCard.Content>
-                            <ComboBox
-                                Width="170"
-                                IsEnabled="{x:Bind AccountNicknameToggle.IsOn, Mode=OneWay}"
-                                ItemsSource="{x:Bind ViewModel.AccountNicknamePositionOptions, Mode=OneTime}"
-                                SelectedIndex="{x:Bind ViewModel.SelectedAccountNicknamePositionIndex, Mode=TwoWay}" />
-                        </controls:SettingsCard.Content>
-                    </controls:SettingsCard>
-                </controls:SettingsExpander.Items>
-            </controls:SettingsExpander>
+                </controls:SettingsCard.HeaderIcon>
+
+                <ComboBox
+                    Width="170"
+                    AutomationProperties.AutomationId="AccountNicknamePositionComboBox"
+                    ItemsSource="{x:Bind ViewModel.AccountNicknamePositionOptions, Mode=OneTime}"
+                    SelectedIndex="{x:Bind ViewModel.SelectedAccountNicknamePositionIndex, Mode=TwoWay}" />
+            </controls:SettingsCard>
 
             <controls:SettingsCard
                 AutomationProperties.AutomationId="MessageListPageSettingsCard8"

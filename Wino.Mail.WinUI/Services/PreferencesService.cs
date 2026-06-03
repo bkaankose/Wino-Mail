@@ -259,7 +259,7 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
 
     public AccountNicknamePosition AccountNicknamePosition
     {
-        get => _configurationService.Get(nameof(AccountNicknamePosition), AccountNicknamePosition.Right);
+        get => _configurationService.Get(nameof(AccountNicknamePosition), AccountNicknamePosition.None);
         set => SetPropertyAndSave(nameof(AccountNicknamePosition), value);
     }
 
