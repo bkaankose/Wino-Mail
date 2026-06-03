@@ -189,12 +189,22 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock
-                        Grid.Row="1"
-                        x:Phase="0"
-                        FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
-                        Foreground="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForegroundByReadState(IsRead), Mode=OneWay}"
-                        Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
-                        TextTrimming="CharacterEllipsis" />
+                            x:Name="ReadSubjectTextBlock"
+                            Grid.Row="1"
+                            x:Load="{x:Bind IsRead, Mode=OneWay}"
+                            x:Phase="0"
+                            Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                            Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
+                            TextTrimming="CharacterEllipsis" />
+                        <TextBlock
+                            x:Name="UnreadSubjectTextBlock"
+                            Grid.Row="1"
+                            x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsRead), Mode=OneWay}"
+                            x:Phase="0"
+                            FontWeight="SemiBold"
+                            Foreground="{ThemeResource SystemAccentColor}"
+                            Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
+                            TextTrimming="CharacterEllipsis" />
                         <TextBlock
                             Grid.Column="1"
                             Opacity="0.7"
@@ -347,8 +357,16 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock
-                            FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
-                            Foreground="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForegroundByReadState(IsRead), Mode=OneWay}"
+                            x:Name="ReadSubjectTextBlock"
+                            x:Load="{x:Bind IsRead, Mode=OneWay}"
+                            Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                            Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
+                            TextTrimming="CharacterEllipsis" />
+                        <TextBlock
+                            x:Name="UnreadSubjectTextBlock"
+                            x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsRead), Mode=OneWay}"
+                            FontWeight="SemiBold"
+                            Foreground="{ThemeResource SystemAccentColor}"
                             Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
                             TextTrimming="CharacterEllipsis" />
                         <TextBlock
@@ -517,8 +535,16 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock
-                            FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
-                            Foreground="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForegroundByReadState(IsRead), Mode=OneWay}"
+                            x:Name="ReadSubjectTextBlock"
+                            x:Load="{x:Bind IsRead, Mode=OneWay}"
+                            Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                            Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
+                            TextTrimming="CharacterEllipsis" />
+                        <TextBlock
+                            x:Name="UnreadSubjectTextBlock"
+                            x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsRead), Mode=OneWay}"
+                            FontWeight="SemiBold"
+                            Foreground="{ThemeResource SystemAccentColor}"
                             Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
                             TextTrimming="CharacterEllipsis" />
                         <TextBlock
@@ -699,9 +725,18 @@
                                     Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
                             </Grid>
                             <TextBlock
+                                x:Name="ReadSubjectTextBlock"
                                 Grid.Column="1"
-                                FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
-                                Foreground="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForegroundByReadState(IsRead), Mode=OneWay}"
+                                x:Load="{x:Bind IsRead, Mode=OneWay}"
+                                Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis" />
+                            <TextBlock
+                                x:Name="UnreadSubjectTextBlock"
+                                Grid.Column="1"
+                                x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsRead), Mode=OneWay}"
+                                FontWeight="SemiBold"
+                                Foreground="{ThemeResource SystemAccentColor}"
                                 Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
                                 TextTrimming="CharacterEllipsis" />
                             <TextBlock
@@ -745,8 +780,8 @@
                             <ProgressRing
                                 Width="12"
                                 Height="12"
-                            IsActive="{x:Bind IsBusy, Mode=OneWay}"
-                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsBusy), Mode=OneWay}" />
+                                IsActive="{x:Bind IsBusy, Mode=OneWay}"
+                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsBusy), Mode=OneWay}" />
                         </StackPanel>
                     </StackPanel>
                     <ContentControl
@@ -870,9 +905,18 @@
                                     Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
                             </Grid>
                             <TextBlock
+                                x:Name="ReadSubjectTextBlock"
                                 Grid.Column="1"
-                                FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
-                                Foreground="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForegroundByReadState(IsRead), Mode=OneWay}"
+                                x:Load="{x:Bind IsRead, Mode=OneWay}"
+                                Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis" />
+                            <TextBlock
+                                x:Name="UnreadSubjectTextBlock"
+                                Grid.Column="1"
+                                x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsRead), Mode=OneWay}"
+                                FontWeight="SemiBold"
+                                Foreground="{ThemeResource SystemAccentColor}"
                                 Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
                                 TextTrimming="CharacterEllipsis" />
                             <TextBlock
@@ -923,8 +967,8 @@
                             <ProgressRing
                                 Width="12"
                                 Height="12"
-                            IsActive="{x:Bind IsBusy, Mode=OneWay}"
-                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsBusy), Mode=OneWay}" />
+                                IsActive="{x:Bind IsBusy, Mode=OneWay}"
+                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsBusy), Mode=OneWay}" />
                         </StackPanel>
                     </StackPanel>
                     <ContentControl
@@ -1049,9 +1093,18 @@
                                     Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
                             </Grid>
                             <TextBlock
+                                x:Name="ReadSubjectTextBlock"
                                 Grid.Column="1"
-                                FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSubjectFontWeightByReadState(IsRead), Mode=OneWay}"
-                                Foreground="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForegroundByReadState(IsRead), Mode=OneWay}"
+                                x:Load="{x:Bind IsRead, Mode=OneWay}"
+                                Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis" />
+                            <TextBlock
+                                x:Name="UnreadSubjectTextBlock"
+                                Grid.Column="1"
+                                x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsRead), Mode=OneWay}"
+                                FontWeight="SemiBold"
+                                Foreground="{ThemeResource SystemAccentColor}"
                                 Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
                                 TextTrimming="CharacterEllipsis" />
                             <TextBlock
@@ -1102,8 +1155,8 @@
                             <ProgressRing
                                 Width="12"
                                 Height="12"
-                            IsActive="{x:Bind IsBusy, Mode=OneWay}"
-                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsBusy), Mode=OneWay}" />
+                                IsActive="{x:Bind IsBusy, Mode=OneWay}"
+                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsBusy), Mode=OneWay}" />
                         </StackPanel>
                     </StackPanel>
                     <ContentControl
@@ -1200,9 +1253,9 @@
             Padding="5,5,5,0"
             HorizontalAlignment="Stretch"
             Background="{ThemeResource WinoContentZoneBackgroud}"
-            BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
-            CornerRadius="{ThemeResource OverlayCornerRadius}"
+            CornerRadius="8"
             Translation="0,0,20">
             <Border.Shadow>
                 <ThemeShadow />
@@ -1217,7 +1270,7 @@
                 <!--  Action bar  -->
                 <Grid
                     Margin="0,0,0,5"
-                    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+                    Background="{ThemeResource AppBarBackgroundColor}"
                     CornerRadius="8"
                     Visibility="{x:Bind ViewModel.PreferencesService.IsMailListActionBarEnabled}">
                     <coreControls:OperationCommandBar

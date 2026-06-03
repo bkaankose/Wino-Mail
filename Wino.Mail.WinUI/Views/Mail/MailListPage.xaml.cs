@@ -17,7 +17,6 @@ using Microsoft.UI.Xaml.Navigation;
 using MoreLinq;
 using Windows.Foundation;
 using Windows.System;
-using Wino.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
@@ -121,8 +120,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
         _selectionRangeAnchors.Clear();
 
         RenderingFrame.Navigate(typeof(IdlePage));
-
-        GC.Collect();
     }
 
     private void UpdateSelectAllButtonStatus()

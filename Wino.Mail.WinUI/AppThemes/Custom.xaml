@@ -27,6 +27,10 @@
             <SolidColorBrush x:Key="CalendarWorkHourBackgroundBrush" Color="{StaticResource MainCustomThemeColor}" Opacity="0.85" />
             <SolidColorBrush x:Key="CalendarSelectedHourBackgroundBrush">#4D0078D4</SolidColorBrush>
 
+            <!--  Wallpaper overlay surfaces  -->
+            <SolidColorBrush x:Key="WinoContentZoneBackgroud" Color="{StaticResource MainCustomThemeColor}" />
+            <SolidColorBrush x:Key="ReadingPaneBackgroundColorBrush" Color="{StaticResource MainCustomThemeColor}" />
+
             <SolidColorBrush x:Key="AppBarBackgroundColor" Color="{StaticResource MainCustomThemeColor}" />
             <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
             <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="{StaticResource MainCustomThemeColor}" />
@@ -42,7 +46,8 @@
             <SolidColorBrush x:Key="CalendarWorkHourBackgroundBrush" Color="{StaticResource MainCustomThemeColor}" Opacity="0.85" />
             <SolidColorBrush x:Key="CalendarSelectedHourBackgroundBrush">#66399BFF</SolidColorBrush>
 
-            <!--  Reading Pane Background  -->
+            <!--  Wallpaper overlay surfaces  -->
+            <SolidColorBrush x:Key="WinoContentZoneBackgroud" Color="{StaticResource MainCustomThemeColor}" />
             <SolidColorBrush x:Key="ReadingPaneBackgroundColorBrush" Color="{StaticResource MainCustomThemeColor}" />
 
             <SolidColorBrush x:Key="AppBarBackgroundColor" Color="{StaticResource MainCustomThemeColor}" />

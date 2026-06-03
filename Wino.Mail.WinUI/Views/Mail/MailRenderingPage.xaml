@@ -24,9 +24,9 @@
     <Page.Resources>
         <DataTemplate x:Key="InternetAddressTemplate" x:DataType="viewModelData:AccountContactViewModel">
             <HyperlinkButton
-                AutomationProperties.AutomationId="XBindDisplayName"
                 Margin="0"
                 Padding="4,2"
+                AutomationProperties.AutomationId="XBindDisplayName"
                 AutomationProperties.Name="{x:Bind DisplayName}"
                 Click="InternetAddressClicked"
                 Content="{x:Bind ShortNameOrYou}"
@@ -52,10 +52,10 @@
                             <TextBlock Grid.Column="1" Text="{x:Bind Name}" />
 
                             <HyperlinkButton
-                                AutomationProperties.AutomationId="XBindAddress"
                                 Grid.Row="1"
                                 Grid.Column="1"
                                 Padding="0"
+                                AutomationProperties.AutomationId="XBindAddress"
                                 AutomationProperties.Name="{x:Bind Address}"
                                 Click="CopyAddress_Click"
                                 CommandParameter="{x:Bind Address}"
@@ -171,10 +171,10 @@
         </Grid.ChildrenTransitions>
 
         <Border
-            Background="{ThemeResource WinoContentZoneBackgroud}"
-            BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
+            Background="{ThemeResource ReadingPaneBackgroundColorBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
-            CornerRadius="{ThemeResource OverlayCornerRadius}"
+            CornerRadius="8"
             Translation="0,0,20">
             <Border.Shadow>
                 <ThemeShadow />
@@ -204,10 +204,10 @@
                         TextWrapping="Wrap" />
 
                     <HyperlinkButton
-                        AutomationProperties.AutomationId="MailRenderingPageHyperlinkButton"
                         Grid.Column="1"
                         Padding="5,1,5,1"
                         VerticalAlignment="Top"
+                        AutomationProperties.AutomationId="MailRenderingPageHyperlinkButton"
                         Command="{x:Bind ViewModel.UnsubscribeCommand}"
                         Visibility="{x:Bind ViewModel.CanUnsubscribe, Mode=OneWay}">
                         <StackPanel Orientation="Horizontal" Spacing="3">
@@ -224,10 +224,10 @@
 
                     <!--  S/MIME Signed Email Indicator  -->
                     <HyperlinkButton
-                        AutomationProperties.AutomationId="XBindDomainTranslatorSmimeSignedTooltipModeOneTime"
                         Grid.Column="2"
                         Margin="0,0,0,4"
                         VerticalAlignment="Center"
+                        AutomationProperties.AutomationId="XBindDomainTranslatorSmimeSignedTooltipModeOneTime"
                         AutomationProperties.Name="{x:Bind domain:Translator.SmimeSignedTooltip, Mode=OneTime}"
                         Command="{x:Bind ViewModel.ShowSmimeSigningCertificateInfoCommand}"
                         ToolTipService.ToolTip="{x:Bind domain:Translator.SmimeSignedTooltip}"
@@ -311,9 +311,9 @@
                                 VerticalAlignment="Center">
                                 <StackPanel Spacing="1">
                                     <HyperlinkButton
-                                        AutomationProperties.AutomationId="XBindHelpersXamlHelpersGetMailAddressAutomationNameDomainTranslatorComposerFromViewModelFromNameViewModelFromAddressModeOneWay"
                                         Margin="0"
                                         Padding="4,2"
+                                        AutomationProperties.AutomationId="XBindHelpersXamlHelpersGetMailAddressAutomationNameDomainTranslatorComposerFromViewModelFromNameViewModelFromAddressModeOneWay"
                                         AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetMailAddressAutomationName(domain:Translator.ComposerFrom, ViewModel.FromName, ViewModel.FromAddress), Mode=OneWay}"
                                         Command="{Binding ElementName=root, Path=ViewModel.CopyClipboardCommand}"
                                         CommandParameter="{x:Bind ViewModel.FromAddress, Mode=OneWay}"
@@ -438,10 +438,10 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <ListView
-                        AutomationProperties.AutomationId="AttachmentsListView"
                         x:Name="AttachmentsListView"
                         Grid.Row="0"
                         x:Load="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.Attachments.Count), Mode=OneWay}"
+                        AutomationProperties.AutomationId="AttachmentsListView"
                         IsItemClickEnabled="True"
                         ItemClick="AttachmentClicked"
                         ItemTemplate="{StaticResource FileAttachmentTemplate}"
@@ -484,8 +484,8 @@
                     Severity="Warning">
                     <InfoBar.ActionButton>
                         <Button
-                            AutomationProperties.AutomationId="MailRenderingPageButton"
                             HorizontalAlignment="Right"
+                            AutomationProperties.AutomationId="MailRenderingPageButton"
                             Command="{x:Bind ViewModel.ForceImageLoadingCommand}"
                             Content="{x:Bind domain:Translator.Buttons_EnableImageRendering}" />
                     </InfoBar.ActionButton>
@@ -505,11 +505,11 @@
 
         <Border
             Grid.Row="1"
-            Background="{ThemeResource WinoContentZoneBackgroud}"
-            BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
+            Background="{ThemeResource ReadingPaneBackgroundColorBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
-            CornerRadius="{ThemeResource OverlayCornerRadius}">
-            <Grid Margin="1" CornerRadius="{ThemeResource OverlayCornerRadius}">
+            CornerRadius="8">
+            <Grid Margin="1" CornerRadius="8">
 
                 <Grid Background="White" Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsDarkEditor), Mode=OneWay}" />
 

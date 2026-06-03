@@ -32,7 +32,7 @@
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
             BackRequested="BackButtonClicked"
-            Background="Transparent"
+            Background="{ThemeResource AppBarBackgroundColor}"
             IsPaneToggleButtonVisible="True"
             PaneToggleRequested="PaneButtonClicked"
             Subtitle="{x:Bind StatePersistanceService.CoreWindowTitle, Mode=OneWay}">

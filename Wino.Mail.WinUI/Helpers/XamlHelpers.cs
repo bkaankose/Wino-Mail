@@ -185,7 +185,6 @@ public static class XamlHelpers
     public static FontWeight GetFontWeightByChildSelectedState(bool isChildSelected) => isChildSelected ? FontWeights.SemiBold : FontWeights.Normal;
     public static FontWeight GetFontWeightByReadState(bool isChildSelected) => isChildSelected ? FontWeights.Normal : FontWeights.SemiBold;
     public static FontWeight GetMailItemSenderFontWeightByReadState(bool isRead) => isRead ? FontWeights.Normal : FontWeights.Bold;
-    public static FontWeight GetMailItemSubjectFontWeightByReadState(bool isRead) => isRead ? FontWeights.Normal : FontWeights.SemiBold;
     public static MailOperation GetHoverAction(int actionIndex)
     {
         return actionIndex switch
@@ -202,21 +201,6 @@ public static class XamlHelpers
 
     public static WinoIconGlyph GetHoverActionWinoIconGlyph(int actionIndex)
         => GetWinoIconGlyph(GetHoverAction(actionIndex));
-
-    public static Brush GetMailItemSubjectForegroundByReadState(bool isRead)
-    {
-        if (isRead)
-            return (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"];
-
-        var accentResource = Application.Current.Resources["SystemAccentColor"];
-
-        return accentResource switch
-        {
-            Brush brush => brush,
-            Color color => new SolidColorBrush(color),
-            _ => (Brush)Application.Current.Resources["AccentFillColorDefaultBrush"]
-        };
-    }
 
     public static Visibility StringToVisibilityConverter(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Collapsed : Visibility.Visible;
     public static Visibility StringToVisibilityReversedConverter(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Visible : Visibility.Collapsed;

@@ -19,7 +19,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="controls:NavigationView">
-                    <Grid x:Name="RootGrid">
+                    <Grid x:Name="RootGrid" Margin="-1,0,0,0">
                         <!--  Button grid  -->
                         <Grid
                             x:Name="PaneToggleButtonGrid"
@@ -273,7 +273,6 @@
                                 <SplitView.Pane>
                                     <Grid
                                         x:Name="PaneContentGrid"
-                                        Margin="{ThemeResource NavigationViewPaneContentGridMargin}"
                                         BorderBrush="{ThemeResource NavigationViewItemSeparatorForeground}"
                                         Visibility="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=TemplateSettings.LeftPaneVisibility}">
                                         <Grid.RowDefinitions>
@@ -409,7 +408,7 @@
                                                 Margin="8,8,8,12"
                                                 Padding="8"
                                                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                                CornerRadius="{ThemeResource OverlayCornerRadius}">
+                                                CornerRadius="8">
                                                 <winoControls:AppModeFooterSwitcherControl x:Name="FooterAppModeSwitcher" />
                                             </Border>
 
