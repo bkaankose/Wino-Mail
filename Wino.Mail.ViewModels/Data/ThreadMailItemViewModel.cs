@@ -33,15 +33,6 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     [NotifyPropertyChangedFor(nameof(IsSelectedOrExpanded))]
     public partial bool IsSelected { get; set; }
 
-    /// <summary>
-    /// Direct callback invoked when <see cref="IsSelected"/> changes.
-    /// Used by the ListViewItem container to update its IsCustomSelected DP
-    /// without subscribing to INotifyPropertyChanged (faster, AOT-safe).
-    /// </summary>
-    public Action<bool> OnSelectionChanged { get; set; }
-
-    partial void OnIsSelectedChanged(bool value) => OnSelectionChanged?.Invoke(value);
-
     [ObservableProperty]
     public partial bool IsBusy { get; set; }
 

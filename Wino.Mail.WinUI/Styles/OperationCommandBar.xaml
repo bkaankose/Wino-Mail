@@ -13,8 +13,8 @@
 
     <DataTemplate x:Key="OperationCommandBarMailOperationTemplate" x:DataType="controls:OperationCommandBarMenuOperationItemViewModel">
         <AppBarButton
-            AutomationProperties.AutomationId="XBindToolTip"
             MinWidth="40"
+            AutomationProperties.AutomationId="XBindToolTip"
             AutomationProperties.Name="{x:Bind ToolTip}"
             IsEnabled="{x:Bind IsEnabled}"
             Label="{x:Bind Label}"
@@ -28,8 +28,8 @@
 
     <DataTemplate x:Key="OperationCommandBarFolderOperationTemplate" x:DataType="controls:OperationCommandBarMenuOperationItemViewModel">
         <AppBarButton
-            AutomationProperties.AutomationId="XBindToolTip2"
             MinWidth="40"
+            AutomationProperties.AutomationId="XBindToolTip2"
             AutomationProperties.Name="{x:Bind ToolTip}"
             IsEnabled="{x:Bind IsEnabled}"
             Label="{x:Bind Label}"
@@ -43,8 +43,8 @@
 
     <DataTemplate x:Key="OperationCommandBarAIActionsTemplate" x:DataType="controls:OperationCommandBarAIActionsItemViewModel">
         <AppBarToggleButton
-            AutomationProperties.AutomationId="XBindToolTip3"
             MinWidth="40"
+            AutomationProperties.AutomationId="XBindToolTip3"
             AutomationProperties.Name="{x:Bind ToolTip}"
             LabelPosition="Collapsed"
             ToolTipService.ToolTip="{x:Bind ToolTip}">
@@ -56,8 +56,8 @@
 
     <DataTemplate x:Key="OperationCommandBarThemeToggleTemplate" x:DataType="controls:OperationCommandBarThemeItemViewModel">
         <AppBarButton
-            AutomationProperties.AutomationId="XBindToolTip4"
             MinWidth="40"
+            AutomationProperties.AutomationId="XBindToolTip4"
             AutomationProperties.Name="{x:Bind ToolTip}"
             LabelPosition="Collapsed"
             ToolTipService.ToolTip="{x:Bind ToolTip}">

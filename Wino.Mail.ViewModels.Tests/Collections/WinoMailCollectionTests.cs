@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -41,6 +42,57 @@ public class WinoMailCollectionTests
         var items = FlattenItems(sut);
         items.Should().HaveCount(2);
         items.Should().OnlyContain(item => item is MailItemViewModel);
+    }
+
+    [Fact]
+    public async Task AddAsync_ShouldUpdateExistingGroupWithoutResettingRootGroups()
+    {
+        var sut = CreateCollection();
+        var baseDate = new DateTime(2026, 4, 6, 12, 0, 0, DateTimeKind.Utc);
+        var first = CreateMailCopy(threadId: "thread-1", creationDate: baseDate);
+        var second = CreateMailCopy(threadId: "thread-2", creationDate: baseDate.AddMinutes(-1));
+
+        await sut.AddAsync(first);
+        var originalGroup = sut.MailItems.Single();
+        var rootGroupChanges = new List<NotifyCollectionChangedAction>();
+        sut.MailItems.CollectionChanged += (_, args) => rootGroupChanges.Add(args.Action);
+
+        await sut.AddAsync(second);
+
+        sut.MailItems.Should().ContainSingle().Which.Should().BeSameAs(originalGroup);
+        originalGroup.Should().HaveCount(2);
+        rootGroupChanges.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task AddRangeAsync_ForLoadMoreSameGroup_ShouldUpdateExistingGroupWithoutResettingRootGroups()
+    {
+        var sut = CreateCollection();
+        var baseDate = new DateTime(2026, 4, 6, 12, 0, 0, DateTimeKind.Utc);
+
+        await sut.AddRangeAsync(
+        [
+            new MailItemViewModel(CreateMailCopy(threadId: "initial-1", creationDate: baseDate)),
+            new MailItemViewModel(CreateMailCopy(threadId: "initial-2", creationDate: baseDate.AddMinutes(-1)))
+        ], clearIdCache: true);
+
+        var originalGroup = sut.MailItems.Single();
+        var rootGroupChanges = new List<NotifyCollectionChangedAction>();
+        var itemGroupChanges = new List<NotifyCollectionChangedAction>();
+        sut.MailItems.CollectionChanged += (_, args) => rootGroupChanges.Add(args.Action);
+        originalGroup.CollectionChanged += (_, args) => itemGroupChanges.Add(args.Action);
+
+        await sut.AddRangeAsync(
+        [
+            new MailItemViewModel(CreateMailCopy(threadId: "more-1", creationDate: baseDate.AddMinutes(-2))),
+            new MailItemViewModel(CreateMailCopy(threadId: "more-2", creationDate: baseDate.AddMinutes(-3))),
+            new MailItemViewModel(CreateMailCopy(threadId: "more-3", creationDate: baseDate.AddMinutes(-4)))
+        ], clearIdCache: false);
+
+        sut.MailItems.Should().ContainSingle().Which.Should().BeSameAs(originalGroup);
+        originalGroup.Should().HaveCount(5);
+        rootGroupChanges.Should().BeEmpty();
+        itemGroupChanges.Should().ContainSingle().Which.Should().Be(NotifyCollectionChangedAction.Reset);
     }
 
     [Fact]
@@ -130,6 +182,91 @@ public class WinoMailCollectionTests
 
         FlattenItems(sut).Should().BeEmpty();
         sut.ContainsMailUniqueId(mail.UniqueId).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RemoveAsync_ShouldRemoveSingleItemWithoutResettingContainingGroup()
+    {
+        var sut = CreateCollection();
+        var baseDate = new DateTime(2026, 4, 6, 12, 0, 0, DateTimeKind.Utc);
+        var first = CreateMailCopy(threadId: "first", creationDate: baseDate);
+        var second = CreateMailCopy(threadId: "second", creationDate: baseDate.AddMinutes(-1));
+
+        await sut.AddRangeAsync(
+        [
+            new MailItemViewModel(first),
+            new MailItemViewModel(second)
+        ], clearIdCache: true);
+
+        var originalGroup = sut.MailItems.Single();
+        var rootGroupChanges = new List<NotifyCollectionChangedAction>();
+        var itemGroupChanges = new List<NotifyCollectionChangedAction>();
+        sut.MailItems.CollectionChanged += (_, args) => rootGroupChanges.Add(args.Action);
+        originalGroup.CollectionChanged += (_, args) => itemGroupChanges.Add(args.Action);
+
+        await sut.RemoveAsync(first);
+
+        sut.MailItems.Should().ContainSingle().Which.Should().BeSameAs(originalGroup);
+        originalGroup.Should().ContainSingle().Which.Should().BeOfType<MailItemViewModel>().Which.MailCopy.UniqueId.Should().Be(second.UniqueId);
+        rootGroupChanges.Should().BeEmpty();
+        itemGroupChanges.Should().ContainSingle().Which.Should().Be(NotifyCollectionChangedAction.Remove);
+    }
+
+    [Fact]
+    public async Task RemoveAsync_ShouldRemoveNestedThreadMailWithoutResettingContainingGroup()
+    {
+        var sut = CreateCollection();
+        var baseDate = new DateTime(2026, 4, 6, 12, 0, 0, DateTimeKind.Utc);
+        var first = CreateMailCopy(threadId: "thread", creationDate: baseDate);
+        var second = CreateMailCopy(threadId: "thread", creationDate: baseDate.AddMinutes(-1));
+        var third = CreateMailCopy(threadId: "thread", creationDate: baseDate.AddMinutes(-2));
+
+        await sut.AddRangeAsync(
+        [
+            new MailItemViewModel(first),
+            new MailItemViewModel(second),
+            new MailItemViewModel(third)
+        ], clearIdCache: true);
+
+        var originalGroup = sut.MailItems.Single();
+        var itemGroupChanges = new List<NotifyCollectionChangedAction>();
+        originalGroup.CollectionChanged += (_, args) => itemGroupChanges.Add(args.Action);
+
+        await sut.RemoveAsync(second);
+
+        sut.MailItems.Should().ContainSingle().Which.Should().BeSameAs(originalGroup);
+        originalGroup.Should().ContainSingle().Which.Should().BeOfType<ThreadMailItemViewModel>().Which.EmailCount.Should().Be(2);
+        itemGroupChanges.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task RemoveRangeAsync_FromSameGroup_ShouldUpdateExistingGroupWithoutResettingRootGroups()
+    {
+        var sut = CreateCollection();
+        var baseDate = new DateTime(2026, 4, 6, 12, 0, 0, DateTimeKind.Utc);
+        var first = CreateMailCopy(threadId: "first", creationDate: baseDate);
+        var second = CreateMailCopy(threadId: "second", creationDate: baseDate.AddMinutes(-1));
+        var third = CreateMailCopy(threadId: "third", creationDate: baseDate.AddMinutes(-2));
+
+        await sut.AddRangeAsync(
+        [
+            new MailItemViewModel(first),
+            new MailItemViewModel(second),
+            new MailItemViewModel(third)
+        ], clearIdCache: true);
+
+        var originalGroup = sut.MailItems.Single();
+        var rootGroupChanges = new List<NotifyCollectionChangedAction>();
+        var itemGroupChanges = new List<NotifyCollectionChangedAction>();
+        sut.MailItems.CollectionChanged += (_, args) => rootGroupChanges.Add(args.Action);
+        originalGroup.CollectionChanged += (_, args) => itemGroupChanges.Add(args.Action);
+
+        await sut.RemoveRangeAsync([first, second]);
+
+        sut.MailItems.Should().ContainSingle().Which.Should().BeSameAs(originalGroup);
+        originalGroup.Should().ContainSingle().Which.Should().BeOfType<MailItemViewModel>().Which.MailCopy.UniqueId.Should().Be(third.UniqueId);
+        rootGroupChanges.Should().BeEmpty();
+        itemGroupChanges.Should().ContainSingle().Which.Should().Be(NotifyCollectionChangedAction.Reset);
     }
 
     [Fact]
@@ -283,6 +420,120 @@ public class WinoMailCollectionTests
 
         var firstItem = FlattenItems(sut).First().Should().BeOfType<MailItemViewModel>().Subject;
         firstItem.MailCopy.UniqueId.Should().Be(older.UniqueId);
+    }
+
+    [Fact]
+    public async Task UpdateMailCopy_WithBroadHintAndPinnedChange_ShouldMovePinnedItemToTop()
+    {
+        var sut = CreateCollection();
+        var older = CreateMailCopy(threadId: "older", creationDate: DateTime.UtcNow.AddDays(-2));
+        var newer = CreateMailCopy(threadId: "newer", creationDate: DateTime.UtcNow);
+
+        await sut.AddAsync(older);
+        await sut.AddAsync(newer);
+
+        var updatedOlder = CloneMailCopy(older);
+        updatedOlder.IsPinned = true;
+
+        await sut.UpdateMailCopy(updatedOlder, EntityUpdateSource.Server, MailCopyChangeFlags.All);
+
+        var firstItem = FlattenItems(sut).First().Should().BeOfType<MailItemViewModel>().Subject;
+        firstItem.MailCopy.UniqueId.Should().Be(older.UniqueId);
+    }
+
+    [Fact]
+    public async Task UpdateMailCopy_WithNonReorderingChange_ShouldNotResetContainingGroup()
+    {
+        var sut = CreateCollection();
+        var baseDate = new DateTime(2026, 4, 6, 12, 0, 0, DateTimeKind.Utc);
+        var first = CreateMailCopy(threadId: "first", creationDate: baseDate);
+        var second = CreateMailCopy(threadId: "second", creationDate: baseDate.AddMinutes(-1));
+
+        await sut.AddRangeAsync(
+        [
+            new MailItemViewModel(first),
+            new MailItemViewModel(second)
+        ], clearIdCache: true);
+
+        var originalGroup = sut.MailItems.Single();
+        var rootGroupChanges = new List<NotifyCollectionChangedAction>();
+        var itemGroupChanges = new List<NotifyCollectionChangedAction>();
+        sut.MailItems.CollectionChanged += (_, args) => rootGroupChanges.Add(args.Action);
+        originalGroup.CollectionChanged += (_, args) => itemGroupChanges.Add(args.Action);
+
+        var updatedFirst = CloneMailCopy(first);
+        updatedFirst.Subject = "Updated subject";
+
+        await sut.UpdateMailCopy(updatedFirst, EntityUpdateSource.Server, MailCopyChangeFlags.Subject);
+
+        sut.MailItems.Should().ContainSingle().Which.Should().BeSameAs(originalGroup);
+        originalGroup.Should().HaveCount(2);
+        rootGroupChanges.Should().BeEmpty();
+        itemGroupChanges.Should().BeEmpty();
+        sut.Find(first.UniqueId).Subject.Should().Be("Updated subject");
+    }
+
+    [Fact]
+    public async Task UpdateMailCopy_WithBroadHintAndNonReorderingChange_ShouldNotResetContainingGroup()
+    {
+        var sut = CreateCollection();
+        var baseDate = new DateTime(2026, 4, 6, 12, 0, 0, DateTimeKind.Utc);
+        var first = CreateMailCopy(threadId: "first", creationDate: baseDate);
+        var second = CreateMailCopy(threadId: "second", creationDate: baseDate.AddMinutes(-1));
+
+        await sut.AddRangeAsync(
+        [
+            new MailItemViewModel(first),
+            new MailItemViewModel(second)
+        ], clearIdCache: true);
+
+        var originalGroup = sut.MailItems.Single();
+        var rootGroupChanges = new List<NotifyCollectionChangedAction>();
+        var itemGroupChanges = new List<NotifyCollectionChangedAction>();
+        sut.MailItems.CollectionChanged += (_, args) => rootGroupChanges.Add(args.Action);
+        originalGroup.CollectionChanged += (_, args) => itemGroupChanges.Add(args.Action);
+
+        var updatedFirst = CloneMailCopy(first);
+        updatedFirst.PreviewText = "Updated preview";
+
+        await sut.UpdateMailCopy(updatedFirst, EntityUpdateSource.Server, MailCopyChangeFlags.All);
+
+        sut.MailItems.Should().ContainSingle().Which.Should().BeSameAs(originalGroup);
+        originalGroup.Should().HaveCount(2);
+        rootGroupChanges.Should().BeEmpty();
+        itemGroupChanges.Should().BeEmpty();
+        sut.Find(first.UniqueId).PreviewText.Should().Be("Updated preview");
+    }
+
+    [Fact]
+    public async Task UpdateMailCopy_WithNestedThreadNonReorderingChange_ShouldNotResetContainingGroup()
+    {
+        var sut = CreateCollection();
+        var baseDate = new DateTime(2026, 4, 6, 12, 0, 0, DateTimeKind.Utc);
+        var first = CreateMailCopy(threadId: "thread", creationDate: baseDate);
+        var second = CreateMailCopy(threadId: "thread", creationDate: baseDate.AddMinutes(-1));
+        var third = CreateMailCopy(threadId: "thread", creationDate: baseDate.AddMinutes(-2));
+
+        await sut.AddRangeAsync(
+        [
+            new MailItemViewModel(first),
+            new MailItemViewModel(second),
+            new MailItemViewModel(third)
+        ], clearIdCache: true);
+
+        var originalGroup = sut.MailItems.Single();
+        var itemGroupChanges = new List<NotifyCollectionChangedAction>();
+        originalGroup.CollectionChanged += (_, args) => itemGroupChanges.Add(args.Action);
+
+        var updatedSecond = CloneMailCopy(second);
+        updatedSecond.Subject = "Updated nested subject";
+
+        await sut.UpdateMailCopy(updatedSecond, EntityUpdateSource.Server, MailCopyChangeFlags.Subject);
+
+        sut.MailItems.Should().ContainSingle().Which.Should().BeSameAs(originalGroup);
+        originalGroup.Should().ContainSingle().Which.Should().BeOfType<ThreadMailItemViewModel>().Which.EmailCount.Should().Be(3);
+        itemGroupChanges.Should().BeEmpty();
+        sut.Find(second.UniqueId).Subject.Should().Be("Updated nested subject");
     }
 
     [Fact]
@@ -454,6 +705,183 @@ public class WinoMailCollectionTests
 
         sut.AllItemsCount.Should().Be(0);
         sut.IsAllItemsSelected.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task SelectTopLevelItemAsync_WithSingleSelection_ShouldSelectOnlyClickedMail()
+    {
+        var sut = CreateCollection();
+        var older = CreateMailCopy(threadId: "older", creationDate: DateTime.UtcNow.AddMinutes(-2));
+        var newer = CreateMailCopy(threadId: "newer", creationDate: DateTime.UtcNow.AddMinutes(-1));
+
+        await sut.AddAsync(older);
+        await sut.AddAsync(newer);
+        var items = FlattenItems(sut).OfType<MailItemViewModel>().ToList();
+
+        await sut.SelectTopLevelItemAsync(items[0], isMultiSelectionEnabled: false);
+        await sut.SelectTopLevelItemAsync(items[1], isMultiSelectionEnabled: false);
+
+        items[0].IsSelected.Should().BeFalse();
+        items[1].IsSelected.Should().BeTrue();
+        sut.SelectedItemsCount.Should().Be(1);
+        sut.SelectedItems.Should().ContainSingle().Which.Should().BeSameAs(items[1]);
+    }
+
+    [Fact]
+    public async Task SelectTopLevelItemAsync_WithAlreadySelectedSingle_ShouldUnselectIt()
+    {
+        var sut = CreateCollection();
+        var mail = CreateMailCopy(threadId: "single");
+
+        await sut.AddAsync(mail);
+        var item = FlattenItems(sut).OfType<MailItemViewModel>().Single();
+
+        await sut.SelectTopLevelItemAsync(item, isMultiSelectionEnabled: false);
+        await sut.SelectTopLevelItemAsync(item, isMultiSelectionEnabled: false);
+
+        item.IsSelected.Should().BeFalse();
+        sut.SelectedItems.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task SelectTopLevelItemAsync_WithThread_ShouldSelectDefaultChildMail()
+    {
+        var sut = CreateCollection();
+        var firstThreadOlder = CreateMailCopy(threadId: "first-thread", creationDate: DateTime.UtcNow.AddMinutes(-4));
+        var firstThreadNewer = CreateMailCopy(threadId: "first-thread", creationDate: DateTime.UtcNow.AddMinutes(-3));
+        var secondThreadOlder = CreateMailCopy(threadId: "second-thread", creationDate: DateTime.UtcNow.AddMinutes(-2));
+        var secondThreadNewer = CreateMailCopy(threadId: "second-thread", creationDate: DateTime.UtcNow.AddMinutes(-1));
+
+        await sut.AddRangeAsync(
+        [
+            new MailItemViewModel(firstThreadOlder),
+            new MailItemViewModel(firstThreadNewer),
+            new MailItemViewModel(secondThreadOlder),
+            new MailItemViewModel(secondThreadNewer)
+        ], clearIdCache: true);
+
+        var threads = FlattenItems(sut).OfType<ThreadMailItemViewModel>().OrderBy(static item => item.CreationDate).ToList();
+        var firstThread = threads[0];
+        var secondThread = threads[1];
+
+        await sut.SelectTopLevelItemAsync(firstThread, isMultiSelectionEnabled: false);
+        await sut.SelectTopLevelItemAsync(secondThread, isMultiSelectionEnabled: false);
+
+        firstThread.IsSelected.Should().BeFalse();
+        firstThread.IsThreadExpanded.Should().BeFalse();
+        firstThread.ThreadEmails.Should().OnlyContain(static item => !item.IsSelected);
+
+        secondThread.IsSelected.Should().BeTrue();
+        secondThread.IsThreadExpanded.Should().BeTrue();
+        sut.SelectedItems.Should().ContainSingle().Which.Should().BeSameAs(secondThread.GetDefaultSelectedThreadEmail());
+    }
+
+    [Fact]
+    public async Task SelectThreadMailAsync_ShouldNotRebuildGroups()
+    {
+        var sut = CreateCollection();
+        var first = CreateMailCopy(threadId: "shared", creationDate: DateTime.UtcNow.AddMinutes(-2));
+        var second = CreateMailCopy(threadId: "shared", creationDate: DateTime.UtcNow.AddMinutes(-1));
+
+        await sut.AddAsync(first);
+        await sut.AddAsync(second);
+        var thread = FlattenItems(sut).OfType<ThreadMailItemViewModel>().Single();
+        var groupChanges = 0;
+        sut.MailItems.CollectionChanged += (_, _) => groupChanges++;
+
+        await sut.SelectThreadMailAsync(thread, thread.ThreadEmails[0], isMultiSelectionEnabled: false);
+
+        groupChanges.Should().Be(0);
+        thread.IsSelected.Should().BeTrue();
+        thread.ThreadEmails[0].IsSelected.Should().BeTrue();
+        sut.SelectedItemsCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task SelectThreadMailAsync_WithAlreadySelectedChild_ShouldUnselectIt()
+    {
+        var sut = CreateCollection();
+        var first = CreateMailCopy(threadId: "shared", creationDate: DateTime.UtcNow.AddMinutes(-2));
+        var second = CreateMailCopy(threadId: "shared", creationDate: DateTime.UtcNow.AddMinutes(-1));
+
+        await sut.AddAsync(first);
+        await sut.AddAsync(second);
+        var thread = FlattenItems(sut).OfType<ThreadMailItemViewModel>().Single();
+        var child = thread.ThreadEmails[0];
+
+        await sut.SelectThreadMailAsync(thread, child, isMultiSelectionEnabled: false);
+        await sut.SelectThreadMailAsync(thread, child, isMultiSelectionEnabled: false);
+
+        child.IsSelected.Should().BeFalse();
+        thread.IsSelected.Should().BeFalse();
+        thread.IsThreadExpanded.Should().BeTrue();
+        sut.SelectedItems.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task MultiSelection_ShouldToggleSingleThreadAndNestedMail()
+    {
+        var sut = CreateCollection();
+        var single = CreateMailCopy(threadId: "single", creationDate: DateTime.UtcNow.AddMinutes(-3));
+        var threadFirst = CreateMailCopy(threadId: "shared", creationDate: DateTime.UtcNow.AddMinutes(-2));
+        var threadSecond = CreateMailCopy(threadId: "shared", creationDate: DateTime.UtcNow.AddMinutes(-1));
+
+        await sut.AddAsync(single);
+        await sut.AddAsync(threadFirst);
+        await sut.AddAsync(threadSecond);
+
+        var singleItem = FlattenItems(sut).OfType<MailItemViewModel>().Single();
+        var thread = FlattenItems(sut).OfType<ThreadMailItemViewModel>().Single();
+
+        await sut.SelectTopLevelItemAsync(singleItem, isMultiSelectionEnabled: true);
+        await sut.SelectTopLevelItemAsync(thread, isMultiSelectionEnabled: true);
+        await sut.SelectThreadMailAsync(thread, thread.ThreadEmails[0], isMultiSelectionEnabled: true);
+
+        singleItem.IsSelected.Should().BeTrue();
+        thread.IsSelected.Should().BeTrue();
+        thread.ThreadEmails[0].IsSelected.Should().BeFalse();
+        thread.ThreadEmails[1].IsSelected.Should().BeTrue();
+        sut.SelectedItemsCount.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task SelectRangeAsync_ShouldSelectVisibleTopLevelRange()
+    {
+        var sut = CreateCollection();
+        var oldest = CreateMailCopy(threadId: "oldest", creationDate: DateTime.UtcNow.AddMinutes(-3));
+        var middle = CreateMailCopy(threadId: "middle", creationDate: DateTime.UtcNow.AddMinutes(-2));
+        var newest = CreateMailCopy(threadId: "newest", creationDate: DateTime.UtcNow.AddMinutes(-1));
+
+        await sut.AddAsync(oldest);
+        await sut.AddAsync(middle);
+        await sut.AddAsync(newest);
+        var scope = FlattenItems(sut);
+
+        await sut.SelectRangeAsync(scope, scope[0], scope[2], preserveExistingSelection: false);
+
+        scope.Should().OnlyContain(static item => item.IsSelected);
+        sut.SelectedItemsCount.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task KeepNewestSelectionOnlyAsync_ShouldLeaveNewestSelectedMail()
+    {
+        var sut = CreateCollection();
+        var older = CreateMailCopy(threadId: "older", creationDate: DateTime.UtcNow.AddMinutes(-2));
+        var newer = CreateMailCopy(threadId: "newer", creationDate: DateTime.UtcNow.AddMinutes(-1));
+
+        await sut.AddAsync(older);
+        await sut.AddAsync(newer);
+        var items = FlattenItems(sut).OfType<MailItemViewModel>().ToList();
+
+        foreach (var item in items)
+        {
+            await sut.SelectTopLevelItemAsync(item, isMultiSelectionEnabled: true);
+        }
+
+        await sut.KeepNewestSelectionOnlyAsync();
+
+        sut.SelectedItems.Should().ContainSingle().Which.CreationDate.Should().Be(newer.CreationDate);
     }
 
     private static WinoMailCollection CreateCollection() => new()

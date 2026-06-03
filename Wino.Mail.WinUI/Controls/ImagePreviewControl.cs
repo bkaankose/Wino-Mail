@@ -99,6 +99,9 @@ public sealed partial class ImagePreviewControl : PersonPicture, IDisposable
 
     public void Dispose()
     {
+        Loaded -= OnLoaded;
+        Unloaded -= OnUnloaded;
+
         if (_mailItemInformationPropertySource != null)
         {
             _mailItemInformationPropertySource.PropertyChanged -= MailItemInformationPropertyChanged;

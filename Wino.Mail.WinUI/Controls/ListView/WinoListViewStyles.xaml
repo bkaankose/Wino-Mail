@@ -14,22 +14,22 @@
             <Style
                 x:Key="DefaultThreadListViewItemStyle"
                 BasedOn="{StaticResource DefaultListViewItemStyle}"
-                TargetType="local:WinoThreadMailItemViewModelListViewItem">
+                TargetType="ListViewItem">
                 <Setter Property="Template">
                     <Setter.Value>
-                        <ControlTemplate TargetType="local:WinoThreadMailItemViewModelListViewItem">
-                            <SwipeControl x:Name="ThreadSwipeControl" Tag="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Item}">
+                        <ControlTemplate TargetType="ListViewItem">
+                            <SwipeControl x:Name="ThreadSwipeControl" Tag="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}">
                                 <SwipeControl.LeftItems>
                                     <controls:WinoSwipeControlItems
                                         x:Name="LeftSwipeItems"
                                         IsRightSwipe="False"
-                                        MailItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Item}" />
+                                        MailItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}" />
                                 </SwipeControl.LeftItems>
                                 <SwipeControl.RightItems>
                                     <controls:WinoSwipeControlItems
                                         x:Name="RightSwipeItems"
                                         IsRightSwipe="True"
-                                        MailItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Item}" />
+                                        MailItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}" />
                                 </SwipeControl.RightItems>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -49,13 +49,12 @@
                                         HorizontalAlignment="Center"
                                         Background="{ThemeResource ListViewItemSelectionIndicatorBrush}"
                                         CornerRadius="4"
-                                        Visibility="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=IsCustomSelected, Mode=OneWay}" />
+                                        Visibility="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content.IsSelected, Mode=OneWay}" />
 
                                     <!--  Expandable Content  -->
                                     <ContentPresenter
                                         x:Name="ThreadContent"
                                         Grid.Column="1"
-                                        Margin="6,0,0,0"
                                         HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
                                         VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
                                         Content="{TemplateBinding Content}"
@@ -107,26 +106,27 @@
             <Style
                 x:Key="DefaultMailListViewItemStyle"
                 BasedOn="{StaticResource DefaultListViewItemStyle}"
-                TargetType="local:WinoMailItemViewModelListViewItem">
+                TargetType="ListViewItem">
                 <Setter Property="Template">
                     <Setter.Value>
-                        <ControlTemplate TargetType="local:WinoMailItemViewModelListViewItem">
-                            <SwipeControl x:Name="MailSwipeControl" Tag="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Item}">
+                        <ControlTemplate TargetType="ListViewItem">
+                            <SwipeControl x:Name="MailSwipeControl" Tag="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}">
                                 <SwipeControl.LeftItems>
                                     <controls:WinoSwipeControlItems
                                         x:Name="LeftSwipeItems"
                                         IsRightSwipe="False"
-                                        MailItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Item}" />
+                                        MailItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}" />
                                 </SwipeControl.LeftItems>
                                 <SwipeControl.RightItems>
                                     <controls:WinoSwipeControlItems
                                         x:Name="RightSwipeItems"
                                         IsRightSwipe="True"
-                                        MailItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Item}" />
+                                        MailItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}" />
                                 </SwipeControl.RightItems>
                                 <Grid
                                     x:Name="RootGrid"
                                     Margin="0,2"
+                                    Padding="-2,0,0,0"
                                     Background="{ThemeResource ListViewItemBackground}"
                                     CornerRadius="{ThemeResource ControlCornerRadius}">
                                     <Grid.ColumnDefinitions>
@@ -138,7 +138,7 @@
                                         x:Name="SelectionBackground"
                                         Grid.ColumnSpan="2"
                                         Background="{ThemeResource ListViewItemBackgroundSelected}"
-                                        Visibility="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=IsCustomSelected, Mode=OneWay}" />
+                                        Visibility="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content.IsSelected, Mode=OneWay}" />
                                     <Border
                                         x:Name="SelectionIndicator"
                                         Width="4"
@@ -146,12 +146,11 @@
                                         HorizontalAlignment="Center"
                                         Background="{ThemeResource ListViewItemSelectionIndicatorBrush}"
                                         CornerRadius="4"
-                                        Visibility="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=IsCustomSelected, Mode=OneWay}" />
+                                        Visibility="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content.IsSelected, Mode=OneWay}" />
 
                                     <ContentPresenter
                                         x:Name="MailContent"
                                         Grid.Column="1"
-                                        Margin="6,0,0,0"
                                         HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
                                         VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
                                         Background="Transparent"

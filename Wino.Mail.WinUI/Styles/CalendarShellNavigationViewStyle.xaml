@@ -36,10 +36,10 @@
                                 Grid.Row="1"
                                 Margin="{ThemeResource NavigationViewButtonHolderGridMargin}">
                                 <Button
-                                    AutomationProperties.AutomationId="NavigationViewBackButton"
                                     x:Name="NavigationViewBackButton"
                                     Width="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=TemplateSettings.SmallerPaneToggleButtonWidth}"
                                     VerticalAlignment="Top"
+                                    AutomationProperties.AutomationId="NavigationViewBackButton"
                                     IsEnabled="{TemplateBinding IsBackEnabled}"
                                     Style="{StaticResource NavigationBackButtonNormalStyle}"
                                     Visibility="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=TemplateSettings.BackButtonVisibility}">
@@ -48,20 +48,20 @@
                                     </ToolTipService.ToolTip>
                                 </Button>
                                 <Button
-                                    AutomationProperties.AutomationId="NavigationViewCloseButton"
                                     x:Name="NavigationViewCloseButton"
                                     VerticalAlignment="Top"
+                                    AutomationProperties.AutomationId="NavigationViewCloseButton"
                                     Style="{StaticResource NavigationBackButtonNormalStyle}">
                                     <ToolTipService.ToolTip>
                                         <ToolTip x:Name="NavigationViewCloseButtonToolTip" />
                                     </ToolTipService.ToolTip>
                                 </Button>
                                 <Button
-                                    AutomationProperties.AutomationId="TogglePaneButton"
                                     x:Name="TogglePaneButton"
                                     MinWidth="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=TemplateSettings.SmallerPaneToggleButtonWidth}"
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Top"
+                                    AutomationProperties.AutomationId="TogglePaneButton"
                                     AutomationProperties.LandmarkType="Navigation"
                                     FocusVisualMargin="0"
                                     Style="{TemplateBinding PaneToggleButtonStyle}"
@@ -160,10 +160,10 @@
                                         </ScrollViewer>
                                     </controls:ItemsRepeaterScrollHost>
                                     <Button
-                                        AutomationProperties.AutomationId="TopNavOverflowButton"
                                         x:Name="TopNavOverflowButton"
                                         Grid.Column="4"
                                         Margin="{ThemeResource TopNavigationViewOverflowButtonMargin}"
+                                        AutomationProperties.AutomationId="TopNavOverflowButton"
                                         Content="More"
                                         Style="{StaticResource NavigationViewOverflowButtonStyleWhenPaneOnTop}"
                                         Visibility="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=TemplateSettings.OverflowButtonVisibility}">
@@ -317,9 +317,9 @@
                                                 VerticalContentAlignment="Center"
                                                 IsTabStop="False" />
                                             <Button
-                                                AutomationProperties.AutomationId="PaneAutoSuggestButton"
                                                 x:Name="PaneAutoSuggestButton"
                                                 Width="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=TemplateSettings.SmallerPaneToggleButtonWidth}"
+                                                AutomationProperties.AutomationId="PaneAutoSuggestButton"
                                                 Style="{ThemeResource NavigationViewPaneSearchButtonStyle}"
                                                 Visibility="Collapsed">
                                                 <Button.Resources>

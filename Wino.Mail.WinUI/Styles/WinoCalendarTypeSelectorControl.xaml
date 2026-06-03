@@ -16,8 +16,9 @@
 
                             <CommandBar.PrimaryCommands>
                                 <AppBarButton
-
-                                    AutomationProperties.AutomationId="PARTTodayButton" x:Name="PART_TodayButton" Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
+                                    x:Name="PART_TodayButton"
+                                    AutomationProperties.AutomationId="PARTTodayButton"
+                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
                                     <AppBarButton.Icon>
                                         <controls1:WinoFontIcon Icon="CalendarToday" />
                                     </AppBarButton.Icon>
@@ -26,32 +27,36 @@
                                 <AppBarSeparator />
 
                                 <AppBarToggleButton
-
-                                    AutomationProperties.AutomationId="PARTDayToggle" x:Name="PART_DayToggle" Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
+                                    x:Name="PART_DayToggle"
+                                    AutomationProperties.AutomationId="PARTDayToggle"
+                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
                                     <AppBarToggleButton.Icon>
                                         <controls1:WinoFontIcon Icon="CalendarDay" />
                                     </AppBarToggleButton.Icon>
                                 </AppBarToggleButton>
 
                                 <AppBarToggleButton
-
-                                    AutomationProperties.AutomationId="PARTWeekToggle" x:Name="PART_WeekToggle" Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
+                                    x:Name="PART_WeekToggle"
+                                    AutomationProperties.AutomationId="PARTWeekToggle"
+                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
                                     <AppBarToggleButton.Icon>
                                         <controls1:WinoFontIcon Icon="CalendarWeek" />
                                     </AppBarToggleButton.Icon>
                                 </AppBarToggleButton>
 
                                 <AppBarToggleButton
-
-                                    AutomationProperties.AutomationId="PARTWorkWeekToggle" x:Name="PART_WorkWeekToggle" Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
+                                    x:Name="PART_WorkWeekToggle"
+                                    AutomationProperties.AutomationId="PARTWorkWeekToggle"
+                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
                                     <AppBarToggleButton.Icon>
                                         <controls1:WinoFontIcon Icon="CalendarWorkWeek" />
                                     </AppBarToggleButton.Icon>
                                 </AppBarToggleButton>
 
                                 <AppBarToggleButton
-
-                                    AutomationProperties.AutomationId="PARTMonthToggle" x:Name="PART_MonthToggle" Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
+                                    x:Name="PART_MonthToggle"
+                                    AutomationProperties.AutomationId="PARTMonthToggle"
+                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
                                     <AppBarToggleButton.Icon>
                                         <controls1:WinoFontIcon FontSize="44" Icon="CalendarMonth" />
                                     </AppBarToggleButton.Icon>

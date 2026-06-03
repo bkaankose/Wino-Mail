@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using System.Windows.Input;
 using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml;
@@ -16,9 +15,6 @@ public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
 {
     private const string PART_ScrollViewer = "ScrollViewer";
     private ScrollViewer? internalScrollviewer;
-
-    [GeneratedDependencyProperty]
-    public partial bool IsThreadListView { get; set; }
 
     [GeneratedDependencyProperty]
     public partial ICommand? LoadMoreCommand { get; set; }
@@ -96,168 +92,6 @@ public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
         }
     }
 
-    protected override void PrepareContainerForItemOverride(DependencyObject element, object item)
-    {
-        base.PrepareContainerForItemOverride(element, item);
-
-        // Ensure the container's selection state matches the model's state
-        // This is crucial for virtualization scenarios where containers are recycled
-
-        if (item is MailItemViewModel mailItemViewModel
-            && element is WinoMailItemViewModelListViewItem container
-            && container.Item != mailItemViewModel)
-        {
-            container.Item = mailItemViewModel;
-        }
-        else if (item is ThreadMailItemViewModel threadMailItemViewModel
-            && element is WinoThreadMailItemViewModelListViewItem threadContainer
-            && threadContainer.Item != threadMailItemViewModel)
-        {
-            threadContainer.Item = threadMailItemViewModel;
-            threadContainer.IsThreadExpanded = threadMailItemViewModel.IsThreadExpanded;
-        }
-    }
-
-    protected override void ClearContainerForItemOverride(DependencyObject element, object item)
-    {
-        base.ClearContainerForItemOverride(element, item);
-
-        if (item is MailItemViewModel mailItemViewModel && element is WinoMailItemViewModelListViewItem container)
-        {
-            container.Item = null;
-        }
-        else if (item is ThreadMailItemViewModel threadMailItemViewModel && element is WinoThreadMailItemViewModelListViewItem threadContainer)
-        {
-            threadContainer.Item = null;
-            threadContainer.IsThreadExpanded = false;
-        }
-    }
-
-    public WinoMailItemViewModelListViewItem? GetMailItemContainer(MailItemViewModel mailItemViewModel)
-    {
-        foreach (var item in Items)
-        {
-            if (item is MailItemViewModel mailItem && mailItem.Id == mailItemViewModel.Id) return ContainerFromItem(mailItemViewModel) as WinoMailItemViewModelListViewItem;
-            if (item is ThreadMailItemViewModel threadMailItem && threadMailItem.GetContainingIds().Contains(mailItemViewModel.MailCopy.UniqueId))
-            {
-                var threadContainer = ContainerFromItem(threadMailItem) as WinoThreadMailItemViewModelListViewItem;
-
-                // Try to get the inner WinoListView.
-                if (threadContainer != null)
-                {
-                    var innerListViewControl = threadContainer.GetWinoListViewControl();
-
-                    return innerListViewControl?.ContainerFromItem(mailItemViewModel) as WinoMailItemViewModelListViewItem;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    public async Task<Tuple<WinoMailItemViewModelListViewItem?, WinoThreadMailItemViewModelListViewItem?, WinoListView?>> GetItemContainersAsync(MailItemViewModel mailItemViewModel)
-    {
-        WinoMailItemViewModelListViewItem? itemContainer = null;
-        WinoThreadMailItemViewModelListViewItem? threadContainer = null;
-        WinoListView? innerListView = null;
-
-        int retryCount = 0;
-        int maxRetries = 5;
-
-        foreach (var item in Items)
-        {
-            if (item is MailItemViewModel mailItem && mailItem.Id == mailItemViewModel.Id)
-            {
-                itemContainer = ContainerFromItem(mailItemViewModel) as WinoMailItemViewModelListViewItem;
-
-                // Not realized yet.
-                if (itemContainer == null)
-                {
-                    ScrollIntoView(mailItemViewModel);
-
-                    // Wait for the container to be generated.
-                    while (itemContainer == null && retryCount < maxRetries)
-                    {
-                        await Task.Delay(100); // Wait a bit for the UI to update
-                        itemContainer = ContainerFromItem(mailItemViewModel) as WinoMailItemViewModelListViewItem;
-                        retryCount++;
-                    }
-                }
-
-                break;
-            }
-            else if (item is ThreadMailItemViewModel threadMailItemViewModel && threadMailItemViewModel.HasUniqueId(mailItemViewModel.MailCopy.UniqueId))
-            {
-                threadContainer = ContainerFromItem(threadMailItemViewModel) as WinoThreadMailItemViewModelListViewItem;
-
-                if (threadContainer == null)
-                {
-                    ScrollIntoView(threadMailItemViewModel);
-
-                    while (threadContainer == null && retryCount < maxRetries)
-                    {
-                        await Task.Delay(100); // Wait a bit for the UI to update
-                        threadContainer = ContainerFromItem(threadMailItemViewModel) as WinoThreadMailItemViewModelListViewItem;
-                        retryCount++;
-                    }
-                }
-
-                // Try to get the inner WinoListView.
-                if (threadContainer != null)
-                {
-                    threadContainer.IsThreadExpanded = true;
-
-                    var innerListViewControl = threadContainer.GetWinoListViewControl();
-
-                    if (innerListViewControl != null)
-                    {
-                        innerListView = innerListViewControl;
-
-                        itemContainer = innerListViewControl.ContainerFromItem(mailItemViewModel) as WinoMailItemViewModelListViewItem;
-
-                        // Item thread has been found but container is not realized yet.
-                        // This could happen when Sent item passed to navigate for Inbox or vice-versa.
-                        // Ideally, we should select the first UniqueId match in the thread in this case.
-
-                        if (itemContainer == null)
-                        {
-                            var realThreadItem = innerListViewControl.Items.Cast<MailItemViewModel>().FirstOrDefault(a => a.UniqueId == mailItemViewModel.MailCopy.UniqueId);
-
-                            if (realThreadItem != null)
-                            {
-                                itemContainer = innerListViewControl.ContainerFromItem(realThreadItem) as WinoMailItemViewModelListViewItem;
-                            }
-                        }
-                    }
-                }
-                break;
-            }
-        }
-
-        return new Tuple<WinoMailItemViewModelListViewItem?, WinoThreadMailItemViewModelListViewItem?, WinoListView?>(itemContainer, threadContainer, innerListView);
-    }
-
-    public void ChangeSelectionMode(ListViewSelectionMode mode)
-    {
-        // Not only this control, but also all inner WinoListView controls should change the selection mode.
-        // TODO: New threads added after this call won't have the correct selection mode.
-
-        SelectionMode = mode;
-
-        foreach (var item in Items)
-        {
-            if (item is ThreadMailItemViewModel)
-            {
-                var itemContainer = ContainerFromItem(item) as WinoThreadMailItemViewModelListViewItem;
-                if (itemContainer != null)
-                {
-                    var innerListViewControl = itemContainer.GetWinoListViewControl();
-                    innerListViewControl?.ChangeSelectionMode(mode);
-                }
-            }
-        }
-    }
-
     public void Cleanup()
     {
         DragItemsStarting -= ItemDragStarting;
@@ -320,17 +154,6 @@ public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
 
     private List<MailItemViewModel> GetSelectedMailItemsFromCurrentList()
     {
-        if (IsThreadListView)
-        {
-            return Items
-                .Cast<object>()
-                .OfType<MailItemViewModel>()
-                .Where(a => a.IsSelected)
-                .GroupBy(a => a.UniqueId)
-                .Select(a => a.First())
-                .ToList();
-        }
-
         return Items
             .Cast<object>()
             .OfType<IMailListItem>()

@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using CommunityToolkit.WinUI.Helpers;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
@@ -16,8 +17,10 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls;
 
 namespace Wino.Helpers;
@@ -25,6 +28,7 @@ namespace Wino.Helpers;
 public static class XamlHelpers
 {
     private static CultureInfo AppDisplayCulture => CultureInfo.DefaultThreadCurrentUICulture ?? CultureInfo.CurrentUICulture;
+    private static IPreferencesService? PreferencesService => WinoApplication.Current.Services.GetService<IPreferencesService>();
 
     #region Converters
 
@@ -180,9 +184,36 @@ public static class XamlHelpers
             : (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
     public static FontWeight GetFontWeightByChildSelectedState(bool isChildSelected) => isChildSelected ? FontWeights.SemiBold : FontWeights.Normal;
     public static FontWeight GetFontWeightByReadState(bool isChildSelected) => isChildSelected ? FontWeights.Normal : FontWeights.SemiBold;
+    public static FontWeight GetMailItemSenderFontWeightByReadState(bool isRead) => isRead ? FontWeights.Normal : FontWeights.Bold;
+    public static FontWeight GetMailItemSubjectFontWeightByReadState(bool isRead) => isRead ? FontWeights.Normal : FontWeights.SemiBold;
+    public static Brush GetMailItemSubjectForegroundByReadState(bool isRead)
+        => GetApplicationBrush(isRead ? "TextFillColorPrimaryBrush" : "SystemAccentColor");
+
+    private static Brush GetApplicationBrush(string resourceKey)
+    {
+        if (Application.Current.Resources.TryGetValue(resourceKey, out var resource))
+        {
+            if (resource is Brush brush)
+            {
+                return brush;
+            }
+
+            if (resource is Color color)
+            {
+                return new SolidColorBrush(color);
+            }
+        }
+
+        return GetDefaultBrushForUnderlyingTheme();
+    }
+
     public static Visibility StringToVisibilityConverter(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Collapsed : Visibility.Visible;
     public static Visibility StringToVisibilityReversedConverter(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Visible : Visibility.Collapsed;
+    public static string GetDraftTagText() => $"[{Translator.Draft}]";
     public static string GetMailItemSubjectForListing(string? subject) => string.IsNullOrWhiteSpace(subject) ? $"({Translator.MailItemNoSubject})" : subject;
+    public static string GetMailItemDisplaySummaryForListing(bool isDraft, DateTime receivedDate)
+        => GetMailItemDisplaySummaryForListing(isDraft, receivedDate, PreferencesService?.Prefer24HourTimeFormat ?? false);
+
     public static string GetMailItemDisplaySummaryForListing(bool isDraft, DateTime receivedDate, bool prefer24HourTime)
     {
         if (isDraft)
@@ -195,6 +226,13 @@ public static class XamlHelpers
             return DateTimeDisplayFormatter.FormatTime(localTime, displayType, AppDisplayCulture);
         }
     }
+
+    public static Visibility GetMailItemPreviewTextVisibility(string text)
+        => BoolToVisibilityConverter((PreferencesService?.IsShowPreviewEnabled ?? true) && ShouldDisplayPreview(text));
+
+    public static Visibility GetMailItemSenderPictureVisibility()
+        => BoolToVisibilityConverter(PreferencesService?.IsShowSenderPicturesEnabled ?? true);
+
     public static string GetCreationDateString(DateTime date, bool prefer24HourTime)
     {
         var localTime = date.ToLocalTime();
