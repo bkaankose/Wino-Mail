@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.WinUI;
 using EmailValidation;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -45,7 +46,7 @@ public sealed partial class ImagePreviewControl : PersonPicture, IDisposable
     private readonly IContactPictureFileService? _contactPictureFileService;
     private INotifyPropertyChanged? _mailItemInformationPropertySource;
     private CancellationTokenSource? _refreshCancellationTokenSource;
-    private CancellationTokenSource? _scheduledRefreshCancellationTokenSource;
+    private DispatcherQueueTimer? _scheduledRefreshTimer;
     private long _refreshVersion;
 
     public ImagePreviewControl()
@@ -145,22 +146,30 @@ public sealed partial class ImagePreviewControl : PersonPicture, IDisposable
 
         CancelScheduledRefresh();
 
-        var cts = new CancellationTokenSource();
-        _scheduledRefreshCancellationTokenSource = cts;
-
-        _ = DebounceAndRefreshAsync(cts.Token);
-    }
-
-    private async Task DebounceAndRefreshAsync(CancellationToken cancellationToken)
-    {
-        try
+        if (DispatcherQueue == null)
         {
-            await Task.Delay(RefreshDebounceDuration, cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
+            StartRefresh();
             return;
         }
+
+        var timer = DispatcherQueue.CreateTimer();
+        timer.Interval = RefreshDebounceDuration;
+        timer.IsRepeating = false;
+        timer.Tick += ScheduledRefreshTimerTick;
+        _scheduledRefreshTimer = timer;
+
+        timer.Start();
+    }
+
+    private void ScheduledRefreshTimerTick(DispatcherQueueTimer sender, object args)
+    {
+        sender.Stop();
+        sender.Tick -= ScheduledRefreshTimerTick;
+
+        if (_scheduledRefreshTimer != sender)
+            return;
+
+        _scheduledRefreshTimer = null;
 
         StartRefresh();
     }
@@ -177,15 +186,14 @@ public sealed partial class ImagePreviewControl : PersonPicture, IDisposable
 
     private void CancelScheduledRefresh()
     {
-        var cts = _scheduledRefreshCancellationTokenSource;
-        _scheduledRefreshCancellationTokenSource = null;
+        var timer = _scheduledRefreshTimer;
+        _scheduledRefreshTimer = null;
 
-        if (cts != null && !cts.IsCancellationRequested)
-        {
-            cts.Cancel();
-        }
+        if (timer == null)
+            return;
 
-        cts?.Dispose();
+        timer.Stop();
+        timer.Tick -= ScheduledRefreshTimerTick;
     }
 
     private void CancelActiveRefresh()
