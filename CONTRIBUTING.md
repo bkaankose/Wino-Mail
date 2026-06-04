@@ -10,17 +10,28 @@ Feeling rich? You can always [donate via Paypal](https://www.paypal.com/donate/?
 
 ## Getting Started
 
-Wino Mail is [Universal Windows Platform](https://learn.microsoft.com/en-us/windows/uwp/get-started/universal-application-platform-guide) application. UI is built mostly using [WinUI 2](https://learn.microsoft.com/en-us/windows/apps/winui/winui2/), but the application itself is not a WinUI 3 application.
+Wino Mail is a native Windows mail client built with [WinUI 3](https://learn.microsoft.com/en-us/windows/apps/winui/winui3/) and the [Windows App SDK](https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/). The active desktop application is **Wino.Mail.WinUI**.
 
-**Min Version:** Windows 10 1809 
-**Target Version:** Windows 11 22H2
+**Minimum Windows version:** Windows 10 1809 (10.0.17763.0)
+
+**Target Windows SDK:** Windows 10 2004 (10.0.19041.0)
 
 ## Prerequisites
 
 * ".NET desktop development" workload in Visual Studio 2022+
-* .NET SDK 8.0+
+* .NET SDK 10.0+
+* Windows App SDK dependencies installed through NuGet restore
 
-With those installed, it's pretty straightforward after cloning the repo.  Just open **Wino.sln** solution in your IDE and launch.
+After cloning the repo, open **WinoMail.slnx** in Visual Studio 2022+ and set **Wino.Mail.WinUI** as the startup project.
+
+For command-line builds, restore with the repo NuGet config and build the WinUI app for your target platform:
+
+```bash
+dotnet restore Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config -p:Platform=x64 -p:RuntimeIdentifier=win-x64
+dotnet build Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false
+```
+
+Supported build platforms are **x86**, **x64**, and **ARM64**.
 
 ## Project Architecture
 
@@ -30,40 +41,92 @@ Wino Mail supports 3 different types of synchronization depending on the provide
 - Gmail
 - IMAP / SMTP
 
-Project use [MimeKit](https://github.com/jstedfast/MimeKit) and [Mailkit](https://github.com/jstedfast/MailKit/) libraries extensively to perform most of it's functionalities. Specially for IMAP synchronizer. Other synchronizers built on [Microsoft Graph SDK](https://github.com/microsoftgraph/msgraph-sdk-dotnet) for Outlook/Office 365 and [Gmail API Client Library](https://developers.google.com/api-client-library/dotnet/apis/gmail/v1) for Gmail.
+The project uses [MimeKit](https://github.com/jstedfast/MimeKit) and [MailKit](https://github.com/jstedfast/MailKit/) extensively for MIME parsing and IMAP/SMTP synchronization. Outlook/Office 365 synchronization is built on [Microsoft Graph SDK](https://github.com/microsoftgraph/msgraph-sdk-dotnet), and Gmail synchronization is built on the [Gmail API Client Library](https://developers.google.com/api-client-library/dotnet/apis/gmail/v1).
 
-Authentication is handled by **Authenticators**, except for IMAP. Server info and credential details are stored in **CustomServerInformation** table in the database. For API synchronizers, check out **GmailAuthenticator** and **OutlookAuthenticator**
+Authentication is handled by **Authenticators**, except for IMAP. Server info and credential details are stored in the **CustomServerInformation** table in the database. For API synchronizers, check out **GmailAuthenticator** and **OutlookAuthenticator**.
 
-Each action you take on mails (like mark as read, delete, move etc.) are delegated as a request to **WinoRequestDelegator** and **WinoRequestProcessor** respectively. These services will do preliminary checks for those requests, batch them together to reduce the network calls made to APIs or IMAP server, queue them to corresponding synchronizer for the given account and optionally send a request to synchronizer to run them in batches. Requests are batched by the logic in **RequestComparer**.
+Each action you take on mails (like mark as read, delete, move etc.) is delegated as a request to **WinoRequestDelegator** and **WinoRequestProcessor** respectively. These services do preliminary checks, batch requests to reduce network calls to APIs or IMAP servers, queue them to the corresponding synchronizer for the account, and optionally ask the synchronizer to run them in batches. Requests are batched by the logic in **RequestComparer**.
+
+```mermaid
+flowchart LR
+    UI["Wino.Mail.WinUI<br/>WinUI 3 shell, pages, controls"]
+    MailVM["Wino.Mail.ViewModels<br/>mail view models"]
+    CoreVM["Wino.Core.ViewModels<br/>shared settings and app view models"]
+    Services["Wino.Services<br/>database, mail, folder, account services"]
+    Core["Wino.Core<br/>sync, authenticators, request processing"]
+    Domain["Wino.Core.Domain<br/>entities, interfaces, translations, enums"]
+    Auth["Wino.Authentication<br/>OAuth helpers"]
+    Messages["Wino.Messages<br/>pub-sub messages"]
+
+    UI --> MailVM
+    UI --> CoreVM
+    UI --> Services
+    MailVM --> Services
+    CoreVM --> Services
+    Services --> Domain
+    Core --> Services
+    Core --> Auth
+    Core --> Domain
+    MailVM --> Messages
+    Core --> Messages
+```
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as WinUI UI / ViewModel
+    participant Delegator as WinoRequestDelegator
+    participant Processor as WinoRequestProcessor
+    participant Sync as Provider Synchronizer
+    participant DB as SQLite + MIME files
+
+    User->>UI: Delete, move, mark read, send, sync
+    UI->>Delegator: Create request
+    Delegator->>Processor: Validate and delegate
+    Processor->>Processor: Batch with RequestComparer
+    Processor->>Sync: Queue provider work
+    Sync->>DB: Apply local changes through change processors
+    DB-->>UI: Messenger notifications refresh UI state
+```
 
 ### Solution Overview
-![Solution Overview](https://www.winomail.app/images/sln_overview.png "Solution Overview")
 
-**Wino.BackgroundTasks**: Project that contains UWP background tasks that Wino Mail use for various reasons like background synchronization or application updated messages.
+**Wino.Mail.WinUI**: Active WinUI 3 desktop application. This project contains the shell, pages, controls, styles, assets, activation handling, WebView2 mail rendering, packaging manifest, and Windows-specific services. Launch this project to debug Wino Mail.
 
-**Wino.Core**: .NET Standard 2.0 library that does all the work for synchronization, authentication and local database management. All services that don't need UWP reference can go here.
+**Wino.Mail.ViewModels**: Mail-specific view models for the WinUI app. Keep UI state and interaction logic here, and delegate account, sync, settings, and persistence work to services.
 
-**Wino.Core.Domain**: .NET Standard 2.0 library that contains the models, interfaces and translations.
+**Wino.Core.ViewModels**: Shared view models used by app-level experiences such as settings, personalization, and cross-feature UI state.
 
-**Wino.Core.UWP**: All shared services that executes code that requires WinRT APIs. Right now only Wino Mail use these services, but once we start doing **Wino Calendar** it'll be used by that project as well.
+**Wino.Core**: Core synchronization engine, authenticators, request processing, provider integrations, and change processors. This is where Outlook, Gmail, and IMAP sync behavior lives.
 
-**Wino.Mail**: Actual UWP application. This project holds the UI elements, styles, assets etc. You must launch this project to start debugging Wino Mail.
+**Wino.Services**: Shared services for database access, mail, folders, accounts, MIME file storage, preferences, logging, and other app infrastructure.
 
-**Wino.Mail.ViewModels**: Contains the view models for pages, all models that require INotifyPropertyChanged and messages for pub-sub.
+**Wino.Core.Domain**: Shared contracts, entities, interfaces, translations, enums, and domain models.
+
+**Wino.Authentication**: OAuth2 authentication helpers for Microsoft and Google account flows.
+
+**Wino.Messages**: Pub-sub message definitions used with CommunityToolkit.Mvvm Messenger.
+
+**Wino.Calendar.ViewModels**: Calendar-related view models shared by the WinUI shell.
+
+**Wino.SourceGenerators**: Source generators used by the domain and UI projects, including generated translation helpers.
+
+**Wino.Core.Tests**, **Wino.Mail.ViewModels.Tests**, **Wino.Mail.Test.WinUI**: Automated test projects for core services, view models, and WinUI-specific behavior.
 
 ### Good to know
 
-- Application has local SQLite database, stored in [publisher's cache folder](https://learn.microsoft.com/en-us/uwp/schemas/appxpackage/uapmanifestschema/element-publishercachefolders). This is because I want to use the same database or local path for the database for Wino Calendar later on. You can get the path to database for yourself by debugging **DatabaseService**.
-- Project tries to follow MVVM pattern as much as possible. [MVVM Toolkit](https://learn.microsoft.com/en-us/dotnet/communitytoolkit/mvvm/) library is used for following the best MVVM approach.
-- Project has event Pub-Sub on top of MVVM and it's widely used with [Messenger](https://learn.microsoft.com/en-us/dotnet/communitytoolkit/mvvm/messenger)
-- Downloaded EML files for mails are stored in application's local storage, not in publisher cache folder.
-- Database does not store full mails, but only the minimum amount of data extracted from the original MIME content for app to work with. Each mail will have **FileId** in the database (**MailCopy** table) to resolve the EML file for MIME content on the disk. Paths are resolved in **MimeFileService**.
+- App data paths are initialized in **Wino.Mail.WinUI\WinoApplication.cs** and exposed through **ApplicationConfiguration**. The SQLite database file is **Wino200.db** under the publisher shared **WinoShared** folder. Local app storage is used for logs, MIME files, contact pictures, thumbnails, custom themes, calendar attachments, and temporary app data.
+- Mail and calendar now live inside the same WinUI application experience. Calendar is an app entry/mode backed by the same database and service layer, not a separate Wino Calendar application.
+- The database stores mail and calendar metadata, not full MIME content. Mail body MIME files are saved on demand under the local **Mime** folder, with **MailCopy.FileId** resolving to files through **MimeFileService**. Calendar ICS cache files live under the MIME storage root in **CalendarIcs**.
+- Project tries to follow MVVM pattern as much as possible. [MVVM Toolkit](https://learn.microsoft.com/en-us/dotnet/communitytoolkit/mvvm/) is used for observable properties, commands, and messaging. Prefer generated public partial properties and commands over manual boilerplate.
+- Project has event Pub-Sub on top of MVVM and it's widely used with [Messenger](https://learn.microsoft.com/en-us/dotnet/communitytoolkit/mvvm/messenger). Messenger handlers may run off the UI thread, so dispatch before updating UI-bound state or touching WinUI/WinRT APIs.
 - As a rule, I want to avoid introducing new libraries into the code as much as I can. Try to avoid it as long as you really really don't need it. This will help maintainability going forward.
-- Project has custom localization system built in to support changing the language at runtime. If you want to change or add new translation string, check out **resources.json** file under **Wino.Core.Domain\Translations\en-US** path. This is the **only** file you must change. Do not touch other resources.json file that belongs to other languages. Crowdin will do the management of those files after your changes automatically. After changing the file, locate **Translator.tt** [T4 Template](https://learn.microsoft.com/en-us/visualstudio/modeling/code-generation-and-t4-text-templates?view=vs-2022) under **Wino.Core.Domain** project, right click and click **"Run Custom Tool"**. This template will generate **Translator.Designer.cs** file with your new translations. To access it in the code, reference **Translator** object in the code, or bind to it in XAML.
-- Cached user settings (like which folder to expand on launch) are managed in **PreferencesService**.
-- Cached UI values at runtime (like whether the reader is opened or whether the navigation menu is opened at the moment) are managed in **StatePersistenceService**.
-- Rendering mails are done with [WebView2](https://learn.microsoft.com/en-us/microsoft-edge/webview2/get-started/winui2). Wino has built-in custom [Quill](https://github.com/quilljs/quill) editor for composing and rendering mails. **Wino.Mail project has JS folder** for that purpose. **reader.html** is for reading mails, **full.html** is for composing mails. This editor is slightly customized to provide better visual experience to the users but doesn't have all the functionality that Quill offers for now.
-- x86, x64 and ARM32 is supported for now. I have ongoing efforts to make it compile for ARM64 as well, but I need more time to complete it.
+- Project has custom localization system built in to support changing the language at runtime. Add or change source strings only in **Wino.Core.Domain\Translations\en_US\resources.json**. **Translator** properties are generated during build by the source generator. Non-English resources are maintained with **scripts\translate_resources.py** and audited with **scripts\validate_resources.py**; do not hand-edit localized **resources.json** files.
+- Cached user settings and exported/imported preferences are managed in **PreferencesService**.
+- Cached UI values at runtime, like whether the reader is opened or whether the navigation menu is opened, are managed in **StatePersistenceService**.
+- Rendering mails is done with [WebView2](https://learn.microsoft.com/en-us/microsoft-edge/webview2/). **Wino.Mail.WinUI** has a **JS** folder for that purpose. **reader.html** is for reading mails, and **editor.html** is for composing mails. The WinUI app maps these files through WebView2 virtual hosts such as **https://wino.mail/reader.html** and **https://app.editor/editor.html**.
+- Dependency injection is configured from **Wino.Mail.WinUI\App.xaml.cs**. Core services are registered through **RegisterCoreServices()** in **Wino.Core\CoreContainerSetup.cs**, shared services through **RegisterSharedServices()** in **Wino.Services\ServicesContainerSetup.cs**, and view models through the WinUI app registration.
+- x86, x64 and ARM64 are supported.
 
 ## How to work on
 ### New Issues
