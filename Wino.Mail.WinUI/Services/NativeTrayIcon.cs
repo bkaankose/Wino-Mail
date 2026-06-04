@@ -158,10 +158,10 @@ internal sealed class NativeTrayIcon : IDisposable
 
         if (!_notifyIconCreated)
         {
-            Shell_NotifyIconW(NimDelete, ref notifyIconData);
+            DeleteExistingNotifyIconRegistration(ref notifyIconData);
 
-            if (!Shell_NotifyIconW(NimAdd, ref notifyIconData))
-                throw CreateWin32Exception("Failed to add native tray icon.");
+            if (!TryAddOrRecoverNotifyIcon(ref notifyIconData))
+                return;
 
             _notifyIconCreated = true;
             notifyIconData.uTimeoutOrVersion = NotifyIconVersion4;
@@ -182,6 +182,31 @@ internal sealed class NativeTrayIcon : IDisposable
 
         if (!Shell_NotifyIconW(NimModify, ref notifyIconData))
             throw CreateWin32Exception("Failed to modify native tray icon.");
+    }
+
+    private static void DeleteExistingNotifyIconRegistration(ref NOTIFYICONDATAW notifyIconData)
+    {
+        if (Shell_NotifyIconW(NimDelete, ref notifyIconData))
+            return;
+
+        Log.Debug("No existing native tray icon registration was deleted. LastError: {LastError}",
+            Marshal.GetLastWin32Error());
+    }
+
+    private static bool TryAddOrRecoverNotifyIcon(ref NOTIFYICONDATAW notifyIconData)
+    {
+        if (Shell_NotifyIconW(NimAdd, ref notifyIconData))
+            return true;
+
+        var addLastError = Marshal.GetLastWin32Error();
+        Log.Warning("Failed to add native tray icon. Attempting modify recovery. LastError: {LastError}", addLastError);
+
+        if (Shell_NotifyIconW(NimModify, ref notifyIconData))
+            return true;
+
+        var modifyLastError = Marshal.GetLastWin32Error();
+        throw new InvalidOperationException(
+            $"Failed to add native tray icon. AddLastError: {addLastError}, ModifyLastError: {modifyLastError}");
     }
 
     private void DeleteNotifyIcon()
