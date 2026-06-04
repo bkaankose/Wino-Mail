@@ -13,28 +13,13 @@ namespace Wino.Controls;
 
 public partial class WinoSwipeControlItems : SwipeItems
 {
-    public static readonly DependencyProperty SwipeOperationProperty = DependencyProperty.Register(nameof(SwipeOperation), typeof(MailOperation), typeof(WinoSwipeControlItems), new PropertyMetadata(default(MailOperation), new PropertyChangedCallback(OnItemsChanged)));
     public static readonly DependencyProperty MailItemProperty = DependencyProperty.Register(nameof(MailItem), typeof(IMailListItem), typeof(WinoSwipeControlItems), new PropertyMetadata(null, new PropertyChangedCallback(OnItemsChanged)));
     public static readonly DependencyProperty IsRightSwipeProperty = DependencyProperty.Register(nameof(IsRightSwipe), typeof(bool), typeof(WinoSwipeControlItems), new PropertyMetadata(false, new PropertyChangedCallback(OnItemsChanged)));
-
-    public WinoSwipeControlItems()
-    {
-        var preferencesService = WinoApplication.Current.Services.GetRequiredService<IPreferencesService>();
-
-        SwipeOperation = IsRightSwipe ? preferencesService.RightSwipeOperation : preferencesService.LeftSwipeOperation;
-    }
 
     public IMailListItem MailItem
     {
         get { return (IMailListItem)GetValue(MailItemProperty); }
         set { SetValue(MailItemProperty, value); }
-    }
-
-
-    public MailOperation SwipeOperation
-    {
-        get { return (MailOperation)GetValue(SwipeOperationProperty); }
-        set { SetValue(SwipeOperationProperty, value); }
     }
 
     public bool IsRightSwipe
@@ -53,9 +38,13 @@ public partial class WinoSwipeControlItems : SwipeItems
 
     private void BuildSwipeItems()
     {
+        var preferencesService = WinoApplication.Current.Services.GetRequiredService<IPreferencesService>();
+
+        var operation = IsRightSwipe ? preferencesService.RightSwipeOperation : preferencesService.LeftSwipeOperation;
+
         this.Clear();
 
-        var swipeItem = GetSwipeItem(SwipeOperation);
+        var swipeItem = GetSwipeItem(operation);
 
         Add(swipeItem);
     }
@@ -91,7 +80,8 @@ public partial class WinoSwipeControlItems : SwipeItems
         {
             IconSource = new WinoFontIconSource() { Icon = XamlHelpers.GetWinoIconGlyph(finalOperation) },
             Text = XamlHelpers.GetOperationString(finalOperation),
-            BehaviorOnInvoked = SwipeBehaviorOnInvoked.Close
+            BehaviorOnInvoked = SwipeBehaviorOnInvoked.Close,
+            CommandParameter = operation
         };
 
         item.Invoked += SwipeItemInvoked;
@@ -106,7 +96,7 @@ public partial class WinoSwipeControlItems : SwipeItems
         var swipeControl = args.SwipeControl;
 
         // Determine the final operation based on current settings and mail item state
-        var finalOperation = SwipeOperation;
+        var finalOperation = (MailOperation)sender.CommandParameter;
 
         bool isSingleItem = MailItem is MailItemViewModel;
 
@@ -116,9 +106,9 @@ public partial class WinoSwipeControlItems : SwipeItems
 
             if (singleItem != null)
             {
-                if (SwipeOperation == MailOperation.MarkAsRead && singleItem.IsRead)
+                if (finalOperation == MailOperation.MarkAsRead && singleItem.IsRead)
                     finalOperation = MailOperation.MarkAsUnread;
-                else if (SwipeOperation == MailOperation.MarkAsUnread && !singleItem.IsRead)
+                else if (finalOperation == MailOperation.MarkAsUnread && !singleItem.IsRead)
                     finalOperation = MailOperation.MarkAsRead;
             }
         }
@@ -126,9 +116,9 @@ public partial class WinoSwipeControlItems : SwipeItems
         {
             var threadItem = MailItem as ThreadMailItemViewModel;
 
-            if (threadItem != null && SwipeOperation == MailOperation.MarkAsRead && threadItem.ThreadEmails.All(a => a.IsRead))
+            if (threadItem != null && finalOperation == MailOperation.MarkAsRead && threadItem.ThreadEmails.All(a => a.IsRead))
                 finalOperation = MailOperation.MarkAsUnread;
-            else if (threadItem != null && SwipeOperation == MailOperation.MarkAsUnread && threadItem.ThreadEmails.All(a => !a.IsRead))
+            else if (threadItem != null && finalOperation == MailOperation.MarkAsUnread && threadItem.ThreadEmails.All(a => !a.IsRead))
                 finalOperation = MailOperation.MarkAsRead;
         }
 
