@@ -34,7 +34,6 @@ internal sealed class NativeTrayIcon : IDisposable
     private const uint NifMessage = 0x00000001;
     private const uint NifIcon = 0x00000002;
     private const uint NifTip = 0x00000004;
-    private const uint NifGuid = 0x00000020;
     private const uint NifShowTip = 0x00000080;
     private const uint NimAdd = 0x00000000;
     private const uint NimModify = 0x00000001;
@@ -232,7 +231,7 @@ internal sealed class NativeTrayIcon : IDisposable
             cbSize = (uint)Marshal.SizeOf<NOTIFYICONDATAW>(),
             hWnd = _iconWindow.WindowHandle,
             uID = MenuCommandOpen,
-            uFlags = NifMessage | NifIcon | NifTip | NifGuid | NifShowTip,
+            uFlags = NifMessage | NifIcon | NifTip | NifShowTip,
             uCallbackMessage = TrayCallbackMessage,
             hIcon = IconHandle,
             szTip = _toolTipText ?? string.Empty,
