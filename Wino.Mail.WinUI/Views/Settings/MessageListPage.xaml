@@ -99,6 +99,37 @@
                     </controls:SettingsCard>
                 </controls:SettingsExpander.Items>
             </controls:SettingsExpander>
+
+            <controls:SettingsExpander
+                AutomationProperties.AutomationId="MessageListPageSwipeActionsSettingsExpander"
+                Description="{x:Bind domain:Translator.SettingsSwipeActions_Description}"
+                Header="{x:Bind domain:Translator.SettingsSwipeActions_Title}">
+                <controls:SettingsExpander.HeaderIcon>
+                    <PathIcon Data="F1 M 18.75 9.375 C 18.75 9.544271 18.68815 9.690756 18.564453 9.814453 L 14.814453 13.564453 C 14.690754 13.688151 14.54427 13.75 14.375 13.75 C 14.205729 13.75 14.059244 13.688151 13.935547 13.564453 C 13.811849 13.440756 13.75 13.294271 13.75 13.125 C 13.75 12.955729 13.811849 12.809245 13.935547 12.685547 L 16.621094 10 L 4.375 10 C 4.205729 10 4.059245 9.938151 3.935547 9.814453 C 3.811849 9.690756 3.75 9.544271 3.75 9.375 C 3.75 9.205729 3.811849 9.059245 3.935547 8.935547 C 4.059245 8.81185 4.205729 8.75 4.375 8.75 L 16.621094 8.75 L 13.935547 6.064453 C 13.811849 5.940756 13.75 5.794271 13.75 5.625 C 13.75 5.455729 13.811849 5.309245 13.935547 5.185547 C 14.059244 5.061849 14.205729 5 14.375 5 C 14.54427 5 14.690754 5.061849 14.814453 5.185547 L 18.564453 8.935547 C 18.68815 9.059245 18.75 9.205729 18.75 9.375 Z M 1.25 15.625 C 1.25 15.455729 1.311849 15.309245 1.435547 15.185547 L 5.185547 11.435547 C 5.309245 11.311849 5.455729 11.25 5.625 11.25 C 5.794271 11.25 5.940755 11.311849 6.064453 11.435547 C 6.188151 11.559245 6.25 11.705729 6.25 11.875 C 6.25 12.044271 6.188151 12.190756 6.064453 12.314453 L 3.378906 15 L 15.625 15 C 15.79427 15 15.940754 15.061849 16.064453 15.185547 C 16.18815 15.309245 16.25 15.455729 16.25 15.625 C 16.25 15.794271 16.18815 15.940756 16.064453 16.064453 C 15.940754 16.188151 15.79427 16.25 15.625 16.25 L 3.378906 16.25 L 6.064453 18.935547 C 6.188151 19.059245 6.25 19.205729 6.25 19.375 C 6.25 19.544271 6.188151 19.690756 6.064453 19.814453 C 5.940755 19.938151 5.794271 20 5.625 20 C 5.455729 20 5.309245 19.938151 5.185547 19.814453 L 1.435547 16.064453 C 1.311849 15.940756 1.25 15.794271 1.25 15.625 Z " />
+                </controls:SettingsExpander.HeaderIcon>
+                <controls:SettingsExpander.Items>
+                    <controls:SettingsCard AutomationProperties.AutomationId="MessageListPageLeftSwipeActionSettingsCard" Header="{x:Bind domain:Translator.SettingsSwipeActionLeft}">
+                        <controls:SettingsCard.Content>
+                            <ComboBox
+                                Width="150"
+                                AutomationProperties.AutomationId="MessageListPageLeftSwipeActionComboBox"
+                                ItemsSource="{x:Bind ViewModel.AvailableSwipeActionsTranslations}"
+                                SelectedIndex="{x:Bind ViewModel.LeftSwipeActionIndex, Mode=TwoWay}" />
+                        </controls:SettingsCard.Content>
+                    </controls:SettingsCard>
+
+                    <controls:SettingsCard AutomationProperties.AutomationId="MessageListPageRightSwipeActionSettingsCard" Header="{x:Bind domain:Translator.SettingsSwipeActionRight}">
+                        <controls:SettingsCard.Content>
+                            <ComboBox
+                                Width="150"
+                                AutomationProperties.AutomationId="MessageListPageRightSwipeActionComboBox"
+                                ItemsSource="{x:Bind ViewModel.AvailableSwipeActionsTranslations}"
+                                SelectedIndex="{x:Bind ViewModel.RightSwipeActionIndex, Mode=TwoWay}" />
+                        </controls:SettingsCard.Content>
+                    </controls:SettingsCard>
+                </controls:SettingsExpander.Items>
+            </controls:SettingsExpander>
+
             <controls:SettingsCard
                 AutomationProperties.AutomationId="MessageListPageSettingsCard7"
                 Description="{x:Bind domain:Translator.SettingsMailListActionBar_Description}"
