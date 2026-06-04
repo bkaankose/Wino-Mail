@@ -2000,6 +2000,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         Messenger.Register<AccountCacheResetMessage>(this);
         Messenger.Register<ThumbnailAdded>(this);
         Messenger.Register<PropertyChangedMessage<bool>>(this);
+        Messenger.Register<SwipeActionRequested>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -2014,6 +2015,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         Messenger.Unregister<AccountCacheResetMessage>(this);
         Messenger.Unregister<ThumbnailAdded>(this);
         Messenger.Unregister<PropertyChangedMessage<bool>>(this);
+        Messenger.Unregister<SwipeActionRequested>(this);
     }
 
     public void Receive(PropertyChangedMessage<bool> message)
@@ -2056,7 +2058,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             return; // Unknown mail item type
         }
 
-        var package = new MailOperationPreperationRequest(message.Operation, mailCopies);
+        var package = new MailOperationPreperationRequest(message.Operation, mailCopies, toggleExecution: true);
         await ExecuteMailOperationAsync(package);
     }
 

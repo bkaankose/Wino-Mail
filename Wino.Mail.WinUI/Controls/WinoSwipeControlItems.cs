@@ -46,7 +46,10 @@ public partial class WinoSwipeControlItems : SwipeItems
 
         var swipeItem = GetSwipeItem(operation);
 
-        Add(swipeItem);
+        if (swipeItem != null)
+        {
+            Add(swipeItem);
+        }
     }
 
     private SwipeItem? GetSwipeItem(MailOperation operation)

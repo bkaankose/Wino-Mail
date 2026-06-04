@@ -27,6 +27,15 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         MailOperation.MoveToJunk
     ];
 
+    private readonly List<MailOperation> availableSwipeActions =
+    [
+        MailOperation.Archive,
+        MailOperation.SoftDelete,
+        MailOperation.SetFlag,
+        MailOperation.MarkAsRead,
+        MailOperation.MoveToJunk
+    ];
+
     private readonly List<MailListDisplayMode> availableMailSpacingOptions =
     [
         MailListDisplayMode.Compact,
@@ -35,6 +44,15 @@ public partial class MessageListPageViewModel : MailBaseViewModel
     ];
 
     public List<string> AvailableHoverActionsTranslations { get; set; } =
+    [
+        Translator.HoverActionOption_Archive,
+        Translator.HoverActionOption_Delete,
+        Translator.HoverActionOption_ToggleFlag,
+        Translator.HoverActionOption_ToggleRead,
+        Translator.HoverActionOption_MoveJunk
+    ];
+
+    public List<string> AvailableSwipeActionsTranslations { get; set; } =
     [
         Translator.HoverActionOption_Archive,
         Translator.HoverActionOption_Delete,
@@ -127,7 +145,7 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         get => leftHoverActionIndex;
         set
         {
-            if (SetProperty(ref leftHoverActionIndex, value))
+            if (SetProperty(ref leftHoverActionIndex, value) && IsValidHoverActionIndex(value))
             {
                 PreferencesService.LeftHoverAction = availableHoverActions[value];
             }
@@ -140,7 +158,7 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         get => centerHoverActionIndex;
         set
         {
-            if (SetProperty(ref centerHoverActionIndex, value))
+            if (SetProperty(ref centerHoverActionIndex, value) && IsValidHoverActionIndex(value))
             {
                 PreferencesService.CenterHoverAction = availableHoverActions[value];
             }
@@ -153,9 +171,35 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         get => rightHoverActionIndex;
         set
         {
-            if (SetProperty(ref rightHoverActionIndex, value))
+            if (SetProperty(ref rightHoverActionIndex, value) && IsValidHoverActionIndex(value))
             {
                 PreferencesService.RightHoverAction = availableHoverActions[value];
+            }
+        }
+    }
+
+    private int leftSwipeActionIndex;
+    public int LeftSwipeActionIndex
+    {
+        get => leftSwipeActionIndex;
+        set
+        {
+            if (SetProperty(ref leftSwipeActionIndex, value) && IsValidSwipeActionIndex(value))
+            {
+                PreferencesService.LeftSwipeOperation = availableSwipeActions[value];
+            }
+        }
+    }
+
+    private int rightSwipeActionIndex;
+    public int RightSwipeActionIndex
+    {
+        get => rightSwipeActionIndex;
+        set
+        {
+            if (SetProperty(ref rightSwipeActionIndex, value) && IsValidSwipeActionIndex(value))
+            {
+                PreferencesService.RightSwipeOperation = availableSwipeActions[value];
             }
         }
     }
@@ -173,10 +217,37 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         leftHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.LeftHoverAction);
         centerHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.CenterHoverAction);
         rightHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.RightHoverAction);
+        leftSwipeActionIndex = availableSwipeActions.IndexOf(PreferencesService.LeftSwipeOperation);
+        rightSwipeActionIndex = availableSwipeActions.IndexOf(PreferencesService.RightSwipeOperation);
         selectedMailSpacingIndex = availableMailSpacingOptions.IndexOf(PreferencesService.MailItemDisplayMode);
         SelectedMarkAsOptionIndex = Array.IndexOf(Enum.GetValues<MailMarkAsOption>(), PreferencesService.MarkAsPreference);
         selectedThreadItemSortingIndex = PreferencesService.IsNewestThreadMailFirst ? 0 : 1;
         selectedAccountNicknamePositionIndex = accountNicknamePositions.IndexOf(PreferencesService.AccountNicknamePosition);
+
+        if (leftHoverActionIndex < 0)
+        {
+            leftHoverActionIndex = availableHoverActions.IndexOf(MailOperation.Archive);
+        }
+
+        if (centerHoverActionIndex < 0)
+        {
+            centerHoverActionIndex = availableHoverActions.IndexOf(MailOperation.SoftDelete);
+        }
+
+        if (rightHoverActionIndex < 0)
+        {
+            rightHoverActionIndex = availableHoverActions.IndexOf(MailOperation.SetFlag);
+        }
+
+        if (leftSwipeActionIndex < 0)
+        {
+            leftSwipeActionIndex = availableSwipeActions.IndexOf(MailOperation.SoftDelete);
+        }
+
+        if (rightSwipeActionIndex < 0)
+        {
+            rightSwipeActionIndex = availableSwipeActions.IndexOf(MailOperation.MarkAsRead);
+        }
 
         if (selectedAccountNicknamePositionIndex < 0)
         {
@@ -189,6 +260,10 @@ public partial class MessageListPageViewModel : MailBaseViewModel
     {
         await _thumbnailService.ClearCache();
     }
+
+    private bool IsValidHoverActionIndex(int index) => index >= 0 && index < availableHoverActions.Count;
+
+    private bool IsValidSwipeActionIndex(int index) => index >= 0 && index < availableSwipeActions.Count;
 
     private sealed class DemoMailItemDisplayInformation : IMailItemDisplayInformation
     {
