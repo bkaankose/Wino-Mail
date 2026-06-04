@@ -210,15 +210,15 @@ public partial class App : WinoApplication,
         var dispatcherQueue = DispatcherQueue.GetForCurrentThread()
                              ?? throw new InvalidOperationException("Tray icon must be created on a thread with a DispatcherQueue.");
 
-        var trayIcon = new NativeTrayIcon(
-            dispatcherQueue,
-            iconPath,
-            "Wino Mail",
-            BuildTrayMenu,
-            ActivatePreferredWindowAsync);
-
+        NativeTrayIcon? trayIcon = null;
         try
         {
+            trayIcon = new NativeTrayIcon(
+                dispatcherQueue,
+                iconPath,
+                "Wino Mail",
+                BuildTrayMenu,
+                ActivatePreferredWindowAsync);
             trayIcon.Create();
             _trayIcon = trayIcon;
             LogActivation("System tray icon created successfully.");
@@ -226,7 +226,7 @@ public partial class App : WinoApplication,
         }
         catch (Exception ex)
         {
-            trayIcon.Dispose();
+            trayIcon?.Dispose();
             Log.Error(ex, "Failed to create system tray icon. IconPath: {IconPath}, IconExists: {IconExists}, AppCloseBehavior: {AppCloseBehavior}, HasConfiguredAccounts: {HasConfiguredAccounts}, OS: {OSVersion}",
                 iconPath,
                 iconExists,

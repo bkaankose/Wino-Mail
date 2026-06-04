@@ -1,3 +1,6 @@
+// Portions adapted from Files Community's SystemTrayIcon implementation.
+// Copyright (c) Files Community. Licensed under the MIT License.
+
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -9,52 +12,49 @@ namespace Wino.Mail.WinUI.Services;
 
 internal sealed class NativeTrayIcon : IDisposable
 {
+    private const uint TrayCallbackMessage = 2048u;
+    private const uint MenuCommandOpen = 1u;
     private const int ImageIcon = 1;
     private const int LoadFromFile = 0x0010;
-    private const int NotifyIconVersion4 = 4;
-    private const int WmApp = 0x8000;
-    private const int WmNull = 0x0000;
-    private const int WmDestroy = 0x0002;
-    private const int WmClose = 0x0010;
-    private const int WmCommand = 0x0111;
-    private const int WmRButtonUp = 0x0205;
-    private const int WmLButtonDblClk = 0x0203;
-    private const int TpmLeftAlign = 0x0000;
-    private const int TpmBottomAlign = 0x0020;
-    private const int TpmRightButton = 0x0002;
-    private const int TpmReturnCmd = 0x0100;
-    private const int MfString = 0x0000;
-    private const int MfSeparator = 0x0800;
-    private const int MfDisabled = 0x0002;
-    private const int MfGray = 0x0001;
-    private const int NifMessage = 0x00000001;
-    private const int NifIcon = 0x00000002;
-    private const int NifTip = 0x00000004;
-    private const int NifGuid = 0x00000020;
-    private const int NimAdd = 0x00000000;
-    private const int NimModify = 0x00000001;
-    private const int NimDelete = 0x00000002;
-    private const int NimSetVersion = 0x00000004;
-    private const int TrayCallbackMessage = WmApp + 1;
-    private const string WindowClassName = "WinoMail.NativeTrayIconWindow";
+    private const uint NotifyIconVersion4 = 4;
+    private const uint CsDblClks = 0x0008;
+    private const uint WmDestroy = 0x0002;
+    private const uint WmLButtonUp = 0x0202;
+    private const uint WmRButtonUp = 0x0205;
+    private const uint WmContextMenu = 0x007B;
+    private const int SmMenuDropAlignment = 40;
+    private const uint TpmReturnCmd = 0x0100;
+    private const uint TpmLeftButton = 0x0000;
+    private const uint TpmRightAlign = 0x0008;
+    private const uint MfByCommand = 0x0000;
+    private const uint MfString = 0x0000;
+    private const uint MfSeparator = 0x0800;
+    private const uint MfDisabled = 0x0002;
+    private const uint MfGray = 0x0001;
+    private const uint NifMessage = 0x00000001;
+    private const uint NifIcon = 0x00000002;
+    private const uint NifTip = 0x00000004;
+    private const uint NifGuid = 0x00000020;
+    private const uint NifShowTip = 0x00000080;
+    private const uint NimAdd = 0x00000000;
+    private const uint NimModify = 0x00000001;
+    private const uint NimDelete = 0x00000002;
+    private const uint NimSetVersion = 0x00000004;
     private static readonly Guid TrayIconGuid = new("6E1330D0-22D5-4F0B-A3BF-C9B2AE536F77");
-    private static readonly object ClassLock = new();
-    private static readonly Dictionary<nint, NativeTrayIcon> Instances = [];
-    private static bool _windowClassRegistered;
-    private static ushort _windowClassAtom;
-    private static uint _taskbarCreatedMessage;
-    private static readonly WindowProcDelegate WindowProc = StaticWindowProc;
 
     private readonly DispatcherQueue _dispatcherQueue;
     private readonly string _iconPath;
     private readonly Func<IReadOnlyList<NativeTrayMenuItem>> _menuFactory;
     private readonly Func<Task> _primaryAction;
-    private readonly string _toolTipText;
+    private readonly uint _taskbarRestartMessageId;
+    private readonly NativeTrayIconWindow _iconWindow;
 
-    private nint _messageWindowHandle;
     private nint _iconHandle;
-    private bool _isCreated;
+    private string _toolTipText;
     private bool _isDisposed;
+    private bool _isVisible;
+    private bool _notifyIconCreated;
+    private DateTime _lastPrimaryActionDate;
 
     public NativeTrayIcon(
         DispatcherQueue dispatcherQueue,
@@ -68,50 +68,40 @@ internal sealed class NativeTrayIcon : IDisposable
         _toolTipText = toolTipText;
         _menuFactory = menuFactory;
         _primaryAction = primaryAction;
+        _taskbarRestartMessageId = RegisterWindowMessageW("TaskbarCreated");
+        _iconWindow = new NativeTrayIconWindow(this);
     }
 
-    public void Create()
+    public Guid Id { get; } = TrayIconGuid;
+
+    public string ToolTipText
     {
-        if (_isDisposed || _isCreated)
-            return;
-
-        Log.Information("Creating native tray icon. IconPath: {IconPath}, OS: {OSVersion}", _iconPath, Environment.OSVersion);
-        EnsureWindowClassRegistered();
-
-        _messageWindowHandle = CreateWindowExW(
-            0,
-            WindowClassName,
-            string.Empty,
-            0,
-            0,
-            0,
-            0,
-            0,
-            nint.Zero,
-            nint.Zero,
-            GetModuleHandleW(null),
-            nint.Zero);
-
-        if (_messageWindowHandle == nint.Zero)
-            throw CreateWin32Exception("Failed to create native tray icon message window.");
-
-        Log.Information("Native tray icon message window created. Hwnd: {Hwnd}", _messageWindowHandle);
-
-        lock (Instances)
+        get => _toolTipText;
+        set
         {
-            Instances[_messageWindowHandle] = this;
+            if (_toolTipText == value)
+                return;
+
+            _toolTipText = value;
+            CreateOrModifyNotifyIcon();
         }
+    }
 
-        _iconHandle = LoadImageW(nint.Zero, _iconPath, ImageIcon, 0, 0, LoadFromFile);
-        if (_iconHandle == nint.Zero)
-            throw CreateWin32Exception($"Failed to load tray icon from '{_iconPath}'.");
+    public void Create() => Show();
 
-        Log.Information("Native tray icon image loaded. IconHandle: {IconHandle}", _iconHandle);
+    public NativeTrayIcon Show()
+    {
+        if (_isDisposed)
+            return this;
 
-        AddOrUpdateIcon(NimAdd);
-        SetNotifyIconVersion();
-        _isCreated = true;
-        Log.Information("Native tray icon created successfully.");
+        IsVisible = true;
+        return this;
+    }
+
+    public NativeTrayIcon Hide()
+    {
+        IsVisible = false;
+        return this;
     }
 
     public void Dispose()
@@ -120,70 +110,92 @@ internal sealed class NativeTrayIcon : IDisposable
             return;
 
         _isDisposed = true;
+        Hide();
+        _iconWindow.Dispose();
+        DestroyIconHandle();
+    }
 
-        if (_messageWindowHandle != nint.Zero)
+    private bool IsVisible
+    {
+        get => _isVisible;
+        set
         {
-            RemoveIcon();
-            DestroyWindow(_messageWindowHandle);
-            lock (Instances)
+            if (_isVisible == value)
+                return;
+
+            _isVisible = value;
+
+            if (value)
+                CreateOrModifyNotifyIcon();
+            else
+                DeleteNotifyIcon();
+        }
+    }
+
+    private nint IconHandle
+    {
+        get
+        {
+            if (_iconHandle != nint.Zero)
+                return _iconHandle;
+
+            _iconHandle = LoadImageW(nint.Zero, _iconPath, ImageIcon, 0, 0, LoadFromFile);
+            if (_iconHandle == nint.Zero)
+                throw CreateWin32Exception($"Failed to load tray icon from '{_iconPath}'.");
+
+            return _iconHandle;
+        }
+    }
+
+    private void CreateOrModifyNotifyIcon()
+    {
+        if (!IsVisible || _isDisposed)
+            return;
+
+        var notifyIconData = CreateNotifyIconData();
+
+        if (!_notifyIconCreated)
+        {
+            Shell_NotifyIconW(NimDelete, ref notifyIconData);
+
+            if (!Shell_NotifyIconW(NimAdd, ref notifyIconData))
+                throw CreateWin32Exception("Failed to add native tray icon.");
+
+            _notifyIconCreated = true;
+            notifyIconData.uTimeoutOrVersion = NotifyIconVersion4;
+
+            if (!Shell_NotifyIconW(NimSetVersion, ref notifyIconData))
             {
-                Instances.Remove(_messageWindowHandle);
+                Log.Warning("Shell_NotifyIcon version setup failed. LastError: {LastError}, Hwnd: {Hwnd}",
+                    Marshal.GetLastWin32Error(),
+                    _iconWindow.WindowHandle);
             }
 
-            _messageWindowHandle = nint.Zero;
-        }
+            Log.Information("Native tray icon created. Hwnd: {Hwnd}, IconHandle: {IconHandle}",
+                _iconWindow.WindowHandle,
+                _iconHandle);
 
-        if (_iconHandle != nint.Zero)
-        {
-            DestroyIcon(_iconHandle);
-            _iconHandle = nint.Zero;
-        }
-
-        _isCreated = false;
-    }
-
-    private void AddOrUpdateIcon(int message)
-    {
-        var notifyIconData = CreateNotifyIconData();
-        if (!Shell_NotifyIconW(message, ref notifyIconData))
-        {
-            throw CreateWin32Exception($"Shell_NotifyIcon failed. Message: {message}");
-        }
-
-        Log.Information("Shell_NotifyIcon succeeded. Message: {Message}, Hwnd: {Hwnd}, IconHandle: {IconHandle}",
-            message,
-            _messageWindowHandle,
-            _iconHandle);
-    }
-
-    private void SetNotifyIconVersion()
-    {
-        var notifyIconData = CreateNotifyIconData();
-        notifyIconData.uTimeoutOrVersion = NotifyIconVersion4;
-
-        if (!Shell_NotifyIconW(NimSetVersion, ref notifyIconData))
-        {
-            Log.Warning("Shell_NotifyIcon version setup failed. LastError: {LastError}, Hwnd: {Hwnd}",
-                Marshal.GetLastWin32Error(),
-                _messageWindowHandle);
             return;
         }
 
-        Log.Information("Shell_NotifyIcon version setup succeeded. Version: {Version}", NotifyIconVersion4);
+        if (!Shell_NotifyIconW(NimModify, ref notifyIconData))
+            throw CreateWin32Exception("Failed to modify native tray icon.");
     }
 
-    private void RemoveIcon()
+    private void DeleteNotifyIcon()
     {
+        if (!_notifyIconCreated)
+            return;
+
+        _notifyIconCreated = false;
         var notifyIconData = CreateNotifyIconData();
+
         if (!Shell_NotifyIconW(NimDelete, ref notifyIconData))
         {
-            Log.Warning("Failed to remove native tray icon. LastError: {LastError}, Hwnd: {Hwnd}",
+            Log.Warning("Failed to delete native tray icon. LastError: {LastError}, Hwnd: {Hwnd}",
                 Marshal.GetLastWin32Error(),
-                _messageWindowHandle);
-            return;
+                _iconWindow.WindowHandle);
         }
-
-        Log.Information("Native tray icon removed.");
     }
 
     private NOTIFYICONDATAW CreateNotifyIconData()
@@ -191,18 +203,21 @@ internal sealed class NativeTrayIcon : IDisposable
         return new NOTIFYICONDATAW
         {
             cbSize = (uint)Marshal.SizeOf<NOTIFYICONDATAW>(),
-            hWnd = _messageWindowHandle,
-            uID = 1,
-            uFlags = NifMessage | NifIcon | NifTip | NifGuid,
+            hWnd = _iconWindow.WindowHandle,
+            uID = MenuCommandOpen,
+            uFlags = NifMessage | NifIcon | NifTip | NifGuid | NifShowTip,
             uCallbackMessage = TrayCallbackMessage,
-            hIcon = _iconHandle,
-            szTip = _toolTipText,
-            guidItem = TrayIconGuid
+            hIcon = IconHandle,
+            szTip = _toolTipText ?? string.Empty,
+            guidItem = Id
         };
     }
 
     private void ShowContextMenu()
     {
+        if (!GetCursorPos(out var point))
+            return;
+
         var menuHandle = CreatePopupMenu();
         if (menuHandle == nint.Zero)
             return;
@@ -211,7 +226,7 @@ internal sealed class NativeTrayIcon : IDisposable
         {
             var menuItems = _menuFactory();
             var commandMap = new Dictionary<uint, Func<Task>>();
-            uint commandId = 1;
+            var commandId = MenuCommandOpen;
 
             foreach (var menuItem in menuItems)
             {
@@ -221,7 +236,7 @@ internal sealed class NativeTrayIcon : IDisposable
                     continue;
                 }
 
-                uint flags = MfString;
+                var flags = MfString | MfByCommand;
                 if (!menuItem.IsEnabled)
                     flags |= MfDisabled | MfGray;
 
@@ -236,20 +251,20 @@ internal sealed class NativeTrayIcon : IDisposable
                 commandId++;
             }
 
-            SetForegroundWindow(_messageWindowHandle);
+            SetForegroundWindow(_iconWindow.WindowHandle);
 
-            if (!GetCursorPos(out var point))
-                return;
+            var menuFlags = TpmReturnCmd |
+                            (GetSystemMetricsForDpi(SmMenuDropAlignment, GetDpiForWindow(_iconWindow.WindowHandle)) != 0
+                                ? TpmRightAlign
+                                : TpmLeftButton);
 
             var selectedCommandId = TrackPopupMenuEx(
                 menuHandle,
-                TpmLeftAlign | TpmBottomAlign | TpmRightButton | TpmReturnCmd,
+                menuFlags,
                 point.X,
                 point.Y,
-                _messageWindowHandle,
+                _iconWindow.WindowHandle,
                 nint.Zero);
-
-            PostMessageW(_messageWindowHandle, WmNull, 0, 0);
 
             if (selectedCommandId != 0 && commandMap.TryGetValue((uint)selectedCommandId, out var action))
                 InvokeAction(action);
@@ -260,7 +275,14 @@ internal sealed class NativeTrayIcon : IDisposable
         }
     }
 
-    private void InvokePrimaryAction() => InvokeAction(_primaryAction);
+    private void OnLeftClicked()
+    {
+        if (DateTime.Now - _lastPrimaryActionDate < TimeSpan.FromSeconds(1))
+            return;
+
+        _lastPrimaryActionDate = DateTime.Now;
+        InvokeAction(_primaryAction);
+    }
 
     private void InvokeAction(Func<Task> action)
     {
@@ -277,83 +299,56 @@ internal sealed class NativeTrayIcon : IDisposable
         });
     }
 
-    private nint HandleWindowMessage(uint message, nuint wParam, nint lParam)
+    private nint WindowProc(nint windowHandle, uint message, nuint wParam, nint lParam)
     {
-        if (message == _taskbarCreatedMessage)
+        switch (message)
         {
-            if (_isCreated && !_isDisposed)
-            {
-                Log.Information("TaskbarCreated received. Re-adding native tray icon.");
-                AddOrUpdateIcon(NimAdd);
-                SetNotifyIconVersion();
-            }
+            case TrayCallbackMessage:
+                switch (GetLowWord(lParam))
+                {
+                    case WmLButtonUp:
+                        SetForegroundWindow(windowHandle);
+                        OnLeftClicked();
+                        break;
+                    case WmRButtonUp:
+                    case WmContextMenu:
+                        ShowContextMenu();
+                        break;
+                }
 
-            return nint.Zero;
+                break;
+            case WmDestroy:
+                DeleteNotifyIcon();
+                break;
+            default:
+                if (message == _taskbarRestartMessageId)
+                {
+                    DeleteNotifyIcon();
+                    CreateOrModifyNotifyIcon();
+                    break;
+                }
+
+                return DefWindowProcW(windowHandle, message, wParam, lParam);
         }
 
-        if (message == TrayCallbackMessage)
-        {
-            switch ((int)lParam)
-            {
-                case WmRButtonUp:
-                    ShowContextMenu();
-                    return nint.Zero;
-                case WmLButtonDblClk:
-                    InvokePrimaryAction();
-                    return nint.Zero;
-            }
-        }
-
-        if (message == WmCommand || message == WmClose || message == WmDestroy)
-            return nint.Zero;
-
-        return DefWindowProcW(_messageWindowHandle, message, wParam, lParam);
+        return nint.Zero;
     }
 
-    private static void EnsureWindowClassRegistered()
+    private void DestroyIconHandle()
     {
-        lock (ClassLock)
-        {
-            if (_windowClassRegistered)
-                return;
+        if (_iconHandle == nint.Zero)
+            return;
 
-            _taskbarCreatedMessage = RegisterWindowMessageW("TaskbarCreated");
-            if (_taskbarCreatedMessage == 0)
-                throw CreateWin32Exception("Failed to register TaskbarCreated message.");
-
-            var windowClass = new WNDCLASSW
-            {
-                lpfnWndProc = WindowProc,
-                hInstance = GetModuleHandleW(null),
-                lpszClassName = WindowClassName
-            };
-
-            _windowClassAtom = RegisterClassW(ref windowClass);
-            if (_windowClassAtom == 0)
-                throw CreateWin32Exception("Failed to register native tray icon window class.");
-
-            _windowClassRegistered = true;
-            Log.Information("Native tray icon window class registered. Atom: {Atom}, TaskbarCreatedMessage: {TaskbarCreatedMessage}",
-                _windowClassAtom,
-                _taskbarCreatedMessage);
-        }
+        DestroyIcon(_iconHandle);
+        _iconHandle = nint.Zero;
     }
+
+    private static uint GetLowWord(nint value) => (uint)((long)value & 0xFFFF);
 
     private static InvalidOperationException CreateWin32Exception(string message)
     {
         var lastError = Marshal.GetLastWin32Error();
         return new InvalidOperationException($"{message} LastError: {lastError}");
-    }
-
-    private static nint StaticWindowProc(nint windowHandle, uint message, nuint wParam, nint lParam)
-    {
-        lock (Instances)
-        {
-            if (Instances.TryGetValue(windowHandle, out var instance))
-                return instance.HandleWindowMessage(message, wParam, lParam);
-        }
-
-        return DefWindowProcW(windowHandle, message, wParam, lParam);
     }
 
     internal sealed record NativeTrayMenuItem(
@@ -366,9 +361,67 @@ internal sealed class NativeTrayIcon : IDisposable
         public static NativeTrayMenuItem Separator() => new(string.Empty, () => Task.CompletedTask, IsSeparator: true);
     }
 
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    private struct WNDCLASSW
+    private sealed class NativeTrayIconWindow : IDisposable
     {
+        private readonly NativeTrayIcon _trayIcon;
+        private readonly WindowProcDelegate _windowProcedure;
+        private readonly string _className;
+
+        internal NativeTrayIconWindow(NativeTrayIcon trayIcon)
+        {
+            _trayIcon = trayIcon;
+            _windowProcedure = WindowProc;
+            _className = $"WinoMail.NativeTrayIconWindow.{trayIcon.Id}";
+
+            var windowClass = new WNDCLASSEXW
+            {
+                cbSize = (uint)Marshal.SizeOf<WNDCLASSEXW>(),
+                style = CsDblClks,
+                lpfnWndProc = _windowProcedure,
+                hInstance = GetModuleHandleW(null),
+                lpszClassName = _className
+            };
+
+            if (RegisterClassExW(ref windowClass) == 0)
+                throw CreateWin32Exception("Failed to register native tray icon window class.");
+
+            WindowHandle = CreateWindowExW(
+                0,
+                _className,
+                string.Empty,
+                0,
+                0,
+                0,
+                1,
+                1,
+                nint.Zero,
+                nint.Zero,
+                GetModuleHandleW(null),
+                nint.Zero);
+
+            if (WindowHandle == nint.Zero)
+                throw CreateWin32Exception("Failed to create native tray icon message window.");
+        }
+
+        internal nint WindowHandle { get; private set; }
+
+        public void Dispose()
+        {
+            if (WindowHandle == nint.Zero)
+                return;
+
+            DestroyWindow(WindowHandle);
+            WindowHandle = nint.Zero;
+        }
+
+        private nint WindowProc(nint windowHandle, uint message, nuint wParam, nint lParam)
+            => _trayIcon.WindowProc(windowHandle, message, wParam, lParam);
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct WNDCLASSEXW
+    {
+        public uint cbSize;
         public uint style;
         public WindowProcDelegate lpfnWndProc;
         public int cbClsExtra;
@@ -381,6 +434,7 @@ internal sealed class NativeTrayIcon : IDisposable
         public string? lpszMenuName;
         [MarshalAs(UnmanagedType.LPWStr)]
         public string lpszClassName;
+        public nint hIconSm;
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
@@ -417,14 +471,14 @@ internal sealed class NativeTrayIcon : IDisposable
     private delegate nint WindowProcDelegate(nint windowHandle, uint message, nuint wParam, nint lParam);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern ushort RegisterClassW(ref WNDCLASSW windowClass);
+    private static extern ushort RegisterClassExW(ref WNDCLASSEXW windowClass);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern nint CreateWindowExW(
         int exStyle,
         string className,
         string windowName,
-        int style,
+        uint style,
         int x,
         int y,
         int width,
@@ -444,7 +498,7 @@ internal sealed class NativeTrayIcon : IDisposable
     private static extern nint GetModuleHandleW(string? moduleName);
 
     [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern bool Shell_NotifyIconW(int message, ref NOTIFYICONDATAW notifyIconData);
+    private static extern bool Shell_NotifyIconW(uint message, ref NOTIFYICONDATAW notifyIconData);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern nint LoadImageW(
@@ -473,7 +527,7 @@ internal sealed class NativeTrayIcon : IDisposable
     [DllImport("user32.dll", SetLastError = true)]
     private static extern int TrackPopupMenuEx(
         nint menuHandle,
-        int flags,
+        uint flags,
         int x,
         int y,
         nint windowHandle,
@@ -486,7 +540,10 @@ internal sealed class NativeTrayIcon : IDisposable
     private static extern bool SetForegroundWindow(nint windowHandle);
 
     [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool PostMessageW(nint windowHandle, uint message, nuint wParam, nint lParam);
+    private static extern int GetSystemMetricsForDpi(int index, uint dpi);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern uint GetDpiForWindow(nint windowHandle);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern uint RegisterWindowMessageW(string message);
