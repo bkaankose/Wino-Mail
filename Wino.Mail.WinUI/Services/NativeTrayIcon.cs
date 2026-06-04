@@ -40,6 +40,8 @@ internal sealed class NativeTrayIcon : IDisposable
     private const uint NimModify = 0x00000001;
     private const uint NimDelete = 0x00000002;
     private const uint NimSetVersion = 0x00000004;
+    private const int ErrorClassAlreadyExists = 1410;
+    private const string WindowClassName = "WinoMail.NativeTrayIconWindow";
     private static readonly Guid TrayIconGuid = new("6E1330D0-22D5-4F0B-A3BF-C9B2AE536F77");
 
     private readonly DispatcherQueue _dispatcherQueue;
@@ -363,31 +365,23 @@ internal sealed class NativeTrayIcon : IDisposable
 
     private sealed class NativeTrayIconWindow : IDisposable
     {
+        private static readonly object ClassLock = new();
+        private static readonly Dictionary<nint, NativeTrayIconWindow> Windows = [];
+        private static readonly WindowProcDelegate SharedWindowProcedure = StaticWindowProc;
+        private static bool _classRegistered;
+
         private readonly NativeTrayIcon _trayIcon;
-        private readonly WindowProcDelegate _windowProcedure;
-        private readonly string _className;
+        private readonly nint _instanceHandle;
 
         internal NativeTrayIconWindow(NativeTrayIcon trayIcon)
         {
             _trayIcon = trayIcon;
-            _windowProcedure = WindowProc;
-            _className = $"WinoMail.NativeTrayIconWindow.{trayIcon.Id}";
-
-            var windowClass = new WNDCLASSEXW
-            {
-                cbSize = (uint)Marshal.SizeOf<WNDCLASSEXW>(),
-                style = CsDblClks,
-                lpfnWndProc = _windowProcedure,
-                hInstance = GetModuleHandleW(null),
-                lpszClassName = _className
-            };
-
-            if (RegisterClassExW(ref windowClass) == 0)
-                throw CreateWin32Exception("Failed to register native tray icon window class.");
+            _instanceHandle = GetModuleHandleW(null);
+            EnsureWindowClassRegistered(_instanceHandle);
 
             WindowHandle = CreateWindowExW(
                 0,
-                _className,
+                WindowClassName,
                 string.Empty,
                 0,
                 0,
@@ -396,11 +390,16 @@ internal sealed class NativeTrayIcon : IDisposable
                 1,
                 nint.Zero,
                 nint.Zero,
-                GetModuleHandleW(null),
+                _instanceHandle,
                 nint.Zero);
 
             if (WindowHandle == nint.Zero)
                 throw CreateWin32Exception("Failed to create native tray icon message window.");
+
+            lock (Windows)
+            {
+                Windows[WindowHandle] = this;
+            }
         }
 
         internal nint WindowHandle { get; private set; }
@@ -411,11 +410,54 @@ internal sealed class NativeTrayIcon : IDisposable
                 return;
 
             DestroyWindow(WindowHandle);
+            lock (Windows)
+            {
+                Windows.Remove(WindowHandle);
+            }
+
             WindowHandle = nint.Zero;
         }
 
         private nint WindowProc(nint windowHandle, uint message, nuint wParam, nint lParam)
             => _trayIcon.WindowProc(windowHandle, message, wParam, lParam);
+
+        private static void EnsureWindowClassRegistered(nint instanceHandle)
+        {
+            lock (ClassLock)
+            {
+                if (_classRegistered)
+                    return;
+
+                var windowClass = new WNDCLASSEXW
+                {
+                    cbSize = (uint)Marshal.SizeOf<WNDCLASSEXW>(),
+                    style = CsDblClks,
+                    lpfnWndProc = SharedWindowProcedure,
+                    hInstance = instanceHandle,
+                    lpszClassName = WindowClassName
+                };
+
+                if (RegisterClassExW(ref windowClass) == 0)
+                {
+                    var lastError = Marshal.GetLastWin32Error();
+                    if (lastError != ErrorClassAlreadyExists)
+                        throw new InvalidOperationException($"Failed to register native tray icon window class. LastError: {lastError}");
+                }
+
+                _classRegistered = true;
+            }
+        }
+
+        private static nint StaticWindowProc(nint windowHandle, uint message, nuint wParam, nint lParam)
+        {
+            lock (Windows)
+            {
+                if (Windows.TryGetValue(windowHandle, out var window))
+                    return window.WindowProc(windowHandle, message, wParam, lParam);
+            }
+
+            return DefWindowProcW(windowHandle, message, wParam, lParam);
+        }
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
