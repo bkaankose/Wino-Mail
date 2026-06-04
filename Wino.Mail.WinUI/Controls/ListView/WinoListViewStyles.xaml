@@ -115,13 +115,15 @@
                                     <controls:WinoSwipeControlItems
                                         x:Name="LeftSwipeItems"
                                         IsRightSwipe="False"
-                                        MailItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}" />
+                                        MailItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}"
+                                        Mode="Execute" />
                                 </SwipeControl.LeftItems>
                                 <SwipeControl.RightItems>
                                     <controls:WinoSwipeControlItems
                                         x:Name="RightSwipeItems"
                                         IsRightSwipe="True"
-                                        MailItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}" />
+                                        MailItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}"
+                                        Mode="Execute" />
                                 </SwipeControl.RightItems>
                                 <Grid
                                     x:Name="RootGrid"

@@ -5,16 +5,16 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Mail.WinUI;
 using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.WinUI;
 
 namespace Wino.Controls;
 
 public partial class WinoSwipeControlItems : SwipeItems
 {
     public static readonly DependencyProperty SwipeOperationProperty = DependencyProperty.Register(nameof(SwipeOperation), typeof(MailOperation), typeof(WinoSwipeControlItems), new PropertyMetadata(default(MailOperation), new PropertyChangedCallback(OnItemsChanged)));
-    public static readonly DependencyProperty MailItemProperty = DependencyProperty.Register(nameof(MailItem), typeof(IMailListItem), typeof(WinoSwipeControlItems), new PropertyMetadata(null));
+    public static readonly DependencyProperty MailItemProperty = DependencyProperty.Register(nameof(MailItem), typeof(IMailListItem), typeof(WinoSwipeControlItems), new PropertyMetadata(null, new PropertyChangedCallback(OnItemsChanged)));
     public static readonly DependencyProperty IsRightSwipeProperty = DependencyProperty.Register(nameof(IsRightSwipe), typeof(bool), typeof(WinoSwipeControlItems), new PropertyMetadata(false, new PropertyChangedCallback(OnItemsChanged)));
 
     public WinoSwipeControlItems()
@@ -57,7 +57,7 @@ public partial class WinoSwipeControlItems : SwipeItems
 
         var swipeItem = GetSwipeItem(SwipeOperation);
 
-        this.Add(swipeItem);
+        Add(swipeItem);
     }
 
     private SwipeItem? GetSwipeItem(MailOperation operation)
@@ -91,6 +91,7 @@ public partial class WinoSwipeControlItems : SwipeItems
         {
             IconSource = new WinoFontIconSource() { Icon = XamlHelpers.GetWinoIconGlyph(finalOperation) },
             Text = XamlHelpers.GetOperationString(finalOperation),
+            BehaviorOnInvoked = SwipeBehaviorOnInvoked.Close
         };
 
         item.Invoked += SwipeItemInvoked;
@@ -100,10 +101,9 @@ public partial class WinoSwipeControlItems : SwipeItems
 
     private void SwipeItemInvoked(SwipeItem sender, SwipeItemInvokedEventArgs args)
     {
-        var swipeControl = args.SwipeControl;
-        swipeControl.Close();
-
         if (MailItem == null) return;
+
+        var swipeControl = args.SwipeControl;
 
         // Determine the final operation based on current settings and mail item state
         var finalOperation = SwipeOperation;
