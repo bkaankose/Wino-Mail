@@ -11,7 +11,6 @@
         ColumnSpacing="0"
         RowSpacing="0">
         <muxc:NavigationView
-            AutomationProperties.AutomationId="NavigationView"
             x:Name="navigationView"
             Grid.Row="1"
             Grid.ColumnSpan="3"
@@ -19,6 +18,7 @@
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
             AlwaysShowHeader="True"
+            AutomationProperties.AutomationId="NavigationView"
             DisplayModeChanged="NavigationViewDisplayModeChanged"
             IsBackButtonVisible="Collapsed"
             IsPaneOpen="{x:Bind PreferencesService.IsNavigationPaneOpened, Mode=OneWay}"

@@ -18,19 +18,12 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ListViewItem">
-                            <SwipeControl x:Name="ThreadSwipeControl" Tag="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}">
-                                <SwipeControl.LeftItems>
-                                    <controls:WinoSwipeControlItems
-                                        x:Name="LeftSwipeItems"
-                                        IsRightSwipe="False"
-                                        MailItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}" />
-                                </SwipeControl.LeftItems>
-                                <SwipeControl.RightItems>
-                                    <controls:WinoSwipeControlItems
-                                        x:Name="RightSwipeItems"
-                                        IsRightSwipe="True"
-                                        MailItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}" />
-                                </SwipeControl.RightItems>
+                            <controls:WinoSwipeControl
+                                x:Name="ThreadSwipeControl"
+                                DeleteOperationBrush="{ThemeResource SwipeDeleteOperationBackgroundBrush}"
+                                LeftItemsMode="Execute"
+                                MailItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}"
+                                RightItemsMode="Execute">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="8" />
@@ -96,7 +89,7 @@
                                         </VisualState>
                                     </VisualStateGroup>
                                 </VisualStateManager.VisualStateGroups>
-                            </SwipeControl>
+                            </controls:WinoSwipeControl>
                         </ControlTemplate>
                     </Setter.Value>
                 </Setter>
@@ -110,21 +103,12 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ListViewItem">
-                            <SwipeControl x:Name="MailSwipeControl" Tag="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}">
-                                <SwipeControl.LeftItems>
-                                    <controls:WinoSwipeControlItems
-                                        x:Name="LeftSwipeItems"
-                                        IsRightSwipe="False"
-                                        MailItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}"
-                                        Mode="Execute" />
-                                </SwipeControl.LeftItems>
-                                <SwipeControl.RightItems>
-                                    <controls:WinoSwipeControlItems
-                                        x:Name="RightSwipeItems"
-                                        IsRightSwipe="True"
-                                        MailItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}"
-                                        Mode="Execute" />
-                                </SwipeControl.RightItems>
+                            <controls:WinoSwipeControl
+                                x:Name="MailSwipeControl"
+                                DeleteOperationBrush="{ThemeResource SwipeDeleteOperationBackgroundBrush}"
+                                LeftItemsMode="Execute"
+                                MailItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content}"
+                                RightItemsMode="Execute">
                                 <Grid
                                     x:Name="RootGrid"
                                     Margin="0,2"
@@ -186,7 +170,7 @@
                                         </VisualState>
                                     </VisualStateGroup>
                                 </VisualStateManager.VisualStateGroups>
-                            </SwipeControl>
+                            </controls:WinoSwipeControl>
                         </ControlTemplate>
                     </Setter.Value>
                 </Setter>

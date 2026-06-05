@@ -75,11 +75,11 @@ public partial class MessageListPageViewModel : MailBaseViewModel
     ];
 
     private readonly List<AccountNicknamePosition> accountNicknamePositions =
-    [
-        AccountNicknamePosition.None,
+[
+    AccountNicknamePosition.None,
         AccountNicknamePosition.Right,
         AccountNicknamePosition.Left
-    ];
+];
 
     public IMailItemDisplayInformation DemoPreviewMailItemInformation { get; } = new DemoMailItemDisplayInformation();
 

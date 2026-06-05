@@ -105,10 +105,10 @@
                     </Grid>
 
                     <Button
-                        AutomationProperties.AutomationId="WinoAppShellButton"
                         Grid.Column="1"
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
+                        AutomationProperties.AutomationId="WinoAppShellButton"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource InfoBarWarningSeverityIconBackground}"
                         BorderThickness="1"
@@ -128,9 +128,7 @@
         <!--  Fix account issues.  -->
         <!--  Authentication  -->
         <DataTemplate x:Key="FixAuthenticationIssueTemplate" x:DataType="menu:FixAccountIssuesMenuItem">
-            <coreControls:WinoNavigationViewItem
-
-                AutomationProperties.AutomationId="WinoAppShellWinoNavigationViewItem" SelectsOnInvoked="False">
+            <coreControls:WinoNavigationViewItem AutomationProperties.AutomationId="WinoAppShellWinoNavigationViewItem" SelectsOnInvoked="False">
                 <coreControls:WinoNavigationViewItem.Content>
                     <TextBlock
                         Margin="0,10"
@@ -145,9 +143,7 @@
 
         <!--  Missing system folder config.  -->
         <DataTemplate x:Key="FixMissingFolderConfig" x:DataType="menu:FixAccountIssuesMenuItem">
-            <coreControls:WinoNavigationViewItem
-
-                AutomationProperties.AutomationId="WinoAppShellWinoNavigationViewItem2" SelectsOnInvoked="False">
+            <coreControls:WinoNavigationViewItem AutomationProperties.AutomationId="WinoAppShellWinoNavigationViewItem2" SelectsOnInvoked="False">
                 <coreControls:WinoNavigationViewItem.Content>
                     <TextBlock
                         Margin="0,10"
@@ -163,8 +159,8 @@
         <!--  New Mail  -->
         <DataTemplate x:Key="CreateNewMailTemplate" x:DataType="menu:NewMailMenuItem">
             <coreControls:WinoNavigationViewItem
-                AutomationProperties.AutomationId="XBindDomainTranslatorMenuNewMailModeOneTime"
                 Height="50"
+                AutomationProperties.AutomationId="XBindDomainTranslatorMenuNewMailModeOneTime"
                 AutomationProperties.Name="{x:Bind domain:Translator.MenuNewMail, Mode=OneTime}"
                 DataContext="{x:Bind}"
                 SelectsOnInvoked="False">
@@ -182,9 +178,9 @@
         <!--  Inbox or any other folders.  -->
         <DataTemplate x:Key="FolderMenuTemplate" x:DataType="menu:FolderMenuItem">
             <coreControls:WinoNavigationViewItem
-                AutomationProperties.AutomationId="XBindFolderNameModeOneWay"
                 MinHeight="40"
                 AllowDrop="True"
+                AutomationProperties.AutomationId="XBindFolderNameModeOneWay"
                 AutomationProperties.Name="{x:Bind FolderName, Mode=OneWay}"
                 ContextRequested="MenuItemContextRequested"
                 DataContext="{x:Bind}"
@@ -249,8 +245,8 @@
 
         <DataTemplate x:Key="MailCategoryMenuTemplate" x:DataType="menu:MailCategoryMenuItem">
             <coreControls:WinoNavigationViewItem
-                AutomationProperties.AutomationId="XBindFolderNameModeOneWay2"
                 MinHeight="40"
+                AutomationProperties.AutomationId="XBindFolderNameModeOneWay2"
                 AutomationProperties.Name="{x:Bind FolderName, Mode=OneWay}"
                 DataContext="{x:Bind}"
                 FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
@@ -284,8 +280,8 @@
 
         <DataTemplate x:Key="MergedMailCategoryMenuTemplate" x:DataType="menu:MergedMailCategoryMenuItem">
             <coreControls:WinoNavigationViewItem
-                AutomationProperties.AutomationId="XBindFolderNameModeOneWay3"
                 MinHeight="40"
+                AutomationProperties.AutomationId="XBindFolderNameModeOneWay3"
                 AutomationProperties.Name="{x:Bind FolderName, Mode=OneWay}"
                 DataContext="{x:Bind}"
                 FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
@@ -426,9 +422,9 @@
         <!--  Merged Account Common Folder Item  -->
         <DataTemplate x:Key="MergedAccountFolderMenuItemTemplate" x:DataType="menu:MergedAccountFolderMenuItem">
             <coreControls:WinoNavigationViewItem
-                AutomationProperties.AutomationId="WinoAppShellWinoNavigationViewItem3"
                 MinHeight="30"
                 AllowDrop="True"
+                AutomationProperties.AutomationId="WinoAppShellWinoNavigationViewItem3"
                 ContextRequested="MenuItemContextRequested"
                 DataContext="{x:Bind}"
                 DragEnter="ItemDragEnterOnFolder"
@@ -472,8 +468,8 @@
         <!--  Merged Account More Expansion Item  -->
         <DataTemplate x:Key="MergedAccountMoreFolderItemTemplate" x:DataType="menu:MergedAccountMoreFolderMenuItem">
             <coreControls:WinoNavigationViewItem
-                AutomationProperties.AutomationId="WinoAppShellWinoNavigationViewItem4"
                 MinHeight="30"
+                AutomationProperties.AutomationId="WinoAppShellWinoNavigationViewItem4"
                 Content="{x:Bind domain:Translator.More}"
                 FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
                 IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
@@ -515,7 +511,6 @@
         ColumnSpacing="0"
         RowSpacing="0">
         <muxc:NavigationView
-            AutomationProperties.AutomationId="NavigationView"
             x:Name="navigationView"
             Grid.Row="1"
             Grid.ColumnSpan="3"
@@ -523,6 +518,7 @@
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
             AlwaysShowHeader="True"
+            AutomationProperties.AutomationId="NavigationView"
             Background="{ThemeResource NavigationViewContentBackground}"
             DisplayModeChanged="NavigationViewDisplayModeChanged"
             IsBackButtonVisible="Collapsed"
@@ -560,11 +556,11 @@
                         </Grid.RowDefinitions>
 
                         <coreControls:WinoNavigationViewItem
-                            AutomationProperties.AutomationId="NewCalendarEventNavigationItem"
                             x:Name="NewCalendarEventNavigationItem"
                             Grid.Row="0"
                             Height="50"
                             Margin="0,0,0,12"
+                            AutomationProperties.AutomationId="NewCalendarEventNavigationItem"
                             AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_NewEventButton, Mode=OneTime}"
                             IsTabStop="True"
                             KeyDown="NewCalendarEventNavigationItemKeyDown"
@@ -581,11 +577,11 @@
                         </coreControls:WinoNavigationViewItem>
 
                         <coreControls:WinoNavigationViewItem
-                            AutomationProperties.AutomationId="SynchronizeCalendarsNavigationItem"
                             x:Name="SynchronizeCalendarsNavigationItem"
                             Grid.Row="1"
                             Height="50"
                             Margin="0,0,0,12"
+                            AutomationProperties.AutomationId="SynchronizeCalendarsNavigationItem"
                             AutomationProperties.Name="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}"
                             IsEnabled="{x:Bind ViewModel.CalendarClient.CanSynchronizeCalendars, Mode=OneWay}"
                             IsTabStop="True"
@@ -603,19 +599,19 @@
                         </coreControls:WinoNavigationViewItem>
 
                         <muxc:CalendarView
-                            AutomationProperties.AutomationId="VisibleDateRangeCalendarView"
                             x:Name="VisibleDateRangeCalendarView"
                             Grid.Row="2"
                             Margin="12,0"
                             HorizontalAlignment="Stretch"
+                            AutomationProperties.AutomationId="VisibleDateRangeCalendarView"
                             SelectedDatesChanged="VisibleDateRangeCalendarViewSelectedDatesChanged"
                             SelectionMode="Multiple"
                             Style="{StaticResource WinoCalendarViewStyle}" />
 
                         <ListView
-                            AutomationProperties.AutomationId="CalendarHostListView"
                             x:Name="CalendarHostListView"
                             Grid.Row="3"
+                            AutomationProperties.AutomationId="CalendarHostListView"
                             SelectionMode="None">
                             <ListView.Header>
                                 <TextBlock
@@ -638,9 +634,9 @@
                                                 </Grid.ColumnDefinitions>
 
                                                 <CheckBox
-                                                    AutomationProperties.AutomationId="XBindHelpersXamlHelpersGetCalendarsForAccountAutomationNameAccountNameModeOneWay"
                                                     Width="26"
                                                     MinWidth="0"
+                                                    AutomationProperties.AutomationId="XBindHelpersXamlHelpersGetCalendarsForAccountAutomationNameAccountNameModeOneWay"
                                                     AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetCalendarsForAccountAutomationName(Account.Name), Mode=OneWay}"
                                                     IsChecked="{x:Bind IsCheckedState, Mode=TwoWay}"
                                                     IsThreeState="True" />
@@ -683,12 +679,12 @@
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate x:DataType="data:AccountCalendarViewModel">
                                                         <CheckBox
-                                                            AutomationProperties.AutomationId="XBindNameModeOneWay"
                                                             HorizontalAlignment="Stretch"
                                                             VerticalAlignment="Center"
-                                                            AutomationProperties.Name="{x:Bind Name, Mode=OneWay}"
                                                             HorizontalContentAlignment="Stretch"
                                                             VerticalContentAlignment="Stretch"
+                                                            AutomationProperties.AutomationId="XBindNameModeOneWay"
+                                                            AutomationProperties.Name="{x:Bind Name, Mode=OneWay}"
                                                             IsChecked="{x:Bind IsChecked, Mode=TwoWay}">
                                                             <Grid Margin="0,0,0,5" ColumnSpacing="6">
                                                                 <Grid.ColumnDefinitions>
@@ -728,10 +724,10 @@
                         Visibility="Collapsed">
                         <StackPanel Spacing="6">
                             <coreControls:WinoNavigationViewItem
-                                AutomationProperties.AutomationId="NewContactNavigationItem"
                                 x:Name="NewContactNavigationItem"
                                 Height="50"
                                 Margin="0,0,0,12"
+                                AutomationProperties.AutomationId="NewContactNavigationItem"
                                 AutomationProperties.Name="{x:Bind domain:Translator.ContactsPane_NewContact, Mode=OneTime}"
                                 IsTabStop="True"
                                 KeyDown="NewContactNavigationItemKeyDown"

@@ -17,6 +17,7 @@
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Name="Light">
             <SolidColorBrush x:Key="AttachmentBrush">#fdcb6e</SolidColorBrush>
+            <SolidColorBrush x:Key="SwipeDeleteOperationBackgroundBrush">#e74c3c</SolidColorBrush>
             <SolidColorBrush x:Key="SettingsPaneBorderBrush">#636e72</SolidColorBrush>
             <SolidColorBrush x:Key="WinoContentZoneBackgroud" Color="White" />
             <StaticResource x:Key="ReadingPaneBackgroundColorBrush" ResourceKey="WinoContentZoneBackgroud" />
@@ -25,6 +26,7 @@
         </ResourceDictionary>
         <ResourceDictionary x:Name="Dark">
             <SolidColorBrush x:Key="AttachmentBrush">#fdcb6e</SolidColorBrush>
+            <SolidColorBrush x:Key="SwipeDeleteOperationBackgroundBrush">#e74c3c</SolidColorBrush>
             <SolidColorBrush x:Key="SettingsPaneBorderBrush">#2d3436</SolidColorBrush>
             <StaticResource x:Key="WinoContentZoneBackgroud" ResourceKey="LayerFillColorDefaultBrush" />
             <StaticResource x:Key="ReadingPaneBackgroundColorBrush" ResourceKey="WinoContentZoneBackgroud" />

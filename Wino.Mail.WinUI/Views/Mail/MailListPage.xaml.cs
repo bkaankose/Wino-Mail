@@ -971,14 +971,31 @@ public sealed partial class MailListPage : MailListPageAbstract,
         if (hoverActionButtons == null)
             return;
 
-        if (isVisible && ViewModel.PreferencesService.IsHoverActionsEnabled)
+        var shouldShowHoverActions = isVisible && ViewModel.PreferencesService.IsHoverActionsEnabled;
+
+        if (shouldShowHoverActions)
         {
             RefreshHoverActionButtons(hoverActionButtons);
         }
 
-        hoverActionButtons.Visibility = isVisible && ViewModel.PreferencesService.IsHoverActionsEnabled
+        hoverActionButtons.Visibility = shouldShowHoverActions
             ? Visibility.Visible
             : Visibility.Collapsed;
+
+        SetRightAccountNicknameIndicatorVisibility(rowRoot, !shouldShowHoverActions);
+    }
+
+    private static void SetRightAccountNicknameIndicatorVisibility(DependencyObject? rowRoot, bool isVisible)
+    {
+        foreach (var indicator in FindDescendants<FrameworkElement>(rowRoot))
+        {
+            if (indicator.Name is "RightAccountNicknameIndicator" or "RightNicknameIndicator")
+            {
+                indicator.Visibility = isVisible
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
+        }
     }
 
     private static void RefreshHoverActionButtons(DependencyObject hoverActionButtons)

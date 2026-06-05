@@ -13,6 +13,7 @@
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
+    xmlns:interfaces="using:Wino.Core.Domain.Interfaces"
     xmlns:listview="using:Wino.Mail.WinUI.Controls.ListView"
     xmlns:mail="using:Wino.Core.Domain.Entities.Mail"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -106,6 +107,24 @@
                     Tapped="MailRowHoverActionTapped">
                     <coreControls:WinoFontIcon FontSize="16" />
                 </Button>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate x:Key="MailRowHoverActionOverlayTemplate" x:DataType="interfaces:IMailItemDisplayInformation">
+            <StackPanel
+                HorizontalAlignment="Right"
+                Background="Transparent"
+                Orientation="Horizontal"
+                Spacing="8">
+                <controls:AccountNicknameIndicatorControl
+                    x:Name="HoverRightAccountNicknameIndicator"
+                    VerticalAlignment="Center"
+                    x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Right), Mode=OneWay}"
+                    AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
+                    AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
+                <ContentPresenter
+                    Content="{x:Bind}"
+                    ContentTemplate="{StaticResource MailRowHoverActionButtonsTemplate}" />
             </StackPanel>
         </DataTemplate>
 
@@ -269,7 +288,7 @@
                     VerticalAlignment="Top"
                     Canvas.ZIndex="999"
                     Content="{x:Bind}"
-                    ContentTemplate="{StaticResource MailRowHoverActionButtonsTemplate}"
+                    ContentTemplate="{StaticResource MailRowHoverActionOverlayTemplate}"
                     Visibility="Collapsed" />
             </Grid>
         </DataTemplate>
@@ -445,7 +464,7 @@
                     VerticalAlignment="Top"
                     Canvas.ZIndex="999"
                     Content="{x:Bind}"
-                    ContentTemplate="{StaticResource MailRowHoverActionButtonsTemplate}"
+                    ContentTemplate="{StaticResource MailRowHoverActionOverlayTemplate}"
                     Visibility="Collapsed" />
             </Grid>
         </DataTemplate>
@@ -623,7 +642,7 @@
                     VerticalAlignment="Top"
                     Canvas.ZIndex="999"
                     Content="{x:Bind}"
-                    ContentTemplate="{StaticResource MailRowHoverActionButtonsTemplate}"
+                    ContentTemplate="{StaticResource MailRowHoverActionOverlayTemplate}"
                     Visibility="Collapsed" />
             </Grid>
         </DataTemplate>
@@ -791,7 +810,7 @@
                         VerticalAlignment="Top"
                         Canvas.ZIndex="999"
                         Content="{x:Bind}"
-                        ContentTemplate="{StaticResource MailRowHoverActionButtonsTemplate}"
+                        ContentTemplate="{StaticResource MailRowHoverActionOverlayTemplate}"
                         Visibility="Collapsed" />
                 </Grid>
                 <ListView
@@ -978,7 +997,7 @@
                         VerticalAlignment="Top"
                         Canvas.ZIndex="999"
                         Content="{x:Bind}"
-                        ContentTemplate="{StaticResource MailRowHoverActionButtonsTemplate}"
+                        ContentTemplate="{StaticResource MailRowHoverActionOverlayTemplate}"
                         Visibility="Collapsed" />
                 </Grid>
                 <ListView
@@ -1166,7 +1185,7 @@
                         VerticalAlignment="Top"
                         Canvas.ZIndex="999"
                         Content="{x:Bind}"
-                        ContentTemplate="{StaticResource MailRowHoverActionButtonsTemplate}"
+                        ContentTemplate="{StaticResource MailRowHoverActionOverlayTemplate}"
                         Visibility="Collapsed" />
                 </Grid>
                 <ListView
