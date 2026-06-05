@@ -274,8 +274,10 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             await RestoreSelectedAccountAfterMenuRefreshAsync(false);
         }
 
+        var shouldProcessDefaultLaunch = !isModeReactivation || !hasExistingAccountMenuItems;
+
         await RefreshAccountSynchronizationProgressAsync();
-        await ProcessLaunchOptionsAsync(activationContext?.Parameter as MailFolderLaunchRequest);
+        await ProcessLaunchOptionsAsync(activationContext?.Parameter as MailFolderLaunchRequest, shouldProcessDefaultLaunch);
         await HandlePendingShareRequestAsync();
         await ValidateWebView2RuntimeAsync();
 
@@ -398,7 +400,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     }
 
     // Navigate to startup account's Inbox.
-    private async Task ProcessLaunchOptionsAsync(MailFolderLaunchRequest mailFolderLaunchRequest = null)
+    private async Task ProcessLaunchOptionsAsync(MailFolderLaunchRequest mailFolderLaunchRequest = null, bool processDefaultLaunch = true)
     {
         try
         {
@@ -445,6 +447,15 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                 }
                 else
                 {
+                    if (!processDefaultLaunch)
+                    {
+                        Log.Debug("Skipping default mail launch navigation during mode reactivation. Selected item: {SelectedMenuItem}, latest account: {LatestAccount}",
+                            SelectedMenuItem,
+                            latestSelectedAccountMenuItem);
+
+                        return;
+                    }
+
                     // Use default startup extending.
                     await ProcessLaunchDefaultAsync();
                 }
