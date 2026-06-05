@@ -239,7 +239,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         // Re-assign latest selected account menu item for containers to reflect changes better.
         // Also , this will ensure that the latest selected account is still selected after re-creation.
 
-        if (latestSelectedAccountMenuItem != null && MenuItems.TryGetAccountMenuItem(latestSelectedAccountMenuItem.EntityId.GetValueOrDefault(), out IAccountMenuItem foundLatestSelectedAccountMenuItem))
+        if (latestSelectedAccountMenuItem != null && TryGetLoadedAccountMenuItem(latestSelectedAccountMenuItem.EntityId.GetValueOrDefault(), out IAccountMenuItem foundLatestSelectedAccountMenuItem))
         {
             await ExecuteUIThread(() =>
             {
@@ -1274,7 +1274,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             var selectedEntityId = latestSelectedAccountMenuItem.EntityId.GetValueOrDefault();
 
             if (selectedEntityId != Guid.Empty &&
-                MenuItems.TryGetAccountMenuItem(selectedEntityId, out IAccountMenuItem foundSelectedMenuItem))
+                TryGetLoadedAccountMenuItem(selectedEntityId, out IAccountMenuItem foundSelectedMenuItem))
             {
                 validSelectedMenuItem = foundSelectedMenuItem;
             }
@@ -1302,6 +1302,15 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                 NavigateToWelcomeWizard();
             }
         }
+    }
+
+    private bool TryGetLoadedAccountMenuItem(Guid entityId, out IAccountMenuItem accountMenuItem)
+    {
+        accountMenuItem = MenuItems.FirstOrDefault(a => a.EntityId == entityId) as IAccountMenuItem;
+        accountMenuItem ??= MenuItems.GetAllAccountMenuItems().FirstOrDefault(a => a.EntityId == entityId);
+        accountMenuItem ??= MenuItems.TryGetAccountMenuItem(entityId, out var foundAccountMenuItem) ? foundAccountMenuItem : null;
+
+        return accountMenuItem != null;
     }
 
     private void NavigateToWelcomeWizard()
