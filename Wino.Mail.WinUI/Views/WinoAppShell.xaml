@@ -526,7 +526,7 @@
             Background="{ThemeResource NavigationViewContentBackground}"
             DisplayModeChanged="NavigationViewDisplayModeChanged"
             IsBackButtonVisible="Collapsed"
-            IsPaneOpen="{x:Bind ViewModel.PreferencesService.IsNavigationPaneOpened, Mode=TwoWay}"
+            IsPaneOpen="{x:Bind ViewModel.PreferencesService.IsNavigationPaneOpened, Mode=OneWay}"
             IsPaneToggleButtonVisible="False"
             IsSettingsVisible="False"
             IsTabStop="True"

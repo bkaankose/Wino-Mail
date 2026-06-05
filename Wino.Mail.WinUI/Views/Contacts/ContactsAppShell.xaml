@@ -21,7 +21,7 @@
             AlwaysShowHeader="True"
             DisplayModeChanged="NavigationViewDisplayModeChanged"
             IsBackButtonVisible="Collapsed"
-            IsPaneOpen="{x:Bind PreferencesService.IsNavigationPaneOpened, Mode=TwoWay}"
+            IsPaneOpen="{x:Bind PreferencesService.IsNavigationPaneOpened, Mode=OneWay}"
             IsPaneToggleButtonVisible="False"
             IsSettingsVisible="False"
             IsTabStop="True"
