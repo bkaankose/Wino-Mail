@@ -973,14 +973,14 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
         var shouldShowHoverActions = isVisible && ViewModel.PreferencesService.IsHoverActionsEnabled;
 
+        hoverActionButtons.Visibility = shouldShowHoverActions
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
         if (shouldShowHoverActions)
         {
             RefreshHoverActionButtons(hoverActionButtons);
         }
-
-        hoverActionButtons.Visibility = shouldShowHoverActions
-            ? Visibility.Visible
-            : Visibility.Collapsed;
 
         SetRightAccountNicknameIndicatorVisibility(rowRoot, !shouldShowHoverActions);
     }
@@ -1002,15 +1002,28 @@ public sealed partial class MailListPage : MailListPageAbstract,
     {
         foreach (var button in FindDescendants<Button>(hoverActionButtons))
         {
-            if (button.Tag is not string actionIndexText || !int.TryParse(actionIndexText, out var actionIndex))
-                continue;
+            RefreshHoverActionButton(button);
+        }
+    }
 
-            AutomationProperties.SetName(button, XamlHelpers.GetHoverActionOperationString(actionIndex));
+    private static void RefreshHoverActionButton(Button button)
+    {
+        if (button.Tag is not string actionIndexText || !int.TryParse(actionIndexText, out var actionIndex))
+            return;
 
-            if (button.Content is WinoFontIcon icon)
-            {
-                icon.Icon = XamlHelpers.GetHoverActionWinoIconGlyph(actionIndex);
-            }
+        AutomationProperties.SetName(button, XamlHelpers.GetHoverActionOperationString(actionIndex));
+
+        if (button.Content is WinoFontIcon icon)
+        {
+            icon.Icon = XamlHelpers.GetHoverActionWinoIconGlyph(actionIndex);
+        }
+    }
+
+    private void MailRowHoverActionButtonLoaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button)
+        {
+            RefreshHoverActionButton(button);
         }
     }
 

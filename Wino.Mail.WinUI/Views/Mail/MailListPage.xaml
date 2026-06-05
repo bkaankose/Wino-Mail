@@ -86,6 +86,7 @@
                 Spacing="12">
                 <Button
                     AutomationProperties.AutomationId="MailRowLeftHoverActionButton"
+                    Loaded="MailRowHoverActionButtonLoaded"
                     Style="{StaticResource MailRowHoverActionButtonStyle}"
                     Tag="0"
                     Tapped="MailRowHoverActionTapped">
@@ -94,6 +95,7 @@
 
                 <Button
                     AutomationProperties.AutomationId="MailRowCenterHoverActionButton"
+                    Loaded="MailRowHoverActionButtonLoaded"
                     Style="{StaticResource MailRowHoverActionButtonStyle}"
                     Tag="1"
                     Tapped="MailRowHoverActionTapped">
@@ -102,6 +104,7 @@
 
                 <Button
                     AutomationProperties.AutomationId="MailRowRightHoverActionButton"
+                    Loaded="MailRowHoverActionButtonLoaded"
                     Style="{StaticResource MailRowHoverActionButtonStyle}"
                     Tag="2"
                     Tapped="MailRowHoverActionTapped">
