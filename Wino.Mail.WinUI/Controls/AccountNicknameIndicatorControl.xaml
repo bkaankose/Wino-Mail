@@ -14,8 +14,6 @@
         Padding="6,1"
         VerticalAlignment="Center"
         Background="{ThemeResource MailListHeaderBackgroundColor}"
-        BorderBrush="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(AccountColorHex)}"
-        BorderThickness="1"
         CornerRadius="4">
         <TextBlock
             FontSize="10"
