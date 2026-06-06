@@ -16,6 +16,8 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Requests.Bundles;
+using Wino.Core.Requests.Folder;
+using Wino.Core.Requests.Mail;
 // EWS defines its own Task item type; alias bare `Task` to the TPL Task.
 using Task = System.Threading.Tasks.Task;
 
@@ -319,6 +321,86 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         await _exchangeChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
     }
 
+    #region Mail & Folder Operations
+
+    // Wraps an EWS operation into a single request bundle (EWS is stateless HTTP — one
+    // service handles the whole batch, so per-action batching collapses to one bundle).
+    private static List<IRequestBundle<EwsRequest>> Bundle(Func<ExchangeService, Task> action, IRequestBase request, IUIChangeRequest uiChangeRequest)
+        => [new EwsRequestBundle(new EwsRequest((service, _) => action(service), request), request, uiChangeRequest)];
+
+    public override List<IRequestBundle<EwsRequest>> MarkRead(BatchMarkReadRequest requests)
+    {
+        if (requests == null || requests.Count == 0)
+            return [];
+
+        var isRead = requests[0].IsRead;
+        var ids = requests.Select(r => new ItemId(r.Item.Id)).ToList();
+
+        return Bundle(async service =>
+        {
+            foreach (var id in ids)
+            {
+                var message = await EmailMessage.Bind(service, id, new PropertySet(BasePropertySet.IdOnly, EmailMessageSchema.IsRead)).ConfigureAwait(false);
+                if (message.IsRead == isRead) continue;
+                message.IsRead = isRead;
+                await message.Update(ConflictResolutionMode.AutoResolve).ConfigureAwait(false);
+            }
+        }, requests[0], requests);
+    }
+
+    public override List<IRequestBundle<EwsRequest>> ChangeFlag(BatchChangeFlagRequest requests)
+    {
+        if (requests == null || requests.Count == 0)
+            return [];
+
+        var flagged = requests[0].IsFlagged;
+        var ids = requests.Select(r => new ItemId(r.Item.Id)).ToList();
+
+        return Bundle(async service =>
+        {
+            foreach (var id in ids)
+            {
+                var item = await Item.Bind(service, id, new PropertySet(BasePropertySet.IdOnly, ItemSchema.Flag)).ConfigureAwait(false);
+                item.Flag = new Flag { FlagStatus = flagged ? ItemFlagStatus.Flagged : ItemFlagStatus.NotFlagged };
+                await item.Update(ConflictResolutionMode.AutoResolve).ConfigureAwait(false);
+            }
+        }, requests[0], requests);
+    }
+
+    public override List<IRequestBundle<EwsRequest>> Move(BatchMoveRequest requests)
+    {
+        if (requests == null || requests.Count == 0)
+            return [];
+
+        var destination = new FolderId(requests[0].ToFolder.RemoteFolderId);
+        var ids = requests.Select(r => new ItemId(r.Item.Id)).ToList();
+
+        return Bundle(service => service.MoveItems(ids, destination), requests[0], requests);
+    }
+
+    public override List<IRequestBundle<EwsRequest>> Delete(BatchDeleteRequest requests)
+    {
+        if (requests == null || requests.Count == 0)
+            return [];
+
+        var ids = requests.Select(r => new ItemId(r.Item.Id)).ToList();
+
+        return Bundle(
+            service => service.DeleteItems(ids, DeleteMode.MoveToDeletedItems, SendCancellationsMode.SendToNone, AffectedTaskOccurrence.AllOccurrences),
+            requests[0], requests);
+    }
+
+    public override List<IRequestBundle<EwsRequest>> Archive(BatchArchiveRequest request)
+        => Move(new BatchMoveRequest(request.Select(a => new MoveRequest(a.Item, a.FromFolder, a.ToFolder))));
+
+    public override List<IRequestBundle<EwsRequest>> EmptyFolder(EmptyFolderRequest request)
+        => Delete(new BatchDeleteRequest(request.MailsToDelete.Select(a => new DeleteRequest(a))));
+
+    public override List<IRequestBundle<EwsRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request)
+        => MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(a => new MarkReadRequest(a, true))));
+
+    #endregion
+
     protected override Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
         // TODO(Phase 2): EWS CalendarFolder / Appointment synchronization.
@@ -329,6 +411,9 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
     {
         if (batchedRequests == null || batchedRequests.Count == 0)
             return;
+
+        // Apply optimistic local UI changes before hitting the server (matches IMAP/Outlook).
+        ApplyOptimisticUiChanges(batchedRequests);
 
         var service = await CreateServiceAsync().ConfigureAwait(false);
 
