@@ -906,6 +906,7 @@
     "SettingsHoverActionRight": "Дясно действие",
     "SettingsHoverActions_Description": "Изберете 3 действия, които да се показват при преминаване с курсора над имейлите.",
     "SettingsHoverActions_Title": "Действия при преминаване с мишката",
+    "SettingsEnableSwipeActions_Title": "Включи действия при плъзгане",
     "SettingsSwipeActionLeft": "Плъзване наляво",
     "SettingsSwipeActionRight": "Плъзване надясно",
     "SettingsSwipeActions_Description": "Изберете действия за изпълнение, когато плъзнете имейли.",

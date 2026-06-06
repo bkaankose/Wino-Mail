@@ -906,6 +906,7 @@
     "SettingsHoverActionRight": "Sağ Aksiyon",
     "SettingsHoverActions_Description": "Postaların üzerine gelilndiğinde hızlı aksiyon tuşlarını belirlemek için 3 adet aksiyon seçin.",
     "SettingsHoverActions_Title": "Hızlı Aksiyonlar",
+    "SettingsEnableSwipeActions_Title": "Kaydırma hareketlerini etkinleştir",
     "SettingsSwipeActionLeft": "Sol Kaydırma",
     "SettingsSwipeActionRight": "Sağ Kaydırma",
     "SettingsSwipeActions_Description": "Posta öğelerini kaydırdığınızda çalıştırılacak eylemleri seçin.",

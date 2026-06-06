@@ -906,6 +906,7 @@
     "SettingsHoverActionRight": "Tindakan Kanan",
     "SettingsHoverActions_Description": "Pilih 3 tindakan yang muncul saat Anda melayangkan kursor di atas surel.",
     "SettingsHoverActions_Title": "Tindakan Layang",
+    "SettingsEnableSwipeActions_Title": "Aktifkan aksi geser",
     "SettingsSwipeActionLeft": "Geser Kiri",
     "SettingsSwipeActionRight": "Geser Kanan",
     "SettingsSwipeActions_Description": "Pilih tindakan yang dijalankan saat Anda menggeser pesan email.",

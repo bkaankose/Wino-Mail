@@ -33,6 +33,14 @@
     <Page.Resources>
         <x:Double x:Key="ItemContainerDisabledOpacity">1</x:Double>
 
+        <listview:WinoMailItemContainerStyleSelector
+            x:Key="WinoMailItemContainerStyleSelector"
+            IsSwipeActionsEnabled="{x:Bind ViewModel.PreferencesService.IsSwipeActionsEnabled, Mode=OneWay}"
+            MailItemStyle="{StaticResource DefaultMailListViewItemStyle}"
+            MailItemStyleWithoutSwipe="{StaticResource DefaultMailListViewItemStyleWithoutSwipe}"
+            ThreadStyle="{StaticResource DefaultThreadListViewItemStyle}"
+            ThreadStyleWithoutSwipe="{StaticResource DefaultThreadListViewItemStyleWithoutSwipe}" />
+
         <Thickness x:Key="ExpanderHeaderPadding">0,0,0,0</Thickness>
         <Thickness x:Key="ExpanderChevronMargin">0,0,12,0</Thickness>
         <Thickness x:Key="ExpanderHeaderBorderThickness">0,0,0,0</Thickness>

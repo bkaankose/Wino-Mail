@@ -906,6 +906,7 @@
     "SettingsHoverActionRight": "Acción dereita",
     "SettingsHoverActions_Description": "Selecciona 3 accións que se amosarán ao pasar o cursor polos correos.",
     "SettingsHoverActions_Title": "Accións ao pasar o cursor",
+    "SettingsEnableSwipeActions_Title": "Activar accións de deslizar",
     "SettingsSwipeActionLeft": "Deslizar cara á esquerda",
     "SettingsSwipeActionRight": "Deslizar cara á dereita",
     "SettingsSwipeActions_Description": "Selecciona as accións a executar cando deslices os correos.",

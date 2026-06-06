@@ -906,6 +906,7 @@
     "SettingsHoverActionRight": "Ação à direita",
     "SettingsHoverActions_Description": "Selecione 3 ações para serem exibidas quando você passar o mouse sobre os e-mails com o ponteiro.",
     "SettingsHoverActions_Title": "Ações do ponteiro",
+    "SettingsEnableSwipeActions_Title": "Ativar ações de deslizar",
     "SettingsSwipeActionLeft": "Deslize para a esquerda",
     "SettingsSwipeActionRight": "Deslize para a direita",
     "SettingsSwipeActions_Description": "Selecione as ações a serem executadas ao deslizar itens de e-mail.",

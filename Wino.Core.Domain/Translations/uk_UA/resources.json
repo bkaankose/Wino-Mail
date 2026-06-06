@@ -906,6 +906,7 @@
     "SettingsHoverActionRight": "Права дія",
     "SettingsHoverActions_Description": "Оберіть 3 дії, які показуватимуться, коли Ви наводитимете курсор на листи.",
     "SettingsHoverActions_Title": "Дії при наведенні курсору",
+    "SettingsEnableSwipeActions_Title": "Увімкнути дії свайпу",
     "SettingsSwipeActionLeft": "Лівий свайп",
     "SettingsSwipeActionRight": "Правий свайп",
     "SettingsSwipeActions_Description": "Виберіть дії, які потрібно виконати під час свайпу по повідомленнях.",

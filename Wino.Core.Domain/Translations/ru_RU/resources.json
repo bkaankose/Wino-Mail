@@ -906,6 +906,7 @@
     "SettingsHoverActionRight": "Правая кнопка",
     "SettingsHoverActions_Description": "Выберите 3 действия, которые будут показаны при наведении курсора на письма.",
     "SettingsHoverActions_Title": "Действия при наведении",
+    "SettingsEnableSwipeActions_Title": "Включить свайп-действия",
     "SettingsSwipeActionLeft": "Свайп влево",
     "SettingsSwipeActionRight": "Свайп вправо",
     "SettingsSwipeActions_Description": "Выберите действия, которые будут выполняться при свайпе по письмам.",

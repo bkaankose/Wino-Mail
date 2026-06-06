@@ -906,6 +906,7 @@
     "SettingsHoverActionRight": "右のアクション",
     "SettingsHoverActions_Description": "カーソルをメール上に置いたときに表示する3つのアクションを選択します。",
     "SettingsHoverActions_Title": "ホバー時のアクション",
+    "SettingsEnableSwipeActions_Title": "スワイプ操作を有効にする",
     "SettingsSwipeActionLeft": "左スワイプ",
     "SettingsSwipeActionRight": "右スワイプ",
     "SettingsSwipeActions_Description": "メール項目をスワイプしたときに実行するアクションを選択します。",

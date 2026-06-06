@@ -906,6 +906,7 @@
     "SettingsHoverActionRight": "Rechter actie",
     "SettingsHoverActions_Description": "Selecteer 3 acties die verschijnen als u met de cursor de e-mails aanwijst.",
     "SettingsHoverActions_Title": "Aanwijsacties",
+    "SettingsEnableSwipeActions_Title": "Veegacties inschakelen",
     "SettingsSwipeActionLeft": "Veeg naar links",
     "SettingsSwipeActionRight": "Veeg naar rechts",
     "SettingsSwipeActions_Description": "Selecteer acties die worden uitgevoerd wanneer u e-mails veegt.",

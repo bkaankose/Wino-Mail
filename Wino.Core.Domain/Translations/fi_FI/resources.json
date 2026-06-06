@@ -906,6 +906,7 @@
     "SettingsHoverActionRight": "Oikea toimenpide",
     "SettingsHoverActions_Description": "Valitse kolme toimintoa, jotka näkyvät, kun viet hiiren viestin päälle.",
     "SettingsHoverActions_Title": "Hover-toiminnot",
+    "SettingsEnableSwipeActions_Title": "Ota pyyhkäisytoiminnot käyttöön",
     "SettingsSwipeActionLeft": "Pyyhkäisy vasemmalle",
     "SettingsSwipeActionRight": "Pyyhkäisy oikealle",
     "SettingsSwipeActions_Description": "Valitse toiminnot, jotka suoritetaan, kun pyyhkäiset sähköposteja.",

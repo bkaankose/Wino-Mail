@@ -811,6 +811,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
             propertyName == nameof(IPreferencesService.IsShowPreviewEnabled) ||
             propertyName == nameof(IPreferencesService.IsShowSenderPicturesEnabled) ||
             propertyName == nameof(IPreferencesService.Prefer24HourTimeFormat) ||
+            propertyName == nameof(IPreferencesService.IsSwipeActionsEnabled) ||
             propertyName == nameof(IPreferencesService.IsHoverActionsEnabled) ||
             propertyName == nameof(IPreferencesService.LeftHoverAction) ||
             propertyName == nameof(IPreferencesService.CenterHoverAction) ||
@@ -823,8 +824,17 @@ public sealed partial class MailListPage : MailListPageAbstract,
     private void RefreshMailItemTemplates()
     {
         var templateSelector = MailListView.ItemTemplateSelector;
+        var itemContainerStyleSelector = MailListView.ItemContainerStyleSelector;
+
+        if (itemContainerStyleSelector is WinoMailItemContainerStyleSelector mailItemContainerStyleSelector)
+        {
+            mailItemContainerStyleSelector.IsSwipeActionsEnabled = ViewModel.PreferencesService.IsSwipeActionsEnabled;
+        }
+
         MailListView.ItemTemplateSelector = null;
+        MailListView.ItemContainerStyleSelector = null;
         MailListView.ItemTemplateSelector = templateSelector;
+        MailListView.ItemContainerStyleSelector = itemContainerStyleSelector;
     }
 
     private async void WinoListViewProcessKeyboardAccelerators(UIElement sender, ProcessKeyboardAcceleratorEventArgs args)

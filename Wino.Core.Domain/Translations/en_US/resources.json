@@ -906,6 +906,7 @@
     "SettingsHoverActionRight": "Right Action",
     "SettingsHoverActions_Description": "Select 3 actions to show up when you hover over the mails with cursor.",
     "SettingsHoverActions_Title": "Hover Actions",
+    "SettingsEnableSwipeActions_Title": "Enable swipe actions",
     "SettingsSwipeActionLeft": "Left Swipe",
     "SettingsSwipeActionRight": "Right Swipe",
     "SettingsSwipeActions_Description": "Select actions to run when you swipe mail items.",

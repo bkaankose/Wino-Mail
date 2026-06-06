@@ -906,6 +906,7 @@
     "SettingsHoverActionRight": "右侧动作",
     "SettingsHoverActions_Description": "选择 3 个动作，当你用鼠标悬停在邮件上时显示。",
     "SettingsHoverActions_Title": "悬停动作",
+    "SettingsEnableSwipeActions_Title": "启用滑动操作",
     "SettingsSwipeActionLeft": "左滑",
     "SettingsSwipeActionRight": "右滑",
     "SettingsSwipeActions_Description": "选择滑动邮件项时要执行的操作。",

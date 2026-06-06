@@ -906,6 +906,7 @@
     "SettingsHoverActionRight": "Akcja z prawej",
     "SettingsHoverActions_Description": "Wybierz 3 akcje, które pojawią się, kiedy najedziesz kursorem na wiadomość.",
     "SettingsHoverActions_Title": "Akcje po najechaniu kursorem",
+    "SettingsEnableSwipeActions_Title": "Włącz akcje przesuwania",
     "SettingsSwipeActionLeft": "Przesuń w lewo",
     "SettingsSwipeActionRight": "Przesuń w prawo",
     "SettingsSwipeActions_Description": "Wybierz akcje do wykonania po przesunięciu wiadomości.",

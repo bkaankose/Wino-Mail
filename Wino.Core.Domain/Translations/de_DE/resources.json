@@ -906,6 +906,7 @@
     "SettingsHoverActionRight": "Rechte Aktion",
     "SettingsHoverActions_Description": "Wählen Sie 3 Aktionen aus, die angezeigt werden sollen, wenn Sie mit dem Cursor über Mails hovern.",
     "SettingsHoverActions_Title": "Hover-Aktionen",
+    "SettingsEnableSwipeActions_Title": "Wischgesten aktivieren",
     "SettingsSwipeActionLeft": "Nach links wischen",
     "SettingsSwipeActionRight": "Nach rechts wischen",
     "SettingsSwipeActions_Description": "Wählen Sie Aktionen aus, die beim Wischen von Mail-Elementen ausgeführt werden sollen.",

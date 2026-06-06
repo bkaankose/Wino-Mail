@@ -906,6 +906,7 @@
     "SettingsHoverActionRight": "Acțiune Dreapta",
     "SettingsHoverActions_Description": "Selectați 3 acțiuni care să apară când treceți cu mouse-ul peste e-mailuri.",
     "SettingsHoverActions_Title": "Acțiuni de trecere cu mouse-ul",
+    "SettingsEnableSwipeActions_Title": "Activează acțiunile de glisare",
     "SettingsSwipeActionLeft": "Glisează spre stânga",
     "SettingsSwipeActionRight": "Glisează spre dreapta",
     "SettingsSwipeActions_Description": "Selectați acțiunile care se vor executa când glisați mesajele.",

@@ -906,6 +906,7 @@
     "SettingsHoverActionRight": "Højre handling",
     "SettingsHoverActions_Description": "Vælg 3 handlinger, der vises, når du holder musen over e-mails.",
     "SettingsHoverActions_Title": "Hover-handlinger",
+    "SettingsEnableSwipeActions_Title": "Aktiver swipe-handlinger",
     "SettingsSwipeActionLeft": "Stryg til venstre",
     "SettingsSwipeActionRight": "Stryg til højre",
     "SettingsSwipeActions_Description": "Vælg handlinger, der skal udføres, når du swiper e-mails.",

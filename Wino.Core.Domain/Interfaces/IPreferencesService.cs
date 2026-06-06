@@ -178,6 +178,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     MailRenderingOptions GetRenderingOptions();
 
     /// <summary>
+    /// Setting: Whether swipe actions are enabled for mail list items.
+    /// </summary>
+    bool IsSwipeActionsEnabled { get; set; }
+
+    /// <summary>
     /// Setting: Swipe mail operation when mails are swiped to right.
     /// </summary>
     MailOperation RightSwipeOperation { get; set; }

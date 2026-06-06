@@ -203,6 +203,12 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SetPropertyAndSave(nameof(MarkAsDelay), value);
     }
 
+    public bool IsSwipeActionsEnabled
+    {
+        get => _configurationService.Get(nameof(IsSwipeActionsEnabled), true);
+        set => SetPropertyAndSave(nameof(IsSwipeActionsEnabled), value);
+    }
+
     public MailOperation RightSwipeOperation
     {
         get => _configurationService.Get(nameof(RightSwipeOperation), MailOperation.MarkAsRead);

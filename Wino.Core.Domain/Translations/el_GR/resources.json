@@ -906,6 +906,7 @@
     "SettingsHoverActionRight": "Δεξιά Ενέργεια",
     "SettingsHoverActions_Description": "Επιλέξτε 3 ενέργειες για να εμφανίσετε όταν τοποθετείτε το ποντίκι πάνω από τα μηνύματα.",
     "SettingsHoverActions_Title": "Ενέργειες Αιώρησης",
+    "SettingsEnableSwipeActions_Title": "Ενεργοποίηση ενεργειών με σύρσιμο",
     "SettingsSwipeActionLeft": "Αριστερή σάρωση",
     "SettingsSwipeActionRight": "Δεξιά σάρωση",
     "SettingsSwipeActions_Description": "Επιλέξτε ενέργειες που θα εκτελούνται όταν σαρώνονται τα μηνύματα ηλεκτρονικού ταχυδρομείου.",

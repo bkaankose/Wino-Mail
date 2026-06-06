@@ -906,6 +906,7 @@
     "SettingsHoverActionRight": "Pravá akcia",
     "SettingsHoverActions_Description": "Vyberte 3 akcie, ktoré sa zobrazia, keď kurzorom prejdete na správy.",
     "SettingsHoverActions_Title": "Akcie pri prejdení myšou",
+    "SettingsEnableSwipeActions_Title": "Povoliť akcie posúvaním prsta",
     "SettingsSwipeActionLeft": "Potiahnutie vľavo",
     "SettingsSwipeActionRight": "Potiahnutie vpravo",
     "SettingsSwipeActions_Description": "Vyberte akcie, ktoré sa majú vykonať pri potiahnutí e-mailov.",

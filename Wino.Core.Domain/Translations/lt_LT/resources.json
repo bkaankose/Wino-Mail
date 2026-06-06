@@ -906,6 +906,7 @@
     "SettingsHoverActionRight": "Dešinysis veiksmas",
     "SettingsHoverActions_Description": "Pasirinkite 3 veiksmus, kurie pasirodys užvedus pelės kursorių ant laiškų.",
     "SettingsHoverActions_Title": "Veiksmai užvedus pele",
+    "SettingsEnableSwipeActions_Title": "Įjungti braukimo veiksmus",
     "SettingsSwipeActionLeft": "Braukimas į kairę",
     "SettingsSwipeActionRight": "Braukimas į dešinę",
     "SettingsSwipeActions_Description": "Pasirinkite veiksmus, kuriuos norite atlikti braukiant el. laiškus.",

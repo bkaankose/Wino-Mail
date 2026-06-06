@@ -906,6 +906,7 @@
     "SettingsHoverActionRight": "Action de droite",
     "SettingsHoverActions_Description": "Sélectionnez 3 actions à afficher lorsque vous survolez les messages avec le curseur.",
     "SettingsHoverActions_Title": "Actions de survol",
+    "SettingsEnableSwipeActions_Title": "Activer les gestes de balayage",
     "SettingsSwipeActionLeft": "Balayer vers la gauche",
     "SettingsSwipeActionRight": "Balayer vers la droite",
     "SettingsSwipeActions_Description": "Sélectionnez les actions à exécuter lorsque vous balayez les messages.",
