@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<abstract:ExchangeSettingsPageAbstract
+    x:Class="Wino.Views.ExchangeSettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <ScrollViewer>
+        <StackPanel
+            Width="480"
+            Padding="24"
+            HorizontalAlignment="Center"
+            Spacing="12">
+
+            <TextBlock
+                Style="{ThemeResource SubtitleTextBlockStyle}"
+                Text="On-premises Exchange (EWS)" />
+
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Text="Connect to an on-premises Exchange mailbox using Exchange Web Services."
+                TextWrapping="Wrap" />
+
+            <TextBox
+                Header="Display name"
+                Text="{x:Bind ViewModel.DisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+            <TextBox
+                Header="Email address"
+                Text="{x:Bind ViewModel.EmailAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+            <TextBox
+                Header="EWS URL"
+                PlaceholderText="https://mail.example.com/EWS/Exchange.asmx"
+                Text="{x:Bind ViewModel.EwsUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+            <PasswordBox
+                Header="Password"
+                Password="{x:Bind ViewModel.Password, Mode=TwoWay}" />
+
+            <TextBlock
+                Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                Text="{x:Bind ViewModel.ValidationMessage, Mode=OneWay}"
+                TextWrapping="Wrap" />
+
+            <Button
+                HorizontalAlignment="Right"
+                Command="{x:Bind ViewModel.SaveCommand}"
+                Content="Save"
+                Style="{ThemeResource AccentButtonStyle}" />
+        </StackPanel>
+    </ScrollViewer>
+</abstract:ExchangeSettingsPageAbstract>

@@ -27,7 +27,8 @@ public class ProviderService : IProviderService
             new ProviderDetail(MailProviderType.Gmail, SpecialImapProvider.None),
             new ProviderDetail(MailProviderType.IMAP4, SpecialImapProvider.iCloud),
             new ProviderDetail(MailProviderType.IMAP4, SpecialImapProvider.Yahoo),
-            new ProviderDetail(MailProviderType.IMAP4, SpecialImapProvider.None)
+            new ProviderDetail(MailProviderType.IMAP4, SpecialImapProvider.None),
+            new ProviderDetail(MailProviderType.Exchange, SpecialImapProvider.None)
         };
 
         return providerList;

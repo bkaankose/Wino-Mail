@@ -167,6 +167,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
             WinoPage.ProviderSelectionPage => typeof(ProviderSelectionPage),
             WinoPage.AccountSetupProgressPage => typeof(AccountSetupProgressPage),
             WinoPage.SpecialImapCredentialsPage => typeof(SpecialImapCredentialsPage),
+            WinoPage.ExchangeSettingsPage => typeof(ExchangeSettingsPage),
             WinoPage.CalendarPage => typeof(CalendarPage),
             WinoPage.EventDetailsPage => typeof(EventDetailsPage),
             WinoPage.CalendarEventComposePage => typeof(CalendarEventComposePage),

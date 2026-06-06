@@ -260,6 +260,13 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
                 WinoPage.ImapCalDavSettingsPage,
                 context));
         }
+        else if (SelectedProvider.Type == MailProviderType.Exchange)
+        {
+            // On-prem Exchange (EWS) — collect server + NTLM credentials, then the shared setup flow.
+            Messenger.Send(new BreadcrumbNavigationRequested(
+                SelectedProvider.Name,
+                WinoPage.ExchangeSettingsPage));
+        }
         else if (SelectedProvider.SpecialImapProvider is SpecialImapProvider.iCloud or SpecialImapProvider.Yahoo)
         {
             // Navigate to credentials page for special IMAP providers
