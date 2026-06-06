@@ -1,12 +1,15 @@
 using FluentAssertions;
+using MimeKit;
 using Moq;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Integration.Processors;
+using Wino.Core.Requests.Mail;
 using Wino.Core.Synchronizers.Exchange;
 using Xunit;
 
@@ -74,6 +77,71 @@ public sealed class ExchangeSynchronizerLiveTests
         // Per-folder DeltaToken should make the second pass a no-op (no duplicate inserts).
         context.StoredMails.Count.Should().Be(afterFirst);
         second.DownloadedMessages.Should().BeEmpty();
+    }
+
+    [Fact]
+    [Trait("Category", "Live")]
+    public async Task MarkRead_RoundTrips_ThroughServerAndDelta()
+    {
+        var credentials = ReadCredentials();
+        if (credentials is null)
+            return;
+
+        var context = CreateContext(credentials.Value);
+        var options = new MailSynchronizationOptions { AccountId = context.Account.Id, Type = MailSynchronizationType.FullFolders };
+
+        await context.Synchronizer.SynchronizeMailsAsync(options);
+        var target = context.StoredMails.Values.First();
+
+        await ExecuteMarkReadAsync(context.Synchronizer, target, isRead: false);
+        await context.Synchronizer.SynchronizeMailsAsync(options);
+        context.StoredMails[target.Id].IsRead.Should().BeFalse("server read-flag change should flow back via delta");
+
+        await ExecuteMarkReadAsync(context.Synchronizer, target, isRead: true);
+        await context.Synchronizer.SynchronizeMailsAsync(options);
+        context.StoredMails[target.Id].IsRead.Should().BeTrue();
+    }
+
+    [Fact]
+    [Trait("Category", "Live")]
+    public async Task SendDraft_SendsAndSavesToSentFolder()
+    {
+        var credentials = ReadCredentials();
+        if (credentials is null)
+            return;
+
+        var context = CreateContext(credentials.Value);
+        var options = new MailSynchronizationOptions { AccountId = context.Account.Id, Type = MailSynchronizationType.FullFolders };
+
+        await context.Synchronizer.SynchronizeMailsAsync(options);
+        var sentFolder = context.Folders.First(f => f.SpecialFolderType == SpecialFolderType.Sent);
+
+        var subject = "Exora EWS live send test " + Guid.NewGuid().ToString("N");
+        var mime = new MimeMessage();
+        mime.From.Add(MailboxAddress.Parse(credentials.Value.Email));
+        mime.To.Add(MailboxAddress.Parse(credentials.Value.Email));
+        mime.Subject = subject;
+        mime.Body = new TextPart("plain") { Text = "Exora EWS SendDraft live test." };
+
+        var preparation = new SendDraftPreparationRequest(
+            MailItem: new MailCopy { Id = Guid.NewGuid().ToString(), UniqueId = Guid.NewGuid(), AssignedFolder = sentFolder },
+            SendingAlias: null,
+            SentFolder: sentFolder,
+            DraftFolder: null,
+            AccountPreferences: new MailAccountPreferences { ShouldAppendMessagesToSentFolder = true },
+            Base64MimeMessage: mime.GetBase64MimeMessage());
+
+        var bundles = context.Synchronizer.SendDraft(new SendDraftRequest(preparation));
+        await context.Synchronizer.ExecuteNativeRequestsAsync(bundles);
+
+        await context.Synchronizer.SynchronizeMailsAsync(options);
+        context.StoredMails.Values.Should().Contain(m => m.Subject == subject, "the sent copy should land in Sent Items");
+    }
+
+    private static async Task ExecuteMarkReadAsync(ExchangeSynchronizer synchronizer, MailCopy mail, bool isRead)
+    {
+        var bundles = synchronizer.MarkRead(new BatchMarkReadRequest([new MarkReadRequest(mail, isRead)]));
+        await synchronizer.ExecuteNativeRequestsAsync(bundles);
     }
 
     private static TestContext CreateContext((string Url, string Email, string Password) credentials)
