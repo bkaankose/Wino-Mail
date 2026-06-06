@@ -399,6 +399,37 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
     public override List<IRequestBundle<EwsRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request)
         => MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(a => new MarkReadRequest(a, true))));
 
+    // Drafts stay local until sent (same as IMAP — CreateDraft is intentionally not overridden).
+    // Send serializes the composed MIME and submits it via EWS, optionally saving to Sent Items.
+    public override List<IRequestBundle<EwsRequest>> SendDraft(SendDraftRequest request)
+    {
+        var preparation = request.Request;
+
+        return Bundle(async service =>
+        {
+            var mime = preparation.Mime;
+
+            // Strip the local-draft marker so it never leaks to recipients.
+            mime.Headers.Remove(Wino.Core.Domain.Constants.WinoLocalDraftHeader);
+
+            using var stream = new MemoryStream();
+            await mime.WriteToAsync(stream).ConfigureAwait(false);
+
+            var message = new EmailMessage(service)
+            {
+                MimeContent = new Microsoft.Exchange.WebServices.Data.MimeContent("UTF-8", stream.ToArray())
+            };
+
+            var saveToSent = preparation.AccountPreferences?.ShouldAppendMessagesToSentFolder == true
+                             && preparation.SentFolder != null;
+
+            if (saveToSent)
+                await message.SendAndSaveCopy(new FolderId(preparation.SentFolder.RemoteFolderId)).ConfigureAwait(false);
+            else
+                await message.Send().ConfigureAwait(false);
+        }, request, request);
+    }
+
     #endregion
 
     protected override Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
