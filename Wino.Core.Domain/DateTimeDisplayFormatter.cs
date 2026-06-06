@@ -1,58 +1,20 @@
 using System;
 using System.Globalization;
-using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain;
 
 public static class DateTimeDisplayFormatter
 {
-    private const string TwentyFourHourTimeFormat = "HH:mm";
-    private const string TwelveHourTimeFormat = "h:mm tt";
+    public static string GetTimeFormat(CultureInfo culture = null)
+        => (culture ?? CultureInfo.CurrentCulture).DateTimeFormat.ShortTimePattern;
 
-    public static DayHeaderDisplayType GetDefaultTimeDisplayType(CultureInfo culture)
-        => UsesTwentyFourHourClock(culture)
-            ? DayHeaderDisplayType.TwentyFourHour
-            : DayHeaderDisplayType.TwelveHour;
-
-    public static bool UsesTwentyFourHourClock(CultureInfo culture)
+    public static string FormatTime(DateTime dateTime, CultureInfo culture = null)
     {
-        var timePattern = (culture ?? CultureInfo.CurrentCulture).DateTimeFormat.ShortTimePattern;
+        var displayCulture = culture ?? CultureInfo.CurrentCulture;
 
-        return ContainsTimePatternSpecifier(timePattern, 'H');
+        return dateTime.ToString(GetTimeFormat(displayCulture), displayCulture);
     }
 
-    public static string GetTimeFormat(DayHeaderDisplayType displayType)
-        => displayType switch
-        {
-            DayHeaderDisplayType.TwentyFourHour => TwentyFourHourTimeFormat,
-            DayHeaderDisplayType.TwelveHour => TwelveHourTimeFormat,
-            _ => throw new ArgumentOutOfRangeException(nameof(displayType))
-        };
-
-    public static string FormatTime(DateTime dateTime, DayHeaderDisplayType displayType, CultureInfo culture)
-        => dateTime.ToString(GetTimeFormat(displayType), culture ?? CultureInfo.CurrentCulture);
-
-    public static string FormatTime(TimeSpan timeSpan, DayHeaderDisplayType displayType, CultureInfo culture)
-        => FormatTime(DateTime.Today.Add(timeSpan), displayType, culture);
-
-    private static bool ContainsTimePatternSpecifier(string pattern, char specifier)
-    {
-        var isQuoted = false;
-
-        foreach (var character in pattern)
-        {
-            if (character == '\'')
-            {
-                isQuoted = !isQuoted;
-                continue;
-            }
-
-            if (!isQuoted && character == specifier)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    public static string FormatTime(TimeSpan timeSpan, CultureInfo culture = null)
+        => FormatTime(DateTime.Today.Add(timeSpan), culture);
 }

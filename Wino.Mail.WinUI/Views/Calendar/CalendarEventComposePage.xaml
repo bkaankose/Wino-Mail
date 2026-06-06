@@ -249,7 +249,6 @@
                     Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsAllDay), Mode=OneWay}">
                     <TimePicker
                         AutomationProperties.AutomationId="CalendarEventComposePageTimePicker"
-                        ClockIdentifier="{x:Bind ViewModel.TimePickerClockIdentifier, Mode=OneWay}"
                         Header="{x:Bind domain:Translator.CalendarEventCompose_StartTime}"
                         SelectedTime="{x:Bind ViewModel.StartTime, Mode=TwoWay}" />
 
@@ -261,7 +260,6 @@
 
                     <TimePicker
                         AutomationProperties.AutomationId="CalendarEventComposePageTimePicker2"
-                        ClockIdentifier="{x:Bind ViewModel.TimePickerClockIdentifier, Mode=OneWay}"
                         Header="{x:Bind domain:Translator.CalendarEventCompose_EndTime}"
                         SelectedTime="{x:Bind ViewModel.EndTime, Mode=TwoWay}" />
                 </StackPanel>

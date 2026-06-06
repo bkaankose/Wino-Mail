@@ -810,7 +810,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
         if (propertyName == nameof(IPreferencesService.MailItemDisplayMode) ||
             propertyName == nameof(IPreferencesService.IsShowPreviewEnabled) ||
             propertyName == nameof(IPreferencesService.IsShowSenderPicturesEnabled) ||
-            propertyName == nameof(IPreferencesService.Prefer24HourTimeFormat) ||
             propertyName == nameof(IPreferencesService.IsHoverActionsEnabled) ||
             propertyName == nameof(IPreferencesService.LeftHoverAction) ||
             propertyName == nameof(IPreferencesService.CenterHoverAction) ||

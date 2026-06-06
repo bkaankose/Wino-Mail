@@ -25,7 +25,7 @@ public static class CalendarXamlHelpers
         var start = calendarItemViewModel.Period.Start;
         var end = calendarItemViewModel.Period.End;
 
-        var timeFormat = DateTimeDisplayFormatter.GetTimeFormat(settings.DayHeaderDisplayType);
+        var timeFormat = DateTimeDisplayFormatter.GetTimeFormat(settings.CultureInfo);
         var dateFormat = $"dddd, dd MMMM {timeFormat}";
 
         if (calendarItemViewModel.IsMultiDayEvent)

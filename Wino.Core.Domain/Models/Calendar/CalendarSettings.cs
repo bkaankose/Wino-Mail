@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
-using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Models.Calendar;
 
@@ -13,7 +12,6 @@ public record CalendarSettings(DayOfWeek FirstDayOfWeek,
                                TimeSpan WorkingHourStart,
                                TimeSpan WorkingHourEnd,
                                double HourHeight,
-                               DayHeaderDisplayType DayHeaderDisplayType,
                                CultureInfo CultureInfo,
                                string TimedDayHeaderDateFormat = "ddd dd")
 {
@@ -59,7 +57,7 @@ public record CalendarSettings(DayOfWeek FirstDayOfWeek,
         // Here we don't need to be flexible cuz we're saving back the value to the combos.
         // They are populated based on the format and must be returned with the format.
 
-        return DateTimeDisplayFormatter.FormatTime(timeSpan, DayHeaderDisplayType, CultureInfo);
+        return DateTimeDisplayFormatter.FormatTime(timeSpan, CultureInfo);
     }
 
     public string GetTimedDayHeaderText(DateOnly date)
@@ -83,13 +81,8 @@ public record CalendarSettings(DayOfWeek FirstDayOfWeek,
             throw new ArgumentOutOfRangeException(nameof(hour));
         }
 
-        if (DayHeaderDisplayType == DayHeaderDisplayType.TwentyFourHour)
-        {
-            return hour.ToString(CultureInfo);
-        }
-
         var displayHour = hour % 24;
         var dateTime = DateTime.Today.AddHours(displayHour);
-        return dateTime.ToString("h tt", CultureInfo);
+        return DateTimeDisplayFormatter.FormatTime(dateTime, CultureInfo);
     }
 }

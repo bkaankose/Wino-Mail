@@ -209,18 +209,14 @@ public static class XamlHelpers
     public static string GetDraftTagText() => $"[{Translator.Draft}]";
     public static string GetMailItemSubjectForListing(string? subject) => string.IsNullOrWhiteSpace(subject) ? $"({Translator.MailItemNoSubject})" : subject;
     public static string GetMailItemDisplaySummaryForListing(bool isDraft, DateTime receivedDate)
-        => GetMailItemDisplaySummaryForListing(isDraft, receivedDate, PreferencesService?.Prefer24HourTimeFormat ?? false);
-
-    public static string GetMailItemDisplaySummaryForListing(bool isDraft, DateTime receivedDate, bool prefer24HourTime)
     {
         if (isDraft)
             return Translator.Draft;
         else
         {
             var localTime = receivedDate.ToLocalTime();
-            var displayType = GetDisplayType(prefer24HourTime);
 
-            return DateTimeDisplayFormatter.FormatTime(localTime, displayType, AppDisplayCulture);
+            return DateTimeDisplayFormatter.FormatTime(localTime, AppDisplayCulture);
         }
     }
 
@@ -230,15 +226,11 @@ public static class XamlHelpers
     public static Visibility GetMailItemSenderPictureVisibility()
         => BoolToVisibilityConverter(PreferencesService?.IsShowSenderPicturesEnabled ?? true);
 
-    public static string GetCreationDateString(DateTime date, bool prefer24HourTime)
+    public static string GetCreationDateString(DateTime date)
     {
         var localTime = date.ToLocalTime();
-        var displayType = GetDisplayType(prefer24HourTime);
-        return $"{localTime.ToString("D", AppDisplayCulture)} {DateTimeDisplayFormatter.FormatTime(localTime, displayType, AppDisplayCulture)}";
+        return $"{localTime.ToString("D", AppDisplayCulture)} {DateTimeDisplayFormatter.FormatTime(localTime, AppDisplayCulture)}";
     }
-
-    private static DayHeaderDisplayType GetDisplayType(bool prefer24HourTime)
-        => prefer24HourTime ? DayHeaderDisplayType.TwentyFourHour : DayHeaderDisplayType.TwelveHour;
     public static string GetMailGroupDateString(object groupObject)
     {
         if (groupObject is MailListGroupKey pinnedGroupKey)

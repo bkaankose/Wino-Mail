@@ -31,11 +31,6 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsNavigationPaneOpened { get; set; }
 
     /// <summary>
-    /// Setting: Preferred time format for mail or calendar header display.
-    /// </summary>
-    bool Prefer24HourTimeFormat { get; set; }
-
-    /// <summary>
     /// Diagnostic ID for the application.
     /// Changes per-install.
     /// </summary>

@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Calendar.ViewModels;
@@ -12,9 +13,6 @@ public partial class CalendarRenderingSettingsPageViewModel : CalendarSettingsSe
 
     [ObservableProperty]
     public partial int SelectedFirstDayOfWeekIndex { get; set; }
-
-    [ObservableProperty]
-    public partial bool Is24HourHeaders { get; set; }
 
     [ObservableProperty]
     public partial bool IsWorkingHoursEnabled { get; set; }
@@ -44,7 +42,6 @@ public partial class CalendarRenderingSettingsPageViewModel : CalendarSettingsSe
         : base(preferencesService, calendarService, accountService)
     {
         SelectedFirstDayOfWeekIndex = DayNames.IndexOf(CalendarCulture.DateTimeFormat.GetDayName(preferencesService.FirstDayOfWeek));
-        Is24HourHeaders = preferencesService.Prefer24HourTimeFormat;
         IsWorkingHoursEnabled = preferencesService.IsWorkingHoursEnabled;
         WorkingHourStart = preferencesService.WorkingHourStart;
         WorkingHourEnd = preferencesService.WorkingHourEnd;
@@ -58,12 +55,6 @@ public partial class CalendarRenderingSettingsPageViewModel : CalendarSettingsSe
     }
 
     partial void OnCellHourHeightChanged(double oldValue, double newValue) => SaveSettings();
-
-    partial void OnIs24HourHeadersChanged(bool value)
-    {
-        OnPropertyChanged(nameof(TimedHourLabelPreview));
-        SaveSettings();
-    }
 
     partial void OnSelectedFirstDayOfWeekIndexChanged(int value) => SaveSettings();
     partial void OnIsWorkingHoursEnabledChanged(bool value) => SaveSettings();
@@ -133,11 +124,8 @@ public partial class CalendarRenderingSettingsPageViewModel : CalendarSettingsSe
 
     private string CurrentSettingsPreviewLabel(int hour)
     {
-        if (Is24HourHeaders)
-            return hour.ToString(CalendarCulture);
-
         var displayHour = hour % 24;
-        return DateTime.Today.AddHours(displayHour).ToString("h tt", CalendarCulture);
+        return DateTimeDisplayFormatter.FormatTime(DateTime.Today.AddHours(displayHour), CalendarCulture);
     }
 
     private void SaveSettings()
@@ -181,7 +169,6 @@ public partial class CalendarRenderingSettingsPageViewModel : CalendarSettingsSe
             _ => throw new ArgumentOutOfRangeException()
         };
 
-        PreferencesService.Prefer24HourTimeFormat = Is24HourHeaders;
         PreferencesService.IsWorkingHoursEnabled = IsWorkingHoursEnabled;
         PreferencesService.WorkingHourStart = WorkingHourStart;
         PreferencesService.WorkingHourEnd = WorkingHourEnd;

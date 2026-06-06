@@ -37,8 +37,8 @@ public static class CalendarRecurrenceSummaryFormatter
             : string.Format(
                 culture,
                 Translator.CalendarEventCompose_TimeRangeSummary,
-                DateTimeDisplayFormatter.FormatTime(effectiveStart.DateTime, settings?.DayHeaderDisplayType ?? DateTimeDisplayFormatter.GetDefaultTimeDisplayType(culture), culture),
-                DateTimeDisplayFormatter.FormatTime(effectiveEnd.DateTime, settings?.DayHeaderDisplayType ?? DateTimeDisplayFormatter.GetDefaultTimeDisplayType(culture), culture));
+                DateTimeDisplayFormatter.FormatTime(effectiveStart.DateTime, culture),
+                DateTimeDisplayFormatter.FormatTime(effectiveEnd.DateTime, culture));
 
         if (!isRecurring)
         {

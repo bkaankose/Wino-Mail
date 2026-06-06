@@ -185,12 +185,6 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SetPropertyAndSave(nameof(RenderImages), value);
     }
 
-    public bool Prefer24HourTimeFormat
-    {
-        get => _configurationService.Get(nameof(Prefer24HourTimeFormat), DateTimeDisplayFormatter.UsesTwentyFourHourClock(GetCurrentLanguageCulture()));
-        set => SetPropertyAndSave(nameof(Prefer24HourTimeFormat), value);
-    }
-
     public MailMarkAsOption MarkAsPreference
     {
         get => _configurationService.Get(nameof(MarkAsPreference), MailMarkAsOption.WhenSelected);
@@ -513,7 +507,6 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
                                     WorkingHourStart,
                                     WorkingHourEnd,
                                     HourHeight,
-                                    Prefer24HourTimeFormat ? DayHeaderDisplayType.TwentyFourHour : DayHeaderDisplayType.TwelveHour,
                                     GetCurrentLanguageCulture(),
                                     CalendarTimedDayHeaderDateFormat);
     }

@@ -100,7 +100,6 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
     public partial CalendarEventComposeResult LastCreatedResult { get; set; }
 
     public CalendarSettings CurrentSettings { get; }
-    public string TimePickerClockIdentifier => CurrentSettings.DayHeaderDisplayType == DayHeaderDisplayType.TwentyFourHour ? "24HourClock" : "12HourClock";
     public bool HasAttachments => Attachments.Count > 0;
     public bool IsSelectedCalendarCalDav => SelectedCalendar?.Account?.ProviderType == MailProviderType.IMAP4 &&
                                             SelectedCalendar.Account.ServerInformation?.CalendarSupportMode == ImapCalendarSupportMode.CalDav;

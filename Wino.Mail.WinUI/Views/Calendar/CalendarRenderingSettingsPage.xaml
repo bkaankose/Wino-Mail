@@ -163,23 +163,6 @@
 
                     <controls:SettingsCard
 
-                        AutomationProperties.AutomationId="CalendarRenderingSettingsPageSettingsCard4" Description="{x:Bind domain:Translator.CalendarSettings_ClockIdentifierForHeaders_Description, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarSettings_ClockIdentifierForHeaders_Header, Mode=OneTime}">
-                        <StackPanel Spacing="8">
-                            <ToggleSwitch
-                                AutomationProperties.AutomationId="CalendarRenderingSettingsPageToggleSwitch2"
-                                HorizontalAlignment="Right"
-                                IsOn="{x:Bind ViewModel.Is24HourHeaders, Mode=TwoWay}"
-                                OffContent="12h"
-                                OnContent="24h" />
-                            <TextBlock
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Text="{x:Bind ViewModel.TimedHourLabelPreview, Mode=OneWay}"
-                                TextWrapping="WrapWholeWords" />
-                        </StackPanel>
-                    </controls:SettingsCard>
-
-                    <controls:SettingsCard
-
                         AutomationProperties.AutomationId="CalendarRenderingSettingsPageSettingsCard5" Description="{x:Bind domain:Translator.CalendarSettings_TimedDayHeaderFormat_Description, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarSettings_TimedDayHeaderFormat_Header, Mode=OneTime}">
                         <StackPanel Spacing="8">
                             <TextBox
@@ -197,20 +180,5 @@
                 </controls:SettingsExpander.Items>
             </controls:SettingsExpander>
         </StackPanel>
-
-        <VisualStateManager.VisualStateGroups>
-            <VisualStateGroup x:Name="ClockIdentifierStates">
-                <VisualState x:Name="TwelveHour" />
-                <VisualState x:Name="TwentyFourHour">
-                    <VisualState.StateTriggers>
-                        <StateTrigger IsActive="{x:Bind ViewModel.Is24HourHeaders, Mode=OneWay}" />
-                    </VisualState.StateTriggers>
-                    <VisualState.Setters>
-                        <Setter Target="WorkHourStartPicker.ClockIdentifier" Value="24HourClock" />
-                        <Setter Target="WorkHourEndPicker.ClockIdentifier" Value="24HourClock" />
-                    </VisualState.Setters>
-                </VisualState>
-            </VisualStateGroup>
-        </VisualStateManager.VisualStateGroups>
     </ScrollViewer>
 </abstract:CalendarRenderingSettingsPageAbstract>

@@ -2,11 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Mail.WinUI;
 
 namespace Wino.Mail.WinUI.Helpers;
 
@@ -74,11 +71,7 @@ public static class MailAccessibilityHelper
     private static string GetDateTimeText(DateTime dateTime)
     {
         var culture = CultureInfo.DefaultThreadCurrentUICulture ?? CultureInfo.CurrentUICulture;
-        var preferencesService = WinoApplication.Current.Services.GetRequiredService<IPreferencesService>();
-        var displayType = preferencesService.Prefer24HourTimeFormat
-            ? DayHeaderDisplayType.TwentyFourHour
-            : DayHeaderDisplayType.TwelveHour;
 
-        return $"{dateTime.ToString("d", culture)} {DateTimeDisplayFormatter.FormatTime(dateTime, displayType, culture)}";
+        return $"{dateTime.ToString("d", culture)} {DateTimeDisplayFormatter.FormatTime(dateTime, culture)}";
     }
 }

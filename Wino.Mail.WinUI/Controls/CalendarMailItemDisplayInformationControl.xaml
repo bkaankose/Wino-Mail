@@ -19,7 +19,6 @@
             DisplayMode="{x:Bind DisplayMode, Mode=OneWay}"
             HoverActionExecuted="BaseMailControlHoverActionExecuted"
             MailItemInformation="{x:Bind MailItem, Mode=OneWay}"
-            Prefer24HourTimeFormat="{x:Bind Prefer24HourTimeFormat, Mode=OneWay}"
             ShowPreviewText="False" />
 
         <Grid

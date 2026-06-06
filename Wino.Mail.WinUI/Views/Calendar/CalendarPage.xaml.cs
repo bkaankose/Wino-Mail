@@ -145,7 +145,7 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
             return dateTime.ToString("g");
         }
 
-        return $"{dateTime.ToString("d", settings.CultureInfo)} {DateTimeDisplayFormatter.FormatTime(dateTime, settings.DayHeaderDisplayType, settings.CultureInfo)}";
+        return $"{dateTime.ToString("d", settings.CultureInfo)} {DateTimeDisplayFormatter.FormatTime(dateTime, settings.CultureInfo)}";
     }
 
     public async Task OnTitleBarSearchSubmittedAsync(string queryText, TitleBarSearchSuggestion? chosenSuggestion)

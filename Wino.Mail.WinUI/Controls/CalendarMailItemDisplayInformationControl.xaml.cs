@@ -21,7 +21,7 @@ namespace Wino.Controls;
 
 public sealed partial class CalendarMailItemDisplayInformationControl : UserControl
 {
-    private static readonly ConcurrentDictionary<(Guid FileId, string CultureName, bool Prefer24HourTimeFormat), string> EventDateRangeCache = [];
+    private static readonly ConcurrentDictionary<(Guid FileId, string CultureName), string> EventDateRangeCache = [];
 
     private readonly IMimeFileService _mimeFileService;
     private readonly IPreferencesService _preferencesService;
@@ -32,9 +32,6 @@ public sealed partial class CalendarMailItemDisplayInformationControl : UserCont
 
     [GeneratedDependencyProperty(DefaultValue = MailListDisplayMode.Spacious)]
     public partial MailListDisplayMode DisplayMode { get; set; }
-
-    [GeneratedDependencyProperty(DefaultValue = false)]
-    public partial bool Prefer24HourTimeFormat { get; set; }
 
     [GeneratedDependencyProperty(DefaultValue = "")]
     public partial string EventDateRangeText { get; set; }
@@ -49,7 +46,6 @@ public sealed partial class CalendarMailItemDisplayInformationControl : UserCont
         _preferencesService = App.Current.Services.GetRequiredService<IPreferencesService>();
 
         DisplayMode = _preferencesService.MailItemDisplayMode;
-        Prefer24HourTimeFormat = _preferencesService.Prefer24HourTimeFormat;
 
         Unloaded += OnControlUnloaded;
     }
@@ -72,7 +68,7 @@ public sealed partial class CalendarMailItemDisplayInformationControl : UserCont
             return;
         }
 
-        var cacheKey = (MailItem.MailCopy.FileId, GetDisplayCulture().Name, Prefer24HourTimeFormat);
+        var cacheKey = (MailItem.MailCopy.FileId, GetDisplayCulture().Name);
         if (EventDateRangeCache.TryGetValue(cacheKey, out var cachedValue))
         {
             EventDateRangeText = cachedValue;
@@ -365,8 +361,7 @@ public sealed partial class CalendarMailItemDisplayInformationControl : UserCont
             return $"{startLocal.ToString("d", culture)} ({Translator.CalendarItemAllDay})";
         }
 
-        var displayType = Prefer24HourTimeFormat ? DayHeaderDisplayType.TwentyFourHour : DayHeaderDisplayType.TwelveHour;
-        var timeFormat = DateTimeDisplayFormatter.GetTimeFormat(displayType);
+        var timeFormat = DateTimeDisplayFormatter.GetTimeFormat(culture);
 
         if (startLocal.Date == endLocal.Date)
         {

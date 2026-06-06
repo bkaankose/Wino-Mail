@@ -179,7 +179,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             : string.IsNullOrWhiteSpace(ViewModel.FromAddress)
                 ? ViewModel.FromName
                 : $"{ViewModel.FromName} <{ViewModel.FromAddress}>";
-        var creationDate = XamlHelpers.GetCreationDateString(ViewModel.CreationDate, _preferencesService.Prefer24HourTimeFormat);
+        var creationDate = XamlHelpers.GetCreationDateString(ViewModel.CreationDate);
         var accessibleText = ViewModel.CurrentRenderModel?.AccessibleText ?? string.Empty;
 
         await Chromium.ExecuteScriptFunctionAsync("SetAccessibleMailContext",
