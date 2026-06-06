@@ -155,8 +155,11 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
     {
         var specialMap = await BuildSpecialFolderMapAsync(service).ConfigureAwait(false);
 
-        var view = new FolderView(500) { Traversal = FolderTraversal.Deep };
-        view.PropertySet = new PropertySet(BasePropertySet.IdOnly, FolderSchema.DisplayName, FolderSchema.FolderClass, FolderSchema.ParentFolderId);
+        var view = new FolderView(500)
+        {
+            Traversal = FolderTraversal.Deep,
+            PropertySet = new PropertySet(BasePropertySet.IdOnly, FolderSchema.DisplayName, FolderSchema.FolderClass, FolderSchema.ParentFolderId)
+        };
 
         var remoteFolders = new List<Folder>();
         FindFoldersResults page;
@@ -494,8 +497,10 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
                 CaptureSynchronizationIssue(errorContext);
                 _logger.Error(ex, "Exchange request execution failed for {Account}.", Account.Name);
 
-                // Roll back the optimistic local change for the failed operation.
-                bundle.Request?.RevertUIChanges();
+                // Roll back the optimistic local changes for the failed batch. Reverts the
+                // whole batch (UIChangeRequest), mirroring ApplyOptimisticUiChanges above and
+                // the other synchronizers — reverting only bundle.Request would miss items 2..N.
+                bundle.UIChangeRequest?.RevertUIChanges();
             }
         }
     }
