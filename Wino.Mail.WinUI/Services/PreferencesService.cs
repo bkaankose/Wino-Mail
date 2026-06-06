@@ -296,25 +296,25 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
     public string ReaderFont
     {
         get => _configurationService.Get(nameof(ReaderFont), "Calibri");
-        set => SaveProperty(propertyName: nameof(ReaderFont), value);
+        set => SetPropertyAndSave(nameof(ReaderFont), value);
     }
 
     public int ReaderFontSize
     {
         get => _configurationService.Get(nameof(ReaderFontSize), 14);
-        set => SaveProperty(propertyName: nameof(ReaderFontSize), value);
+        set => SetPropertyAndSave(nameof(ReaderFontSize), value);
     }
 
     public string ComposerFont
     {
         get => _configurationService.Get(nameof(ComposerFont), "Calibri");
-        set => SaveProperty(propertyName: nameof(ComposerFont), value);
+        set => SetPropertyAndSave(nameof(ComposerFont), value);
     }
 
     public int ComposerFontSize
     {
         get => _configurationService.Get(nameof(ComposerFontSize), 14);
-        set => SaveProperty(propertyName: nameof(ComposerFontSize), value);
+        set => SetPropertyAndSave(nameof(ComposerFontSize), value);
     }
 
     public bool IsNavigationPaneOpened

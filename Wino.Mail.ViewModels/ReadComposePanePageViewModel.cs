@@ -1,14 +1,10 @@
 ﻿using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Messaging;
-using CommunityToolkit.Mvvm.Messaging.Messages;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Mail.ViewModels;
 
-public partial class ReadComposePanePageViewModel : MailBaseViewModel,
-    IRecipient<PropertyChangedMessage<string>>,
-    IRecipient<PropertyChangedMessage<int>>
+public partial class ReadComposePanePageViewModel : MailBaseViewModel
 {
     private readonly IFontService _fontService;
 
@@ -45,28 +41,35 @@ public partial class ReadComposePanePageViewModel : MailBaseViewModel,
         CurrentComposerFontSize = preferencesService.ComposerFontSize;
     }
 
-    public void Receive(PropertyChangedMessage<string> message)
+    partial void OnCurrentReaderFontChanged(string value)
     {
-        if (message.PropertyName == nameof(CurrentReaderFont) && message.OldValue != message.NewValue)
+        if (PreferencesService.ReaderFont != value)
         {
-            PreferencesService.ReaderFont = message.NewValue;
-        }
-
-        if (message.PropertyName == nameof(CurrentComposerFont) && message.OldValue != message.NewValue)
-        {
-            PreferencesService.ComposerFont = message.NewValue;
+            PreferencesService.ReaderFont = value;
         }
     }
 
-    public void Receive(PropertyChangedMessage<int> message)
+    partial void OnCurrentReaderFontSizeChanged(int value)
     {
-        if (message.PropertyName == nameof(CurrentReaderFontSize))
+        if (PreferencesService.ReaderFontSize != value)
         {
-            PreferencesService.ReaderFontSize = CurrentReaderFontSize;
+            PreferencesService.ReaderFontSize = value;
         }
-        else if (message.PropertyName == nameof(CurrentComposerFontSize))
+    }
+
+    partial void OnCurrentComposerFontChanged(string value)
+    {
+        if (PreferencesService.ComposerFont != value)
         {
-            PreferencesService.ComposerFontSize = CurrentComposerFontSize;
+            PreferencesService.ComposerFont = value;
+        }
+    }
+
+    partial void OnCurrentComposerFontSizeChanged(int value)
+    {
+        if (PreferencesService.ComposerFontSize != value)
+        {
+            PreferencesService.ComposerFontSize = value;
         }
     }
 }
