@@ -119,7 +119,28 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         foreach (var folder in foldersToSync)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            downloaded.AddRange(await SynchronizeFolderItemsAsync(service, folder, cancellationToken).ConfigureAwait(false));
+            try
+            {
+                downloaded.AddRange(await SynchronizeFolderItemsAsync(service, folder, cancellationToken).ConfigureAwait(false));
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                var errorContext = new SynchronizerErrorContext
+                {
+                    Account = Account,
+                    ErrorMessage = ex.Message,
+                    Exception = ex,
+                    OperationType = "ExchangeFolderSync"
+                };
+
+                await _errorHandlerFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
+                CaptureSynchronizationIssue(errorContext);
+                _logger.Error(ex, "Exchange folder sync failed for {Folder} ({Account}).", folder.FolderName, Account.Name);
+            }
         }
 
         return MailSynchronizationResult.Completed(downloaded);
@@ -451,7 +472,31 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         foreach (var bundle in batchedRequests)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await bundle.NativeRequest.IntegratorTask(service, bundle.NativeRequest.Request).ConfigureAwait(false);
+            try
+            {
+                await bundle.NativeRequest.IntegratorTask(service, bundle.NativeRequest.Request).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                var errorContext = new SynchronizerErrorContext
+                {
+                    Account = Account,
+                    ErrorMessage = ex.Message,
+                    Exception = ex,
+                    OperationType = "ExchangeExecuteRequest"
+                };
+
+                await _errorHandlerFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
+                CaptureSynchronizationIssue(errorContext);
+                _logger.Error(ex, "Exchange request execution failed for {Account}.", Account.Name);
+
+                // Roll back the optimistic local change for the failed operation.
+                bundle.Request?.RevertUIChanges();
+            }
         }
     }
 }

@@ -1,13 +1,22 @@
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Synchronizers.Errors;
+using Wino.Core.Synchronizers.Errors.Exchange;
 
 namespace Wino.Core.Services;
 
 /// <summary>
 /// Factory for handling on-premises Exchange (EWS) synchronizer errors.
-/// No handlers are registered yet; Phase 1 adds auth-failed, throttling (429 /
-/// ServerBusyException), and not-found handlers following the IMAP/Outlook pattern.
+/// More specific handlers are registered first.
 /// </summary>
 public class ExchangeSynchronizerErrorHandlingFactory : SynchronizerErrorHandlingFactory, IExchangeSynchronizerErrorHandlerFactory
 {
+    public ExchangeSynchronizerErrorHandlingFactory(
+        ExchangeAuthenticationFailedHandler authenticationFailedHandler,
+        ExchangeServerBusyHandler serverBusyHandler,
+        EntityNotFoundHandler entityNotFoundHandler)
+    {
+        RegisterHandler(authenticationFailedHandler);
+        RegisterHandler(serverBusyHandler);
+        RegisterHandler(entityNotFoundHandler); // most generic, registered last
+    }
 }

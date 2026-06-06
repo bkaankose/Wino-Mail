@@ -7,6 +7,7 @@ using Wino.Core.Services;
 using Wino.Core.Synchronizers.Errors;
 using Wino.Core.Synchronizers.Errors.Gmail;
 using Wino.Core.Synchronizers.Errors.Imap;
+using Wino.Core.Synchronizers.Errors.Exchange;
 using Wino.Core.Synchronizers.Errors.Outlook;
 using Wino.Core.Synchronizers.Exchange;
 using Wino.Core.Synchronizers.ImapSync;
@@ -53,6 +54,10 @@ public static class CoreContainerSetup
         services.AddTransient<GmailHistoryExpiredHandler>();
         // Register shared error handlers
         services.AddTransient<EntityNotFoundHandler>();
+
+        // Register Exchange error handlers
+        services.AddTransient<ExchangeAuthenticationFailedHandler>();
+        services.AddTransient<ExchangeServerBusyHandler>();
 
         // Register IMAP error handlers
         services.AddTransient<ImapConnectionLostHandler>();
