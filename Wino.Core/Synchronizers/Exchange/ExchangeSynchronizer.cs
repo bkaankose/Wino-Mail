@@ -104,40 +104,126 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
     {
         var service = await CreateServiceAsync().ConfigureAwait(false);
 
-        // Vertical slice: ensure the Inbox exists locally, then delta-sync its items.
-        var inboxFolder = await EnsureInboxFolderAsync(service, cancellationToken).ConfigureAwait(false);
-        var downloaded = await SynchronizeFolderItemsAsync(service, inboxFolder, cancellationToken).ConfigureAwait(false);
+        // 1) Reconcile the folder tree, then 2) delta-sync items per synchronizable folder.
+        await SynchronizeFoldersAsync(service, cancellationToken).ConfigureAwait(false);
+
+        var localFolders = await _exchangeChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
+        var foldersToSync = localFolders
+            .Where(f => f.IsSynchronizationEnabled && !string.IsNullOrEmpty(f.RemoteFolderId))
+            .ToList();
+        // TODO(Phase 1): honor options.Type / SynchronizationFolderIds for targeted sync.
+
+        var downloaded = new List<MailCopy>();
+        foreach (var folder in foldersToSync)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            downloaded.AddRange(await SynchronizeFolderItemsAsync(service, folder, cancellationToken).ConfigureAwait(false));
+        }
 
         return MailSynchronizationResult.Completed(downloaded);
     }
 
-    private async Task<MailItemFolder> EnsureInboxFolderAsync(ExchangeService service, CancellationToken cancellationToken)
+    /// <summary>
+    /// Reconciles the remote mail folder hierarchy into local MailItemFolders:
+    /// inserts new folders, updates renamed/moved ones, and deletes folders no longer
+    /// present remotely. Special-folder types are detected by binding well-known folders.
+    /// </summary>
+    private async Task SynchronizeFoldersAsync(ExchangeService service, CancellationToken cancellationToken)
     {
-        var localFolders = await _exchangeChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
-        var inbox = localFolders.FirstOrDefault(f => f.SpecialFolderType == SpecialFolderType.Inbox);
+        var specialMap = await BuildSpecialFolderMapAsync(service).ConfigureAwait(false);
 
-        if (inbox != null)
-            return inbox;
+        var view = new FolderView(500) { Traversal = FolderTraversal.Deep };
+        view.PropertySet = new PropertySet(BasePropertySet.IdOnly, FolderSchema.DisplayName, FolderSchema.FolderClass, FolderSchema.ParentFolderId);
 
-        var ewsInbox = await Folder.Bind(service, WellKnownFolderName.Inbox,
-            new PropertySet(BasePropertySet.IdOnly, FolderSchema.DisplayName)).ConfigureAwait(false);
-
-        inbox = new MailItemFolder
+        var remoteFolders = new List<Folder>();
+        FindFoldersResults page;
+        do
         {
-            Id = Guid.NewGuid(),
-            MailAccountId = Account.Id,
-            RemoteFolderId = ewsInbox.Id.UniqueId,
-            FolderName = ewsInbox.DisplayName,
-            SpecialFolderType = SpecialFolderType.Inbox,
-            IsSystemFolder = true,
-            IsSticky = true,
-            IsSynchronizationEnabled = true,
-            ShowUnreadCount = true,
+            cancellationToken.ThrowIfCancellationRequested();
+            page = await service.FindFolders(WellKnownFolderName.MsgFolderRoot, view).ConfigureAwait(false);
+            remoteFolders.AddRange(page.Folders.Where(IsMailFolder));
+            if (page.NextPageOffset.HasValue)
+                view.Offset = page.NextPageOffset.Value;
+        }
+        while (page.MoreAvailable);
+
+        var localFolders = await _exchangeChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
+        var localByRemoteId = localFolders
+            .Where(f => !string.IsNullOrEmpty(f.RemoteFolderId))
+            .GroupBy(f => f.RemoteFolderId)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        foreach (var remote in remoteFolders)
+        {
+            var remoteId = remote.Id.UniqueId;
+            specialMap.TryGetValue(remoteId, out var specialType);
+
+            if (localByRemoteId.TryGetValue(remoteId, out var existing))
+            {
+                existing.FolderName = remote.DisplayName;
+                existing.ParentRemoteFolderId = remote.ParentFolderId?.UniqueId;
+                existing.SpecialFolderType = specialType;
+                await _exchangeChangeProcessor.UpdateFolderAsync(existing).ConfigureAwait(false);
+            }
+            else
+            {
+                await _exchangeChangeProcessor.InsertFolderAsync(new MailItemFolder
+                {
+                    Id = Guid.NewGuid(),
+                    MailAccountId = Account.Id,
+                    RemoteFolderId = remoteId,
+                    ParentRemoteFolderId = remote.ParentFolderId?.UniqueId,
+                    FolderName = remote.DisplayName,
+                    SpecialFolderType = specialType,
+                    IsSticky = specialType != SpecialFolderType.Other,
+                    IsSystemFolder = specialType != SpecialFolderType.Other,
+                    IsSynchronizationEnabled = true,
+                    ShowUnreadCount = specialType != SpecialFolderType.Deleted,
+                }).ConfigureAwait(false);
+            }
+        }
+
+        // Remove local folders that no longer exist remotely.
+        var remoteIds = remoteFolders.Select(f => f.Id.UniqueId).ToHashSet();
+        foreach (var local in localFolders)
+        {
+            if (!string.IsNullOrEmpty(local.RemoteFolderId) && !remoteIds.Contains(local.RemoteFolderId))
+                await _exchangeChangeProcessor.DeleteFolderAsync(Account.Id, local.RemoteFolderId).ConfigureAwait(false);
+        }
+    }
+
+    private static async Task<Dictionary<string, SpecialFolderType>> BuildSpecialFolderMapAsync(ExchangeService service)
+    {
+        var wellKnown = new (WellKnownFolderName Folder, SpecialFolderType Special)[]
+        {
+            (WellKnownFolderName.Inbox, SpecialFolderType.Inbox),
+            (WellKnownFolderName.SentItems, SpecialFolderType.Sent),
+            (WellKnownFolderName.Drafts, SpecialFolderType.Draft),
+            (WellKnownFolderName.DeletedItems, SpecialFolderType.Deleted),
+            (WellKnownFolderName.JunkEmail, SpecialFolderType.Junk),
         };
 
-        await _exchangeChangeProcessor.InsertFolderAsync(inbox).ConfigureAwait(false);
-        return inbox;
+        var map = new Dictionary<string, SpecialFolderType>();
+        foreach (var (folder, special) in wellKnown)
+        {
+            try
+            {
+                var bound = await Folder.Bind(service, folder, new PropertySet(BasePropertySet.IdOnly)).ConfigureAwait(false);
+                map[bound.Id.UniqueId] = special;
+            }
+            catch
+            {
+                // Folder may not exist on this mailbox; skip.
+            }
+        }
+
+        return map;
     }
+
+    // Mail folders carry the IPF.Note message class; skip calendar/contact/task/etc.
+    private static bool IsMailFolder(Folder folder)
+        => !string.IsNullOrEmpty(folder.FolderClass)
+           && folder.FolderClass.StartsWith("IPF.Note", StringComparison.OrdinalIgnoreCase);
 
     private async Task<List<MailCopy>> SynchronizeFolderItemsAsync(ExchangeService service, MailItemFolder folder, CancellationToken cancellationToken)
     {
