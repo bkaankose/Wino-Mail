@@ -55,7 +55,9 @@
                 BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 CornerRadius="6">
-                <controls2:WebViewEditorControl x:Name="WebViewEditor" />
+                <controls2:WebViewEditorControl
+                    x:Name="WebViewEditor"
+                    IsPasteOptionsEnabled="True" />
             </Border>
         </Grid>
     </Grid>

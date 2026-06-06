@@ -78,6 +78,9 @@ public sealed partial class WebViewEditorControl : Control, IDisposable, IEditor
         await ApplyBuiltInToolbarVisibilityAsync();
     }
 
+    [GeneratedDependencyProperty]
+    public partial bool IsPasteOptionsEnabled { get; set; }
+
     private WebView2? _chromium;
     private bool _disposedValue;
     private bool? _lastAppliedDarkTheme;
@@ -401,7 +404,8 @@ public sealed partial class WebViewEditorControl : Control, IDisposable, IEditor
             JsonSerializer.Serialize(_preferencesService.ReaderFont, BasicTypesJsonContext.Default.String),
             JsonSerializer.Serialize(_preferencesService.ReaderFontSize, BasicTypesJsonContext.Default.Int32),
             JsonSerializer.Serialize(DefaultTextColors.Select(option => option.Value).Where(value => !string.IsNullOrWhiteSpace(value)).ToList(), BasicTypesJsonContext.Default.ListString),
-            JsonSerializer.Serialize(DefaultHighlightColors.Select(option => option.Value).Where(value => !string.IsNullOrWhiteSpace(value)).ToList(), BasicTypesJsonContext.Default.ListString));
+            JsonSerializer.Serialize(DefaultHighlightColors.Select(option => option.Value).Where(value => !string.IsNullOrWhiteSpace(value)).ToList(), BasicTypesJsonContext.Default.ListString),
+            JsonSerializer.Serialize(IsPasteOptionsEnabled, BasicTypesJsonContext.Default.Boolean));
 
         UpdateCapabilities(BuildCapabilities(fonts));
         _editorReadyTask.TrySetResult(true);

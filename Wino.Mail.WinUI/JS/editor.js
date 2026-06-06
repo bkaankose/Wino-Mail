@@ -9,8 +9,6 @@ const joditConfig = {
     "showWordsCounter": false,
     "showXPathInStatusbar": false,
     "spellcheck": true,
-    "askBeforePasteHTML": false,
-    "defaultActionOnPaste": Jodit.constants.INSERT_ONLY_TEXT,
     "link": {
         "processVideoLink": false
     },
@@ -32,7 +30,7 @@ let lastKnownRange = null;
 let availableTextColors = [];
 let availableHighlightColors = [];
 
-function initializeJodit(fonts, defaultComposerFont, defaultComposerFontSize, defaultReaderFont, defaultReaderFontSize, textColors, highlightColors) {
+function initializeJodit(fonts, defaultComposerFont, defaultComposerFontSize, defaultReaderFont, defaultReaderFontSize, textColors, highlightColors, enablePasteOptions) {
     if (editor) {
         scheduleStateSync();
         return true;
@@ -48,6 +46,8 @@ function initializeJodit(fonts, defaultComposerFont, defaultComposerFontSize, de
 
     const mergedConfig = {
         ...joditConfig,
+        askBeforePasteHTML: !!enablePasteOptions,
+        defaultActionOnPaste: enablePasteOptions ? Jodit.constants.INSERT_AS_HTML : Jodit.constants.INSERT_ONLY_TEXT,
         controls: {
             font: {
                 list: Jodit.atom(fontsWithFallbackObject)
