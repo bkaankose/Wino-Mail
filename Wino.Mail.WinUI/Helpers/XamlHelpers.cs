@@ -208,6 +208,8 @@ public static class XamlHelpers
         => !string.IsNullOrWhiteSpace(accountNickname) && position == targetPosition;
     public static string GetDraftTagText() => $"[{Translator.Draft}]";
     public static string GetMailItemSubjectForListing(string? subject) => string.IsNullOrWhiteSpace(subject) ? $"({Translator.MailItemNoSubject})" : subject;
+    public static bool UsesDefaultAppLanguage24HourClock()
+        => DateTimeDisplayFormatter.UsesTwentyFourHourClock(AppDisplayCulture);
     public static string GetMailItemDisplaySummaryForListing(bool isDraft, DateTime receivedDate)
         => GetMailItemDisplaySummaryForListing(isDraft, receivedDate, PreferencesService?.Prefer24HourTimeFormat ?? false);
 

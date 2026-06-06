@@ -239,7 +239,7 @@
                             Grid.Column="1"
                             Opacity="0.7"
                             Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate), Mode=OneWay}" />
+                            Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate, helpers:XamlHelpers.UsesDefaultAppLanguage24HourClock()), Mode=OneWay}" />
                         <Ellipse
                             Grid.Column="2"
                             Width="6"
@@ -403,7 +403,7 @@
                             Grid.Column="1"
                             Opacity="0.7"
                             Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate), Mode=OneWay}" />
+                            Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate, helpers:XamlHelpers.UsesDefaultAppLanguage24HourClock()), Mode=OneWay}" />
                         <Ellipse
                             Grid.Column="2"
                             Width="6"
@@ -581,7 +581,7 @@
                             Grid.Column="1"
                             Opacity="0.7"
                             Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate), Mode=OneWay}" />
+                            Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate, helpers:XamlHelpers.UsesDefaultAppLanguage24HourClock()), Mode=OneWay}" />
                         <Ellipse
                             Grid.Column="2"
                             Width="6"
@@ -773,7 +773,7 @@
                                 Grid.Column="2"
                                 Opacity="0.7"
                                 Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate), Mode=OneWay}" />
+                                Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate, helpers:XamlHelpers.UsesDefaultAppLanguage24HourClock()), Mode=OneWay}" />
                             <Ellipse
                                 Grid.Column="3"
                                 Width="6"
@@ -953,7 +953,7 @@
                                 Grid.Column="2"
                                 Opacity="0.7"
                                 Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate), Mode=OneWay}" />
+                                Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate, helpers:XamlHelpers.UsesDefaultAppLanguage24HourClock()), Mode=OneWay}" />
                             <Ellipse
                                 Grid.Column="3"
                                 Width="6"
@@ -1141,7 +1141,7 @@
                                 Grid.Column="2"
                                 Opacity="0.7"
                                 Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate), Mode=OneWay}" />
+                                Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate, helpers:XamlHelpers.UsesDefaultAppLanguage24HourClock()), Mode=OneWay}" />
                             <Ellipse
                                 Grid.Column="3"
                                 Width="6"
