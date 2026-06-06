@@ -21,6 +21,7 @@
 		<PackageReference Include="HtmlAgilityPack" />
 		<PackageReference Include="HtmlKit" />
 		<PackageReference Include="MailKit" />
+		<PackageReference Include="Exchange.WebServices.NETCore" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
 		<PackageReference Include="Microsoft.Graph" />
 		<PackageReference Include="Microsoft.Identity.Client" />

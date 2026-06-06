@@ -65,6 +65,7 @@
     <PackageVersion Include="Google.Apis.PeopleService.v1" Version="1.74.0.3973" />
     <PackageVersion Include="HtmlKit" Version="1.2.0" />
     <PackageVersion Include="MailKit" Version="4.17.0" />
+    <PackageVersion Include="Exchange.WebServices.NETCore" Version="3.2.1" />
     <PackageVersion Include="TimePeriodLibrary.NET" Version="2.1.6" />
     <PackageVersion Include="System.Reactive" Version="6.1.0" />
     <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.8" />

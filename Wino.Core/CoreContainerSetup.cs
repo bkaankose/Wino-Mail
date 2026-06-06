@@ -8,6 +8,7 @@ using Wino.Core.Synchronizers.Errors;
 using Wino.Core.Synchronizers.Errors.Gmail;
 using Wino.Core.Synchronizers.Errors.Imap;
 using Wino.Core.Synchronizers.Errors.Outlook;
+using Wino.Core.Synchronizers.Exchange;
 using Wino.Core.Synchronizers.ImapSync;
 
 namespace Wino.Core;
@@ -26,6 +27,7 @@ public static class CoreContainerSetup
         services.AddTransient<IGmailChangeProcessor, GmailChangeProcessor>();
         services.AddTransient<IImapChangeProcessor, ImapChangeProcessor>();
         services.AddTransient<IOutlookChangeProcessor, OutlookChangeProcessor>();
+        services.AddTransient<IExchangeChangeProcessor, ExchangeChangeProcessor>();
         services.AddTransient<IWinoRequestProcessor, WinoRequestProcessor>();
         services.AddTransient<IWinoRequestDelegator, WinoRequestDelegator>();
         services.AddTransient<IImapTestService, ImapTestService>();
@@ -35,6 +37,7 @@ public static class CoreContainerSetup
         services.AddTransient<IUnsubscriptionService, UnsubscriptionService>();
         services.AddTransient<IOutlookAuthenticator, OutlookAuthenticator>();
         services.AddTransient<IGmailAuthenticator, GmailAuthenticator>();
+        services.AddTransient<IExchangeAuthenticator, ExchangeNtlmAuthenticator>();
 
         services.AddTransient<UnifiedImapSynchronizer>();
 
@@ -64,6 +67,7 @@ public static class CoreContainerSetup
         services.AddTransient<IOutlookSynchronizerErrorHandlerFactory, OutlookSynchronizerErrorHandlingFactory>();
         services.AddTransient<IGmailSynchronizerErrorHandlerFactory, GmailSynchronizerErrorHandlingFactory>();
         services.AddTransient<IImapSynchronizerErrorHandlerFactory, ImapSynchronizerErrorHandlingFactory>();
+        services.AddTransient<IExchangeSynchronizerErrorHandlerFactory, ExchangeSynchronizerErrorHandlingFactory>();
 
         // Register retry executor
         services.AddTransient<IRetryExecutor, RetryExecutor>();
