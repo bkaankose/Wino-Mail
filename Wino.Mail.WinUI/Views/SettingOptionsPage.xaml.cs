@@ -80,4 +80,12 @@ public sealed partial class SettingOptionsPage : SettingOptionsPageAbstract
 
         ViewModel.NavigateToSetting(selectedSetting);
     }
+
+    public override void OnLanguageChanged()
+    {
+        base.OnLanguageChanged();
+
+        // This will make sure Translator bindings are updated.
+        Bindings.Update();
+    }
 }
