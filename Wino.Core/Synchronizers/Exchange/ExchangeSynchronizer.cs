@@ -454,6 +454,34 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         }, request, request);
     }
 
+    // Drafts are pushed to the server Drafts folder (parity with IMAP). The local draft is
+    // mapped to the server-assigned id so later sync/send reconcile against the same item.
+    public override List<IRequestBundle<EwsRequest>> CreateDraft(CreateDraftRequest request)
+    {
+        var preparation = request.DraftPreperationRequest;
+        var draftsFolderId = preparation.CreatedLocalDraftCopy.AssignedFolder.RemoteFolderId;
+
+        return Bundle(async service =>
+        {
+            using var stream = new MemoryStream();
+            await preparation.CreatedLocalDraftMimeMessage.WriteToAsync(stream).ConfigureAwait(false);
+
+            var message = new EmailMessage(service)
+            {
+                MimeContent = new Microsoft.Exchange.WebServices.Data.MimeContent("UTF-8", stream.ToArray())
+            };
+
+            await message.Save(new FolderId(draftsFolderId)).ConfigureAwait(false);
+
+            await _exchangeChangeProcessor.MapLocalDraftAsync(
+                Account.Id,
+                preparation.CreatedLocalDraftCopy.UniqueId,
+                message.Id.UniqueId,
+                message.Id.UniqueId,
+                preparation.CreatedLocalDraftCopy.ThreadId).ConfigureAwait(false);
+        }, request, request);
+    }
+
     #endregion
 
     protected override Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
