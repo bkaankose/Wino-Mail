@@ -39,8 +39,11 @@ public static class CoreContainerSetup
         services.AddTransient<IUnsubscriptionService, UnsubscriptionService>();
         services.AddTransient<IOutlookAuthenticator, OutlookAuthenticator>();
         services.AddTransient<IGmailAuthenticator, GmailAuthenticator>();
-        services.AddTransient<IExchangeAuthenticator, ExchangeNtlmAuthenticator>();
         services.AddSingleton<IOidcTokenClient, OidcTokenClient>();
+        services.AddSingleton<ExchangeTokenCache>();
+        services.AddTransient<ExchangeNtlmAuthenticator>();
+        services.AddTransient<ExchangeOAuthAuthenticator>();
+        services.AddTransient<IExchangeAuthenticator, ExchangeAuthenticator>();
 
         services.AddTransient<UnifiedImapSynchronizer>();
 

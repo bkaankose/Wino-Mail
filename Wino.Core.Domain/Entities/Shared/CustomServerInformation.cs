@@ -51,6 +51,32 @@ public class CustomServerInformation
     public string ProxyServerPort { get; set; }
 
     /// <summary>
+    /// When true, this (Exchange/EWS) account authenticates with modern auth (OAuth2 bearer token)
+    /// instead of Basic/NTLM <see cref="IncomingServerPassword"/>. The OAuth* fields below carry the
+    /// per-account OIDC configuration and durable refresh token.
+    /// </summary>
+    public bool UseOAuthAuthentication { get; set; }
+
+    /// <summary>OIDC authority base URL, e.g. <c>https://wsfed.mtec360.com/adfs</c>.</summary>
+    public string OAuthAuthority { get; set; }
+
+    /// <summary>OAuth client id used for the auth-code + PKCE flow.</summary>
+    public string OAuthClientId { get; set; }
+
+    /// <summary>Protected resource the access token is requested for, e.g. <c>https://mail.mtec360.com/</c>.</summary>
+    public string OAuthResource { get; set; }
+
+    /// <summary>Redirect URI registered with the issuer (exact-match).</summary>
+    public string OAuthRedirectUri { get; set; }
+
+    /// <summary>
+    /// Durable refresh token. Stored alongside <see cref="IncomingServerPassword"/> and shares its
+    /// at-rest posture (plaintext in the local, per-user packaged SQLite store). The ephemeral access
+    /// token is never persisted — it is held in memory and re-derived from this refresh token.
+    /// </summary>
+    public string OAuthRefreshToken { get; set; }
+
+    /// <summary>
     /// Number of concurrent clients that can connect to the server.
     /// Default is 5.
     /// </summary>
