@@ -31,11 +31,11 @@
                     Height="128"
                     Margin="0,0,0,12"
                     HorizontalAlignment="Center"
-                    Source="ms-appx:///Assets/AppEntries/MailAssets/Square150x150Logo.png"
+                    Source="ms-appx:///Assets/AppEntries/MailAssets/StoreLogo.scale-400.png"
                     Stretch="Uniform" />
                 <TextBlock
-                Style="{StaticResource TitleTextBlockStyle}"
                     HorizontalAlignment="Center"
+                    Style="{StaticResource TitleTextBlockStyle}"
                     Text="{x:Bind domain:Translator.WelcomeWindow_Title}" />
                 <TextBlock
                     HorizontalAlignment="Center"
@@ -62,9 +62,9 @@
                     BorderThickness="1"
                     CornerRadius="12">
                     <FlipView
-                        AutomationProperties.AutomationId="UpdateFlipView"
                         x:Name="UpdateFlipView"
                         MinHeight="200"
+                        AutomationProperties.AutomationId="UpdateFlipView"
                         AutomationProperties.HelpText="{x:Bind domain:Translator.WelcomeWindow_UpdateCarouselAutomationHelpText, Mode=OneTime}"
                         AutomationProperties.Name="{x:Bind domain:Translator.WelcomeWindow_UpdateCarouselAutomationName, Mode=OneTime}"
                         Background="Transparent"
@@ -91,9 +91,9 @@
                                         <Image
                                             Width="{x:Bind ActualImageWidth, Mode=OneTime}"
                                             Height="{x:Bind ActualImageHeight, Mode=OneTime}"
-                                            AutomationProperties.AccessibilityView="Raw"
                                             HorizontalAlignment="Center"
                                             VerticalAlignment="Center"
+                                            AutomationProperties.AccessibilityView="Raw"
                                             Source="{x:Bind ImageUrl, Mode=OneTime}"
                                             Stretch="Uniform" />
                                     </Border>
@@ -117,11 +117,11 @@
 
                 <!--  PipsPager  -->
                 <PipsPager
-                    AutomationProperties.AutomationId="FlipViewPager"
                     x:Name="FlipViewPager"
                     Grid.Row="1"
                     Margin="0,16,0,0"
                     HorizontalAlignment="Center"
+                    AutomationProperties.AutomationId="FlipViewPager"
                     AutomationProperties.Name="{x:Bind domain:Translator.WelcomeWindow_UpdateCarouselPagerAutomationName, Mode=OneTime}"
                     NumberOfPages="{x:Bind ViewModel.UpdateSections.Count, Mode=OneWay}"
                     SelectedIndexChanged="OnPipsPagerSelectedIndexChanged"
@@ -141,14 +141,14 @@
                 MaxWidth="600"
                 HorizontalAlignment="Center">
                 <HyperlinkButton
-                    AutomationProperties.AutomationId="WelcomePageV2HyperlinkButton"
                     HorizontalAlignment="Center"
+                    AutomationProperties.AutomationId="WelcomePageV2HyperlinkButton"
                     Command="{x:Bind ViewModel.ImportFromWinoAccountCommand}"
                     Content="{x:Bind domain:Translator.WelcomeWindow_ImportFromWinoAccount}" />
 
                 <HyperlinkButton
-                    AutomationProperties.AutomationId="WelcomePageV2HyperlinkButton2"
                     HorizontalAlignment="Center"
+                    AutomationProperties.AutomationId="WelcomePageV2HyperlinkButton2"
                     Command="{x:Bind ViewModel.ImportFromJsonCommand}"
                     Content="{x:Bind domain:Translator.WelcomeWindow_ImportFromJsonFile}" />
 
@@ -183,11 +183,11 @@
                     Text="{x:Bind domain:Translator.WelcomeWindow_GetStartedDescription}" />
 
                 <Button
-                    AutomationProperties.AutomationId="WelcomePageV2Button"
                     MinWidth="240"
                     Margin="0,12,0,0"
                     Padding="12,10"
                     HorizontalAlignment="Center"
+                    AutomationProperties.AutomationId="WelcomePageV2Button"
                     Command="{x:Bind ViewModel.GetStartedCommand}"
                     Style="{StaticResource AccentButtonStyle}">
                     <TextBlock
