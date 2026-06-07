@@ -41,6 +41,33 @@ public static class WebViewExtensions
         }
     }
 
+    private static Task<CoreWebView2Environment>? _authEnvironmentTask;
+
+    /// <summary>
+    /// A WebView2 environment with a dedicated, persistent user-data folder used only for interactive
+    /// OAuth sign-in. Isolating it from the shared (mail-rendering) profile keeps auth cookies away from
+    /// rendered email content, while persistence lets the IdP session (SSO) carry across sign-ins.
+    /// </summary>
+    public static Task<CoreWebView2Environment> GetIsolatedAuthEnvironmentAsync()
+    {
+        EnsureWebView2Environment();
+
+        lock (_environmentLock)
+        {
+            if (_authEnvironmentTask == null || _authEnvironmentTask.IsFaulted || _authEnvironmentTask.IsCanceled)
+            {
+                var userDataFolder = System.IO.Path.Combine(
+                    Windows.Storage.ApplicationData.Current.LocalFolder.Path, "AuthWebView2");
+
+                _authEnvironmentTask = CoreWebView2Environment
+                    .CreateWithOptionsAsync(null, userDataFolder, new CoreWebView2EnvironmentOptions())
+                    .AsTask();
+            }
+
+            return _authEnvironmentTask;
+        }
+    }
+
     /// <summary>
     /// Executes a script function in the WebView2 control.
     /// </summary>

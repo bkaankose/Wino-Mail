@@ -23,9 +23,8 @@ namespace Wino.Mail.ViewModels;
 /// </summary>
 public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
 {
-    // Well-known EWS client id (generic, not deployment-specific) and the app's loopback redirect.
+    // Well-known EWS client id (generic, not deployment-specific).
     private const string DefaultEwsClientId = "00000002-0000-0ff1-ce00-000000000000";
-    private const string DefaultRedirectUri = "http://localhost:8400/";
 
     private readonly WelcomeWizardContext _wizardContext;
     private readonly IInteractiveOidcAuthenticator _interactiveOidcAuthenticator;
@@ -58,7 +57,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     public partial string OAuthResource { get; set; } = string.Empty;
 
     [ObservableProperty]
-    public partial string OAuthRedirectUri { get; set; } = DefaultRedirectUri;
+    public partial string OAuthRedirectUri { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial bool IsBusy { get; set; }
@@ -217,6 +216,12 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         if (string.IsNullOrWhiteSpace(OAuthAuthority))
         {
             ValidationMessage = "Authority URL is required for modern auth (e.g. https://adfs.example.com/adfs).";
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(OAuthRedirectUri))
+        {
+            ValidationMessage = "Redirect URI is required — use a reply URL your identity provider already trusts (e.g. your OWA URL).";
             return null;
         }
 

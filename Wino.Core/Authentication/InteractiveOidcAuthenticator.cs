@@ -100,10 +100,7 @@ public sealed class LoopbackRedirectListener : IDisposable
 
         await WriteCompletionPageAsync(stream, cancellationToken).ConfigureAwait(false);
 
-        return new RedirectResult(
-            GetQueryValue(query, "code"),
-            GetQueryValue(query, "state"),
-            GetQueryValue(query, "error"));
+        return OAuthRedirectParser.ParseQuery(query);
     }
 
     private static async Task<string> ReadRequestLineAsync(NetworkStream stream, CancellationToken cancellationToken)
@@ -123,19 +120,6 @@ public sealed class LoopbackRedirectListener : IDisposable
         var rest = requestLine[(question + 1)..];
         var space = rest.IndexOf(' ');
         return space >= 0 ? rest[..space] : rest;
-    }
-
-    private static string GetQueryValue(string query, string key)
-    {
-        foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
-        {
-            var equals = pair.IndexOf('=');
-            if (equals < 0) continue;
-            if (pair[..equals] == key)
-                return Uri.UnescapeDataString(pair[(equals + 1)..]);
-        }
-
-        return null;
     }
 
     private static async Task WriteCompletionPageAsync(NetworkStream stream, CancellationToken cancellationToken)

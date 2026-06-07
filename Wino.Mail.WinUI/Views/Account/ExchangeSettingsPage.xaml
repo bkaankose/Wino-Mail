@@ -76,7 +76,8 @@
                     PlaceholderText="https://mail.example.com/"
                     Text="{x:Bind ViewModel.OAuthResource, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                 <TextBox
-                    Header="Redirect URI (must be registered with the identity provider)"
+                    Header="Redirect URI (a reply URL your identity provider already trusts — e.g. your OWA URL)"
+                    PlaceholderText="https://mail.example.com/owa/"
                     Text="{x:Bind ViewModel.OAuthRedirectUri, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
             </StackPanel>
 
