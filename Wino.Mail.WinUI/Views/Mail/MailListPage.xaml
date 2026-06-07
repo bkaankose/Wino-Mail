@@ -503,7 +503,10 @@
                     MailItemInformation="{x:Bind}"
                     Visibility="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneWay}" />
 
-                <Grid Grid.Column="1" RowSpacing="2">
+                <Grid
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    RowSpacing="2">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
