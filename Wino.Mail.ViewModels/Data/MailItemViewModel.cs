@@ -199,8 +199,8 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
 
     public string Subject
     {
-        get => MailCopy.Subject;
-        set => SetProperty(MailCopy.Subject, value, MailCopy, (u, n) => u.Subject = n);
+        get => MailCopy.Subject ?? string.Empty;
+        set => SetProperty(MailCopy.Subject, value ?? string.Empty, MailCopy, (u, n) => u.Subject = n);
     }
 
     public string PreviewText

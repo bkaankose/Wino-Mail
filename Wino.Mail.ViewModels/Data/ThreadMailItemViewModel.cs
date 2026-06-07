@@ -46,7 +46,7 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     /// <summary>
     /// Gets the latest email's subject for display
     /// </summary>
-    public string Subject => newestMailViewModel?.MailCopy?.Subject;
+    public string Subject => newestMailViewModel?.Subject ?? string.Empty;
 
     /// <summary>
     /// Gets the latest email's sender name for display
