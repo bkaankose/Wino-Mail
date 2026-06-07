@@ -42,6 +42,11 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
     /// </summary>
     public async Task<KeyboardShortcut> SaveKeyboardShortcutAsync(KeyboardShortcut shortcut)
     {
+        if (shortcut != null && IsReservedShortcut(shortcut.Mode, shortcut.Key, shortcut.ModifierKeys))
+        {
+            throw new InvalidOperationException("Shortcut is reserved.");
+        }
+
         if (shortcut.Id == Guid.Empty)
         {
             shortcut.Id = Guid.NewGuid();
@@ -69,6 +74,9 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
     /// </summary>
     public async Task<KeyboardShortcut> GetShortcutForKeyAsync(WinoApplicationMode mode, string key, ModifierKeys modifierKeys)
     {
+        if (IsReservedShortcut(mode, key, modifierKeys))
+            return null;
+
         const string query = "SELECT * FROM KeyboardShortcut WHERE Mode = ? AND Key = ? AND ModifierKeys = ? AND IsEnabled = ? LIMIT 1";
         return await Connection.FindWithQueryAsync<KeyboardShortcut>(query, (int)mode, key, (int)modifierKeys, 1);
     }
@@ -78,6 +86,9 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
     /// </summary>
     public async Task<bool> IsKeyCombinationInUseAsync(WinoApplicationMode mode, string key, ModifierKeys modifierKeys, Guid? excludeShortcutId = null)
     {
+        if (IsReservedShortcut(mode, key, modifierKeys))
+            return true;
+
         string query;
         KeyboardShortcut shortcut;
 
@@ -94,6 +105,11 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
 
         return shortcut != null;
     }
+
+    public bool IsReservedShortcut(WinoApplicationMode mode, string key, ModifierKeys modifierKeys)
+        => string.Equals(key, "Z", StringComparison.OrdinalIgnoreCase)
+           && modifierKeys == ModifierKeys.Control
+           && mode == WinoApplicationMode.Mail;
 
     /// <summary>
     /// Creates default keyboard shortcuts for common mail operations.

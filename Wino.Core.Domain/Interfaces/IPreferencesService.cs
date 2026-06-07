@@ -58,6 +58,26 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsStoreUpdateNotificationsEnabled { get; set; }
 
     /// <summary>
+    /// Setting: Whether sending drafts should be held briefly so it can be undone.
+    /// </summary>
+    bool IsUndoSendingDraftsEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: How many seconds sending drafts is held before synchronizers execute it.
+    /// </summary>
+    int UndoSendingDraftsIntervalInSeconds { get; set; }
+
+    /// <summary>
+    /// Setting: Whether deleting mails should be held briefly so it can be undone.
+    /// </summary>
+    bool IsUndoDeletingMailsEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: How many seconds deleting mails is held before synchronizers execute it.
+    /// </summary>
+    int UndoDeletingMailsIntervalInSeconds { get; set; }
+
+    /// <summary>
     /// Setting: Whether the system tray icon should be created while the shell is available.
     /// </summary>
     bool IsSystemTrayIconEnabled { get; set; }

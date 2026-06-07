@@ -847,8 +847,13 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
             return;
 
         var mode = ViewModel.CurrentMode;
+        var modifierKeys = GetCurrentModifierKeys();
+
+        if (IsReservedUndoShortcut(mode, key, modifierKeys))
+            return;
+
         var shortcutService = WinoApplication.Current.Services.GetRequiredService<IKeyboardShortcutService>();
-        var shortcut = await shortcutService.GetShortcutForKeyAsync(mode, key, GetCurrentModifierKeys());
+        var shortcut = await shortcutService.GetShortcutForKeyAsync(mode, key, modifierKeys);
 
         if (shortcut == null)
             return;
@@ -1015,6 +1020,11 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
             _ => key.ToString()
         };
     }
+
+    private static bool IsReservedUndoShortcut(WinoApplicationMode mode, string key, ModifierKeys modifierKeys)
+        => mode == WinoApplicationMode.Mail
+           && modifierKeys == ModifierKeys.Control
+           && string.Equals(key, "Z", StringComparison.OrdinalIgnoreCase);
 
     protected override void RegisterRecipients()
     {

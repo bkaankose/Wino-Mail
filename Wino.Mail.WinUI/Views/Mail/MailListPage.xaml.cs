@@ -841,7 +841,11 @@ public sealed partial class MailListPage : MailListPageAbstract,
     {
         args.Handled = true;
 
-        if (args.Key == VirtualKey.Delete)
+        if (args.Key == VirtualKey.Z && args.Modifiers.HasFlag(VirtualKeyModifiers.Control))
+        {
+            await ViewModel.UndoLatestQueuedActionCommand.ExecuteAsync(null);
+        }
+        else if (args.Key == VirtualKey.Delete)
         {
             ViewModel.ExecuteMailOperationCommand.Execute(MailOperation.SoftDelete);
         }
@@ -858,6 +862,12 @@ public sealed partial class MailListPage : MailListPageAbstract,
         {
             args.Handled = false;
         }
+    }
+
+    private async void UndoKeyboardAcceleratorInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        await ViewModel.UndoLatestQueuedActionCommand.ExecuteAsync(null);
+        args.Handled = true;
     }
 
     private async Task WinoClickItemInternalAsync(object? clickedItem, ListViewBase? sourceListView = null)

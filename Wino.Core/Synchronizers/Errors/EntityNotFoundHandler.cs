@@ -4,6 +4,7 @@ using Serilog;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Helpers;
 
 namespace Wino.Core.Synchronizers.Errors;
 
@@ -67,7 +68,7 @@ public class EntityNotFoundHandler : ISynchronizerErrorHandler
                 mailAction.Operation, mailAction.Item.Id);
 
             // Revert optimistic UI change (e.g. mark-read/flag toggle) before deleting
-            error.RequestBundle.UIChangeRequest?.RevertUIChanges();
+            RequestUiChangeCoordinator.RevertBundle(error.RequestBundle);
 
             try
             {

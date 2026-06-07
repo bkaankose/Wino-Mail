@@ -18,6 +18,9 @@ using Wino.Core.Domain.Models.Authentication;
 using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Domain.Models.Telemetry;
+using Wino.Core.Helpers;
+using Wino.Core.Requests.Folder;
+using Wino.Core.Requests.Mail;
 using Wino.Messaging.UI;
 
 namespace Wino.Core.Services;
@@ -36,7 +39,9 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _calendarSynchronizationLocks = new();
     private readonly ConcurrentDictionary<Guid, AccountSynchronizationProgress> _mailSynchronizationProgress = new();
     private readonly ConcurrentDictionary<Guid, AccountSynchronizationProgress> _calendarSynchronizationProgress = new();
+    private readonly ConcurrentDictionary<Guid, PendingUndoActionPack> _pendingUndoActionPacks = new();
     private readonly SemaphoreSlim _initializationSemaphore = new(1, 1);
+    private readonly object _undoActionPackLock = new();
     private readonly ILogger _logger = Log.ForContext<SynchronizationManager>();
 
     private SynchronizerFactory _concreteSynchronizerFactory;
@@ -45,6 +50,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     private IAuthenticationProvider _authenticationProvider;
     private INotificationBuilder _notificationBuilder;
     private IWinoTelemetryService _telemetryService;
+    private IPreferencesService _preferencesService;
 
     private bool _isInitialized = false;
     private bool _isRegisteredForProgressMessages;
@@ -65,7 +71,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                                      IAccountService accountService,
                                      INotificationBuilder notificationBuilder,
                                      IAuthenticationProvider authenticationProvider,
-                                     IWinoTelemetryService telemetryService)
+                                     IWinoTelemetryService telemetryService,
+                                     IPreferencesService preferencesService)
     {
         await _initializationSemaphore.WaitAsync();
 
@@ -79,6 +86,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             _authenticationProvider = authenticationProvider ?? throw new ArgumentNullException(nameof(authenticationProvider));
             _notificationBuilder = notificationBuilder ?? throw new ArgumentNullException(nameof(notificationBuilder));
             _telemetryService = telemetryService ?? throw new ArgumentNullException(nameof(telemetryService));
+            _preferencesService = preferencesService ?? throw new ArgumentNullException(nameof(preferencesService));
 
             // DO NOT create synchronizers here to avoid requiring window handles during initialization.
             // Synchronizers will be created lazily when first accessed via GetOrCreateSynchronizerAsync.
@@ -305,6 +313,42 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         => await QueueRequestsAsync([request], accountId, triggerSynchronization).ConfigureAwait(false);
 
     public async Task QueueRequestsAsync(IEnumerable<IRequestBase> requests, Guid accountId, bool triggerSynchronization)
+        => await QueueRequestPackAsync(
+            new Dictionary<Guid, List<IRequestBase>>
+            {
+                [accountId] = requests?.Where(request => request != null).ToList() ?? []
+            },
+            triggerSynchronization).ConfigureAwait(false);
+
+    public async Task QueueRequestPackAsync(IReadOnlyDictionary<Guid, List<IRequestBase>> requestsByAccount, bool triggerSynchronization)
+    {
+        EnsureInitialized();
+
+        var normalizedRequestsByAccount = requestsByAccount?
+            .Where(pair => pair.Value?.Any(request => request != null) == true)
+            .ToDictionary(
+                pair => pair.Key,
+                pair => pair.Value.Where(request => request != null).ToList()) ?? [];
+
+        if (normalizedRequestsByAccount.Count == 0)
+            return;
+
+        var allRequests = normalizedRequestsByAccount.Values.SelectMany(requests => requests).ToList();
+        var undoActionSettings = CreateUndoActionSettings(allRequests);
+
+        if (undoActionSettings != null)
+        {
+            QueueUndoActionPack(normalizedRequestsByAccount, triggerSynchronization, undoActionSettings);
+            return;
+        }
+
+        foreach (var pair in normalizedRequestsByAccount)
+        {
+            await QueueRequestsCoreAsync(pair.Value, pair.Key, triggerSynchronization).ConfigureAwait(false);
+        }
+    }
+
+    private async Task QueueRequestsCoreAsync(IEnumerable<IRequestBase> requests, Guid accountId, bool triggerSynchronization)
     {
         EnsureInitialized();
 
@@ -394,6 +438,191 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                 });
             }
         }
+    }
+
+    public Task UndoLatestQueuedAction(IWinoSynchronizerBase synchronizer)
+        => synchronizer == null
+            ? Task.CompletedTask
+            : UndoLatestQueuedAction(synchronizer.Account.Id);
+
+    public Task UndoLatestQueuedAction(Guid accountId)
+    {
+        EnsureInitialized();
+
+        PendingUndoActionPack pendingPack = null;
+
+        lock (_undoActionPackLock)
+        {
+            pendingPack = _pendingUndoActionPacks.Values
+                .Where(pack => !pack.IsCompleted && pack.RequestsByAccount.ContainsKey(accountId))
+                .OrderByDescending(pack => pack.CreatedAt)
+                .FirstOrDefault();
+
+            if (pendingPack == null)
+                return Task.CompletedTask;
+
+            pendingPack.IsCompleted = true;
+            _pendingUndoActionPacks.TryRemove(pendingPack.Id, out _);
+        }
+
+        pendingPack.CancellationTokenSource.Cancel();
+        pendingPack.CancellationTokenSource.Dispose();
+
+        RequestUiChangeCoordinator.RevertRequests(pendingPack.RequestsByAccount.Values.SelectMany(requests => requests));
+        PublishUndoableMailActionPackChanged(pendingPack, UndoableMailActionPackState.Undone);
+
+        _logger.Information("Undid queued action pack {PackId} for account {AccountId}", pendingPack.Id, accountId);
+        return Task.CompletedTask;
+    }
+
+    private void QueueUndoActionPack(Dictionary<Guid, List<IRequestBase>> requestsByAccount, bool triggerSynchronization, UndoActionSettings undoActionSettings)
+    {
+        var allRequests = requestsByAccount.Values.SelectMany(requests => requests).ToList();
+        var pack = new PendingUndoActionPack
+        {
+            Id = Guid.NewGuid(),
+            RequestsByAccount = requestsByAccount,
+            TriggerSynchronization = triggerSynchronization,
+            CreatedAt = DateTimeOffset.UtcNow,
+            ExpiresAt = DateTimeOffset.UtcNow.AddSeconds(undoActionSettings.IntervalInSeconds),
+            IntervalInSeconds = undoActionSettings.IntervalInSeconds,
+            RequiresFolderSynchronizationByAccount = requestsByAccount
+                .Where(pair => pair.Value.Any(RequiresFolderRefreshAfterExecution))
+                .Select(pair => pair.Key)
+                .ToHashSet()
+        };
+        pack.VisibleMailActionPack = CreateVisibleMailActionPack(pack, undoActionSettings);
+
+        RequestUiChangeCoordinator.ApplyRequests(allRequests);
+
+        lock (_undoActionPackLock)
+        {
+            _pendingUndoActionPacks[pack.Id] = pack;
+        }
+
+        _ = RunUndoActionPackTimerAsync(pack);
+        PublishUndoableMailActionPackChanged(pack, UndoableMailActionPackState.Queued);
+
+        _logger.Debug("Queued undoable action pack {PackId} with {RequestCount} request(s) for {AccountCount} account(s)",
+            pack.Id,
+            allRequests.Count,
+            requestsByAccount.Count);
+    }
+
+    private async Task RunUndoActionPackTimerAsync(PendingUndoActionPack pack)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(pack.IntervalInSeconds), pack.CancellationTokenSource.Token).ConfigureAwait(false);
+            await PromoteUndoActionPackAsync(pack.Id).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async Task PromoteUndoActionPackAsync(Guid packId)
+    {
+        PendingUndoActionPack pack = null;
+
+        lock (_undoActionPackLock)
+        {
+            if (!_pendingUndoActionPacks.TryRemove(packId, out pack) || pack.IsCompleted)
+                return;
+
+            pack.IsCompleted = true;
+        }
+
+        pack.CancellationTokenSource.Dispose();
+        PublishUndoableMailActionPackChanged(pack, UndoableMailActionPackState.Expired);
+
+        foreach (var pair in pack.RequestsByAccount)
+        {
+            await QueueRequestsCoreAsync(pair.Value, pair.Key, pack.TriggerSynchronization).ConfigureAwait(false);
+
+            if (pack.RequiresFolderSynchronizationByAccount.Contains(pair.Key))
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await SynchronizeFoldersAsync(pair.Key).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex, "Failed to synchronize folders after undo action pack {PackId} expired for account {AccountId}", pack.Id, pair.Key);
+                    }
+                });
+            }
+        }
+
+        _logger.Debug("Promoted undoable action pack {PackId} for execution", pack.Id);
+    }
+
+    private bool HasPendingUndoAction(Guid accountId)
+    {
+        lock (_undoActionPackLock)
+        {
+            return _pendingUndoActionPacks.Values.Any(pack => !pack.IsCompleted && pack.RequestsByAccount.ContainsKey(accountId));
+        }
+    }
+
+    private static bool RequiresFolderRefreshAfterExecution(IRequestBase request)
+        => request is DeleteFolderRequest or CreateSubFolderRequest or CreateRootFolderRequest;
+
+    private UndoActionSettings CreateUndoActionSettings(IReadOnlyCollection<IRequestBase> allRequests)
+    {
+        if (allRequests.Count == 0)
+            return null;
+
+        if (allRequests.All(request => request is SendDraftRequest))
+        {
+            if (_preferencesService?.IsUndoSendingDraftsEnabled != true)
+                return null;
+
+            return new UndoActionSettings(
+                Translator.UndoActions_SendDraftInfoBarTitle,
+                Translator.UndoActions_SendDraftInfoBarMessage,
+                InfoBarMessageType.Information,
+                Math.Clamp(_preferencesService?.UndoSendingDraftsIntervalInSeconds ?? 5, 1, 10));
+        }
+
+        if (allRequests.All(IsDeleteMailRequest))
+        {
+            if (_preferencesService?.IsUndoDeletingMailsEnabled != true)
+                return null;
+
+            return new UndoActionSettings(
+                Translator.UndoActions_DeleteMailInfoBarTitle,
+                Translator.UndoActions_DeleteMailInfoBarMessage,
+                InfoBarMessageType.Error,
+                Math.Clamp(_preferencesService?.UndoDeletingMailsIntervalInSeconds ?? 5, 1, 10));
+        }
+
+        return null;
+    }
+
+    private static UndoableMailActionPack CreateVisibleMailActionPack(PendingUndoActionPack pack, UndoActionSettings undoActionSettings)
+    {
+        return new UndoableMailActionPack(
+            pack.Id,
+            pack.RequestsByAccount.Keys.ToList(),
+            undoActionSettings.Title,
+            undoActionSettings.Severity,
+            pack.ExpiresAt,
+            pack.IntervalInSeconds);
+    }
+
+    private static bool IsDeleteMailRequest(IRequestBase request)
+        => request is DeleteRequest
+           || request is MoveRequest { ToFolder.SpecialFolderType: SpecialFolderType.Deleted };
+
+    private static void PublishUndoableMailActionPackChanged(PendingUndoActionPack pack, UndoableMailActionPackState state)
+    {
+        if (pack.VisibleMailActionPack == null)
+            return;
+
+        WeakReferenceMessenger.Default.Send(new UndoableMailActionPackChanged(pack.VisibleMailActionPack, state));
     }
 
     /// <summary>
@@ -1232,4 +1461,24 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             calendarSemaphore.Release();
         }
     }
+
+    private sealed class PendingUndoActionPack
+    {
+        public Guid Id { get; init; }
+        public Dictionary<Guid, List<IRequestBase>> RequestsByAccount { get; init; } = [];
+        public HashSet<Guid> RequiresFolderSynchronizationByAccount { get; init; } = [];
+        public CancellationTokenSource CancellationTokenSource { get; } = new();
+        public DateTimeOffset CreatedAt { get; init; }
+        public DateTimeOffset ExpiresAt { get; init; }
+        public int IntervalInSeconds { get; init; }
+        public UndoableMailActionPack VisibleMailActionPack { get; set; }
+        public bool TriggerSynchronization { get; set; }
+        public bool IsCompleted { get; set; }
+    }
+
+    private sealed record UndoActionSettings(
+        string Title,
+        string Message,
+        InfoBarMessageType Severity,
+        int IntervalInSeconds);
 }

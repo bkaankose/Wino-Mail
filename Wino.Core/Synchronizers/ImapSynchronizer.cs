@@ -25,6 +25,7 @@ using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
+using Wino.Core.Helpers;
 using Wino.Core.Integration;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Requests.Bundles;
@@ -839,7 +840,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
                 if (ShouldApplyOptimisticUIChanges(item.Request))
                 {
-                    item.UIChangeRequest?.RevertUIChanges();
+                    RequestUiChangeCoordinator.RevertBundle(item);
                 }
 
                 isCrashed = true;
@@ -880,7 +881,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
                     if (ShouldApplyOptimisticUIChanges(item.Request))
                     {
-                        item.UIChangeRequest?.RevertUIChanges();
+                        RequestUiChangeCoordinator.RevertBundle(item);
                     }
                     throw;
                 }

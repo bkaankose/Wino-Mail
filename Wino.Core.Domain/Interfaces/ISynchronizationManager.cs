@@ -24,7 +24,8 @@ public interface ISynchronizationManager
                         IAccountService accountService,
                         INotificationBuilder notificationBuilder,
                         IAuthenticationProvider authenticationProvider,
-                        IWinoTelemetryService telemetryService);
+                        IWinoTelemetryService telemetryService,
+                        IPreferencesService preferencesService);
 
     /// <summary>
     /// Tests IMAP server connectivity for the given server information.
@@ -51,6 +52,21 @@ public interface ISynchronizationManager
     /// Queues a mail action request to the corresponding account's synchronizer with optional synchronization triggering.
     /// </summary>
     Task QueueRequestAsync(IRequestBase request, Guid accountId, bool triggerSynchronization);
+
+    /// <summary>
+    /// Queues a grouped action that may contain requests for multiple accounts.
+    /// </summary>
+    Task QueueRequestPackAsync(IReadOnlyDictionary<Guid, List<IRequestBase>> requestsByAccount, bool triggerSynchronization);
+
+    /// <summary>
+    /// Cancels the latest undoable queued action for the given account.
+    /// </summary>
+    Task UndoLatestQueuedAction(Guid accountId);
+
+    /// <summary>
+    /// Cancels the latest undoable queued action for the given synchronizer account.
+    /// </summary>
+    Task UndoLatestQueuedAction(IWinoSynchronizerBase synchronizer);
 
     /// <summary>
     /// Handles folder synchronization for the given account.

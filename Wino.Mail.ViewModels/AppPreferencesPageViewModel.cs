@@ -43,6 +43,8 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
         SelectedDefaultSearchMode = SearchModes[(int)PreferencesService.DefaultSearchMode];
         SelectedCloseBehaviorMode = CloseBehaviorModes[(int)PreferencesService.AppCloseBehavior];
         EmailSyncIntervalMinutes = PreferencesService.EmailSyncIntervalMinutes;
+        UndoSendingDraftsIntervalInSeconds = PreferencesService.UndoSendingDraftsIntervalInSeconds;
+        UndoDeletingMailsIntervalInSeconds = PreferencesService.UndoDeletingMailsIntervalInSeconds;
         SummarySavePath = PreferencesService.AiSummarySavePath;
     }
 
@@ -87,6 +89,8 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
     private bool _isLanguageInitialized;
     private bool _isAiPreferencesInitialized;
     private int _emailSyncIntervalMinutes;
+    private int _undoSendingDraftsIntervalInSeconds;
+    private int _undoDeletingMailsIntervalInSeconds;
     private string _selectedDefaultSearchMode;
     private string _selectedCloseBehaviorMode;
 
@@ -97,6 +101,30 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
         {
             SetProperty(ref _emailSyncIntervalMinutes, value);
             PreferencesService.EmailSyncIntervalMinutes = value;
+        }
+    }
+
+    public int UndoSendingDraftsIntervalInSeconds
+    {
+        get => _undoSendingDraftsIntervalInSeconds;
+        set
+        {
+            if (!SetProperty(ref _undoSendingDraftsIntervalInSeconds, value))
+                return;
+
+            PreferencesService.UndoSendingDraftsIntervalInSeconds = value;
+        }
+    }
+
+    public int UndoDeletingMailsIntervalInSeconds
+    {
+        get => _undoDeletingMailsIntervalInSeconds;
+        set
+        {
+            if (!SetProperty(ref _undoDeletingMailsIntervalInSeconds, value))
+                return;
+
+            PreferencesService.UndoDeletingMailsIntervalInSeconds = value;
         }
     }
 

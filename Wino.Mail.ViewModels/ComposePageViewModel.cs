@@ -31,7 +31,6 @@ using Wino.Messaging.UI;
 namespace Wino.Mail.ViewModels;
 
 public partial class ComposePageViewModel : MailBaseViewModel,
-    IRecipient<SynchronizationActionsAdded>,
     IRecipient<SynchronizationActionsCompleted>,
     IRecipient<AccountSynchronizerStateChanged>
 {
@@ -662,14 +661,6 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         });
     }
 
-    public async void Receive(SynchronizationActionsAdded message)
-    {
-        if (!ShouldTrackDraftSynchronizationState(message.AccountId))
-            return;
-
-        await UpdatePendingOperationStateAsync().ConfigureAwait(false);
-    }
-
     public async void Receive(SynchronizationActionsCompleted message)
     {
         if (!ShouldTrackDraftSynchronizationState(message.AccountId))
@@ -690,7 +681,6 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     {
         base.RegisterRecipients();
 
-        Messenger.Register<SynchronizationActionsAdded>(this);
         Messenger.Register<SynchronizationActionsCompleted>(this);
         Messenger.Register<AccountSynchronizerStateChanged>(this);
     }
@@ -699,7 +689,6 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     {
         base.UnregisterRecipients();
 
-        Messenger.Unregister<SynchronizationActionsAdded>(this);
         Messenger.Unregister<SynchronizationActionsCompleted>(this);
         Messenger.Unregister<AccountSynchronizerStateChanged>(this);
     }

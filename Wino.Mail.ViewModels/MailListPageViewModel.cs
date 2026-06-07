@@ -45,7 +45,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     IRecipient<AccountCacheResetMessage>,
     IRecipient<ThumbnailAdded>,
     IRecipient<PropertyChangedMessage<bool>>,
-    IRecipient<SwipeActionRequested>
+    IRecipient<SwipeActionRequested>,
+    IRecipient<UndoableMailActionPackChanged>
 {
     private bool isChangingFolder = false;
 
@@ -84,6 +85,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private readonly IWinoRequestDelegator _winoRequestDelegator;
     private readonly IKeyPressService _keyPressService;
     private readonly IWinoLogger _winoLogger;
+    private readonly ISynchronizationManager _synchronizationManager;
     private MailItemViewModel _activeMailItem;
 
     public List<SortingOption> SortingOptions { get; } =
@@ -154,6 +156,21 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     [ObservableProperty]
     public partial bool IsBarOpen { get; set; }
 
+    [ObservableProperty]
+    public partial bool IsUndoMailActionBarOpen { get; set; }
+
+    [ObservableProperty]
+    public partial string UndoMailActionBarTitle { get; set; }
+
+    [ObservableProperty]
+    public partial InfoBarMessageType UndoMailActionBarSeverity { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(UndoMailActionBarDismissInterval))]
+    public partial UndoableMailActionPack CurrentVisibleUndoMailActionPack { get; set; }
+
+    public int UndoMailActionBarDismissInterval => Math.Clamp(CurrentVisibleUndoMailActionPack?.IntervalInSeconds ?? 5, 1, 10);
+
     /// <summary>
     /// Current folder that is being represented from the menu.
     /// </summary>
@@ -193,7 +210,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  IKeyPressService keyPressService,
                                  IPreferencesService preferencesService,
                                  INewThemeService themeService,
-                                 IWinoLogger winoLogger)
+                                 IWinoLogger winoLogger,
+                                 ISynchronizationManager synchronizationManager)
     {
         _winoLogger = winoLogger;
         _accountService = accountService;
@@ -205,6 +223,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         _mailCategoryService = mailCategoryService;
         _winoRequestDelegator = winoRequestDelegator;
         _keyPressService = keyPressService;
+        _synchronizationManager = synchronizationManager;
 
         PreferencesService = preferencesService;
         ThemeService = themeService;
@@ -438,6 +457,12 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         if (propertyName == nameof(IPreferencesService.AccountNicknamePosition))
         {
             UpdateAccountNicknamePositionForItems();
+            return;
+        }
+
+        if (propertyName is nameof(IPreferencesService.UndoSendingDraftsIntervalInSeconds) or nameof(IPreferencesService.UndoDeletingMailsIntervalInSeconds))
+        {
+            OnPropertyChanged(nameof(UndoMailActionBarDismissInterval));
             return;
         }
 
@@ -687,6 +712,35 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     #endregion
 
     public Task ExecuteMailOperationAsync(MailOperationPreperationRequest package) => _winoRequestDelegator.ExecuteAsync(package);
+
+    [RelayCommand]
+    private async Task UndoLatestQueuedActionAsync()
+    {
+        var accountIds = CurrentVisibleUndoMailActionPack?.AccountIds
+            .Where(accountId => accountId != Guid.Empty)
+            .Distinct()
+            .ToList();
+
+        if (accountIds == null || accountIds.Count == 0)
+        {
+            accountIds = ActiveFolder?.HandlingFolders
+                .Select(folder => folder.MailAccountId)
+                .Where(accountId => accountId != Guid.Empty)
+                .Distinct()
+                .ToList() ?? [];
+        }
+
+        foreach (var accountId in accountIds)
+        {
+            await _synchronizationManager.UndoLatestQueuedAction(accountId);
+        }
+
+        await ExecuteUIThread(() =>
+        {
+            IsUndoMailActionBarOpen = false;
+            CurrentVisibleUndoMailActionPack = null;
+        });
+    }
 
     public override async Task KeyboardShortcutHook(KeyboardShortcutTriggerDetails args)
     {
@@ -2001,6 +2055,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         Messenger.Register<ThumbnailAdded>(this);
         Messenger.Register<PropertyChangedMessage<bool>>(this);
         Messenger.Register<SwipeActionRequested>(this);
+        Messenger.Register<UndoableMailActionPackChanged>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -2016,6 +2071,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         Messenger.Unregister<ThumbnailAdded>(this);
         Messenger.Unregister<PropertyChangedMessage<bool>>(this);
         Messenger.Unregister<SwipeActionRequested>(this);
+        Messenger.Unregister<UndoableMailActionPackChanged>(this);
     }
 
     public void Receive(PropertyChangedMessage<bool> message)
@@ -2060,6 +2116,30 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         var package = new MailOperationPreperationRequest(message.Operation, mailCopies, toggleExecution: true);
         await ExecuteMailOperationAsync(package);
+    }
+
+    public async void Receive(UndoableMailActionPackChanged message)
+    {
+        if (message?.Pack == null)
+            return;
+
+        await ExecuteUIThread(() =>
+        {
+            if (message.State == UndoableMailActionPackState.Queued)
+            {
+                CurrentVisibleUndoMailActionPack = message.Pack;
+                UndoMailActionBarTitle = message.Pack.Title;
+                UndoMailActionBarSeverity = message.Pack.Severity;
+                IsUndoMailActionBarOpen = true;
+                return;
+            }
+
+            if (CurrentVisibleUndoMailActionPack?.Id != message.Pack.Id)
+                return;
+
+            IsUndoMailActionBarOpen = false;
+            CurrentVisibleUndoMailActionPack = null;
+        });
     }
 
 }

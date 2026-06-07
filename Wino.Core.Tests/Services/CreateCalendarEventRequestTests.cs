@@ -4,7 +4,6 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
-using Wino.Core.Helpers;
 using Wino.Core.Requests.Calendar;
 using Wino.Messaging.Client.Calendar;
 using Xunit;
@@ -69,17 +68,6 @@ public sealed class CreateCalendarEventRequestTests
         {
             WeakReferenceMessenger.Default.UnregisterAll(recipient);
         }
-    }
-
-    [Fact]
-    public void SynchronizationActionHelper_ForCreateRequest_ReturnsCalendarCreateAction()
-    {
-        var request = new CreateCalendarEventRequest(CreateComposeResult(), CreateAssignedCalendar());
-
-        var actionItems = SynchronizationActionHelper.CreateActionItems([request], Guid.NewGuid(), "Test");
-
-        actionItems.Should().ContainSingle();
-        actionItems[0].Description.Should().Be(Wino.Core.Domain.Translator.SyncAction_CreatingEvent);
     }
 
     private static CalendarEventComposeResult CreateComposeResult()

@@ -419,6 +419,30 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SetPropertyAndSave(nameof(EmailSyncIntervalMinutes), value);
     }
 
+    public bool IsUndoSendingDraftsEnabled
+    {
+        get => _configurationService.Get(nameof(IsUndoSendingDraftsEnabled), true);
+        set => SetPropertyAndSave(nameof(IsUndoSendingDraftsEnabled), value);
+    }
+
+    public int UndoSendingDraftsIntervalInSeconds
+    {
+        get => _configurationService.Get(nameof(UndoSendingDraftsIntervalInSeconds), 5);
+        set => SetPropertyAndSave(nameof(UndoSendingDraftsIntervalInSeconds), Math.Clamp(value, 1, 10));
+    }
+
+    public bool IsUndoDeletingMailsEnabled
+    {
+        get => _configurationService.Get(nameof(IsUndoDeletingMailsEnabled), true);
+        set => SetPropertyAndSave(nameof(IsUndoDeletingMailsEnabled), value);
+    }
+
+    public int UndoDeletingMailsIntervalInSeconds
+    {
+        get => _configurationService.Get(nameof(UndoDeletingMailsIntervalInSeconds), 5);
+        set => SetPropertyAndSave(nameof(UndoDeletingMailsIntervalInSeconds), Math.Clamp(value, 1, 10));
+    }
+
     public bool IsStoreUpdateNotificationsEnabled
     {
         get => !_configurationService.Contains(Constants.StoreUpdateNotificationSuppressionKey);

@@ -56,6 +56,11 @@ public interface IKeyboardShortcutService
     Task<bool> IsKeyCombinationInUseAsync(WinoApplicationMode mode, string key, ModifierKeys modifierKeys, Guid? excludeShortcutId = null);
 
     /// <summary>
+    /// Checks if a key combination is reserved by built-in app behavior.
+    /// </summary>
+    bool IsReservedShortcut(WinoApplicationMode mode, string key, ModifierKeys modifierKeys);
+
+    /// <summary>
     /// Creates default keyboard shortcuts for common mail operations.
     /// </summary>
     Task CreateDefaultShortcutsAsync();

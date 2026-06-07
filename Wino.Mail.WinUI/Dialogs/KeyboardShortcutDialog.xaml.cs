@@ -82,6 +82,13 @@ public sealed partial class KeyboardShortcutDialog : ContentDialog
             return;
         }
 
+        if (IsReservedShortcut(SelectedMode, _key, _modifierKeys))
+        {
+            ShowError(Translator.KeyboardShortcuts_ReservedUndoShortcut);
+            args.Cancel = true;
+            return;
+        }
+
         Result = KeyboardShortcutDialogResult.Success(SelectedMode, _key, _modifierKeys, SelectedAction.Action);
     }
 
@@ -186,6 +193,11 @@ public sealed partial class KeyboardShortcutDialog : ContentDialog
             _ => key.ToString()
         };
     }
+
+    private static bool IsReservedShortcut(WinoApplicationMode mode, string key, ModifierKeys modifierKeys)
+        => string.Equals(key, "Z", System.StringComparison.OrdinalIgnoreCase)
+           && modifierKeys == ModifierKeys.Control
+           && mode == WinoApplicationMode.Mail;
 
     private static string BuildDisplayString(string key, ModifierKeys modifierKeys)
     {

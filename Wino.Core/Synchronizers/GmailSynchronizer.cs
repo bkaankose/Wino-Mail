@@ -36,6 +36,7 @@ using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
+using Wino.Core.Helpers;
 using Wino.Core.Http;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Misc;
@@ -1938,10 +1939,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     {
         // First apply all UI changes immediately before any batching.
         // This ensures UI reflects changes right away, regardless of batch processing.
-        foreach (var bundle in batchedRequests)
-        {
-            bundle.UIChangeRequest?.ApplyUIChanges();
-        }
+        ApplyOptimisticUiChanges(batchedRequests);
 
         // Batch requests per Google service instance. Calendar requests must be queued against
         // CalendarService, otherwise Gmail's batch endpoint will reject Calendar REST paths.
@@ -1997,7 +1995,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         {
             if (ShouldRevertOptimisticMailStateChange(bundle?.UIChangeRequest))
             {
-                bundle?.UIChangeRequest?.RevertUIChanges();
+                RequestUiChangeCoordinator.RevertBundle(bundle);
             }
 
             return;
@@ -2011,20 +2009,20 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             // OutOfMemoryException is a known bug in Gmail SDK.
             if (error.Code == 0)
             {
-                bundle?.UIChangeRequest?.RevertUIChanges();
+                RequestUiChangeCoordinator.RevertBundle(bundle);
                 throw new OutOfMemoryException(error.Message);
             }
 
             // Entity not found.
             if (isEntityNotFound)
             {
-                bundle?.UIChangeRequest?.RevertUIChanges();
+                RequestUiChangeCoordinator.RevertBundle(bundle);
                 throw new SynchronizerEntityNotFoundException(error.Message);
             }
 
             if (!string.IsNullOrEmpty(error.Message))
             {
-                bundle?.UIChangeRequest?.RevertUIChanges();
+                RequestUiChangeCoordinator.RevertBundle(bundle);
                 error.Errors?.ForEach(error => _logger.Error("Unknown Gmail SDK error for {Name}\n{Error}", Account.Name, error));
 
                 throw new SynchronizerException(error.Message);

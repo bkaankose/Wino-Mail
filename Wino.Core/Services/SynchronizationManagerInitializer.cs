@@ -25,6 +25,7 @@ public class SynchronizationManagerInitializer : IInitializeAsync
         var authenticationProvider = _serviceProvider.GetRequiredService<IAuthenticationProvider>();
         var notificationBuilder = _serviceProvider.GetRequiredService<INotificationBuilder>();
         var telemetryService = _serviceProvider.GetRequiredService<IWinoTelemetryService>();
+        var preferencesService = _serviceProvider.GetRequiredService<IPreferencesService>();
 
         // Cast to concrete type to access CreateNewSynchronizer method
         var concreteSynchronizerFactory = synchronizerFactory as SynchronizerFactory;
@@ -35,6 +36,7 @@ public class SynchronizationManagerInitializer : IInitializeAsync
             accountService,
             notificationBuilder,
             authenticationProvider,
-            telemetryService);
+            telemetryService,
+            preferencesService);
     }
 }

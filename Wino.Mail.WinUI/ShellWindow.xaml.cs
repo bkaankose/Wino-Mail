@@ -1,5 +1,4 @@
 using System;
-using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
@@ -15,7 +14,6 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Domain.Models.Synchronization;
 using Wino.Extensions;
 using Wino.Mail.WinUI.Activation;
 using Wino.Mail.WinUI.Helpers;
@@ -34,8 +32,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     IRecipient<ApplicationThemeChanged>,
     IRecipient<InfoBarMessageRequested>,
     IRecipient<TitleBarShellContentUpdated>,
-    IRecipient<SynchronizationActionsAdded>,
-    IRecipient<SynchronizationActionsCompleted>,
     IRecipient<WinoAccountProfileUpdatedMessage>,
     IRecipient<WinoAccountProfileDeletedMessage>
 {
@@ -49,7 +45,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     private IMailDialogService MailDialogService { get; } = WinoApplication.Current.Services.GetRequiredService<IMailDialogService>();
     private IWinoAccountProfileService WinoAccountProfileService { get; } = WinoApplication.Current.Services.GetRequiredService<IWinoAccountProfileService>();
 
-    public ObservableCollection<SynchronizationActionItem> SyncActionItems { get; } = new();
     private bool _calendarReminderServerStartAttempted;
     private ITitleBarSearchHost? _activeTitleBarSearchHost;
     private bool _isBackButtonVisibilityReady;
@@ -232,30 +227,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         ShowInfoBarMessage(message);
     }
 
-    public void Receive(SynchronizationActionsAdded message)
-    {
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            foreach (var action in message.Actions)
-                SyncActionItems.Add(action);
-
-            UpdateSyncStatusVisibility();
-        });
-    }
-
-    public void Receive(SynchronizationActionsCompleted message)
-    {
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            var toRemove = SyncActionItems.Where(a => a.AccountId == message.AccountId).ToList();
-
-            foreach (var item in toRemove)
-                SyncActionItems.Remove(item);
-
-            UpdateSyncStatusVisibility();
-        });
-    }
-
     public void Receive(WinoAccountProfileUpdatedMessage message)
     {
         DispatcherQueue.TryEnqueue(() => UpdateWinoAccountState(message.Account));
@@ -264,22 +235,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     public void Receive(WinoAccountProfileDeletedMessage message)
     {
         DispatcherQueue.TryEnqueue(() => UpdateWinoAccountState(null));
-    }
-
-    private void UpdateSyncStatusVisibility()
-    {
-        SyncStatusButton.Visibility = SyncActionItems.Any()
-            ? Visibility.Visible
-            : Visibility.Collapsed;
-
-        var distinctAccounts = SyncActionItems.Select(a => a.AccountId).Distinct().Count();
-
-        SyncStatusText.Text = distinctAccounts switch
-        {
-            0 => string.Empty,
-            1 => string.Format(Translator.SyncAction_SynchronizingAccount, SyncActionItems.First().AccountName),
-            _ => string.Format(Translator.SyncAction_SynchronizingAccounts, distinctAccounts)
-        };
     }
 
     private void UpdateTitleBarColors(bool isDarkTheme)
@@ -495,8 +450,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WeakReferenceMessenger.Default.Register<TitleBarShellContentUpdated>(this);
         WeakReferenceMessenger.Default.Register<ApplicationThemeChanged>(this);
         WeakReferenceMessenger.Default.Register<InfoBarMessageRequested>(this);
-        WeakReferenceMessenger.Default.Register<SynchronizationActionsAdded>(this);
-        WeakReferenceMessenger.Default.Register<SynchronizationActionsCompleted>(this);
         WeakReferenceMessenger.Default.Register<WinoAccountProfileUpdatedMessage>(this);
         WeakReferenceMessenger.Default.Register<WinoAccountProfileDeletedMessage>(this);
     }
@@ -506,8 +459,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WeakReferenceMessenger.Default.Unregister<TitleBarShellContentUpdated>(this);
         WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
         WeakReferenceMessenger.Default.Unregister<InfoBarMessageRequested>(this);
-        WeakReferenceMessenger.Default.Unregister<SynchronizationActionsAdded>(this);
-        WeakReferenceMessenger.Default.Unregister<SynchronizationActionsCompleted>(this);
         WeakReferenceMessenger.Default.Unregister<WinoAccountProfileUpdatedMessage>(this);
         WeakReferenceMessenger.Default.Unregister<WinoAccountProfileDeletedMessage>(this);
     }

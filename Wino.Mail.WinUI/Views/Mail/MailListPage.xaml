@@ -1270,6 +1270,13 @@
             EmptyHeaderTemplate="{StaticResource MailGroupHeaderEmptyTemplate}" />
     </Page.Resources>
 
+    <Page.KeyboardAccelerators>
+        <KeyboardAccelerator
+            Key="Z"
+            Invoked="UndoKeyboardAcceleratorInvoked"
+            Modifiers="Control" />
+    </Page.KeyboardAccelerators>
+
     <Grid x:Name="RootGrid" Padding="0,2,0,0">
         <Grid.ColumnDefinitions>
             <ColumnDefinition x:Name="MailListColumn" Width="{x:Bind helpers:XamlHelpers.DoubleToGridLength(ViewModel.MailListLength), Mode=OneWay}" />
@@ -1594,18 +1601,40 @@
                     </Grid>
                 </Grid>
 
-                <!--  Update Info Bar  -->
-                <coreControls:WinoInfoBar
-                    Title="{x:Bind ViewModel.BarTitle, Mode=OneWay}"
+                <StackPanel
                     Grid.Row="2"
                     Margin="0,0,0,5"
                     VerticalAlignment="Bottom"
-                    AnimationType="SlideFromBottomToTop"
-                    DismissInterval="2"
-                    IsClosable="False"
-                    IsOpen="{x:Bind ViewModel.IsBarOpen, Mode=TwoWay}"
-                    Message="{x:Bind ViewModel.BarMessage, Mode=OneWay}"
-                    Severity="{x:Bind helpers:XamlHelpers.InfoBarSeverityConverter(ViewModel.BarSeverity), Mode=OneWay}" />
+                    Spacing="4">
+
+                    <coreControls:WinoInfoBar
+                        Title="{x:Bind ViewModel.UndoMailActionBarTitle, Mode=OneWay}"
+                        AnimationType="SlideFromBottomToTop"
+                        DismissInterval="{x:Bind ViewModel.UndoMailActionBarDismissInterval, Mode=OneWay}"
+                        IsClosable="False"
+                        IsIconVisible="True"
+                        IsOpen="{x:Bind ViewModel.IsUndoMailActionBarOpen, Mode=TwoWay}"
+                        Severity="{x:Bind helpers:XamlHelpers.InfoBarSeverityConverter(ViewModel.UndoMailActionBarSeverity), Mode=OneWay}">
+                        <InfoBar.ActionButton>
+                            <Button AutomationProperties.AutomationId="MailListPageUndoMailActionButton" Command="{x:Bind ViewModel.UndoLatestQueuedActionCommand}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <SymbolIcon Symbol="Undo" />
+                                    <TextBlock Text="{x:Bind domain:Translator.UndoActions_Button, Mode=OneTime}" />
+                                </StackPanel>
+                            </Button>
+                        </InfoBar.ActionButton>
+                    </coreControls:WinoInfoBar>
+
+                    <!--  Update Info Bar  -->
+                    <coreControls:WinoInfoBar
+                        Title="{x:Bind ViewModel.BarTitle, Mode=OneWay}"
+                        AnimationType="SlideFromBottomToTop"
+                        DismissInterval="2"
+                        IsClosable="False"
+                        IsOpen="{x:Bind ViewModel.IsBarOpen, Mode=TwoWay}"
+                        Message="{x:Bind ViewModel.BarMessage, Mode=OneWay}"
+                        Severity="{x:Bind helpers:XamlHelpers.InfoBarSeverityConverter(ViewModel.BarSeverity), Mode=OneWay}" />
+                </StackPanel>
 
             </Grid>
         </Border>

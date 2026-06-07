@@ -13,12 +13,10 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Helpers;
 using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Messaging.Server;
-using Wino.Messaging.UI;
 
 namespace Wino.Core.Services;
 
@@ -88,20 +86,17 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
         if (requests == null || !requests.Any()) return;
 
-        var accountIds = requests.GroupBy(a => a.Item.AssignedAccount.Id);
+        var accountGroups = requests
+            .GroupBy(a => a.Item.AssignedAccount.Id)
+            .ToDictionary(
+                group => group.Key,
+                group => group.Cast<IRequestBase>().ToList());
+
+        await QueueRequestPackAsync(accountGroups).ConfigureAwait(false);
 
         // Queue requests for each account and start synchronization.
-        foreach (var accountGroup in accountIds)
+        foreach (var accountGroup in requests.GroupBy(a => a.Item.AssignedAccount.Id))
         {
-            var groupedRequests = accountGroup.Cast<IRequestBase>().ToList();
-            await QueueRequestsAsync(groupedRequests, accountGroup.Key).ConfigureAwait(false);
-
-            var account = accountGroup.First().Item.AssignedAccount;
-            var actionItems = SynchronizationActionHelper.CreateActionItems(groupedRequests, accountGroup.Key, account.Name);
-
-            if (actionItems.Count > 0)
-                WeakReferenceMessenger.Default.Send(new SynchronizationActionsAdded(accountGroup.Key, account.Name, actionItems));
-
             await QueueSynchronizationAsync(accountGroup.Key);
         }
     }
@@ -130,7 +125,6 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         if (request == null) return;
 
         await QueueRequestAsync(request, accountId);
-        await SendSyncActionsAddedAsync([request], accountId);
         await QueueSynchronizationAsync(accountId);
 
         if (folderRequest.Action is FolderOperation.Delete or FolderOperation.CreateSubFolder)
@@ -145,7 +139,6 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         var accountId = draftPreperationRequest.Account.Id;
 
         await QueueRequestAsync(request, accountId);
-        await SendSyncActionsAddedAsync([request], accountId, draftPreperationRequest.Account.Name);
         await QueueSynchronizationAsync(accountId);
     }
 
@@ -155,7 +148,6 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         var account = sendDraftPreperationRequest.MailItem.AssignedAccount;
 
         await QueueRequestAsync(request, account.Id);
-        await SendSyncActionsAddedAsync([request], account.Id, account.Name);
         await QueueSynchronizationAsync(account.Id);
     }
 
@@ -202,7 +194,6 @@ public class WinoRequestDelegator : IWinoRequestDelegator
             : calendarPreparationRequest.CalendarItem.AssignedCalendar.MailAccount?.Name;
 
         await QueueRequestAsync(request, accountId);
-        await SendSyncActionsAddedAsync([request], accountId, accountName);
         await QueueCalendarSynchronizationAsync(accountId);
     }
 
@@ -214,7 +205,6 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
         await QueueRequestsAsync(requestList, accountId).ConfigureAwait(false);
 
-        await SendSyncActionsAddedAsync(requestList, accountId).ConfigureAwait(false);
         await QueueSynchronizationAsync(accountId).ConfigureAwait(false);
 
         if (requestList.Any(r => r is DeleteFolderRequest or CreateSubFolderRequest or CreateRootFolderRequest))
@@ -277,6 +267,11 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         await SynchronizationManager.Instance.QueueRequestsAsync(requests, accountId, triggerSynchronization: false).ConfigureAwait(false);
     }
 
+    private async Task QueueRequestPackAsync(IReadOnlyDictionary<Guid, List<IRequestBase>> requestsByAccount)
+    {
+        await SynchronizationManager.Instance.QueueRequestPackAsync(requestsByAccount, triggerSynchronization: false).ConfigureAwait(false);
+    }
+
     private Task QueueSynchronizationAsync(Guid accountId)
     {
         var options = new MailSynchronizationOptions()
@@ -299,20 +294,6 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
         WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options));
         return Task.CompletedTask;
-    }
-
-    private async Task SendSyncActionsAddedAsync(IEnumerable<IRequestBase> requests, Guid accountId, string accountName = null)
-    {
-        if (accountName == null)
-        {
-            var account = await _accountService.GetAccountAsync(accountId);
-            accountName = account?.Name ?? string.Empty;
-        }
-
-        var actionItems = SynchronizationActionHelper.CreateActionItems(requests, accountId, accountName);
-
-        if (actionItems.Count > 0)
-            WeakReferenceMessenger.Default.Send(new SynchronizationActionsAdded(accountId, accountName, actionItems));
     }
 
     private Task QueueCalendarSynchronizationAsync(Guid accountId)

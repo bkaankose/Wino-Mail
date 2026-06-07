@@ -235,6 +235,7 @@
                                     TextWrapping="WrapWholeWords" />
 
                                 <ContentPresenter
+                                    HorizontalAlignment="Right"
                                     VerticalAlignment="Top"
                                     primitives:InfoBarPanel.HorizontalOrientationMargin="{StaticResource InfoBarActionHorizontalOrientationMargin}"
                                     primitives:InfoBarPanel.VerticalOrientationMargin="{StaticResource InfoBarActionVerticalOrientationMargin}"

@@ -69,6 +69,12 @@ public partial class KeyboardShortcutsPageViewModel : CoreBaseViewModel
         {
             try
             {
+                if (_keyboardShortcutService.IsReservedShortcut(result.Mode, result.Key, result.ModifierKeys))
+                {
+                    await _dialogService.ShowMessageAsync(Translator.KeyboardShortcuts_ReservedUndoShortcut, Translator.GeneralTitle_Error, WinoCustomMessageDialogIcon.Error);
+                    return;
+                }
+
                 // Check if key combination is already in use
                 var isInUse = await _keyboardShortcutService.IsKeyCombinationInUseAsync(result.Mode, result.Key, result.ModifierKeys, null);
                 if (isInUse)
@@ -116,6 +122,12 @@ public partial class KeyboardShortcutsPageViewModel : CoreBaseViewModel
         {
             try
             {
+                if (_keyboardShortcutService.IsReservedShortcut(result.Mode, result.Key, result.ModifierKeys))
+                {
+                    await _dialogService.ShowMessageAsync(Translator.KeyboardShortcuts_ReservedUndoShortcut, Translator.GeneralTitle_Error, WinoCustomMessageDialogIcon.Error);
+                    return;
+                }
+
                 // Check if key combination is already in use (excluding current shortcut)
                 var isInUse = await _keyboardShortcutService.IsKeyCombinationInUseAsync(result.Mode, result.Key, result.ModifierKeys, shortcut.Id);
                 if (isInUse)

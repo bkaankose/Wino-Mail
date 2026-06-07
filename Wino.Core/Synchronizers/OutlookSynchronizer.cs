@@ -2134,7 +2134,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             }
             catch
             {
-                sendDraftRequest?.RevertUIChanges();
+                RequestUiChangeCoordinator.RevertRequest(sendDraftRequest);
                 throw;
             }
         }
@@ -2154,7 +2154,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             }
             catch
             {
-                directRequest.UIChangeRequest?.RevertUIChanges();
+                RequestUiChangeCoordinator.RevertBundle(directRequest);
                 throw;
             }
         }
@@ -2306,7 +2306,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         if (!handled || errorContext.Severity == SynchronizerErrorSeverity.Transient)
         {
             CaptureSynchronizationIssue(errorContext);
-            bundle.UIChangeRequest?.RevertUIChanges();
+            RequestUiChangeCoordinator.RevertBundle(bundle);
             Debug.WriteLine(errorString);
             errors.Add(errorString);
         }
