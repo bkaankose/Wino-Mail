@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Serilog.Core;
 using Wino.Authentication;
+using Wino.Core.Authentication;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Services;
@@ -39,6 +40,7 @@ public static class CoreContainerSetup
         services.AddTransient<IOutlookAuthenticator, OutlookAuthenticator>();
         services.AddTransient<IGmailAuthenticator, GmailAuthenticator>();
         services.AddTransient<IExchangeAuthenticator, ExchangeNtlmAuthenticator>();
+        services.AddSingleton<IOidcTokenClient, OidcTokenClient>();
 
         services.AddTransient<UnifiedImapSynchronizer>();
 
