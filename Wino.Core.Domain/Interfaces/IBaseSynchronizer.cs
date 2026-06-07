@@ -26,6 +26,11 @@ public interface IBaseSynchronizer
     void QueueRequest(IRequestBase request);
 
     /// <summary>
+    /// Returns whether the synchronizer currently has requests waiting to execute.
+    /// </summary>
+    bool HasQueuedRequests();
+
+    /// <summary>
     /// Returns whether there is an in-progress (queued or currently executing) operation for the given mail unique id.
     /// </summary>
     /// <param name="mailUniqueId">Mail unique id to check.</param>

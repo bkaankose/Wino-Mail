@@ -183,6 +183,20 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         EnsureInitialized();
         var stopwatch = Stopwatch.StartNew();
 
+        if (options.Type == MailSynchronizationType.ExecuteRequests && HasPendingUndoAction(options.AccountId))
+        {
+            var pendingSynchronizer = await GetOrCreateSynchronizerAsync(options.AccountId).ConfigureAwait(false);
+
+            if (pendingSynchronizer?.HasQueuedRequests() != true)
+            {
+                _logger.Debug("Deferring ExecuteRequests synchronization for account {AccountId} because an undoable action is still in its grace period.", options.AccountId);
+
+                var result = MailSynchronizationResult.Canceled;
+                TrackMailSynchronizationSummary(options, pendingSynchronizer, result, stopwatch.Elapsed);
+                return result;
+            }
+        }
+
         if (await IsSynchronizationBlockedByAttentionAsync(options.AccountId).ConfigureAwait(false))
         {
             _logger.Information("Skipping mail synchronization for account {AccountId} because it requires credential attention.", options.AccountId);
@@ -338,7 +352,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
         if (undoActionSettings != null)
         {
-            QueueUndoActionPack(normalizedRequestsByAccount, triggerSynchronization, undoActionSettings);
+            QueueUndoActionPack(normalizedRequestsByAccount, undoActionSettings);
             return;
         }
 
@@ -475,14 +489,13 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         return Task.CompletedTask;
     }
 
-    private void QueueUndoActionPack(Dictionary<Guid, List<IRequestBase>> requestsByAccount, bool triggerSynchronization, UndoActionSettings undoActionSettings)
+    private void QueueUndoActionPack(Dictionary<Guid, List<IRequestBase>> requestsByAccount, UndoActionSettings undoActionSettings)
     {
         var allRequests = requestsByAccount.Values.SelectMany(requests => requests).ToList();
         var pack = new PendingUndoActionPack
         {
             Id = Guid.NewGuid(),
             RequestsByAccount = requestsByAccount,
-            TriggerSynchronization = triggerSynchronization,
             CreatedAt = DateTimeOffset.UtcNow,
             ExpiresAt = DateTimeOffset.UtcNow.AddSeconds(undoActionSettings.IntervalInSeconds),
             IntervalInSeconds = undoActionSettings.IntervalInSeconds,
@@ -538,7 +551,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
         foreach (var pair in pack.RequestsByAccount)
         {
-            await QueueRequestsCoreAsync(pair.Value, pair.Key, pack.TriggerSynchronization).ConfigureAwait(false);
+            await QueueRequestsCoreAsync(pair.Value, pair.Key, triggerSynchronization: true).ConfigureAwait(false);
 
             if (pack.RequiresFolderSynchronizationByAccount.Contains(pair.Key))
             {
@@ -1472,7 +1485,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         public DateTimeOffset ExpiresAt { get; init; }
         public int IntervalInSeconds { get; init; }
         public UndoableMailActionPack VisibleMailActionPack { get; set; }
-        public bool TriggerSynchronization { get; set; }
         public bool IsCompleted { get; set; }
     }
 

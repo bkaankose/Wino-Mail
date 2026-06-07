@@ -136,6 +136,8 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
         TrackQueuedRequest(request);
     }
 
+    public bool HasQueuedRequests() => changeRequestQueue.Count > 0;
+
     public bool HasPendingOperation(Guid mailUniqueId) => _pendingMailOperationIds.ContainsKey(mailUniqueId);
 
     public IReadOnlyCollection<Guid> GetPendingOperationUniqueIds() => _pendingMailOperationIds.Keys.ToArray();
