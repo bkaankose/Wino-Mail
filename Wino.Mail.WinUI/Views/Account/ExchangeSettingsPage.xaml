@@ -32,25 +32,74 @@
                 Header="Email address"
                 Text="{x:Bind ViewModel.EmailAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
-            <TextBox
-                Header="EWS URL"
-                PlaceholderText="https://mail.example.com/EWS/Exchange.asmx"
-                Text="{x:Bind ViewModel.EwsUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox
+                    Grid.Column="0"
+                    Header="EWS URL"
+                    PlaceholderText="https://mail.example.com/EWS/Exchange.asmx"
+                    Text="{x:Bind ViewModel.EwsUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <Button
+                    Grid.Column="1"
+                    VerticalAlignment="Bottom"
+                    Command="{x:Bind ViewModel.DiscoverEwsUrlCommand}"
+                    Content="Discover"
+                    ToolTipService.ToolTip="Auto-discover the EWS URL from the email address." />
+            </Grid>
+
+            <ToggleSwitch
+                Header="Modern authentication (OAuth)"
+                IsOn="{x:Bind ViewModel.UseModernAuth, Mode=TwoWay}"
+                OffContent="Use password (NTLM / Basic)"
+                OnContent="Sign in with your organization's identity provider" />
 
             <PasswordBox
                 Header="Password"
-                Password="{x:Bind ViewModel.Password, Mode=TwoWay}" />
+                Password="{x:Bind ViewModel.Password, Mode=TwoWay}"
+                Visibility="{x:Bind ViewModel.UseModernAuth, Mode=OneWay, Converter={StaticResource ReverseBooleanToVisibilityConverter}}" />
+
+            <StackPanel
+                Spacing="12"
+                Visibility="{x:Bind ViewModel.UseModernAuth, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <TextBox
+                    Header="Authority URL"
+                    PlaceholderText="https://adfs.example.com/adfs"
+                    Text="{x:Bind ViewModel.OAuthAuthority, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBox
+                    Header="Client ID"
+                    Text="{x:Bind ViewModel.OAuthClientId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBox
+                    Header="Resource (optional — defaults to the EWS server)"
+                    PlaceholderText="https://mail.example.com/"
+                    Text="{x:Bind ViewModel.OAuthResource, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBox
+                    Header="Redirect URI (must be registered with the identity provider)"
+                    Text="{x:Bind ViewModel.OAuthRedirectUri, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            </StackPanel>
 
             <TextBlock
                 Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                 Text="{x:Bind ViewModel.ValidationMessage, Mode=OneWay}"
                 TextWrapping="Wrap" />
 
-            <Button
+            <StackPanel
                 HorizontalAlignment="Right"
-                Command="{x:Bind ViewModel.SaveCommand}"
-                Content="Save"
-                Style="{ThemeResource AccentButtonStyle}" />
+                Orientation="Horizontal"
+                Spacing="12">
+                <ProgressRing
+                    Width="20"
+                    Height="20"
+                    IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
+                    Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                <Button
+                    Command="{x:Bind ViewModel.SaveCommand}"
+                    Content="Save"
+                    IsEnabled="{x:Bind ViewModel.IsBusy, Mode=OneWay, Converter={StaticResource ReverseBooleanConverter}}"
+                    Style="{ThemeResource AccentButtonStyle}" />
+            </StackPanel>
         </StackPanel>
     </ScrollViewer>
 </abstract:ExchangeSettingsPageAbstract>
