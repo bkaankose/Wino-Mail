@@ -79,7 +79,9 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         RegisterMouseBackButtonListener();
 
         this.SetIcon("Assets/Wino_Icon.ico");
-        Title = StatePersistanceService.AppModeTitle;
+        Title = string.IsNullOrWhiteSpace(StatePersistanceService.CoreWindowTitle)
+            ? StatePersistanceService.AppModeTitle
+            : $"{StatePersistanceService.AppModeTitle} - {StatePersistanceService.CoreWindowTitle}";
     }
 
     private void ConfigureTitleBar()

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -322,8 +323,9 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
     private void UpdateWindowTitle()
     {
         var activeTitle = PageHistory.LastOrDefault()?.Title;
-        ViewModel.StatePersistenceService.CoreWindowTitle = string.IsNullOrWhiteSpace(activeTitle)
-            ? Translator.MenuSettings
+        ViewModel.StatePersistenceService.CoreWindowTitle = string.IsNullOrWhiteSpace(activeTitle) ||
+                                                             string.Equals(activeTitle, Translator.MenuSettings, StringComparison.Ordinal)
+            ? string.Empty
             : activeTitle;
     }
 

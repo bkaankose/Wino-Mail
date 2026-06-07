@@ -89,6 +89,7 @@ public class StatePersistenceService : ObservableObject, IStatePersistanceServic
             if (SetProperty(ref coreWindowTitle, value))
             {
                 UpdateAppCoreWindowTitle();
+                UpdateAppWindowTitle();
             }
         }
     }
@@ -171,8 +172,18 @@ public class StatePersistenceService : ObservableObject, IStatePersistanceServic
     {
         if (WinoApplication.MainWindow != null)
         {
-            WinoApplication.MainWindow.Title = AppModeTitle;
+            WinoApplication.MainWindow.Title = BuildWindowTitle();
         }
+    }
+
+    private string BuildWindowTitle()
+    {
+        if (string.IsNullOrWhiteSpace(CoreWindowTitle))
+        {
+            return AppModeTitle;
+        }
+
+        return $"{AppModeTitle} - {CoreWindowTitle}";
     }
 
     private static CalendarDisplayType EnsureValidCalendarDisplayType(CalendarDisplayType displayType)
