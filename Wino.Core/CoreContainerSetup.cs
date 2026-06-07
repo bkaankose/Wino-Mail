@@ -40,6 +40,7 @@ public static class CoreContainerSetup
         services.AddTransient<IOutlookAuthenticator, OutlookAuthenticator>();
         services.AddTransient<IGmailAuthenticator, GmailAuthenticator>();
         services.AddSingleton<IOidcTokenClient, OidcTokenClient>();
+        services.AddTransient<IInteractiveOidcAuthenticator, InteractiveOidcAuthenticator>();
         services.AddSingleton<ExchangeTokenCache>();
         services.AddTransient<ExchangeNtlmAuthenticator>();
         services.AddTransient<ExchangeOAuthAuthenticator>();
