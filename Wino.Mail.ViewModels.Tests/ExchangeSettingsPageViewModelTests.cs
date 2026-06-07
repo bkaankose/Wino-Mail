@@ -10,10 +10,10 @@ public sealed class ExchangeSettingsPageViewModelTests
 {
     private const string EwsUrl = "https://mail.example.com/EWS/Exchange.asmx";
 
-    // The NTLM and validation paths exercised here never touch the OAuth authenticator or the
-    // autodiscovery service, so null dependencies are safe.
+    // The NTLM and validation paths exercised here never touch the OAuth authenticator, the
+    // autodiscovery service, or the capability probe, so null dependencies are safe.
     private static ExchangeSettingsPageViewModel CreateViewModel(WelcomeWizardContext context)
-        => new(context, null, null);
+        => new(context, null, null, null);
 
     [Fact]
     public async Task Save_WithValidInput_BuildsExchangeSetupResult()

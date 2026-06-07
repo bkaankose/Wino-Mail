@@ -30,6 +30,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     private readonly WelcomeWizardContext _wizardContext;
     private readonly IInteractiveOidcAuthenticator _interactiveOidcAuthenticator;
     private readonly IExchangeAutoDiscoveryService _autoDiscoveryService;
+    private readonly IExchangeAuthCapabilityProbe _authCapabilityProbe;
 
     [ObservableProperty]
     public partial string DisplayName { get; set; } = string.Empty;
@@ -65,14 +66,20 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     [ObservableProperty]
     public partial string ValidationMessage { get; set; } = string.Empty;
 
+    /// <summary>Neutral informational text (e.g. auto-detection results), distinct from errors.</summary>
+    [ObservableProperty]
+    public partial string StatusMessage { get; set; } = string.Empty;
+
     public ExchangeSettingsPageViewModel(
         WelcomeWizardContext wizardContext,
         IInteractiveOidcAuthenticator interactiveOidcAuthenticator,
-        IExchangeAutoDiscoveryService autoDiscoveryService)
+        IExchangeAutoDiscoveryService autoDiscoveryService,
+        IExchangeAuthCapabilityProbe authCapabilityProbe)
     {
         _wizardContext = wizardContext;
         _interactiveOidcAuthenticator = interactiveOidcAuthenticator;
         _autoDiscoveryService = autoDiscoveryService;
+        _authCapabilityProbe = authCapabilityProbe;
     }
 
     public override void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -84,7 +91,8 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     }
 
     /// <summary>
-    /// Auto-fills the EWS URL from the email address via anonymous Autodiscover V2.
+    /// Auto-fills the EWS URL from the email address via anonymous Autodiscover V2, then probes the
+    /// resolved endpoint and defaults the auth method to modern auth when the server offers it.
     /// </summary>
     [RelayCommand]
     private async Task DiscoverEwsUrlAsync()
@@ -97,18 +105,47 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
 
         IsBusy = true;
         ValidationMessage = string.Empty;
+        StatusMessage = string.Empty;
 
         try
         {
             var discovered = await _autoDiscoveryService.TryDiscoverEwsUrlAsync(EmailAddress.Trim());
-            if (string.IsNullOrWhiteSpace(discovered))
-                ValidationMessage = "Couldn't auto-discover the EWS URL. Enter it manually.";
-            else
+            if (!string.IsNullOrWhiteSpace(discovered))
                 EwsUrl = discovered;
+            else if (string.IsNullOrWhiteSpace(EwsUrl))
+            {
+                ValidationMessage = "Couldn't auto-discover the EWS URL. Enter it manually.";
+                return;
+            }
+
+            await DetectAuthMethodAsync();
         }
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// Probes the EWS endpoint for modern-auth availability and flips the toggle to match. The probe
+    /// is server-level (not per-mailbox), so this is a smart default the user can still override.
+    /// </summary>
+    private async Task DetectAuthMethodAsync()
+    {
+        if (string.IsNullOrWhiteSpace(EwsUrl) || !Uri.TryCreate(EwsUrl.Trim(), UriKind.Absolute, out _))
+            return;
+
+        var capability = await _authCapabilityProbe.ProbeAsync(EwsUrl.Trim());
+        switch (capability)
+        {
+            case ExchangeAuthCapability.ModernAuthAvailable:
+                UseModernAuth = true;
+                StatusMessage = "Modern authentication is available — enabled it for you. You can switch to a password if this mailbox uses one.";
+                break;
+            case ExchangeAuthCapability.BasicOnly:
+                UseModernAuth = false;
+                StatusMessage = "This server offers password (NTLM/Basic) authentication.";
+                break;
         }
     }
 

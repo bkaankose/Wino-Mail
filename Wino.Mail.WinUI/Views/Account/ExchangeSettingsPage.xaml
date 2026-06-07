@@ -81,6 +81,11 @@
             </StackPanel>
 
             <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
+                TextWrapping="Wrap" />
+
+            <TextBlock
                 Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                 Text="{x:Bind ViewModel.ValidationMessage, Mode=OneWay}"
                 TextWrapping="Wrap" />

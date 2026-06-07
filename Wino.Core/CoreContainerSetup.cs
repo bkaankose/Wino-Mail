@@ -42,6 +42,7 @@ public static class CoreContainerSetup
         services.AddSingleton<IOidcTokenClient, OidcTokenClient>();
         services.AddTransient<IInteractiveOidcAuthenticator, InteractiveOidcAuthenticator>();
         services.AddTransient<IExchangeAutoDiscoveryService, ExchangeAutoDiscoveryService>();
+        services.AddTransient<IExchangeAuthCapabilityProbe, ExchangeAuthCapabilityProbe>();
         services.AddSingleton<ExchangeTokenCache>();
         services.AddTransient<ExchangeNtlmAuthenticator>();
         services.AddTransient<ExchangeOAuthAuthenticator>();
