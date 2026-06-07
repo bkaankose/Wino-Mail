@@ -471,6 +471,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         ApplyOptimisticUiChanges(batchedRequests);
 
         var service = await CreateServiceAsync().ConfigureAwait(false);
+        var errors = new List<string>();
 
         foreach (var bundle in batchedRequests)
         {
@@ -485,23 +486,73 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
             }
             catch (Exception ex)
             {
-                var errorContext = new SynchronizerErrorContext
-                {
-                    Account = Account,
-                    ErrorMessage = ex.Message,
-                    Exception = ex,
-                    OperationType = "ExchangeExecuteRequest"
-                };
-
-                await _errorHandlerFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
-                CaptureSynchronizationIssue(errorContext);
-                _logger.Error(ex, "Exchange request execution failed for {Account}.", Account.Name);
-
-                // Roll back the optimistic local changes for the failed batch. Reverts the
-                // whole batch (UIChangeRequest), mirroring ApplyOptimisticUiChanges above and
-                // the other synchronizers — reverting only bundle.Request would miss items 2..N.
-                bundle.UIChangeRequest?.RevertUIChanges();
+                await HandleFailedRequestAsync(bundle, ex, errors).ConfigureAwait(false);
             }
         }
+
+        // Surface unhandled / transient failures so the sync is marked failed (and retried).
+        if (errors.Count > 0)
+            throw new InvalidOperationException(string.Join(Environment.NewLine, errors));
     }
+
+    /// <summary>
+    /// Routes a failed request through the error-handler factory (mirrors OutlookSynchronizer):
+    /// entity-not-found and auth failures are owned by their handlers; transient and unhandled
+    /// errors are reverted, captured, and surfaced so the operation can be retried.
+    /// </summary>
+    private async Task HandleFailedRequestAsync(IRequestBundle<EwsRequest> bundle, Exception exception, List<string> errors)
+    {
+        var errorContext = new SynchronizerErrorContext
+        {
+            Account = Account,
+            ErrorMessage = exception.Message,
+            Exception = exception,
+            RequestBundle = bundle,
+            Request = bundle.Request,
+            IsEntityNotFound = IsEwsEntityNotFound(exception, bundle.UIChangeRequest),
+            OperationType = "ExchangeExecuteRequest"
+        };
+
+        var handled = await _errorHandlerFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
+
+        // A handled, non-transient error (entity-not-found cleanup, auth-required) is owned by
+        // the handler — it has already reverted/reconciled. Everything else is reverted here.
+        if (!handled || errorContext.Severity == SynchronizerErrorSeverity.Transient)
+        {
+            CaptureSynchronizationIssue(errorContext);
+            bundle.UIChangeRequest?.RevertUIChanges();
+            _logger.Error(exception, "Exchange request execution failed for {Account}.", Account.Name);
+            errors.Add(exception.Message);
+        }
+    }
+
+    // True when an EWS failure indicates the remote item/folder no longer exists for an
+    // operation that targets an existing entity — lets EntityNotFoundHandler reconcile locally.
+    private static bool IsEwsEntityNotFound(Exception exception, IUIChangeRequest uiChangeRequest)
+    {
+        if (uiChangeRequest == null || !IsExistingEntityOperation(uiChangeRequest))
+            return false;
+
+        for (var current = exception; current != null; current = current.InnerException)
+        {
+            if (current is ServiceResponseException serviceResponse &&
+                serviceResponse.ErrorCode is ServiceError.ErrorItemNotFound
+                    or ServiceError.ErrorFolderNotFound
+                    or ServiceError.ErrorNonExistentMailbox)
+            {
+                return true;
+            }
+
+            var message = current.Message?.ToLowerInvariant() ?? string.Empty;
+            if (message.Contains("not found") || message.Contains("does not exist") || message.Contains("cannot be found"))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsExistingEntityOperation(IUIChangeRequest request)
+        => request is BatchDeleteRequest or BatchMoveRequest or BatchChangeFlagRequest
+            or BatchMarkReadRequest or BatchArchiveRequest
+            or DeleteRequest or MoveRequest or ChangeFlagRequest or MarkReadRequest;
 }
