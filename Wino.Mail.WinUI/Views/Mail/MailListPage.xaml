@@ -1308,7 +1308,7 @@
                 <!--  Action bar  -->
                 <Grid
                     Margin="0,0,0,5"
-                    Background="{ThemeResource AppBarBackgroundColor}"
+                    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
                     CornerRadius="8"
                     Visibility="{x:Bind ViewModel.PreferencesService.IsMailListActionBarEnabled}">
                     <coreControls:OperationCommandBar
@@ -1618,7 +1618,7 @@
                         <InfoBar.ActionButton>
                             <Button AutomationProperties.AutomationId="MailListPageUndoMailActionButton" Command="{x:Bind ViewModel.UndoLatestQueuedActionCommand}">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <SymbolIcon Symbol="Undo" />
+                                    <!--<SymbolIcon Symbol="Undo" />-->
                                     <TextBlock Text="{x:Bind domain:Translator.UndoActions_Button, Mode=OneTime}" />
                                 </StackPanel>
                             </Button>

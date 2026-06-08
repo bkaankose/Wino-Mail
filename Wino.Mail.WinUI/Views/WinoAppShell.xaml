@@ -519,7 +519,7 @@
             VerticalContentAlignment="Stretch"
             AlwaysShowHeader="True"
             AutomationProperties.AutomationId="NavigationView"
-            Background="{ThemeResource NavigationViewContentBackground}"
+            Background="Transparent"
             DisplayModeChanged="NavigationViewDisplayModeChanged"
             IsBackButtonVisible="Collapsed"
             IsPaneOpen="{x:Bind ViewModel.PreferencesService.IsNavigationPaneOpened, Mode=OneWay}"
