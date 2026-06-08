@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Exchange.WebServices.Data;
 using MimeKit;
 using Serilog;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -484,11 +485,99 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
 
     #endregion
 
-    protected override Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
+    #region Calendar
+
+    protected override async Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
-        // TODO(Phase 2): EWS CalendarFolder / Appointment synchronization.
-        return Task.FromResult(CalendarSynchronizationResult.Empty);
+        try
+        {
+            var service = await CreateServiceAsync().ConfigureAwait(false);
+
+            // 1) Reconcile the set of calendars (AccountCalendar) against the server.
+            await SynchronizeCalendarsAsync(service, cancellationToken).ConfigureAwait(false);
+
+            // 2) Per-calendar event read sync (Appointment -> CalendarItem) lands in the next slice.
+            return CalendarSynchronizationResult.Empty;
+        }
+        catch (OperationCanceledException)
+        {
+            return CalendarSynchronizationResult.Canceled;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "EWS calendar synchronization failed for {Address}.", Account.Address);
+            return CalendarSynchronizationResult.Failed(ex);
+        }
     }
+
+    /// <summary>
+    /// Discovers the server's calendar folders (the default Calendar plus any IPF.Appointment folders)
+    /// and reconciles them against the locally stored <see cref="AccountCalendar"/> rows.
+    /// </summary>
+    private async Task SynchronizeCalendarsAsync(ExchangeService service, CancellationToken cancellationToken)
+    {
+        var properties = new PropertySet(BasePropertySet.IdOnly, FolderSchema.DisplayName, FolderSchema.FolderClass);
+
+        var defaultCalendar = await CalendarFolder.Bind(service, WellKnownFolderName.Calendar, properties).ConfigureAwait(false);
+
+        var view = new FolderView(1000) { Traversal = FolderTraversal.Deep, PropertySet = properties };
+        var appointmentFolders = await service
+            .FindFolders(WellKnownFolderName.MsgFolderRoot, new SearchFilter.IsEqualTo(FolderSchema.FolderClass, "IPF.Appointment"), view)
+            .ConfigureAwait(false);
+
+        // Build the remote calendar set keyed by id, always including the default calendar.
+        var remoteFolders = new Dictionary<string, Folder> { [defaultCalendar.Id.UniqueId] = defaultCalendar };
+        foreach (var folder in appointmentFolders.Folders)
+            remoteFolders[folder.Id.UniqueId] = folder;
+
+        var localCalendars = await _exchangeChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+
+        // Remove calendars that no longer exist on the server.
+        foreach (var local in localCalendars)
+        {
+            if (!remoteFolders.ContainsKey(local.RemoteCalendarId))
+                await _exchangeChangeProcessor.DeleteAccountCalendarAsync(local).ConfigureAwait(false);
+        }
+
+        // Insert new calendars and update changed ones.
+        foreach (var (remoteId, folder) in remoteFolders)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var isPrimary = remoteId == defaultCalendar.Id.UniqueId;
+            var name = string.IsNullOrWhiteSpace(folder.DisplayName) ? "Calendar" : folder.DisplayName;
+
+            var existing = localCalendars.FirstOrDefault(c => c.RemoteCalendarId == remoteId);
+            if (existing == null)
+            {
+                await _exchangeChangeProcessor.InsertAccountCalendarAsync(BuildAccountCalendar(remoteId, name, isPrimary)).ConfigureAwait(false);
+            }
+            else if (existing.Name != name || existing.IsPrimary != isPrimary)
+            {
+                existing.Name = name;
+                existing.IsPrimary = isPrimary;
+                await _exchangeChangeProcessor.UpdateAccountCalendarAsync(existing).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private AccountCalendar BuildAccountCalendar(string remoteCalendarId, string name, bool isPrimary)
+        => new()
+        {
+            Id = Guid.NewGuid(),
+            AccountId = Account.Id,
+            RemoteCalendarId = remoteCalendarId,
+            Name = name,
+            IsPrimary = isPrimary,
+            IsSynchronizationEnabled = true,
+            IsReadOnly = false,
+            DefaultShowAs = CalendarItemShowAs.Busy,
+            TextColorHex = "#FFFFFF",
+            BackgroundColorHex = string.IsNullOrWhiteSpace(Account.AccountColorHex) ? "#2564CF" : Account.AccountColorHex,
+            TimeZone = TimeZoneInfo.Local.Id
+        };
+
+    #endregion
 
     public override async Task ExecuteNativeRequestsAsync(List<IRequestBundle<EwsRequest>> batchedRequests, CancellationToken cancellationToken = default)
     {
