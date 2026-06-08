@@ -224,23 +224,26 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
             return null;
         }
 
-        if (string.IsNullOrWhiteSpace(OAuthRedirectUri))
-        {
-            ValidationMessage = "Redirect URI is required — use a reply URL your identity provider already trusts (e.g. your OWA URL).";
-            return null;
-        }
+        var ewsOrigin = new Uri(EwsUrl.Trim()).GetLeftPart(UriPartial.Authority);
 
         // Default the protected resource to the EWS server origin when not overridden.
         var resource = string.IsNullOrWhiteSpace(OAuthResource)
-            ? new Uri(EwsUrl.Trim()).GetLeftPart(UriPartial.Authority) + "/"
+            ? ewsOrigin + "/"
             : OAuthResource.Trim();
+
+        // The embedded WebView2 reuses a redirect the IdP already trusts and intercepts it in-process,
+        // so the user need not register or type one. Default to the conventional OWA reply URL on the
+        // EWS host; the Advanced field lets a non-conventional deployment override it.
+        var redirectUri = string.IsNullOrWhiteSpace(OAuthRedirectUri)
+            ? ewsOrigin + "/owa/"
+            : OAuthRedirectUri.Trim();
 
         var configuration = new OidcConfiguration
         {
             Authority = OAuthAuthority.Trim(),
             ClientId = OAuthClientId.Trim(),
             Resource = resource,
-            RedirectUri = OAuthRedirectUri.Trim()
+            RedirectUri = redirectUri
         };
 
         IsBusy = true;

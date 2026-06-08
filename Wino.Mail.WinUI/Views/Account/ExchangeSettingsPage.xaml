@@ -68,17 +68,24 @@
                     Header="Authority URL"
                     PlaceholderText="https://adfs.example.com/adfs"
                     Text="{x:Bind ViewModel.OAuthAuthority, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                <TextBox
-                    Header="Client ID"
-                    Text="{x:Bind ViewModel.OAuthClientId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                <TextBox
-                    Header="Resource (optional — defaults to the EWS server)"
-                    PlaceholderText="https://mail.example.com/"
-                    Text="{x:Bind ViewModel.OAuthResource, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                <TextBox
-                    Header="Redirect URI (a reply URL your identity provider already trusts — e.g. your OWA URL)"
-                    PlaceholderText="https://mail.example.com/owa/"
-                    Text="{x:Bind ViewModel.OAuthRedirectUri, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <Expander
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch"
+                    Header="Advanced settings">
+                    <StackPanel Spacing="12">
+                        <TextBox
+                            Header="Client ID"
+                            Text="{x:Bind ViewModel.OAuthClientId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox
+                            Header="Resource (optional — defaults to the EWS server)"
+                            PlaceholderText="https://mail.example.com/"
+                            Text="{x:Bind ViewModel.OAuthResource, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox
+                            Header="Redirect URI (optional — auto-derived from the EWS server, e.g. .../owa/)"
+                            PlaceholderText="https://mail.example.com/owa/"
+                            Text="{x:Bind ViewModel.OAuthRedirectUri, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
+                </Expander>
             </StackPanel>
 
             <TextBlock
