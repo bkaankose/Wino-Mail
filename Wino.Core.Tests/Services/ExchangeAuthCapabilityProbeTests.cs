@@ -48,4 +48,31 @@ public sealed class ExchangeAuthCapabilityProbeTests
         ExchangeAuthCapabilityProbe.ClassifyChallenges(null)
             .Should().Be(ExchangeAuthCapability.Unknown);
     }
+
+    [Fact]
+    public void ExtractChallengeParameter_ParsesAuthorityAndIssuer()
+    {
+        // The exact challenge shape captured from on-prem Exchange (anchor-mailbox probe).
+        const string bearer = "Bearer client_id=\"00000002-0000-0ff1-ce00-000000000000\", " +
+            "token_types=\"app_asserted_user_v1 service_asserted_app_v1\", " +
+            "authorization_uri=\"https://wsfed.mtec360.com/adfs/oauth2/authorize\", issuer_kind=\"ADFS\"";
+
+        ExchangeAuthCapabilityProbe.ExtractChallengeParameter(bearer, "authorization_uri")
+            .Should().Be("https://wsfed.mtec360.com/adfs/oauth2/authorize");
+        ExchangeAuthCapabilityProbe.ExtractChallengeParameter(bearer, "issuer_kind")
+            .Should().Be("ADFS");
+        ExchangeAuthCapabilityProbe.ExtractChallengeParameter(bearer, "not_present")
+            .Should().BeNull();
+    }
+
+    [Fact]
+    public void DeriveAuthority_TrimsAuthorizeSuffix()
+    {
+        ExchangeAuthCapabilityProbe.DeriveAuthority("https://wsfed.mtec360.com/adfs/oauth2/authorize")
+            .Should().Be("https://wsfed.mtec360.com/adfs");
+        ExchangeAuthCapabilityProbe.DeriveAuthority("https://idp.example.com/authorize")
+            .Should().Be("https://idp.example.com");
+        ExchangeAuthCapabilityProbe.DeriveAuthority(null)
+            .Should().BeNull();
+    }
 }

@@ -139,12 +139,19 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         if (string.IsNullOrWhiteSpace(EwsUrl) || !Uri.TryCreate(EwsUrl.Trim(), UriKind.Absolute, out _))
             return;
 
-        var capability = await _authCapabilityProbe.ProbeAsync(EwsUrl.Trim());
-        switch (capability)
+        var probe = await _authCapabilityProbe.ProbeAsync(EwsUrl.Trim(), EmailAddress?.Trim());
+        switch (probe.Capability)
         {
             case ExchangeAuthCapability.ModernAuthAvailable:
                 UseModernAuth = true;
-                StatusMessage = "Modern authentication is available — enabled it for you. You can switch to a password if this mailbox uses one.";
+
+                // Auto-fill the discovered authority, but never overwrite a value the user set.
+                if (!string.IsNullOrWhiteSpace(probe.Authority) && string.IsNullOrWhiteSpace(OAuthAuthority))
+                    OAuthAuthority = probe.Authority;
+
+                StatusMessage = string.IsNullOrWhiteSpace(probe.Authority)
+                    ? "Modern authentication is available — enabled it. Enter your identity provider's authority below."
+                    : $"Modern authentication discovered — using {probe.Authority}.";
                 break;
             case ExchangeAuthCapability.BasicOnly:
                 UseModernAuth = false;
