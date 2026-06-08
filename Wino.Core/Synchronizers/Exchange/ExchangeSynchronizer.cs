@@ -14,9 +14,11 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Requests.Bundles;
+using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 // EWS defines its own Task item type; alias bare `Task` to the TPL Task.
@@ -662,6 +664,184 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         {
             if (!string.IsNullOrEmpty(local.RemoteEventId) && !seenRemoteIds.Contains(local.RemoteEventId))
                 await _exchangeChangeProcessor.DeleteCalendarItemAsync(local.Id).ConfigureAwait(false);
+        }
+    }
+
+    #endregion
+
+    #region Calendar Operations
+
+    public override List<IRequestBundle<EwsRequest>> CreateCalendarEvent(CreateCalendarEventRequest request)
+    {
+        var item = request.PreparedItem;
+        var attendees = request.ComposeResult?.Attendees;
+        var reminders = request.ComposeResult?.SelectedReminders;
+        var calendarRemoteId = request.AssignedCalendar.RemoteCalendarId;
+        var isRecurring = request.IsRecurring;
+        var title = item.Title;
+
+        return Bundle(async service =>
+        {
+            var appointment = new Appointment(service);
+            ApplyCalendarItem(appointment, item, attendees, reminders);
+
+            // RRULE -> EWS recurrence mapping is a follow-up; create the base event for now.
+            if (isRecurring)
+                Log.Warning("EWS recurring-event creation is not yet supported; created '{Title}' as a single event.", title);
+
+            var sendMode = HasAttendees(appointment) ? SendInvitationsMode.SendToAllAndSaveCopy : SendInvitationsMode.SendToNone;
+            await appointment.Save(new FolderId(calendarRemoteId), sendMode).ConfigureAwait(false);
+        }, request, request);
+    }
+
+    public override List<IRequestBundle<EwsRequest>> UpdateCalendarEvent(UpdateCalendarEventRequest request)
+    {
+        var item = request.Item;
+        var attendees = request.Attendees;
+
+        return Bundle(async service =>
+        {
+            var appointment = await Appointment.Bind(service, new ItemId(item.RemoteEventId)).ConfigureAwait(false);
+            ApplyCalendarItem(appointment, item, attendees, reminders: null);
+
+            var sendMode = HasAttendees(appointment)
+                ? SendInvitationsOrCancellationsMode.SendToAllAndSaveCopy
+                : SendInvitationsOrCancellationsMode.SendToNone;
+            await appointment.Update(ConflictResolutionMode.AutoResolve, sendMode).ConfigureAwait(false);
+        }, request, request);
+    }
+
+    public override List<IRequestBundle<EwsRequest>> ChangeStartAndEndDate(ChangeStartAndEndDateRequest request)
+        => UpdateCalendarEvent(request);
+
+    public override List<IRequestBundle<EwsRequest>> DeleteCalendarEvent(DeleteCalendarEventRequest request)
+    {
+        var remoteId = request.Item.RemoteEventId;
+
+        return Bundle(async service =>
+        {
+            var appointment = await Appointment.Bind(service, new ItemId(remoteId), new PropertySet(BasePropertySet.IdOnly)).ConfigureAwait(false);
+            await appointment.Delete(DeleteMode.MoveToDeletedItems, SendCancellationsMode.SendToNone).ConfigureAwait(false);
+        }, request, request);
+    }
+
+    public override List<IRequestBundle<EwsRequest>> AcceptEvent(AcceptEventRequest request)
+        => RespondToEvent(request, RsvpResponse.Accept, request.Item.RemoteEventId, request.ResponseMessage);
+
+    public override List<IRequestBundle<EwsRequest>> TentativeEvent(TentativeEventRequest request)
+        => RespondToEvent(request, RsvpResponse.Tentative, request.Item.RemoteEventId, request.ResponseMessage);
+
+    public override List<IRequestBundle<EwsRequest>> DeclineEvent(DeclineEventRequest request)
+        => RespondToEvent(request, RsvpResponse.Decline, request.Item.RemoteEventId, request.ResponseMessage);
+
+    private enum RsvpResponse { Accept, Tentative, Decline }
+
+    private List<IRequestBundle<EwsRequest>> RespondToEvent(CalendarRequestBase request, RsvpResponse response, string remoteEventId, string responseMessage)
+    {
+        return Bundle(async service =>
+        {
+            var appointment = await Appointment.Bind(service, new ItemId(remoteEventId), new PropertySet(BasePropertySet.IdOnly)).ConfigureAwait(false);
+
+            switch (response)
+            {
+                case RsvpResponse.Accept:
+                {
+                    var message = appointment.CreateAcceptMessage(false);
+                    if (!string.IsNullOrEmpty(responseMessage)) message.Body = new MessageBody(responseMessage);
+                    await message.SendAndSaveCopy().ConfigureAwait(false);
+                    break;
+                }
+                case RsvpResponse.Tentative:
+                {
+                    var message = appointment.CreateAcceptMessage(true);
+                    if (!string.IsNullOrEmpty(responseMessage)) message.Body = new MessageBody(responseMessage);
+                    await message.SendAndSaveCopy().ConfigureAwait(false);
+                    break;
+                }
+                case RsvpResponse.Decline:
+                {
+                    var message = appointment.CreateDeclineMessage();
+                    if (!string.IsNullOrEmpty(responseMessage)) message.Body = new MessageBody(responseMessage);
+                    await message.SendAndSaveCopy().ConfigureAwait(false);
+                    break;
+                }
+            }
+        }, request, request);
+    }
+
+    private static bool HasAttendees(Appointment appointment)
+        => appointment.RequiredAttendees.Count > 0 || appointment.OptionalAttendees.Count > 0;
+
+    private static void ApplyCalendarItem(Appointment appointment, CalendarItem item, List<CalendarEventAttendee> attendees, List<Reminder> reminders)
+    {
+        appointment.Subject = item.Title;
+        appointment.Body = new MessageBody(BodyType.HTML, item.Description ?? string.Empty);
+        appointment.Location = item.Location;
+
+        // item.StartDate is wall-clock in item.StartTimeZone; set the appointment's time zone so EWS
+        // interprets the wall-clock time correctly regardless of the service time zone.
+        var timeZone = ResolveTimeZoneInfo(item.StartTimeZone);
+        appointment.StartTimeZone = timeZone;
+        appointment.EndTimeZone = timeZone;
+        appointment.Start = item.StartDate;
+        appointment.End = item.StartDate.AddSeconds(item.DurationInSeconds);
+        appointment.IsAllDayEvent = item.IsAllDayEvent;
+
+        appointment.LegacyFreeBusyStatus = item.ShowAs switch
+        {
+            CalendarItemShowAs.Free => LegacyFreeBusyStatus.Free,
+            CalendarItemShowAs.Tentative => LegacyFreeBusyStatus.Tentative,
+            CalendarItemShowAs.OutOfOffice => LegacyFreeBusyStatus.OOF,
+            CalendarItemShowAs.WorkingElsewhere => LegacyFreeBusyStatus.WorkingElsewhere,
+            _ => LegacyFreeBusyStatus.Busy
+        };
+
+        if (attendees != null)
+        {
+            appointment.RequiredAttendees.Clear();
+            appointment.OptionalAttendees.Clear();
+
+            foreach (var attendee in attendees)
+            {
+                if (string.IsNullOrEmpty(attendee.Email))
+                    continue;
+
+                if (attendee.IsOptionalAttendee)
+                    appointment.OptionalAttendees.Add(attendee.Email);
+                else
+                    appointment.RequiredAttendees.Add(attendee.Email);
+            }
+        }
+
+        if (reminders != null && reminders.Count > 0)
+        {
+            appointment.IsReminderSet = true;
+            appointment.ReminderMinutesBeforeStart = (int)Math.Max(0, reminders[0].DurationInSeconds / 60);
+        }
+    }
+
+    private static TimeZoneInfo ResolveTimeZoneInfo(string ianaTimeZone)
+    {
+        if (string.IsNullOrEmpty(ianaTimeZone))
+            return TimeZoneInfo.Utc;
+
+        try
+        {
+            if (TimeZoneInfo.TryConvertIanaIdToWindowsId(ianaTimeZone, out var windowsId))
+                return TimeZoneInfo.FindSystemTimeZoneById(windowsId);
+        }
+        catch
+        {
+            // Fall through to the direct lookup / UTC.
+        }
+
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(ianaTimeZone);
+        }
+        catch
+        {
+            return TimeZoneInfo.Utc;
         }
     }
 
