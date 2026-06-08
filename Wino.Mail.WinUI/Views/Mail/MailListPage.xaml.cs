@@ -46,6 +46,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
     IRecipient<SelectMailItemContainerEvent>,
     IRecipient<DisposeRenderingFrameRequested>,
     IHostedPopoutSource,
+    IWinoFrameProvider,
     ITitleBarSearchHost
 {
     private const double RENDERING_COLUMN_MIN_WIDTH = 375;
@@ -209,17 +210,20 @@ public sealed partial class MailListPage : MailListPageAbstract,
         if (sender is FrameworkElement control && args.TryGetPosition(sender, out Point p))
         {
             IReadOnlyList<MailItemViewModel> targetItems;
+            MailItemViewModel? composeTargetItem;
             var actionItem = ResolveMailListItem(control);
 
             if (actionItem is ThreadMailItemViewModel threadItem)
             {
                 targetItems = threadItem.ThreadEmails.ToList();
+                composeTargetItem = threadItem.GetDefaultSelectedThreadEmail();
             }
             else if (actionItem is MailItemViewModel mailItem)
             {
                 targetItems = mailItem.IsSelected
                     ? ViewModel.MailCollection.SelectedItems.ToList()
                     : [mailItem];
+                composeTargetItem = mailItem;
             }
             else
             {
@@ -256,7 +260,15 @@ public sealed partial class MailListPage : MailListPageAbstract,
             if (clickedAction.Operation == null)
                 return;
 
-            var prepRequest = new MailOperationPreperationRequest(clickedAction.Operation.Operation, targetItems.Select(a => a.MailCopy));
+            var operation = clickedAction.Operation.Operation;
+
+            if (IsComposeContextOperation(operation))
+            {
+                await ViewModel.CreateDraftFromMailAsync(composeTargetItem, operation);
+                return;
+            }
+
+            var prepRequest = new MailOperationPreperationRequest(operation, targetItems.Select(a => a.MailCopy));
 
             await ViewModel.ExecuteMailOperationAsync(prepRequest);
         }
@@ -282,13 +294,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
                 continue;
             }
 
-            var menuFlyoutItem = new MailOperationMenuFlyoutItem(action, clicked =>
-            {
-                source.TrySetResult(new MailContextAction(clicked));
-                flyout.Hide();
-            });
-
-            flyout.Items.Add(menuFlyoutItem);
+            AddMailOperationFlyoutItem(flyout, source, action);
         }
 
         if (flyout.Items.Count > 0 && flyout.Items.LastOrDefault() is not MenuFlyoutSeparator)
@@ -356,6 +362,23 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
         return await source.Task;
     }
+
+    private static void AddMailOperationFlyoutItem(
+        MenuFlyout flyout,
+        TaskCompletionSource<MailContextAction?> source,
+        MailOperationMenuItem action)
+    {
+        var menuFlyoutItem = new MailOperationMenuFlyoutItem(action, clicked =>
+        {
+            source.TrySetResult(new MailContextAction(clicked));
+            flyout.Hide();
+        });
+
+        flyout.Items.Add(menuFlyoutItem);
+    }
+
+    private static bool IsComposeContextOperation(MailOperation operation)
+        => operation is MailOperation.Reply or MailOperation.ReplyAll or MailOperation.Forward;
 
     private static void AddCategoryFlyoutItem(
         MenuFlyoutSubItem categorySubItem,
@@ -469,6 +492,9 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     private bool IsRenderingPageActive() => RenderingFrame.Content is MailRenderingPage;
     private bool IsComposingPageActive() => RenderingFrame.Content is ComposePage;
+
+    public Frame? GetFrame(NavigationReferenceFrame frameType)
+        => frameType == NavigationReferenceFrame.RenderingFrame ? RenderingFrame : null;
 
     private void RenderingFrame_Navigated(object sender, NavigationEventArgs e)
     {

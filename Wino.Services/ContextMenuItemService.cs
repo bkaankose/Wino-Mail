@@ -52,6 +52,11 @@ public class ContextMenuItemService : IContextMenuItemService
 
         MailCopy singleItem = selectedMailItems.FirstOrDefault();
 
+        operationList.Add(MailOperationMenuItem.Create(MailOperation.Reply));
+        operationList.Add(MailOperationMenuItem.Create(MailOperation.ReplyAll));
+        operationList.Add(MailOperationMenuItem.Create(MailOperation.Forward));
+        operationList.Add(MailOperationMenuItem.Create(MailOperation.Seperator));
+
         // Archive button.
 
         if (isArchiveFolder)

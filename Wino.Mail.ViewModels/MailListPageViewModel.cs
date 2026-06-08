@@ -777,11 +777,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 args.Handled = true;
                 break;
             case KeyboardShortcutAction.Reply:
-                await CreateReplyDraftAsync(DraftCreationReason.Reply);
+                await CreateDraftForShortcutTargetAsync(DraftCreationReason.Reply);
                 args.Handled = true;
                 break;
             case KeyboardShortcutAction.ReplyAll:
-                await CreateReplyDraftAsync(DraftCreationReason.ReplyAll);
+                await CreateDraftForShortcutTargetAsync(DraftCreationReason.ReplyAll);
                 args.Handled = true;
                 break;
         }
@@ -798,9 +798,30 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         return [];
     }
 
-    private async Task CreateReplyDraftAsync(DraftCreationReason reason)
+    private async Task CreateDraftForShortcutTargetAsync(DraftCreationReason reason)
     {
         var targetMail = GetShortcutTargetItems().FirstOrDefault();
+        await CreateDraftFromMailAsync(targetMail, reason);
+    }
+
+    public Task CreateDraftFromMailAsync(MailItemViewModel targetMail, MailOperation operation)
+    {
+        var reason = operation switch
+        {
+            MailOperation.Reply => DraftCreationReason.Reply,
+            MailOperation.ReplyAll => DraftCreationReason.ReplyAll,
+            MailOperation.Forward => DraftCreationReason.Forward,
+            _ => DraftCreationReason.Empty
+        };
+
+        return CreateDraftFromMailAsync(targetMail, reason);
+    }
+
+    private async Task CreateDraftFromMailAsync(MailItemViewModel targetMail, DraftCreationReason reason)
+    {
+        if (reason == DraftCreationReason.Empty)
+            return;
+
         if (targetMail?.MailCopy == null || targetMail.MailCopy.FileId == Guid.Empty)
             return;
 
