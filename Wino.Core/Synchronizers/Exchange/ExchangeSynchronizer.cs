@@ -78,18 +78,26 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
     /// Builds an EWS service bound to the account's on-premises endpoint and credentials.
     /// EWS is stateless HTTP, so this is recreated per operation rather than pooled.
     /// </summary>
-    private async Task<ExchangeService> CreateServiceAsync()
+    private async Task<ExchangeService> CreateServiceAsync(TimeZoneInfo timeZone = null)
     {
         var serverInformation = Account.ServerInformation
             ?? throw new InvalidOperationException("Exchange account is missing server information.");
 
         var credentials = await _exchangeAuthenticator.GetCredentialsAsync(Account).ConfigureAwait(false);
 
-        return new ExchangeService(TargetExchangeVersion)
-        {
-            Credentials = credentials,
-            Url = new Uri(serverInformation.IncomingServer)
-        };
+        // The service time zone is constructor-only; calendar sync passes UTC so appointment times
+        // come back as UTC and the change processor converts them to each event's own zone.
+        return timeZone == null
+            ? new ExchangeService(TargetExchangeVersion)
+            {
+                Credentials = credentials,
+                Url = new Uri(serverInformation.IncomingServer)
+            }
+            : new ExchangeService(TargetExchangeVersion, timeZone)
+            {
+                Credentials = credentials,
+                Url = new Uri(serverInformation.IncomingServer)
+            };
     }
 
     public override Task<List<NewMailItemPackage>> CreateNewMailPackagesAsync(Item message, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)
@@ -491,12 +499,26 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
     {
         try
         {
-            var service = await CreateServiceAsync().ConfigureAwait(false);
+            // Appointment times are read in UTC; the change processor converts to the event's own zone.
+            var service = await CreateServiceAsync(TimeZoneInfo.Utc).ConfigureAwait(false);
 
             // 1) Reconcile the set of calendars (AccountCalendar) against the server.
             await SynchronizeCalendarsAsync(service, cancellationToken).ConfigureAwait(false);
 
-            // 2) Per-calendar event read sync (Appointment -> CalendarItem) lands in the next slice.
+            // 2) Read events per enabled calendar over a moving window (CalendarView expands occurrences).
+            var windowStartUtc = DateTime.UtcNow.AddMonths(-CalendarWindowPastMonths);
+            var windowEndUtc = DateTime.UtcNow.AddMonths(CalendarWindowFutureMonths);
+
+            var calendars = (await _exchangeChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false))
+                .Where(c => c.IsSynchronizationEnabled)
+                .ToList();
+
+            foreach (var calendar in calendars)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await SynchronizeCalendarEventsForCalendarAsync(service, calendar, windowStartUtc, windowEndUtc, cancellationToken).ConfigureAwait(false);
+            }
+
             return CalendarSynchronizationResult.Empty;
         }
         catch (OperationCanceledException)
@@ -576,6 +598,72 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
             BackgroundColorHex = string.IsNullOrWhiteSpace(Account.AccountColorHex) ? "#2564CF" : Account.AccountColorHex,
             TimeZone = TimeZoneInfo.Local.Id
         };
+
+    // Read window for calendar events. CalendarView expands recurrences into occurrences, so a moving
+    // window (re-fetched + reconciled each sync) bounds occurrence volume without needing delta tokens.
+    private const int CalendarWindowPastMonths = 3;
+    private const int CalendarWindowFutureMonths = 12;
+
+    private static readonly PropertySet EventPropertySet = new(
+        BasePropertySet.IdOnly,
+        ItemSchema.Subject, ItemSchema.Body, ItemSchema.Sensitivity,
+        ItemSchema.DateTimeCreated, ItemSchema.LastModifiedTime,
+        AppointmentSchema.Start, AppointmentSchema.End, AppointmentSchema.Location,
+        AppointmentSchema.Organizer, AppointmentSchema.LegacyFreeBusyStatus,
+        AppointmentSchema.IsReminderSet, AppointmentSchema.ReminderMinutesBeforeStart,
+        AppointmentSchema.RequiredAttendees, AppointmentSchema.OptionalAttendees,
+        AppointmentSchema.MyResponseType, AppointmentSchema.IsAllDayEvent,
+        AppointmentSchema.StartTimeZone, AppointmentSchema.EndTimeZone)
+    { RequestedBodyType = BodyType.HTML };
+
+    private async Task SynchronizeCalendarEventsForCalendarAsync(ExchangeService service, AccountCalendar calendar, DateTime windowStartUtc, DateTime windowEndUtc, CancellationToken cancellationToken)
+    {
+        var calendarFolder = await CalendarFolder
+            .Bind(service, new FolderId(calendar.RemoteCalendarId), new PropertySet(BasePropertySet.IdOnly))
+            .ConfigureAwait(false);
+
+        var seenRemoteIds = new HashSet<string>();
+
+        // Page the window in chunks so a dense recurring series can't exceed the server's per-view cap.
+        var chunkStartUtc = windowStartUtc;
+        while (chunkStartUtc < windowEndUtc)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var chunkEndUtc = chunkStartUtc.AddMonths(3);
+            if (chunkEndUtc > windowEndUtc)
+                chunkEndUtc = windowEndUtc;
+
+            var view = new CalendarView(chunkStartUtc, chunkEndUtc, 1000) { PropertySet = new PropertySet(BasePropertySet.IdOnly) };
+            var results = await calendarFolder.FindAppointments(view).ConfigureAwait(false);
+            var appointments = results.Items;
+
+            if (appointments.Count > 0)
+            {
+                await service.LoadPropertiesForItems(appointments, EventPropertySet).ConfigureAwait(false);
+
+                foreach (var appointment in appointments)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    seenRemoteIds.Add(appointment.Id.UniqueId);
+                    await _exchangeChangeProcessor.ManageCalendarEventAsync(appointment, calendar, Account).ConfigureAwait(false);
+                }
+            }
+
+            if (results.MoreAvailable)
+                Log.Warning("Calendar window chunk for {Calendar} hit the result cap; some events may be missing.", calendar.Name);
+
+            chunkStartUtc = chunkEndUtc;
+        }
+
+        // Reconcile: drop locally stored events in this window that the server no longer returns.
+        var localEvents = await _exchangeChangeProcessor.GetCalendarItemsInRangeAsync(calendar, windowStartUtc, windowEndUtc).ConfigureAwait(false);
+        foreach (var local in localEvents)
+        {
+            if (!string.IsNullOrEmpty(local.RemoteEventId) && !seenRemoteIds.Contains(local.RemoteEventId))
+                await _exchangeChangeProcessor.DeleteCalendarItemAsync(local.Id).ConfigureAwait(false);
+        }
+    }
 
     #endregion
 
