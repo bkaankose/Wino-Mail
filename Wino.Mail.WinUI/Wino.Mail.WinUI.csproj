@@ -213,7 +213,6 @@
 	<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
 	<ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
 	<ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />
-	<ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Page Update="Views\Settings\ContactsPage.xaml">
