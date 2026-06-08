@@ -1257,8 +1257,6 @@ public partial class App : WinoApplication,
         if (MainWindow is not IWinoShellWindow shellWindow)
             throw new ArgumentException("MainWindow must implement IWinoShellWindow");
 
-        windowManager.SetPrimaryNavigationFrame(WinoWindowKind.Shell, shellWindow.GetMainFrame());
-
         var navigationService = Services.GetRequiredService<INavigationService>();
         var defaultMode = WinoApplicationMode.Mail;
         var activationArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
@@ -1326,7 +1324,6 @@ public partial class App : WinoApplication,
         if (MainWindow is WelcomeWindow welcomeWindow)
         {
             var rootFrame = welcomeWindow.GetRootFrame();
-            windowManager.SetPrimaryNavigationFrame(WinoWindowKind.Welcome, rootFrame);
 
             if (rootFrame.Content is WelcomeHostPage welcomeHostPage)
             {

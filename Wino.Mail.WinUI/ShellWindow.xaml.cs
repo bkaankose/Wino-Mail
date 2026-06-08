@@ -29,6 +29,7 @@ using WinUIEx;
 namespace Wino.Mail.WinUI;
 
 public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
+    IWinoFrameProvider,
     IRecipient<ApplicationThemeChanged>,
     IRecipient<InfoBarMessageRequested>,
     IRecipient<TitleBarShellContentUpdated>,
@@ -168,6 +169,9 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     public Microsoft.UI.Xaml.Controls.TitleBar GetTitleBar() => ShellTitleBar;
 
     public Frame GetMainFrame() => MainShellFrame;
+
+    public Frame? GetFrame(NavigationReferenceFrame frameType)
+        => frameType == NavigationReferenceFrame.ShellFrame ? MainShellFrame : null;
 
     public FrameworkElement GetRootContent() => Content as Grid ?? throw new Exception("RootContent is not a Grid or empty.");
 

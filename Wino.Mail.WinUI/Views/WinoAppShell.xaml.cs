@@ -30,6 +30,7 @@ using Wino.Mail.WinUI.ViewModels;
 using Wino.Controls;
 using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Helpers;
+using Wino.Mail.WinUI.Interfaces;
 using Wino.Helpers;
 using Wino.MenuFlyouts;
 using Wino.MenuFlyouts.Context;
@@ -46,6 +47,7 @@ namespace Wino.Mail.WinUI.Views;
 
 public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     IShellHost,
+    IWinoFrameProvider,
     IRecipient<AccountMenuItemExtended>,
     IRecipient<NavigateMailFolderEvent>,
     IRecipient<CreateNewMailWithMultipleAccountsRequested>,
@@ -87,6 +89,14 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     public bool HasShellContent => InnerShellFrame.Content != null;
 
     public Frame GetShellFrame() => InnerShellFrame;
+
+    public Frame? GetFrame(NavigationReferenceFrame frameType)
+        => frameType switch
+        {
+            NavigationReferenceFrame.InnerShellFrame => InnerShellFrame,
+            NavigationReferenceFrame.RenderingFrame => (InnerShellFrame.Content as IWinoFrameProvider)?.GetFrame(frameType),
+            _ => null
+        };
 
     public void ActivateMode(WinoApplicationMode mode, ShellModeActivationContext activationContext)
     {

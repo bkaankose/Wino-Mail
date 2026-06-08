@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using WinUIEx;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
@@ -17,7 +16,6 @@ public class WinoWindowManager : IWinoWindowManager
     private readonly object _syncLock = new();
     private readonly Dictionary<(WinoWindowKind Kind, string Name), WindowEx> _windows = [];
     private readonly Dictionary<WindowEx, (WinoWindowKind Kind, string Name)> _windowKeys = [];
-    private readonly Dictionary<(WinoWindowKind Kind, string Name), Frame> _primaryNavigationFrames = [];
 
     public WindowEx? ActiveWindow { get; private set; }
 
@@ -135,23 +133,6 @@ public class WinoWindowManager : IWinoWindowManager
         return true;
     }
 
-    public void SetPrimaryNavigationFrame(WinoWindowKind kind, Frame frame, string? name = null)
-    {
-        lock (_syncLock)
-        {
-            _primaryNavigationFrames[CreateKey(kind, name)] = frame;
-        }
-    }
-
-    public Frame? GetPrimaryNavigationFrame(WinoWindowKind kind, string? name = null)
-    {
-        lock (_syncLock)
-        {
-            _primaryNavigationFrames.TryGetValue(CreateKey(kind, name), out var frame);
-            return frame;
-        }
-    }
-
     private void TrackWindow((WinoWindowKind Kind, string Name) key, WindowEx window)
     {
         _windows[key] = window;
@@ -200,7 +181,6 @@ public class WinoWindowManager : IWinoWindowManager
 
             _windowKeys.Remove(window);
             _windows.Remove(key);
-            _primaryNavigationFrames.Remove(key);
             WindowRemoved?.Invoke(this, window);
 
             if (wasActiveWindow)
@@ -248,7 +228,6 @@ public class WinoWindowManager : IWinoWindowManager
         {
             _windowKeys.Clear();
             _windows.Clear();
-            _primaryNavigationFrames.Clear();
             ActiveWindow = null;
         }
 

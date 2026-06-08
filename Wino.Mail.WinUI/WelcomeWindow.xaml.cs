@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
@@ -9,12 +10,15 @@ using WinUIEx;
 
 namespace Wino.Mail.WinUI;
 
-public sealed partial class WelcomeWindow : WindowEx
+public sealed partial class WelcomeWindow : WindowEx, IWinoFrameProvider
 {
     private bool _allowClose;
     private bool _isPreparedForClose;
 
     public Frame GetRootFrame() => RootFrame;
+
+    public Frame? GetFrame(NavigationReferenceFrame frameType)
+        => frameType == NavigationReferenceFrame.ShellFrame ? RootFrame : null;
 
     public WelcomeWindow()
     {

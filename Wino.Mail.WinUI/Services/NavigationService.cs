@@ -9,7 +9,6 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Settings;
-using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.WinUI;
@@ -188,39 +187,28 @@ public class NavigationService : NavigationServiceBase, INavigationService
         if (frameType == NavigationReferenceFrame.ShellFrame)
         {
             if (requestedWindowKind.HasValue)
-                return _windowManager.GetPrimaryNavigationFrame(requestedWindowKind.Value);
+                return GetWindowShellFrame(requestedWindowKind.Value);
 
-            var activeWindow = _windowManager.ActiveWindow;
-            if (activeWindow != null)
-            {
-                var activeShellWindow = _windowManager.GetWindow(WinoWindowKind.Shell);
-                if (ReferenceEquals(activeWindow, activeShellWindow))
-                    return _windowManager.GetPrimaryNavigationFrame(WinoWindowKind.Shell);
-
-                var activeWelcomeWindow = _windowManager.GetWindow(WinoWindowKind.Welcome);
-                if (ReferenceEquals(activeWindow, activeWelcomeWindow))
-                    return _windowManager.GetPrimaryNavigationFrame(WinoWindowKind.Welcome);
-            }
-
-            return _windowManager.GetPrimaryNavigationFrame(WinoWindowKind.Shell)
-                ?? _windowManager.GetPrimaryNavigationFrame(WinoWindowKind.Welcome);
+            return GetActiveWindowShellFrame()
+                ?? GetWindowShellFrame(WinoWindowKind.Shell)
+                ?? GetWindowShellFrame(WinoWindowKind.Welcome);
         }
 
-        var mainFrame = _windowManager.GetPrimaryNavigationFrame(WinoWindowKind.Shell);
-        if (mainFrame == null)
-            return null;
+        var frame = GetFrameFromShellContent(GetActiveWindowShellFrame(), frameType);
+        if (frame != null)
+            return frame;
 
-        var contentRoot = mainFrame.Content as FrameworkElement;
-        if (contentRoot == null) return null;
-
-        // Use FindName first — it works immediately after InitializeComponent(),
-        // before the visual tree is built by the layout pass.
-        if (contentRoot.FindName(frameType.ToString()) is Frame namedFrame)
-            return namedFrame;
-
-        // Fall back to visual tree search for deeply nested frames (e.g. RenderingFrame).
-        return WinoVisualTreeHelper.GetChildObject<Frame>(contentRoot, frameType.ToString());
+        return GetFrameFromShellContent(GetWindowShellFrame(WinoWindowKind.Shell), frameType);
     }
+
+    private Frame? GetActiveWindowShellFrame()
+        => (_windowManager.ActiveWindow as IWinoFrameProvider)?.GetFrame(NavigationReferenceFrame.ShellFrame);
+
+    private Frame? GetWindowShellFrame(WinoWindowKind windowKind)
+        => (_windowManager.GetWindow(windowKind) as IWinoFrameProvider)?.GetFrame(NavigationReferenceFrame.ShellFrame);
+
+    private static Frame? GetFrameFromShellContent(Frame? shellFrame, NavigationReferenceFrame frameType)
+        => (shellFrame?.Content as IWinoFrameProvider)?.GetFrame(frameType);
 
     public bool ChangeApplicationMode(WinoApplicationMode mode)
         => ExecuteOnNavigationThread(() => ChangeApplicationModeInternal(mode));

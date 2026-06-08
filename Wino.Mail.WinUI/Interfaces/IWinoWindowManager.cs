@@ -1,5 +1,4 @@
 using System;
-using Microsoft.UI.Xaml.Controls;
 using WinUIEx;
 using Wino.Mail.WinUI.Models;
 
@@ -18,7 +17,5 @@ public interface IWinoWindowManager
     bool ActivateWindow(WinoWindowKind kind, string? name = null);
     void HideWindow(WindowEx window);
     bool HideWindow(WinoWindowKind kind, string? name = null);
-    void SetPrimaryNavigationFrame(WinoWindowKind kind, Frame frame, string? name = null);
-    Frame? GetPrimaryNavigationFrame(WinoWindowKind kind, string? name = null);
     void CloseAllWindows();
 }
