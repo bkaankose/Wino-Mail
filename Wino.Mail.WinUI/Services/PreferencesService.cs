@@ -427,7 +427,7 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
 
     public int UndoSendingDraftsIntervalInSeconds
     {
-        get => _configurationService.Get(nameof(UndoSendingDraftsIntervalInSeconds), 5);
+        get => _configurationService.Get(nameof(UndoSendingDraftsIntervalInSeconds), 3);
         set => SetPropertyAndSave(nameof(UndoSendingDraftsIntervalInSeconds), Math.Clamp(value, 1, 10));
     }
 
@@ -439,7 +439,7 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
 
     public int UndoDeletingMailsIntervalInSeconds
     {
-        get => _configurationService.Get(nameof(UndoDeletingMailsIntervalInSeconds), 5);
+        get => _configurationService.Get(nameof(UndoDeletingMailsIntervalInSeconds), 3);
         set => SetPropertyAndSave(nameof(UndoDeletingMailsIntervalInSeconds), Math.Clamp(value, 1, 10));
     }
 
