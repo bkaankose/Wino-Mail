@@ -67,7 +67,7 @@
                 Click="DeleteClicked"
                 Content="{x:Bind domain:Translator.Buttons_Delete}"
                 Style="{StaticResource AccentButtonStyle}"
-                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsExistingTemplate), Mode=OneWay}" />
+                Visibility="{x:Bind ViewModel.IsExistingTemplate, Mode=OneWay}" />
             <Button
                 AutomationProperties.AutomationId="CreateEmailTemplatePageButton2"
                 Click="SaveClicked"

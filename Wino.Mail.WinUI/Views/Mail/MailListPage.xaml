@@ -154,6 +154,7 @@
                 </Grid.ColumnDefinitions>
 
                 <controls:ImagePreviewControl
+                    x:Name="SenderPictureControl"
                     Grid.Column="0"
                     Width="28"
                     Height="28"
@@ -161,7 +162,7 @@
                     x:Phase="2"
                     FontSize="12"
                     MailItemInformation="{x:Bind}"
-                    Visibility="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneWay}" />
+                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneWay}" />
 
                 <Grid
                     Grid.Column="1"
@@ -186,10 +187,11 @@
                             AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                         <TextBlock
                             Grid.Column="1"
+                            x:Name="DraftTagTextBlock"
                             Margin="0,0,4,0"
                             Foreground="{StaticResource DeleteBrush}"
                             Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}"
-                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsDraft), Mode=OneWay}" />
+                            x:Load="{x:Bind IsDraft, Mode=OneWay}" />
                         <TextBlock
                             Grid.Column="2"
                             FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
@@ -235,6 +237,7 @@
                             TextTrimming="CharacterEllipsis" />
                         <TextBlock
                             Grid.Column="1"
+                            x:Phase="2"
                             Opacity="0.7"
                             Style="{StaticResource CaptionTextBlockStyle}"
                             Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate), Mode=OneWay}" />
@@ -258,10 +261,11 @@
                         Orientation="Horizontal"
                         Spacing="2">
                         <ItemsControl
+                            x:Name="CategoriesItemsControl"
                             IsHitTestVisible="False"
                             ItemTemplate="{StaticResource CompactMailCategoryTemplate}"
                             ItemsSource="{x:Bind Categories, Mode=OneWay}"
-                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasCategories), Mode=OneWay}">
+                            x:Load="{x:Bind HasCategories, Mode=OneWay}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <StackPanel Orientation="Horizontal" />
@@ -276,18 +280,21 @@
                             TextTrimming="CharacterEllipsis"
                             Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ReadReceiptDisplayText), Mode=OneWay}" />
                         <ContentPresenter
+                            x:Name="AttachmentSymbolPresenter"
                             x:Phase="1"
                             ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}"
-                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasAttachments), Mode=OneWay}" />
+                            x:Load="{x:Bind HasAttachments, Mode=OneWay}" />
                         <ContentPresenter
+                            x:Name="FlaggedSymbolPresenter"
                             x:Phase="1"
                             ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}"
-                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsFlagged), Mode=OneWay}" />
+                            x:Load="{x:Bind IsFlagged, Mode=OneWay}" />
                         <ProgressRing
+                            x:Name="BusyProgressRing"
                             Width="12"
                             Height="12"
                             IsActive="{x:Bind IsBusy, Mode=OneWay}"
-                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsBusy), Mode=OneWay}" />
+                            x:Load="{x:Bind IsBusy, Mode=OneWay}" />
                     </StackPanel>
                 </StackPanel>
                 <ContentControl
@@ -319,6 +326,7 @@
                 </Grid.ColumnDefinitions>
 
                 <controls:ImagePreviewControl
+                    x:Name="SenderPictureControl"
                     Grid.Column="0"
                     Width="30"
                     Height="30"
@@ -326,7 +334,7 @@
                     x:Phase="2"
                     FontSize="12"
                     MailItemInformation="{x:Bind}"
-                    Visibility="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneWay}" />
+                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneWay}" />
 
                 <Grid
                     Grid.Column="1"
@@ -354,10 +362,11 @@
                             AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                         <TextBlock
                             Grid.Column="1"
+                            x:Name="DraftTagTextBlock"
                             Margin="0,0,4,0"
                             Foreground="{StaticResource DeleteBrush}"
                             Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}"
-                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsDraft), Mode=OneWay}" />
+                            x:Load="{x:Bind IsDraft, Mode=OneWay}" />
                         <TextBlock
                             Grid.Column="2"
                             FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
@@ -399,6 +408,7 @@
                             TextTrimming="CharacterEllipsis" />
                         <TextBlock
                             Grid.Column="1"
+                            x:Phase="2"
                             Opacity="0.7"
                             Style="{StaticResource CaptionTextBlockStyle}"
                             Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate), Mode=OneWay}" />
@@ -420,6 +430,7 @@
                         TextTrimming="CharacterEllipsis"
                         Visibility="{x:Bind helpers:XamlHelpers.GetMailItemPreviewTextVisibility(PreviewText), Mode=OneWay}" />
                     <ItemsControl
+                        x:Name="CategoriesItemsControl"
                         Grid.Row="3"
                         Margin="0,2,0,0"
                         HorizontalAlignment="Left"
@@ -427,7 +438,7 @@
                         IsHitTestVisible="False"
                         ItemTemplate="{StaticResource DetailedMailCategoryTemplate}"
                         ItemsSource="{x:Bind Categories, Mode=OneWay}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasCategories), Mode=OneWay}">
+                        x:Load="{x:Bind HasCategories, Mode=OneWay}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <StackPanel Orientation="Horizontal" />
@@ -452,18 +463,21 @@
                             TextTrimming="CharacterEllipsis"
                             Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ReadReceiptDisplayText), Mode=OneWay}" />
                         <ContentPresenter
+                            x:Name="AttachmentSymbolPresenter"
                             x:Phase="1"
                             ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}"
-                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasAttachments), Mode=OneWay}" />
+                            x:Load="{x:Bind HasAttachments, Mode=OneWay}" />
                         <ContentPresenter
+                            x:Name="FlaggedSymbolPresenter"
                             x:Phase="1"
                             ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}"
-                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsFlagged), Mode=OneWay}" />
+                            x:Load="{x:Bind IsFlagged, Mode=OneWay}" />
                         <ProgressRing
+                            x:Name="BusyProgressRing"
                             Width="12"
                             Height="12"
                             IsActive="{x:Bind IsBusy, Mode=OneWay}"
-                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsBusy), Mode=OneWay}" />
+                            x:Load="{x:Bind IsBusy, Mode=OneWay}" />
                     </StackPanel>
                 </StackPanel>
                 <ContentControl
@@ -494,6 +508,7 @@
                 </Grid.ColumnDefinitions>
 
                 <controls:ImagePreviewControl
+                    x:Name="SenderPictureControl"
                     Grid.Column="0"
                     Width="36"
                     Height="36"
@@ -501,7 +516,7 @@
                     x:Phase="2"
                     FontSize="12"
                     MailItemInformation="{x:Bind}"
-                    Visibility="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneWay}" />
+                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneWay}" />
 
                 <Grid
                     Grid.Column="1"
@@ -533,10 +548,11 @@
                                 AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                             <TextBlock
                                 Grid.Column="1"
+                                x:Name="DraftTagTextBlock"
                                 Margin="0,0,4,0"
                                 Foreground="{StaticResource DeleteBrush}"
                                 Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}"
-                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsDraft), Mode=OneWay}" />
+                                x:Load="{x:Bind IsDraft, Mode=OneWay}" />
                             <TextBlock
                                 Grid.Column="2"
                                 FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
@@ -580,6 +596,7 @@
                             TextTrimming="CharacterEllipsis" />
                         <TextBlock
                             Grid.Column="1"
+                            x:Phase="2"
                             Opacity="0.7"
                             Style="{StaticResource CaptionTextBlockStyle}"
                             Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate), Mode=OneWay}" />
@@ -617,21 +634,25 @@
                                 TextTrimming="CharacterEllipsis"
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ReadReceiptDisplayText), Mode=OneWay}" />
                             <ContentPresenter
+                                x:Name="AttachmentSymbolPresenter"
                                 x:Phase="1"
                                 ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}"
-                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasAttachments), Mode=OneWay}" />
+                                x:Load="{x:Bind HasAttachments, Mode=OneWay}" />
                             <ContentPresenter
+                                x:Name="FlaggedSymbolPresenter"
                                 x:Phase="1"
                                 ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}"
-                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsFlagged), Mode=OneWay}" />
+                                x:Load="{x:Bind IsFlagged, Mode=OneWay}" />
                             <ProgressRing
+                                x:Name="BusyProgressRing"
                                 Width="12"
                                 Height="12"
                                 IsActive="{x:Bind IsBusy, Mode=OneWay}"
-                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsBusy), Mode=OneWay}" />
+                                x:Load="{x:Bind IsBusy, Mode=OneWay}" />
                         </StackPanel>
                     </Grid>
                     <ItemsControl
+                        x:Name="CategoriesItemsControl"
                         Grid.Row="3"
                         Margin="0,4,0,0"
                         HorizontalAlignment="Left"
@@ -639,7 +660,7 @@
                         IsHitTestVisible="False"
                         ItemTemplate="{StaticResource DetailedMailCategoryTemplate}"
                         ItemsSource="{x:Bind Categories, Mode=OneWay}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasCategories), Mode=OneWay}">
+                        x:Load="{x:Bind HasCategories, Mode=OneWay}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <StackPanel Orientation="Horizontal" />
@@ -684,13 +705,14 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <controls:ImagePreviewControl
+                        x:Name="SenderPictureControl"
                         Width="28"
                         Height="28"
                         VerticalAlignment="Center"
                         x:Phase="2"
                         FontSize="12"
                         MailItemInformation="{x:Bind}"
-                        Visibility="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneWay}" />
+                        x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneWay}" />
                     <Grid
                         Grid.Column="1"
                         VerticalAlignment="Center"
@@ -714,10 +736,11 @@
                                 AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                             <TextBlock
                                 Grid.Column="1"
+                                x:Name="DraftTagTextBlock"
                                 Margin="0,0,4,0"
                                 Foreground="{StaticResource DeleteBrush}"
                                 Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}"
-                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsDraft), Mode=OneWay}" />
+                                x:Load="{x:Bind IsDraft, Mode=OneWay}" />
                             <TextBlock
                                 Grid.Column="2"
                                 FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
@@ -751,9 +774,10 @@
                                     Glyph="&#xE76C;"
                                     Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
                                 <FontIcon
+                                    x:Name="ExpandedThreadGlyph"
                                     FontSize="10"
                                     Glyph="&#xE96E;"
-                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
+                                    x:Load="{x:Bind IsThreadExpanded, Mode=OneWay}" />
                             </Grid>
                             <TextBlock
                                 x:Name="ReadSubjectTextBlock"
@@ -772,6 +796,7 @@
                                 TextTrimming="CharacterEllipsis" />
                             <TextBlock
                                 Grid.Column="2"
+                                x:Phase="2"
                                 Opacity="0.7"
                                 Style="{StaticResource CaptionTextBlockStyle}"
                                 Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate), Mode=OneWay}" />
@@ -801,18 +826,21 @@
                                 TextTrimming="CharacterEllipsis"
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ReadReceiptDisplayText), Mode=OneWay}" />
                             <ContentPresenter
+                                x:Name="AttachmentSymbolPresenter"
                                 x:Phase="1"
                                 ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}"
-                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasAttachments), Mode=OneWay}" />
+                                x:Load="{x:Bind HasAttachments, Mode=OneWay}" />
                             <ContentPresenter
+                                x:Name="FlaggedSymbolPresenter"
                                 x:Phase="1"
                                 ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}"
-                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsFlagged), Mode=OneWay}" />
+                                x:Load="{x:Bind IsFlagged, Mode=OneWay}" />
                             <ProgressRing
+                                x:Name="BusyProgressRing"
                                 Width="12"
                                 Height="12"
                                 IsActive="{x:Bind IsBusy, Mode=OneWay}"
-                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsBusy), Mode=OneWay}" />
+                                x:Load="{x:Bind IsBusy, Mode=OneWay}" />
                         </StackPanel>
                     </StackPanel>
                     <ContentControl
@@ -826,6 +854,7 @@
                         Visibility="Collapsed" />
                 </Grid>
                 <ListView
+                    x:Name="ThreadMailItemsListView"
                     Grid.Row="1"
                     Margin="20,0,8,0"
                     AutomationProperties.AutomationId="CompactThreadMailItemsListView"
@@ -839,7 +868,7 @@
                     ItemsSource="{x:Bind ThreadEmails, Mode=OneWay}"
                     ProcessKeyboardAccelerators="WinoListViewProcessKeyboardAccelerators"
                     SelectionMode="None"
-                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
+                    x:Load="{x:Bind IsThreadExpanded, Mode=OneWay}" />
             </Grid>
         </DataTemplate>
 
@@ -868,13 +897,14 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <controls:ImagePreviewControl
+                        x:Name="SenderPictureControl"
                         Width="30"
                         Height="30"
                         VerticalAlignment="Center"
                         x:Phase="2"
                         FontSize="12"
                         MailItemInformation="{x:Bind}"
-                        Visibility="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneWay}" />
+                        x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneWay}" />
                     <StackPanel
                         Grid.Column="1"
                         VerticalAlignment="Center"
@@ -894,10 +924,11 @@
                                 AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                             <TextBlock
                                 Grid.Column="1"
+                                x:Name="DraftTagTextBlock"
                                 Margin="0,0,4,0"
                                 Foreground="{StaticResource DeleteBrush}"
                                 Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}"
-                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsDraft), Mode=OneWay}" />
+                                x:Load="{x:Bind IsDraft, Mode=OneWay}" />
                             <TextBlock
                                 Grid.Column="2"
                                 FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
@@ -931,9 +962,10 @@
                                     Glyph="&#xE76C;"
                                     Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
                                 <FontIcon
+                                    x:Name="ExpandedThreadGlyph"
                                     FontSize="10"
                                     Glyph="&#xE96E;"
-                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
+                                    x:Load="{x:Bind IsThreadExpanded, Mode=OneWay}" />
                             </Grid>
                             <TextBlock
                                 x:Name="ReadSubjectTextBlock"
@@ -952,6 +984,7 @@
                                 TextTrimming="CharacterEllipsis" />
                             <TextBlock
                                 Grid.Column="2"
+                                x:Phase="2"
                                 Opacity="0.7"
                                 Style="{StaticResource CaptionTextBlockStyle}"
                                 Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate), Mode=OneWay}" />
@@ -988,18 +1021,21 @@
                                 TextTrimming="CharacterEllipsis"
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ReadReceiptDisplayText), Mode=OneWay}" />
                             <ContentPresenter
+                                x:Name="AttachmentSymbolPresenter"
                                 x:Phase="1"
                                 ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}"
-                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasAttachments), Mode=OneWay}" />
+                                x:Load="{x:Bind HasAttachments, Mode=OneWay}" />
                             <ContentPresenter
+                                x:Name="FlaggedSymbolPresenter"
                                 x:Phase="1"
                                 ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}"
-                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsFlagged), Mode=OneWay}" />
+                                x:Load="{x:Bind IsFlagged, Mode=OneWay}" />
                             <ProgressRing
+                                x:Name="BusyProgressRing"
                                 Width="12"
                                 Height="12"
                                 IsActive="{x:Bind IsBusy, Mode=OneWay}"
-                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsBusy), Mode=OneWay}" />
+                                x:Load="{x:Bind IsBusy, Mode=OneWay}" />
                         </StackPanel>
                     </StackPanel>
                     <ContentControl
@@ -1013,6 +1049,7 @@
                         Visibility="Collapsed" />
                 </Grid>
                 <ListView
+                    x:Name="ThreadMailItemsListView"
                     Grid.Row="1"
                     Margin="24,0,8,0"
                     AutomationProperties.AutomationId="MediumThreadMailItemsListView"
@@ -1026,7 +1063,7 @@
                     ItemsSource="{x:Bind ThreadEmails, Mode=OneWay}"
                     ProcessKeyboardAccelerators="WinoListViewProcessKeyboardAccelerators"
                     SelectionMode="None"
-                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
+                    x:Load="{x:Bind IsThreadExpanded, Mode=OneWay}" />
             </Grid>
         </DataTemplate>
 
@@ -1056,13 +1093,14 @@
                     </Grid.ColumnDefinitions>
 
                     <controls:ImagePreviewControl
+                        x:Name="SenderPictureControl"
                         Width="36"
                         Height="36"
                         VerticalAlignment="Center"
                         x:Phase="2"
                         FontSize="12"
                         MailItemInformation="{x:Bind}"
-                        Visibility="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneWay}" />
+                        x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneWay}" />
                     <StackPanel
                         Grid.Column="1"
                         VerticalAlignment="Center"
@@ -1082,10 +1120,11 @@
                                 AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                             <TextBlock
                                 Grid.Column="1"
+                                x:Name="DraftTagTextBlock"
                                 Margin="0,0,4,0"
                                 Foreground="{StaticResource DeleteBrush}"
                                 Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}"
-                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsDraft), Mode=OneWay}" />
+                                x:Load="{x:Bind IsDraft, Mode=OneWay}" />
                             <TextBlock
                                 Grid.Column="2"
                                 FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
@@ -1119,9 +1158,10 @@
                                     Glyph="&#xE76C;"
                                     Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
                                 <FontIcon
+                                    x:Name="ExpandedThreadGlyph"
                                     FontSize="10"
                                     Glyph="&#xE96E;"
-                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
+                                    x:Load="{x:Bind IsThreadExpanded, Mode=OneWay}" />
                             </Grid>
                             <TextBlock
                                 x:Name="ReadSubjectTextBlock"
@@ -1140,6 +1180,7 @@
                                 TextTrimming="CharacterEllipsis" />
                             <TextBlock
                                 Grid.Column="2"
+                                x:Phase="2"
                                 Opacity="0.7"
                                 Style="{StaticResource CaptionTextBlockStyle}"
                                 Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate), Mode=OneWay}" />
@@ -1176,18 +1217,21 @@
                                 TextTrimming="CharacterEllipsis"
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ReadReceiptDisplayText), Mode=OneWay}" />
                             <ContentPresenter
+                                x:Name="AttachmentSymbolPresenter"
                                 x:Phase="1"
                                 ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}"
-                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasAttachments), Mode=OneWay}" />
+                                x:Load="{x:Bind HasAttachments, Mode=OneWay}" />
                             <ContentPresenter
+                                x:Name="FlaggedSymbolPresenter"
                                 x:Phase="1"
                                 ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}"
-                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsFlagged), Mode=OneWay}" />
+                                x:Load="{x:Bind IsFlagged, Mode=OneWay}" />
                             <ProgressRing
+                                x:Name="BusyProgressRing"
                                 Width="12"
                                 Height="12"
                                 IsActive="{x:Bind IsBusy, Mode=OneWay}"
-                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsBusy), Mode=OneWay}" />
+                                x:Load="{x:Bind IsBusy, Mode=OneWay}" />
                         </StackPanel>
                     </StackPanel>
                     <ContentControl
@@ -1201,6 +1245,7 @@
                         Visibility="Collapsed" />
                 </Grid>
                 <ListView
+                    x:Name="ThreadMailItemsListView"
                     Grid.Row="1"
                     Margin="24,0,8,0"
                     AutomationProperties.AutomationId="SpaciousThreadMailItemsListView"
@@ -1214,7 +1259,7 @@
                     ItemsSource="{x:Bind ThreadEmails, Mode=OneWay}"
                     ProcessKeyboardAccelerators="WinoListViewProcessKeyboardAccelerators"
                     SelectionMode="None"
-                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
+                    x:Load="{x:Bind IsThreadExpanded, Mode=OneWay}" />
             </Grid>
         </DataTemplate>
 

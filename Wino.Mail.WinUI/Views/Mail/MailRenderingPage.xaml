@@ -464,7 +464,7 @@
                             AutomationProperties.AutomationId="MailRenderingPageHyperlinkButton2"
                             Command="{x:Bind ViewModel.ShowAllAttachmentsCommand}"
                             Content="{x:Bind domain:Translator.Reader_ShowAllAttachmentsButtonText, Mode=OneTime}"
-                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.CanShowAllAttachments), Mode=OneWay}" />
+                            Visibility="{x:Bind ViewModel.CanShowAllAttachments, Mode=OneWay}" />
 
                         <HyperlinkButton
                             AutomationProperties.AutomationId="MailRenderingPageHyperlinkButton3"

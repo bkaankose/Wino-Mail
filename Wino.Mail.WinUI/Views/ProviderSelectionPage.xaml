@@ -47,7 +47,7 @@
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 CornerRadius="8"
-                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsProviderStepVisible), Mode=OneWay}">
+                Visibility="{x:Bind ViewModel.IsProviderStepVisible, Mode=OneWay}">
                 <StackPanel Spacing="12">
                     <StackPanel Spacing="2">
                         <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_ProviderSectionTitle, Mode=OneTime}" />
@@ -107,7 +107,7 @@
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 CornerRadius="8"
-                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsIdentityStepVisible), Mode=OneWay}">
+                Visibility="{x:Bind ViewModel.IsIdentityStepVisible, Mode=OneWay}">
                 <StackPanel Spacing="16">
                     <StackPanel Spacing="2">
                         <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_IdentityTitle, Mode=OneTime}" />
@@ -174,7 +174,7 @@
                                     Width="16"
                                     Height="16"
                                     Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedColor.Hex), Mode=OneWay}"
-                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsColorSelected), Mode=OneWay}" />
+                                    Visibility="{x:Bind ViewModel.IsColorSelected, Mode=OneWay}" />
                             </Grid>
                             <Button.Flyout>
                                 <Flyout x:Name="AccountColorFlyout" Placement="TopEdgeAlignedLeft">
@@ -192,7 +192,7 @@
                                             HorizontalAlignment="Center"
                                             Command="{x:Bind ViewModel.ClearColorCommand}"
                                             Content="{x:Bind domain:Translator.ProviderSelection_ClearColor, Mode=OneTime}"
-                                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsColorSelected), Mode=OneWay}" />
+                                            Visibility="{x:Bind ViewModel.IsColorSelected, Mode=OneWay}" />
                                     </StackPanel>
                                 </Flyout>
                             </Button.Flyout>
@@ -208,7 +208,7 @@
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 CornerRadius="8"
-                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsCapabilityStepVisible), Mode=OneWay}">
+                Visibility="{x:Bind ViewModel.IsCapabilityStepVisible, Mode=OneWay}">
                 <StackPanel Spacing="16">
                     <StackPanel Spacing="2">
                         <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_CapabilitySectionTitle, Mode=OneTime}" />
@@ -382,7 +382,7 @@
                     AutomationProperties.AutomationId="ProviderSelectionPageButton"
                     Command="{x:Bind ViewModel.GoBackCommand}"
                     Content="{x:Bind domain:Translator.Buttons_Back, Mode=OneTime}"
-                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.CanGoBack), Mode=OneWay}" />
+                    Visibility="{x:Bind ViewModel.CanGoBack, Mode=OneWay}" />
 
                 <Button
                     AutomationProperties.AutomationId="ProviderSelectionPageButton2"

@@ -51,28 +51,28 @@
                                     FontSize="16"
                                     Foreground="{ThemeResource TextFillColorDisabledBrush}"
                                     Glyph="&#xEA3A;"
-                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsPending), Mode=OneWay}" />
+                                    Visibility="{x:Bind IsPending, Mode=OneWay}" />
 
                                 <!--  InProgress: progress ring  -->
                                 <winuiControls:ProgressRing
                                     Width="16"
                                     Height="16"
                                     IsActive="{x:Bind IsInProgress, Mode=OneWay}"
-                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsInProgress), Mode=OneWay}" />
+                                    Visibility="{x:Bind IsInProgress, Mode=OneWay}" />
 
                                 <!--  Succeeded: green check  -->
                                 <FontIcon
                                     FontSize="16"
                                     Foreground="#107C10"
                                     Glyph="&#xE73E;"
-                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsSucceeded), Mode=OneWay}" />
+                                    Visibility="{x:Bind IsSucceeded, Mode=OneWay}" />
 
                                 <!--  Failed: red error  -->
                                 <FontIcon
                                     FontSize="16"
                                     Foreground="#D13438"
                                     Glyph="&#xEA39;"
-                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsFailed), Mode=OneWay}" />
+                                    Visibility="{x:Bind IsFailed, Mode=OneWay}" />
                             </Grid>
 
                             <!--  Step text  -->
@@ -83,7 +83,7 @@
                                     Style="{StaticResource CaptionTextBlockStyle}"
                                     Text="{x:Bind ErrorMessage, Mode=OneWay}"
                                     TextWrapping="Wrap"
-                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsFailed), Mode=OneWay}" />
+                                    Visibility="{x:Bind IsFailed, Mode=OneWay}" />
                             </StackPanel>
                         </Grid>
                     </DataTemplate>
@@ -98,7 +98,7 @@
                 Severity="Success" />
 
             <!--  Failure InfoBar + Buttons  -->
-            <StackPanel Spacing="12" Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsSetupFailed), Mode=OneWay}">
+            <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.IsSetupFailed, Mode=OneWay}">
                 <winuiControls:InfoBar
                     IsClosable="False"
                     IsOpen="True"

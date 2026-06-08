@@ -44,7 +44,6 @@ public static class XamlHelpers
         };
     }
 
-    public static Visibility BoolToVisibilityConverter(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
     public static Visibility ReverseBoolToVisibilityConverter(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
     public static Visibility ReverseVisibilityConverter(Visibility visibility) => visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
     public static bool ReverseBoolConverter(bool value) => !value;
@@ -225,10 +224,10 @@ public static class XamlHelpers
     }
 
     public static Visibility GetMailItemPreviewTextVisibility(string text)
-        => BoolToVisibilityConverter((PreferencesService?.IsShowPreviewEnabled ?? true) && ShouldDisplayPreview(text));
+        => (PreferencesService?.IsShowPreviewEnabled ?? true) && ShouldDisplayPreview(text) ? Visibility.Visible : Visibility.Collapsed;
 
-    public static Visibility GetMailItemSenderPictureVisibility()
-        => BoolToVisibilityConverter(PreferencesService?.IsShowSenderPicturesEnabled ?? true);
+    public static bool GetMailItemSenderPictureVisibility()
+        => PreferencesService?.IsShowSenderPicturesEnabled ?? true;
 
     public static string GetCreationDateString(DateTime date, bool prefer24HourTime)
     {
