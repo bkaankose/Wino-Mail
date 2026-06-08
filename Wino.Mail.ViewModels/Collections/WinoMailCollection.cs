@@ -976,6 +976,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         threadViewModel.AddEmail(existingMail);
         threadViewModel.AddEmail(newItem);
         threadViewModel.IsSelected = existingMail.IsSelected || newItem.IsSelected;
+        threadViewModel.IsThreadExpanded = threadViewModel.IsSelected || existingMail.IsDisplayedInThread || newItem.IsDisplayedInThread;
 
         if (existingIndex >= 0)
         {
@@ -1071,6 +1072,11 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         var wasBusy = existingItem.IsBusy;
         var shouldReinsertFromHint = ShouldReinsertBeforeApplyingUpdate(existingItem, updatedMailCopy, changedProperties);
 
+        if (itemContainer.ThreadViewModel != null && shouldReinsertFromHint && ShouldUpdateThreadMailInPlace(existingItem, updatedMailCopy, changedProperties))
+        {
+            return UpdateThreadMailInPlace(itemContainer.ThreadViewModel, existingItem, updatedMailCopy, mailUpdateSource, changedProperties, wasBusy);
+        }
+
         if (shouldReinsertFromHint)
         {
             var removeResult = RemoveMailCore(existingItem.MailCopy.UniqueId);
@@ -1097,6 +1103,15 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
         if (ShouldReinsertForChanges(appliedChanges))
         {
+            if (itemContainer.ThreadViewModel != null && ShouldUpdateThreadMailInPlace(existingItem, updatedMailCopy, appliedChanges))
+            {
+                existingItem.IsSelected = wasSelected;
+                existingItem.IsBusy = mailUpdateSource == EntityUpdateSource.ClientUpdated || wasBusy;
+                itemContainer.ThreadViewModel.MoveEmailToSortedPosition(existingItem);
+                itemContainer.ThreadViewModel.NotifyMailItemUpdated(existingItem, appliedChanges);
+                return UpdateMailResult.For(itemContainer.ThreadViewModel);
+            }
+
             var removeResult = RemoveMailCore(existingItem.MailCopy.UniqueId);
             RebuildMailLookupIndexes();
             existingItem.IsSelected = wasSelected;
@@ -1109,6 +1124,34 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         return itemContainer.ThreadViewModel == null
             ? UpdateMailResult.For(existingItem)
             : UpdateMailResult.For(itemContainer.ThreadViewModel);
+    }
+
+    private UpdateMailResult UpdateThreadMailInPlace(ThreadMailItemViewModel thread, MailItemViewModel existingItem, MailCopy updatedMailCopy, EntityUpdateSource mailUpdateSource, MailCopyChangeFlags changedProperties, bool wasBusy)
+    {
+        var wasSelected = existingItem.IsSelected;
+        MailCopyChangeFlags appliedChanges;
+
+        thread.SuspendChildPropertyNotifications();
+        try
+        {
+            appliedChanges = existingItem.UpdateFrom(updatedMailCopy, changedProperties);
+            existingItem.IsSelected = wasSelected;
+            existingItem.IsBusy = mailUpdateSource == EntityUpdateSource.ClientUpdated || wasBusy;
+        }
+        finally
+        {
+            thread.ResumeChildPropertyNotifications();
+        }
+
+        if ((appliedChanges & MailCopyChangeFlags.CreationDate) != 0)
+        {
+            thread.MoveEmailToSortedPosition(existingItem);
+        }
+
+        thread.IsSelected = thread.IsSelected || thread.ThreadEmails.Any(static child => child.IsSelected);
+        thread.NotifyMailItemUpdated(existingItem, appliedChanges);
+
+        return UpdateMailResult.For(thread);
     }
 
     private void UpdateMailStateCore(MailStateChange updatedState, EntityUpdateSource mailUpdateSource)
@@ -1228,6 +1271,22 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         }
 
         return ShouldReinsertForChanges(structuralChanges);
+    }
+
+    private static bool ShouldUpdateThreadMailInPlace(MailItemViewModel existingItem, MailCopy updatedMailCopy, MailCopyChangeFlags changedProperties)
+    {
+        if (existingItem?.MailCopy == null || updatedMailCopy == null)
+        {
+            return false;
+        }
+
+        if ((changedProperties & MailCopyChangeFlags.ThreadId) != 0 &&
+            existingItem.MailCopy.ThreadId != updatedMailCopy.ThreadId)
+        {
+            return false;
+        }
+
+        return string.Equals(existingItem.MailCopy.ThreadId, updatedMailCopy.ThreadId, StringComparison.Ordinal);
     }
 
     private void SortTopLevelItems()

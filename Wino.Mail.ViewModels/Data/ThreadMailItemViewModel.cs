@@ -265,28 +265,29 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
         if (email.MailCopy.ThreadId != _threadId)
             throw new ArgumentException($"Email ThreadId '{email.MailCopy.ThreadId}' does not match expander ThreadId '{_threadId}'");
 
-        // Insert email in sorted order by CreationDate based on the configured thread direction.
-        var insertIndex = 0;
-        for (int i = 0; i < ThreadEmails.Count; i++)
-        {
-            bool shouldInsertBefore = _isNewestEmailFirst
-                ? ThreadEmails[i].MailCopy.CreationDate < email.MailCopy.CreationDate
-                : ThreadEmails[i].MailCopy.CreationDate > email.MailCopy.CreationDate;
-
-            if (shouldInsertBefore)
-            {
-                insertIndex = i;
-                break;
-            }
-            insertIndex = i + 1;
-        }
-
+        var insertIndex = GetEmailInsertIndex(email);
         ThreadEmails.Insert(insertIndex, email);
         email.PropertyChanged += ThreadEmailPropertyChanged;
         _uniqueIdSet.Add(email.MailCopy.UniqueId);
         RefreshLatestMailCache();
         OnPropertyChanged(nameof(EmailCount));
         NotifyMailItemUpdated(email, MailCopyChangeFlags.All);
+    }
+
+    public void MoveEmailToSortedPosition(MailItemViewModel email)
+    {
+        var currentIndex = ThreadEmails.IndexOf(email);
+
+        if (currentIndex < 0)
+        {
+            return;
+        }
+
+        ThreadEmails.RemoveAt(currentIndex);
+
+        var insertIndex = GetEmailInsertIndex(email);
+        ThreadEmails.Insert(insertIndex, email);
+        RefreshLatestMailCache();
     }
 
     /// <summary>
@@ -542,6 +543,28 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
             // Otherwise, return only individually selected emails within the thread
             return ThreadEmails.Where(e => e.IsSelected);
         }
+    }
+
+    private int GetEmailInsertIndex(MailItemViewModel email)
+    {
+        var insertIndex = 0;
+
+        for (int i = 0; i < ThreadEmails.Count; i++)
+        {
+            bool shouldInsertBefore = _isNewestEmailFirst
+                ? ThreadEmails[i].MailCopy.CreationDate < email.MailCopy.CreationDate
+                : ThreadEmails[i].MailCopy.CreationDate > email.MailCopy.CreationDate;
+
+            if (shouldInsertBefore)
+            {
+                insertIndex = i;
+                break;
+            }
+
+            insertIndex = i + 1;
+        }
+
+        return insertIndex;
     }
 }
 

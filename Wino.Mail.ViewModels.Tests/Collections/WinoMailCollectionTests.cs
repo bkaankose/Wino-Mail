@@ -537,6 +537,58 @@ public class WinoMailCollectionTests
     }
 
     [Fact]
+    public async Task UpdateMailCopy_WithThreadedDraftDateChange_ShouldKeepThreadExpandedAndSelectedChild()
+    {
+        var sut = CreateCollection();
+        var baseDate = new DateTime(2026, 4, 6, 12, 0, 0, DateTimeKind.Utc);
+        var original = CreateMailCopy(threadId: "reply-thread", creationDate: baseDate);
+        var draft = CreateMailCopy(threadId: "reply-thread", creationDate: baseDate.AddMinutes(1));
+        draft.IsDraft = true;
+
+        await sut.AddAsync(original);
+        await sut.AddAsync(draft);
+
+        var thread = FlattenItems(sut).Should().ContainSingle().Which.Should().BeOfType<ThreadMailItemViewModel>().Subject;
+        var selectedOriginal = thread.ThreadEmails.Single(item => item.UniqueId == original.UniqueId);
+        await sut.SelectThreadMailAsync(thread, selectedOriginal, isMultiSelectionEnabled: false);
+
+        var updatedDraft = CloneMailCopy(draft);
+        updatedDraft.CreationDate = baseDate.AddMinutes(2);
+        updatedDraft.PreviewText = "Saved draft body";
+
+        await sut.UpdateMailCopy(updatedDraft, EntityUpdateSource.Server, MailCopyChangeFlags.All);
+
+        var updatedThread = FlattenItems(sut).Should().ContainSingle().Which.Should().BeOfType<ThreadMailItemViewModel>().Subject;
+        updatedThread.Should().BeSameAs(thread);
+        updatedThread.IsThreadExpanded.Should().BeTrue();
+        updatedThread.IsSelected.Should().BeTrue();
+        selectedOriginal.IsSelected.Should().BeTrue();
+        updatedThread.ThreadEmails[0].UniqueId.Should().Be(draft.UniqueId);
+        updatedThread.ThreadEmails[0].PreviewText.Should().Be("Saved draft body");
+    }
+
+    [Fact]
+    public async Task AddAsync_WhenSelectedSingleBecomesThread_ShouldExpandThreadImmediately()
+    {
+        var sut = CreateCollection();
+        var baseDate = new DateTime(2026, 4, 6, 12, 0, 0, DateTimeKind.Utc);
+        var original = CreateMailCopy(threadId: "reply-thread", creationDate: baseDate);
+        var draft = CreateMailCopy(threadId: "reply-thread", creationDate: baseDate.AddMinutes(1));
+        draft.IsDraft = true;
+
+        await sut.AddAsync(original);
+        var originalItem = FlattenItems(sut).Should().ContainSingle().Which.Should().BeOfType<MailItemViewModel>().Subject;
+        await sut.SelectTopLevelItemAsync(originalItem, isMultiSelectionEnabled: false);
+
+        await sut.AddAsync(draft);
+
+        var thread = FlattenItems(sut).Should().ContainSingle().Which.Should().BeOfType<ThreadMailItemViewModel>().Subject;
+        thread.IsSelected.Should().BeTrue();
+        thread.IsThreadExpanded.Should().BeTrue();
+        thread.ThreadEmails.Single(item => item.UniqueId == original.UniqueId).IsSelected.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task UpdateMailCopy_ShouldMergeExistingSingles_WhenThreadIdChangesToMatch()
     {
         var sut = CreateCollection();
