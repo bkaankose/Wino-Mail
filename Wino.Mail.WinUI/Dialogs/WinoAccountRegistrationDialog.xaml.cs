@@ -6,7 +6,7 @@ using Windows.System;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
-using Wino.Mail.WinUI.Services;
+using Wino.Services;
 
 namespace Wino.Dialogs;
 

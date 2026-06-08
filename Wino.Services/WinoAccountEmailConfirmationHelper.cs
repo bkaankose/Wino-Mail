@@ -2,9 +2,9 @@ using System;
 using System.Text.Json;
 using Wino.Mail.Api.Contracts.Auth;
 
-namespace Wino.Mail.WinUI.Services;
+namespace Wino.Services;
 
-internal static class WinoAccountEmailConfirmationHelper
+public static class WinoAccountEmailConfirmationHelper
 {
     public static bool IsEmailConfirmationRequiredError(string? errorCode)
         => string.Equals(errorCode, Wino.Mail.Api.Contracts.Common.ApiErrorCodes.EmailNotConfirmed, StringComparison.Ordinal) ||

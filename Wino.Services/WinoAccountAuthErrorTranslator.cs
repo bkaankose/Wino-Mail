@@ -1,7 +1,7 @@
 using Wino.Core.Domain;
 using Wino.Mail.Api.Contracts.Common;
 
-namespace Wino.Mail.WinUI.Services;
+namespace Wino.Services;
 
 public static class WinoAccountAuthErrorTranslator
 {

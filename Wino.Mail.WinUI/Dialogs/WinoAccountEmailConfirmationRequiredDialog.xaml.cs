@@ -4,7 +4,7 @@ using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.Api.Contracts.Auth;
-using Wino.Mail.WinUI.Services;
+using Wino.Services;
 
 namespace Wino.Dialogs;
 

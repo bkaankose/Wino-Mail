@@ -14,7 +14,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Ai;
 using Wino.Mail.Api.Contracts.Ai;
 using Wino.Mail.Api.Contracts.Common;
-using Wino.Mail.WinUI.Services;
+using Wino.Services;
 
 namespace Wino.Mail.WinUI.Controls;
 
