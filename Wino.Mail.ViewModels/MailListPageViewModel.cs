@@ -1013,6 +1013,16 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         return false;
     }
 
+    private bool ShouldExcludeAddedMailByFocusedPivot(MailCopy addedMail)
+    {
+        // Conversations already shown in the list should receive their new/restored children
+        // even when the child mail belongs to the other focused inbox pivot.
+        if (ShouldIncludeByThread(addedMail))
+            return false;
+
+        return SelectedFolderPivot?.IsFocused is bool isFocused && addedMail.IsFocused != isFocused;
+    }
+
     private bool IsMailMatchingLocalSearch(MailCopy mailItem)
     {
         if (!IsInSearchMode) return true;
@@ -1125,7 +1135,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             if (!ShouldIncludeAddedMailInCurrentList(addedMail)) return;
             if (ShouldPreventItemAdd(addedMail)) return;
 
-            if (SelectedFolderPivot?.IsFocused is bool isFocused && addedMail.IsFocused != isFocused)
+            if (ShouldExcludeAddedMailByFocusedPivot(addedMail))
             {
                 return;
             }
@@ -1440,7 +1450,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 if (ShouldPreventItemAdd(addedMail))
                     continue;
 
-                if (SelectedFolderPivot?.IsFocused is bool isFocused && addedMail.IsFocused != isFocused)
+                if (ShouldExcludeAddedMailByFocusedPivot(addedMail))
                     continue;
 
                 if (IsInSearchMode)
