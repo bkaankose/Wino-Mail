@@ -1656,7 +1656,7 @@
         <Grid
             x:Name="RenderingGrid"
             Grid.Column="1"
-            Margin="0,3,0,0">
+            Margin="0,3,8,4">
             <!--  Mail Rendering Frame  -->
             <Frame x:Name="RenderingFrame" IsNavigationStackEnabled="False" />
 

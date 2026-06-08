@@ -42,7 +42,7 @@
                     <Thickness x:Key="ImapSetupDialogSubPagePadding">24,24,24,24</Thickness>
 
                     <Style x:Key="PageRootBorderStyle" TargetType="Border">
-                        <Setter Property="Background" Value="{ThemeResource WinoContentZoneBackgroud}" />
+
                         <Setter Property="BorderBrush" Value="{StaticResource CardStrokeColorDefaultBrush}" />
                         <Setter Property="CornerRadius" Value="7" />
                         <Setter Property="BorderThickness" Value="1" />

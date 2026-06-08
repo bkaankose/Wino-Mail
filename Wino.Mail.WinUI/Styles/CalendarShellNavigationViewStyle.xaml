@@ -431,7 +431,7 @@
                                 <SplitView.Content>
                                     <Grid
                                         x:Name="ContentGrid"
-                                        Margin="{ThemeResource NavigationViewContentMargin}"
+                                        Margin="0,0,-8,-8"
                                         Background="{ThemeResource NavigationViewContentBackground}"
                                         BorderBrush="{ThemeResource NavigationViewContentGridBorderBrush}"
                                         BorderThickness="{ThemeResource NavigationViewContentGridBorderThickness}"
