@@ -108,13 +108,18 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
 
         try
         {
-            var discovered = await _autoDiscoveryService.TryDiscoverEwsUrlAsync(EmailAddress.Trim());
-            if (!string.IsNullOrWhiteSpace(discovered))
-                EwsUrl = discovered;
-            else if (string.IsNullOrWhiteSpace(EwsUrl))
+            // Only run URL discovery when the field is empty; if the user already typed an EWS URL,
+            // skip straight to detecting its auth method (avoids a pointless Autodiscover round-trip).
+            if (string.IsNullOrWhiteSpace(EwsUrl))
             {
-                ValidationMessage = "Couldn't auto-discover the EWS URL. Enter it manually.";
-                return;
+                var discovered = await _autoDiscoveryService.TryDiscoverEwsUrlAsync(EmailAddress.Trim());
+                if (string.IsNullOrWhiteSpace(discovered))
+                {
+                    ValidationMessage = "Couldn't auto-discover the EWS URL. Enter it manually.";
+                    return;
+                }
+
+                EwsUrl = discovered;
             }
 
             await DetectAuthMethodAsync();
