@@ -123,6 +123,92 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         return Task.FromResult(new List<NewMailItemPackage> { package });
     }
 
+    /// <summary>
+    /// Best-effort alias/proxy-address discovery. EWS has no direct "my proxy addresses" call
+    /// (unlike Graph's <c>proxyAddresses</c>), so this resolves the mailbox's own directory entry
+    /// via <see cref="ExchangeService.ResolveName"/> and harvests any SMTP addresses it exposes.
+    /// The primary address is always persisted as the root alias; directory lookup is wrapped so a
+    /// failure (or a server that returns no extra addresses) degrades to root-alias-only rather than
+    /// failing account setup.
+    /// NOTE: directory results carry at most the three indexed addresses and may use non-SMTP
+    /// routing; this is intentionally lenient and may need tuning against more deployments.
+    /// </summary>
+    protected override async Task SynchronizeAliasesAsync()
+    {
+        var aliases = new Dictionary<string, RemoteAccountAlias>(StringComparer.OrdinalIgnoreCase);
+
+        void AddAlias(string address)
+        {
+            if (string.IsNullOrWhiteSpace(address))
+                return;
+
+            var normalized = address.Trim();
+
+            // Skip non-SMTP routing addresses (EX/X500 legacy DNs returned by the directory).
+            if (!normalized.Contains('@') || !normalized.Contains('.'))
+                return;
+
+            var isAccountAddress = normalized.Equals(Account.Address, StringComparison.OrdinalIgnoreCase);
+
+            if (aliases.TryGetValue(normalized, out var existing))
+            {
+                existing.IsPrimary |= isAccountAddress;
+                existing.IsRootAlias |= isAccountAddress;
+                if (isAccountAddress)
+                    existing.SendCapability = AliasSendCapability.Confirmed;
+                return;
+            }
+
+            aliases[normalized] = new RemoteAccountAlias
+            {
+                AliasAddress = normalized,
+                ReplyToAddress = normalized,
+                IsPrimary = isAccountAddress,
+                IsRootAlias = isAccountAddress,
+                IsVerified = isAccountAddress,
+                Source = AliasSource.ProviderDiscovered,
+                SendCapability = isAccountAddress ? AliasSendCapability.Confirmed : AliasSendCapability.Unknown
+            };
+        }
+
+        // The mailbox's own primary address is always the root alias.
+        AddAlias(Account.Address);
+
+        try
+        {
+            var service = await CreateServiceAsync().ConfigureAwait(false);
+
+            var resolutions = await service
+                .ResolveName(Account.Address, ResolveNameSearchLocation.DirectoryOnly, returnContactDetails: true, CancellationToken.None)
+                .ConfigureAwait(false);
+
+            foreach (var resolution in resolutions)
+            {
+                if (string.Equals(resolution.Mailbox?.RoutingType, "SMTP", StringComparison.OrdinalIgnoreCase))
+                    AddAlias(resolution.Mailbox.Address);
+
+                var contact = resolution.Contact;
+                if (contact?.EmailAddresses == null)
+                    continue;
+
+                foreach (var key in new[] { EmailAddressKey.EmailAddress1, EmailAddressKey.EmailAddress2, EmailAddressKey.EmailAddress3 })
+                {
+                    if (contact.EmailAddresses.TryGetValue(key, out var emailAddress))
+                        AddAlias(emailAddress?.Address);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Non-fatal: proxy-address discovery is best-effort. Keep the root alias and move on.
+            _logger.Debug(ex, "Exchange alias (proxy-address) discovery via ResolveName failed for {Account}.", Account.Name);
+        }
+
+        await _exchangeChangeProcessor
+            .UpdateRemoteAliasInformationAsync(Account, aliases.Values.ToList())
+            .ConfigureAwait(false);
+    }
+
     protected override async Task<MailSynchronizationResult> SynchronizeMailsInternalAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
         var service = await CreateServiceAsync().ConfigureAwait(false);

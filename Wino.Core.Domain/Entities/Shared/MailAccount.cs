@@ -143,7 +143,7 @@ public class MailAccount
     /// <summary>
     /// Gets whether the account can perform AliasInformation sync type.
     /// </summary>
-    public bool IsAliasSyncSupported => ProviderType == MailProviderType.Gmail || ProviderType == MailProviderType.Outlook;
+    public bool IsAliasSyncSupported => ProviderType == MailProviderType.Gmail || ProviderType == MailProviderType.Outlook || ProviderType == MailProviderType.Exchange;
 
     /// <summary>
     /// Gets whether the account can perform category definition sync type.
