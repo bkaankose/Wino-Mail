@@ -91,8 +91,14 @@ public sealed class ExchangeAuthCapabilityProbe : IExchangeAuthCapabilityProbe
         foreach (var challenge in wwwAuthenticateValues)
         {
             sawAny = true;
+
+            // Usable modern auth requires the Bearer challenge to advertise an authority
+            // (authorization_uri). A bare Bearer challenge — which most Exchange vdirs emit reactively
+            // because the OAuth module is enabled by default — is NOT a working modern-auth setup and
+            // must not be treated as one.
             if (!string.IsNullOrWhiteSpace(challenge) &&
-                challenge.TrimStart().StartsWith("Bearer", StringComparison.OrdinalIgnoreCase))
+                challenge.TrimStart().StartsWith("Bearer", StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrEmpty(ExtractChallengeParameter(challenge, "authorization_uri")))
             {
                 return ExchangeAuthCapability.ModernAuthAvailable;
             }

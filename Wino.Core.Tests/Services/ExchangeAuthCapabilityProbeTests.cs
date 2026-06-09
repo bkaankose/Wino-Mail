@@ -8,12 +8,32 @@ namespace Wino.Core.Tests.Services;
 public sealed class ExchangeAuthCapabilityProbeTests
 {
     [Fact]
-    public void Classify_BearerPresent_IsModernAuthAvailable()
+    public void Classify_BareBearerWithoutAuthority_IsBasicOnly()
     {
-        // Mirrors the live reactive challenge observed from on-prem Exchange (ADFS auth server).
+        // A bare Bearer challenge (no authorization_uri) — emitted reactively by Exchange vdirs with
+        // the OAuth module enabled but NO modern-auth setup (observed live from mjnet.io). Must not be
+        // treated as modern auth.
         var challenges = new[]
         {
             "Bearer client_id=\"00000002-0000-0ff1-ce00-000000000000\", token_types=\"app_asserted_user_v1 service_asserted_app_v1\", error=\"invalid_token\"",
+            "Negotiate",
+            "NTLM",
+            "Basic realm=\"ex01.mjnet.io\""
+        };
+
+        ExchangeAuthCapabilityProbe.ClassifyChallenges(challenges)
+            .Should().Be(ExchangeAuthCapability.BasicOnly);
+    }
+
+    [Fact]
+    public void Classify_BearerWithAuthority_IsModernAuthAvailable()
+    {
+        // A Bearer challenge advertising an authority (authorization_uri) IS usable modern auth
+        // (observed live from mtec360 with the anchor-mailbox probe).
+        var challenges = new[]
+        {
+            "Bearer client_id=\"00000002-0000-0ff1-ce00-000000000000\", token_types=\"app_asserted_user_v1\", " +
+            "authorization_uri=\"https://wsfed.mtec360.com/adfs/oauth2/authorize\", issuer_kind=\"ADFS\"",
             "Negotiate",
             "NTLM",
             "Basic realm=\"ex01.mtec360.com\""
