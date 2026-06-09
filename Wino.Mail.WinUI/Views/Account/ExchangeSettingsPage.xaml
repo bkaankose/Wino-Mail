@@ -42,11 +42,13 @@
                     PlaceholderText="https://mail.example.com/EWS/Exchange.asmx"
                     Text="{x:Bind ViewModel.EwsUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
-                <ToggleSwitch
-                    Header="Modern authentication (OAuth)"
-                    IsOn="{x:Bind ViewModel.UseModernAuth, Mode=TwoWay}"
-                    OffContent="Use password (NTLM / Basic)"
-                    OnContent="Sign in with your organization's identity provider" />
+                <ComboBox
+                    HorizontalAlignment="Stretch"
+                    Header="Authentication method"
+                    SelectedIndex="{x:Bind ViewModel.AuthMethodIndex, Mode=TwoWay}">
+                    <ComboBoxItem Content="Password (NTLM / Basic)" />
+                    <ComboBoxItem Content="Modern authentication (OAuth)" />
+                </ComboBox>
 
                 <PasswordBox
                     Header="Password"

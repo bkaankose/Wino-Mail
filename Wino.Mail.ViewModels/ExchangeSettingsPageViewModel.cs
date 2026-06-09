@@ -47,6 +47,14 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     [ObservableProperty]
     public partial bool UseModernAuth { get; set; }
 
+    /// <summary>
+    /// Authentication-method picker selection: 0 = password (NTLM/Basic), 1 = modern auth (OAuth).
+    /// Kept in sync with <see cref="UseModernAuth"/> in both directions so the dropdown and the
+    /// detection logic share one source of truth.
+    /// </summary>
+    [ObservableProperty]
+    public partial int AuthMethodIndex { get; set; }
+
     [ObservableProperty]
     public partial string OAuthAuthority { get; set; } = string.Empty;
 
@@ -141,11 +149,17 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
 
     partial void OnUseModernAuthChanged(bool value)
     {
+        // Mirror into the picker index. CommunityToolkit suppresses the change notification when the
+        // value is unchanged, so this can't loop with OnAuthMethodIndexChanged.
+        AuthMethodIndex = value ? 1 : 0;
+
         // When modern auth is on without a (discovered) authority, the user must enter it in Advanced
         // settings — open it so the field is visible instead of hidden behind a collapsed expander.
         if (value && string.IsNullOrWhiteSpace(OAuthAuthority))
             IsAdvancedExpanded = true;
     }
+
+    partial void OnAuthMethodIndexChanged(int value) => UseModernAuth = value == 1;
 
     /// <summary>
     /// Probes the EWS endpoint for modern-auth availability and flips the toggle to match. The probe
