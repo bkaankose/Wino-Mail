@@ -37,6 +37,7 @@ using Wino.Core.Misc;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 using Wino.Services.Extensions;
+using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Core.Synchronizers.Mail;
 
@@ -669,7 +670,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
                 if (_isFolderStructureChanged)
                 {
-                    WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+                    UIMessagePublisherProvider.Current.Publish(new AccountFolderConfigurationUpdated(Account.Id));
                 }
             }
 
@@ -1414,9 +1415,8 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         DateTimeOffset periodEndUtc,
         HashSet<string> remoteEventIds)
     {
-        var syncPeriod = new TimeRange(periodStartUtc.UtcDateTime, periodEndUtc.UtcDateTime);
         var localEventsInWindow = await _calendarService
-            .GetCalendarEventsAsync(localCalendar, syncPeriod)
+            .GetCalendarEventsAsync(localCalendar.Id, periodStartUtc.UtcDateTime, periodEndUtc.UtcDateTime)
             .ConfigureAwait(false);
 
         foreach (var localEvent in localEventsInWindow)

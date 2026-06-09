@@ -16,6 +16,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Mail.Api.Contracts.Users;
 using Wino.Messaging.Client.Accounts;
+using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Services;
 
@@ -267,7 +268,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
 
             if (importedMailboxCount > 0)
             {
-                WeakReferenceMessenger.Default.Send(new AccountsMenuRefreshRequested(false));
+                UIMessagePublisherProvider.Current.Publish(new AccountsMenuRefreshRequested(false));
             }
 
             result = new WinoAccountSyncImportResult

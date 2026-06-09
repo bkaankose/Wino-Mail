@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -46,6 +46,7 @@ using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Messaging.UI;
 using GlobalizationCultureInfo = System.Globalization.CultureInfo;
+using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Core.Synchronizers.Mail;
 
@@ -1246,7 +1247,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
         if (_isFolderStructureChanged)
         {
-            WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+            UIMessagePublisherProvider.Current.Publish(new AccountFolderConfigurationUpdated(Account.Id));
         }
     }
 
@@ -3022,7 +3023,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         if (insertedCalendars.Any() || deletedCalendars.Any() || updatedCalendars.Any())
         {
             // TODO: Notify calendar updates.
-            // WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+            // UIMessagePublisherProvider.Current.Publish(new AccountFolderConfigurationUpdated(Account.Id));
         }
     }
 

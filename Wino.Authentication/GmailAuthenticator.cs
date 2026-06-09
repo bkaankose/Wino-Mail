@@ -1,4 +1,4 @@
-﻿using System.Threading;
+using System.Threading;
 using System.Threading.Tasks;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Auth.OAuth2.Responses;
@@ -12,8 +12,14 @@ namespace Wino.Authentication;
 
 public class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
 {
-    public GmailAuthenticator(IAuthenticatorConfig authConfig) : base(authConfig)
+    private readonly IDataStore _tokenStore;
+
+    public GmailAuthenticator(IAuthenticatorConfig authConfig,
+                              IApplicationConfiguration applicationConfiguration) : base(authConfig)
     {
+        // Token store lives in the publisher shared folder so the UI and the
+        // background companion process share the same Gmail credentials.
+        _tokenStore = new SharedGmailTokenStore(applicationConfiguration.PublisherSharedFolderPath, authConfig.GmailTokenStoreIdentifier);
     }
 
     public string ClientId => AuthenticatorConfig.GmailAuthenticatorClientId;
@@ -50,12 +56,11 @@ public class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
         return GoogleWebAuthorizationBroker.AuthorizeAsync(new ClientSecrets()
         {
             ClientId = ClientId
-        }, AuthenticatorConfig.GetGmailScope(account?.IsMailAccessGranted != false, account?.IsCalendarAccessGranted == true), GetCredentialKey(account), CancellationToken.None, new FileDataStore(AuthenticatorConfig.GmailTokenStoreIdentifier));
+        }, AuthenticatorConfig.GetGmailScope(account?.IsMailAccessGranted != false, account?.IsCalendarAccessGranted == true), GetCredentialKey(account), CancellationToken.None, _tokenStore);
     }
 
     public Task DeleteTokenInformationAsync(MailAccount account)
-        => new FileDataStore(AuthenticatorConfig.GmailTokenStoreIdentifier)
-            .DeleteAsync<TokenResponse>(GetCredentialKey(account));
+        => _tokenStore.DeleteAsync<TokenResponse>(GetCredentialKey(account));
 
     private static string GetCredentialKey(MailAccount account)
         => account?.Id.ToString() ?? "default";

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
@@ -7,6 +7,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.UI;
+using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Core.Requests.Folder;
 
@@ -22,7 +23,7 @@ public record EmptyFolderRequest(MailItemFolder Folder, List<MailCopy> MailsToDe
         if (removedMails == null || removedMails.Count == 0)
             return;
 
-        WeakReferenceMessenger.Default.Send(new BulkMailRemovedMessage(removedMails, EntityUpdateSource.ClientUpdated));
+        UIMessagePublisherProvider.Current.Publish(new BulkMailRemovedMessage(removedMails, EntityUpdateSource.ClientUpdated));
     }
 
     public override void RevertUIChanges()
@@ -34,7 +35,7 @@ public record EmptyFolderRequest(MailItemFolder Folder, List<MailCopy> MailsToDe
         if (addedMails == null || addedMails.Count == 0)
             return;
 
-        WeakReferenceMessenger.Default.Send(new BulkMailAddedMessage(addedMails, EntityUpdateSource.ClientReverted));
+        UIMessagePublisherProvider.Current.Publish(new BulkMailAddedMessage(addedMails, EntityUpdateSource.ClientReverted));
     }
 
     public List<Guid> SynchronizationFolderIds => [Folder.Id];

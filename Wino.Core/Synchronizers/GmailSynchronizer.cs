@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -49,6 +49,7 @@ using Wino.Services;
 using CalendarService = Google.Apis.Calendar.v3.CalendarService;
 using DriveFile = Google.Apis.Drive.v3.Data.File;
 using DriveService = Google.Apis.Drive.v3.DriveService;
+using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Core.Synchronizers.Mail;
 
@@ -277,7 +278,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
             if (_isFolderStructureChanged)
             {
-                WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+                UIMessagePublisherProvider.Current.Publish(new AccountFolderConfigurationUpdated(Account.Id));
             }
 
             _logger.Information("Synchronizing folders for {Name} is completed", Account.Name);
@@ -896,7 +897,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         if (insertedCalendars.Any() || deletedCalendars.Any() || updatedCalendars.Any())
         {
             // TODO: Notify calendar updates.
-            // WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+            // UIMessagePublisherProvider.Current.Publish(new AccountFolderConfigurationUpdated(Account.Id));
         }
     }
 

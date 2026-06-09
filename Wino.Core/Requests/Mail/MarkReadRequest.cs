@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
@@ -7,6 +7,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.UI;
+using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Core.Requests.Mail;
 
@@ -33,7 +34,7 @@ public record MarkReadRequest(MailCopy Item, bool IsRead) : MailRequestBase(Item
     {
         if (IsNoOp) return;
 
-        WeakReferenceMessenger.Default.Send(new MailStateUpdatedMessage(
+        UIMessagePublisherProvider.Current.Publish(new MailStateUpdatedMessage(
             new MailStateChange(Item.UniqueId, IsRead: IsRead),
             EntityUpdateSource.ClientUpdated));
     }
@@ -42,7 +43,7 @@ public record MarkReadRequest(MailCopy Item, bool IsRead) : MailRequestBase(Item
     {
         if (IsNoOp) return;
 
-        WeakReferenceMessenger.Default.Send(new MailStateUpdatedMessage(
+        UIMessagePublisherProvider.Current.Publish(new MailStateUpdatedMessage(
             new MailStateChange(Item.UniqueId, IsRead: _originalIsRead),
             EntityUpdateSource.ClientReverted));
     }
@@ -64,7 +65,7 @@ public class BatchMarkReadRequest : BatchCollection<MarkReadRequest>
         if (updatedMails.Count == 0)
             return;
 
-        WeakReferenceMessenger.Default.Send(new BulkMailStateUpdatedMessage(
+        UIMessagePublisherProvider.Current.Publish(new BulkMailStateUpdatedMessage(
             updatedMails,
             EntityUpdateSource.ClientUpdated));
     }
@@ -79,7 +80,7 @@ public class BatchMarkReadRequest : BatchCollection<MarkReadRequest>
         if (updatedMails.Count == 0)
             return;
 
-        WeakReferenceMessenger.Default.Send(new BulkMailStateUpdatedMessage(
+        UIMessagePublisherProvider.Current.Publish(new BulkMailStateUpdatedMessage(
             updatedMails,
             EntityUpdateSource.ClientReverted));
     }

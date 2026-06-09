@@ -791,13 +791,13 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             if (!IsPageActive(lifetimeVersion))
                 return [];
 
-            var events = await _calendarService.GetCalendarEventsAsync(calendarViewModel, loadPeriod).ConfigureAwait(false);
+            var events = await _calendarService.GetCalendarEventsAsync(calendarViewModel.Id, loadPeriod.Start, loadPeriod.End).ConfigureAwait(false);
             foreach (var calendarItem in events)
             {
                 if (calendarItem.IsRecurringParent || calendarItem.IsHidden)
                     continue;
 
-                calendarItem.AssignedCalendar ??= calendarViewModel;
+                calendarItem.AssignedCalendar = calendarViewModel;
 
                 if (!loadedItems.ContainsKey(calendarItem.Id))
                 {

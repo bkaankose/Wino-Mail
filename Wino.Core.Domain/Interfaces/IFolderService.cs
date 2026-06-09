@@ -107,10 +107,10 @@ public interface IFolderService
     Task UpdateFolderHighestModeSeqAsync(Guid folderId, long highestModeSeq);
 
     /// <summary>
-    /// Returns the active folder menu items for the given account for UI.
+    /// Returns all non-hidden folders for the given account, sorted for display.
     /// </summary>
-    /// <param name="accountMenuItem">Account to get folder menu items for.</param>
-    Task<IEnumerable<IMenuItem>> GetAccountFoldersForDisplayAsync(IAccountMenuItem accountMenuItem);
+    /// <param name="accountId">Account to get visible folders for.</param>
+    Task<List<MailItemFolder>> GetVisibleFoldersAsync(Guid accountId);
 
     /// <summary>
     /// Returns a list of unread item counts for the given account ids.

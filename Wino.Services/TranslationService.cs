@@ -11,6 +11,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Translations;
 using Wino.Messaging.Client.Shell;
+using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Services;
 
@@ -72,7 +73,7 @@ public class TranslationService : ITranslationService
         }
 
         isInitialized = true;
-        WeakReferenceMessenger.Default.Send(new LanguageChanged());
+        UIMessagePublisherProvider.Current.Publish(new LanguageChanged());
     }
 
     private AppLanguage GetInitialLanguage()

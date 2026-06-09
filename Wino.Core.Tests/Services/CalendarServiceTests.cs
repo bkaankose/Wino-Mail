@@ -51,7 +51,7 @@ public class CalendarServiceTests : IAsyncLifetime
         var period = new TimeRange(DateTime.UtcNow.Date, DateTime.UtcNow.Date.AddDays(7));
 
         // Act
-        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar, period);
+        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar.Id, period.Start, period.End);
 
         // Assert
         result.Should().BeEmpty();
@@ -80,7 +80,7 @@ public class CalendarServiceTests : IAsyncLifetime
             new DateTime(2025, 1, 16, 0, 0, 0, DateTimeKind.Utc));
 
         // Act
-        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar, period);
+        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar.Id, period.Start, period.End);
 
         // Assert
         result.Should().HaveCount(1);
@@ -111,7 +111,7 @@ public class CalendarServiceTests : IAsyncLifetime
         var period = new TimeRange(localStart.Date, localStart.Date.AddDays(1));
 
         // Act
-        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar, period);
+        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar.Id, period.Start, period.End);
 
         // Assert
         result.Should().ContainSingle();
@@ -142,7 +142,7 @@ public class CalendarServiceTests : IAsyncLifetime
             new DateTime(2025, 1, 29, 0, 0, 0, DateTimeKind.Utc));
 
         // Act
-        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar, period);
+        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar.Id, period.Start, period.End);
 
         // Assert
         result.Should().BeEmpty();
@@ -170,7 +170,7 @@ public class CalendarServiceTests : IAsyncLifetime
             new DateTime(2025, 1, 16, 0, 0, 0, DateTimeKind.Utc));
 
         // Act
-        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar, period);
+        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar.Id, period.Start, period.End);
 
         // Assert
         result.Should().BeEmpty("because hidden events should be excluded");
@@ -198,7 +198,7 @@ public class CalendarServiceTests : IAsyncLifetime
             new DateTime(2025, 1, 16, 0, 0, 0, DateTimeKind.Utc));
 
         // Act
-        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar, period);
+        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar.Id, period.Start, period.End);
 
         // Assert
         result.Should().HaveCount(1);
@@ -254,7 +254,7 @@ public class CalendarServiceTests : IAsyncLifetime
             new DateTime(2025, 1, 16, 0, 0, 0, DateTimeKind.Utc));
 
         // Act - Query only the first calendar
-        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar, period);
+        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar.Id, period.Start, period.End);
 
         // Assert
         result.Should().HaveCount(1);
@@ -297,7 +297,7 @@ public class CalendarServiceTests : IAsyncLifetime
             new DateTime(2025, 1, 17, 0, 0, 0, DateTimeKind.Utc));
 
         // Act
-        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar, period);
+        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar.Id, period.Start, period.End);
 
         // Assert
         result.Should().HaveCount(1);

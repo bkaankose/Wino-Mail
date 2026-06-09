@@ -6,6 +6,7 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Helpers;
 using Wino.Messaging.Client.Calendar;
+using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Core.Requests.Calendar;
 
@@ -47,7 +48,7 @@ public record CreateCalendarEventRequest : CalendarRequestBase
         if (Item == null)
             return;
 
-        WeakReferenceMessenger.Default.Send(new CalendarItemAdded(Item, EntityUpdateSource.ClientUpdated));
+        UIMessagePublisherProvider.Current.Publish(new CalendarItemAdded(Item, EntityUpdateSource.ClientUpdated));
     }
 
     public override void RevertUIChanges()
@@ -55,7 +56,7 @@ public record CreateCalendarEventRequest : CalendarRequestBase
         if (Item == null)
             return;
 
-        WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(Item, EntityUpdateSource.ClientReverted));
+        UIMessagePublisherProvider.Current.Publish(new CalendarItemDeleted(Item, EntityUpdateSource.ClientReverted));
     }
 
     private static bool ShouldCreateOptimisticItem(CalendarEventComposeResult composeResult)

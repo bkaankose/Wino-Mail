@@ -3,6 +3,7 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.Client.Calendar;
+using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Core.Requests.Calendar;
 
@@ -27,13 +28,13 @@ public record DeclineEventRequest(CalendarItem Item, string ResponseMessage = nu
         Item.Status = CalendarItemStatus.Cancelled;
 
         // Notify UI that the event status was updated
-        WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(Item, EntityUpdateSource.ClientUpdated));
+        UIMessagePublisherProvider.Current.Publish(new CalendarItemUpdated(Item, EntityUpdateSource.ClientUpdated));
     }
 
     public override void RevertUIChanges()
     {
         // If decline fails, revert to the previous status
         Item.Status = _previousStatus;
-        WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(Item, EntityUpdateSource.ClientReverted));
+        UIMessagePublisherProvider.Current.Publish(new CalendarItemUpdated(Item, EntityUpdateSource.ClientReverted));
     }
 }

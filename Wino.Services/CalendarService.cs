@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -14,6 +14,7 @@ using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Messaging.Client.Calendar;
+using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Services;
 
@@ -49,7 +50,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
     {
         await Connection.InsertAsync(accountCalendar, typeof(AccountCalendar));
 
-        WeakReferenceMessenger.Default.Send(new CalendarListAdded(accountCalendar));
+        UIMessagePublisherProvider.Current.Publish(new CalendarListAdded(accountCalendar));
     }
 
     public async Task UpdateAccountCalendarAsync(AccountCalendar accountCalendar)
@@ -64,7 +65,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
         await Connection.UpdateAsync(accountCalendar, typeof(AccountCalendar));
 
-        WeakReferenceMessenger.Default.Send(new CalendarListUpdated(accountCalendar));
+        UIMessagePublisherProvider.Current.Publish(new CalendarListUpdated(accountCalendar));
     }
 
     public async Task SetPrimaryCalendarAsync(Guid accountId, Guid accountCalendarId)
@@ -85,7 +86,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
         foreach (var calendar in calendars)
         {
-            WeakReferenceMessenger.Default.Send(new CalendarListUpdated(calendar));
+            UIMessagePublisherProvider.Current.Publish(new CalendarListUpdated(calendar));
         }
     }
 
@@ -96,7 +97,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
             accountCalendar.Id, accountCalendar.AccountId);
         await Connection.DeleteAsync<AccountCalendar>(accountCalendar.Id);
 
-        WeakReferenceMessenger.Default.Send(new CalendarListDeleted(accountCalendar));
+        UIMessagePublisherProvider.Current.Publish(new CalendarListDeleted(accountCalendar));
     }
 
     public async Task DeleteCalendarItemAsync(Guid calendarItemId)
@@ -122,7 +123,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
             await Connection.Table<Reminder>().DeleteAsync(r => r.CalendarItemId == @event.Id).ConfigureAwait(false);
             await Connection.Table<CalendarAttachment>().DeleteAsync(a => a.CalendarItemId == @event.Id).ConfigureAwait(false);
 
-            WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(@event, EntityUpdateSource.Server));
+            UIMessagePublisherProvider.Current.Publish(new CalendarItemDeleted(@event, EntityUpdateSource.Server));
         }
     }
 
@@ -149,7 +150,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
                 }
             });
 
-            WeakReferenceMessenger.Default.Send(new CalendarItemAdded(calendarItem, EntityUpdateSource.Server));
+            UIMessagePublisherProvider.Current.Publish(new CalendarItemAdded(calendarItem, EntityUpdateSource.Server));
         }
         catch (Exception ex)
         {
@@ -174,7 +175,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
                 }
             });
 
-            WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(calendarItem, EntityUpdateSource.Server));
+            UIMessagePublisherProvider.Current.Publish(new CalendarItemUpdated(calendarItem, EntityUpdateSource.Server));
         }
         catch (Exception ex)
         {
@@ -220,14 +221,23 @@ public class CalendarService : BaseDatabaseService, ICalendarService
     /// Note: Recurring events are expected to be synced as individual instances from the server.
     /// Series master events (parents) are filtered out as they should not be displayed directly.
     /// </summary>
-    /// <param name="calendar">The calendar to retrieve events from.</param>
-    /// <param name="period">The time period to query events for.</param>
+    /// <param name="calendarId">Id of the calendar to retrieve events from.</param>
+    /// <param name="periodStart">Local display period start.</param>
+    /// <param name="periodEnd">Local display period end.</param>
     /// <returns>List of calendar items that fall within the requested period.</returns>
-    public async Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, ITimePeriod period)
+    public async Task<List<CalendarItem>> GetCalendarEventsAsync(Guid calendarId, DateTime periodStart, DateTime periodEnd)
     {
+        var calendar = await Connection.FindAsync<AccountCalendar>(calendarId).ConfigureAwait(false);
+
+        if (calendar == null) return [];
+
+        calendar.MailAccount = await Connection.FindAsync<MailAccount>(calendar.AccountId).ConfigureAwait(false);
+
+        var period = new TimeRange(periodStart, periodEnd);
+
         // Fetch all non-hidden events for this calendar
         var accountEvents = await Connection.Table<CalendarItem>()
-            .Where(x => x.CalendarId == calendar.Id && !x.IsHidden)
+            .Where(x => x.CalendarId == calendarId && !x.IsHidden)
             .ToListAsync();
 
         var result = new List<CalendarItem>();

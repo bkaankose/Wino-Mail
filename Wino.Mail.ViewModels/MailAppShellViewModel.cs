@@ -24,6 +24,7 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.Helpers;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Client.Shell;
@@ -872,7 +873,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         await MenuItems.SetAccountMenuItemEnabledStatusAsync(false);
 
         // Load account folder structure and replace the visible folders.
-        var folders = await _folderService.GetAccountFoldersForDisplayAsync(clickedBaseAccountMenuItem);
+        var folders = await FolderMenuItemFactory.GetAccountFoldersForDisplayAsync(_folderService, _mailCategoryService, clickedBaseAccountMenuItem);
 
         await ExecuteUIThread(() =>
         {
@@ -1364,7 +1365,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         var selectedFolderId = (SelectedMenuItem as IBaseFolderMenuItem)?.HandlingFolders
             ?.FirstOrDefault(a => a.MailAccountId == accountId)?.Id;
 
-        var folders = await _folderService.GetAccountFoldersForDisplayAsync(latestSelectedAccountMenuItem);
+        var folders = await FolderMenuItemFactory.GetAccountFoldersForDisplayAsync(_folderService, _mailCategoryService, latestSelectedAccountMenuItem);
 
         await MenuItems.ReplaceFoldersAsync(folders);
         await UpdateUnreadItemCountAsync();

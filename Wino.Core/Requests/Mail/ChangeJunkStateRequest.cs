@@ -7,6 +7,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.UI;
+using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Core.Requests.Mail;
 
@@ -35,12 +36,12 @@ public record ChangeJunkStateRequest(bool IsJunk, MailCopy Item, MailItemFolder 
 
     public override void ApplyUIChanges()
     {
-        WeakReferenceMessenger.Default.Send(new MailRemovedMessage(Item, EntityUpdateSource.ClientUpdated));
+        UIMessagePublisherProvider.Current.Publish(new MailRemovedMessage(Item, EntityUpdateSource.ClientUpdated));
     }
 
     public override void RevertUIChanges()
     {
-        WeakReferenceMessenger.Default.Send(new MailAddedMessage(Item, EntityUpdateSource.ClientReverted));
+        UIMessagePublisherProvider.Current.Publish(new MailAddedMessage(Item, EntityUpdateSource.ClientReverted));
     }
 }
 
@@ -56,7 +57,7 @@ public class BatchChangeJunkStateRequest : BatchCollection<ChangeJunkStateReques
         if (removedMails.Count == 0)
             return;
 
-        WeakReferenceMessenger.Default.Send(new BulkMailRemovedMessage(removedMails, EntityUpdateSource.ClientUpdated));
+        UIMessagePublisherProvider.Current.Publish(new BulkMailRemovedMessage(removedMails, EntityUpdateSource.ClientUpdated));
     }
 
     public override void RevertUIChanges()
@@ -65,6 +66,6 @@ public class BatchChangeJunkStateRequest : BatchCollection<ChangeJunkStateReques
         if (addedMails.Count == 0)
             return;
 
-        WeakReferenceMessenger.Default.Send(new BulkMailAddedMessage(addedMails, EntityUpdateSource.ClientReverted));
+        UIMessagePublisherProvider.Current.Publish(new BulkMailAddedMessage(addedMails, EntityUpdateSource.ClientReverted));
     }
 }

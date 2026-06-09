@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -24,6 +24,7 @@ using Wino.Core.Requests.Category;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Messaging.UI;
+using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Core.Synchronizers;
 
@@ -567,7 +568,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     /// Sends a message that shell can pick up and update the UI.
     /// </summary>
     private void PublishUnreadItemChanges()
-        => WeakReferenceMessenger.Default.Send(new RefreshUnreadCountsMessage(Account.Id));
+        => UIMessagePublisherProvider.Current.Publish(new RefreshUnreadCountsMessage(Account.Id));
 
     /// <summary>
     /// Attempts to find out the best possible synchronization options after the batch request execution.

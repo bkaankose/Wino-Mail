@@ -22,6 +22,7 @@ using Wino.Core.Helpers;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Messaging.UI;
+using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Core.Services;
 
@@ -635,7 +636,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         if (pack.VisibleMailActionPack == null)
             return;
 
-        WeakReferenceMessenger.Default.Send(new UndoableMailActionPackChanged(pack.VisibleMailActionPack, state));
+        UIMessagePublisherProvider.Current.Publish(new UndoableMailActionPackChanged(pack.VisibleMailActionPack, state));
     }
 
     /// <summary>
@@ -1398,7 +1399,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
         cache.AddOrUpdate(normalized.AccountId, normalized, (_, _) => normalized);
 
-        WeakReferenceMessenger.Default.Send(new AccountSynchronizationProgressUpdatedMessage(normalized));
+        UIMessagePublisherProvider.Current.Publish(new AccountSynchronizationProgressUpdatedMessage(normalized));
     }
 
     private static string BuildSynchronizationStatus(

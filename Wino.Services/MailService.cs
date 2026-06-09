@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -18,6 +18,7 @@ using Wino.Core.Domain.Misc;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Messaging.UI;
 using Wino.Services.Extensions;
+using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Services;
 
@@ -957,7 +958,7 @@ public class MailService : BaseDatabaseService, IMailService
 
         if (readMailUniqueIds.Count > 0)
         {
-            WeakReferenceMessenger.Default.Send(new BulkMailReadStatusChanged(readMailUniqueIds));
+            UIMessagePublisherProvider.Current.Publish(new BulkMailReadStatusChanged(readMailUniqueIds));
         }
 
         var hydratedUpdatesByUniqueId = (await HydrateMailCopiesAsync(

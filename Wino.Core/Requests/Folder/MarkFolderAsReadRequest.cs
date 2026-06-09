@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
@@ -7,6 +7,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.UI;
+using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Core.Requests.Folder;
 
@@ -26,7 +27,7 @@ public record MarkFolderAsReadRequest(MailItemFolder Folder, List<MailCopy> Mail
         if (updatedMails == null || updatedMails.Count == 0)
             return;
 
-        WeakReferenceMessenger.Default.Send(new BulkMailStateUpdatedMessage(
+        UIMessagePublisherProvider.Current.Publish(new BulkMailStateUpdatedMessage(
             updatedMails,
             EntityUpdateSource.ClientUpdated));
     }
@@ -41,7 +42,7 @@ public record MarkFolderAsReadRequest(MailItemFolder Folder, List<MailCopy> Mail
         if (updatedMails == null || updatedMails.Count == 0)
             return;
 
-        WeakReferenceMessenger.Default.Send(new BulkMailStateUpdatedMessage(
+        UIMessagePublisherProvider.Current.Publish(new BulkMailStateUpdatedMessage(
             updatedMails,
             EntityUpdateSource.ClientReverted));
     }
