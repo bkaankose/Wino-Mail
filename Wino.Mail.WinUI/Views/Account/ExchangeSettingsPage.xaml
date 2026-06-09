@@ -32,47 +32,37 @@
                 Header="Email address"
                 Text="{x:Bind ViewModel.EmailAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
-            <Grid ColumnSpacing="8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+            <!--  Connection fields appear after Discover — filled from discovery, or for manual entry on fallback.  -->
+            <StackPanel
+                Spacing="12"
+                Visibility="{x:Bind ViewModel.IsDiscovered, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+
                 <TextBox
-                    Grid.Column="0"
                     Header="EWS URL"
                     PlaceholderText="https://mail.example.com/EWS/Exchange.asmx"
                     Text="{x:Bind ViewModel.EwsUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                <Button
-                    Grid.Column="1"
-                    VerticalAlignment="Bottom"
-                    Command="{x:Bind ViewModel.DiscoverEwsUrlCommand}"
-                    Content="Discover"
-                    ToolTipService.ToolTip="Auto-discover the EWS URL from the email address." />
-            </Grid>
 
-            <ToggleSwitch
-                Header="Modern authentication (OAuth)"
-                IsOn="{x:Bind ViewModel.UseModernAuth, Mode=TwoWay}"
-                OffContent="Use password (NTLM / Basic)"
-                OnContent="Sign in with your organization's identity provider" />
+                <ToggleSwitch
+                    Header="Modern authentication (OAuth)"
+                    IsOn="{x:Bind ViewModel.UseModernAuth, Mode=TwoWay}"
+                    OffContent="Use password (NTLM / Basic)"
+                    OnContent="Sign in with your organization's identity provider" />
 
-            <PasswordBox
-                Header="Password"
-                Password="{x:Bind ViewModel.Password, Mode=TwoWay}"
-                Visibility="{x:Bind ViewModel.UseModernAuth, Mode=OneWay, Converter={StaticResource ReverseBooleanToVisibilityConverter}}" />
+                <PasswordBox
+                    Header="Password"
+                    Password="{x:Bind ViewModel.Password, Mode=TwoWay}"
+                    Visibility="{x:Bind ViewModel.UseModernAuth, Mode=OneWay, Converter={StaticResource ReverseBooleanToVisibilityConverter}}" />
 
-            <StackPanel
-                Spacing="12"
-                Visibility="{x:Bind ViewModel.UseModernAuth, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
-                <TextBox
-                    Header="Authority URL"
-                    PlaceholderText="https://adfs.example.com/adfs"
-                    Text="{x:Bind ViewModel.OAuthAuthority, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                 <Expander
                     HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Stretch"
-                    Header="Advanced settings">
+                    Header="Advanced settings"
+                    Visibility="{x:Bind ViewModel.UseModernAuth, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <StackPanel Spacing="12">
+                        <TextBox
+                            Header="Authority URL"
+                            PlaceholderText="https://adfs.example.com/adfs"
+                            Text="{x:Bind ViewModel.OAuthAuthority, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                         <TextBox
                             Header="Client ID"
                             Text="{x:Bind ViewModel.OAuthClientId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
@@ -105,13 +95,20 @@
                 <ProgressRing
                     Width="20"
                     Height="20"
+                    VerticalAlignment="Center"
                     IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
                     Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                <Button
+                    Command="{x:Bind ViewModel.DiscoverEwsUrlCommand}"
+                    Content="Discover"
+                    IsEnabled="{x:Bind ViewModel.IsBusy, Mode=OneWay, Converter={StaticResource ReverseBooleanConverter}}"
+                    ToolTipService.ToolTip="Discover the EWS URL and authentication from the email address." />
                 <Button
                     Command="{x:Bind ViewModel.SaveCommand}"
                     Content="Save"
                     IsEnabled="{x:Bind ViewModel.IsBusy, Mode=OneWay, Converter={StaticResource ReverseBooleanConverter}}"
-                    Style="{ThemeResource AccentButtonStyle}" />
+                    Style="{ThemeResource AccentButtonStyle}"
+                    Visibility="{x:Bind ViewModel.IsDiscovered, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
             </StackPanel>
         </StackPanel>
     </ScrollViewer>

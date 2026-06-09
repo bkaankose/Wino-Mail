@@ -62,6 +62,10 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     [ObservableProperty]
     public partial bool IsBusy { get; set; }
 
+    /// <summary>True once Discover has run — reveals the connection fields and the Save button.</summary>
+    [ObservableProperty]
+    public partial bool IsDiscovered { get; set; }
+
     [ObservableProperty]
     public partial string ValidationMessage { get; set; } = string.Empty;
 
@@ -113,16 +117,17 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
             if (string.IsNullOrWhiteSpace(EwsUrl))
             {
                 var discovered = await _autoDiscoveryService.TryDiscoverEwsUrlAsync(EmailAddress.Trim());
-                if (string.IsNullOrWhiteSpace(discovered))
-                {
-                    ValidationMessage = "Couldn't auto-discover the EWS URL. Enter it manually.";
-                    return;
-                }
-
-                EwsUrl = discovered;
+                if (!string.IsNullOrWhiteSpace(discovered))
+                    EwsUrl = discovered;
             }
 
             await DetectAuthMethodAsync();
+
+            if (string.IsNullOrWhiteSpace(EwsUrl))
+                StatusMessage = "Couldn't auto-discover the EWS URL — enter it below.";
+
+            // Reveal the remaining fields (filled from discovery, or for manual entry on fallback).
+            IsDiscovered = true;
         }
         finally
         {
