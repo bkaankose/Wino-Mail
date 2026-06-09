@@ -66,6 +66,7 @@ public static class CoreContainerSetup
         // Register Exchange error handlers
         services.AddTransient<ExchangeAuthenticationFailedHandler>();
         services.AddTransient<ExchangeServerBusyHandler>();
+        services.AddTransient<ExchangeInvalidServerResponseHandler>();
 
         // Register IMAP error handlers
         services.AddTransient<ImapConnectionLostHandler>();

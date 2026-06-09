@@ -13,10 +13,12 @@ public class ExchangeSynchronizerErrorHandlingFactory : SynchronizerErrorHandlin
     public ExchangeSynchronizerErrorHandlingFactory(
         ExchangeAuthenticationFailedHandler authenticationFailedHandler,
         ExchangeServerBusyHandler serverBusyHandler,
+        ExchangeInvalidServerResponseHandler invalidServerResponseHandler,
         EntityNotFoundHandler entityNotFoundHandler)
     {
         RegisterHandler(authenticationFailedHandler);
         RegisterHandler(serverBusyHandler);
+        RegisterHandler(invalidServerResponseHandler);
         RegisterHandler(entityNotFoundHandler); // most generic, registered last
     }
 }
