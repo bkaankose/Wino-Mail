@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.DirectoryServices.Protocols;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
@@ -67,10 +68,69 @@ public sealed class ExchangeAutoDiscoveryService : IExchangeAutoDiscoveryService
     }
 
     /// <summary>
-    /// SCP (AD) discovery. Implemented in a follow-up (needs an LDAP dependency); yields nothing for now,
-    /// so discovery falls through to SRV and the HTTP candidates.
+    /// SCP (Service Connection Point) discovery via Active Directory. On a domain-joined machine this
+    /// finds the Autodiscover SCP(s) published in AD (queried as the logged-in user) and returns their
+    /// V2 JSON endpoints. Fails quietly (empty) when not domain-joined or AD is unreachable, so
+    /// discovery falls through to SRV and the HTTP candidates. This is the standard answer for
+    /// domain-joined clients whose email domain differs from the Exchange infrastructure domain.
     /// </summary>
-    private IReadOnlyList<string> ResolveScpAutodiscoverUrls() => Array.Empty<string>();
+    private IReadOnlyList<string> ResolveScpAutodiscoverUrls()
+    {
+        // Serverless LDAP binding relies on the Windows domain DC-locator.
+        if (!OperatingSystem.IsWindows())
+            return Array.Empty<string>();
+
+        try
+        {
+            using var connection = new LdapConnection(new LdapDirectoryIdentifier((string)null))
+            {
+                AuthType = AuthType.Negotiate
+            };
+            connection.SessionOptions.ProtocolVersion = 3;
+            connection.Bind(); // bind as the current logged-in user
+
+            // 1. RootDSE -> configurationNamingContext.
+            var rootDseResponse = (SearchResponse)connection.SendRequest(
+                new SearchRequest(null, "(objectClass=*)", SearchScope.Base, "configurationNamingContext"));
+
+            if (rootDseResponse.Entries.Count == 0)
+                return Array.Empty<string>();
+
+            var configurationNamingContext = rootDseResponse.Entries[0].Attributes["configurationNamingContext"]?[0]?.ToString();
+            if (string.IsNullOrEmpty(configurationNamingContext))
+                return Array.Empty<string>();
+
+            // 2. Find Autodiscover SCPs (keyword GUID is the well-known Autodiscover marker).
+            var scpResponse = (SearchResponse)connection.SendRequest(new SearchRequest(
+                configurationNamingContext,
+                "(&(objectClass=serviceConnectionPoint)(keywords=77378F46-2C66-4aa9-A6A6-3E7A48B19596))",
+                SearchScope.Subtree,
+                "serviceBindingInformation"));
+
+            var autodiscoverUrls = new List<string>();
+            foreach (SearchResultEntry entry in scpResponse.Entries)
+            {
+                var binding = entry.Attributes["serviceBindingInformation"];
+                if (binding == null)
+                    continue;
+
+                foreach (var value in binding.GetValues(typeof(string)))
+                {
+                    // serviceBindingInformation is a POX URL (https://host/Autodiscover/Autodiscover.xml);
+                    // use its V2 JSON form (anonymous, no credentials needed).
+                    if (Uri.TryCreate(value?.ToString(), UriKind.Absolute, out var uri))
+                        autodiscoverUrls.Add(uri.GetLeftPart(UriPartial.Authority) + "/autodiscover/autodiscover.json");
+                }
+            }
+
+            return autodiscoverUrls;
+        }
+        catch (Exception ex)
+        {
+            _logger.Debug(ex, "Autodiscover SCP lookup failed (not domain-joined or AD unreachable).");
+            return Array.Empty<string>();
+        }
+    }
 
     /// <summary>
     /// Resolves <c>_autodiscover._tcp.{domain}</c> SRV to the highest-priority target host and returns
