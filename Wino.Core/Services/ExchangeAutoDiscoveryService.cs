@@ -50,8 +50,9 @@ public sealed class ExchangeAutoDiscoveryService : IExchangeAutoDiscoveryService
     {
         var candidates = new List<string>();
 
-        // 1. SCP — Service Connection Point in Active Directory (domain-joined machines).
-        candidates.AddRange(ResolveScpAutodiscoverUrls());
+        // 1. SCP — Service Connection Point in AD (domain-joined machines). Gated so it only applies
+        //    when the email's domain belongs to this machine's forest (not a foreign mailbox).
+        candidates.AddRange(ResolveScpAutodiscoverUrls(domain));
 
         // 2. DNS SRV — _autodiscover._tcp.{domain}; the standard answer for split-domain deployments.
         var srvUrl = await ResolveSrvAutodiscoverUrlAsync(domain, cancellationToken).ConfigureAwait(false);
@@ -74,7 +75,7 @@ public sealed class ExchangeAutoDiscoveryService : IExchangeAutoDiscoveryService
     /// discovery falls through to SRV and the HTTP candidates. This is the standard answer for
     /// domain-joined clients whose email domain differs from the Exchange infrastructure domain.
     /// </summary>
-    private IReadOnlyList<string> ResolveScpAutodiscoverUrls()
+    private IReadOnlyList<string> ResolveScpAutodiscoverUrls(string emailDomain)
     {
         // Serverless LDAP binding relies on the Windows domain DC-locator.
         if (!OperatingSystem.IsWindows())
@@ -89,15 +90,24 @@ public sealed class ExchangeAutoDiscoveryService : IExchangeAutoDiscoveryService
             connection.SessionOptions.ProtocolVersion = 3;
             connection.Bind(); // bind as the current logged-in user
 
-            // 1. RootDSE -> configurationNamingContext.
+            // 1. RootDSE -> configuration + default naming contexts.
             var rootDseResponse = (SearchResponse)connection.SendRequest(
-                new SearchRequest(null, "(objectClass=*)", SearchScope.Base, "configurationNamingContext"));
+                new SearchRequest(null, "(objectClass=*)", SearchScope.Base, "configurationNamingContext", "defaultNamingContext"));
 
             if (rootDseResponse.Entries.Count == 0)
                 return Array.Empty<string>();
 
-            var configurationNamingContext = rootDseResponse.Entries[0].Attributes["configurationNamingContext"]?[0]?.ToString();
+            var rootDse = rootDseResponse.Entries[0];
+            var configurationNamingContext = rootDse.Attributes["configurationNamingContext"]?[0]?.ToString();
+            var defaultNamingContext = rootDse.Attributes["defaultNamingContext"]?[0]?.ToString();
             if (string.IsNullOrEmpty(configurationNamingContext))
+                return Array.Empty<string>();
+
+            // The SCP is scoped to THIS machine's forest, so it must only be used for mailboxes that
+            // belong to it. Outlook does the same check: if the email's domain isn't a forest domain
+            // (AD root domain or a UPN suffix — split-domain SMTP domains are added there), skip SCP
+            // and let discovery fall through to SRV / the HTTP candidates.
+            if (!IsForestDomain(connection, configurationNamingContext, defaultNamingContext, emailDomain))
                 return Array.Empty<string>();
 
             // 2. Find Autodiscover SCPs (keyword GUID is the well-known Autodiscover marker).
@@ -130,6 +140,67 @@ public sealed class ExchangeAutoDiscoveryService : IExchangeAutoDiscoveryService
             _logger.Debug(ex, "Autodiscover SCP lookup failed (not domain-joined or AD unreachable).");
             return Array.Empty<string>();
         }
+    }
+
+    /// <summary>
+    /// True when the email's domain belongs to the bound forest — its AD root domain, or one of the
+    /// forest's alternative UPN suffixes (where split-domain SMTP domains are typically registered).
+    /// </summary>
+    private static bool IsForestDomain(LdapConnection connection, string configurationNamingContext, string defaultNamingContext, string emailDomain)
+    {
+        if (string.IsNullOrWhiteSpace(emailDomain))
+            return false;
+
+        var forestDomains = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // The AD root domain DNS (DC=mtec360,DC=com -> mtec360.com).
+        var adDomain = DistinguishedNameToDomain(defaultNamingContext);
+        if (!string.IsNullOrEmpty(adDomain))
+            forestDomains.Add(adDomain);
+
+        // The forest's alternative UPN suffixes.
+        try
+        {
+            var partitionsResponse = (SearchResponse)connection.SendRequest(new SearchRequest(
+                "CN=Partitions," + configurationNamingContext, "(objectClass=*)", SearchScope.Base, "uPNSuffixes"));
+
+            if (partitionsResponse.Entries.Count > 0)
+            {
+                var suffixes = partitionsResponse.Entries[0].Attributes["uPNSuffixes"];
+                if (suffixes != null)
+                {
+                    foreach (var suffix in suffixes.GetValues(typeof(string)))
+                    {
+                        var value = suffix?.ToString();
+                        if (!string.IsNullOrWhiteSpace(value))
+                            forestDomains.Add(value.Trim());
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // UPN suffixes unavailable — fall back to the AD-domain match only.
+        }
+
+        return forestDomains.Contains(emailDomain);
+    }
+
+    /// <summary>Converts a naming-context DN (e.g. <c>DC=mtec360,DC=com</c>) to a DNS domain (<c>mtec360.com</c>).</summary>
+    private static string DistinguishedNameToDomain(string distinguishedName)
+    {
+        if (string.IsNullOrWhiteSpace(distinguishedName))
+            return null;
+
+        var labels = new List<string>();
+        foreach (var part in distinguishedName.Split(',', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var trimmed = part.Trim();
+            if (trimmed.StartsWith("DC=", StringComparison.OrdinalIgnoreCase))
+                labels.Add(trimmed[3..]);
+        }
+
+        return labels.Count == 0 ? null : string.Join('.', labels);
     }
 
     /// <summary>
