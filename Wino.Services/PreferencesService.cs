@@ -13,9 +13,8 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Domain.Translations;
-using Wino.Services;
 
-namespace Wino.Mail.WinUI.Services;
+namespace Wino.Services;
 
 public class PreferencesService(IConfigurationService configurationService) : ObservableObject, IPreferencesService
 {
