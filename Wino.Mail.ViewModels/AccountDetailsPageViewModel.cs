@@ -105,7 +105,13 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     public partial AccountCapabilityOption SelectedCapabilityOption { get; set; }
 
     public bool IsFocusedInboxSupportedForAccount => Account != null && Account.Preferences.IsFocusedInboxEnabled != null;
-    public bool IsImapServer => ServerInformation != null;
+
+    /// <summary>
+    /// True only for genuine IMAP/SMTP accounts. Exchange also carries a
+    /// <see cref="CustomServerInformation"/>, so this must be gated by provider type — the
+    /// IMAP/SMTP + CalDAV server editor is meaningless for an EWS endpoint.
+    /// </summary>
+    public bool IsImapServer => ServerInformation != null && Account?.ProviderType == MailProviderType.IMAP4;
     public bool HasMailAccess => Account?.IsMailAccessGranted == true;
     public bool HasCalendarAccess => Account?.IsCalendarAccessGranted == true;
     public bool IsOAuthCapabilityEditable => Account?.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail;
@@ -424,6 +430,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         OnPropertyChanged(nameof(HasMailAccess));
         OnPropertyChanged(nameof(HasCalendarAccess));
         OnPropertyChanged(nameof(IsOAuthCapabilityEditable));
+        OnPropertyChanged(nameof(IsImapServer));
     }
 
     protected override async void OnPropertyChanged(PropertyChangedEventArgs e)
