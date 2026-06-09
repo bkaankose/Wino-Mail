@@ -88,6 +88,15 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
 
         var credentials = await _exchangeAuthenticator.GetCredentialsAsync(Account).ConfigureAwait(false);
 
+        // Records the endpoint and the identity we authenticate as, so connectivity issues can be
+        // diagnosed (e.g. confirming the configured mailbox is used, not the logged-in Windows user).
+        _logger.Debug(
+            "Building EWS service. Url={Url}, OAuth={UseOAuth}, ConfiguredUser={User}, CredentialType={CredType}",
+            serverInformation.IncomingServer,
+            serverInformation.UseOAuthAuthentication,
+            serverInformation.IncomingServerUsername,
+            credentials?.GetType().Name);
+
         // The service time zone is constructor-only; calendar sync passes UTC so appointment times
         // come back as UTC and the change processor converts them to each event's own zone.
         return timeZone == null
