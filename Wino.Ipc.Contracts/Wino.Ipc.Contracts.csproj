@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<Platforms>x86;x64;arm64</Platforms>
+		<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+		<AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
+		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+		<TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+		<!--
+			Payload records are serialized through reflection-based System.Text.Json
+			(see WinoIpcJson). The companion process cannot be Native AOT anyway
+			(sqlite-net-pcl, Google.Apis), so this project opts out of AOT analysis;
+			Wino.Ipc itself stays AOT-clean.
+		-->
+		<IsAotCompatible>false</IsAotCompatible>
+		<IsTrimmable>false</IsTrimmable>
+		<EnableTrimAnalyzer>false</EnableTrimAnalyzer>
+	</PropertyGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
+		<ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
+		<ProjectReference Include="..\Wino.Ipc\Wino.Ipc.csproj" />
+	</ItemGroup>
+</Project>
