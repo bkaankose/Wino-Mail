@@ -138,6 +138,11 @@ public static class Program
         using var lifecycle = new CompanionLifecycle(serverHost, preferencesService, accountService, Terminate);
         await lifecycle.EvaluateStartupAsync().ConfigureAwait(false);
 
+        // Bridges queued-action sync requests (delegator, IMAP idle) to the sync manager.
+        var syncRequestForwarder = new SyncRequestForwarder(
+            services.GetRequiredService<ISynchronizationManager>(),
+            services.GetRequiredService<IAccountService>());
+
         using var synchronizationLoop = services.GetRequiredService<SynchronizationLoopService>();
         synchronizationLoop.Start();
 
@@ -180,6 +185,9 @@ public static class Program
         RunMessageLoop();
 
         Log.Information("Background service message loop ended; shutting down.");
+
+        // The messenger holds weak references; keep the forwarder alive for the process lifetime.
+        GC.KeepAlive(syncRequestForwarder);
 
         trayIcon?.Dispose();
         await serverHost.DisposeAsync().ConfigureAwait(false);
