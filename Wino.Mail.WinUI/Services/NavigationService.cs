@@ -85,6 +85,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
         WinoPage.AliasManagementPage,
         WinoPage.MailCategoryManagementPage,
         WinoPage.ImapCalDavSettingsPage,
+        WinoPage.ExchangeSettingsPage,
         WinoPage.KeyboardShortcutsPage,
         WinoPage.SignatureAndEncryptionPage,
         WinoPage.EmailTemplatesPage,

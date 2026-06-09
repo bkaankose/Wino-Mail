@@ -9,8 +9,10 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.Synchronization;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
+using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels;
 
@@ -30,6 +32,10 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     private readonly IInteractiveOidcAuthenticator _interactiveOidcAuthenticator;
     private readonly IExchangeAutoDiscoveryService _autoDiscoveryService;
     private readonly IExchangeAuthCapabilityProbe _authCapabilityProbe;
+    private readonly IAccountService _accountService;
+
+    /// <summary>Set when the page is opened to edit an existing account's server/sign-in settings.</summary>
+    private Guid? _editingAccountId;
 
     [ObservableProperty]
     public partial string DisplayName { get; set; } = string.Empty;
@@ -85,24 +91,73 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     [ObservableProperty]
     public partial string StatusMessage { get; set; } = string.Empty;
 
+    /// <summary>True when editing an existing account (vs. onboarding a new one).</summary>
+    [ObservableProperty]
+    public partial bool IsEditMode { get; set; }
+
     public ExchangeSettingsPageViewModel(
         WelcomeWizardContext wizardContext,
         IInteractiveOidcAuthenticator interactiveOidcAuthenticator,
         IExchangeAutoDiscoveryService autoDiscoveryService,
-        IExchangeAuthCapabilityProbe authCapabilityProbe)
+        IExchangeAuthCapabilityProbe authCapabilityProbe,
+        IAccountService accountService)
     {
         _wizardContext = wizardContext;
         _interactiveOidcAuthenticator = interactiveOidcAuthenticator;
         _autoDiscoveryService = autoDiscoveryService;
         _authCapabilityProbe = authCapabilityProbe;
+        _accountService = accountService;
     }
 
-    public override void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 
+        // Edit mode: opened from account settings with the account id. Load the existing
+        // server/sign-in settings so the user can update the EWS URL or re-enter credentials.
+        if (parameters is Guid accountId)
+        {
+            await LoadExistingAccountAsync(accountId);
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(EmailAddress) && !string.IsNullOrWhiteSpace(_wizardContext.EmailAddress))
             EmailAddress = _wizardContext.EmailAddress;
+    }
+
+    private async Task LoadExistingAccountAsync(Guid accountId)
+    {
+        var account = await _accountService.GetAccountAsync(accountId);
+        if (account?.ServerInformation == null)
+            return;
+
+        var server = account.ServerInformation;
+
+        _editingAccountId = accountId;
+        IsEditMode = true;
+
+        DisplayName = account.SenderName ?? account.Name ?? string.Empty;
+        EmailAddress = account.Address ?? server.IncomingServerUsername ?? string.Empty;
+        EwsUrl = server.IncomingServer ?? string.Empty;
+
+        if (server.UseOAuthAuthentication)
+        {
+            OAuthAuthority = server.OAuthAuthority ?? string.Empty;
+            OAuthClientId = string.IsNullOrWhiteSpace(server.OAuthClientId) ? DefaultEwsClientId : server.OAuthClientId;
+            OAuthResource = server.OAuthResource ?? string.Empty;
+            OAuthRedirectUri = server.OAuthRedirectUri ?? string.Empty;
+            UseModernAuth = true;
+        }
+        else
+        {
+            UseModernAuth = false;
+        }
+
+        // Fields are already known for an existing account — reveal them without requiring Discover.
+        IsDiscovered = true;
+        StatusMessage = UseModernAuth
+            ? "Saving will re-run sign-in with your identity provider."
+            : "Re-enter the mailbox password to update the stored credentials.";
     }
 
     /// <summary>
@@ -239,6 +294,12 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
             };
         }
 
+        if (_editingAccountId is Guid editingAccountId)
+        {
+            await SaveEditedAccountAsync(editingAccountId, serverInformation);
+            return;
+        }
+
         // Connectivity (and credential validity) is verified by the folder-sync step inside the
         // setup progress page; failures roll the account back.
         _wizardContext.ImapCalDavSetupResult = new ImapCalDavSetupResult
@@ -253,6 +314,40 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         Messenger.Send(new BreadcrumbNavigationRequested(
             Translator.WelcomeWizard_Step3Title,
             WinoPage.AccountSetupProgressPage));
+    }
+
+    /// <summary>
+    /// Persists updated server/sign-in settings onto an existing account, clears any pending
+    /// credential-attention flag, and kicks a fresh folder sync to validate the new settings.
+    /// </summary>
+    private async Task SaveEditedAccountAsync(Guid accountId, CustomServerInformation serverInformation)
+    {
+        var account = await _accountService.GetAccountAsync(accountId);
+        if (account == null)
+        {
+            ValidationMessage = "The account could not be found.";
+            return;
+        }
+
+        serverInformation.Id = account.ServerInformation?.Id ?? Guid.NewGuid();
+        serverInformation.AccountId = account.Id;
+
+        account.SenderName = DisplayName.Trim();
+        account.Address = EmailAddress.Trim();
+        account.ServerInformation = serverInformation;
+        account.AttentionReason = AccountAttentionReason.None;
+
+        await _accountService.UpdateAccountCustomServerInformationAsync(serverInformation);
+        await _accountService.UpdateAccountAsync(account);
+
+        // Re-sync folders so the updated endpoint/credentials are exercised immediately.
+        Messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+        {
+            AccountId = account.Id,
+            Type = MailSynchronizationType.FullFolders
+        }));
+
+        Messenger.Send(new BackBreadcrumNavigationRequested());
     }
 
     private async Task<CustomServerInformation> BuildModernAuthServerInformationAsync()

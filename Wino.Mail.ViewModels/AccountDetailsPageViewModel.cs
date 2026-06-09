@@ -112,6 +112,9 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     /// IMAP/SMTP + CalDAV server editor is meaningless for an EWS endpoint.
     /// </summary>
     public bool IsImapServer => ServerInformation != null && Account?.ProviderType == MailProviderType.IMAP4;
+
+    /// <summary>True for on-premises Exchange (EWS) accounts — gates the Exchange server/sign-in card.</summary>
+    public bool IsExchangeServer => Account?.ProviderType == MailProviderType.Exchange;
     public bool HasMailAccess => Account?.IsMailAccessGranted == true;
     public bool HasCalendarAccess => Account?.IsCalendarAccessGranted == true;
     public bool IsOAuthCapabilityEditable => Account?.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail;
@@ -209,6 +212,13 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
             Translator.ImapCalDavSettingsPage_TitleEdit,
             WinoPage.ImapCalDavSettingsPage,
             ImapCalDavSettingsNavigationContext.CreateForEditMode(Account.Id)));
+
+    [RelayCommand]
+    private void EditExchangeServerSettings()
+        => Messenger.Send(new BreadcrumbNavigationRequested(
+            Translator.SettingsEditAccountDetails_ExchangeServerSettings_Title,
+            WinoPage.ExchangeSettingsPage,
+            Account.Id));
 
     [RelayCommand]
     private async Task SaveChangesAsync()
@@ -431,6 +441,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         OnPropertyChanged(nameof(HasCalendarAccess));
         OnPropertyChanged(nameof(IsOAuthCapabilityEditable));
         OnPropertyChanged(nameof(IsImapServer));
+        OnPropertyChanged(nameof(IsExchangeServer));
     }
 
     protected override async void OnPropertyChanged(PropertyChangedEventArgs e)
