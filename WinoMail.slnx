@@ -55,7 +55,17 @@
       <Platform Solution="*|x86" Project="x86" />
     </Project>
     <Project Path="Wino.SourceGenerators/Wino.SourceGenerators.csproj" />
+    <Project Path="Wino.Ipc/Wino.Ipc.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
   </Folder>
+  <Project Path="Wino.Ipc.Tests/Wino.Ipc.Tests.csproj">
+    <Platform Solution="*|arm64" Project="arm64" />
+    <Platform Solution="*|x64" Project="x64" />
+    <Platform Solution="*|x86" Project="x86" />
+  </Project>
   <Project Path="Wino.Core.Tests/Wino.Core.Tests.csproj">
     <Platform Solution="*|arm64" Project="arm64" />
     <Platform Solution="*|x64" Project="x64" />
