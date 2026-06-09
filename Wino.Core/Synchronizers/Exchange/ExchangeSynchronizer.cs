@@ -137,15 +137,31 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
     {
         var aliases = new Dictionary<string, RemoteAccountAlias>(StringComparer.OrdinalIgnoreCase);
 
-        void AddAlias(string address)
+        // Directory addresses carry their routing type as a prefix ("SMTP:" for the primary,
+        // "smtp:" for secondary proxies, "EUM:"/"X500:" for non-mail routes). Strip the prefix and
+        // return null for anything that isn't a usable SMTP address.
+        static string CleanSmtpAddress(string address)
         {
             if (string.IsNullOrWhiteSpace(address))
-                return;
+                return null;
 
             var normalized = address.Trim();
 
-            // Skip non-SMTP routing addresses (EX/X500 legacy DNs returned by the directory).
-            if (!normalized.Contains('@') || !normalized.Contains('.'))
+            var colonIndex = normalized.IndexOf(':');
+            if (colonIndex >= 0)
+            {
+                if (!normalized[..colonIndex].Equals("SMTP", StringComparison.OrdinalIgnoreCase))
+                    return null; // EX:, X500:, EUM:, etc.
+                normalized = normalized[(colonIndex + 1)..].Trim();
+            }
+
+            return normalized.Contains('@') && normalized.Contains('.') ? normalized : null;
+        }
+
+        void AddAlias(string rawAddress)
+        {
+            var normalized = CleanSmtpAddress(rawAddress);
+            if (normalized == null)
                 return;
 
             var isAccountAddress = normalized.Equals(Account.Address, StringComparison.OrdinalIgnoreCase);
@@ -154,8 +170,6 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
             {
                 existing.IsPrimary |= isAccountAddress;
                 existing.IsRootAlias |= isAccountAddress;
-                if (isAccountAddress)
-                    existing.SendCapability = AliasSendCapability.Confirmed;
                 return;
             }
 
@@ -165,9 +179,10 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
                 ReplyToAddress = normalized,
                 IsPrimary = isAccountAddress,
                 IsRootAlias = isAccountAddress,
-                IsVerified = isAccountAddress,
+                IsVerified = true,
                 Source = AliasSource.ProviderDiscovered,
-                SendCapability = isAccountAddress ? AliasSendCapability.Confirmed : AliasSendCapability.Unknown
+                // Discovered addresses all belong to this mailbox, so they are send-capable.
+                SendCapability = AliasSendCapability.Confirmed
             };
         }
 
@@ -184,8 +199,12 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
 
             foreach (var resolution in resolutions)
             {
-                if (string.Equals(resolution.Mailbox?.RoutingType, "SMTP", StringComparison.OrdinalIgnoreCase))
-                    AddAlias(resolution.Mailbox.Address);
+                // Only harvest the directory entry that actually represents this mailbox — guards
+                // against an ambiguous ResolveName returning other people's addresses.
+                if (!string.Equals(CleanSmtpAddress(resolution.Mailbox?.Address), Account.Address, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                AddAlias(resolution.Mailbox?.Address);
 
                 var contact = resolution.Contact;
                 if (contact?.EmailAddresses == null)
