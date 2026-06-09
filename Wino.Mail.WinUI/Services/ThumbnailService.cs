@@ -21,11 +21,11 @@ namespace Wino.Mail.WinUI.Services;
 
 public class ThumbnailService(
     IPreferencesService preferencesService,
-    IDatabaseService databaseService,
+    IThumbnailCacheService thumbnailCacheService,
     IApplicationConfiguration applicationConfiguration) : IThumbnailService
 {
     private readonly IPreferencesService _preferencesService = preferencesService;
-    private readonly IDatabaseService _databaseService = databaseService;
+    private readonly IThumbnailCacheService _thumbnailCacheService = thumbnailCacheService;
     private readonly string _thumbnailCacheFolderPath = Path.Combine(applicationConfiguration.ApplicationDataFolderPath, ThumbnailCacheFolderName);
     private static readonly HttpClient _httpClient = new();
 
@@ -88,7 +88,7 @@ public class ThumbnailService(
     {
         _cache.Clear();
         _requests.Clear();
-        await _databaseService.Connection.DeleteAllAsync<Thumbnail>();
+        await _thumbnailCacheService.ClearAllThumbnailsAsync();
 
         ClearThumbnailFiles();
         EnsureThumbnailCacheFolder();
@@ -99,11 +99,7 @@ public class ThumbnailService(
         if (_cache.TryGetValue(email, out var cached))
             return cached;
 
-        var existingThumbnail = await _databaseService.Connection
-            .Table<Thumbnail>()
-            .Where(thumbnail => thumbnail.Domain == email)
-            .FirstOrDefaultAsync()
-            .ConfigureAwait(false);
+        var existingThumbnail = await _thumbnailCacheService.GetThumbnailAsync(email).ConfigureAwait(false);
 
         if (existingThumbnail != null)
         {
@@ -114,9 +110,7 @@ public class ThumbnailService(
                 return existingEntry;
             }
 
-            await _databaseService.Connection
-                .ExecuteAsync($"DELETE FROM {nameof(Thumbnail)} WHERE {nameof(Thumbnail.Domain)} = ?", email)
-                .ConfigureAwait(false);
+            await _thumbnailCacheService.DeleteThumbnailAsync(email).ConfigureAwait(false);
         }
 
         // No network available, skip fetching Gravatar
@@ -166,13 +160,13 @@ public class ThumbnailService(
         var gravatarFileName = await GetGravatarFileNameAsync(email).ConfigureAwait(false);
         var faviconFileName = await GetFaviconFileNameAsync(email).ConfigureAwait(false);
 
-        await _databaseService.Connection.InsertOrReplaceAsync(new Thumbnail
+        await _thumbnailCacheService.SaveThumbnailAsync(new Thumbnail
         {
             Domain = email,
             GravatarFileName = gravatarFileName,
             FaviconFileName = faviconFileName,
             LastUpdated = DateTime.UtcNow
-        }, typeof(Thumbnail));
+        }).ConfigureAwait(false);
 
         _cache[email] = new ThumbnailCacheEntry(gravatarFileName, faviconFileName);
 
@@ -254,7 +248,7 @@ public class ThumbnailService(
             thumbnail.FaviconFileName = faviconFileName;
             thumbnail.LastUpdated = DateTime.UtcNow;
 
-            await _databaseService.Connection.InsertOrReplaceAsync(thumbnail, typeof(Thumbnail)).ConfigureAwait(false);
+            await _thumbnailCacheService.SaveThumbnailAsync(thumbnail).ConfigureAwait(false);
         }
 
         return new ThumbnailCacheEntry(gravatarFileName, faviconFileName);

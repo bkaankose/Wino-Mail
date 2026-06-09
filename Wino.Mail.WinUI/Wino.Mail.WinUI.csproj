@@ -214,6 +214,10 @@
 	<ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
 	<ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />
 	<ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
+	<ProjectReference Include="..\Wino.Ipc\Wino.Ipc.csproj" />
+	<ProjectReference Include="..\Wino.Ipc.Contracts\Wino.Ipc.Contracts.csproj" />
+	<!-- Ship the background companion exe inside the MSIX layout. -->
+	<ProjectReference Include="..\Wino.BackgroundService\Wino.BackgroundService.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Page Update="Views\Settings\ContactsPage.xaml">

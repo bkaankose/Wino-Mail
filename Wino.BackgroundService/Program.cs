@@ -96,7 +96,7 @@ public static class Program
         var pipeName = PipeNaming.GetPipeName(Package.Current.Id.FamilyName, Process.GetCurrentProcess().SessionId);
 
         var toastActionHandler = services.GetRequiredService<ToastActionHandler>();
-        var backgroundServiceControl = new BackgroundServiceControl(toastActionHandler, nativeAppService, Terminate);
+        var backgroundServiceControl = new BackgroundServiceControl(toastActionHandler, nativeAppService, services.GetRequiredService<IPreferencesService>(), Terminate);
 
         var dispatcher = new WinoRpcDispatcher(
             services.GetRequiredService<IAccountService>(),
@@ -112,6 +112,7 @@ public static class Program
             services.GetRequiredService<ISentMailReceiptService>(),
             services.GetRequiredService<ISignatureService>(),
             services.GetRequiredService<ISynchronizationManager>(),
+            services.GetRequiredService<IThumbnailCacheService>(),
             services.GetRequiredService<IWinoAccountDataSyncService>(),
             services.GetRequiredService<IWinoAccountProfileService>(),
             services.GetRequiredService<IWinoRequestDelegator>());

@@ -11,7 +11,13 @@
 		<UseWPF>false</UseWPF>
 		<UseWindowsForms>false</UseWindowsForms>
 		<EnableMsixTooling>false</EnableMsixTooling>
-		<!-- sqlite-net-pcl, Google.Apis and MSAL are not AOT/trim safe; ship framework-dependent inside the package. -->
+		<!-- sqlite-net-pcl, Google.Apis and MSAL are not AOT/trim safe; no trimming.
+		     Self-contained to match the packaged UI project (NETSDK1150); the win over the
+		     WinUI shell is dropping XAML/WebView2 from the working set, not the runtime.
+		     The RID is derived from the platform so it also applies when this project is
+		     built through the UI project reference (which only flows Platform). -->
+		<RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(Platform)' != '' and '$(Platform)' != 'AnyCPU'">win-$(Platform.ToLowerInvariant())</RuntimeIdentifier>
+		<SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
 		<IsAotCompatible>false</IsAotCompatible>
 		<IsTrimmable>false</IsTrimmable>
 		<EnableTrimAnalyzer>false</EnableTrimAnalyzer>

@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Services;
@@ -36,6 +36,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<IWinoAccountProfileService, WinoAccountProfileService>();
         services.AddTransient<IWinoAccountDataSyncService, WinoAccountDataSyncService>();
         services.AddSingleton<IContactPictureFileService, ContactPictureFileService>();
+        services.AddTransient<IThumbnailCacheService, ThumbnailCacheService>();
 
         services.AddTransient<ICalDavClient, CalDavClient>();
         services.AddSingleton<IUpdateManager, UpdateManager>();

@@ -26,4 +26,11 @@ public interface IBackgroundServiceControl
     /// Returns the companion app version for diagnostics and update mismatch checks.
     /// </summary>
     Task<string> GetServerVersionAsync();
+
+    /// <summary>
+    /// Preference values live in the package-shared settings store, but change events do
+    /// not cross processes. The UI calls this after changing a preference so companion
+    /// loops (sync interval, tray, lifecycle) can react.
+    /// </summary>
+    Task NotifyPreferenceChangedAsync(string propertyName);
 }

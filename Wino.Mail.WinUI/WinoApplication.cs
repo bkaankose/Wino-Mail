@@ -83,9 +83,9 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
 
     public IEnumerable<IInitializeAsync> GetActivationServices()
     {
-        yield return DatabaseService;
+        // SQLite and the synchronization manager are owned by the background companion
+        // process; the UI only initializes its own local services and connects to it.
         yield return TranslationService;
-        yield return Services.GetRequiredService<SynchronizationManagerInitializer>();
     }
 
     public Task InitializeServicesAsync() => GetActivationServices().Select(a => a.InitializeAsync()).WhenAll();

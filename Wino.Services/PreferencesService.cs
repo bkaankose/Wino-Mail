@@ -29,6 +29,13 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         PreferenceChanged?.Invoke(this, e.PropertyName ?? string.Empty);
     }
 
+    /// <summary>
+    /// Raises change notifications for a preference that was modified by the other
+    /// process. Values are shared through the package settings store; only the event
+    /// needs to be replayed locally.
+    /// </summary>
+    public void NotifyExternalPreferenceChange(string propertyName) => OnPropertyChanged(propertyName);
+
     private void SaveProperty(string propertyName, object? value) => _configurationService.Set(propertyName, value ?? string.Empty);
 
     private void SetPropertyAndSave(string propertyName, object? value)

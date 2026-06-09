@@ -64,13 +64,6 @@
       </uap:VisualElements>
 
 		<Extensions>
-			<uap5:Extension Category="windows.startupTask">
-				<uap5:StartupTask
-					TaskId="WinoStartupId"
-					Enabled="true"
-					DisplayName="Wino Startup Service" />
-			</uap5:Extension>
-
 			<!-- App notification activation -->
 			<desktop:Extension Category="windows.toastNotificationActivation">
 				<desktop:ToastNotificationActivation ToastActivatorCLSID="72c6d2d0-2538-44fe-a1b1-499f47bb1181" />
@@ -165,6 +158,32 @@
             </uap:SupportedFileTypes>
           </uap:FileTypeAssociation>
         </uap:Extension>
+      </Extensions>
+    </Application>
+
+    <!-- Headless background companion: owns SQLite and synchronization, keeps the tray
+         icon alive when the UI process exits. Hidden from the apps list; launched on
+         demand by the UI or at login through the startup task. -->
+    <Application Id="WinoBackgroundService"
+      Executable="Wino.BackgroundService.exe"
+      EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="Wino Background Service"
+        Description="Wino Mail synchronization service"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\AppEntries\MailAssets\Square150x150Logo.png"
+        Square44x44Logo="Assets\AppEntries\MailAssets\Square44x44Logo.png"
+        AppListEntry="none">
+      </uap:VisualElements>
+
+      <Extensions>
+        <!-- Login-time sync boots the companion instead of the WinUI shell. -->
+        <uap5:Extension Category="windows.startupTask">
+          <uap5:StartupTask
+            TaskId="WinoStartupId"
+            Enabled="true"
+            DisplayName="Wino Startup Service" />
+        </uap5:Extension>
       </Extensions>
     </Application>
   </Applications>

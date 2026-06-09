@@ -12,15 +12,24 @@ public sealed class BackgroundServiceControl : IBackgroundServiceControl
 {
     private readonly ToastActionHandler _toastActionHandler;
     private readonly INativeAppService _nativeAppService;
+    private readonly IPreferencesService _preferencesService;
     private readonly Action _terminateAction;
 
     public BackgroundServiceControl(ToastActionHandler toastActionHandler,
                                     INativeAppService nativeAppService,
+                                    IPreferencesService preferencesService,
                                     Action terminateAction)
     {
         _toastActionHandler = toastActionHandler;
         _nativeAppService = nativeAppService;
+        _preferencesService = preferencesService;
         _terminateAction = terminateAction;
+    }
+
+    public Task NotifyPreferenceChangedAsync(string propertyName)
+    {
+        (_preferencesService as Wino.Services.PreferencesService)?.NotifyExternalPreferenceChange(propertyName);
+        return Task.CompletedTask;
     }
 
     public Task TerminateAsync()
