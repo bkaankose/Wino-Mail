@@ -7,6 +7,7 @@ namespace Wino.Core.Domain.Interfaces;
 /// Manages contact picture files stored on disk instead of as base64 in SQLite,
 /// eliminating DB bloat and enabling native WIC hardware-accelerated image loading.
 /// </summary>
+[Wino.Core.Domain.Attributes.WinoRpcService]
 public interface IContactPictureFileService
 {
     /// <summary>

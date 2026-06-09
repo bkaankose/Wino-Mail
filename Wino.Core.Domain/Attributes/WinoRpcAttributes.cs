@@ -17,5 +17,5 @@ public sealed class WinoRpcServiceAttribute : Attribute;
 /// Excluded members stay companion-internal (or UI-local); the generated proxy throws
 /// <see cref="NotSupportedException"/> when they are called on the UI side.
 /// </summary>
-[AttributeUsage(AttributeTargets.Method | AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Property | AttributeTargets.Event, AllowMultiple = false, Inherited = false)]
 public sealed class WinoRpcExcludeAttribute : Attribute;

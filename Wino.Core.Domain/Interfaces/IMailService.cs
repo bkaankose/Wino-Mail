@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,6 +9,7 @@ using Wino.Core.Domain.Models.MailItem;
 
 namespace Wino.Core.Domain.Interfaces;
 
+[Wino.Core.Domain.Attributes.WinoRpcService]
 public interface IMailService
 {
     Task<MailCopy> GetSingleMailItemAsync(string mailCopyId, string remoteFolderId);
@@ -150,6 +151,7 @@ public interface IMailService
     /// <param name="folderId"></param>
     /// <param name="uniqueIds"></param>
     /// <returns></returns>
+    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     Task<List<MailCopy>> GetExistingMailsAsync(Guid folderId, IEnumerable<UniqueId> uniqueIds);
 
     /// <summary>

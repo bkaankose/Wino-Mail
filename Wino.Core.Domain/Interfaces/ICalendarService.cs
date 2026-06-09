@@ -7,6 +7,7 @@ using Wino.Core.Domain.Models.Calendar;
 
 namespace Wino.Core.Domain.Interfaces;
 
+[Wino.Core.Domain.Attributes.WinoRpcService]
 public interface ICalendarService
 {
     Task<List<AccountCalendar>> GetAccountCalendarsAsync(Guid accountId);
@@ -49,6 +50,7 @@ public interface ICalendarService
     /// <summary>
     /// Checks due reminder windows and returns reminder notifications that should trigger now.
     /// </summary>
+    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     Task<List<CalendarReminderNotificationRequest>> CheckAndNotifyAsync(DateTime lastCheckLocal, DateTime nowLocal, ISet<string> sentReminderKeys, CancellationToken cancellationToken = default);
 
     /// <summary>

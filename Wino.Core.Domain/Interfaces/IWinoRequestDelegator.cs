@@ -7,6 +7,7 @@ using Wino.Core.Domain.Models.MailItem;
 
 namespace Wino.Core.Domain.Interfaces;
 
+[Wino.Core.Domain.Attributes.WinoRpcService]
 public interface IWinoRequestDelegator
 {
     /// <summary>
@@ -42,5 +43,6 @@ public interface IWinoRequestDelegator
     /// <summary>
     /// Queues pre-built requests for a single account and triggers synchronization.
     /// </summary>
+    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     Task ExecuteAsync(Guid accountId, IEnumerable<IRequestBase> requests);
 }

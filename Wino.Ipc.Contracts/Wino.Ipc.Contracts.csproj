@@ -20,5 +20,9 @@
 		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
 		<ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
 		<ProjectReference Include="..\Wino.Ipc\Wino.Ipc.csproj" />
+		<ProjectReference Include="..\Wino.SourceGenerators\Wino.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="CommunityToolkit.Mvvm" />
 	</ItemGroup>
 </Project>

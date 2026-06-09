@@ -12,6 +12,7 @@ using Wino.Mail.Api.Contracts.Users;
 
 namespace Wino.Core.Domain.Interfaces;
 
+[Wino.Core.Domain.Attributes.WinoRpcService]
 public interface IWinoAccountProfileService
 {
     Task<WinoAccountOperationResult> RegisterAsync(string email, string password, CancellationToken cancellationToken = default);

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Mail;
@@ -11,6 +11,7 @@ using Wino.Core.Domain.Models.Synchronization;
 
 namespace Wino.Core.Domain.Interfaces;
 
+[Wino.Core.Domain.Attributes.WinoRpcService]
 public interface IFolderService
 {
     Task<AccountFolderTree> GetFolderStructureForAccountAsync(Guid accountId, bool includeHiddenFolders);

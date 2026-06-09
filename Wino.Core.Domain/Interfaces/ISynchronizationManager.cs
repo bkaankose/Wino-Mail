@@ -14,11 +14,13 @@ namespace Wino.Core.Domain.Interfaces;
 /// <summary>
 /// Interface for the singleton synchronization manager that handles synchronizer instances and operations.
 /// </summary>
+[Wino.Core.Domain.Attributes.WinoRpcService]
 public interface ISynchronizationManager
 {
     /// <summary>
     /// Initializes the SynchronizationManager with required dependencies.
     /// </summary>
+    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     Task InitializeAsync(ISynchronizerFactory synchronizerFactory,
                         IImapTestService imapTestService,
                         IAccountService accountService,
@@ -51,11 +53,13 @@ public interface ISynchronizationManager
     /// <summary>
     /// Queues a mail action request to the corresponding account's synchronizer with optional synchronization triggering.
     /// </summary>
+    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     Task QueueRequestAsync(IRequestBase request, Guid accountId, bool triggerSynchronization);
 
     /// <summary>
     /// Queues a grouped action that may contain requests for multiple accounts.
     /// </summary>
+    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     Task QueueRequestPackAsync(IReadOnlyDictionary<Guid, List<IRequestBase>> requestsByAccount, bool triggerSynchronization);
 
     /// <summary>
@@ -66,6 +70,7 @@ public interface ISynchronizationManager
     /// <summary>
     /// Cancels the latest undoable queued action for the given synchronizer account.
     /// </summary>
+    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     Task UndoLatestQueuedAction(IWinoSynchronizerBase synchronizer);
 
     /// <summary>
@@ -107,6 +112,7 @@ public interface ISynchronizationManager
     /// <summary>
     /// Creates a new synchronizer for a newly added account.
     /// </summary>
+    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     IWinoSynchronizerBase CreateSynchronizerForAccount(MailAccount account);
 
     /// <summary>
@@ -122,11 +128,13 @@ public interface ISynchronizationManager
     /// <summary>
     /// Gets all cached synchronizers.
     /// </summary>
+    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     IEnumerable<IWinoSynchronizerBase> GetAllSynchronizers();
 
     /// <summary>
     /// Gets a synchronizer for the given account ID.
     /// </summary>
+    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     Task<IWinoSynchronizerBase> GetSynchronizerAsync(Guid accountId);
 
     /// <summary>

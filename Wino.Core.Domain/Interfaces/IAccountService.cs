@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Mail;
@@ -8,6 +8,7 @@ using Wino.Core.Domain.Models.Accounts;
 
 namespace Wino.Core.Domain.Interfaces;
 
+[Wino.Core.Domain.Attributes.WinoRpcService]
 public interface IAccountService
 {
     /// <summary>
@@ -15,6 +16,7 @@ public interface IAccountService
     /// For example: Google auth will launch a browser authentication. After it completes, this is the IAuthenticator
     /// to continue process for token exchange.
     /// </summary>
+    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     IAuthenticator ExternalAuthenticationAuthenticator { get; set; }
 
     /// <summary>
