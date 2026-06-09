@@ -12,6 +12,7 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Requests;
@@ -615,7 +616,8 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         AppointmentSchema.IsReminderSet, AppointmentSchema.ReminderMinutesBeforeStart,
         AppointmentSchema.RequiredAttendees, AppointmentSchema.OptionalAttendees,
         AppointmentSchema.MyResponseType, AppointmentSchema.IsAllDayEvent,
-        AppointmentSchema.StartTimeZone, AppointmentSchema.EndTimeZone)
+        AppointmentSchema.StartTimeZone, AppointmentSchema.EndTimeZone,
+        ExchangeCalendarSchema.WinoClientTrackingId)
     { RequestedBodyType = BodyType.HTML };
 
     private async Task SynchronizeCalendarEventsForCalendarAsync(ExchangeService service, AccountCalendar calendar, DateTime windowStartUtc, DateTime windowEndUtc, CancellationToken cancellationToken)
@@ -662,8 +664,12 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         var localEvents = await _exchangeChangeProcessor.GetCalendarItemsInRangeAsync(calendar, windowStartUtc, windowEndUtc).ConfigureAwait(false);
         foreach (var local in localEvents)
         {
-            if (!string.IsNullOrEmpty(local.RemoteEventId) && !seenRemoteIds.Contains(local.RemoteEventId))
+            // Stored RemoteEventIds may carry a Wino client-tracking suffix; compare on the raw id.
+            if (!string.IsNullOrEmpty(local.RemoteEventId) &&
+                !seenRemoteIds.Contains(local.RemoteEventId.GetProviderRemoteEventId()))
+            {
                 await _exchangeChangeProcessor.DeleteCalendarItemAsync(local.Id).ConfigureAwait(false);
+            }
         }
     }
 
@@ -685,6 +691,9 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
             var appointment = new Appointment(service);
             ApplyCalendarItem(appointment, item, attendees, reminders);
 
+            // Stamp the local preview id so the synced event reconciles with the optimistic UI item.
+            appointment.SetExtendedProperty(ExchangeCalendarSchema.WinoClientTrackingId, item.Id.ToString("N"));
+
             // RRULE -> EWS recurrence mapping is a follow-up; create the base event for now.
             if (isRecurring)
                 Log.Warning("EWS recurring-event creation is not yet supported; created '{Title}' as a single event.", title);
@@ -701,7 +710,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
 
         return Bundle(async service =>
         {
-            var appointment = await Appointment.Bind(service, new ItemId(item.RemoteEventId)).ConfigureAwait(false);
+            var appointment = await Appointment.Bind(service, new ItemId(item.RemoteEventId.GetProviderRemoteEventId())).ConfigureAwait(false);
             ApplyCalendarItem(appointment, item, attendees, reminders: null);
 
             var sendMode = HasAttendees(appointment)
@@ -720,7 +729,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
 
         return Bundle(async service =>
         {
-            var appointment = await Appointment.Bind(service, new ItemId(remoteId), new PropertySet(BasePropertySet.IdOnly)).ConfigureAwait(false);
+            var appointment = await Appointment.Bind(service, new ItemId(remoteId.GetProviderRemoteEventId()), new PropertySet(BasePropertySet.IdOnly)).ConfigureAwait(false);
             await appointment.Delete(DeleteMode.MoveToDeletedItems, SendCancellationsMode.SendToNone).ConfigureAwait(false);
         }, request, request);
     }
@@ -740,7 +749,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
     {
         return Bundle(async service =>
         {
-            var appointment = await Appointment.Bind(service, new ItemId(remoteEventId), new PropertySet(BasePropertySet.IdOnly)).ConfigureAwait(false);
+            var appointment = await Appointment.Bind(service, new ItemId(remoteEventId.GetProviderRemoteEventId()), new PropertySet(BasePropertySet.IdOnly)).ConfigureAwait(false);
 
             switch (response)
             {

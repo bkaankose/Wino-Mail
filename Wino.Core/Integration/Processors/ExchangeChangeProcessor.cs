@@ -6,7 +6,9 @@ using Microsoft.Exchange.WebServices.Data;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Synchronizers.Exchange;
 using Wino.Services;
 // EWS defines its own Task item type; alias bare `Task` to the TPL Task.
 using Task = System.Threading.Tasks.Task;
@@ -47,7 +49,16 @@ public class ExchangeChangeProcessor : DefaultChangeProcessor, IExchangeChangePr
 
     public async Task ManageCalendarEventAsync(Appointment appointment, AccountCalendar assignedCalendar, MailAccount organizerAccount)
     {
-        var remoteEventId = appointment.Id.UniqueId;
+        // If this event was created in Wino, fold the local-preview id (stamped on the appointment at
+        // create time) into the RemoteEventId so the calendar UI reconciles it with the preview.
+        Guid? clientTrackingId = null;
+        if (appointment.TryGetProperty(ExchangeCalendarSchema.WinoClientTrackingId, out string trackingValue) &&
+            Guid.TryParseExact(trackingValue, "N", out var parsedTrackingId))
+        {
+            clientTrackingId = parsedTrackingId;
+        }
+
+        var remoteEventId = appointment.Id.UniqueId.WithClientTrackingId(clientTrackingId);
 
         var savingItem = await CalendarService.GetCalendarItemAsync(assignedCalendar.Id, remoteEventId).ConfigureAwait(false);
         var isNewItem = savingItem == null;
