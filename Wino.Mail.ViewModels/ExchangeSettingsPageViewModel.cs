@@ -66,6 +66,10 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     [ObservableProperty]
     public partial bool IsDiscovered { get; set; }
 
+    /// <summary>Whether Advanced settings is expanded; auto-opened when the authority must be entered by hand.</summary>
+    [ObservableProperty]
+    public partial bool IsAdvancedExpanded { get; set; }
+
     [ObservableProperty]
     public partial string ValidationMessage { get; set; } = string.Empty;
 
@@ -135,6 +139,14 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         }
     }
 
+    partial void OnUseModernAuthChanged(bool value)
+    {
+        // When modern auth is on without a (discovered) authority, the user must enter it in Advanced
+        // settings — open it so the field is visible instead of hidden behind a collapsed expander.
+        if (value && string.IsNullOrWhiteSpace(OAuthAuthority))
+            IsAdvancedExpanded = true;
+    }
+
     /// <summary>
     /// Probes the EWS endpoint for modern-auth availability and flips the toggle to match. The probe
     /// is server-level (not per-mailbox), so this is a smart default the user can still override.
@@ -148,15 +160,16 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         switch (probe.Capability)
         {
             case ExchangeAuthCapability.ModernAuthAvailable:
-                UseModernAuth = true;
-
-                // Auto-fill the discovered authority, but never overwrite a value the user set.
+                // Set the discovered authority BEFORE flipping the toggle, so the toggle handler can
+                // decide whether to auto-expand Advanced (only when the authority is still empty).
                 if (!string.IsNullOrWhiteSpace(probe.Authority) && string.IsNullOrWhiteSpace(OAuthAuthority))
                     OAuthAuthority = probe.Authority;
 
-                StatusMessage = string.IsNullOrWhiteSpace(probe.Authority)
-                    ? "Modern authentication is available — enabled it. Enter your identity provider's authority below."
-                    : $"Modern authentication discovered — using {probe.Authority}.";
+                UseModernAuth = true;
+
+                StatusMessage = string.IsNullOrWhiteSpace(OAuthAuthority)
+                    ? "Modern authentication is available — enter your identity provider's authority in Advanced settings."
+                    : $"Modern authentication discovered — using {OAuthAuthority}.";
                 break;
             case ExchangeAuthCapability.BasicOnly:
                 UseModernAuth = false;

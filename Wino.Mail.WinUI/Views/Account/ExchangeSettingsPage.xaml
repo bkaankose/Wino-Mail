@@ -57,6 +57,7 @@
                     HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Stretch"
                     Header="Advanced settings"
+                    IsExpanded="{x:Bind ViewModel.IsAdvancedExpanded, Mode=TwoWay}"
                     Visibility="{x:Bind ViewModel.UseModernAuth, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <StackPanel Spacing="12">
                         <TextBox
