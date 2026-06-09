@@ -32,7 +32,7 @@ public sealed class ExchangeSettingsPageViewModelTests
         var result = context.ImapCalDavSetupResult;
         result.Should().NotBeNull();
         result!.IsMailAccessGranted.Should().BeTrue();
-        result.IsCalendarAccessGranted.Should().BeFalse("EWS calendar is deferred to Phase 2");
+        result.IsCalendarAccessGranted.Should().BeTrue("EWS calendar sync is implemented");
         result.ServerInformation.Should().NotBeNull();
         result.ServerInformation!.IncomingServer.Should().Be(EwsUrl);
         result.ServerInformation.IncomingServerType.Should().Be(CustomIncomingServerType.Exchange);

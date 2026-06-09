@@ -214,7 +214,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
             DisplayName = DisplayName.Trim(),
             EmailAddress = EmailAddress.Trim(),
             IsMailAccessGranted = true,
-            IsCalendarAccessGranted = false, // EWS calendar arrives in Phase 2
+            IsCalendarAccessGranted = true, // EWS calendar sync (Phase 2) is implemented
             ServerInformation = serverInformation
         };
 
