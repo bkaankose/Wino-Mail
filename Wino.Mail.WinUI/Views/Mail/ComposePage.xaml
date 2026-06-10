@@ -452,6 +452,7 @@
                         x:Name="AccountsComboBox"
                         Grid.Column="1"
                         IsEditable="False"
+                        IsEnabled="{x:Bind ViewModel.CanSelectFromAlias, Mode=OneWay}"
                         ItemsSource="{x:Bind ViewModel.AvailableAliases, Mode=OneWay}"
                         SelectedItem="{x:Bind ViewModel.SelectedAlias, Mode=TwoWay}"
                         TabIndex="0">

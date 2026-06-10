@@ -110,7 +110,15 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     [NotifyCanExecuteChangedFor(nameof(DiscardCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendToServerCommand))]
+    [NotifyPropertyChangedFor(nameof(CanSelectFromAlias))]
     public partial MailAccount ComposingAccount { get; set; }
+
+    /// <summary>
+    /// Whether the From address can be changed to an alias. On-premises Exchange cannot send from
+    /// an alias (the transport rewrites From to the primary SMTP), so the picker is locked for
+    /// Exchange accounts — the aliases remain visible/manageable under account settings.
+    /// </summary>
+    public bool CanSelectFromAlias => ComposingAccount?.ProviderType != MailProviderType.Exchange;
 
     [ObservableProperty]
     public partial List<MailAccountAlias> AvailableAliases { get; set; }
