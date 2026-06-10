@@ -32,6 +32,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
     private readonly IWinoTelemetryService _telemetryService;
     private readonly WelcomeWizardContext _wizardContext;
+    private readonly ISynchronizationManager _synchronizationManager;
 
     private ImapCalDavSettingsPageMode _pageMode;
     private Guid _editingAccountId;
@@ -242,7 +243,8 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                                            IMailDialogService mailDialogService,
                                            ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
                                            IWinoTelemetryService telemetryService,
-                                           WelcomeWizardContext wizardContext)
+                                           WelcomeWizardContext wizardContext,
+                                           ISynchronizationManager synchronizationManager)
     {
         _autoDiscoveryService = autoDiscoveryService;
         _calDavClient = calDavClient;
@@ -251,6 +253,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
         _telemetryService = telemetryService;
         _wizardContext = wizardContext;
+        _synchronizationManager = synchronizationManager;
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -884,7 +887,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     }
     private async Task ValidateImapConnectivityAsync(CustomServerInformation serverInformation)
     {
-        var connectivityResult = await SynchronizationManager.Instance
+        var connectivityResult = await _synchronizationManager
             .TestImapConnectivityAsync(serverInformation, allowSSLHandshake: false)
             .ConfigureAwait(false);
 
@@ -924,7 +927,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             if (!allowCertificate)
                 throw new InvalidOperationException(Translator.IMAPSetupDialog_CertificateDenied);
 
-            connectivityResult = await SynchronizationManager.Instance
+            connectivityResult = await _synchronizationManager
                 .TestImapConnectivityAsync(serverInformation, allowSSLHandshake: true)
                 .ConfigureAwait(false);
         }

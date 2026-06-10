@@ -76,10 +76,12 @@ public partial class AccountCalendarStateService : ObservableRecipient,
     }
 
     private readonly IAccountService _accountService;
+    private readonly ISynchronizationManager _synchronizationManager;
 
-    public AccountCalendarStateService(IAccountService accountService)
+    public AccountCalendarStateService(IAccountService accountService, ISynchronizationManager synchronizationManager)
     {
         _accountService = accountService;
+        _synchronizationManager = synchronizationManager;
 
         _internalGroupedAccountCalendars = new ObservableCollection<GroupedAccountCalendarViewModel>();
         GroupedAccountCalendars = new ReadOnlyObservableCollection<GroupedAccountCalendarViewModel>(_internalGroupedAccountCalendars);
@@ -112,7 +114,7 @@ public partial class AccountCalendarStateService : ObservableRecipient,
             groupedAccountCalendar.CollectiveSelectionStateChanged += SingleGroupCalendarCollectiveStateChanged;
             try
             {
-                groupedAccountCalendar.ApplySynchronizationProgress(SynchronizationManager.Instance.GetSynchronizationProgress(
+                groupedAccountCalendar.ApplySynchronizationProgress(_synchronizationManager.GetSynchronizationProgress(
                     groupedAccountCalendar.Account.Id,
                     SynchronizationProgressCategory.Calendar));
             }

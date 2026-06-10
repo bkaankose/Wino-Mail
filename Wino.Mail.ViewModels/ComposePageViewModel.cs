@@ -163,6 +163,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     public readonly IContactService ContactService;
     public readonly ISmimeCertificateService _smimeCertificateService;
     private readonly IShareActivationService _shareActivationService;
+    private readonly ISynchronizationManager _synchronizationManager;
 
     public ComposePageViewModel(IMailDialogService dialogService,
                                 IMailService mailService,
@@ -177,7 +178,8 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                                 IFontService fontService,
                                 IPreferencesService preferencesService,
                                 ISmimeCertificateService smimeCertificateService,
-                                IShareActivationService shareActivationService)
+                                IShareActivationService shareActivationService,
+                                ISynchronizationManager synchronizationManager)
     {
         NativeAppService = nativeAppService;
         ContactService = contactService;
@@ -194,6 +196,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         _worker = worker;
         _smimeCertificateService = smimeCertificateService;
         _shareActivationService = shareActivationService;
+        _synchronizationManager = synchronizationManager;
 
         foreach (var cert in _smimeCertificateService.GetCertificates(emailAddress: SelectedAlias?.AliasAddress))
         {
@@ -749,8 +752,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         if (accountId != Guid.Empty)
         {
-            var synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(accountId).ConfigureAwait(false);
-            hasPendingOperation = synchronizer?.HasPendingOperation(CurrentMailDraftItem.MailCopy.UniqueId) ?? false;
+            hasPendingOperation = await _synchronizationManager.HasPendingMailOperationAsync(accountId, CurrentMailDraftItem.MailCopy.UniqueId).ConfigureAwait(false);
         }
 
         // Newly created local drafts can have a short period where request queue is empty
@@ -791,8 +793,8 @@ public partial class ComposePageViewModel : MailBaseViewModel,
             {
                 downloadIfNeeded = false;
 
-                // Download missing MIME message using SynchronizationManager
-                await SynchronizationManager.Instance.DownloadMimeMessageAsync(
+                // Download missing MIME message through the companion.
+                await _synchronizationManager.DownloadMimeMessageAsync(
                     CurrentMailDraftItem.MailCopy,
                     CurrentMailDraftItem.MailCopy.AssignedAccount.Id);
 

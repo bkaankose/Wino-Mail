@@ -50,6 +50,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     private readonly IFolderService _folderService;
     private readonly IFileService _fileService;
     private readonly IWinoRequestDelegator _requestDelegator;
+    private readonly ISynchronizationManager _synchronizationManager;
     private readonly IContactService _contactService;
     private readonly IClipboardService _clipboardService;
     private readonly IUnsubscriptionService _unsubscriptionService;
@@ -170,7 +171,8 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         IUnsubscriptionService unsubscriptionService,
         IPreferencesService preferencesService,
         IPrintService printService,
-        IApplicationConfiguration applicationConfiguration)
+        IApplicationConfiguration applicationConfiguration,
+        ISynchronizationManager synchronizationManager)
     {
         _dialogService = dialogService;
         NativeAppService = nativeAppService;
@@ -187,6 +189,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         _folderService = folderService;
         _fileService = fileService;
         _requestDelegator = requestDelegator;
+        _synchronizationManager = synchronizationManager;
     }
 
     [RelayCommand]
@@ -440,8 +443,8 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             // To show the progress on the UI.
             CurrentDownloadPercentage = 1;
 
-            // Download missing MIME message using SynchronizationManager
-            await SynchronizationManager.Instance.DownloadMimeMessageAsync(
+            // Download missing MIME message through the companion.
+            await _synchronizationManager.DownloadMimeMessageAsync(
                 mailItemViewModel.MailCopy,
                 mailItemViewModel.MailCopy.AssignedAccount.Id);
         }

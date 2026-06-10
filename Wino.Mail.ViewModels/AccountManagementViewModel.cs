@@ -38,6 +38,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     private readonly IWinoLogger _winoLogger;
     private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
     private readonly ICalDavClient _calDavClient;
+    private readonly ISynchronizationManager _synchronizationManager;
 
     public IMailDialogService MailDialogService { get; }
 
@@ -52,13 +53,15 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                                       ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
                                       ICalDavClient calDavClient,
                                       IAuthenticationProvider authenticationProvider,
-                                      IPreferencesService preferencesService) : base(dialogService, navigationService, accountService, providerService, storeManagementService, winoAccountProfileService, authenticationProvider, preferencesService)
+                                      IPreferencesService preferencesService,
+                                      ISynchronizationManager synchronizationManager) : base(dialogService, navigationService, accountService, providerService, storeManagementService, winoAccountProfileService, authenticationProvider, preferencesService)
     {
         MailDialogService = dialogService;
         _syncService = syncService;
         _winoLogger = winoLogger;
         _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
         _calDavClient = calDavClient;
+        _synchronizationManager = synchronizationManager;
     }
 
     [ObservableProperty]
@@ -113,7 +116,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
     private async Task ValidateSpecialImapConnectivityAsync(CustomServerInformation serverInformation)
     {
-        var connectivityResult = await SynchronizationManager.Instance
+        var connectivityResult = await _synchronizationManager
             .TestImapConnectivityAsync(serverInformation, allowSSLHandshake: false)
             .ConfigureAwait(false);
 
@@ -133,7 +136,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
             if (!allowCertificate)
                 throw new InvalidOperationException(Translator.IMAPSetupDialog_CertificateDenied);
 
-            connectivityResult = await SynchronizationManager.Instance
+            connectivityResult = await _synchronizationManager
                 .TestImapConnectivityAsync(serverInformation, allowSSLHandshake: true)
                 .ConfigureAwait(false);
         }

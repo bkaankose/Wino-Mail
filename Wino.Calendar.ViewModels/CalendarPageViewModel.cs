@@ -160,6 +160,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     private readonly IMailDialogService _dialogService;
     private readonly IDateContextProvider _dateContextProvider;
     private readonly ICalendarRangeTextFormatter _calendarRangeTextFormatter;
+    private readonly ISynchronizationManager _synchronizationManager;
 
     private readonly SemaphoreSlim _calendarLoadingSemaphore = new(1);
     private bool _subscriptionsAttached;
@@ -187,7 +188,8 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         IWinoRequestDelegator winoRequestDelegator,
         IMailDialogService dialogService,
         IDateContextProvider dateContextProvider,
-        ICalendarRangeTextFormatter calendarRangeTextFormatter)
+        ICalendarRangeTextFormatter calendarRangeTextFormatter,
+        ISynchronizationManager synchronizationManager)
     {
         StatePersistanceService = statePersistanceService;
         AccountCalendarStateService = accountCalendarStateService;
@@ -200,6 +202,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         _dialogService = dialogService;
         _dateContextProvider = dateContextProvider;
         _calendarRangeTextFormatter = calendarRangeTextFormatter;
+        _synchronizationManager = synchronizationManager;
 
         RefreshSettings();
     }
@@ -951,20 +954,20 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             if (!IsPageActive(lifetimeVersion))
                 return pendingCalendarItemIds;
 
-            IWinoSynchronizerBase synchronizer;
+            List<Guid> pendingIds;
             try
             {
-                synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(accountId).ConfigureAwait(false);
+                pendingIds = await _synchronizationManager.GetPendingCalendarOperationIdsAsync(accountId).ConfigureAwait(false);
             }
             catch (InvalidOperationException)
             {
                 return pendingCalendarItemIds;
             }
 
-            if (synchronizer == null)
+            if (pendingIds == null)
                 continue;
 
-            foreach (var pendingCalendarItemId in synchronizer.GetPendingCalendarOperationIds())
+            foreach (var pendingCalendarItemId in pendingIds)
             {
                 pendingCalendarItemIds.Add(pendingCalendarItemId);
             }

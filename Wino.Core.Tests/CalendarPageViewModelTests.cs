@@ -460,7 +460,8 @@ public class CalendarPageViewModelTests
             requestDelegator ?? Mock.Of<IWinoRequestDelegator>(),
             dialogService ?? Mock.Of<IMailDialogService>(),
             new TestDateContextProvider("en-US", today),
-            new CalendarRangeTextFormatter());
+            new CalendarRangeTextFormatter(),
+            Mock.Of<ISynchronizationManager>());
     }
 
     private static AccountCalendar CreateCalendar(MailAccount account, string name)
