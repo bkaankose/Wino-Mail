@@ -12,8 +12,10 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests.Calendar;
+using Wino.Core.Requests.Category;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Messaging.Server;
@@ -127,10 +129,53 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         await QueueRequestAsync(request, accountId);
         await QueueSynchronizationAsync(accountId);
 
-        if (folderRequest.Action is FolderOperation.Delete or FolderOperation.CreateSubFolder)
+        if (folderRequest.Action is FolderOperation.Delete or FolderOperation.CreateSubFolder or FolderOperation.CreateRootFolder)
         {
             await QueueFoldersOnlySynchronizationAsync(accountId);
         }
+    }
+
+    public async Task ExecuteAsync(MailCategoryOperationRequest categoryOperationRequest)
+    {
+        if (categoryOperationRequest?.Category == null)
+            return;
+
+        IRequestBase request = categoryOperationRequest.ChangeType switch
+        {
+            MailCategoryChangeType.Create => new MailCategoryCreateRequest(categoryOperationRequest.Category),
+            MailCategoryChangeType.Update => new MailCategoryUpdateRequest(categoryOperationRequest.Category,
+                                                                           categoryOperationRequest.PreviousName,
+                                                                           categoryOperationRequest.PreviousRemoteId,
+                                                                           categoryOperationRequest.AffectedMessages),
+            MailCategoryChangeType.Delete => new MailCategoryDeleteRequest(categoryOperationRequest.Category,
+                                                                           categoryOperationRequest.PreviousRemoteId,
+                                                                           categoryOperationRequest.AffectedMessages),
+            _ => null
+        };
+
+        if (request == null)
+            return;
+
+        await QueueRequestAsync(request, categoryOperationRequest.AccountId).ConfigureAwait(false);
+        await QueueSynchronizationAsync(categoryOperationRequest.AccountId).ConfigureAwait(false);
+    }
+
+    public async Task ExecuteAsync(MailCategoryAssignmentOperationRequest categoryAssignmentRequest)
+    {
+        var requests = categoryAssignmentRequest?.Targets?
+            .Where(target => target?.Item != null)
+            .Select(target => (IRequestBase)new MailCategoryAssignmentRequest(target.Item,
+                                                                              categoryAssignmentRequest.CategoryId,
+                                                                              categoryAssignmentRequest.CategoryName,
+                                                                              target.CategoryNames,
+                                                                              categoryAssignmentRequest.IsAssigned))
+            .ToList() ?? [];
+
+        if (requests.Count == 0)
+            return;
+
+        await QueueRequestsAsync(requests, categoryAssignmentRequest.AccountId).ConfigureAwait(false);
+        await QueueSynchronizationAsync(categoryAssignmentRequest.AccountId).ConfigureAwait(false);
     }
 
     public async Task ExecuteAsync(DraftPreparationRequest draftPreperationRequest)

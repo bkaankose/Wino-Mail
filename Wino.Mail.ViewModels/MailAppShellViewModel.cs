@@ -21,7 +21,6 @@ using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Requests.Folder;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Helpers;
 using Wino.Messaging.Client.Accounts;
@@ -688,19 +687,37 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         if (folderMenuItem == null)
             return;
 
-        // Ask confirmation for cleaning up the folder.
-        if (operation == FolderOperation.Empty)
-        {
-            var result = await _dialogService.ShowConfirmationDialogAsync(Translator.DialogMessage_CleanupFolderMessage, Translator.DialogMessage_CleanupFolderTitle, Translator.Buttons_Yes);
+        // The companion process that executes the operation cannot show dialogs.
+        // Collect all required user input here and ship it inside the request.
+        string userInput = null;
+        bool isConfirmed = false;
 
-            if (!result) return;
+        switch (operation)
+        {
+            case FolderOperation.Empty:
+                isConfirmed = await _dialogService.ShowConfirmationDialogAsync(Translator.DialogMessage_CleanupFolderMessage, Translator.DialogMessage_CleanupFolderTitle, Translator.Buttons_Yes);
+                if (!isConfirmed) return;
+                break;
+            case FolderOperation.Delete:
+                var deleteQuestion = string.Format(Translator.DialogMessage_DeleteAccountConfirmationMessage, folderMenuItem.FolderName);
+                isConfirmed = await _dialogService.ShowConfirmationDialogAsync(deleteQuestion, Translator.FolderOperation_Delete, Translator.FolderOperation_Delete);
+                if (!isConfirmed) return;
+                break;
+            case FolderOperation.Rename:
+                userInput = await _dialogService.ShowTextInputDialogAsync(folderMenuItem.FolderName, Translator.DialogMessage_RenameFolderTitle, Translator.DialogMessage_RenameFolderMessage, Translator.FolderOperation_Rename);
+                if (string.IsNullOrWhiteSpace(userInput)) return;
+                break;
+            case FolderOperation.CreateSubFolder:
+                userInput = await _dialogService.ShowTextInputDialogAsync(string.Empty, Translator.FolderOperation_CreateSubFolder, Translator.DialogMessage_RenameFolderMessage, Translator.FolderOperation_CreateSubFolder);
+                if (string.IsNullOrWhiteSpace(userInput)) return;
+                break;
         }
 
         foreach (var folder in folderMenuItem.HandlingFolders)
         {
             if (folder is MailItemFolder realFolder)
             {
-                var folderPrepRequest = new FolderOperationPreperationRequest(operation, realFolder);
+                var folderPrepRequest = new FolderOperationPreperationRequest(operation, realFolder, userInput, isConfirmed);
 
                 await _winoRequestDelegator.ExecuteAsync(folderPrepRequest);
             }
@@ -733,7 +750,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             MailAccountId = account.Id
         };
 
-        await _winoRequestDelegator.ExecuteAsync(account.Id, [new CreateRootFolderRequest(placeholderFolder, folderName.Trim())]);
+        await _winoRequestDelegator.ExecuteAsync(new FolderOperationPreperationRequest(FolderOperation.CreateRootFolder, placeholderFolder, folderName.Trim()));
     }
 
     public Task HandleAccountAttentionAsync(MailAccount account)

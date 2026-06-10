@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Requests;
 
 namespace Wino.Core.Domain.Interfaces;
 
@@ -41,7 +42,21 @@ public interface IWinoRequestDelegator
     Task ExecuteAsync(CalendarOperationPreparationRequest calendarOperationPreparationRequest);
 
     /// <summary>
+    /// Queues a remote category create/update/delete operation for synchronization.
+    /// </summary>
+    /// <param name="categoryOperationRequest">Serializable category change descriptor.</param>
+    Task ExecuteAsync(MailCategoryOperationRequest categoryOperationRequest);
+
+    /// <summary>
+    /// Queues remote category assignment changes for a batch of mails.
+    /// </summary>
+    /// <param name="categoryAssignmentRequest">Serializable category assignment descriptor.</param>
+    Task ExecuteAsync(MailCategoryAssignmentOperationRequest categoryAssignmentRequest);
+
+    /// <summary>
     /// Queues pre-built requests for a single account and triggers synchronization.
+    /// Companion-internal: IRequestBase implementations are not serializable, so this
+    /// overload never crosses the pipe. UI code must use the descriptor overloads above.
     /// </summary>
     [Wino.Core.Domain.Attributes.WinoRpcExclude]
     Task ExecuteAsync(Guid accountId, IEnumerable<IRequestBase> requests);

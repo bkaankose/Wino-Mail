@@ -18,5 +18,6 @@ public enum FolderOperation
     Move,
     TurnOffNotifications,
     CreateSubFolder,
+    CreateRootFolder,
     Seperator
 }

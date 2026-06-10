@@ -302,6 +302,8 @@ namespace Wino.Ipc.Serialization;
 [JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.IWinoRequestDelegator_ExecuteAsync_2Request))]
 [JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.IWinoRequestDelegator_ExecuteAsync_3Request))]
 [JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.IWinoRequestDelegator_ExecuteAsync_4Request))]
+[JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.IWinoRequestDelegator_ExecuteAsync_5Request))]
+[JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.IWinoRequestDelegator_ExecuteAsync_6Request))]
 [JsonSerializable(typeof(global::Wino.Ipc.Contracts.InteractiveAuthRequiredState))]
 [JsonSerializable(typeof(global::Wino.Ipc.Contracts.InvalidMoveTargetState))]
 [JsonSerializable(typeof(global::Wino.Ipc.Contracts.UnavailableSpecialFolderState))]

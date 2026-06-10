@@ -235,6 +235,8 @@ public class WinoRequestProcessor : IWinoRequestProcessor
         var folder = request.Folder;
         var operation = request.Action;
 
+        // User input (names, confirmations) is collected in the UI process and travels
+        // inside the request; this code runs in the headless companion and cannot prompt.
         switch (request.Action)
         {
             case FolderOperation.Pin:
@@ -243,11 +245,9 @@ public class WinoRequestProcessor : IWinoRequestProcessor
                 break;
 
             case FolderOperation.Rename:
-                var newFolderName = await _dialogService.ShowTextInputDialogAsync(folder.FolderName, Translator.DialogMessage_RenameFolderTitle, Translator.DialogMessage_RenameFolderMessage, Translator.FolderOperation_Rename);
-
-                if (!string.IsNullOrEmpty(newFolderName))
+                if (!string.IsNullOrWhiteSpace(request.UserInput))
                 {
-                    change = new RenameFolderRequest(folder, folder.FolderName, newFolderName);
+                    change = new RenameFolderRequest(folder, folder.FolderName, request.UserInput.Trim());
                 }
 
                 break;
@@ -266,25 +266,23 @@ public class WinoRequestProcessor : IWinoRequestProcessor
 
                 break;
             case FolderOperation.Delete:
-                var deleteQuestion = string.Format(Translator.DialogMessage_DeleteAccountConfirmationMessage, folder.FolderName);
-                var shouldDelete = await _dialogService.ShowConfirmationDialogAsync(deleteQuestion, Translator.FolderOperation_Delete, Translator.FolderOperation_Delete);
-
-                if (shouldDelete)
+                if (request.IsConfirmed)
                 {
                     change = new DeleteFolderRequest(folder);
                 }
 
                 break;
             case FolderOperation.CreateSubFolder:
-                var subFolderName = await _dialogService.ShowTextInputDialogAsync(
-                    string.Empty,
-                    Translator.FolderOperation_CreateSubFolder,
-                    Translator.DialogMessage_RenameFolderMessage,
-                    Translator.FolderOperation_CreateSubFolder);
-
-                if (!string.IsNullOrWhiteSpace(subFolderName))
+                if (!string.IsNullOrWhiteSpace(request.UserInput))
                 {
-                    change = new CreateSubFolderRequest(folder, subFolderName.Trim());
+                    change = new CreateSubFolderRequest(folder, request.UserInput.Trim());
+                }
+
+                break;
+            case FolderOperation.CreateRootFolder:
+                if (!string.IsNullOrWhiteSpace(request.UserInput))
+                {
+                    change = new CreateRootFolderRequest(folder, request.UserInput.Trim());
                 }
 
                 break;

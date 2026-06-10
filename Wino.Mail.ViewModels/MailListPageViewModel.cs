@@ -24,8 +24,8 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Reader;
+using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Requests.Mail;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
@@ -888,14 +888,16 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         if (targetList.First().MailCopy.AssignedAccount.ProviderType != MailProviderType.Outlook)
             return;
 
-        var requests = new List<IRequestBase>();
+        var targets = new List<MailCategoryAssignmentTarget>();
         foreach (var mailItem in targetList.Select(a => a.MailCopy).GroupBy(a => a.UniqueId).Select(group => group.First()))
         {
             var categoryNames = await _mailCategoryService.GetCategoryNamesForMailAsync(mailItem.UniqueId).ConfigureAwait(false);
-            requests.Add(new MailCategoryAssignmentRequest(mailItem, category.Id, category.Name, categoryNames, !isAssignedToAll));
+            targets.Add(new MailCategoryAssignmentTarget(mailItem, categoryNames));
         }
 
-        await _winoRequestDelegator.ExecuteAsync(accountId, requests).ConfigureAwait(false);
+        var assignmentRequest = new MailCategoryAssignmentOperationRequest(accountId, category.Id, category.Name, !isAssignedToAll, targets);
+
+        await _winoRequestDelegator.ExecuteAsync(assignmentRequest).ConfigureAwait(false);
     }
 
     private Task ApplyCategoryAssignmentToVisibleItemsAsync(MailCategory category, IReadOnlyList<MailItemViewModel> targetItems, bool wasAssignedToAll)
@@ -1596,12 +1598,12 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(accountId).ConfigureAwait(false);
+            var uniqueIds = await _synchronizationManager.GetPendingMailOperationUniqueIdsAsync(accountId).ConfigureAwait(false);
 
-            if (synchronizer == null)
+            if (uniqueIds == null)
                 continue;
 
-            foreach (var uniqueId in synchronizer.GetPendingOperationUniqueIds())
+            foreach (var uniqueId in uniqueIds)
             {
                 pendingOperationUniqueIds.Add(uniqueId);
             }
@@ -1669,7 +1671,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         if (handlingFolders == null) return [];
 
         var distinctFolders = handlingFolders
-            .Where(folder => folder != null)
+            .OfType<MailItemFolder>()
             .GroupBy(folder => folder.Id)
             .Select(group => group.First())
             .ToList();
@@ -1682,10 +1684,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         var searchTasks = foldersByAccount.Select(async groupedFolders =>
         {
-            var synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(groupedFolders.Key).ConfigureAwait(false);
-            if (synchronizer == null) return new List<MailCopy>();
-
-            var accountResults = await synchronizer.OnlineSearchAsync(queryText, groupedFolders.ToList(), cancellationToken).ConfigureAwait(false);
+            var accountResults = await _synchronizationManager.OnlineSearchAsync(groupedFolders.Key, queryText, groupedFolders.ToList(), cancellationToken).ConfigureAwait(false);
             return accountResults ?? new List<MailCopy>();
         });
 
@@ -2026,7 +2025,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             foreach (var accountId in accountIds)
             {
-                if (SynchronizationManager.Instance.IsAccountSynchronizing(accountId))
+                if (_synchronizationManager.IsAccountSynchronizing(accountId))
                 {
                     isAnyAccountSynchronizing = true;
                     break;

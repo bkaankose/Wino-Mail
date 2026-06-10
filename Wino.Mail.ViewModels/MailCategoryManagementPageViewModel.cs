@@ -11,8 +11,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Requests.Category;
-using Wino.Core.Services;
+using Wino.Core.Domain.Models.Requests;
 
 namespace Wino.Mail.ViewModels;
 
@@ -22,6 +21,7 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
     private readonly IAccountService _accountService;
     private readonly IMailDialogService _dialogService;
     private readonly IWinoRequestDelegator _winoRequestDelegator;
+    private readonly ISynchronizationManager _synchronizationManager;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanRefresh))]
@@ -36,12 +36,14 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
         IMailCategoryService mailCategoryService,
         IAccountService accountService,
         IMailDialogService dialogService,
-        IWinoRequestDelegator winoRequestDelegator)
+        IWinoRequestDelegator winoRequestDelegator,
+        ISynchronizationManager synchronizationManager)
     {
         _mailCategoryService = mailCategoryService;
         _accountService = accountService;
         _dialogService = dialogService;
         _winoRequestDelegator = winoRequestDelegator;
+        _synchronizationManager = synchronizationManager;
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -78,7 +80,7 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
             return;
 
         await _mailCategoryService.DeleteCategoriesAsync(Account.Id).ConfigureAwait(false);
-        await SynchronizationManager.Instance.SynchronizeCategoriesAsync(Account.Id).ConfigureAwait(false);
+        await _synchronizationManager.SynchronizeCategoriesAsync(Account.Id).ConfigureAwait(false);
 
         await LoadCategoriesAsync().ConfigureAwait(false);
     }
@@ -101,7 +103,12 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
 
         var deleteRequest = await BuildDeleteCategoryRequestAsync(category).ConfigureAwait(false);
         await _mailCategoryService.DeleteCategoryAsync(category.Id).ConfigureAwait(false);
-        await QueueOutlookCategoryRequestsAsync(deleteRequest).ConfigureAwait(false);
+
+        if (deleteRequest != null)
+        {
+            await _winoRequestDelegator.ExecuteAsync(deleteRequest).ConfigureAwait(false);
+        }
+
         await LoadCategoriesAsync().ConfigureAwait(false);
     }
 
@@ -158,7 +165,7 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
 
             if (Account.ProviderType == MailProviderType.Outlook)
             {
-                await _winoRequestDelegator.ExecuteAsync(Account.Id, [new MailCategoryCreateRequest(newCategory)]).ConfigureAwait(false);
+                await _winoRequestDelegator.ExecuteAsync(new MailCategoryOperationRequest(Account.Id, MailCategoryChangeType.Create, newCategory)).ConfigureAwait(false);
             }
         }
         else
@@ -176,13 +183,13 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
             {
                 if (string.IsNullOrWhiteSpace(previousRemoteId))
                 {
-                    await _winoRequestDelegator.ExecuteAsync(Account.Id, [new MailCategoryCreateRequest(existingCategory)]).ConfigureAwait(false);
+                    await _winoRequestDelegator.ExecuteAsync(new MailCategoryOperationRequest(Account.Id, MailCategoryChangeType.Create, existingCategory)).ConfigureAwait(false);
                 }
                 else
                 {
                     var affectedMessages = await BuildAffectedMessageTargetsAsync(existingCategory.Id).ConfigureAwait(false);
-                    var updateRequest = new MailCategoryUpdateRequest(existingCategory, previousName, previousRemoteId, affectedMessages);
-                    await _winoRequestDelegator.ExecuteAsync(Account.Id, [updateRequest]).ConfigureAwait(false);
+                    var updateRequest = new MailCategoryOperationRequest(Account.Id, MailCategoryChangeType.Update, existingCategory, previousName, previousRemoteId, affectedMessages);
+                    await _winoRequestDelegator.ExecuteAsync(updateRequest).ConfigureAwait(false);
                 }
             }
         }
@@ -190,7 +197,7 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
         await LoadCategoriesAsync().ConfigureAwait(false);
     }
 
-    private async Task<MailCategoryDeleteRequest> BuildDeleteCategoryRequestAsync(MailCategory category)
+    private async Task<MailCategoryOperationRequest> BuildDeleteCategoryRequestAsync(MailCategory category)
     {
         if (category == null || Account?.ProviderType != MailProviderType.Outlook)
             return null;
@@ -208,10 +215,10 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
             affectedMessages.Add(new MailCategoryMessageUpdateTarget(mailCopy.Id, categoryNames));
         }
 
-        return new MailCategoryDeleteRequest(category, category.RemoteId, affectedMessages);
+        return new MailCategoryOperationRequest(Account.Id, MailCategoryChangeType.Delete, category, PreviousRemoteId: category.RemoteId, AffectedMessages: affectedMessages);
     }
 
-    private async Task<IReadOnlyList<MailCategoryMessageUpdateTarget>> BuildAffectedMessageTargetsAsync(Guid categoryId)
+    private async Task<List<MailCategoryMessageUpdateTarget>> BuildAffectedMessageTargetsAsync(Guid categoryId)
     {
         var mailCopies = await _mailCategoryService.GetMailCopiesForCategoryAsync(categoryId).ConfigureAwait(false);
         var affectedMessages = new List<MailCategoryMessageUpdateTarget>();
@@ -224,11 +231,6 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
 
         return affectedMessages;
     }
-
-    private Task QueueOutlookCategoryRequestsAsync(params IRequestBase[] requests)
-        => Account?.ProviderType == MailProviderType.Outlook && requests.Any(a => a != null)
-            ? _winoRequestDelegator.ExecuteAsync(Account.Id, requests.Where(a => a != null))
-            : Task.CompletedTask;
 
     private async Task LoadCategoriesAsync()
     {
