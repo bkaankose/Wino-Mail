@@ -10,6 +10,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Server;
@@ -184,7 +185,9 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
             if (string.IsNullOrWhiteSpace(EwsUrl))
             {
                 var discovered = await _autoDiscoveryService.TryDiscoverEwsUrlAsync(EmailAddress.Trim());
-                if (!string.IsNullOrWhiteSpace(discovered))
+
+                // Only accept an HTTPS endpoint from autodiscovery — never store/probe an http URL.
+                if (!string.IsNullOrWhiteSpace(discovered) && IsHttpsUrl(discovered))
                     EwsUrl = discovered;
             }
 
@@ -260,9 +263,9 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
             return;
         }
 
-        if (!Uri.TryCreate(EwsUrl.Trim(), UriKind.Absolute, out _))
+        if (!IsHttpsUrl(EwsUrl))
         {
-            ValidationMessage = "Enter a valid EWS URL, e.g. https://mail.example.com/EWS/Exchange.asmx";
+            ValidationMessage = "Enter a valid HTTPS EWS URL, e.g. https://mail.example.com/EWS/Exchange.asmx";
             return;
         }
 
@@ -340,6 +343,11 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         await _accountService.UpdateAccountCustomServerInformationAsync(serverInformation);
         await _accountService.UpdateAccountAsync(account);
 
+        // Drop the cached synchronizer so it is rebuilt with the new endpoint/credentials/token.
+        // SynchronizationManager only refreshes synchronizers on access-flag changes, so an edited
+        // EWS URL, password, or OAuth config would otherwise not take effect until app restart.
+        await SynchronizationManager.Instance.DestroySynchronizerAsync(account.Id).ConfigureAwait(false);
+
         // Re-sync folders so the updated endpoint/credentials are exercised immediately.
         Messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
         {
@@ -350,11 +358,25 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         Messenger.Send(new BackBreadcrumNavigationRequested());
     }
 
+    /// <summary>Whether <paramref name="url"/> is a well-formed absolute HTTPS URL.</summary>
+    private static bool IsHttpsUrl(string url)
+        => Uri.TryCreate(url?.Trim(), UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps;
+
+    /// <summary>Whether <paramref name="url"/> is an http loopback address (used by the loopback OAuth flow).</summary>
+    private static bool IsLoopbackUrl(string url)
+        => Uri.TryCreate(url?.Trim(), UriKind.Absolute, out var uri) && uri.IsLoopback;
+
     private async Task<CustomServerInformation> BuildModernAuthServerInformationAsync()
     {
         if (string.IsNullOrWhiteSpace(OAuthAuthority))
         {
             ValidationMessage = "Authority URL is required for modern auth (e.g. https://adfs.example.com/adfs).";
+            return null;
+        }
+
+        if (!IsHttpsUrl(OAuthAuthority))
+        {
+            ValidationMessage = "The authority URL must use HTTPS.";
             return null;
         }
 
@@ -371,6 +393,19 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         var redirectUri = string.IsNullOrWhiteSpace(OAuthRedirectUri)
             ? ewsOrigin + "/owa/"
             : OAuthRedirectUri.Trim();
+
+        if (!IsHttpsUrl(resource))
+        {
+            ValidationMessage = "The OAuth resource must use HTTPS.";
+            return null;
+        }
+
+        // The redirect must be HTTPS, except a loopback address (used by the non-WebView2 flow).
+        if (!IsHttpsUrl(redirectUri) && !IsLoopbackUrl(redirectUri))
+        {
+            ValidationMessage = "The redirect URI must use HTTPS (or a loopback address).";
+            return null;
+        }
 
         var configuration = new OidcConfiguration
         {

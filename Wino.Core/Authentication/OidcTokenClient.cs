@@ -24,6 +24,10 @@ public sealed class OidcTokenClient : IOidcTokenClient
         if (string.IsNullOrWhiteSpace(authority))
             throw new ArgumentException("Authority is required.", nameof(authority));
 
+        // Credentials/tokens travel to these endpoints — require HTTPS for the authority and for
+        // every endpoint the discovery document advertises (guards against an http downgrade).
+        EnsureHttps(authority, "authority");
+
         var url = authority.TrimEnd('/') + "/.well-known/openid-configuration";
 
         using var response = await HttpClient.GetAsync(url, cancellationToken).ConfigureAwait(false);
@@ -34,14 +38,26 @@ public sealed class OidcTokenClient : IOidcTokenClient
         using var document = JsonDocument.Parse(body);
         var root = document.RootElement;
 
+        var authorizationEndpoint = GetString(root, "authorization_endpoint")
+            ?? throw new OidcTokenException("Discovery document is missing authorization_endpoint.");
+        var tokenEndpoint = GetString(root, "token_endpoint")
+            ?? throw new OidcTokenException("Discovery document is missing token_endpoint.");
+
+        EnsureHttps(authorizationEndpoint, "authorization_endpoint");
+        EnsureHttps(tokenEndpoint, "token_endpoint");
+
         return new OidcDiscoveryDocument
         {
             Issuer = GetString(root, "issuer"),
-            AuthorizationEndpoint = GetString(root, "authorization_endpoint")
-                ?? throw new OidcTokenException("Discovery document is missing authorization_endpoint."),
-            TokenEndpoint = GetString(root, "token_endpoint")
-                ?? throw new OidcTokenException("Discovery document is missing token_endpoint."),
+            AuthorizationEndpoint = authorizationEndpoint,
+            TokenEndpoint = tokenEndpoint,
         };
+    }
+
+    private static void EnsureHttps(string url, string name)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+            throw new OidcTokenException($"The OIDC {name} must be an absolute HTTPS URL.");
     }
 
     public PkcePair CreatePkcePair()
