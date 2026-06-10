@@ -2026,11 +2026,11 @@ public class MailService : BaseDatabaseService, IMailService
     public Task<bool> IsMailExistsAsync(string mailCopyId)
         => Connection.ExecuteScalarAsync<bool>("SELECT EXISTS(SELECT 1 FROM MailCopy WHERE Id = ?)", mailCopyId);
 
-    public async Task<List<MailCopy>> GetExistingMailsAsync(Guid folderId, IEnumerable<MailKit.UniqueId> uniqueIds)
+    public async Task<List<MailCopy>> GetExistingMailsAsync(Guid folderId, IEnumerable<uint> uniqueIds)
     {
+        // 0 is MailKit's invalid uid.
         var uidList = uniqueIds?
-            .Where(a => a.IsValid)
-            .Select(a => a.Id)
+            .Where(a => a > 0)
             .Distinct()
             .ToList() ?? [];
 

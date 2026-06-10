@@ -1,10 +1,10 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Models.MailItem;
 
-namespace Wino.Core.Domain.Interfaces;
+namespace Wino.Core.Synchronizers.ImapSync;
 
 public interface IImapSynchronizer
 {

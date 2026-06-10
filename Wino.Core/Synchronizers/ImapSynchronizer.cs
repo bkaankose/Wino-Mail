@@ -105,7 +105,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
     /// Returns UniqueId for the given mail copy id.
     /// </summary>
     private UniqueId GetUniqueId(string mailCopyId) => new(MailkitClientExtensions.ResolveUid(mailCopyId));
-    private UniqueId GetUniqueId(MailCopy mailCopy) => MailkitClientExtensions.ResolveUidStruct(mailCopy);
+    private UniqueId GetUniqueId(MailCopy mailCopy) => MailkitMessageExtensions.ResolveUidStruct(mailCopy);
 
     private async Task DeleteLocalCopiesMissingFromRemoteAsync(
         IMailFolder remoteFolder,
@@ -332,7 +332,6 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
     }
 
     public override async Task DownloadMissingMimeMessageAsync(MailCopy mailItem,
-                                                           ITransferProgress transferProgress = null,
                                                            CancellationToken cancellationToken = default)
     {
         var folder = mailItem.AssignedFolder;
@@ -348,7 +347,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
             await remoteFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
 
-            var message = await remoteFolder.GetMessageAsync(uniqueId, cancellationToken, transferProgress).ConfigureAwait(false);
+            var message = await remoteFolder.GetMessageAsync(uniqueId, cancellationToken).ConfigureAwait(false);
 
             await _imapChangeProcessor.SaveMimeFileAsync(mailItem.FileId, message, Account.Id).ConfigureAwait(false);
             await remoteFolder.CloseAsync(false, cancellationToken).ConfigureAwait(false);

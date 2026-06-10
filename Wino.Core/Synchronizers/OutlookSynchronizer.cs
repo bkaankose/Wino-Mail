@@ -1988,7 +1988,6 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         });
 
     public override async Task DownloadMissingMimeMessageAsync(MailCopy mailItem,
-                                                           MailKit.ITransferProgress transferProgress = null,
                                                            CancellationToken cancellationToken = default)
     {
         try

@@ -907,7 +907,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
         try
         {
-            await synchronizer.DownloadMissingMimeMessageAsync(mailItem, null, cancellationToken);
+            await synchronizer.DownloadMissingMimeMessageAsync(mailItem, cancellationToken);
             return mailItem.Id.ToString(); // Return some identifier, actual implementation might be different
         }
         catch (SynchronizerEntityNotFoundException)

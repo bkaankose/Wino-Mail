@@ -691,7 +691,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     /// <param name="mailItem">Mail item that its mime file does not exist on the disk.</param>
     /// <param name="transferProgress">Optional download progress for IMAP synchronizer.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public virtual Task DownloadMissingMimeMessageAsync(MailCopy mailItem, ITransferProgress transferProgress = null, CancellationToken cancellationToken = default) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+    public virtual Task DownloadMissingMimeMessageAsync(MailCopy mailItem, CancellationToken cancellationToken = default) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
 
     /// <summary>
     /// Downloads a calendar attachment from the provider.

@@ -209,9 +209,9 @@ public sealed class ImapSynchronizerLiveTests
 
         var mailService = new Mock<IMailService>();
         mailService.Setup(x => x.GetMailsByFolderIdAsync(inboxFolder.Id)).ReturnsAsync(() => storedMails.Values.ToList());
-        mailService.Setup(x => x.GetExistingMailsAsync(inboxFolder.Id, It.IsAny<IEnumerable<UniqueId>>()))
-            .ReturnsAsync((Guid _, IEnumerable<UniqueId> ids) =>
-                ids.Select(uid => MailkitClientExtensions.CreateUid(inboxFolder.Id, uid.Id))
+        mailService.Setup(x => x.GetExistingMailsAsync(inboxFolder.Id, It.IsAny<IEnumerable<uint>>()))
+            .ReturnsAsync((Guid _, IEnumerable<uint> ids) =>
+                ids.Select(uid => MailkitClientExtensions.CreateUid(inboxFolder.Id, uid))
                    .Where(storedMails.ContainsKey)
                    .Select(id => storedMails[id])
                    .ToList());

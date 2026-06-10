@@ -8,8 +8,6 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using MailKit;
-
 using MimeKit;
 using Serilog;
 using Wino.Core.Domain;
@@ -32,8 +30,7 @@ using IMailService = Wino.Core.Domain.Interfaces.IMailService;
 namespace Wino.Mail.ViewModels;
 
 public partial class MailRenderingPageViewModel : MailBaseViewModel,
-    IRecipient<ThumbnailAdded>,
-    ITransferProgress // For listening IMAP message download progress.
+    IRecipient<ThumbnailAdded>
 {
     private const int AttachmentPreviewLimit = 5;
 
@@ -1033,12 +1030,6 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         var sanitized = new string(sanitizedChars).Trim();
         return string.IsNullOrWhiteSpace(sanitized) ? "email" : sanitized;
     }
-
-    void ITransferProgress.Report(long bytesTransferred, long totalSize)
-        => _ = ExecuteUIThread(() => { CurrentDownloadPercentage = bytesTransferred * 100 / Math.Max(1, totalSize); });
-
-    // For upload.
-    void ITransferProgress.Report(long bytesTransferred) { }
 
     public async Task RefreshMailItemAsync(MailItemViewModel mailItemViewModel)
     {

@@ -1,7 +1,7 @@
-﻿using MailKit;
+using MailKit;
 using MimeKit;
 
-namespace Wino.Core.Domain.Models.MailItem;
+namespace Wino.Core.Synchronizers.ImapSync;
 
 /// <summary>
 /// Encapsulates all required information to create a MimeMessage for IMAP synchronizer.

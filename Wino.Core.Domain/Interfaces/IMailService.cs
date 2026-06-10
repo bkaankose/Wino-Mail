@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using MailKit;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.MailItem;
@@ -157,7 +156,7 @@ public interface IMailService
     /// <param name="uniqueIds"></param>
     /// <returns></returns>
     [Wino.Core.Domain.Attributes.WinoRpcExclude]
-    Task<List<MailCopy>> GetExistingMailsAsync(Guid folderId, IEnumerable<UniqueId> uniqueIds);
+    Task<List<MailCopy>> GetExistingMailsAsync(Guid folderId, IEnumerable<uint> uniqueIds);
 
     /// <summary>
     /// Creates a new mail from a package without doing any existence check.

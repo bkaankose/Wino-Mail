@@ -193,7 +193,7 @@ public class UnifiedImapSynchronizer
             cancellationToken.ThrowIfCancellationRequested();
 
             var batchUids = batch.ToList();
-            var existingMails = await _mailService.GetExistingMailsAsync(localFolder.Id, batchUids).ConfigureAwait(false);
+            var existingMails = await _mailService.GetExistingMailsAsync(localFolder.Id, batchUids.Select(u => u.Id)).ConfigureAwait(false);
             var existingByUid = CreateExistingMailLookup(existingMails);
             var existingUids = batchUids.Where(uid => existingByUid.ContainsKey(uid.Id)).ToList();
             var newUids = batchUids.Where(uid => !existingByUid.ContainsKey(uid.Id)).ToList();
@@ -294,7 +294,7 @@ public class UnifiedImapSynchronizer
                     .ConfigureAwait(false);
             }
 
-            var existingMails = await _mailService.GetExistingMailsAsync(folder.Id, changedUids).ConfigureAwait(false);
+            var existingMails = await _mailService.GetExistingMailsAsync(folder.Id, changedUids.Select(u => u.Id)).ConfigureAwait(false);
             var existingByUid = CreateExistingMailLookup(existingMails);
             var newOrUnknownUids = changedUids.Where(uid => !existingByUid.ContainsKey(uid.Id)).ToList();
             var existingUidsWithoutFlagEvents = changedUids
@@ -531,7 +531,7 @@ public class UnifiedImapSynchronizer
         if (uniqueIds.Count == 0)
             return downloadedMessageIds;
 
-        existingByUid ??= CreateExistingMailLookup(await _mailService.GetExistingMailsAsync(localFolder.Id, uniqueIds).ConfigureAwait(false));
+        existingByUid ??= CreateExistingMailLookup(await _mailService.GetExistingMailsAsync(localFolder.Id, uniqueIds.Select(u => u.Id)).ConfigureAwait(false));
         var pendingStateUpdates = new List<MailCopyStateUpdate>();
 
         foreach (var summary in summaries)
@@ -623,7 +623,7 @@ public class UnifiedImapSynchronizer
 
             try
             {
-                lookup[MailkitClientExtensions.ResolveUidStruct(mail).Id] = mail;
+                lookup[MailkitMessageExtensions.ResolveUidStruct(mail).Id] = mail;
             }
             catch (ArgumentOutOfRangeException)
             {
@@ -635,8 +635,8 @@ public class UnifiedImapSynchronizer
 
     private static MailCopyStateUpdate CreateMailStateUpdate(MailCopy mailCopy, MessageFlags flags)
     {
-        var isFlagged = MailkitClientExtensions.GetIsFlagged(flags);
-        var isRead = MailkitClientExtensions.GetIsRead(flags);
+        var isFlagged = MailkitMessageExtensions.GetIsFlagged(flags);
+        var isRead = MailkitMessageExtensions.GetIsRead(flags);
 
         bool shouldUpdateFlagged = isFlagged != mailCopy.IsFlagged;
         bool shouldUpdateRead = isRead != mailCopy.IsRead;
@@ -656,7 +656,7 @@ public class UnifiedImapSynchronizer
 
         foreach (var uniqueId in uniqueIds.Distinct())
         {
-            var existingMails = await _mailService.GetExistingMailsAsync(folder.Id, [uniqueId]).ConfigureAwait(false);
+            var existingMails = await _mailService.GetExistingMailsAsync(folder.Id, [uniqueId.Id]).ConfigureAwait(false);
 
             foreach (var localMail in existingMails)
             {
@@ -673,8 +673,8 @@ public class UnifiedImapSynchronizer
         var stateUpdates = changedFlags
             .Select(changed => new MailCopyStateUpdate(
                 MailkitClientExtensions.CreateUid(folder.Id, changed.Key),
-                MailkitClientExtensions.GetIsRead(changed.Value),
-                MailkitClientExtensions.GetIsFlagged(changed.Value)))
+                MailkitMessageExtensions.GetIsRead(changed.Value),
+                MailkitMessageExtensions.GetIsFlagged(changed.Value)))
             .ToList();
 
         await _mailService.ApplyMailStateUpdatesAsync(stateUpdates).ConfigureAwait(false);
