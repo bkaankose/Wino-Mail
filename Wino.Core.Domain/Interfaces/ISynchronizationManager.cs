@@ -138,14 +138,17 @@ public interface ISynchronizationManager
     Task<IWinoSynchronizerBase> GetSynchronizerAsync(Guid accountId);
 
     /// <summary>
-    /// Handles OAuth authentication for the specified provider.
-    /// Companion-side this only performs silent refresh; interactive authentication
-    /// happens in the UI process (see InteractiveAuthRequiredException).
+    /// Handles OAuth authentication for the specified provider, including interactive
+    /// flows. The WAM broker dialog is parented to <paramref name="parentWindowHandle"/>
+    /// (the UI window; the broker runs out-of-process so a cross-process handle works),
+    /// and the Gmail flow launches the system browser with a loopback listener, which
+    /// needs no window. Tokens land in the shared caches in the publisher folder.
     /// </summary>
     Task<TokenInformationEx> HandleAuthorizationAsync(MailProviderType providerType,
                                                      MailAccount account = null,
                                                      bool proposeCopyAuthorizationURL = false,
-                                                     bool forceInteractive = false);
+                                                     bool forceInteractive = false,
+                                                     long parentWindowHandle = 0);
 
     /// <summary>
     /// Returns unique mail ids that currently have queued (pending) operations.

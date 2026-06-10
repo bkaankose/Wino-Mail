@@ -11,7 +11,6 @@ using CommunityToolkit.Mvvm.Messaging;
 using MailKit;
 
 using MimeKit;
-using MimeKit.Cryptography;
 using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
@@ -51,6 +50,10 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     private readonly IFileService _fileService;
     private readonly IWinoRequestDelegator _requestDelegator;
     private readonly ISynchronizationManager _synchronizationManager;
+    private readonly ISmimeService _smimeService;
+
+    // S/MIME state of the currently rendered message, produced by the companion.
+    private SmimeRenderInfo currentSmimeInfo;
     private readonly IContactService _contactService;
     private readonly IClipboardService _clipboardService;
     private readonly IUnsubscriptionService _unsubscriptionService;
@@ -71,10 +74,10 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
     public bool ShouldDisplayDownloadProgress => IsIndetermineProgress || (CurrentDownloadPercentage > 0 && CurrentDownloadPercentage <= 100);
     public bool CanUnsubscribe => CurrentRenderModel?.UnsubscribeInfo?.CanUnsubscribe ?? false;
-    public bool IsSmimeSigned => (CurrentRenderModel?.Signatures?.Count ?? 0) > 0;
-    public bool IsSmimeEncrypted => CurrentRenderModel?.IsSmimeEncrypted ?? false;
+    public bool IsSmimeSigned => CurrentRenderModel?.SmimeInfo?.IsSigned ?? false;
+    public bool IsSmimeEncrypted => CurrentRenderModel?.SmimeInfo?.IsEncrypted ?? false;
     public bool IsJunkMail => initializedMailItemViewModel?.MailCopy.AssignedFolder != null && initializedMailItemViewModel.MailCopy.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk;
-    public bool SmimeSignaturesValid => CurrentRenderModel?.Signatures?.Any(x => x.Value) ?? false;
+    public bool SmimeSignaturesValid => CurrentRenderModel?.SmimeInfo?.Signatures?.Any(x => x.IsValid) ?? false;
     public bool SmimeSignaturesInvalid => !SmimeSignaturesValid;
     public bool CanShowAllAttachments => Attachments.Count > AttachmentPreviewLimit && !IsShowingAllAttachments;
 
@@ -172,7 +175,8 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         IPreferencesService preferencesService,
         IPrintService printService,
         IApplicationConfiguration applicationConfiguration,
-        ISynchronizationManager synchronizationManager)
+        ISynchronizationManager synchronizationManager,
+        ISmimeService smimeService)
     {
         _dialogService = dialogService;
         NativeAppService = nativeAppService;
@@ -190,6 +194,25 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         _fileService = fileService;
         _requestDelegator = requestDelegator;
         _synchronizationManager = synchronizationManager;
+        _smimeService = smimeService;
+    }
+
+    /// <summary>
+    /// Detects S/MIME protection by content type only; no cryptography types are touched
+    /// in the UI process.
+    /// </summary>
+    private static bool IsSmimeProtected(MimeMessage message)
+    {
+        var contentType = message?.Body?.ContentType;
+
+        if (contentType == null)
+            return false;
+
+        if (contentType.IsMimeType("application", "pkcs7-mime") || contentType.IsMimeType("application", "x-pkcs7-mime"))
+            return true;
+
+        return contentType.IsMimeType("multipart", "signed") &&
+               (contentType.Parameters["protocol"]?.Contains("pkcs7", StringComparison.OrdinalIgnoreCase) ?? false);
     }
 
     [RelayCommand]
@@ -406,9 +429,16 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
             // Mime content might not be available for now and might require a download.
             if (parameters is MailItemViewModel selectedMailItemViewModel)
+            {
                 await RenderAsync(selectedMailItemViewModel, renderCancellationTokenSource.Token);
+            }
             else if (parameters is MimeMessageInformation mimeMessageInformation)
+            {
+                // Standalone EML rendering: no account context, so no companion-side
+                // S/MIME processing is available.
+                currentSmimeInfo = null;
                 await RenderAsync(mimeMessageInformation);
+            }
 
             InitializeCommandBarItems();
         }
@@ -483,6 +513,35 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             return;
         }
 
+        // S/MIME protected messages are decrypted/verified by the companion, which writes
+        // the extracted inner MIME next to the original; the UI renders that file and
+        // never runs cryptography itself.
+        currentSmimeInfo = null;
+
+        if (IsSmimeProtected(mimeMessageInformation.MimeMessage))
+        {
+            try
+            {
+                var smimeInfo = await _smimeService.PrepareSmimeRenderAsync(mailItemViewModel.MailCopy.FileId,
+                                                                            mailItemViewModel.MailCopy.AssignedAccount.Id).ConfigureAwait(false);
+
+                if (smimeInfo?.ProcessedMimeFileName != null)
+                {
+                    currentSmimeInfo = smimeInfo;
+
+                    var processedMimePath = Path.Combine(mimeMessageInformation.Path, smimeInfo.ProcessedMimeFileName);
+                    var processedMimeBytes = await File.ReadAllBytesAsync(processedMimePath, cancellationToken).ConfigureAwait(false);
+
+                    // Keep the original resource directory so inline resources resolve.
+                    mimeMessageInformation = await _mimeFileService.GetMimeMessageInformationAsync(processedMimeBytes, mimeMessageInformation.Path, cancellationToken).ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "S/MIME render preparation failed; rendering the protected message as-is.");
+            }
+        }
+
         initializedMailItemViewModel = mailItemViewModel;
         await ExecuteUIThread(() => { CurrentMailItemDisplayInformation = mailItemViewModel; });
         await RenderAsync(mimeMessageInformation);
@@ -496,9 +555,6 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         var messagePath = mimeMessageInformation.Path;
 
         initializedMimeMessageInformation = mimeMessageInformation;
-
-        // TODO: Handle S/MIME decryption.
-        // initializedMimeMessageInformation.MimeMessage.Body is MultipartSigned
 
         var renderingOptions = PreferencesService.GetRenderingOptions();
 
@@ -546,7 +602,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
                 renderingOptions.LoadImages = true;
             }
 
-            CurrentRenderModel = _mimeFileService.GetMailRenderModel(message, messagePath, renderingOptions);
+            var renderModel = _mimeFileService.GetMailRenderModel(message, messagePath, renderingOptions);
+            renderModel.SmimeInfo = currentSmimeInfo;
+            CurrentRenderModel = renderModel;
 
             foreach (var attachment in CurrentRenderModel.Attachments)
             {
@@ -1029,31 +1087,18 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     [RelayCommand]
     private async Task ShowSmimeSigningCertificateInfoAsync()
     {
-        if (IsSmimeSigned)
-        {
-            MimePart signaturePart;
-            if (initializedMimeMessageInformation?.MimeMessage?.Body is MultipartSigned signed && signed[1] is MimePart signaturePart1)
-            {
-                signaturePart = signaturePart1;
-            }
-            else if (initializedMimeMessageInformation?.MimeMessage?.Body is ApplicationPkcs7Mime pkcs7)
-            {
-                signaturePart = null;
-            }
-            else
-            {
-                //_dialogService.InfoBarMessage(Translator.Info_SmimeSignatureNotFoundTitle, Translator.Info_SmimeSignatureNotFoundMessage, InfoBarMessageType.Error);
-                return;
-            }
+        if (!IsSmimeSigned)
+            return;
 
-            string info = $"{Translator.SmimeSignaturesInMessage}:\n";
-            foreach (var (signature, valid) in CurrentRenderModel.Signatures)
-            {
-                info += string.Format(Translator.SmimeSignatureEntry, valid ? "✅" : "❌", signature.SignerCertificate.Name, signature.SignerCertificate.Fingerprint, signature.SignerCertificate.CreationDate, signature.SignerCertificate.ExpirationDate);
-            }
-            await ShowSmimeCertificateInfoAsync(signaturePart, info, Translator.SmimeSigningCertificateInfoTitle);
+        // Signature details come from the companion's verification pass; the rendered
+        // message is the extracted inner MIME and no longer carries the signature part.
+        string info = $"{Translator.SmimeSignaturesInMessage}:\n";
+        foreach (var signature in CurrentRenderModel.SmimeInfo.Signatures)
+        {
+            info += string.Format(Translator.SmimeSignatureEntry, signature.IsValid ? "✅" : "❌", signature.SignerName, signature.SignerFingerprint, signature.CertificateCreationDate, signature.CertificateExpirationDate);
         }
 
+        await ShowSmimeCertificateInfoAsync(null, info, Translator.SmimeSigningCertificateInfoTitle);
     }
 
     private async Task ShowSmimeCertificateInfoAsync(MimePart certificateAttachment, string additionalInfo = "", string title = null)

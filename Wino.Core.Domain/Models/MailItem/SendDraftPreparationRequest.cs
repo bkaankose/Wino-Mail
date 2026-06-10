@@ -6,12 +6,20 @@ using Wino.Core.Domain.Extensions;
 
 namespace Wino.Core.Domain.Models.MailItem;
 
+/// <summary>
+/// Send request prepared in the UI. S/MIME protection is described by flags only: the
+/// companion applies the actual signing/encryption (see ISmimeService) before queueing,
+/// so no cryptography runs in the UI process.
+/// </summary>
 public record SendDraftPreparationRequest(MailCopy MailItem,
                                           MailAccountAlias SendingAlias,
                                           MailItemFolder SentFolder,
                                           MailItemFolder DraftFolder,
                                           MailAccountPreferences AccountPreferences,
-                                          string Base64MimeMessage)
+                                          string Base64MimeMessage,
+                                          bool SmimeSign = false,
+                                          bool SmimeEncrypt = false,
+                                          string SmimeSigningCertificateThumbprint = null)
 {
     [JsonIgnore]
     private MimeMessage mime;

@@ -71,6 +71,10 @@ public static class Program
         // Source-generated serialization for all RPC payloads; required before any pipe traffic.
         WinoIpcJson.Initialize(Wino.Ipc.Serialization.WinoIpcJsonContext.Default);
 
+        // S/MIME cryptography runs exclusively in this process (see ISmimeService);
+        // the context is needed for decrypt/verify and recipient certificate lookups.
+        MimeKit.Cryptography.CryptographyContext.Register(typeof(MimeKit.Cryptography.WindowsSecureMimeContext));
+
         ConfigureBootstrapLogging();
 
         Log.Information("Wino background service starting. Args: {Args}", activationArguments ?? "<none>");
@@ -113,6 +117,7 @@ public static class Program
             services.GetRequiredService<IMailService>(),
             services.GetRequiredService<ISentMailReceiptService>(),
             services.GetRequiredService<ISignatureService>(),
+            services.GetRequiredService<ISmimeService>(),
             services.GetRequiredService<ISynchronizationManager>(),
             services.GetRequiredService<IThumbnailCacheService>(),
             services.GetRequiredService<IWinoAccountDataSyncService>(),

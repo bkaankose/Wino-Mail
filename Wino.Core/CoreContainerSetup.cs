@@ -29,6 +29,7 @@ public static class CoreContainerSetup
         services.AddTransient<IWinoRequestProcessor, WinoRequestProcessor>();
         services.AddTransient<IWinoRequestDelegator, WinoRequestDelegator>();
         services.AddTransient<IImapTestService, ImapTestService>();
+        services.AddTransient<ISmimeService, SmimeService>();
         services.AddTransient<IAuthenticationProvider, AuthenticationProvider>();
         services.AddTransient<IAutoDiscoveryService, AutoDiscoveryService>();
         services.AddTransient<IFontService, FontService>();

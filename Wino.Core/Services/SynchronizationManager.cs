@@ -1355,12 +1355,20 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     public async Task<TokenInformationEx> HandleAuthorizationAsync(MailProviderType providerType,
                                                                   MailAccount account = null,
                                                                   bool proposeCopyAuthorizationURL = false,
-                                                                  bool forceInteractive = false)
+                                                                  bool forceInteractive = false,
+                                                                  long parentWindowHandle = 0)
     {
         EnsureInitialized();
 
         try
         {
+            // Interactive auth requests carry the UI window handle so the WAM broker
+            // dialog can be parented across the process boundary.
+            if (parentWindowHandle != 0)
+            {
+                _authenticationProvider.SetInteractiveAuthorizationWindow(parentWindowHandle);
+            }
+
             var authenticator = _authenticationProvider.GetAuthenticator(providerType);
 
             // Some users are having issues with Gmail authentication.

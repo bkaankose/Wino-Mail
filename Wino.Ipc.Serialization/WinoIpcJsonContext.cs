@@ -249,6 +249,8 @@ namespace Wino.Ipc.Serialization;
 [JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.ISignatureService_GetSignatureAsync_0Request))]
 [JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.ISignatureService_GetSignaturesAsync_0Request))]
 [JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.ISignatureService_UpdateSignatureAsync_0Request))]
+[JsonSerializable(typeof(global::Wino.Core.Domain.Models.Reader.SmimeRenderInfo))]
+[JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.ISmimeService_PrepareSmimeRenderAsync_0Request))]
 [JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.ISynchronizationManager_CancelSynchronizationsAsync_0Request))]
 [JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.ISynchronizationManager_DestroySynchronizerAsync_0Request))]
 [JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.ISynchronizationManager_DownloadCalendarAttachmentAsync_0Request))]

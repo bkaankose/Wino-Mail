@@ -41,7 +41,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
 
     private readonly IAccountService _accountService;
     private readonly ISynchronizationManager _synchronizationManager;
-    private readonly IAuthenticationProvider _authenticationProvider;
+    private readonly INativeAppService _nativeAppService;
     private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
     private readonly ICalDavClient _calDavClient;
     private readonly IMailDialogService _dialogService;
@@ -67,7 +67,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
     public AccountSetupProgressPageViewModel(
         IAccountService accountService,
         ISynchronizationManager synchronizationManager,
-        IAuthenticationProvider authenticationProvider,
+        INativeAppService nativeAppService,
         ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
         ICalDavClient calDavClient,
         IMailDialogService dialogService,
@@ -76,7 +76,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
     {
         _accountService = accountService;
         _synchronizationManager = synchronizationManager;
-        _authenticationProvider = authenticationProvider;
+        _nativeAppService = nativeAppService;
         _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
         _calDavClient = calDavClient;
         _dialogService = dialogService;
@@ -245,11 +245,11 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 // Step: Authenticating
                 SetStepInProgress(string.Format(Translator.AccountSetup_Step_Authenticating, WizardContext.SelectedProvider.Name), SetupOperationAuthentication);
 
-                var authTokenInfo = await InteractiveAuthHelper.AuthorizeAsync(
-                    _authenticationProvider,
+                var authTokenInfo = await _synchronizationManager.HandleAuthorizationAsync(
                     WizardContext.SelectedProvider.Type,
                     _createdAccount,
-                    _createdAccount.ProviderType == MailProviderType.Gmail);
+                    _createdAccount.ProviderType == MailProviderType.Gmail,
+                    parentWindowHandle: (_nativeAppService.GetCoreWindowHwnd?.Invoke() ?? IntPtr.Zero).ToInt64());
 
                 _createdAccount.AuthenticationAddress = authTokenInfo.AuthenticationAddress;
                 _createdAccount.Address = authTokenInfo.AccountAddress;

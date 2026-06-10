@@ -31,7 +31,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 {
     private readonly IMailDialogService _dialogService;
     private readonly ISynchronizationManager _synchronizationManager;
-    private readonly IAuthenticationProvider _authenticationProvider;
+    private readonly INativeAppService _nativeAppService;
     private readonly IAccountService _accountService;
     private readonly IFolderService _folderService;
     private readonly ICalendarService _calendarService;
@@ -154,18 +154,18 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
     public AccountDetailsPageViewModel(IMailDialogService dialogService,
         ISynchronizationManager synchronizationManager,
-        IAuthenticationProvider authenticationProvider,
         IAccountService accountService,
         IFolderService folderService,
         ICalendarService calendarService,
         IStatePersistanceService statePersistanceService,
         INewThemeService themeService,
         IImapTestService imapTestService,
-        INotificationBuilder notificationBuilder)
+        INotificationBuilder notificationBuilder,
+        INativeAppService nativeAppService)
     {
         _dialogService = dialogService;
         _synchronizationManager = synchronizationManager;
-        _authenticationProvider = authenticationProvider;
+        _nativeAppService = nativeAppService;
         _accountService = accountService;
         _folderService = folderService;
         _calendarService = calendarService;
@@ -511,12 +511,12 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
                 Account.IsMailAccessGranted = selectedOption.IsMailAccessGranted;
                 Account.IsCalendarAccessGranted = selectedOption.IsCalendarAccessGranted;
 
-                await InteractiveAuthHelper.AuthorizeAsync(
-                    _authenticationProvider,
+                await _synchronizationManager.HandleAuthorizationAsync(
                     Account.ProviderType,
                     Account,
                     Account.ProviderType == MailProviderType.Gmail,
-                    forceInteractive: true);
+                    forceInteractive: true,
+                    parentWindowHandle: (_nativeAppService.GetCoreWindowHwnd?.Invoke() ?? IntPtr.Zero).ToInt64());
             }
         }
         catch

@@ -179,21 +179,18 @@
 	  
     <PackageReference Include="Microsoft.Graphics.Win2D" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
-    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.MSIX">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
     <PackageReference Include="Microsoft.WindowsAppSDK" />
 	<PackageReference Include="Microsoft.Xaml.Behaviors.WinUI.Managed" />
 	<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
 	<PackageReference Include="Microsoft.Extensions.Logging" />
-	<PackageReference Include="Microsoft.Identity.Client" />
-	  
+
 	<PackageReference Include="ColorHashSharp" />
 	<PackageReference Include="gravatar-dotnet" />
 	<PackageReference Include="Sentry.Serilog" />
 	<PackageReference Include="Serilog.Extensions.Logging" />
-	<PackageReference Include="sqlite-net-pcl" />
+	<!-- The UI process never opens SQLite (the companion owns the database); Domain only
+	     uses sqlite-net attributes. Keep the native sqlite blob out of the package. -->
+	<PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" ExcludeAssets="all" />
 	<PackageReference Include="EmailValidation" />
 	<PackageReference Include="SkiaSharp.Views.WinUI" />
 	<PackageReference Include="WinUIEx" />

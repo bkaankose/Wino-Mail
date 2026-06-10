@@ -75,6 +75,7 @@ public class CompanionServiceGraphTests
         typeof(IMailService),
         typeof(ISentMailReceiptService),
         typeof(ISignatureService),
+        typeof(ISmimeService),
         typeof(ISynchronizationManager),
         typeof(IThumbnailCacheService),
         typeof(IWinoAccountDataSyncService),

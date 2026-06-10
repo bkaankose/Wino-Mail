@@ -14,7 +14,6 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.Windows.AppLifecycle;
 using Microsoft.Windows.AppNotifications;
-using MimeKit.Cryptography;
 using Sentry;
 using Windows.ApplicationModel.Activation;
 using Windows.ApplicationModel.DataTransfer;
@@ -114,7 +113,9 @@ public partial class App : WinoApplication,
         InitializeComponent();
 
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-        CryptographyContext.Register(typeof(WindowsSecureMimeContext));
+
+        // S/MIME cryptography (and its SecureMimeContext registration) lives in the
+        // background companion; the UI process performs no cryptographic operations.
 
         EnsureAppNotificationRegistration();
         RegisterRecipients();

@@ -32,6 +32,7 @@ public static class RemoteServicesContainerSetup
         services.AddSingleton<IMailService, MailServiceRemoteProxy>();
         services.AddSingleton<ISentMailReceiptService, SentMailReceiptServiceRemoteProxy>();
         services.AddSingleton<ISignatureService, SignatureServiceRemoteProxy>();
+        services.AddSingleton<ISmimeService, SmimeServiceRemoteProxy>();
         services.AddSingleton<ISynchronizationManager, SynchronizationManagerRemoteProxy>();
         services.AddSingleton<IThumbnailCacheService, ThumbnailCacheServiceRemoteProxy>();
         services.AddSingleton<IWinoAccountDataSyncService, WinoAccountDataSyncServiceRemoteProxy>();

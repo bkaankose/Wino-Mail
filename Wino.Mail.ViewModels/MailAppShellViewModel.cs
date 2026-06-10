@@ -76,7 +76,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private readonly IFolderService _folderService;
     private readonly IMailCategoryService _mailCategoryService;
     private readonly ISynchronizationManager _synchronizationManager;
-    private readonly IAuthenticationProvider _authenticationProvider;
     private readonly IConfigurationService _configurationService;
     private readonly IStartupBehaviorService _startupBehaviorService;
     private readonly IAccountService _accountService;
@@ -99,7 +98,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     public MailAppShellViewModel(IMailDialogService dialogService,
                              ISynchronizationManager synchronizationManager,
-                             IAuthenticationProvider authenticationProvider,
                              INavigationService navigationService,
                              IMimeFileService mimeFileService,
                              INativeAppService nativeAppService,
@@ -124,7 +122,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         PreferencesService = preferencesService;
         _dialogService = dialogService;
         _synchronizationManager = synchronizationManager;
-        _authenticationProvider = authenticationProvider;
         NavigationService = navigationService;
 
         _configurationService = configurationService;
@@ -782,12 +779,12 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             {
                 if (account.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook)
                 {
-                    await InteractiveAuthHelper.AuthorizeAsync(
-                        _authenticationProvider,
+                    await _synchronizationManager.HandleAuthorizationAsync(
                         account.ProviderType,
                         account,
                         account.ProviderType == MailProviderType.Gmail,
-                        forceInteractive: true);
+                        forceInteractive: true,
+                        parentWindowHandle: (_nativeAppService.GetCoreWindowHwnd?.Invoke() ?? IntPtr.Zero).ToInt64());
 
                     await _accountService.ClearAccountAttentionAsync(account.Id);
 

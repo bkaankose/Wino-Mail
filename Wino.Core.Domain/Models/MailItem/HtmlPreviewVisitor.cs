@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 using MimeKit;
-using MimeKit.Cryptography;
 using MimeKit.Text;
 using MimeKit.Tnef;
 
@@ -34,7 +33,6 @@ public class HtmlPreviewVisitor : MimeVisitor
     readonly string tempDir;
 
     public string Body { get; set; }
-    public Dictionary<IDigitalSignature, bool> Signatures = [];
 
     /// <summary>
     /// Creates a new HtmlPreviewVisitor.
@@ -95,11 +93,10 @@ public class HtmlPreviewVisitor : MimeVisitor
         stack.RemoveAt(stack.Count - 1);
     }
 
-    protected override void VisitMultipartSigned(MultipartSigned signed)
-    {
-        VerifySignatures(signed.Verify());
-        VisitMultipart(signed);
-    }
+    // S/MIME note: signature verification and decryption run in the background companion
+    // (ISmimeService.PrepareSmimeRenderAsync); this visitor receives the already
+    // decrypted/extracted message and never executes cryptography. multipart/signed falls
+    // through to the default multipart visit; pkcs7 parts are treated as attachments.
 
     // look up the image based on the img src url within our multipart/related stack
     bool TryGetImage(string url, out MimePart image)
@@ -476,40 +473,8 @@ public class HtmlPreviewVisitor : MimeVisitor
 
     protected override void VisitMimePart(MimePart entity)
     {
-        if (entity is ApplicationPkcs7Mime { SecureMimeType: SecureMimeType.EnvelopedData } encrypted)
-        {
-            encrypted.Decrypt().Accept(this);
-        }
-        else if (entity is ApplicationPkcs7Mime { SecureMimeType: SecureMimeType.SignedData } signed)
-        {
-            MimeEntity extracted;
-
-            VerifySignatures(signed.Verify(out extracted));
-
-            extracted.Accept(this);
-        }
-        else
-        {
-            // realistically, if we've gotten this far, then we can treat this as an attachment
-            // even if the IsAttachment property is false.
-            attachments.Add(entity);
-        }
-    }
-
-    private void VerifySignatures(DigitalSignatureCollection signatures)
-    {
-        foreach (var signature in signatures)
-        {
-            try
-            {
-                bool valid = signature.Verify();
-                Signatures.Add(signature, valid);
-            }
-            catch (DigitalSignatureVerifyException)
-            {
-                // There was an error verifying the signature.
-                Signatures.Add(signature, false);
-            }
-        }
+        // realistically, if we've gotten this far, then we can treat this as an attachment
+        // even if the IsAttachment property is false.
+        attachments.Add(entity);
     }
 }

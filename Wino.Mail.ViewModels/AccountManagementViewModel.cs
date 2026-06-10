@@ -52,9 +52,8 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                                       IWinoLogger winoLogger,
                                       ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
                                       ICalDavClient calDavClient,
-                                      IAuthenticationProvider authenticationProvider,
                                       IPreferencesService preferencesService,
-                                      ISynchronizationManager synchronizationManager) : base(dialogService, navigationService, accountService, providerService, storeManagementService, winoAccountProfileService, authenticationProvider, preferencesService)
+                                      ISynchronizationManager synchronizationManager) : base(dialogService, navigationService, accountService, providerService, storeManagementService, winoAccountProfileService, preferencesService)
     {
         MailDialogService = dialogService;
         _syncService = syncService;

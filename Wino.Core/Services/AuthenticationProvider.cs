@@ -32,4 +32,15 @@ public class AuthenticationProvider : IAuthenticationProvider
             _ => throw new ArgumentException(Translator.Exception_UnsupportedProvider),
         };
     }
+
+    public void SetInteractiveAuthorizationWindow(long parentWindowHandle)
+    {
+        // Authenticators read the parent window through INativeAppService at construction
+        // time (GetAuthenticator builds a fresh instance per call). In the headless
+        // companion the handle comes from the UI process over RPC; WAM's broker runs
+        // out-of-process, so a cross-process HWND is a valid parent.
+        _nativeAppService.GetCoreWindowHwnd = parentWindowHandle == 0
+            ? null
+            : () => new IntPtr(parentWindowHandle);
+    }
 }

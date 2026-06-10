@@ -5,7 +5,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using HtmlAgilityPack;
 using MimeKit;
-using MimeKit.Cryptography;
 using Serilog;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
@@ -230,13 +229,9 @@ public class MimeFileService : IMimeFileService
             ? message.TextBody.Trim()
             : HtmlAgilityPackExtensions.GetAccessibleText(finalRenderHtml);
 
+        // S/MIME state (signatures, encryption) is computed by the companion via
+        // ISmimeService and attached to the model by the rendering view model.
         var renderingModel = new MailRenderModel(finalRenderHtml, options, accessibleText);
-
-        renderingModel.Signatures = visitor.Signatures;
-
-        // S/MIME encryption detection: if the body is ApplicationPkcs7Mime and SecureMimeType is EnvelopedData
-        renderingModel.IsSmimeEncrypted = message.Body is ApplicationPkcs7Mime encrypted &&
-            encrypted.SecureMimeType == SecureMimeType.EnvelopedData;
 
         // Create attachments.
         foreach (var attachment in visitor.Attachments)

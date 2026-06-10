@@ -29,18 +29,21 @@ public class WinoRequestDelegator : IWinoRequestDelegator
     private readonly IMailDialogService _dialogService;
     private readonly IAccountService _accountService;
     private readonly ICalendarService _calendarService;
+    private readonly ISmimeService _smimeService;
 
     public WinoRequestDelegator(IWinoRequestProcessor winoRequestProcessor,
                                 IFolderService folderService,
                                 IMailDialogService dialogService,
                                 IAccountService accountService,
-                                ICalendarService calendarService)
+                                ICalendarService calendarService,
+                                ISmimeService smimeService)
     {
         _winoRequestProcessor = winoRequestProcessor;
         _folderService = folderService;
         _dialogService = dialogService;
         _accountService = accountService;
         _calendarService = calendarService;
+        _smimeService = smimeService;
     }
 
     public async Task ExecuteAsync(MailOperationPreperationRequest request)
@@ -189,6 +192,19 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
     public async Task ExecuteAsync(SendDraftPreparationRequest sendDraftPreperationRequest)
     {
+        // The UI prepares the message unprotected and only sets the S/MIME flags;
+        // all cryptography runs here in the companion process.
+        if (sendDraftPreperationRequest.SmimeSign || sendDraftPreperationRequest.SmimeEncrypt)
+        {
+            var protectedBase64Mime = await _smimeService.ApplyDraftSecurityAsync(
+                sendDraftPreperationRequest.Base64MimeMessage,
+                sendDraftPreperationRequest.SmimeSign,
+                sendDraftPreperationRequest.SmimeEncrypt,
+                sendDraftPreperationRequest.SmimeSigningCertificateThumbprint).ConfigureAwait(false);
+
+            sendDraftPreperationRequest = sendDraftPreperationRequest with { Base64MimeMessage = protectedBase64Mime };
+        }
+
         var request = new SendDraftRequest(sendDraftPreperationRequest);
         var account = sendDraftPreperationRequest.MailItem.AssignedAccount;
 
