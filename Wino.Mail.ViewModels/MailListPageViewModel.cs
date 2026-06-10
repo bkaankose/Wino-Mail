@@ -825,16 +825,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         if (targetMail?.MailCopy == null || targetMail.MailCopy.FileId == Guid.Empty)
             return;
 
-        var mimeInformation = await _mimeFileService.GetMimeMessageInformationAsync(targetMail.MailCopy.FileId, targetMail.MailCopy.AssignedAccount.Id);
-        if (mimeInformation?.MimeMessage == null)
-            return;
-
         var draftOptions = new DraftCreationOptions
         {
             Reason = reason,
             ReferencedMessage = new ReferencedMessage
             {
-                MimeMessage = mimeInformation.MimeMessage,
                 MailCopy = targetMail.MailCopy
             }
         };
@@ -1632,7 +1627,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         List<MailCopy> preFetchedMailCopies = null,
         bool deduplicateByServerId = false)
     {
-        var options = new MailListInitializationOptions(ActiveFolder.HandlingFolders,
+        var options = new MailListInitializationOptions(ActiveFolder.HandlingFolders.OfType<MailItemFolder>().ToList(),
                                                         SelectedFilterOption.Type,
                                                         SelectedSortingOption.Type,
                                                         PreferencesService.IsThreadingEnabled,

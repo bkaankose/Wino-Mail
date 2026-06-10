@@ -47,7 +47,12 @@ public interface IMailService
     Task CreateAssignmentsAsync(Guid accountId, IEnumerable<MailFolderAssignmentUpdate> assignments);
     Task DeleteAssignmentsAsync(Guid accountId, IEnumerable<MailFolderAssignmentUpdate> assignments);
 
+    // NewMailItemPackage carries a MimeMessage and cannot cross the RPC pipe.
+    // These are synchronizer-internal calls that only run in the companion process.
+    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     Task<bool> CreateMailAsync(Guid accountId, NewMailItemPackage package);
+
+    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     Task CreateMailsAsync(Guid accountId, IReadOnlyList<NewMailItemPackage> packages);
 
     /// <summary>
@@ -162,6 +167,7 @@ public interface IMailService
     /// <param name="mailItemFolder">Assigned folder.</param>
     /// <param name="package">Mail creation package.</param>
     /// <returns></returns>
+    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     Task CreateMailRawAsync(MailAccount account, MailItemFolder mailItemFolder, NewMailItemPackage package);
 
     /// <summary>

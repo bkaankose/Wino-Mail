@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
@@ -207,6 +207,7 @@
 	<ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
 	<ProjectReference Include="..\Wino.Ipc\Wino.Ipc.csproj" />
 	<ProjectReference Include="..\Wino.Ipc.Contracts\Wino.Ipc.Contracts.csproj" />
+	<ProjectReference Include="..\Wino.Ipc.Serialization\Wino.Ipc.Serialization.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Page Update="Views\Settings\ContactsPage.xaml">

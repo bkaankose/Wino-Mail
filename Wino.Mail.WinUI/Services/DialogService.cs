@@ -109,19 +109,19 @@ public class DialogService : DialogServiceBase, IMailDialogService
         }
     }
 
-    public async Task<IMailItemFolder> ShowMoveMailFolderDialogAsync(List<IMailItemFolder> availableFolders)
+    public async Task<MailItemFolder> ShowMoveMailFolderDialogAsync(List<MailItemFolder> availableFolders)
     {
-        var moveDialog = new MoveMailDialog(availableFolders)
+        var moveDialog = new MoveMailDialog([.. availableFolders])
         {
             RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
         };
 
         await HandleDialogPresentationAsync(moveDialog);
 
-        return moveDialog.SelectedFolder;
+        return moveDialog.SelectedFolder as MailItemFolder;
     }
 
-    public async Task<IMailItemFolder> PickFolderAsync(Guid accountId, PickFolderReason reason, IFolderService folderService)
+    public async Task<MailItemFolder> PickFolderAsync(Guid accountId, PickFolderReason reason, IFolderService folderService)
     {
         var allFolders = await folderService.GetFolderStructureForAccountAsync(accountId, true);
 

@@ -1,5 +1,5 @@
-﻿using Wino.Core.Domain.Models.Folders;
+using Wino.Core.Domain.Entities.Mail;
 
 namespace Wino.Messaging.UI;
 
-public record FolderSynchronizationEnabled(IMailItemFolder MailItemFolder) : UIMessageBase<FolderSynchronizationEnabled>;
+public record FolderSynchronizationEnabled(MailItemFolder MailItemFolder) : UIMessageBase<FolderSynchronizationEnabled>;

@@ -489,7 +489,7 @@ public class MailFetchingTests : IAsyncLifetime
         bool deduplicateByServerId = false)
     {
         return new MailListInitializationOptions(
-            Folders: folders,
+            Folders: folders.ToList(),
             FilterType: FilterOptionType.All,
             SortingOptionType: SortingOptionType.ReceiveDate,
             CreateThreads: createThreads,

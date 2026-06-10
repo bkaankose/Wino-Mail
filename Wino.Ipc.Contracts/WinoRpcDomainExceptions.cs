@@ -1,5 +1,4 @@
 using System;
-using System.Text.Json;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Ipc.Protocol;
@@ -19,11 +18,7 @@ public static class WinoRpcDomainExceptions
     private const string AccountSetupCanceledKey = "AccountSetupCanceled";
     private const string InvalidMoveTargetKey = "InvalidMoveTarget";
 
-    private sealed record InteractiveAuthRequiredState(Guid AccountId, string? Message);
 
-    private sealed record UnavailableSpecialFolderState(SpecialFolderType SpecialFolderType, Guid AccountId);
-
-    private sealed record InvalidMoveTargetState(InvalidMoveTargetReason Reason);
 
     /// <summary>
     /// Server-side mapping used by the RPC connection's exception mapper.
@@ -41,7 +36,7 @@ public static class WinoRpcDomainExceptions
                                             interactiveAuth.GetType().FullName,
                                             interactiveAuth.StackTrace,
                                             InteractiveAuthRequiredKey,
-                                            JsonSerializer.Serialize(new InteractiveAuthRequiredState(interactiveAuth.AccountId, interactiveAuth.Message), WinoIpcJson.Options));
+                                            WinoIpcJson.SerializeToString(new InteractiveAuthRequiredState(interactiveAuth.AccountId, interactiveAuth.Message)));
 
             case AuthenticationAttentionException authenticationAttention:
                 // The account entity does not need to cross; the UI re-resolves it by id.
@@ -50,7 +45,7 @@ public static class WinoRpcDomainExceptions
                                             authenticationAttention.GetType().FullName,
                                             authenticationAttention.StackTrace,
                                             InteractiveAuthRequiredKey,
-                                            JsonSerializer.Serialize(new InteractiveAuthRequiredState(authenticationAttention.Account?.Id ?? Guid.Empty, authenticationAttention.Message), WinoIpcJson.Options));
+                                            WinoIpcJson.SerializeToString(new InteractiveAuthRequiredState(authenticationAttention.Account?.Id ?? Guid.Empty, authenticationAttention.Message)));
 
             case UnavailableSpecialFolderException unavailableSpecialFolder:
                 return new RpcErrorEnvelope(RpcErrorTypes.Exception,
@@ -58,7 +53,7 @@ public static class WinoRpcDomainExceptions
                                             unavailableSpecialFolder.GetType().FullName,
                                             unavailableSpecialFolder.StackTrace,
                                             UnavailableSpecialFolderKey,
-                                            JsonSerializer.Serialize(new UnavailableSpecialFolderState(unavailableSpecialFolder.SpecialFolderType, unavailableSpecialFolder.AccountId), WinoIpcJson.Options));
+                                            WinoIpcJson.SerializeToString(new UnavailableSpecialFolderState(unavailableSpecialFolder.SpecialFolderType, unavailableSpecialFolder.AccountId)));
 
             case AccountSetupCanceledException:
                 return new RpcErrorEnvelope(RpcErrorTypes.Exception,
@@ -73,7 +68,7 @@ public static class WinoRpcDomainExceptions
                                             invalidMoveTarget.GetType().FullName,
                                             invalidMoveTarget.StackTrace,
                                             InvalidMoveTargetKey,
-                                            JsonSerializer.Serialize(new InvalidMoveTargetState(invalidMoveTarget.Reason), WinoIpcJson.Options));
+                                            WinoIpcJson.SerializeToString(new InvalidMoveTargetState(invalidMoveTarget.Reason)));
 
             default:
                 return new RpcErrorEnvelope(RpcErrorTypes.Exception,
@@ -119,5 +114,5 @@ public static class WinoRpcDomainExceptions
     private static TState? DeserializeState<TState>(RpcErrorEnvelope error) where TState : class
         => error.DomainExceptionPayloadJson == null
             ? null
-            : JsonSerializer.Deserialize<TState>(error.DomainExceptionPayloadJson, WinoIpcJson.Options);
+            : WinoIpcJson.DeserializeFromString<TState>(error.DomainExceptionPayloadJson);
 }

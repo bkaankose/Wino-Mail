@@ -77,10 +77,14 @@ public class MailAccountAlias : RemoteAccountAlias
     public string SelectedSigningCertificateThumbprint { get; set; }
     public bool IsSmimeEncryptionEnabled { get; set; }
 
+    // UI-local certificate state. Not persisted (thumbprint string is) and excluded
+    // from JSON so aliases can cross the UI <-> companion pipe.
     [Ignore]
+    [System.Text.Json.Serialization.JsonIgnore]
     public X509Certificate2 SelectedSigningCertificate { get; set; }
 
     [Ignore]
+    [System.Text.Json.Serialization.JsonIgnore]
     public ObservableCollection<X509Certificate2> Certificates { get; set; } = [];
 
     [Ignore]

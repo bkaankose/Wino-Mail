@@ -68,6 +68,9 @@ public static class Program
     {
         _mainThreadId = GetCurrentThreadId();
 
+        // Source-generated serialization for all RPC payloads; required before any pipe traffic.
+        WinoIpcJson.Initialize(Wino.Ipc.Serialization.WinoIpcJsonContext.Default);
+
         ConfigureBootstrapLogging();
 
         Log.Information("Wino background service starting. Args: {Args}", activationArguments ?? "<none>");

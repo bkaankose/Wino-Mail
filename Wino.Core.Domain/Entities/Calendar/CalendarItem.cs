@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using Itenso.TimePeriod;
 using SQLite;
@@ -50,6 +50,10 @@ public class CalendarItem : ICalendarItem
     public string EndTimeZone { get; set; }
 
     private ITimePeriod _period;
+
+    // Computed from StartDate/EndDate; interface-typed and excluded from both stores.
+    [Ignore]
+    [System.Text.Json.Serialization.JsonIgnore]
     public ITimePeriod Period
     {
         get

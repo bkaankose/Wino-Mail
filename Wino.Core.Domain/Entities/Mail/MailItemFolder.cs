@@ -48,8 +48,9 @@ public class MailItemFolder : IMailItemFolder
     public string TextColorHex { get; set; }
     public string BackgroundColorHex { get; set; }
 
+    // Concrete element type so folder trees can cross the UI <-> companion pipe.
     [Ignore]
-    public List<IMailItemFolder> ChildFolders { get; set; } = [];
+    public List<MailItemFolder> ChildFolders { get; set; } = [];
 
     // Category and Move type folders are not valid move targets.
     // These folders are virtual. They don't exist on the server.

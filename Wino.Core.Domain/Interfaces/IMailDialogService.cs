@@ -28,7 +28,7 @@ public interface IMailDialogService : IDialogServiceBase
     Task HandleSystemFolderConfigurationDialogAsync(Guid accountId, IFolderService folderService);
 
     // Custom dialogs
-    Task<IMailItemFolder> ShowMoveMailFolderDialogAsync(List<IMailItemFolder> availableFolders);
+    Task<MailItemFolder> ShowMoveMailFolderDialogAsync(List<MailItemFolder> availableFolders);
     Task<MailAccount> ShowAccountPickerDialogAsync(List<MailAccount> availableAccounts);
     Task<AccountCalendarPickingResult> ShowSingleCalendarPickerDialogAsync(List<CalendarPickerAccountGroup> availableCalendarGroups);
 
@@ -45,7 +45,7 @@ public interface IMailDialogService : IDialogServiceBase
     /// <param name="accountId">Account to get folders for.</param>
     /// <param name="reason">The reason behind the picking operation
     /// <returns>Selected folder structure. Null if none.</returns>
-    Task<IMailItemFolder> PickFolderAsync(Guid accountId, PickFolderReason reason, IFolderService folderService);
+    Task<MailItemFolder> PickFolderAsync(Guid accountId, PickFolderReason reason, IFolderService folderService);
 
     /// <summary>
     /// Presents a dialog to the user for signature creation/modification.

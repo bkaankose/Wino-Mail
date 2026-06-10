@@ -31,6 +31,9 @@ public class Program
     {
         WinRT.ComWrappersSupport.InitializeComWrappers();
 
+        // Source-generated serialization for all RPC payloads; required before any pipe traffic.
+        Wino.Ipc.Contracts.WinoIpcJson.Initialize(Wino.Ipc.Serialization.WinoIpcJsonContext.Default);
+
         if (TryCaptureCommandLineToastActivation(args))
         {
             _shouldRegisterAppNotifications = true;

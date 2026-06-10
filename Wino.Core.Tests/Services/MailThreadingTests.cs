@@ -102,7 +102,8 @@ public class MailThreadingTests : IAsyncLifetime
             UniqueId = Guid.NewGuid(),
             Id = Guid.NewGuid().ToString(),
             ThreadId = "provider-thread-id",
-            MessageId = parentMessageId
+            MessageId = parentMessageId,
+            FileId = RegisterReferencedMime(referencedMimeMessage)
         };
 
         var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(
@@ -112,7 +113,6 @@ public class MailThreadingTests : IAsyncLifetime
                 Reason = DraftCreationReason.Reply,
                 ReferencedMessage = new ReferencedMessage
                 {
-                    MimeMessage = referencedMimeMessage,
                     MailCopy = referencedMailCopy
                 }
             });
@@ -146,8 +146,7 @@ public class MailThreadingTests : IAsyncLifetime
                 Reason = DraftCreationReason.Reply,
                 ReferencedMessage = new ReferencedMessage
                 {
-                    MimeMessage = referencedMimeMessage,
-                    MailCopy = new MailCopy { UniqueId = Guid.NewGuid(), Id = Guid.NewGuid().ToString(), MessageId = parentMessageId }
+                    MailCopy = new MailCopy { UniqueId = Guid.NewGuid(), Id = Guid.NewGuid().ToString(), MessageId = parentMessageId, FileId = RegisterReferencedMime(referencedMimeMessage) }
                 }
             });
 
@@ -173,7 +172,8 @@ public class MailThreadingTests : IAsyncLifetime
             UniqueId = Guid.NewGuid(),
             Id = Guid.NewGuid().ToString(),
             MessageId = parentMessageId,
-            References = rootMessageId
+            References = rootMessageId,
+            FileId = RegisterReferencedMime(referencedMimeMessage)
         };
 
         var (draftMailCopy, _) = await _mailService.CreateDraftAsync(
@@ -183,7 +183,6 @@ public class MailThreadingTests : IAsyncLifetime
                 Reason = DraftCreationReason.Reply,
                 ReferencedMessage = new ReferencedMessage
                 {
-                    MimeMessage = referencedMimeMessage,
                     MailCopy = referencedMailCopy
                 }
             });
@@ -219,8 +218,7 @@ public class MailThreadingTests : IAsyncLifetime
                 Reason = DraftCreationReason.Reply,
                 ReferencedMessage = new ReferencedMessage
                 {
-                    MimeMessage = referencedMimeMessage,
-                    MailCopy = new MailCopy { UniqueId = Guid.NewGuid(), Id = Guid.NewGuid().ToString(), MessageId = "alias-parent@domain.com" }
+                    MailCopy = new MailCopy { UniqueId = Guid.NewGuid(), Id = Guid.NewGuid().ToString(), MessageId = "alias-parent@domain.com", FileId = RegisterReferencedMime(referencedMimeMessage) }
                 }
             });
 
@@ -454,7 +452,21 @@ public class MailThreadingTests : IAsyncLifetime
         public void Receive(BulkMailReadStatusChanged message) => BulkUpdates.Add(message);
     }
 
-    private static MailService BuildMailService(InMemoryDatabaseService db)
+    /// <summary>
+    /// ReferencedMessage no longer carries a MimeMessage over the pipe; MailService loads
+    /// it from the MIME store by MailCopy.FileId. Tests register the referenced MIME here
+    /// and stamp the returned FileId on the referenced MailCopy.
+    /// </summary>
+    private readonly Dictionary<Guid, MimeMessage> _storedMimeMessages = [];
+
+    private Guid RegisterReferencedMime(MimeMessage mimeMessage)
+    {
+        var fileId = Guid.NewGuid();
+        _storedMimeMessages[fileId] = mimeMessage;
+        return fileId;
+    }
+
+    private MailService BuildMailService(InMemoryDatabaseService db)
     {
         var signatureService = new Mock<ISignatureService>();
         var authProvider = new Mock<IAuthenticationProvider>();
@@ -465,6 +477,10 @@ public class MailThreadingTests : IAsyncLifetime
         mimeFileService
             .Setup(x => x.CreateHTMLPreviewVisitor(It.IsAny<MimeMessage>(), It.IsAny<string>()))
             .Returns<MimeMessage, string>((_, _) => new HtmlPreviewVisitor(string.Empty));
+        mimeFileService
+            .Setup(x => x.GetMimeMessageInformationAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid fileId, Guid _, CancellationToken _) =>
+                _storedMimeMessages.TryGetValue(fileId, out var mime) ? new MimeMessageInformation(mime, string.Empty) : null);
 
         var preferencesService = new Mock<IPreferencesService>();
         preferencesService.SetupProperty(x => x.ComposerFont, "Calibri");

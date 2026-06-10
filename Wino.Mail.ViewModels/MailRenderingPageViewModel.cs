@@ -329,7 +329,6 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
                     },
                     ReferencedMessage = new ReferencedMessage()
                     {
-                        MimeMessage = initializedMimeMessageInformation.MimeMessage,
                         MailCopy = initializedMailItemViewModel.MailCopy
                     }
                 };

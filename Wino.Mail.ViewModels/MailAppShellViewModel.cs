@@ -660,7 +660,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                 var accountId = group.Key;
 
                 // Find the target folder for this account.
-                var handlingAccountFolder = mergedAccountFolderMenuItem.HandlingFolders.FirstOrDefault(a => a.MailAccountId == accountId);
+                var handlingAccountFolder = mergedAccountFolderMenuItem.HandlingFolders.OfType<MailItemFolder>().FirstOrDefault(a => a.MailAccountId == accountId);
 
                 if (handlingAccountFolder == null)
                 {
@@ -677,7 +677,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             // User dropped mails to a single folder.
             // Create a single move package for this folder.
 
-            var package = new MailOperationPreperationRequest(MailOperation.Move, items, false, targetFolderMenuItem.HandlingFolders.First());
+            var package = new MailOperationPreperationRequest(MailOperation.Move, items, false, targetFolderMenuItem.HandlingFolders.OfType<MailItemFolder>().First());
 
             await _winoRequestDelegator.ExecuteAsync(package);
         }

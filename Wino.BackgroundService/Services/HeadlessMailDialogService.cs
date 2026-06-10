@@ -43,11 +43,11 @@ public sealed class HeadlessMailDialogService : IMailDialogService
     public Task<string> ShowTextInputDialogAsync(string currentInput, string dialogTitle, string dialogDescription, string primaryButtonText)
         => Task.FromResult(Cancelled<string>(nameof(ShowTextInputDialogAsync), null!));
 
-    public Task<IMailItemFolder> PickFolderAsync(Guid accountId, PickFolderReason reason, IFolderService folderService)
-        => Task.FromResult(Cancelled<IMailItemFolder>(nameof(PickFolderAsync), null!));
+    public Task<MailItemFolder> PickFolderAsync(Guid accountId, PickFolderReason reason, IFolderService folderService)
+        => Task.FromResult(Cancelled<MailItemFolder>(nameof(PickFolderAsync), null!));
 
-    public Task<IMailItemFolder> ShowMoveMailFolderDialogAsync(List<IMailItemFolder> availableFolders)
-        => Task.FromResult(Cancelled<IMailItemFolder>(nameof(ShowMoveMailFolderDialogAsync), null!));
+    public Task<MailItemFolder> ShowMoveMailFolderDialogAsync(List<MailItemFolder> availableFolders)
+        => Task.FromResult(Cancelled<MailItemFolder>(nameof(ShowMoveMailFolderDialogAsync), null!));
 
     public Task<ThreeButtonDialogResult> ShowThreeButtonDialogAsync(string title, string description, string primaryButtonText, string secondaryButtonText, string cancelButtonText, WinoCustomMessageDialogIcon? icon = null)
         => Task.FromResult(Cancelled(nameof(ShowThreeButtonDialogAsync), default(ThreeButtonDialogResult)));

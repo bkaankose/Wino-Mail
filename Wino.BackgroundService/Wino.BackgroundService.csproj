@@ -40,5 +40,6 @@
 		<ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
 		<ProjectReference Include="..\Wino.Ipc\Wino.Ipc.csproj" />
 		<ProjectReference Include="..\Wino.Ipc.Contracts\Wino.Ipc.Contracts.csproj" />
+		<ProjectReference Include="..\Wino.Ipc.Serialization\Wino.Ipc.Serialization.csproj" />
 	</ItemGroup>
 </Project>

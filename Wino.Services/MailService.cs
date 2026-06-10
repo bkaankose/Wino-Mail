@@ -60,8 +60,9 @@ public class MailService : BaseDatabaseService, IMailService
     public async Task<(MailCopy draftMailCopy, string draftBase64MimeMessage)> CreateDraftAsync(Guid accountId, DraftCreationOptions draftCreationOptions)
     {
         var composerAccount = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
-        var selectedAlias = await ResolveDraftAliasAsync(composerAccount, draftCreationOptions).ConfigureAwait(false);
-        var createdDraftMimeMessage = await CreateDraftMimeAsync(composerAccount, draftCreationOptions, selectedAlias).ConfigureAwait(false);
+        var referencedMimeMessage = await LoadReferencedMimeMessageAsync(accountId, draftCreationOptions?.ReferencedMessage).ConfigureAwait(false);
+        var selectedAlias = await ResolveDraftAliasAsync(composerAccount, referencedMimeMessage).ConfigureAwait(false);
+        var createdDraftMimeMessage = await CreateDraftMimeAsync(composerAccount, draftCreationOptions, selectedAlias, referencedMimeMessage).ConfigureAwait(false);
 
         var draftFolder = await _folderService.GetSpecialFolderByAccountIdAsync(composerAccount.Id, SpecialFolderType.Draft);
 
@@ -1604,7 +1605,24 @@ public class MailService : BaseDatabaseService, IMailService
             ? Task.CompletedTask
             : _mailCategoryService.ReplaceMailAssignmentsAsync(accountId, mailCopy.UniqueId, package.CategoryNames);
 
-    private async Task<MimeMessage> CreateDraftMimeAsync(MailAccount account, DraftCreationOptions draftCreationOptions, MailAccountAlias selectedAlias)
+    /// <summary>
+    /// Loads the MIME of the replied-to/forwarded mail from the shared MIME storage.
+    /// ReferencedMessage crosses the RPC pipe with only the MailCopy; the actual
+    /// MimeMessage is re-read here via its FileId.
+    /// </summary>
+    private async Task<MimeMessage> LoadReferencedMimeMessageAsync(Guid accountId, ReferencedMessage referencedMessage)
+    {
+        if (referencedMessage?.MailCopy == null)
+            return null;
+
+        var mimeMessageInformation = await _mimeFileService
+            .GetMimeMessageInformationAsync(referencedMessage.MailCopy.FileId, accountId)
+            .ConfigureAwait(false);
+
+        return mimeMessageInformation?.MimeMessage;
+    }
+
+    private async Task<MimeMessage> CreateDraftMimeAsync(MailAccount account, DraftCreationOptions draftCreationOptions, MailAccountAlias selectedAlias, MimeMessage referencedMimeMessage)
     {
         // This unique id is stored in mime headers for Wino to identify remote message with local copy.
         // Same unique id will be used for the local copy as well.
@@ -1634,7 +1652,7 @@ public class MailService : BaseDatabaseService, IMailService
         _ = draftCreationOptions.Reason switch
         {
             DraftCreationReason.Empty => CreateEmptyDraft(builder, message, draftCreationOptions, signature),
-            _ => CreateReferencedDraft(builder, message, draftCreationOptions, signature, ownAddresses),
+            _ => CreateReferencedDraft(builder, message, draftCreationOptions, signature, ownAddresses, referencedMimeMessage),
         };
 
         // TODO: Migration
@@ -1645,15 +1663,13 @@ public class MailService : BaseDatabaseService, IMailService
         return message;
     }
 
-    private async Task<MailAccountAlias> ResolveDraftAliasAsync(MailAccount account, DraftCreationOptions draftCreationOptions)
+    private async Task<MailAccountAlias> ResolveDraftAliasAsync(MailAccount account, MimeMessage referencedMessage)
     {
         var aliases = await _accountService.GetAccountAliasesAsync(account.Id).ConfigureAwait(false);
         var primaryAlias = aliases.FirstOrDefault(a => a.IsPrimary) ?? aliases.FirstOrDefault();
 
-        if (draftCreationOptions?.ReferencedMessage?.MimeMessage == null)
+        if (referencedMessage == null)
             return primaryAlias;
-
-        var referencedMessage = draftCreationOptions.ReferencedMessage.MimeMessage;
 
         MailAccountAlias FindAlias(string address)
         {
@@ -1760,10 +1776,10 @@ public class MailService : BaseDatabaseService, IMailService
                                               MimeMessage message,
                                               DraftCreationOptions draftCreationOptions,
                                               string signature,
-                                              ISet<string> ownAddresses)
+                                              ISet<string> ownAddresses,
+                                              MimeMessage referenceMessage)
     {
         var reason = draftCreationOptions.Reason;
-        var referenceMessage = draftCreationOptions.ReferencedMessage.MimeMessage;
         var referenceMailCopy = draftCreationOptions.ReferencedMessage.MailCopy;
         ownAddresses ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 

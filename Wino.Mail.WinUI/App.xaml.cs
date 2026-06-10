@@ -1055,7 +1055,6 @@ public partial class App : WinoApplication,
             },
             ReferencedMessage = new ReferencedMessage
             {
-                MimeMessage = mimeInformation.MimeMessage,
                 MailCopy = mailItem
             }
         };
