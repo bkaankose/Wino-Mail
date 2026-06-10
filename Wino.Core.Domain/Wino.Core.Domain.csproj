@@ -5,8 +5,8 @@
 		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
 		<Platforms>x86;x64;arm64</Platforms>
 		<AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
-		<IsTrimmable>true</IsTrimmable>
-		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+		<!-- Implies IsTrimmable + trim/AOT/single-file analyzers. -->
+		<IsAotCompatible>true</IsAotCompatible>
 		<TreatWarningsAsErrors>false</TreatWarningsAsErrors>
 	</PropertyGroup>
 	<ItemGroup>

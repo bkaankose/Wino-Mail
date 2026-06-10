@@ -14,6 +14,10 @@
          Wino.BackgroundService under a single package identity. -->
     <EnableMsixTooling>false</EnableMsixTooling>
     <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
+    <!-- Surface trim/AOT analyzer warnings in app code ahead of a PublishAot experiment.
+         Does not change publish behavior by itself. -->
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
     <Nullable>enable</Nullable>
 	<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	<!-- Single instancing -->
