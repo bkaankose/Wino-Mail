@@ -225,7 +225,8 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     /// </summary>
     private async Task DetectAuthMethodAsync()
     {
-        if (string.IsNullOrWhiteSpace(EwsUrl) || !Uri.TryCreate(EwsUrl.Trim(), UriKind.Absolute, out _))
+        // Never probe a non-HTTPS endpoint — the probe carries the mailbox identity header.
+        if (!IsHttpsUrl(EwsUrl))
             return;
 
         var probe = await _authCapabilityProbe.ProbeAsync(EwsUrl.Trim(), EmailAddress?.Trim());
@@ -309,8 +310,8 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         {
             DisplayName = DisplayName.Trim(),
             EmailAddress = EmailAddress.Trim(),
-            IsMailAccessGranted = true,
-            IsCalendarAccessGranted = true, // EWS calendar sync (Phase 2) is implemented
+            IsMailAccessGranted = _wizardContext.IsMailAccessEnabled,
+            IsCalendarAccessGranted = _wizardContext.IsCalendarAccessEnabled,
             ServerInformation = serverInformation
         };
 

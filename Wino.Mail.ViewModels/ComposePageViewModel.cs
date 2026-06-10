@@ -721,7 +721,10 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         MailAccountAlias primaryAlias = null;
 
-        if (!string.IsNullOrEmpty(CurrentMailDraftItem.FromAddress))
+        // On-premises Exchange can't send from an alias (the transport rewrites From to the primary),
+        // so force the primary/root alias and ignore any alias a draft may have carried over.
+        if (composingAccount.ProviderType != MailProviderType.Exchange &&
+            !string.IsNullOrEmpty(CurrentMailDraftItem.FromAddress))
         {
             primaryAlias = aliases.Find(a => a.AliasAddress == CurrentMailDraftItem.FromAddress);
         }

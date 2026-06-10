@@ -27,8 +27,14 @@ public sealed class ExchangeAuthCapabilityProbe : IExchangeAuthCapabilityProbe
 
     public async Task<ExchangeAuthProbeResult> ProbeAsync(string ewsUrl, string emailAddress, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(ewsUrl) || !Uri.TryCreate(ewsUrl, UriKind.Absolute, out var uri))
+        // Require HTTPS — this request carries the mailbox identity (X-AnchorMailbox/X-User-Identity),
+        // so it must never go out over plaintext http.
+        if (string.IsNullOrWhiteSpace(ewsUrl) ||
+            !Uri.TryCreate(ewsUrl, UriKind.Absolute, out var uri) ||
+            uri.Scheme != Uri.UriSchemeHttps)
+        {
             return ExchangeAuthProbeResult.Unknown;
+        }
 
         try
         {
