@@ -157,8 +157,8 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         // Fields are already known for an existing account — reveal them without requiring Discover.
         IsDiscovered = true;
         StatusMessage = UseModernAuth
-            ? "Saving will re-run sign-in with your identity provider."
-            : "Re-enter the mailbox password to update the stored credentials.";
+            ? Translator.ExchangeSettingsPage_Status_EditModernAuth
+            : Translator.ExchangeSettingsPage_Status_EditPassword;
     }
 
     /// <summary>
@@ -170,7 +170,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     {
         if (string.IsNullOrWhiteSpace(EmailAddress))
         {
-            ValidationMessage = "Enter an email address first.";
+            ValidationMessage = Translator.ExchangeSettingsPage_Validation_EmailRequired;
             return;
         }
 
@@ -194,7 +194,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
             await DetectAuthMethodAsync();
 
             if (string.IsNullOrWhiteSpace(EwsUrl))
-                StatusMessage = "Couldn't auto-discover the EWS URL — enter it below.";
+                StatusMessage = Translator.ExchangeSettingsPage_Status_EwsUrlNotDiscovered;
 
             // Reveal the remaining fields (filled from discovery, or for manual entry on fallback).
             IsDiscovered = true;
@@ -240,12 +240,12 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
                 UseModernAuth = true;
 
                 StatusMessage = string.IsNullOrWhiteSpace(OAuthAuthority)
-                    ? "Modern authentication is available — enter your identity provider's authority in Advanced settings."
-                    : $"Modern authentication discovered — using {OAuthAuthority}.";
+                    ? Translator.ExchangeSettingsPage_Status_ModernAuthAvailableNoAuthority
+                    : string.Format(Translator.ExchangeSettingsPage_Status_ModernAuthDiscovered, OAuthAuthority);
                 break;
             case ExchangeAuthCapability.BasicOnly:
                 UseModernAuth = false;
-                StatusMessage = "This server offers password (NTLM/Basic) authentication.";
+                StatusMessage = Translator.ExchangeSettingsPage_Status_BasicOnly;
                 break;
         }
     }
@@ -259,13 +259,13 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
             string.IsNullOrWhiteSpace(EmailAddress) ||
             string.IsNullOrWhiteSpace(EwsUrl))
         {
-            ValidationMessage = "Display name, email address, and EWS URL are required.";
+            ValidationMessage = Translator.ExchangeSettingsPage_Validation_RequiredFields;
             return;
         }
 
         if (!IsHttpsUrl(EwsUrl))
         {
-            ValidationMessage = "Enter a valid HTTPS EWS URL, e.g. https://mail.example.com/EWS/Exchange.asmx";
+            ValidationMessage = Translator.ExchangeSettingsPage_Validation_EwsUrlInvalid;
             return;
         }
 
@@ -281,7 +281,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         {
             if (string.IsNullOrWhiteSpace(Password))
             {
-                ValidationMessage = "Password is required for NTLM/Basic authentication.";
+                ValidationMessage = Translator.ExchangeSettingsPage_Validation_PasswordRequired;
                 return;
             }
 
@@ -328,7 +328,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         var account = await _accountService.GetAccountAsync(accountId);
         if (account == null)
         {
-            ValidationMessage = "The account could not be found.";
+            ValidationMessage = Translator.ExchangeSettingsPage_Validation_AccountNotFound;
             return;
         }
 
@@ -370,13 +370,13 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     {
         if (string.IsNullOrWhiteSpace(OAuthAuthority))
         {
-            ValidationMessage = "Authority URL is required for modern auth (e.g. https://adfs.example.com/adfs).";
+            ValidationMessage = Translator.ExchangeSettingsPage_Validation_AuthorityRequired;
             return null;
         }
 
         if (!IsHttpsUrl(OAuthAuthority))
         {
-            ValidationMessage = "The authority URL must use HTTPS.";
+            ValidationMessage = Translator.ExchangeSettingsPage_Validation_AuthorityNotHttps;
             return null;
         }
 
@@ -396,14 +396,14 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
 
         if (!IsHttpsUrl(resource))
         {
-            ValidationMessage = "The OAuth resource must use HTTPS.";
+            ValidationMessage = Translator.ExchangeSettingsPage_Validation_ResourceNotHttps;
             return null;
         }
 
         // The redirect must be HTTPS, except a loopback address (used by the non-WebView2 flow).
         if (!IsHttpsUrl(redirectUri) && !IsLoopbackUrl(redirectUri))
         {
-            ValidationMessage = "The redirect URI must use HTTPS (or a loopback address).";
+            ValidationMessage = Translator.ExchangeSettingsPage_Validation_RedirectUriNotHttps;
             return null;
         }
 
@@ -423,7 +423,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
 
             if (string.IsNullOrEmpty(tokenSet.RefreshToken))
             {
-                ValidationMessage = "Sign-in succeeded but no refresh token was returned (the issuer must grant offline_access).";
+                ValidationMessage = Translator.ExchangeSettingsPage_Validation_NoRefreshToken;
                 return null;
             }
 
@@ -445,7 +445,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         }
         catch (Exception ex)
         {
-            ValidationMessage = $"Sign-in failed: {ex.Message}";
+            ValidationMessage = string.Format(Translator.ExchangeSettingsPage_Validation_SignInFailed, ex.Message);
             return null;
         }
         finally

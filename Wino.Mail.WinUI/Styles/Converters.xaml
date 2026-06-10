@@ -3,7 +3,6 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:converters="using:Wino.Converters">
     <converters:ReverseBooleanToVisibilityConverter x:Key="ReverseBooleanToVisibilityConverter" />
-    <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
     <converters:ReverseBooleanConverter x:Key="ReverseBooleanConverter" />
     <converters:GridLengthConverter x:Key="GridLengthConverter" />
 </ResourceDictionary>

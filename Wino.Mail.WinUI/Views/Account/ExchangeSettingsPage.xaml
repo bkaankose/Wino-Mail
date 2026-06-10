@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
@@ -17,65 +18,65 @@
 
             <TextBlock
                 Style="{ThemeResource SubtitleTextBlockStyle}"
-                Text="On-premises Exchange (EWS)" />
+                Text="{x:Bind domain:Translator.ExchangeSettingsPage_Title}" />
 
             <TextBlock
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Text="Connect to an on-premises Exchange mailbox using Exchange Web Services."
+                Text="{x:Bind domain:Translator.ExchangeSettingsPage_Description}"
                 TextWrapping="Wrap" />
 
             <TextBox
-                Header="Display name"
+                Header="{x:Bind domain:Translator.ExchangeSettingsPage_DisplayNameHeader}"
                 Text="{x:Bind ViewModel.DisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
             <TextBox
-                Header="Email address"
+                Header="{x:Bind domain:Translator.ExchangeSettingsPage_EmailAddressHeader}"
                 Text="{x:Bind ViewModel.EmailAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
             <!--  Connection fields appear after Discover — filled from discovery, or for manual entry on fallback.  -->
             <StackPanel
                 Spacing="12"
-                Visibility="{x:Bind ViewModel.IsDiscovered, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                Visibility="{x:Bind ViewModel.IsDiscovered, Mode=OneWay}">
 
                 <TextBox
-                    Header="EWS URL"
-                    PlaceholderText="https://mail.example.com/EWS/Exchange.asmx"
+                    Header="{x:Bind domain:Translator.ExchangeSettingsPage_EwsUrlHeader}"
+                    PlaceholderText="{x:Bind domain:Translator.ExchangeSettingsPage_EwsUrlPlaceholder}"
                     Text="{x:Bind ViewModel.EwsUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                 <ComboBox
                     HorizontalAlignment="Stretch"
-                    Header="Authentication method"
+                    Header="{x:Bind domain:Translator.ExchangeSettingsPage_AuthMethodHeader}"
                     SelectedIndex="{x:Bind ViewModel.AuthMethodIndex, Mode=TwoWay}">
-                    <ComboBoxItem Content="Password (NTLM / Basic)" />
-                    <ComboBoxItem Content="Modern authentication (OAuth)" />
+                    <ComboBoxItem Content="{x:Bind domain:Translator.ExchangeSettingsPage_AuthMethodPassword}" />
+                    <ComboBoxItem Content="{x:Bind domain:Translator.ExchangeSettingsPage_AuthMethodModern}" />
                 </ComboBox>
 
                 <PasswordBox
-                    Header="Password"
+                    Header="{x:Bind domain:Translator.ExchangeSettingsPage_PasswordHeader}"
                     Password="{x:Bind ViewModel.Password, Mode=TwoWay}"
                     Visibility="{x:Bind ViewModel.UseModernAuth, Mode=OneWay, Converter={StaticResource ReverseBooleanToVisibilityConverter}}" />
 
                 <Expander
                     HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Stretch"
-                    Header="Advanced settings"
+                    Header="{x:Bind domain:Translator.ExchangeSettingsPage_AdvancedSettings}"
                     IsExpanded="{x:Bind ViewModel.IsAdvancedExpanded, Mode=TwoWay}"
-                    Visibility="{x:Bind ViewModel.UseModernAuth, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    Visibility="{x:Bind ViewModel.UseModernAuth, Mode=OneWay}">
                     <StackPanel Spacing="12">
                         <TextBox
-                            Header="Authority URL"
-                            PlaceholderText="https://adfs.example.com/adfs"
+                            Header="{x:Bind domain:Translator.ExchangeSettingsPage_AuthorityUrlHeader}"
+                            PlaceholderText="{x:Bind domain:Translator.ExchangeSettingsPage_AuthorityUrlPlaceholder}"
                             Text="{x:Bind ViewModel.OAuthAuthority, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                         <TextBox
-                            Header="Client ID"
+                            Header="{x:Bind domain:Translator.ExchangeSettingsPage_ClientIdHeader}"
                             Text="{x:Bind ViewModel.OAuthClientId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                         <TextBox
-                            Header="Resource (optional — defaults to the EWS server)"
-                            PlaceholderText="https://mail.example.com/"
+                            Header="{x:Bind domain:Translator.ExchangeSettingsPage_ResourceHeader}"
+                            PlaceholderText="{x:Bind domain:Translator.ExchangeSettingsPage_ResourcePlaceholder}"
                             Text="{x:Bind ViewModel.OAuthResource, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                         <TextBox
-                            Header="Redirect URI (optional — auto-derived from the EWS server, e.g. .../owa/)"
-                            PlaceholderText="https://mail.example.com/owa/"
+                            Header="{x:Bind domain:Translator.ExchangeSettingsPage_RedirectUriHeader}"
+                            PlaceholderText="{x:Bind domain:Translator.ExchangeSettingsPage_RedirectUriPlaceholder}"
                             Text="{x:Bind ViewModel.OAuthRedirectUri, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                     </StackPanel>
                 </Expander>
@@ -100,18 +101,18 @@
                     Height="20"
                     VerticalAlignment="Center"
                     IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
-                    Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay}" />
                 <Button
                     Command="{x:Bind ViewModel.DiscoverEwsUrlCommand}"
-                    Content="Discover"
+                    Content="{x:Bind domain:Translator.ExchangeSettingsPage_DiscoverButton}"
                     IsEnabled="{x:Bind ViewModel.IsBusy, Mode=OneWay, Converter={StaticResource ReverseBooleanConverter}}"
-                    ToolTipService.ToolTip="Discover the EWS URL and authentication from the email address." />
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.ExchangeSettingsPage_DiscoverTooltip}" />
                 <Button
                     Command="{x:Bind ViewModel.SaveCommand}"
-                    Content="Save"
+                    Content="{x:Bind domain:Translator.Buttons_Save}"
                     IsEnabled="{x:Bind ViewModel.IsBusy, Mode=OneWay, Converter={StaticResource ReverseBooleanConverter}}"
                     Style="{ThemeResource AccentButtonStyle}"
-                    Visibility="{x:Bind ViewModel.IsDiscovered, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    Visibility="{x:Bind ViewModel.IsDiscovered, Mode=OneWay}" />
             </StackPanel>
         </StackPanel>
     </ScrollViewer>
