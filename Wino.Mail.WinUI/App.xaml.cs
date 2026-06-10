@@ -453,15 +453,34 @@ public partial class App : WinoApplication,
 
             // Connect to (or launch) the background companion that owns the database
             // and synchronization, then start pumping its forwarded UI messages.
+            // A failed connection must never take down activation: every proxy call
+            // retries lazily, so the app can limp along and recover once the
+            // companion becomes reachable.
             var backgroundConnection = Services.GetRequiredService<BackgroundServiceConnection>();
-            await backgroundConnection.EnsureConnectedAsync();
             _remoteEventPump ??= new RemoteEventPump(backgroundConnection, _applicationDispatcherQueue ?? DispatcherQueue.GetForCurrentThread());
+
+            try
+            {
+                await backgroundConnection.EnsureConnectedAsync();
+            }
+            catch (Exception connectException)
+            {
+                Log.Error(connectException, "Could not connect to the background service during activation; proxy calls will keep retrying.");
+            }
 
             _synchronizationManager = Services.GetRequiredService<ISynchronizationManager>();
             _preferencesService = Services.GetRequiredService<IPreferencesService>();
             _accountService = Services.GetRequiredService<IAccountService>();
 
-            _hasConfiguredAccounts = (await _accountService.GetAccountsAsync()).Any();
+            try
+            {
+                _hasConfiguredAccounts = (await _accountService.GetAccountsAsync()).Any();
+            }
+            catch (Exception accountsException)
+            {
+                Log.Error(accountsException, "Could not load accounts during activation (background service unreachable?).");
+                _hasConfiguredAccounts = false;
+            }
 
             _activationInfrastructureInitialized = true;
         }
