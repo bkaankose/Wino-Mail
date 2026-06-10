@@ -768,6 +768,11 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
 
         var seenRemoteIds = new HashSet<string>();
 
+        // Tracks whether every chunk returned a complete result set. If any chunk hit the server's
+        // per-view cap, seenRemoteIds is incomplete and we must NOT reconcile deletions against it —
+        // otherwise valid local events absent from the capped response would be wrongly deleted.
+        var windowComplete = true;
+
         // Page the window in chunks so a dense recurring series can't exceed the server's per-view cap.
         var chunkStartUtc = windowStartUtc;
         while (chunkStartUtc < windowEndUtc)
@@ -795,12 +800,19 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
             }
 
             if (results.MoreAvailable)
-                Log.Warning("Calendar window chunk for {Calendar} hit the result cap; some events may be missing.", calendar.Name);
+            {
+                windowComplete = false;
+                Log.Warning("Calendar window chunk for {Calendar} hit the result cap; skipping deletion reconciliation this pass to avoid removing valid events.", calendar.Name);
+            }
 
             chunkStartUtc = chunkEndUtc;
         }
 
         // Reconcile: drop locally stored events in this window that the server no longer returns.
+        // Skipped entirely when any chunk was capped, since seenRemoteIds would be incomplete.
+        if (!windowComplete)
+            return;
+
         var localEvents = await _exchangeChangeProcessor.GetCalendarItemsInRangeAsync(calendar, windowStartUtc, windowEndUtc).ConfigureAwait(false);
         foreach (var local in localEvents)
         {
