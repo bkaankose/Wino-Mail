@@ -11,13 +11,7 @@ using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Services;
 
-/// <summary>
-/// Detects modern-auth availability and the OAuth authority by replicating Outlook's bootstrap probe:
-/// an unauthenticated request carrying the mailbox identity (<c>X-AnchorMailbox</c>) plus
-/// <c>X-MS-OpenAuthenticationSupport: True</c> provokes a 401 whose <c>WWW-Authenticate: Bearer</c>
-/// challenge carries <c>authorization_uri</c> and <c>issuer_kind</c>. The anchor mailbox is essential —
-/// without it the server returns only a generic reactive challenge with no authority.
-/// </summary>
+/// <summary>Detects Exchange modern-auth support from the EWS authentication challenge.</summary>
 public sealed class ExchangeAuthCapabilityProbe : IExchangeAuthCapabilityProbe
 {
     private const string AuthorizeSuffix = "/oauth2/authorize";
@@ -27,8 +21,7 @@ public sealed class ExchangeAuthCapabilityProbe : IExchangeAuthCapabilityProbe
 
     public async Task<ExchangeAuthProbeResult> ProbeAsync(string ewsUrl, string emailAddress, CancellationToken cancellationToken = default)
     {
-        // Require HTTPS — this request carries the mailbox identity (X-AnchorMailbox/X-User-Identity),
-        // so it must never go out over plaintext http.
+        // The probe carries the mailbox identity, so require HTTPS before sending it.
         if (string.IsNullOrWhiteSpace(ewsUrl) ||
             !Uri.TryCreate(ewsUrl, UriKind.Absolute, out var uri) ||
             uri.Scheme != Uri.UriSchemeHttps)
@@ -40,8 +33,7 @@ public sealed class ExchangeAuthCapabilityProbe : IExchangeAuthCapabilityProbe
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, uri);
 
-            // Empty Bearer + open-auth support + the anchor mailbox: this exact combination makes
-            // Exchange return the OAuth authority (authorization_uri) in the Bearer challenge.
+            // These headers make Exchange include the OAuth authority in the Bearer challenge.
             request.Headers.TryAddWithoutValidation("Authorization", "Bearer");
             request.Headers.TryAddWithoutValidation("X-MS-OpenAuthenticationSupport", "True");
             if (!string.IsNullOrWhiteSpace(emailAddress))
@@ -84,10 +76,6 @@ public sealed class ExchangeAuthCapabilityProbe : IExchangeAuthCapabilityProbe
         }
     }
 
-    /// <summary>
-    /// Classifies the WWW-Authenticate challenge values: a Bearer scheme means modern auth is
-    /// available; any challenge without Bearer means Basic/NTLM only; no challenge is inconclusive.
-    /// </summary>
     public static ExchangeAuthCapability ClassifyChallenges(IEnumerable<string> wwwAuthenticateValues)
     {
         if (wwwAuthenticateValues == null)
@@ -98,10 +86,7 @@ public sealed class ExchangeAuthCapabilityProbe : IExchangeAuthCapabilityProbe
         {
             sawAny = true;
 
-            // Usable modern auth requires the Bearer challenge to advertise an authority
-            // (authorization_uri). A bare Bearer challenge — which most Exchange vdirs emit reactively
-            // because the OAuth module is enabled by default — is NOT a working modern-auth setup and
-            // must not be treated as one.
+            // A bare Bearer challenge is not enough; modern auth needs an authority.
             if (!string.IsNullOrWhiteSpace(challenge) &&
                 challenge.TrimStart().StartsWith("Bearer", StringComparison.OrdinalIgnoreCase) &&
                 !string.IsNullOrEmpty(ExtractChallengeParameter(challenge, "authorization_uri")))
@@ -113,9 +98,6 @@ public sealed class ExchangeAuthCapabilityProbe : IExchangeAuthCapabilityProbe
         return sawAny ? ExchangeAuthCapability.BasicOnly : ExchangeAuthCapability.Unknown;
     }
 
-    /// <summary>
-    /// Extracts a <c>name="value"</c> parameter from a Bearer challenge string (tolerant of order/spacing).
-    /// </summary>
     public static string ExtractChallengeParameter(string bearerChallenge, string parameterName)
     {
         if (string.IsNullOrEmpty(bearerChallenge) || string.IsNullOrEmpty(parameterName))
@@ -131,11 +113,6 @@ public sealed class ExchangeAuthCapabilityProbe : IExchangeAuthCapabilityProbe
         return end < 0 ? null : bearerChallenge[start..end];
     }
 
-    /// <summary>
-    /// Derives the OIDC authority from the challenge's authorization_uri by trimming the
-    /// <c>/oauth2/authorize</c> suffix (e.g. <c>.../adfs/oauth2/authorize</c> -> <c>.../adfs</c>).
-    /// Falls back to the scheme+host when the suffix is absent.
-    /// </summary>
     public static string DeriveAuthority(string authorizationUri)
     {
         if (string.IsNullOrWhiteSpace(authorizationUri))

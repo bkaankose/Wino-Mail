@@ -33,7 +33,6 @@
                 Header="{x:Bind domain:Translator.ExchangeSettingsPage_EmailAddressHeader}"
                 Text="{x:Bind ViewModel.EmailAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
-            <!--  Connection fields appear after Discover — filled from discovery, or for manual entry on fallback.  -->
             <StackPanel
                 Spacing="12"
                 Visibility="{x:Bind ViewModel.IsDiscovered, Mode=OneWay}">

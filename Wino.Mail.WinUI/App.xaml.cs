@@ -431,8 +431,6 @@ public partial class App : WinoApplication,
         services.AddSingleton<IDateContextProvider, SystemDateContextProvider>();
         services.AddSingleton<ICalendarRangeTextFormatter, CalendarRangeTextFormatter>();
 
-        // Override the generic loopback OAuth sign-in (registered by Wino.Core) with the embedded
-        // WebView2 implementation: no reply-URL registration needed, matches Outlook's behavior.
         services.Replace(ServiceDescriptor.Transient<IInteractiveOidcAuthenticator, WebView2InteractiveOidcAuthenticator>());
     }
 

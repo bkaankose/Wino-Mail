@@ -27,17 +27,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Wino.Core.Synchronizers.Exchange;
 
-/// <summary>
-/// On-premises Exchange synchronizer over EWS (Exchange Web Services).
-///
-/// Phase 0/1 vertical slice: authenticates, ensures the Inbox folder exists, and
-/// synchronizes Inbox item metadata via EWS SyncFolderItems (delta), persisting the
-/// opaque per-folder sync-state in <see cref="MailItemFolder.DeltaToken"/>. MIME is
-/// fetched on-demand. Full folder-hierarchy sync, all mail actions, and calendar
-/// (TCalendarEventType = Appointment) come in later phases.
-///
-/// Note: the Exchange.WebServices.NETCore API is async — every EWS call is awaited.
-/// </summary>
+/// <summary>Synchronizes on-premises Exchange accounts over EWS.</summary>
 public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointment>
 {
     public override uint BatchModificationSize => 100;
@@ -63,8 +53,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         _errorHandlerFactory = errorHandlerFactory;
     }
 
-    // Metadata loaded for each synced item. Accessing a property NOT in this set throws,
-    // so every property read in MapToMailCopy must be listed here.
+    // EWS throws when reading properties not requested here.
     private static readonly PropertySet ItemMetadataPropertySet = new(
         BasePropertySet.IdOnly,
         ItemSchema.Subject,
@@ -77,10 +66,6 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         EmailMessageSchema.IsRead,
         EmailMessageSchema.InternetMessageId);
 
-    /// <summary>
-    /// Builds an EWS service bound to the account's on-premises endpoint and credentials.
-    /// EWS is stateless HTTP, so this is recreated per operation rather than pooled.
-    /// </summary>
     private async Task<ExchangeService> CreateServiceAsync(TimeZoneInfo timeZone = null)
     {
         var serverInformation = Account.ServerInformation
@@ -88,8 +73,6 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
 
         var credentials = await _exchangeAuthenticator.GetCredentialsAsync(Account).ConfigureAwait(false);
 
-        // Records the endpoint and the identity we authenticate as, so connectivity issues can be
-        // diagnosed (e.g. confirming the configured mailbox is used, not the logged-in Windows user).
         _logger.Debug(
             "Building EWS service. Url={Url}, OAuth={UseOAuth}, ConfiguredUser={User}, CredentialType={CredType}",
             serverInformation.IncomingServer,
@@ -97,8 +80,6 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
             serverInformation.IncomingServerUsername,
             credentials?.GetType().Name);
 
-        // The service time zone is constructor-only; calendar sync passes UTC so appointment times
-        // come back as UTC and the change processor converts them to each event's own zone.
         return timeZone == null
             ? new ExchangeService(TargetExchangeVersion)
             {
@@ -118,28 +99,18 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         if (mailCopy == null)
             return Task.FromResult<List<NewMailItemPackage>>(null);
 
-        // MIME is downloaded on-demand (DownloadMissingMimeMessageAsync), not during sync.
         var package = new NewMailItemPackage(mailCopy, null, assignedFolder.RemoteFolderId);
         return Task.FromResult<List<NewMailItemPackage>>([package]);
     }
 
     /// <summary>
-    /// Best-effort alias/proxy-address discovery. EWS has no direct "my proxy addresses" call
-    /// (unlike Graph's <c>proxyAddresses</c>), so this resolves the mailbox's own directory entry
-    /// via <see cref="ExchangeService.ResolveName"/> and harvests any SMTP addresses it exposes.
-    /// The primary address is always persisted as the root alias; directory lookup is wrapped so a
-    /// failure (or a server that returns no extra addresses) degrades to root-alias-only rather than
-    /// failing account setup.
-    /// NOTE: directory results carry at most the three indexed addresses and may use non-SMTP
-    /// routing; this is intentionally lenient and may need tuning against more deployments.
+    /// Best-effort proxy-address discovery. EWS has no direct "my proxy addresses" call,
+    /// so this resolves the mailbox's directory entry and keeps the root alias as a fallback.
     /// </summary>
     protected override async Task SynchronizeAliasesAsync()
     {
         var aliases = new Dictionary<string, RemoteAccountAlias>(StringComparer.OrdinalIgnoreCase);
 
-        // Directory addresses carry their routing type as a prefix ("SMTP:" for the primary,
-        // "smtp:" for secondary proxies, "EUM:"/"X500:" for non-mail routes). Strip the prefix and
-        // return null for anything that isn't a usable SMTP address.
         static string CleanSmtpAddress(string address)
         {
             if (string.IsNullOrWhiteSpace(address))
@@ -181,12 +152,10 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
                 IsRootAlias = isAccountAddress,
                 IsVerified = true,
                 Source = AliasSource.ProviderDiscovered,
-                // Discovered addresses all belong to this mailbox, so they are send-capable.
                 SendCapability = AliasSendCapability.Confirmed
             };
         }
 
-        // The mailbox's own primary address is always the root alias.
         AddAlias(Account.Address);
 
         try
@@ -199,8 +168,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
 
             foreach (var resolution in resolutions)
             {
-                // Only harvest the directory entry that actually represents this mailbox — guards
-                // against an ambiguous ResolveName returning other people's addresses.
+                // ResolveName can be ambiguous; only use the entry for this mailbox.
                 if (!string.Equals(CleanSmtpAddress(resolution.Mailbox?.Address), Account.Address, StringComparison.OrdinalIgnoreCase))
                     continue;
 
@@ -219,7 +187,6 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         }
         catch (Exception ex)
         {
-            // Non-fatal: proxy-address discovery is best-effort. Keep the root alias and move on.
             _logger.Debug(ex, "Exchange alias (proxy-address) discovery via ResolveName failed for {Account}.", Account.Name);
         }
 
@@ -232,14 +199,13 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
     {
         var service = await CreateServiceAsync().ConfigureAwait(false);
 
-        // 1) Reconcile the folder tree, then 2) delta-sync items per synchronizable folder.
         await SynchronizeFoldersAsync(service, cancellationToken).ConfigureAwait(false);
 
         var localFolders = await _exchangeChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
         var foldersToSync = localFolders
             .Where(f => f.IsSynchronizationEnabled && !string.IsNullOrEmpty(f.RemoteFolderId))
             .ToList();
-        // TODO(Phase 1): honor options.Type / SynchronizationFolderIds for targeted sync.
+        // TODO: honor options.Type / SynchronizationFolderIds for targeted sync.
 
         var downloaded = new List<MailCopy>();
         foreach (var folder in foldersToSync)
@@ -401,7 +367,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
                         var packages = await CreateNewMailPackagesAsync(change.Item, folder, cancellationToken).ConfigureAwait(false);
                         if (packages?.Count > 0)
                         {
-                            // TODO(Phase 1): Update should reconcile in place rather than re-insert.
+                            // TODO: Update should reconcile in place rather than re-insert.
                             await _exchangeChangeProcessor.CreateMailsAsync(Account.Id, packages).ConfigureAwait(false);
                             downloaded.AddRange(packages.Select(p => p.Copy));
                         }
@@ -473,7 +439,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
 
     #region Mail & Folder Operations
 
-    // Wraps an EWS operation into a single request bundle (EWS is stateless HTTP — one
+    // Wraps an EWS operation into a single request bundle (EWS is stateless HTTP; one
     // service handles the whole batch, so per-action batching collapses to one bundle).
     private static List<IRequestBundle<EwsRequest>> Bundle(Func<ExchangeService, Task> action, IRequestBase request, IUIChangeRequest uiChangeRequest)
         => [new EwsRequestBundle(new EwsRequest((service, _) => action(service), request), request, uiChangeRequest)];
@@ -549,9 +515,6 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
     public override List<IRequestBundle<EwsRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request)
         => MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(a => new MarkReadRequest(a, true))));
 
-    // Submits the composed MIME via EWS. Unlike IMAP/SMTP, Exchange always keeps a server-side
-    // Sent Items copy, and the draft that CreateDraft pushed to the server must be removed so it
-    // doesn't linger after the message is sent.
     public override List<IRequestBundle<EwsRequest>> SendDraft(SendDraftRequest request)
     {
         var preparation = request.Request;
@@ -571,22 +534,13 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
                 MimeContent = new Microsoft.Exchange.WebServices.Data.MimeContent("UTF-8", stream.ToArray())
             };
 
-            // NOTE: SendingAlias is intentionally not applied. On-premises Exchange does not support
-            // sending from an alias/proxy address — the transport rewrites From to the mailbox's
-            // primary SMTP regardless of what the client sets (the SendFromAliasEnabled org toggle is
-            // Exchange Online-only). Setting From here would be ineffective and can trip a Send-As
-            // denial in some configurations, so the composed message sends as the primary address.
-
-            // Exchange manages Sent Items server-side — always save a copy (the IMAP-only
-            // "append to sent" preference does not apply to EWS).
+            // On-prem Exchange cannot send as proxy aliases; let transport use the mailbox primary.
             if (preparation.SentFolder != null)
                 await message.SendAndSaveCopy(new FolderId(preparation.SentFolder.RemoteFolderId)).ConfigureAwait(false);
             else
                 await message.SendAndSaveCopy().ConfigureAwait(false);
 
-            // CreateDraft saved this draft to the server Drafts folder; remove that copy now that the
-            // message is sent, otherwise a stale/empty draft is left behind. Best-effort — the draft
-            // may not exist on the server (e.g. never pushed), so a failure here must not fail the send.
+            // Best-effort cleanup of the server draft created by CreateDraft.
             var serverDraftId = preparation.MailItem?.Id;
             if (!string.IsNullOrWhiteSpace(serverDraftId))
             {
@@ -606,8 +560,6 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         }, request, request);
     }
 
-    // Drafts are pushed to the server Drafts folder (parity with IMAP). The local draft is
-    // mapped to the server-assigned id so later sync/send reconcile against the same item.
     public override List<IRequestBundle<EwsRequest>> CreateDraft(CreateDraftRequest request)
     {
         var preparation = request.DraftPreperationRequest;
@@ -642,13 +594,10 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
     {
         try
         {
-            // Appointment times are read in UTC; the change processor converts to the event's own zone.
             var service = await CreateServiceAsync(TimeZoneInfo.Utc).ConfigureAwait(false);
 
-            // 1) Reconcile the set of calendars (AccountCalendar) against the server.
             await SynchronizeCalendarsAsync(service, cancellationToken).ConfigureAwait(false);
 
-            // 2) Read events per enabled calendar over a moving window (CalendarView expands occurrences).
             var windowStartUtc = DateTime.UtcNow.AddMonths(-CalendarWindowPastMonths);
             var windowEndUtc = DateTime.UtcNow.AddMonths(CalendarWindowFutureMonths);
 
@@ -675,10 +624,6 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         }
     }
 
-    /// <summary>
-    /// Discovers the server's calendar folders (the default Calendar plus any IPF.Appointment folders)
-    /// and reconciles them against the locally stored <see cref="AccountCalendar"/> rows.
-    /// </summary>
     private async Task SynchronizeCalendarsAsync(ExchangeService service, CancellationToken cancellationToken)
     {
         var properties = new PropertySet(BasePropertySet.IdOnly, FolderSchema.DisplayName, FolderSchema.FolderClass);
@@ -690,21 +635,18 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
             .FindFolders(WellKnownFolderName.MsgFolderRoot, new SearchFilter.IsEqualTo(FolderSchema.FolderClass, "IPF.Appointment"), view)
             .ConfigureAwait(false);
 
-        // Build the remote calendar set keyed by id, always including the default calendar.
         var remoteFolders = new Dictionary<string, Folder> { [defaultCalendar.Id.UniqueId] = defaultCalendar };
         foreach (var folder in appointmentFolders.Folders)
             remoteFolders[folder.Id.UniqueId] = folder;
 
         var localCalendars = await _exchangeChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
 
-        // Remove calendars that no longer exist on the server.
         foreach (var local in localCalendars)
         {
             if (!remoteFolders.ContainsKey(local.RemoteCalendarId))
                 await _exchangeChangeProcessor.DeleteAccountCalendarAsync(local).ConfigureAwait(false);
         }
 
-        // Insert new calendars and update changed ones.
         foreach (var (remoteId, folder) in remoteFolders)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -742,8 +684,6 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
             TimeZone = TimeZoneInfo.Local.Id
         };
 
-    // Read window for calendar events. CalendarView expands recurrences into occurrences, so a moving
-    // window (re-fetched + reconciled each sync) bounds occurrence volume without needing delta tokens.
     private const int CalendarWindowPastMonths = 3;
     private const int CalendarWindowFutureMonths = 12;
 
@@ -768,12 +708,9 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
 
         var seenRemoteIds = new HashSet<string>();
 
-        // Tracks whether every chunk returned a complete result set. If any chunk hit the server's
-        // per-view cap, seenRemoteIds is incomplete and we must NOT reconcile deletions against it —
-        // otherwise valid local events absent from the capped response would be wrongly deleted.
+        // Skip deletion reconciliation if any chunk hits the server result cap.
         var windowComplete = true;
 
-        // Page the window in chunks so a dense recurring series can't exceed the server's per-view cap.
         var chunkStartUtc = windowStartUtc;
         while (chunkStartUtc < windowEndUtc)
         {
@@ -808,15 +745,12 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
             chunkStartUtc = chunkEndUtc;
         }
 
-        // Reconcile: drop locally stored events in this window that the server no longer returns.
-        // Skipped entirely when any chunk was capped, since seenRemoteIds would be incomplete.
         if (!windowComplete)
             return;
 
         var localEvents = await _exchangeChangeProcessor.GetCalendarItemsInRangeAsync(calendar, windowStartUtc, windowEndUtc).ConfigureAwait(false);
         foreach (var local in localEvents)
         {
-            // Stored RemoteEventIds may carry a Wino client-tracking suffix; compare on the raw id.
             if (!string.IsNullOrEmpty(local.RemoteEventId) &&
                 !seenRemoteIds.Contains(local.RemoteEventId.GetProviderRemoteEventId()))
             {
@@ -1013,7 +947,6 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         if (batchedRequests == null || batchedRequests.Count == 0)
             return;
 
-        // Apply optimistic local UI changes before hitting the server (matches IMAP/Outlook).
         ApplyOptimisticUiChanges(batchedRequests);
 
         var service = await CreateServiceAsync().ConfigureAwait(false);
@@ -1036,16 +969,10 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
             }
         }
 
-        // Surface unhandled / transient failures so the sync is marked failed (and retried).
         if (errors.Count > 0)
             throw new InvalidOperationException(string.Join(Environment.NewLine, errors));
     }
 
-    /// <summary>
-    /// Routes a failed request through the error-handler factory (mirrors OutlookSynchronizer):
-    /// entity-not-found and auth failures are owned by their handlers; transient and unhandled
-    /// errors are reverted, captured, and surfaced so the operation can be retried.
-    /// </summary>
     private async Task HandleFailedRequestAsync(IRequestBundle<EwsRequest> bundle, Exception exception, List<string> errors)
     {
         var errorContext = new SynchronizerErrorContext
@@ -1061,8 +988,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
 
         var handled = await _errorHandlerFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
 
-        // A handled, non-transient error (entity-not-found cleanup, auth-required) is owned by
-        // the handler — it has already reverted/reconciled. Everything else is reverted here.
+        // Handled non-transient errors are owned by their handlers.
         if (!handled || errorContext.Severity == SynchronizerErrorSeverity.Transient)
         {
             CaptureSynchronizationIssue(errorContext);
@@ -1072,8 +998,6 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         }
     }
 
-    // True when an EWS failure indicates the remote item/folder no longer exists for an
-    // operation that targets an existing entity — lets EntityNotFoundHandler reconcile locally.
     private static bool IsEwsEntityNotFound(Exception exception, IUIChangeRequest uiChangeRequest)
     {
         if (uiChangeRequest == null || !IsExistingEntityOperation(uiChangeRequest))

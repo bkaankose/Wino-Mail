@@ -92,12 +92,10 @@ public sealed class ExchangeCalendarSynchronizerLiveTests
         var createBundles = context.Synchronizer.CreateCalendarEvent(new CreateCalendarEventRequest(composeResult, calendar));
         await context.Synchronizer.ExecuteNativeRequestsAsync(createBundles);
 
-        // Sync should read the created event back.
         await context.Synchronizer.SynchronizeCalendarEventsAsync(options);
         var created = context.Events.Values.FirstOrDefault(e => e.Title == subject);
         created.Should().NotBeNull("the created event should sync back from the server");
 
-        // Delete it and confirm it's reconciled away on the next sync.
         var deleteBundles = context.Synchronizer.DeleteCalendarEvent(new DeleteCalendarEventRequest(created!));
         await context.Synchronizer.ExecuteNativeRequestsAsync(deleteBundles);
 

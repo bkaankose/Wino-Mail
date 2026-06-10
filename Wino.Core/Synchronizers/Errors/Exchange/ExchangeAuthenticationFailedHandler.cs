@@ -8,11 +8,7 @@ using Wino.Core.Domain.Models.Synchronization;
 
 namespace Wino.Core.Synchronizers.Errors.Exchange;
 
-/// <summary>
-/// Handles EWS authentication failures (401 / Unauthorized). Flags the account for
-/// re-authentication rather than allowing a silent downgrade — the deliberate
-/// per-mailbox auth policy: on OAuth/NTLM failure, prompt re-auth.
-/// </summary>
+/// <summary>Flags Exchange authentication failures for account repair.</summary>
 public class ExchangeAuthenticationFailedHandler : ISynchronizerErrorHandler
 {
     private readonly ILogger _logger = Log.ForContext<ExchangeAuthenticationFailedHandler>();

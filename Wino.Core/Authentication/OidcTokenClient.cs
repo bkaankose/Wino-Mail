@@ -10,13 +10,8 @@ using System.Threading.Tasks;
 
 namespace Wino.Core.Authentication;
 
-/// <summary>
-/// Default <see cref="IOidcTokenClient"/> implementation over <see cref="System.Net.Http.HttpClient"/>.
-/// Pure protocol logic: no UI, no persistence, no Exchange/EWS coupling.
-/// </summary>
 public sealed class OidcTokenClient : IOidcTokenClient
 {
-    // HttpClient is intended to be shared and reused for the lifetime of the app.
     private static readonly HttpClient HttpClient = new();
 
     public async Task<OidcDiscoveryDocument> GetDiscoveryDocumentAsync(string authority, CancellationToken cancellationToken = default)
@@ -24,8 +19,7 @@ public sealed class OidcTokenClient : IOidcTokenClient
         if (string.IsNullOrWhiteSpace(authority))
             throw new ArgumentException("Authority is required.", nameof(authority));
 
-        // Credentials/tokens travel to these endpoints — require HTTPS for the authority and for
-        // every endpoint the discovery document advertises (guards against an http downgrade).
+        // Credentials and tokens travel to these endpoints, so reject downgradeable URLs.
         EnsureHttps(authority, "authority");
 
         var url = authority.TrimEnd('/') + "/.well-known/openid-configuration";
@@ -141,7 +135,6 @@ public sealed class OidcTokenClient : IOidcTokenClient
     private static string Base64UrlEncode(byte[] bytes)
         => Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
-    // Token error bodies can echo the failed grant; keep only enough to diagnose, never the whole payload.
     private static string Truncate(string value)
-        => string.IsNullOrEmpty(value) || value.Length <= 256 ? value : value[..256] + "…";
+        => string.IsNullOrEmpty(value) || value.Length <= 256 ? value : value[..256] + "...";
 }

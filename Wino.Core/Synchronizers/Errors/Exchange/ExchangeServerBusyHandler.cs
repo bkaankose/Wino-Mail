@@ -10,10 +10,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Wino.Core.Synchronizers.Errors.Exchange;
 
-/// <summary>
-/// Handles EWS throttling (ServerBusyException / HTTP 429). Honors the server's
-/// suggested back-off when provided.
-/// </summary>
+/// <summary>Handles EWS throttling and server-provided backoff.</summary>
 public class ExchangeServerBusyHandler : ISynchronizerErrorHandler
 {
     private readonly ILogger _logger = Log.ForContext<ExchangeServerBusyHandler>();

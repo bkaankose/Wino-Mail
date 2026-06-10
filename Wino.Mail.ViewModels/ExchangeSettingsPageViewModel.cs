@@ -17,16 +17,9 @@ using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels;
 
-/// <summary>
-/// On-premises Exchange (EWS) account-setup page. Collects the EWS endpoint and, per the
-/// chosen auth method, either NTLM/Basic credentials or modern auth (OAuth2). For modern auth
-/// it runs an interactive sign-in to obtain a refresh token, then reuses the shared account-creation
-/// flow (the account is created with ProviderType.Exchange + CustomServerInformation by
-/// AccountSetupProgressPageViewModel).
-/// </summary>
+/// <summary>Collects Exchange/EWS endpoint and sign-in settings.</summary>
 public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
 {
-    // Well-known EWS client id (generic, not deployment-specific).
     private const string DefaultEwsClientId = "00000002-0000-0ff1-ce00-000000000000";
 
     private readonly WelcomeWizardContext _wizardContext;
@@ -35,7 +28,6 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     private readonly IExchangeAuthCapabilityProbe _authCapabilityProbe;
     private readonly IAccountService _accountService;
 
-    /// <summary>Set when the page is opened to edit an existing account's server/sign-in settings.</summary>
     private Guid? _editingAccountId;
 
     [ObservableProperty]
@@ -50,15 +42,9 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     [ObservableProperty]
     public partial string Password { get; set; } = string.Empty;
 
-    /// <summary>True = modern auth (OAuth2); false = NTLM/Basic password.</summary>
     [ObservableProperty]
     public partial bool UseModernAuth { get; set; }
 
-    /// <summary>
-    /// Authentication-method picker selection: 0 = password (NTLM/Basic), 1 = modern auth (OAuth).
-    /// Kept in sync with <see cref="UseModernAuth"/> in both directions so the dropdown and the
-    /// detection logic share one source of truth.
-    /// </summary>
     [ObservableProperty]
     public partial int AuthMethodIndex { get; set; }
 
@@ -77,22 +63,18 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     [ObservableProperty]
     public partial bool IsBusy { get; set; }
 
-    /// <summary>True once Discover has run — reveals the connection fields and the Save button.</summary>
     [ObservableProperty]
     public partial bool IsDiscovered { get; set; }
 
-    /// <summary>Whether Advanced settings is expanded; auto-opened when the authority must be entered by hand.</summary>
     [ObservableProperty]
     public partial bool IsAdvancedExpanded { get; set; }
 
     [ObservableProperty]
     public partial string ValidationMessage { get; set; } = string.Empty;
 
-    /// <summary>Neutral informational text (e.g. auto-detection results), distinct from errors.</summary>
     [ObservableProperty]
     public partial string StatusMessage { get; set; } = string.Empty;
 
-    /// <summary>True when editing an existing account (vs. onboarding a new one).</summary>
     [ObservableProperty]
     public partial bool IsEditMode { get; set; }
 
@@ -114,8 +96,6 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     {
         base.OnNavigatedTo(mode, parameters);
 
-        // Edit mode: opened from account settings with the account id. Load the existing
-        // server/sign-in settings so the user can update the EWS URL or re-enter credentials.
         if (parameters is Guid accountId)
         {
             await LoadExistingAccountAsync(accountId);
@@ -154,17 +134,12 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
             UseModernAuth = false;
         }
 
-        // Fields are already known for an existing account — reveal them without requiring Discover.
         IsDiscovered = true;
         StatusMessage = UseModernAuth
             ? Translator.ExchangeSettingsPage_Status_EditModernAuth
             : Translator.ExchangeSettingsPage_Status_EditPassword;
     }
 
-    /// <summary>
-    /// Auto-fills the EWS URL from the email address via anonymous Autodiscover V2, then probes the
-    /// resolved endpoint and defaults the auth method to modern auth when the server offers it.
-    /// </summary>
     [RelayCommand]
     private async Task DiscoverEwsUrlAsync()
     {
@@ -180,13 +155,10 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
 
         try
         {
-            // Only run URL discovery when the field is empty; if the user already typed an EWS URL,
-            // skip straight to detecting its auth method (avoids a pointless Autodiscover round-trip).
             if (string.IsNullOrWhiteSpace(EwsUrl))
             {
                 var discovered = await _autoDiscoveryService.TryDiscoverEwsUrlAsync(EmailAddress.Trim());
 
-                // Only accept an HTTPS endpoint from autodiscovery — never store/probe an http URL.
                 if (!string.IsNullOrWhiteSpace(discovered) && IsHttpsUrl(discovered))
                     EwsUrl = discovered;
             }
@@ -196,7 +168,6 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
             if (string.IsNullOrWhiteSpace(EwsUrl))
                 StatusMessage = Translator.ExchangeSettingsPage_Status_EwsUrlNotDiscovered;
 
-            // Reveal the remaining fields (filled from discovery, or for manual entry on fallback).
             IsDiscovered = true;
         }
         finally
@@ -207,25 +178,17 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
 
     partial void OnUseModernAuthChanged(bool value)
     {
-        // Mirror into the picker index. CommunityToolkit suppresses the change notification when the
-        // value is unchanged, so this can't loop with OnAuthMethodIndexChanged.
         AuthMethodIndex = value ? 1 : 0;
 
-        // When modern auth is on without a (discovered) authority, the user must enter it in Advanced
-        // settings — open it so the field is visible instead of hidden behind a collapsed expander.
+        // Make the required authority field visible when discovery could not fill it.
         if (value && string.IsNullOrWhiteSpace(OAuthAuthority))
             IsAdvancedExpanded = true;
     }
 
     partial void OnAuthMethodIndexChanged(int value) => UseModernAuth = value == 1;
 
-    /// <summary>
-    /// Probes the EWS endpoint for modern-auth availability and flips the toggle to match. The probe
-    /// is server-level (not per-mailbox), so this is a smart default the user can still override.
-    /// </summary>
     private async Task DetectAuthMethodAsync()
     {
-        // Never probe a non-HTTPS endpoint — the probe carries the mailbox identity header.
         if (!IsHttpsUrl(EwsUrl))
             return;
 
@@ -233,8 +196,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         switch (probe.Capability)
         {
             case ExchangeAuthCapability.ModernAuthAvailable:
-                // Set the discovered authority BEFORE flipping the toggle, so the toggle handler can
-                // decide whether to auto-expand Advanced (only when the authority is still empty).
+                // Set the authority before toggling, so Advanced only expands when it is still missing.
                 if (!string.IsNullOrWhiteSpace(probe.Authority) && string.IsNullOrWhiteSpace(OAuthAuthority))
                     OAuthAuthority = probe.Authority;
 
@@ -304,8 +266,6 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
             return;
         }
 
-        // Connectivity (and credential validity) is verified by the folder-sync step inside the
-        // setup progress page; failures roll the account back.
         _wizardContext.ImapCalDavSetupResult = new ImapCalDavSetupResult
         {
             DisplayName = DisplayName.Trim(),
@@ -320,10 +280,6 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
             WinoPage.AccountSetupProgressPage));
     }
 
-    /// <summary>
-    /// Persists updated server/sign-in settings onto an existing account, clears any pending
-    /// credential-attention flag, and kicks a fresh folder sync to validate the new settings.
-    /// </summary>
     private async Task SaveEditedAccountAsync(Guid accountId, CustomServerInformation serverInformation)
     {
         var account = await _accountService.GetAccountAsync(accountId);
@@ -344,12 +300,9 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         await _accountService.UpdateAccountCustomServerInformationAsync(serverInformation);
         await _accountService.UpdateAccountAsync(account);
 
-        // Drop the cached synchronizer so it is rebuilt with the new endpoint/credentials/token.
-        // SynchronizationManager only refreshes synchronizers on access-flag changes, so an edited
-        // EWS URL, password, or OAuth config would otherwise not take effect until app restart.
+        // Settings edits do not trigger synchronizer refresh, so rebuild before syncing.
         await SynchronizationManager.Instance.DestroySynchronizerAsync(account.Id).ConfigureAwait(false);
 
-        // Re-sync folders so the updated endpoint/credentials are exercised immediately.
         Messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
         {
             AccountId = account.Id,
@@ -359,11 +312,9 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         Messenger.Send(new BackBreadcrumNavigationRequested());
     }
 
-    /// <summary>Whether <paramref name="url"/> is a well-formed absolute HTTPS URL.</summary>
     private static bool IsHttpsUrl(string url)
         => Uri.TryCreate(url?.Trim(), UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps;
 
-    /// <summary>Whether <paramref name="url"/> is an http loopback address (used by the loopback OAuth flow).</summary>
     private static bool IsLoopbackUrl(string url)
         => Uri.TryCreate(url?.Trim(), UriKind.Absolute, out var uri) && uri.IsLoopback;
 
@@ -383,14 +334,11 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
 
         var ewsOrigin = new Uri(EwsUrl.Trim()).GetLeftPart(UriPartial.Authority);
 
-        // Default the protected resource to the EWS server origin when not overridden.
         var resource = string.IsNullOrWhiteSpace(OAuthResource)
             ? ewsOrigin + "/"
             : OAuthResource.Trim();
 
-        // The embedded WebView2 reuses a redirect the IdP already trusts and intercepts it in-process,
-        // so the user need not register or type one. Default to the conventional OWA reply URL on the
-        // EWS host; the Advanced field lets a non-conventional deployment override it.
+        // Default to the conventional OWA reply URL; non-standard deployments can override it.
         var redirectUri = string.IsNullOrWhiteSpace(OAuthRedirectUri)
             ? ewsOrigin + "/owa/"
             : OAuthRedirectUri.Trim();
@@ -401,7 +349,6 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
             return null;
         }
 
-        // The redirect must be HTTPS, except a loopback address (used by the non-WebView2 flow).
         if (!IsHttpsUrl(redirectUri) && !IsLoopbackUrl(redirectUri))
         {
             ValidationMessage = Translator.ExchangeSettingsPage_Validation_RedirectUriNotHttps;

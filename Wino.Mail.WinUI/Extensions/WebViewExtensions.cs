@@ -43,11 +43,7 @@ public static class WebViewExtensions
 
     private static Task<CoreWebView2Environment>? _authEnvironmentTask;
 
-    /// <summary>
-    /// A WebView2 environment with a dedicated, persistent user-data folder used only for interactive
-    /// OAuth sign-in. Isolating it from the shared (mail-rendering) profile keeps auth cookies away from
-    /// rendered email content, while persistence lets the IdP session (SSO) carry across sign-ins.
-    /// </summary>
+    /// <summary>Dedicated WebView2 environment for interactive OAuth sign-in.</summary>
     public static Task<CoreWebView2Environment> GetIsolatedAuthEnvironmentAsync()
     {
         EnsureWebView2Environment();

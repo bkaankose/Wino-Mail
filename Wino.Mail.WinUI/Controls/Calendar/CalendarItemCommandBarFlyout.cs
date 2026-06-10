@@ -104,8 +104,7 @@ public partial class CalendarItemCommandBarFlyout : CommandBarFlyout
 
     private void ExecuteAction(CalendarContextMenuAction action)
     {
-        // Only leaf items are wired to this command (parent items open a sub-menu instead), so any
-        // action that reaches here is actionable — including payload-less Delete / Join Online.
+        // Only leaf items execute actions; parent items open sub-menus.
         if (Item == null)
             return;
 

@@ -4,10 +4,7 @@ using Wino.Core.Synchronizers.Errors.Exchange;
 
 namespace Wino.Core.Services;
 
-/// <summary>
-/// Factory for handling on-premises Exchange (EWS) synchronizer errors.
-/// More specific handlers are registered first.
-/// </summary>
+/// <summary>Factory for handling Exchange synchronizer errors.</summary>
 public class ExchangeSynchronizerErrorHandlingFactory : SynchronizerErrorHandlingFactory, IExchangeSynchronizerErrorHandlerFactory
 {
     public ExchangeSynchronizerErrorHandlingFactory(

@@ -7,12 +7,7 @@ using WinUIEx;
 
 namespace Wino.Mail.WinUI.Authentication;
 
-/// <summary>
-/// Interactive OIDC sign-in implemented with an embedded WebView2 (the path Outlook takes), hosting
-/// the IdP page in-app and intercepting the redirect navigation. Reuses a redirect the IdP already
-/// trusts, so no new reply URL has to be registered. Overrides the generic loopback implementation
-/// from Wino.Core in the WinUI container.
-/// </summary>
+/// <summary>Interactive OIDC sign-in hosted in an embedded WebView2.</summary>
 public sealed class WebView2InteractiveOidcAuthenticator : IInteractiveOidcAuthenticator
 {
     private readonly IOidcTokenClient _oidcTokenClient;

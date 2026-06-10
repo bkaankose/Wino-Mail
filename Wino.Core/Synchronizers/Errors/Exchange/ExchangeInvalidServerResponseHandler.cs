@@ -11,13 +11,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Wino.Core.Synchronizers.Errors.Exchange;
 
-/// <summary>
-/// Handles EWS responses that are not valid XML — the server (or a reverse proxy / load balancer
-/// in front of EWS) returned an HTML error page or other non-SOAP body, typically an HTTP 5xx.
-/// The EWS Managed API surfaces this as a <see cref="ServiceRequestException"/> wrapping an
-/// <see cref="XmlException"/> ("Data at the root level is invalid"), which is opaque to users;
-/// this replaces it with a clear, actionable message and classifies it as a transient server error.
-/// </summary>
+/// <summary>Classifies non-SOAP EWS responses as transient server errors.</summary>
 public class ExchangeInvalidServerResponseHandler : ISynchronizerErrorHandler
 {
     private readonly ILogger _logger = Log.ForContext<ExchangeInvalidServerResponseHandler>();
@@ -27,8 +21,6 @@ public class ExchangeInvalidServerResponseHandler : ISynchronizerErrorHandler
         if (error.Exception is not ServiceRequestException requestException)
             return false;
 
-        // The tell-tale of a non-SOAP body (HTML error page, proxy 5xx): the response couldn't be
-        // parsed as XML. Match on the inner XmlException or the library's own message wording.
         return requestException.InnerException is XmlException
             || (requestException.Message?.Contains("valid XML", StringComparison.OrdinalIgnoreCase) ?? false);
     }
@@ -36,11 +28,10 @@ public class ExchangeInvalidServerResponseHandler : ISynchronizerErrorHandler
     public Task<bool> HandleAsync(SynchronizerErrorContext error)
     {
         _logger.Error(error.Exception,
-            "Exchange returned a non-XML response for account {AccountName} ({AccountId}) — likely an HTTP 5xx " +
+            "Exchange returned a non-XML response for account {AccountName} ({AccountId}); likely an HTTP 5xx " +
             "from the mailbox server or a reverse proxy / load balancer in front of EWS.",
             error.Account?.Name, error.Account?.Id);
 
-        // Replace the cryptic "Data at the root level is invalid" with something actionable.
         error.ErrorMessage =
             "The Exchange server returned an unexpected response (not valid XML). This usually means the mailbox " +
             "server returned an HTTP server error (5xx), or a reverse proxy / load balancer in front of EWS is " +

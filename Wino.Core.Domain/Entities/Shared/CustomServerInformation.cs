@@ -50,30 +50,20 @@ public class CustomServerInformation
     public string ProxyServer { get; set; }
     public string ProxyServerPort { get; set; }
 
-    /// <summary>
-    /// When true, this (Exchange/EWS) account authenticates with modern auth (OAuth2 bearer token)
-    /// instead of Basic/NTLM <see cref="IncomingServerPassword"/>. The OAuth* fields below carry the
-    /// per-account OIDC configuration and durable refresh token.
-    /// </summary>
+    /// <summary>True when an Exchange/EWS account uses OAuth instead of password auth.</summary>
     public bool UseOAuthAuthentication { get; set; }
 
-    /// <summary>OIDC authority base URL, e.g. <c>https://wsfed.mtec360.com/adfs</c>.</summary>
+    /// <summary>OIDC authority base URL, e.g. <c>https://adfs.example.com/adfs</c>.</summary>
     public string OAuthAuthority { get; set; }
 
-    /// <summary>OAuth client id used for the auth-code + PKCE flow.</summary>
     public string OAuthClientId { get; set; }
 
-    /// <summary>Protected resource the access token is requested for, e.g. <c>https://mail.mtec360.com/</c>.</summary>
+    /// <summary>Protected resource the access token is requested for, e.g. <c>https://mail.example.com/</c>.</summary>
     public string OAuthResource { get; set; }
 
-    /// <summary>Redirect URI registered with the issuer (exact-match).</summary>
     public string OAuthRedirectUri { get; set; }
 
-    /// <summary>
-    /// Durable refresh token. Stored alongside <see cref="IncomingServerPassword"/> and shares its
-    /// at-rest posture (plaintext in the local, per-user packaged SQLite store). The ephemeral access
-    /// token is never persisted — it is held in memory and re-derived from this refresh token.
-    /// </summary>
+    /// <summary>Durable refresh token. Access tokens are kept in memory only.</summary>
     public string OAuthRefreshToken { get; set; }
 
     /// <summary>

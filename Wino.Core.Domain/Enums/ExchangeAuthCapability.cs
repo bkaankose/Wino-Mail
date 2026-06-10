@@ -11,6 +11,6 @@ public enum ExchangeAuthCapability
     /// <summary>Only legacy schemes (Negotiate/NTLM/Basic) were offered.</summary>
     BasicOnly,
 
-    /// <summary>The endpoint advertises Bearer / OAuth — modern auth is available.</summary>
+    /// <summary>The endpoint advertises Bearer / OAuth, so modern auth is available.</summary>
     ModernAuthAvailable
 }

@@ -262,7 +262,6 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         }
         else if (SelectedProvider.Type == MailProviderType.Exchange)
         {
-            // On-prem Exchange (EWS) — collect server + NTLM credentials, then the shared setup flow.
             Messenger.Send(new BreadcrumbNavigationRequested(
                 SelectedProvider.Name,
                 WinoPage.ExchangeSettingsPage));

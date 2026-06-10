@@ -150,10 +150,7 @@ public class MailAccount
     /// </summary>
     public bool IsCategorySyncSupported => ProviderType == MailProviderType.Outlook;
 
-    /// <summary>
-    /// Gets whether the account stores its connection settings in CustomServerInformation
-    /// (custom-server providers: IMAP/SMTP and on-premises Exchange/EWS).
-    /// </summary>
+    /// <summary>Gets whether the account stores custom server settings.</summary>
     public bool UsesCustomServerInformation => ProviderType is MailProviderType.IMAP4 or MailProviderType.Exchange;
 
     public override string ToString() => Name;

@@ -10,16 +10,9 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Wino.Core.Synchronizers.Exchange;
 
-/// <summary>
-/// OAuth bearer credential provider for on-premises Exchange (production modern auth).
-/// Reuses the durable refresh token stored on the account's <see cref="CustomServerInformation"/>
-/// to mint short-lived access tokens via the generic <see cref="IOidcTokenClient"/>, caching the
-/// access token in memory and persisting rotated refresh tokens. On refresh failure it surfaces an
-/// auth error rather than downgrading — the account is flagged for interactive re-auth.
-/// </summary>
+/// <summary>OAuth bearer credential provider for on-premises Exchange.</summary>
 public sealed class ExchangeOAuthAuthenticator : IExchangeAuthenticator
 {
-    // Refresh slightly ahead of true expiry so a token never lapses mid-request.
     private static readonly TimeSpan ExpirySkew = TimeSpan.FromMinutes(5);
 
     private readonly IOidcTokenClient _oidcTokenClient;
@@ -44,9 +37,6 @@ public sealed class ExchangeOAuthAuthenticator : IExchangeAuthenticator
         return new OAuthCredentials(accessToken);
     }
 
-    /// <summary>
-    /// Maps the account's stored OAuth fields to a generic OIDC configuration.
-    /// </summary>
     public static OidcConfiguration BuildConfiguration(CustomServerInformation server) => new()
     {
         Authority = server.OAuthAuthority,
@@ -80,8 +70,6 @@ public sealed class ExchangeOAuthAuthenticator : IExchangeAuthenticator
 
         _tokenCache.Set(accountId, refreshed);
 
-        // ExSTS / AD FS rotate the refresh token on each refresh; persist the new one so the next
-        // app session can still authenticate silently.
         if (!string.IsNullOrEmpty(refreshed.RefreshToken) && refreshed.RefreshToken != server.OAuthRefreshToken)
         {
             server.OAuthRefreshToken = refreshed.RefreshToken;

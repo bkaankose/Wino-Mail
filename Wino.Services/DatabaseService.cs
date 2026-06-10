@@ -224,8 +224,7 @@ WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
                 .ConfigureAwait(false);
         }
 
-        // Exchange (EWS) modern-auth fields. Existing rows are NTLM/IMAP, so UseOAuthAuthentication
-        // defaults to 0 (false) and the OAuth string columns to NULL.
+        // Existing custom-server rows are password auth unless OAuth was explicitly configured.
         if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.UseOAuthAuthentication)))
         {
             await Connection

@@ -290,8 +290,6 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
 
     private static UserMailboxSyncItemDto MapMailbox(MailAccount account)
     {
-        // IMAP and Exchange both carry CustomServerInformation. Only non-secret fields are mapped
-        // below (the DTO has no password/token field), so this never exports credentials.
         var serverInformation = account.ProviderType is MailProviderType.IMAP4 or MailProviderType.Exchange
             ? account.ServerInformation
             : null;
@@ -359,9 +357,6 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
 
         if (providerType == MailProviderType.Exchange)
         {
-            // Restore the EWS endpoint + username only. Secrets (password / OAuth refresh token) and
-            // the OAuth config are never exported, so the account is flagged for re-auth and the user
-            // re-enters credentials (or re-runs Discover + modern-auth sign-in) via the repair flow.
             return new CustomServerInformation
             {
                 Id = Guid.NewGuid(),

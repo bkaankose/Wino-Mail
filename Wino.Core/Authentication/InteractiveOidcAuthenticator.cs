@@ -8,12 +8,7 @@ using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Authentication;
 
-/// <summary>
-/// Drives an interactive OAuth2 authorization-code + PKCE sign-in using the system browser and a
-/// loopback redirect (RFC 8252). The system browser is preferred over an embedded webview: it is
-/// more secure, reuses existing SSO/MFA sessions, and avoids the unreliable WinUI 3 web-auth broker.
-/// Generic and issuer-agnostic — used by Exchange onboarding/re-auth but coupled to nothing Exchange.
-/// </summary>
+/// <summary>Interactive OAuth2 sign-in using the system browser and loopback redirect.</summary>
 public interface IInteractiveOidcAuthenticator
 {
     Task<OidcTokenSet> SignInAsync(OidcConfiguration configuration, CancellationToken cancellationToken = default);
@@ -73,12 +68,7 @@ public sealed class InteractiveOidcAuthenticator : IInteractiveOidcAuthenticator
     }
 }
 
-/// <summary>
-/// Minimal single-shot loopback HTTP listener that captures the OAuth redirect on
-/// <c>127.0.0.1:&lt;port&gt;</c>. Uses a raw TCP socket (not <c>HttpListener</c>) so it needs no URL
-/// reservation or elevation. Pass port 0 to bind an ephemeral port (tests); production passes the
-/// fixed port from the registered redirect URI.
-/// </summary>
+/// <summary>Single-shot loopback HTTP listener for OAuth redirects.</summary>
 public sealed class LoopbackRedirectListener : IDisposable
 {
     private readonly TcpListener _listener;
@@ -87,7 +77,6 @@ public sealed class LoopbackRedirectListener : IDisposable
 
     public void Start() => _listener.Start();
 
-    /// <summary>The actual bound port (resolved after <see cref="Start"/>; meaningful when port 0 was requested).</summary>
     public int Port => ((IPEndPoint)_listener.LocalEndpoint).Port;
 
     public async Task<RedirectResult> WaitForRedirectAsync(CancellationToken cancellationToken)
@@ -143,5 +132,4 @@ public sealed class LoopbackRedirectListener : IDisposable
     public void Dispose() => _listener.Stop();
 }
 
-/// <summary>The query values parsed from the OAuth redirect (any may be null).</summary>
 public readonly record struct RedirectResult(string Code, string State, string Error);

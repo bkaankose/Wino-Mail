@@ -106,14 +106,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
     public bool IsFocusedInboxSupportedForAccount => Account != null && Account.Preferences.IsFocusedInboxEnabled != null;
 
-    /// <summary>
-    /// True only for genuine IMAP/SMTP accounts. Exchange also carries a
-    /// <see cref="CustomServerInformation"/>, so this must be gated by provider type — the
-    /// IMAP/SMTP + CalDAV server editor is meaningless for an EWS endpoint.
-    /// </summary>
     public bool IsImapServer => ServerInformation != null && Account?.ProviderType == MailProviderType.IMAP4;
 
-    /// <summary>True for on-premises Exchange (EWS) accounts — gates the Exchange server/sign-in card.</summary>
     public bool IsExchangeServer => Account?.ProviderType == MailProviderType.Exchange;
     public bool HasMailAccess => Account?.IsMailAccessGranted == true;
     public bool HasCalendarAccess => Account?.IsCalendarAccessGranted == true;

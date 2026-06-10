@@ -8,12 +8,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Wino.Core.Synchronizers.Exchange;
 
-/// <summary>
-/// Per-account router across the Exchange auth mechanisms. Selects OAuth (modern auth) or
-/// NTLM/Basic based on the account's stored configuration, mirroring how Outlook uses modern
-/// auth where a mailbox enables it and falls back to NTLM otherwise. This is the implementation
-/// the synchronizer/factory resolve behind <see cref="IExchangeAuthenticator"/>.
-/// </summary>
+/// <summary>Routes Exchange accounts to OAuth or password credentials.</summary>
 public sealed class ExchangeAuthenticator : IExchangeAuthenticator
 {
     private readonly ExchangeNtlmAuthenticator _ntlmAuthenticator;

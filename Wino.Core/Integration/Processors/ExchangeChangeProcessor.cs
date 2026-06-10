@@ -15,20 +15,11 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Wino.Core.Integration.Processors;
 
-/// <summary>
-/// EWS-specific change processor. Adds calendar event mapping (EWS <see cref="Appointment"/> ->
-/// <see cref="CalendarItem"/>) on top of the default mail/folder/calendar-folder processing.
-/// </summary>
+/// <summary>EWS-specific calendar event mapping on top of the default change processor.</summary>
 public interface IExchangeChangeProcessor : IDefaultChangeProcessor
 {
-    /// <summary>
-    /// Maps an EWS appointment to a <see cref="CalendarItem"/> and persists it (creating or updating).
-    /// </summary>
     Task ManageCalendarEventAsync(Appointment appointment, AccountCalendar assignedCalendar, MailAccount organizerAccount);
 
-    /// <summary>
-    /// Returns the locally stored events for a calendar overlapping the given UTC window (for reconcile).
-    /// </summary>
     Task<List<CalendarItem>> GetCalendarItemsInRangeAsync(AccountCalendar calendar, DateTime startUtc, DateTime endUtc);
 }
 
@@ -49,8 +40,6 @@ public class ExchangeChangeProcessor : DefaultChangeProcessor, IExchangeChangePr
 
     public async Task ManageCalendarEventAsync(Appointment appointment, AccountCalendar assignedCalendar, MailAccount organizerAccount)
     {
-        // If this event was created in Wino, fold the local-preview id (stamped on the appointment at
-        // create time) into the RemoteEventId so the calendar UI reconciles it with the preview.
         Guid? clientTrackingId = null;
         if (appointment.TryGetProperty(ExchangeCalendarSchema.WinoClientTrackingId, out string trackingValue) &&
             Guid.TryParseExact(trackingValue, "N", out var parsedTrackingId))
@@ -65,9 +54,6 @@ public class ExchangeChangeProcessor : DefaultChangeProcessor, IExchangeChangePr
         var savingItemId = isNewItem ? Guid.NewGuid() : savingItem.Id;
         savingItem ??= new CalendarItem { Id = savingItemId };
 
-        // Appointment Start/End arrive in UTC (the calendar sync sets service.TimeZone = UTC). Store the
-        // wall-clock time in the appointment's own zone when it resolves to IANA; otherwise store UTC.
-        // Duration is an absolute span, so it is timezone-independent.
         var startUtc = DateTime.SpecifyKind(appointment.Start, DateTimeKind.Utc);
         var endUtc = DateTime.SpecifyKind(appointment.End, DateTimeKind.Utc);
         var (startDate, ianaTimeZone) = ResolveStart(appointment, startUtc);
@@ -89,7 +75,6 @@ public class ExchangeChangeProcessor : DefaultChangeProcessor, IExchangeChangePr
         savingItem.UpdatedAt = appointment.LastModifiedTime;
         savingItem.IsHidden = false;
 
-        // CalendarView returns expanded occurrences, so each event is stored flat (no recurrence master).
         savingItem.Recurrence = null;
         savingItem.RecurringCalendarItemId = null;
 
@@ -147,7 +132,6 @@ public class ExchangeChangeProcessor : DefaultChangeProcessor, IExchangeChangePr
         }
         catch
         {
-            // StartTimeZone wasn't available; fall back to the UTC instant.
         }
 
         return (startUtc, null);

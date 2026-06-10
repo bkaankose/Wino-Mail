@@ -7,11 +7,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Wino.Core.Requests.Bundles;
 
-/// <summary>
-/// A single EWS operation expressed as a delegate over a connected <see cref="ExchangeService"/>.
-/// Mirrors <see cref="ImapRequest"/>; EWS is stateless HTTP, so there is no
-/// "requires connected client" concept.
-/// </summary>
+/// <summary>A single EWS operation expressed over a connected <see cref="ExchangeService"/>.</summary>
 public class EwsRequest
 {
     public Func<ExchangeService, IRequestBase, Task> IntegratorTask { get; }

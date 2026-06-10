@@ -2,14 +2,9 @@ using System;
 
 namespace Wino.Core.Authentication;
 
-/// <summary>
-/// Parses the OAuth redirect response (the <c>code</c>/<c>state</c>/<c>error</c> query values) from a
-/// redirect URL or raw query string. Shared by every capture mechanism — loopback listener and the
-/// embedded WebView2 navigation interceptor — so they classify the redirect identically.
-/// </summary>
+/// <summary>Parses OAuth redirect query values.</summary>
 public static class OAuthRedirectParser
 {
-    /// <summary>Parses a full redirect URL (e.g. <c>https://host/path?code=...&amp;state=...</c>).</summary>
     public static RedirectResult ParseUrl(string url)
     {
         if (string.IsNullOrEmpty(url))
@@ -28,7 +23,6 @@ public static class OAuthRedirectParser
         return ParseQuery(query);
     }
 
-    /// <summary>Parses a raw query string (without the leading <c>?</c>).</summary>
     public static RedirectResult ParseQuery(string query)
         => new(GetValue(query, "code"), GetValue(query, "state"), GetValue(query, "error"));
 

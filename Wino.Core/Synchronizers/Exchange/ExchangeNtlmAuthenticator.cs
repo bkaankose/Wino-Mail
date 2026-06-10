@@ -8,12 +8,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Wino.Core.Synchronizers.Exchange;
 
-/// <summary>
-/// NTLM/Negotiate credential provider for on-premises Exchange.
-/// Reads credentials from the account's <see cref="CustomServerInformation"/>
-/// (same place IMAP stores them). Used for the Phase 0 spike; production uses the
-/// OAuth/ExSTS implementation behind the same <see cref="IExchangeAuthenticator"/> seam.
-/// </summary>
+/// <summary>Password credential provider for on-premises Exchange.</summary>
 public class ExchangeNtlmAuthenticator : IExchangeAuthenticator
 {
     public MailProviderType ProviderType => MailProviderType.Exchange;
@@ -23,7 +18,6 @@ public class ExchangeNtlmAuthenticator : IExchangeAuthenticator
         var serverInformation = account?.ServerInformation
             ?? throw new InvalidOperationException("Exchange account is missing server information.");
 
-        // Domain may be supplied as DOMAIN\\user inside the username, or left to Negotiate.
         ExchangeCredentials credentials = new WebCredentials(
             serverInformation.IncomingServerUsername,
             serverInformation.IncomingServerPassword);
