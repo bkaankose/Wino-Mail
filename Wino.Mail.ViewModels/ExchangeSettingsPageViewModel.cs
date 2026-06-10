@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -29,6 +30,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     private readonly IAccountService _accountService;
 
     private Guid? _editingAccountId;
+    private CancellationTokenSource _signInCancellationTokenSource;
 
     [ObservableProperty]
     public partial string DisplayName { get; set; } = string.Empty;
@@ -104,6 +106,12 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
 
         if (string.IsNullOrWhiteSpace(EmailAddress) && !string.IsNullOrWhiteSpace(_wizardContext.EmailAddress))
             EmailAddress = _wizardContext.EmailAddress;
+    }
+
+    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    {
+        _signInCancellationTokenSource?.Cancel();
+        base.OnNavigatedFrom(mode, parameters);
     }
 
     private async Task LoadExistingAccountAsync(Guid accountId)
@@ -364,10 +372,13 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         };
 
         IsBusy = true;
+        _signInCancellationTokenSource?.Cancel();
+        var signInCancellationTokenSource = new CancellationTokenSource();
+        _signInCancellationTokenSource = signInCancellationTokenSource;
 
         try
         {
-            var tokenSet = await _interactiveOidcAuthenticator.SignInAsync(configuration);
+            var tokenSet = await _interactiveOidcAuthenticator.SignInAsync(configuration, signInCancellationTokenSource.Token);
 
             if (string.IsNullOrEmpty(tokenSet.RefreshToken))
             {
@@ -391,6 +402,10 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
                 OAuthRefreshToken = tokenSet.RefreshToken
             };
         }
+        catch (OperationCanceledException) when (signInCancellationTokenSource.IsCancellationRequested)
+        {
+            return null;
+        }
         catch (Exception ex)
         {
             ValidationMessage = string.Format(Translator.ExchangeSettingsPage_Validation_SignInFailed, ex.Message);
@@ -398,6 +413,12 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         }
         finally
         {
+            if (ReferenceEquals(_signInCancellationTokenSource, signInCancellationTokenSource))
+            {
+                _signInCancellationTokenSource = null;
+            }
+
+            signInCancellationTokenSource.Dispose();
             IsBusy = false;
         }
     }

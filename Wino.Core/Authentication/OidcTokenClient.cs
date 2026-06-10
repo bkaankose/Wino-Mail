@@ -109,21 +109,34 @@ public sealed class OidcTokenClient : IOidcTokenClient
         if (!response.IsSuccessStatusCode)
             throw new OidcTokenException($"Token endpoint returned {(int)response.StatusCode}: {Truncate(body)}");
 
+        return ParseTokenResponse(body, DateTimeOffset.UtcNow);
+    }
+
+    internal static OidcTokenSet ParseTokenResponse(string body, DateTimeOffset now)
+    {
         using var document = JsonDocument.Parse(body);
         var root = document.RootElement;
 
         var accessToken = GetString(root, "access_token")
             ?? throw new OidcTokenException("Token response did not contain an access_token.");
 
-        var expiresIn = root.TryGetProperty("expires_in", out var exp) && exp.TryGetInt32(out var seconds)
-            ? seconds
-            : 3600;
+        var tokenType = GetString(root, "token_type")
+            ?? throw new OidcTokenException("Token response did not contain token_type.");
+
+        if (!tokenType.Equals("Bearer", StringComparison.OrdinalIgnoreCase))
+            throw new OidcTokenException($"Token endpoint returned unsupported token_type '{tokenType}'.");
+
+        var expiresAtUtc = root.TryGetProperty("expires_in", out var exp) &&
+                           exp.TryGetInt32(out var seconds) &&
+                           seconds > 0
+            ? now.AddSeconds(seconds)
+            : now;
 
         return new OidcTokenSet
         {
             AccessToken = accessToken,
             RefreshToken = GetString(root, "refresh_token"),
-            ExpiresAtUtc = DateTimeOffset.UtcNow.AddSeconds(expiresIn),
+            ExpiresAtUtc = expiresAtUtc,
         };
     }
 

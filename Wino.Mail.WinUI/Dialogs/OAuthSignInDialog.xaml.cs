@@ -13,7 +13,7 @@ public sealed partial class OAuthSignInDialog : ContentDialog
     private readonly string _authorizationUrl;
     private readonly string _redirectUri;
 
-    public RedirectResult Result { get; private set; }
+    public RedirectResult Result { get; private set; } = new(null, null, null);
 
     public OAuthSignInDialog(string authorizationUrl, string redirectUri)
     {

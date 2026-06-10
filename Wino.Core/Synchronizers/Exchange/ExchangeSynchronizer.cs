@@ -107,7 +107,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
     /// Best-effort proxy-address discovery. EWS has no direct "my proxy addresses" call,
     /// so this resolves the mailbox's directory entry and keeps the root alias as a fallback.
     /// </summary>
-    protected override async Task SynchronizeAliasesAsync()
+    protected override async Task SynchronizeAliasesAsync(CancellationToken cancellationToken = default)
     {
         var aliases = new Dictionary<string, RemoteAccountAlias>(StringComparer.OrdinalIgnoreCase);
 
@@ -163,7 +163,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
             var service = await CreateServiceAsync().ConfigureAwait(false);
 
             var resolutions = await service
-                .ResolveName(Account.Address, ResolveNameSearchLocation.DirectoryOnly, returnContactDetails: true, CancellationToken.None)
+                .ResolveName(Account.Address, ResolveNameSearchLocation.DirectoryOnly, returnContactDetails: true, cancellationToken)
                 .ConfigureAwait(false);
 
             foreach (var resolution in resolutions)
@@ -185,6 +185,10 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
                 }
             }
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.Debug(ex, "Exchange alias (proxy-address) discovery via ResolveName failed for {Account}.", Account.Name);
@@ -199,13 +203,15 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
     {
         var service = await CreateServiceAsync().ConfigureAwait(false);
 
-        await SynchronizeFoldersAsync(service, cancellationToken).ConfigureAwait(false);
+        if (options.Type is MailSynchronizationType.FullFolders or MailSynchronizationType.FoldersOnly)
+            await SynchronizeFoldersAsync(service, cancellationToken).ConfigureAwait(false);
 
-        var localFolders = await _exchangeChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
-        var foldersToSync = localFolders
-            .Where(f => f.IsSynchronizationEnabled && !string.IsNullOrEmpty(f.RemoteFolderId))
+        if (options.Type == MailSynchronizationType.FoldersOnly)
+            return MailSynchronizationResult.Empty;
+
+        var foldersToSync = (await _exchangeChangeProcessor.GetSynchronizationFoldersAsync(options).ConfigureAwait(false))
+            .Where(f => !string.IsNullOrEmpty(f.RemoteFolderId))
             .ToList();
-        // TODO: honor options.Type / SynchronizationFolderIds for targeted sync.
 
         var downloaded = new List<MailCopy>();
         foreach (var folder in foldersToSync)
@@ -367,9 +373,11 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
                         var packages = await CreateNewMailPackagesAsync(change.Item, folder, cancellationToken).ConfigureAwait(false);
                         if (packages?.Count > 0)
                         {
-                            // TODO: Update should reconcile in place rather than re-insert.
-                            await _exchangeChangeProcessor.CreateMailsAsync(Account.Id, packages).ConfigureAwait(false);
-                            downloaded.AddRange(packages.Select(p => p.Copy));
+                            foreach (var package in packages)
+                            {
+                                if (await _exchangeChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false))
+                                    downloaded.Add(package.Copy);
+                            }
                         }
                         break;
                     case ChangeType.Delete:

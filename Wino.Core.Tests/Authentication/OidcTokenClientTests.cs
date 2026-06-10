@@ -82,4 +82,40 @@ public sealed class OidcTokenClientTests
         expiring.IsAccessTokenValid(TimeSpan.FromMinutes(2)).Should().BeFalse();
         empty.IsAccessTokenValid(TimeSpan.FromMinutes(2)).Should().BeFalse();
     }
+
+    [Fact]
+    public void ParseTokenResponse_RejectsNonBearerToken()
+    {
+        var body = """
+        {
+            "access_token": "token",
+            "token_type": "pop",
+            "expires_in": 3600
+        }
+        """;
+
+        var act = () => OidcTokenClient.ParseTokenResponse(body, DateTimeOffset.UtcNow);
+
+        act.Should().Throw<OidcTokenException>()
+            .WithMessage("*unsupported token_type*");
+    }
+
+    [Fact]
+    public void ParseTokenResponse_MissingExpiresIn_IsImmediatelyExpired()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var body = """
+        {
+            "access_token": "token",
+            "token_type": "Bearer",
+            "refresh_token": "refresh"
+        }
+        """;
+
+        var result = OidcTokenClient.ParseTokenResponse(body, now);
+
+        result.AccessToken.Should().Be("token");
+        result.RefreshToken.Should().Be("refresh");
+        result.ExpiresAtUtc.Should().Be(now);
+    }
 }

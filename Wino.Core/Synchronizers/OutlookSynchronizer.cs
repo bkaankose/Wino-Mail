@@ -1553,12 +1553,12 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         return new ProfileInformation(displayNameAndAddress.Item1, profilePictureData, displayNameAndAddress.Item2);
     }
 
-    protected override async Task SynchronizeAliasesAsync()
+    protected override async Task SynchronizeAliasesAsync(CancellationToken cancellationToken = default)
     {
         var userInfo = await _graphClient.Me.GetAsync((config) =>
         {
             config.QueryParameters.Select = ["mail", "proxyAddresses"];
-        }).ConfigureAwait(false);
+        }, cancellationToken).ConfigureAwait(false);
 
         var remoteAliases = GetRemoteAliases(userInfo);
         await _outlookChangeProcessor.UpdateRemoteAliasInformationAsync(Account, remoteAliases).ConfigureAwait(false);
