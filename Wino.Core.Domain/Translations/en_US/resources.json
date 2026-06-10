@@ -576,6 +576,7 @@
     "Info_AccountDeletedTitle": "Account Deleted",
     "Info_AccountIssueFixFailedTitle": "Failed",
     "Info_AccountIssueFixImapMessage": "Open the IMAP and calendar settings page to enter your server credentials again.",
+    "Info_AccountIssueFixExchangeMessage": "Open the Exchange server and sign-in settings to update your endpoint or credentials.",
     "Info_AccountAttentionRequiredMessage": "This account needs your attention.",
     "Info_AccountAttentionRequiredClickableMessage": "Click to fix this account and resynchronize it.",
     "Info_AccountAttentionRequiredAction": "Fix",
