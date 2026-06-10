@@ -86,17 +86,16 @@ public static class Program
         var logger = services.GetRequiredService<IWinoLogger>();
         logger.SetupLogger(Path.Combine(ApplicationData.Current.LocalFolder.Path, "WinoBackgroundService.log"));
 
-        // Database, translations and the synchronization manager.
-        await services.GetRequiredService<IDatabaseService>().InitializeAsync().ConfigureAwait(false);
-        await services.GetRequiredService<ITranslationService>().InitializeAsync().ConfigureAwait(false);
-        await services.GetRequiredService<SynchronizationManagerInitializer>().InitializeAsync().ConfigureAwait(false);
-
-        // RPC server.
+        // RPC server. It starts listening BEFORE the database and synchronization manager
+        // initialize so a launching UI can connect immediately; requests received in the
+        // meantime wait on the initialization gate instead of timing out the client.
         var nativeAppService = services.GetRequiredService<INativeAppService>();
         var pipeName = PipeNaming.GetPipeName(Package.Current.Id.FamilyName, Process.GetCurrentProcess().SessionId);
 
         var toastActionHandler = services.GetRequiredService<ToastActionHandler>();
         var backgroundServiceControl = new BackgroundServiceControl(toastActionHandler, nativeAppService, services.GetRequiredService<IPreferencesService>(), Terminate);
+
+        var initializationCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var dispatcher = new WinoRpcDispatcher(
             services.GetRequiredService<IAccountService>(),
@@ -117,19 +116,38 @@ public static class Program
             services.GetRequiredService<IWinoAccountProfileService>(),
             services.GetRequiredService<IWinoRequestDelegator>());
 
-        var serverHost = new NamedPipeRpcServerHost(pipeName, dispatcher, new RpcServerConnectionOptions
-        {
-            ProtocolVersion = IpcProtocolVersion,
-            AppVersion = nativeAppService.GetFullAppVersion(),
-            ExceptionMapper = WinoRpcDomainExceptions.ToErrorEnvelope,
-            OperationDeduplicator = new RpcOperationDeduplicator(),
-        });
+        var serverHost = new NamedPipeRpcServerHost(
+            pipeName,
+            new InitializationGateHandler(initializationCompletion.Task, dispatcher),
+            new RpcServerConnectionOptions
+            {
+                ProtocolVersion = IpcProtocolVersion,
+                AppVersion = nativeAppService.GetFullAppVersion(),
+                ExceptionMapper = WinoRpcDomainExceptions.ToErrorEnvelope,
+                OperationDeduplicator = new RpcOperationDeduplicator(),
+            });
 
         // UI messages: publish locally + forward to connected clients.
         UIMessagePublisherProvider.Current = new PipeUIMessagePublisher(serverHost);
 
         serverHost.Start();
         Log.Information("RPC server listening on pipe {PipeName}.", pipeName);
+
+        // Database, translations and the synchronization manager; opens the gate when done.
+        try
+        {
+            await services.GetRequiredService<IDatabaseService>().InitializeAsync().ConfigureAwait(false);
+            await services.GetRequiredService<ITranslationService>().InitializeAsync().ConfigureAwait(false);
+            await services.GetRequiredService<SynchronizationManagerInitializer>().InitializeAsync().ConfigureAwait(false);
+
+            initializationCompletion.TrySetResult();
+            Log.Information("Background service initialization completed; requests are now served.");
+        }
+        catch (Exception initializationException)
+        {
+            initializationCompletion.TrySetException(initializationException);
+            throw;
+        }
 
         // Lifecycle and background loops.
         var preferencesService = services.GetRequiredService<IPreferencesService>();

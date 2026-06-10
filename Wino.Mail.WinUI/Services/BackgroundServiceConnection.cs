@@ -217,7 +217,7 @@ public sealed class BackgroundServiceConnection : IRpcClient, IAsyncDisposable
         }
         catch (Exception exception)
         {
-            _logger.Debug("App activation manager launch failed: {Message}", exception.Message);
+            _logger.Warning(exception, "App activation manager launch failed.");
         }
 
         try
@@ -235,7 +235,7 @@ public sealed class BackgroundServiceConnection : IRpcClient, IAsyncDisposable
         }
         catch (Exception exception)
         {
-            _logger.Debug("App list entry launch failed: {Message}", exception.Message);
+            _logger.Warning(exception, "App list entry launch failed.");
         }
 
         // Fallback: start the packaged exe directly. With the WAP packaging project each

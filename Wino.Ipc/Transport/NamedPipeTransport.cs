@@ -28,6 +28,13 @@ public static class NamedPipeTransport
             await clientStream.ConnectAsync(timeoutCts.Token).ConfigureAwait(false);
             return clientStream;
         }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            // Our own timeout fired; OperationCanceledException must mean caller
+            // cancellation only, otherwise retry loops treat timeouts as fatal.
+            await clientStream.DisposeAsync().ConfigureAwait(false);
+            throw new TimeoutException($"Timed out connecting to pipe '{pipeName}' after {timeout.TotalMilliseconds:F0} ms.");
+        }
         catch
         {
             await clientStream.DisposeAsync().ConfigureAwait(false);
