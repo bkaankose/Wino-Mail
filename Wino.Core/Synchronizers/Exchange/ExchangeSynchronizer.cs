@@ -549,8 +549,9 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
     public override List<IRequestBundle<EwsRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request)
         => MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(a => new MarkReadRequest(a, true))));
 
-    // Drafts stay local until sent (same as IMAP — CreateDraft is intentionally not overridden).
-    // Send serializes the composed MIME and submits it via EWS, optionally saving to Sent Items.
+    // Submits the composed MIME via EWS. Unlike IMAP/SMTP, Exchange always keeps a server-side
+    // Sent Items copy, and the draft that CreateDraft pushed to the server must be removed so it
+    // doesn't linger after the message is sent.
     public override List<IRequestBundle<EwsRequest>> SendDraft(SendDraftRequest request)
     {
         var preparation = request.Request;
@@ -570,13 +571,42 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
                 MimeContent = new Microsoft.Exchange.WebServices.Data.MimeContent("UTF-8", stream.ToArray())
             };
 
-            var saveToSent = preparation.AccountPreferences?.ShouldAppendMessagesToSentFolder == true
-                             && preparation.SentFolder != null;
+            // EWS does not honor the MIME From for the sender (same quirk Graph has), so when the
+            // user picked a non-primary alias, set it explicitly via the From property. Only the
+            // mailbox's own (synced) proxy addresses are offered, so this is a permitted send-as.
+            var aliasAddress = preparation.SendingAlias?.AliasAddress;
+            if (!string.IsNullOrWhiteSpace(aliasAddress) &&
+                !aliasAddress.Equals(Account.Address, StringComparison.OrdinalIgnoreCase))
+            {
+                message.From = new EmailAddress(aliasAddress);
+            }
 
-            if (saveToSent)
+            // Exchange manages Sent Items server-side — always save a copy (the IMAP-only
+            // "append to sent" preference does not apply to EWS).
+            if (preparation.SentFolder != null)
                 await message.SendAndSaveCopy(new FolderId(preparation.SentFolder.RemoteFolderId)).ConfigureAwait(false);
             else
-                await message.Send().ConfigureAwait(false);
+                await message.SendAndSaveCopy().ConfigureAwait(false);
+
+            // CreateDraft saved this draft to the server Drafts folder; remove that copy now that the
+            // message is sent, otherwise a stale/empty draft is left behind. Best-effort — the draft
+            // may not exist on the server (e.g. never pushed), so a failure here must not fail the send.
+            var serverDraftId = preparation.MailItem?.Id;
+            if (!string.IsNullOrWhiteSpace(serverDraftId))
+            {
+                try
+                {
+                    await service.DeleteItems(
+                        [new ItemId(serverDraftId)],
+                        DeleteMode.HardDelete,
+                        SendCancellationsMode.SendToNone,
+                        AffectedTaskOccurrence.AllOccurrences).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Debug(ex, "Could not delete server draft {DraftId} after send (it may already be gone).", serverDraftId);
+                }
+            }
         }, request, request);
     }
 
