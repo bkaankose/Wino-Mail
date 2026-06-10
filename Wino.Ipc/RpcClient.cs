@@ -103,7 +103,17 @@ public sealed class RpcClient : IRpcClient, IAsyncDisposable
         try
         {
             var payload = RpcEnvelope.WriteRequest(methodName, operationId, request, requestTypeInfo);
-            await _connection.SendAsync(new Frame(FrameType.Request, correlationId, payload), cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                await _connection.SendAsync(new Frame(FrameType.Request, correlationId, payload), cancellationToken).ConfigureAwait(false);
+            }
+            catch (IOException ioException)
+            {
+                // Sending on an already-broken connection is the same retriable condition
+                // as losing the connection mid-call.
+                throw new WinoRpcConnectionLostException("The IPC connection was lost.", ioException);
+            }
 
             CancellationTokenRegistration registration = default;
 

@@ -25,5 +25,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\Wino.Ipc\Wino.Ipc.csproj" />
+		<ProjectReference Include="..\Wino.Ipc.Contracts\Wino.Ipc.Contracts.csproj" />
+		<ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
 	</ItemGroup>
 </Project>
