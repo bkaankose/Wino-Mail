@@ -38,7 +38,7 @@ using Wino.Core.Extensions;
 using Wino.Core.Http;
 using Wino.Core.Helpers;
 using Wino.Core.Integration.Processors;
-using Wino.Core.Misc;
+using Wino.Core.Domain.Misc;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Category;

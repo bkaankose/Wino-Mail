@@ -1,8 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace Wino.Core.Extensions;
+namespace Wino.Core.Domain.Extensions;
 
 public static class LongExtensions
 {

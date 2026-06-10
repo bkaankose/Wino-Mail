@@ -9,7 +9,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Integration.Processors;
-using Wino.Core.Misc;
+using Wino.Core.Domain.Misc;
 using Wino.Core.Synchronizers.ImapSync;
 using Wino.Core.Synchronizers.Mail;
 using Wino.Services;

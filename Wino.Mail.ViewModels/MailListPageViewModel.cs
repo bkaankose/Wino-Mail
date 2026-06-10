@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -10,8 +10,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.Mvvm.Messaging.Messages;
-using MoreLinq;
-using Nito.AsyncEx;
 using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
@@ -26,7 +24,6 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Services;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
@@ -293,8 +290,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     {
         ActionItems.Clear();
 
-        var actions = GetAvailableMailActions(MailCollection.SelectedItems);
-        actions.ForEach(a => ActionItems.Add(a));
+        foreach (var action in GetAvailableMailActions(MailCollection.SelectedItems))
+        {
+            ActionItems.Add(action);
+        }
     }
 
     #region Properties

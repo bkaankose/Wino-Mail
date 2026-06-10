@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -18,7 +18,6 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Services;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Calendar;
 

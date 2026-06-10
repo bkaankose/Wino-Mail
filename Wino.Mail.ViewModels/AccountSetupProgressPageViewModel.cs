@@ -16,7 +16,6 @@ using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Helpers;
 using Wino.Messaging.Client.Navigation;

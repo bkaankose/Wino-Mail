@@ -31,9 +31,6 @@ public static class CoreContainerSetup
         services.AddTransient<IImapTestService, ImapTestService>();
         services.AddTransient<ISmimeService, SmimeService>();
         services.AddTransient<IAuthenticationProvider, AuthenticationProvider>();
-        services.AddTransient<IAutoDiscoveryService, AutoDiscoveryService>();
-        services.AddTransient<IFontService, FontService>();
-        services.AddTransient<IUnsubscriptionService, UnsubscriptionService>();
         services.AddTransient<IOutlookAuthenticator, OutlookAuthenticator>();
         services.AddTransient<IGmailAuthenticator, GmailAuthenticator>();
 

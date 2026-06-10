@@ -21,7 +21,6 @@ using Windows.Storage;
 using Serilog;
 using Wino.Calendar.ViewModels;
 using Wino.Calendar.ViewModels.Interfaces;
-using Wino.Core;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -397,7 +396,9 @@ public partial class App : WinoApplication,
             builder.AddSerilog(dispose: false);
         });
 
-        services.RegisterCoreServices();
+        // The sync engine (Wino.Core: Graph/Google/MSAL/MailKit) lives only in the
+        // background companion. The UI registers shared file/preference services and
+        // swaps everything database/sync-backed for remote proxies below.
         services.RegisterSharedServices();
         services.RegisterCoreUWPServices();
         services.RegisterCoreViewModels();

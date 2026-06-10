@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
@@ -6,7 +6,7 @@ using Serilog;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Reader;
 
-namespace Wino.Core.Services;
+namespace Wino.Services;
 
 public class UnsubscriptionService : IUnsubscriptionService
 {

@@ -8,7 +8,6 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.Windows.Globalization;
-using Nito.AsyncEx;
 using Serilog;
 using Windows.ApplicationModel.Activation;
 using Windows.ApplicationModel.Core;
@@ -17,7 +16,6 @@ using Windows.Storage;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Translations;
-using Wino.Core.Services;
 using Wino.Messaging.Client.Shell;
 using Wino.Services;
 using WinUIEx;
@@ -88,7 +86,7 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
         yield return TranslationService;
     }
 
-    public Task InitializeServicesAsync() => GetActivationServices().Select(a => a.InitializeAsync()).WhenAll();
+    public Task InitializeServicesAsync() => Task.WhenAll(GetActivationServices().Select(a => a.InitializeAsync()));
 
     public bool IsInteractiveLaunchArgs(object args) => args is IActivatedEventArgs;
 

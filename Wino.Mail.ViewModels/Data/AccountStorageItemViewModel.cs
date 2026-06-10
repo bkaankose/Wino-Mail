@@ -1,7 +1,7 @@
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Shared;
-using Wino.Core.Extensions;
+using Wino.Core.Domain.Extensions;
 
 namespace Wino.Mail.ViewModels.Data;
 

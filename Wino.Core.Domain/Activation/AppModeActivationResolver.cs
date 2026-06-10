@@ -2,7 +2,7 @@
 using System;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Core.Activation;
+namespace Wino.Core.Domain.Activation;
 
 public static class AppModeActivationResolver
 {

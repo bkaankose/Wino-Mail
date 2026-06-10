@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using SkiaSharp;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.Services;
+namespace Wino.Services;
 
 public class FontService() : IFontService
 {

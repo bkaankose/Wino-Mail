@@ -1,12 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using MoreLinq;
-using MoreLinq.Extensions;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -60,7 +58,10 @@ public partial class SignatureManagementPageViewModel(IMailDialogService dialogS
 
             Signatures.Clear();
             Signatures.Add(noneSignature);
-            dbSignatures.ForEach(Signatures.Add);
+            foreach (var dbSignature in dbSignatures)
+            {
+                Signatures.Add(dbSignature);
+            }
 
             SelectedSignatureForNewMessages = signatureForNewMessages;
             SelectedSignatureForFollowingMessages = signatureForFollowingMessages;

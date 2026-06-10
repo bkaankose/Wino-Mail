@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -21,9 +21,8 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Extensions;
-using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
+using Wino.Services.Extensions;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.UI;
 

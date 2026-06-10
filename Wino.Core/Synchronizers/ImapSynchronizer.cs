@@ -33,7 +33,7 @@ using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Core.Synchronizers.ImapSync;
-using Wino.Core.Misc;
+using Wino.Core.Domain.Misc;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 using Wino.Services.Extensions;

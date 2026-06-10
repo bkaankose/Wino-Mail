@@ -7,7 +7,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Misc;
+using Wino.Core.Domain.Misc;
 using Wino.Core.Tests.Helpers;
 using Wino.Services;
 using Xunit;

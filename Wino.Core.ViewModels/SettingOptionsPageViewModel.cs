@@ -14,7 +14,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Personalization;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.Models.Translations;
-using Wino.Core.Extensions;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;

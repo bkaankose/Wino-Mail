@@ -16,7 +16,6 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Domain.Models.Telemetry;
 using Wino.Core.Domain.Validation;
-using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Server;

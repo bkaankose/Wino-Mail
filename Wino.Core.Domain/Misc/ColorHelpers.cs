@@ -4,7 +4,7 @@ using System.Globalization;
 using System.Linq;
 using Wino.Core.Domain.Misc;
 
-namespace Wino.Core.Misc;
+namespace Wino.Core.Domain.Misc;
 
 public static class ColorHelpers
 {

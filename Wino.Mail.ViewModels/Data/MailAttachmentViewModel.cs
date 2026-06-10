@@ -1,9 +1,9 @@
-﻿using System.IO;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MimeKit;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Common;
-using Wino.Core.Extensions;
+using Wino.Core.Domain.Extensions;
 
 namespace Wino.Mail.ViewModels.Data;
 

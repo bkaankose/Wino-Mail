@@ -40,5 +40,10 @@ public static class ServicesContainerSetup
 
         services.AddTransient<ICalDavClient, CalDavClient>();
         services.AddSingleton<IUpdateManager, UpdateManager>();
+
+        // UI-local, dependency-light services shared with the companion.
+        services.AddTransient<IFontService, FontService>();
+        services.AddTransient<IAutoDiscoveryService, AutoDiscoveryService>();
+        services.AddTransient<IUnsubscriptionService, UnsubscriptionService>();
     }
 }

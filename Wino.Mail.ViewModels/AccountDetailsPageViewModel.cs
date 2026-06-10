@@ -18,8 +18,7 @@ using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Misc;
-using Wino.Core.Services;
+using Wino.Core.Domain.Misc;
 using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Helpers;
@@ -37,7 +36,6 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     private readonly ICalendarService _calendarService;
     private readonly IStatePersistanceService _statePersistanceService;
     private readonly INewThemeService _themeService;
-    private readonly IImapTestService _imapTestService;
     private readonly INotificationBuilder _notificationBuilder;
     private bool isLoaded = false;
 
@@ -159,7 +157,6 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         ICalendarService calendarService,
         IStatePersistanceService statePersistanceService,
         INewThemeService themeService,
-        IImapTestService imapTestService,
         INotificationBuilder notificationBuilder,
         INativeAppService nativeAppService)
     {
@@ -171,7 +168,6 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         _calendarService = calendarService;
         _statePersistanceService = statePersistanceService;
         _themeService = themeService;
-        _imapTestService = imapTestService;
         _notificationBuilder = notificationBuilder;
 
         var colorHexList = _themeService.GetAvailableAccountColors();
@@ -245,8 +241,17 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     {
         try
         {
-            await _imapTestService.TestImapConnectionAsync(ServerInformation, true);
-            _dialogService.InfoBarMessage(Translator.IMAPSetupDialog_ValidationSuccess_Title, Translator.IMAPSetupDialog_ValidationSuccess_Message, InfoBarMessageType.Success);
+            // IMAP connectivity is validated by the companion process over RPC.
+            var connectivityResult = await _synchronizationManager.TestImapConnectivityAsync(ServerInformation, allowSSLHandshake: true);
+
+            if (connectivityResult.IsSuccess)
+            {
+                _dialogService.InfoBarMessage(Translator.IMAPSetupDialog_ValidationSuccess_Title, Translator.IMAPSetupDialog_ValidationSuccess_Message, InfoBarMessageType.Success);
+            }
+            else
+            {
+                _dialogService.InfoBarMessage(Translator.IMAPSetupDialog_ValidationFailed_Title, connectivityResult.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage, InfoBarMessageType.Error);
+            }
         }
         catch (Exception ex)
         {

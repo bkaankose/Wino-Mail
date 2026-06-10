@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -10,7 +10,6 @@ using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Services;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.UI;
 

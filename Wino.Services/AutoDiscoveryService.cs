@@ -13,7 +13,7 @@ using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.AutoDiscovery;
 using Wino.Core.Domain.Validation;
 
-namespace Wino.Core.Services;
+namespace Wino.Services;
 
 /// <summary>
 /// Mail and CalDAV endpoint discovery with Thunderbird-style methods and fallbacks.
