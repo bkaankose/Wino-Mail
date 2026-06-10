@@ -355,5 +355,27 @@
     </Page>
   </ItemGroup>
 
-  <!-- Packaging, signing and bundling properties moved to Wino.Package.wapproj. -->
+  <!-- Packaging, signing and bundling properties moved to Wino.Packaging.wapproj. -->
+
+  <!--
+    WinMD metadata files are compile-time only for C# (CsWinRT projections are .NET
+    assemblies). Keeping them out of the output matters under the packaging project:
+    the WAP manifest generator harvests activatable-class registrations from WinMDs and
+    maps every class to "<winmd name>.dll", which is wrong for split implementations
+    (e.g. Microsoft.UI.Dispatching.* live in CoreMessagingXP.dll, not Microsoft.UI.dll).
+    Those wrong package-manifest entries shadow the correct reg-free WinRT manifest that
+    WindowsAppSDKSelfContained embeds into the exe and break activation with
+    0x80040111 (CLASS_E_CLASSNOTAVAILABLE). The single-project MSIX build never emitted
+    such entries; an empty set restores that behavior.
+  -->
+  <!-- A target runs only once and the first trigger wins, so this must be anchored
+       solely on the WindowsAppSDK self-contained payload target (which adds the WinMDs
+       as None items with CopyToOutputDirectory and itself runs before AssignTargetPaths). -->
+  <Target Name="_RemoveWinMdsFromOutput"
+          AfterTargets="AddMicrosoftWindowsAppSDKPayloadFilesFromComponents">
+    <ItemGroup>
+      <None Remove="@(None)" Condition="'%(Extension)' == '.winmd'" />
+      <ReferenceCopyLocalPaths Remove="@(ReferenceCopyLocalPaths)" Condition="'%(Extension)' == '.winmd'" />
+    </ItemGroup>
+  </Target>
 </Project>
