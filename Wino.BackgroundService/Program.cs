@@ -223,6 +223,10 @@ public static class Program
         services.RegisterSharedServices();
 
         // Companion-specific overrides (last registration wins).
+        services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();
+        services.AddTransient<IKeyPressService, HeadlessKeyPressService>();
+        services.AddSingleton<IStoreManagementService, CompanionStoreManagementService>();
+        services.AddSingleton<IMailDialogService, HeadlessMailDialogService>();
         services.AddSingleton<HeadlessNativeAppService>();
         services.AddSingleton<INativeAppService>(provider => provider.GetRequiredService<HeadlessNativeAppService>());
         services.AddSingleton<IAppMetadataService>(provider => provider.GetRequiredService<HeadlessNativeAppService>());
