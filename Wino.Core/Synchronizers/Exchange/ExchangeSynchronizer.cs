@@ -120,7 +120,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
 
         // MIME is downloaded on-demand (DownloadMissingMimeMessageAsync), not during sync.
         var package = new NewMailItemPackage(mailCopy, null, assignedFolder.RemoteFolderId);
-        return Task.FromResult(new List<NewMailItemPackage> { package });
+        return Task.FromResult<List<NewMailItemPackage>>([package]);
     }
 
     /// <summary>
@@ -407,7 +407,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
                         }
                         break;
                     case ChangeType.Delete:
-                        await _exchangeChangeProcessor.DeleteMailsAsync(Account.Id, new[] { change.ItemId.UniqueId }).ConfigureAwait(false);
+                        await _exchangeChangeProcessor.DeleteMailsAsync(Account.Id, [change.ItemId.UniqueId]).ConfigureAwait(false);
                         break;
                     case ChangeType.ReadFlagChange:
                         await _exchangeChangeProcessor.ChangeMailReadStatusAsync(change.ItemId.UniqueId, change.IsRead).ConfigureAwait(false);

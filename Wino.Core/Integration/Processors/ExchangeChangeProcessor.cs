@@ -95,8 +95,7 @@ public class ExchangeChangeProcessor : DefaultChangeProcessor, IExchangeChangePr
 
         savingItem.Visibility = appointment.Sensitivity switch
         {
-            Sensitivity.Personal => CalendarItemVisibility.Private,
-            Sensitivity.Private => CalendarItemVisibility.Private,
+            Sensitivity.Personal or Sensitivity.Private => CalendarItemVisibility.Private,
             Sensitivity.Confidential => CalendarItemVisibility.Confidential,
             _ => CalendarItemVisibility.Public
         };
@@ -207,8 +206,8 @@ public class ExchangeChangeProcessor : DefaultChangeProcessor, IExchangeChangePr
         if (!appointment.IsReminderSet)
             return null;
 
-        return new List<Reminder>
-        {
+        return
+        [
             new Reminder
             {
                 Id = Guid.NewGuid(),
@@ -216,6 +215,6 @@ public class ExchangeChangeProcessor : DefaultChangeProcessor, IExchangeChangePr
                 DurationInSeconds = appointment.ReminderMinutesBeforeStart * 60L,
                 ReminderType = CalendarItemReminderType.Popup
             }
-        };
+        ];
     }
 }
