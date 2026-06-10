@@ -18,6 +18,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.Helpers;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.UI;
 
@@ -39,6 +40,8 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
     private const string SetupOperationAccountSetup = "AccountSetup";
 
     private readonly IAccountService _accountService;
+    private readonly ISynchronizationManager _synchronizationManager;
+    private readonly IAuthenticationProvider _authenticationProvider;
     private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
     private readonly ICalDavClient _calDavClient;
     private readonly IMailDialogService _dialogService;
@@ -63,6 +66,8 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
 
     public AccountSetupProgressPageViewModel(
         IAccountService accountService,
+        ISynchronizationManager synchronizationManager,
+        IAuthenticationProvider authenticationProvider,
         ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
         ICalDavClient calDavClient,
         IMailDialogService dialogService,
@@ -70,6 +75,8 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
         WelcomeWizardContext wizardContext)
     {
         _accountService = accountService;
+        _synchronizationManager = synchronizationManager;
+        _authenticationProvider = authenticationProvider;
         _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
         _calDavClient = calDavClient;
         _dialogService = dialogService;
@@ -238,7 +245,8 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 // Step: Authenticating
                 SetStepInProgress(string.Format(Translator.AccountSetup_Step_Authenticating, WizardContext.SelectedProvider.Name), SetupOperationAuthentication);
 
-                var authTokenInfo = await SynchronizationManager.Instance.HandleAuthorizationAsync(
+                var authTokenInfo = await InteractiveAuthHelper.AuthorizeAsync(
+                    _authenticationProvider,
                     WizardContext.SelectedProvider.Type,
                     _createdAccount,
                     _createdAccount.ProviderType == MailProviderType.Gmail);
@@ -257,7 +265,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 {
                     // Step: Profile
                     SetStepInProgress(Translator.AccountSetup_Step_FetchingProfile, SetupOperationProfileSync);
-                    var profileResult = await SynchronizationManager.Instance.SynchronizeProfileAsync(_createdAccount.Id);
+                    var profileResult = await _synchronizationManager.SynchronizeProfileAsync(_createdAccount.Id);
                     if (profileResult.CompletedState != SynchronizationCompletedState.Success)
                         throw new Exception(Translator.Exception_FailedToSynchronizeProfileInformation);
 
@@ -280,7 +288,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
 
                     // Step: Folders
                     SetStepInProgress(Translator.AccountSetup_Step_SyncingFolders, SetupOperationFolderSync);
-                    var folderResult = await SynchronizationManager.Instance.SynchronizeFoldersAsync(_createdAccount.Id);
+                    var folderResult = await _synchronizationManager.SynchronizeFoldersAsync(_createdAccount.Id);
                     if (folderResult == null || folderResult.CompletedState != SynchronizationCompletedState.Success)
                         throw new Exception(Translator.Exception_FailedToSynchronizeFolders);
                     SetCurrentStepSucceeded();
@@ -298,7 +306,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 if (_createdAccount.IsCalendarAccessGranted)
                 {
                     SetStepInProgress(Translator.AccountSetup_Step_FetchingCalendarMetadata, SetupOperationCalendarMetadataSync);
-                    var calResult = await SynchronizationManager.Instance.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
+                    var calResult = await _synchronizationManager.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
                     {
                         AccountId = _createdAccount.Id,
                         Type = CalendarSynchronizationType.CalendarMetadata
@@ -314,7 +322,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                     SetStepInProgress(Translator.AccountSetup_Step_SyncingAliases, SetupOperationAliasSync);
                     if (_createdAccount.IsAliasSyncSupported)
                     {
-                        var aliasResult = await SynchronizationManager.Instance.SynchronizeAliasesAsync(_createdAccount.Id);
+                        var aliasResult = await _synchronizationManager.SynchronizeAliasesAsync(_createdAccount.Id);
                         if (aliasResult.CompletedState != SynchronizationCompletedState.Success)
                             throw new Exception(Translator.Exception_FailedToSynchronizeAliases);
                     }
@@ -370,7 +378,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 {
                     // Step: Folders
                     SetStepInProgress(Translator.AccountSetup_Step_SyncingFolders, SetupOperationFolderSync);
-                    var folderResult = await SynchronizationManager.Instance.SynchronizeFoldersAsync(_createdAccount.Id);
+                    var folderResult = await _synchronizationManager.SynchronizeFoldersAsync(_createdAccount.Id);
                     if (folderResult == null || folderResult.CompletedState != SynchronizationCompletedState.Success)
                         throw new Exception(Translator.Exception_FailedToSynchronizeFolders);
                     SetCurrentStepSucceeded();
@@ -380,7 +388,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 if (_createdAccount.IsCalendarAccessGranted)
                 {
                     SetStepInProgress(Translator.AccountSetup_Step_FetchingCalendarMetadata, SetupOperationCalendarMetadataSync);
-                    var calResult = await SynchronizationManager.Instance.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
+                    var calResult = await _synchronizationManager.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
                     {
                         AccountId = _createdAccount.Id,
                         Type = CalendarSynchronizationType.CalendarMetadata
@@ -422,7 +430,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 {
                     // Step: Folders
                     SetStepInProgress(Translator.AccountSetup_Step_SyncingFolders, SetupOperationFolderSync);
-                    var folderResult = await SynchronizationManager.Instance.SynchronizeFoldersAsync(_createdAccount.Id);
+                    var folderResult = await _synchronizationManager.SynchronizeFoldersAsync(_createdAccount.Id);
                     if (folderResult == null || folderResult.CompletedState != SynchronizationCompletedState.Success)
                         throw new Exception(Translator.Exception_FailedToSynchronizeFolders);
                     SetCurrentStepSucceeded();
@@ -444,7 +452,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 if (setupResult.IsCalendarAccessGranted)
                 {
                     SetStepInProgress(Translator.AccountSetup_Step_FetchingCalendarMetadata, SetupOperationCalendarMetadataSync);
-                    var calResult = await SynchronizationManager.Instance.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
+                    var calResult = await _synchronizationManager.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
                     {
                         AccountId = _createdAccount.Id,
                         Type = CalendarSynchronizationType.CalendarMetadata
@@ -509,7 +517,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
     {
         try
         {
-            var categoryResult = await SynchronizationManager.Instance.SynchronizeCategoriesAsync(_createdAccount.Id);
+            var categoryResult = await _synchronizationManager.SynchronizeCategoriesAsync(_createdAccount.Id);
 
             if (categoryResult?.CompletedState == SynchronizationCompletedState.Success)
                 return;
@@ -581,7 +589,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
 
     private async Task ValidateImapConnectivityAsync(CustomServerInformation serverInformation)
     {
-        var connectivityResult = await SynchronizationManager.Instance
+        var connectivityResult = await _synchronizationManager
             .TestImapConnectivityAsync(serverInformation, allowSSLHandshake: false);
 
         if (connectivityResult.IsCertificateUIRequired)
@@ -601,7 +609,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
             if (!allowCertificate)
                 throw new InvalidOperationException(Translator.IMAPSetupDialog_CertificateDenied);
 
-            connectivityResult = await SynchronizationManager.Instance
+            connectivityResult = await _synchronizationManager
                 .TestImapConnectivityAsync(serverInformation, allowSSLHandshake: true);
         }
 

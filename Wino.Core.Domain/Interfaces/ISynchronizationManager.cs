@@ -139,9 +139,41 @@ public interface ISynchronizationManager
 
     /// <summary>
     /// Handles OAuth authentication for the specified provider.
+    /// Companion-side this only performs silent refresh; interactive authentication
+    /// happens in the UI process (see InteractiveAuthRequiredException).
     /// </summary>
     Task<TokenInformationEx> HandleAuthorizationAsync(MailProviderType providerType,
                                                      MailAccount account = null,
                                                      bool proposeCopyAuthorizationURL = false,
                                                      bool forceInteractive = false);
+
+    /// <summary>
+    /// Returns unique mail ids that currently have queued (pending) operations.
+    /// Used by the UI to show busy indicators on mail items.
+    /// </summary>
+    Task<List<Guid>> GetPendingMailOperationUniqueIdsAsync(Guid accountId);
+
+    /// <summary>
+    /// Checks whether the given mail item has a queued (pending) operation.
+    /// </summary>
+    Task<bool> HasPendingMailOperationAsync(Guid accountId, Guid mailUniqueId);
+
+    /// <summary>
+    /// Returns calendar item ids that currently have queued (pending) operations.
+    /// </summary>
+    Task<List<Guid>> GetPendingCalendarOperationIdsAsync(Guid accountId);
+
+    /// <summary>
+    /// Performs a provider online search over the given folders.
+    /// </summary>
+    Task<List<MailCopy>> OnlineSearchAsync(Guid accountId, string queryText, List<MailItemFolder> folders, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Downloads a calendar attachment to the given local file path in the shared storage.
+    /// </summary>
+    Task DownloadCalendarAttachmentAsync(Guid accountId,
+                                         Wino.Core.Domain.Entities.Calendar.CalendarItem calendarItem,
+                                         Wino.Core.Domain.Entities.Calendar.CalendarAttachment attachment,
+                                         string localFilePath,
+                                         CancellationToken cancellationToken = default);
 }

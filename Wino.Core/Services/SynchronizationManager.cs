@@ -16,13 +16,14 @@ using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authentication;
 using Wino.Core.Domain.Models.Connectivity;
+using Wino.Core.Domain.Models.Folders;
+using Wino.Core.Domain.Models.Messaging;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Domain.Models.Telemetry;
 using Wino.Core.Helpers;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Messaging.UI;
-using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Core.Services;
 
@@ -922,9 +923,86 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     }
 
     /// <summary>
+    /// Returns unique mail ids that currently have queued (pending) operations.
+    /// </summary>
+    public async Task<List<Guid>> GetPendingMailOperationUniqueIdsAsync(Guid accountId)
+    {
+        EnsureInitialized();
+
+        var synchronizer = await GetOrCreateSynchronizerAsync(accountId).ConfigureAwait(false);
+        return synchronizer?.GetPendingOperationUniqueIds()?.ToList() ?? [];
+    }
+
+    /// <summary>
+    /// Checks whether the given mail item has a queued (pending) operation.
+    /// </summary>
+    public async Task<bool> HasPendingMailOperationAsync(Guid accountId, Guid mailUniqueId)
+    {
+        EnsureInitialized();
+
+        var synchronizer = await GetOrCreateSynchronizerAsync(accountId).ConfigureAwait(false);
+        return synchronizer?.HasPendingOperation(mailUniqueId) ?? false;
+    }
+
+    /// <summary>
+    /// Returns calendar item ids that currently have queued (pending) operations.
+    /// </summary>
+    public async Task<List<Guid>> GetPendingCalendarOperationIdsAsync(Guid accountId)
+    {
+        EnsureInitialized();
+
+        var synchronizer = await GetOrCreateSynchronizerAsync(accountId).ConfigureAwait(false);
+        return synchronizer?.GetPendingCalendarOperationIds()?.ToList() ?? [];
+    }
+
+    /// <summary>
+    /// Performs a provider online search over the given folders.
+    /// </summary>
+    public async Task<List<MailCopy>> OnlineSearchAsync(Guid accountId, string queryText, List<MailItemFolder> folders, CancellationToken cancellationToken = default)
+    {
+        EnsureInitialized();
+
+        var synchronizer = await GetOrCreateSynchronizerAsync(accountId).ConfigureAwait(false);
+        if (synchronizer == null)
+            return [];
+
+        var results = await synchronizer
+            .OnlineSearchAsync(queryText, folders?.Cast<IMailItemFolder>().ToList() ?? [], cancellationToken)
+            .ConfigureAwait(false);
+
+        return results ?? [];
+    }
+
+    /// <summary>
+    /// Downloads a calendar attachment using the appropriate synchronizer.
+    /// The account id is passed explicitly because the calendar item's assigned calendar
+    /// navigation property does not cross the process boundary.
+    /// </summary>
+    public Task DownloadCalendarAttachmentAsync(
+        Guid accountId,
+        Wino.Core.Domain.Entities.Calendar.CalendarItem calendarItem,
+        Wino.Core.Domain.Entities.Calendar.CalendarAttachment attachment,
+        string localFilePath,
+        CancellationToken cancellationToken = default)
+        => DownloadCalendarAttachmentCoreAsync(accountId, calendarItem, attachment, localFilePath, cancellationToken);
+
+    /// <summary>
     /// Downloads a calendar attachment using the appropriate synchronizer.
     /// </summary>
-    public async Task DownloadCalendarAttachmentAsync(
+    public Task DownloadCalendarAttachmentAsync(
+        Wino.Core.Domain.Entities.Calendar.CalendarItem calendarItem,
+        Wino.Core.Domain.Entities.Calendar.CalendarAttachment attachment,
+        string localFilePath,
+        CancellationToken cancellationToken = default)
+        => DownloadCalendarAttachmentCoreAsync(
+            calendarItem?.AssignedCalendar?.AccountId ?? Guid.Empty,
+            calendarItem,
+            attachment,
+            localFilePath,
+            cancellationToken);
+
+    private async Task DownloadCalendarAttachmentCoreAsync(
+        Guid accountId,
         Wino.Core.Domain.Entities.Calendar.CalendarItem calendarItem,
         Wino.Core.Domain.Entities.Calendar.CalendarAttachment attachment,
         string localFilePath,
@@ -938,7 +1016,9 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         if (attachment == null)
             throw new ArgumentNullException(nameof(attachment));
 
-        var accountId = calendarItem.AssignedCalendar?.AccountId ?? Guid.Empty;
+        if (accountId == Guid.Empty)
+            accountId = calendarItem.AssignedCalendar?.AccountId ?? Guid.Empty;
+
         if (accountId == Guid.Empty)
             throw new InvalidOperationException("Calendar item does not have an assigned account.");
 

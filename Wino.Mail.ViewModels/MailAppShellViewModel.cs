@@ -22,7 +22,6 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests.Folder;
-using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Helpers;
 using Wino.Messaging.Client.Accounts;
@@ -77,6 +76,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     private readonly IFolderService _folderService;
     private readonly IMailCategoryService _mailCategoryService;
+    private readonly ISynchronizationManager _synchronizationManager;
+    private readonly IAuthenticationProvider _authenticationProvider;
     private readonly IConfigurationService _configurationService;
     private readonly IStartupBehaviorService _startupBehaviorService;
     private readonly IAccountService _accountService;
@@ -98,6 +99,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private readonly SemaphoreSlim accountInitFolderUpdateSlim = new SemaphoreSlim(1);
 
     public MailAppShellViewModel(IMailDialogService dialogService,
+                             ISynchronizationManager synchronizationManager,
+                             IAuthenticationProvider authenticationProvider,
                              INavigationService navigationService,
                              IMimeFileService mimeFileService,
                              INativeAppService nativeAppService,
@@ -121,6 +124,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
         PreferencesService = preferencesService;
         _dialogService = dialogService;
+        _synchronizationManager = synchronizationManager;
+        _authenticationProvider = authenticationProvider;
         NavigationService = navigationService;
 
         _configurationService = configurationService;
@@ -164,13 +169,13 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         });
     }
 
-    private static void ApplySynchronizationProgress(IAccountMenuItem accountMenuItem, SynchronizationProgressCategory category)
+    private void ApplySynchronizationProgress(IAccountMenuItem accountMenuItem, SynchronizationProgressCategory category)
     {
         AccountSynchronizationProgress progress;
 
         try
         {
-            progress = SynchronizationManager.Instance.GetSynchronizationProgress(
+            progress = _synchronizationManager.GetSynchronizationProgress(
                 accountMenuItem.HoldingAccounts.First().Id,
                 category);
         }
@@ -760,7 +765,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             {
                 if (account.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook)
                 {
-                    await SynchronizationManager.Instance.HandleAuthorizationAsync(
+                    await InteractiveAuthHelper.AuthorizeAsync(
+                        _authenticationProvider,
                         account.ProviderType,
                         account,
                         account.ProviderType == MailProviderType.Gmail,

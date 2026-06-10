@@ -151,7 +151,10 @@ public class CalendarItem : ICalendarItem
     public DateTimeOffset UpdatedAt { get; set; }
     public Guid CalendarId { get; set; }
 
+    // Interface-typed navigation property: excluded from JSON so calendar items can
+    // cross the UI <-> companion pipe; receivers re-resolve the calendar by CalendarId.
     [Ignore]
+    [System.Text.Json.Serialization.JsonIgnore]
     public IAccountCalendar AssignedCalendar { get; set; }
 
     [Ignore]
