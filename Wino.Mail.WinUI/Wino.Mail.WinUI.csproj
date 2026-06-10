@@ -10,8 +10,10 @@
     <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
     <PublishProfile>win-$(Platform).pubxml</PublishProfile>
     <UseWinUI>true</UseWinUI>
-    <EnableMsixTooling>true</EnableMsixTooling>
-    <!-- Bundle the Windows App SDK and .NET runtime into per-architecture MSIX outputs. -->
+    <!-- Packaging is owned by Wino.Package.wapproj, which bundles this app together with
+         Wino.BackgroundService under a single package identity. -->
+    <EnableMsixTooling>false</EnableMsixTooling>
+    <!-- Bundle the Windows App SDK runtime into the app output. -->
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
     <Nullable>enable</Nullable>
@@ -163,15 +165,6 @@
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
 
-  <!--
-    Defining the "Msix" ProjectCapability here allows the Single-project MSIX Packaging
-    Tools extension to be activated for this project even if the Windows App SDK Nuget
-    package has not yet been restored.
-  -->
-  <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
-    <ProjectCapability Include="Msix" />
-  </ItemGroup>
-	
   <ItemGroup>
 	<PackageReference Include="CommunityToolkit.Common" />
 	<PackageReference Include="CommunityToolkit.Diagnostics" />
@@ -216,8 +209,6 @@
 	<ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
 	<ProjectReference Include="..\Wino.Ipc\Wino.Ipc.csproj" />
 	<ProjectReference Include="..\Wino.Ipc.Contracts\Wino.Ipc.Contracts.csproj" />
-	<!-- Ship the background companion exe inside the MSIX layout. -->
-	<ProjectReference Include="..\Wino.BackgroundService\Wino.BackgroundService.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Page Update="Views\Settings\ContactsPage.xaml">
@@ -364,26 +355,5 @@
     </Page>
   </ItemGroup>
 
-  <!--
-    Defining the "HasPackageAndPublishMenuAddedByProject" property here allows the Solution
-    Explorer "Package and Publish" context menu entry to be enabled for this project even if
-    the Windows App SDK Nuget package has not yet been restored.
-  -->
-  <PropertyGroup Condition="'$(DisableHasPackageAndPublishMenuAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
-    <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
-  </PropertyGroup>
-
-  <!-- Publish Properties -->
-  <PropertyGroup>  
-    <GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
-    <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
-    <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
-    <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
-    <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
-    <GenerateTestArtifacts>True</GenerateTestArtifacts>
-    <AppxBundle>Always</AppxBundle>
-    <AppxBundlePlatforms>x86|x64|arm64</AppxBundlePlatforms>
-    <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
-    <PackageCertificateThumbprint>4D0220C9CA6C704D170471B1A2335F76F94EB9DC</PackageCertificateThumbprint>
-  </PropertyGroup>
+  <!-- Packaging, signing and bundling properties moved to Wino.Package.wapproj. -->
 </Project>

@@ -204,6 +204,22 @@ public sealed class BackgroundServiceConnection : IRpcClient, IAsyncDisposable
 
     private async Task<bool> TryLaunchBackgroundServiceAsync()
     {
+        // The companion's app entry is hidden (AppListEntry="none"), so activate it by
+        // its AUMID; GetAppListEntriesAsync does not return hidden entries.
+        try
+        {
+            var targetAppUserModelId = $"{Package.Current.Id.FamilyName}!{BackgroundServiceApplicationId}";
+            var activationManager = (IApplicationActivationManager)new ApplicationActivationManager();
+            activationManager.ActivateApplication(targetAppUserModelId, string.Empty, 0, out _);
+
+            _logger.Information("Background service launched via app activation manager.");
+            return true;
+        }
+        catch (Exception exception)
+        {
+            _logger.Debug("App activation manager launch failed: {Message}", exception.Message);
+        }
+
         try
         {
             var targetAppUserModelId = $"{Package.Current.Id.FamilyName}!{BackgroundServiceApplicationId}";
@@ -222,10 +238,17 @@ public sealed class BackgroundServiceConnection : IRpcClient, IAsyncDisposable
             _logger.Debug("App list entry launch failed: {Message}", exception.Message);
         }
 
-        // Fallback: start the packaged exe directly.
+        // Fallback: start the packaged exe directly. With the WAP packaging project each
+        // bundled app lives in its own subfolder of the package root.
         try
         {
-            var exePath = Path.Combine(Package.Current.InstalledLocation.Path, "Wino.BackgroundService.exe");
+            var installedLocation = Package.Current.InstalledLocation.Path;
+            var exePath = Path.Combine(installedLocation, "Wino.BackgroundService", "Wino.BackgroundService.exe");
+
+            if (!File.Exists(exePath))
+            {
+                exePath = Path.Combine(installedLocation, "Wino.BackgroundService.exe");
+            }
 
             if (File.Exists(exePath))
             {
@@ -233,6 +256,8 @@ public sealed class BackgroundServiceConnection : IRpcClient, IAsyncDisposable
                 _logger.Information("Background service launched via Process.Start fallback.");
                 return true;
             }
+
+            _logger.Warning("Background service executable was not found in the package layout.");
         }
         catch (Exception exception)
         {
@@ -331,5 +356,23 @@ public sealed class BackgroundServiceConnection : IRpcClient, IAsyncDisposable
         }
 
         _connectLock.Dispose();
+    }
+
+    [System.Runtime.InteropServices.ComImport]
+    [System.Runtime.InteropServices.Guid("2e941141-7f97-4756-ba1d-9decde894a3d")]
+    [System.Runtime.InteropServices.InterfaceType(System.Runtime.InteropServices.ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IApplicationActivationManager
+    {
+        void ActivateApplication(
+            [System.Runtime.InteropServices.In] string appUserModelId,
+            [System.Runtime.InteropServices.In] string arguments,
+            [System.Runtime.InteropServices.In] int options,
+            [System.Runtime.InteropServices.Out] out uint processId);
+    }
+
+    [System.Runtime.InteropServices.ComImport]
+    [System.Runtime.InteropServices.Guid("45BA127D-10A8-46EA-8AB7-56EA9078943C")]
+    private class ApplicationActivationManager
+    {
     }
 }

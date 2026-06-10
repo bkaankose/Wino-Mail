@@ -228,7 +228,8 @@ public static class Program
 
             if (!File.Exists(iconPath))
             {
-                iconPath = Path.Combine(Package.Current.InstalledLocation.Path, "Assets", "Wino_Icon.ico");
+                // WAP layout: each project lives in its own subfolder of the package root.
+                iconPath = Path.Combine(Package.Current.InstalledLocation.Path, "Wino.Mail.WinUI", "Assets", "Wino_Icon.ico");
             }
 
             if (!File.Exists(iconPath))

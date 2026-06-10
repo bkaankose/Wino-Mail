@@ -17,7 +17,8 @@
 		     The RID is derived from the platform so it also applies when this project is
 		     built through the UI project reference (which only flows Platform). -->
 		<RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(Platform)' != '' and '$(Platform)' != 'AnyCPU'">win-$(Platform.ToLowerInvariant())</RuntimeIdentifier>
-		<SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
+		<!--<SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>-->
+		<SelfContained>false</SelfContained>
 		<IsAotCompatible>false</IsAotCompatible>
 		<IsTrimmable>false</IsTrimmable>
 		<EnableTrimAnalyzer>false</EnableTrimAnalyzer>
@@ -27,6 +28,11 @@
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
 		<PackageReference Include="CommunityToolkit.Mvvm" />
+	</ItemGroup>
+	<ItemGroup>
+		<Content Include="Assets\Wino_Icon.ico">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\Wino.Core\Wino.Core.csproj" />

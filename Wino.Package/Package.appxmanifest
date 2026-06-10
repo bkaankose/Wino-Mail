@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
@@ -30,7 +30,7 @@
   <Properties>
     <DisplayName>Wino Mail</DisplayName>
     <PublisherDisplayName>Burak KÖSE</PublisherDisplayName>
-    <Logo>Assets\StoreLogo.png</Logo>
+    <Logo>Wino.Mail.WinUI\Assets\StoreLogo.png</Logo>
   </Properties>
 
   <Dependencies>
@@ -44,23 +44,23 @@
 
   <Applications>
     <Application Id="App"
-      Executable="$targetnametoken$.exe"
-      EntryPoint="$targetentrypoint$"
+      Executable="Wino.Mail.WinUI\Wino.Mail.WinUI.exe"
+      EntryPoint="Windows.FullTrustApplication"
       uap10:Parameters="--wino-mail">
       <uap:VisualElements
         DisplayName="Wino Mail"
         Description="Wino.Mail.WinUI"
         BackgroundColor="transparent"
-        Square150x150Logo="Assets\AppEntries\MailAssets\Square150x150Logo.png"
-        Square44x44Logo="Assets\AppEntries\MailAssets\Square44x44Logo.png">
-        <uap:DefaultTile Wide310x150Logo="Assets\AppEntries\MailAssets\Wide310x150Logo.png" Square71x71Logo="Assets\AppEntries\MailAssets\SmallTile.png" Square310x310Logo="Assets\AppEntries\MailAssets\LargeTile.png">
+        Square150x150Logo="Wino.Mail.WinUI\Assets\AppEntries\MailAssets\Square150x150Logo.png"
+        Square44x44Logo="Wino.Mail.WinUI\Assets\AppEntries\MailAssets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Wino.Mail.WinUI\Assets\AppEntries\MailAssets\Wide310x150Logo.png" Square71x71Logo="Wino.Mail.WinUI\Assets\AppEntries\MailAssets\SmallTile.png" Square310x310Logo="Wino.Mail.WinUI\Assets\AppEntries\MailAssets\LargeTile.png">
           <uap:ShowNameOnTiles>
             <uap:ShowOn Tile="square150x150Logo" />
             <uap:ShowOn Tile="wide310x150Logo" />
             <uap:ShowOn Tile="square310x310Logo" />
           </uap:ShowNameOnTiles>
         </uap:DefaultTile>
-        <uap:SplashScreen Image="Assets\AppEntries\MailAssets\SplashScreen.png" />
+        <uap:SplashScreen Image="Wino.Mail.WinUI\Assets\AppEntries\MailAssets\SplashScreen.png" />
       </uap:VisualElements>
 
 		<Extensions>
@@ -71,7 +71,7 @@
 
 			<com:Extension Category="windows.comServer">
 				<com:ComServer>
-					<com:ExeServer Executable="Wino.Mail.WinUI.exe" Arguments="----AppNotificationActivated:" DisplayName="Toast activator">
+					<com:ExeServer Executable="Wino.Mail.WinUI\Wino.Mail.WinUI.exe" Arguments="----AppNotificationActivated:" DisplayName="Toast activator">
 						<com:Class Id="72c6d2d0-2538-44fe-a1b1-499f47bb1181" DisplayName="Toast activator"/>
 					</com:ExeServer>
 				</com:ComServer>
@@ -108,7 +108,7 @@
 			<!-- File Assosication: EML -->
 			<uap:Extension Category="windows.fileTypeAssociation">
 				<uap:FileTypeAssociation Name="eml">
-					<uap:Logo>EML\eml.png</uap:Logo>
+					<uap:Logo>Wino.Mail.WinUI\Assets\EML\eml.png</uap:Logo>
 					<uap:SupportedFileTypes>
 						<uap:FileType>.eml</uap:FileType>
 					</uap:SupportedFileTypes>
@@ -118,23 +118,23 @@
     </Application>
 
     <Application Id="CalendarApp"
-      Executable="$targetnametoken$.exe"
-      EntryPoint="$targetentrypoint$"
+      Executable="Wino.Mail.WinUI\Wino.Mail.WinUI.exe"
+      EntryPoint="Windows.FullTrustApplication"
       uap10:Parameters="--wino-calendar">
       <uap:VisualElements
         DisplayName="Wino Calendar"
         Description="Wino.Mail.WinUI.Calendar"
         BackgroundColor="transparent"
-        Square150x150Logo="Assets\AppEntries\CalendarAssets\Square150x150Logo.png"
-        Square44x44Logo="Assets\AppEntries\CalendarAssets\Square44x44Logo.png">
-        <uap:DefaultTile Wide310x150Logo="Assets\AppEntries\CalendarAssets\Wide310x150Logo.png" Square71x71Logo="Assets\AppEntries\CalendarAssets\SmallTile.png" Square310x310Logo="Assets\AppEntries\CalendarAssets\LargeTile.png">
+        Square150x150Logo="Wino.Mail.WinUI\Assets\AppEntries\CalendarAssets\Square150x150Logo.png"
+        Square44x44Logo="Wino.Mail.WinUI\Assets\AppEntries\CalendarAssets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Wino.Mail.WinUI\Assets\AppEntries\CalendarAssets\Wide310x150Logo.png" Square71x71Logo="Wino.Mail.WinUI\Assets\AppEntries\CalendarAssets\SmallTile.png" Square310x310Logo="Wino.Mail.WinUI\Assets\AppEntries\CalendarAssets\LargeTile.png">
           <uap:ShowNameOnTiles>
             <uap:ShowOn Tile="square150x150Logo" />
             <uap:ShowOn Tile="wide310x150Logo" />
             <uap:ShowOn Tile="square310x310Logo" />
           </uap:ShowNameOnTiles>
         </uap:DefaultTile>
-        <uap:SplashScreen Image="Assets\AppEntries\CalendarAssets\SplashScreen.png" />
+        <uap:SplashScreen Image="Wino.Mail.WinUI\Assets\AppEntries\CalendarAssets\SplashScreen.png" />
       </uap:VisualElements>
 
       <Extensions>
@@ -152,7 +152,7 @@
 
         <uap:Extension Category="windows.fileTypeAssociation">
           <uap:FileTypeAssociation Name="ics">
-            <uap:Logo>Assets\AppEntries\CalendarAssets\Square44x44Logo.png</uap:Logo>
+            <uap:Logo>Wino.Mail.WinUI\Assets\AppEntries\CalendarAssets\Square44x44Logo.png</uap:Logo>
             <uap:SupportedFileTypes>
               <uap:FileType>.ics</uap:FileType>
             </uap:SupportedFileTypes>
@@ -165,14 +165,14 @@
          icon alive when the UI process exits. Hidden from the apps list; launched on
          demand by the UI or at login through the startup task. -->
     <Application Id="WinoBackgroundService"
-      Executable="Wino.BackgroundService.exe"
+      Executable="Wino.BackgroundService\Wino.BackgroundService.exe"
       EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
         DisplayName="Wino Background Service"
         Description="Wino Mail synchronization service"
         BackgroundColor="transparent"
-        Square150x150Logo="Assets\AppEntries\MailAssets\Square150x150Logo.png"
-        Square44x44Logo="Assets\AppEntries\MailAssets\Square44x44Logo.png"
+        Square150x150Logo="Wino.Mail.WinUI\Assets\AppEntries\MailAssets\Square150x150Logo.png"
+        Square44x44Logo="Wino.Mail.WinUI\Assets\AppEntries\MailAssets\Square44x44Logo.png"
         AppListEntry="none">
       </uap:VisualElements>
 

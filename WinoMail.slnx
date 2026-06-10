@@ -95,6 +95,11 @@
     <Platform Solution="*|arm64" Project="ARM64" />
     <Platform Solution="*|x64" Project="x64" />
     <Platform Solution="*|x86" Project="x86" />
+  </Project>
+  <Project Path="Wino.Package/Wino.Package.wapproj">
+    <Platform Solution="*|arm64" Project="arm64" />
+    <Platform Solution="*|x64" Project="x64" />
+    <Platform Solution="*|x86" Project="x86" />
     <Deploy />
   </Project>
 </Solution>
