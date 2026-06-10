@@ -571,15 +571,11 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
                 MimeContent = new Microsoft.Exchange.WebServices.Data.MimeContent("UTF-8", stream.ToArray())
             };
 
-            // EWS does not honor the MIME From for the sender (same quirk Graph has), so when the
-            // user picked a non-primary alias, set it explicitly via the From property. Only the
-            // mailbox's own (synced) proxy addresses are offered, so this is a permitted send-as.
-            var aliasAddress = preparation.SendingAlias?.AliasAddress;
-            if (!string.IsNullOrWhiteSpace(aliasAddress) &&
-                !aliasAddress.Equals(Account.Address, StringComparison.OrdinalIgnoreCase))
-            {
-                message.From = new EmailAddress(aliasAddress);
-            }
+            // NOTE: SendingAlias is intentionally not applied. On-premises Exchange does not support
+            // sending from an alias/proxy address — the transport rewrites From to the mailbox's
+            // primary SMTP regardless of what the client sets (the SendFromAliasEnabled org toggle is
+            // Exchange Online-only). Setting From here would be ineffective and can trip a Send-As
+            // denial in some configurations, so the composed message sends as the primary address.
 
             // Exchange manages Sent Items server-side — always save a copy (the IMAP-only
             // "append to sent" preference does not apply to EWS).
