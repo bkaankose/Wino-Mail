@@ -23,7 +23,7 @@ namespace Wino.Mail.WinUI.Services;
 /// recovery — calls interrupted by a broken pipe are retried once after reconnecting;
 /// writes are deduplicated companion-side by their operation id.
 /// </summary>
-public sealed class BackgroundServiceConnection : IRpcClient, IAsyncDisposable
+public sealed partial class BackgroundServiceConnection : IRpcClient, IAsyncDisposable
 {
     public const int IpcProtocolVersion = 1;
     private const string BackgroundServiceApplicationId = "WinoBackgroundService";
@@ -209,8 +209,19 @@ public sealed class BackgroundServiceConnection : IRpcClient, IAsyncDisposable
         try
         {
             var targetAppUserModelId = $"{Package.Current.Id.FamilyName}!{BackgroundServiceApplicationId}";
-            var activationManager = (IApplicationActivationManager)new ApplicationActivationManager();
-            activationManager.ActivateApplication(targetAppUserModelId, string.Empty, 0, out _);
+
+            var hr = CoCreateInstance(in ApplicationActivationManagerClsid, IntPtr.Zero, CLSCTX_LOCAL_SERVER, in ApplicationActivationManagerIid, out var activationManagerPtr);
+            System.Runtime.InteropServices.Marshal.ThrowExceptionForHR(hr);
+
+            try
+            {
+                var activationManager = (IApplicationActivationManager)ActivationComWrappers.GetOrCreateObjectForComInstance(activationManagerPtr, System.Runtime.InteropServices.CreateObjectFlags.None);
+                activationManager.ActivateApplication(targetAppUserModelId, string.Empty, 0, out _);
+            }
+            finally
+            {
+                System.Runtime.InteropServices.Marshal.Release(activationManagerPtr);
+            }
 
             _logger.Information("Background service launched via app activation manager.");
             return true;
@@ -358,21 +369,25 @@ public sealed class BackgroundServiceConnection : IRpcClient, IAsyncDisposable
         _connectLock.Dispose();
     }
 
-    [System.Runtime.InteropServices.ComImport]
+    // Source-generated COM interop (no built-in COM marshalling) so the activation path
+    // works under trimming and Native AOT.
+    private static readonly Guid ApplicationActivationManagerClsid = new("45BA127D-10A8-46EA-8AB7-56EA9078943C");
+    private static readonly Guid ApplicationActivationManagerIid = new("2e941141-7f97-4756-ba1d-9decde894a3d");
+    private const uint CLSCTX_LOCAL_SERVER = 0x4;
+
+    private static readonly System.Runtime.InteropServices.Marshalling.StrategyBasedComWrappers ActivationComWrappers = new();
+
+    [System.Runtime.InteropServices.LibraryImport("ole32.dll")]
+    private static partial int CoCreateInstance(in Guid rclsid, IntPtr pUnkOuter, uint dwClsContext, in Guid riid, out IntPtr ppv);
+
+    [System.Runtime.InteropServices.Marshalling.GeneratedComInterface]
     [System.Runtime.InteropServices.Guid("2e941141-7f97-4756-ba1d-9decde894a3d")]
-    [System.Runtime.InteropServices.InterfaceType(System.Runtime.InteropServices.ComInterfaceType.InterfaceIsIUnknown)]
-    private interface IApplicationActivationManager
+    internal partial interface IApplicationActivationManager
     {
         void ActivateApplication(
-            [System.Runtime.InteropServices.In] string appUserModelId,
-            [System.Runtime.InteropServices.In] string arguments,
-            [System.Runtime.InteropServices.In] int options,
-            [System.Runtime.InteropServices.Out] out uint processId);
-    }
-
-    [System.Runtime.InteropServices.ComImport]
-    [System.Runtime.InteropServices.Guid("45BA127D-10A8-46EA-8AB7-56EA9078943C")]
-    private class ApplicationActivationManager
-    {
+            [System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPWStr)] string appUserModelId,
+            [System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPWStr)] string arguments,
+            int options,
+            out uint processId);
     }
 }

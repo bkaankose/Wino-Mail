@@ -10,7 +10,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
-using Gravatar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Thumbnails;
@@ -177,11 +176,12 @@ public class ThumbnailService(
     {
         try
         {
-            var gravatarUrl = GravatarHelper.GetAvatarUrl(
-                email,
-                size: ThumbnailImageProcessor.AvatarCachePixelSize,
-                defaultValue: GravatarAvatarDefault.Blank,
-                withFileExtension: false).ToString().Replace("d=blank", "d=404");
+            // SHA-256 of the normalized address per the Gravatar URL spec; d=404 so misses
+            // return no image instead of a placeholder. Built by hand (the gravatar-dotnet
+            // package was reflection-heavy and not trim-safe).
+            var emailHash = Convert.ToHexString(
+                SHA256.HashData(Encoding.UTF8.GetBytes(email.Trim().ToLowerInvariant()))).ToLowerInvariant();
+            var gravatarUrl = $"https://www.gravatar.com/avatar/{emailHash}?s={ThumbnailImageProcessor.AvatarCachePixelSize}&d=404";
             using var response = await _httpClient.GetAsync(gravatarUrl).ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
             {

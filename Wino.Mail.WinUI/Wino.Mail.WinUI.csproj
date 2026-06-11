@@ -18,6 +18,10 @@
          Does not change publish behavior by itself. -->
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
     <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <!-- Native AOT experiment: dotnet publish -p:WinoPublishAot=true. Set here instead of
+         as a global property so it does not flow into the netstandard2.0 source-generator
+         project, which cannot be AOT-compiled. -->
+    <PublishAot Condition="'$(WinoPublishAot)' == 'true'">true</PublishAot>
     <Nullable>enable</Nullable>
 	<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	<!-- Single instancing -->
@@ -187,7 +191,6 @@
 	<PackageReference Include="Microsoft.Extensions.Logging" />
 
 	<PackageReference Include="ColorHashSharp" />
-	<PackageReference Include="gravatar-dotnet" />
 	<PackageReference Include="Sentry.Serilog" />
 	<PackageReference Include="Serilog.Extensions.Logging" />
 	<!-- The UI process never opens SQLite (the companion owns the database); Domain only
