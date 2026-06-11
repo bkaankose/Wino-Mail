@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Text.Json;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.UI.Dispatching;
@@ -13,7 +13,7 @@ namespace Wino.Mail.WinUI.Services;
 /// generated event registry and re-publishes them into the local WeakReferenceMessenger on
 /// the UI dispatcher so existing IRecipient registrations in ViewModels work untouched.
 /// </summary>
-public sealed class RemoteEventPump : IDisposable
+public sealed partial class RemoteEventPump : IDisposable
 {
     private readonly BackgroundServiceConnection _connection;
     private readonly DispatcherQueue _dispatcherQueue;

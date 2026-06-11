@@ -10,7 +10,7 @@ namespace Wino.Mail.WinUI.Helpers;
 /// Replaces the System.Reactive throttle so the UI process doesn't ship Rx; the
 /// callback always runs on the box's dispatcher thread with the latest event args.
 /// </summary>
-public sealed class SuggestionBoxTextDebouncer : IDisposable
+public sealed partial class SuggestionBoxTextDebouncer : IDisposable
 {
     private readonly TokenizingTextBox _box;
     private readonly DispatcherQueueTimer _timer;

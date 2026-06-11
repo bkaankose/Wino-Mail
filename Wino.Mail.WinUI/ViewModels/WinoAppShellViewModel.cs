@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -10,7 +10,7 @@ using Wino.Core.ViewModels;
 
 namespace Wino.Mail.WinUI.ViewModels;
 
-public sealed class WinoAppShellViewModel : CoreBaseViewModel, IShellViewModel
+public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellViewModel
 {
     private readonly Dictionary<WinoApplicationMode, IShellClient> _shellClients;
     private readonly IStoreUpdateService _storeUpdateService;
