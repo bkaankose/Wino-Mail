@@ -37,9 +37,9 @@
     <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
     <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
     <!-- The Microsoft.WindowsAppRuntime PackageDependency is injected automatically by the
-         Windows App SDK targets through the Wino.Mail.WinUI project reference. If the packaged
-         app ever crashes at launch with E_CLASSNOTREG before any UI appears, check the generated
-         AppxManifest.xml for that dependency first and declare it here explicitly as a fallback. -->
+         Windows App SDK single-project MSIX tooling (EnableMsixTooling in Wino.Mail.WinUI.csproj).
+         If the packaged app ever crashes at launch with E_CLASSNOTREG before any UI appears, check
+         the generated AppxManifest.xml for that dependency first and declare it here explicitly. -->
   </Dependencies>
 
   <Resources>

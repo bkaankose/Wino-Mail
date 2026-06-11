@@ -8,14 +8,29 @@
     <Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">x64</Platform>
     <Platforms>x86;x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
-    <!-- Standard WinUI-in-WAP arrangement (matches the official template): the WAP publishes
-         this project through Properties\PublishProfiles\win-$(Platform).pubxml when creating
-         packages; the pubxml carries the Native AOT switch for Release. Do NOT set
-         EnableMsixTooling=false here - that disables the Windows App SDK's packaging
-         integration (framework PackageDependency injection, PRI flow into the package). -->
+    <!-- Single-project MSIX (Files-style, no WAP): this project owns Package.appxmanifest
+         and produces the package; packaging publishes through Properties\PublishProfiles\
+         win-$(Platform).pubxml, which carries the Native AOT switch for Release. The
+         companion process rides along as Content (see IncludeCompanionInPackage below). -->
+    <EnableMsixTooling>true</EnableMsixTooling>
     <PublishProfile>win-$(Platform).pubxml</PublishProfile>
     <UseWinUI>true</UseWinUI>
     <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
+    <WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
+    <!-- Packaging settings carried over from the retired Wino.Packaging.wapproj. -->
+    <DefaultLanguage>en-US</DefaultLanguage>
+    <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
+    <PackageCertificateKeyFile>Wino.Packaging_TemporaryKey.pfx</PackageCertificateKeyFile>
+    <GenerateTemporaryStoreCertificate>true</GenerateTemporaryStoreCertificate>
+    <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
+    <GenerateAppInstallerFile>false</GenerateAppInstallerFile>
+    <UapAppxPackageBuildMode>SideloadOnly</UapAppxPackageBuildMode>
+    <GenerateAppxUploadPackage>false</GenerateAppxUploadPackage>
+    <AppxAutoIncrementPackageRevision>false</AppxAutoIncrementPackageRevision>
+    <GenerateTestArtifacts>false</GenerateTestArtifacts>
+    <AppxBundle>Never</AppxBundle>
+    <AppxBundlePlatforms>x64</AppxBundlePlatforms>
+    <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
     <!-- Surface trim/AOT analyzer warnings in app code. -->
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
     <EnableAotAnalyzer>true</EnableAotAnalyzer>
@@ -162,10 +177,29 @@
     <Content Include="JS\libs\linkify-element.min.js" />
     <Content Include="JS\libs\linkify.min.js" />
     <Content Include="JS\reader.html" />
+    <!-- These are loaded at runtime through ms-appx/file paths. The retired WAP packed
+         Content regardless of copy flags, but the registered dev layout (and F5) deploys
+         from the output directory, so they must copy there too. -->
+    <Content Update="AppThemes\*.xaml;Assets\ReleaseNotes\**;Assets\UpdateNotes\**;Assets\Wino_Icon.ico;BackgroundImages\*.jpg;JS\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
     <Manifest Include="$(ApplicationManifest)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AppxManifest Include="Package.appxmanifest">
+      <SubType>Designer</SubType>
+    </AppxManifest>
+    <!-- Manifest visual assets (tiles, splash screens, file association icons); makepri
+         indexes their scale variants from here now that the WAP is gone. -->
+    <Content Include="Images\**\*.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <None Include="Wino.Packaging_TemporaryKey.pfx" />
+    <None Include="Package.StoreAssociation.xml" />
   </ItemGroup>
 
   <ItemGroup>
@@ -351,4 +385,33 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>
+  <!-- Wino.BackgroundService rides inside this package as the secondary full-trust app
+       declared in Package.appxmanifest (Application Id="WinoBackgroundService",
+       AppListEntry="none"). Because it ships in the same package it runs with the package
+       identity: shared ApplicationData/publisher cache, AUMID activation, and app
+       notifications shown in Wino Mail's name. It is deliberately NOT a ProjectReference -
+       the UI must not depend on companion code, and its payload is framework-dependent
+       (never AOT/self-contained), so the publish output is packed as opaque Content. -->
+  <Target Name="IncludeCompanionInPackage" BeforeTargets="AssignTargetPaths" Condition="'$(DesignTimeBuild)' != 'true'">
+    <PropertyGroup>
+      <WinoCompanionPublishDir>$(MSBuildThisFileDirectory)..\Wino.BackgroundService\bin\$(Platform)\$(Configuration)\net10.0-windows10.0.19041.0\win-$(Platform.ToLowerInvariant())\publish\</WinoCompanionPublishDir>
+    </PropertyGroup>
+    <MSBuild Projects="..\Wino.BackgroundService\Wino.BackgroundService.csproj"
+             Targets="Publish"
+             Properties="Configuration=$(Configuration);Platform=$(Platform);SelfContained=false" />
+    <ItemGroup>
+      <!-- Two subtleties, both load-bearing:
+           1. TargetPath is set explicitly because items created inside a target do not
+              reliably pass through AssignTargetPaths for the packaging pass.
+           2. The metadata uses the QUALIFIED form via an intermediate item: an unqualified
+              %(RecursiveDir) inside a target batches over the pre-existing Content items
+              and stamps every companion file with someone else's path (APPX1101). -->
+      <_WinoCompanionPayload Include="$(WinoCompanionPublishDir)**\*.*" Exclude="$(WinoCompanionPublishDir)**\*.pdb" />
+      <Content Include="@(_WinoCompanionPayload)">
+        <Link>Wino.BackgroundService\%(_WinoCompanionPayload.RecursiveDir)%(_WinoCompanionPayload.Filename)%(_WinoCompanionPayload.Extension)</Link>
+        <TargetPath>Wino.BackgroundService\%(_WinoCompanionPayload.RecursiveDir)%(_WinoCompanionPayload.Filename)%(_WinoCompanionPayload.Extension)</TargetPath>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+    </ItemGroup>
+  </Target>
 </Project>

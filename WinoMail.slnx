@@ -107,9 +107,6 @@
     <Platform Solution="*|arm64" Project="ARM64" />
     <Platform Solution="*|x64" Project="x64" />
     <Platform Solution="*|x86" Project="x86" />
-  </Project>
-  <Project Path="Wino.Packaging/Wino.Packaging.wapproj" Type="c7167f0d-bc9f-4e6e-afe1-012c56b48db5" Id="cfd10747-d5d1-4b5d-b0e2-d0cafb47406c">
-    <Platform Solution="*|arm64" Project="ARM64" />
     <Deploy />
   </Project>
 </Solution>
