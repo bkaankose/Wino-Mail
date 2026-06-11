@@ -223,7 +223,7 @@
                                 AutomationProperties.Name="{x:Bind domain:Translator.Buttons_PopOut, Mode=OneTime}"
                                 Click="PopOutButton_Click"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_PopOut}"
-                                Visibility="{x:Bind GetPopOutButtonVisibility(), Mode=OneWay}">
+                                Visibility="{x:Bind GetPopOutButtonVisibility(), Mode=OneTime}">
                                 <AppBarButton.Icon>
                                     <coreControls:WinoFontIcon Icon="OpenInNewWindow" />
                                 </AppBarButton.Icon>

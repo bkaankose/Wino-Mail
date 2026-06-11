@@ -3,6 +3,9 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Wino.SourceGenerators.Rpc;
 using Xunit;
+using System;
+using System.IO;
+using System.Linq;
 
 namespace Wino.SourceGenerators.Tests;
 
@@ -47,9 +50,9 @@ public class RpcGeneratorTests
             CSharpSyntaxTree.ParseText(source),
         };
 
-        var references = AppDomain.CurrentDomain.GetAssemblies()
-            .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
-            .Select(a => (MetadataReference)MetadataReference.CreateFromFile(a.Location))
+        var references = ((string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))!
+            .Split(Path.PathSeparator)
+            .Select(path => (MetadataReference)MetadataReference.CreateFromFile(path))
             .ToList();
 
         var compilation = CSharpCompilation.Create(

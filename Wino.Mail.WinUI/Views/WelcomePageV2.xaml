@@ -70,11 +70,12 @@
                         Background="Transparent"
                         ItemsSource="{x:Bind ViewModel.UpdateSections, Mode=OneWay}"
                         SelectionChanged="OnFlipViewSelectionChanged">
-                        <FlipView.ItemContainerStyle>
+                        <!--  TODO: AOT  -->
+                        <!--<FlipView.ItemContainerStyle>
                             <Style TargetType="FlipViewItem">
                                 <Setter Property="AutomationProperties.Name" Value="{Binding AccessibilityName}" />
                             </Style>
-                        </FlipView.ItemContainerStyle>
+                        </FlipView.ItemContainerStyle>-->
                         <FlipView.ItemTemplate>
                             <DataTemplate x:DataType="models:UpdateNoteSection">
                                 <Grid

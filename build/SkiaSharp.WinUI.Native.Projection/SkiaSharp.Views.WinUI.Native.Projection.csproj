@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <AssemblyName>SkiaSharp.Views.WinUI.Native.Projection</AssemblyName>
+    <RootNamespace>SkiaSharp.Views.WinUI.Native</RootNamespace>
+    <Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">x64</Platform>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(Platform)' != '' and '$(Platform)' != 'AnyCPU'">win-$(Platform.ToLowerInvariant())</RuntimeIdentifier>
+    <SkiaSharpViewsWinUIProjectionVersion Condition="'$(SkiaSharpViewsWinUIProjectionVersion)' == ''">4.147.0-preview.3.1</SkiaSharpViewsWinUIProjectionVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <CsWinRTIncludes>SkiaSharp.Views.WinUI.Native</CsWinRTIncludes>
+    <CsWinRTWindowsMetadata Condition="'$(CsWinRTWindowsMetadata)' == ''">10.0.26100.0</CsWinRTWindowsMetadata>
+    <NoWarn>$(NoWarn);NU1702</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Windows.CsWinRT" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="SkiaSharp.Views.WinUI.Native">
+      <HintPath>$(NuGetPackageRoot)skiasharp.nativeassets.winui\$(SkiaSharpViewsWinUIProjectionVersion)\runtimes\$(RuntimeIdentifier)\native\SkiaSharp.Views.WinUI.Native.winmd</HintPath>
+      <IsWinMDFile>true</IsWinMDFile>
+      <Implementation>SkiaSharp.Views.WinUI.Native.dll</Implementation>
+    </Reference>
+  </ItemGroup>
+</Project>

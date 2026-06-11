@@ -1,7 +1,7 @@
 <Project>
 	<PropertyGroup>
 		<LangVersion>preview</LangVersion>
-		<IsAotCompatible>true</IsAotCompatible>
+		<Nullable>annotations</Nullable>
 		<Configurations>Debug;Release</Configurations>
 	</PropertyGroup>
 </Project>

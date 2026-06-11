@@ -184,6 +184,33 @@
                     <Setter.Value>
                         <ControlTemplate TargetType="ListViewItem">
                             <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <Grid
+                                    x:Name="RootGrid"
+                                    Grid.ColumnSpan="2"
+                                    Background="{ThemeResource ListViewItemBackground}"
+                                    CornerRadius="{ThemeResource ControlCornerRadius}" />
+                                <Border
+                                    x:Name="SelectionIndicator"
+                                    Width="4"
+                                    Margin="0,16"
+                                    HorizontalAlignment="Center"
+                                    Background="{ThemeResource ListViewItemSelectionIndicatorBrush}"
+                                    CornerRadius="4"
+                                    Visibility="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content.IsSelected, Mode=OneWay}" />
+
+                                <ContentPresenter
+                                    x:Name="ThreadContent"
+                                    Grid.Column="1"
+                                    HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                    VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                    Content="{TemplateBinding Content}"
+                                    ContentTemplate="{TemplateBinding ContentTemplate}"
+                                    ContentTransitions="{TemplateBinding ContentTransitions}" />
                                 <VisualStateManager.VisualStateGroups>
                                     <VisualStateGroup x:Name="CommonStates">
                                         <VisualState x:Name="Normal" />
@@ -217,34 +244,6 @@
                                         </VisualState>
                                     </VisualStateGroup>
                                 </VisualStateManager.VisualStateGroups>
-
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="8" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-
-                                <Grid
-                                    x:Name="RootGrid"
-                                    Grid.ColumnSpan="2"
-                                    Background="{ThemeResource ListViewItemBackground}"
-                                    CornerRadius="{ThemeResource ControlCornerRadius}" />
-                                <Border
-                                    x:Name="SelectionIndicator"
-                                    Width="4"
-                                    Margin="0,16"
-                                    HorizontalAlignment="Center"
-                                    Background="{ThemeResource ListViewItemSelectionIndicatorBrush}"
-                                    CornerRadius="4"
-                                    Visibility="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Content.IsSelected, Mode=OneWay}" />
-
-                                <ContentPresenter
-                                    x:Name="ThreadContent"
-                                    Grid.Column="1"
-                                    HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                    VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                    Content="{TemplateBinding Content}"
-                                    ContentTemplate="{TemplateBinding ContentTemplate}"
-                                    ContentTransitions="{TemplateBinding ContentTransitions}" />
                             </Grid>
                         </ControlTemplate>
                     </Setter.Value>
@@ -265,31 +264,6 @@
                                 Padding="-2,0,0,0"
                                 Background="{ThemeResource ListViewItemBackground}"
                                 CornerRadius="{ThemeResource ControlCornerRadius}">
-                                <VisualStateManager.VisualStateGroups>
-                                    <VisualStateGroup x:Name="CommonStates">
-                                        <VisualState x:Name="Normal" />
-                                        <VisualState x:Name="PointerOver">
-                                            <VisualState.Setters>
-                                                <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundPointerOver}" />
-                                                <Setter Target="MailContent.Foreground" Value="{ThemeResource ListViewItemForegroundPointerOver}" />
-                                            </VisualState.Setters>
-                                        </VisualState>
-                                        <!--  Selected states will never work because we don't select items.  -->
-                                        <VisualState x:Name="Selected" />
-                                        <VisualState x:Name="SelectedPointerOver" />
-                                        <VisualState x:Name="Pressed">
-                                            <VisualState.Setters>
-                                                <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundPressed}" />
-                                            </VisualState.Setters>
-                                        </VisualState>
-                                        <VisualState x:Name="PressedSelected">
-                                            <VisualState.Setters>
-                                                <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundSelectedPressed}" />
-                                            </VisualState.Setters>
-                                        </VisualState>
-                                    </VisualStateGroup>
-                                </VisualStateManager.VisualStateGroups>
-
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="8" />
                                     <ColumnDefinition Width="*" />
@@ -318,6 +292,30 @@
                                     Content="{TemplateBinding Content}"
                                     ContentTemplate="{TemplateBinding ContentTemplate}"
                                     ContentTransitions="{TemplateBinding ContentTransitions}" />
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal" />
+                                        <VisualState x:Name="PointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundPointerOver}" />
+                                                <Setter Target="MailContent.Foreground" Value="{ThemeResource ListViewItemForegroundPointerOver}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <!--  Selected states will never work because we don't select items.  -->
+                                        <VisualState x:Name="Selected" />
+                                        <VisualState x:Name="SelectedPointerOver" />
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundPressed}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="PressedSelected">
+                                            <VisualState.Setters>
+                                                <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundSelectedPressed}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
                             </Grid>
                         </ControlTemplate>
                     </Setter.Value>

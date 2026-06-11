@@ -59,12 +59,12 @@
             <Border
                 Margin="0,0,4,0"
                 Padding="6,2"
-                Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}"
+                Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneTime}"
                 CornerRadius="4">
                 <TextBlock
-                    Foreground="{x:Bind helpers:XamlHelpers.GetCategoryTextBrush(TextColorHex, BackgroundColorHex), Mode=OneWay}"
+                    Foreground="{x:Bind helpers:XamlHelpers.GetCategoryTextBrush(TextColorHex, BackgroundColorHex), Mode=OneTime}"
                     Style="{StaticResource CaptionTextBlockStyle}"
-                    Text="{x:Bind Name, Mode=OneWay}"
+                    Text="{x:Bind Name, Mode=OneTime}"
                     TextTrimming="CharacterEllipsis" />
             </Border>
         </DataTemplate>
@@ -74,7 +74,7 @@
                 Width="8"
                 Height="8"
                 Margin="0,0,4,0"
-                Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}" />
+                Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneTime}" />
         </DataTemplate>
 
         <Style
@@ -162,7 +162,7 @@
                     x:Phase="2"
                     FontSize="12"
                     MailItemInformation="{x:Bind}"
-                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneWay}" />
+                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}" />
 
                 <Grid
                     Grid.Column="1"
@@ -334,7 +334,7 @@
                     x:Phase="2"
                     FontSize="12"
                     MailItemInformation="{x:Bind}"
-                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneWay}" />
+                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}" />
 
                 <Grid
                     Grid.Column="1"
@@ -516,7 +516,7 @@
                     x:Phase="2"
                     FontSize="12"
                     MailItemInformation="{x:Bind}"
-                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneWay}" />
+                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}" />
 
                 <Grid
                     Grid.Column="1"
@@ -712,7 +712,7 @@
                         x:Phase="2"
                         FontSize="12"
                         MailItemInformation="{x:Bind}"
-                        x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneWay}" />
+                        x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}" />
                     <Grid
                         Grid.Column="1"
                         VerticalAlignment="Center"
@@ -904,7 +904,7 @@
                         x:Phase="2"
                         FontSize="12"
                         MailItemInformation="{x:Bind}"
-                        x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneWay}" />
+                        x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}" />
                     <StackPanel
                         Grid.Column="1"
                         VerticalAlignment="Center"
@@ -1100,7 +1100,7 @@
                         x:Phase="2"
                         FontSize="12"
                         MailItemInformation="{x:Bind}"
-                        x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneWay}" />
+                        x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}" />
                     <StackPanel
                         Grid.Column="1"
                         VerticalAlignment="Center"

@@ -246,7 +246,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
                 var account = CreateImportedAccount(mailbox);
                 var serverInformation = CreateImportedServerInformation(mailbox, account.Id);
 
-                await _accountService.CreateAccountAsync(account, serverInformation).ConfigureAwait(false);
+                await _accountService.CreateAccountAsync(account, serverInformation!).ConfigureAwait(false);
 
                 if (account.IsMailAccessGranted)
                 {
@@ -340,7 +340,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             SenderName = string.IsNullOrWhiteSpace(mailbox.SenderName) ? mailbox.Address.Trim() : mailbox.SenderName.Trim(),
             ProviderType = providerType,
             SpecialImapProvider = (SpecialImapProvider)mailbox.SpecialImapProvider,
-            AccountColorHex = mailbox.AccountColorHex?.Trim(),
+            AccountColorHex = mailbox.AccountColorHex?.Trim() ?? string.Empty,
             Base64ProfilePictureData = string.Empty,
             CreatedAt = DateTime.UtcNow,
             InitialSynchronizationRange = InitialSynchronizationRange.SixMonths,
@@ -365,9 +365,9 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             Id = Guid.NewGuid(),
             AccountId = accountId,
             Address = mailbox.Address.Trim(),
-            IncomingServer = mailbox.IncomingServer?.Trim(),
-            IncomingServerPort = mailbox.IncomingServerPort?.Trim(),
-            IncomingServerUsername = mailbox.IncomingServerUsername?.Trim(),
+            IncomingServer = mailbox.IncomingServer?.Trim() ?? string.Empty,
+            IncomingServerPort = mailbox.IncomingServerPort?.Trim() ?? string.Empty,
+            IncomingServerUsername = mailbox.IncomingServerUsername?.Trim() ?? string.Empty,
             IncomingServerPassword = string.Empty,
             IncomingServerSocketOption = mailbox.IncomingServerSocketOption is int incomingSocketOption
                 ? (ImapConnectionSecurity)incomingSocketOption
@@ -375,9 +375,9 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             IncomingAuthenticationMethod = mailbox.IncomingAuthenticationMethod is int incomingAuthMethod
                 ? (ImapAuthenticationMethod)incomingAuthMethod
                 : ImapAuthenticationMethod.Auto,
-            OutgoingServer = mailbox.OutgoingServer?.Trim(),
-            OutgoingServerPort = mailbox.OutgoingServerPort?.Trim(),
-            OutgoingServerUsername = mailbox.OutgoingServerUsername?.Trim(),
+            OutgoingServer = mailbox.OutgoingServer?.Trim() ?? string.Empty,
+            OutgoingServerPort = mailbox.OutgoingServerPort?.Trim() ?? string.Empty,
+            OutgoingServerUsername = mailbox.OutgoingServerUsername?.Trim() ?? string.Empty,
             OutgoingServerPassword = string.Empty,
             OutgoingServerSocketOption = mailbox.OutgoingServerSocketOption is int outgoingSocketOption
                 ? (ImapConnectionSecurity)outgoingSocketOption
@@ -385,12 +385,12 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             OutgoingAuthenticationMethod = mailbox.OutgoingAuthenticationMethod is int outgoingAuthMethod
                 ? (ImapAuthenticationMethod)outgoingAuthMethod
                 : ImapAuthenticationMethod.Auto,
-            CalDavServiceUrl = mailbox.CalDavServiceUrl?.Trim(),
-            CalDavUsername = mailbox.CalDavUsername?.Trim(),
+            CalDavServiceUrl = mailbox.CalDavServiceUrl?.Trim() ?? string.Empty,
+            CalDavUsername = mailbox.CalDavUsername?.Trim() ?? string.Empty,
             CalDavPassword = string.Empty,
             CalendarSupportMode = (ImapCalendarSupportMode)mailbox.CalendarSupportMode,
-            ProxyServer = mailbox.ProxyServer?.Trim(),
-            ProxyServerPort = mailbox.ProxyServerPort?.Trim(),
+            ProxyServer = mailbox.ProxyServer?.Trim() ?? string.Empty,
+            ProxyServerPort = mailbox.ProxyServerPort?.Trim() ?? string.Empty,
             MaxConcurrentClients = mailbox.MaxConcurrentClients.GetValueOrDefault(DefaultMaxConcurrentClients)
         };
     }

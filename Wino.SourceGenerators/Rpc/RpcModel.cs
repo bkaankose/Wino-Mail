@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System;
 using Microsoft.CodeAnalysis;
 
 namespace Wino.SourceGenerators.Rpc;
@@ -24,7 +25,7 @@ internal static class RpcModel
 
         foreach (var reference in compilation.SourceModule.ReferencedAssemblySymbols)
         {
-            if (!reference.Name.StartsWith("Wino"))
+            if (!reference.Name.StartsWith("Wino", StringComparison.Ordinal))
                 continue;
 
             foreach (var type in GetNamespaceTypes(reference.GlobalNamespace))

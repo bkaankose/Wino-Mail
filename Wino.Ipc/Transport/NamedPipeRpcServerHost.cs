@@ -110,7 +110,7 @@ public sealed class NamedPipeRpcServerHost : IAsyncDisposable
     {
         if (_activeConnections.TryRemove(connection, out _))
         {
-            _ = connection.DisposeAsync();
+            _ = connection.DisposeAsync().AsTask();
             ClientDisconnected?.Invoke(connection, _activeConnections.Count);
         }
     }

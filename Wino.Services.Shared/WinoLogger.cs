@@ -6,7 +6,6 @@ using Sentry;
 using Serilog;
 using Serilog.Core;
 using Serilog.Events;
-using Serilog.Exceptions;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 
@@ -100,7 +99,6 @@ public class WinoLogger : IWinoLogger
                     .WriteTo.Debug()
                     .Enrich.FromLogContext()
                     .Enrich.With(new DiagnosticIdEnricher(_preferencesService))
-                    .Enrich.WithExceptionDetails()
                     .CreateLogger();
     }
 

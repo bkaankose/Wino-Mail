@@ -8,20 +8,24 @@
     <Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">x64</Platform>
     <Platforms>x86;x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
-    <PublishProfile>win-$(Platform).pubxml</PublishProfile>
+    <PublishProfile Condition="Exists('$(MSBuildProjectDirectory)\Properties\PublishProfiles\win-$(Platform).pubxml')">win-$(Platform).pubxml</PublishProfile>
     <UseWinUI>true</UseWinUI>
     <!-- Packaging is owned by Wino.Package.wapproj, which bundles this app together with
          Wino.BackgroundService under a single package identity. -->
     <EnableMsixTooling>false</EnableMsixTooling>
     <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
-    <!-- Surface trim/AOT analyzer warnings in app code ahead of a PublishAot experiment.
-         Does not change publish behavior by itself. -->
+    <!-- Surface trim/AOT analyzer warnings in app code and publish the main UI as Native AOT
+         for Release packages. The background host intentionally stays managed. -->
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
     <EnableAotAnalyzer>true</EnableAotAnalyzer>
-    <!-- Native AOT experiment: dotnet publish -p:WinoPublishAot=true. Set here instead of
-         as a global property so it does not flow into the netstandard2.0 source-generator
-         project, which cannot be AOT-compiled. -->
-    <PublishAot Condition="'$(WinoPublishAot)' == 'true'">true</PublishAot>
+    <PublishTrimmed Condition="'$(Configuration)' == 'Release'">true</PublishTrimmed>
+    <PublishAot Condition="'$(Configuration)' == 'Release'">true</PublishAot>
+    <SkiaSharpViewsWinUIProjectionVersion>4.147.0-preview.3.1</SkiaSharpViewsWinUIProjectionVersion>
+    <WinoMailRuntimeIdentifier Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</WinoMailRuntimeIdentifier>
+    <WinoMailRuntimeIdentifier Condition="'$(WinoMailRuntimeIdentifier)' == '' and '$(Platform)' == 'x86'">win-x86</WinoMailRuntimeIdentifier>
+    <WinoMailRuntimeIdentifier Condition="'$(WinoMailRuntimeIdentifier)' == '' and '$(Platform)' == 'x64'">win-x64</WinoMailRuntimeIdentifier>
+    <WinoMailRuntimeIdentifier Condition="'$(WinoMailRuntimeIdentifier)' == '' and '$(Platform)' == 'ARM64'">win-arm64</WinoMailRuntimeIdentifier>
+    <PatchedSkiaSharpWinUIProjectionPath Condition="'$(WinoMailRuntimeIdentifier)' != ''">$(MSBuildThisFileDirectory)..\build\SkiaSharp.WinUI.Native.Projection\bin\$(Platform)\Release\net10.0-windows10.0.19041.0\$(WinoMailRuntimeIdentifier)\SkiaSharp.Views.WinUI.Native.Projection.dll</PatchedSkiaSharpWinUIProjectionPath>
     <Nullable>enable</Nullable>
 	<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	<!-- Single instancing -->
@@ -201,16 +205,45 @@
 	<PackageReference Include="WinUIEx" />
 	<PackageReference Include="Wino.Mail.Contracts" />
   </ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' == 'Release' and '$(PatchedSkiaSharpWinUIProjectionPath)' != ''">
+    <Reference Include="SkiaSharp.Views.WinUI.Native.Projection">
+      <HintPath>$(PatchedSkiaSharpWinUIProjectionPath)</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
   <ItemGroup>
 	<ProjectReference Include="..\Wino.Calendar.ViewModels\Wino.Calendar.ViewModels.csproj" />
 	<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
 	<ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
+	<ProjectReference Include="..\Wino.Ipc.Serialization\Wino.Ipc.Serialization.csproj" />
 	<ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />
 	<ProjectReference Include="..\Wino.Services.Shared\Wino.Services.Shared.csproj" />
 	<ProjectReference Include="..\Wino.Ipc\Wino.Ipc.csproj" />
 	<ProjectReference Include="..\Wino.Ipc.Contracts\Wino.Ipc.Contracts.csproj" />
-	<ProjectReference Include="..\Wino.Ipc.Serialization\Wino.Ipc.Serialization.csproj" />
   </ItemGroup>
+  <Target Name="BuildPatchedSkiaSharpWinUIProjection" BeforeTargets="ResolveReferences" Condition="'$(Configuration)' == 'Release' and '$(WinoMailRuntimeIdentifier)' != ''">
+    <MSBuild Projects="..\build\SkiaSharp.WinUI.Native.Projection\SkiaSharp.Views.WinUI.Native.Projection.csproj"
+             Targets="Restore;Build"
+             Properties="Configuration=Release;Platform=$(Platform);RuntimeIdentifier=$(WinoMailRuntimeIdentifier);SkiaSharpViewsWinUIProjectionVersion=$(SkiaSharpViewsWinUIProjectionVersion)" />
+  </Target>
+  <Target Name="PreferPatchedSkiaSharpWinUIProjection" AfterTargets="ResolveReferences" BeforeTargets="CoreCompile" Condition="'$(Configuration)' == 'Release'">
+    <ItemGroup>
+      <ReferencePath Remove="@(ReferencePath)"
+                     Condition="'%(ReferencePath.Filename)' == 'SkiaSharp.Views.WinUI.Native.Projection' and $([System.String]::Copy('%(ReferencePath.FullPath)').Contains('\.nuget\packages\skiasharp.nativeassets.winui\'))" />
+      <ReferenceCopyLocalPaths Remove="@(ReferenceCopyLocalPaths)"
+                               Condition="'%(ReferenceCopyLocalPaths.Filename)' == 'SkiaSharp.Views.WinUI.Native.Projection' and $([System.String]::Copy('%(ReferenceCopyLocalPaths.FullPath)').Contains('\.nuget\packages\skiasharp.nativeassets.winui\'))" />
+      <RuntimeCopyLocalItems Remove="@(RuntimeCopyLocalItems)"
+                             Condition="'%(RuntimeCopyLocalItems.Filename)' == 'SkiaSharp.Views.WinUI.Native.Projection' and $([System.String]::Copy('%(RuntimeCopyLocalItems.FullPath)').Contains('\.nuget\packages\skiasharp.nativeassets.winui\'))" />
+      <RuntimeTargetsCopyLocalItems Remove="@(RuntimeTargetsCopyLocalItems)"
+                                    Condition="'%(RuntimeTargetsCopyLocalItems.Filename)' == 'SkiaSharp.Views.WinUI.Native.Projection' and $([System.String]::Copy('%(RuntimeTargetsCopyLocalItems.FullPath)').Contains('\.nuget\packages\skiasharp.nativeassets.winui\'))" />
+    </ItemGroup>
+  </Target>
+  <Target Name="RemovePackagedSkiaSharpProjectionFromNativeAotInputs" BeforeTargets="_ComputeAssembliesToCompileToNative" Condition="'$(Configuration)' == 'Release'">
+    <ItemGroup>
+      <_ResolvedCopyLocalPublishAssets Remove="@(_ResolvedCopyLocalPublishAssets)"
+                                       Condition="'%(_ResolvedCopyLocalPublishAssets.Filename)' == 'SkiaSharp.Views.WinUI.Native.Projection' and $([System.String]::Copy('%(_ResolvedCopyLocalPublishAssets.FullPath)').Contains('\.nuget\packages\skiasharp.nativeassets.winui\'))" />
+    </ItemGroup>
+  </Target>
   <ItemGroup>
     <Page Update="Views\Settings\ContactsPage.xaml">
       <Generator>MSBuild:Compile</Generator>

@@ -685,7 +685,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
             {
                 ToBox.Focus(FocusState.Programmatic);
 
-                if (FocusManager.GetFocusedElement() == ToBox)
+                if (ReferenceEquals(FocusManager.GetFocusedElement(), ToBox))
                 {
                     return;
                 }

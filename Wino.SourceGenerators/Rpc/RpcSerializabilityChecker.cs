@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 using Microsoft.CodeAnalysis;
 
 namespace Wino.SourceGenerators.Rpc;
@@ -97,7 +98,7 @@ internal static class RpcSerializabilityChecker
                 // Generic Wino DTOs (e.g. ApiEnvelope<T>) are treated like the collections:
                 // the container must be a concrete class/struct and every argument serializable.
                 if (AllowedCollectionTypes.Contains(definition) ||
-                    (definition.StartsWith("Wino.") && namedType.TypeKind is TypeKind.Class or TypeKind.Struct && !namedType.IsAbstract))
+                    (definition.StartsWith("Wino.", StringComparison.Ordinal) && namedType.TypeKind is TypeKind.Class or TypeKind.Struct && !namedType.IsAbstract))
                 {
                     foreach (var typeArgument in namedType.TypeArguments)
                     {
@@ -119,7 +120,7 @@ internal static class RpcSerializabilityChecker
             // Concrete (non-abstract) Wino domain classes, structs and records are allowed.
             // Interfaces and abstract types force either a refactor or [WinoRpcExclude],
             // and foreign library types (MimeKit, MailKit, Graph, Google) never cross.
-            if (fullName.StartsWith("Wino."))
+            if (fullName.StartsWith("Wino.", StringComparison.Ordinal))
             {
                 return namedType.TypeKind is TypeKind.Class or TypeKind.Struct && !namedType.IsAbstract;
             }
