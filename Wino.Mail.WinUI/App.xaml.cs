@@ -1024,8 +1024,8 @@ public partial class App : WinoApplication,
             return;
         }
 
-        var mimeInformation = await mimeFileService.GetMimeMessageInformationAsync(mailItem.FileId, account.Id);
-        if (mimeInformation?.MimeMessage == null)
+        var isMimeExists = await mimeFileService.IsMimeExistAsync(account.Id, mailItem.FileId);
+        if (!isMimeExists)
         {
             LogActivation($"Compose toast MIME payload was not found for mail {mailItemUniqueId}.");
             return;

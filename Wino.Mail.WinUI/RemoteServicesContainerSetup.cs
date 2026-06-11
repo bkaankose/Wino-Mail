@@ -29,6 +29,7 @@ public static class RemoteServicesContainerSetup
         services.AddSingleton<IFolderService, FolderServiceRemoteProxy>();
         services.AddSingleton<IKeyboardShortcutService, KeyboardShortcutServiceRemoteProxy>();
         services.AddSingleton<IMailCategoryService, MailCategoryServiceRemoteProxy>();
+        services.AddSingleton<IMailRenderService, MailRenderServiceRemoteProxy>();
         services.AddSingleton<IMailService, MailServiceRemoteProxy>();
         services.AddSingleton<ISentMailReceiptService, SentMailReceiptServiceRemoteProxy>();
         services.AddSingleton<ISignatureService, SignatureServiceRemoteProxy>();

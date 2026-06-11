@@ -114,6 +114,7 @@ public static class Program
             services.GetRequiredService<IFolderService>(),
             services.GetRequiredService<IKeyboardShortcutService>(),
             services.GetRequiredService<IMailCategoryService>(),
+            services.GetRequiredService<IMailRenderService>(),
             services.GetRequiredService<IMailService>(),
             services.GetRequiredService<ISentMailReceiptService>(),
             services.GetRequiredService<ISignatureService>(),

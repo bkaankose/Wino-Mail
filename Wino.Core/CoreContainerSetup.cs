@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Serilog.Core;
 using Wino.Authentication;
 using Wino.Core.Domain.Interfaces;
@@ -30,6 +30,7 @@ public static class CoreContainerSetup
         services.AddTransient<IWinoRequestDelegator, WinoRequestDelegator>();
         services.AddTransient<IImapTestService, ImapTestService>();
         services.AddTransient<ISmimeService, SmimeService>();
+        services.AddTransient<IMailRenderService, MailRenderService>();
         services.AddTransient<IAuthenticationProvider, AuthenticationProvider>();
         services.AddTransient<IOutlookAuthenticator, OutlookAuthenticator>();
         services.AddTransient<IGmailAuthenticator, GmailAuthenticator>();

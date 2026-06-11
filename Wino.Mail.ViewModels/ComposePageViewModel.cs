@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using MimeKit;
 using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
@@ -21,6 +20,7 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.Reader;
 using Wino.Mail.ViewModels.Data;
 using Wino.Services.Extensions;
 using Wino.Messaging.Client.Mails;
@@ -57,16 +57,22 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     // Update is triggered when we leave the page.
     private bool isUpdatingMimeBlocked = false;
 
-    private bool canSendMail => ComposingAccount != null && !IsLocalDraft && CurrentMimeMessage != null && !IsDraftBusy;
-    private bool canSendLocalDraftToServer => ComposingAccount != null && IsLocalDraft && CurrentMimeMessage != null && !IsDraftBusy && !IsRetryingSendToServer;
+    private bool canSendMail => ComposingAccount != null && !IsLocalDraft && IsDraftContentLoaded && !IsDraftBusy;
+    private bool canSendLocalDraftToServer => ComposingAccount != null && IsLocalDraft && IsDraftContentLoaded && !IsDraftBusy && !IsRetryingSendToServer;
 
+    /// <summary>
+    /// Whether the draft content model was loaded from the companion. The UI never holds
+    /// a parsed MimeMessage; all composition state lives in plain properties and is
+    /// persisted through IMailRenderService.SaveDraftContentAsync.
+    /// </summary>
     [NotifyCanExecuteChangedFor(nameof(DiscardCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendToServerCommand))]
     [ObservableProperty]
-    private MimeMessage currentMimeMessage = null;
+    private bool isDraftContentLoaded;
 
-    private readonly BodyBuilder bodyBuilder = new BodyBuilder();
+    /// <summary>In-Reply-To header of the loaded draft; used for retry-context inference.</summary>
+    public string CurrentInReplyTo { get; private set; }
 
     public bool IsLocalDraft => CurrentMailDraftItem?.MailCopy?.IsLocalDraft ?? true;
 
@@ -96,7 +102,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     public partial bool IsImportanceSelected { get; set; }
 
     [ObservableProperty]
-    public partial MessageImportance SelectedMessageImportance { get; set; }
+    public partial MailImportance SelectedMessageImportance { get; set; }
 
     [ObservableProperty]
     public partial bool IsCCBCCVisible { get; set; }
@@ -162,6 +168,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     public readonly ISmimeCertificateService _smimeCertificateService;
     private readonly IShareActivationService _shareActivationService;
     private readonly ISynchronizationManager _synchronizationManager;
+    private readonly IMailRenderService _mailRenderService;
 
     public ComposePageViewModel(IMailDialogService dialogService,
                                 IMailService mailService,
@@ -177,7 +184,8 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                                 IPreferencesService preferencesService,
                                 ISmimeCertificateService smimeCertificateService,
                                 IShareActivationService shareActivationService,
-                                ISynchronizationManager synchronizationManager)
+                                ISynchronizationManager synchronizationManager,
+                                IMailRenderService mailRenderService)
     {
         NativeAppService = nativeAppService;
         ContactService = contactService;
@@ -195,6 +203,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         _smimeCertificateService = smimeCertificateService;
         _shareActivationService = shareActivationService;
         _synchronizationManager = synchronizationManager;
+        _mailRenderService = mailRenderService;
 
         foreach (var cert in _smimeCertificateService.GetCertificates(emailAddress: SelectedAlias?.AliasAddress))
         {
@@ -246,7 +255,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     [RelayCommand]
     private async Task SaveAttachmentAsync(MailAttachmentViewModel attachmentViewModel)
     {
-        if (attachmentViewModel.Content == null) return;
+        if (string.IsNullOrEmpty(EnsureAttachmentFilePath(attachmentViewModel))) return;
         var pickedFilePath = await _dialogService.PickFilePathAsync(attachmentViewModel.FileName);
         if (string.IsNullOrWhiteSpace(pickedFilePath)) return;
 
@@ -313,17 +322,14 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         var sentFolder = await _folderService.GetSpecialFolderByAccountIdAsync(assignedAccount.Id, SpecialFolderType.Sent);
 
 
-        // S/MIME signing/encryption happens in the companion process right before the
-        // send is queued; only the flags and the signing certificate thumbprint travel.
-        using MemoryStream memoryStream = new();
-        CurrentMimeMessage.WriteTo(FormatOptions.Default, memoryStream);
-        var base64EncodedMessage = Convert.ToBase64String(memoryStream.ToArray());
+        // No MIME payload travels: the companion loads the just-saved draft from shared
+        // storage and applies S/MIME there based on the flags below.
         var draftSendPreparationRequest = new SendDraftPreparationRequest(CurrentMailDraftItem.MailCopy,
                                                                           SelectedAlias,
                                                                           sentFolder,
                                                                           CurrentMailDraftItem.MailCopy.AssignedFolder,
                                                                           CurrentMailDraftItem.MailCopy.AssignedAccount.Preferences,
-                                                                          base64EncodedMessage,
+                                                                          Base64MimeMessage: null,
                                                                           SmimeSign: IsSmimeSignatureEnabled,
                                                                           SmimeEncrypt: IsSmimeEncryptionEnabled,
                                                                           SmimeSigningCertificateThumbprint: SelectedAlias.SelectedSigningCertificateThumbprint);
@@ -339,7 +345,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     [RelayCommand(CanExecute = nameof(canSendLocalDraftToServer))]
     private async Task SendToServerAsync()
     {
-        if (CurrentMailDraftItem?.MailCopy == null || ComposingAccount == null || CurrentMimeMessage == null)
+        if (CurrentMailDraftItem?.MailCopy == null || ComposingAccount == null || !IsDraftContentLoaded)
             return;
 
         try
@@ -355,10 +361,12 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
             var localDraftCopy = CurrentMailDraftItem.MailCopy;
             var (retryReason, referenceMailCopy) = await ResolveRetryDraftContextAsync().ConfigureAwait(false);
+
+            // Null payload: the companion loads the saved draft MIME from shared storage.
             var draftPreparationRequest = new DraftPreparationRequest(
                 localDraftCopy.AssignedAccount ?? ComposingAccount,
                 localDraftCopy,
-                CurrentMimeMessage.GetBase64MimeMessage(),
+                null,
                 retryReason,
                 referenceMailCopy);
 
@@ -386,26 +394,65 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
     public async Task UpdateMimeChangesAsync()
     {
-        if (isUpdatingMimeBlocked || CurrentMimeMessage == null || ComposingAccount == null || CurrentMailDraftItem == null) return;
+        if (isUpdatingMimeBlocked || !IsDraftContentLoaded || ComposingAccount == null || CurrentMailDraftItem == null) return;
 
-        // Save recipients.
+        // The companion rebuilds and saves the draft MIME (preserving identification
+        // headers) and updates the database copy for list display.
+        var draftContent = await BuildDraftContentAsync().ConfigureAwait(false);
 
-        SaveAddressInfo(ToItems, CurrentMimeMessage.To);
-        SaveAddressInfo(CCItems, CurrentMimeMessage.Cc);
-        SaveAddressInfo(BCCItems, CurrentMimeMessage.Bcc);
+        await _mailRenderService.SaveDraftContentAsync(CurrentMailDraftItem.MailCopy.UniqueId, draftContent).ConfigureAwait(false);
+    }
 
-        SaveImportance();
-        SaveSubject();
-        SaveFromAddress();
-        SaveReadReceiptRequest();
-        SaveReplyToAddress();
+    private async Task<MailDraftContent> BuildDraftContentAsync()
+    {
+        var content = new MailDraftContent
+        {
+            Subject = Subject,
+            HtmlBody = GetHTMLBodyFunction != null ? await GetHTMLBodyFunction() : string.Empty,
+            To = ToItems.Select(a => new MailRecipientInfo(a.Name, a.Address)).ToList(),
+            Cc = CCItems.Select(a => new MailRecipientInfo(a.Name, a.Address)).ToList(),
+            Bcc = BCCItems.Select(a => new MailRecipientInfo(a.Name, a.Address)).ToList(),
+            Importance = IsImportanceSelected ? SelectedMessageImportance : MailImportance.Normal,
+            IsReadReceiptRequested = IsReadReceiptRequested,
+            FromName = SelectedAlias?.AliasSenderName ?? ComposingAccount?.SenderName,
+            FromAddress = SelectedAlias?.AliasAddress,
+            ReplyToAddress = SelectedAlias?.ReplyToAddress,
+            InReplyTo = CurrentInReplyTo
+        };
 
-        await SaveAttachmentsAsync();
-        await SaveBodyAsync();
-        await UpdateMailCopyAsync();
+        foreach (var attachment in IncludedAttachments)
+        {
+            var attachmentFilePath = EnsureAttachmentFilePath(attachment);
 
-        // Save mime file.
-        await _mimeFileService.SaveMimeMessageAsync(CurrentMailDraftItem.MailCopy.FileId, CurrentMimeMessage, ComposingAccount.Id).ConfigureAwait(false);
+            if (attachmentFilePath != null)
+            {
+                content.Attachments.Add(new DraftAttachmentInfo(attachment.FileName, attachmentFilePath, attachment.Size));
+            }
+        }
+
+        return content;
+    }
+
+    /// <summary>
+    /// Attachments must be files on disk for the companion to attach; share-target
+    /// content without a backing path is written to a temp file once.
+    /// </summary>
+    private static string EnsureAttachmentFilePath(MailAttachmentViewModel attachment)
+    {
+        if (!string.IsNullOrEmpty(attachment.FilePath) && File.Exists(attachment.FilePath))
+            return attachment.FilePath;
+
+        if (attachment.Content == null)
+            return null;
+
+        var tempDirectory = Path.Combine(Path.GetTempPath(), "WinoComposeAttachments", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+
+        var filePath = Path.Combine(tempDirectory, attachment.FileName);
+        File.WriteAllBytes(filePath, attachment.Content);
+
+        attachment.FilePath = filePath;
+        return filePath;
     }
 
     public async Task ExportAsPdfAsync()
@@ -477,52 +524,6 @@ public partial class ComposePageViewModel : MailBaseViewModel,
             Log.Error(ex, "Failed to save compose draft as EML.");
             _dialogService.InfoBarMessage(Translator.Info_EMLSaveFailedTitle, ex.Message, InfoBarMessageType.Error);
         }
-    }
-
-    private async Task UpdateMailCopyAsync()
-    {
-        CurrentMailDraftItem.Subject = CurrentMimeMessage.Subject;
-        CurrentMailDraftItem.PreviewText = CurrentMimeMessage.TextBody;
-        CurrentMailDraftItem.FromAddress = SelectedAlias.AliasAddress;
-        CurrentMailDraftItem.HasAttachments = CurrentMimeMessage.Attachments.Any();
-
-        // Update database.
-        await _mailService.UpdateMailAsync(CurrentMailDraftItem.MailCopy);
-    }
-
-    private async Task SaveAttachmentsAsync()
-    {
-        bodyBuilder.Attachments.Clear();
-
-        foreach (var path in IncludedAttachments)
-        {
-            if (path.Content == null) continue;
-
-            await bodyBuilder.Attachments.AddAsync(path.FileName, new MemoryStream(path.Content));
-        }
-    }
-
-    private void SaveImportance()
-    {
-        CurrentMimeMessage.Importance = IsImportanceSelected ? SelectedMessageImportance : MessageImportance.Normal;
-    }
-
-    private void SaveSubject()
-    {
-        if (Subject != null)
-        {
-            CurrentMimeMessage.Subject = Subject;
-        }
-    }
-
-    private async Task SaveBodyAsync()
-    {
-        if (GetHTMLBodyFunction != null)
-        {
-            bodyBuilder.SetHtmlBody(await GetHTMLBodyFunction());
-        }
-
-        CurrentMimeMessage.Body = bodyBuilder.ToMessageBody();
     }
 
     [RelayCommand(CanExecute = nameof(canSendMail))]
@@ -743,14 +744,11 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
     retry:
 
-        // Replying existing message.
-        MimeMessageInformation mimeMessageInformation = null;
+        // The draft MIME lives in shared storage; the companion turns it into a
+        // serializable content model for the editor.
+        var isMimeExists = await _mimeFileService.IsMimeExistAsync(ComposingAccount.Id, CurrentMailDraftItem.MailCopy.FileId).ConfigureAwait(false);
 
-        try
-        {
-            mimeMessageInformation = await _mimeFileService.GetMimeMessageInformationAsync(CurrentMailDraftItem.MailCopy.FileId, ComposingAccount.Id).ConfigureAwait(false);
-        }
-        catch (FileNotFoundException)
+        if (!isMimeExists)
         {
             if (downloadIfNeeded)
             {
@@ -763,72 +761,70 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
                 goto retry;
             }
-            else
-                _dialogService.InfoBarMessage(Translator.Info_ComposerMissingMIMETitle, Translator.Info_ComposerMissingMIMEMessage, InfoBarMessageType.Error);
 
+            _dialogService.InfoBarMessage(Translator.Info_ComposerMissingMIMETitle, Translator.Info_ComposerMissingMIMEMessage, InfoBarMessageType.Error);
             return;
         }
-        catch (IOException)
+
+        MailDraftContent draftContent = null;
+
+        try
         {
-            _dialogService.InfoBarMessage(Translator.Busy, Translator.Exception_MailProcessing, InfoBarMessageType.Warning);
+            draftContent = await _mailRenderService.GetDraftContentAsync(CurrentMailDraftItem.MailCopy.FileId, ComposingAccount.Id).ConfigureAwait(false);
         }
-        catch (ComposerMimeNotFoundException)
+        catch (Exception ex)
         {
+            Log.Error(ex, "Loading draft content failed.");
             _dialogService.InfoBarMessage(Translator.Info_ComposerMissingMIMETitle, Translator.Info_ComposerMissingMIMEMessage, InfoBarMessageType.Error);
         }
 
-        if (mimeMessageInformation == null)
+        if (draftContent == null)
             return;
-
-        var replyingMime = mimeMessageInformation.MimeMessage;
-        var mimeFilePath = mimeMessageInformation.Path;
-
-        var renderModel = _mimeFileService.GetMailRenderModel(replyingMime, mimeFilePath);
 
         await ExecuteUIThread(async () =>
         {
             // Extract information
 
-            CurrentMimeMessage = replyingMime;
+            CurrentInReplyTo = draftContent.InReplyTo;
+            IsDraftContentLoaded = true;
 
             ToItems.Clear();
             CCItems.Clear();
             BCCItems.Clear();
 
-            await LoadAddressInfoAsync(replyingMime.To, ToItems);
-            await LoadAddressInfoAsync(replyingMime.Cc, CCItems);
-            await LoadAddressInfoAsync(replyingMime.Bcc, BCCItems);
+            await LoadAddressInfoAsync(draftContent.To, ToItems);
+            await LoadAddressInfoAsync(draftContent.Cc, CCItems);
+            await LoadAddressInfoAsync(draftContent.Bcc, BCCItems);
 
-            LoadAttachments();
+            LoadAttachments(draftContent);
             ApplyPendingSharedAttachments();
 
-            if (replyingMime.Cc.Any() || replyingMime.Bcc.Any())
+            if (draftContent.Cc.Count > 0 || draftContent.Bcc.Count > 0)
                 IsCCBCCVisible = true;
 
-            Subject = replyingMime.Subject;
-            IsReadReceiptRequested = replyingMime.HasReadReceiptRequest();
+            Subject = draftContent.Subject;
+            IsReadReceiptRequested = draftContent.IsReadReceiptRequested;
+            IsImportanceSelected = draftContent.Importance != MailImportance.Normal;
 
-            Messenger.Send(new CreateNewComposeMailRequested(renderModel));
+            if (IsImportanceSelected)
+            {
+                SelectedMessageImportance = draftContent.Importance;
+            }
         });
 
         if (RenderHtmlBodyAsyncFunc != null)
         {
-            await ExecuteUIThread(async () => await RenderHtmlBodyAsyncFunc(renderModel.RenderHtml));
+            await ExecuteUIThread(async () => await RenderHtmlBodyAsyncFunc(draftContent.HtmlBody));
         }
     }
 
-    private void LoadAttachments()
+    private void LoadAttachments(MailDraftContent draftContent)
     {
-        if (CurrentMimeMessage == null) return;
-
         IncludedAttachments.Clear();
 
-        foreach (var attachment in CurrentMimeMessage.Attachments)
+        foreach (var attachment in draftContent.Attachments)
         {
-            if (attachment.IsAttachment && attachment is MimePart attachmentPart)
-            {
-                IncludedAttachments.Add(new MailAttachmentViewModel(attachmentPart));
-            }
+            IncludedAttachments.Add(new MailAttachmentViewModel(attachment));
         }
     }
 
@@ -850,61 +846,15 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         }
     }
 
-    private async Task LoadAddressInfoAsync(InternetAddressList list, ObservableCollection<AccountContact> collection)
+    private async Task LoadAddressInfoAsync(List<MailRecipientInfo> recipients, ObservableCollection<AccountContact> collection)
     {
-        foreach (var item in list)
+        foreach (var recipient in recipients ?? [])
         {
-            if (item is MailboxAddress mailboxAddress)
-            {
-                var foundContact = await ContactService.GetAddressInformationByAddressAsync(mailboxAddress.Address).ConfigureAwait(false)
-                    ?? new AccountContact() { Name = mailboxAddress.Name, Address = mailboxAddress.Address };
+            var foundContact = await ContactService.GetAddressInformationByAddressAsync(recipient.Address).ConfigureAwait(false)
+                ?? new AccountContact() { Name = recipient.Name, Address = recipient.Address };
 
-                await ExecuteUIThread(() => { collection.Add(foundContact); });
-            }
-            else if (item is GroupAddress groupAddress)
-                await LoadAddressInfoAsync(groupAddress.Members, collection);
+            await ExecuteUIThread(() => { collection.Add(foundContact); });
         }
-    }
-
-    private void SaveFromAddress()
-    {
-        if (SelectedAlias == null) return;
-
-        CurrentMimeMessage.From.Clear();
-
-        // Try to get the sender name from the alias. If not, fallback to account sender name.
-        var senderName = SelectedAlias.AliasSenderName ?? ComposingAccount.SenderName;
-
-        CurrentMimeMessage.From.Add(new MailboxAddress(senderName, SelectedAlias.AliasAddress));
-    }
-
-    private void SaveReplyToAddress()
-    {
-        if (SelectedAlias == null || CurrentMimeMessage == null) return;
-
-        CurrentMimeMessage.ReplyTo.Clear();
-
-        if (!string.IsNullOrEmpty(SelectedAlias.ReplyToAddress))
-        {
-            CurrentMimeMessage.ReplyTo.Add(new MailboxAddress(SelectedAlias.ReplyToAddress, SelectedAlias.ReplyToAddress));
-        }
-    }
-
-    private void SaveReadReceiptRequest()
-    {
-        if (CurrentMimeMessage == null)
-            return;
-
-        var receiptAddress = SelectedAlias?.AliasAddress ?? ComposingAccount?.Address ?? string.Empty;
-        CurrentMimeMessage.SetReadReceiptRequest(receiptAddress, IsReadReceiptRequested);
-    }
-
-    private void SaveAddressInfo(IEnumerable<AccountContact> addresses, InternetAddressList list)
-    {
-        list.Clear();
-
-        foreach (var item in addresses)
-            list.Add(new MailboxAddress(item.Name, item.Address));
     }
 
     private string GetSuggestedExportFileName()
@@ -932,14 +882,10 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
     private async Task<(DraftCreationReason reason, MailCopy referenceMailCopy)> ResolveRetryDraftContextAsync()
     {
-        if (CurrentMimeMessage == null || CurrentMailDraftItem?.MailCopy?.AssignedAccount == null)
+        if (!IsDraftContentLoaded || CurrentMailDraftItem?.MailCopy?.AssignedAccount == null)
             return (DraftCreationReason.Empty, null);
 
-        var inReplyTo = CurrentMimeMessage.InReplyTo;
-        if (string.IsNullOrWhiteSpace(inReplyTo) && CurrentMimeMessage.Headers.Contains(HeaderId.InReplyTo))
-            inReplyTo = CurrentMimeMessage.Headers[HeaderId.InReplyTo];
-
-        inReplyTo = MailHeaderExtensions.StripAngleBrackets(inReplyTo);
+        var inReplyTo = MailHeaderExtensions.StripAngleBrackets(CurrentInReplyTo);
         if (string.IsNullOrWhiteSpace(inReplyTo))
             return (DraftCreationReason.Empty, null);
 
@@ -949,8 +895,8 @@ public partial class ComposePageViewModel : MailBaseViewModel,
             return (DraftCreationReason.Empty, null);
 
         // We cannot perfectly reconstruct original intent (Reply vs ReplyAll) from persisted data.
-        // Infer ReplyAll when multiple recipients exist on the local MIME.
-        var totalRecipients = CurrentMimeMessage.To.Mailboxes.Count() + CurrentMimeMessage.Cc.Mailboxes.Count();
+        // Infer ReplyAll when multiple recipients exist on the draft.
+        var totalRecipients = ToItems.Count + CCItems.Count;
         var reason = totalRecipients > 1 ? DraftCreationReason.ReplyAll : DraftCreationReason.Reply;
 
         return (reason, referenceMailCopy);

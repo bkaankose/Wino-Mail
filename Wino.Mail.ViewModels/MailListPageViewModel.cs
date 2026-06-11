@@ -73,7 +73,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private readonly IAccountService _accountService;
     private readonly IMailDialogService _mailDialogService;
     private readonly IMailService _mailService;
-    private readonly IMimeFileService _mimeFileService;
     private readonly INotificationBuilder _notificationBuilder;
     private readonly IFolderService _folderService;
     private readonly IContextMenuItemService _contextMenuItemService;
@@ -197,7 +196,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  IAccountService accountService,
                                  IMailDialogService mailDialogService,
                                  IMailService mailService,
-                                 IMimeFileService mimeFileService,
                                  IStatePersistanceService statePersistenceService,
                                  INotificationBuilder notificationBuilder,
                                  IFolderService folderService,
@@ -214,7 +212,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         _accountService = accountService;
         _mailDialogService = mailDialogService;
         _mailService = mailService;
-        _mimeFileService = mimeFileService;
         _folderService = folderService;
         _contextMenuItemService = contextMenuItemService;
         _mailCategoryService = mailCategoryService;

@@ -12,7 +12,6 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
-using MimeKit;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Storage;
@@ -31,6 +30,8 @@ using Wino.Mail.WinUI.Models;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
 using Wino.Views.Abstract;
+
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Views.Mail;
 
@@ -461,7 +462,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
         ImportanceFlyout.Hide();
         ImportanceSplitButton.IsChecked = true;
 
-        if (sender is Button senderButton && senderButton.Tag is MessageImportance importance)
+        if (sender is Button senderButton && senderButton.Tag is MailImportance importance)
         {
             ViewModel.SelectedMessageImportance = importance;
             if (ImportanceSplitButton.Content is Viewbox viewbox &&
@@ -653,16 +654,11 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     private bool ShouldFocusEditor()
     {
-        var inReplyTo = ViewModel.CurrentMimeMessage?.InReplyTo;
+        var inReplyTo = ViewModel.CurrentInReplyTo;
 
         if (string.IsNullOrWhiteSpace(inReplyTo))
         {
             inReplyTo = ViewModel.CurrentMailDraftItem?.MailCopy?.InReplyTo;
-        }
-
-        if (string.IsNullOrWhiteSpace(inReplyTo) && ViewModel.CurrentMimeMessage?.Headers.Contains(HeaderId.InReplyTo) == true)
-        {
-            inReplyTo = ViewModel.CurrentMimeMessage.Headers[HeaderId.InReplyTo];
         }
 
         return !string.IsNullOrWhiteSpace(inReplyTo);

@@ -13,7 +13,7 @@
     xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:mail="using:Wino.Core.Domain.Entities.Mail"
-    xmlns:mailkit="using:MimeKit"
+    xmlns:domainenums="using:Wino.Core.Domain.Enums"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:reader="using:Wino.Core.Domain.Models.Reader"
@@ -328,7 +328,7 @@
                                                 AutomationProperties.Name="{x:Bind domain:Translator.Composer_HighImportance, Mode=OneTime}"
                                                 Click="ImportanceClicked">
                                                 <Button.Tag>
-                                                    <mailkit:MessageImportance>High</mailkit:MessageImportance>
+                                                    <domainenums:MailImportance>High</domainenums:MailImportance>
                                                 </Button.Tag>
                                                 <SymbolIcon Symbol="Important" />
                                             </Button>
@@ -337,7 +337,7 @@
                                                 AutomationProperties.Name="{x:Bind domain:Translator.Composer_LowImportance, Mode=OneTime}"
                                                 Click="ImportanceClicked">
                                                 <Button.Tag>
-                                                    <mailkit:MessageImportance>Low</mailkit:MessageImportance>
+                                                    <domainenums:MailImportance>Low</domainenums:MailImportance>
                                                 </Button.Tag>
                                                 <SymbolIcon Symbol="Priority" />
                                             </Button>

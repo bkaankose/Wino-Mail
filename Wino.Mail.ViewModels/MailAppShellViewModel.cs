@@ -83,7 +83,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private readonly INotificationBuilder _notificationBuilder;
     private readonly IWinoRequestDelegator _winoRequestDelegator;
     private readonly IMailDialogService _dialogService;
-    private readonly IMimeFileService _mimeFileService;
     private readonly IWebView2RuntimeValidatorService _webView2RuntimeValidatorService;
     private readonly IShareActivationService _shareActivationService;
 
@@ -97,7 +96,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     public MailAppShellViewModel(IMailDialogService dialogService,
                              ISynchronizationManager synchronizationManager,
                              INavigationService navigationService,
-                             IMimeFileService mimeFileService,
                              INativeAppService nativeAppService,
                              IMailService mailService,
                              IMailCategoryService mailCategoryService,
@@ -124,7 +122,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
         _configurationService = configurationService;
         _startupBehaviorService = startupBehaviorService;
-        _mimeFileService = mimeFileService;
         _nativeAppService = nativeAppService;
         _mailService = mailService;
         _mailCategoryService = mailCategoryService;

@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using MimeKit;
 using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
@@ -46,10 +45,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     private readonly IFileService _fileService;
     private readonly IWinoRequestDelegator _requestDelegator;
     private readonly ISynchronizationManager _synchronizationManager;
-    private readonly ISmimeService _smimeService;
-
-    // S/MIME state of the currently rendered message, produced by the companion.
-    private SmimeRenderInfo currentSmimeInfo;
+    private readonly IMailRenderService _mailRenderService;
     private readonly IContactService _contactService;
     private readonly IClipboardService _clipboardService;
     private readonly IUnsubscriptionService _unsubscriptionService;
@@ -57,7 +53,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     private bool forceImageLoading = false;
 
     private MailItemViewModel initializedMailItemViewModel = null;
-    private MimeMessageInformation initializedMimeMessageInformation = null;
+
+    // Path of a standalone .eml being rendered (file activation); null for stored mails.
+    private string initializedEmlFilePath = null;
 
     // Func to get WebView2 to save current HTML as PDF to given location.
     // Used in 'Save as' functionality.
@@ -87,7 +85,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             }
             else
             {
-                return !CurrentRenderModel?.MailRenderingOptions?.LoadImages ?? false;
+                return !CurrentRenderModel?.RenderingOptions?.LoadImages ?? false;
             }
         }
     }
@@ -119,7 +117,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     [NotifyPropertyChangedFor(nameof(IsSmimeEncrypted))]
     [NotifyPropertyChangedFor(nameof(SmimeSignaturesValid))]
     [NotifyPropertyChangedFor(nameof(SmimeSignaturesInvalid))]
-    public partial MailRenderModel CurrentRenderModel { get; set; }
+    public partial MailRenderInfo CurrentRenderModel { get; set; }
 
     [ObservableProperty]
     public partial string Subject { get; set; }
@@ -172,7 +170,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         IPrintService printService,
         IApplicationConfiguration applicationConfiguration,
         ISynchronizationManager synchronizationManager,
-        ISmimeService smimeService)
+        IMailRenderService mailRenderService)
     {
         _dialogService = dialogService;
         NativeAppService = nativeAppService;
@@ -190,25 +188,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         _fileService = fileService;
         _requestDelegator = requestDelegator;
         _synchronizationManager = synchronizationManager;
-        _smimeService = smimeService;
-    }
-
-    /// <summary>
-    /// Detects S/MIME protection by content type only; no cryptography types are touched
-    /// in the UI process.
-    /// </summary>
-    private static bool IsSmimeProtected(MimeMessage message)
-    {
-        var contentType = message?.Body?.ContentType;
-
-        if (contentType == null)
-            return false;
-
-        if (contentType.IsMimeType("application", "pkcs7-mime") || contentType.IsMimeType("application", "x-pkcs7-mime"))
-            return true;
-
-        return contentType.IsMimeType("multipart", "signed") &&
-               (contentType.Parameters["protocol"]?.Contains("pkcs7", StringComparison.OrdinalIgnoreCase) ?? false);
+        _mailRenderService = mailRenderService;
     }
 
     [RelayCommand]
@@ -229,9 +209,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     [RelayCommand]
     private async Task ForceImageLoading()
     {
-        if (initializedMailItemViewModel == null && initializedMimeMessageInformation == null) return;
+        if (initializedMailItemViewModel == null && initializedEmlFilePath == null) return;
 
-        await RenderAsync(initializedMimeMessageInformation, ignoreJunkFilter: true);
+        await RenderInternalAsync(ignoreJunkFilter: true);
     }
 
     [RelayCommand]
@@ -333,7 +313,10 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             }
             else if (operation == MailOperation.ViewMessageSource)
             {
-                await _dialogService.ShowMessageSourceDialogAsync(initializedMimeMessageInformation.MimeMessage.ToString());
+                if (!string.IsNullOrEmpty(CurrentRenderModel?.EmlFilePath) && File.Exists(CurrentRenderModel.EmlFilePath))
+                {
+                    await _dialogService.ShowMessageSourceDialogAsync(await File.ReadAllTextAsync(CurrentRenderModel.EmlFilePath));
+                }
             }
             else if (operation == MailOperation.Reply || operation == MailOperation.ReplyAll || operation == MailOperation.Forward)
             {
@@ -401,7 +384,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         renderCancellationTokenSource.Cancel();
 
         initializedMailItemViewModel = null;
-        initializedMimeMessageInformation = null;
+        initializedEmlFilePath = null;
         CurrentMailItemDisplayInformation = null;
 
         try
@@ -428,12 +411,13 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             {
                 await RenderAsync(selectedMailItemViewModel, renderCancellationTokenSource.Token);
             }
-            else if (parameters is MimeMessageInformation mimeMessageInformation)
+            else if (parameters is string emlFilePath)
             {
-                // Standalone EML rendering: no account context, so no companion-side
-                // S/MIME processing is available.
-                currentSmimeInfo = null;
-                await RenderAsync(mimeMessageInformation);
+                // Standalone EML rendering (file activation). The companion parses the
+                // file; the UI only receives the render model.
+                initializedEmlFilePath = emlFilePath;
+                initializedMailItemViewModel = null;
+                await RenderInternalAsync(ignoreJunkFilter: false, renderCancellationTokenSource.Token);
             }
 
             InitializeCommandBarItems();
@@ -498,66 +482,62 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             await HandleSingleItemDownloadAsync(mailItemViewModel);
         }
 
-        // Find the MIME for this item and render it.
-        var mimeMessageInformation = await _mimeFileService.GetMimeMessageInformationAsync(mailItemViewModel.MailCopy.FileId,
-                                                                                           mailItemViewModel.MailCopy.AssignedAccount.Id,
-                                                                                           cancellationToken).ConfigureAwait(false);
+        initializedMailItemViewModel = mailItemViewModel;
+        initializedEmlFilePath = null;
+        await ExecuteUIThread(() => { CurrentMailItemDisplayInformation = mailItemViewModel; });
+        await RenderInternalAsync(ignoreJunkFilter: false, cancellationToken);
+    }
 
-        if (mimeMessageInformation == null)
+    /// <summary>
+    /// Renders the current source (stored mail or standalone .eml) through the companion.
+    /// All MIME parsing, S/MIME processing and HTML generation happen out of process;
+    /// the UI only receives the serializable render model.
+    /// </summary>
+    private async Task RenderInternalAsync(bool ignoreJunkFilter, CancellationToken cancellationToken = default)
+    {
+        forceImageLoading = ignoreJunkFilter;
+
+        var renderingOptions = PreferencesService.GetRenderingOptions();
+
+        // Automatically block remote image loading for Junk folder to reduce pixel tracking.
+        // This can only work for selected mail item rendering, not for EML file rendering.
+        if (initializedMailItemViewModel != null &&
+            initializedMailItemViewModel.MailCopy.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk)
+        {
+            renderingOptions.LoadImages = false;
+        }
+
+        // Load images if forced.
+        if (ignoreJunkFilter)
+        {
+            renderingOptions.LoadImages = true;
+        }
+
+        MailRenderInfo renderInfo;
+
+        if (initializedEmlFilePath != null)
+        {
+            renderInfo = await _mailRenderService.RenderEmlFileAsync(initializedEmlFilePath, renderingOptions).ConfigureAwait(false);
+        }
+        else
+        {
+            renderInfo = await _mailRenderService.RenderMailAsync(initializedMailItemViewModel.MailCopy.FileId,
+                                                                  initializedMailItemViewModel.MailCopy.AssignedAccount.Id,
+                                                                  renderingOptions).ConfigureAwait(false);
+        }
+
+        if (renderInfo == null)
         {
             _dialogService.InfoBarMessage(Translator.Info_MessageCorruptedTitle, Translator.Info_MessageCorruptedMessage, InfoBarMessageType.Error);
             return;
         }
 
-        // S/MIME protected messages are decrypted/verified by the companion, which writes
-        // the extracted inner MIME next to the original; the UI renders that file and
-        // never runs cryptography itself.
-        currentSmimeInfo = null;
-
-        if (IsSmimeProtected(mimeMessageInformation.MimeMessage))
-        {
-            try
-            {
-                var smimeInfo = await _smimeService.PrepareSmimeRenderAsync(mailItemViewModel.MailCopy.FileId,
-                                                                            mailItemViewModel.MailCopy.AssignedAccount.Id).ConfigureAwait(false);
-
-                if (smimeInfo?.ProcessedMimeFileName != null)
-                {
-                    currentSmimeInfo = smimeInfo;
-
-                    var processedMimePath = Path.Combine(mimeMessageInformation.Path, smimeInfo.ProcessedMimeFileName);
-                    var processedMimeBytes = await File.ReadAllBytesAsync(processedMimePath, cancellationToken).ConfigureAwait(false);
-
-                    // Keep the original resource directory so inline resources resolve.
-                    mimeMessageInformation = await _mimeFileService.GetMimeMessageInformationAsync(processedMimeBytes, mimeMessageInformation.Path, cancellationToken).ConfigureAwait(false);
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "S/MIME render preparation failed; rendering the protected message as-is.");
-            }
-        }
-
-        initializedMailItemViewModel = mailItemViewModel;
-        await ExecuteUIThread(() => { CurrentMailItemDisplayInformation = mailItemViewModel; });
-        await RenderAsync(mimeMessageInformation);
-    }
-
-    private async Task RenderAsync(MimeMessageInformation mimeMessageInformation, bool ignoreJunkFilter = false)
-    {
-        forceImageLoading = ignoreJunkFilter;
-
-        var message = mimeMessageInformation.MimeMessage;
-        var messagePath = mimeMessageInformation.Path;
-
-        initializedMimeMessageInformation = mimeMessageInformation;
-
-        var renderingOptions = PreferencesService.GetRenderingOptions();
+        cancellationToken.ThrowIfCancellationRequested();
 
         // Prepare account contacts info in advance, to avoid UI shifts after clearing collections.
-        var toAccountContacts = await GetAccountContacts(message.To);
-        var ccAccountContacts = await GetAccountContacts(message.Cc);
-        var bccAccountContacts = await GetAccountContacts(message.Bcc);
+        var toAccountContacts = await GetAccountContacts(renderInfo.To);
+        var ccAccountContacts = await GetAccountContacts(renderInfo.Cc);
+        var bccAccountContacts = await GetAccountContacts(renderInfo.Bcc);
 
         await ExecuteUIThread(() =>
         {
@@ -575,34 +555,17 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             foreach (var item in bccAccountContacts)
                 BccItems.Add(item);
 
-            Subject = string.IsNullOrWhiteSpace(message.Subject) ? Translator.MailItemNoSubject : message.Subject;
+            Subject = string.IsNullOrWhiteSpace(renderInfo.Subject) ? Translator.MailItemNoSubject : renderInfo.Subject;
 
-            // TODO: FromName and FromAddress is probably not correct here for mail lists.
-            FromAddress = message.From.Mailboxes.FirstOrDefault()?.Address ?? Translator.UnknownAddress;
-            FromName = message.From.Mailboxes.FirstOrDefault()?.Name ?? Translator.UnknownSender;
+            FromAddress = string.IsNullOrEmpty(renderInfo.FromAddress) ? Translator.UnknownAddress : renderInfo.FromAddress;
+            FromName = string.IsNullOrEmpty(renderInfo.FromName) ? Translator.UnknownSender : renderInfo.FromName;
 
             // Use the received date from MailCopy if available, otherwise fall back to the sent date from MIME message
-            CreationDate = initializedMailItemViewModel?.MailCopy.CreationDate ?? message.Date.DateTime;
+            CreationDate = initializedMailItemViewModel?.MailCopy.CreationDate ?? renderInfo.CreationDate.ToLocalTime();
 
-            // Automatically block remote image loading for Junk folder to reduce pixel tracking.
-            // This can only work for selected mail item rendering, not for EML file rendering.
-            if (initializedMailItemViewModel != null &&
-                initializedMailItemViewModel.MailCopy.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk)
-            {
-                renderingOptions.LoadImages = false;
-            }
+            CurrentRenderModel = renderInfo;
 
-            // Load images if forced.
-            if (ignoreJunkFilter)
-            {
-                renderingOptions.LoadImages = true;
-            }
-
-            var renderModel = _mimeFileService.GetMailRenderModel(message, messagePath, renderingOptions);
-            renderModel.SmimeInfo = currentSmimeInfo;
-            CurrentRenderModel = renderModel;
-
-            foreach (var attachment in CurrentRenderModel.Attachments)
+            foreach (var attachment in renderInfo.Attachments)
             {
                 Attachments.Add(new MailAttachmentViewModel(attachment));
             }
@@ -620,32 +583,26 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         }
     }
 
-    private async Task<List<AccountContactViewModel>> GetAccountContacts(InternetAddressList internetAddresses)
+    private async Task<List<AccountContactViewModel>> GetAccountContacts(List<MailRecipientInfo> recipients)
     {
         List<AccountContactViewModel> accounts = [];
-        foreach (var item in internetAddresses)
+
+        foreach (var recipient in recipients ?? [])
         {
-            if (item is MailboxAddress mailboxAddress)
+            var foundContact = await _contactService.GetAddressInformationByAddressAsync(recipient.Address).ConfigureAwait(false)
+                ?? new AccountContact() { Name = recipient.Name, Address = recipient.Address };
+
+            var contactViewModel = new AccountContactViewModel(foundContact);
+
+            // Make sure that user account first in the list.
+            if (string.Equals(contactViewModel.Address, initializedMailItemViewModel?.MailCopy.AssignedAccount?.Address, StringComparison.OrdinalIgnoreCase))
             {
-                var foundContact = await _contactService.GetAddressInformationByAddressAsync(mailboxAddress.Address).ConfigureAwait(false)
-                    ?? new AccountContact() { Name = mailboxAddress.Name, Address = mailboxAddress.Address };
-
-                var contactViewModel = new AccountContactViewModel(foundContact);
-
-                // Make sure that user account first in the list.
-                if (string.Equals(contactViewModel.Address, initializedMailItemViewModel?.MailCopy.AssignedAccount?.Address, StringComparison.OrdinalIgnoreCase))
-                {
-                    contactViewModel.IsMe = true;
-                    accounts.Insert(0, contactViewModel);
-                }
-                else
-                {
-                    accounts.Add(contactViewModel);
-                }
+                contactViewModel.IsMe = true;
+                accounts.Insert(0, contactViewModel);
             }
-            else if (item is GroupAddress groupAddress)
+            else
             {
-                accounts.AddRange(await GetAccountContacts(groupAddress.Members));
+                accounts.Add(contactViewModel);
             }
         }
 
@@ -666,7 +623,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         CurrentDownloadPercentage = 0d;
 
         initializedMailItemViewModel = null;
-        initializedMimeMessageInformation = null;
+        initializedEmlFilePath = null;
         CurrentMailItemDisplayInformation = null;
 
         forceImageLoading = false;
@@ -717,7 +674,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             MenuItems.Add(MailOperationMenuItem.Create(MailOperation.Forward));
         }
 
-        if (initializedMimeMessageInformation?.MimeMessage != null)
+        if (!string.IsNullOrEmpty(CurrentRenderModel?.EmlFilePath))
         {
             MenuItems.Add(MailOperationMenuItem.Create(MailOperation.ViewMessageSource, true, true));
         }
@@ -800,15 +757,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     {
         try
         {
-            var fileFolderPath = Path.Combine(initializedMimeMessageInformation.Path, attachmentViewModel.FileName);
-            var directoryInfo = new DirectoryInfo(initializedMimeMessageInformation.Path);
+            var extractedFilePath = await EnsureAttachmentExtractedAsync(attachmentViewModel);
 
-            var fileExists = File.Exists(fileFolderPath);
-
-            if (!fileExists)
-                await SaveAttachmentInternalAsync(attachmentViewModel, initializedMimeMessageInformation.Path);
-
-            await LaunchFileInternalAsync(fileFolderPath);
+            await LaunchFileInternalAsync(extractedFilePath);
         }
         catch (Exception ex)
         {
@@ -930,7 +881,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     {
         try
         {
-            if (initializedMimeMessageInformation?.MimeMessage == null)
+            if (string.IsNullOrEmpty(CurrentRenderModel?.EmlFilePath) || !File.Exists(CurrentRenderModel.EmlFilePath))
             {
                 _dialogService.InfoBarMessage(Translator.Info_EMLSaveFailedTitle, Translator.Info_ComposerMissingMIMEMessage, InfoBarMessageType.Error);
                 return;
@@ -943,10 +894,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             var fileName = $"{GetSuggestedSaveAsFileName()}.eml";
             var emlFilePath = Path.Combine(pickedFolder, fileName);
 
-            await using (var stream = await _fileService.GetFileStreamAsync(pickedFolder, fileName))
-            {
-                await initializedMimeMessageInformation.MimeMessage.WriteToAsync(stream);
-            }
+            File.Copy(CurrentRenderModel.EmlFilePath, emlFilePath, overwrite: true);
 
             _dialogService.InfoBarMessage(
                 Translator.Info_EMLSaveSuccessTitle,
@@ -977,15 +925,30 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     }
 
     // Returns created file path.
+    /// <summary>
+    /// Asks the companion to extract the attachment content to a file in the shared
+    /// storage (once) and returns its path.
+    /// </summary>
+    private async Task<string> EnsureAttachmentExtractedAsync(MailAttachmentViewModel attachmentViewModel)
+    {
+        if (!string.IsNullOrEmpty(attachmentViewModel.FilePath) && File.Exists(attachmentViewModel.FilePath))
+            return attachmentViewModel.FilePath;
+
+        attachmentViewModel.FilePath = initializedEmlFilePath != null
+            ? await _mailRenderService.ExtractEmlFileAttachmentAsync(initializedEmlFilePath, attachmentViewModel.AttachmentIndex)
+            : await _mailRenderService.ExtractAttachmentAsync(initializedMailItemViewModel.MailCopy.FileId,
+                                                              initializedMailItemViewModel.MailCopy.AssignedAccount.Id,
+                                                              attachmentViewModel.AttachmentIndex);
+
+        return attachmentViewModel.FilePath;
+    }
+
     private async Task<string> SaveAttachmentInternalAsync(MailAttachmentViewModel attachmentViewModel, string saveFolderPath)
     {
+        var extractedFilePath = await EnsureAttachmentExtractedAsync(attachmentViewModel);
         var fullFilePath = Path.Combine(saveFolderPath, attachmentViewModel.FileName);
-        var stream = await _fileService.GetFileStreamAsync(saveFolderPath, attachmentViewModel.FileName);
 
-        using (stream)
-        {
-            await attachmentViewModel.MimeContent.DecodeToAsync(stream);
-        }
+        File.Copy(extractedFilePath, fullFilePath, overwrite: true);
 
         return fullFilePath;
     }
@@ -1088,43 +1051,10 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             info += string.Format(Translator.SmimeSignatureEntry, signature.IsValid ? "✅" : "❌", signature.SignerName, signature.SignerFingerprint, signature.CertificateCreationDate, signature.CertificateExpirationDate);
         }
 
-        await ShowSmimeCertificateInfoAsync(null, info, Translator.SmimeSigningCertificateInfoTitle);
-    }
-
-    private async Task ShowSmimeCertificateInfoAsync(MimePart certificateAttachment, string additionalInfo = "", string title = null)
-    {
-        {
-            if (certificateAttachment == null)
-            {
-                await _dialogService.ShowConfirmationDialogAsync(
-                    $"{additionalInfo}\n{Translator.SmimeNoCertificateFileFound}", title ?? Translator.SmimeCertificateInfoTitle, Translator.Buttons_OK);
-                return;
-            }
-            var fileName = certificateAttachment.FileName ?? "smime.p7s";
-            var contentType = certificateAttachment.ContentType?.MimeType ?? "application/pkcs7-signature";
-            var size = certificateAttachment.Content?.Stream?.Length ?? 0;
-            var info = string.Format(Translator.SmimeCertificateFileInfo, fileName, contentType, size);
-
-            var result = await _dialogService.ShowConfirmationDialogAsync(
-                $"{additionalInfo}\n{info}", title ?? Translator.SmimeCertificateInfoTitle,
-                Translator.SmimeSaveCertificate);
-            if (result)
-            {
-                var pickedPath = await _dialogService.PickFilePathAsync(fileName);
-                if (!string.IsNullOrEmpty(pickedPath))
-                {
-                    var pickedDirectory = Path.GetDirectoryName(pickedPath);
-                    var pickedFileName = Path.GetFileName(pickedPath);
-                    await using (var stream = await _fileService.GetFileStreamAsync(pickedDirectory, pickedFileName))
-                    {
-                        await certificateAttachment.Content!.DecodeToAsync(stream);
-                    }
-
-                    _dialogService.InfoBarMessage(Translator.SmimeCertificate, string.Format(Translator.SmimeCertificateSavedTo, pickedPath),
-                        InfoBarMessageType.Success);
-                }
-            }
-        }
+        // The rendered message is the companion-extracted inner MIME and no longer
+        // carries the signature part itself; only the verification summary is shown.
+        await _dialogService.ShowConfirmationDialogAsync(
+            $"{info}\n{Translator.SmimeNoCertificateFileFound}", Translator.SmimeSigningCertificateInfoTitle, Translator.Buttons_OK);
     }
 
     protected override void RegisterRecipients()

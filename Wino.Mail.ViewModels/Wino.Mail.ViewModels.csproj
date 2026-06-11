@@ -12,7 +12,6 @@
 	<ItemGroup>
 		<PackageReference Include="EmailValidation" />
 		<PackageReference Include="Sentry.Serilog" />
-		<PackageReference Include="MimeKit" />
 		<PackageReference Include="System.Reactive" />
 	</ItemGroup>
 	<ItemGroup>
