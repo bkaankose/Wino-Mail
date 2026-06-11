@@ -36,13 +36,10 @@
   <Dependencies>
     <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
     <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
-    <!-- The Windows App SDK framework package. Nothing injects this dependency for us:
-         the UI project ships with EnableMsixTooling=false (this WAP owns packaging) and
-         its ProjectReference is excluded from the default harvest, so without an explicit
-         declaration the deployed app dies at the first WinRT call with E_CLASSNOTREG
-         (AppInstance.GetCurrent in Program.Main). Keep Name/MinVersion in sync with the
-         Microsoft.WindowsAppSDK package version in Directory.Packages.props. -->
-    <PackageDependency Name="Microsoft.WindowsAppRuntime.2-experimental8" MinVersion="2.1.4.0" Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US" />
+    <!-- The Microsoft.WindowsAppRuntime PackageDependency is injected automatically by the
+         Windows App SDK targets through the Wino.Mail.WinUI project reference. If the packaged
+         app ever crashes at launch with E_CLASSNOTREG before any UI appears, check the generated
+         AppxManifest.xml for that dependency first and declare it here explicitly as a fallback. -->
   </Dependencies>
 
   <Resources>

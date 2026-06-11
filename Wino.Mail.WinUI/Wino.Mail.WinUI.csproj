@@ -8,18 +8,17 @@
     <Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">x64</Platform>
     <Platforms>x86;x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
-    <PublishProfile Condition="Exists('$(MSBuildProjectDirectory)\Properties\PublishProfiles\win-$(Platform).pubxml')">win-$(Platform).pubxml</PublishProfile>
+    <!-- Standard WinUI-in-WAP arrangement (matches the official template): the WAP publishes
+         this project through Properties\PublishProfiles\win-$(Platform).pubxml when creating
+         packages; the pubxml carries the Native AOT switch for Release. Do NOT set
+         EnableMsixTooling=false here - that disables the Windows App SDK's packaging
+         integration (framework PackageDependency injection, PRI flow into the package). -->
+    <PublishProfile>win-$(Platform).pubxml</PublishProfile>
     <UseWinUI>true</UseWinUI>
-    <!-- Packaging is owned by Wino.Package.wapproj, which bundles this app together with
-         Wino.BackgroundService under a single package identity. -->
-    <EnableMsixTooling>false</EnableMsixTooling>
     <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
-    <!-- Surface trim/AOT analyzer warnings in app code and publish the main UI as Native AOT
-         for Release packages. The background host intentionally stays managed. -->
+    <!-- Surface trim/AOT analyzer warnings in app code. -->
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
     <EnableAotAnalyzer>true</EnableAotAnalyzer>
-    <PublishTrimmed Condition="'$(Configuration)' == 'Release'">true</PublishTrimmed>
-    <PublishAot Condition="'$(Configuration)' == 'Release'">true</PublishAot>
     <SkiaSharpViewsWinUIProjectionVersion>4.147.0-preview.3.1</SkiaSharpViewsWinUIProjectionVersion>
     <WinoMailRuntimeIdentifier Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</WinoMailRuntimeIdentifier>
     <WinoMailRuntimeIdentifier Condition="'$(WinoMailRuntimeIdentifier)' == '' and '$(Platform)' == 'x86'">win-x86</WinoMailRuntimeIdentifier>

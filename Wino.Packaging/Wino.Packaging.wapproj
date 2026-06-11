@@ -69,12 +69,6 @@
     <PackageCertificateKeyFile>Wino.Packaging_TemporaryKey.pfx</PackageCertificateKeyFile>
     <AppxBundlePlatforms>x64</AppxBundlePlatforms>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)'=='Release'">
-    <WinoPackageRuntimeIdentifier Condition="'$(Platform)'=='x86'">win-x86</WinoPackageRuntimeIdentifier>
-    <WinoPackageRuntimeIdentifier Condition="'$(Platform)'=='x64'">win-x64</WinoPackageRuntimeIdentifier>
-    <WinoPackageRuntimeIdentifier Condition="'$(Platform)'=='ARM64'">win-arm64</WinoPackageRuntimeIdentifier>
-    <WinoMailNativePublishDir>$(MSBuildThisFileDirectory)..\Wino.Mail.WinUI\bin\$(Platform)\$(Configuration)\net10.0-windows10.0.19041.0\$(WinoPackageRuntimeIdentifier)\publish\</WinoMailNativePublishDir>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <AppxBundle>Always</AppxBundle>
   </PropertyGroup>
@@ -123,33 +117,11 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Wino.BackgroundService\Wino.BackgroundService.csproj" />
-    <ProjectReference Include="..\Wino.Mail.WinUI\Wino.Mail.WinUI.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <!-- A plain reference is load-bearing: the WAP places the entry-point project's payload
+         at the package ROOT (ms-appx:/// URIs resolve there), merges its .pri into the final
+         resources.pri, and injects the Microsoft.WindowsAppRuntime PackageDependency. When
+         creating Release packages it publishes through Properties\PublishProfiles\
+         win-$(Platform).pubxml, which is where the Native AOT switch lives. -->
+    <ProjectReference Include="..\Wino.Mail.WinUI\Wino.Mail.WinUI.csproj" />
   </ItemGroup>
-  <!-- The UI project is excluded from the default WAP harvest (ReferenceOutputAssembly=false,
-       Private=false would also strip every file via the CopyLocal filter), so this target
-       supplies the payload explicitly from the Native AOT publish output.
-       Two rules learned the hard way:
-       1. The UI must live at the package ROOT. ms-appx:/// URIs (AppThemes, toolkit XAML,
-          BackgroundImages) resolve against the package root; a per-app subfolder makes the
-          XAML loader throw 'Cannot locate resource' at startup. Only the companion stays in
-          its Wino.BackgroundService\ subfolder.
-       2. The app's merged PRI must be part of the payload. The WAP collects every .pri it
-          finds in the packaging outputs and makepri-merges them into the final resources.pri
-          (_GetPriFilesFromPayload); without it the package PRI only indexes the Images folder
-          and every XAML resource lookup dies. PublishAot does not copy the .pri to the publish
-          folder, so it is taken from the build output directory instead. -->
-  <Target Name="PublishNativeAotUiPackagePayload" BeforeTargets="Build" Condition="'$(Configuration)'=='Release' and '$(WinoPackageRuntimeIdentifier)'!=''">
-    <MSBuild Projects="..\Wino.Mail.WinUI\Wino.Mail.WinUI.csproj" Targets="Publish" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(WinoPackageRuntimeIdentifier);GenerateAppxPackageOnBuild=false;AppxPackageSigningEnabled=false" />
-    <PropertyGroup>
-      <WinoMailBuildOutputDir>$(MSBuildThisFileDirectory)..\Wino.Mail.WinUI\bin\$(Platform)\$(Configuration)\net10.0-windows10.0.19041.0\$(WinoPackageRuntimeIdentifier)\</WinoMailBuildOutputDir>
-    </PropertyGroup>
-    <ItemGroup>
-      <Content Include="$(WinoMailNativePublishDir)**\*.*" Exclude="$(WinoMailNativePublishDir)**\*.pdb">
-        <Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
-      </Content>
-      <Content Include="$(WinoMailBuildOutputDir)Wino.Mail.WinUI.pri">
-        <Link>Wino.Mail.WinUI.pri</Link>
-      </Content>
-    </ItemGroup>
-  </Target>
 </Project>
