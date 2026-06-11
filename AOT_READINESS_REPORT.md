@@ -48,9 +48,9 @@ Requirements that will apply to `Wino.Mail.WinUI`:
 Wino.Mail.WinUI
 ├── Wino.Mail.ViewModels ──┬── Wino.Core            ← Graph SDK, Google.Apis.*, MailKit,
 ├── Wino.Calendar.ViewModels┘                          MSAL + Broker + MsalCacheHelper,
-│                                                      HtmlAgilityPack, NodaTime, SkiaSharp
+│                                                      HtmlAgilityPack, NodaTime
 ├── Wino.Core.ViewModels ───── Wino.Core (again)
-├── Wino.Services           ← Ical.Net (CalDavClient), SkiaSharp, HtmlAgilityPack, Serilog sinks
+├── Wino.Services           ← Ical.Net (CalDavClient), HtmlAgilityPack, Serilog sinks
 ├── Wino.Core.Domain        ← MimeKit, MailKit, sqlite-net-pcl (attribute usage only)
 └── direct: MSAL, sqlite-net-pcl, MimeKit-consumers, Lottie, Behaviors, WinUIEx, Sentry…
 ```
@@ -75,7 +75,7 @@ things still need it UI-side — interactive auth (`InteractiveAuthHelper` →
 | Ical.Net | **Falls off** with Wino.Services split (A4.4) — only `CalDavClient` uses it; CalDav validation becomes an RPC. |
 | HtmlAgilityPack / HtmlKit | Mostly companion-side; UI usage (if any in render pipeline) is parsing-only and AOT-tolerable. Verify with trim analyzer. |
 | Sentry.Serilog / Serilog | **Keep** — Sentry supports Native AOT (4.x+); Serilog is AOT-fine. |
-| SkiaSharp.Views.WinUI | **Keep** — native interop, AOT-supported. |
+| Microsoft.Graphics.Win2D | **Keep** — WinUI drawing and bitmap normalization path; AOT-compatible replacement for the former Skia usage. |
 | CommunityToolkit.WinUI 8.2 controls | **Keep** — 8.2 line is AOT-annotated. |
 | CommunityToolkit.WinUI.Lottie | **Risk — verify** | Lottie-Windows JSON parsing of `.json` compositions is reflection-light but the package predates AOT annotations. If it fails: pre-compile animations to codegen classes (LottieGen) — that path is AOT-perfect, or drop to static imagery. |
 | CommunityToolkit.Labs MarkdownTextBlock | **Risk — verify** (Labs packages carry no AOT guarantees). Fallback: render markdown to HTML in companion / use WebView2. |

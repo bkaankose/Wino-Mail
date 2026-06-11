@@ -19,12 +19,6 @@
     <!-- Surface trim/AOT analyzer warnings in app code. -->
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
     <EnableAotAnalyzer>true</EnableAotAnalyzer>
-    <SkiaSharpViewsWinUIProjectionVersion>4.147.0-preview.3.1</SkiaSharpViewsWinUIProjectionVersion>
-    <WinoMailRuntimeIdentifier Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</WinoMailRuntimeIdentifier>
-    <WinoMailRuntimeIdentifier Condition="'$(WinoMailRuntimeIdentifier)' == '' and '$(Platform)' == 'x86'">win-x86</WinoMailRuntimeIdentifier>
-    <WinoMailRuntimeIdentifier Condition="'$(WinoMailRuntimeIdentifier)' == '' and '$(Platform)' == 'x64'">win-x64</WinoMailRuntimeIdentifier>
-    <WinoMailRuntimeIdentifier Condition="'$(WinoMailRuntimeIdentifier)' == '' and '$(Platform)' == 'ARM64'">win-arm64</WinoMailRuntimeIdentifier>
-    <PatchedSkiaSharpWinUIProjectionPath Condition="'$(WinoMailRuntimeIdentifier)' != ''">$(MSBuildThisFileDirectory)..\build\SkiaSharp.WinUI.Native.Projection\bin\$(Platform)\Release\net10.0-windows10.0.19041.0\$(WinoMailRuntimeIdentifier)\SkiaSharp.Views.WinUI.Native.Projection.dll</PatchedSkiaSharpWinUIProjectionPath>
     <Nullable>enable</Nullable>
 	<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	<!-- Single instancing -->
@@ -200,15 +194,8 @@
 	     uses sqlite-net attributes. Keep the native sqlite blob out of the package. -->
 	<PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" ExcludeAssets="all" />
 	<PackageReference Include="EmailValidation" />
-	<PackageReference Include="SkiaSharp.Views.WinUI" />
 	<PackageReference Include="WinUIEx" />
 	<PackageReference Include="Wino.Mail.Contracts" />
-  </ItemGroup>
-  <ItemGroup Condition="'$(Configuration)' == 'Release' and '$(PatchedSkiaSharpWinUIProjectionPath)' != ''">
-    <Reference Include="SkiaSharp.Views.WinUI.Native.Projection">
-      <HintPath>$(PatchedSkiaSharpWinUIProjectionPath)</HintPath>
-      <Private>true</Private>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
 	<ProjectReference Include="..\Wino.Calendar.ViewModels\Wino.Calendar.ViewModels.csproj" />
@@ -220,45 +207,6 @@
 	<ProjectReference Include="..\Wino.Ipc\Wino.Ipc.csproj" />
 	<ProjectReference Include="..\Wino.Ipc.Contracts\Wino.Ipc.Contracts.csproj" />
   </ItemGroup>
-  <Target Name="BuildPatchedSkiaSharpWinUIProjection" BeforeTargets="ResolveReferences" Condition="'$(Configuration)' == 'Release' and '$(WinoMailRuntimeIdentifier)' != ''">
-    <MSBuild Projects="..\build\SkiaSharp.WinUI.Native.Projection\SkiaSharp.Views.WinUI.Native.Projection.csproj"
-             Targets="Restore;Build"
-             Properties="Configuration=Release;Platform=$(Platform);RuntimeIdentifier=$(WinoMailRuntimeIdentifier);SkiaSharpViewsWinUIProjectionVersion=$(SkiaSharpViewsWinUIProjectionVersion)" />
-  </Target>
-  <Target Name="PreferPatchedSkiaSharpWinUIProjection" AfterTargets="ResolveReferences" BeforeTargets="CoreCompile" Condition="'$(Configuration)' == 'Release'">
-    <ItemGroup>
-      <ReferencePath Remove="@(ReferencePath)"
-                     Condition="'%(ReferencePath.Filename)' == 'SkiaSharp.Views.WinUI.Native.Projection' and $([System.String]::Copy('%(ReferencePath.FullPath)').Contains('\.nuget\packages\skiasharp.nativeassets.winui\'))" />
-      <ReferenceCopyLocalPaths Remove="@(ReferenceCopyLocalPaths)"
-                               Condition="'%(ReferenceCopyLocalPaths.Filename)' == 'SkiaSharp.Views.WinUI.Native.Projection' and $([System.String]::Copy('%(ReferenceCopyLocalPaths.FullPath)').Contains('\.nuget\packages\skiasharp.nativeassets.winui\'))" />
-      <RuntimeCopyLocalItems Remove="@(RuntimeCopyLocalItems)"
-                             Condition="'%(RuntimeCopyLocalItems.Filename)' == 'SkiaSharp.Views.WinUI.Native.Projection' and $([System.String]::Copy('%(RuntimeCopyLocalItems.FullPath)').Contains('\.nuget\packages\skiasharp.nativeassets.winui\'))" />
-      <RuntimeTargetsCopyLocalItems Remove="@(RuntimeTargetsCopyLocalItems)"
-                                    Condition="'%(RuntimeTargetsCopyLocalItems.Filename)' == 'SkiaSharp.Views.WinUI.Native.Projection' and $([System.String]::Copy('%(RuntimeTargetsCopyLocalItems.FullPath)').Contains('\.nuget\packages\skiasharp.nativeassets.winui\'))" />
-    </ItemGroup>
-  </Target>
-  <!-- The publish/ILC closure must see ONLY the patched projection. These two swaps are
-       feeder-agnostic (drop every SkiaSharp.Views.WinUI.Native.Projection item regardless of
-       where it came from, then add the patched one): the previous remove-only variant let the
-       NuGet copy reach the ILC response file and reintroduce the IL2104 trim warnings. -->
-  <Target Name="UsePatchedSkiaSharpProjectionInPublishAssets" BeforeTargets="_ComputeAssembliesToCompileToNative" Condition="'$(Configuration)' == 'Release'">
-    <Error Condition="!Exists('$(PatchedSkiaSharpWinUIProjectionPath)')"
-           Text="Patched SkiaSharp projection is missing: $(PatchedSkiaSharpWinUIProjectionPath)" />
-    <ItemGroup>
-      <_ResolvedCopyLocalPublishAssets Remove="@(_ResolvedCopyLocalPublishAssets)"
-                                       Condition="'%(_ResolvedCopyLocalPublishAssets.Filename)' == 'SkiaSharp.Views.WinUI.Native.Projection'" />
-      <_ResolvedCopyLocalPublishAssets Include="$(PatchedSkiaSharpWinUIProjectionPath)" />
-    </ItemGroup>
-    <Message Importance="high" Text="Wino: publish assets use patched SkiaSharp projection: $(PatchedSkiaSharpWinUIProjectionPath)" />
-  </Target>
-  <Target Name="UsePatchedSkiaSharpProjectionForIlc" BeforeTargets="WriteIlcRspFileForCompilation" Condition="'$(Configuration)' == 'Release'">
-    <ItemGroup>
-      <_WinoSkiaProjectionInIlc Include="@(IlcReference)" Condition="'%(IlcReference.Filename)' == 'SkiaSharp.Views.WinUI.Native.Projection'" />
-      <IlcReference Remove="@(_WinoSkiaProjectionInIlc)" />
-      <IlcReference Include="$(PatchedSkiaSharpWinUIProjectionPath)" Condition="'@(_WinoSkiaProjectionInIlc)' != ''" />
-    </ItemGroup>
-    <Message Importance="high" Text="Wino: ILC SkiaSharp projection reference(s) before swap: @(_WinoSkiaProjectionInIlc)" />
-  </Target>
   <ItemGroup>
     <Page Update="Views\Settings\ContactsPage.xaml">
       <Generator>MSBuild:Compile</Generator>

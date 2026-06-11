@@ -23,7 +23,6 @@
 		<PackageReference Include="FluentAssertions" />
 		<PackageReference Include="Moq" />
 		<PackageReference Include="Ical.Net" />
-		<PackageReference Include="SkiaSharp" />
 	</ItemGroup>
 
 	<ItemGroup>

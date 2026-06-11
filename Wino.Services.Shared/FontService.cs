@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using SkiaSharp;
+using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
+using Microsoft.Win32;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Services;
@@ -13,9 +15,9 @@ public class FontService() : IFontService
 
     private static List<string> InitializeFonts()
     {
-        // TODO: Skia used to get system fonts. This is a temporary solution to support UWP and WinUI together.
-        // After migration to WinUI, this code should be replaced with lightweight solution.
-        var fontFamilies = SKFontManager.Default.FontFamilies;
+        var fontFamilies = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? GetWindowsFontFamilies()
+            : [];
 
         List<string> combinedFonts = [.. fontFamilies, .. _defaultFonts];
 
@@ -23,4 +25,35 @@ public class FontService() : IFontService
     }
 
     public List<string> GetFonts() => _availableFonts.Value;
+
+    [SupportedOSPlatform("windows")]
+    private static IEnumerable<string> GetWindowsFontFamilies()
+    {
+        using var fontsKey = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts");
+        if (fontsKey is null)
+        {
+            yield break;
+        }
+
+        foreach (var valueName in fontsKey.GetValueNames())
+        {
+            var familyName = GetFontFamilyName(valueName);
+            if (!string.IsNullOrWhiteSpace(familyName))
+            {
+                yield return familyName;
+            }
+        }
+    }
+
+    private static string GetFontFamilyName(string registryValueName)
+    {
+        var familyName = registryValueName;
+        var metadataStart = familyName.IndexOf(" (", StringComparison.Ordinal);
+        if (metadataStart >= 0)
+        {
+            familyName = familyName[..metadataStart];
+        }
+
+        return familyName.Trim();
+    }
 }

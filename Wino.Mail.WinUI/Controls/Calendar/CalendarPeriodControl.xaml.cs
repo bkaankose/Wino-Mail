@@ -9,6 +9,7 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using CommunityToolkit.WinUI;
 using Itenso.TimePeriod;
+using Microsoft.Graphics.Canvas.UI.Xaml;
 using Microsoft.UI;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Dispatching;
@@ -17,8 +18,6 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
-using SkiaSharp;
-using SkiaSharp.Views.Windows;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.UI;
@@ -497,11 +496,11 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         return date.AddDays(offset);
     }
 
-    private void TimedHeaderCanvasPaintSurface(object? sender, SKPaintSurfaceEventArgs e)
+    private void TimedHeaderCanvasDraw(CanvasControl sender, CanvasDrawEventArgs args)
     {
-        using var borderPaint = CreateLinePaint();
-        var canvas = e.Surface.Canvas;
-        canvas.Clear(SKColors.Transparent);
+        var borderColor = CreateLineColor();
+        var drawingSession = args.DrawingSession;
+        drawingSession.Clear(Colors.Transparent);
 
         var timedSurfaceWidth = GetTimedSurfaceWidth();
 
@@ -510,25 +509,25 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
             return;
         }
 
-        var scaleX = (float)(e.Info.Width / timedSurfaceWidth);
-        var height = e.Info.Height;
+        var scaleX = (float)(sender.ActualWidth / timedSurfaceWidth);
+        var height = (float)sender.ActualHeight;
         var dayWidth = (float)(_timedLayout.DayWidth * scaleX);
 
         for (var index = 1; index < _timedLayout.VisibleDates.Count; index++)
         {
             var x = dayWidth * index;
-            canvas.DrawLine(x, 0, x, height, borderPaint);
+            drawingSession.DrawLine(x, 0, x, height, borderColor);
         }
 
-        canvas.DrawLine(0, height - 1, e.Info.Width, height - 1, borderPaint);
+        drawingSession.DrawLine(0, height - 1, (float)sender.ActualWidth, height - 1, borderColor);
     }
 
-    private void TimedAllDayCanvasPaintSurface(object? sender, SKPaintSurfaceEventArgs e)
+    private void TimedAllDayCanvasDraw(CanvasControl sender, CanvasDrawEventArgs args)
     {
-        using var borderPaint = CreateLinePaint();
-        using var hoverFillPaint = CreateFillPaint(HoverSlotBackground ?? new SolidColorBrush(Colors.Transparent));
-        var canvas = e.Surface.Canvas;
-        canvas.Clear(SKColors.Transparent);
+        var borderColor = CreateLineColor();
+        var hoverFillColor = ToColor(HoverSlotBackground ?? new SolidColorBrush(Colors.Transparent));
+        var drawingSession = args.DrawingSession;
+        drawingSession.Clear(Colors.Transparent);
 
         var timedSurfaceWidth = GetTimedSurfaceWidth();
 
@@ -537,35 +536,35 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
             return;
         }
 
-        var scaleX = (float)(e.Info.Width / timedSurfaceWidth);
-        var height = e.Info.Height;
+        var scaleX = (float)(sender.ActualWidth / timedSurfaceWidth);
+        var height = (float)sender.ActualHeight;
         var dayWidth = (float)(_timedLayout.DayWidth * scaleX);
 
         var hoveredTimedAllDayRect = GetHoveredTimedAllDayRect(dayWidth, height);
-        if (hoveredTimedAllDayRect.HasValue && hoverFillPaint.Color.Alpha > 0)
+        if (hoveredTimedAllDayRect.HasValue && hoverFillColor.A > 0)
         {
-            canvas.DrawRect(hoveredTimedAllDayRect.Value, hoverFillPaint);
+            drawingSession.FillRectangle(hoveredTimedAllDayRect.Value, hoverFillColor);
         }
 
         for (var index = 1; index < _timedLayout.VisibleDates.Count; index++)
         {
             var x = dayWidth * index;
-            canvas.DrawLine(x, 0, x, height, borderPaint);
+            drawingSession.DrawLine(x, 0, x, height, borderColor);
         }
 
-        canvas.DrawLine(0, height - 1, e.Info.Width, height - 1, borderPaint);
+        drawingSession.DrawLine(0, height - 1, (float)sender.ActualWidth, height - 1, borderColor);
     }
 
-    private void TimedStructureCanvasPaintSurface(object? sender, SKPaintSurfaceEventArgs e)
+    private void TimedStructureCanvasDraw(CanvasControl sender, CanvasDrawEventArgs args)
     {
-        using var linePaint = CreateLinePaint();
-        using var minorLinePaint = CreateMinorLinePaint();
-        using var defaultFillPaint = CreateFillPaint(DefaultHourBackground ?? new SolidColorBrush(Colors.Transparent));
-        using var workFillPaint = CreateFillPaint(WorkHourBackground ?? new SolidColorBrush(Colors.Transparent));
-        using var selectedFillPaint = CreateFillPaint(SelectedSlotBackground ?? new SolidColorBrush(Colors.Transparent));
-        using var hoverFillPaint = CreateFillPaint(HoverSlotBackground ?? new SolidColorBrush(Colors.Transparent));
-        var canvas = e.Surface.Canvas;
-        canvas.Clear(SKColors.Transparent);
+        var lineColor = CreateLineColor();
+        var minorLineColor = CreateMinorLineColor();
+        var defaultFillColor = ToColor(DefaultHourBackground ?? new SolidColorBrush(Colors.Transparent));
+        var workFillColor = ToColor(WorkHourBackground ?? new SolidColorBrush(Colors.Transparent));
+        var selectedFillColor = ToColor(SelectedSlotBackground ?? new SolidColorBrush(Colors.Transparent));
+        var hoverFillColor = ToColor(HoverSlotBackground ?? new SolidColorBrush(Colors.Transparent));
+        var drawingSession = args.DrawingSession;
+        drawingSession.Clear(Colors.Transparent);
 
         var timedSurfaceWidth = GetTimedSurfaceWidth();
 
@@ -576,8 +575,8 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
         var hourHeight = GetHourHeight();
         var timelineHeight = TimedCalendarLayoutCalculator.GetTimelineHeight(hourHeight);
-        var scaleX = (float)(e.Info.Width / timedSurfaceWidth);
-        var scaleY = (float)(e.Info.Height / timelineHeight);
+        var scaleX = (float)(sender.ActualWidth / timedSurfaceWidth);
+        var scaleY = (float)(sender.ActualHeight / timelineHeight);
         var dayWidth = (float)(_timedLayout.DayWidth * scaleX);
         var isWorkingHoursEnabled = CalendarSettings?.IsWorkingHoursEnabled == true;
         var workDayStartHour = CalendarSettings?.WorkingHourStart.TotalHours ?? 9d;
@@ -595,61 +594,56 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
             {
                 var intervalStartHour = (intervalIndex * TimedGridIntervalMinutes) / 60d;
                 var y = intervalIndex * intervalHeight;
-                var fillPaint = isWorkingDay && intervalStartHour >= workDayStartHour && intervalStartHour < workDayEndHour
-                    ? workFillPaint
-                    : defaultFillPaint;
-                canvas.DrawRect(x, y, dayWidth, intervalHeight, fillPaint);
+                var fillColor = isWorkingDay && intervalStartHour >= workDayStartHour && intervalStartHour < workDayEndHour
+                    ? workFillColor
+                    : defaultFillColor;
+                drawingSession.FillRectangle(x, y, dayWidth, intervalHeight, fillColor);
             }
         }
 
         var hoveredTimedSlotRect = GetHoveredTimedSlotRect(dayWidth, intervalHeight, intervalCount);
-        if (hoveredTimedSlotRect.HasValue && hoverFillPaint.Color.Alpha > 0)
+        if (hoveredTimedSlotRect.HasValue && hoverFillColor.A > 0)
         {
-            canvas.DrawRect(hoveredTimedSlotRect.Value, hoverFillPaint);
+            drawingSession.FillRectangle(hoveredTimedSlotRect.Value, hoverFillColor);
         }
 
         var selectedTimedSlotRect = GetSelectedTimedSlotRect(dayWidth, intervalHeight, intervalCount);
-        if (selectedTimedSlotRect.HasValue && selectedFillPaint.Color.Alpha > 0)
+        if (selectedTimedSlotRect.HasValue && selectedFillColor.A > 0)
         {
-            canvas.DrawRect(selectedTimedSlotRect.Value, selectedFillPaint);
+            drawingSession.FillRectangle(selectedTimedSlotRect.Value, selectedFillColor);
         }
 
         for (var intervalIndex = 0; intervalIndex <= intervalCount; intervalIndex++)
         {
             var y = intervalIndex * intervalHeight;
-            var paint = intervalIndex % 2 == 0 ? linePaint : minorLinePaint;
-            canvas.DrawLine(0, y, e.Info.Width, y, paint);
+            var color = intervalIndex % 2 == 0 ? lineColor : minorLineColor;
+            drawingSession.DrawLine(0, y, (float)sender.ActualWidth, y, color);
         }
 
         for (var index = 0; index <= _timedLayout.VisibleDates.Count; index++)
         {
             var x = dayWidth * index;
-            canvas.DrawLine(x, 0, x, e.Info.Height, linePaint);
+            drawingSession.DrawLine(x, 0, x, (float)sender.ActualHeight, lineColor);
         }
     }
 
-    private void MonthStructureCanvasPaintSurface(object? sender, SKPaintSurfaceEventArgs e)
+    private void MonthStructureCanvasDraw(CanvasControl sender, CanvasDrawEventArgs args)
     {
-        using var linePaint = CreateLinePaint();
-        using var todayPaint = new SKPaint
-        {
-            Style = SKPaintStyle.Fill,
-            Color = new SKColor(0, 120, 215, 26),
-            IsAntialias = true
-        };
-        using var selectedPaint = CreateFillPaint(SelectedSlotBackground ?? new SolidColorBrush(Colors.Transparent));
-        using var hoverPaint = CreateFillPaint(HoverSlotBackground ?? new SolidColorBrush(Colors.Transparent));
+        var lineColor = CreateLineColor();
+        var todayColor = Color.FromArgb(26, 0, 120, 215);
+        var selectedColor = ToColor(SelectedSlotBackground ?? new SolidColorBrush(Colors.Transparent));
+        var hoverColor = ToColor(HoverSlotBackground ?? new SolidColorBrush(Colors.Transparent));
 
-        var canvas = e.Surface.Canvas;
-        canvas.Clear(SKColors.Transparent);
+        var drawingSession = args.DrawingSession;
+        drawingSession.Clear(Colors.Transparent);
 
         if (_monthLayout.CellWidth <= 0 || _monthLayout.CellHeight <= 0 || MonthViewport.ActualWidth <= 0 || MonthViewport.ActualHeight <= 0)
         {
             return;
         }
 
-        var scaleX = (float)(e.Info.Width / (_monthLayout.CellWidth * MonthCalendarLayoutCalculator.ColumnCount));
-        var scaleY = (float)(e.Info.Height / (_monthLayout.CellHeight * MonthCalendarLayoutCalculator.RowCount));
+        var scaleX = (float)(sender.ActualWidth / (_monthLayout.CellWidth * MonthCalendarLayoutCalculator.ColumnCount));
+        var scaleY = (float)(sender.ActualHeight / (_monthLayout.CellHeight * MonthCalendarLayoutCalculator.RowCount));
         var cellWidth = (float)(_monthLayout.CellWidth * scaleX);
         var cellHeight = (float)(_monthLayout.CellHeight * scaleY);
         var today = DateOnly.FromDateTime(DateTime.Now.Date);
@@ -661,31 +655,31 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
                 continue;
             }
 
-            canvas.DrawRect(ToScaledSkRect(cell.Bounds, scaleX, scaleY), todayPaint);
+            drawingSession.FillRectangle(ToScaledRect(cell.Bounds, scaleX, scaleY), todayColor);
         }
 
         var hoveredMonthCellRect = GetHoveredMonthCellRect(scaleX, scaleY);
-        if (hoveredMonthCellRect.HasValue && hoverPaint.Color.Alpha > 0)
+        if (hoveredMonthCellRect.HasValue && hoverColor.A > 0)
         {
-            canvas.DrawRect(hoveredMonthCellRect.Value, hoverPaint);
+            drawingSession.FillRectangle(hoveredMonthCellRect.Value, hoverColor);
         }
 
         var selectedMonthCellRect = GetSelectedMonthCellRect(scaleX, scaleY);
-        if (selectedMonthCellRect.HasValue && selectedPaint.Color.Alpha > 0)
+        if (selectedMonthCellRect.HasValue && selectedColor.A > 0)
         {
-            canvas.DrawRect(selectedMonthCellRect.Value, selectedPaint);
+            drawingSession.FillRectangle(selectedMonthCellRect.Value, selectedColor);
         }
 
         for (var row = 0; row <= MonthCalendarLayoutCalculator.RowCount; row++)
         {
             var y = row * cellHeight;
-            canvas.DrawLine(0, y, e.Info.Width, y, linePaint);
+            drawingSession.DrawLine(0, y, (float)sender.ActualWidth, y, lineColor);
         }
 
         for (var column = 0; column <= MonthCalendarLayoutCalculator.ColumnCount; column++)
         {
             var x = column * cellWidth;
-            canvas.DrawLine(x, 0, x, e.Info.Height, linePaint);
+            drawingSession.DrawLine(x, 0, x, (float)sender.ActualHeight, lineColor);
         }
     }
 
@@ -1108,7 +1102,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         InvalidateStructureCanvases();
     }
 
-    private SKRect? GetSelectedTimedSlotRect(float dayWidth, float intervalHeight, int intervalCount)
+    private Rect? GetSelectedTimedSlotRect(float dayWidth, float intervalHeight, int intervalCount)
     {
         if (SelectedDateTime is not DateTime selectedDateTime || _timedLayout.VisibleDates.Count == 0)
         {
@@ -1126,10 +1120,10 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
         var x = dayIndex * dayWidth;
         var y = slotIndex * intervalHeight;
-        return new SKRect(x, y, x + dayWidth, y + intervalHeight);
+        return new Rect(x, y, dayWidth, intervalHeight);
     }
 
-    private SKRect? GetHoveredTimedSlotRect(float dayWidth, float intervalHeight, int intervalCount)
+    private Rect? GetHoveredTimedSlotRect(float dayWidth, float intervalHeight, int intervalCount)
     {
         if (_hoverTarget is not { Kind: CalendarDropTargetKind.TimedSlot } hoverTarget)
         {
@@ -1139,10 +1133,10 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         var slotIndex = Math.Clamp(hoverTarget.SlotIndex, 0, intervalCount - 1);
         var x = hoverTarget.DayIndex * dayWidth;
         var y = slotIndex * intervalHeight;
-        return new SKRect(x, y, x + dayWidth, y + intervalHeight);
+        return new Rect(x, y, dayWidth, intervalHeight);
     }
 
-    private SKRect? GetHoveredTimedAllDayRect(float dayWidth, float height)
+    private Rect? GetHoveredTimedAllDayRect(float dayWidth, float height)
     {
         if (_hoverTarget is not { Kind: CalendarDropTargetKind.TimedAllDay } hoverTarget)
         {
@@ -1150,10 +1144,10 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         }
 
         var x = hoverTarget.DayIndex * dayWidth;
-        return new SKRect(x, 0, x + dayWidth, height);
+        return new Rect(x, 0, dayWidth, height);
     }
 
-    private SKRect? GetSelectedMonthCellRect(float scaleX, float scaleY)
+    private Rect? GetSelectedMonthCellRect(float scaleX, float scaleY)
     {
         if (SelectedDateTime is not DateTime selectedDateTime)
         {
@@ -1168,13 +1162,13 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
                 continue;
             }
 
-            return ToScaledSkRect(cell.Bounds, scaleX, scaleY);
+            return ToScaledRect(cell.Bounds, scaleX, scaleY);
         }
 
         return null;
     }
 
-    private SKRect? GetHoveredMonthCellRect(float scaleX, float scaleY)
+    private Rect? GetHoveredMonthCellRect(float scaleX, float scaleY)
     {
         if (_hoverTarget is not { Kind: CalendarDropTargetKind.MonthCell } hoverTarget)
         {
@@ -1188,7 +1182,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
                 continue;
             }
 
-            return ToScaledSkRect(cell.Bounds, scaleX, scaleY);
+            return ToScaledRect(cell.Bounds, scaleX, scaleY);
         }
 
         return null;
@@ -1232,12 +1226,12 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         return coordinate * layoutSize / actualSize;
     }
 
-    private static SKRect ToScaledSkRect(LayoutRect bounds, float scaleX, float scaleY)
+    private static Rect ToScaledRect(LayoutRect bounds, float scaleX, float scaleY)
         => new(
-            (float)(bounds.X * scaleX),
-            (float)(bounds.Y * scaleY),
-            (float)((bounds.X + bounds.Width) * scaleX),
-            (float)((bounds.Y + bounds.Height) * scaleY));
+            bounds.X * scaleX,
+            bounds.Y * scaleY,
+            bounds.Width * scaleX,
+            bounds.Height * scaleY);
 
     private int FindVisibleDateIndex(DateOnly date)
     {
@@ -1541,45 +1535,25 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         visual.StartAnimation(nameof(visual.Opacity), opacityAnimation);
     }
 
-    private static SKPaint CreateLinePaint()
+    private static Color CreateLineColor()
     {
         var strokeColor = GetStrokeColor();
 
-        return new SKPaint
-        {
-            Color = new SKColor(strokeColor.R, strokeColor.G, strokeColor.B, (byte)Math.Max(40, strokeColor.A / 2)),
-            IsAntialias = false,
-            StrokeWidth = 1
-        };
+        return Color.FromArgb((byte)Math.Max(40, strokeColor.A / 2), strokeColor.R, strokeColor.G, strokeColor.B);
     }
 
-    private static SKPaint CreateMinorLinePaint()
+    private static Color CreateMinorLineColor()
     {
         var strokeColor = GetStrokeColor();
 
-        return new SKPaint
-        {
-            Color = new SKColor(strokeColor.R, strokeColor.G, strokeColor.B, (byte)Math.Max(20, strokeColor.A / 4)),
-            IsAntialias = false,
-            StrokeWidth = 1
-        };
+        return Color.FromArgb((byte)Math.Max(20, strokeColor.A / 4), strokeColor.R, strokeColor.G, strokeColor.B);
     }
 
-    private static SKPaint CreateFillPaint(Brush brush)
-    {
-        return new SKPaint
-        {
-            Color = ToSkColor(brush),
-            Style = SKPaintStyle.Fill,
-            IsAntialias = false
-        };
-    }
-
-    private static SKColor ToSkColor(Brush brush)
+    private static Color ToColor(Brush brush)
     {
         return brush is SolidColorBrush solidColorBrush
-            ? new SKColor(solidColorBrush.Color.R, solidColorBrush.Color.G, solidColorBrush.Color.B, solidColorBrush.Color.A)
-            : SKColors.Transparent;
+            ? solidColorBrush.Color
+            : Colors.Transparent;
     }
 
     private static double GetTimedGridIntervalHeight(double hourHeight) => hourHeight * (TimedGridIntervalMinutes / 60d);
