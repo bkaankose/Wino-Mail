@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
@@ -22,8 +22,8 @@
 	
   <Identity
     Name="58272BurakKSE.WinoMailPreview"
-    Publisher="CN=51FBDAF3-E212-4149-89A2-A2636B3BC911"
-    Version="2.0.28.0" />
+    Publisher="CN=bkaan"
+    Version="2.1.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="7b7e90e9-cc55-4409-9769-99b4b5ed6e9b" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
@@ -36,6 +36,13 @@
   <Dependencies>
     <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
     <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
+    <!-- The Windows App SDK framework package. Nothing injects this dependency for us:
+         the UI project ships with EnableMsixTooling=false (this WAP owns packaging) and
+         its ProjectReference is excluded from the default harvest, so without an explicit
+         declaration the deployed app dies at the first WinRT call with E_CLASSNOTREG
+         (AppInstance.GetCurrent in Program.Main). Keep Name/MinVersion in sync with the
+         Microsoft.WindowsAppSDK package version in Directory.Packages.props. -->
+    <PackageDependency Name="Microsoft.WindowsAppRuntime.2-experimental8" MinVersion="2.1.4.0" Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US" />
   </Dependencies>
 
   <Resources>
@@ -44,7 +51,7 @@
 
   <Applications>
     <Application Id="App"
-      Executable="Wino.Mail.WinUI\Wino.Mail.WinUI.exe"
+      Executable="Wino.Mail.WinUI.exe"
       EntryPoint="Windows.FullTrustApplication"
       uap10:Parameters="--wino-mail">
       <uap:VisualElements
@@ -71,7 +78,7 @@
 
 			<com:Extension Category="windows.comServer">
 				<com:ComServer>
-					<com:ExeServer Executable="Wino.Mail.WinUI\Wino.Mail.WinUI.exe" Arguments="----AppNotificationActivated:" DisplayName="Toast activator">
+					<com:ExeServer Executable="Wino.Mail.WinUI.exe" Arguments="----AppNotificationActivated:" DisplayName="Toast activator">
 						<com:Class Id="72c6d2d0-2538-44fe-a1b1-499f47bb1181" DisplayName="Toast activator"/>
 					</com:ExeServer>
 				</com:ComServer>
@@ -118,7 +125,7 @@
     </Application>
 
     <Application Id="CalendarApp"
-      Executable="Wino.Mail.WinUI\Wino.Mail.WinUI.exe"
+      Executable="Wino.Mail.WinUI.exe"
       EntryPoint="Windows.FullTrustApplication"
       uap10:Parameters="--wino-calendar">
       <uap:VisualElements
@@ -174,6 +181,7 @@
         Square150x150Logo="Images\AppEntries\MailAssets\Square150x150Logo.png"
         Square44x44Logo="Images\AppEntries\MailAssets\Square44x44Logo.png"
         AppListEntry="none">
+        <uap:DefaultTile/>
       </uap:VisualElements>
 
       <Extensions>

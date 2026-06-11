@@ -48,15 +48,62 @@
   <PropertyGroup>
     <WapProjPath Condition="'$(WapProjPath)'==''">$(MSBuildExtensionsPath)\Microsoft\DesktopBridge\</WapProjPath>
   </PropertyGroup>
-  <Import Project="$(WapProjPath)\Microsoft.DesktopBridge.props" />
+  <Import Project="$(WapProjPath)\Microsoft.DesktopBridge.props" Condition="Exists('$(WapProjPath)\Microsoft.DesktopBridge.props')" />
   <PropertyGroup>
     <ProjectGuid>cfd10747-d5d1-4b5d-b0e2-d0cafb47406c</ProjectGuid>
     <TargetPlatformVersion>10.0.26100.0</TargetPlatformVersion>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <DefaultLanguage>en-US</DefaultLanguage>
-    <AppxPackageSigningEnabled>false</AppxPackageSigningEnabled>
+    <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
     <NoWarn>$(NoWarn);NU1702</NoWarn>
     <EntryPointProjectUniqueName>..\Wino.Mail.WinUI\Wino.Mail.WinUI.csproj</EntryPointProjectUniqueName>
+    <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
+    <UapAppxPackageBuildMode>SideloadOnly</UapAppxPackageBuildMode>
+    <GenerateAppxUploadPackage>false</GenerateAppxUploadPackage>
+    <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
+    <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
+    <GenerateTestArtifacts>False</GenerateTestArtifacts>
+    <AppxBundlePlatforms Condition="'$(AppxBundlePlatforms)' == ''">x86|x64|ARM64</AppxBundlePlatforms>
+    <GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
+    <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
+    <PackageCertificateKeyFile>Wino.Packaging_TemporaryKey.pfx</PackageCertificateKeyFile>
+    <AppxBundlePlatforms>x64</AppxBundlePlatforms>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <WinoPackageRuntimeIdentifier Condition="'$(Platform)'=='x86'">win-x86</WinoPackageRuntimeIdentifier>
+    <WinoPackageRuntimeIdentifier Condition="'$(Platform)'=='x64'">win-x64</WinoPackageRuntimeIdentifier>
+    <WinoPackageRuntimeIdentifier Condition="'$(Platform)'=='ARM64'">win-arm64</WinoPackageRuntimeIdentifier>
+    <WinoMailNativePublishDir>$(MSBuildThisFileDirectory)..\Wino.Mail.WinUI\bin\$(Platform)\$(Configuration)\net10.0-windows10.0.19041.0\$(WinoPackageRuntimeIdentifier)\publish\</WinoMailNativePublishDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <AppxBundle>Always</AppxBundle>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
+    <AppxBundle>Never</AppxBundle>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <AppxBundle>Never</AppxBundle>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
+    <AppxBundle>Always</AppxBundle>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
+    <AppxBundle>Always</AppxBundle>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <AppxBundle>Always</AppxBundle>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <AppxBundle>Never</AppxBundle>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x86'">
+    <AppxBundle>Never</AppxBundle>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
+    <AppxBundle>Never</AppxBundle>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x86'">
+    <AppxBundle>Always</AppxBundle>
   </PropertyGroup>
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest">
@@ -67,13 +114,42 @@
     <!-- All manifest visual assets (tiles, splash screens, store logo, file association
          icons) live in the packaging project so makepri indexes their scale variants. -->
     <Content Include="Images\**\*.png" />
+    <None Include="Wino.Packaging_TemporaryKey.pfx" />
+    <None Include="Package.StoreAssociation.xml" />
   </ItemGroup>
-  <Import Project="$(WapProjPath)\Microsoft.DesktopBridge.targets" />
+  <Import Project="$(WapProjPath)\Microsoft.DesktopBridge.targets" Condition="Exists('$(WapProjPath)\Microsoft.DesktopBridge.targets')" />
   <ItemGroup>
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Wino.BackgroundService\Wino.BackgroundService.csproj" />
-    <ProjectReference Include="..\Wino.Mail.WinUI\Wino.Mail.WinUI.csproj" />
+    <ProjectReference Include="..\Wino.Mail.WinUI\Wino.Mail.WinUI.csproj" ReferenceOutputAssembly="false" Private="false" />
   </ItemGroup>
+  <!-- The UI project is excluded from the default WAP harvest (ReferenceOutputAssembly=false,
+       Private=false would also strip every file via the CopyLocal filter), so this target
+       supplies the payload explicitly from the Native AOT publish output.
+       Two rules learned the hard way:
+       1. The UI must live at the package ROOT. ms-appx:/// URIs (AppThemes, toolkit XAML,
+          BackgroundImages) resolve against the package root; a per-app subfolder makes the
+          XAML loader throw 'Cannot locate resource' at startup. Only the companion stays in
+          its Wino.BackgroundService\ subfolder.
+       2. The app's merged PRI must be part of the payload. The WAP collects every .pri it
+          finds in the packaging outputs and makepri-merges them into the final resources.pri
+          (_GetPriFilesFromPayload); without it the package PRI only indexes the Images folder
+          and every XAML resource lookup dies. PublishAot does not copy the .pri to the publish
+          folder, so it is taken from the build output directory instead. -->
+  <Target Name="PublishNativeAotUiPackagePayload" BeforeTargets="Build" Condition="'$(Configuration)'=='Release' and '$(WinoPackageRuntimeIdentifier)'!=''">
+    <MSBuild Projects="..\Wino.Mail.WinUI\Wino.Mail.WinUI.csproj" Targets="Publish" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(WinoPackageRuntimeIdentifier);GenerateAppxPackageOnBuild=false;AppxPackageSigningEnabled=false" />
+    <PropertyGroup>
+      <WinoMailBuildOutputDir>$(MSBuildThisFileDirectory)..\Wino.Mail.WinUI\bin\$(Platform)\$(Configuration)\net10.0-windows10.0.19041.0\$(WinoPackageRuntimeIdentifier)\</WinoMailBuildOutputDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <Content Include="$(WinoMailNativePublishDir)**\*.*" Exclude="$(WinoMailNativePublishDir)**\*.pdb">
+        <Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
+      </Content>
+      <Content Include="$(WinoMailBuildOutputDir)Wino.Mail.WinUI.pri">
+        <Link>Wino.Mail.WinUI.pri</Link>
+      </Content>
+    </ItemGroup>
+  </Target>
 </Project>
