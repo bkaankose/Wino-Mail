@@ -237,11 +237,27 @@
                                     Condition="'%(RuntimeTargetsCopyLocalItems.Filename)' == 'SkiaSharp.Views.WinUI.Native.Projection' and $([System.String]::Copy('%(RuntimeTargetsCopyLocalItems.FullPath)').Contains('\.nuget\packages\skiasharp.nativeassets.winui\'))" />
     </ItemGroup>
   </Target>
-  <Target Name="RemovePackagedSkiaSharpProjectionFromNativeAotInputs" BeforeTargets="_ComputeAssembliesToCompileToNative" Condition="'$(Configuration)' == 'Release'">
+  <!-- The publish/ILC closure must see ONLY the patched projection. These two swaps are
+       feeder-agnostic (drop every SkiaSharp.Views.WinUI.Native.Projection item regardless of
+       where it came from, then add the patched one): the previous remove-only variant let the
+       NuGet copy reach the ILC response file and reintroduce the IL2104 trim warnings. -->
+  <Target Name="UsePatchedSkiaSharpProjectionInPublishAssets" BeforeTargets="_ComputeAssembliesToCompileToNative" Condition="'$(Configuration)' == 'Release'">
+    <Error Condition="!Exists('$(PatchedSkiaSharpWinUIProjectionPath)')"
+           Text="Patched SkiaSharp projection is missing: $(PatchedSkiaSharpWinUIProjectionPath)" />
     <ItemGroup>
       <_ResolvedCopyLocalPublishAssets Remove="@(_ResolvedCopyLocalPublishAssets)"
-                                       Condition="'%(_ResolvedCopyLocalPublishAssets.Filename)' == 'SkiaSharp.Views.WinUI.Native.Projection' and $([System.String]::Copy('%(_ResolvedCopyLocalPublishAssets.FullPath)').Contains('\.nuget\packages\skiasharp.nativeassets.winui\'))" />
+                                       Condition="'%(_ResolvedCopyLocalPublishAssets.Filename)' == 'SkiaSharp.Views.WinUI.Native.Projection'" />
+      <_ResolvedCopyLocalPublishAssets Include="$(PatchedSkiaSharpWinUIProjectionPath)" />
     </ItemGroup>
+    <Message Importance="high" Text="Wino: publish assets use patched SkiaSharp projection: $(PatchedSkiaSharpWinUIProjectionPath)" />
+  </Target>
+  <Target Name="UsePatchedSkiaSharpProjectionForIlc" BeforeTargets="WriteIlcRspFileForCompilation" Condition="'$(Configuration)' == 'Release'">
+    <ItemGroup>
+      <_WinoSkiaProjectionInIlc Include="@(IlcReference)" Condition="'%(IlcReference.Filename)' == 'SkiaSharp.Views.WinUI.Native.Projection'" />
+      <IlcReference Remove="@(_WinoSkiaProjectionInIlc)" />
+      <IlcReference Include="$(PatchedSkiaSharpWinUIProjectionPath)" Condition="'@(_WinoSkiaProjectionInIlc)' != ''" />
+    </ItemGroup>
+    <Message Importance="high" Text="Wino: ILC SkiaSharp projection reference(s) before swap: @(_WinoSkiaProjectionInIlc)" />
   </Target>
   <ItemGroup>
     <Page Update="Views\Settings\ContactsPage.xaml">
