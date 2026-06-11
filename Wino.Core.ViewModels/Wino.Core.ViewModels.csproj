@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<TargetFramework>net10.0</TargetFramework>
 		<Platforms>x86;x64;arm64</Platforms>
@@ -11,7 +11,6 @@
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="Sentry.Serilog" />
-		<PackageReference Include="System.Reactive" />
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />

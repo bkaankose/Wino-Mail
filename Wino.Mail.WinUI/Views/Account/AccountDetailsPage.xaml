@@ -1,4 +1,4 @@
-<abstract:AccountDetailsPageAbstract
+﻿<abstract:AccountDetailsPageAbstract
     x:Class="Wino.Views.AccountDetailsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -13,7 +13,6 @@
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:folders="using:Wino.Core.Domain.Models.Folders"
     xmlns:helpers="using:Wino.Helpers"
-    xmlns:interactivity="using:Microsoft.Xaml.Interactivity"
     xmlns:interfaces="using:Wino.Core.Domain.Interfaces"
     xmlns:local="using:Wino.Views"
     xmlns:mailViewModels="using:Wino.Mail.ViewModels"

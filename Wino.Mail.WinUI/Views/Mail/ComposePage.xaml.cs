@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -25,6 +24,7 @@ using Wino.Core.Domain.Models.Reader;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Extensions;
+using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Messaging.Client.Mails;
@@ -145,34 +145,31 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     private IDisposable GetSuggestionBoxDisposable(TokenizingTextBox box)
     {
-        return Observable.FromEventPattern<TypedEventHandler<AutoSuggestBox, AutoSuggestBoxTextChangedEventArgs>, AutoSuggestBoxTextChangedEventArgs>(
-            x => box.TextChanged += x,
-            x => box.TextChanged -= x)
-                .Throttle(TimeSpan.FromMilliseconds(120))
-                .ObserveOn(SynchronizationContext.Current!)
-                .Subscribe(t =>
-                {
-                    if (t.EventArgs.Reason == AutoSuggestionBoxTextChangeReason.UserInput)
-                    {
-                        if (t.Sender is AutoSuggestBox senderBox && senderBox.Text.Length >= 2)
-                        {
-                            _ = ViewModel.ContactService.GetAddressInformationAsync(senderBox.Text).ContinueWith(x =>
-                            {
-                                _ = ViewModel.ExecuteUIThread(() =>
-                                {
-                                    var addresses = x.Result ?? [];
+        return new SuggestionBoxTextDebouncer(box, TimeSpan.FromMilliseconds(120), (senderBox, args) =>
+        {
+            if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput)
+            {
+                return;
+            }
 
-                                    _recipientSuggestions[box] = addresses;
-                                    senderBox.ItemsSource = addresses;
-                                });
-                            });
-                        }
-                        else
-                        {
-                            _recipientSuggestions[box] = [];
-                        }
-                    }
+            if (senderBox.Text.Length >= 2)
+            {
+                _ = ViewModel.ContactService.GetAddressInformationAsync(senderBox.Text).ContinueWith(x =>
+                {
+                    _ = ViewModel.ExecuteUIThread(() =>
+                    {
+                        var addresses = x.Result ?? [];
+
+                        _recipientSuggestions[box] = addresses;
+                        senderBox.ItemsSource = addresses;
+                    });
                 });
+            }
+            else
+            {
+                _recipientSuggestions[box] = [];
+            }
+        });
     }
 
     private void OnComposeGridDragOver(object sender, DragEventArgs e)
