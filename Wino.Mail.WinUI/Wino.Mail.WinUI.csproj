@@ -205,7 +205,7 @@
 	<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
 	<ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
 	<ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />
-	<ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
+	<ProjectReference Include="..\Wino.Services.Shared\Wino.Services.Shared.csproj" />
 	<ProjectReference Include="..\Wino.Ipc\Wino.Ipc.csproj" />
 	<ProjectReference Include="..\Wino.Ipc.Contracts\Wino.Ipc.Contracts.csproj" />
 	<ProjectReference Include="..\Wino.Ipc.Serialization\Wino.Ipc.Serialization.csproj" />

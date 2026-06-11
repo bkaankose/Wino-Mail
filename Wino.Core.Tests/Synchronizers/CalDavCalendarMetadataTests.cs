@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using System.IO;
 using System.Xml.Linq;
 using FluentAssertions;
@@ -222,7 +222,7 @@ public class CalDavCalendarMetadataTests
 
         var unifiedSynchronizer = new UnifiedImapSynchronizer(
             Mock.Of<IFolderService>(),
-            Mock.Of<IMailService>(),
+            Mock.Of<IMailServiceInternal>(),
             Mock.Of<IImapSynchronizerErrorHandlerFactory>());
 
         return new ImapSynchronizer(

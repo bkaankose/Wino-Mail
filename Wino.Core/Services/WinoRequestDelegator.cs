@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -10,6 +10,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Services;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
@@ -31,7 +32,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
     private readonly IAccountService _accountService;
     private readonly ICalendarService _calendarService;
     private readonly ISmimeService _smimeService;
-    private readonly IMimeFileService _mimeFileService;
+    private readonly IMimeFileServiceInternal _mimeFileService;
 
     public WinoRequestDelegator(IWinoRequestProcessor winoRequestProcessor,
                                 IFolderService folderService,
@@ -39,7 +40,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
                                 IAccountService accountService,
                                 ICalendarService calendarService,
                                 ISmimeService smimeService,
-                                IMimeFileService mimeFileService)
+                                IMimeFileServiceInternal mimeFileService)
     {
         _winoRequestProcessor = winoRequestProcessor;
         _folderService = folderService;

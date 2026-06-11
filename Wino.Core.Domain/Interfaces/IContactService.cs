@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using MimeKit;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.Contacts;
 
@@ -14,8 +13,6 @@ public interface IContactService
     Task<List<AccountContact>> GetAddressInformationAsync(string queryText);
     Task<AccountContact> GetAddressInformationByAddressAsync(string address);
     Task<List<AccountContact>> GetContactsByAddressesAsync(IEnumerable<string> addresses);
-    [Wino.Core.Domain.Attributes.WinoRpcExclude]
-    Task SaveAddressInformationAsync(MimeMessage message);
     Task SaveAddressInformationAsync(IEnumerable<AccountContact> contacts);
     Task<AccountContact> CreateNewContactAsync(string address, string displayName);
     

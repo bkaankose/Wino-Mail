@@ -134,17 +134,17 @@ public interface IImapChangeProcessor : IDefaultChangeProcessor
 
 public class DefaultChangeProcessor(IDatabaseService databaseService,
                               IFolderService folderService,
-                              IMailService mailService,
+                              IMailServiceInternal mailService,
                               ICalendarService calendarService,
                               IAccountService accountService,
-                              IMimeFileService mimeFileService) : BaseDatabaseService(databaseService), IDefaultChangeProcessor
+                              IMimeFileServiceInternal mimeFileService) : BaseDatabaseService(databaseService), IDefaultChangeProcessor
 {
-    protected IMailService MailService = mailService;
+    protected IMailServiceInternal MailService = mailService;
     protected ICalendarService CalendarService = calendarService;
     protected IFolderService FolderService = folderService;
     protected IAccountService AccountService = accountService;
 
-    private readonly IMimeFileService _mimeFileService = mimeFileService;
+    private readonly IMimeFileServiceInternal _mimeFileService = mimeFileService;
 
     public Task<string> UpdateAccountDeltaSynchronizationIdentifierAsync(Guid accountId, string synchronizationDeltaIdentifier)
         => AccountService.UpdateSyncIdentifierRawAsync(accountId, synchronizationDeltaIdentifier);

@@ -25,7 +25,6 @@ namespace Wino.Mail.ViewModels;
 public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 {
     private readonly IAutoDiscoveryService _autoDiscoveryService;
-    private readonly ICalDavClient _calDavClient;
     private readonly IAccountService _accountService;
     private readonly IMailDialogService _mailDialogService;
     private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
@@ -237,7 +236,6 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     }
 
     public ImapCalDavSettingsPageViewModel(IAutoDiscoveryService autoDiscoveryService,
-                                           ICalDavClient calDavClient,
                                            IAccountService accountService,
                                            IMailDialogService mailDialogService,
                                            ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
@@ -246,7 +244,6 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                                            ISynchronizationManager synchronizationManager)
     {
         _autoDiscoveryService = autoDiscoveryService;
-        _calDavClient = calDavClient;
         _accountService = accountService;
         _mailDialogService = mailDialogService;
         _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
@@ -950,7 +947,12 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             Password = password
         };
 
-        await _calDavClient.DiscoverCalendarsAsync(settings).ConfigureAwait(false);
+        var calDavConnectivityResult = await _synchronizationManager
+            .TestCalDavConnectivityAsync(settings)
+            .ConfigureAwait(false);
+
+        if (!calDavConnectivityResult.IsSuccess)
+            throw new InvalidOperationException(calDavConnectivityResult.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage);
     }
 
     private void CompleteCreateFlow(CustomServerInformation serverInformation)

@@ -42,7 +42,6 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
     private readonly ISynchronizationManager _synchronizationManager;
     private readonly INativeAppService _nativeAppService;
     private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
-    private readonly ICalDavClient _calDavClient;
     private readonly IMailDialogService _dialogService;
     private readonly IWinoLogger _winoLogger;
 
@@ -68,7 +67,6 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
         ISynchronizationManager synchronizationManager,
         INativeAppService nativeAppService,
         ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
-        ICalDavClient calDavClient,
         IMailDialogService dialogService,
         IWinoLogger winoLogger,
         WelcomeWizardContext wizardContext)
@@ -77,7 +75,6 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
         _synchronizationManager = synchronizationManager;
         _nativeAppService = nativeAppService;
         _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
-        _calDavClient = calDavClient;
         _dialogService = dialogService;
         _winoLogger = winoLogger;
         WizardContext = wizardContext;
@@ -628,7 +625,10 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
             Password = serverInformation.CalDavPassword
         };
 
-        await _calDavClient.DiscoverCalendarsAsync(settings);
+        var calDavConnectivityResult = await _synchronizationManager.TestCalDavConnectivityAsync(settings);
+
+        if (!calDavConnectivityResult.IsSuccess)
+            throw new InvalidOperationException(calDavConnectivityResult.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage);
     }
 
     [RelayCommand]

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -8,6 +8,7 @@ using MimeKit;
 using MimeKit.Cryptography;
 using Serilog;
 using Wino.Core.Domain.Interfaces;
+using Wino.Services;
 using Wino.Core.Domain.Models.Reader;
 
 namespace Wino.Core.Services;
@@ -24,9 +25,9 @@ public class SmimeService : ISmimeService
 
     private static readonly ILogger Logger = Log.ForContext<SmimeService>();
 
-    private readonly IMimeFileService _mimeFileService;
+    private readonly IMimeFileServiceInternal _mimeFileService;
 
-    public SmimeService(IMimeFileService mimeFileService)
+    public SmimeService(IMimeFileServiceInternal mimeFileService)
     {
         _mimeFileService = mimeFileService;
     }

@@ -1,8 +1,5 @@
-﻿using System.Text.Json.Serialization;
-using MimeKit;
-using Wino.Core.Domain.Entities.Mail;
+﻿using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
-using Wino.Core.Domain.Extensions;
 
 namespace Wino.Core.Domain.Models.MailItem;
 
@@ -22,11 +19,4 @@ public record SendDraftPreparationRequest(MailCopy MailItem,
                                           string Base64MimeMessage,
                                           bool SmimeSign = false,
                                           bool SmimeEncrypt = false,
-                                          string SmimeSigningCertificateThumbprint = null)
-{
-    [JsonIgnore]
-    private MimeMessage mime;
-
-    [JsonIgnore]
-    public MimeMessage Mime => mime ??= Base64MimeMessage.GetMimeMessageFromBase64();
-}
+                                          string SmimeSigningCertificateThumbprint = null);

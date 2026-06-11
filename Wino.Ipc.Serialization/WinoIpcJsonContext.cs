@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace Wino.Ipc.Serialization;
 
@@ -59,6 +59,7 @@ namespace Wino.Ipc.Serialization;
 [JsonSerializable(typeof(global::Wino.Core.Domain.Models.Accounts.WinoAccountSyncFileExportResult))]
 [JsonSerializable(typeof(global::Wino.Core.Domain.Models.Accounts.WinoAccountSyncImportResult))]
 [JsonSerializable(typeof(global::Wino.Core.Domain.Models.Authentication.TokenInformationEx))]
+[JsonSerializable(typeof(global::Wino.Core.Domain.Models.Connectivity.CalDavConnectivityTestResults))]
 [JsonSerializable(typeof(global::Wino.Core.Domain.Models.Connectivity.ImapConnectivityTestResults))]
 [JsonSerializable(typeof(global::Wino.Core.Domain.Models.Contacts.PagedContactsResult))]
 [JsonSerializable(typeof(global::Wino.Core.Domain.Models.Folders.AccountFolderTree))]
@@ -144,7 +145,7 @@ namespace Wino.Ipc.Serialization;
 [JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.IContactService_GetGroupMembersAsync_0Request))]
 [JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.IContactService_GetGroupsAsync_0Request))]
 [JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.IContactService_RemoveGroupMemberAsync_0Request))]
-[JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.IContactService_SaveAddressInformationAsync_1Request))]
+[JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.IContactService_SaveAddressInformationAsync_0Request))]
 [JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.IContactService_SearchContactsAsync_0Request))]
 [JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.IContactService_UpdateContactAsync_0Request))]
 [JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.IEmailTemplateService_CreateEmailTemplateAsync_0Request))]
@@ -277,6 +278,7 @@ namespace Wino.Ipc.Serialization;
 [JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.ISynchronizationManager_SynchronizeFoldersAsync_0Request))]
 [JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.ISynchronizationManager_SynchronizeMailAsync_0Request))]
 [JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.ISynchronizationManager_SynchronizeProfileAsync_0Request))]
+[JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.ISynchronizationManager_TestCalDavConnectivityAsync_0Request))]
 [JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.ISynchronizationManager_TestImapConnectivityAsync_0Request))]
 [JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.ISynchronizationManager_UndoLatestQueuedAction_0Request))]
 [JsonSerializable(typeof(global::Wino.Ipc.Contracts.Generated.IThumbnailCacheService_ClearAllThumbnailsAsync_0Request))]

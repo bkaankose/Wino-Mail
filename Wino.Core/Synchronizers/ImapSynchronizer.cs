@@ -264,7 +264,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             var remoteDraftFolder = await client.GetFolderAsync(request.DraftPreperationRequest.CreatedLocalDraftCopy.AssignedFolder.RemoteFolderId).ConfigureAwait(false);
 
             await remoteDraftFolder.OpenAsync(FolderAccess.ReadWrite).ConfigureAwait(false);
-            await remoteDraftFolder.AppendAsync(request.DraftPreperationRequest.CreatedLocalDraftMimeMessage, MessageFlags.Draft).ConfigureAwait(false);
+            await remoteDraftFolder.AppendAsync(request.DraftPreperationRequest.GetCreatedLocalDraftMimeMessage(), MessageFlags.Draft).ConfigureAwait(false);
             await remoteDraftFolder.CloseAsync().ConfigureAwait(false);
         }, request, request);
     }
@@ -300,11 +300,13 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             if (!smtpClient.IsAuthenticated)
                 await smtpClient.AuthenticateAsync(Account.ServerInformation.OutgoingServerUsername, Account.ServerInformation.OutgoingServerPassword);
 
+            var mimeMessage = singleRequest.GetMimeMessage();
+
             // Remove local draft header before sending to prevent leaking to recipients.
-            singleRequest.Mime.Headers.Remove(Domain.Constants.WinoLocalDraftHeader);
+            mimeMessage.Headers.Remove(Domain.Constants.WinoLocalDraftHeader);
 
             // TODO: Transfer progress implementation as popup in the UI.
-            await smtpClient.SendAsync(singleRequest.Mime, default);
+            await smtpClient.SendAsync(mimeMessage, default);
             await smtpClient.DisconnectAsync(true);
 
             // SMTP sent the message, but we need to remove it from the Draft folder.
@@ -325,7 +327,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                 var sentFolder = await client.GetFolderAsync(singleRequest.SentFolder.RemoteFolderId);
 
                 await sentFolder.OpenAsync(FolderAccess.ReadWrite);
-                await sentFolder.AppendAsync(singleRequest.Mime, MessageFlags.Seen);
+                await sentFolder.AppendAsync(mimeMessage, MessageFlags.Seen);
                 await sentFolder.CloseAsync();
             }
         }, request, request);

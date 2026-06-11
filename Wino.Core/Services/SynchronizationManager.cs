@@ -15,6 +15,7 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authentication;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Messaging;
@@ -53,6 +54,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     private INotificationBuilder _notificationBuilder;
     private IWinoTelemetryService _telemetryService;
     private IPreferencesService _preferencesService;
+    private ICalDavClient _calDavClient;
 
     private bool _isInitialized = false;
     private bool _isRegisteredForProgressMessages;
@@ -74,7 +76,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                                      INotificationBuilder notificationBuilder,
                                      IAuthenticationProvider authenticationProvider,
                                      IWinoTelemetryService telemetryService,
-                                     IPreferencesService preferencesService)
+                                     IPreferencesService preferencesService,
+                                     ICalDavClient calDavClient)
     {
         await _initializationSemaphore.WaitAsync();
 
@@ -89,6 +92,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             _notificationBuilder = notificationBuilder ?? throw new ArgumentNullException(nameof(notificationBuilder));
             _telemetryService = telemetryService ?? throw new ArgumentNullException(nameof(telemetryService));
             _preferencesService = preferencesService ?? throw new ArgumentNullException(nameof(preferencesService));
+            _calDavClient = calDavClient ?? throw new ArgumentNullException(nameof(calDavClient));
 
             // DO NOT create synchronizers here to avoid requiring window handles during initialization.
             // Synchronizers will be created lazily when first accessed via GetOrCreateSynchronizerAsync.
@@ -104,6 +108,31 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         finally
         {
             _initializationSemaphore.Release();
+        }
+    }
+
+    /// <summary>
+    /// Tests CalDav server connectivity by discovering calendars with the given connection settings.
+    /// </summary>
+    /// <param name="connectionSettings">CalDav service url and credentials to validate.</param>
+    /// <returns>Test results indicating success or failure with details</returns>
+    public async Task<CalDavConnectivityTestResults> TestCalDavConnectivityAsync(CalDavConnectionSettings connectionSettings)
+    {
+        EnsureInitialized();
+
+        try
+        {
+            _logger.Information("Testing CalDav connectivity for {ServiceUri}", connectionSettings.ServiceUri);
+
+            await _calDavClient.DiscoverCalendarsAsync(connectionSettings).ConfigureAwait(false);
+
+            _logger.Information("CalDav connectivity test successful");
+            return CalDavConnectivityTestResults.Success();
+        }
+        catch (Exception exception)
+        {
+            _logger.Error(exception, "CalDav connectivity test failed");
+            return CalDavConnectivityTestResults.Failure(exception);
         }
     }
 

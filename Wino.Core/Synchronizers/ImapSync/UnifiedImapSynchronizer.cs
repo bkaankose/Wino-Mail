@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -17,7 +17,7 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
 using Wino.Core.Integration;
 using Wino.Services.Extensions;
-using IMailService = Wino.Core.Domain.Interfaces.IMailService;
+using IMailService = Wino.Services.IMailServiceInternal;
 
 namespace Wino.Core.Synchronizers.ImapSync;
 

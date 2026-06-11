@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using FluentAssertions;
 using Moq;
@@ -145,7 +145,7 @@ public class AccountServiceTests : IAsyncLifetime
             });
 
         var authenticationProvider = new Mock<IAuthenticationProvider>();
-        var mimeFileService = new Mock<IMimeFileService>();
+        var mimeFileService = new Mock<IMimeFileServiceInternal>();
         var contactPictureFileService = new Mock<IContactPictureFileService>();
 
         var preferencesService = new Mock<IPreferencesService>();

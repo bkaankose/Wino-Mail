@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<TargetFramework>net10.0</TargetFramework>
 		<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
@@ -68,8 +68,7 @@
 	<ItemGroup>
 		<PackageReference Include="CommunityToolkit.Diagnostics" />
 		<PackageReference Include="CommunityToolkit.Mvvm" />
-		<PackageReference Include="MimeKit" />
-		<PackageReference Include="sqlite-net-pcl" />
+		<PackageReference Include="sqlite-net-base" />
 		<PackageReference Include="TimePeriodLibrary.NET" />
 		<PackageReference Include="Wino.Mail.Contracts" />
 	</ItemGroup>

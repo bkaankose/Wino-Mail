@@ -24,6 +24,15 @@ public class DatabaseService : IDatabaseService
 
     public SQLiteAsyncConnection Connection { get; private set; }
 
+    static DatabaseService()
+    {
+        // Wino.Core.Domain references sqlite-net-base (entity attributes only, no native
+        // payload in the UI package), and that flavor of SQLite-net.dll wins assembly
+        // resolution over sqlite-net-pcl's auto-initializing one — so the native provider
+        // must be initialized explicitly before the first connection is created.
+        SQLitePCL.Batteries_V2.Init();
+    }
+
     public DatabaseService(IApplicationConfiguration folderConfiguration)
     {
         _folderConfiguration = folderConfiguration;

@@ -18,7 +18,7 @@
 	  <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
 	  <ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
 	  <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
-	  <ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
+	  <ProjectReference Include="..\Wino.Services.Shared\Wino.Services.Shared.csproj" />
 	</ItemGroup>
 
 </Project>

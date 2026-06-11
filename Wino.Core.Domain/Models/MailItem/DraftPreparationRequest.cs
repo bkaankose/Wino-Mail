@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Text.Json.Serialization;
-using MimeKit;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Extensions;
 
 namespace Wino.Core.Domain.Models.MailItem;
 
@@ -37,20 +35,6 @@ public class DraftPreparationRequest
 
     public string Base64LocalDraftMimeMessage { get; set; }
     public DraftCreationReason Reason { get; set; }
-
-    [JsonIgnore]
-    private MimeMessage createdLocalDraftMimeMessage;
-
-    [JsonIgnore]
-    public MimeMessage CreatedLocalDraftMimeMessage
-    {
-        get
-        {
-            createdLocalDraftMimeMessage ??= Base64LocalDraftMimeMessage.GetMimeMessageFromBase64();
-
-            return createdLocalDraftMimeMessage;
-        }
-    }
 
     public MailAccount Account { get; set; }
 }

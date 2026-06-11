@@ -1516,11 +1516,13 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     {
         Draft draft = null;
 
+        var draftMimeMessage = singleRequest.DraftPreperationRequest.GetCreatedLocalDraftMimeMessage();
+
         // It's new mail. Not a reply
         if (singleRequest.DraftPreperationRequest.ReferenceMailCopy == null)
-            draft = PrepareGmailDraft(singleRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage);
+            draft = PrepareGmailDraft(draftMimeMessage);
         else
-            draft = PrepareGmailDraft(singleRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage,
+            draft = PrepareGmailDraft(draftMimeMessage,
                 singleRequest.DraftPreperationRequest.ReferenceMailCopy.ThreadId,
                 singleRequest.DraftPreperationRequest.ReferenceMailCopy.DraftId);
 
@@ -1561,12 +1563,14 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             message.ThreadId = singleDraftRequest.Item.ThreadId;
         }
 
+        var mimeMessage = singleDraftRequest.Request.GetMimeMessage();
+
         // Local draft mapping header must never leak to recipients.
-        singleDraftRequest.Request.Mime.Headers.Remove(Domain.Constants.WinoLocalDraftHeader);
+        mimeMessage.Headers.Remove(Domain.Constants.WinoLocalDraftHeader);
 
-        singleDraftRequest.Request.Mime.Prepare(EncodingConstraint.None);
+        mimeMessage.Prepare(EncodingConstraint.None);
 
-        var mimeString = singleDraftRequest.Request.Mime.ToString();
+        var mimeString = mimeMessage.ToString();
         var base64UrlEncodedMime = Base64UrlEncoder.Encode(mimeString);
         message.Raw = base64UrlEncodedMime;
 

@@ -6,6 +6,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Authentication;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Synchronization;
 
@@ -27,12 +28,19 @@ public interface ISynchronizationManager
                         INotificationBuilder notificationBuilder,
                         IAuthenticationProvider authenticationProvider,
                         IWinoTelemetryService telemetryService,
-                        IPreferencesService preferencesService);
+                        IPreferencesService preferencesService,
+                        ICalDavClient calDavClient);
 
     /// <summary>
     /// Tests IMAP server connectivity for the given server information.
     /// </summary>
     Task<ImapConnectivityTestResults> TestImapConnectivityAsync(CustomServerInformation serverInformation, bool allowSSLHandshake);
+
+    /// <summary>
+    /// Tests CalDav server connectivity by discovering calendars with the given connection settings.
+    /// Used during IMAP account setup; runs in the companion so the UI carries no CalDav/Ical.Net code.
+    /// </summary>
+    Task<CalDavConnectivityTestResults> TestCalDavConnectivityAsync(CalDavConnectionSettings connectionSettings);
 
     /// <summary>
     /// Starts a new mail synchronization for the given account.

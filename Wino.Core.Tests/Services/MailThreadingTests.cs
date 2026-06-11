@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.Messaging;
+﻿using CommunityToolkit.Mvvm.Messaging;
 using FluentAssertions;
 using MimeKit;
 using Moq;
@@ -470,7 +470,7 @@ public class MailThreadingTests : IAsyncLifetime
     {
         var signatureService = new Mock<ISignatureService>();
         var authProvider = new Mock<IAuthenticationProvider>();
-        var mimeFileService = new Mock<IMimeFileService>();
+        var mimeFileService = new Mock<IMimeFileServiceInternal>();
         mimeFileService
             .Setup(x => x.SaveMimeMessageAsync(It.IsAny<Guid>(), It.IsAny<MimeMessage>(), It.IsAny<Guid>()))
             .ReturnsAsync(true);

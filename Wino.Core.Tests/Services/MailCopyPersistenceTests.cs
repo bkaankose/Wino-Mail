@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using MimeKit;
 using Moq;
 using Wino.Core.Domain.Entities.Mail;
@@ -152,7 +152,7 @@ public class MailCopyPersistenceTests : IAsyncLifetime
     {
         var signatureService = new Mock<ISignatureService>();
         var authProvider = new Mock<IAuthenticationProvider>();
-        var mimeFileService = new Mock<IMimeFileService>();
+        var mimeFileService = new Mock<IMimeFileServiceInternal>();
         mimeFileService
             .Setup(x => x.SaveMimeMessageAsync(It.IsAny<Guid>(), It.IsAny<MimeMessage>(), It.IsAny<Guid>()))
             .ReturnsAsync(true);

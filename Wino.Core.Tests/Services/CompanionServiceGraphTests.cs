@@ -1,4 +1,4 @@
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Xunit;
 using Wino.Core;
@@ -22,7 +22,7 @@ public class CompanionServiceGraphTests
 
         services.AddLogging();
         services.RegisterCoreServices();
-        services.RegisterSharedServices();
+        services.RegisterCompanionServices();
 
         // Companion-specific overrides, mirroring Wino.BackgroundService.Program.
         // Windows-only implementations are replaced with test doubles.

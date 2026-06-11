@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -16,10 +16,10 @@ public class ImapChangeProcessor : DefaultChangeProcessor, IImapChangeProcessor
 
     public ImapChangeProcessor(IDatabaseService databaseService,
                                IFolderService folderService,
-                               IMailService mailService,
+                               IMailServiceInternal mailService,
                                IAccountService accountService,
                                ICalendarService calendarService,
-                               IMimeFileService mimeFileService,
+                               IMimeFileServiceInternal mimeFileService,
                                ICalendarIcsFileService calendarIcsFileService) : base(databaseService, folderService, mailService, calendarService, accountService, mimeFileService)
     {
         _calendarIcsFileService = calendarIcsFileService;

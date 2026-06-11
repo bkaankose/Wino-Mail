@@ -229,7 +229,7 @@ public static class Program
 
         services.AddLogging();
         services.RegisterCoreServices();
-        services.RegisterSharedServices();
+        services.RegisterCompanionServices();
 
         // Companion-specific overrides (last registration wins).
         services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();

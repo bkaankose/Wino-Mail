@@ -1,8 +1,9 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Moq;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Services;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Synchronizers.ImapSync;
 using Wino.Core.Synchronizers.Mail;
@@ -66,7 +67,7 @@ public class ImapSynchronizerIdleTests
 
         var unifiedSynchronizer = new UnifiedImapSynchronizer(
             Mock.Of<IFolderService>(),
-            Mock.Of<IMailService>(),
+            Mock.Of<IMailServiceInternal>(),
             Mock.Of<IImapSynchronizerErrorHandlerFactory>());
 
         return new ImapSynchronizer(

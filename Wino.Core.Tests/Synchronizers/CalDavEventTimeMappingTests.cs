@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using FluentAssertions;
 using Moq;
 using Wino.Core.Domain.Entities.Calendar;
@@ -72,10 +72,10 @@ public class CalDavEventTimeMappingTests
         var sut = new ImapChangeProcessor(
             Mock.Of<IDatabaseService>(),
             Mock.Of<IFolderService>(),
-            Mock.Of<IMailService>(),
+            Mock.Of<IMailServiceInternal>(),
             Mock.Of<IAccountService>(),
             calendarService.Object,
-            Mock.Of<IMimeFileService>(),
+            Mock.Of<IMimeFileServiceInternal>(),
             Mock.Of<ICalendarIcsFileService>());
 
         await sut.ManageCalendarEventAsync(remoteEvent, calendar, organizerAccount: null);

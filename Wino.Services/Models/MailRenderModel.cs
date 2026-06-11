@@ -1,6 +1,9 @@
 ﻿using System.Collections.Generic;
 using MimeKit;
 
+// Lives in Wino.Services (companion-only) because it carries MimeKit types;
+// the namespace is kept so companion consumers stay unchanged. The UI works
+// with the serializable MailRenderInfo instead.
 namespace Wino.Core.Domain.Models.Reader;
 
 /// <summary>
@@ -29,12 +32,4 @@ public class MailRenderModel
         MailRenderingOptions = mailRenderingOptions;
         AccessibleText = accessibleText ?? string.Empty;
     }
-}
-
-public class UnsubscribeInfo
-{
-    public string HttpLink { get; set; }
-    public string MailToLink { get; set; }
-    public bool IsOneClick { get; set; }
-    public bool CanUnsubscribe => HttpLink != null || MailToLink != null;
 }

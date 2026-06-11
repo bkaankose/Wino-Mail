@@ -36,7 +36,6 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     private readonly IWinoAccountDataSyncService _syncService;
     private readonly IWinoLogger _winoLogger;
     private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
-    private readonly ICalDavClient _calDavClient;
     private readonly ISynchronizationManager _synchronizationManager;
 
     public IMailDialogService MailDialogService { get; }
@@ -50,7 +49,6 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                                       IWinoAccountDataSyncService syncService,
                                       IWinoLogger winoLogger,
                                       ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
-                                      ICalDavClient calDavClient,
                                       IPreferencesService preferencesService,
                                       ISynchronizationManager synchronizationManager) : base(dialogService, navigationService, accountService, providerService, storeManagementService, winoAccountProfileService, preferencesService)
     {
@@ -58,7 +56,6 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
         _syncService = syncService;
         _winoLogger = winoLogger;
         _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
-        _calDavClient = calDavClient;
         _synchronizationManager = synchronizationManager;
     }
 
@@ -155,7 +152,12 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
             Password = serverInformation.CalDavPassword
         };
 
-        await _calDavClient.DiscoverCalendarsAsync(settings).ConfigureAwait(false);
+        var calDavConnectivityResult = await _synchronizationManager
+            .TestCalDavConnectivityAsync(settings)
+            .ConfigureAwait(false);
+
+        if (!calDavConnectivityResult.IsSuccess)
+            throw new InvalidOperationException(calDavConnectivityResult.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage);
     }
 
     private async Task ExecuteUIThreadTaskAsync(Func<Task> action)

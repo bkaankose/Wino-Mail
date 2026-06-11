@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using FluentAssertions;
 using Moq;
 using Wino.Core.Domain.Entities.Mail;
@@ -539,7 +539,7 @@ public class MailFetchingTests : IAsyncLifetime
     {
         var signatureService = new Mock<ISignatureService>();
         var authProvider = new Mock<IAuthenticationProvider>();
-        var mimeFileService = new Mock<IMimeFileService>();
+        var mimeFileService = new Mock<IMimeFileServiceInternal>();
         var preferencesService = new Mock<IPreferencesService>();
         var contactPictureFileService = new Mock<IContactPictureFileService>();
 

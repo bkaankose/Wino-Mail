@@ -1757,7 +1757,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     public override List<IRequestBundle<RequestInformation>> CreateDraft(CreateDraftRequest createDraftRequest)
     {
         var reason = createDraftRequest.DraftPreperationRequest.Reason;
-        var message = createDraftRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage.AsOutlookMessage(true);
+        var message = createDraftRequest.DraftPreperationRequest.GetCreatedLocalDraftMimeMessage().AsOutlookMessage(true);
 
         if (reason == DraftCreationReason.Empty)
         {
@@ -1795,7 +1795,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     {
         var sendDraftPreparationRequest = request.Request;
         var mailCopyId = sendDraftPreparationRequest.MailItem.Id;
-        var mimeMessage = sendDraftPreparationRequest.Mime;
+        var mimeMessage = sendDraftPreparationRequest.GetMimeMessage();
 
         // Graph API ignores the From header in direct MIME uploads, so we must convert
         // to a JSON Message object to properly support sending from aliases.
@@ -1816,7 +1816,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     private async Task UploadDraftAttachmentsAsync(SendDraftRequest sendDraftRequest, CancellationToken cancellationToken)
     {
         var mailCopyId = sendDraftRequest.Request.MailItem.Id;
-        var attachments = sendDraftRequest.Request.Mime.ExtractAttachments();
+        var attachments = sendDraftRequest.Request.GetMimeMessage().ExtractAttachments();
 
         if (!attachments.Any())
         {

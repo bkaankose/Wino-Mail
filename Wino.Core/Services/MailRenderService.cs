@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -7,6 +7,7 @@ using MimeKit;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Services;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Extensions;
@@ -24,12 +25,12 @@ public class MailRenderService : IMailRenderService
     private const string MimeFileName = "mail.eml";
     private const string AttachmentsSubFolderName = "attachments";
 
-    private readonly IMimeFileService _mimeFileService;
+    private readonly IMimeFileServiceInternal _mimeFileService;
     private readonly ISmimeService _smimeService;
     private readonly IMailService _mailService;
     private readonly IAccountService _accountService;
 
-    public MailRenderService(IMimeFileService mimeFileService,
+    public MailRenderService(IMimeFileServiceInternal mimeFileService,
                              ISmimeService smimeService,
                              IMailService mailService,
                              IAccountService accountService)

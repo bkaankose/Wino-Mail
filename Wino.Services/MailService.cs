@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -22,29 +22,29 @@ using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Services;
 
-public class MailService : BaseDatabaseService, IMailService
+public class MailService : BaseDatabaseService, IMailServiceInternal
 {
     private const int ItemLoadCount = 100;
 
     private readonly IFolderService _folderService;
-    private readonly IContactService _contactService;
+    private readonly IContactServiceInternal _contactService;
     private readonly IAccountService _accountService;
     private readonly ISignatureService _signatureService;
-    private readonly IMimeFileService _mimeFileService;
+    private readonly IMimeFileServiceInternal _mimeFileService;
     private readonly IPreferencesService _preferencesService;
-    private readonly ISentMailReceiptService _sentMailReceiptService;
+    private readonly ISentMailReceiptServiceInternal _sentMailReceiptService;
     private readonly IMailCategoryService _mailCategoryService;
 
     private readonly ILogger _logger = Log.ForContext<MailService>();
 
     public MailService(IDatabaseService databaseService,
                        IFolderService folderService,
-                       IContactService contactService,
+                       IContactServiceInternal contactService,
                        IAccountService accountService,
                        ISignatureService signatureService,
-                       IMimeFileService mimeFileService,
+                       IMimeFileServiceInternal mimeFileService,
                        IPreferencesService preferencesService,
-                       ISentMailReceiptService sentMailReceiptService,
+                       ISentMailReceiptServiceInternal sentMailReceiptService,
                        IMailCategoryService mailCategoryService) : base(databaseService)
     {
         _folderService = folderService;

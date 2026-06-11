@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Moq;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -101,7 +101,7 @@ public class FolderServiceTests : IAsyncLifetime
             databaseService,
             signatureService.Object,
             Mock.Of<IAuthenticationProvider>(),
-            Mock.Of<IMimeFileService>(),
+            Mock.Of<IMimeFileServiceInternal>(),
             Mock.Of<IPreferencesService>(),
             Mock.Of<IContactPictureFileService>());
     }

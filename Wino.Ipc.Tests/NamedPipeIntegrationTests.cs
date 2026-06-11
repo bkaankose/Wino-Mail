@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.Messaging;
+﻿using CommunityToolkit.Mvvm.Messaging;
 using FluentAssertions;
 using SQLite;
 using Wino.Core.Domain.Entities.Mail;
@@ -179,6 +179,13 @@ public class NamedPipeIntegrationTests : IAsyncLifetime
 
     private sealed class TempDatabaseService : IDatabaseService, IAsyncDisposable
     {
+        static TempDatabaseService()
+        {
+            // sqlite-net-base (Domain's flavor of SQLite-net.dll) does not auto-initialize
+            // the native provider the way sqlite-net-pcl does.
+            SQLitePCL.Batteries_V2.Init();
+        }
+
         public TempDatabaseService(string databasePath)
         {
             Connection = new SQLiteAsyncConnection(databasePath);

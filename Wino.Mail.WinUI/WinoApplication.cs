@@ -33,7 +33,6 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
     public INewThemeService NewThemeService { get; }
     public IUnderlyingThemeService UnderlyingThemeService { get; }
     public IThumbnailService ThumbnailService { get; }
-    protected IDatabaseService DatabaseService { get; }
     protected ITranslationService TranslationService { get; }
 
     public static WindowEx? MainWindow { get; set; }
@@ -52,7 +51,6 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
         AppConfiguration = Services.GetRequiredService<IApplicationConfiguration>();
 
         NewThemeService = Services.GetRequiredService<INewThemeService>();
-        DatabaseService = Services.GetRequiredService<IDatabaseService>();
         TranslationService = Services.GetRequiredService<ITranslationService>();
         UnderlyingThemeService = Services.GetRequiredService<IUnderlyingThemeService>();
 
