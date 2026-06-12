@@ -1,4 +1,4 @@
-﻿using FluentAssertions;
+using FluentAssertions;
 using Moq;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -107,7 +107,7 @@ public class AccountAliasCapabilityTests : IAsyncLifetime
     {
         var preferencesService = new Mock<IPreferencesService>();
         var signatureService = new Mock<ISignatureService>();
-        var mimeFileService = new Mock<IMimeFileServiceInternal>();
+        var mimeFileService = new Mock<IMimeFileService>();
         var contactPictureFileService = new Mock<IContactPictureFileService>();
 
         return new AccountService(

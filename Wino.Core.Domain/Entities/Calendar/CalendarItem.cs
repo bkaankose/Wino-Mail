@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using Itenso.TimePeriod;
 using SQLite;
@@ -50,10 +50,6 @@ public class CalendarItem : ICalendarItem
     public string EndTimeZone { get; set; }
 
     private ITimePeriod _period;
-
-    // Computed from StartDate/EndDate; interface-typed and excluded from both stores.
-    [Ignore]
-    [System.Text.Json.Serialization.JsonIgnore]
     public ITimePeriod Period
     {
         get
@@ -155,10 +151,7 @@ public class CalendarItem : ICalendarItem
     public DateTimeOffset UpdatedAt { get; set; }
     public Guid CalendarId { get; set; }
 
-    // Interface-typed navigation property: excluded from JSON so calendar items can
-    // cross the UI <-> companion pipe; receivers re-resolve the calendar by CalendarId.
     [Ignore]
-    [System.Text.Json.Serialization.JsonIgnore]
     public IAccountCalendar AssignedCalendar { get; set; }
 
     [Ignore]

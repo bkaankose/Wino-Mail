@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -11,6 +12,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
+using MimeKit;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Storage;
@@ -24,14 +26,11 @@ using Wino.Core.Domain.Models.Reader;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Extensions;
-using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
 using Wino.Views.Abstract;
-
-using Wino.Core.Domain.Enums;
 
 namespace Wino.Views.Mail;
 
@@ -145,31 +144,34 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     private IDisposable GetSuggestionBoxDisposable(TokenizingTextBox box)
     {
-        return new SuggestionBoxTextDebouncer(box, TimeSpan.FromMilliseconds(120), (senderBox, args) =>
-        {
-            if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput)
-            {
-                return;
-            }
-
-            if (senderBox.Text.Length >= 2)
-            {
-                _ = ViewModel.ContactService.GetAddressInformationAsync(senderBox.Text).ContinueWith(x =>
+        return Observable.FromEventPattern<TypedEventHandler<AutoSuggestBox, AutoSuggestBoxTextChangedEventArgs>, AutoSuggestBoxTextChangedEventArgs>(
+            x => box.TextChanged += x,
+            x => box.TextChanged -= x)
+                .Throttle(TimeSpan.FromMilliseconds(120))
+                .ObserveOn(SynchronizationContext.Current!)
+                .Subscribe(t =>
                 {
-                    _ = ViewModel.ExecuteUIThread(() =>
+                    if (t.EventArgs.Reason == AutoSuggestionBoxTextChangeReason.UserInput)
                     {
-                        var addresses = x.Result ?? [];
+                        if (t.Sender is AutoSuggestBox senderBox && senderBox.Text.Length >= 2)
+                        {
+                            _ = ViewModel.ContactService.GetAddressInformationAsync(senderBox.Text).ContinueWith(x =>
+                            {
+                                _ = ViewModel.ExecuteUIThread(() =>
+                                {
+                                    var addresses = x.Result ?? [];
 
-                        _recipientSuggestions[box] = addresses;
-                        senderBox.ItemsSource = addresses;
-                    });
+                                    _recipientSuggestions[box] = addresses;
+                                    senderBox.ItemsSource = addresses;
+                                });
+                            });
+                        }
+                        else
+                        {
+                            _recipientSuggestions[box] = [];
+                        }
+                    }
                 });
-            }
-            else
-            {
-                _recipientSuggestions[box] = [];
-            }
-        });
     }
 
     private void OnComposeGridDragOver(object sender, DragEventArgs e)
@@ -459,7 +461,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
         ImportanceFlyout.Hide();
         ImportanceSplitButton.IsChecked = true;
 
-        if (sender is Button senderButton && senderButton.Tag is MailImportance importance)
+        if (sender is Button senderButton && senderButton.Tag is MessageImportance importance)
         {
             ViewModel.SelectedMessageImportance = importance;
             if (ImportanceSplitButton.Content is Viewbox viewbox &&
@@ -651,11 +653,16 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     private bool ShouldFocusEditor()
     {
-        var inReplyTo = ViewModel.CurrentInReplyTo;
+        var inReplyTo = ViewModel.CurrentMimeMessage?.InReplyTo;
 
         if (string.IsNullOrWhiteSpace(inReplyTo))
         {
             inReplyTo = ViewModel.CurrentMailDraftItem?.MailCopy?.InReplyTo;
+        }
+
+        if (string.IsNullOrWhiteSpace(inReplyTo) && ViewModel.CurrentMimeMessage?.Headers.Contains(HeaderId.InReplyTo) == true)
+        {
+            inReplyTo = ViewModel.CurrentMimeMessage.Headers[HeaderId.InReplyTo];
         }
 
         return !string.IsNullOrWhiteSpace(inReplyTo);
@@ -685,7 +692,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
             {
                 ToBox.Focus(FocusState.Programmatic);
 
-                if (ReferenceEquals(FocusManager.GetFocusedElement(), ToBox))
+                if (FocusManager.GetFocusedElement() == ToBox)
                 {
                     return;
                 }

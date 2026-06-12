@@ -1,6 +1,7 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MailKit;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Models.Folders;
@@ -29,7 +30,7 @@ public interface IWinoSynchronizerBase : IBaseSynchronizer
     /// <param name="mailItem">Mail item to download from server.</param>
     /// <param name="transferProgress">Optional progress reporting for download operation.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task DownloadMissingMimeMessageAsync(MailCopy mailItem, CancellationToken cancellationToken = default);
+    Task DownloadMissingMimeMessageAsync(MailCopy mailItem, ITransferProgress transferProgress, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 1. Cancel active synchronization.

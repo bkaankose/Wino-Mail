@@ -1,14 +1,14 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MailKit;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.MailItem;
 
 namespace Wino.Core.Domain.Interfaces;
 
-[Wino.Core.Domain.Attributes.WinoRpcService]
 public interface IMailService
 {
     Task<MailCopy> GetSingleMailItemAsync(string mailCopyId, string remoteFolderId);
@@ -45,6 +45,9 @@ public interface IMailService
     Task DeleteAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId);
     Task CreateAssignmentsAsync(Guid accountId, IEnumerable<MailFolderAssignmentUpdate> assignments);
     Task DeleteAssignmentsAsync(Guid accountId, IEnumerable<MailFolderAssignmentUpdate> assignments);
+
+    Task<bool> CreateMailAsync(Guid accountId, NewMailItemPackage package);
+    Task CreateMailsAsync(Guid accountId, IReadOnlyList<NewMailItemPackage> packages);
 
     /// <summary>
     /// Maps new mail item with the existing local draft copy.
@@ -147,8 +150,17 @@ public interface IMailService
     /// <param name="folderId"></param>
     /// <param name="uniqueIds"></param>
     /// <returns></returns>
-    [Wino.Core.Domain.Attributes.WinoRpcExclude]
-    Task<List<MailCopy>> GetExistingMailsAsync(Guid folderId, IEnumerable<uint> uniqueIds);
+    Task<List<MailCopy>> GetExistingMailsAsync(Guid folderId, IEnumerable<UniqueId> uniqueIds);
+
+    /// <summary>
+    /// Creates a new mail from a package without doing any existence check.
+    /// Use it with caution.
+    /// </summary>
+    /// <param name="account">Account that mail belongs to.</param>
+    /// <param name="mailItemFolder">Assigned folder.</param>
+    /// <param name="package">Mail creation package.</param>
+    /// <returns></returns>
+    Task CreateMailRawAsync(MailAccount account, MailItemFolder mailItemFolder, NewMailItemPackage package);
 
     /// <summary>
     /// Checks whether the account has any draft mail locally.

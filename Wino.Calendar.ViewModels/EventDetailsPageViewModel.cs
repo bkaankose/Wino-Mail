@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -18,6 +18,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Services;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Calendar;
 
@@ -34,7 +35,6 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     private readonly IUnderlyingThemeService _underlyingThemeService;
     private readonly INotificationBuilder _notificationBuilder;
     private readonly IContactService _contactService;
-    private readonly ISynchronizationManager _synchronizationManager;
 
     public CalendarSettings CurrentSettings { get; }
     public INativeAppService NativeAppService => _nativeAppService;
@@ -149,8 +149,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
                                      INavigationService navigationService,
                                      INotificationBuilder notificationBuilder,
                                      IUnderlyingThemeService underlyingThemeService,
-                                     IContactService contactService,
-                                     ISynchronizationManager synchronizationManager)
+                                     IContactService contactService)
     {
         _calendarService = calendarService;
         _nativeAppService = nativeAppService;
@@ -161,7 +160,6 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         _underlyingThemeService = underlyingThemeService;
         _notificationBuilder = notificationBuilder;
         _contactService = contactService;
-        _synchronizationManager = synchronizationManager;
 
         CurrentSettings = _preferencesService.GetCurrentCalendarSettings();
         IsDarkWebviewRenderer = _underlyingThemeService.IsUnderlyingThemeDark();
@@ -786,14 +784,8 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
 
         var localFilePath = Path.Combine(attachmentsFolder, attachmentViewModel.FileName);
 
-        // Download the attachment through the companion. The calendar item crossed the
-        // pipe without its AssignedCalendar, so resolve the owning account by CalendarId.
-        var assignedCalendar = await _calendarService.GetAccountCalendarAsync(CurrentEvent.CalendarItem.CalendarId);
-
-        if (assignedCalendar == null) return;
-
-        await _synchronizationManager.DownloadCalendarAttachmentAsync(
-            assignedCalendar.AccountId,
+        // Download attachment using synchronizer
+        await SynchronizationManager.Instance.DownloadCalendarAttachmentAsync(
             CurrentEvent.CalendarItem,
             attachmentViewModel.Attachment,
             localFilePath);

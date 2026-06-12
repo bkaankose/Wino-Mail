@@ -6,6 +6,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
+using MoreLinq;
+using MoreLinq.Extensions;
 using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
@@ -19,8 +21,9 @@ using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Requests.Folder;
+using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
-using Wino.Mail.ViewModels.Helpers;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Client.Shell;
@@ -48,7 +51,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     #region Menu Items
 
     [ObservableProperty]
-    public partial object SelectedMenuItem { get; set; }
+    private object selectedMenuItem;
 
     private IAccountMenuItem latestSelectedAccountMenuItem;
 
@@ -73,7 +76,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     private readonly IFolderService _folderService;
     private readonly IMailCategoryService _mailCategoryService;
-    private readonly ISynchronizationManager _synchronizationManager;
     private readonly IConfigurationService _configurationService;
     private readonly IStartupBehaviorService _startupBehaviorService;
     private readonly IAccountService _accountService;
@@ -83,6 +85,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private readonly INotificationBuilder _notificationBuilder;
     private readonly IWinoRequestDelegator _winoRequestDelegator;
     private readonly IMailDialogService _dialogService;
+    private readonly IMimeFileService _mimeFileService;
     private readonly IWebView2RuntimeValidatorService _webView2RuntimeValidatorService;
     private readonly IShareActivationService _shareActivationService;
 
@@ -94,8 +97,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private readonly SemaphoreSlim accountInitFolderUpdateSlim = new SemaphoreSlim(1);
 
     public MailAppShellViewModel(IMailDialogService dialogService,
-                             ISynchronizationManager synchronizationManager,
                              INavigationService navigationService,
+                             IMimeFileService mimeFileService,
                              INativeAppService nativeAppService,
                              IMailService mailService,
                              IMailCategoryService mailCategoryService,
@@ -117,11 +120,11 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
         PreferencesService = preferencesService;
         _dialogService = dialogService;
-        _synchronizationManager = synchronizationManager;
         NavigationService = navigationService;
 
         _configurationService = configurationService;
         _startupBehaviorService = startupBehaviorService;
+        _mimeFileService = mimeFileService;
         _nativeAppService = nativeAppService;
         _mailService = mailService;
         _mailCategoryService = mailCategoryService;
@@ -160,13 +163,13 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         });
     }
 
-    private void ApplySynchronizationProgress(IAccountMenuItem accountMenuItem, SynchronizationProgressCategory category)
+    private static void ApplySynchronizationProgress(IAccountMenuItem accountMenuItem, SynchronizationProgressCategory category)
     {
         AccountSynchronizationProgress progress;
 
         try
         {
-            progress = _synchronizationManager.GetSynchronizationProgress(
+            progress = SynchronizationManager.Instance.GetSynchronizationProgress(
                 accountMenuItem.HoldingAccounts.First().Id,
                 category);
         }
@@ -513,34 +516,44 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         if (await NavigateToMailEmptyStateIfNeededAsync())
             return;
 
-        IMenuItem startupEntityMenuItem = null;
-
-        if (PreferencesService.StartupEntityId is Guid startupEntityId)
+        if (PreferencesService.StartupEntityId == null)
         {
+            NavigateToWelcomeWizard();
+        }
+        else
+        {
+            var startupEntityId = PreferencesService.StartupEntityId.Value;
+
             // startupEntityId is the id of the entity to be expanded on startup.
             // This can be either AccountId or MergedAccountId right now.
             // If accountId, we'll find the root account and extend Inbox folder for it.
             // If mergedAccountId, merged account's Inbox folder will be extended.
 
-            startupEntityMenuItem = MenuItems.FirstOrDefault(a => a.EntityId == startupEntityId);
-        }
+            var startupEntityMenuItem = MenuItems.FirstOrDefault(a => a.EntityId == startupEntityId);
 
-        if (startupEntityMenuItem is IAccountMenuItem startupAccountMenuItem)
-        {
-            startupEntityMenuItem.Expand();
-            await ChangeLoadedAccountAsync(startupAccountMenuItem);
-            return;
-        }
+            if (startupEntityMenuItem != null)
+            {
+                startupEntityMenuItem.Expand();
 
-        var firstMailAccountMenuItem = MenuItems.FirstOrDefault(a => a is IAccountMenuItem) as IAccountMenuItem;
-        if (firstMailAccountMenuItem != null)
-        {
-            firstMailAccountMenuItem.Expand();
-            await ChangeLoadedAccountAsync(firstMailAccountMenuItem);
-            return;
+                if (startupEntityMenuItem is IAccountMenuItem startupAccountMenuItem)
+                {
+                    await ChangeLoadedAccountAsync(startupAccountMenuItem);
+                }
+            }
+            else
+            {
+                var firstMailAccountMenuItem = MenuItems.FirstOrDefault(a => a is IAccountMenuItem) as IAccountMenuItem;
+                if (firstMailAccountMenuItem != null)
+                {
+                    firstMailAccountMenuItem.Expand();
+                    await ChangeLoadedAccountAsync(firstMailAccountMenuItem);
+                }
+                else
+                {
+                    NavigateToWelcomeWizard();
+                }
+            }
         }
-
-        NavigateToWelcomeWizard();
     }
 
     public async Task NavigateFolderAsync(IBaseFolderMenuItem baseFolderMenuItem, TaskCompletionSource<bool> folderInitAwaitTask = null)
@@ -641,7 +654,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                 var accountId = group.Key;
 
                 // Find the target folder for this account.
-                var handlingAccountFolder = mergedAccountFolderMenuItem.HandlingFolders.OfType<MailItemFolder>().FirstOrDefault(a => a.MailAccountId == accountId);
+                var handlingAccountFolder = mergedAccountFolderMenuItem.HandlingFolders.FirstOrDefault(a => a.MailAccountId == accountId);
 
                 if (handlingAccountFolder == null)
                 {
@@ -658,7 +671,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             // User dropped mails to a single folder.
             // Create a single move package for this folder.
 
-            var package = new MailOperationPreperationRequest(MailOperation.Move, items, false, targetFolderMenuItem.HandlingFolders.OfType<MailItemFolder>().First());
+            var package = new MailOperationPreperationRequest(MailOperation.Move, items, false, targetFolderMenuItem.HandlingFolders.First());
 
             await _winoRequestDelegator.ExecuteAsync(package);
         }
@@ -669,37 +682,19 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         if (folderMenuItem == null)
             return;
 
-        // The companion process that executes the operation cannot show dialogs.
-        // Collect all required user input here and ship it inside the request.
-        string userInput = null;
-        bool isConfirmed = false;
-
-        switch (operation)
+        // Ask confirmation for cleaning up the folder.
+        if (operation == FolderOperation.Empty)
         {
-            case FolderOperation.Empty:
-                isConfirmed = await _dialogService.ShowConfirmationDialogAsync(Translator.DialogMessage_CleanupFolderMessage, Translator.DialogMessage_CleanupFolderTitle, Translator.Buttons_Yes);
-                if (!isConfirmed) return;
-                break;
-            case FolderOperation.Delete:
-                var deleteQuestion = string.Format(Translator.DialogMessage_DeleteAccountConfirmationMessage, folderMenuItem.FolderName);
-                isConfirmed = await _dialogService.ShowConfirmationDialogAsync(deleteQuestion, Translator.FolderOperation_Delete, Translator.FolderOperation_Delete);
-                if (!isConfirmed) return;
-                break;
-            case FolderOperation.Rename:
-                userInput = await _dialogService.ShowTextInputDialogAsync(folderMenuItem.FolderName, Translator.DialogMessage_RenameFolderTitle, Translator.DialogMessage_RenameFolderMessage, Translator.FolderOperation_Rename);
-                if (string.IsNullOrWhiteSpace(userInput)) return;
-                break;
-            case FolderOperation.CreateSubFolder:
-                userInput = await _dialogService.ShowTextInputDialogAsync(string.Empty, Translator.FolderOperation_CreateSubFolder, Translator.DialogMessage_RenameFolderMessage, Translator.FolderOperation_CreateSubFolder);
-                if (string.IsNullOrWhiteSpace(userInput)) return;
-                break;
+            var result = await _dialogService.ShowConfirmationDialogAsync(Translator.DialogMessage_CleanupFolderMessage, Translator.DialogMessage_CleanupFolderTitle, Translator.Buttons_Yes);
+
+            if (!result) return;
         }
 
         foreach (var folder in folderMenuItem.HandlingFolders)
         {
             if (folder is MailItemFolder realFolder)
             {
-                var folderPrepRequest = new FolderOperationPreperationRequest(operation, realFolder, userInput, isConfirmed);
+                var folderPrepRequest = new FolderOperationPreperationRequest(operation, realFolder);
 
                 await _winoRequestDelegator.ExecuteAsync(folderPrepRequest);
             }
@@ -732,7 +727,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             MailAccountId = account.Id
         };
 
-        await _winoRequestDelegator.ExecuteAsync(new FolderOperationPreperationRequest(FolderOperation.CreateRootFolder, placeholderFolder, folderName.Trim()));
+        await _winoRequestDelegator.ExecuteAsync(account.Id, [new CreateRootFolderRequest(placeholderFolder, folderName.Trim())]);
     }
 
     public Task HandleAccountAttentionAsync(MailAccount account)
@@ -764,12 +759,11 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             {
                 if (account.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook)
                 {
-                    await _synchronizationManager.HandleAuthorizationAsync(
+                    await SynchronizationManager.Instance.HandleAuthorizationAsync(
                         account.ProviderType,
                         account,
                         account.ProviderType == MailProviderType.Gmail,
-                        forceInteractive: true,
-                        parentWindowHandle: (_nativeAppService.GetCoreWindowHwnd?.Invoke() ?? IntPtr.Zero).ToInt64());
+                        forceInteractive: true);
 
                     await _accountService.ClearAccountAttentionAsync(account.Id);
 
@@ -878,7 +872,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         await MenuItems.SetAccountMenuItemEnabledStatusAsync(false);
 
         // Load account folder structure and replace the visible folders.
-        var folders = await FolderMenuItemFactory.GetAccountFoldersForDisplayAsync(_folderService, _mailCategoryService, clickedBaseAccountMenuItem);
+        var folders = await _folderService.GetAccountFoldersForDisplayAsync(clickedBaseAccountMenuItem);
 
         await ExecuteUIThread(() =>
         {
@@ -1370,7 +1364,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         var selectedFolderId = (SelectedMenuItem as IBaseFolderMenuItem)?.HandlingFolders
             ?.FirstOrDefault(a => a.MailAccountId == accountId)?.Id;
 
-        var folders = await FolderMenuItemFactory.GetAccountFoldersForDisplayAsync(_folderService, _mailCategoryService, latestSelectedAccountMenuItem);
+        var folders = await _folderService.GetAccountFoldersForDisplayAsync(latestSelectedAccountMenuItem);
 
         await MenuItems.ReplaceFoldersAsync(folders);
         await UpdateUnreadItemCountAsync();

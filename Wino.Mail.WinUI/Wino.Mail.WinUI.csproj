@@ -1,48 +1,19 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>Wino.Mail.WinUI</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">x64</Platform>
     <Platforms>x86;x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
-    <!-- Single-project MSIX (Files-style, no WAP): this project owns Package.appxmanifest
-         and produces the package; packaging publishes through Properties\PublishProfiles\
-         win-$(Platform).pubxml, which carries the Native AOT switch for Release. The
-         companion process rides along as Content (see IncludeCompanionInPackage below). -->
-    <EnableMsixTooling>true</EnableMsixTooling>
     <PublishProfile>win-$(Platform).pubxml</PublishProfile>
     <UseWinUI>true</UseWinUI>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <!-- Bundle the Windows App SDK and .NET runtime into per-architecture MSIX outputs. -->
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
-    <WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
-    <!-- Packaging settings carried over from the retired Wino.Packaging.wapproj. -->
-    <DefaultLanguage>en-US</DefaultLanguage>
-    <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
-    <PackageCertificateKeyFile>Wino.Packaging_TemporaryKey.pfx</PackageCertificateKeyFile>
-    <GenerateTemporaryStoreCertificate>true</GenerateTemporaryStoreCertificate>
-    <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
-    <GenerateAppInstallerFile>false</GenerateAppInstallerFile>
-    <UapAppxPackageBuildMode>SideloadOnly</UapAppxPackageBuildMode>
-    <GenerateAppxUploadPackage>false</GenerateAppxUploadPackage>
-    <AppxAutoIncrementPackageRevision>false</AppxAutoIncrementPackageRevision>
-    <GenerateTestArtifacts>false</GenerateTestArtifacts>
-    <AppxBundle>Never</AppxBundle>
-    <AppxBundlePlatforms>x64</AppxBundlePlatforms>
-    <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
-    <!-- Surface trim/AOT analyzer warnings in app code. -->
-    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
-    <EnableAotAnalyzer>true</EnableAotAnalyzer>
-    <PublishAot Condition="'$(Configuration)' == 'Release'">true</PublishAot>
-    <PublishTrimmed Condition="'$(Configuration)' == 'Release'">true</PublishTrimmed>
-    <TrimMode>full</TrimMode>
-    <!-- CsWinRT AOT analyzer at the highest level so any class crossing the WinRT ABI that
-         isn't marked partial (CsWinRT1028) is flagged on every build, not just at publish.
-         Combined with Release TreatWarningsAsErrors this is the regression gate that keeps
-         WinRT-implementing types partial for Native AOT. -->
-    <CsWinRTAotOptimizerEnabled>true</CsWinRTAotOptimizerEnabled>
-    <CsWinRTAotWarningLevel>2</CsWinRTAotWarningLevel>
     <Nullable>enable</Nullable>
 	<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	<!-- Single instancing -->
@@ -186,31 +157,21 @@
     <Content Include="JS\libs\linkify-element.min.js" />
     <Content Include="JS\libs\linkify.min.js" />
     <Content Include="JS\reader.html" />
-    <!-- These are loaded at runtime through ms-appx/file paths. The retired WAP packed
-         Content regardless of copy flags, but the registered dev layout (and F5) deploys
-         from the output directory, so they must copy there too. -->
-    <Content Update="AppThemes\*.xaml;Assets\ReleaseNotes\**;Assets\UpdateNotes\**;Assets\Wino_Icon.ico;BackgroundImages\*.jpg;JS\**">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
   </ItemGroup>
 
   <ItemGroup>
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
 
-  <ItemGroup>
-    <AppxManifest Include="Package.appxmanifest">
-      <SubType>Designer</SubType>
-    </AppxManifest>
-    <!-- Manifest visual assets (tiles, splash screens, file association icons); makepri
-         indexes their scale variants from here now that the WAP is gone. -->
-    <Content Include="Images\**\*.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <None Include="Wino.Packaging_TemporaryKey.pfx" />
-    <None Include="Package.StoreAssociation.xml" />
+  <!--
+    Defining the "Msix" ProjectCapability here allows the Single-project MSIX Packaging
+    Tools extension to be activated for this project even if the Windows App SDK Nuget
+    package has not yet been restored.
+  -->
+  <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+    <ProjectCapability Include="Msix" />
   </ItemGroup>
-
+	
   <ItemGroup>
 	<PackageReference Include="CommunityToolkit.Common" />
 	<PackageReference Include="CommunityToolkit.Diagnostics" />
@@ -223,21 +184,27 @@
     <PackageReference Include="CommunityToolkit.WinUI.Controls.TabbedCommandBar" />
     <PackageReference Include="CommunityToolkit.WinUI.Controls.TokenizingTextBox" />
     <PackageReference Include="CommunityToolkit.WinUI.Extensions" />
+    <PackageReference Include="CommunityToolkit.WinUI.Lottie" />
 	  
     <PackageReference Include="Microsoft.Graphics.Win2D" />
-    <PackageReference Include="Microsoft.Windows.CsWinRT" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.MSIX">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.WindowsAppSDK" />
+	<PackageReference Include="Microsoft.Xaml.Behaviors.WinUI.Managed" />
 	<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
 	<PackageReference Include="Microsoft.Extensions.Logging" />
-
+	<PackageReference Include="Microsoft.Identity.Client" />
+	  
 	<PackageReference Include="ColorHashSharp" />
+	<PackageReference Include="gravatar-dotnet" />
 	<PackageReference Include="Sentry.Serilog" />
 	<PackageReference Include="Serilog.Extensions.Logging" />
-	<!-- The UI process never opens SQLite (the companion owns the database); Domain only
-	     uses sqlite-net attributes. Keep the native sqlite blob out of the package. -->
-	<PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" ExcludeAssets="all" />
+	<PackageReference Include="sqlite-net-pcl" />
 	<PackageReference Include="EmailValidation" />
+	<PackageReference Include="SkiaSharp.Views.WinUI" />
 	<PackageReference Include="WinUIEx" />
 	<PackageReference Include="Wino.Mail.Contracts" />
   </ItemGroup>
@@ -245,12 +212,8 @@
 	<ProjectReference Include="..\Wino.Calendar.ViewModels\Wino.Calendar.ViewModels.csproj" />
 	<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
 	<ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
-	<ProjectReference Include="..\Wino.Ipc.Serialization\Wino.Ipc.Serialization.csproj"  />
-	<ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj"
-					  SetTargetFramework="TargetFramework=net10.0-windows10.0.26100.0" />
-	<ProjectReference Include="..\Wino.Services.Shared\Wino.Services.Shared.csproj" />
-	<ProjectReference Include="..\Wino.Ipc\Wino.Ipc.csproj" />
-	<ProjectReference Include="..\Wino.Ipc.Contracts\Wino.Ipc.Contracts.csproj" />
+	<ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />
+	<ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Page Update="Views\Settings\ContactsPage.xaml">
@@ -396,34 +359,27 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>
-  <!-- Wino.BackgroundService rides inside this package as the secondary full-trust app
-       declared in Package.appxmanifest (Application Id="WinoBackgroundService",
-       AppListEntry="none"). Because it ships in the same package it runs with the package
-       identity: shared ApplicationData/publisher cache, AUMID activation, and app
-       notifications shown in Wino Mail's name. It is deliberately NOT a ProjectReference -
-       the UI must not depend on companion code, and its payload is framework-dependent
-       (never AOT/self-contained), so the publish output is packed as opaque Content. -->
-  <Target Name="IncludeCompanionInPackage" BeforeTargets="AssignTargetPaths" Condition="'$(DesignTimeBuild)' != 'true'">
-    <PropertyGroup>
-      <WinoCompanionPublishDir>$(MSBuildThisFileDirectory)..\Wino.BackgroundService\bin\$(Platform)\$(Configuration)\net10.0-windows10.0.19041.0\win-$(Platform.ToLowerInvariant())\publish\</WinoCompanionPublishDir>
-    </PropertyGroup>
-    <MSBuild Projects="..\Wino.BackgroundService\Wino.BackgroundService.csproj"
-             Targets="Publish"
-             Properties="Configuration=$(Configuration);Platform=$(Platform);SelfContained=false" />
-    <ItemGroup>
-      <!-- Two subtleties, both load-bearing:
-           1. TargetPath is set explicitly because items created inside a target do not
-              reliably pass through AssignTargetPaths for the packaging pass.
-           2. The metadata uses the QUALIFIED form via an intermediate item: an unqualified
-              %(RecursiveDir) inside a target batches over the pre-existing Content items
-              and stamps every companion file with someone else's path (APPX1101). -->
-      <_WinoCompanionPayload Include="$(WinoCompanionPublishDir)**\*.*"
-                             Exclude="$(WinoCompanionPublishDir)**\*.pdb;$(WinoCompanionPublishDir)**\*.resources.dll" />
-      <Content Include="@(_WinoCompanionPayload)">
-        <Link>Wino.BackgroundService\%(_WinoCompanionPayload.RecursiveDir)%(_WinoCompanionPayload.Filename)%(_WinoCompanionPayload.Extension)</Link>
-        <TargetPath>Wino.BackgroundService\%(_WinoCompanionPayload.RecursiveDir)%(_WinoCompanionPayload.Filename)%(_WinoCompanionPayload.Extension)</TargetPath>
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      </Content>
-    </ItemGroup>
-  </Target>
+
+  <!--
+    Defining the "HasPackageAndPublishMenuAddedByProject" property here allows the Solution
+    Explorer "Package and Publish" context menu entry to be enabled for this project even if
+    the Windows App SDK Nuget package has not yet been restored.
+  -->
+  <PropertyGroup Condition="'$(DisableHasPackageAndPublishMenuAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+    <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
+  </PropertyGroup>
+
+  <!-- Publish Properties -->
+  <PropertyGroup>  
+    <GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
+    <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
+    <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
+    <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
+    <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
+    <GenerateTestArtifacts>True</GenerateTestArtifacts>
+    <AppxBundle>Always</AppxBundle>
+    <AppxBundlePlatforms>x86|x64|arm64</AppxBundlePlatforms>
+    <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
+    <PackageCertificateThumbprint>4D0220C9CA6C704D170471B1A2335F76F94EB9DC</PackageCertificateThumbprint>
+  </PropertyGroup>
 </Project>

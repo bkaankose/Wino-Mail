@@ -1,4 +1,4 @@
-﻿using FluentAssertions;
+using FluentAssertions;
 using MailKit;
 using MailKit.Net.Imap;
 using MailKit.Search;
@@ -7,7 +7,6 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Services;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Integration.Processors;
@@ -208,11 +207,11 @@ public sealed class ImapSynchronizerLiveTests
         folderService.Setup(x => x.UpdateFolderHighestModeSeqAsync(It.IsAny<Guid>(), It.IsAny<long>())).Returns(Task.CompletedTask);
         folderService.Setup(x => x.DeleteFolderAsync(It.IsAny<Guid>(), It.IsAny<string>())).Returns(Task.CompletedTask);
 
-        var mailService = new Mock<IMailServiceInternal>();
+        var mailService = new Mock<IMailService>();
         mailService.Setup(x => x.GetMailsByFolderIdAsync(inboxFolder.Id)).ReturnsAsync(() => storedMails.Values.ToList());
-        mailService.Setup(x => x.GetExistingMailsAsync(inboxFolder.Id, It.IsAny<IEnumerable<uint>>()))
-            .ReturnsAsync((Guid _, IEnumerable<uint> ids) =>
-                ids.Select(uid => MailkitClientExtensions.CreateUid(inboxFolder.Id, uid))
+        mailService.Setup(x => x.GetExistingMailsAsync(inboxFolder.Id, It.IsAny<IEnumerable<UniqueId>>()))
+            .ReturnsAsync((Guid _, IEnumerable<UniqueId> ids) =>
+                ids.Select(uid => MailkitClientExtensions.CreateUid(inboxFolder.Id, uid.Id))
                    .Where(storedMails.ContainsKey)
                    .Select(id => storedMails[id])
                    .ToList());

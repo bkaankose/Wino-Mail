@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -10,6 +10,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.Mvvm.Messaging.Messages;
+using MoreLinq;
+using Nito.AsyncEx;
 using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
@@ -22,8 +24,9 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Reader;
-using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Requests.Mail;
+using Wino.Core.Services;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
@@ -73,6 +76,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private readonly IAccountService _accountService;
     private readonly IMailDialogService _mailDialogService;
     private readonly IMailService _mailService;
+    private readonly IMimeFileService _mimeFileService;
     private readonly INotificationBuilder _notificationBuilder;
     private readonly IFolderService _folderService;
     private readonly IContextMenuItemService _contextMenuItemService;
@@ -101,7 +105,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private FolderPivotViewModel _selectedFolderPivot;
 
     [ObservableProperty]
-    public partial bool IsMultiSelectionModeEnabled { get; set; }
+    private bool isMultiSelectionModeEnabled;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SelectedMessageText))]
@@ -117,7 +121,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     public partial string SearchQuery { get; set; }
 
     [ObservableProperty]
-    public partial FilterOption SelectedFilterOption { get; set; }
+    private FilterOption _selectedFilterOption;
     private SortingOption _selectedSortingOption;
 
     // Indicates state when folder is initializing. It can happen after folder navigation, search or filter change applied or loading more items.
@@ -196,6 +200,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  IAccountService accountService,
                                  IMailDialogService mailDialogService,
                                  IMailService mailService,
+                                 IMimeFileService mimeFileService,
                                  IStatePersistanceService statePersistenceService,
                                  INotificationBuilder notificationBuilder,
                                  IFolderService folderService,
@@ -212,6 +217,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         _accountService = accountService;
         _mailDialogService = mailDialogService;
         _mailService = mailService;
+        _mimeFileService = mimeFileService;
         _folderService = folderService;
         _contextMenuItemService = contextMenuItemService;
         _mailCategoryService = mailCategoryService;
@@ -287,10 +293,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     {
         ActionItems.Clear();
 
-        foreach (var action in GetAvailableMailActions(MailCollection.SelectedItems))
-        {
-            ActionItems.Add(action);
-        }
+        var actions = GetAvailableMailActions(MailCollection.SelectedItems);
+        actions.ForEach(a => ActionItems.Add(a));
     }
 
     #region Properties
@@ -789,9 +793,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             return MailCollection.SelectedItems.OfType<MailItemViewModel>();
 
         if (_activeMailItem != null)
-            return new[] { _activeMailItem };
+            return [_activeMailItem];
 
-        return Array.Empty<MailItemViewModel>();
+        return [];
     }
 
     private async Task CreateDraftForShortcutTargetAsync(DraftCreationReason reason)
@@ -821,11 +825,16 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         if (targetMail?.MailCopy == null || targetMail.MailCopy.FileId == Guid.Empty)
             return;
 
+        var mimeInformation = await _mimeFileService.GetMimeMessageInformationAsync(targetMail.MailCopy.FileId, targetMail.MailCopy.AssignedAccount.Id);
+        if (mimeInformation?.MimeMessage == null)
+            return;
+
         var draftOptions = new DraftCreationOptions
         {
             Reason = reason,
             ReferencedMessage = new ReferencedMessage
             {
+                MimeMessage = mimeInformation.MimeMessage,
                 MailCopy = targetMail.MailCopy
             }
         };
@@ -884,16 +893,14 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         if (targetList.First().MailCopy.AssignedAccount.ProviderType != MailProviderType.Outlook)
             return;
 
-        var targets = new List<MailCategoryAssignmentTarget>();
+        var requests = new List<IRequestBase>();
         foreach (var mailItem in targetList.Select(a => a.MailCopy).GroupBy(a => a.UniqueId).Select(group => group.First()))
         {
             var categoryNames = await _mailCategoryService.GetCategoryNamesForMailAsync(mailItem.UniqueId).ConfigureAwait(false);
-            targets.Add(new MailCategoryAssignmentTarget(mailItem, categoryNames));
+            requests.Add(new MailCategoryAssignmentRequest(mailItem, category.Id, category.Name, categoryNames, !isAssignedToAll));
         }
 
-        var assignmentRequest = new MailCategoryAssignmentOperationRequest(accountId, category.Id, category.Name, !isAssignedToAll, targets);
-
-        await _winoRequestDelegator.ExecuteAsync(assignmentRequest).ConfigureAwait(false);
+        await _winoRequestDelegator.ExecuteAsync(accountId, requests).ConfigureAwait(false);
     }
 
     private Task ApplyCategoryAssignmentToVisibleItemsAsync(MailCategory category, IReadOnlyList<MailItemViewModel> targetItems, bool wasAssignedToAll)
@@ -1083,7 +1090,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 // Check if collection already has a local draft with the same ThreadId in the same folder
                 bool hasLocalDraftInSameThread = false;
 
-                foreach (var group in MailCollection.MailItems.EnumerateGroups())
+                foreach (var group in MailCollection.MailItems)
                 {
                     foreach (var item in group)
                     {
@@ -1594,12 +1601,12 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var uniqueIds = await _synchronizationManager.GetPendingMailOperationUniqueIdsAsync(accountId).ConfigureAwait(false);
+            var synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(accountId).ConfigureAwait(false);
 
-            if (uniqueIds == null)
+            if (synchronizer == null)
                 continue;
 
-            foreach (var uniqueId in uniqueIds)
+            foreach (var uniqueId in synchronizer.GetPendingOperationUniqueIds())
             {
                 pendingOperationUniqueIds.Add(uniqueId);
             }
@@ -1625,7 +1632,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         List<MailCopy> preFetchedMailCopies = null,
         bool deduplicateByServerId = false)
     {
-        var options = new MailListInitializationOptions(ActiveFolder.HandlingFolders.OfType<MailItemFolder>().ToList(),
+        var options = new MailListInitializationOptions(ActiveFolder.HandlingFolders,
                                                         SelectedFilterOption.Type,
                                                         SelectedSortingOption.Type,
                                                         PreferencesService.IsThreadingEnabled,
@@ -1667,7 +1674,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         if (handlingFolders == null) return [];
 
         var distinctFolders = handlingFolders
-            .OfType<MailItemFolder>()
+            .Where(folder => folder != null)
             .GroupBy(folder => folder.Id)
             .Select(group => group.First())
             .ToList();
@@ -1680,7 +1687,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         var searchTasks = foldersByAccount.Select(async groupedFolders =>
         {
-            var accountResults = await _synchronizationManager.OnlineSearchAsync(groupedFolders.Key, queryText, groupedFolders.ToList(), cancellationToken).ConfigureAwait(false);
+            var synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(groupedFolders.Key).ConfigureAwait(false);
+            if (synchronizer == null) return new List<MailCopy>();
+
+            var accountResults = await synchronizer.OnlineSearchAsync(queryText, groupedFolders.ToList(), cancellationToken).ConfigureAwait(false);
             return accountResults ?? new List<MailCopy>();
         });
 
@@ -2021,7 +2031,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             foreach (var accountId in accountIds)
             {
-                if (_synchronizationManager.IsAccountSynchronizing(accountId))
+                if (SynchronizationManager.Instance.IsAccountSynchronizing(accountId))
                 {
                     isAnyAccountSynchronizing = true;
                     break;

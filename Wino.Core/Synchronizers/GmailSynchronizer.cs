@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -39,7 +39,7 @@ using Wino.Core.Extensions;
 using Wino.Core.Helpers;
 using Wino.Core.Http;
 using Wino.Core.Integration.Processors;
-using Wino.Core.Domain.Misc;
+using Wino.Core.Misc;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Folder;
@@ -49,7 +49,6 @@ using Wino.Services;
 using CalendarService = Google.Apis.Calendar.v3.CalendarService;
 using DriveFile = Google.Apis.Drive.v3.Data.File;
 using DriveService = Google.Apis.Drive.v3.DriveService;
-using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Core.Synchronizers.Mail;
 
@@ -278,7 +277,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
             if (_isFolderStructureChanged)
             {
-                UIMessagePublisherProvider.Current.Publish(new AccountFolderConfigurationUpdated(Account.Id));
+                WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
             }
 
             _logger.Information("Synchronizing folders for {Name} is completed", Account.Name);
@@ -897,7 +896,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         if (insertedCalendars.Any() || deletedCalendars.Any() || updatedCalendars.Any())
         {
             // TODO: Notify calendar updates.
-            // UIMessagePublisherProvider.Current.Publish(new AccountFolderConfigurationUpdated(Account.Id));
+            // WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
         }
     }
 
@@ -1516,13 +1515,11 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     {
         Draft draft = null;
 
-        var draftMimeMessage = singleRequest.DraftPreperationRequest.GetCreatedLocalDraftMimeMessage();
-
         // It's new mail. Not a reply
         if (singleRequest.DraftPreperationRequest.ReferenceMailCopy == null)
-            draft = PrepareGmailDraft(draftMimeMessage);
+            draft = PrepareGmailDraft(singleRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage);
         else
-            draft = PrepareGmailDraft(draftMimeMessage,
+            draft = PrepareGmailDraft(singleRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage,
                 singleRequest.DraftPreperationRequest.ReferenceMailCopy.ThreadId,
                 singleRequest.DraftPreperationRequest.ReferenceMailCopy.DraftId);
 
@@ -1563,14 +1560,12 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             message.ThreadId = singleDraftRequest.Item.ThreadId;
         }
 
-        var mimeMessage = singleDraftRequest.Request.GetMimeMessage();
-
         // Local draft mapping header must never leak to recipients.
-        mimeMessage.Headers.Remove(Domain.Constants.WinoLocalDraftHeader);
+        singleDraftRequest.Request.Mime.Headers.Remove(Domain.Constants.WinoLocalDraftHeader);
 
-        mimeMessage.Prepare(EncodingConstraint.None);
+        singleDraftRequest.Request.Mime.Prepare(EncodingConstraint.None);
 
-        var mimeString = mimeMessage.ToString();
+        var mimeString = singleDraftRequest.Request.Mime.ToString();
         var base64UrlEncodedMime = Base64UrlEncoder.Encode(mimeString);
         message.Raw = base64UrlEncodedMime;
 
@@ -1808,6 +1803,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     }
 
     public override async Task DownloadMissingMimeMessageAsync(MailCopy mailItem,
+                                                           ITransferProgress transferProgress = null,
                                                            CancellationToken cancellationToken = default)
     {
         try

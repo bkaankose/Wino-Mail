@@ -4,7 +4,6 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.Client.Calendar;
-using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Core.Requests.Calendar;
 
@@ -34,7 +33,7 @@ public record UpdateCalendarEventRequest(CalendarItem Item, List<CalendarEventAt
     public override void ApplyUIChanges()
     {
         // Notify UI that the event was updated locally
-        UIMessagePublisherProvider.Current.Publish(new CalendarItemUpdated(Item, EntityUpdateSource.ClientUpdated));
+        WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(Item, EntityUpdateSource.ClientUpdated));
     }
 
     public override void RevertUIChanges()
@@ -43,12 +42,12 @@ public record UpdateCalendarEventRequest(CalendarItem Item, List<CalendarEventAt
         if (OriginalItem != null && OriginalAttendees != null)
         {
             // Send the original item back to restore UI state
-            UIMessagePublisherProvider.Current.Publish(new CalendarItemUpdated(OriginalItem, EntityUpdateSource.ClientReverted));
+            WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(OriginalItem, EntityUpdateSource.ClientReverted));
         }
         else
         {
             // Fallback: just notify with current item to trigger refresh
-            UIMessagePublisherProvider.Current.Publish(new CalendarItemUpdated(Item, EntityUpdateSource.ClientReverted));
+            WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(Item, EntityUpdateSource.ClientReverted));
         }
     }
 }

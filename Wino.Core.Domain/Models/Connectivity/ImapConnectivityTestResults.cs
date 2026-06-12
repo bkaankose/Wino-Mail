@@ -1,16 +1,17 @@
 ﻿using System;
 using System.Linq;
+using System.Text.Json.Serialization;
 using Wino.Core.Domain.Extensions;
 
 namespace Wino.Core.Domain.Models.Connectivity;
 
 /// <summary>
 /// Contains validation of the IMAP server connectivity during account setup.
-/// Crosses the RPC pipe; the constructor must stay public for the STJ source generator.
 /// </summary>
 public class ImapConnectivityTestResults
 {
-    public ImapConnectivityTestResults() { }
+    [JsonConstructor]
+    protected ImapConnectivityTestResults() { }
 
     public bool IsSuccess { get; set; }
 

@@ -19,10 +19,10 @@ public partial class MergedAccountDetailsPageViewModel : MailBaseViewModel,
     IRecipient<MergedInboxRenamed>
 {
     [ObservableProperty]
-    public partial MergedAccountProviderDetailViewModel EditingMergedAccount { get; set; }
+    private MergedAccountProviderDetailViewModel editingMergedAccount;
 
     [ObservableProperty]
-    public partial string MergedAccountName { get; set; }
+    private string mergedAccountName;
 
     public ObservableCollection<AccountProviderDetailViewModel> LinkedAccounts { get; set; } = [];
     public ObservableCollection<AccountProviderDetailViewModel> UnlinkedAccounts { get; set; } = [];

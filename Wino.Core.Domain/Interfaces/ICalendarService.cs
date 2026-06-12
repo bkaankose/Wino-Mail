@@ -2,12 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Itenso.TimePeriod;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Models.Calendar;
 
 namespace Wino.Core.Domain.Interfaces;
 
-[Wino.Core.Domain.Attributes.WinoRpcService]
 public interface ICalendarService
 {
     Task<List<AccountCalendar>> GetAccountCalendarsAsync(Guid accountId);
@@ -22,13 +22,12 @@ public interface ICalendarService
     Task CreateNewCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees);
 
     /// <summary>
-    /// Retrieves calendar events for a given calendar within the specified local display period.
+    /// Retrieves calendar events for a given calendar within the specified time period.
     /// </summary>
-    /// <param name="calendarId">Id of the calendar to retrieve events from.</param>
-    /// <param name="periodStart">Local display period start.</param>
-    /// <param name="periodEnd">Local display period end.</param>
+    /// <param name="calendar">The calendar to retrieve events from.</param>
+    /// <param name="period">The time period to query events for.</param>
     /// <returns>List of calendar items that fall within the requested period.</returns>
-    Task<List<CalendarItem>> GetCalendarEventsAsync(Guid calendarId, DateTime periodStart, DateTime periodEnd);
+    Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, ITimePeriod period);
 
     Task<CalendarItem> GetCalendarItemAsync(Guid accountCalendarId, string remoteEventId);
     Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken);
@@ -50,7 +49,6 @@ public interface ICalendarService
     /// <summary>
     /// Checks due reminder windows and returns reminder notifications that should trigger now.
     /// </summary>
-    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     Task<List<CalendarReminderNotificationRequest>> CheckAndNotifyAsync(DateTime lastCheckLocal, DateTime nowLocal, ISet<string> sentReminderKeys, CancellationToken cancellationToken = default);
 
     /// <summary>

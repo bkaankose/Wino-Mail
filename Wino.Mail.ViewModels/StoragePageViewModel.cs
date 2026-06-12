@@ -8,7 +8,7 @@ using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Domain.Extensions;
+using Wino.Core.Extensions;
 using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.ViewModels;

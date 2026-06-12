@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using CommunityToolkit.Mvvm.Messaging;
@@ -7,7 +7,6 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.UI;
-using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Core.Requests.Mail;
 
@@ -41,7 +40,7 @@ public record SendDraftRequest(SendDraftPreparationRequest Request)
         if (Interlocked.Exchange(ref isUiChangeApplied, 1) == 1)
             return;
 
-        UIMessagePublisherProvider.Current.Publish(new MailRemovedMessage(Item, EntityUpdateSource.ClientUpdated));
+        WeakReferenceMessenger.Default.Send(new MailRemovedMessage(Item, EntityUpdateSource.ClientUpdated));
     }
 
     public override void RevertUIChanges()
@@ -49,6 +48,6 @@ public record SendDraftRequest(SendDraftPreparationRequest Request)
         if (Interlocked.Exchange(ref isUiChangeApplied, 0) == 0)
             return;
 
-        UIMessagePublisherProvider.Current.Publish(new MailAddedMessage(Item, EntityUpdateSource.ClientReverted));
+        WeakReferenceMessenger.Default.Send(new MailAddedMessage(Item, EntityUpdateSource.ClientReverted));
     }
 }

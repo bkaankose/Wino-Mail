@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Mail;
@@ -11,7 +11,6 @@ using Wino.Core.Domain.Models.Synchronization;
 
 namespace Wino.Core.Domain.Interfaces;
 
-[Wino.Core.Domain.Attributes.WinoRpcService]
 public interface IFolderService
 {
     Task<AccountFolderTree> GetFolderStructureForAccountAsync(Guid accountId, bool includeHiddenFolders);
@@ -108,10 +107,10 @@ public interface IFolderService
     Task UpdateFolderHighestModeSeqAsync(Guid folderId, long highestModeSeq);
 
     /// <summary>
-    /// Returns all non-hidden folders for the given account, sorted for display.
+    /// Returns the active folder menu items for the given account for UI.
     /// </summary>
-    /// <param name="accountId">Account to get visible folders for.</param>
-    Task<List<MailItemFolder>> GetVisibleFoldersAsync(Guid accountId);
+    /// <param name="accountMenuItem">Account to get folder menu items for.</param>
+    Task<IEnumerable<IMenuItem>> GetAccountFoldersForDisplayAsync(IAccountMenuItem accountMenuItem);
 
     /// <summary>
     /// Returns a list of unread item counts for the given account ids.

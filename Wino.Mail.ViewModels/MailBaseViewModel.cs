@@ -9,7 +9,7 @@ using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels;
 
-public partial class MailBaseViewModel : CoreBaseViewModel,
+public class MailBaseViewModel : CoreBaseViewModel,
     IRecipient<MailAddedMessage>,
     IRecipient<BulkMailAddedMessage>,
     IRecipient<MailRemovedMessage>,

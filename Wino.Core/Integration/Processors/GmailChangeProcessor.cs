@@ -21,10 +21,10 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
 {
     public GmailChangeProcessor(IDatabaseService databaseService,
                                 IFolderService folderService,
-                                IMailServiceInternal mailService,
+                                IMailService mailService,
                                 ICalendarService calendarService,
                                 IAccountService accountService,
-                                IMimeFileServiceInternal mimeFileService) : base(databaseService, folderService, mailService, calendarService, accountService, mimeFileService)
+                                IMimeFileService mimeFileService) : base(databaseService, folderService, mailService, calendarService, accountService, mimeFileService)
     {
 
     }

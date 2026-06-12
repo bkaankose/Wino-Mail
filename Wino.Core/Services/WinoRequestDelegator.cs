@@ -8,16 +8,12 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
-using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
-using Wino.Services;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests.Calendar;
-using Wino.Core.Requests.Category;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Messaging.Server;
@@ -31,24 +27,18 @@ public class WinoRequestDelegator : IWinoRequestDelegator
     private readonly IMailDialogService _dialogService;
     private readonly IAccountService _accountService;
     private readonly ICalendarService _calendarService;
-    private readonly ISmimeService _smimeService;
-    private readonly IMimeFileServiceInternal _mimeFileService;
 
     public WinoRequestDelegator(IWinoRequestProcessor winoRequestProcessor,
                                 IFolderService folderService,
                                 IMailDialogService dialogService,
                                 IAccountService accountService,
-                                ICalendarService calendarService,
-                                ISmimeService smimeService,
-                                IMimeFileServiceInternal mimeFileService)
+                                ICalendarService calendarService)
     {
         _winoRequestProcessor = winoRequestProcessor;
         _folderService = folderService;
         _dialogService = dialogService;
         _accountService = accountService;
         _calendarService = calendarService;
-        _smimeService = smimeService;
-        _mimeFileService = mimeFileService;
     }
 
     public async Task ExecuteAsync(MailOperationPreperationRequest request)
@@ -137,68 +127,14 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         await QueueRequestAsync(request, accountId);
         await QueueSynchronizationAsync(accountId);
 
-        if (folderRequest.Action is FolderOperation.Delete or FolderOperation.CreateSubFolder or FolderOperation.CreateRootFolder)
+        if (folderRequest.Action is FolderOperation.Delete or FolderOperation.CreateSubFolder)
         {
             await QueueFoldersOnlySynchronizationAsync(accountId);
         }
     }
 
-    public async Task ExecuteAsync(MailCategoryOperationRequest categoryOperationRequest)
-    {
-        if (categoryOperationRequest?.Category == null)
-            return;
-
-        IRequestBase request = categoryOperationRequest.ChangeType switch
-        {
-            MailCategoryChangeType.Create => new MailCategoryCreateRequest(categoryOperationRequest.Category),
-            MailCategoryChangeType.Update => new MailCategoryUpdateRequest(categoryOperationRequest.Category,
-                                                                           categoryOperationRequest.PreviousName,
-                                                                           categoryOperationRequest.PreviousRemoteId,
-                                                                           categoryOperationRequest.AffectedMessages),
-            MailCategoryChangeType.Delete => new MailCategoryDeleteRequest(categoryOperationRequest.Category,
-                                                                           categoryOperationRequest.PreviousRemoteId,
-                                                                           categoryOperationRequest.AffectedMessages),
-            _ => null
-        };
-
-        if (request == null)
-            return;
-
-        await QueueRequestAsync(request, categoryOperationRequest.AccountId).ConfigureAwait(false);
-        await QueueSynchronizationAsync(categoryOperationRequest.AccountId).ConfigureAwait(false);
-    }
-
-    public async Task ExecuteAsync(MailCategoryAssignmentOperationRequest categoryAssignmentRequest)
-    {
-        var requests = categoryAssignmentRequest?.Targets?
-            .Where(target => target?.Item != null)
-            .Select(target => (IRequestBase)new MailCategoryAssignmentRequest(target.Item,
-                                                                              categoryAssignmentRequest.CategoryId,
-                                                                              categoryAssignmentRequest.CategoryName,
-                                                                              target.CategoryNames,
-                                                                              categoryAssignmentRequest.IsAssigned))
-            .ToList() ?? [];
-
-        if (requests.Count == 0)
-            return;
-
-        await QueueRequestsAsync(requests, categoryAssignmentRequest.AccountId).ConfigureAwait(false);
-        await QueueSynchronizationAsync(categoryAssignmentRequest.AccountId).ConfigureAwait(false);
-    }
-
     public async Task ExecuteAsync(DraftPreparationRequest draftPreperationRequest)
     {
-        // Retry-send of an existing local draft arrives without a payload; load the
-        // saved MIME from shared storage.
-        if (string.IsNullOrEmpty(draftPreperationRequest.Base64LocalDraftMimeMessage))
-        {
-            var draftMimeInformation = await _mimeFileService
-                .GetMimeMessageInformationAsync(draftPreperationRequest.CreatedLocalDraftCopy.FileId, draftPreperationRequest.Account.Id)
-                .ConfigureAwait(false);
-
-            draftPreperationRequest.Base64LocalDraftMimeMessage = draftMimeInformation.MimeMessage.GetBase64MimeMessage();
-        }
-
         var request = new CreateDraftRequest(draftPreperationRequest);
         var accountId = draftPreperationRequest.Account.Id;
 
@@ -208,31 +144,6 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
     public async Task ExecuteAsync(SendDraftPreparationRequest sendDraftPreperationRequest)
     {
-        // The UI no longer serializes MIME; load the saved draft from shared storage
-        // when the request arrives without a payload.
-        if (string.IsNullOrEmpty(sendDraftPreperationRequest.Base64MimeMessage))
-        {
-            var draftAccountId = sendDraftPreperationRequest.MailItem.AssignedAccount.Id;
-            var draftMimeInformation = await _mimeFileService
-                .GetMimeMessageInformationAsync(sendDraftPreperationRequest.MailItem.FileId, draftAccountId)
-                .ConfigureAwait(false);
-
-            sendDraftPreperationRequest = sendDraftPreperationRequest with { Base64MimeMessage = draftMimeInformation.MimeMessage.GetBase64MimeMessage() };
-        }
-
-        // The UI prepares the message unprotected and only sets the S/MIME flags;
-        // all cryptography runs here in the companion process.
-        if (sendDraftPreperationRequest.SmimeSign || sendDraftPreperationRequest.SmimeEncrypt)
-        {
-            var protectedBase64Mime = await _smimeService.ApplyDraftSecurityAsync(
-                sendDraftPreperationRequest.Base64MimeMessage,
-                sendDraftPreperationRequest.SmimeSign,
-                sendDraftPreperationRequest.SmimeEncrypt,
-                sendDraftPreperationRequest.SmimeSigningCertificateThumbprint).ConfigureAwait(false);
-
-            sendDraftPreperationRequest = sendDraftPreperationRequest with { Base64MimeMessage = protectedBase64Mime };
-        }
-
         var request = new SendDraftRequest(sendDraftPreperationRequest);
         var account = sendDraftPreperationRequest.MailItem.AssignedAccount;
 

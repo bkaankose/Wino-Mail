@@ -3,7 +3,6 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.Client.Calendar;
-using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Core.Requests.Calendar;
 
@@ -27,13 +26,13 @@ public record OutlookDeclineEventRequest(CalendarItem Item, string ResponseMessa
     {
         // In Outlook, declined events are deleted from the calendar after sync
         // Send deleted message to remove from UI immediately
-        UIMessagePublisherProvider.Current.Publish(new CalendarItemDeleted(Item, EntityUpdateSource.ClientUpdated));
+        WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(Item, EntityUpdateSource.ClientUpdated));
     }
 
     public override void RevertUIChanges()
     {
         // If decline fails, restore the previous status and re-add the event
         Item.Status = _previousStatus;
-        UIMessagePublisherProvider.Current.Publish(new CalendarItemAdded(Item, EntityUpdateSource.ClientReverted));
+        WeakReferenceMessenger.Default.Send(new CalendarItemAdded(Item, EntityUpdateSource.ClientReverted));
     }
 }

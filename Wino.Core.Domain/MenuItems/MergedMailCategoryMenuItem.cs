@@ -14,7 +14,7 @@ public partial class MergedMailCategoryMenuItem : MenuItemBase<List<MailCategory
     private readonly IReadOnlyList<IMailItemFolder> _handlingFolders;
 
     [ObservableProperty]
-    public partial int UnreadItemCount { get; set; }
+    private int unreadItemCount;
 
     public MergedMailCategoryMenuItem(List<MailCategory> categories, IEnumerable<IMailItemFolder> handlingFolders, MergedInbox mergedInbox)
         : base(categories, null, null)

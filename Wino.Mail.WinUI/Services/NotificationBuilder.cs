@@ -61,7 +61,7 @@ public class NotificationBuilder : INotificationBuilder
 
         WeakReferenceMessenger.Default.Register<MailReadStatusChanged>(this, (r, msg) =>
         {
-            QueueRemoveNotifications(new[] { msg.UniqueId });
+            QueueRemoveNotifications([msg.UniqueId]);
         });
 
         WeakReferenceMessenger.Default.Register<BulkMailReadStatusChanged>(this, (r, msg) =>
@@ -197,7 +197,7 @@ public class NotificationBuilder : INotificationBuilder
 
     public void RemoveNotification(Guid mailUniqueId)
     {
-        QueueRemoveNotifications(new[] { mailUniqueId });
+        QueueRemoveNotifications([mailUniqueId]);
     }
 
     private void QueueRemoveNotifications(IEnumerable<Guid> mailUniqueIds)

@@ -15,7 +15,7 @@ public partial class MailCategoryMenuItem : MenuItemBase<MailCategory, IMenuItem
     private IReadOnlyList<IMailItemFolder> _handlingFolders;
 
     [ObservableProperty]
-    public partial int UnreadItemCount { get; set; }
+    private int unreadItemCount;
 
     public MailCategoryMenuItem(MailCategory category, MailAccount parentAccount, IEnumerable<IMailItemFolder> handlingFolders, IMenuItem parentMenuItem)
         : base(category, category.Id, parentMenuItem)

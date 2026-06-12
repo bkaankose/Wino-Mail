@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -10,6 +10,7 @@ using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Services;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.UI;
 
@@ -75,12 +76,10 @@ public partial class AccountCalendarStateService : ObservableRecipient,
     }
 
     private readonly IAccountService _accountService;
-    private readonly ISynchronizationManager _synchronizationManager;
 
-    public AccountCalendarStateService(IAccountService accountService, ISynchronizationManager synchronizationManager)
+    public AccountCalendarStateService(IAccountService accountService)
     {
         _accountService = accountService;
-        _synchronizationManager = synchronizationManager;
 
         _internalGroupedAccountCalendars = new ObservableCollection<GroupedAccountCalendarViewModel>();
         GroupedAccountCalendars = new ReadOnlyObservableCollection<GroupedAccountCalendarViewModel>(_internalGroupedAccountCalendars);
@@ -113,7 +112,7 @@ public partial class AccountCalendarStateService : ObservableRecipient,
             groupedAccountCalendar.CollectiveSelectionStateChanged += SingleGroupCalendarCollectiveStateChanged;
             try
             {
-                groupedAccountCalendar.ApplySynchronizationProgress(_synchronizationManager.GetSynchronizationProgress(
+                groupedAccountCalendar.ApplySynchronizationProgress(SynchronizationManager.Instance.GetSynchronizationProgress(
                     groupedAccountCalendar.Account.Id,
                     SynchronizationProgressCategory.Calendar));
             }

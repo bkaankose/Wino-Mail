@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using FluentAssertions;
-using Wino.Services;
 using Wino.Core.Domain.Models.AutoDiscovery;
 using Wino.Core.Services;
 using Xunit;

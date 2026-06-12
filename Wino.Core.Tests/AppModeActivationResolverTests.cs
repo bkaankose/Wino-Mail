@@ -1,5 +1,5 @@
 using FluentAssertions;
-using Wino.Core.Domain.Activation;
+using Wino.Core.Activation;
 using Wino.Core.Domain.Enums;
 using Xunit;
 

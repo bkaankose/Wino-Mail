@@ -13,7 +13,7 @@ namespace Wino.Services;
 public class SentMailReceiptService(
     IDatabaseService databaseService,
     IFolderService folderService,
-    IAccountService accountService) : BaseDatabaseService(databaseService), ISentMailReceiptServiceInternal
+    IAccountService accountService) : BaseDatabaseService(databaseService), ISentMailReceiptService
 {
     public async Task PopulateReceiptStateAsync(MailCopy mailCopy)
     {

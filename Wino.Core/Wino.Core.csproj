@@ -31,6 +31,7 @@
 		<PackageReference Include="Nito.AsyncEx.Tasks" />
 		<PackageReference Include="NodaTime" />
 		<PackageReference Include="Sentry.Serilog" />
+		<PackageReference Include="SkiaSharp" />
 	</ItemGroup>
 	
 	<ItemGroup>

@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using FluentAssertions;
 using Moq;
 using Wino.Core.Domain.Entities.Mail;
@@ -489,7 +489,7 @@ public class MailFetchingTests : IAsyncLifetime
         bool deduplicateByServerId = false)
     {
         return new MailListInitializationOptions(
-            Folders: folders.ToList(),
+            Folders: folders,
             FilterType: FilterOptionType.All,
             SortingOptionType: SortingOptionType.ReceiveDate,
             CreateThreads: createThreads,
@@ -539,7 +539,7 @@ public class MailFetchingTests : IAsyncLifetime
     {
         var signatureService = new Mock<ISignatureService>();
         var authProvider = new Mock<IAuthenticationProvider>();
-        var mimeFileService = new Mock<IMimeFileServiceInternal>();
+        var mimeFileService = new Mock<IMimeFileService>();
         var preferencesService = new Mock<IPreferencesService>();
         var contactPictureFileService = new Mock<IContactPictureFileService>();
 

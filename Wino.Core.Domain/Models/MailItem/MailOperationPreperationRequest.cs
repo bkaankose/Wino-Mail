@@ -1,8 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Text.Json.Serialization;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Folders;
 
 namespace Wino.Core.Domain.Models.MailItem;
 
@@ -18,26 +18,12 @@ namespace Wino.Core.Domain.Models.MailItem;
 /// Discard draft requests for example should ignore hard delete protection. </param>
 /// <param name="MoveTargetFolder"> Moving folder for the Move operation.
 /// If null and the action is Move, the user will be prompted to select a folder. </param>
-public record MailOperationPreperationRequest
+public record MailOperationPreperationRequest(MailOperation Action, IEnumerable<MailCopy> MailItems, bool ToggleExecution, bool IgnoreHardDeleteProtection, IMailItemFolder MoveTargetFolder)
 {
-    [JsonConstructor]
-    public MailOperationPreperationRequest(MailOperation action,
-                                           IEnumerable<MailCopy> mailItems,
-                                           bool toggleExecution,
-                                           bool ignoreHardDeleteProtection,
-                                           MailItemFolder moveTargetFolder)
-    {
-        Action = action;
-        MailItems = mailItems ?? throw new ArgumentNullException(nameof(mailItems));
-        ToggleExecution = toggleExecution;
-        IgnoreHardDeleteProtection = ignoreHardDeleteProtection;
-        MoveTargetFolder = moveTargetFolder;
-    }
-
     public MailOperationPreperationRequest(MailOperation action,
                                            IEnumerable<MailCopy> mailItems,
                                            bool toggleExecution = false,
-                                           MailItemFolder moveTargetFolder = null,
+                                           IMailItemFolder moveTargetFolder = null,
                                            bool ignoreHardDeleteProtection = false) : this(action, mailItems ?? throw new ArgumentNullException(nameof(mailItems)), toggleExecution, ignoreHardDeleteProtection, moveTargetFolder)
     {
     }
@@ -45,14 +31,8 @@ public record MailOperationPreperationRequest
     public MailOperationPreperationRequest(MailOperation action,
                                            MailCopy singleMailItem,
                                            bool toggleExecution = false,
-                                           MailItemFolder moveTargetFolder = null,
+                                           IMailItemFolder moveTargetFolder = null,
                                            bool ignoreHardDeleteProtection = false) : this(action, new List<MailCopy>() { singleMailItem }, toggleExecution, ignoreHardDeleteProtection, moveTargetFolder)
     {
     }
-
-    public MailOperation Action { get; init; }
-    public IEnumerable<MailCopy> MailItems { get; init; }
-    public bool ToggleExecution { get; init; }
-    public bool IgnoreHardDeleteProtection { get; init; }
-    public MailItemFolder MoveTargetFolder { get; init; }
 }

@@ -157,7 +157,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             }
             else
             {
-                var shouldLinkifyText = ViewModel.CurrentRenderModel?.RenderingOptions?.RenderPlaintextLinks ?? true;
+                var shouldLinkifyText = ViewModel.CurrentRenderModel?.MailRenderingOptions?.RenderPlaintextLinks ?? true;
                 await Chromium.ExecuteScriptFunctionAsync("RenderHTML",
                     JsonSerializer.Serialize(htmlBody, BasicTypesJsonContext.Default.String),
                     JsonSerializer.Serialize(shouldLinkifyText, BasicTypesJsonContext.Default.Boolean));

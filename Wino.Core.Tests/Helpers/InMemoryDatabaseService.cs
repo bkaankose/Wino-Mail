@@ -1,4 +1,4 @@
-﻿using SQLite;
+using SQLite;
 using System.IO;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
@@ -15,13 +15,6 @@ public class InMemoryDatabaseService : IDatabaseService
 {
     private readonly string _databasePath;
     public SQLiteAsyncConnection Connection { get; private set; }
-
-    static InMemoryDatabaseService()
-    {
-        // sqlite-net-base (Domain's flavor of SQLite-net.dll) does not auto-initialize the
-        // native provider the way sqlite-net-pcl does.
-        SQLitePCL.Batteries_V2.Init();
-    }
 
     public InMemoryDatabaseService()
     {

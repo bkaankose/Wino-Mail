@@ -18,33 +18,32 @@ using Wino.Core.Domain.Misc;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Messaging.UI;
 using Wino.Services.Extensions;
-using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Services;
 
-public class MailService : BaseDatabaseService, IMailServiceInternal
+public class MailService : BaseDatabaseService, IMailService
 {
     private const int ItemLoadCount = 100;
 
     private readonly IFolderService _folderService;
-    private readonly IContactServiceInternal _contactService;
+    private readonly IContactService _contactService;
     private readonly IAccountService _accountService;
     private readonly ISignatureService _signatureService;
-    private readonly IMimeFileServiceInternal _mimeFileService;
+    private readonly IMimeFileService _mimeFileService;
     private readonly IPreferencesService _preferencesService;
-    private readonly ISentMailReceiptServiceInternal _sentMailReceiptService;
+    private readonly ISentMailReceiptService _sentMailReceiptService;
     private readonly IMailCategoryService _mailCategoryService;
 
     private readonly ILogger _logger = Log.ForContext<MailService>();
 
     public MailService(IDatabaseService databaseService,
                        IFolderService folderService,
-                       IContactServiceInternal contactService,
+                       IContactService contactService,
                        IAccountService accountService,
                        ISignatureService signatureService,
-                       IMimeFileServiceInternal mimeFileService,
+                       IMimeFileService mimeFileService,
                        IPreferencesService preferencesService,
-                       ISentMailReceiptServiceInternal sentMailReceiptService,
+                       ISentMailReceiptService sentMailReceiptService,
                        IMailCategoryService mailCategoryService) : base(databaseService)
     {
         _folderService = folderService;
@@ -60,9 +59,8 @@ public class MailService : BaseDatabaseService, IMailServiceInternal
     public async Task<(MailCopy draftMailCopy, string draftBase64MimeMessage)> CreateDraftAsync(Guid accountId, DraftCreationOptions draftCreationOptions)
     {
         var composerAccount = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
-        var referencedMimeMessage = await LoadReferencedMimeMessageAsync(accountId, draftCreationOptions?.ReferencedMessage).ConfigureAwait(false);
-        var selectedAlias = await ResolveDraftAliasAsync(composerAccount, referencedMimeMessage).ConfigureAwait(false);
-        var createdDraftMimeMessage = await CreateDraftMimeAsync(composerAccount, draftCreationOptions, selectedAlias, referencedMimeMessage).ConfigureAwait(false);
+        var selectedAlias = await ResolveDraftAliasAsync(composerAccount, draftCreationOptions).ConfigureAwait(false);
+        var createdDraftMimeMessage = await CreateDraftMimeAsync(composerAccount, draftCreationOptions, selectedAlias).ConfigureAwait(false);
 
         var draftFolder = await _folderService.GetSpecialFolderByAccountIdAsync(composerAccount.Id, SpecialFolderType.Draft);
 
@@ -959,7 +957,7 @@ public class MailService : BaseDatabaseService, IMailServiceInternal
 
         if (readMailUniqueIds.Count > 0)
         {
-            UIMessagePublisherProvider.Current.Publish(new BulkMailReadStatusChanged(readMailUniqueIds));
+            WeakReferenceMessenger.Default.Send(new BulkMailReadStatusChanged(readMailUniqueIds));
         }
 
         var hydratedUpdatesByUniqueId = (await HydrateMailCopiesAsync(
@@ -1605,24 +1603,7 @@ public class MailService : BaseDatabaseService, IMailServiceInternal
             ? Task.CompletedTask
             : _mailCategoryService.ReplaceMailAssignmentsAsync(accountId, mailCopy.UniqueId, package.CategoryNames);
 
-    /// <summary>
-    /// Loads the MIME of the replied-to/forwarded mail from the shared MIME storage.
-    /// ReferencedMessage crosses the RPC pipe with only the MailCopy; the actual
-    /// MimeMessage is re-read here via its FileId.
-    /// </summary>
-    private async Task<MimeMessage> LoadReferencedMimeMessageAsync(Guid accountId, ReferencedMessage referencedMessage)
-    {
-        if (referencedMessage?.MailCopy == null)
-            return null;
-
-        var mimeMessageInformation = await _mimeFileService
-            .GetMimeMessageInformationAsync(referencedMessage.MailCopy.FileId, accountId)
-            .ConfigureAwait(false);
-
-        return mimeMessageInformation?.MimeMessage;
-    }
-
-    private async Task<MimeMessage> CreateDraftMimeAsync(MailAccount account, DraftCreationOptions draftCreationOptions, MailAccountAlias selectedAlias, MimeMessage referencedMimeMessage)
+    private async Task<MimeMessage> CreateDraftMimeAsync(MailAccount account, DraftCreationOptions draftCreationOptions, MailAccountAlias selectedAlias)
     {
         // This unique id is stored in mime headers for Wino to identify remote message with local copy.
         // Same unique id will be used for the local copy as well.
@@ -1652,7 +1633,7 @@ public class MailService : BaseDatabaseService, IMailServiceInternal
         _ = draftCreationOptions.Reason switch
         {
             DraftCreationReason.Empty => CreateEmptyDraft(builder, message, draftCreationOptions, signature),
-            _ => CreateReferencedDraft(builder, message, draftCreationOptions, signature, ownAddresses, referencedMimeMessage),
+            _ => CreateReferencedDraft(builder, message, draftCreationOptions, signature, ownAddresses),
         };
 
         // TODO: Migration
@@ -1663,13 +1644,15 @@ public class MailService : BaseDatabaseService, IMailServiceInternal
         return message;
     }
 
-    private async Task<MailAccountAlias> ResolveDraftAliasAsync(MailAccount account, MimeMessage referencedMessage)
+    private async Task<MailAccountAlias> ResolveDraftAliasAsync(MailAccount account, DraftCreationOptions draftCreationOptions)
     {
         var aliases = await _accountService.GetAccountAliasesAsync(account.Id).ConfigureAwait(false);
         var primaryAlias = aliases.FirstOrDefault(a => a.IsPrimary) ?? aliases.FirstOrDefault();
 
-        if (referencedMessage == null)
+        if (draftCreationOptions?.ReferencedMessage?.MimeMessage == null)
             return primaryAlias;
+
+        var referencedMessage = draftCreationOptions.ReferencedMessage.MimeMessage;
 
         MailAccountAlias FindAlias(string address)
         {
@@ -1776,10 +1759,10 @@ public class MailService : BaseDatabaseService, IMailServiceInternal
                                               MimeMessage message,
                                               DraftCreationOptions draftCreationOptions,
                                               string signature,
-                                              ISet<string> ownAddresses,
-                                              MimeMessage referenceMessage)
+                                              ISet<string> ownAddresses)
     {
         var reason = draftCreationOptions.Reason;
+        var referenceMessage = draftCreationOptions.ReferencedMessage.MimeMessage;
         var referenceMailCopy = draftCreationOptions.ReferencedMessage.MailCopy;
         ownAddresses ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -2026,11 +2009,11 @@ public class MailService : BaseDatabaseService, IMailServiceInternal
     public Task<bool> IsMailExistsAsync(string mailCopyId)
         => Connection.ExecuteScalarAsync<bool>("SELECT EXISTS(SELECT 1 FROM MailCopy WHERE Id = ?)", mailCopyId);
 
-    public async Task<List<MailCopy>> GetExistingMailsAsync(Guid folderId, IEnumerable<uint> uniqueIds)
+    public async Task<List<MailCopy>> GetExistingMailsAsync(Guid folderId, IEnumerable<MailKit.UniqueId> uniqueIds)
     {
-        // 0 is MailKit's invalid uid.
         var uidList = uniqueIds?
-            .Where(a => a > 0)
+            .Where(a => a.IsValid)
+            .Select(a => a.Id)
             .Distinct()
             .ToList() ?? [];
 

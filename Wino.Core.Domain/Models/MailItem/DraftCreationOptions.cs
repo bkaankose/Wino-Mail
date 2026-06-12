@@ -1,4 +1,5 @@
-﻿using Wino.Core.Domain.Entities.Mail;
+﻿using MimeKit;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Launch;
 
@@ -19,12 +20,8 @@ public class DraftCreationOptions
     public MailToUri MailToUri { get; set; }
 }
 
-/// <summary>
-/// Reference to the mail being replied to / forwarded. This crosses the RPC pipe, so it
-/// carries no MimeMessage: the companion loads the MIME from the shared storage using
-/// <see cref="MailCopy.FileId"/>.
-/// </summary>
 public class ReferencedMessage
 {
     public MailCopy MailCopy { get; set; }
+    public MimeMessage MimeMessage { get; set; }
 }

@@ -80,7 +80,7 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsStartupBehaviorDisabled))]
     [NotifyPropertyChangedFor(nameof(IsStartupBehaviorEnabled))]
-    public partial StartupBehaviorResult StartupBehaviorResult { get; set; }
+    private StartupBehaviorResult startupBehaviorResult;
 
     private readonly IMailDialogService _dialogService;
     private readonly IStartupBehaviorService _startupBehaviorService;

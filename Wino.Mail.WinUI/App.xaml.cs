@@ -14,6 +14,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.Windows.AppLifecycle;
 using Microsoft.Windows.AppNotifications;
+using MimeKit.Cryptography;
 using Sentry;
 using Windows.ApplicationModel.Activation;
 using Windows.ApplicationModel.DataTransfer;
@@ -21,6 +22,7 @@ using Windows.Storage;
 using Serilog;
 using Wino.Calendar.ViewModels;
 using Wino.Calendar.ViewModels.Interfaces;
+using Wino.Core;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -60,6 +62,7 @@ public partial class App : WinoApplication,
     IRecipient<GetStartedFromWelcomeRequested>,
     IRecipient<WelcomeImportCompletedMessage>
 {
+    private const int InboxSyncsPerFullSync = 20;
     private const string ToggleDefaultModeLaunchArgument = "--mode=toggle-default";
     private ISynchronizationManager? _synchronizationManager;
     private IPreferencesService? _preferencesService;
@@ -72,22 +75,28 @@ public partial class App : WinoApplication,
     private bool _appNotificationsRegistered;
     private int _initialNotificationActivationHandled;
     private int _initialShareActivationHandled;
+    private CancellationTokenSource? _autoSynchronizationLoopCts;
+    private readonly SemaphoreSlim _autoSynchronizationSemaphore = new(1, 1);
     private readonly SemaphoreSlim _activationInfrastructureSemaphore = new(1, 1);
     private readonly SemaphoreSlim _appHostInfrastructureSemaphore = new(1, 1);
-    private RemoteEventPump? _remoteEventPump;
+    private readonly ConcurrentDictionary<Guid, int> _inboxSyncCounters = [];
     private readonly AppNotificationActivationBuffer _bufferedAppNotificationActivations = new();
     private readonly AppNotificationHandler _notificationHandler;
     private readonly AppActivationHandler _activationHandler;
     private readonly DispatcherQueue? _applicationDispatcherQueue;
+    private NativeTrayIcon? _trayIcon;
     private readonly record struct ShellWindowActivationResult(IWinoShellWindow? ShellWindow, bool WasCreated);
 
     internal bool IsExiting => _isExiting;
 
     internal bool ShouldKeepShellWindowAliveOnClose()
     {
-        // Background residency is provided by the companion process now; the UI
-        // process always exits with its last shell window.
-        return false;
+        if (_isExiting)
+            return false;
+
+        var preferencesService = _preferencesService ?? Services.GetService<IPreferencesService>();
+
+        return preferencesService?.AppCloseBehavior != AppCloseBehavior.Terminate;
     }
 
     internal bool TryExitApplicationOnShellWindowClose()
@@ -105,7 +114,6 @@ public partial class App : WinoApplication,
 
     public App()
     {
-        LaunchPerformanceTracker.Mark("App constructor started");
         _applicationDispatcherQueue = DispatcherQueue.GetForCurrentThread();
         _notificationHandler = new AppNotificationHandler(this);
         _activationHandler = new AppActivationHandler(this, _notificationHandler);
@@ -113,13 +121,10 @@ public partial class App : WinoApplication,
         InitializeComponent();
 
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-
-        // S/MIME cryptography (and its SecureMimeContext registration) lives in the
-        // background companion; the UI process performs no cryptographic operations.
+        CryptographyContext.Register(typeof(WindowsSecureMimeContext));
 
         EnsureAppNotificationRegistration();
         RegisterRecipients();
-        LaunchPerformanceTracker.Mark("App constructor completed");
     }
 
     private void EnsureWindowManagerConfigured()
@@ -169,12 +174,85 @@ public partial class App : WinoApplication,
                      ?? windowManager.GetWindow(WinoWindowKind.Shell)
                      ?? windowManager.GetWindow(WinoWindowKind.Welcome);
 
+        if (window is IWinoShellWindow)
+        {
+            UpdateTrayIconState(allowCreation: !_isExiting);
+        }
+
         InitializeNavigationDispatcher();
     }
 
-    // The system tray icon lives in the Wino.BackgroundService companion process now.
+    private void EnsureTrayIconCreated()
+    {
+        if (_trayIcon != null)
+        {
+            LogActivation("System tray icon creation skipped because an icon instance already exists.");
+            return;
+        }
+
+        var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "Wino_Icon.ico");
+        var iconExists = File.Exists(iconPath);
+        var appCloseBehavior = _preferencesService?.AppCloseBehavior ?? AppCloseBehavior.RunInBackgroundWithTrayIcon;
+
+        LogActivation($"Creating system tray icon. IconPath: {iconPath}, IconExists: {iconExists}, AppCloseBehavior: {appCloseBehavior}, HasConfiguredAccounts: {_hasConfiguredAccounts}, OS: {Environment.OSVersion}");
+        SentrySdk.AddBreadcrumb(
+            "Creating system tray icon.",
+            category: "system-tray",
+            data: new Dictionary<string, string>
+            {
+                ["icon_path"] = iconPath,
+                ["icon_exists"] = iconExists.ToString(),
+                ["app_close_behavior"] = appCloseBehavior.ToString(),
+                ["has_configured_accounts"] = _hasConfiguredAccounts.ToString(),
+                ["os_version"] = Environment.OSVersion.ToString()
+            });
+
+        var dispatcherQueue = DispatcherQueue.GetForCurrentThread()
+                             ?? throw new InvalidOperationException("Tray icon must be created on a thread with a DispatcherQueue.");
+
+        NativeTrayIcon? trayIcon = null;
+        try
+        {
+            trayIcon = new NativeTrayIcon(
+                dispatcherQueue,
+                iconPath,
+                "Wino Mail",
+                BuildTrayMenu,
+                ActivatePreferredWindowAsync);
+            trayIcon.Create();
+            _trayIcon = trayIcon;
+            LogActivation("System tray icon created successfully.");
+            SentrySdk.AddBreadcrumb("System tray icon created successfully.", category: "system-tray");
+        }
+        catch (Exception ex)
+        {
+            trayIcon?.Dispose();
+            Log.Error(ex, "Failed to create system tray icon. IconPath: {IconPath}, IconExists: {IconExists}, AppCloseBehavior: {AppCloseBehavior}, HasConfiguredAccounts: {HasConfiguredAccounts}, OS: {OSVersion}",
+                iconPath,
+                iconExists,
+                appCloseBehavior,
+                _hasConfiguredAccounts,
+                Environment.OSVersion);
+
+            LogInitializer.CaptureException(ex, "SystemTrayIconCreation", new Dictionary<string, string>
+            {
+                ["icon_path"] = iconPath,
+                ["icon_exists"] = iconExists.ToString(),
+                ["app_close_behavior"] = appCloseBehavior.ToString(),
+                ["has_configured_accounts"] = _hasConfiguredAccounts.ToString(),
+                ["os_version"] = Environment.OSVersion.ToString()
+            });
+        }
+    }
+
     private void DisposeTrayIcon()
     {
+        if (_trayIcon == null)
+            return;
+
+        LogActivation("Disposing system tray icon.");
+        _trayIcon?.Dispose();
+        _trayIcon = null;
     }
 
     private void EnsurePreferenceChangedSubscription()
@@ -186,8 +264,40 @@ public partial class App : WinoApplication,
         _preferencesService.PreferenceChanged += PreferencesServiceChanged;
     }
 
+    private bool ShouldCreateTrayIcon()
+        => _hasConfiguredAccounts &&
+           (_preferencesService?.AppCloseBehavior ?? AppCloseBehavior.RunInBackgroundWithTrayIcon) == AppCloseBehavior.RunInBackgroundWithTrayIcon;
+
     private void UpdateTrayIconState(bool allowCreation)
     {
+        var shouldCreateTrayIcon = ShouldCreateTrayIcon();
+        LogActivation($"Updating system tray icon state. AllowCreation: {allowCreation}, ShouldCreate: {shouldCreateTrayIcon}, HasConfiguredAccounts: {_hasConfiguredAccounts}, AppCloseBehavior: {_preferencesService?.AppCloseBehavior.ToString() ?? "Unknown"}");
+
+        if (!allowCreation || !shouldCreateTrayIcon)
+        {
+            DisposeTrayIcon();
+            return;
+        }
+
+        EnsureTrayIconCreated();
+    }
+
+    private IReadOnlyList<NativeTrayIcon.NativeTrayMenuItem> BuildTrayMenu()
+    {
+        List<NativeTrayIcon.NativeTrayMenuItem> items =
+        [
+            new(Translator.SystemTrayMenu_Open, ActivatePreferredWindowAsync, IsDefault: true),
+            new(Translator.SystemTrayMenu_ShowWino, OpenMailFromTrayAsync)
+        ];
+
+        items.Add(new NativeTrayIcon.NativeTrayMenuItem(
+            Translator.SystemTrayMenu_ShowWinoCalendar,
+            OpenCalendarFromTrayAsync));
+        items.Add(new NativeTrayIcon.NativeTrayMenuItem(
+            Translator.SystemTrayMenu_ExitWino,
+            ExitApplicationAsync));
+
+        return items;
     }
 
     private Task ActivatePreferredWindowAsync()
@@ -284,22 +394,7 @@ public partial class App : WinoApplication,
             return;
 
         _isExiting = true;
-
-        // With the Terminate preference both processes exit together; otherwise the
-        // companion keeps syncing in the background after the UI is gone.
-        if ((_preferencesService ?? Services.GetService<IPreferencesService>())?.AppCloseBehavior == AppCloseBehavior.Terminate)
-        {
-            try
-            {
-                Services.GetRequiredService<IBackgroundServiceControl>()
-                    .TerminateAsync()
-                    .Wait(TimeSpan.FromSeconds(2));
-            }
-            catch (Exception ex)
-            {
-                LogActivation($"Background service termination request failed: {ex.Message}");
-            }
-        }
+        DisposeTrayIcon();
 
         Application.Current.Exit();
     }
@@ -328,6 +423,7 @@ public partial class App : WinoApplication,
         services.AddSingleton<IAiActionOptionsService, AiActionOptionsService>();
         services.AddSingleton<ReleaseLocalAccountDataCleanupService>();
         services.AddTransient<IProviderService, ProviderService>();
+        services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();
         services.AddSingleton<IAccountCalendarStateService, AccountCalendarStateService>();
         services.AddSingleton<IDateContextProvider, SystemDateContextProvider>();
         services.AddSingleton<ICalendarRangeTextFormatter, CalendarRangeTextFormatter>();
@@ -397,19 +493,13 @@ public partial class App : WinoApplication,
             builder.AddSerilog(dispose: false);
         });
 
-        // The sync engine (Wino.Core: Graph/Google/MSAL/MailKit) lives only in the
-        // background companion. The UI registers shared file/preference services and
-        // swaps everything database/sync-backed for remote proxies below.
+        services.RegisterCoreServices();
         services.RegisterSharedServices();
         services.RegisterCoreUWPServices();
         services.RegisterCoreViewModels();
 
         RegisterUWPServices(services);
         RegisterViewModels(services);
-
-        // Database and synchronization backed services are swapped for remote proxies
-        // over the background companion pipe. Must be the last registration block so it wins.
-        services.RegisterRemoteServices();
 
         return services.BuildServiceProvider();
     }
@@ -454,36 +544,11 @@ public partial class App : WinoApplication,
 
             await InitializeServicesAsync();
 
-            // Connect to (or launch) the background companion that owns the database
-            // and synchronization, then start pumping its forwarded UI messages.
-            // A failed connection must never take down activation: every proxy call
-            // retries lazily, so the app can limp along and recover once the
-            // companion becomes reachable.
-            var backgroundConnection = Services.GetRequiredService<BackgroundServiceConnection>();
-            _remoteEventPump ??= new RemoteEventPump(backgroundConnection, _applicationDispatcherQueue ?? DispatcherQueue.GetForCurrentThread());
-
-            try
-            {
-                await backgroundConnection.EnsureConnectedAsync();
-            }
-            catch (Exception connectException)
-            {
-                Log.Error(connectException, "Could not connect to the background service during activation; proxy calls will keep retrying.");
-            }
-
             _synchronizationManager = Services.GetRequiredService<ISynchronizationManager>();
             _preferencesService = Services.GetRequiredService<IPreferencesService>();
             _accountService = Services.GetRequiredService<IAccountService>();
 
-            try
-            {
-                _hasConfiguredAccounts = (await _accountService.GetAccountsAsync()).Any();
-            }
-            catch (Exception accountsException)
-            {
-                Log.Error(accountsException, "Could not load accounts during activation (background service unreachable?).");
-                _hasConfiguredAccounts = false;
-            }
+            _hasConfiguredAccounts = (await _accountService.GetAccountsAsync()).Any();
 
             _activationInfrastructureInitialized = true;
         }
@@ -969,9 +1034,7 @@ public partial class App : WinoApplication,
 
     /// <summary>
     /// Handles toast action button clicks (Mark as Read, Delete, etc.).
-    /// Quick actions on a cold system are executed by the background companion; this
-    /// path only runs when the UI process itself receives the activation, so the
-    /// request is simply queued through the (proxied) delegator.
+    /// Executes the action without showing UI and exits the app.
     /// </summary>
     private async Task HandleToastActionAsync(MailOperation action, Guid mailItemUniqueId)
     {
@@ -982,15 +1045,82 @@ public partial class App : WinoApplication,
 
         if (mailItem == null)
         {
-            LogActivation("Mail item not found.");
+            LogActivation("Mail item not found. Exiting.");
+            ExitApplication();
             return;
         }
 
         var package = new MailOperationPreperationRequest(action, mailItem);
-        var delegator = Services.GetRequiredService<IWinoRequestDelegator>();
-        await delegator.ExecuteAsync(package);
 
-        LogActivation($"Toast action {action} queued successfully.");
+        // Check if app is already running (has a window).
+        if (HasShellWindow())
+        {
+            // App is running - use the simple delegator pattern.
+            // The synchronization will happen in the background.
+            LogActivation("App is running. Queueing request via delegator.");
+
+            var delegator = Services.GetRequiredService<IWinoRequestDelegator>();
+            await delegator.ExecuteAsync(package);
+
+            // Don't exit - app continues running.
+            LogActivation($"Toast action {action} queued successfully.");
+        }
+        else
+        {
+            // App is not running - we need to wait for sync before exiting.
+            LogActivation("App is not running. Executing synchronization and waiting for completion.");
+
+            if (_synchronizationManager == null)
+            {
+                LogActivation("Synchronization manager is not initialized. Exiting.");
+                ExitApplication();
+                return;
+            }
+
+            var processor = Services.GetRequiredService<IWinoRequestProcessor>();
+            var notificationBuilder = Services.GetRequiredService<INotificationBuilder>();
+
+            // Prepare the requests for the action.
+            var requests = await processor.PrepareRequestsAsync(package);
+
+            if (requests != null && requests.Any())
+            {
+                // Group requests by account ID (usually just one account).
+                var accountIds = requests.GroupBy(a => a.Item.AssignedAccount.Id);
+
+                foreach (var accountGroup in accountIds)
+                {
+                    var accountId = accountGroup.Key;
+
+                    // Queue all requests for this account.
+                    foreach (var request in accountGroup)
+                    {
+                        await _synchronizationManager.QueueRequestAsync(request, accountId, triggerSynchronization: false);
+                    }
+
+                    // Create synchronization options to execute the queued requests.
+                    var syncOptions = new MailSynchronizationOptions()
+                    {
+                        AccountId = accountId,
+                        Type = MailSynchronizationType.ExecuteRequests
+                    };
+
+                    LogActivation($"Executing synchronization for account {accountId}...");
+
+                    // Wait for synchronization to complete before exiting.
+                    var syncResult = await _synchronizationManager.SynchronizeMailAsync(syncOptions);
+
+                    LogActivation($"Toast action {action} completed. Sync result: {syncResult.CompletedState}");
+                }
+
+                await notificationBuilder.UpdateTaskbarIconBadgeAsync();
+            }
+
+            LogActivation("Toast action handling complete. Exiting app.");
+
+            // Exit the app after synchronization is complete.
+            ExitApplication();
+        }
     }
 
     private async Task HandleToastComposeActionAsync(MailOperation action, Guid mailItemUniqueId)
@@ -1025,8 +1155,8 @@ public partial class App : WinoApplication,
             return;
         }
 
-        var isMimeExists = await mimeFileService.IsMimeExistAsync(account.Id, mailItem.FileId);
-        if (!isMimeExists)
+        var mimeInformation = await mimeFileService.GetMimeMessageInformationAsync(mailItem.FileId, account.Id);
+        if (mimeInformation?.MimeMessage == null)
         {
             LogActivation($"Compose toast MIME payload was not found for mail {mailItemUniqueId}.");
             return;
@@ -1058,6 +1188,7 @@ public partial class App : WinoApplication,
             },
             ReferencedMessage = new ReferencedMessage
             {
+                MimeMessage = mimeInformation.MimeMessage,
                 MailCopy = mailItem
             }
         };
@@ -1121,7 +1252,6 @@ public partial class App : WinoApplication,
 
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
         MainWindow = windowManager.CreateWindow(WinoWindowKind.Shell, () => new ShellWindow());
-        LaunchPerformanceTracker.Mark("ShellWindow created");
         InitializeNavigationDispatcher();
 
         if (MainWindow is not IWinoShellWindow shellWindow)
@@ -1246,10 +1376,6 @@ public partial class App : WinoApplication,
         WeakReferenceMessenger.Default.Register<GetStartedFromWelcomeRequested>(this);
         WeakReferenceMessenger.Default.Register<WelcomeImportCompletedMessage>(this);
         WeakReferenceMessenger.Default.Register<LanguageChanged>(this);
-
-        // Jump lists are per-application UI state; the companion asks us to rebuild them.
-        WeakReferenceMessenger.Default.Register<JumpListUpdateRequested>(this, static (recipient, _) =>
-            ((App)recipient).QueueJumpListOptionsUpdateOnUiThread());
     }
 
     public async void Receive(NewMailSynchronizationRequested message)
@@ -1295,19 +1421,6 @@ public partial class App : WinoApplication,
 
             dialogService.InfoBarMessage(Translator.Info_SyncFailedTitle, errorMessage, severity);
         }
-    }
-
-    private async Task ClearInvalidCredentialAttentionIfNeededAsync(Guid accountId)
-    {
-        if (_accountService == null)
-            return;
-
-        var account = await _accountService.GetAccountAsync(accountId);
-
-        if (account?.AttentionReason != AccountAttentionReason.InvalidCredentials)
-            return;
-
-        await _accountService.ClearAccountAttentionAsync(accountId);
     }
 
     public async void Receive(NewCalendarSynchronizationRequested message)
@@ -1388,7 +1501,10 @@ public partial class App : WinoApplication,
 
     private void EnsureAutoSynchronizationLoop()
     {
-        // The automatic synchronization loop runs in the background companion process.
+        if (_autoSynchronizationLoopCts != null)
+            return;
+
+        RestartAutoSynchronizationLoop();
     }
 
     public void Receive(WelcomeImportCompletedMessage message)
@@ -1559,32 +1675,42 @@ public partial class App : WinoApplication,
 
     private void PreferencesServiceChanged(object? sender, string propertyName)
     {
-        // Preference values live in the package-shared settings store, but change
-        // notifications do not cross processes; nudge the companion explicitly.
-        _ = NotifyBackgroundServicePreferenceChangedAsync(propertyName);
-    }
-
-    private async Task NotifyBackgroundServicePreferenceChangedAsync(string propertyName)
-    {
-        try
+        if (propertyName == nameof(IPreferencesService.EmailSyncIntervalMinutes))
         {
-            await Services.GetRequiredService<IBackgroundServiceControl>()
-                .NotifyPreferenceChangedAsync(propertyName);
+            RestartAutoSynchronizationLoop();
+            return;
         }
-        catch (Exception ex)
+
+        if (propertyName is nameof(IPreferencesService.AppCloseBehavior) or nameof(IPreferencesService.IsSystemTrayIconEnabled))
         {
-            LogActivation($"Failed to forward preference change '{propertyName}' to the background service: {ex.Message}");
+            UpdateTrayIconState(allowCreation: true);
         }
     }
 
     private void RestartAutoSynchronizationLoop()
     {
-        // The automatic synchronization loop runs in the background companion process.
+        if (_preferencesService == null)
+            return;
+
+        StopAutoSynchronizationLoop();
+
+        int intervalMinutes = Math.Max(1, _preferencesService.EmailSyncIntervalMinutes);
+        _autoSynchronizationLoopCts = new CancellationTokenSource();
+
+        _ = RunAutoSynchronizationLoopAsync(TimeSpan.FromMinutes(intervalMinutes), _autoSynchronizationLoopCts.Token);
+        LogActivation($"Automatic sync loop started. Interval: {intervalMinutes} minute(s).");
     }
 
     private void StopAutoSynchronizationLoop()
     {
+        if (_autoSynchronizationLoopCts == null)
+            return;
+
+        _autoSynchronizationLoopCts.Cancel();
+        _autoSynchronizationLoopCts.Dispose();
+        _autoSynchronizationLoopCts = null;
     }
+
     private async Task LoadInitialWinoAccountAsync()
     {
         var winoAccountProfileService = Services.GetRequiredService<IWinoAccountProfileService>();
@@ -1594,6 +1720,126 @@ public partial class App : WinoApplication,
         {
             WeakReferenceMessenger.Default.Send(new WinoAccountProfileUpdatedMessage(winoAccount));
         }
+    }
+
+    private async Task RunAutoSynchronizationLoopAsync(TimeSpan interval, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await ExecuteAutoSynchronizationAsync(cancellationToken);
+
+            using var timer = new PeriodicTimer(interval);
+
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                await ExecuteAutoSynchronizationAsync(cancellationToken);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // no-op
+        }
+        catch (Exception ex)
+        {
+            LogActivation($"Automatic sync loop failed: {ex.Message}");
+        }
+    }
+
+    private async Task ExecuteAutoSynchronizationAsync(CancellationToken cancellationToken)
+    {
+        if (_synchronizationManager == null || _accountService == null)
+            return;
+
+        bool lockTaken = false;
+
+        try
+        {
+            lockTaken = await _autoSynchronizationSemaphore.WaitAsync(0, cancellationToken);
+            if (!lockTaken)
+                return;
+
+            var accounts = await _accountService.GetAccountsAsync();
+            var currentAccountIds = accounts.Select(a => a.Id).ToHashSet();
+            foreach (var staleAccountId in _inboxSyncCounters.Keys.Where(a => !currentAccountIds.Contains(a)).ToList())
+            {
+                _inboxSyncCounters.TryRemove(staleAccountId, out _);
+            }
+
+            var synchronizationTasks = accounts
+                .Select(account => ExecuteAutoSynchronizationForAccountAsync(account, cancellationToken))
+                .ToList();
+
+            await Task.WhenAll(synchronizationTasks);
+        }
+        finally
+        {
+            if (lockTaken)
+            {
+                _autoSynchronizationSemaphore.Release();
+            }
+        }
+    }
+
+    private async Task ExecuteAutoSynchronizationForAccountAsync(Wino.Core.Domain.Entities.Shared.MailAccount account, CancellationToken cancellationToken)
+    {
+        if (_synchronizationManager == null)
+            return;
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (_synchronizationManager.IsAccountSynchronizing(account.Id))
+            return;
+
+        var inboxSyncOptions = new MailSynchronizationOptions
+        {
+            AccountId = account.Id,
+            Type = MailSynchronizationType.InboxOnly
+        };
+
+        var inboxSyncResult = await _synchronizationManager.SynchronizeMailAsync(inboxSyncOptions, cancellationToken);
+
+        if (inboxSyncResult.CompletedState is SynchronizationCompletedState.Success or SynchronizationCompletedState.PartiallyCompleted)
+        {
+            await ClearInvalidCredentialAttentionIfNeededAsync(account.Id);
+
+            var inboxSyncCount = _inboxSyncCounters.AddOrUpdate(account.Id, 1, (_, currentCount) => currentCount + 1);
+
+            if (inboxSyncCount >= InboxSyncsPerFullSync)
+            {
+                var fullSyncOptions = new MailSynchronizationOptions
+                {
+                    AccountId = account.Id,
+                    Type = MailSynchronizationType.FullFolders
+                };
+
+                await _synchronizationManager.SynchronizeMailAsync(fullSyncOptions, cancellationToken);
+                _inboxSyncCounters[account.Id] = 0;
+            }
+        }
+
+        if (!account.IsCalendarAccessGranted)
+            return;
+
+        var calendarOptions = new CalendarSynchronizationOptions
+        {
+            AccountId = account.Id,
+            Type = CalendarSynchronizationType.CalendarMetadata
+        };
+
+        await _synchronizationManager.SynchronizeCalendarAsync(calendarOptions, cancellationToken);
+    }
+
+    private async Task ClearInvalidCredentialAttentionIfNeededAsync(Guid accountId)
+    {
+        if (_accountService == null)
+            return;
+
+        var account = await _accountService.GetAccountAsync(accountId);
+
+        if (account?.AttentionReason != AccountAttentionReason.InvalidCredentials)
+            return;
+
+        await _accountService.ClearAccountAttentionAsync(accountId);
     }
 
     /// <summary>
@@ -1827,3 +2073,5 @@ public partial class App : WinoApplication,
     }
 
 }
+
+

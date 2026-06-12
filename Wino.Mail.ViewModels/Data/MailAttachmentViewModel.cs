@@ -1,68 +1,45 @@
-using System.IO;
+﻿using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
+using MimeKit;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Models.Common;
-using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Domain.Models.Reader;
+using Wino.Core.Extensions;
 
 namespace Wino.Mail.ViewModels.Data;
 
-/// <summary>
-/// Attachment of a rendered or composed message. Content stays out of the UI process:
-/// rendered attachments are extracted to a file by the companion on demand (tracked by
-/// <see cref="AttachmentIndex"/>); composer attachments are plain file paths.
-/// </summary>
 public partial class MailAttachmentViewModel : ObservableObject
 {
-    /// <summary>Index in the companion's render model; -1 for composer-added files.</summary>
-    public int AttachmentIndex { get; } = -1;
+    private readonly MimePart _mimePart;
 
     public MailAttachmentType AttachmentType { get; }
     public string FileName { get; }
     public string FilePath { get; set; }
     public string ReadableSize { get; }
-    public long Size { get; }
-
-    /// <summary>
-    /// In-memory content for share-target files that have no backing path yet.
-    /// </summary>
     public byte[] Content { get; set; }
+
+    public IMimeContent MimeContent => _mimePart.Content;
 
     /// <summary>
     /// Gets or sets whether attachment is busy with opening or saving etc.
     /// </summary>
     [ObservableProperty]
-    public partial bool IsBusy { get; set; }
+    private bool isBusy;
 
-    /// <summary>Rendered message attachment; content extracted over RPC on demand.</summary>
-    public MailAttachmentViewModel(MailAttachmentInfo attachmentInfo)
+    public MailAttachmentViewModel(MimePart mimePart)
     {
-        AttachmentIndex = attachmentInfo.AttachmentIndex;
-        FileName = attachmentInfo.FileName;
-        Size = attachmentInfo.Size;
-        ReadableSize = attachmentInfo.Size.GetBytesReadable();
-        AttachmentType = GetAttachmentType(Path.GetExtension(FileName));
-    }
+        _mimePart = mimePart;
 
-    /// <summary>Existing draft attachment, already extracted to a file by the companion.</summary>
-    public MailAttachmentViewModel(DraftAttachmentInfo draftAttachmentInfo)
-    {
-        FileName = draftAttachmentInfo.FileName;
-        FilePath = draftAttachmentInfo.FilePath;
-        Size = draftAttachmentInfo.Size;
-        ReadableSize = draftAttachmentInfo.Size.GetBytesReadable();
-        AttachmentType = GetAttachmentType(Path.GetExtension(FileName));
-    }
+        var memoryStream = new MemoryStream();
 
-    /// <summary>File attached in the composer from a user-picked path.</summary>
-    public MailAttachmentViewModel(string filePath, long size)
-    {
-        FileName = Path.GetFileName(filePath);
-        FilePath = filePath;
-        Size = size;
-        ReadableSize = size.GetBytesReadable();
-        AttachmentType = GetAttachmentType(Path.GetExtension(FileName));
+        using (memoryStream) mimePart.Content.DecodeTo(memoryStream);
+
+        Content = memoryStream.ToArray();
+
+        FileName = mimePart.FileName;
+        ReadableSize = ((long)Content.Length).GetBytesReadable();
+
+        var extension = Path.GetExtension(FileName);
+        AttachmentType = GetAttachmentType(extension);
     }
 
     public MailAttachmentViewModel(SharedFile sharedFile)
@@ -71,9 +48,8 @@ public partial class MailAttachmentViewModel : ObservableObject
 
         FileName = sharedFile.FileName;
         FilePath = sharedFile.FullFilePath;
-        Size = sharedFile.Data?.LongLength ?? 0;
 
-        ReadableSize = Size.GetBytesReadable();
+        ReadableSize = ((long)sharedFile.Data.Length).GetBytesReadable();
 
         var extension = Path.GetExtension(FileName);
         AttachmentType = GetAttachmentType(extension);

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -38,7 +38,7 @@ using Wino.Core.Extensions;
 using Wino.Core.Http;
 using Wino.Core.Helpers;
 using Wino.Core.Integration.Processors;
-using Wino.Core.Domain.Misc;
+using Wino.Core.Misc;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Category;
@@ -46,7 +46,6 @@ using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Messaging.UI;
 using GlobalizationCultureInfo = System.Globalization.CultureInfo;
-using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Core.Synchronizers.Mail;
 
@@ -1247,7 +1246,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
         if (_isFolderStructureChanged)
         {
-            UIMessagePublisherProvider.Current.Publish(new AccountFolderConfigurationUpdated(Account.Id));
+            WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
         }
     }
 
@@ -1757,7 +1756,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     public override List<IRequestBundle<RequestInformation>> CreateDraft(CreateDraftRequest createDraftRequest)
     {
         var reason = createDraftRequest.DraftPreperationRequest.Reason;
-        var message = createDraftRequest.DraftPreperationRequest.GetCreatedLocalDraftMimeMessage().AsOutlookMessage(true);
+        var message = createDraftRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage.AsOutlookMessage(true);
 
         if (reason == DraftCreationReason.Empty)
         {
@@ -1795,7 +1794,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     {
         var sendDraftPreparationRequest = request.Request;
         var mailCopyId = sendDraftPreparationRequest.MailItem.Id;
-        var mimeMessage = sendDraftPreparationRequest.GetMimeMessage();
+        var mimeMessage = sendDraftPreparationRequest.Mime;
 
         // Graph API ignores the From header in direct MIME uploads, so we must convert
         // to a JSON Message object to properly support sending from aliases.
@@ -1816,7 +1815,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     private async Task UploadDraftAttachmentsAsync(SendDraftRequest sendDraftRequest, CancellationToken cancellationToken)
     {
         var mailCopyId = sendDraftRequest.Request.MailItem.Id;
-        var attachments = sendDraftRequest.Request.GetMimeMessage().ExtractAttachments();
+        var attachments = sendDraftRequest.Request.Mime.ExtractAttachments();
 
         if (!attachments.Any())
         {
@@ -1988,6 +1987,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         });
 
     public override async Task DownloadMissingMimeMessageAsync(MailCopy mailItem,
+                                                           MailKit.ITransferProgress transferProgress = null,
                                                            CancellationToken cancellationToken = default)
     {
         try
@@ -3022,7 +3022,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         if (insertedCalendars.Any() || deletedCalendars.Any() || updatedCalendars.Any())
         {
             // TODO: Notify calendar updates.
-            // UIMessagePublisherProvider.Current.Publish(new AccountFolderConfigurationUpdated(Account.Id));
+            // WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
         }
     }
 

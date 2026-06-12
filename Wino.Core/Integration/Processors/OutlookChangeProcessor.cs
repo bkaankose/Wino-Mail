@@ -18,9 +18,9 @@ namespace Wino.Core.Integration.Processors;
 public class OutlookChangeProcessor(IDatabaseService databaseService,
                                     IFolderService folderService,
                                     ICalendarService calendarService,
-                                    IMailServiceInternal mailService,
+                                    IMailService mailService,
                                     IAccountService accountService,
-                                    IMimeFileServiceInternal mimeFileService) : DefaultChangeProcessor(databaseService, folderService, mailService, calendarService, accountService, mimeFileService)
+                                    IMimeFileService mimeFileService) : DefaultChangeProcessor(databaseService, folderService, mailService, calendarService, accountService, mimeFileService)
     , IOutlookChangeProcessor
 {
 

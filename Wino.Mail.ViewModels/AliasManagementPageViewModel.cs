@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
@@ -13,6 +13,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Services;
 
 namespace Wino.Mail.ViewModels;
 
@@ -21,26 +22,23 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
     private readonly IMailDialogService _dialogService;
     private readonly IAccountService _accountService;
     private readonly ISmimeCertificateService _smimeCertificateService;
-    private readonly ISynchronizationManager _synchronizationManager;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSynchronizeAliases))]
-    public partial MailAccount Account { get; set; }
+    private MailAccount account;
 
     [ObservableProperty]
-    public partial List<MailAccountAlias> AccountAliases { get; set; } = [];
+    private List<MailAccountAlias> accountAliases = [];
 
     public bool CanSynchronizeAliases => Account?.IsAliasSyncSupported ?? false;
 
     public AliasManagementPageViewModel(IMailDialogService dialogService,
                                         IAccountService accountService,
-                                        ISmimeCertificateService smimeCertificateService,
-                                        ISynchronizationManager synchronizationManager)
+                                        ISmimeCertificateService smimeCertificateService)
     {
         _dialogService = dialogService;
         _accountService = accountService;
         _smimeCertificateService = smimeCertificateService;
-        _synchronizationManager = synchronizationManager;
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -100,7 +98,7 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
             Type = MailSynchronizationType.Alias
         };
 
-        var aliasSyncResult = await _synchronizationManager.SynchronizeAliasesAsync(Account.Id);
+        var aliasSyncResult = await SynchronizationManager.Instance.SynchronizeAliasesAsync(Account.Id);
 
         if (aliasSyncResult.CompletedState == SynchronizationCompletedState.Success)
             await LoadAliasesAsync();

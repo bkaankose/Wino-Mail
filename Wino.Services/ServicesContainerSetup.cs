@@ -1,44 +1,43 @@
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Services;
 
 public static class ServicesContainerSetup
 {
-    /// <summary>
-    /// Companion-process services: everything from RegisterSharedServices plus the
-    /// database/MimeKit/Ical.Net-backed half that must never load in the UI process.
-    /// </summary>
-    public static void RegisterCompanionServices(this IServiceCollection services)
+    public static void RegisterSharedServices(this IServiceCollection services)
     {
-        services.RegisterSharedServices();
-
+        services.AddSingleton<ITranslationService, TranslationService>();
         services.AddSingleton<IDatabaseService, DatabaseService>();
 
-        // Full MIME file store replaces the shared MimeKit-free registration.
-        services.AddSingleton<MimeFileServiceInternal>();
-        services.AddSingleton<IMimeFileService>(provider => provider.GetRequiredService<MimeFileServiceInternal>());
-        services.AddSingleton<IMimeFileServiceInternal>(provider => provider.GetRequiredService<MimeFileServiceInternal>());
+        services.AddSingleton<IApplicationConfiguration, ApplicationConfiguration>();
+        services.AddSingleton<IWinoLogger, WinoLogger>();
+        services.AddSingleton<IWinoTelemetryService, WinoTelemetryService>();
+        services.AddSingleton<ILaunchProtocolService, LaunchProtocolService>();
+        services.AddSingleton<IShareActivationService, ShareActivationService>();
+        services.AddSingleton<IMimeFileService, MimeFileService>();
+        services.AddSingleton<ICalendarIcsFileService, CalendarIcsFileService>();
+        services.AddTransient<IMimeStorageService, MimeStorageService>();
 
         services.AddTransient<ICalendarService, CalendarService>();
         services.AddTransient<IMailService, MailService>();
-        services.AddTransient<IMailServiceInternal, MailService>();
         services.AddTransient<IMailCategoryService, MailCategoryService>();
         services.AddTransient<ISentMailReceiptService, SentMailReceiptService>();
-        services.AddTransient<ISentMailReceiptServiceInternal, SentMailReceiptService>();
         services.AddTransient<IFolderService, FolderService>();
         services.AddTransient<IAccountService, AccountService>();
         services.AddTransient<IContactService, ContactService>();
-        services.AddTransient<IContactServiceInternal, ContactService>();
-        services.AddSingleton<IWinoAccountApiClient, WinoAccountApiClient>();
         services.AddTransient<ISignatureService, SignatureService>();
         services.AddTransient<IEmailTemplateService, EmailTemplateService>();
+        services.AddTransient<IContextMenuItemService, ContextMenuItemService>();
+        services.AddTransient<ICalendarContextMenuItemService, CalendarContextMenuItemService>();
+        services.AddTransient<ISpecialImapProviderConfigResolver, SpecialImapProviderConfigResolver>();
         services.AddTransient<IKeyboardShortcutService, KeyboardShortcutService>();
+        services.AddSingleton<IWinoAccountApiClient, WinoAccountApiClient>();
         services.AddSingleton<IWinoAccountProfileService, WinoAccountProfileService>();
         services.AddTransient<IWinoAccountDataSyncService, WinoAccountDataSyncService>();
         services.AddSingleton<IContactPictureFileService, ContactPictureFileService>();
-        services.AddTransient<IThumbnailCacheService, ThumbnailCacheService>();
 
         services.AddTransient<ICalDavClient, CalDavClient>();
+        services.AddSingleton<IUpdateManager, UpdateManager>();
     }
 }

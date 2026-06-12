@@ -16,6 +16,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Domain.Models.Telemetry;
 using Wino.Core.Domain.Validation;
+using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Server;
@@ -25,12 +26,12 @@ namespace Wino.Mail.ViewModels;
 public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 {
     private readonly IAutoDiscoveryService _autoDiscoveryService;
+    private readonly ICalDavClient _calDavClient;
     private readonly IAccountService _accountService;
     private readonly IMailDialogService _mailDialogService;
     private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
     private readonly IWinoTelemetryService _telemetryService;
     private readonly WelcomeWizardContext _wizardContext;
-    private readonly ISynchronizationManager _synchronizationManager;
 
     private ImapCalDavSettingsPageMode _pageMode;
     private Guid _editingAccountId;
@@ -236,20 +237,20 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     }
 
     public ImapCalDavSettingsPageViewModel(IAutoDiscoveryService autoDiscoveryService,
+                                           ICalDavClient calDavClient,
                                            IAccountService accountService,
                                            IMailDialogService mailDialogService,
                                            ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
                                            IWinoTelemetryService telemetryService,
-                                           WelcomeWizardContext wizardContext,
-                                           ISynchronizationManager synchronizationManager)
+                                           WelcomeWizardContext wizardContext)
     {
         _autoDiscoveryService = autoDiscoveryService;
+        _calDavClient = calDavClient;
         _accountService = accountService;
         _mailDialogService = mailDialogService;
         _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
         _telemetryService = telemetryService;
         _wizardContext = wizardContext;
-        _synchronizationManager = synchronizationManager;
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -883,7 +884,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     }
     private async Task ValidateImapConnectivityAsync(CustomServerInformation serverInformation)
     {
-        var connectivityResult = await _synchronizationManager
+        var connectivityResult = await SynchronizationManager.Instance
             .TestImapConnectivityAsync(serverInformation, allowSSLHandshake: false)
             .ConfigureAwait(false);
 
@@ -923,7 +924,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             if (!allowCertificate)
                 throw new InvalidOperationException(Translator.IMAPSetupDialog_CertificateDenied);
 
-            connectivityResult = await _synchronizationManager
+            connectivityResult = await SynchronizationManager.Instance
                 .TestImapConnectivityAsync(serverInformation, allowSSLHandshake: true)
                 .ConfigureAwait(false);
         }
@@ -947,12 +948,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             Password = password
         };
 
-        var calDavConnectivityResult = await _synchronizationManager
-            .TestCalDavConnectivityAsync(settings)
-            .ConfigureAwait(false);
-
-        if (!calDavConnectivityResult.IsSuccess)
-            throw new InvalidOperationException(calDavConnectivityResult.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage);
+        await _calDavClient.DiscoverCalendarsAsync(settings).ConfigureAwait(false);
     }
 
     private void CompleteCreateFlow(CustomServerInformation serverInformation)

@@ -12,7 +12,7 @@ namespace Wino.Core.Domain.MenuItems;
 public partial class FolderMenuItem : MenuItemBase<IMailItemFolder, FolderMenuItem>, IFolderMenuItem
 {
     [ObservableProperty]
-    public partial int UnreadItemCount { get; set; }
+    private int unreadItemCount;
 
     public bool HasTextColor => !string.IsNullOrEmpty(Parameter.TextColorHex);
     public bool IsMoveTarget => HandlingFolders.All(a => a.IsMoveTarget);

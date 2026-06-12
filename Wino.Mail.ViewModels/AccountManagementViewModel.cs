@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -20,6 +20,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Services;
 using Wino.Core.ViewModels;
 using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
@@ -36,7 +37,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     private readonly IWinoAccountDataSyncService _syncService;
     private readonly IWinoLogger _winoLogger;
     private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
-    private readonly ISynchronizationManager _synchronizationManager;
+    private readonly ICalDavClient _calDavClient;
 
     public IMailDialogService MailDialogService { get; }
 
@@ -49,14 +50,15 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                                       IWinoAccountDataSyncService syncService,
                                       IWinoLogger winoLogger,
                                       ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
-                                      IPreferencesService preferencesService,
-                                      ISynchronizationManager synchronizationManager) : base(dialogService, navigationService, accountService, providerService, storeManagementService, winoAccountProfileService, preferencesService)
+                                      ICalDavClient calDavClient,
+                                      IAuthenticationProvider authenticationProvider,
+                                      IPreferencesService preferencesService) : base(dialogService, navigationService, accountService, providerService, storeManagementService, winoAccountProfileService, authenticationProvider, preferencesService)
     {
         MailDialogService = dialogService;
         _syncService = syncService;
         _winoLogger = winoLogger;
         _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
-        _synchronizationManager = synchronizationManager;
+        _calDavClient = calDavClient;
     }
 
     [ObservableProperty]
@@ -111,7 +113,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
     private async Task ValidateSpecialImapConnectivityAsync(CustomServerInformation serverInformation)
     {
-        var connectivityResult = await _synchronizationManager
+        var connectivityResult = await SynchronizationManager.Instance
             .TestImapConnectivityAsync(serverInformation, allowSSLHandshake: false)
             .ConfigureAwait(false);
 
@@ -131,7 +133,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
             if (!allowCertificate)
                 throw new InvalidOperationException(Translator.IMAPSetupDialog_CertificateDenied);
 
-            connectivityResult = await _synchronizationManager
+            connectivityResult = await SynchronizationManager.Instance
                 .TestImapConnectivityAsync(serverInformation, allowSSLHandshake: true)
                 .ConfigureAwait(false);
         }
@@ -152,12 +154,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
             Password = serverInformation.CalDavPassword
         };
 
-        var calDavConnectivityResult = await _synchronizationManager
-            .TestCalDavConnectivityAsync(settings)
-            .ConfigureAwait(false);
-
-        if (!calDavConnectivityResult.IsSuccess)
-            throw new InvalidOperationException(calDavConnectivityResult.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage);
+        await _calDavClient.DiscoverCalendarsAsync(settings).ConfigureAwait(false);
     }
 
     private async Task ExecuteUIThreadTaskAsync(Func<Task> action)

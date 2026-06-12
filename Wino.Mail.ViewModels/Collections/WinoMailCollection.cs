@@ -18,9 +18,6 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.UI;
-#if WINRT_EXPOSED
-using WinRT;
-#endif
 
 namespace Wino.Mail.ViewModels.Collections;
 
@@ -90,10 +87,7 @@ public class BulkObservableCollection<T> : ObservableCollection<T>
     }
 }
 
-#if WINRT_EXPOSED
-[GeneratedWinRTExposedType]
-#endif
-public sealed partial class WinoMailGroup : ObservableCollection<object>
+public sealed class WinoMailGroup : BulkObservableCollection<IMailListItem>
 {
     public WinoMailGroup(object key, IEnumerable<IMailListItem> items)
     {
@@ -103,110 +97,10 @@ public sealed partial class WinoMailGroup : ObservableCollection<object>
 
     public object Key { get; }
 
-    public new IMailListItem this[int index]
-    {
-        get => (IMailListItem)base[index];
-        set => base[index] = value;
-    }
-
-    public new IEnumerator<IMailListItem> GetEnumerator()
-        => Items.OfType<IMailListItem>().GetEnumerator();
-
-    internal void AddRange(IEnumerable<IMailListItem> items)
-    {
-        var itemList = items?.Where(static item => item != null).Cast<object>().ToList() ?? [];
-        if (itemList.Count == 0)
-        {
-            return;
-        }
-
-        foreach (var item in itemList)
-        {
-            Items.Add(item);
-        }
-
-        RaiseReset();
-    }
-
-    internal void ReplaceAll(IEnumerable<IMailListItem> items)
-    {
-        Items.Clear();
-
-        foreach (var item in items?.Where(static item => item != null).Cast<object>() ?? [])
-        {
-            Items.Add(item);
-        }
-
-        RaiseReset();
-    }
-
-    internal void RemoveRange(IEnumerable<IMailListItem> items)
-    {
-        var itemList = items?.Where(static item => item != null).ToList() ?? [];
-
-        if (itemList.Count == 0)
-        {
-            return;
-        }
-
-        if (itemList.Count == 1)
-        {
-            Remove(itemList[0]);
-            return;
-        }
-
-        var removedAny = false;
-
-        foreach (var item in itemList)
-        {
-            removedAny |= Items.Remove(item);
-        }
-
-        if (removedAny)
-        {
-            RaiseReset();
-        }
-    }
-
-    private void RaiseReset()
-    {
-        OnPropertyChanged(new PropertyChangedEventArgs(nameof(Count)));
-        OnPropertyChanged(new PropertyChangedEventArgs("Item[]"));
-        OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
-    }
-
+    public new WinoMailGroup Items => this;
 }
 
-#if WINRT_EXPOSED
-[GeneratedWinRTExposedType]
-#endif
-public sealed partial class WinoMailGroupCollection : ObservableCollection<WinoMailGroup>
-{
-    internal void ReplaceAll(IEnumerable<WinoMailGroup> items)
-    {
-        Items.Clear();
-
-        foreach (var item in items?.Where(static item => item != null) ?? [])
-        {
-            Items.Add(item);
-        }
-
-        RaiseReset();
-    }
-
-    internal IEnumerable<WinoMailGroup> EnumerateGroups()
-        => this;
-
-    private void RaiseReset()
-    {
-        OnPropertyChanged(new PropertyChangedEventArgs(nameof(Count)));
-        OnPropertyChanged(new PropertyChangedEventArgs("Item[]"));
-        OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
-    }
-
-}
-
-public partial class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsChangedMessage>
+public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsChangedMessage>
 {
     private readonly List<IMailListItem> _topLevelItems = [];
     private readonly ListItemComparer _listComparer = new();
@@ -232,8 +126,7 @@ public partial class WinoMailCollection : ObservableRecipient, IRecipient<Select
     public bool PruneSingleNonDraftItems { get; set; }
     public IDispatcher CoreDispatcher { get; set; }
 
-    public WinoMailGroupCollection Items { get; } = [];
-    public WinoMailGroupCollection MailItems => Items;
+    public BulkObservableCollection<WinoMailGroup> MailItems { get; } = [];
 
     private sealed class AddMailResult
     {
@@ -316,7 +209,7 @@ public partial class WinoMailCollection : ObservableRecipient, IRecipient<Select
             {
                 DetachThreadHandlers();
                 _topLevelItems.Clear();
-                Items.Clear();
+                MailItems.Clear();
                 ClearIndexes();
             });
 
@@ -1420,11 +1313,11 @@ public partial class WinoMailCollection : ObservableRecipient, IRecipient<Select
             })
             .ToList();
 
-        Items.ReplaceAll(groupedItems);
+        MailItems.ReplaceAll(groupedItems);
 
-        foreach (var mailGroup in Items.EnumerateGroups())
+        foreach (var mailGroup in MailItems)
         {
-            foreach (var item in mailGroup.OfType<IMailListItem>())
+            foreach (var item in mailGroup)
             {
                 _itemToGroupMap[item] = mailGroup;
             }
@@ -1451,7 +1344,7 @@ public partial class WinoMailCollection : ObservableRecipient, IRecipient<Select
         {
             if (!_itemToGroupMap.TryRemove(item, out var group))
             {
-                group = Items.EnumerateGroups().FirstOrDefault(mailGroup => mailGroup.Contains(item));
+                group = MailItems.FirstOrDefault(mailGroup => mailGroup.Contains(item));
             }
 
             if (group == null)
@@ -1482,7 +1375,7 @@ public partial class WinoMailCollection : ObservableRecipient, IRecipient<Select
 
             if (group.Count == 0)
             {
-                Items.Remove(group);
+                MailItems.Remove(group);
             }
         }
 
@@ -1493,7 +1386,6 @@ public partial class WinoMailCollection : ObservableRecipient, IRecipient<Select
         {
             var group = GetOrCreateGroup(groupItems.Key);
             var mergedItems = group
-                .OfType<IMailListItem>()
                 .Concat(groupItems)
                 .Distinct()
                 .OrderBy(static item => item, _listComparer)
@@ -1551,12 +1443,12 @@ public partial class WinoMailCollection : ObservableRecipient, IRecipient<Select
 
     private WinoMailGroup GetOrCreateGroup(object groupKey)
     {
-        var group = Items.EnumerateGroups().FirstOrDefault(mailGroup => Equals(mailGroup.Key, groupKey));
+        var group = MailItems.FirstOrDefault(mailGroup => Equals(mailGroup.Key, groupKey));
 
         if (group == null)
         {
             group = new WinoMailGroup(groupKey, []);
-            Items.Insert(GetGroupInsertIndex(groupKey), group);
+            MailItems.Insert(GetGroupInsertIndex(groupKey), group);
         }
 
         return group;
@@ -1564,15 +1456,15 @@ public partial class WinoMailCollection : ObservableRecipient, IRecipient<Select
 
     private int GetGroupInsertIndex(object groupKey)
     {
-        for (var i = 0; i < Items.Count; i++)
+        for (var i = 0; i < MailItems.Count; i++)
         {
-            if (Items[i] is WinoMailGroup mailGroup && _listComparer.Compare(groupKey, mailGroup.Key) < 0)
+            if (_listComparer.Compare(groupKey, MailItems[i].Key) < 0)
             {
                 return i;
             }
         }
 
-        return Items.Count;
+        return MailItems.Count;
     }
 
     private void RebuildIndexes()

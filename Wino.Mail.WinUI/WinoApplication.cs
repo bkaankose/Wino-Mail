@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.Windows.Globalization;
+using Nito.AsyncEx;
 using Serilog;
 using Windows.ApplicationModel.Activation;
 using Windows.ApplicationModel.Core;
@@ -16,6 +17,7 @@ using Windows.Storage;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Translations;
+using Wino.Core.Services;
 using Wino.Messaging.Client.Shell;
 using Wino.Services;
 using WinUIEx;
@@ -33,6 +35,7 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
     public INewThemeService NewThemeService { get; }
     public IUnderlyingThemeService UnderlyingThemeService { get; }
     public IThumbnailService ThumbnailService { get; }
+    protected IDatabaseService DatabaseService { get; }
     protected ITranslationService TranslationService { get; }
 
     public static WindowEx? MainWindow { get; set; }
@@ -51,6 +54,7 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
         AppConfiguration = Services.GetRequiredService<IApplicationConfiguration>();
 
         NewThemeService = Services.GetRequiredService<INewThemeService>();
+        DatabaseService = Services.GetRequiredService<IDatabaseService>();
         TranslationService = Services.GetRequiredService<ITranslationService>();
         UnderlyingThemeService = Services.GetRequiredService<IUnderlyingThemeService>();
 
@@ -79,12 +83,12 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
 
     public IEnumerable<IInitializeAsync> GetActivationServices()
     {
-        // SQLite and the synchronization manager are owned by the background companion
-        // process; the UI only initializes its own local services and connects to it.
+        yield return DatabaseService;
         yield return TranslationService;
+        yield return Services.GetRequiredService<SynchronizationManagerInitializer>();
     }
 
-    public Task InitializeServicesAsync() => Task.WhenAll(GetActivationServices().Select(a => a.InitializeAsync()));
+    public Task InitializeServicesAsync() => GetActivationServices().Select(a => a.InitializeAsync()).WhenAll();
 
     public bool IsInteractiveLaunchArgs(object args) => args is IActivatedEventArgs;
 

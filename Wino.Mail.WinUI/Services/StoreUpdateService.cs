@@ -14,7 +14,7 @@ public class StoreUpdateService : IStoreUpdateService
 {
     private readonly IWinoLogger _logger;
     private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
-    private StoreContext? _storeContext;
+    private readonly StoreContext _storeContext = StoreContext.GetDefault();
 
     public bool HasAvailableUpdate { get; private set; }
 
@@ -25,11 +25,11 @@ public class StoreUpdateService : IStoreUpdateService
 
     public async Task<bool> RefreshAvailabilityAsync(bool showNotification = false)
     {
-        await _refreshSemaphore.WaitAsync();
+        await _refreshSemaphore.WaitAsync().ConfigureAwait(false);
 
         try
         {
-            var updates = await GetAppAndOptionalStorePackageUpdatesOnMainWindowAsync();
+            var updates = await _storeContext.GetAppAndOptionalStorePackageUpdatesAsync();
             HasAvailableUpdate = updates?.Count > 0;
 
             return HasAvailableUpdate;
@@ -50,7 +50,7 @@ public class StoreUpdateService : IStoreUpdateService
     {
         try
         {
-            var updates = await GetAppAndOptionalStorePackageUpdatesOnMainWindowAsync();
+            var updates = await _storeContext.GetAppAndOptionalStorePackageUpdatesAsync();
 
             if (updates == null || updates.Count == 0)
             {
@@ -88,43 +88,18 @@ public class StoreUpdateService : IStoreUpdateService
 
         if (dispatcherQueue.HasThreadAccess)
         {
-            var storeContext = InitializeStoreContextWithWindow(mainWindow);
-            return await storeContext.RequestDownloadAndInstallStorePackageUpdatesAsync(updates);
+            InitializeStoreContextWithWindow(mainWindow);
+            return await _storeContext.RequestDownloadAndInstallStorePackageUpdatesAsync(updates);
         }
 
         return await dispatcherQueue.EnqueueAsync(async () =>
         {
-            var storeContext = InitializeStoreContextWithWindow(mainWindow);
-            return await storeContext.RequestDownloadAndInstallStorePackageUpdatesAsync(updates);
+            InitializeStoreContextWithWindow(mainWindow);
+            return await _storeContext.RequestDownloadAndInstallStorePackageUpdatesAsync(updates);
         });
     }
 
-    private async Task<IReadOnlyList<StorePackageUpdate>?> GetAppAndOptionalStorePackageUpdatesOnMainWindowAsync()
-    {
-        var mainWindow = WinoApplication.MainWindow
-            ?? throw new InvalidOperationException("Main window is not available for Store update availability refresh.");
-
-        var dispatcherQueue = mainWindow.DispatcherQueue
-            ?? throw new InvalidOperationException("Main window dispatcher is not available for Store update availability refresh.");
-
-        if (dispatcherQueue.HasThreadAccess)
-        {
-            var storeContext = InitializeStoreContextWithWindow(mainWindow);
-            return await storeContext.GetAppAndOptionalStorePackageUpdatesAsync();
-        }
-
-        return await dispatcherQueue.EnqueueAsync(async () =>
-        {
-            var storeContext = InitializeStoreContextWithWindow(mainWindow);
-            return await storeContext.GetAppAndOptionalStorePackageUpdatesAsync();
-        });
-    }
-
-    private StoreContext InitializeStoreContextWithWindow(WindowEx mainWindow)
-    {
-        var storeContext = _storeContext ??= StoreContext.GetDefault();
-        InitializeWithWindow.Initialize(storeContext, WindowNative.GetWindowHandle(mainWindow));
-        return storeContext;
-    }
+    private void InitializeStoreContextWithWindow(WindowEx mainWindow)
+        => InitializeWithWindow.Initialize(_storeContext, WindowNative.GetWindowHandle(mainWindow));
 
 }

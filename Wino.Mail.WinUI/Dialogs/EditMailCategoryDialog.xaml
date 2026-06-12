@@ -37,7 +37,7 @@
                 x:Name="ColorsGridView"
                 IsItemClickEnabled="True"
                 ItemClick="ColorOptionClicked"
-                ItemsSource="{x:Bind AvailableColors, Mode=OneTime}"
+                ItemsSource="{x:Bind AvailableColors, Mode=OneWay}"
                 SelectedItem="{x:Bind SelectedColor, Mode=TwoWay}"
                 SelectionMode="Single">
                 <GridView.ItemTemplate>
@@ -45,13 +45,13 @@
                         <Border
                             Width="100"
                             Padding="8,6"
-                            Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneTime}"
-                            BorderBrush="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(TextColorHex), Mode=OneTime}"
+                            Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}"
+                            BorderBrush="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(TextColorHex), Mode=OneWay}"
                             BorderThickness="1"
                             CornerRadius="10">
                             <TextBlock
                                 HorizontalAlignment="Center"
-                                Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(TextColorHex), Mode=OneTime}"
+                                Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(TextColorHex), Mode=OneWay}"
                                 Text="Preview" />
                         </Border>
                     </DataTemplate>

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
@@ -7,7 +7,6 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.UI;
-using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Core.Requests.Mail;
 
@@ -35,7 +34,7 @@ public record ChangeFlagRequest(MailCopy Item, bool IsFlagged) : MailRequestBase
     {
         if (IsNoOp) return;
 
-        UIMessagePublisherProvider.Current.Publish(new MailStateUpdatedMessage(
+        WeakReferenceMessenger.Default.Send(new MailStateUpdatedMessage(
             new MailStateChange(Item.UniqueId, IsFlagged: IsFlagged),
             EntityUpdateSource.ClientUpdated));
     }
@@ -44,7 +43,7 @@ public record ChangeFlagRequest(MailCopy Item, bool IsFlagged) : MailRequestBase
     {
         if (IsNoOp) return;
 
-        UIMessagePublisherProvider.Current.Publish(new MailStateUpdatedMessage(
+        WeakReferenceMessenger.Default.Send(new MailStateUpdatedMessage(
             new MailStateChange(Item.UniqueId, IsFlagged: _originalIsFlagged),
             EntityUpdateSource.ClientReverted));
     }
@@ -66,7 +65,7 @@ public class BatchChangeFlagRequest : BatchCollection<ChangeFlagRequest>
         if (updatedMails.Count == 0)
             return;
 
-        UIMessagePublisherProvider.Current.Publish(new BulkMailStateUpdatedMessage(
+        WeakReferenceMessenger.Default.Send(new BulkMailStateUpdatedMessage(
             updatedMails,
             EntityUpdateSource.ClientUpdated));
     }
@@ -81,7 +80,7 @@ public class BatchChangeFlagRequest : BatchCollection<ChangeFlagRequest>
         if (updatedMails.Count == 0)
             return;
 
-        UIMessagePublisherProvider.Current.Publish(new BulkMailStateUpdatedMessage(
+        WeakReferenceMessenger.Default.Send(new BulkMailStateUpdatedMessage(
             updatedMails,
             EntityUpdateSource.ClientReverted));
     }

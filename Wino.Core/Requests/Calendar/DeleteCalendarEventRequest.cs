@@ -3,7 +3,6 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.Client.Calendar;
-using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Core.Requests.Calendar;
 
@@ -22,12 +21,12 @@ public record DeleteCalendarEventRequest(CalendarItem Item) : CalendarRequestBas
     public override void ApplyUIChanges()
     {
         // Notify UI that the event was deleted
-        UIMessagePublisherProvider.Current.Publish(new CalendarItemDeleted(Item, EntityUpdateSource.ClientUpdated));
+        WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(Item, EntityUpdateSource.ClientUpdated));
     }
 
     public override void RevertUIChanges()
     {
         // If deletion fails, we should notify the UI to add it back
-        UIMessagePublisherProvider.Current.Publish(new CalendarItemAdded(Item, EntityUpdateSource.ClientReverted));
+        WeakReferenceMessenger.Default.Send(new CalendarItemAdded(Item, EntityUpdateSource.ClientReverted));
     }
 }

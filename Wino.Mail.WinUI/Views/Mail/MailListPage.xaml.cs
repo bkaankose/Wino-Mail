@@ -14,6 +14,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
+using MoreLinq;
 using Windows.Foundation;
 using Windows.System;
 using Wino.Core.Domain;
@@ -180,10 +181,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
     {
         if (ViewModel?.PivotFolders != null)
         {
-            foreach (var pivotFolder in ViewModel.PivotFolders)
-            {
-                pivotFolder.IsExtendedMode = ViewModel.IsMultiSelectionModeEnabled;
-            }
+            ViewModel.PivotFolders.ForEach(a => a.IsExtendedMode = ViewModel.IsMultiSelectionModeEnabled);
         }
     }
 

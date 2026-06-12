@@ -13,7 +13,7 @@
     xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:mail="using:Wino.Core.Domain.Entities.Mail"
-    xmlns:domainenums="using:Wino.Core.Domain.Enums"
+    xmlns:mailkit="using:MimeKit"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:reader="using:Wino.Core.Domain.Models.Reader"
@@ -223,7 +223,7 @@
                                 AutomationProperties.Name="{x:Bind domain:Translator.Buttons_PopOut, Mode=OneTime}"
                                 Click="PopOutButton_Click"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_PopOut}"
-                                Visibility="{x:Bind GetPopOutButtonVisibility(), Mode=OneTime}">
+                                Visibility="{x:Bind GetPopOutButtonVisibility(), Mode=OneWay}">
                                 <AppBarButton.Icon>
                                     <coreControls:WinoFontIcon Icon="OpenInNewWindow" />
                                 </AppBarButton.Icon>
@@ -328,7 +328,7 @@
                                                 AutomationProperties.Name="{x:Bind domain:Translator.Composer_HighImportance, Mode=OneTime}"
                                                 Click="ImportanceClicked">
                                                 <Button.Tag>
-                                                    <domainenums:MailImportance>High</domainenums:MailImportance>
+                                                    <mailkit:MessageImportance>High</mailkit:MessageImportance>
                                                 </Button.Tag>
                                                 <SymbolIcon Symbol="Important" />
                                             </Button>
@@ -337,7 +337,7 @@
                                                 AutomationProperties.Name="{x:Bind domain:Translator.Composer_LowImportance, Mode=OneTime}"
                                                 Click="ImportanceClicked">
                                                 <Button.Tag>
-                                                    <domainenums:MailImportance>Low</domainenums:MailImportance>
+                                                    <mailkit:MessageImportance>Low</mailkit:MessageImportance>
                                                 </Button.Tag>
                                                 <SymbolIcon Symbol="Priority" />
                                             </Button>

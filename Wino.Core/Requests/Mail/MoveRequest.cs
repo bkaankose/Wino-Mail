@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
@@ -7,7 +7,6 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.UI;
-using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Core.Requests.Mail;
 
@@ -21,12 +20,12 @@ public record MoveRequest(MailCopy Item, MailItemFolder FromFolder, MailItemFold
 
     public override void ApplyUIChanges()
     {
-        UIMessagePublisherProvider.Current.Publish(new MailRemovedMessage(Item, EntityUpdateSource.ClientUpdated));
+        WeakReferenceMessenger.Default.Send(new MailRemovedMessage(Item, EntityUpdateSource.ClientUpdated));
     }
 
     public override void RevertUIChanges()
     {
-        UIMessagePublisherProvider.Current.Publish(new MailAddedMessage(Item, EntityUpdateSource.ClientReverted));
+        WeakReferenceMessenger.Default.Send(new MailAddedMessage(Item, EntityUpdateSource.ClientReverted));
     }
 }
 
@@ -42,7 +41,7 @@ public class BatchMoveRequest : BatchCollection<MoveRequest>, IUIChangeRequest
         if (removedMails.Count == 0)
             return;
 
-        UIMessagePublisherProvider.Current.Publish(new BulkMailRemovedMessage(removedMails, EntityUpdateSource.ClientUpdated));
+        WeakReferenceMessenger.Default.Send(new BulkMailRemovedMessage(removedMails, EntityUpdateSource.ClientUpdated));
     }
 
     public override void RevertUIChanges()
@@ -51,6 +50,6 @@ public class BatchMoveRequest : BatchCollection<MoveRequest>, IUIChangeRequest
         if (addedMails.Count == 0)
             return;
 
-        UIMessagePublisherProvider.Current.Publish(new BulkMailAddedMessage(addedMails, EntityUpdateSource.ClientReverted));
+        WeakReferenceMessenger.Default.Send(new BulkMailAddedMessage(addedMails, EntityUpdateSource.ClientReverted));
     }
 }

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Models.Folders;
@@ -26,7 +25,7 @@ public interface IMailItemFolder
     SpecialFolderType SpecialFolderType { get; set; }
     string TextColorHex { get; set; }
     uint UidValidity { get; set; }
-    List<MailItemFolder> ChildFolders { get; set; }
+    List<IMailItemFolder> ChildFolders { get; set; }
     bool IsMoveTarget { get; }
     bool ShowUnreadCount { get; set; }
 

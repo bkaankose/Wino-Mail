@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -261,7 +261,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
             databaseService,
             signatureService.Object,
             Mock.Of<IAuthenticationProvider>(),
-            Mock.Of<IMimeFileServiceInternal>(),
+            Mock.Of<IMimeFileService>(),
             preferencesService,
             Mock.Of<IContactPictureFileService>());
     }

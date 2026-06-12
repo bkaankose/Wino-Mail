@@ -60,13 +60,13 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     public MenuItemCollection FooterItems { get; private set; }
 
     [ObservableProperty]
-    public partial int SelectedMenuItemIndex { get; set; } = -1;
+    private int _selectedMenuItemIndex = -1;
 
     [ObservableProperty]
-    public partial ObservableRangeCollection<string> DateNavigationHeaderItems { get; set; } = [];
+    private ObservableRangeCollection<string> dateNavigationHeaderItems = [];
 
     [ObservableProperty]
-    public partial int SelectedDateNavigationHeaderIndex { get; set; }
+    private int _selectedDateNavigationHeaderIndex;
 
     public bool IsVerticalCalendar => StatePersistenceService.CalendarDisplayType == CalendarDisplayType.Month;
 

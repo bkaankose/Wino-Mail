@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 
@@ -11,7 +10,7 @@ namespace Wino.Core.Domain.Models.Folders;
 public class AccountFolderTree
 {
     public MailAccount Account { get; }
-    public List<MailItemFolder> Folders { get; set; } = new List<MailItemFolder>();
+    public List<IMailItemFolder> Folders { get; set; } = new List<IMailItemFolder>();
 
     public AccountFolderTree(MailAccount account)
     {

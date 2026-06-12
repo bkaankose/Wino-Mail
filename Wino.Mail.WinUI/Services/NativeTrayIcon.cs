@@ -1,4 +1,4 @@
-﻿// Portions adapted from Files Community's SystemTrayIcon implementation.
+// Portions adapted from Files Community's SystemTrayIcon implementation.
 // Copyright (c) Files Community. Licensed under the MIT License.
 
 using System;
@@ -10,7 +10,7 @@ using Serilog;
 
 namespace Wino.Mail.WinUI.Services;
 
-internal sealed partial class NativeTrayIcon : IDisposable
+internal sealed class NativeTrayIcon : IDisposable
 {
     private const uint TrayCallbackMessage = 2048u;
     private const uint MenuCommandOpen = 1u;
@@ -360,7 +360,7 @@ internal sealed partial class NativeTrayIcon : IDisposable
         public static NativeTrayMenuItem Separator() => new(string.Empty, () => Task.CompletedTask, IsSeparator: true);
     }
 
-    private sealed partial class NativeTrayIconWindow : IDisposable
+    private sealed class NativeTrayIconWindow : IDisposable
     {
         private readonly NativeTrayIcon _trayIcon;
         private readonly WindowProcDelegate _windowProcedure;

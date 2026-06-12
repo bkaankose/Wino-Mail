@@ -15,10 +15,7 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authentication;
-using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Connectivity;
-using Wino.Core.Domain.Models.Folders;
-using Wino.Core.Domain.Models.Messaging;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Domain.Models.Telemetry;
 using Wino.Core.Helpers;
@@ -54,7 +51,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     private INotificationBuilder _notificationBuilder;
     private IWinoTelemetryService _telemetryService;
     private IPreferencesService _preferencesService;
-    private ICalDavClient _calDavClient;
 
     private bool _isInitialized = false;
     private bool _isRegisteredForProgressMessages;
@@ -76,8 +72,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                                      INotificationBuilder notificationBuilder,
                                      IAuthenticationProvider authenticationProvider,
                                      IWinoTelemetryService telemetryService,
-                                     IPreferencesService preferencesService,
-                                     ICalDavClient calDavClient)
+                                     IPreferencesService preferencesService)
     {
         await _initializationSemaphore.WaitAsync();
 
@@ -92,7 +87,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             _notificationBuilder = notificationBuilder ?? throw new ArgumentNullException(nameof(notificationBuilder));
             _telemetryService = telemetryService ?? throw new ArgumentNullException(nameof(telemetryService));
             _preferencesService = preferencesService ?? throw new ArgumentNullException(nameof(preferencesService));
-            _calDavClient = calDavClient ?? throw new ArgumentNullException(nameof(calDavClient));
 
             // DO NOT create synchronizers here to avoid requiring window handles during initialization.
             // Synchronizers will be created lazily when first accessed via GetOrCreateSynchronizerAsync.
@@ -108,31 +102,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         finally
         {
             _initializationSemaphore.Release();
-        }
-    }
-
-    /// <summary>
-    /// Tests CalDav server connectivity by discovering calendars with the given connection settings.
-    /// </summary>
-    /// <param name="connectionSettings">CalDav service url and credentials to validate.</param>
-    /// <returns>Test results indicating success or failure with details</returns>
-    public async Task<CalDavConnectivityTestResults> TestCalDavConnectivityAsync(CalDavConnectionSettings connectionSettings)
-    {
-        EnsureInitialized();
-
-        try
-        {
-            _logger.Information("Testing CalDav connectivity for {ServiceUri}", connectionSettings.ServiceUri);
-
-            await _calDavClient.DiscoverCalendarsAsync(connectionSettings).ConfigureAwait(false);
-
-            _logger.Information("CalDav connectivity test successful");
-            return CalDavConnectivityTestResults.Success();
-        }
-        catch (Exception exception)
-        {
-            _logger.Error(exception, "CalDav connectivity test failed");
-            return CalDavConnectivityTestResults.Failure(exception);
         }
     }
 
@@ -666,7 +635,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         if (pack.VisibleMailActionPack == null)
             return;
 
-        UIMessagePublisherProvider.Current.Publish(new UndoableMailActionPackChanged(pack.VisibleMailActionPack, state));
+        WeakReferenceMessenger.Default.Send(new UndoableMailActionPackChanged(pack.VisibleMailActionPack, state));
     }
 
     /// <summary>
@@ -936,7 +905,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
         try
         {
-            await synchronizer.DownloadMissingMimeMessageAsync(mailItem, cancellationToken);
+            await synchronizer.DownloadMissingMimeMessageAsync(mailItem, null, cancellationToken);
             return mailItem.Id.ToString(); // Return some identifier, actual implementation might be different
         }
         catch (SynchronizerEntityNotFoundException)
@@ -952,86 +921,9 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     }
 
     /// <summary>
-    /// Returns unique mail ids that currently have queued (pending) operations.
-    /// </summary>
-    public async Task<List<Guid>> GetPendingMailOperationUniqueIdsAsync(Guid accountId)
-    {
-        EnsureInitialized();
-
-        var synchronizer = await GetOrCreateSynchronizerAsync(accountId).ConfigureAwait(false);
-        return synchronizer?.GetPendingOperationUniqueIds()?.ToList() ?? [];
-    }
-
-    /// <summary>
-    /// Checks whether the given mail item has a queued (pending) operation.
-    /// </summary>
-    public async Task<bool> HasPendingMailOperationAsync(Guid accountId, Guid mailUniqueId)
-    {
-        EnsureInitialized();
-
-        var synchronizer = await GetOrCreateSynchronizerAsync(accountId).ConfigureAwait(false);
-        return synchronizer?.HasPendingOperation(mailUniqueId) ?? false;
-    }
-
-    /// <summary>
-    /// Returns calendar item ids that currently have queued (pending) operations.
-    /// </summary>
-    public async Task<List<Guid>> GetPendingCalendarOperationIdsAsync(Guid accountId)
-    {
-        EnsureInitialized();
-
-        var synchronizer = await GetOrCreateSynchronizerAsync(accountId).ConfigureAwait(false);
-        return synchronizer?.GetPendingCalendarOperationIds()?.ToList() ?? [];
-    }
-
-    /// <summary>
-    /// Performs a provider online search over the given folders.
-    /// </summary>
-    public async Task<List<MailCopy>> OnlineSearchAsync(Guid accountId, string queryText, List<MailItemFolder> folders, CancellationToken cancellationToken = default)
-    {
-        EnsureInitialized();
-
-        var synchronizer = await GetOrCreateSynchronizerAsync(accountId).ConfigureAwait(false);
-        if (synchronizer == null)
-            return [];
-
-        var results = await synchronizer
-            .OnlineSearchAsync(queryText, folders?.Cast<IMailItemFolder>().ToList() ?? [], cancellationToken)
-            .ConfigureAwait(false);
-
-        return results ?? [];
-    }
-
-    /// <summary>
-    /// Downloads a calendar attachment using the appropriate synchronizer.
-    /// The account id is passed explicitly because the calendar item's assigned calendar
-    /// navigation property does not cross the process boundary.
-    /// </summary>
-    public Task DownloadCalendarAttachmentAsync(
-        Guid accountId,
-        Wino.Core.Domain.Entities.Calendar.CalendarItem calendarItem,
-        Wino.Core.Domain.Entities.Calendar.CalendarAttachment attachment,
-        string localFilePath,
-        CancellationToken cancellationToken = default)
-        => DownloadCalendarAttachmentCoreAsync(accountId, calendarItem, attachment, localFilePath, cancellationToken);
-
-    /// <summary>
     /// Downloads a calendar attachment using the appropriate synchronizer.
     /// </summary>
-    public Task DownloadCalendarAttachmentAsync(
-        Wino.Core.Domain.Entities.Calendar.CalendarItem calendarItem,
-        Wino.Core.Domain.Entities.Calendar.CalendarAttachment attachment,
-        string localFilePath,
-        CancellationToken cancellationToken = default)
-        => DownloadCalendarAttachmentCoreAsync(
-            calendarItem?.AssignedCalendar?.AccountId ?? Guid.Empty,
-            calendarItem,
-            attachment,
-            localFilePath,
-            cancellationToken);
-
-    private async Task DownloadCalendarAttachmentCoreAsync(
-        Guid accountId,
+    public async Task DownloadCalendarAttachmentAsync(
         Wino.Core.Domain.Entities.Calendar.CalendarItem calendarItem,
         Wino.Core.Domain.Entities.Calendar.CalendarAttachment attachment,
         string localFilePath,
@@ -1045,9 +937,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         if (attachment == null)
             throw new ArgumentNullException(nameof(attachment));
 
-        if (accountId == Guid.Empty)
-            accountId = calendarItem.AssignedCalendar?.AccountId ?? Guid.Empty;
-
+        var accountId = calendarItem.AssignedCalendar?.AccountId ?? Guid.Empty;
         if (accountId == Guid.Empty)
             throw new InvalidOperationException("Calendar item does not have an assigned account.");
 
@@ -1384,20 +1274,12 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     public async Task<TokenInformationEx> HandleAuthorizationAsync(MailProviderType providerType,
                                                                   MailAccount account = null,
                                                                   bool proposeCopyAuthorizationURL = false,
-                                                                  bool forceInteractive = false,
-                                                                  long parentWindowHandle = 0)
+                                                                  bool forceInteractive = false)
     {
         EnsureInitialized();
 
         try
         {
-            // Interactive auth requests carry the UI window handle so the WAM broker
-            // dialog can be parented across the process boundary.
-            if (parentWindowHandle != 0)
-            {
-                _authenticationProvider.SetInteractiveAuthorizationWindow(parentWindowHandle);
-            }
-
             var authenticator = _authenticationProvider.GetAuthenticator(providerType);
 
             // Some users are having issues with Gmail authentication.
@@ -1516,7 +1398,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
         cache.AddOrUpdate(normalized.AccountId, normalized, (_, _) => normalized);
 
-        UIMessagePublisherProvider.Current.Publish(new AccountSynchronizationProgressUpdatedMessage(normalized));
+        WeakReferenceMessenger.Default.Send(new AccountSynchronizationProgressUpdatedMessage(normalized));
     }
 
     private static string BuildSynchronizationStatus(

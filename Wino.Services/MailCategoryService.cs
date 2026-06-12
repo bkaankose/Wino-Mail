@@ -8,7 +8,6 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.UI;
-using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Services;
 
@@ -221,7 +220,7 @@ public class MailCategoryService : BaseDatabaseService, IMailCategoryService
             }, typeof(MailCategoryAssignment)).ConfigureAwait(false);
         }
 
-        UIMessagePublisherProvider.Current.Publish(new RefreshUnreadCountsMessage(accountId));
+        WeakReferenceMessenger.Default.Send(new RefreshUnreadCountsMessage(accountId));
     }
 
     public async Task AssignCategoryAsync(Guid categoryId, IEnumerable<Guid> mailCopyUniqueIds)
@@ -251,7 +250,7 @@ public class MailCategoryService : BaseDatabaseService, IMailCategoryService
             }, typeof(MailCategoryAssignment)).ConfigureAwait(false);
         }
 
-        UIMessagePublisherProvider.Current.Publish(new RefreshUnreadCountsMessage(category.MailAccountId));
+        WeakReferenceMessenger.Default.Send(new RefreshUnreadCountsMessage(category.MailAccountId));
     }
 
     public async Task UnassignCategoryAsync(Guid categoryId, IEnumerable<Guid> mailCopyUniqueIds)
@@ -269,7 +268,7 @@ public class MailCategoryService : BaseDatabaseService, IMailCategoryService
             $"DELETE FROM {nameof(MailCategoryAssignment)} WHERE {nameof(MailCategoryAssignment.MailCategoryId)} = ? AND {nameof(MailCategoryAssignment.MailCopyUniqueId)} IN ({placeholders})",
             [categoryId, .. uniqueIds.Cast<object>()]).ConfigureAwait(false);
 
-        UIMessagePublisherProvider.Current.Publish(new RefreshUnreadCountsMessage(category.MailAccountId));
+        WeakReferenceMessenger.Default.Send(new RefreshUnreadCountsMessage(category.MailAccountId));
     }
 
     public async Task<List<MailCategory>> GetCategoriesForMailAsync(Guid accountId, IEnumerable<Guid> mailCopyUniqueIds)
@@ -383,8 +382,8 @@ public class MailCategoryService : BaseDatabaseService, IMailCategoryService
 
     private void NotifyCategoryStructureChanged(Guid accountId)
     {
-        UIMessagePublisherProvider.Current.Publish(new AccountsMenuRefreshRequested(false));
-        UIMessagePublisherProvider.Current.Publish(new RefreshUnreadCountsMessage(accountId));
+        WeakReferenceMessenger.Default.Send(new AccountsMenuRefreshRequested(false));
+        WeakReferenceMessenger.Default.Send(new RefreshUnreadCountsMessage(accountId));
     }
 
     private static string NormalizeCategoryName(string name)

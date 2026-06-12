@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Serialization;
@@ -24,13 +24,7 @@ public class CalendarSynchronizationResult
 
     public SynchronizationCompletedState CompletedState { get; set; }
 
-    // System.Exception cannot cross the pipe; the message is carried separately and
-    // the receiving side reads ExceptionMessage (Issues carry the structured details).
-    [JsonIgnore]
     public Exception Exception { get; set; }
-
-    private string _exceptionMessage;
-    public string ExceptionMessage { get => _exceptionMessage ?? Exception?.Message; set => _exceptionMessage = value; }
 
     public List<SynchronizationIssue> Issues { get; set; } = [];
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Enums;
@@ -7,7 +7,7 @@ using Wino.Mail.WinUI;
 
 namespace Wino.Services;
 
-public partial class StatePersistenceService : ObservableObject, IStatePersistanceService
+public class StatePersistenceService : ObservableObject, IStatePersistanceService
 {
     public event EventHandler<string?>? StatePropertyChanged;
 

@@ -9,8 +9,8 @@ public sealed class AiActionOptionsService : IAiActionOptionsService
 {
     public IReadOnlyList<AiTranslateLanguageOption> GetTranslateLanguageOptions()
     {
-        return new AiTranslateLanguageOption[]
-        {
+        return
+        [
             new("en-US", Translator.Composer_AiTranslateLanguageEnglish),
             new("tr-TR", Translator.Composer_AiTranslateLanguageTurkish),
             new("de-DE", Translator.Composer_AiTranslateLanguageGerman),
@@ -26,13 +26,13 @@ public sealed class AiActionOptionsService : IAiActionOptionsService
             new("zh-CN", Translator.Composer_AiTranslateLanguageChineseSimplified),
             new("ar-SA", Translator.Composer_AiTranslateLanguageArabic),
             new("hi-IN", Translator.Composer_AiTranslateLanguageHindi),
-        };
+        ];
     }
 
     public IReadOnlyList<AiRewriteModeOption> GetRewriteModeOptions()
     {
-        return new AiRewriteModeOption[]
-        {
+        return
+        [
             new("polite", Translator.Composer_AiRewritePolite, Translator.Composer_AiRewritePoliteDescription),
             new("angry", Translator.Composer_AiRewriteAngry, Translator.Composer_AiRewriteAngryDescription),
             new("happy", Translator.Composer_AiRewriteHappy, Translator.Composer_AiRewriteHappyDescription),
@@ -41,6 +41,6 @@ public sealed class AiActionOptionsService : IAiActionOptionsService
             new("shorter", Translator.Composer_AiRewriteShorter, Translator.Composer_AiRewriteShorterDescription),
             new("clearer", Translator.Composer_AiRewriteClearer, Translator.Composer_AiRewriteClearerDescription),
             new(string.Empty, Translator.Composer_AiRewriteCustom, Translator.Composer_AiRewriteCustomDescription, true),
-        };
+        ];
     }
 }

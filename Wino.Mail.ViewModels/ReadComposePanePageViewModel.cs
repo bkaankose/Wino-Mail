@@ -13,19 +13,19 @@ public partial class ReadComposePanePageViewModel : MailBaseViewModel
 
     [ObservableProperty]
     [NotifyPropertyChangedRecipients]
-    public partial string CurrentReaderFont { get; set; }
+    string currentReaderFont;
 
     [ObservableProperty]
     [NotifyPropertyChangedRecipients]
-    public partial int CurrentReaderFontSize { get; set; }
+    int currentReaderFontSize;
 
     [ObservableProperty]
     [NotifyPropertyChangedRecipients]
-    public partial string CurrentComposerFont { get; set; }
+    string currentComposerFont;
 
     [ObservableProperty]
     [NotifyPropertyChangedRecipients]
-    public partial int CurrentComposerFontSize { get; set; }
+    int currentComposerFontSize;
 
     public ReadComposePanePageViewModel(IMailDialogService dialogService,
                                     IFontService fontService,

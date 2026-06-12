@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reactive.Linq;
+using System.Threading;
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI.Controls;
 using EmailValidation;
@@ -14,7 +16,6 @@ using Wino.Core.Domain;
 using Wino.Messaging.Client.Shell;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Mail.WinUI.Controls;
-using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Views.Abstract;
 
 namespace Wino.Calendar.Views;
@@ -63,17 +64,22 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
 
     private IDisposable GetSuggestionBoxDisposable(TokenizingTextBox box)
     {
-        return new SuggestionBoxTextDebouncer(box, TimeSpan.FromMilliseconds(120), async (senderBox, args) =>
-        {
-            if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput)
-                return;
+        return Observable.FromEventPattern<TypedEventHandler<AutoSuggestBox, AutoSuggestBoxTextChangedEventArgs>, AutoSuggestBoxTextChangedEventArgs>(
+                handler => box.TextChanged += handler,
+                handler => box.TextChanged -= handler)
+            .Throttle(TimeSpan.FromMilliseconds(120))
+            .ObserveOn(SynchronizationContext.Current!)
+            .Subscribe(async eventPattern =>
+            {
+                if (eventPattern.EventArgs.Reason != AutoSuggestionBoxTextChangeReason.UserInput)
+                    return;
 
-            if (senderBox.Text.Length < 2)
-                return;
+                if (eventPattern.Sender is not AutoSuggestBox senderBox || senderBox.Text.Length < 2)
+                    return;
 
-            var addresses = await ViewModel.SearchContactsAsync(senderBox.Text).ConfigureAwait(false);
-            await ViewModel.ExecuteUIThread(() => senderBox.ItemsSource = addresses);
-        });
+                var addresses = await ViewModel.SearchContactsAsync(senderBox.Text).ConfigureAwait(false);
+                await ViewModel.ExecuteUIThread(() => senderBox.ItemsSource = addresses);
+            });
     }
 
     private async void TokenItemAdding(TokenizingTextBox sender, TokenItemAddingEventArgs args)

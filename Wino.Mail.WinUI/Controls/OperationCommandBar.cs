@@ -180,7 +180,7 @@ public sealed partial class OperationCommandBar : CommandBar
         {
             if (item is IMenuOperation menuItem)
             {
-                TrackMenuItemHandlers((IEnumerable<IMenuOperation>)new IMenuOperation[] { menuItem });
+                TrackMenuItemHandlers([menuItem]);
             }
         }
     }

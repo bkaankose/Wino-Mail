@@ -61,10 +61,10 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
     public List<AppThemeBase> AppThemes { get; set; }
 
     [ObservableProperty]
-    public partial ElementThemeContainer SelectedElementTheme { get; set; }
+    private ElementThemeContainer selectedElementTheme;
 
     [ObservableProperty]
-    public partial MailListDisplayMode SelectedInfoDisplayMode { get; set; }
+    private MailListDisplayMode selectedInfoDisplayMode;
 
     private AppColorViewModel _selectedAppColor;
 

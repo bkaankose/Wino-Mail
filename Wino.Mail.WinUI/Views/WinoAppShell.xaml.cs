@@ -13,8 +13,6 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
 using Windows.Foundation;
 using Windows.System;
-using Wino.Calendar.ViewModels;
-using Wino.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
@@ -25,13 +23,15 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Helpers;
+using Wino.Calendar.ViewModels;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.WinUI.ViewModels;
+using Wino.Controls;
 using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
-using Wino.Mail.WinUI.ViewModels;
+using Wino.Helpers;
 using Wino.MenuFlyouts;
 using Wino.MenuFlyouts.Context;
 using Wino.Messaging.Client.Accounts;
@@ -82,7 +82,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         ViewModel.PreferencesService.PreferenceChanged += PreferencesServiceChanged;
         ViewModel.StatePersistenceService.StatePropertyChanged += StatePersistenceServiceChanged;
 
-        // InitializeCalendarControls();
+        InitializeCalendarControls();
         UpdateEventDetailsVisualState();
     }
 
@@ -161,7 +161,6 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        LaunchPerformanceTracker.ReportShellLoaded();
         UpdateNavigationPaneLayout(navigationView.DisplayMode);
         RefreshNavigationViewBindings();
         RefreshCalendarControls();
@@ -285,7 +284,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private void RefreshCalendarControls()
     {
-        // CalendarHostListView.ItemsSource = ViewModel.CalendarClient.GroupedAccountCalendars;
+        CalendarHostListView.ItemsSource = ViewModel.CalendarClient.GroupedAccountCalendars;
         SynchronizeVisibleDateRangeCalendar();
     }
 

@@ -7,8 +7,8 @@
     xmlns:helpers="using:Wino.Helpers"
     xmlns:local="using:Wino.Calendar.Controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:skia="using:SkiaSharp.Views.Windows"
     xmlns:viewModels="using:Wino.Calendar.ViewModels.Data"
-    xmlns:win2d="using:Microsoft.Graphics.Canvas.UI.Xaml"
     x:Name="Root"
     SizeChanged="ControlSizeChanged"
     Unloaded="ControlUnloaded"
@@ -78,7 +78,7 @@
                 Height="44"
                 Margin="64,0,0,0"
                 Background="{ThemeResource LayerFillColorDefaultBrush}">
-                <win2d:CanvasControl x:Name="TimedHeaderCanvas" Draw="TimedHeaderCanvasDraw" IsHitTestVisible="False" />
+                <skia:SKXamlCanvas x:Name="TimedHeaderCanvas" PaintSurface="TimedHeaderCanvasPaintSurface" />
                 <ItemsControl
                     x:Name="TimedHeadersItemsControl"
                     HorizontalContentAlignment="Stretch"
@@ -113,7 +113,7 @@
                 PointerExited="CalendarDropTargetPointerExited"
                 PointerMoved="TimedAllDayHostPointerMoved"
                 Visibility="{x:Bind HasTimedAllDayItems, Mode=OneWay}">
-                <win2d:CanvasControl x:Name="TimedAllDayCanvas" Draw="TimedAllDayCanvasDraw" IsHitTestVisible="False" />
+                <skia:SKXamlCanvas x:Name="TimedAllDayCanvas" PaintSurface="TimedAllDayCanvasPaintSurface" />
                 <Canvas x:Name="TimedAllDayItemsCanvas" />
             </Grid>
 
@@ -148,7 +148,7 @@
                             Height="{x:Bind TimelineHeight, Mode=OneWay}"
                             PointerExited="CalendarDropTargetPointerExited"
                             PointerMoved="TimedViewportPointerMoved">
-                            <win2d:CanvasControl x:Name="TimedStructureCanvas" Draw="TimedStructureCanvasDraw" IsHitTestVisible="False" />
+                            <skia:SKXamlCanvas x:Name="TimedStructureCanvas" PaintSurface="TimedStructureCanvasPaintSurface" />
                             <Border
                                 x:Name="TimedInteractionLayer"
                                 Background="Transparent"
@@ -190,7 +190,7 @@
                 PointerExited="CalendarDropTargetPointerExited"
                 PointerMoved="MonthViewportPointerMoved"
                 VerticalAlignment="Stretch">
-                <win2d:CanvasControl x:Name="MonthStructureCanvas" Draw="MonthStructureCanvasDraw" IsHitTestVisible="False" />
+                <skia:SKXamlCanvas x:Name="MonthStructureCanvas" PaintSurface="MonthStructureCanvasPaintSurface" />
                 <Border
                     x:Name="MonthInteractionLayer"
                     Background="Transparent"

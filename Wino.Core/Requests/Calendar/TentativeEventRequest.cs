@@ -3,7 +3,6 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.Client.Calendar;
-using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Core.Requests.Calendar;
 
@@ -28,13 +27,13 @@ public record TentativeEventRequest(CalendarItem Item, string ResponseMessage = 
         Item.Status = CalendarItemStatus.Tentative;
         
         // Notify UI that the event status was updated
-        UIMessagePublisherProvider.Current.Publish(new CalendarItemUpdated(Item, EntityUpdateSource.ClientUpdated));
+        WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(Item, EntityUpdateSource.ClientUpdated));
     }
 
     public override void RevertUIChanges()
     {
         // If tentative acceptance fails, revert to the previous status
         Item.Status = _previousStatus;
-        UIMessagePublisherProvider.Current.Publish(new CalendarItemUpdated(Item, EntityUpdateSource.ClientReverted));
+        WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(Item, EntityUpdateSource.ClientReverted));
     }
 }

@@ -21,6 +21,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Services;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.UI;
@@ -159,7 +160,6 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     private readonly IMailDialogService _dialogService;
     private readonly IDateContextProvider _dateContextProvider;
     private readonly ICalendarRangeTextFormatter _calendarRangeTextFormatter;
-    private readonly ISynchronizationManager _synchronizationManager;
 
     private readonly SemaphoreSlim _calendarLoadingSemaphore = new(1);
     private bool _subscriptionsAttached;
@@ -187,8 +187,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         IWinoRequestDelegator winoRequestDelegator,
         IMailDialogService dialogService,
         IDateContextProvider dateContextProvider,
-        ICalendarRangeTextFormatter calendarRangeTextFormatter,
-        ISynchronizationManager synchronizationManager)
+        ICalendarRangeTextFormatter calendarRangeTextFormatter)
     {
         StatePersistanceService = statePersistanceService;
         AccountCalendarStateService = accountCalendarStateService;
@@ -201,7 +200,6 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         _dialogService = dialogService;
         _dateContextProvider = dateContextProvider;
         _calendarRangeTextFormatter = calendarRangeTextFormatter;
-        _synchronizationManager = synchronizationManager;
 
         RefreshSettings();
     }
@@ -793,13 +791,13 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             if (!IsPageActive(lifetimeVersion))
                 return [];
 
-            var events = await _calendarService.GetCalendarEventsAsync(calendarViewModel.Id, loadPeriod.Start, loadPeriod.End).ConfigureAwait(false);
+            var events = await _calendarService.GetCalendarEventsAsync(calendarViewModel, loadPeriod).ConfigureAwait(false);
             foreach (var calendarItem in events)
             {
                 if (calendarItem.IsRecurringParent || calendarItem.IsHidden)
                     continue;
 
-                calendarItem.AssignedCalendar = calendarViewModel;
+                calendarItem.AssignedCalendar ??= calendarViewModel;
 
                 if (!loadedItems.ContainsKey(calendarItem.Id))
                 {
@@ -953,20 +951,20 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             if (!IsPageActive(lifetimeVersion))
                 return pendingCalendarItemIds;
 
-            List<Guid> pendingIds;
+            IWinoSynchronizerBase synchronizer;
             try
             {
-                pendingIds = await _synchronizationManager.GetPendingCalendarOperationIdsAsync(accountId).ConfigureAwait(false);
+                synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(accountId).ConfigureAwait(false);
             }
             catch (InvalidOperationException)
             {
                 return pendingCalendarItemIds;
             }
 
-            if (pendingIds == null)
+            if (synchronizer == null)
                 continue;
 
-            foreach (var pendingCalendarItemId in pendingIds)
+            foreach (var pendingCalendarItemId in synchronizer.GetPendingCalendarOperationIds())
             {
                 pendingCalendarItemIds.Add(pendingCalendarItemId);
             }

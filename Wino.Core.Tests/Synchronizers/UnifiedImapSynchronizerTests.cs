@@ -1,4 +1,4 @@
-﻿using FluentAssertions;
+using FluentAssertions;
 using MailKit;
 using MailKit.Net.Imap;
 using Moq;
@@ -7,7 +7,6 @@ using System.Reflection;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
-using Wino.Services;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Extensions;
 using Wino.Core.Synchronizers.ImapSync;
@@ -23,7 +22,7 @@ public class UnifiedImapSynchronizerTests
     {
         return new UnifiedImapSynchronizer(
             Mock.Of<IFolderService>(),
-            Mock.Of<IMailServiceInternal>(),
+            Mock.Of<IMailService>(),
             Mock.Of<IImapSynchronizerErrorHandlerFactory>());
     }
 
@@ -210,9 +209,9 @@ public class UnifiedImapSynchronizerTests
         summaryMock.SetupGet(x => x.UniqueId).Returns(new UniqueId(42));
         summaryMock.SetupGet(x => x.Flags).Returns(MessageFlags.None);
 
-        var mailServiceMock = new Mock<IMailServiceInternal>();
+        var mailServiceMock = new Mock<IMailService>();
         mailServiceMock
-            .Setup(x => x.GetExistingMailsAsync(localFolder.Id, It.IsAny<IEnumerable<uint>>()))
+            .Setup(x => x.GetExistingMailsAsync(localFolder.Id, It.IsAny<IEnumerable<UniqueId>>()))
             .ReturnsAsync(new List<MailCopy>());
         mailServiceMock
             .Setup(x => x.CreateMailAsync(localFolder.MailAccountId, It.IsAny<NewMailItemPackage>()))
@@ -270,9 +269,9 @@ public class UnifiedImapSynchronizerTests
             IsFlagged = false
         };
 
-        var mailServiceMock = new Mock<IMailServiceInternal>();
+        var mailServiceMock = new Mock<IMailService>();
         mailServiceMock
-            .Setup(x => x.GetExistingMailsAsync(localFolder.Id, It.IsAny<IEnumerable<uint>>()))
+            .Setup(x => x.GetExistingMailsAsync(localFolder.Id, It.IsAny<IEnumerable<UniqueId>>()))
             .ReturnsAsync([existingMailCopy]);
         mailServiceMock
             .Setup(x => x.ApplyMailStateUpdatesAsync(It.IsAny<IEnumerable<MailCopyStateUpdate>>()))
@@ -327,9 +326,9 @@ public class UnifiedImapSynchronizerTests
             IsRead = false
         };
 
-        var mailServiceMock = new Mock<IMailServiceInternal>();
+        var mailServiceMock = new Mock<IMailService>();
         mailServiceMock
-            .Setup(x => x.GetExistingMailsAsync(localFolder.Id, It.IsAny<IEnumerable<uint>>()))
+            .Setup(x => x.GetExistingMailsAsync(localFolder.Id, It.IsAny<IEnumerable<UniqueId>>()))
             .ReturnsAsync([existingMailCopy]);
         mailServiceMock
             .Setup(x => x.ApplyMailStateUpdatesAsync(It.IsAny<IEnumerable<MailCopyStateUpdate>>()))

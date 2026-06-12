@@ -9,6 +9,7 @@ using CommunityToolkit.WinUI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using MimeKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -23,7 +24,6 @@ public sealed partial class CalendarMailItemDisplayInformationControl : UserCont
     private static readonly ConcurrentDictionary<(Guid FileId, string CultureName, bool Prefer24HourTimeFormat), string> EventDateRangeCache = [];
 
     private readonly IMimeFileService _mimeFileService;
-    private readonly IMailRenderService _mailRenderService;
     private readonly IPreferencesService _preferencesService;
     private CancellationTokenSource? _loadingCts;
 
@@ -46,7 +46,6 @@ public sealed partial class CalendarMailItemDisplayInformationControl : UserCont
         InitializeComponent();
 
         _mimeFileService = App.Current.Services.GetRequiredService<IMimeFileService>();
-        _mailRenderService = App.Current.Services.GetRequiredService<IMailRenderService>();
         _preferencesService = App.Current.Services.GetRequiredService<IPreferencesService>();
 
         DisplayMode = _preferencesService.MailItemDisplayMode;
@@ -96,10 +95,14 @@ public sealed partial class CalendarMailItemDisplayInformationControl : UserCont
                 return;
             }
 
-            // ICS content is extracted by the companion; no MIME parsing happens here.
-            var icsContent = await _mailRenderService.GetCalendarInvitationIcsAsync(MailItem.MailCopy.FileId, accountId.Value);
+            var mimeInfo = await _mimeFileService.GetMimeMessageInformationAsync(MailItem.MailCopy.FileId, accountId.Value, token);
+            if (mimeInfo == null)
+            {
+                EventDateRangeText = Translator.UnknownDateHeader;
+                return;
+            }
 
-            var renderedDateRange = ExtractCalendarDateRange(icsContent);
+            var renderedDateRange = ExtractCalendarDateRange(mimeInfo.MimeMessage);
 
             EventDateRangeText = string.IsNullOrWhiteSpace(renderedDateRange) ? Translator.UnknownDateHeader : renderedDateRange;
             EventDateRangeCache.TryAdd(cacheKey, EventDateRangeText);
@@ -117,8 +120,9 @@ public sealed partial class CalendarMailItemDisplayInformationControl : UserCont
     private void BaseMailControlHoverActionExecuted(object sender, MailOperationPreperationRequest e)
         => HoverActionExecuted?.Invoke(this, e);
 
-    private string ExtractCalendarDateRange(string calendarContent)
+    private string ExtractCalendarDateRange(MimeMessage message)
     {
+        var calendarContent = GetCalendarContent(message);
         if (string.IsNullOrWhiteSpace(calendarContent))
         {
             return string.Empty;
@@ -149,6 +153,40 @@ public sealed partial class CalendarMailItemDisplayInformationControl : UserCont
         }
 
         return FormatDisplayDateRange(startLocal, endLocal, isAllDay);
+    }
+
+    private static string GetCalendarContent(MimeMessage message)
+    {
+        var calendarTextPart = message.BodyParts
+            .OfType<TextPart>()
+            .FirstOrDefault(x => x.ContentType?.MimeType?.Equals("text/calendar", StringComparison.OrdinalIgnoreCase) == true);
+
+        if (calendarTextPart != null)
+        {
+            return calendarTextPart.Text ?? string.Empty;
+        }
+
+        var calendarMimePart = message.BodyParts
+            .OfType<MimePart>()
+            .FirstOrDefault(x => x.ContentType?.MimeType?.Equals("text/calendar", StringComparison.OrdinalIgnoreCase) == true);
+
+        if (calendarMimePart == null)
+        {
+            return string.Empty;
+        }
+
+        using var stream = new MemoryStream();
+        calendarMimePart.Content?.DecodeTo(stream);
+        var contentBytes = stream.ToArray();
+
+        if (contentBytes.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        var charset = calendarMimePart.ContentType?.Charset;
+        var encoding = string.IsNullOrWhiteSpace(charset) ? System.Text.Encoding.UTF8 : System.Text.Encoding.GetEncoding(charset);
+        return encoding.GetString(contentBytes);
     }
 
     private static string UnfoldIcs(string content)

@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.IO;
 using System.Xml.Linq;
 using FluentAssertions;
@@ -9,7 +9,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Integration.Processors;
-using Wino.Core.Domain.Misc;
+using Wino.Core.Misc;
 using Wino.Core.Synchronizers.ImapSync;
 using Wino.Core.Synchronizers.Mail;
 using Wino.Services;
@@ -222,7 +222,7 @@ public class CalDavCalendarMetadataTests
 
         var unifiedSynchronizer = new UnifiedImapSynchronizer(
             Mock.Of<IFolderService>(),
-            Mock.Of<IMailServiceInternal>(),
+            Mock.Of<IMailService>(),
             Mock.Of<IImapSynchronizerErrorHandlerFactory>());
 
         return new ImapSynchronizer(

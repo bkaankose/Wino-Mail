@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -17,7 +17,6 @@ using Wino.Core.Domain.Misc;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.UI;
-using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Services;
 
@@ -73,7 +72,7 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         await Connection.ExecuteAsync(sql, parameters.ToArray());
 
-        UIMessagePublisherProvider.Current.Publish(new AccountsMenuRefreshRequested());
+        WeakReferenceMessenger.Default.Send(new AccountsMenuRefreshRequested());
     }
 
     public async Task<string> UpdateSyncIdentifierRawAsync(Guid accountId, string syncIdentifier)
@@ -113,7 +112,7 @@ public class AccountService : BaseDatabaseService, IAccountService
             }
         }
 
-        UIMessagePublisherProvider.Current.Publish(new AccountsMenuRefreshRequested());
+        WeakReferenceMessenger.Default.Send(new AccountsMenuRefreshRequested());
     }
 
     public async Task CreateMergeAccountsAsync(MergedInbox mergedInbox, IEnumerable<MailAccount> accountsToMerge)
@@ -188,7 +187,7 @@ public class AccountService : BaseDatabaseService, IAccountService
             await Connection.UpdateAsync(account, typeof(MailAccount));
         }
 
-        UIMessagePublisherProvider.Current.Publish(new AccountsMenuRefreshRequested());
+        WeakReferenceMessenger.Default.Send(new AccountsMenuRefreshRequested());
     }
 
     public async Task RenameMergedAccountAsync(Guid mergedInboxId, string newName)
@@ -311,7 +310,7 @@ public class AccountService : BaseDatabaseService, IAccountService
             "DELETE FROM MailCopy WHERE Id IN (SELECT Id FROM MailCopy WHERE FolderId IN (SELECT Id FROM MailItemFolder WHERE MailAccountId = ?))",
             accountId);
 
-        UIMessagePublisherProvider.Current.Publish(new AccountCacheResetMessage(accountId, accountCacheResetReason));
+        WeakReferenceMessenger.Default.Send(new AccountCacheResetMessage(accountId, accountCacheResetReason));
     }
 
     public async Task DeleteAccountAsync(MailAccount account)
@@ -401,12 +400,12 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         foreach (var calendarItem in deletedCalendarItems)
         {
-            UIMessagePublisherProvider.Current.Publish(new CalendarItemDeleted(calendarItem, EntityUpdateSource.Server));
+            WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(calendarItem, EntityUpdateSource.Server));
         }
 
         foreach (var accountCalendar in accountCalendars)
         {
-            UIMessagePublisherProvider.Current.Publish(new CalendarListDeleted(accountCalendar));
+            WeakReferenceMessenger.Default.Send(new CalendarListDeleted(accountCalendar));
         }
 
         ReportUIChange(new AccountRemovedMessage(account));
@@ -843,7 +842,7 @@ public class AccountService : BaseDatabaseService, IAccountService
             await Connection.UpdateAsync(account, typeof(MailAccount));
         }
 
-        ReportUIChange(new AccountMenuItemsReordered(accountIdOrderPair));
+        Messenger.Send(new AccountMenuItemsReordered(accountIdOrderPair));
     }
 
     public async Task<MailAccountAlias> GetPrimaryAccountAliasAsync(Guid accountId)

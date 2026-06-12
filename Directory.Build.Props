@@ -1,22 +1,7 @@
 <Project>
 	<PropertyGroup>
 		<LangVersion>preview</LangVersion>
-		<Nullable>annotations</Nullable>
-		<Configurations>Debug;Release</Configurations>
-		<EnableNETAnalyzers>true</EnableNETAnalyzers>
-		<AnalysisLevel>latest</AnalysisLevel>
-		<AnalysisMode>Default</AnalysisMode>
-		<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
-	</PropertyGroup>
-
-	<PropertyGroup Condition="'$(Configuration)' == 'Release' and $([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net8.0'))">
 		<IsAotCompatible>true</IsAotCompatible>
-		<IsTrimmable>true</IsTrimmable>
-		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
-		<EnableAotAnalyzer>true</EnableAotAnalyzer>
-		<EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
-		<CsWinRTAotOptimizerEnabled>true</CsWinRTAotOptimizerEnabled>
-		<CsWinRTAotWarningLevel>2</CsWinRTAotWarningLevel>
-		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<Configurations>Debug;Release</Configurations>
 	</PropertyGroup>
 </Project>

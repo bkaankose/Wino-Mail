@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Generic;
@@ -47,6 +47,7 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
     protected IProviderService ProviderService { get; }
     protected IStoreManagementService StoreManagementService { get; }
     protected IWinoAccountProfileService WinoAccountProfileService { get; }
+    protected IAuthenticationProvider AuthenticationProvider { get; }
     protected IPreferencesService PreferencesService { get; }
 
     public AccountManagementPageViewModelBase(IDialogServiceBase dialogService,
@@ -55,6 +56,7 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
                                               IProviderService providerService,
                                               IStoreManagementService storeManagementService,
                                               IWinoAccountProfileService winoAccountProfileService,
+                                              IAuthenticationProvider authenticationProvider,
                                               IPreferencesService preferencesService)
     {
         DialogService = dialogService;
@@ -63,6 +65,7 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
         ProviderService = providerService;
         StoreManagementService = storeManagementService;
         WinoAccountProfileService = winoAccountProfileService;
+        AuthenticationProvider = authenticationProvider;
         PreferencesService = preferencesService;
     }
 

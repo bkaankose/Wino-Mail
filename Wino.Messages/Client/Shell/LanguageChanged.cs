@@ -1,8 +1,6 @@
-using Wino.Core.Domain.Interfaces;
-
-namespace Wino.Messaging.Client.Shell;
+﻿namespace Wino.Messaging.Client.Shell;
 
 /// <summary>
 /// When application language is updated.
 /// </summary>
-public record LanguageChanged : IUIMessage;
+public record LanguageChanged;

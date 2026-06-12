@@ -29,13 +29,7 @@ public class Program
     [STAThread]
     static int Main(string[] args)
     {
-        LaunchPerformanceTracker.Start();
         WinRT.ComWrappersSupport.InitializeComWrappers();
-        LaunchPerformanceTracker.Mark("COM wrappers initialized");
-
-        // Source-generated serialization for all RPC payloads; required before any pipe traffic.
-        Wino.Ipc.Contracts.WinoIpcJson.Initialize(Wino.Ipc.Serialization.WinoIpcJsonContext.Default);
-        LaunchPerformanceTracker.Mark("IPC JSON initialized");
 
         if (TryCaptureCommandLineToastActivation(args))
         {

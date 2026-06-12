@@ -13,7 +13,7 @@ namespace Wino.Core.Domain.MenuItems;
 public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IMailItemFolder, FolderMenuItem>>, IAccountMenuItem
 {
     [ObservableProperty]
-    public partial int UnreadItemCount { get; set; }
+    private int unreadItemCount;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsSynchronizationProgressVisible), nameof(IsProgressIndeterminate), nameof(SynchronizationProgress), nameof(SynchronizationProgressValue))]
@@ -40,7 +40,7 @@ public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IM
     public partial string SynchronizationStatus { get; set; } = string.Empty;
 
     [ObservableProperty]
-    public partial bool IsEnabled { get; set; } = true;
+    private bool _isEnabled = true;
 
     public bool IsAttentionRequired => AttentionReason != AccountAttentionReason.None;
 

@@ -3,7 +3,7 @@ using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Extensions;
+using Wino.Core.Extensions;
 
 namespace Wino.Calendar.ViewModels.Data;
 

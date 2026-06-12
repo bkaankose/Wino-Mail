@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -18,10 +18,10 @@ using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Domain.Misc;
+using Wino.Core.Misc;
+using Wino.Core.Services;
 using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
-using Wino.Mail.ViewModels.Helpers;
 using Wino.Messaging.Client.Navigation;
 
 namespace Wino.Mail.ViewModels;
@@ -29,13 +29,12 @@ namespace Wino.Mail.ViewModels;
 public partial class AccountDetailsPageViewModel : MailBaseViewModel
 {
     private readonly IMailDialogService _dialogService;
-    private readonly ISynchronizationManager _synchronizationManager;
-    private readonly INativeAppService _nativeAppService;
     private readonly IAccountService _accountService;
     private readonly IFolderService _folderService;
     private readonly ICalendarService _calendarService;
     private readonly IStatePersistanceService _statePersistanceService;
     private readonly INewThemeService _themeService;
+    private readonly IImapTestService _imapTestService;
     private readonly INotificationBuilder _notificationBuilder;
     private bool isLoaded = false;
 
@@ -82,22 +81,22 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
     // Mail-related properties
     [ObservableProperty]
-    public partial bool IsFocusedInboxEnabled { get; set; }
+    private bool isFocusedInboxEnabled;
 
     [ObservableProperty]
-    public partial bool AreNotificationsEnabled { get; set; }
+    private bool areNotificationsEnabled;
 
     [ObservableProperty]
-    public partial bool IsSignatureEnabled { get; set; }
+    private bool isSignatureEnabled;
 
     [ObservableProperty]
-    public partial bool IsAppendMessageSettingVisible { get; set; }
+    private bool isAppendMessageSettingVisible;
 
     [ObservableProperty]
-    public partial bool IsAppendMessageSettinEnabled { get; set; }
+    private bool isAppendMessageSettinEnabled;
 
     [ObservableProperty]
-    public partial bool IsTaskbarBadgeEnabled { get; set; }
+    private bool isTaskbarBadgeEnabled;
 
     [ObservableProperty]
     public partial bool IsJumpListEnabled { get; set; }
@@ -151,23 +150,21 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
 
     public AccountDetailsPageViewModel(IMailDialogService dialogService,
-        ISynchronizationManager synchronizationManager,
         IAccountService accountService,
         IFolderService folderService,
         ICalendarService calendarService,
         IStatePersistanceService statePersistanceService,
         INewThemeService themeService,
-        INotificationBuilder notificationBuilder,
-        INativeAppService nativeAppService)
+        IImapTestService imapTestService,
+        INotificationBuilder notificationBuilder)
     {
         _dialogService = dialogService;
-        _synchronizationManager = synchronizationManager;
-        _nativeAppService = nativeAppService;
         _accountService = accountService;
         _folderService = folderService;
         _calendarService = calendarService;
         _statePersistanceService = statePersistanceService;
         _themeService = themeService;
+        _imapTestService = imapTestService;
         _notificationBuilder = notificationBuilder;
 
         var colorHexList = _themeService.GetAvailableAccountColors();
@@ -228,7 +225,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         if (!confirmation)
             return;
 
-        await _synchronizationManager.DestroySynchronizerAsync(Account.Id);
+        await SynchronizationManager.Instance.DestroySynchronizerAsync(Account.Id);
         await _accountService.DeleteAccountAsync(Account);
 
         _dialogService.InfoBarMessage(Translator.Info_AccountDeletedTitle, string.Format(Translator.Info_AccountDeletedMessage, Account.Name), InfoBarMessageType.Success);
@@ -241,17 +238,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     {
         try
         {
-            // IMAP connectivity is validated by the companion process over RPC.
-            var connectivityResult = await _synchronizationManager.TestImapConnectivityAsync(ServerInformation, allowSSLHandshake: true);
-
-            if (connectivityResult.IsSuccess)
-            {
-                _dialogService.InfoBarMessage(Translator.IMAPSetupDialog_ValidationSuccess_Title, Translator.IMAPSetupDialog_ValidationSuccess_Message, InfoBarMessageType.Success);
-            }
-            else
-            {
-                _dialogService.InfoBarMessage(Translator.IMAPSetupDialog_ValidationFailed_Title, connectivityResult.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage, InfoBarMessageType.Error);
-            }
+            await _imapTestService.TestImapConnectionAsync(ServerInformation, true);
+            _dialogService.InfoBarMessage(Translator.IMAPSetupDialog_ValidationSuccess_Title, Translator.IMAPSetupDialog_ValidationSuccess_Message, InfoBarMessageType.Success);
         }
         catch (Exception ex)
         {
@@ -516,12 +504,11 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
                 Account.IsMailAccessGranted = selectedOption.IsMailAccessGranted;
                 Account.IsCalendarAccessGranted = selectedOption.IsCalendarAccessGranted;
 
-                await _synchronizationManager.HandleAuthorizationAsync(
+                await SynchronizationManager.Instance.HandleAuthorizationAsync(
                     Account.ProviderType,
                     Account,
                     Account.ProviderType == MailProviderType.Gmail,
-                    forceInteractive: true,
-                    parentWindowHandle: (_nativeAppService.GetCoreWindowHwnd?.Invoke() ?? IntPtr.Zero).ToInt64());
+                    forceInteractive: true);
             }
         }
         catch
@@ -538,8 +525,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
         if (selectedOption.IsMailAccessGranted && !previousMailAccess)
         {
-            await _synchronizationManager.SynchronizeProfileAsync(Account.Id);
-            await _synchronizationManager.SynchronizeMailAsync(new MailSynchronizationOptions
+            await SynchronizationManager.Instance.SynchronizeProfileAsync(Account.Id);
+            await SynchronizationManager.Instance.SynchronizeMailAsync(new MailSynchronizationOptions
             {
                 AccountId = Account.Id,
                 Type = MailSynchronizationType.FullFolders
@@ -547,7 +534,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
             if (Account.ProviderType == MailProviderType.Outlook)
             {
-                await _synchronizationManager.SynchronizeMailAsync(new MailSynchronizationOptions
+                await SynchronizationManager.Instance.SynchronizeMailAsync(new MailSynchronizationOptions
                 {
                     AccountId = Account.Id,
                     Type = MailSynchronizationType.Categories
@@ -565,7 +552,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
                 }
             }
 
-            await _synchronizationManager.SynchronizeMailAsync(new MailSynchronizationOptions
+            await SynchronizationManager.Instance.SynchronizeMailAsync(new MailSynchronizationOptions
             {
                 AccountId = Account.Id,
                 Type = MailSynchronizationType.Alias
@@ -574,7 +561,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
         if (selectedOption.IsCalendarAccessGranted && !previousCalendarAccess)
         {
-            await _synchronizationManager.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
+            await SynchronizationManager.Instance.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
             {
                 AccountId = Account.Id,
                 Type = CalendarSynchronizationType.CalendarMetadata

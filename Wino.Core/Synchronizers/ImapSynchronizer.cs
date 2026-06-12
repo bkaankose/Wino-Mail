@@ -33,11 +33,10 @@ using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Core.Synchronizers.ImapSync;
-using Wino.Core.Domain.Misc;
+using Wino.Core.Misc;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 using Wino.Services.Extensions;
-using Wino.Core.Domain.Models.Messaging;
 
 namespace Wino.Core.Synchronizers.Mail;
 
@@ -105,7 +104,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
     /// Returns UniqueId for the given mail copy id.
     /// </summary>
     private UniqueId GetUniqueId(string mailCopyId) => new(MailkitClientExtensions.ResolveUid(mailCopyId));
-    private UniqueId GetUniqueId(MailCopy mailCopy) => MailkitMessageExtensions.ResolveUidStruct(mailCopy);
+    private UniqueId GetUniqueId(MailCopy mailCopy) => MailkitClientExtensions.ResolveUidStruct(mailCopy);
 
     private async Task DeleteLocalCopiesMissingFromRemoteAsync(
         IMailFolder remoteFolder,
@@ -264,7 +263,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             var remoteDraftFolder = await client.GetFolderAsync(request.DraftPreperationRequest.CreatedLocalDraftCopy.AssignedFolder.RemoteFolderId).ConfigureAwait(false);
 
             await remoteDraftFolder.OpenAsync(FolderAccess.ReadWrite).ConfigureAwait(false);
-            await remoteDraftFolder.AppendAsync(request.DraftPreperationRequest.GetCreatedLocalDraftMimeMessage(), MessageFlags.Draft).ConfigureAwait(false);
+            await remoteDraftFolder.AppendAsync(request.DraftPreperationRequest.CreatedLocalDraftMimeMessage, MessageFlags.Draft).ConfigureAwait(false);
             await remoteDraftFolder.CloseAsync().ConfigureAwait(false);
         }, request, request);
     }
@@ -300,13 +299,11 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             if (!smtpClient.IsAuthenticated)
                 await smtpClient.AuthenticateAsync(Account.ServerInformation.OutgoingServerUsername, Account.ServerInformation.OutgoingServerPassword);
 
-            var mimeMessage = singleRequest.GetMimeMessage();
-
             // Remove local draft header before sending to prevent leaking to recipients.
-            mimeMessage.Headers.Remove(Domain.Constants.WinoLocalDraftHeader);
+            singleRequest.Mime.Headers.Remove(Domain.Constants.WinoLocalDraftHeader);
 
             // TODO: Transfer progress implementation as popup in the UI.
-            await smtpClient.SendAsync(mimeMessage, default);
+            await smtpClient.SendAsync(singleRequest.Mime, default);
             await smtpClient.DisconnectAsync(true);
 
             // SMTP sent the message, but we need to remove it from the Draft folder.
@@ -327,13 +324,14 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                 var sentFolder = await client.GetFolderAsync(singleRequest.SentFolder.RemoteFolderId);
 
                 await sentFolder.OpenAsync(FolderAccess.ReadWrite);
-                await sentFolder.AppendAsync(mimeMessage, MessageFlags.Seen);
+                await sentFolder.AppendAsync(singleRequest.Mime, MessageFlags.Seen);
                 await sentFolder.CloseAsync();
             }
         }, request, request);
     }
 
     public override async Task DownloadMissingMimeMessageAsync(MailCopy mailItem,
+                                                           ITransferProgress transferProgress = null,
                                                            CancellationToken cancellationToken = default)
     {
         var folder = mailItem.AssignedFolder;
@@ -349,7 +347,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
             await remoteFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
 
-            var message = await remoteFolder.GetMessageAsync(uniqueId, cancellationToken).ConfigureAwait(false);
+            var message = await remoteFolder.GetMessageAsync(uniqueId, cancellationToken, transferProgress).ConfigureAwait(false);
 
             await _imapChangeProcessor.SaveMimeFileAsync(mailItem.FileId, message, Account.Id).ConfigureAwait(false);
             await remoteFolder.CloseAsync(false, cancellationToken).ConfigureAwait(false);
@@ -671,7 +669,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
                 if (_isFolderStructureChanged)
                 {
-                    UIMessagePublisherProvider.Current.Publish(new AccountFolderConfigurationUpdated(Account.Id));
+                    WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
                 }
             }
 
@@ -1416,8 +1414,9 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         DateTimeOffset periodEndUtc,
         HashSet<string> remoteEventIds)
     {
+        var syncPeriod = new TimeRange(periodStartUtc.UtcDateTime, periodEndUtc.UtcDateTime);
         var localEventsInWindow = await _calendarService
-            .GetCalendarEventsAsync(localCalendar.Id, periodStartUtc.UtcDateTime, periodEndUtc.UtcDateTime)
+            .GetCalendarEventsAsync(localCalendar, syncPeriod)
             .ConfigureAwait(false);
 
         foreach (var localEvent in localEventsInWindow)

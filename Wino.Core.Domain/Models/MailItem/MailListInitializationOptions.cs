@@ -3,12 +3,11 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Folders;
 
 namespace Wino.Core.Domain.Models.MailItem;
 
-// Folders is the concrete entity list: this record crosses the UI <-> companion pipe and
-// interface-typed members cannot be deserialized.
-public record MailListInitializationOptions(List<MailItemFolder> Folders,
+public record MailListInitializationOptions(IEnumerable<IMailItemFolder> Folders,
                                             FilterOptionType FilterType,
                                             SortingOptionType SortingOptionType,
                                             bool CreateThreads,

@@ -12,7 +12,7 @@ using Wino.Services.Extensions;
 
 namespace Wino.Services;
 
-public class ContactService : BaseDatabaseService, IContactServiceInternal
+public class ContactService : BaseDatabaseService, IContactService
 {
     /// <summary>
     /// In-memory contact cache keyed by e-mail address (case-insensitive).
