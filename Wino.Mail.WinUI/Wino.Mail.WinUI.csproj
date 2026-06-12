@@ -34,6 +34,12 @@
     <!-- Surface trim/AOT analyzer warnings in app code. -->
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
     <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <!-- CsWinRT AOT analyzer at the highest level so any class crossing the WinRT ABI that
+         isn't marked partial (CsWinRT1028) is flagged on every build, not just at publish.
+         Combined with Release TreatWarningsAsErrors this is the regression gate that keeps
+         WinRT-implementing types partial for Native AOT. -->
+    <CsWinRTAotOptimizerEnabled>true</CsWinRTAotOptimizerEnabled>
+    <CsWinRTAotWarningLevel>2</CsWinRTAotWarningLevel>
     <Nullable>enable</Nullable>
 	<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	<!-- Single instancing -->

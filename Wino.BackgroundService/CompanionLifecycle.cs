@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Serilog;
@@ -14,7 +14,7 @@ namespace Wino.BackgroundService;
 /// resident (tray preference) or lingers briefly and exits. Zero configured accounts
 /// also exits unless a client is connected.
 /// </summary>
-public sealed partial class CompanionLifecycle : IDisposable
+public sealed class CompanionLifecycle : IDisposable
 {
     private static readonly TimeSpan ExitLinger = TimeSpan.FromSeconds(10);
 
