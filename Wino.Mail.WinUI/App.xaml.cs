@@ -105,6 +105,7 @@ public partial class App : WinoApplication,
 
     public App()
     {
+        LaunchPerformanceTracker.Mark("App constructor started");
         _applicationDispatcherQueue = DispatcherQueue.GetForCurrentThread();
         _notificationHandler = new AppNotificationHandler(this);
         _activationHandler = new AppActivationHandler(this, _notificationHandler);
@@ -118,6 +119,7 @@ public partial class App : WinoApplication,
 
         EnsureAppNotificationRegistration();
         RegisterRecipients();
+        LaunchPerformanceTracker.Mark("App constructor completed");
     }
 
     private void EnsureWindowManagerConfigured()
@@ -1119,6 +1121,7 @@ public partial class App : WinoApplication,
 
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
         MainWindow = windowManager.CreateWindow(WinoWindowKind.Shell, () => new ShellWindow());
+        LaunchPerformanceTracker.Mark("ShellWindow created");
         InitializeNavigationDispatcher();
 
         if (MainWindow is not IWinoShellWindow shellWindow)

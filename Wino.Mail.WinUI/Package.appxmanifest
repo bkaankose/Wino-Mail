@@ -172,7 +172,7 @@
       Executable="Wino.BackgroundService\Wino.BackgroundService.exe"
       EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
-        DisplayName="Wino Background Service"
+        DisplayName="Wino Mail &amp; Calendar"
         Description="Wino Mail synchronization service"
         BackgroundColor="transparent"
         Square150x150Logo="Images\AppEntries\MailAssets\Square150x150Logo.png"
@@ -187,7 +187,7 @@
           <uap5:StartupTask
             TaskId="WinoStartupId"
             Enabled="true"
-            DisplayName="Wino Startup Service" />
+            DisplayName="Wino Mail &amp; Calendar" />
         </uap5:Extension>
       </Extensions>
     </Application>

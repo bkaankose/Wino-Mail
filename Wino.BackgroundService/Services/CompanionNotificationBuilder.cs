@@ -31,6 +31,7 @@ namespace Wino.BackgroundService.Services;
 /// </summary>
 public class CompanionNotificationBuilder : INotificationBuilder
 {
+    private const string NotificationIconRootUri = "ms-appx:///Assets/NotificationIcons/";
     private static int _calendarTaskbarBadgeCount;
 
     private static readonly MailOperation[] SupportedMailNotificationActions =
@@ -104,7 +105,7 @@ public class CompanionNotificationBuilder : INotificationBuilder
                     .AddDismissButton()
                     .Build();
 
-                ShowToast(xml);
+                ShowToast(xml, applicationId: AppEntryConstants.MailApplicationId);
             }
             else
             {
@@ -145,18 +146,18 @@ public class CompanionNotificationBuilder : INotificationBuilder
             [Constants.ToastMailUniqueIdKey] = mailItem.UniqueId.ToString(),
             [Constants.ToastActionKey] = firstAction.ToString(),
             [Constants.ToastModeKey] = Constants.ToastModeMail,
-        }));
+        }), GetMailActionIconUri(firstAction));
 
         builder.AddButton(GetOperationDisplayString(secondAction), EncodeArguments(new Dictionary<string, string>
         {
             [Constants.ToastMailUniqueIdKey] = mailItem.UniqueId.ToString(),
             [Constants.ToastActionKey] = secondAction.ToString(),
             [Constants.ToastModeKey] = Constants.ToastModeMail,
-        }));
+        }), GetMailActionIconUri(secondAction));
 
         builder.AddDismissButton();
 
-        ShowToast(builder.Build(), mailItem.UniqueId.ToString());
+        ShowToast(builder.Build(), mailItem.UniqueId.ToString(), AppEntryConstants.MailApplicationId);
     }
 
     public async Task UpdateTaskbarIconBadgeAsync()
@@ -218,7 +219,7 @@ public class CompanionNotificationBuilder : INotificationBuilder
 
         try
         {
-            ToastNotificationManager.History.Remove(mailUniqueId.ToString());
+            ToastNotificationManager.History.Remove(mailUniqueId.ToString(), string.Empty, AppEntryConstants.MailApplicationId);
         }
         catch (Exception exception)
         {
@@ -244,7 +245,7 @@ public class CompanionNotificationBuilder : INotificationBuilder
             .AddDismissButton()
             .Build();
 
-        ShowToast(xml);
+        ShowToast(xml, applicationId: AppEntryConstants.MailApplicationId);
     }
 
     public void CreateWebView2RuntimeMissingNotification()
@@ -296,7 +297,7 @@ public class CompanionNotificationBuilder : INotificationBuilder
                 [Constants.ToastCalendarActionKey] = Constants.ToastCalendarSnoozeAction,
                 [Constants.ToastCalendarItemIdKey] = calendarItem.Id.ToString(),
                 [Constants.ToastModeKey] = Constants.ToastModeCalendar,
-            }));
+            }), GetNotificationIconUri("calendar-snooze"));
         }
 
         builder.AddButton(Translator.Buttons_Open, navigateArguments);
@@ -308,12 +309,12 @@ public class CompanionNotificationBuilder : INotificationBuilder
                 [Constants.ToastCalendarActionKey] = Constants.ToastCalendarJoinOnlineAction,
                 [Constants.ToastCalendarItemIdKey] = calendarItem.Id.ToString(),
                 [Constants.ToastModeKey] = Constants.ToastModeCalendar,
-            }));
+            }), GetNotificationIconUri("calendar-join"));
         }
 
         builder.AddDismissButton();
 
-        ShowToast(builder.Build(), $"calendar-reminder-{calendarItem.Id:N}-{reminderDurationInSeconds}");
+        ShowToast(builder.Build(), $"calendar-reminder-{calendarItem.Id:N}-{reminderDurationInSeconds}", AppEntryConstants.CalendarApplicationId);
 
         return Task.CompletedTask;
     }
@@ -346,6 +347,22 @@ public class CompanionNotificationBuilder : INotificationBuilder
             MailOperation.Forward => Translator.MailOperation_Forward,
             _ => operation.ToString()
         };
+
+    private static string? GetMailActionIconUri(MailOperation action)
+        => action switch
+        {
+            MailOperation.Archive => GetNotificationIconUri("mail-archive"),
+            MailOperation.SoftDelete => GetNotificationIconUri("mail-delete"),
+            MailOperation.MarkAsRead => GetNotificationIconUri("mail-markread"),
+            MailOperation.MoveToJunk => GetNotificationIconUri("mail-junk"),
+            MailOperation.Reply => GetNotificationIconUri("mail-reply"),
+            MailOperation.ReplyAll => GetNotificationIconUri("mail-replyall"),
+            MailOperation.Forward => GetNotificationIconUri("mail-forward"),
+            _ => null
+        };
+
+    private static string GetNotificationIconUri(string iconName)
+        => $"{NotificationIconRootUri}{iconName}.png";
 
     private static string GetCalendarReminderContext(DateTime localStart, DateTime nowLocal)
     {
@@ -408,7 +425,7 @@ public class CompanionNotificationBuilder : INotificationBuilder
         }
     }
 
-    private static void ShowToast(string toastXml, string? tag = null)
+    private static void ShowToast(string toastXml, string? tag = null, string? applicationId = null)
     {
         try
         {
@@ -422,7 +439,11 @@ public class CompanionNotificationBuilder : INotificationBuilder
                 toast.Tag = tag;
             }
 
-            ToastNotificationManager.CreateToastNotifier().Show(toast);
+            var notifier = string.IsNullOrWhiteSpace(applicationId)
+                ? ToastNotificationManager.CreateToastNotifier()
+                : ToastNotificationManager.CreateToastNotifier(applicationId);
+
+            notifier.Show(toast);
         }
         catch (Exception exception)
         {
@@ -468,15 +489,19 @@ public class CompanionNotificationBuilder : INotificationBuilder
             return this;
         }
 
-        public ToastXmlBuilder AddButton(string content, string arguments)
+        public ToastXmlBuilder AddButton(string content, string arguments, string? imageUri = null)
         {
-            _actions.Add($"<action content=\"{SecurityElement.Escape(content)}\" arguments=\"{SecurityElement.Escape(arguments)}\" activationType=\"foreground\"/>");
+            var imageAttribute = string.IsNullOrWhiteSpace(imageUri)
+                ? string.Empty
+                : $" imageUri=\"{SecurityElement.Escape(imageUri)}\"";
+
+            _actions.Add($"<action content=\"{SecurityElement.Escape(content)}\" arguments=\"{SecurityElement.Escape(arguments)}\" activationType=\"foreground\"{imageAttribute}/>");
             return this;
         }
 
         public ToastXmlBuilder AddDismissButton()
         {
-            _actions.Add($"<action content=\"{SecurityElement.Escape(Translator.Buttons_Dismiss)}\" arguments=\"{SecurityElement.Escape($"{Constants.ToastDismissActionKey}={bool.TrueString}")}\" activationType=\"foreground\"/>");
+            _actions.Add($"<action content=\"{SecurityElement.Escape(Translator.Buttons_Dismiss)}\" arguments=\"{SecurityElement.Escape($"{Constants.ToastDismissActionKey}={bool.TrueString}")}\" activationType=\"foreground\" imageUri=\"{SecurityElement.Escape(GetNotificationIconUri("dismiss"))}\"/>");
             return this;
         }
 

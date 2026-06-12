@@ -6,6 +6,9 @@
 		<Platforms>x86;x64;arm64</Platforms>
 		<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
 		<RootNamespace>Wino.BackgroundService</RootNamespace>
+		<AssemblyTitle>Wino Mail &amp; Calendar</AssemblyTitle>
+		<Product>Wino Mail &amp; Calendar</Product>
+		<FileDescription>Wino Mail &amp; Calendar</FileDescription>
 		<Nullable>enable</Nullable>
 		<!-- Headless Win32 companion: no WPF, no WinUI, no Windows App SDK. -->
 		<UseWPF>false</UseWPF>

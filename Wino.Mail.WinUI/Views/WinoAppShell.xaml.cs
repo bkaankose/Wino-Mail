@@ -161,6 +161,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        LaunchPerformanceTracker.ReportShellLoaded();
         UpdateNavigationPaneLayout(navigationView.DisplayMode);
         RefreshNavigationViewBindings();
         RefreshCalendarControls();
