@@ -19,6 +19,22 @@
 		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 	</PropertyGroup>
 
+	<!-- Full-AOT blocker detection for every project that can cross the WinRT ABI
+	     (the CsWinRT generator/analyzer only runs on Windows TFMs - plain net10.0
+	     libraries error with 'Windows Metadata not provided'). Active in ALL
+	     configurations so blockers surface during day-to-day Debug builds, not just
+	     at Release publish:
+	     - CsWinRT1028: class implements WinRT interfaces but is not partial.
+	     - CsWinRT1030: generic WinRT interface crossing the ABI needs AllowUnsafeBlocks.
+	     - WMC1500/WMC1510 (XAML compiler, via EnableBindingDiagnostics): bindings that
+	       fall back to reflection/ICustomProperty at runtime - the source of
+	       'requires WinRT.GeneratedBindableCustomPropertyAttribute' crashes. -->
+	<PropertyGroup Condition="$(TargetFramework.Contains('-windows'))">
+		<CsWinRTAotOptimizerEnabled>true</CsWinRTAotOptimizerEnabled>
+		<CsWinRTAotWarningLevel>2</CsWinRTAotWarningLevel>
+		<EnableBindingDiagnostics>true</EnableBindingDiagnostics>
+	</PropertyGroup>
+
 	<PropertyGroup Condition="'$(MSBuildProjectName)' == 'Wino.Mail.WinUI'">
 		<!-- WinAppSDK experimental-channel generated code references experimental WinUI APIs. -->
 		<NoWarn>$(NoWarn);CS8305</NoWarn>

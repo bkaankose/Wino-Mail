@@ -1,4 +1,4 @@
-<abstract:MailListPageAbstract
+﻿<abstract:MailListPageAbstract
     x:Class="Wino.Views.Mail.MailListPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -1282,10 +1282,13 @@
             SpaciousSingleMailItemTemplate="{StaticResource SpaciousSingleMailItemTemplate}"
             SpaciousThreadMailItemTemplate="{StaticResource SpaciousThreadMailItemTemplate}" />
 
+        <!--  No ItemsPath: WinoMailGroup is itself the items collection. An ItemsPath string
+              is resolved through ICustomProperty reflection at runtime, which requires
+              [GeneratedBindableCustomProperty] under Native AOT and crashes without it -
+              and no analyzer can see string property paths.  -->
         <CollectionViewSource
             x:Name="MailCollectionViewSource"
             IsSourceGrouped="True"
-            ItemsPath="Items"
             Source="{x:Bind ViewModel.MailCollection.MailItems, Mode=OneWay}" />
 
         <DataTemplate x:Key="MailGroupHeaderDefaultTemplate" x:DataType="data:WinoMailGroup">

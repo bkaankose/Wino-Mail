@@ -1,4 +1,4 @@
-// Portions adapted from Files Community's SystemTrayIcon implementation.
+﻿// Portions adapted from Files Community's SystemTrayIcon implementation.
 // Copyright (c) Files Community. Licensed under the MIT License.
 
 using System;
@@ -9,7 +9,7 @@ using Serilog;
 
 namespace Wino.BackgroundService.Tray;
 
-public sealed class NativeTrayIcon : IDisposable
+public sealed partial class NativeTrayIcon : IDisposable
 {
     private const uint TrayCallbackMessage = 2048u;
     private const uint MenuCommandOpen = 1u;
@@ -359,7 +359,7 @@ public sealed class NativeTrayIcon : IDisposable
         public static NativeTrayMenuItem Separator() => new(string.Empty, () => Task.CompletedTask, IsSeparator: true);
     }
 
-    private sealed class NativeTrayIconWindow : IDisposable
+    private sealed partial class NativeTrayIconWindow : IDisposable
     {
         private readonly NativeTrayIcon _trayIcon;
         private readonly WindowProcDelegate _windowProcedure;

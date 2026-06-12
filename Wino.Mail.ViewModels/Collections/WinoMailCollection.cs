@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -96,8 +96,6 @@ public sealed class WinoMailGroup : BulkObservableCollection<IMailListItem>
     }
 
     public object Key { get; }
-
-    public new WinoMailGroup Items => this;
 }
 
 public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsChangedMessage>
