@@ -1285,8 +1285,7 @@
         <CollectionViewSource
             x:Name="MailCollectionViewSource"
             IsSourceGrouped="True"
-            ItemsPath="Items"
-            Source="{x:Bind ViewModel.MailCollection.MailItems, Mode=OneWay}" />
+            Source="{x:Bind ViewModel.MailCollection.Items, Mode=OneWay}" />
 
         <DataTemplate x:Key="MailGroupHeaderDefaultTemplate" x:DataType="data:WinoMailGroup">
             <Grid

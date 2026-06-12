@@ -68,7 +68,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendToServerCommand))]
     [ObservableProperty]
-    private bool isDraftContentLoaded;
+    public partial bool IsDraftContentLoaded { get; set; }
 
     /// <summary>In-Reply-To header of the loaded draft; used for retry-context inference.</summary>
     public string CurrentInReplyTo { get; private set; }

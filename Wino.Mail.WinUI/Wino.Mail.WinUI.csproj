@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>Wino.Mail.WinUI</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
@@ -34,6 +34,9 @@
     <!-- Surface trim/AOT analyzer warnings in app code. -->
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
     <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <PublishAot Condition="'$(Configuration)' == 'Release'">true</PublishAot>
+    <PublishTrimmed Condition="'$(Configuration)' == 'Release'">true</PublishTrimmed>
+    <TrimMode>full</TrimMode>
     <!-- CsWinRT AOT analyzer at the highest level so any class crossing the WinRT ABI that
          isn't marked partial (CsWinRT1028) is flagged on every build, not just at publish.
          Combined with Release TreatWarningsAsErrors this is the regression gate that keeps
@@ -222,6 +225,7 @@
     <PackageReference Include="CommunityToolkit.WinUI.Extensions" />
 	  
     <PackageReference Include="Microsoft.Graphics.Win2D" />
+    <PackageReference Include="Microsoft.Windows.CsWinRT" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
     <PackageReference Include="Microsoft.WindowsAppSDK" />
 	<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
@@ -241,8 +245,9 @@
 	<ProjectReference Include="..\Wino.Calendar.ViewModels\Wino.Calendar.ViewModels.csproj" />
 	<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
 	<ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
-	<ProjectReference Include="..\Wino.Ipc.Serialization\Wino.Ipc.Serialization.csproj" />
-	<ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />
+	<ProjectReference Include="..\Wino.Ipc.Serialization\Wino.Ipc.Serialization.csproj"  />
+	<ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj"
+					  SetTargetFramework="TargetFramework=net10.0-windows10.0.26100.0" />
 	<ProjectReference Include="..\Wino.Services.Shared\Wino.Services.Shared.csproj" />
 	<ProjectReference Include="..\Wino.Ipc\Wino.Ipc.csproj" />
 	<ProjectReference Include="..\Wino.Ipc.Contracts\Wino.Ipc.Contracts.csproj" />
@@ -412,7 +417,8 @@
            2. The metadata uses the QUALIFIED form via an intermediate item: an unqualified
               %(RecursiveDir) inside a target batches over the pre-existing Content items
               and stamps every companion file with someone else's path (APPX1101). -->
-      <_WinoCompanionPayload Include="$(WinoCompanionPublishDir)**\*.*" Exclude="$(WinoCompanionPublishDir)**\*.pdb" />
+      <_WinoCompanionPayload Include="$(WinoCompanionPublishDir)**\*.*"
+                             Exclude="$(WinoCompanionPublishDir)**\*.pdb;$(WinoCompanionPublishDir)**\*.resources.dll" />
       <Content Include="@(_WinoCompanionPayload)">
         <Link>Wino.BackgroundService\%(_WinoCompanionPayload.RecursiveDir)%(_WinoCompanionPayload.Filename)%(_WinoCompanionPayload.Extension)</Link>
         <TargetPath>Wino.BackgroundService\%(_WinoCompanionPayload.RecursiveDir)%(_WinoCompanionPayload.Filename)%(_WinoCompanionPayload.Extension)</TargetPath>

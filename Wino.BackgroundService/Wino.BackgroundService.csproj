@@ -11,6 +11,7 @@
 		<UseWPF>false</UseWPF>
 		<UseWindowsForms>false</UseWindowsForms>
 		<EnableMsixTooling>false</EnableMsixTooling>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<!-- The RID is derived from the platform so it also applies when this project is
 		     built through the UI project reference (which only flows Platform). -->
 		<RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(Platform)' != '' and '$(Platform)' != 'AnyCPU'">win-$(Platform.ToLowerInvariant())</RuntimeIdentifier>

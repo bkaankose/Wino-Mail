@@ -1,17 +1,25 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFramework>net10.0</TargetFramework>
+		<TargetFrameworks>net10.0;net10.0-windows10.0.26100.0</TargetFrameworks>
 		<Platforms>x86;x64;arm64</Platforms>
 		<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
 		<AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
 		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
 		<!-- Implies IsTrimmable + trim/AOT/single-file analyzers. -->
 		<IsAotCompatible>true</IsAotCompatible>
+		<TrimMode>full</TrimMode>
 		<TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.26100.0'">
+		<DefineConstants>$(DefineConstants);WINRT_EXPOSED</DefineConstants>
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="EmailValidation" />
 		<PackageReference Include="Sentry.Serilog" />
+	</ItemGroup>
+	<ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.26100.0'">
+		<PackageReference Include="Microsoft.Windows.CsWinRT" />
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />

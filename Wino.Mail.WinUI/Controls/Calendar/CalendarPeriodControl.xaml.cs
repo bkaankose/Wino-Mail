@@ -45,7 +45,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         1,
         true,
         true,
-        [DateOnly.FromDateTime(DateTime.Today)]);
+        new[] { DateOnly.FromDateTime(DateTime.Today) });
 
     private TimedCalendarLayoutResult _timedLayout = new([], 0, []);
     private MonthCalendarLayoutResult _monthLayout = new(0, 0, [], []);

@@ -6,10 +6,10 @@ namespace Wino.Mail.ViewModels.Data;
 public partial class BreadcrumbNavigationItemViewModel : ObservableObject
 {
     [ObservableProperty]
-    private string title;
+    public partial string Title { get; set; }
 
     [ObservableProperty]
-    private bool isActive;
+    public partial bool IsActive { get; set; }
 
     public int StepNumber { get; set; }
 

@@ -11,7 +11,7 @@ namespace Wino.BackgroundService.Services;
 /// Companion port of the UI CalendarReminderServer: polls due calendar reminders and
 /// posts reminder toasts.
 /// </summary>
-public sealed class CalendarReminderLoop : IDisposable
+public sealed partial class CalendarReminderLoop : IDisposable
 {
     private static readonly TimeSpan PollingInterval = TimeSpan.FromSeconds(30);
 

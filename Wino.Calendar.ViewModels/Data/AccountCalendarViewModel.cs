@@ -21,7 +21,7 @@ public partial class AccountCalendarViewModel : ObservableObject, IAccountCalend
     }
 
     [ObservableProperty]
-    private bool _isChecked;
+    public partial bool IsChecked { get; set; }
 
     partial void OnIsCheckedChanged(bool value) => IsExtended = value;
 

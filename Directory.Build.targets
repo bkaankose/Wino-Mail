@@ -1,17 +1,22 @@
 <Project>
 	<PropertyGroup>
 		<EnableNETAnalyzers>true</EnableNETAnalyzers>
+		<AnalysisLevel>latest</AnalysisLevel>
+		<AnalysisMode>Default</AnalysisMode>
 		<Nullable>annotations</Nullable>
 		<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
 	</PropertyGroup>
 
-	<PropertyGroup Condition="'$(Configuration)' == 'Release' and '$(TargetFramework)' != 'netstandard2.0'">
+	<PropertyGroup Condition="'$(Configuration)' == 'Release' and $([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net8.0'))">
 		<!-- Release builds are the AOT/trim compatibility gate for all SDK-style projects. -->
 		<IsAotCompatible>true</IsAotCompatible>
 		<IsTrimmable>true</IsTrimmable>
 		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
 		<EnableAotAnalyzer>true</EnableAotAnalyzer>
 		<EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+		<CsWinRTAotOptimizerEnabled>true</CsWinRTAotOptimizerEnabled>
+		<CsWinRTAotWarningLevel>2</CsWinRTAotWarningLevel>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 	</PropertyGroup>
 

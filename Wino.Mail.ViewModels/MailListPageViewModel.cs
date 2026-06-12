@@ -101,7 +101,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private FolderPivotViewModel _selectedFolderPivot;
 
     [ObservableProperty]
-    private bool isMultiSelectionModeEnabled;
+    public partial bool IsMultiSelectionModeEnabled { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SelectedMessageText))]
@@ -117,7 +117,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     public partial string SearchQuery { get; set; }
 
     [ObservableProperty]
-    private FilterOption _selectedFilterOption;
+    public partial FilterOption SelectedFilterOption { get; set; }
     private SortingOption _selectedSortingOption;
 
     // Indicates state when folder is initializing. It can happen after folder navigation, search or filter change applied or loading more items.
@@ -789,9 +789,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             return MailCollection.SelectedItems.OfType<MailItemViewModel>();
 
         if (_activeMailItem != null)
-            return [_activeMailItem];
+            return new[] { _activeMailItem };
 
-        return [];
+        return Array.Empty<MailItemViewModel>();
     }
 
     private async Task CreateDraftForShortcutTargetAsync(DraftCreationReason reason)
@@ -1083,7 +1083,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 // Check if collection already has a local draft with the same ThreadId in the same folder
                 bool hasLocalDraftInSameThread = false;
 
-                foreach (var group in MailCollection.MailItems)
+                foreach (var group in MailCollection.MailItems.EnumerateGroups())
                 {
                     foreach (var item in group)
                     {

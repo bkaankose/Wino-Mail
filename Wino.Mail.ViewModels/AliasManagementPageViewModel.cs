@@ -25,10 +25,10 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSynchronizeAliases))]
-    private MailAccount account;
+    public partial MailAccount Account { get; set; }
 
     [ObservableProperty]
-    private List<MailAccountAlias> accountAliases = [];
+    public partial List<MailAccountAlias> AccountAliases { get; set; } = [];
 
     public bool CanSynchronizeAliases => Account?.IsAliasSyncSupported ?? false;
 

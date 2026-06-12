@@ -48,7 +48,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     #region Menu Items
 
     [ObservableProperty]
-    private object selectedMenuItem;
+    public partial object SelectedMenuItem { get; set; }
 
     private IAccountMenuItem latestSelectedAccountMenuItem;
 
@@ -513,44 +513,34 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         if (await NavigateToMailEmptyStateIfNeededAsync())
             return;
 
-        if (PreferencesService.StartupEntityId == null)
-        {
-            NavigateToWelcomeWizard();
-        }
-        else
-        {
-            var startupEntityId = PreferencesService.StartupEntityId.Value;
+        IMenuItem startupEntityMenuItem = null;
 
+        if (PreferencesService.StartupEntityId is Guid startupEntityId)
+        {
             // startupEntityId is the id of the entity to be expanded on startup.
             // This can be either AccountId or MergedAccountId right now.
             // If accountId, we'll find the root account and extend Inbox folder for it.
             // If mergedAccountId, merged account's Inbox folder will be extended.
 
-            var startupEntityMenuItem = MenuItems.FirstOrDefault(a => a.EntityId == startupEntityId);
-
-            if (startupEntityMenuItem != null)
-            {
-                startupEntityMenuItem.Expand();
-
-                if (startupEntityMenuItem is IAccountMenuItem startupAccountMenuItem)
-                {
-                    await ChangeLoadedAccountAsync(startupAccountMenuItem);
-                }
-            }
-            else
-            {
-                var firstMailAccountMenuItem = MenuItems.FirstOrDefault(a => a is IAccountMenuItem) as IAccountMenuItem;
-                if (firstMailAccountMenuItem != null)
-                {
-                    firstMailAccountMenuItem.Expand();
-                    await ChangeLoadedAccountAsync(firstMailAccountMenuItem);
-                }
-                else
-                {
-                    NavigateToWelcomeWizard();
-                }
-            }
+            startupEntityMenuItem = MenuItems.FirstOrDefault(a => a.EntityId == startupEntityId);
         }
+
+        if (startupEntityMenuItem is IAccountMenuItem startupAccountMenuItem)
+        {
+            startupEntityMenuItem.Expand();
+            await ChangeLoadedAccountAsync(startupAccountMenuItem);
+            return;
+        }
+
+        var firstMailAccountMenuItem = MenuItems.FirstOrDefault(a => a is IAccountMenuItem) as IAccountMenuItem;
+        if (firstMailAccountMenuItem != null)
+        {
+            firstMailAccountMenuItem.Expand();
+            await ChangeLoadedAccountAsync(firstMailAccountMenuItem);
+            return;
+        }
+
+        NavigateToWelcomeWizard();
     }
 
     public async Task NavigateFolderAsync(IBaseFolderMenuItem baseFolderMenuItem, TaskCompletionSource<bool> folderInitAwaitTask = null)

@@ -7,7 +7,7 @@
     <PackageVersion Include="ColorHashSharp" Version="1.1.0" />
     <PackageVersion Include="CommunityToolkit.Common" Version="8.4.2" />
     <PackageVersion Include="CommunityToolkit.Diagnostics" Version="8.4.2" />
-	<PackageVersion Include="Microsoft.Windows.CsWinRT" Version="2.2.0" />
+	<PackageVersion Include="Microsoft.Windows.CsWinRT" Version="2.3.0-prerelease.251115.2" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageVersion Include="CommunityToolkit.WinUI.Animations" Version="8.2.251219" />
     <PackageVersion Include="CommunityToolkit.WinUI.Controls.Segmented" Version="8.2.251219" />

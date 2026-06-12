@@ -8,6 +8,8 @@
 		<PlatformTarget>AnyCPU</PlatformTarget>
 		<EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
 		<IsAotCompatible>false</IsAotCompatible>
+		<!-- Analyzer dependencies are copied explicitly through GetDependencyTargetPaths. -->
+		<NoWarn>$(NoWarn);NU1510</NoWarn>
 	</PropertyGroup>
 
 	<ItemGroup>

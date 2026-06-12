@@ -9,12 +9,21 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+#if WINRT_EXPOSED
+using WinRT;
+#endif
 
 namespace Wino.Mail.ViewModels.Data;
 
 /// <summary>
 /// Single view model for IMailItem representation.
 /// </summary>
+#if WINRT_EXPOSED
+[GeneratedWinRTExposedType]
+[GeneratedBindableCustomProperty(
+    new string[] { nameof(IsSelected), nameof(IsBusy) },
+    new Type[] { })]
+#endif
 public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMailItemDisplayInformation
 {
     private bool isSyncingCategories;
@@ -285,7 +294,7 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
 
     public string SortingName => FromName;
 
-    public IEnumerable<Guid> GetContainingIds() => [MailCopy.UniqueId];
+    public IEnumerable<Guid> GetContainingIds() => new[] { MailCopy.UniqueId };
 
     public IEnumerable<MailItemViewModel> GetSelectedMailItems()
     {

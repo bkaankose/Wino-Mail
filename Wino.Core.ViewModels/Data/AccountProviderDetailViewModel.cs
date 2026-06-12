@@ -12,7 +12,7 @@ public partial class AccountProviderDetailViewModel : ObservableObject, IAccount
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CapabilitySummary))]
     [NotifyPropertyChangedFor(nameof(DescriptionText))]
-    private MailAccount account;
+    public partial MailAccount Account { get; set; }
 
     public IProviderDetail ProviderDetail { get; set; }
 

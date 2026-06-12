@@ -16,7 +16,7 @@ namespace Wino.BackgroundService.Services;
 /// successful inbox sync, calendar metadata sync for accounts with calendar access,
 /// plus clearing stale invalid-credential attention flags.
 /// </summary>
-public sealed class SynchronizationLoopService : IDisposable
+public sealed partial class SynchronizationLoopService : IDisposable
 {
     private const int InboxSyncsPerFullSync = 4;
 

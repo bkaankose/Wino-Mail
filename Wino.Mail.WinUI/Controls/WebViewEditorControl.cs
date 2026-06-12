@@ -23,9 +23,9 @@ public sealed partial class WebViewEditorControl : Control, IDisposable, IEditor
 {
     private const string PART_WebView = "WebView";
 
-    private static readonly IReadOnlyList<int> DefaultFontSizes = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36];
-    private static readonly IReadOnlyList<EditorColorOption> DefaultTextColors =
-    [
+    private static readonly IReadOnlyList<int> DefaultFontSizes = new[] { 8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36 };
+    private static readonly IReadOnlyList<EditorColorOption> DefaultTextColors = new EditorColorOption[]
+    {
         new("Default", string.Empty),
         new("Black", "#000000"),
         new("Gray", "#666666"),
@@ -35,28 +35,28 @@ public sealed partial class WebViewEditorControl : Control, IDisposable, IEditor
         new("Green", "#2e7d32"),
         new("Blue", "#1565c0"),
         new("Purple", "#6a1b9a")
-    ];
-    private static readonly IReadOnlyList<EditorColorOption> DefaultHighlightColors =
-    [
+    };
+    private static readonly IReadOnlyList<EditorColorOption> DefaultHighlightColors = new EditorColorOption[]
+    {
         new("None", string.Empty),
         new("Yellow", "#fff59d"),
         new("Green", "#c8e6c9"),
         new("Blue", "#bbdefb"),
         new("Pink", "#f8bbd0"),
         new("Orange", "#ffe0b2")
-    ];
-    private static readonly IReadOnlyList<EditorParagraphStyleOption> DefaultParagraphStyles =
-    [
+    };
+    private static readonly IReadOnlyList<EditorParagraphStyleOption> DefaultParagraphStyles = new EditorParagraphStyleOption[]
+    {
         new("Paragraph", "div"),
         new("Heading 1", "h1"),
         new("Heading 2", "h2"),
         new("Heading 3", "h3"),
         new("Quote", "blockquote"),
         new("Code", "pre")
-    ];
-    private static readonly IReadOnlyList<string> DefaultLineHeights = ["normal", "1", "1.15", "1.5", "2"];
+    };
+    private static readonly IReadOnlyList<string> DefaultLineHeights = new[] { "normal", "1", "1.15", "1.5", "2" };
     private static readonly IReadOnlyList<EditorTextAlignment> DefaultAlignments =
-        [EditorTextAlignment.Left, EditorTextAlignment.Center, EditorTextAlignment.Right, EditorTextAlignment.Justify];
+        new[] { EditorTextAlignment.Left, EditorTextAlignment.Center, EditorTextAlignment.Right, EditorTextAlignment.Justify };
 
     private readonly INativeAppService _nativeAppService = App.Current.Services.GetService<INativeAppService>()!;
     private readonly IFontService _fontService = App.Current.Services.GetService<IFontService>()!;

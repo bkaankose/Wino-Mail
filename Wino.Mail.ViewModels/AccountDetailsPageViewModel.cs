@@ -82,22 +82,22 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
     // Mail-related properties
     [ObservableProperty]
-    private bool isFocusedInboxEnabled;
+    public partial bool IsFocusedInboxEnabled { get; set; }
 
     [ObservableProperty]
-    private bool areNotificationsEnabled;
+    public partial bool AreNotificationsEnabled { get; set; }
 
     [ObservableProperty]
-    private bool isSignatureEnabled;
+    public partial bool IsSignatureEnabled { get; set; }
 
     [ObservableProperty]
-    private bool isAppendMessageSettingVisible;
+    public partial bool IsAppendMessageSettingVisible { get; set; }
 
     [ObservableProperty]
-    private bool isAppendMessageSettinEnabled;
+    public partial bool IsAppendMessageSettinEnabled { get; set; }
 
     [ObservableProperty]
-    private bool isTaskbarBadgeEnabled;
+    public partial bool IsTaskbarBadgeEnabled { get; set; }
 
     [ObservableProperty]
     public partial bool IsJumpListEnabled { get; set; }

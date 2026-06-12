@@ -24,6 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />
+    <ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj"
+                      SetTargetFramework="TargetFramework=net10.0" />
   </ItemGroup>
 </Project>

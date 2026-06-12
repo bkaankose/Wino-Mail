@@ -13,15 +13,15 @@ public partial class FolderPivotViewModel : ObservableObject
     public bool ShouldDisplaySelectedItemCount => IsExtendedMode ? SelectedItemCount > 1 : SelectedItemCount > 0;
 
     [ObservableProperty]
-    private bool isSelected;
+    public partial bool IsSelected { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShouldDisplaySelectedItemCount))]
-    private int selectedItemCount;
+    public partial int SelectedItemCount { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShouldDisplaySelectedItemCount))]
-    private bool isExtendedMode = true;
+    public partial bool IsExtendedMode { get; set; } = true;
 
     public FolderPivotViewModel(string folderName, bool? isFocused)
     {
