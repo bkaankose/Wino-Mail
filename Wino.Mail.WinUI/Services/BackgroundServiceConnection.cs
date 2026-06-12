@@ -23,12 +23,14 @@ namespace Wino.Mail.WinUI.Services;
 /// recovery — calls interrupted by a broken pipe are retried once after reconnecting;
 /// writes are deduplicated companion-side by their operation id.
 /// </summary>
-public sealed partial class BackgroundServiceConnection : IRpcClient, IAsyncDisposable
+public sealed partial class BackgroundServiceConnection : IRpcClient, IBackgroundServiceConnection, IAsyncDisposable
 {
     public const int IpcProtocolVersion = 1;
     private const string BackgroundServiceApplicationId = "WinoBackgroundService";
 
     private static readonly TimeSpan InitialConnectTimeout = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan ExistingInstanceConnectBudget = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan LaunchedInstanceInitialConnectTimeout = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan TotalConnectBudget = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan PingInterval = TimeSpan.FromSeconds(10);
 
@@ -90,6 +92,9 @@ public sealed partial class BackgroundServiceConnection : IRpcClient, IAsyncDisp
     /// <summary>
     /// Connects (launching the companion when needed). Used at startup and lazily by calls.
     /// </summary>
+    async Task IBackgroundServiceConnection.EnsureConnectedAsync(CancellationToken cancellationToken)
+        => await EnsureConnectedAsync(cancellationToken).ConfigureAwait(false);
+
     public async Task<RpcClient> EnsureConnectedAsync(CancellationToken cancellationToken = default)
     {
         var existingClient = _client;
@@ -138,15 +143,38 @@ public sealed partial class BackgroundServiceConnection : IRpcClient, IAsyncDisp
         var pipeName = PipeNaming.GetPipeName(Package.Current.Id.FamilyName, Process.GetCurrentProcess().SessionId);
         var stopwatch = Stopwatch.StartNew();
         var backoff = TimeSpan.FromMilliseconds(100);
+        var companionWasRunning = IsBackgroundServiceMutexPresent();
+        var shouldLaunch = !companionWasRunning;
         var launchAttempted = false;
+        var launchedBeforeFirstConnect = false;
+        var attempts = 0;
+        Exception? lastException = null;
+
+        if (shouldLaunch)
+        {
+            _logger.Information("Background service mutex was not found; requesting activation before connecting.");
+            launchAttempted = await TryLaunchBackgroundServiceAsync().ConfigureAwait(false);
+            launchedBeforeFirstConnect = launchAttempted;
+            shouldLaunch = false;
+
+            if (!launchAttempted)
+                throw new IOException("The Wino background service was not running and could not be launched.");
+        }
 
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            attempts++;
 
             try
             {
-                var stream = await NamedPipeTransport.ConnectAsync(pipeName, InitialConnectTimeout, cancellationToken).ConfigureAwait(false);
+                var connectTimeout = attempts == 1
+                    ? launchedBeforeFirstConnect
+                        ? LaunchedInstanceInitialConnectTimeout
+                        : ExistingInstanceConnectBudget
+                    : InitialConnectTimeout;
+
+                var stream = await NamedPipeTransport.ConnectAsync(pipeName, connectTimeout, cancellationToken).ConfigureAwait(false);
                 var client = new RpcClient(stream, WinoRpcDomainExceptions.ToException);
 
                 var handshake = await client.HandshakeAsync(
@@ -154,7 +182,16 @@ public sealed partial class BackgroundServiceConnection : IRpcClient, IAsyncDisp
                     cancellationToken).ConfigureAwait(false);
 
                 if (handshake.Accepted)
+                {
+                    _logger.Information(
+                        "Connected to the background service on pipe {PipeName} after {ElapsedMilliseconds:F0} ms and {AttemptCount} attempt(s). CompanionWasRunning={CompanionWasRunning}.",
+                        pipeName,
+                        stopwatch.Elapsed.TotalMilliseconds,
+                        attempts,
+                        companionWasRunning);
+
                     return client;
+                }
 
                 // Version mismatch after an app update: ask the old companion to exit,
                 // then relaunch the packaged (new) one and try again.
@@ -164,23 +201,59 @@ public sealed partial class BackgroundServiceConnection : IRpcClient, IAsyncDisp
                 await client.DisposeAsync().ConfigureAwait(false);
 
                 launchAttempted = false;
+                shouldLaunch = true;
+            }
+            catch (TimeoutException timeoutException)
+            {
+                lastException = timeoutException;
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                _logger.Debug("Background service connect attempt failed: {Message}", exception.Message);
+                lastException = exception;
             }
 
-            if (!launchAttempted)
+            if (!shouldLaunch &&
+                companionWasRunning &&
+                stopwatch.Elapsed >= ExistingInstanceConnectBudget)
+            {
+                shouldLaunch = true;
+                _logger.Information(
+                    "Existing background service did not accept a connection within {ElapsedMilliseconds:F0} ms; requesting activation.",
+                    stopwatch.Elapsed.TotalMilliseconds);
+            }
+
+            if (shouldLaunch && !launchAttempted)
             {
                 launchAttempted = await TryLaunchBackgroundServiceAsync().ConfigureAwait(false);
             }
 
             if (stopwatch.Elapsed > TotalConnectBudget)
-                throw new IOException("Could not connect to the Wino background service.");
+            {
+                var message = $"Could not connect to the Wino background service on pipe '{pipeName}' after {stopwatch.Elapsed.TotalSeconds:F1} seconds and {attempts} attempt(s).";
+                _logger.Error(lastException, message);
+                throw new IOException(message, lastException);
+            }
 
             await Task.Delay(backoff, cancellationToken).ConfigureAwait(false);
             backoff = TimeSpan.FromMilliseconds(Math.Min(backoff.TotalMilliseconds * 2, 2000));
         }
+    }
+
+    private static bool IsBackgroundServiceMutexPresent()
+    {
+        try
+        {
+            if (Mutex.TryOpenExisting(CompanionProcessNaming.SingleInstanceMutexName, out var mutex))
+            {
+                mutex.Dispose();
+                return true;
+            }
+        }
+        catch
+        {
+        }
+
+        return false;
     }
 
     private static async Task TryTerminateLegacyInstanceAsync(RpcClient client)

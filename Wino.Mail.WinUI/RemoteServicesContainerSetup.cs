@@ -19,6 +19,7 @@ public static class RemoteServicesContainerSetup
     {
         services.AddSingleton<BackgroundServiceConnection>();
         services.AddSingleton<IRpcClient>(provider => provider.GetRequiredService<BackgroundServiceConnection>());
+        services.AddSingleton<IBackgroundServiceConnection>(provider => provider.GetRequiredService<BackgroundServiceConnection>());
 
         services.AddSingleton<IAccountService, AccountServiceRemoteProxy>();
         services.AddSingleton<IBackgroundServiceControl, BackgroundServiceControlRemoteProxy>();

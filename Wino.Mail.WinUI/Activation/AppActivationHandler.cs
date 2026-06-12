@@ -26,6 +26,8 @@ internal sealed class AppActivationHandler
     public async Task HandleLaunchAsync(Microsoft.UI.Xaml.LaunchActivatedEventArgs launchArgs,
                                         AppActivationArguments activationArgs)
     {
+        await _host.EnsureActivationInfrastructureAsync();
+
         var route = ResolveLaunchActivationRoute(launchArgs, activationArgs);
 
         if (route.RequiresAppHostInfrastructure)
@@ -54,7 +56,7 @@ internal sealed class AppActivationHandler
         if (activationArgs.Kind == ExtendedActivationKind.StartupTask)
             return new LaunchActivationRoute(AppActivationPath.StartupTask, launchArgs, activationArgs);
 
-        if (!_host.HasConfiguredAccounts)
+        if (_host.IsAccountStateKnown && !_host.HasConfiguredAccounts)
             return new LaunchActivationRoute(AppActivationPath.WelcomeWithoutAccounts, launchArgs, activationArgs);
 
         if (activationArgs.Kind == ExtendedActivationKind.ShareTarget &&

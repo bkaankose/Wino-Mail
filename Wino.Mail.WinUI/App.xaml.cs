@@ -61,11 +61,18 @@ public partial class App : WinoApplication,
     IRecipient<WelcomeImportCompletedMessage>
 {
     private const string ToggleDefaultModeLaunchArgument = "--mode=toggle-default";
+    private enum ConfiguredAccountState
+    {
+        Unknown,
+        HasAccounts,
+        NoAccounts
+    }
+
     private ISynchronizationManager? _synchronizationManager;
     private IPreferencesService? _preferencesService;
     private IAccountService? _accountService;
     private bool _windowManagerConfigured;
-    private bool _hasConfiguredAccounts;
+    private ConfiguredAccountState _configuredAccountState = ConfiguredAccountState.Unknown;
     private bool _isExiting;
     private bool _activationInfrastructureInitialized;
     private bool _appHostInfrastructureInitialized;
@@ -82,6 +89,8 @@ public partial class App : WinoApplication,
     private readonly record struct ShellWindowActivationResult(IWinoShellWindow? ShellWindow, bool WasCreated);
 
     internal bool IsExiting => _isExiting;
+    private bool HasConfiguredAccounts => _configuredAccountState == ConfiguredAccountState.HasAccounts;
+    private bool IsAccountStateKnown => _configuredAccountState != ConfiguredAccountState.Unknown;
 
     internal bool ShouldKeepShellWindowAliveOnClose()
     {
@@ -192,19 +201,19 @@ public partial class App : WinoApplication,
 
     private Task ActivatePreferredWindowAsync()
     {
-        if (!_hasConfiguredAccounts)
+        if (!HasConfiguredAccounts)
             return ActivateWelcomeWindowAsync();
 
         return ActivateShellFromTrayAsync(WinoApplicationMode.Mail);
     }
 
     private Task OpenMailFromTrayAsync()
-        => _hasConfiguredAccounts
+        => HasConfiguredAccounts
             ? ActivateShellFromTrayAsync(WinoApplicationMode.Mail)
             : ActivateWelcomeWindowAsync();
 
     private Task OpenCalendarFromTrayAsync()
-        => _hasConfiguredAccounts
+        => HasConfiguredAccounts
             ? ActivateShellFromTrayAsync(WinoApplicationMode.Calendar)
             : ActivateWelcomeWindowAsync();
 
@@ -477,12 +486,14 @@ public partial class App : WinoApplication,
 
             try
             {
-                _hasConfiguredAccounts = (await _accountService.GetAccountsAsync()).Any();
+                _configuredAccountState = (await _accountService.GetAccountsAsync()).Any()
+                    ? ConfiguredAccountState.HasAccounts
+                    : ConfiguredAccountState.NoAccounts;
             }
             catch (Exception accountsException)
             {
                 Log.Error(accountsException, "Could not load accounts during activation (background service unreachable?).");
-                _hasConfiguredAccounts = false;
+                _configuredAccountState = ConfiguredAccountState.Unknown;
             }
 
             _activationInfrastructureInitialized = true;
@@ -510,7 +521,7 @@ public partial class App : WinoApplication,
             EnsureWindowManagerConfigured();
             EnsurePreferenceChangedSubscription();
 
-            if (_hasConfiguredAccounts)
+            if (HasConfiguredAccounts)
             {
                 RestartAutoSynchronizationLoop();
             }
@@ -623,7 +634,7 @@ public partial class App : WinoApplication,
         var shareActivationService = Services.GetRequiredService<IShareActivationService>();
         shareActivationService.PendingShareRequest = shareRequest;
 
-        if (!_hasConfiguredAccounts)
+        if (!HasConfiguredAccounts)
         {
             shareActivationService.ClearPendingShareRequest();
             return false;
@@ -649,7 +660,7 @@ public partial class App : WinoApplication,
 
         Services.GetRequiredService<ILaunchProtocolService>().MailToUri = mailToUri;
 
-        if (!_hasConfiguredAccounts)
+        if (!HasConfiguredAccounts)
             return false;
 
         await EnsureShellWindowAsync(
@@ -753,7 +764,7 @@ public partial class App : WinoApplication,
 
             await NewThemeService.InitializeAsync();
 
-            if (_hasConfiguredAccounts)
+            if (HasConfiguredAccounts)
             {
                 await LoadInitialWinoAccountAsync();
             }
@@ -889,7 +900,21 @@ public partial class App : WinoApplication,
             return;
         }
 
-        CreateWindow(args);
+        if (!IsAccountStateKnown)
+        {
+            CreateWindow(
+                null,
+                AppEntryConstants.GetModeLaunchArgument(WinoApplicationMode.Mail),
+                new ShellModeActivationContext
+                {
+                    SuppressStartupFlows = true,
+                    Parameter = IdlePageViewModel.CompanionUnavailableStateParameter
+                });
+        }
+        else
+        {
+            CreateWindow(args);
+        }
 
         await NewThemeService.InitializeAsync();
 
@@ -1330,7 +1355,7 @@ public partial class App : WinoApplication,
 
     public void Receive(AccountCreatedMessage message)
     {
-        _hasConfiguredAccounts = true;
+        _configuredAccountState = ConfiguredAccountState.HasAccounts;
         EnsurePreferenceChangedSubscription();
         QueueJumpListOptionsUpdateOnUiThread();
 
@@ -1393,7 +1418,9 @@ public partial class App : WinoApplication,
 
     public void Receive(WelcomeImportCompletedMessage message)
     {
-        _hasConfiguredAccounts = message.ImportedMailboxCount > 0;
+        _configuredAccountState = message.ImportedMailboxCount > 0
+            ? ConfiguredAccountState.HasAccounts
+            : ConfiguredAccountState.NoAccounts;
 
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
         if (windowManager.GetWindow(WinoWindowKind.Welcome) == null)
@@ -1442,8 +1469,10 @@ public partial class App : WinoApplication,
         MainWindow?.DispatcherQueue?.TryEnqueue(async () =>
         {
             var accounts = await _accountService!.GetAccountsAsync();
-            _hasConfiguredAccounts = accounts.Any();
-            if (_hasConfiguredAccounts) return;
+            _configuredAccountState = accounts.Any()
+                ? ConfiguredAccountState.HasAccounts
+                : ConfiguredAccountState.NoAccounts;
+            if (HasConfiguredAccounts) return;
 
             // All accounts removed — go back to welcome wizard from step 1
             Services.GetRequiredService<WelcomeWizardContext>().Reset();
@@ -1632,7 +1661,7 @@ public partial class App : WinoApplication,
             shellActivationHandled = true;
         }
 
-        if (route.ShouldActivateWindow && shellWindow == null && _hasConfiguredAccounts)
+        if (route.ShouldActivateWindow && shellWindow == null && HasConfiguredAccounts)
         {
             var result = await EnsureShellWindowAsync(route.ActivationMode, activateWindow: true);
             shellWindow = result.ShellWindow;

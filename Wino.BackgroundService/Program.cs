@@ -33,7 +33,6 @@ namespace Wino.BackgroundService;
 public static class Program
 {
     public const int IpcProtocolVersion = 1;
-    private const string SingleInstanceMutexName = @"Local\WinoBackgroundServiceRunning";
 
     private static int _terminationRequested;
     private static uint _mainThreadId;
@@ -41,7 +40,7 @@ public static class Program
     [MTAThread]
     public static int Main(string[] args)
     {
-        using var singleInstanceMutex = new Mutex(initiallyOwned: true, SingleInstanceMutexName, out var isFirstInstance);
+        using var singleInstanceMutex = new Mutex(initiallyOwned: true, CompanionProcessNaming.SingleInstanceMutexName, out var isFirstInstance);
 
         var activationArguments = GetActivationArguments(args);
 
@@ -139,7 +138,8 @@ public static class Program
         // UI messages: publish locally + forward to connected clients.
         UIMessagePublisherProvider.Current = new PipeUIMessagePublisher(serverHost);
 
-        serverHost.Start();
+        var serverReady = serverHost.Start();
+        await serverReady.WaitAsync(TimeSpan.FromSeconds(3)).ConfigureAwait(false);
         Log.Information("RPC server listening on pipe {PipeName}.", pipeName);
 
         // Database, translations and the synchronization manager; opens the gate when done.

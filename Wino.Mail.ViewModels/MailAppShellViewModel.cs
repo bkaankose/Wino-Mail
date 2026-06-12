@@ -254,6 +254,17 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         }
 
         var activationContext = parameters as ShellModeActivationContext;
+        if (string.Equals(activationContext?.Parameter as string, IdlePageViewModel.CompanionUnavailableStateParameter, StringComparison.Ordinal))
+        {
+            await CreateFooterItemsAsync(true);
+            NavigationService.Navigate(
+                WinoPage.IdlePage,
+                IdlePageViewModel.CompanionUnavailableStateParameter,
+                NavigationReferenceFrame.InnerShellFrame,
+                NavigationTransitionType.None);
+            return;
+        }
+
         var shouldRunStartupFlows = (activationContext?.IsInitialActivation ?? true) &&
                                     activationContext?.SuppressStartupFlows != true;
         var isModeReactivation = activationContext?.IsInitialActivation == false;

@@ -40,7 +40,7 @@ public class NamedPipeIntegrationTests : IAsyncLifetime
         _thumbnailCacheService = new ThumbnailCacheService(_databaseService);
 
         _serverHost = CreateHost(_pipeName, _thumbnailCacheService);
-        _serverHost.Start();
+        await _serverHost.Start().WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     private static NamedPipeRpcServerHost CreateHost(string pipeName, IThumbnailCacheService service)
@@ -69,14 +69,75 @@ public class NamedPipeIntegrationTests : IAsyncLifetime
     }
 
     private async Task<RpcClient> ConnectAsync()
+        => await ConnectAsync(_pipeName);
+
+    private async Task<RpcClient> ConnectAsync(string pipeName)
     {
-        var stream = await NamedPipeTransport.ConnectAsync(_pipeName, TimeSpan.FromSeconds(5));
+        var stream = await NamedPipeTransport.ConnectAsync(pipeName, TimeSpan.FromSeconds(5));
         var client = new RpcClient(stream, WinoRpcDomainExceptions.ToException);
 
         var handshake = await client.HandshakeAsync(new HandshakeRequest(ProtocolVersion, "1.0.0-tests", "integration-tests"));
         handshake.Accepted.Should().BeTrue();
 
         return client;
+    }
+
+    [Fact]
+    public async Task Start_SignalsReadiness_WhenListenerIsPosted()
+    {
+        var pipeName = $"wino-ipc-tests-{Guid.NewGuid():N}";
+        await using var host = CreateHost(pipeName, _thumbnailCacheService);
+
+        await host.Start().WaitAsync(TimeSpan.FromSeconds(5));
+
+        await using var client = await ConnectAsync(pipeName);
+        client.IsConnected.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ImmediateClientConnection_AfterReadiness_DoesNotNeedStartupDelay()
+    {
+        var pipeName = $"wino-ipc-tests-{Guid.NewGuid():N}";
+        await using var host = CreateHost(pipeName, _thumbnailCacheService);
+
+        await host.Start().WaitAsync(TimeSpan.FromSeconds(5));
+        await using var client = await ConnectAsync(pipeName);
+
+        var proxy = new ThumbnailCacheServiceRemoteProxy(client);
+        var result = await proxy.GetThumbnailAsync("startup@wino.mail");
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ConcurrentStartupClients_AfterReadiness_AreServed()
+    {
+        var pipeName = $"wino-ipc-tests-{Guid.NewGuid():N}";
+        await using var host = CreateHost(pipeName, _thumbnailCacheService);
+
+        await host.Start().WaitAsync(TimeSpan.FromSeconds(5));
+
+        var clients = await Task.WhenAll(Enumerable
+            .Range(0, NamedPipeTransport.MaxServerInstances)
+            .Select(_ => ConnectAsync(pipeName)));
+
+        try
+        {
+            clients.Should().AllSatisfy(client => client.IsConnected.Should().BeTrue());
+        }
+        finally
+        {
+            foreach (var client in clients)
+            {
+                await client.DisposeAsync();
+            }
+        }
+    }
+
+    [Fact]
+    public void CompanionProcessMutexName_IsDeterministic()
+    {
+        CompanionProcessNaming.SingleInstanceMutexName.Should().Be(@"Local\WinoBackgroundServiceRunning");
     }
 
     [Fact]
@@ -152,7 +213,7 @@ public class NamedPipeIntegrationTests : IAsyncLifetime
 
         // Companion is relaunched on the same pipe; a fresh connection works again.
         _serverHost = CreateHost(_pipeName, _thumbnailCacheService);
-        _serverHost.Start();
+        await _serverHost.Start().WaitAsync(TimeSpan.FromSeconds(5));
 
         await using var recoveredClient = await ConnectAsync();
         var recoveredProxy = new ThumbnailCacheServiceRemoteProxy(recoveredClient);

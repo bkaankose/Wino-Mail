@@ -41,6 +41,7 @@ public sealed class RpcServerConnection : IAsyncDisposable
     private readonly CancellationTokenSource _lifetimeCts = new();
 
     private bool _handshakeCompleted;
+    private int _disposeStarted;
 
     public RpcServerConnection(Stream stream, IRpcRequestHandler requestHandler, RpcServerConnectionOptions options)
     {
@@ -247,14 +248,28 @@ public sealed class RpcServerConnection : IAsyncDisposable
 
     private void OnConnectionClosed(Exception? fault)
     {
-        _lifetimeCts.Cancel();
+        TryCancelLifetime();
         Closed?.Invoke(this, fault);
     }
 
     public async ValueTask DisposeAsync()
     {
-        _lifetimeCts.Cancel();
+        if (Interlocked.Exchange(ref _disposeStarted, 1) == 1)
+            return;
+
+        TryCancelLifetime();
         await _connection.DisposeAsync().ConfigureAwait(false);
         _lifetimeCts.Dispose();
+    }
+
+    private void TryCancelLifetime()
+    {
+        try
+        {
+            _lifetimeCts.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
     }
 }

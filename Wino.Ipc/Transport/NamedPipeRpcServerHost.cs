@@ -19,6 +19,7 @@ public sealed class NamedPipeRpcServerHost : IAsyncDisposable
     private readonly RpcServerConnectionOptions _connectionOptions;
     private readonly ConcurrentDictionary<RpcServerConnection, byte> _activeConnections = new();
     private readonly CancellationTokenSource _lifetimeCts = new();
+    private readonly TaskCompletionSource _listenerReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private Task? _acceptLoop;
 
@@ -38,9 +39,10 @@ public sealed class NamedPipeRpcServerHost : IAsyncDisposable
     /// <summary>Raised when a client connection terminates. Second argument is the remaining connection count.</summary>
     public event Action<RpcServerConnection, int>? ClientDisconnected;
 
-    public void Start()
+    public Task Start()
     {
         _acceptLoop = Task.Run(AcceptLoopAsync);
+        return _listenerReady.Task;
     }
 
     /// <summary>
@@ -68,6 +70,7 @@ public sealed class NamedPipeRpcServerHost : IAsyncDisposable
                 }
 
                 var serverStream = NamedPipeTransport.CreateServerStream(_pipeName);
+                _listenerReady.TrySetResult();
 
                 try
                 {
@@ -89,6 +92,7 @@ public sealed class NamedPipeRpcServerHost : IAsyncDisposable
             }
             catch (OperationCanceledException)
             {
+                _listenerReady.TrySetCanceled(_lifetimeCts.Token);
                 break;
             }
             catch
