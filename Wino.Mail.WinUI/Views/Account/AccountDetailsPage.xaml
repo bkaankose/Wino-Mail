@@ -235,6 +235,23 @@
                     </controls:SettingsCard>
 
                     <controls:SettingsCard
+                        AutomationProperties.AutomationId="AccountDetailsPageSettingsCardExchange"
+                        Description="{x:Bind domain:Translator.SettingsEditAccountDetails_ExchangeServerSettings_Description}"
+                        Header="{x:Bind domain:Translator.SettingsEditAccountDetails_ExchangeServerSettings_Title}"
+                        Visibility="{x:Bind ViewModel.IsExchangeServer, Mode=OneWay}">
+                        <controls:SettingsCard.HeaderIcon>
+                            <SymbolIcon Symbol="Globe" />
+                        </controls:SettingsCard.HeaderIcon>
+                        <Button
+                            AutomationProperties.AutomationId="AccountDetailsPageButtonExchange"
+                            Width="160"
+                            HorizontalAlignment="Right"
+                            Command="{x:Bind ViewModel.EditExchangeServerSettingsCommand}"
+                            Content="{x:Bind domain:Translator.SettingsEditAccountDetails_ExchangeServerSettings_Action}"
+                            Style="{ThemeResource AccentButtonStyle}" />
+                    </controls:SettingsCard>
+
+                    <controls:SettingsCard
 
                         AutomationProperties.AutomationId="AccountDetailsPageSettingsCard7" Description="{x:Bind domain:Translator.Buttons_Save}" Header="{x:Bind domain:Translator.SettingsEditAccountDetails_Title}">
                         <controls:SettingsCard.HeaderIcon>

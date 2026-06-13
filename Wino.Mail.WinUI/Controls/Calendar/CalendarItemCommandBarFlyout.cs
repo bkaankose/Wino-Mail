@@ -49,8 +49,6 @@ public partial class CalendarItemCommandBarFlyout : CommandBarFlyout
         {
             Label = GetActionLabel(menuItem.Action),
             IsEnabled = menuItem.IsEnabled,
-            Command = _executeActionCommand,
-            CommandParameter = menuItem.Action,
             Icon = new WinoFontIcon
             {
                 Icon = GetActionIcon(menuItem.Action),
@@ -60,9 +58,15 @@ public partial class CalendarItemCommandBarFlyout : CommandBarFlyout
 
         if (menuItem.HasChildren)
         {
+            // Parent items expand to a sub-menu; they must not execute an action themselves.
             var flyout = new WinoMenuFlyout();
             PopulateMenuFlyoutItems(flyout.Items, menuItem.Children);
             button.Flyout = flyout;
+        }
+        else
+        {
+            button.Command = _executeActionCommand;
+            button.CommandParameter = menuItem.Action;
         }
 
         return button;
@@ -100,8 +104,8 @@ public partial class CalendarItemCommandBarFlyout : CommandBarFlyout
 
     private void ExecuteAction(CalendarContextMenuAction action)
     {
-        // We don't want to trigger any action or hide the flyout if it's a sub menu item.
-        if (Item == null || (action.ShowAs == null && action.ResponseStatus == null && action.TargetType == null))
+        // Only leaf items execute actions; parent items open sub-menus.
+        if (Item == null)
             return;
 
         WeakReferenceMessenger.Default.Send(new CalendarItemContextActionRequestedMessage(Item, action));

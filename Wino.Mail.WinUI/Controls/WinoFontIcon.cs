@@ -9,6 +9,7 @@ public enum WinoIconGlyph
     NewMail,
     Google,
     Microsoft,
+    Exchange,
     CustomServer,
     Archive,
     UnArchive,

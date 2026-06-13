@@ -171,8 +171,9 @@ public class WinoRequestProcessor : IWinoRequestProcessor
 
             MailItemFolder archiveFolder = null;
 
-            bool shouldRequireArchiveFolder = mailItem.AssignedAccount.ProviderType == MailProviderType.Outlook
-                                              || mailItem.AssignedAccount.ProviderType == MailProviderType.IMAP4;
+            bool shouldRequireArchiveFolder = mailItem.AssignedAccount.ProviderType is MailProviderType.Outlook
+                                              or MailProviderType.IMAP4
+                                              or MailProviderType.Exchange;
 
             if (shouldRequireArchiveFolder)
             {
@@ -187,7 +188,7 @@ public class WinoRequestProcessor : IWinoRequestProcessor
             var inboxFolder = await _folderService.GetSpecialFolderByAccountIdAsync(mailItem.AssignedAccount.Id, SpecialFolderType.Inbox)
                 ?? throw new UnavailableSpecialFolderException(SpecialFolderType.Inbox, mailItem.AssignedAccount.Id);
 
-            if (mailItem.AssignedAccount.ProviderType == MailProviderType.IMAP4)
+            if (mailItem.AssignedAccount.ProviderType is MailProviderType.IMAP4 or MailProviderType.Exchange)
                 return new MoveRequest(mailItem, mailItem.AssignedFolder, inboxFolder);
 
             return new ChangeJunkStateRequest(false, mailItem, mailItem.AssignedFolder, inboxFolder);
@@ -211,7 +212,7 @@ public class WinoRequestProcessor : IWinoRequestProcessor
             var junkFolder = await _folderService.GetSpecialFolderByAccountIdAsync(mailItem.AssignedAccount.Id, SpecialFolderType.Junk)
                 ?? throw new UnavailableSpecialFolderException(SpecialFolderType.Junk, mailItem.AssignedAccount.Id);
 
-            if (mailItem.AssignedAccount.ProviderType == MailProviderType.IMAP4)
+            if (mailItem.AssignedAccount.ProviderType is MailProviderType.IMAP4 or MailProviderType.Exchange)
                 return new MoveRequest(mailItem, mailItem.AssignedFolder, junkFolder);
 
             return new ChangeJunkStateRequest(true, mailItem, mailItem.AssignedFolder, junkFolder);

@@ -230,7 +230,7 @@ public class AccountService : BaseDatabaseService, IAccountService
         foreach (var account in accounts)
         {
             // Load IMAP server configuration.
-            if (account.ProviderType == MailProviderType.IMAP4)
+            if (account.UsesCustomServerInformation)
                 account.ServerInformation = await GetAccountCustomServerInformationAsync(account.Id);
 
             // Load MergedInbox information.
@@ -371,7 +371,7 @@ public class AccountService : BaseDatabaseService, IAccountService
             }
         }
 
-        if (account.ProviderType == MailProviderType.IMAP4)
+        if (account.UsesCustomServerInformation)
             await Connection.Table<CustomServerInformation>().DeleteAsync(a => a.AccountId == account.Id);
 
         if (account.Preferences != null)
@@ -523,7 +523,7 @@ public class AccountService : BaseDatabaseService, IAccountService
         }
         else
         {
-            if (account.ProviderType == MailProviderType.IMAP4)
+            if (account.UsesCustomServerInformation)
                 account.ServerInformation = await GetAccountCustomServerInformationAsync(account.Id);
 
             account.Preferences = await GetAccountPreferencesAsync(account.Id);

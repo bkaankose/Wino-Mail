@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<abstract:ExchangeSettingsPageAbstract
+    x:Class="Wino.Views.ExchangeSettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <ScrollViewer>
+        <StackPanel
+            Width="480"
+            Padding="24"
+            HorizontalAlignment="Center"
+            Spacing="12">
+
+            <TextBlock
+                Style="{ThemeResource SubtitleTextBlockStyle}"
+                Text="{x:Bind domain:Translator.ExchangeSettingsPage_Title}" />
+
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Text="{x:Bind domain:Translator.ExchangeSettingsPage_Description}"
+                TextWrapping="Wrap" />
+
+            <TextBox
+                Header="{x:Bind domain:Translator.ExchangeSettingsPage_DisplayNameHeader}"
+                Text="{x:Bind ViewModel.DisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+            <TextBox
+                Header="{x:Bind domain:Translator.ExchangeSettingsPage_EmailAddressHeader}"
+                Text="{x:Bind ViewModel.EmailAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+            <StackPanel
+                Spacing="12"
+                Visibility="{x:Bind ViewModel.IsDiscovered, Mode=OneWay}">
+
+                <TextBox
+                    Header="{x:Bind domain:Translator.ExchangeSettingsPage_EwsUrlHeader}"
+                    PlaceholderText="{x:Bind domain:Translator.ExchangeSettingsPage_EwsUrlPlaceholder}"
+                    Text="{x:Bind ViewModel.EwsUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                <ComboBox
+                    HorizontalAlignment="Stretch"
+                    Header="{x:Bind domain:Translator.ExchangeSettingsPage_AuthMethodHeader}"
+                    SelectedIndex="{x:Bind ViewModel.AuthMethodIndex, Mode=TwoWay}">
+                    <ComboBoxItem Content="{x:Bind domain:Translator.ExchangeSettingsPage_AuthMethodPassword}" />
+                    <ComboBoxItem Content="{x:Bind domain:Translator.ExchangeSettingsPage_AuthMethodModern}" />
+                </ComboBox>
+
+                <PasswordBox
+                    Header="{x:Bind domain:Translator.ExchangeSettingsPage_PasswordHeader}"
+                    Password="{x:Bind ViewModel.Password, Mode=TwoWay}"
+                    Visibility="{x:Bind ViewModel.UseModernAuth, Mode=OneWay, Converter={StaticResource ReverseBooleanToVisibilityConverter}}" />
+
+                <Expander
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch"
+                    Header="{x:Bind domain:Translator.ExchangeSettingsPage_AdvancedSettings}"
+                    IsExpanded="{x:Bind ViewModel.IsAdvancedExpanded, Mode=TwoWay}"
+                    Visibility="{x:Bind ViewModel.UseModernAuth, Mode=OneWay}">
+                    <StackPanel Spacing="12">
+                        <TextBox
+                            Header="{x:Bind domain:Translator.ExchangeSettingsPage_AuthorityUrlHeader}"
+                            PlaceholderText="{x:Bind domain:Translator.ExchangeSettingsPage_AuthorityUrlPlaceholder}"
+                            Text="{x:Bind ViewModel.OAuthAuthority, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox
+                            Header="{x:Bind domain:Translator.ExchangeSettingsPage_ClientIdHeader}"
+                            Text="{x:Bind ViewModel.OAuthClientId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox
+                            Header="{x:Bind domain:Translator.ExchangeSettingsPage_ResourceHeader}"
+                            PlaceholderText="{x:Bind domain:Translator.ExchangeSettingsPage_ResourcePlaceholder}"
+                            Text="{x:Bind ViewModel.OAuthResource, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox
+                            Header="{x:Bind domain:Translator.ExchangeSettingsPage_RedirectUriHeader}"
+                            PlaceholderText="{x:Bind domain:Translator.ExchangeSettingsPage_RedirectUriPlaceholder}"
+                            Text="{x:Bind ViewModel.OAuthRedirectUri, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
+                </Expander>
+            </StackPanel>
+
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
+                TextWrapping="Wrap" />
+
+            <TextBlock
+                Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                Text="{x:Bind ViewModel.ValidationMessage, Mode=OneWay}"
+                TextWrapping="Wrap" />
+
+            <StackPanel
+                HorizontalAlignment="Right"
+                Orientation="Horizontal"
+                Spacing="12">
+                <ProgressRing
+                    Width="20"
+                    Height="20"
+                    VerticalAlignment="Center"
+                    IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
+                    Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay}" />
+                <Button
+                    Command="{x:Bind ViewModel.DiscoverEwsUrlCommand}"
+                    Content="{x:Bind domain:Translator.ExchangeSettingsPage_DiscoverButton}"
+                    IsEnabled="{x:Bind ViewModel.IsBusy, Mode=OneWay, Converter={StaticResource ReverseBooleanConverter}}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.ExchangeSettingsPage_DiscoverTooltip}" />
+                <Button
+                    Command="{x:Bind ViewModel.SaveCommand}"
+                    Content="{x:Bind domain:Translator.Buttons_Save}"
+                    IsEnabled="{x:Bind ViewModel.IsBusy, Mode=OneWay, Converter={StaticResource ReverseBooleanConverter}}"
+                    Style="{ThemeResource AccentButtonStyle}"
+                    Visibility="{x:Bind ViewModel.IsDiscovered, Mode=OneWay}" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</abstract:ExchangeSettingsPageAbstract>

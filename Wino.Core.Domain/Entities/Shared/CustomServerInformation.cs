@@ -50,6 +50,22 @@ public class CustomServerInformation
     public string ProxyServer { get; set; }
     public string ProxyServerPort { get; set; }
 
+    /// <summary>True when an Exchange/EWS account uses OAuth instead of password auth.</summary>
+    public bool UseOAuthAuthentication { get; set; }
+
+    /// <summary>OIDC authority base URL, e.g. <c>https://adfs.example.com/adfs</c>.</summary>
+    public string OAuthAuthority { get; set; }
+
+    public string OAuthClientId { get; set; }
+
+    /// <summary>Protected resource the access token is requested for, e.g. <c>https://mail.example.com/</c>.</summary>
+    public string OAuthResource { get; set; }
+
+    public string OAuthRedirectUri { get; set; }
+
+    /// <summary>Durable refresh token. Access tokens are kept in memory only.</summary>
+    public string OAuthRefreshToken { get; set; }
+
     /// <summary>
     /// Number of concurrent clients that can connect to the server.
     /// Default is 5.

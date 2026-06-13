@@ -46,5 +46,6 @@ public enum WinoPage
     WelcomeHostPage,
     ProviderSelectionPage,
     AccountSetupProgressPage,
-    SpecialImapCredentialsPage
+    SpecialImapCredentialsPage,
+    ExchangeSettingsPage
 }
