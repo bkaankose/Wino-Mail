@@ -28,7 +28,7 @@ public class AuthenticationProvider : IAuthenticationProvider
         return providerType switch
         {
             MailProviderType.Outlook => new OutlookAuthenticator(_nativeAppService, _applicationConfiguration, _authenticatorConfig),
-            MailProviderType.Gmail => new GmailAuthenticator(_authenticatorConfig),
+            MailProviderType.Gmail => new GmailAuthenticator(_authenticatorConfig, _nativeAppService),
             _ => throw new ArgumentException(Translator.Exception_UnsupportedProvider),
         };
     }

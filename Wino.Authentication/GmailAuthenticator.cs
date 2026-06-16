@@ -1,6 +1,7 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
 using Google.Apis.Auth.OAuth2;
+using Google.Apis.Auth.OAuth2.Flows;
 using Google.Apis.Auth.OAuth2.Responses;
 using Google.Apis.Util.Store;
 using Wino.Core.Domain.Entities.Shared;
@@ -12,8 +13,11 @@ namespace Wino.Authentication;
 
 public class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
 {
-    public GmailAuthenticator(IAuthenticatorConfig authConfig) : base(authConfig)
+    private readonly INativeAppService _nativeAppService;
+
+    public GmailAuthenticator(IAuthenticatorConfig authConfig, INativeAppService nativeAppService) : base(authConfig)
     {
+        _nativeAppService = nativeAppService;
     }
 
     public string ClientId => AuthenticatorConfig.GmailAuthenticatorClientId;
@@ -47,10 +51,19 @@ public class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
 
     private Task<UserCredential> GetGoogleUserCredentialAsync(MailAccount account)
     {
-        return GoogleWebAuthorizationBroker.AuthorizeAsync(new ClientSecrets()
+        // Mirrors GoogleWebAuthorizationBroker.AuthorizeAsync but injects a code receiver that opens
+        // the browser via Windows.System.Launcher. The broker's default LocalServerCodeReceiver opens
+        // the browser with "cmd /c start", which silently fails inside the packaged WinUI 3 app and
+        // leaves authentication hanging forever. See WinoGmailCodeReceiver.
+        var flow = new GoogleAuthorizationCodeFlow(new GoogleAuthorizationCodeFlow.Initializer
         {
-            ClientId = ClientId
-        }, AuthenticatorConfig.GetGmailScope(account?.IsMailAccessGranted != false, account?.IsCalendarAccessGranted == true), GetCredentialKey(account), CancellationToken.None, new FileDataStore(AuthenticatorConfig.GmailTokenStoreIdentifier));
+            ClientSecrets = new ClientSecrets { ClientId = ClientId },
+            Scopes = AuthenticatorConfig.GetGmailScope(account?.IsMailAccessGranted != false, account?.IsCalendarAccessGranted == true),
+            DataStore = new FileDataStore(AuthenticatorConfig.GmailTokenStoreIdentifier)
+        });
+
+        return new AuthorizationCodeInstalledApp(flow, new WinoGmailCodeReceiver(_nativeAppService))
+            .AuthorizeAsync(GetCredentialKey(account), CancellationToken.None);
     }
 
     public Task DeleteTokenInformationAsync(MailAccount account)
