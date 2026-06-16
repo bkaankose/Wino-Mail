@@ -1134,8 +1134,25 @@ public sealed partial class MailListPage : MailListPageAbstract,
         ExecuteHoverAction(actionItem, operation);
     }
 
-    private void ExecuteHoverAction(IMailListItem actionItem, MailOperation operation)
+    private async void ExecuteHoverAction(IMailListItem actionItem, MailOperation operation)
     {
+        if (IsComposeContextOperation(operation))
+        {
+            var composeTargetItem = actionItem switch
+            {
+                MailItemViewModel mailItemViewModel => mailItemViewModel,
+                ThreadMailItemViewModel threadMailItemViewModel => threadMailItemViewModel.GetDefaultSelectedThreadEmail(),
+                _ => null
+            };
+
+            if (composeTargetItem != null)
+            {
+                await ViewModel.CreateDraftFromMailAsync(composeTargetItem, operation);
+            }
+
+            return;
+        }
+
         MailOperationPreperationRequest? package = actionItem switch
         {
             MailItemViewModel mailItemViewModel => new MailOperationPreperationRequest(operation, mailItemViewModel.MailCopy, toggleExecution: true),
