@@ -1,26 +1,40 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
+using Serilog;
 using WinUIEx;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 
 namespace Wino.Mail.WinUI.Services;
 
-public class WinoWindowManager : IWinoWindowManager
+public partial class WinoWindowManager : IWinoWindowManager
 {
     public event EventHandler<WindowEx?>? ActiveWindowChanged;
     public event EventHandler<WindowEx>? WindowRemoved;
 
+    private const uint ProcessPowerThrottlingInformation = 4;
+    private const uint ProcessPowerThrottlingCurrentVersion = 1;
+    private const uint ProcessPowerThrottlingExecutionSpeed = 0x1;
+    private const uint NormalPriorityClass = 0x20;
+    private const uint IdlePriorityClass = 0x40;
+
     private readonly object _syncLock = new();
     private readonly Dictionary<(WinoWindowKind Kind, string Name), WindowEx> _windows = [];
     private readonly Dictionary<WindowEx, (WinoWindowKind Kind, string Name)> _windowKeys = [];
+    private readonly HashSet<WindowEx> _visibleWindows = [];
+    private int _backgroundModeEpoch;
+    private bool _isBackgroundResourceSavingEnabled;
 
     public WindowEx? ActiveWindow { get; private set; }
 
     public WindowEx CreateWindow(WinoWindowKind kind, Func<WindowEx> factory, string? name = null)
     {
+        LeaveBackgroundResourceSavingMode();
+
         var key = CreateKey(kind, name);
 
         lock (_syncLock)
@@ -81,12 +95,15 @@ public class WinoWindowManager : IWinoWindowManager
             return;
         }
 
+        LeaveBackgroundResourceSavingMode();
+
         window.Show();
         window.BringToFront();
         window.Activate();
 
         lock (_syncLock)
         {
+            _visibleWindows.Add(window);
             ActiveWindow = window;
         }
 
@@ -112,14 +129,24 @@ public class WinoWindowManager : IWinoWindowManager
         }
 
         window.Hide();
+        var hasVisibleWindows = false;
 
         lock (_syncLock)
         {
+            _visibleWindows.Remove(window);
+
             if (ReferenceEquals(ActiveWindow, window))
             {
                 ActiveWindow = null;
                 ActiveWindowChanged?.Invoke(this, null);
             }
+
+            hasVisibleWindows = HasVisibleWindowsLocked();
+        }
+
+        if (!hasVisibleWindows)
+        {
+            EnterBackgroundResourceSavingMode();
         }
     }
 
@@ -149,10 +176,13 @@ public class WinoWindowManager : IWinoWindowManager
         if (args.WindowActivationState == WindowActivationState.Deactivated)
             return;
 
+        LeaveBackgroundResourceSavingMode();
+
         lock (_syncLock)
         {
             if (_windowKeys.ContainsKey(window))
             {
+                _visibleWindows.Add(window);
                 ActiveWindow = window;
                 ActiveWindowChanged?.Invoke(this, window);
             }
@@ -163,6 +193,8 @@ public class WinoWindowManager : IWinoWindowManager
     {
         if (sender is not WindowEx window)
             return;
+
+        var shouldEnterBackgroundResourceSavingMode = false;
 
         lock (_syncLock)
         {
@@ -181,12 +213,20 @@ public class WinoWindowManager : IWinoWindowManager
 
             _windowKeys.Remove(window);
             _windows.Remove(key);
+            _visibleWindows.Remove(window);
             WindowRemoved?.Invoke(this, window);
 
             if (wasActiveWindow)
             {
                 ActiveWindowChanged?.Invoke(this, null);
             }
+
+            shouldEnterBackgroundResourceSavingMode = !HasVisibleWindowsLocked();
+        }
+
+        if (shouldEnterBackgroundResourceSavingMode)
+        {
+            EnterBackgroundResourceSavingMode();
         }
     }
 
@@ -228,11 +268,132 @@ public class WinoWindowManager : IWinoWindowManager
         {
             _windowKeys.Clear();
             _windows.Clear();
+            _visibleWindows.Clear();
             ActiveWindow = null;
         }
 
+        LeaveBackgroundResourceSavingMode();
         ActiveWindowChanged?.Invoke(this, null);
     }
+
+    private bool HasVisibleWindowsLocked() => _visibleWindows.Any(window => _windowKeys.ContainsKey(window));
+
+    private void EnterBackgroundResourceSavingMode()
+    {
+        if (IsApplicationExiting())
+        {
+            LeaveBackgroundResourceSavingMode();
+            return;
+        }
+
+        var epoch = 0;
+
+        lock (_syncLock)
+        {
+            if (HasVisibleWindowsLocked())
+                return;
+
+            _isBackgroundResourceSavingEnabled = true;
+            epoch = ++_backgroundModeEpoch;
+        }
+
+        SetEfficiencyMode(true);
+        ScheduleWorkingSetTrim(epoch);
+    }
+
+    private void LeaveBackgroundResourceSavingMode()
+    {
+        var shouldDisable = false;
+
+        lock (_syncLock)
+        {
+            _backgroundModeEpoch++;
+            shouldDisable = _isBackgroundResourceSavingEnabled;
+            _isBackgroundResourceSavingEnabled = false;
+        }
+
+        if (shouldDisable)
+        {
+            SetEfficiencyMode(false);
+        }
+    }
+
+    private void ScheduleWorkingSetTrim(int epoch)
+    {
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+
+            lock (_syncLock)
+            {
+                if (epoch != _backgroundModeEpoch ||
+                    !_isBackgroundResourceSavingEnabled ||
+                    HasVisibleWindowsLocked() ||
+                    IsApplicationExiting())
+                {
+                    return;
+                }
+            }
+
+            TrimWorkingSet();
+        });
+    }
+
+    private static void TrimWorkingSet()
+    {
+        try
+        {
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+
+            if (!SetProcessWorkingSetSizeEx(GetCurrentProcess(), nuint.MaxValue, nuint.MaxValue, 0))
+            {
+                Log.Debug("SetProcessWorkingSetSizeEx failed while trimming Wino working set. ErrorCode: {ErrorCode}", Marshal.GetLastPInvokeError());
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "Failed to trim Wino working set after entering background mode.");
+        }
+    }
+
+    private static void SetEfficiencyMode(bool enabled)
+    {
+        try
+        {
+            var processHandle = GetCurrentProcess();
+            var state = new ProcessPowerThrottlingState
+            {
+                Version = ProcessPowerThrottlingCurrentVersion,
+                ControlMask = enabled ? ProcessPowerThrottlingExecutionSpeed : 0,
+                StateMask = enabled ? ProcessPowerThrottlingExecutionSpeed : 0
+            };
+
+            if (!SetProcessInformation(
+                processHandle,
+                ProcessPowerThrottlingInformation,
+                ref state,
+                (uint)Marshal.SizeOf<ProcessPowerThrottlingState>()))
+            {
+                Log.Debug("SetProcessInformation failed while {Action} Wino efficiency mode. ErrorCode: {ErrorCode}",
+                    enabled ? "enabling" : "disabling",
+                    Marshal.GetLastPInvokeError());
+            }
+
+            if (!SetPriorityClass(processHandle, enabled ? IdlePriorityClass : NormalPriorityClass))
+            {
+                Log.Debug("SetPriorityClass failed while {Action} Wino efficiency mode. ErrorCode: {ErrorCode}",
+                    enabled ? "enabling" : "disabling",
+                    Marshal.GetLastPInvokeError());
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "Failed to {Action} Wino efficiency mode.", enabled ? "enable" : "disable");
+        }
+    }
+
+    private static bool IsApplicationExiting()
+        => (Application.Current as App)?.IsExiting == true;
 
     private static (WinoWindowKind Kind, string Name) CreateKey(WinoWindowKind kind, string? name)
     {
@@ -241,4 +402,35 @@ public class WinoWindowManager : IWinoWindowManager
     }
 
     private static string NormalizeName(string name) => name.Trim();
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ProcessPowerThrottlingState
+    {
+        public uint Version;
+        public uint ControlMask;
+        public uint StateMask;
+    }
+
+    [LibraryImport("kernel32.dll")]
+    private static partial IntPtr GetCurrentProcess();
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool SetProcessWorkingSetSizeEx(
+        IntPtr hProcess,
+        nuint dwMinimumWorkingSetSize,
+        nuint dwMaximumWorkingSetSize,
+        uint flags);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool SetPriorityClass(IntPtr hProcess, uint dwPriorityClass);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool SetProcessInformation(
+        IntPtr hProcess,
+        uint processInformationClass,
+        ref ProcessPowerThrottlingState processInformation,
+        uint processInformationSize);
 }

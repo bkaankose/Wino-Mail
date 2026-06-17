@@ -1,8 +1,8 @@
 using System;
 using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media.Animation;
 using Wino.Calendar.Views;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -24,7 +24,6 @@ using Wino.Views;
 using Wino.Views.Account;
 using Wino.Views.Mail;
 using Wino.Views.Settings;
-using Microsoft.UI.Xaml.Media.Animation;
 
 namespace Wino.Services;
 
@@ -216,8 +215,40 @@ public class NavigationService : NavigationServiceBase, INavigationService
     public bool ChangeApplicationMode(WinoApplicationMode mode, ShellModeActivationContext activationContext)
         => ExecuteOnNavigationThread(() => ChangeApplicationModeInternal(mode, activationContext));
 
+    public bool ParkShell()
+        => ExecuteOnNavigationThread(ParkShellInternal);
+
+    public bool RestoreShell(WinoApplicationMode mode)
+        => ExecuteOnNavigationThread(() => RestoreShellInternal(mode));
+
+    public bool RestoreShell(WinoApplicationMode mode, ShellModeActivationContext activationContext)
+        => ExecuteOnNavigationThread(() => RestoreShellInternal(mode, activationContext));
+
     public bool CanGoBack()
         => ExecuteOnNavigationThread(CanGoBackInternal);
+
+    private bool ParkShellInternal()
+    {
+        var coreFrame = GetCoreFrameInternal(NavigationReferenceFrame.ShellFrame, WinoWindowKind.Shell);
+
+        if (coreFrame == null)
+            return false;
+
+        if (coreFrame.Content is IdlePage)
+            return true;
+
+        _pendingInnerShellTransition = null;
+        _statePersistanceService.IsReadingMail = false;
+        _statePersistanceService.IsEventDetailsVisible = false;
+        _statePersistanceService.CoreWindowTitle = string.Empty;
+
+        return coreFrame.Navigate(typeof(IdlePage), null, new SuppressNavigationTransitionInfo());
+    }
+
+    private bool RestoreShellInternal(WinoApplicationMode mode, ShellModeActivationContext? activationContext = null)
+    {
+        return ChangeApplicationModeInternal(mode, activationContext);
+    }
 
     private bool ChangeApplicationModeInternal(WinoApplicationMode mode, ShellModeActivationContext? activationContext = null)
     {
