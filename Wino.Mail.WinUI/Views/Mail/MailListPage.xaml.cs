@@ -86,7 +86,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
 
         ViewModel.MailCollection.ItemSelectionChanged += WinoMailCollectionSelectionChanged;
-        ViewModel.PreferencesService.PreferenceChanged += PreferencesServicePreferenceChanged;
+
         MailListView.MailDragStateChanged += MailListViewMailDragStateChanged;
 
         UpdateSelectAllButtonStatus();
@@ -111,7 +111,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
         this.Bindings.StopTracking();
 
         ViewModel.MailCollection.ItemSelectionChanged -= WinoMailCollectionSelectionChanged;
-        ViewModel.PreferencesService.PreferenceChanged -= PreferencesServicePreferenceChanged;
         MailListView.MailDragStateChanged -= MailListViewMailDragStateChanged;
         SelectAllCheckbox.Checked -= SelectAllCheckboxChecked;
         SelectAllCheckbox.Unchecked -= SelectAllCheckboxUnchecked;
@@ -704,52 +703,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
     }
 
-    private async void LeftSwipeItemInvoked(Microsoft.UI.Xaml.Controls.SwipeItem sender, Microsoft.UI.Xaml.Controls.SwipeItemInvokedEventArgs args)
-    {
-        // Delete item for now.
-
-        var swipeControl = args.SwipeControl;
-
-        swipeControl.Close();
-
-        if (swipeControl.Tag is MailItemViewModel mailItemViewModel)
-        {
-            var package = new MailOperationPreperationRequest(MailOperation.SoftDelete, mailItemViewModel.MailCopy);
-            await ViewModel.ExecuteMailOperationAsync(package);
-        }
-        else if (swipeControl.Tag is ThreadMailItemViewModel threadMailItemViewModel)
-        {
-            var package = new MailOperationPreperationRequest(MailOperation.SoftDelete, threadMailItemViewModel.ThreadEmails.Select(a => a.MailCopy));
-            await ViewModel.ExecuteMailOperationAsync(package);
-        }
-    }
-
-    private async void RightSwipeItemInvoked(Microsoft.UI.Xaml.Controls.SwipeItem sender, Microsoft.UI.Xaml.Controls.SwipeItemInvokedEventArgs args)
-    {
-        // Toggle status only for now.
-
-        var swipeControl = args.SwipeControl;
-
-        swipeControl.Close();
-
-        if (swipeControl.Tag is MailItemViewModel mailItemViewModel)
-        {
-            var operation = mailItemViewModel.IsRead ? MailOperation.MarkAsUnread : MailOperation.MarkAsRead;
-            var package = new MailOperationPreperationRequest(operation, mailItemViewModel.MailCopy);
-
-            await ViewModel.ExecuteMailOperationAsync(package);
-        }
-        else if (swipeControl.Tag is ThreadMailItemViewModel threadMailItemViewModel)
-        {
-            bool isAllRead = threadMailItemViewModel.ThreadEmails.All(a => a.IsRead);
-
-            var operation = isAllRead ? MailOperation.MarkAsUnread : MailOperation.MarkAsRead;
-            var package = new MailOperationPreperationRequest(operation, threadMailItemViewModel.ThreadEmails.Select(a => a.MailCopy));
-
-            await ViewModel.ExecuteMailOperationAsync(package);
-        }
-    }
-
     public async Task OnTitleBarSearchTextChangedAsync()
     {
         if (string.IsNullOrWhiteSpace(SearchText))
@@ -831,37 +784,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
         UpdateAdaptiveness();
     }
 
-    private void PreferencesServicePreferenceChanged(object? sender, string propertyName)
-    {
-        if (propertyName == nameof(IPreferencesService.MailItemDisplayMode) ||
-            propertyName == nameof(IPreferencesService.IsShowPreviewEnabled) ||
-            propertyName == nameof(IPreferencesService.IsShowSenderPicturesEnabled) ||
-            propertyName == nameof(IPreferencesService.Prefer24HourTimeFormat) ||
-            propertyName == nameof(IPreferencesService.IsSwipeActionsEnabled) ||
-            propertyName == nameof(IPreferencesService.IsHoverActionsEnabled) ||
-            propertyName == nameof(IPreferencesService.LeftHoverAction) ||
-            propertyName == nameof(IPreferencesService.CenterHoverAction) ||
-            propertyName == nameof(IPreferencesService.RightHoverAction))
-        {
-            DispatcherQueue.TryEnqueue(RefreshMailItemTemplates);
-        }
-    }
-
-    private void RefreshMailItemTemplates()
-    {
-        var templateSelector = MailListView.ItemTemplateSelector;
-        var itemContainerStyleSelector = MailListView.ItemContainerStyleSelector;
-
-        if (itemContainerStyleSelector is WinoMailItemContainerStyleSelector mailItemContainerStyleSelector)
-        {
-            mailItemContainerStyleSelector.IsSwipeActionsEnabled = ViewModel.PreferencesService.IsSwipeActionsEnabled;
-        }
-
-        MailListView.ItemTemplateSelector = null;
-        MailListView.ItemContainerStyleSelector = null;
-        MailListView.ItemTemplateSelector = templateSelector;
-        MailListView.ItemContainerStyleSelector = itemContainerStyleSelector;
-    }
 
     private async void WinoListViewProcessKeyboardAccelerators(UIElement sender, ProcessKeyboardAcceleratorEventArgs args)
     {

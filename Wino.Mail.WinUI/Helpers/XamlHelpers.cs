@@ -207,17 +207,17 @@ public static class XamlHelpers
         => !string.IsNullOrWhiteSpace(accountNickname) && position == targetPosition;
     public static string GetDraftTagText() => $"[{Translator.Draft}]";
     public static string GetMailItemSubjectForListing(string? subject) => string.IsNullOrWhiteSpace(subject) ? $"({Translator.MailItemNoSubject})" : subject;
-    public static string GetMailItemDisplaySummaryForListing(bool isDraft, DateTime receivedDate)
-        => GetMailItemDisplaySummaryForListing(isDraft, receivedDate, DateTimeDisplayFormatter.UsesTwentyFourHourClock(AppDisplayCulture));
+    public static TimeFormatPreference CurrentMailTimeFormatPreference
+        => PreferencesService?.MailTimeFormatPreference ?? TimeFormatPreference.UseLanguageCulture;
 
-    public static string GetMailItemDisplaySummaryForListing(bool isDraft, DateTime receivedDate, bool prefer24HourTime)
+    public static string GetMailItemDisplaySummaryForListing(bool isDraft, DateTime receivedDate, TimeFormatPreference timeFormatPreference)
     {
         if (isDraft)
             return Translator.Draft;
         else
         {
             var localTime = receivedDate.ToLocalTime();
-            var displayType = GetDisplayType(prefer24HourTime);
+            var displayType = DateTimeDisplayFormatter.GetTimeDisplayType(timeFormatPreference, AppDisplayCulture);
 
             return DateTimeDisplayFormatter.FormatTime(localTime, displayType, AppDisplayCulture);
         }
@@ -229,15 +229,12 @@ public static class XamlHelpers
     public static bool GetMailItemSenderPictureVisibility()
         => PreferencesService?.IsShowSenderPicturesEnabled ?? true;
 
-    public static string GetCreationDateString(DateTime date, bool prefer24HourTime)
+    public static string GetCreationDateString(DateTime date, TimeFormatPreference timeFormatPreference)
     {
         var localTime = date.ToLocalTime();
-        var displayType = GetDisplayType(prefer24HourTime);
+        var displayType = DateTimeDisplayFormatter.GetTimeDisplayType(timeFormatPreference, AppDisplayCulture);
         return $"{localTime.ToString("D", AppDisplayCulture)} {DateTimeDisplayFormatter.FormatTime(localTime, displayType, AppDisplayCulture)}";
     }
-
-    private static DayHeaderDisplayType GetDisplayType(bool prefer24HourTime)
-        => prefer24HourTime ? DayHeaderDisplayType.TwentyFourHour : DayHeaderDisplayType.TwelveHour;
     public static string GetMailGroupDateString(object groupObject)
     {
         if (groupObject is MailListGroupKey pinnedGroupKey)

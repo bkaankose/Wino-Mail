@@ -14,6 +14,15 @@ public static class DateTimeDisplayFormatter
             ? DayHeaderDisplayType.TwentyFourHour
             : DayHeaderDisplayType.TwelveHour;
 
+    public static DayHeaderDisplayType GetTimeDisplayType(TimeFormatPreference timeFormatPreference, CultureInfo culture)
+        => timeFormatPreference switch
+        {
+            TimeFormatPreference.UseLanguageCulture => GetDefaultTimeDisplayType(culture),
+            TimeFormatPreference.TwelveHour => DayHeaderDisplayType.TwelveHour,
+            TimeFormatPreference.TwentyFourHour => DayHeaderDisplayType.TwentyFourHour,
+            _ => throw new ArgumentOutOfRangeException(nameof(timeFormatPreference))
+        };
+
     public static bool UsesTwentyFourHourClock(CultureInfo culture)
     {
         var timePattern = (culture ?? CultureInfo.CurrentCulture).DateTimeFormat.ShortTimePattern;

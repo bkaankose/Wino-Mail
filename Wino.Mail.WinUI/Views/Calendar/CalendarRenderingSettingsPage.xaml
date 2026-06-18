@@ -162,15 +162,15 @@
                     </controls:SettingsCard>
 
                     <controls:SettingsCard
-
-                        AutomationProperties.AutomationId="CalendarRenderingSettingsPageSettingsCard4" Description="{x:Bind domain:Translator.CalendarSettings_ClockIdentifierForHeaders_Description, Mode=OneTime}" Header="{x:Bind domain:Translator.CalendarSettings_ClockIdentifierForHeaders_Header, Mode=OneTime}">
+                        AutomationProperties.AutomationId="CalendarRenderingSettingsPageSettingsCard4"
+                        Description="{x:Bind domain:Translator.SettingsTimeFormat_Description, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.SettingsTimeFormat_Title, Mode=OneTime}">
                         <StackPanel Spacing="8">
-                            <ToggleSwitch
-                                AutomationProperties.AutomationId="CalendarRenderingSettingsPageToggleSwitch2"
-                                HorizontalAlignment="Right"
-                                IsOn="{x:Bind ViewModel.Is24HourHeaders, Mode=TwoWay}"
-                                OffContent="12h"
-                                OnContent="24h" />
+                            <ComboBox
+                                Width="180"
+                                AutomationProperties.AutomationId="CalendarRenderingSettingsPageTimeFormatComboBox"
+                                ItemsSource="{x:Bind ViewModel.TimeFormatPreferenceOptions, Mode=OneTime}"
+                                SelectedIndex="{x:Bind ViewModel.SelectedTimeFormatPreferenceIndex, Mode=TwoWay}" />
                             <TextBlock
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                 Text="{x:Bind ViewModel.TimedHourLabelPreview, Mode=OneWay}"

@@ -75,9 +75,7 @@ public static class MailAccessibilityHelper
     {
         var culture = CultureInfo.DefaultThreadCurrentUICulture ?? CultureInfo.CurrentUICulture;
         var preferencesService = WinoApplication.Current.Services.GetRequiredService<IPreferencesService>();
-        var displayType = preferencesService.Prefer24HourTimeFormat
-            ? DayHeaderDisplayType.TwentyFourHour
-            : DayHeaderDisplayType.TwelveHour;
+        var displayType = DateTimeDisplayFormatter.GetTimeDisplayType(preferencesService.MailTimeFormatPreference, culture);
 
         return $"{dateTime.ToString("d", culture)} {DateTimeDisplayFormatter.FormatTime(dateTime, displayType, culture)}";
     }

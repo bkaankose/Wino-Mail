@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Calendar.ViewModels;
@@ -12,9 +15,6 @@ public partial class CalendarRenderingSettingsPageViewModel : CalendarSettingsSe
 
     [ObservableProperty]
     public partial int SelectedFirstDayOfWeekIndex { get; set; }
-
-    [ObservableProperty]
-    public partial bool Is24HourHeaders { get; set; }
 
     [ObservableProperty]
     public partial bool IsWorkingHoursEnabled { get; set; }
@@ -37,6 +37,38 @@ public partial class CalendarRenderingSettingsPageViewModel : CalendarSettingsSe
     [ObservableProperty]
     public partial int SelectedTimedDayHeaderFormatPresetIndex { get; set; } = -1;
 
+    private readonly List<TimeFormatPreference> timeFormatPreferences =
+    [
+        TimeFormatPreference.UseLanguageCulture,
+        TimeFormatPreference.TwelveHour,
+        TimeFormatPreference.TwentyFourHour
+    ];
+
+    public List<string> TimeFormatPreferenceOptions { get; } =
+    [
+        Translator.SettingsTimeFormat_UseLanguageCulture,
+        Translator.SettingsTimeFormat_TwelveHour,
+        Translator.SettingsTimeFormat_TwentyFourHour
+    ];
+
+    private int selectedTimeFormatPreferenceIndex;
+    public int SelectedTimeFormatPreferenceIndex
+    {
+        get => selectedTimeFormatPreferenceIndex;
+        set
+        {
+            if (SetProperty(ref selectedTimeFormatPreferenceIndex, value) && value >= 0 && value < timeFormatPreferences.Count)
+            {
+                OnPropertyChanged(nameof(Is24HourHeaders));
+                OnPropertyChanged(nameof(TimedHourLabelPreview));
+                SaveSettings();
+            }
+        }
+    }
+
+    public bool Is24HourHeaders
+        => DateTimeDisplayFormatter.GetTimeDisplayType(GetSelectedTimeFormatPreference(), CalendarCulture) == DayHeaderDisplayType.TwentyFourHour;
+
     public CalendarRenderingSettingsPageViewModel(
         IPreferencesService preferencesService,
         ICalendarService calendarService,
@@ -44,7 +76,7 @@ public partial class CalendarRenderingSettingsPageViewModel : CalendarSettingsSe
         : base(preferencesService, calendarService, accountService)
     {
         SelectedFirstDayOfWeekIndex = DayNames.IndexOf(CalendarCulture.DateTimeFormat.GetDayName(preferencesService.FirstDayOfWeek));
-        Is24HourHeaders = preferencesService.Prefer24HourTimeFormat;
+        selectedTimeFormatPreferenceIndex = timeFormatPreferences.IndexOf(preferencesService.CalendarTimeFormatPreference);
         IsWorkingHoursEnabled = preferencesService.IsWorkingHoursEnabled;
         WorkingHourStart = preferencesService.WorkingHourStart;
         WorkingHourEnd = preferencesService.WorkingHourEnd;
@@ -54,16 +86,15 @@ public partial class CalendarRenderingSettingsPageViewModel : CalendarSettingsSe
         TimedDayHeaderDateFormat = preferencesService.CalendarTimedDayHeaderDateFormat;
         SelectedTimedDayHeaderFormatPresetIndex = TimedDayHeaderFormatPresets.IndexOf(TimedDayHeaderDateFormat);
 
+        if (selectedTimeFormatPreferenceIndex < 0)
+        {
+            selectedTimeFormatPreferenceIndex = timeFormatPreferences.IndexOf(TimeFormatPreference.UseLanguageCulture);
+        }
+
         IsLoaded = true;
     }
 
     partial void OnCellHourHeightChanged(double oldValue, double newValue) => SaveSettings();
-
-    partial void OnIs24HourHeadersChanged(bool value)
-    {
-        OnPropertyChanged(nameof(TimedHourLabelPreview));
-        SaveSettings();
-    }
 
     partial void OnSelectedFirstDayOfWeekIndexChanged(int value) => SaveSettings();
     partial void OnIsWorkingHoursEnabledChanged(bool value) => SaveSettings();
@@ -181,11 +212,16 @@ public partial class CalendarRenderingSettingsPageViewModel : CalendarSettingsSe
             _ => throw new ArgumentOutOfRangeException()
         };
 
-        PreferencesService.Prefer24HourTimeFormat = Is24HourHeaders;
+        PreferencesService.CalendarTimeFormatPreference = GetSelectedTimeFormatPreference();
         PreferencesService.IsWorkingHoursEnabled = IsWorkingHoursEnabled;
         PreferencesService.WorkingHourStart = WorkingHourStart;
         PreferencesService.WorkingHourEnd = WorkingHourEnd;
         PreferencesService.HourHeight = CellHourHeight;
         PreferencesService.CalendarTimedDayHeaderDateFormat = TimedDayHeaderDateFormat;
     }
+
+    private TimeFormatPreference GetSelectedTimeFormatPreference()
+        => SelectedTimeFormatPreferenceIndex >= 0 && SelectedTimeFormatPreferenceIndex < timeFormatPreferences.Count
+            ? timeFormatPreferences[SelectedTimeFormatPreferenceIndex]
+            : TimeFormatPreference.UseLanguageCulture;
 }
