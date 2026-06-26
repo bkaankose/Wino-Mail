@@ -828,6 +828,13 @@ public partial class App : WinoApplication,
         else
         {
             ApplyShellWindowTaskbarIdentity(shellWindow, mode);
+
+            if (activateWindow && shellWindow is WindowEx existingWindow)
+            {
+                await ActivateWindowAsync(existingWindow, applyThemeToWindow: false);
+                activateWindow = false;
+            }
+
             navigationService.RestoreShell(mode, new ShellModeActivationContext
             {
                 SuppressStartupFlows = suppressStartupFlows,

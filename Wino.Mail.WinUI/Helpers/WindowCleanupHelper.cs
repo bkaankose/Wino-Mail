@@ -14,6 +14,15 @@ internal static class WindowCleanupHelper
             return;
 
         CleanupObject(frame.Content);
+        ClearNavigationStack(frame);
+
+        frame.Content = null;
+    }
+
+    public static void ClearNavigationStack(Frame? frame)
+    {
+        if (frame?.IsNavigationStackEnabled != true)
+            return;
 
         if (frame.BackStack.Count > 0)
         {
@@ -24,8 +33,6 @@ internal static class WindowCleanupHelper
         {
             frame.ForwardStack.Clear();
         }
-
-        frame.Content = null;
     }
 
     public static void CleanupObject(object? instance)
