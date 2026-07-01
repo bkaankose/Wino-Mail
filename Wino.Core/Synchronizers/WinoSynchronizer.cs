@@ -63,7 +63,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     /// Refreshes the aliases of the account.
     /// Only available for Gmail right now.
     /// </summary>
-    protected virtual Task SynchronizeAliasesAsync() => Task.CompletedTask;
+    protected virtual Task SynchronizeAliasesAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     protected virtual Task SynchronizeCategoriesAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
     /// <summary>
@@ -331,7 +331,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
                 try
                 {
-                    await SynchronizeAliasesAsync();
+                    await SynchronizeAliasesAsync(activeSynchronizationCancellationToken);
 
                     return FinalizeMailResult(MailSynchronizationResult.Empty);
                 }

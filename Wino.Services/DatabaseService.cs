@@ -224,6 +224,49 @@ WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
                 .ConfigureAwait(false);
         }
 
+        // Existing custom-server rows are password auth unless OAuth was explicitly configured.
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.UseOAuthAuthentication)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.UseOAuthAuthentication)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
+
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.OAuthAuthority)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.OAuthAuthority)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.OAuthClientId)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.OAuthClientId)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.OAuthResource)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.OAuthResource)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.OAuthRedirectUri)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.OAuthRedirectUri)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.OAuthRefreshToken)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.OAuthRefreshToken)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
         var calendarItemColumns = await Connection.GetTableInfoAsync(nameof(CalendarItem)).ConfigureAwait(false);
 
         if (!calendarItemColumns.Any(c => c.Name == nameof(CalendarItem.SnoozedUntil)))

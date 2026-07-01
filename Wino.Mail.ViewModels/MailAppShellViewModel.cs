@@ -776,6 +776,21 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                     return;
                 }
 
+                if (account.ProviderType == MailProviderType.Exchange)
+                {
+                    NavigationService.Navigate(WinoPage.SettingsPage, WinoPage.ManageAccountsPage);
+                    Messenger.Send(new BreadcrumbNavigationRequested(
+                        Translator.SettingsEditAccountDetails_ExchangeServerSettings_Title,
+                        WinoPage.ExchangeSettingsPage,
+                        account.Id));
+
+                    _dialogService.InfoBarMessage(
+                        Translator.Info_AccountIssueFixSuccessTitle,
+                        Translator.Info_AccountIssueFixExchangeMessage,
+                        InfoBarMessageType.Information);
+                    return;
+                }
+
                 NavigationService.Navigate(WinoPage.SettingsPage, WinoPage.ManageAccountsPage);
                 Messenger.Send(new BreadcrumbNavigationRequested(
                     Translator.ImapCalDavSettingsPage_TitleEdit,

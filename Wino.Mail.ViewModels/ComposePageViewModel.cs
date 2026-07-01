@@ -110,7 +110,10 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     [NotifyCanExecuteChangedFor(nameof(DiscardCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendToServerCommand))]
+    [NotifyPropertyChangedFor(nameof(CanSelectFromAlias))]
     public partial MailAccount ComposingAccount { get; set; }
+
+    public bool CanSelectFromAlias => ComposingAccount?.ProviderType != MailProviderType.Exchange;
 
     [ObservableProperty]
     public partial List<MailAccountAlias> AvailableAliases { get; set; }
@@ -713,7 +716,8 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         MailAccountAlias primaryAlias = null;
 
-        if (!string.IsNullOrEmpty(CurrentMailDraftItem.FromAddress))
+        if (composingAccount.ProviderType != MailProviderType.Exchange &&
+            !string.IsNullOrEmpty(CurrentMailDraftItem.FromAddress))
         {
             primaryAlias = aliases.Find(a => a.AliasAddress == CurrentMailDraftItem.FromAddress);
         }

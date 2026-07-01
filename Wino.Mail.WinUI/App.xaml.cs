@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
@@ -23,6 +24,7 @@ using Serilog;
 using Wino.Calendar.ViewModels;
 using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Core;
+using Wino.Core.Authentication;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -37,6 +39,7 @@ using Wino.Mail.Services;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Activation;
+using Wino.Mail.WinUI.Authentication;
 using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
@@ -427,6 +430,8 @@ public partial class App : WinoApplication,
         services.AddSingleton<IAccountCalendarStateService, AccountCalendarStateService>();
         services.AddSingleton<IDateContextProvider, SystemDateContextProvider>();
         services.AddSingleton<ICalendarRangeTextFormatter, CalendarRangeTextFormatter>();
+
+        services.Replace(ServiceDescriptor.Transient<IInteractiveOidcAuthenticator, WebView2InteractiveOidcAuthenticator>());
     }
 
     private void RegisterViewModels(IServiceCollection services)
@@ -456,6 +461,7 @@ public partial class App : WinoApplication,
         services.AddTransient(typeof(IdlePageViewModel));
 
         services.AddTransient(typeof(ImapCalDavSettingsPageViewModel));
+        services.AddTransient(typeof(ExchangeSettingsPageViewModel));
         services.AddTransient(typeof(AccountDetailsPageViewModel));
         services.AddTransient(typeof(FolderCustomizationPageViewModel));
         services.AddTransient(typeof(SignatureManagementPageViewModel));
