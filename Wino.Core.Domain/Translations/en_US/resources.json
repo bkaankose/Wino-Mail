@@ -373,6 +373,7 @@
     "ExchangeSettingsPage_Description": "Connect to an on-premises Exchange mailbox using Exchange Web Services.",
     "ExchangeSettingsPage_DisplayNameHeader": "Display name",
     "ExchangeSettingsPage_EmailAddressHeader": "Email address",
+    "ExchangeSettingsPage_UsernameHeader": "Username (optional — defaults to email address)",
     "ExchangeSettingsPage_EwsUrlHeader": "EWS URL",
     "ExchangeSettingsPage_EwsUrlPlaceholder": "https://mail.example.com/EWS/Exchange.asmx",
     "ExchangeSettingsPage_AuthMethodHeader": "Authentication method",
