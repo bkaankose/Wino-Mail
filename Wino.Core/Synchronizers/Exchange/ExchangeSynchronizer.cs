@@ -280,7 +280,8 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         foreach (var remote in remoteFolders)
         {
             var remoteId = remote.Id.UniqueId;
-            specialMap.TryGetValue(remoteId, out var specialType);
+            if (!specialMap.TryGetValue(remoteId, out var specialType))
+                specialType = SpecialFolderType.Other;
 
             if (localByRemoteId.TryGetValue(remoteId, out var existing))
             {
