@@ -17,6 +17,7 @@
             <SolidColorBrush x:Key="CalendarHoverHourBackgroundBrush">#59B0C6DD</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarWorkHourBackgroundBrush">#66B0C6DD</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarSelectedHourBackgroundBrush">#4D0078D4</SolidColorBrush>
+            <SolidColorBrush x:Key="WelcomeOverlayBrush">#D9FFFFFF</SolidColorBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Name="Dark">
             <!--  Brushes  -->
@@ -25,6 +26,7 @@
             <SolidColorBrush x:Key="CalendarHoverHourBackgroundBrush">#59B0C6DD</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarWorkHourBackgroundBrush">#66B0C6DD</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarSelectedHourBackgroundBrush">#66399BFF</SolidColorBrush>
+            <SolidColorBrush x:Key="WelcomeOverlayBrush">#E61F1F1F</SolidColorBrush>
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>
