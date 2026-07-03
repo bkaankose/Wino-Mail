@@ -39,6 +39,9 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     public partial string EmailAddress { get; set; } = string.Empty;
 
     [ObservableProperty]
+    public partial string Username { get; set; } = string.Empty;
+
+    [ObservableProperty]
     public partial string EwsUrl { get; set; } = string.Empty;
 
     [ObservableProperty]
@@ -128,6 +131,12 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         DisplayName = account.SenderName ?? account.Name ?? string.Empty;
         EmailAddress = account.Address ?? server.IncomingServerUsername ?? string.Empty;
         EwsUrl = server.IncomingServer ?? string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(server.IncomingServerUsername) &&
+            !string.Equals(server.IncomingServerUsername, account.Address, StringComparison.OrdinalIgnoreCase))
+        {
+            Username = server.IncomingServerUsername;
+        }
 
         if (server.UseOAuthAuthentication)
         {
@@ -262,7 +271,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
                 Address = EmailAddress.Trim(),
                 IncomingServer = EwsUrl.Trim(),
                 IncomingServerType = CustomIncomingServerType.Exchange,
-                IncomingServerUsername = EmailAddress.Trim(),
+                IncomingServerUsername = GetEffectiveUsername(),
                 IncomingServerPassword = Password,
                 CalendarSupportMode = ImapCalendarSupportMode.Disabled
             };
@@ -319,6 +328,9 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
 
         Messenger.Send(new BackBreadcrumNavigationRequested());
     }
+
+    private string GetEffectiveUsername()
+        => string.IsNullOrWhiteSpace(Username) ? EmailAddress.Trim() : Username.Trim();
 
     private static bool IsHttpsUrl(string url)
         => Uri.TryCreate(url?.Trim(), UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps;
@@ -392,7 +404,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
                 Address = EmailAddress.Trim(),
                 IncomingServer = EwsUrl.Trim(),
                 IncomingServerType = CustomIncomingServerType.Exchange,
-                IncomingServerUsername = EmailAddress.Trim(),
+                IncomingServerUsername = GetEffectiveUsername(),
                 CalendarSupportMode = ImapCalendarSupportMode.Disabled,
                 UseOAuthAuthentication = true,
                 OAuthAuthority = configuration.Authority,
