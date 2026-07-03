@@ -56,8 +56,8 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
 
     public event EventHandler<MailOperationPreperationRequest>? HoverActionExecuted;
 
-    [GeneratedDependencyProperty(DefaultValue = false)]
-    public partial bool Prefer24HourTimeFormat { get; set; }
+    [GeneratedDependencyProperty(DefaultValue = Wino.Core.Domain.Enums.TimeFormatPreference.UseLanguageCulture)]
+    public partial TimeFormatPreference TimeFormatPreference { get; set; }
 
     [GeneratedDependencyProperty]
     public partial IMailListItem? ActionItem { get; set; }
@@ -79,7 +79,7 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
         ShowPreviewText = preferencesService.IsShowPreviewEnabled;
         IsAvatarVisible = preferencesService.IsShowSenderPicturesEnabled;
         IsHoverActionsEnabled = preferencesService.IsHoverActionsEnabled;
-        Prefer24HourTimeFormat = preferencesService.Prefer24HourTimeFormat;
+        TimeFormatPreference = preferencesService.MailTimeFormatPreference;
         LeftHoverAction = preferencesService.LeftHoverAction;
         CenterHoverAction = preferencesService.CenterHoverAction;
         RightHoverAction = preferencesService.RightHoverAction;

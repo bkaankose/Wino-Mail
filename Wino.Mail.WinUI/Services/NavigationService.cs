@@ -1,8 +1,8 @@
 using System;
 using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media.Animation;
 using Wino.Calendar.Views;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -12,6 +12,7 @@ using Wino.Core.Domain.Models.Settings;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.WinUI;
+using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Mail.WinUI.Services;
@@ -24,7 +25,6 @@ using Wino.Views;
 using Wino.Views.Account;
 using Wino.Views.Mail;
 using Wino.Views.Settings;
-using Microsoft.UI.Xaml.Media.Animation;
 
 namespace Wino.Services;
 
@@ -218,12 +218,53 @@ public class NavigationService : NavigationServiceBase, INavigationService
     public bool ChangeApplicationMode(WinoApplicationMode mode, ShellModeActivationContext activationContext)
         => ExecuteOnNavigationThread(() => ChangeApplicationModeInternal(mode, activationContext));
 
+    public bool ParkShell()
+        => ExecuteOnNavigationThread(ParkShellInternal);
+
+    public bool RestoreShell(WinoApplicationMode mode)
+        => ExecuteOnNavigationThread(() => RestoreShellInternal(mode));
+
+    public bool RestoreShell(WinoApplicationMode mode, ShellModeActivationContext activationContext)
+        => ExecuteOnNavigationThread(() => RestoreShellInternal(mode, activationContext));
+
     public bool CanGoBack()
         => ExecuteOnNavigationThread(CanGoBackInternal);
 
-    private bool ChangeApplicationModeInternal(WinoApplicationMode mode, ShellModeActivationContext? activationContext = null)
+    private bool ParkShellInternal()
     {
-        var coreFrame = GetCoreFrameInternal(NavigationReferenceFrame.ShellFrame);
+        var coreFrame = GetCoreFrameInternal(NavigationReferenceFrame.ShellFrame, WinoWindowKind.Shell);
+
+        if (coreFrame == null)
+            return false;
+
+        if (coreFrame.Content is IdlePage)
+            return true;
+
+        _pendingInnerShellTransition = null;
+        _statePersistanceService.IsReadingMail = false;
+        _statePersistanceService.IsEventDetailsVisible = false;
+        _statePersistanceService.CoreWindowTitle = string.Empty;
+
+        if (coreFrame.Content is WinoAppShell shellPage)
+        {
+            shellPage.PrepareForWindowClose();
+        }
+
+        WindowCleanupHelper.ClearNavigationStack(coreFrame);
+
+        return coreFrame.Navigate(typeof(IdlePage), null, new SuppressNavigationTransitionInfo());
+    }
+
+    private bool RestoreShellInternal(WinoApplicationMode mode, ShellModeActivationContext? activationContext = null)
+    {
+        return ChangeApplicationModeInternal(mode, activationContext, WinoWindowKind.Shell);
+    }
+
+    private bool ChangeApplicationModeInternal(WinoApplicationMode mode,
+                                               ShellModeActivationContext? activationContext = null,
+                                               WinoWindowKind? requestedWindowKind = null)
+    {
+        var coreFrame = GetCoreFrameInternal(NavigationReferenceFrame.ShellFrame, requestedWindowKind);
 
         if (coreFrame == null) return false;
 
@@ -255,8 +296,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
 
         if (coreFrame.Content is not IShellHost)
         {
-            coreFrame.BackStack.Clear();
-            coreFrame.ForwardStack.Clear();
+            WindowCleanupHelper.ClearNavigationStack(coreFrame);
             coreFrame.Navigate(typeof(WinoAppShell), null, new SuppressNavigationTransitionInfo());
         }
 
@@ -593,8 +633,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
 
         if (innerShellFrame != null)
         {
-            innerShellFrame.BackStack.Clear();
-            innerShellFrame.ForwardStack.Clear();
+            WindowCleanupHelper.ClearNavigationStack(innerShellFrame);
         }
     }
 
@@ -638,8 +677,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
             return;
         }
 
-        frame.BackStack.Clear();
-        frame.ForwardStack.Clear();
+        WindowCleanupHelper.ClearNavigationStack(frame);
     }
 
     private bool CanGoBackInternal()

@@ -274,6 +274,7 @@
             x:Name="MainShellFrame"
             Grid.Row="1"
             CacheSize="0"
+            IsNavigationStackEnabled="False"
             Navigated="MainFrameNavigated" />
 
         <coreControls:WinoInfoBar

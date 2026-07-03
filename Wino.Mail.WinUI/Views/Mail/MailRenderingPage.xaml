@@ -328,7 +328,7 @@
                                             </TextBlock>
                                         </Grid>
                                     </HyperlinkButton>
-                                    <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind helpers:XamlHelpers.GetCreationDateString(ViewModel.CreationDate, ViewModel.PreferencesService.Prefer24HourTimeFormat), Mode=OneWay}" />
+                                    <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind helpers:XamlHelpers.GetCreationDateString(ViewModel.CreationDate, ViewModel.PreferencesService.MailTimeFormatPreference), Mode=OneWay}" />
                                 </StackPanel>
                             </Grid>
                         </Grid>

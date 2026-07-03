@@ -43,6 +43,13 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         MailListDisplayMode.Spacious
     ];
 
+    private readonly List<TimeFormatPreference> timeFormatPreferenceOptions =
+    [
+        TimeFormatPreference.UseLanguageCulture,
+        TimeFormatPreference.TwelveHour,
+        TimeFormatPreference.TwentyFourHour
+    ];
+
     public List<string> AvailableHoverActionsTranslations { get; set; } =
     [
         Translator.HoverActionOption_Archive,
@@ -65,6 +72,13 @@ public partial class MessageListPageViewModel : MailBaseViewModel
     [
         Translator.SettingsThreadOrder_LastItemFirst,
         Translator.SettingsThreadOrder_FirstItemFirst
+    ];
+
+    public List<string> TimeFormatPreferenceOptions { get; } =
+    [
+        Translator.SettingsTimeFormat_UseLanguageCulture,
+        Translator.SettingsTimeFormat_TwelveHour,
+        Translator.SettingsTimeFormat_TwentyFourHour
     ];
 
     public List<string> AccountNicknamePositionOptions { get; } =
@@ -134,6 +148,19 @@ public partial class MessageListPageViewModel : MailBaseViewModel
             if (SetProperty(ref selectedThreadItemSortingIndex, value) && value >= 0)
             {
                 PreferencesService.IsNewestThreadMailFirst = value == 0;
+            }
+        }
+    }
+
+    private int selectedTimeFormatPreferenceIndex;
+    public int SelectedTimeFormatPreferenceIndex
+    {
+        get => selectedTimeFormatPreferenceIndex;
+        set
+        {
+            if (SetProperty(ref selectedTimeFormatPreferenceIndex, value) && value >= 0 && value < timeFormatPreferenceOptions.Count)
+            {
+                PreferencesService.MailTimeFormatPreference = timeFormatPreferenceOptions[value];
             }
         }
     }
@@ -223,6 +250,7 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         SelectedMarkAsOptionIndex = Array.IndexOf(Enum.GetValues<MailMarkAsOption>(), PreferencesService.MarkAsPreference);
         selectedThreadItemSortingIndex = PreferencesService.IsNewestThreadMailFirst ? 0 : 1;
         selectedAccountNicknamePositionIndex = accountNicknamePositions.IndexOf(PreferencesService.AccountNicknamePosition);
+        selectedTimeFormatPreferenceIndex = timeFormatPreferenceOptions.IndexOf(PreferencesService.MailTimeFormatPreference);
 
         if (leftHoverActionIndex < 0)
         {
@@ -252,6 +280,11 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         if (selectedAccountNicknamePositionIndex < 0)
         {
             selectedAccountNicknamePositionIndex = accountNicknamePositions.IndexOf(AccountNicknamePosition.Right);
+        }
+
+        if (selectedTimeFormatPreferenceIndex < 0)
+        {
+            selectedTimeFormatPreferenceIndex = timeFormatPreferenceOptions.IndexOf(TimeFormatPreference.UseLanguageCulture);
         }
     }
 

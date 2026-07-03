@@ -10,6 +10,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using Windows.Foundation;
 using Windows.System;
@@ -42,6 +43,7 @@ using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
 using Wino.Views;
+using Wino.Views.Mail;
 
 namespace Wino.Mail.WinUI.Views;
 
@@ -134,8 +136,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
         if (!_isPreparedForWindowClose)
         {
-            DeactivateCurrentMode();
-            DetachLifetimeSubscriptions();
+            PrepareForWindowClose();
         }
 
         Bindings.StopTracking();
@@ -148,6 +149,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
         _isPreparedForWindowClose = true;
 
+        ParkInnerShellFrameForShutdown();
         DeactivateAllShellClients();
         WeakReferenceMessenger.Default.Unregister<LanguageChanged>(this);
         UnregisterRecipients();
@@ -157,6 +159,14 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         navigationView.MenuItemsSource = null;
         CalendarHostListView.ItemsSource = null;
         WindowCleanupHelper.CleanupFrame(InnerShellFrame);
+    }
+
+    private void ParkInnerShellFrameForShutdown()
+    {
+        if (InnerShellFrame.Content == null || InnerShellFrame.Content is IdlePage)
+            return;
+
+        InnerShellFrame.Navigate(typeof(IdlePage), null, new SuppressNavigationTransitionInfo());
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -254,8 +264,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private void ResetShellModeNavigationState()
     {
-        InnerShellFrame.BackStack.Clear();
-        InnerShellFrame.ForwardStack.Clear();
+        WindowCleanupHelper.ClearNavigationStack(InnerShellFrame);
     }
 
     private void UpdateTitleBarSubtitle()

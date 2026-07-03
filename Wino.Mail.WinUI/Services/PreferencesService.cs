@@ -185,10 +185,10 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SetPropertyAndSave(nameof(RenderImages), value);
     }
 
-    public bool Prefer24HourTimeFormat
+    public TimeFormatPreference MailTimeFormatPreference
     {
-        get => _configurationService.Get(nameof(Prefer24HourTimeFormat), DateTimeDisplayFormatter.UsesTwentyFourHourClock(GetCurrentLanguageCulture()));
-        set => SetPropertyAndSave(nameof(Prefer24HourTimeFormat), value);
+        get => _configurationService.Get(nameof(MailTimeFormatPreference), TimeFormatPreference.UseLanguageCulture);
+        set => SetPropertyAndSave(nameof(MailTimeFormatPreference), value);
     }
 
     public MailMarkAsOption MarkAsPreference
@@ -363,6 +363,12 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
     {
         get => _configurationService.Get(nameof(CalendarTimedDayHeaderDateFormat), "ddd dd");
         set => SaveProperty(propertyName: nameof(CalendarTimedDayHeaderDateFormat), string.IsNullOrWhiteSpace(value) ? "ddd dd" : value.Trim());
+    }
+
+    public TimeFormatPreference CalendarTimeFormatPreference
+    {
+        get => _configurationService.Get(nameof(CalendarTimeFormatPreference), TimeFormatPreference.UseLanguageCulture);
+        set => SetPropertyAndSave(nameof(CalendarTimeFormatPreference), value);
     }
 
     public TimeSpan WorkingHourStart
@@ -543,7 +549,7 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
                                     WorkingHourStart,
                                     WorkingHourEnd,
                                     HourHeight,
-                                    Prefer24HourTimeFormat ? DayHeaderDisplayType.TwentyFourHour : DayHeaderDisplayType.TwelveHour,
+                                    DateTimeDisplayFormatter.GetTimeDisplayType(CalendarTimeFormatPreference, GetCurrentLanguageCulture()),
                                     GetCurrentLanguageCulture(),
                                     CalendarTimedDayHeaderDateFormat);
     }

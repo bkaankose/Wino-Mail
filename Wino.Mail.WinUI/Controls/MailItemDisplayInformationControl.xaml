@@ -239,7 +239,7 @@
                                 VerticalAlignment="Center"
                                 FontSize="11"
                                 Opacity="0.7"
-                                Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(MailItemInformation.IsDraft, MailItemInformation.CreationDate, Prefer24HourTimeFormat), Mode=OneWay}" />
+                                Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(MailItemInformation.IsDraft, MailItemInformation.CreationDate, TimeFormatPreference), Mode=OneWay}" />
                         </Grid>
 
                         <ItemsControl

@@ -570,12 +570,22 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     private async Task HandleMailOperation(MailOperation mailOperation, IEnumerable<MailItemViewModel> mailItems)
     {
-        if (!mailItems.Any()) return;
+        var mailItemList = mailItems?.Where(a => a?.MailCopy != null).ToList() ?? [];
+        if (mailItemList.Count == 0) return;
 
-        var package = new MailOperationPreperationRequest(mailOperation, mailItems.Select(a => a.MailCopy));
+        if (IsDraftCreationOperation(mailOperation))
+        {
+            await CreateDraftFromMailAsync(mailItemList.FirstOrDefault(), mailOperation);
+            return;
+        }
+
+        var package = new MailOperationPreperationRequest(mailOperation, mailItemList.Select(a => a.MailCopy));
 
         await ExecuteMailOperationAsync(package);
     }
+
+    private static bool IsDraftCreationOperation(MailOperation operation)
+        => operation is MailOperation.Reply or MailOperation.ReplyAll or MailOperation.Forward;
 
     /// <summary>
     /// Sends a new message to synchronize current folder.

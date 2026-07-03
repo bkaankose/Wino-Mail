@@ -135,7 +135,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
         if (TryCreateMailFolderLaunchRequest(launchArguments, out var folderLaunchRequest))
         {
-            NavigationService.ChangeApplicationMode(targetMode, new ShellModeActivationContext
+            NavigationService.RestoreShell(targetMode, new ShellModeActivationContext
             {
                 Parameter = folderLaunchRequest
             });
@@ -143,7 +143,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
             return;
         }
 
-        NavigationService.ChangeApplicationMode(targetMode);
+        NavigationService.RestoreShell(targetMode);
     }
 
     private static bool TryCreateMailFolderLaunchRequest(string? launchArguments, out MailFolderLaunchRequest? request)
@@ -377,6 +377,9 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         e.Cancel = true;
 
         if (!await PrepareMailModeForHideAsync())
+            return;
+
+        if (!NavigationService.ParkShell())
             return;
 
         SaveWindowPlacement();

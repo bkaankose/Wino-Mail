@@ -834,7 +834,14 @@ public partial class App : WinoApplication,
         else
         {
             ApplyShellWindowTaskbarIdentity(shellWindow, mode);
-            navigationService.ChangeApplicationMode(mode, new ShellModeActivationContext
+
+            if (activateWindow && shellWindow is WindowEx existingWindow)
+            {
+                await ActivateWindowAsync(existingWindow, applyThemeToWindow: false);
+                activateWindow = false;
+            }
+
+            navigationService.RestoreShell(mode, new ShellModeActivationContext
             {
                 SuppressStartupFlows = suppressStartupFlows,
                 Parameter = activationParameter
@@ -1276,7 +1283,7 @@ public partial class App : WinoApplication,
                     : AppModeActivationResolver.Resolve(args?.Arguments, GetCurrentLaunchTileId(), Environment.CommandLine, defaultMode);
 
             ApplyShellWindowTaskbarIdentity(shellWindow, targetMode);
-            navigationService.ChangeApplicationMode(targetMode, activationContextOverride);
+            navigationService.RestoreShell(targetMode, activationContextOverride);
             return;
         }
 

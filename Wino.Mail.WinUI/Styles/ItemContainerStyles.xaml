@@ -83,29 +83,26 @@
                             InfoBadge="{TemplateBinding InfoBadge}"
                             IsTabStop="false"
                             UseSystemFocusVisuals="{TemplateBinding UseSystemFocusVisuals}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Rectangle
-                                    x:Name="CustomSelectionIndicator"
-                                    Width="3"
-                                    Margin="-44,12,0,12"
-                                    HorizontalAlignment="Left"
-                                    Fill="{ThemeResource NavigationViewSelectionIndicatorForeground}"
-                                    Opacity="1"
-                                    RadiusX="2"
-                                    RadiusY="2"
-                                    Scale="0,0,0"
-                                    Visibility="Collapsed">
-                                    <Rectangle.ScaleTransition>
-                                        <Vector3Transition />
-                                    </Rectangle.ScaleTransition>
-                                </Rectangle>
-                                <ContentPresenter Grid.Column="1" Content="{TemplateBinding Content}" />
-                            </Grid>
+                            <ContentPresenter Content="{TemplateBinding Content}" />
                         </primitives:NavigationViewItemPresenter>
+
+                        <Rectangle
+                            x:Name="CustomSelectionIndicator"
+                            Grid.Row="0"
+                            Width="3"
+                            Margin="4,12,0,12"
+                            HorizontalAlignment="Left"
+                            Fill="{ThemeResource NavigationViewSelectionIndicatorForeground}"
+                            IsHitTestVisible="False"
+                            Opacity="1"
+                            RadiusX="2"
+                            RadiusY="2"
+                            Scale="0,0,0"
+                            Visibility="Collapsed">
+                            <Rectangle.ScaleTransition>
+                                <Vector3Transition />
+                            </Rectangle.ScaleTransition>
+                        </Rectangle>
 
                         <ItemsRepeater
                             x:Name="NavigationViewItemMenuItemsHost"

@@ -31,9 +31,9 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsNavigationPaneOpened { get; set; }
 
     /// <summary>
-    /// Setting: Preferred time format for mail or calendar header display.
+    /// Setting: Preferred time format for mail list and reader display.
     /// </summary>
-    bool Prefer24HourTimeFormat { get; set; }
+    TimeFormatPreference MailTimeFormatPreference { get; set; }
 
     /// <summary>
     /// Diagnostic ID for the application.
@@ -313,6 +313,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     DayOfWeek WorkingDayEnd { get; set; }
     double HourHeight { get; set; }
     string CalendarTimedDayHeaderDateFormat { get; set; }
+
+    /// <summary>
+    /// Setting: Preferred time format for calendar header display.
+    /// </summary>
+    TimeFormatPreference CalendarTimeFormatPreference { get; set; }
 
     /// <summary>
     /// Setting: Default reminder duration in seconds for new calendar events.
