@@ -18,6 +18,7 @@
             <SolidColorBrush x:Key="CalendarSelectedHourBackgroundBrush">#4D0078D4</SolidColorBrush>
 
             <SolidColorBrush x:Key="CalendarSeperatorBrush">#222f3e</SolidColorBrush>
+            <SolidColorBrush x:Key="WelcomeOverlayBrush">#D9FFFFFF</SolidColorBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Name="Dark">
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#b2dffc</SolidColorBrush>
@@ -27,6 +28,7 @@
             <SolidColorBrush x:Key="CalendarSelectedHourBackgroundBrush">#66399BFF</SolidColorBrush>
 
             <SolidColorBrush x:Key="CalendarSeperatorBrush">#222f3e</SolidColorBrush>
+            <SolidColorBrush x:Key="WelcomeOverlayBrush">#E61F1F1F</SolidColorBrush>
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>

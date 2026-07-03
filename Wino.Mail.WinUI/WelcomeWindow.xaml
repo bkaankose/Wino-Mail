@@ -9,6 +9,7 @@
     mc:Ignorable="d">
 
     <Grid Background="{ThemeResource WinoApplicationBackgroundColor}">
+        <Border Background="{ThemeResource WelcomeOverlayBrush}" />
         <Frame x:Name="RootFrame" />
     </Grid>
 </winuiex:WindowEx>
