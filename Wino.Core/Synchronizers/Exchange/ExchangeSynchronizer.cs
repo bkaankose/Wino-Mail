@@ -423,6 +423,8 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
             IsRead = email?.IsRead ?? true,
             HasAttachments = item.HasAttachments,
             Importance = MapImportance(item.Importance),
+            IsDraft = assignedFolder.SpecialFolderType == SpecialFolderType.Draft,
+            DraftId = assignedFolder.SpecialFolderType == SpecialFolderType.Draft ? item.Id.UniqueId : null,
         };
     }
 
