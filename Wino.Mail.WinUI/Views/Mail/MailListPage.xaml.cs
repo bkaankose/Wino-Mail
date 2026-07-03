@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI;
@@ -15,6 +16,7 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using MoreLinq;
+using Serilog;
 using Windows.Foundation;
 using Windows.System;
 using Wino.Core.Domain;
@@ -51,8 +53,11 @@ public sealed partial class MailListPage : MailListPageAbstract,
 {
     private const double RENDERING_COLUMN_MIN_WIDTH = 375;
     private const int SELECTION_SETTLE_DELAY_MS = 120;
+    private const int SELECT_MAIL_CONTAINER_MAX_ATTEMPTS = 40;
+    private const int SELECT_MAIL_CONTAINER_RETRY_DELAY_MS = 50;
     private int _idleNavigationRequestVersion = 0;
     private int _mailActivationRequestVersion = 0;
+    private int _selectMailContainerRequestVersion = 0;
     private readonly Dictionary<ListViewBase, IMailListItem> _selectionRangeAnchors = [];
     private IPopoutClient? _activePopoutClient;
     private readonly Dictionary<FrameworkElement, HostedContentPopoutWindow> _hostedPopoutWindows = [];
@@ -106,6 +111,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
         InvalidatePendingIdleNavigation();
         InvalidatePendingMailActivation();
+        InvalidatePendingMailContainerSelection();
         DetachPopoutClient();
 
         this.Bindings.StopTracking();
@@ -625,39 +631,76 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     #endregion
 
-    public async void Receive(SelectMailItemContainerEvent message)
+    public void Receive(SelectMailItemContainerEvent message)
     {
         if (message.MailUniqueId == Guid.Empty) return;
 
-        var item = ViewModel.MailCollection.Find(message.MailUniqueId);
+        var requestVersion = Interlocked.Increment(ref _selectMailContainerRequestVersion);
 
-        if (item == null) return;
-
-        await DispatcherQueue.EnqueueAsync(async () =>
-        {
-            var parentThread = ViewModel.MailCollection.GetThreadByMailUniqueId(item.UniqueId);
-
-            if (message.ScrollToItem)
-            {
-                var scrollTarget = parentThread as IMailListItem ?? item;
-                var scrollIndex = ViewModel.MailCollection.IndexOf(scrollTarget);
-
-                if (scrollIndex >= 0)
-                {
-                    await MailListView.SmoothScrollIntoViewWithIndexAsync(scrollIndex);
-                }
-            }
-
-            if (parentThread != null)
-            {
-                await ViewModel.MailCollection.SelectThreadMailAsync(parentThread, item, isMultiSelectionEnabled: false);
-            }
-            else
-            {
-                await ViewModel.MailCollection.SelectTopLevelItemAsync(item, isMultiSelectionEnabled: false);
-            }
-        });
+        _ = SelectMailItemContainerWhenReadyAsync(message, requestVersion);
     }
+
+    private async Task SelectMailItemContainerWhenReadyAsync(SelectMailItemContainerEvent message, int requestVersion)
+    {
+        try
+        {
+            for (var attempt = 0; attempt < SELECT_MAIL_CONTAINER_MAX_ATTEMPTS; attempt++)
+            {
+                if (!IsPendingMailContainerSelectionCurrent(requestVersion)) return;
+
+                var shouldRetry = false;
+
+                await DispatcherQueue.EnqueueAsync(async () =>
+                {
+                    if (!IsPendingMailContainerSelectionCurrent(requestVersion)) return;
+
+                    var item = ViewModel.MailCollection.Find(message.MailUniqueId);
+
+                    if (item == null)
+                    {
+                        shouldRetry = true;
+                        return;
+                    }
+
+                    await ScrollMailItemIntoViewAsync(item, message.ScrollToItem);
+
+                    if (!IsPendingMailContainerSelectionCurrent(requestVersion)) return;
+
+                    await ViewModel.MailCollection.SelectMailAsync(message.MailUniqueId);
+                });
+
+                if (!shouldRetry) return;
+
+                await Task.Delay(SELECT_MAIL_CONTAINER_RETRY_DELAY_MS);
+            }
+
+            Log.Warning("Mail item container selection target was not found after retries. MailUniqueId: {MailUniqueId}", message.MailUniqueId);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to select mail item container. MailUniqueId: {MailUniqueId}", message.MailUniqueId);
+        }
+    }
+
+    private async Task ScrollMailItemIntoViewAsync(MailItemViewModel item, bool shouldScroll)
+    {
+        if (!shouldScroll) return;
+
+        var parentThread = ViewModel.MailCollection.GetThreadByMailUniqueId(item.UniqueId);
+        var scrollTarget = parentThread as IMailListItem ?? item;
+        var scrollIndex = ViewModel.MailCollection.IndexOf(scrollTarget);
+
+        if (scrollIndex >= 0)
+        {
+            await MailListView.SmoothScrollIntoViewWithIndexAsync(scrollIndex);
+        }
+    }
+
+    private bool IsPendingMailContainerSelectionCurrent(int requestVersion)
+        => Volatile.Read(ref _selectMailContainerRequestVersion) == requestVersion;
+
+    private void InvalidatePendingMailContainerSelection()
+        => Interlocked.Increment(ref _selectMailContainerRequestVersion);
 
     /// <summary>
     /// Thread header is mail info display control and it can be dragged spearately out of ListView.
@@ -714,6 +757,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     public void Receive(DisposeRenderingFrameRequested message)
     {
+        InvalidatePendingMailContainerSelection();
         ViewModel.NavigationService.Navigate(WinoPage.IdlePage, null, NavigationReferenceFrame.RenderingFrame, NavigationTransitionType.DrillIn);
         UpdateAdaptiveness();
     }
