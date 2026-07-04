@@ -214,13 +214,13 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
             .Where(f => !string.IsNullOrEmpty(f.RemoteFolderId))
             .ToList();
 
-        var downloaded = new List<MailCopy>();
+        var downloadedIds = new List<string>();
         foreach (var folder in foldersToSync)
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                downloaded.AddRange(await SynchronizeFolderItemsAsync(service, folder, cancellationToken).ConfigureAwait(false));
+                downloadedIds.AddRange(await SynchronizeFolderItemsAsync(service, folder, cancellationToken).ConfigureAwait(false));
             }
             catch (OperationCanceledException)
             {
@@ -242,7 +242,9 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
             }
         }
 
-        return MailSynchronizationResult.Completed(downloaded);
+        var unreadNewItems = await _exchangeChangeProcessor.GetDownloadedUnreadMailsAsync(Account.Id, downloadedIds).ConfigureAwait(false);
+
+        return MailSynchronizationResult.Completed(unreadNewItems);
     }
 
     /// <summary>
@@ -351,9 +353,9 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         => !string.IsNullOrEmpty(folder.FolderClass)
            && folder.FolderClass.StartsWith("IPF.Note", StringComparison.OrdinalIgnoreCase);
 
-    private async Task<List<MailCopy>> SynchronizeFolderItemsAsync(ExchangeService service, MailItemFolder folder, CancellationToken cancellationToken)
+    private async Task<List<string>> SynchronizeFolderItemsAsync(ExchangeService service, MailItemFolder folder, CancellationToken cancellationToken)
     {
-        var downloaded = new List<MailCopy>();
+        var downloadedIds = new List<string>();
         var syncState = folder.DeltaToken;
         var folderId = new FolderId(folder.RemoteFolderId);
         bool moreAvailable;
@@ -378,7 +380,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
                             foreach (var package in packages)
                             {
                                 if (await _exchangeChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false))
-                                    downloaded.Add(package.Copy);
+                                    downloadedIds.Add(package.Copy.Id);
                             }
                         }
                         break;
@@ -399,7 +401,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         folder.DeltaToken = syncState;
         await _exchangeChangeProcessor.UpdateFolderAsync(folder).ConfigureAwait(false);
 
-        return downloaded;
+        return downloadedIds;
     }
 
     private MailCopy MapToMailCopy(Item item, MailItemFolder assignedFolder)
