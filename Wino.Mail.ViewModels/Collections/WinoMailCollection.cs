@@ -312,7 +312,8 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
                     var addResult = AddMailCore(item);
                     requiresFullRebuild |= addResult.RequiresFullGroupRebuild;
                     touchedItems.AddRange(addResult.TouchedItems);
-                    RebuildMailLookupIndexes();
+                    foreach (var touched in addResult.TouchedItems)
+                        IndexTopLevelItem(touched);
                 }
 
                 SortTopLevelItems();
