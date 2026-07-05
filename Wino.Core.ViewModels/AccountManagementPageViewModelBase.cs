@@ -134,6 +134,29 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
     {
         OnPropertyChanged(nameof(HasAccountsDefined));
         OnPropertyChanged(nameof(StartupAccounts));
+
+        RestoreStartupAccountSelection();
+    }
+
+    private void RestoreStartupAccountSelection()
+    {
+        if (PreferencesService.StartupEntityId is not { } startupEntityId)
+            return;
+
+        var startupAccount = Accounts.FirstOrDefault(account =>
+            account.StartupEntityId == startupEntityId && IsStartupEligible(account));
+
+        if (startupAccount == null)
+            return;
+
+        // Reordering removes and reinserts items, which can clear ComboBox.SelectedItem before the item returns.
+        if (!ReferenceEquals(StartupAccount, startupAccount))
+        {
+            StartupAccount = startupAccount;
+            return;
+        }
+
+        OnPropertyChanged(nameof(StartupAccount));
     }
 
     private static string GetAccountDetailsTitle(MailAccount account)
