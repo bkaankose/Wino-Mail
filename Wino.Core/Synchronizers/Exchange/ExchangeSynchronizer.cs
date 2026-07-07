@@ -62,6 +62,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         ItemSchema.HasAttachments,
         ItemSchema.Importance,
         ItemSchema.ConversationId,
+        ItemSchema.Preview,
         EmailMessageSchema.From,
         EmailMessageSchema.IsRead,
         EmailMessageSchema.InternetMessageId);
@@ -417,6 +418,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
             ThreadId = item.ConversationId?.UniqueId,
             MessageId = email?.InternetMessageId,
             Subject = item.Subject,
+            PreviewText = item.Preview,
             FromName = email?.From?.Name,
             FromAddress = email?.From?.Address,
             CreationDate = item.DateTimeReceived.ToUniversalTime(),
