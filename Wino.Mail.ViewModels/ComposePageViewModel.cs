@@ -1042,6 +1042,12 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         if (CurrentMailDraftItem.MailCopy.UniqueId != removedMail.UniqueId)
             return;
 
+        // Only close when the user explicitly sent or discarded the draft.
+        // Sync-caused remove/add cycles (draft ID mapping) must not close
+        // the compose page.
+        if (!isUpdatingMimeBlocked)
+            return;
+
         await ExecuteUIThread(() => CloseRequested?.Invoke(this, EventArgs.Empty));
     }
 
