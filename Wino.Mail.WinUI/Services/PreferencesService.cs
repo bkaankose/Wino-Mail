@@ -11,6 +11,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Domain.Translations;
 using Wino.Services;
@@ -20,6 +21,13 @@ namespace Wino.Mail.WinUI.Services;
 public class PreferencesService(IConfigurationService configurationService) : ObservableObject, IPreferencesService
 {
     private readonly IConfigurationService _configurationService = configurationService;
+    private readonly object _filterInit = InitPreviewTextFilter(configurationService);
+
+    private static object InitPreviewTextFilter(IConfigurationService config)
+    {
+        PreviewTextFilter.Initialize(() => config.Get<string>(nameof(PreviewTextFilterPatterns), null));
+        return null;
+    }
 
     public event EventHandler<string>? PreferenceChanged;
 
@@ -267,6 +275,16 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
     {
         get => _configurationService.Get(nameof(AccountNicknamePosition), AccountNicknamePosition.None);
         set => SetPropertyAndSave(nameof(AccountNicknamePosition), value);
+    }
+
+    public string PreviewTextFilterPatterns
+    {
+        get => _configurationService.Get<string>(nameof(PreviewTextFilterPatterns), null);
+        set
+        {
+            PreviewTextFilter.SetPatterns(value);
+            SetPropertyAndSave(nameof(PreviewTextFilterPatterns), value);
+        }
     }
 
     public Guid? StartupEntityId

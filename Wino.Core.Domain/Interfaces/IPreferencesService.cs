@@ -301,6 +301,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// </summary>
     AccountNicknamePosition AccountNicknamePosition { get; set; }
 
+    /// <summary>
+    /// Setting: Newline-delimited regex patterns to strip from preview text at display time.
+    /// </summary>
+    string PreviewTextFilterPatterns { get; set; }
+
     #endregion
 
     #region Calendar

@@ -270,6 +270,24 @@
                 <ToggleSwitch AutomationProperties.AutomationId="MessageListPageToggleSwitch7" IsOn="{x:Bind ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=TwoWay}" />
             </controls:SettingsCard>
 
+            <controls:SettingsExpander
+                Description="{x:Bind domain:Translator.SettingsPreviewTextFilter_Description}"
+                Header="{x:Bind domain:Translator.SettingsPreviewTextFilter_Title}">
+                <controls:SettingsExpander.HeaderIcon>
+                    <FontIcon Glyph="&#xE16E;" />
+                </controls:SettingsExpander.HeaderIcon>
+                <controls:SettingsExpander.Items>
+                    <controls:SettingsCard HorizontalContentAlignment="Stretch" ContentAlignment="Vertical">
+                        <TextBox
+                            AcceptsReturn="True"
+                            Height="120"
+                            PlaceholderText="{x:Bind domain:Translator.SettingsPreviewTextFilter_Placeholder}"
+                            Text="{x:Bind ViewModel.PreferencesService.PreviewTextFilterPatterns, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                            TextWrapping="Wrap" />
+                    </controls:SettingsCard>
+                </controls:SettingsExpander.Items>
+            </controls:SettingsExpander>
+
             <controls:SettingsCard
                 AutomationProperties.AutomationId="MessageListPageSettingsCard15"
                 Description="{x:Bind domain:Translator.SettingsDeleteProtection_Description}"
