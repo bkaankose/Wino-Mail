@@ -23,6 +23,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Services;
+using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Client.Navigation;
@@ -1118,9 +1119,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             return;
         }
 
-        // Navigate to draft folder.
-        await NavigateSpecialFolderAsync(account, SpecialFolderType.Draft, true);
-
         // Generate empty mime message.
         var draftOptions = new DraftCreationOptions
         {
@@ -1137,6 +1135,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
         var draftPreparationRequest = new DraftPreparationRequest(account, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason);
         await _winoRequestDelegator.ExecuteAsync(draftPreparationRequest);
+
+        Messenger.Send(new ActiveMailItemChangedEvent(new MailItemViewModel(draftMailCopy)));
     }
 
     public override async Task KeyboardShortcutHook(KeyboardShortcutTriggerDetails args)

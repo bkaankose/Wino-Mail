@@ -1510,6 +1510,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     {
         base.OnDraftCreated(draftMail, account);
 
+        if (!BelongsToActiveFolder(draftMail)) return;
+
         try
         {
             // If the draft is created in another folder, we need to wait for that folder to be initialized.

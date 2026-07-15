@@ -796,9 +796,11 @@ public sealed partial class MailListPage : MailListPageAbstract,
     {
         bool isMultiSelectionEnabled = ViewModel.IsMultiSelectionModeEnabled;
 
+        bool hasActiveContent = ViewModel.MailCollection.HasSingleItemSelected || IsComposingPageActive();
+
         if (StatePersistenceService.IsReaderNarrowed)
         {
-            if (ViewModel.MailCollection.HasSingleItemSelected && !isMultiSelectionEnabled)
+            if (hasActiveContent && !isMultiSelectionEnabled)
             {
                 VisualStateManager.GoToState(this, "NarrowRenderer", true);
             }
@@ -809,7 +811,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
         else
         {
-            if (ViewModel.MailCollection.HasSingleItemSelected && !isMultiSelectionEnabled)
+            if (hasActiveContent && !isMultiSelectionEnabled)
             {
                 VisualStateManager.GoToState(this, "BothPanelsMailSelected", true);
             }
