@@ -517,7 +517,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         var ids = requests.Select(r => new ItemId(r.Item.Id)).ToList();
 
         return Bundle(
-            service => service.DeleteItems(ids, DeleteMode.MoveToDeletedItems, SendCancellationsMode.SendToNone, AffectedTaskOccurrence.AllOccurrences),
+            service => service.DeleteItems(ids, DeleteMode.HardDelete, SendCancellationsMode.SendToNone, AffectedTaskOccurrence.AllOccurrences),
             requests[0], requests);
     }
 
