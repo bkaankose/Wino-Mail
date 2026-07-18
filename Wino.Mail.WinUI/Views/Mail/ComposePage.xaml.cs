@@ -523,7 +523,39 @@ public sealed partial class ComposePage : ComposePageAbstract,
         {
             ToBox.Focus(FocusState.Programmatic);
         }
+
+        // Overflow-Button nur anzeigen, wenn tatsächlich Commands im Overflow-Menü liegen.
+        // Das native "Auto"-Verhalten blendet ihn an der Größen-Grenze fehlerhaft aus bzw.
+        // clippt ihn (zusammen mit der rechtsbündigen Ausrichtung der TabbedCommandBarItem).
+        RightCommandBar.DynamicOverflowItemsChanging -= RightCommandBar_DynamicOverflowItemsChanging;
+        RightCommandBar.DynamicOverflowItemsChanging += RightCommandBar_DynamicOverflowItemsChanging;
+        DispatcherQueue.TryEnqueue(UpdateOverflowButtonVisibility);
     }
+
+    private void RightCommandBar_DynamicOverflowItemsChanging(CommandBar sender, DynamicOverflowItemsChangingEventArgs args)
+        => DispatcherQueue.TryEnqueue(UpdateOverflowButtonVisibility);
+
+    private void UpdateOverflowButtonVisibility()
+    {
+        if (RightCommandBar is null) return;
+
+        var anyInOverflow = RightCommandBar.PrimaryCommands.Any(OverflowElementIsInOverflow);
+        var target = anyInOverflow
+            ? CommandBarOverflowButtonVisibility.Visible
+            : CommandBarOverflowButtonVisibility.Collapsed;
+
+        if (RightCommandBar.OverflowButtonVisibility != target)
+            RightCommandBar.OverflowButtonVisibility = target;
+    }
+
+    private static bool OverflowElementIsInOverflow(ICommandBarElement element) => element switch
+    {
+        AppBarButton b => b.IsInOverflow,
+        AppBarToggleButton t => t.IsInOverflow,
+        AppBarElementContainer c => c.IsInOverflow,
+        AppBarSeparator s => s.IsInOverflow,
+        _ => false
+    };
 
     private void CCBBCGotFocus(object sender, RoutedEventArgs e)
     {

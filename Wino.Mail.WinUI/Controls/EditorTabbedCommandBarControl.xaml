@@ -72,7 +72,10 @@
         </toolkit:TabbedCommandBar.Resources>
 
         <toolkit:TabbedCommandBar.PaneCustomContent>
-            <ContentPresenter Content="{x:Bind PaneCustomContent, Mode=OneWay}" />
+            <ContentPresenter
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Stretch"
+                Content="{x:Bind PaneCustomContent, Mode=OneWay}" />
         </toolkit:TabbedCommandBar.PaneCustomContent>
 
         <toolkit:TabbedCommandBar.MenuItems>

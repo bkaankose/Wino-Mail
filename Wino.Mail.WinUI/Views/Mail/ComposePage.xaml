@@ -177,10 +177,13 @@
                 <controls1:EditorTabbedCommandBarControl CommandTarget="{x:Bind WebViewEditor}">
                     <controls1:EditorTabbedCommandBarControl.PaneCustomContent>
                         <toolkit:TabbedCommandBarItem
+                            x:Name="RightCommandBar"
+                            HorizontalAlignment="Stretch"
                             CommandAlignment="Right"
                             IsDynamicOverflowEnabled="True"
-                            OverflowButtonAlignment="Left">
-                            <AppBarElementContainer Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.AvailableEmailTemplates.Count), Mode=OneWay}">
+                            OverflowButtonAlignment="Left"
+                            OverflowButtonVisibility="Collapsed">
+                            <AppBarElementContainer DynamicOverflowOrder="5" Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.AvailableEmailTemplates.Count), Mode=OneWay}">
                                 <ComboBox
                                     AutomationProperties.AutomationId="EmailTemplatesComboBox"
                                     x:Name="EmailTemplatesComboBox"
@@ -207,10 +210,12 @@
                             <AppBarToggleButton
                                 AutomationProperties.AutomationId="ComposeAiActionsToggleButton"
                                 x:Name="ComposeAiActionsToggleButton"
+                                DynamicOverflowOrder="4"
                                 MinWidth="40"
                                 AutomationProperties.Name="{x:Bind domain:Translator.Composer_AiActions, Mode=OneTime}"
                                 HorizontalContentAlignment="Center"
                                 Checked="ComposeAiActionsToggleButton_Checked"
+                                Label="{x:Bind domain:Translator.Composer_AiActions, Mode=OneTime}"
                                 LabelPosition="Collapsed"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AiActions}"
                                 Visibility="{x:Bind GetAiActionsToggleVisibility(ViewModel.PreferencesService.IsAiActionsPanelHidden), Mode=OneTime}">
@@ -221,7 +226,10 @@
                             <AppBarButton
                                 AutomationProperties.AutomationId="XBindDomainTranslatorButtonsPopOutModeOneTime"
                                 AutomationProperties.Name="{x:Bind domain:Translator.Buttons_PopOut, Mode=OneTime}"
+                                DynamicOverflowOrder="3"
                                 Click="PopOutButton_Click"
+                                Label="{x:Bind domain:Translator.Buttons_PopOut, Mode=OneTime}"
+                                LabelPosition="Collapsed"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_PopOut}"
                                 Visibility="{x:Bind GetPopOutButtonVisibility(), Mode=OneWay}">
                                 <AppBarButton.Icon>
@@ -231,7 +239,10 @@
                             <AppBarButton
                                 AutomationProperties.AutomationId="XBindGetEditorThemeToolTipWebViewEditorIsEditorDarkModeModeOneWay"
                                 AutomationProperties.Name="{x:Bind GetEditorThemeToolTip(WebViewEditor.IsEditorDarkMode), Mode=OneWay}"
+                                DynamicOverflowOrder="2"
                                 Click="ToggleEditorThemeClicked"
+                                Label="{x:Bind GetEditorThemeToolTip(WebViewEditor.IsEditorDarkMode), Mode=OneWay}"
+                                LabelPosition="Collapsed"
                                 ToolTipService.ToolTip="{x:Bind GetEditorThemeToolTip(WebViewEditor.IsEditorDarkMode), Mode=OneWay}">
                                 <AppBarButton.Icon>
                                     <coreControls:WinoFontIcon Icon="{x:Bind GetEditorThemeIcon(WebViewEditor.IsEditorDarkMode), Mode=OneWay}" />
@@ -239,7 +250,7 @@
                             </AppBarButton>
                             <AppBarButton
 
-                                AutomationProperties.AutomationId="ComposePageAppBarButton2" Label="{x:Bind domain:Translator.MailOperation_SaveAs}">
+                                AutomationProperties.AutomationId="ComposePageAppBarButton2" DynamicOverflowOrder="1" Label="{x:Bind domain:Translator.MailOperation_SaveAs}">
                                 <AppBarButton.Icon>
                                     <coreControls:WinoFontIcon Icon="Save" />
                                 </AppBarButton.Icon>
