@@ -13,6 +13,16 @@
     <File Path="WinoFontIcomoon.json" />
   </Folder>
   <Folder Name="/lib/">
+    <Project Path="Wino.Mail.Editor/Wino.Mail.Editor.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="Wino.AppServices.Contracts/Wino.AppServices.Contracts.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
     <Project Path="Wino.Authentication/Wino.Authentication.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
@@ -56,10 +66,26 @@
     </Project>
     <Project Path="Wino.SourceGenerators/Wino.SourceGenerators.csproj" />
   </Folder>
+  <Project Path="Wino.AppServices.Tests/Wino.AppServices.Tests.csproj">
+    <Platform Solution="*|arm64" Project="arm64" />
+    <Platform Solution="*|x64" Project="x64" />
+    <Platform Solution="*|x86" Project="x86" />
+  </Project>
+  <Project Path="Wino.Companion/Wino.Companion.csproj">
+    <Platform Solution="*|arm64" Project="arm64" />
+    <Platform Solution="*|x64" Project="x64" />
+    <Platform Solution="*|x86" Project="x86" />
+  </Project>
   <Project Path="Wino.Core.Tests/Wino.Core.Tests.csproj">
     <Platform Solution="*|arm64" Project="arm64" />
     <Platform Solution="*|x64" Project="x64" />
     <Platform Solution="*|x86" Project="x86" />
+  </Project>
+  <Project Path="Wino.Mail.Uwp/Wino.Mail.Uwp.csproj">
+    <Platform Solution="*|arm64" Project="arm64" />
+    <Platform Solution="*|x64" Project="x64" />
+    <Platform Solution="*|x86" Project="x86" />
+    <Deploy />
   </Project>
   <Project Path="Wino.Mail.ViewModels.Tests/Wino.Mail.ViewModels.Tests.csproj">
     <Platform Solution="*|arm64" Project="arm64" />
@@ -70,6 +96,9 @@
     <Platform Solution="*|arm64" Project="ARM64" />
     <Platform Solution="*|x64" Project="x64" />
     <Platform Solution="*|x86" Project="x86" />
+    <Deploy />
+  </Project>
+  <Project Path="Wino.Packaging/Wino.Packaging.wapproj" Type="c7167f0d-bc9f-4e6e-afe1-012c56b48db5" Id="4d315260-12dd-4cc9-8b7c-46fe0c2c903f">
     <Deploy />
   </Project>
 </Solution>

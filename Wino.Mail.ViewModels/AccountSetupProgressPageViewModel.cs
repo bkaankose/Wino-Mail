@@ -43,6 +43,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
     private readonly ICalDavClient _calDavClient;
     private readonly IMailDialogService _dialogService;
     private readonly IWinoLogger _winoLogger;
+    private readonly ISynchronizationManager _synchronizationManager;
 
     public WelcomeWizardContext WizardContext { get; }
 
@@ -60,6 +61,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
     private MailAccount _createdAccount;
     private bool _dbWritten;
     private string _currentSetupOperationName;
+    private string _currentStepTitle;
 
     public AccountSetupProgressPageViewModel(
         IAccountService accountService,
@@ -67,13 +69,15 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
         ICalDavClient calDavClient,
         IMailDialogService dialogService,
         IWinoLogger winoLogger,
-        WelcomeWizardContext wizardContext)
+        WelcomeWizardContext wizardContext,
+        ISynchronizationManager synchronizationManager)
     {
         _accountService = accountService;
         _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
         _calDavClient = calDavClient;
         _dialogService = dialogService;
         _winoLogger = winoLogger;
+        _synchronizationManager = synchronizationManager;
         WizardContext = wizardContext;
     }
 
@@ -171,48 +175,58 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
         }
     }
 
-    private int _currentStepIndex;
+    private int _currentStepIndex = -1;
 
-    private void SetStepInProgress(string title, string operationName)
+    private Task SetStepInProgressAsync(string title, string operationName)
     {
         _currentSetupOperationName = operationName;
+        _currentStepTitle = title;
 
-        for (int i = 0; i < Steps.Count; i++)
+        return ExecuteUIThread(() =>
         {
-            if (Steps[i].Title == title)
+            for (int i = 0; i < Steps.Count; i++)
             {
-                _currentStepIndex = i;
-                Steps[i].Status = AccountSetupStepStatus.InProgress;
-                return;
+                if (Steps[i].Title == title)
+                {
+                    _currentStepIndex = i;
+                    Steps[i].Status = AccountSetupStepStatus.InProgress;
+                    return;
+                }
             }
-        }
+        });
     }
 
-    private void SetCurrentStepSucceeded()
+    private Task SetCurrentStepSucceededAsync() => ExecuteUIThread(() =>
     {
-        if (_currentStepIndex < Steps.Count)
+        if (_currentStepIndex >= 0 && _currentStepIndex < Steps.Count)
+        {
             Steps[_currentStepIndex].Status = AccountSetupStepStatus.Succeeded;
-    }
+        }
+    });
 
-    private void SetCurrentStepFailed(string errorMessage)
+    private Task SetCurrentStepFailedAsync(string errorMessage) => ExecuteUIThread(() =>
     {
-        if (_currentStepIndex < Steps.Count)
+        if (_currentStepIndex >= 0 && _currentStepIndex < Steps.Count)
         {
             Steps[_currentStepIndex].Status = AccountSetupStepStatus.Failed;
             Steps[_currentStepIndex].ErrorMessage = errorMessage;
         }
-    }
+    });
 
     private async Task RunSetupAsync()
     {
-        IsSetupComplete = false;
-        IsSetupFailed = false;
-        FailureMessage = null;
+        await ExecuteUIThread(() =>
+        {
+            IsSetupComplete = false;
+            IsSetupFailed = false;
+            FailureMessage = null;
+            BuildSteps();
+        });
         _dbWritten = false;
         _createdAccount = null;
         _currentSetupOperationName = SetupOperationAccountSetup;
-
-        BuildSteps();
+        _currentStepTitle = null;
+        _currentStepIndex = -1;
 
         try
         {
@@ -236,28 +250,28 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
             if (WizardContext.IsOAuthProvider)
             {
                 // Step: Authenticating
-                SetStepInProgress(string.Format(Translator.AccountSetup_Step_Authenticating, WizardContext.SelectedProvider.Name), SetupOperationAuthentication);
+                await SetStepInProgressAsync(string.Format(Translator.AccountSetup_Step_Authenticating, WizardContext.SelectedProvider.Name), SetupOperationAuthentication);
 
-                var authTokenInfo = await SynchronizationManager.Instance.HandleAuthorizationAsync(
+                var authTokenInfo = await _synchronizationManager.HandleAuthorizationAsync(
                     WizardContext.SelectedProvider.Type,
                     _createdAccount,
-                    _createdAccount.ProviderType == MailProviderType.Gmail);
+                    _createdAccount.ProviderType == MailProviderType.Gmail).ConfigureAwait(false);
 
                 _createdAccount.AuthenticationAddress = authTokenInfo.AuthenticationAddress;
                 _createdAccount.Address = authTokenInfo.AccountAddress;
-                SetCurrentStepSucceeded();
+                await SetCurrentStepSucceededAsync();
 
                 // Step: Save to DB
-                SetStepInProgress(Translator.AccountSetup_Step_SavingAccount, SetupOperationSaveAccount);
-                await _accountService.CreateAccountAsync(_createdAccount, null);
+                await SetStepInProgressAsync(Translator.AccountSetup_Step_SavingAccount, SetupOperationSaveAccount);
+                await _accountService.CreateAccountAsync(_createdAccount, null).ConfigureAwait(false);
                 _dbWritten = true;
-                SetCurrentStepSucceeded();
+                await SetCurrentStepSucceededAsync();
 
                 if (_createdAccount.IsMailAccessGranted)
                 {
                     // Step: Profile
-                    SetStepInProgress(Translator.AccountSetup_Step_FetchingProfile, SetupOperationProfileSync);
-                    var profileResult = await SynchronizationManager.Instance.SynchronizeProfileAsync(_createdAccount.Id);
+                    await SetStepInProgressAsync(Translator.AccountSetup_Step_FetchingProfile, SetupOperationProfileSync);
+                    var profileResult = await _synchronizationManager.SynchronizeProfileAsync(_createdAccount.Id).ConfigureAwait(false);
                     if (profileResult.CompletedState != SynchronizationCompletedState.Success)
                         throw new Exception(Translator.Exception_FailedToSynchronizeProfileInformation);
 
@@ -268,61 +282,61 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
 
                         if (!string.IsNullOrEmpty(profileResult.ProfileInformation.AccountAddress))
                         {
-                            if (await _accountService.AccountAddressExistsAsync(profileResult.ProfileInformation.AccountAddress, _createdAccount.Id))
+                            if (await _accountService.AccountAddressExistsAsync(profileResult.ProfileInformation.AccountAddress, _createdAccount.Id).ConfigureAwait(false))
                                 throw new InvalidOperationException(Translator.DialogMessage_AccountAddressExistsMessage);
 
                             _createdAccount.Address = profileResult.ProfileInformation.AccountAddress;
                         }
 
-                        await _accountService.UpdateProfileInformationAsync(_createdAccount.Id, profileResult.ProfileInformation);
+                        await _accountService.UpdateProfileInformationAsync(_createdAccount.Id, profileResult.ProfileInformation).ConfigureAwait(false);
                     }
-                    SetCurrentStepSucceeded();
+                    await SetCurrentStepSucceededAsync();
 
                     // Step: Folders
-                    SetStepInProgress(Translator.AccountSetup_Step_SyncingFolders, SetupOperationFolderSync);
-                    var folderResult = await SynchronizationManager.Instance.SynchronizeFoldersAsync(_createdAccount.Id);
+                    await SetStepInProgressAsync(Translator.AccountSetup_Step_SyncingFolders, SetupOperationFolderSync);
+                    var folderResult = await _synchronizationManager.SynchronizeFoldersAsync(_createdAccount.Id).ConfigureAwait(false);
                     if (folderResult == null || folderResult.CompletedState != SynchronizationCompletedState.Success)
                         throw new Exception(Translator.Exception_FailedToSynchronizeFolders);
-                    SetCurrentStepSucceeded();
+                    await SetCurrentStepSucceededAsync();
 
                     // Step: Categories
                     if (_createdAccount.IsCategorySyncSupported)
                     {
-                        SetStepInProgress(Translator.AccountSetup_Step_SyncingCategories, SetupOperationCategorySync);
-                        await TrySynchronizeCategoriesForSetupAsync();
-                        SetCurrentStepSucceeded();
+                        await SetStepInProgressAsync(Translator.AccountSetup_Step_SyncingCategories, SetupOperationCategorySync);
+                        await TrySynchronizeCategoriesForSetupAsync().ConfigureAwait(false);
+                        await SetCurrentStepSucceededAsync();
                     }
                 }
 
                 // Step: Calendar metadata
                 if (_createdAccount.IsCalendarAccessGranted)
                 {
-                    SetStepInProgress(Translator.AccountSetup_Step_FetchingCalendarMetadata, SetupOperationCalendarMetadataSync);
-                    var calResult = await SynchronizationManager.Instance.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
+                    await SetStepInProgressAsync(Translator.AccountSetup_Step_FetchingCalendarMetadata, SetupOperationCalendarMetadataSync);
+                    var calResult = await _synchronizationManager.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
                     {
                         AccountId = _createdAccount.Id,
                         Type = CalendarSynchronizationType.CalendarMetadata
-                    });
+                    }).ConfigureAwait(false);
                     if (calResult == null || calResult.CompletedState != SynchronizationCompletedState.Success)
                         throw new Exception(Translator.Exception_FailedToSynchronizeCalendarMetadata);
-                    SetCurrentStepSucceeded();
+                    await SetCurrentStepSucceededAsync();
                 }
 
                 // Step: Aliases
                 if (_createdAccount.IsMailAccessGranted)
                 {
-                    SetStepInProgress(Translator.AccountSetup_Step_SyncingAliases, SetupOperationAliasSync);
+                    await SetStepInProgressAsync(Translator.AccountSetup_Step_SyncingAliases, SetupOperationAliasSync);
                     if (_createdAccount.IsAliasSyncSupported)
                     {
-                        var aliasResult = await SynchronizationManager.Instance.SynchronizeAliasesAsync(_createdAccount.Id);
+                        var aliasResult = await _synchronizationManager.SynchronizeAliasesAsync(_createdAccount.Id).ConfigureAwait(false);
                         if (aliasResult.CompletedState != SynchronizationCompletedState.Success)
                             throw new Exception(Translator.Exception_FailedToSynchronizeAliases);
                     }
                     else
                     {
-                        await _accountService.CreateRootAliasAsync(_createdAccount.Id, _createdAccount.Address);
+                        await _accountService.CreateRootAliasAsync(_createdAccount.Id, _createdAccount.Address).ConfigureAwait(false);
                     }
-                    SetCurrentStepSucceeded();
+                    await SetCurrentStepSucceededAsync();
                 }
             }
             else if (WizardContext.IsSpecialImapProvider)
@@ -344,50 +358,50 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 if (_createdAccount.IsMailAccessGranted)
                 {
                     // Step: Test IMAP
-                    SetStepInProgress(Translator.AccountSetup_Step_TestingMailAuth, SetupOperationMailAuthTest);
+                    await SetStepInProgressAsync(Translator.AccountSetup_Step_TestingMailAuth, SetupOperationMailAuthTest);
                     await ValidateImapConnectivityAsync(customServerInformation);
-                    SetCurrentStepSucceeded();
+                    await SetCurrentStepSucceededAsync();
                 }
 
                 // Step: CalDAV discovery and testing (if applicable)
                 if (customServerInformation.CalendarSupportMode == ImapCalendarSupportMode.CalDav)
                 {
-                    SetStepInProgress(Translator.AccountSetup_Step_DiscoveringCalDav, SetupOperationCalDavDiscovery);
-                    SetCurrentStepSucceeded();
+                    await SetStepInProgressAsync(Translator.AccountSetup_Step_DiscoveringCalDav, SetupOperationCalDavDiscovery);
+                    await SetCurrentStepSucceededAsync();
 
-                    SetStepInProgress(Translator.AccountSetup_Step_TestingCalendarAuth, SetupOperationCalendarAuthTest);
+                    await SetStepInProgressAsync(Translator.AccountSetup_Step_TestingCalendarAuth, SetupOperationCalendarAuthTest);
                     await ValidateCalDavConnectivityAsync(customServerInformation);
-                    SetCurrentStepSucceeded();
+                    await SetCurrentStepSucceededAsync();
                 }
 
                 // Step: Save to DB
-                SetStepInProgress(Translator.AccountSetup_Step_SavingAccount, SetupOperationSaveAccount);
+                await SetStepInProgressAsync(Translator.AccountSetup_Step_SavingAccount, SetupOperationSaveAccount);
                 await _accountService.CreateAccountAsync(_createdAccount, customServerInformation);
                 _dbWritten = true;
-                SetCurrentStepSucceeded();
+                await SetCurrentStepSucceededAsync();
 
                 if (_createdAccount.IsMailAccessGranted)
                 {
                     // Step: Folders
-                    SetStepInProgress(Translator.AccountSetup_Step_SyncingFolders, SetupOperationFolderSync);
-                    var folderResult = await SynchronizationManager.Instance.SynchronizeFoldersAsync(_createdAccount.Id);
+                    await SetStepInProgressAsync(Translator.AccountSetup_Step_SyncingFolders, SetupOperationFolderSync);
+                    var folderResult = await _synchronizationManager.SynchronizeFoldersAsync(_createdAccount.Id);
                     if (folderResult == null || folderResult.CompletedState != SynchronizationCompletedState.Success)
                         throw new Exception(Translator.Exception_FailedToSynchronizeFolders);
-                    SetCurrentStepSucceeded();
+                    await SetCurrentStepSucceededAsync();
                 }
 
                 // Step: Calendar metadata (if not disabled)
                 if (_createdAccount.IsCalendarAccessGranted)
                 {
-                    SetStepInProgress(Translator.AccountSetup_Step_FetchingCalendarMetadata, SetupOperationCalendarMetadataSync);
-                    var calResult = await SynchronizationManager.Instance.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
+                    await SetStepInProgressAsync(Translator.AccountSetup_Step_FetchingCalendarMetadata, SetupOperationCalendarMetadataSync);
+                    var calResult = await _synchronizationManager.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
                     {
                         AccountId = _createdAccount.Id,
                         Type = CalendarSynchronizationType.CalendarMetadata
                     });
                     if (calResult == null || calResult.CompletedState != SynchronizationCompletedState.Success)
                         throw new Exception(Translator.Exception_FailedToSynchronizeCalendarMetadata);
-                    SetCurrentStepSucceeded();
+                    await SetCurrentStepSucceededAsync();
                 }
 
                 if (_createdAccount.IsMailAccessGranted)
@@ -413,45 +427,45 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 _createdAccount.ServerInformation = customServerInformation;
 
                 // Step: Save to DB
-                SetStepInProgress(Translator.AccountSetup_Step_SavingAccount, SetupOperationSaveAccount);
+                await SetStepInProgressAsync(Translator.AccountSetup_Step_SavingAccount, SetupOperationSaveAccount);
                 await _accountService.CreateAccountAsync(_createdAccount, customServerInformation);
                 _dbWritten = true;
-                SetCurrentStepSucceeded();
+                await SetCurrentStepSucceededAsync();
 
                 if (_createdAccount.IsMailAccessGranted)
                 {
                     // Step: Folders
-                    SetStepInProgress(Translator.AccountSetup_Step_SyncingFolders, SetupOperationFolderSync);
-                    var folderResult = await SynchronizationManager.Instance.SynchronizeFoldersAsync(_createdAccount.Id);
+                    await SetStepInProgressAsync(Translator.AccountSetup_Step_SyncingFolders, SetupOperationFolderSync);
+                    var folderResult = await _synchronizationManager.SynchronizeFoldersAsync(_createdAccount.Id);
                     if (folderResult == null || folderResult.CompletedState != SynchronizationCompletedState.Success)
                         throw new Exception(Translator.Exception_FailedToSynchronizeFolders);
-                    SetCurrentStepSucceeded();
+                    await SetCurrentStepSucceededAsync();
                 }
 
                 // Step: CalDAV (if applicable)
                 if (setupResult.IsCalendarAccessGranted &&
                     customServerInformation.CalendarSupportMode == ImapCalendarSupportMode.CalDav)
                 {
-                    SetStepInProgress(Translator.AccountSetup_Step_DiscoveringCalDav, SetupOperationCalDavDiscovery);
-                    SetCurrentStepSucceeded();
+                    await SetStepInProgressAsync(Translator.AccountSetup_Step_DiscoveringCalDav, SetupOperationCalDavDiscovery);
+                    await SetCurrentStepSucceededAsync();
 
-                    SetStepInProgress(Translator.AccountSetup_Step_TestingCalendarAuth, SetupOperationCalendarAuthTest);
+                    await SetStepInProgressAsync(Translator.AccountSetup_Step_TestingCalendarAuth, SetupOperationCalendarAuthTest);
                     await ValidateCalDavConnectivityAsync(customServerInformation);
-                    SetCurrentStepSucceeded();
+                    await SetCurrentStepSucceededAsync();
                 }
 
                 // Step: Calendar metadata
                 if (setupResult.IsCalendarAccessGranted)
                 {
-                    SetStepInProgress(Translator.AccountSetup_Step_FetchingCalendarMetadata, SetupOperationCalendarMetadataSync);
-                    var calResult = await SynchronizationManager.Instance.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
+                    await SetStepInProgressAsync(Translator.AccountSetup_Step_FetchingCalendarMetadata, SetupOperationCalendarMetadataSync);
+                    var calResult = await _synchronizationManager.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
                     {
                         AccountId = _createdAccount.Id,
                         Type = CalendarSynchronizationType.CalendarMetadata
                     });
                     if (calResult == null || calResult.CompletedState != SynchronizationCompletedState.Success)
                         throw new Exception(Translator.Exception_FailedToSynchronizeCalendarMetadata);
-                    SetCurrentStepSucceeded();
+                    await SetCurrentStepSucceededAsync();
                 }
 
                 if (_createdAccount.IsMailAccessGranted)
@@ -461,39 +475,47 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
             }
 
             // Step: Finalizing
-            SetStepInProgress(Translator.AccountSetup_Step_Finalizing, SetupOperationFinalizing);
-            SetCurrentStepSucceeded();
+            await SetStepInProgressAsync(Translator.AccountSetup_Step_Finalizing, SetupOperationFinalizing);
+            await SetCurrentStepSucceededAsync();
 
-            IsSetupComplete = true;
+            await ExecuteUIThread(() =>
+            {
+                IsSetupComplete = true;
 
-            // Notify listeners — this triggers ShellWindow creation from App.xaml.cs
-            Messenger.Send(new AccountCreatedMessage(_createdAccount));
+                // Notify listeners — this triggers ShellWindow creation from App.xaml.cs.
+                Messenger.Send(new AccountCreatedMessage(_createdAccount));
+            });
         }
         catch (AccountSetupCanceledException)
         {
             // User canceled authentication — go back silently, no error UI
-            Messenger.Send(new BackBreadcrumNavigationRequested(NavigationTransitionEffect.FromLeft));
+            await ExecuteUIThread(() =>
+                Messenger.Send(new BackBreadcrumNavigationRequested(NavigationTransitionEffect.FromLeft)));
         }
         catch (Exception ex) when (ex.Message.Contains(nameof(AccountSetupCanceledException)))
         {
             // Wrapped cancellation — same silent behavior
-            Messenger.Send(new BackBreadcrumNavigationRequested(NavigationTransitionEffect.FromLeft));
+            await ExecuteUIThread(() =>
+                Messenger.Send(new BackBreadcrumNavigationRequested(NavigationTransitionEffect.FromLeft)));
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Account setup failed.");
             CaptureAccountSetupException(ex, _currentSetupOperationName ?? SetupOperationAccountSetup);
 
-            SetCurrentStepFailed(ex.Message);
-            IsSetupFailed = true;
-            FailureMessage = Translator.AccountSetup_FailureMessage;
+            await SetCurrentStepFailedAsync(ex.Message);
+            await ExecuteUIThread(() =>
+            {
+                IsSetupFailed = true;
+                FailureMessage = Translator.AccountSetup_FailureMessage;
+            });
 
             // Rollback if DB write happened
             if (_dbWritten && _createdAccount != null)
             {
                 try
                 {
-                    await _accountService.DeleteAccountAsync(_createdAccount);
+                    await _accountService.DeleteAccountAsync(_createdAccount).ConfigureAwait(false);
                 }
                 catch (Exception deleteEx)
                 {
@@ -509,7 +531,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
     {
         try
         {
-            var categoryResult = await SynchronizationManager.Instance.SynchronizeCategoriesAsync(_createdAccount.Id);
+            var categoryResult = await _synchronizationManager.SynchronizeCategoriesAsync(_createdAccount.Id);
 
             if (categoryResult?.CompletedState == SynchronizationCompletedState.Success)
                 return;
@@ -540,7 +562,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
         {
             ["error_origin"] = "AccountSetup",
             ["setup_operation"] = operationName,
-            ["setup_step"] = GetCurrentStepTitle() ?? string.Empty,
+            ["setup_step"] = _currentStepTitle ?? string.Empty,
             ["provider_type"] = WizardContext.SelectedProvider?.Type.ToString() ?? "Unknown",
             ["is_oauth_provider"] = WizardContext.IsOAuthProvider.ToString(),
             ["is_mail_access_enabled"] = WizardContext.IsMailAccessEnabled.ToString(),
@@ -574,14 +596,9 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
         _winoLogger.CaptureException(exception, operationName, properties);
     }
 
-    private string GetCurrentStepTitle()
-        => _currentStepIndex >= 0 && _currentStepIndex < Steps.Count
-            ? Steps[_currentStepIndex].Title
-            : null;
-
     private async Task ValidateImapConnectivityAsync(CustomServerInformation serverInformation)
     {
-        var connectivityResult = await SynchronizationManager.Instance
+        var connectivityResult = await _synchronizationManager
             .TestImapConnectivityAsync(serverInformation, allowSSLHandshake: false);
 
         if (connectivityResult.IsCertificateUIRequired)
@@ -601,7 +618,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
             if (!allowCertificate)
                 throw new InvalidOperationException(Translator.IMAPSetupDialog_CertificateDenied);
 
-            connectivityResult = await SynchronizationManager.Instance
+            connectivityResult = await _synchronizationManager
                 .TestImapConnectivityAsync(serverInformation, allowSSLHandshake: true);
         }
 

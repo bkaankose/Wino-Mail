@@ -6,6 +6,7 @@ using Wino.Core.Domain.Models.Calendar;
 
 namespace Wino.Core.Domain.Interfaces;
 
+[Wino.Core.Domain.Attributes.WinoRpcService]
 public interface ICalDavClient
 {
     Task<IReadOnlyList<CalDavCalendar>> DiscoverCalendarsAsync(

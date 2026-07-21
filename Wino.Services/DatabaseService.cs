@@ -1,5 +1,7 @@
+using System;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using SQLite;
 using Wino.Core.Domain.Entities.Calendar;
@@ -13,6 +15,14 @@ namespace Wino.Services;
 public interface IDatabaseService : IInitializeAsync
 {
     SQLiteAsyncConnection Connection { get; }
+    bool IsAvailable { get; }
+    bool IsReadOnly { get; }
+}
+
+public enum DatabaseAccessMode
+{
+    ReadWrite,
+    ReadOnly,
 }
 
 public class DatabaseService : IDatabaseService
@@ -20,13 +30,22 @@ public class DatabaseService : IDatabaseService
     private const string DatabaseName = "Wino200.db";
 
     private bool _isInitialized = false;
+    private readonly SemaphoreSlim _initializationGate = new(1, 1);
     private readonly IApplicationConfiguration _folderConfiguration;
+    private readonly DatabaseAccessMode _accessMode;
+    private SQLiteAsyncConnection _connection;
 
-    public SQLiteAsyncConnection Connection { get; private set; }
+    public SQLiteAsyncConnection Connection => _connection
+        ?? throw new InvalidOperationException("The database connection is not available.");
+    public bool IsAvailable => _connection is not null;
+    public bool IsReadOnly => _accessMode == DatabaseAccessMode.ReadOnly;
 
-    public DatabaseService(IApplicationConfiguration folderConfiguration)
+    public DatabaseService(
+        IApplicationConfiguration folderConfiguration,
+        DatabaseAccessMode accessMode = DatabaseAccessMode.ReadWrite)
     {
         _folderConfiguration = folderConfiguration;
+        _accessMode = accessMode;
     }
 
     public async Task InitializeAsync()
@@ -34,15 +53,60 @@ public class DatabaseService : IDatabaseService
         if (_isInitialized)
             return;
 
-        var publisherCacheFolder = _folderConfiguration.PublisherSharedFolderPath;
-        var databaseFileName = Path.Combine(publisherCacheFolder, DatabaseName);
+        await _initializationGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (_isInitialized)
+                return;
 
-        Connection = new SQLiteAsyncConnection(databaseFileName);
-        await Connection.ExecuteAsync("PRAGMA foreign_keys = ON;").ConfigureAwait(false);
+            var publisherCacheFolder = _folderConfiguration.PublisherSharedFolderPath;
+            var databaseFileName = Path.Combine(publisherCacheFolder, DatabaseName);
 
-        await CreateTablesAsync();
+            // A fresh install has no database until the companion creates it. The UI's
+            // read-only connection may therefore be initialized again after setup.
+            if (IsReadOnly && !File.Exists(databaseFileName))
+                return;
 
-        _isInitialized = true;
+            var openFlags = IsReadOnly
+                ? SQLiteOpenFlags.ReadOnly | SQLiteOpenFlags.FullMutex
+                : SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.FullMutex;
+
+            _connection = new SQLiteAsyncConnection(databaseFileName, openFlags);
+            _ = await Connection.ExecuteScalarAsync<int>("PRAGMA busy_timeout = 5000;").ConfigureAwait(false);
+            await Connection.ExecuteAsync("PRAGMA foreign_keys = ON;").ConfigureAwait(false);
+
+            if (IsReadOnly)
+            {
+                // Enforce the process boundary at SQLite itself. An accidentally local
+                // mutation fails even if it gets past service routing.
+                await Connection.ExecuteAsync("PRAGMA query_only = ON;").ConfigureAwait(false);
+            }
+            else
+            {
+                // WAL lets the UWP read connection continue while the companion owns the
+                // single writer. NORMAL is SQLite's recommended durability/performance
+                // balance for WAL and avoids blocking UI reads on every checkpoint.
+                _ = await Connection.ExecuteScalarAsync<string>("PRAGMA journal_mode = WAL;").ConfigureAwait(false);
+                await Connection.ExecuteAsync("PRAGMA synchronous = NORMAL;").ConfigureAwait(false);
+                await CreateTablesAsync().ConfigureAwait(false);
+            }
+
+            _isInitialized = true;
+        }
+        catch
+        {
+            if (_connection is not null)
+            {
+                await _connection.CloseAsync().ConfigureAwait(false);
+                _connection = null;
+            }
+
+            throw;
+        }
+        finally
+        {
+            _initializationGate.Release();
+        }
     }
 
     private async Task CreateTablesAsync()

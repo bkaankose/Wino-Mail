@@ -17,11 +17,11 @@ public class ProviderDetail : IProviderDetail
         {
             if (SpecialImapProvider == SpecialImapProvider.None)
             {
-                return $"/Assets/Providers/{Type}.png";
+                return $"ms-appx:///Assets/Providers/{Type}.png";
             }
             else
             {
-                return $"/Assets/Providers/{SpecialImapProvider}.png";
+                return $"ms-appx:///Assets/Providers/{SpecialImapProvider}.png";
             }
         }
     }

@@ -4,7 +4,6 @@ using System.Globalization;
 using CommunityToolkit.Mvvm.Collections;
 using CommunityToolkit.Mvvm.Messaging;
 using FluentAssertions;
-using Itenso.TimePeriod;
 using Moq;
 using Wino.Calendar.ViewModels;
 using Wino.Calendar.ViewModels.Data;
@@ -31,11 +30,16 @@ public class CalendarPageViewModelTests
         var today = new DateOnly(2026, 3, 20);
         var preferencesService = CreatePreferencesService(settings);
         var calendarService = new Mock<ICalendarService>();
-        ITimePeriod? requestedPeriod = null;
+        DateTime? requestedStart = null;
+        DateTime? requestedEnd = null;
 
         calendarService
-            .Setup(service => service.GetCalendarEventsAsync(It.IsAny<IAccountCalendar>(), It.IsAny<ITimePeriod>()))
-            .Callback<IAccountCalendar, ITimePeriod>((_, period) => requestedPeriod = period)
+            .Setup(service => service.GetCalendarEventsAsync(It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+            .Callback<Guid, DateTime, DateTime>((_, start, end) =>
+            {
+                requestedStart = start;
+                requestedEnd = end;
+            })
             .ReturnsAsync([]);
 
         var viewModel = CreateViewModel(calendarService.Object, preferencesService.Object, today);
@@ -49,10 +53,9 @@ public class CalendarPageViewModelTests
         viewModel.LoadedDateWindow.EndDate.Should().Be(new DateTime(2026, 3, 30));
         viewModel.VisibleDateRangeText.Should().Be("March 16 - 22");
 
-        requestedPeriod.Should().NotBeNull();
-        requestedPeriod!.Start.Should().Be(new DateTime(2026, 3, 9));
-        requestedPeriod.End.Should().Be(new DateTime(2026, 3, 30));
-        calendarService.Verify(service => service.GetCalendarEventsAsync(It.IsAny<IAccountCalendar>(), It.IsAny<ITimePeriod>()), Times.Once);
+        requestedStart.Should().Be(new DateTime(2026, 3, 9));
+        requestedEnd.Should().Be(new DateTime(2026, 3, 30));
+        calendarService.Verify(service => service.GetCalendarEventsAsync(It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>()), Times.Once);
     }
 
     [Fact]
@@ -63,7 +66,7 @@ public class CalendarPageViewModelTests
         var calendarService = new Mock<ICalendarService>();
 
         calendarService
-            .Setup(service => service.GetCalendarEventsAsync(It.IsAny<IAccountCalendar>(), It.IsAny<ITimePeriod>()))
+            .Setup(service => service.GetCalendarEventsAsync(It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>()))
             .ReturnsAsync([]);
 
         var viewModel = CreateViewModel(calendarService.Object, preferencesService.Object, new DateOnly(2026, 3, 20));
@@ -72,7 +75,7 @@ public class CalendarPageViewModelTests
         await viewModel.ApplyDisplayRequestAsync(request);
         await viewModel.ApplyDisplayRequestAsync(request);
 
-        calendarService.Verify(service => service.GetCalendarEventsAsync(It.IsAny<IAccountCalendar>(), It.IsAny<ITimePeriod>()), Times.Once);
+        calendarService.Verify(service => service.GetCalendarEventsAsync(It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>()), Times.Once);
     }
 
     [Fact]
@@ -83,7 +86,7 @@ public class CalendarPageViewModelTests
         var calendarService = new Mock<ICalendarService>();
 
         calendarService
-            .Setup(service => service.GetCalendarEventsAsync(It.IsAny<IAccountCalendar>(), It.IsAny<ITimePeriod>()))
+            .Setup(service => service.GetCalendarEventsAsync(It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>()))
             .ReturnsAsync([]);
 
         var viewModel = CreateViewModel(calendarService.Object, preferencesService.Object, new DateOnly(2026, 3, 20));
@@ -96,7 +99,7 @@ public class CalendarPageViewModelTests
         await viewModel.ReloadCurrentVisibleRangeAsync();
 
         viewModel.CurrentVisibleRange.StartDate.Should().Be(new DateOnly(2026, 3, 15));
-        calendarService.Verify(service => service.GetCalendarEventsAsync(It.IsAny<IAccountCalendar>(), It.IsAny<ITimePeriod>()), Times.Exactly(2));
+        calendarService.Verify(service => service.GetCalendarEventsAsync(It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>()), Times.Exactly(2));
     }
 
     [Fact]
@@ -122,7 +125,7 @@ public class CalendarPageViewModelTests
         hiddenCalendarViewModel.IsChecked = false;
 
         calendarService
-            .Setup(service => service.GetCalendarEventsAsync(It.Is<IAccountCalendar>(calendar => calendar.Id == visibleCalendar.Id), It.IsAny<ITimePeriod>()))
+            .Setup(service => service.GetCalendarEventsAsync(visibleCalendar.Id, It.IsAny<DateTime>(), It.IsAny<DateTime>()))
             .ReturnsAsync([
                 new CalendarItem
                 {
@@ -135,7 +138,7 @@ public class CalendarPageViewModelTests
             ]);
 
         calendarService
-            .Setup(service => service.GetCalendarEventsAsync(It.Is<IAccountCalendar>(calendar => calendar.Id == hiddenCalendar.Id), It.IsAny<ITimePeriod>()))
+            .Setup(service => service.GetCalendarEventsAsync(hiddenCalendar.Id, It.IsAny<DateTime>(), It.IsAny<DateTime>()))
             .ReturnsAsync([
                 new CalendarItem
                 {
@@ -156,8 +159,8 @@ public class CalendarPageViewModelTests
         await viewModel.ApplyDisplayRequestAsync(new CalendarDisplayRequest(CalendarDisplayType.Day, new DateOnly(2026, 3, 20)));
 
         viewModel.CalendarItems.Should().ContainSingle(item => item.CalendarItem.CalendarId == visibleCalendar.Id);
-        calendarService.Verify(service => service.GetCalendarEventsAsync(It.Is<IAccountCalendar>(calendar => calendar.Id == visibleCalendar.Id), It.IsAny<ITimePeriod>()), Times.Once);
-        calendarService.Verify(service => service.GetCalendarEventsAsync(It.Is<IAccountCalendar>(calendar => calendar.Id == hiddenCalendar.Id), It.IsAny<ITimePeriod>()), Times.Never);
+        calendarService.Verify(service => service.GetCalendarEventsAsync(visibleCalendar.Id, It.IsAny<DateTime>(), It.IsAny<DateTime>()), Times.Once);
+        calendarService.Verify(service => service.GetCalendarEventsAsync(hiddenCalendar.Id, It.IsAny<DateTime>(), It.IsAny<DateTime>()), Times.Never);
     }
 
     [Fact]
@@ -173,7 +176,7 @@ public class CalendarPageViewModelTests
         var existingItem = CreateCalendarItem(calendar.Id, new DateTime(2026, 3, 20, 9, 0, 0), "Existing");
 
         calendarService
-            .Setup(service => service.GetCalendarEventsAsync(It.IsAny<IAccountCalendar>(), It.IsAny<ITimePeriod>()))
+            .Setup(service => service.GetCalendarEventsAsync(It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>()))
             .ReturnsAsync([existingItem]);
 
         var viewModel = CreateViewModel(
@@ -195,7 +198,7 @@ public class CalendarPageViewModelTests
 
             viewModel.CalendarItems.Should().HaveCount(2);
             viewModel.CalendarItems.Should().Contain(item => item.Id == optimisticItem.Id && item.IsBusy);
-            calendarService.Verify(service => service.GetCalendarEventsAsync(It.IsAny<IAccountCalendar>(), It.IsAny<ITimePeriod>()), Times.Once);
+            calendarService.Verify(service => service.GetCalendarEventsAsync(It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>()), Times.Once);
         }
         finally
         {
@@ -216,7 +219,7 @@ public class CalendarPageViewModelTests
         var existingItem = CreateCalendarItem(calendar.Id, new DateTime(2026, 3, 20, 9, 0, 0), "Existing");
 
         calendarService
-            .Setup(service => service.GetCalendarEventsAsync(It.IsAny<IAccountCalendar>(), It.IsAny<ITimePeriod>()))
+            .Setup(service => service.GetCalendarEventsAsync(It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>()))
             .ReturnsAsync([existingItem]);
 
         var viewModel = CreateViewModel(
@@ -234,7 +237,7 @@ public class CalendarPageViewModelTests
             WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(existingItem, EntityUpdateSource.ClientUpdated));
 
             viewModel.CalendarItems.Should().BeEmpty();
-            calendarService.Verify(service => service.GetCalendarEventsAsync(It.IsAny<IAccountCalendar>(), It.IsAny<ITimePeriod>()), Times.Once);
+            calendarService.Verify(service => service.GetCalendarEventsAsync(It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>()), Times.Once);
         }
         finally
         {
@@ -251,7 +254,7 @@ public class CalendarPageViewModelTests
         var notificationBuilder = new Mock<INotificationBuilder>();
 
         calendarService
-            .Setup(service => service.GetCalendarEventsAsync(It.IsAny<IAccountCalendar>(), It.IsAny<ITimePeriod>()))
+            .Setup(service => service.GetCalendarEventsAsync(It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>()))
             .ReturnsAsync([]);
 
         notificationBuilder
@@ -294,7 +297,7 @@ public class CalendarPageViewModelTests
         var localPreview = CreateCalendarItem(calendar.Id, new DateTime(2026, 3, 20, 9, 0, 0), "Local preview");
 
         calendarService
-            .Setup(service => service.GetCalendarEventsAsync(It.IsAny<IAccountCalendar>(), It.IsAny<ITimePeriod>()))
+            .Setup(service => service.GetCalendarEventsAsync(It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>()))
             .ReturnsAsync([localPreview]);
 
         var viewModel = CreateViewModel(
@@ -460,7 +463,8 @@ public class CalendarPageViewModelTests
             requestDelegator ?? Mock.Of<IWinoRequestDelegator>(),
             dialogService ?? Mock.Of<IMailDialogService>(),
             new TestDateContextProvider("en-US", today),
-            new CalendarRangeTextFormatter());
+            new CalendarRangeTextFormatter(),
+            Mock.Of<ISynchronizationManager>());
     }
 
     private static AccountCalendar CreateCalendar(MailAccount account, string name)

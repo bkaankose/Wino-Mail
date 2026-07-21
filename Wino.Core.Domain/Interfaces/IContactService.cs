@@ -8,11 +8,13 @@ using Wino.Core.Domain.Models.Contacts;
 
 namespace Wino.Core.Domain.Interfaces;
 
+[Wino.Core.Domain.Attributes.WinoRpcService]
 public interface IContactService
 {
     Task<List<AccountContact>> GetAddressInformationAsync(string queryText);
     Task<AccountContact> GetAddressInformationByAddressAsync(string address);
     Task<List<AccountContact>> GetContactsByAddressesAsync(IEnumerable<string> addresses);
+    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     Task SaveAddressInformationAsync(MimeMessage message);
     Task SaveAddressInformationAsync(IEnumerable<AccountContact> contacts);
     Task<AccountContact> CreateNewContactAsync(string address, string displayName);

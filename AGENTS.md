@@ -4,7 +4,7 @@ This file provides guidance to AI agent when working with code in this repositor
 
 ## Project Overview
 
-Wino Mail is a native Windows mail client (Windows 10 1809+ / Windows 11) replacing the deprecated Windows Mail & Calendar. It's **transitioning from UWP to WinUI 3** - always work with WinUI projects (Wino.Mail.WinUI), never edit the deprecated Wino.Mail UWP project.
+Wino Mail is a native Windows mail client replacing the deprecated Windows Mail & Calendar. It is being reverse-migrated from WinUI 3 to a .NET 10 UWP/WinUI 2 UI (`Wino.Mail.Uwp`) with a packaged WinForms companion (`Wino.Companion`). New UI and lifecycle work belongs in the UWP and companion projects; the WinUI 3 project is retained only as a migration reference until removal.
 
 ## Build and Development Commands
 
@@ -12,11 +12,12 @@ Wino Mail is a native Windows mail client (Windows 10 1809+ / Windows 11) replac
 # Open solution
 # WinoMail.slnx is the main solution file (VS 2022+)
 
-# Build WinUI project (Debug x64)
-dotnet restore Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config -p:Platform=x64 -p:RuntimeIdentifier=win-x64 && dotnet build Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false
+# Build the .NET 10 UWP UI (Debug x64). Use Visual Studio MSBuild;
+# dotnet build does not execute the UWP XAML targets correctly.
+& "C:\Program Files\Microsoft Visual Studio\18\Insiders\MSBuild\Current\Bin\MSBuild.exe" Wino.Mail.Uwp\Wino.Mail.Uwp.csproj /restore /p:Configuration=Debug /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false
 
-# Build WinUI project with diagnostic XAML/compiler logging (use when plain build only shows "XamlCompiler.exe exited with code 1")
-dotnet build Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false "/flp:logfile=winui-build.log;verbosity=diagnostic" /bl:winui-build.binlog
+# Build the WAP/MSIX package containing UWP + companion.
+& "C:\Program Files\Microsoft Visual Studio\18\Insiders\MSBuild\Current\Bin\MSBuild.exe" Wino.Packaging\Wino.Packaging.wapproj /restore /p:Configuration=Debug /p:Platform=x64 /p:AppxPackageSigningEnabled=false /p:GenerateAppxPackageOnBuild=true /p:AppxBundle=Never
 
 # Run tests (Debug x64)
 dotnet test Wino.Core.Tests/Wino.Core.Tests.csproj -c Debug /p:Platform=x64
@@ -27,13 +28,13 @@ dotnet test Wino.Core.Tests/Wino.Core.Tests.csproj -c Debug /p:Platform=x64
 # Audit WinUI XAML controls for stable UI Automation selectors
 .\scripts\audit-xaml-automationids.ps1
 
-# Copilot CLI build command (Debug x64)
-dotnet restore Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config -p:Platform=x64 -p:RuntimeIdentifier=win-x64 && dotnet build Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false
+# Build the companion alone (Debug x64)
+dotnet build Wino.Companion\Wino.Companion.csproj -c Debug /p:Platform=x64 /p:RuntimeIdentifier=win-x64
 ```
 
 **Prerequisites:** Visual Studio 2022+ with ".NET desktop development" workload, .NET SDK 10+
 
-**Startup project:** Wino.Mail.WinUI
+**Startup project:** Wino.Packaging (deploys `Wino.Mail.Uwp` and `Wino.Companion`)
 
 **Platforms:** x86, x64, ARM64
 
@@ -58,8 +59,10 @@ Wino.Authentication    → OAuth2 authenticators (Outlook, Gmail)
 Wino.Mail.ViewModels   → Mail-specific ViewModels
 Wino.Core.ViewModels   → Shared ViewModels (settings, personalization)
 Wino.Messaging         → Pub-sub message definitions
-Wino.Mail.WinUI        → **Active WinUI 3 UI project** (use this)
-Wino.Mail              → **Deprecated UWP project** (DO NOT EDIT)
+Wino.Mail.Uwp          → **Active .NET 10 UWP / WinUI 2 UI project**
+Wino.Companion         → **Packaged WinForms tray/synchronization/authentication process**
+Wino.Packaging         → **WAP/MSIX packaging and deployment project**
+Wino.Mail.WinUI        → Migration reference only; do not add new implementation
 ```
 
 ### Mail Synchronization Flow
@@ -130,10 +133,9 @@ private string searchQuery = string.Empty;
 
 ## WebView2 Mail Rendering
 
-- `reader.html` for reading mails, `editor.html` for composing (Jodit editor)
-- Virtual host mapping: `https://wino.mail/reader.html`
-- JavaScript interop via `ExecuteScriptFunctionAsync()`
-- MIME content downloaded on-demand, not during sync
+- `Wino.Mail.Editor` owns packaged editor/renderer assets and builds self-contained documents from `ms-appx` content; it does not extract assets into LocalCache.
+- Use `WinoMailEditor` for composition and `WinoMailRenderer` for message/calendar rendering.
+- DarkReader and Linkify are embedded dependencies; MIME content remains downloaded on demand.
 
 ## Common Pitfalls
 
@@ -141,7 +143,7 @@ private string searchQuery = string.Empty;
 - Not calling `RegisterRecipients()` for message handlers
 - Using private fields with `[ObservableProperty]` instead of public partial
 - Creating IValueConverter classes instead of using XamlHelpers
-- Editing UWP project files instead of WinUI equivalents
+- Adding new implementation to the legacy WinUI 3 project instead of the UWP/companion targets
 - Hardcoding strings instead of using Translator
 - Forgetting to unregister Messenger recipients (memory leaks)
 - Putting authentication validation, token refresh, account API calls, settings serialization/deserialization, or preference-application logic into ViewModels instead of the corresponding service

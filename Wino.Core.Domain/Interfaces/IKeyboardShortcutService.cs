@@ -9,6 +9,7 @@ namespace Wino.Core.Domain.Interfaces;
 /// <summary>
 /// Service for managing keyboard shortcuts for mail operations.
 /// </summary>
+[Wino.Core.Domain.Attributes.WinoRpcService]
 public interface IKeyboardShortcutService
 {
     /// <summary>

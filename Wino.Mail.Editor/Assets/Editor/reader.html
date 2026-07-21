@@ -1,0 +1,32 @@
+<!doctype html>
+<html id="wino-document" lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Wino mail renderer</title>
+    <link rel="stylesheet" href="reader.css">
+    <script>
+        window.__winoRendererBootstrapError = "";
+        window.onerror = function (message, source, line, column) {
+            window.__winoRendererBootstrapError = String(message) + " (line " + line + ", column " + column + ")";
+        };
+        function winoGetRendererStatus() {
+            if (window.__winoRendererBootstrapError) {
+                return "JavaScript error: " + window.__winoRendererBootstrapError;
+            }
+            return typeof window.WinoRenderer === "object" ? "ready" : "window.WinoRenderer is missing";
+        }
+        if (!("isConnected" in Node.prototype)) {
+            Object.defineProperty(Node.prototype, "isConnected", {
+                configurable: true,
+                get: function () { return document.documentElement.contains(this); }
+            });
+        }
+    </script>
+    <script defer src="darkreader.js"></script>
+    <script defer src="linkify.min.js"></script>
+    <script defer src="linkify-element.min.js"></script>
+    <script defer src="reader.js"></script>
+</head>
+<body id="wino-body"><main id="wino-reader" tabindex="0"></main></body>
+</html>

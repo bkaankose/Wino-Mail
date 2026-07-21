@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -54,6 +54,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     private readonly IClipboardService _clipboardService;
     private readonly IUnsubscriptionService _unsubscriptionService;
     private readonly IApplicationConfiguration _applicationConfiguration;
+    private readonly ISynchronizationManager _synchronizationManager;
     private bool forceImageLoading = false;
 
     private MailItemViewModel initializedMailItemViewModel = null;
@@ -170,7 +171,8 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         IUnsubscriptionService unsubscriptionService,
         IPreferencesService preferencesService,
         IPrintService printService,
-        IApplicationConfiguration applicationConfiguration)
+        IApplicationConfiguration applicationConfiguration,
+        ISynchronizationManager synchronizationManager)
     {
         _dialogService = dialogService;
         NativeAppService = nativeAppService;
@@ -187,6 +189,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         _folderService = folderService;
         _fileService = fileService;
         _requestDelegator = requestDelegator;
+        _synchronizationManager = synchronizationManager;
     }
 
     [RelayCommand]
@@ -329,14 +332,15 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
                     },
                     ReferencedMessage = new ReferencedMessage()
                     {
-                        MimeMessage = initializedMimeMessageInformation.MimeMessage,
-                        MailCopy = initializedMailItemViewModel.MailCopy
+                        MailCopyUniqueId = initializedMailItemViewModel.MailCopy.UniqueId
                     }
                 };
 
-                var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(initializedMailItemViewModel.MailCopy.AssignedAccount.Id, draftOptions).ConfigureAwait(false);
+                var result = await _mailService.CreateDraftAsync(initializedMailItemViewModel.MailCopy.AssignedAccount.Id, draftOptions).ConfigureAwait(false);
+                var draftMailCopy = await _mailService.GetSingleMailItemAsync(result.DraftMailUniqueId).ConfigureAwait(false)
+                    ?? throw new InvalidOperationException($"Created draft '{result.DraftMailUniqueId}' was not found.");
 
-                var draftPreparationRequest = new DraftPreparationRequest(initializedMailItemViewModel.MailCopy.AssignedAccount, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason, initializedMailItemViewModel.MailCopy);
+                var draftPreparationRequest = new DraftPreparationRequest(initializedMailItemViewModel.MailCopy.AssignedAccount, draftMailCopy, result.MimeFilePath, draftOptions.Reason, initializedMailItemViewModel.MailCopy);
 
                 await _requestDelegator.ExecuteAsync(draftPreparationRequest);
                 ComposeRequested?.Invoke(this, new ComposeDraftRequestedEventArgs(draftMailCopy.UniqueId));
@@ -442,7 +446,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             CurrentDownloadPercentage = 1;
 
             // Download missing MIME message using SynchronizationManager
-            await SynchronizationManager.Instance.DownloadMimeMessageAsync(
+            await _synchronizationManager.DownloadMimeMessageAsync(
                 mailItemViewModel.MailCopy,
                 mailItemViewModel.MailCopy.AssignedAccount.Id);
         }

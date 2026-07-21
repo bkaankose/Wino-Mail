@@ -1,5 +1,4 @@
-﻿using MimeKit;
-using Wino.Core.Domain.Entities.Mail;
+using System;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Launch;
 
@@ -10,18 +9,21 @@ public class DraftCreationOptions
     public DraftCreationReason Reason { get; set; }
 
     /// <summary>
-    /// Used for forward/reply
+    /// Used for forward/reply.
     /// </summary>
     public ReferencedMessage ReferencedMessage { get; set; }
 
     /// <summary>
-    /// Used to create mails from Mailto links
+    /// Used to create mails from Mailto links.
     /// </summary>
     public MailToUri MailToUri { get; set; }
 }
 
 public class ReferencedMessage
 {
-    public MailCopy MailCopy { get; set; }
-    public MimeMessage MimeMessage { get; set; }
+    /// <summary>
+    /// Identifies the referenced mail in the shared database. The companion loads
+    /// its metadata and MIME file locally instead of transferring either object.
+    /// </summary>
+    public Guid MailCopyUniqueId { get; set; }
 }

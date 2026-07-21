@@ -1,0 +1,14 @@
+<UserControl
+    x:Class="Wino.Mail.Editor.EditorSelectorBar"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Loaded="EditorSelectorBar_Loaded">
+    <ScrollViewer HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Auto" VerticalScrollMode="Disabled">
+        <StackPanel Orientation="Horizontal" Spacing="4">
+            <ToggleButton x:Name="FormattingButton" Content="Format" Tag="Formatting" Click="CategoryButton_Click" />
+            <ToggleButton x:Name="InsertButton" Content="Insert" Tag="Insert" Click="CategoryButton_Click" />
+            <ToggleButton x:Name="TableButton" Content="Table" Tag="Table" Click="CategoryButton_Click" />
+            <ToggleButton x:Name="SecurityButton" Content="Security" Tag="Security" Click="CategoryButton_Click" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

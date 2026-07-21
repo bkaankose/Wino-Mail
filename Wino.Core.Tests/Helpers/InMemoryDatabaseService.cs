@@ -15,6 +15,8 @@ public class InMemoryDatabaseService : IDatabaseService
 {
     private readonly string _databasePath;
     public SQLiteAsyncConnection Connection { get; private set; }
+    public bool IsAvailable => Connection is not null;
+    public bool IsReadOnly => false;
 
     public InMemoryDatabaseService()
     {

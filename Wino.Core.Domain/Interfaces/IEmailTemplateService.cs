@@ -5,6 +5,7 @@ using Wino.Core.Domain.Entities.Mail;
 
 namespace Wino.Core.Domain.Interfaces;
 
+[Wino.Core.Domain.Attributes.WinoRpcService]
 public interface IEmailTemplateService
 {
     Task<List<EmailTemplate>> GetEmailTemplatesAsync();

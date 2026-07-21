@@ -185,9 +185,22 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
 
     public async Task ReplaceFoldersAsync(IEnumerable<IMenuItem> folders)
     {
-        await _dispatcher.ExecuteOnUIThread(() => ClearFolderAreaMenuItems());
-        await _dispatcher.ExecuteOnUIThread(() => Items.Add(new SeperatorItem()));
-        await _dispatcher.ExecuteOnUIThread(() => AddRange(folders, System.Collections.Specialized.NotifyCollectionChangedAction.Reset));
+        var replacementFolders = folders.ToList();
+
+        await _dispatcher.ExecuteOnUIThread(() =>
+        {
+            ClearFolderAreaMenuItems();
+            Add(new SeperatorItem());
+
+            // ObservableCollection.Reset carries an index of -1. The modern .NET UWP
+            // projection turns that into uint.MaxValue while forwarding the event to XAML,
+            // which fails IList.GetAt before NavigationView can process the reset. Publish
+            // valid indexed Add notifications instead.
+            foreach (var folder in replacementFolders)
+            {
+                Add(folder);
+            }
+        });
     }
 
     /// <summary>

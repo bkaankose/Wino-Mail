@@ -160,6 +160,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     private readonly IMailDialogService _dialogService;
     private readonly IDateContextProvider _dateContextProvider;
     private readonly ICalendarRangeTextFormatter _calendarRangeTextFormatter;
+    private readonly ISynchronizationManager _synchronizationManager;
 
     private readonly SemaphoreSlim _calendarLoadingSemaphore = new(1);
     private bool _subscriptionsAttached;
@@ -187,7 +188,8 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         IWinoRequestDelegator winoRequestDelegator,
         IMailDialogService dialogService,
         IDateContextProvider dateContextProvider,
-        ICalendarRangeTextFormatter calendarRangeTextFormatter)
+        ICalendarRangeTextFormatter calendarRangeTextFormatter,
+        ISynchronizationManager synchronizationManager)
     {
         StatePersistanceService = statePersistanceService;
         AccountCalendarStateService = accountCalendarStateService;
@@ -200,6 +202,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         _dialogService = dialogService;
         _dateContextProvider = dateContextProvider;
         _calendarRangeTextFormatter = calendarRangeTextFormatter;
+        _synchronizationManager = synchronizationManager;
 
         RefreshSettings();
     }
@@ -791,7 +794,9 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             if (!IsPageActive(lifetimeVersion))
                 return [];
 
-            var events = await _calendarService.GetCalendarEventsAsync(calendarViewModel, loadPeriod).ConfigureAwait(false);
+            var events = await _calendarService
+                .GetCalendarEventsAsync(calendarViewModel.Id, loadPeriod.Start, loadPeriod.End)
+                .ConfigureAwait(false);
             foreach (var calendarItem in events)
             {
                 if (calendarItem.IsRecurringParent || calendarItem.IsHidden)
@@ -951,22 +956,18 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             if (!IsPageActive(lifetimeVersion))
                 return pendingCalendarItemIds;
 
-            IWinoSynchronizerBase synchronizer;
             try
             {
-                synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(accountId).ConfigureAwait(false);
+                foreach (var pendingCalendarItemId in await _synchronizationManager
+                             .GetPendingCalendarOperationIdsAsync(accountId)
+                             .ConfigureAwait(false))
+                {
+                    pendingCalendarItemIds.Add(pendingCalendarItemId);
+                }
             }
             catch (InvalidOperationException)
             {
                 return pendingCalendarItemIds;
-            }
-
-            if (synchronizer == null)
-                continue;
-
-            foreach (var pendingCalendarItemId in synchronizer.GetPendingCalendarOperationIds())
-            {
-                pendingCalendarItemIds.Add(pendingCalendarItemId);
             }
         }
 

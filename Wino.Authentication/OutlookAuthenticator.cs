@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Identity.Client;
 using Microsoft.Identity.Client.Broker;
@@ -31,6 +32,8 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
     private readonly IPublicClientApplication _publicClientApplication;
     private readonly INativeAppService _nativeAppService;
     private readonly IApplicationConfiguration _applicationConfiguration;
+    private readonly SemaphoreSlim _interactiveAuthenticationLock = new(1, 1);
+    private nint _interactiveParentWindow;
 
     public OutlookAuthenticator(INativeAppService nativeAppService,
                                 IApplicationConfiguration applicationConfiguration,
@@ -39,35 +42,19 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
         _nativeAppService = nativeAppService;
         _applicationConfiguration = applicationConfiguration;
 
-        var authenticationRedirectUri = nativeAppService.GetWebAuthenticationBrokerUri();
-
         var options = new BrokerOptions(BrokerOptions.OperatingSystems.Windows)
         {
             Title = "Wino Mail",
             ListOperatingSystemAccounts = true,
         };
 
-        PublicClientApplicationBuilder outlookAppBuilder = null;
-
-        // Being created from an app notification.
-        // This is where we avoid all interactive shit for authentication.
-        if (nativeAppService.GetCoreWindowHwnd == null)
-        {
-            outlookAppBuilder = PublicClientApplicationBuilder.Create(AuthenticatorConfig.OutlookAuthenticatorClientId)
-                .WithDefaultRedirectUri()
-                .WithBroker(options)
-                .WithAuthority(Authority);
-        }
-        else
-        {
-            outlookAppBuilder = PublicClientApplicationBuilder.Create(AuthenticatorConfig.OutlookAuthenticatorClientId)
-                .WithBroker(options)
-                .WithParentActivityOrWindow(_nativeAppService.GetCoreWindowHwnd)
-                .WithDefaultRedirectUri()
-                .WithAuthority(Authority);
-        }
-
-        _publicClientApplication = outlookAppBuilder.Build();
+        _publicClientApplication = PublicClientApplicationBuilder
+            .Create(AuthenticatorConfig.OutlookAuthenticatorClientId)
+            .WithBroker(options)
+            .WithParentActivityOrWindow(() => _interactiveParentWindow)
+            .WithDefaultRedirectUri()
+            .WithAuthority(Authority)
+            .Build();
     }
 
     private string[] GetScope(MailAccount account)
@@ -117,31 +104,65 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
 
     public async Task<TokenInformationEx> GenerateTokenInformationAsync(MailAccount account)
     {
+        var parentWindowHandle = _nativeAppService.GetCoreWindowHwnd?.Invoke() ?? nint.Zero;
+        if (parentWindowHandle == nint.Zero)
+        {
+            throw new AuthenticationAttentionException(account);
+        }
+
+        return await GenerateTokenInformationAsync(account, parentWindowHandle, CancellationToken.None).ConfigureAwait(false);
+    }
+
+    public async Task<TokenInformationEx> GenerateTokenInformationAsync(
+        MailAccount account,
+        nint parentWindowHandle,
+        CancellationToken cancellationToken)
+    {
+        if (parentWindowHandle == nint.Zero)
+        {
+            throw new AuthenticationAttentionException(account);
+        }
+
+        await _interactiveAuthenticationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             await EnsureTokenCacheAttachedAsync();
+            for (var attempt = 0; attempt < 2; attempt++)
+            {
+                _interactiveParentWindow = attempt == 0
+                    ? parentWindowHandle
+                    : _nativeAppService.GetCoreWindowHwnd?.Invoke() ?? nint.Zero;
 
-            // Interactive authentication required but window doesn't exist.
-            // This can happen when being called from a notification background task and the token is expired.
-            // Force account attention;
+                if (_interactiveParentWindow == nint.Zero)
+                {
+                    throw new AuthenticationAttentionException(account);
+                }
 
-            if (_nativeAppService.GetCoreWindowHwnd == null) throw new AuthenticationAttentionException(account);
+                try
+                {
+                    var interactiveBuilder = _publicClientApplication.AcquireTokenInteractive(GetScope(account));
+                    var loginHint = GetAuthenticationAddress(account);
 
-            var interactiveBuilder = _publicClientApplication.AcquireTokenInteractive(GetScope(account));
-            var loginHint = GetAuthenticationAddress(account);
+                    if (!string.IsNullOrWhiteSpace(loginHint))
+                        interactiveBuilder = interactiveBuilder.WithLoginHint(loginHint);
 
-            if (!string.IsNullOrWhiteSpace(loginHint))
-                interactiveBuilder = interactiveBuilder.WithLoginHint(loginHint);
+                    AuthenticationResult authResult = await interactiveBuilder.ExecuteAsync(cancellationToken).ConfigureAwait(false);
 
-            AuthenticationResult authResult = await interactiveBuilder.ExecuteAsync();
+                    // Microsoft 365 work/school tenants can use a sign-in UPN that differs from
+                    // the mailbox primary SMTP address, so interactive reauth must not reject them.
+                    var mailboxAddress = await ResolveMailboxAddressAsync(authResult.AccessToken, authResult.Account.Username)
+                        .ConfigureAwait(false);
 
-            // Microsoft 365 work/school tenants can use a sign-in UPN that differs from
-            // the mailbox primary SMTP address, so interactive reauth must not reject them.
+                    return new TokenInformationEx(authResult.AccessToken, mailboxAddress, authResult.Account.Username);
+                }
+                catch (MsalClientException exception) when (attempt == 0 && IsParentWindowFailure(exception))
+                {
+                    // The UWP CoreWindow may have been recreated between validation and WAM
+                    // startup. Request a fresh HWND once and never retain either handle.
+                }
+            }
 
-            var mailboxAddress = await ResolveMailboxAddressAsync(authResult.AccessToken, authResult.Account.Username)
-                .ConfigureAwait(false);
-
-            return new TokenInformationEx(authResult.AccessToken, mailboxAddress, authResult.Account.Username);
+            throw new InvalidOperationException("Interactive Outlook authentication did not produce a token.");
         }
         catch (MsalClientException msalClientException)
         {
@@ -150,9 +171,17 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
 
             throw;
         }
-
-        throw new AuthenticationException(Translator.Exception_UnknowErrorDuringAuthentication, new Exception(Translator.Exception_TokenGenerationFailed));
+        finally
+        {
+            _interactiveParentWindow = nint.Zero;
+            _interactiveAuthenticationLock.Release();
+        }
     }
+
+    private static bool IsParentWindowFailure(MsalClientException exception) =>
+        exception.ErrorCode.Contains("window", StringComparison.OrdinalIgnoreCase) ||
+        exception.Message.Contains("window handle", StringComparison.OrdinalIgnoreCase) ||
+        exception.Message.Contains("parent window", StringComparison.OrdinalIgnoreCase);
 
     public async Task DeleteTokenInformationAsync(MailAccount account)
     {

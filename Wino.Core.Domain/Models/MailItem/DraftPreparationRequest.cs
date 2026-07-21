@@ -12,7 +12,7 @@ public class DraftPreparationRequest
 {
     public DraftPreparationRequest(MailAccount account,
                                    MailCopy createdLocalDraftCopy,
-                                   string base64EncodedMimeMessage,
+                                   string mimeFilePath,
                                    DraftCreationReason reason,
                                    MailCopy referenceMailCopy = null)
     {
@@ -21,10 +21,9 @@ public class DraftPreparationRequest
         CreatedLocalDraftCopy = createdLocalDraftCopy ?? throw new ArgumentNullException(nameof(createdLocalDraftCopy));
         ReferenceMailCopy = referenceMailCopy;
 
-        // MimeMessage is not serializable with System.Text.Json. Convert to base64 string.
-        // This is additional work when deserialization needed, but not much to do atm.
-
-        Base64LocalDraftMimeMessage = base64EncodedMimeMessage;
+        MimeFilePath = string.IsNullOrWhiteSpace(mimeFilePath)
+            ? throw new ArgumentException("A MIME file path is required.", nameof(mimeFilePath))
+            : mimeFilePath;
         Reason = reason;
     }
 
@@ -35,7 +34,7 @@ public class DraftPreparationRequest
 
     public MailCopy ReferenceMailCopy { get; set; }
 
-    public string Base64LocalDraftMimeMessage { get; set; }
+    public string MimeFilePath { get; set; }
     public DraftCreationReason Reason { get; set; }
 
     [JsonIgnore]
@@ -46,7 +45,7 @@ public class DraftPreparationRequest
     {
         get
         {
-            createdLocalDraftMimeMessage ??= Base64LocalDraftMimeMessage.GetMimeMessageFromBase64();
+            createdLocalDraftMimeMessage ??= MimeMessage.Load(MimeFilePath);
 
             return createdLocalDraftMimeMessage;
         }

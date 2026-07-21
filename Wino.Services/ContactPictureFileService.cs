@@ -27,7 +27,10 @@ public class ContactPictureFileService : BaseDatabaseService, IContactPictureFil
         : base(databaseService)
     {
         _contactPicturesFolder = Path.Combine(applicationConfiguration.ApplicationDataFolderPath, ContactsSubFolder);
-        EnsureContactPicturesFolder();
+        if (!databaseService.IsReadOnly)
+        {
+            EnsureContactPicturesFolder();
+        }
     }
 
     public string GetContactPicturePath(Guid fileId)

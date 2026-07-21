@@ -317,7 +317,7 @@ public class MimeFileService : IMimeFileService
         return sanitizedChars.Length == 0 ? "default" : new string(sanitizedChars);
     }
 
-    private static string NormalizeSummaryText(string summary)
+    internal static string NormalizeSummaryText(string summary)
     {
         if (string.IsNullOrWhiteSpace(summary))
         {

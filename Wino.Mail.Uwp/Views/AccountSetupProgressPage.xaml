@@ -1,0 +1,125 @@
+<abstract:AccountSetupProgressPageAbstract
+    x:Class="Wino.Views.AccountSetupProgressPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Mail.Uwp.Views.Abstract"
+    xmlns:accounts="using:Wino.Core.Domain.Models.Accounts"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:winuiControls="using:Microsoft.UI.Xaml.Controls"
+    mc:Ignorable="d">
+
+    <Grid Padding="0,8">
+        <StackPanel
+            MaxWidth="500"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Spacing="24">
+
+            <!--  Title  -->
+            <TextBlock
+                HorizontalAlignment="Center"
+                Style="{StaticResource SubtitleTextBlockStyle}"
+                Text="{x:Bind domain:Translator.AccountSetup_Title}" />
+
+            <!--  Steps List  -->
+            <ItemsControl
+                AutomationProperties.LiveSetting="Polite"
+                ItemsSource="{x:Bind ViewModel.Steps, Mode=OneWay}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="accounts:AccountSetupStepModel">
+                        <Grid
+                            Padding="0,6"
+                            ColumnSpacing="12"
+                            AutomationProperties.Name="{x:Bind AutomationName, Mode=OneWay}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="28" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <!--  Status indicator  -->
+                            <Grid
+                                Width="20"
+                                Height="20"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center">
+
+                                <!--  Pending: gray circle  -->
+                                <FontIcon
+                                    FontSize="16"
+                                    Foreground="{ThemeResource TextFillColorDisabledBrush}"
+                                    Glyph="&#xEA3A;"
+                                    Visibility="{x:Bind IsPending, Mode=OneWay}" />
+
+                                <!--  InProgress: progress ring  -->
+                                <winuiControls:ProgressRing
+                                    Width="16"
+                                    Height="16"
+                                    IsActive="{x:Bind IsInProgress, Mode=OneWay}"
+                                    Visibility="{x:Bind IsInProgress, Mode=OneWay}" />
+
+                                <!--  Succeeded: green check  -->
+                                <FontIcon
+                                    FontSize="16"
+                                    Foreground="#107C10"
+                                    Glyph="&#xE73E;"
+                                    Visibility="{x:Bind IsSucceeded, Mode=OneWay}" />
+
+                                <!--  Failed: red error  -->
+                                <FontIcon
+                                    FontSize="16"
+                                    Foreground="#D13438"
+                                    Glyph="&#xEA39;"
+                                    Visibility="{x:Bind IsFailed, Mode=OneWay}" />
+                            </Grid>
+
+                            <!--  Step text  -->
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{x:Bind Title}" />
+                                <TextBlock
+                                    Foreground="#D13438"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind ErrorMessage, Mode=OneWay}"
+                                    TextWrapping="Wrap"
+                                    Visibility="{x:Bind IsFailed, Mode=OneWay}" />
+                            </StackPanel>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!--  Success InfoBar  -->
+            <winuiControls:InfoBar
+                IsClosable="False"
+                IsOpen="{x:Bind ViewModel.IsSetupComplete, Mode=OneWay}"
+                Message="{x:Bind domain:Translator.AccountSetup_SuccessMessage}"
+                Severity="Success" />
+
+            <!--  Failure InfoBar + Buttons  -->
+            <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.IsSetupFailed, Mode=OneWay}">
+                <winuiControls:InfoBar
+                    IsClosable="False"
+                    IsOpen="True"
+                    Message="{x:Bind ViewModel.FailureMessage, Mode=OneWay}"
+                    Severity="Error" />
+
+                <StackPanel
+                    HorizontalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="8">
+                    <Button
+
+                        AutomationProperties.AutomationId="AccountSetupProgressPageButton" Command="{x:Bind ViewModel.GoBackCommand}" Content="{x:Bind domain:Translator.AccountSetup_GoBackButton}" />
+                    <Button
+                        AutomationProperties.AutomationId="AccountSetupProgressPageButton2"
+                        Command="{x:Bind ViewModel.TryAgainCommand}"
+                        Content="{x:Bind domain:Translator.AccountSetup_TryAgainButton}"
+                        Style="{StaticResource AccentButtonStyle}" />
+                </StackPanel>
+            </StackPanel>
+
+        </StackPanel>
+    </Grid>
+</abstract:AccountSetupProgressPageAbstract>

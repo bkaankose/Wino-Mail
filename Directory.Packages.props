@@ -15,8 +15,18 @@
     <PackageVersion Include="CommunityToolkit.WinUI.Controls.TokenizingTextBox" Version="8.2.251219" />
     <PackageVersion Include="CommunityToolkit.WinUI.Extensions" Version="8.2.251219" />
     <PackageVersion Include="CommunityToolkit.Labs.WinUI.Controls.MarkdownTextBlock" Version="0.1.250926-build.2293" />
+    <PackageVersion Include="CommunityToolkit.Labs.Uwp.Controls.TitleBar" Version="0.1.260617-build.2640" />
     <PackageVersion Include="CommunityToolkit.WinUI.Lottie" Version="8.2.250604" />
+    <PackageVersion Include="CommunityToolkit.Uwp.Animations" Version="8.2.251219" />
+    <PackageVersion Include="CommunityToolkit.Uwp.Controls.Segmented" Version="8.2.251219" />
+    <PackageVersion Include="CommunityToolkit.Uwp.Controls.SettingsControls" Version="8.2.251219" />
+    <PackageVersion Include="CommunityToolkit.Uwp.Controls.Sizers" Version="8.2.251219" />
+    <PackageVersion Include="CommunityToolkit.Uwp.Controls.TabbedCommandBar" Version="8.2.251219" />
+    <PackageVersion Include="CommunityToolkit.Uwp.Controls.TokenizingTextBox" Version="8.2.251219" />
+    <PackageVersion Include="CommunityToolkit.Uwp.Extensions" Version="8.2.251219" />
+    <PackageVersion Include="CommunityToolkit.Uwp.Lottie" Version="8.2.250604" />
     <PackageVersion Include="CommunityToolkit.Labs.WinUI.DependencyPropertyGenerator" Version="0.1.250926-build.2293" />
+    <PackageVersion Include="CommunityToolkit.Labs.AppServices" Version="0.1.260617-build.2640" />
     <PackageVersion Include="EmailValidation" Version="1.3.0" />
     <PackageVersion Include="gravatar-dotnet" Version="0.1.3" />
     <PackageVersion Include="HtmlAgilityPack" Version="1.12.4" />
@@ -33,8 +43,13 @@
     <PackageVersion Include="Microsoft.Identity.Client.Broker" Version="4.84.2" />
     <PackageVersion Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.84.2" />
     <PackageVersion Include="Microsoft.NETCore.UniversalWindowsPlatform" Version="6.2.14" />
-    <PackageVersion Include="Microsoft.Windows.SDK.BuildTools.MSIX" Version="1.7.260518100" />
+    <PackageVersion Include="Microsoft.UI.Xaml" Version="2.8.7" />
+    <PackageVersion Include="Microsoft.Web.WebView2" Version="1.0.4078.44" />
+    <PackageVersion Include="Microsoft.Windows.SDK.BuildTools.MSIX"
+                    Version="1.7.260518100"
+                    Condition="'$(MSBuildProjectName)' != 'Wino.Mail.Uwp'" />
     <PackageVersion Include="Microsoft.Xaml.Behaviors.WinUI.Managed" Version="3.0.1" />
+    <PackageVersion Include="Microsoft.Xaml.Behaviors.Uwp.Managed" Version="3.0.1" />
     <PackageVersion Include="Wino.Mail.Contracts" Version="1.0.18" />
     <PackageVersion Include="MimeKit" Version="4.17.0" />
     <PackageVersion Include="morelinq" Version="4.4.0" />
@@ -51,6 +66,7 @@
     <PackageVersion Include="SkiaSharp" Version="3.119.4" />
     <PackageVersion Include="SkiaSharp.Views.WinUI" Version="3.119.4" />
     <PackageVersion Include="sqlite-net-pcl" Version="1.10.196-beta" />
+    <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />
     <PackageVersion Include="System.Drawing.Common" Version="10.0.5" />
     <PackageVersion Include="System.Private.Uri" Version="4.3.2" />
     <PackageVersion Include="System.Text.Encoding.CodePages" Version="9.0.10" />
@@ -69,9 +85,12 @@
     <PackageVersion Include="System.Reactive" Version="6.1.0" />
     <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.8" />
     <PackageVersion Include="System.Text.Encodings.Web" Version="10.0.8" />
-    <PackageVersion Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.1839" />
+    <PackageVersion Include="Microsoft.Windows.SDK.BuildTools"
+                    Version="10.0.28000.1839"
+                    Condition="'$(MSBuildProjectName)' != 'Wino.Mail.Uwp'" />
     <PackageVersion Include="Microsoft.WindowsAppSDK" Version="2.1.4-experimental8" />
     <PackageVersion Include="WinUIEx" Version="2.9.1" />
+    <PackageVersion Include="Win2D.uwp" Version="1.28.3" />
     <!-- Testing packages -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.6.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />

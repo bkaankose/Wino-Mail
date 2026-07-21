@@ -71,6 +71,7 @@
 		<PackageReference Include="MimeKit" />
 		<PackageReference Include="MailKit" />
 		<PackageReference Include="sqlite-net-pcl" />
+		<PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" />
 		<PackageReference Include="TimePeriodLibrary.NET" />
 		<PackageReference Include="Wino.Mail.Contracts" />
 	</ItemGroup>

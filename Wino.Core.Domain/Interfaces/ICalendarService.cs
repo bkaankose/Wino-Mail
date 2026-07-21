@@ -8,6 +8,7 @@ using Wino.Core.Domain.Models.Calendar;
 
 namespace Wino.Core.Domain.Interfaces;
 
+[Wino.Core.Domain.Attributes.WinoRpcService]
 public interface ICalendarService
 {
     Task<List<AccountCalendar>> GetAccountCalendarsAsync(Guid accountId);
@@ -27,7 +28,10 @@ public interface ICalendarService
     /// <param name="calendar">The calendar to retrieve events from.</param>
     /// <param name="period">The time period to query events for.</param>
     /// <returns>List of calendar items that fall within the requested period.</returns>
+    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, ITimePeriod period);
+
+    Task<List<CalendarItem>> GetCalendarEventsAsync(Guid calendarId, DateTime periodStart, DateTime periodEnd);
 
     Task<CalendarItem> GetCalendarItemAsync(Guid accountCalendarId, string remoteEventId);
     Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken);

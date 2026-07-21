@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
@@ -22,6 +22,7 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
     private readonly IMailDialogService _dialogService;
     private readonly IAccountService _accountService;
     private readonly ISmimeCertificateService _smimeCertificateService;
+    private readonly ISynchronizationManager _synchronizationManager;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSynchronizeAliases))]
@@ -34,11 +35,13 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
 
     public AliasManagementPageViewModel(IMailDialogService dialogService,
                                         IAccountService accountService,
-                                        ISmimeCertificateService smimeCertificateService)
+                                        ISmimeCertificateService smimeCertificateService,
+                                        ISynchronizationManager synchronizationManager)
     {
         _dialogService = dialogService;
         _accountService = accountService;
         _smimeCertificateService = smimeCertificateService;
+        _synchronizationManager = synchronizationManager;
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -98,7 +101,7 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
             Type = MailSynchronizationType.Alias
         };
 
-        var aliasSyncResult = await SynchronizationManager.Instance.SynchronizeAliasesAsync(Account.Id);
+        var aliasSyncResult = await _synchronizationManager.SynchronizeAliasesAsync(Account.Id);
 
         if (aliasSyncResult.CompletedState == SynchronizationCompletedState.Success)
             await LoadAliasesAsync();

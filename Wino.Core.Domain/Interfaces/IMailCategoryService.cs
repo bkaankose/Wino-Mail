@@ -6,6 +6,7 @@ using Wino.Core.Domain.Models.Accounts;
 
 namespace Wino.Core.Domain.Interfaces;
 
+[Wino.Core.Domain.Attributes.WinoRpcService]
 public interface IMailCategoryService
 {
     Task<List<MailCategory>> GetCategoriesAsync(Guid accountId);

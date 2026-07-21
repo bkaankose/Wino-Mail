@@ -187,7 +187,7 @@ def call_openai_chat(
         "- {0}, {1}, {Name}, {{escaped braces}}",
         "- %s, %1$s and similar printf-style tokens",
         "- Ellipses, punctuation, capitalization, line breaks, tabs, HTML, Markdown, and URLs",
-        "- Product and protocol names such as Wino, Gmail, Outlook, IMAP, SMTP, OAuth, CalDav, Edge, Chrome, Firefox, Jodit, WebView2, SQLite",
+        "- Product and protocol names such as Wino, Gmail, Outlook, IMAP, SMTP, OAuth, CalDav, Edge, Chrome, Firefox, WebView2, SQLite",
         "Prefer natural UI phrasing for the target locale.",
         f"Locale code: {locale}",
         "",

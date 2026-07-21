@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -835,22 +835,19 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         if (targetMail?.MailCopy == null || targetMail.MailCopy.FileId == Guid.Empty)
             return;
 
-        var mimeInformation = await _mimeFileService.GetMimeMessageInformationAsync(targetMail.MailCopy.FileId, targetMail.MailCopy.AssignedAccount.Id);
-        if (mimeInformation?.MimeMessage == null)
-            return;
-
         var draftOptions = new DraftCreationOptions
         {
             Reason = reason,
             ReferencedMessage = new ReferencedMessage
             {
-                MimeMessage = mimeInformation.MimeMessage,
-                MailCopy = targetMail.MailCopy
+                MailCopyUniqueId = targetMail.MailCopy.UniqueId
             }
         };
 
-        var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(targetMail.MailCopy.AssignedAccount.Id, draftOptions).ConfigureAwait(false);
-        var draftPreparationRequest = new DraftPreparationRequest(targetMail.MailCopy.AssignedAccount, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason, targetMail.MailCopy);
+        var result = await _mailService.CreateDraftAsync(targetMail.MailCopy.AssignedAccount.Id, draftOptions).ConfigureAwait(false);
+        var draftMailCopy = await _mailService.GetSingleMailItemAsync(result.DraftMailUniqueId).ConfigureAwait(false)
+            ?? throw new InvalidOperationException($"Created draft '{result.DraftMailUniqueId}' was not found.");
+        var draftPreparationRequest = new DraftPreparationRequest(targetMail.MailCopy.AssignedAccount, draftMailCopy, result.MimeFilePath, draftOptions.Reason, targetMail.MailCopy);
         await _winoRequestDelegator.ExecuteAsync(draftPreparationRequest);
     }
 
@@ -1611,12 +1608,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(accountId).ConfigureAwait(false);
-
-            if (synchronizer == null)
-                continue;
-
-            foreach (var uniqueId in synchronizer.GetPendingOperationUniqueIds())
+            foreach (var uniqueId in await _synchronizationManager
+                         .GetPendingOperationUniqueIdsAsync(accountId)
+                         .ConfigureAwait(false))
             {
                 pendingOperationUniqueIds.Add(uniqueId);
             }
@@ -1697,10 +1691,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         var searchTasks = foldersByAccount.Select(async groupedFolders =>
         {
-            var synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(groupedFolders.Key).ConfigureAwait(false);
-            if (synchronizer == null) return new List<MailCopy>();
-
-            var accountResults = await synchronizer.OnlineSearchAsync(queryText, groupedFolders.ToList(), cancellationToken).ConfigureAwait(false);
+            var accountResults = await _synchronizationManager.OnlineSearchAsync(
+                groupedFolders.Key,
+                queryText,
+                groupedFolders.OfType<MailItemFolder>().ToList(),
+                cancellationToken).ConfigureAwait(false);
             return accountResults ?? new List<MailCopy>();
         });
 
@@ -2041,7 +2036,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             foreach (var accountId in accountIds)
             {
-                if (SynchronizationManager.Instance.IsAccountSynchronizing(accountId))
+                if (_synchronizationManager.IsAccountSynchronizing(accountId))
                 {
                     isAnyAccountSynchronizing = true;
                     break;

@@ -8,6 +8,7 @@ namespace Wino.Core.Domain.Interfaces;
 /// <summary>
 /// Searches for auto-discovery settings for custom mail accounts.
 /// </summary>
+[Wino.Core.Domain.Attributes.WinoRpcService]
 public interface IAutoDiscoveryService
 {
     /// <summary>

@@ -7,16 +7,16 @@ namespace Wino.Mail.ViewModels.Tests;
 public sealed class WelcomeWizardContextTests
 {
     [Fact]
-    public void NewWizardContext_DefaultsToMailOnly()
+    public void NewWizardContext_DefaultsToMailAndCalendar()
     {
         var context = new WelcomeWizardContext();
 
         context.IsMailAccessEnabled.Should().BeTrue();
-        context.IsCalendarAccessEnabled.Should().BeFalse();
+        context.IsCalendarAccessEnabled.Should().BeTrue();
     }
 
     [Fact]
-    public void Reset_DefaultsToMailOnly()
+    public void Reset_DefaultsToMailAndCalendar()
     {
         var context = new WelcomeWizardContext
         {
@@ -27,6 +27,6 @@ public sealed class WelcomeWizardContextTests
         context.Reset();
 
         context.IsMailAccessEnabled.Should().BeTrue();
-        context.IsCalendarAccessEnabled.Should().BeFalse();
+        context.IsCalendarAccessEnabled.Should().BeTrue();
     }
 }

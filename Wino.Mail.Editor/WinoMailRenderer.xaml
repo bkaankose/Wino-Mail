@@ -1,0 +1,23 @@
+<UserControl
+    x:Class="Wino.Mail.Editor.WinoMailRenderer"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    Loaded="WinoMailRenderer_Loaded"
+    Unloaded="WinoMailRenderer_Unloaded">
+    <Grid Background="Transparent">
+        <muxc:WebView2
+            x:Name="RendererWebView2"
+            x:Load="{x:Bind LoadWebView2, Mode=OneWay}"
+            Loaded="RendererWebView2_Loaded"
+            NavigationCompleted="RendererWebView2_NavigationCompleted"
+            NavigationStarting="RendererWebView2_NavigationStarting" />
+        <WebView
+            x:Name="CompatibilityRendererWebView"
+            x:Load="{x:Bind LoadCompatibilityWebView, Mode=OneWay}"
+            Loaded="CompatibilityRendererWebView_Loaded"
+            NavigationCompleted="CompatibilityRendererWebView_NavigationCompleted"
+            NavigationStarting="CompatibilityRendererWebView_NavigationStarting"
+            ScriptNotify="CompatibilityRendererWebView_ScriptNotify" />
+    </Grid>
+</UserControl>

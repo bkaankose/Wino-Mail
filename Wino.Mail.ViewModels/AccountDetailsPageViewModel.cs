@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -36,6 +36,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     private readonly INewThemeService _themeService;
     private readonly IImapTestService _imapTestService;
     private readonly INotificationBuilder _notificationBuilder;
+    private readonly ISynchronizationManager _synchronizationManager;
     private bool isLoaded = false;
 
     [ObservableProperty]
@@ -156,7 +157,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         IStatePersistanceService statePersistanceService,
         INewThemeService themeService,
         IImapTestService imapTestService,
-        INotificationBuilder notificationBuilder)
+        INotificationBuilder notificationBuilder,
+        ISynchronizationManager synchronizationManager)
     {
         _dialogService = dialogService;
         _accountService = accountService;
@@ -166,6 +168,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         _themeService = themeService;
         _imapTestService = imapTestService;
         _notificationBuilder = notificationBuilder;
+        _synchronizationManager = synchronizationManager;
 
         var colorHexList = _themeService.GetAvailableAccountColors();
         AvailableColors = colorHexList.Select(a => new AppColorViewModel(a)).ToList();
@@ -225,7 +228,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         if (!confirmation)
             return;
 
-        await SynchronizationManager.Instance.DestroySynchronizerAsync(Account.Id);
+        await _synchronizationManager.DestroySynchronizerAsync(Account.Id);
         await _accountService.DeleteAccountAsync(Account);
 
         _dialogService.InfoBarMessage(Translator.Info_AccountDeletedTitle, string.Format(Translator.Info_AccountDeletedMessage, Account.Name), InfoBarMessageType.Success);
@@ -504,7 +507,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
                 Account.IsMailAccessGranted = selectedOption.IsMailAccessGranted;
                 Account.IsCalendarAccessGranted = selectedOption.IsCalendarAccessGranted;
 
-                await SynchronizationManager.Instance.HandleAuthorizationAsync(
+                await _synchronizationManager.HandleAuthorizationAsync(
                     Account.ProviderType,
                     Account,
                     Account.ProviderType == MailProviderType.Gmail,
@@ -525,8 +528,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
         if (selectedOption.IsMailAccessGranted && !previousMailAccess)
         {
-            await SynchronizationManager.Instance.SynchronizeProfileAsync(Account.Id);
-            await SynchronizationManager.Instance.SynchronizeMailAsync(new MailSynchronizationOptions
+            await _synchronizationManager.SynchronizeProfileAsync(Account.Id);
+            await _synchronizationManager.SynchronizeMailAsync(new MailSynchronizationOptions
             {
                 AccountId = Account.Id,
                 Type = MailSynchronizationType.FullFolders
@@ -534,7 +537,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
             if (Account.ProviderType == MailProviderType.Outlook)
             {
-                await SynchronizationManager.Instance.SynchronizeMailAsync(new MailSynchronizationOptions
+                await _synchronizationManager.SynchronizeMailAsync(new MailSynchronizationOptions
                 {
                     AccountId = Account.Id,
                     Type = MailSynchronizationType.Categories
@@ -552,7 +555,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
                 }
             }
 
-            await SynchronizationManager.Instance.SynchronizeMailAsync(new MailSynchronizationOptions
+            await _synchronizationManager.SynchronizeMailAsync(new MailSynchronizationOptions
             {
                 AccountId = Account.Id,
                 Type = MailSynchronizationType.Alias
@@ -561,7 +564,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
         if (selectedOption.IsCalendarAccessGranted && !previousCalendarAccess)
         {
-            await SynchronizationManager.Instance.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
+            await _synchronizationManager.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
             {
                 AccountId = Account.Id,
                 Type = CalendarSynchronizationType.CalendarMetadata

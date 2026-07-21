@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="th-env3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#E0E7FF"/>
+      <stop offset="100%" stop-color="#C7D2FE"/>
+    </linearGradient>
+    <linearGradient id="th-env2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#EDE9FE"/>
+      <stop offset="100%" stop-color="#DDD6FE"/>
+    </linearGradient>
+    <linearGradient id="th-env1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#818CF8"/>
+      <stop offset="100%" stop-color="#4F46E5"/>
+    </linearGradient>
+    <linearGradient id="th-flap" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#6366F1"/>
+      <stop offset="100%" stop-color="#4338CA"/>
+    </linearGradient>
+    <filter id="th-shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#4F46E5" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+
+  <!-- Back envelope (bottom-most) -->
+  <rect x="18" y="38" width="80" height="52" rx="8" fill="url(#th-env3)" opacity="0.8"/>
+  <path d="M18 46 L58 66 L98 46" fill="none" stroke="#A5B4FC" stroke-width="1.5" stroke-linejoin="round"/>
+
+  <!-- Middle envelope -->
+  <rect x="24" y="30" width="80" height="52" rx="8" fill="url(#th-env2)" opacity="0.9"/>
+  <path d="M24 38 L64 58 L104 38" fill="none" stroke="#C4B5FD" stroke-width="1.5" stroke-linejoin="round"/>
+
+  <!-- Front envelope -->
+  <rect x="30" y="22" width="80" height="52" rx="10" fill="url(#th-env1)" filter="url(#th-shadow)"/>
+
+  <!-- Front flap (triangle) -->
+  <path d="M30 32 L70 52 L110 32 L110 30 A10 10 0 0 0 100 22 L40 22 A10 10 0 0 0 30 30 Z"
+        fill="url(#th-flap)"/>
+
+  <!-- Dividing line on front -->
+  <path d="M30 38 L70 57 L110 38" fill="none" stroke="#818CF8" stroke-width="1" opacity="0.5"/>
+
+  <!-- Lines in body -->
+  <rect x="42" y="56" width="40" height="4" rx="2" fill="white" opacity="0.35"/>
+  <rect x="42" y="64" width="28" height="4" rx="2" fill="white" opacity="0.25"/>
+
+  <!-- Reply indicator dot -->
+  <circle cx="100" cy="84" r="12" fill="#4F46E5"/>
+  <path d="M95 84 L101 78 M101 78 L101 90 M101 78 L107 84" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

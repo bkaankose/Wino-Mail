@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -35,6 +35,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     private readonly IUnderlyingThemeService _underlyingThemeService;
     private readonly INotificationBuilder _notificationBuilder;
     private readonly IContactService _contactService;
+    private readonly ISynchronizationManager _synchronizationManager;
 
     public CalendarSettings CurrentSettings { get; }
     public INativeAppService NativeAppService => _nativeAppService;
@@ -147,9 +148,10 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
                                      IMailDialogService dialogService,
                                      IWinoRequestDelegator winoRequestDelegator,
                                      INavigationService navigationService,
-                                     INotificationBuilder notificationBuilder,
-                                     IUnderlyingThemeService underlyingThemeService,
-                                     IContactService contactService)
+                                      INotificationBuilder notificationBuilder,
+                                      IUnderlyingThemeService underlyingThemeService,
+                                      IContactService contactService,
+                                      ISynchronizationManager synchronizationManager)
     {
         _calendarService = calendarService;
         _nativeAppService = nativeAppService;
@@ -160,6 +162,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         _underlyingThemeService = underlyingThemeService;
         _notificationBuilder = notificationBuilder;
         _contactService = contactService;
+        _synchronizationManager = synchronizationManager;
 
         CurrentSettings = _preferencesService.GetCurrentCalendarSettings();
         IsDarkWebviewRenderer = _underlyingThemeService.IsUnderlyingThemeDark();
@@ -785,7 +788,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         var localFilePath = Path.Combine(attachmentsFolder, attachmentViewModel.FileName);
 
         // Download attachment using synchronizer
-        await SynchronizationManager.Instance.DownloadCalendarAttachmentAsync(
+        await _synchronizationManager.DownloadCalendarAttachmentAsync(
             CurrentEvent.CalendarItem,
             attachmentViewModel.Attachment,
             localFilePath);

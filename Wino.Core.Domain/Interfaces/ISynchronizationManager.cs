@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -14,11 +15,13 @@ namespace Wino.Core.Domain.Interfaces;
 /// <summary>
 /// Interface for the singleton synchronization manager that handles synchronizer instances and operations.
 /// </summary>
+[Wino.Core.Domain.Attributes.WinoRpcService]
 public interface ISynchronizationManager
 {
     /// <summary>
     /// Initializes the SynchronizationManager with required dependencies.
     /// </summary>
+    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     Task InitializeAsync(ISynchronizerFactory synchronizerFactory,
                         IImapTestService imapTestService,
                         IAccountService accountService,
@@ -48,14 +51,28 @@ public interface ISynchronizationManager
     /// </summary>
     AccountSynchronizationProgress GetSynchronizationProgress(Guid accountId, SynchronizationProgressCategory category);
 
+    Task<Guid[]> GetPendingOperationUniqueIdsAsync(Guid accountId);
+
+    Task<Guid[]> GetPendingCalendarOperationIdsAsync(Guid accountId);
+
+    Task<bool> HasPendingOperationAsync(Guid accountId, Guid itemUniqueId);
+
+    Task<List<MailCopy>> OnlineSearchAsync(
+        Guid accountId,
+        string queryText,
+        List<MailItemFolder> folders,
+        CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Queues a mail action request to the corresponding account's synchronizer with optional synchronization triggering.
     /// </summary>
+    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     Task QueueRequestAsync(IRequestBase request, Guid accountId, bool triggerSynchronization);
 
     /// <summary>
     /// Queues a grouped action that may contain requests for multiple accounts.
     /// </summary>
+    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     Task QueueRequestPackAsync(IReadOnlyDictionary<Guid, List<IRequestBase>> requestsByAccount, bool triggerSynchronization);
 
     /// <summary>
@@ -66,6 +83,7 @@ public interface ISynchronizationManager
     /// <summary>
     /// Cancels the latest undoable queued action for the given synchronizer account.
     /// </summary>
+    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     Task UndoLatestQueuedAction(IWinoSynchronizerBase synchronizer);
 
     /// <summary>
@@ -105,8 +123,18 @@ public interface ISynchronizationManager
                                          CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Downloads a calendar attachment into package-local shared storage.
+    /// </summary>
+    Task DownloadCalendarAttachmentAsync(
+        CalendarItem calendarItem,
+        CalendarAttachment attachment,
+        string localFilePath,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Creates a new synchronizer for a newly added account.
     /// </summary>
+    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     IWinoSynchronizerBase CreateSynchronizerForAccount(MailAccount account);
 
     /// <summary>
@@ -122,11 +150,13 @@ public interface ISynchronizationManager
     /// <summary>
     /// Gets all cached synchronizers.
     /// </summary>
+    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     IEnumerable<IWinoSynchronizerBase> GetAllSynchronizers();
 
     /// <summary>
     /// Gets a synchronizer for the given account ID.
     /// </summary>
+    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     Task<IWinoSynchronizerBase> GetSynchronizerAsync(Guid accountId);
 
     /// <summary>

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -56,11 +57,12 @@ public class MailService : BaseDatabaseService, IMailService
         _mailCategoryService = mailCategoryService;
     }
 
-    public async Task<(MailCopy draftMailCopy, string draftBase64MimeMessage)> CreateDraftAsync(Guid accountId, DraftCreationOptions draftCreationOptions)
+    public async Task<DraftCreationResult> CreateDraftAsync(Guid accountId, DraftCreationOptions draftCreationOptions)
     {
         var composerAccount = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
-        var selectedAlias = await ResolveDraftAliasAsync(composerAccount, draftCreationOptions).ConfigureAwait(false);
-        var createdDraftMimeMessage = await CreateDraftMimeAsync(composerAccount, draftCreationOptions, selectedAlias).ConfigureAwait(false);
+        var referencedMessage = await ResolveReferencedMessageAsync(draftCreationOptions).ConfigureAwait(false);
+        var selectedAlias = await ResolveDraftAliasAsync(composerAccount, referencedMessage?.MimeMessage).ConfigureAwait(false);
+        var createdDraftMimeMessage = await CreateDraftMimeAsync(composerAccount, draftCreationOptions, selectedAlias, referencedMessage).ConfigureAwait(false);
 
         var draftFolder = await _folderService.GetSpecialFolderByAccountIdAsync(composerAccount.Id, SpecialFolderType.Draft);
 
@@ -96,10 +98,10 @@ public class MailService : BaseDatabaseService, IMailService
             References = GetNormalizedMimeReferences(createdDraftMimeMessage)
         };
 
-        if (draftCreationOptions.ReferencedMessage != null)
+        if (referencedMessage != null)
         {
-            if (!string.IsNullOrEmpty(draftCreationOptions.ReferencedMessage.MailCopy?.ThreadId))
-                copy.ThreadId = draftCreationOptions.ReferencedMessage.MailCopy.ThreadId;
+            if (!string.IsNullOrEmpty(referencedMessage.MailCopy.ThreadId))
+                copy.ThreadId = referencedMessage.MailCopy.ThreadId;
 
             // Fallback local threading when provider/native thread id is unavailable.
             if (string.IsNullOrWhiteSpace(copy.ThreadId))
@@ -108,11 +110,40 @@ public class MailService : BaseDatabaseService, IMailService
 
         await Connection.InsertAsync(copy, typeof(MailCopy));
 
-        await _mimeFileService.SaveMimeMessageAsync(copy.FileId, createdDraftMimeMessage, composerAccount.Id);
+        if (!await _mimeFileService.SaveMimeMessageAsync(copy.FileId, createdDraftMimeMessage, composerAccount.Id).ConfigureAwait(false))
+            throw new IOException($"Could not save MIME content for local draft '{copy.UniqueId}'.");
+        var mimeResourcePath = await _mimeFileService.GetMimeResourcePathAsync(composerAccount.Id, copy.FileId).ConfigureAwait(false);
+        var mimeFilePath = Path.Combine(mimeResourcePath, "mail.eml");
 
         ReportUIChange(new DraftCreated(copy, composerAccount));
 
-        return (copy, createdDraftMimeMessage.GetBase64MimeMessage());
+        return new DraftCreationResult(copy.UniqueId, mimeFilePath);
+    }
+
+    public async Task<DraftPreparationRequest> CreateNotificationDraftAsync(Guid mailItemUniqueId, MailOperation action)
+    {
+        var reason = action switch
+        {
+            MailOperation.Reply => DraftCreationReason.Reply,
+            MailOperation.ReplyAll => DraftCreationReason.ReplyAll,
+            MailOperation.Forward => DraftCreationReason.Forward,
+            _ => throw new ArgumentOutOfRangeException(nameof(action), action, "The notification action cannot create a draft."),
+        };
+
+        var mailItem = await GetSingleMailItemAsync(mailItemUniqueId).ConfigureAwait(false)
+            ?? throw new InvalidOperationException($"Mail item '{mailItemUniqueId}' was not found.");
+        var account = await GetMailAccountByUniqueIdAsync(mailItemUniqueId).ConfigureAwait(false)
+            ?? mailItem.AssignedAccount
+            ?? throw new InvalidOperationException($"The account for mail item '{mailItemUniqueId}' was not found.");
+        var options = new DraftCreationOptions
+        {
+            Reason = reason,
+            ReferencedMessage = new ReferencedMessage { MailCopyUniqueId = mailItem.UniqueId },
+        };
+        var result = await CreateDraftAsync(account.Id, options).ConfigureAwait(false);
+        var draft = await GetSingleMailItemAsync(result.DraftMailUniqueId).ConfigureAwait(false)
+            ?? throw new InvalidOperationException($"Created draft '{result.DraftMailUniqueId}' was not found.");
+        return new DraftPreparationRequest(account, draft, result.MimeFilePath, reason, mailItem);
     }
 
     public async Task<List<MailCopy>> GetMailsByFolderIdAsync(Guid folderId)
@@ -1603,7 +1634,29 @@ public class MailService : BaseDatabaseService, IMailService
             ? Task.CompletedTask
             : _mailCategoryService.ReplaceMailAssignmentsAsync(accountId, mailCopy.UniqueId, package.CategoryNames);
 
-    private async Task<MimeMessage> CreateDraftMimeAsync(MailAccount account, DraftCreationOptions draftCreationOptions, MailAccountAlias selectedAlias)
+    private async Task<ReferencedMessageContext> ResolveReferencedMessageAsync(DraftCreationOptions options)
+    {
+        var referencedMailUniqueId = options?.ReferencedMessage?.MailCopyUniqueId ?? Guid.Empty;
+        if (referencedMailUniqueId == Guid.Empty)
+            return null;
+
+        var mailCopy = await GetSingleMailItemAsync(referencedMailUniqueId).ConfigureAwait(false)
+            ?? throw new InvalidOperationException($"Referenced mail '{referencedMailUniqueId}' was not found.");
+        var account = mailCopy.AssignedAccount
+            ?? await GetMailAccountByUniqueIdAsync(referencedMailUniqueId).ConfigureAwait(false)
+            ?? throw new InvalidOperationException($"The account for referenced mail '{referencedMailUniqueId}' was not found.");
+        var mimeInformation = await _mimeFileService
+            .GetMimeMessageInformationAsync(mailCopy.FileId, account.Id)
+            .ConfigureAwait(false);
+
+        return new ReferencedMessageContext(mailCopy, mimeInformation.MimeMessage);
+    }
+
+    private async Task<MimeMessage> CreateDraftMimeAsync(
+        MailAccount account,
+        DraftCreationOptions draftCreationOptions,
+        MailAccountAlias selectedAlias,
+        ReferencedMessageContext referencedMessage)
     {
         // This unique id is stored in mime headers for Wino to identify remote message with local copy.
         // Same unique id will be used for the local copy as well.
@@ -1633,7 +1686,7 @@ public class MailService : BaseDatabaseService, IMailService
         _ = draftCreationOptions.Reason switch
         {
             DraftCreationReason.Empty => CreateEmptyDraft(builder, message, draftCreationOptions, signature),
-            _ => CreateReferencedDraft(builder, message, draftCreationOptions, signature, ownAddresses),
+            _ => CreateReferencedDraft(builder, message, draftCreationOptions, signature, ownAddresses, referencedMessage),
         };
 
         // TODO: Migration
@@ -1644,15 +1697,15 @@ public class MailService : BaseDatabaseService, IMailService
         return message;
     }
 
-    private async Task<MailAccountAlias> ResolveDraftAliasAsync(MailAccount account, DraftCreationOptions draftCreationOptions)
+    private sealed record ReferencedMessageContext(MailCopy MailCopy, MimeMessage MimeMessage);
+
+    private async Task<MailAccountAlias> ResolveDraftAliasAsync(MailAccount account, MimeMessage referencedMessage)
     {
         var aliases = await _accountService.GetAccountAliasesAsync(account.Id).ConfigureAwait(false);
         var primaryAlias = aliases.FirstOrDefault(a => a.IsPrimary) ?? aliases.FirstOrDefault();
 
-        if (draftCreationOptions?.ReferencedMessage?.MimeMessage == null)
+        if (referencedMessage == null)
             return primaryAlias;
-
-        var referencedMessage = draftCreationOptions.ReferencedMessage.MimeMessage;
 
         MailAccountAlias FindAlias(string address)
         {
@@ -1759,11 +1812,13 @@ public class MailService : BaseDatabaseService, IMailService
                                               MimeMessage message,
                                               DraftCreationOptions draftCreationOptions,
                                               string signature,
-                                              ISet<string> ownAddresses)
+                                              ISet<string> ownAddresses,
+                                              ReferencedMessageContext referencedMessage)
     {
         var reason = draftCreationOptions.Reason;
-        var referenceMessage = draftCreationOptions.ReferencedMessage.MimeMessage;
-        var referenceMailCopy = draftCreationOptions.ReferencedMessage.MailCopy;
+        var referenceMessage = referencedMessage?.MimeMessage
+            ?? throw new InvalidOperationException("A referenced message is required for reply and forward drafts.");
+        var referenceMailCopy = referencedMessage.MailCopy;
         ownAddresses ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         var gap = CreateHtmlGap();

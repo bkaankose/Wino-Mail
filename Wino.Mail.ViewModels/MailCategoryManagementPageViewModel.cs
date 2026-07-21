@@ -22,6 +22,7 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
     private readonly IAccountService _accountService;
     private readonly IMailDialogService _dialogService;
     private readonly IWinoRequestDelegator _winoRequestDelegator;
+    private readonly ISynchronizationManager _synchronizationManager;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanRefresh))]
@@ -36,12 +37,14 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
         IMailCategoryService mailCategoryService,
         IAccountService accountService,
         IMailDialogService dialogService,
-        IWinoRequestDelegator winoRequestDelegator)
+        IWinoRequestDelegator winoRequestDelegator,
+        ISynchronizationManager synchronizationManager)
     {
         _mailCategoryService = mailCategoryService;
         _accountService = accountService;
         _dialogService = dialogService;
         _winoRequestDelegator = winoRequestDelegator;
+        _synchronizationManager = synchronizationManager;
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -78,7 +81,7 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
             return;
 
         await _mailCategoryService.DeleteCategoriesAsync(Account.Id).ConfigureAwait(false);
-        await SynchronizationManager.Instance.SynchronizeCategoriesAsync(Account.Id).ConfigureAwait(false);
+        await _synchronizationManager.SynchronizeCategoriesAsync(Account.Id).ConfigureAwait(false);
 
         await LoadCategoriesAsync().ConfigureAwait(false);
     }

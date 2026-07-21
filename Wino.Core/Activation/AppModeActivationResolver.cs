@@ -38,7 +38,6 @@ public static class AppModeActivationResolver
             Contains(value, "wino-calendar") ||
             Contains(value, "--mode=calendar") ||
             Contains(value, "mode=calendar") ||
-            Contains(value, "calendarapp") ||
             EqualsToken(value, "calendar"))
         {
             mode = WinoApplicationMode.Calendar;

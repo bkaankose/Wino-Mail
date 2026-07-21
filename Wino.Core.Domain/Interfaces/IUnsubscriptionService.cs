@@ -3,6 +3,7 @@ using Wino.Core.Domain.Models.Reader;
 
 namespace Wino.Core.Domain.Interfaces;
 
+[Wino.Core.Domain.Attributes.WinoRpcService]
 public interface IUnsubscriptionService
 {
     /// <summary>

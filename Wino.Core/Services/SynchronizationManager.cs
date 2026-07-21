@@ -16,6 +16,7 @@ using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authentication;
 using Wino.Core.Domain.Models.Connectivity;
+using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Domain.Models.Telemetry;
 using Wino.Core.Helpers;
@@ -314,6 +315,42 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                 ? mailProgress
                 : AccountSynchronizationProgress.Idle(accountId, SynchronizationProgressCategory.Mail)
         };
+    }
+
+    public async Task<Guid[]> GetPendingOperationUniqueIdsAsync(Guid accountId)
+    {
+        var synchronizer = await GetOrCreateSynchronizerAsync(accountId).ConfigureAwait(false);
+        return synchronizer?.GetPendingOperationUniqueIds().ToArray() ?? [];
+    }
+
+    public async Task<Guid[]> GetPendingCalendarOperationIdsAsync(Guid accountId)
+    {
+        var synchronizer = await GetOrCreateSynchronizerAsync(accountId).ConfigureAwait(false);
+        return synchronizer?.GetPendingCalendarOperationIds().ToArray() ?? [];
+    }
+
+    public async Task<bool> HasPendingOperationAsync(Guid accountId, Guid itemUniqueId)
+    {
+        var synchronizer = await GetOrCreateSynchronizerAsync(accountId).ConfigureAwait(false);
+        return synchronizer?.HasPendingOperation(itemUniqueId) == true;
+    }
+
+    public async Task<List<MailCopy>> OnlineSearchAsync(
+        Guid accountId,
+        string queryText,
+        List<MailItemFolder> folders,
+        CancellationToken cancellationToken = default)
+    {
+        var synchronizer = await GetOrCreateSynchronizerAsync(accountId).ConfigureAwait(false);
+        if (synchronizer is null)
+        {
+            return [];
+        }
+
+        return await synchronizer.OnlineSearchAsync(
+            queryText,
+            folders.Cast<IMailItemFolder>().ToList(),
+            cancellationToken).ConfigureAwait(false) ?? [];
     }
 
     /// <summary>

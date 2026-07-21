@@ -5,10 +5,12 @@ using System.Threading.Tasks;
 using MailKit;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.MailItem;
 
 namespace Wino.Core.Domain.Interfaces;
 
+[Wino.Core.Domain.Attributes.WinoRpcService]
 public interface IMailService
 {
     Task<MailCopy> GetSingleMailItemAsync(string mailCopyId, string remoteFolderId);
@@ -136,7 +138,12 @@ public interface IMailService
     /// <param name="accountId">AccountId which should have new draft.</param>
     /// <param name="draftCreationOptions">Options like new email/forward/draft.</param>
     /// <returns>Draft MailCopy and Draft MimeMessage as base64.</returns>
-    Task<(MailCopy draftMailCopy, string draftBase64MimeMessage)> CreateDraftAsync(Guid accountId, DraftCreationOptions draftCreationOptions);
+    Task<DraftCreationResult> CreateDraftAsync(Guid accountId, DraftCreationOptions draftCreationOptions);
+
+    /// <summary>
+    /// Creates a reply/forward draft entirely in the companion, where MIME files are owned.
+    /// </summary>
+    Task<DraftPreparationRequest> CreateNotificationDraftAsync(Guid mailItemUniqueId, MailOperation action);
 
     /// <summary>
     /// Finds a mail copy in the given account by RFC Message-Id.
@@ -150,6 +157,7 @@ public interface IMailService
     /// <param name="folderId"></param>
     /// <param name="uniqueIds"></param>
     /// <returns></returns>
+    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     Task<List<MailCopy>> GetExistingMailsAsync(Guid folderId, IEnumerable<UniqueId> uniqueIds);
 
     /// <summary>

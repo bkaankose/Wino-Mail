@@ -6,6 +6,7 @@ namespace Wino.Core.Domain.Interfaces;
 /// <summary>
 /// Persists CalDAV ICS payloads on disk for IMAP accounts.
 /// </summary>
+[Wino.Core.Domain.Attributes.WinoRpcService]
 public interface ICalendarIcsFileService
 {
     Task SaveCalendarItemIcsAsync(Guid accountId, Guid calendarId, Guid calendarItemId, string remoteEventId, string remoteResourceHref, string eTag, string icsContent);

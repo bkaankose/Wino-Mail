@@ -11,6 +11,7 @@ using Wino.Core.Domain.Models.Synchronization;
 
 namespace Wino.Core.Domain.Interfaces;
 
+[Wino.Core.Domain.Attributes.WinoRpcService]
 public interface IFolderService
 {
     Task<AccountFolderTree> GetFolderStructureForAccountAsync(Guid accountId, bool includeHiddenFolders);
@@ -110,6 +111,7 @@ public interface IFolderService
     /// Returns the active folder menu items for the given account for UI.
     /// </summary>
     /// <param name="accountMenuItem">Account to get folder menu items for.</param>
+    [Wino.Core.Domain.Attributes.WinoRpcExclude]
     Task<IEnumerable<IMenuItem>> GetAccountFoldersForDisplayAsync(IAccountMenuItem accountMenuItem);
 
     /// <summary>

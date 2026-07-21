@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <DefaultLanguage>en-US</DefaultLanguage>
+    <RootNamespace>Wino.Mail.Editor</RootNamespace>
+    <AssemblyName>Wino.Mail.Editor</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseUwp>true</UseUwp>
+    <UseUwpTools>true</UseUwpTools>
+	<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Platforms>x86;x64;arm64</Platforms>
+    <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+    <Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">x64</Platform>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-$(Platform.ToLowerInvariant())</RuntimeIdentifier>
+    <DisableRuntimeMarshalling>true</DisableRuntimeMarshalling>
+    <IsAotCompatible>true</IsAotCompatible>
+    <EnableAppxPackageTargetsForUwpClassLibraries>true</EnableAppxPackageTargetsForUwpClassLibraries>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Include="Assets\Editor\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove="Assets\Editor\darkreader.js" />
+    <None Remove="Assets\Editor\editor-images.js" />
+    <None Remove="Assets\Editor\editor-tables.js" />
+    <None Remove="Assets\Editor\editor.css" />
+    <None Remove="Assets\Editor\editor.html" />
+    <None Remove="Assets\Editor\editor.js" />
+    <None Remove="Assets\Editor\linkify-element.min.js" />
+    <None Remove="Assets\Editor\linkify.min.js" />
+    <None Remove="Assets\Editor\reader.css" />
+    <None Remove="Assets\Editor\reader.html" />
+    <None Remove="Assets\Editor\reader.js" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.UI.Xaml" />
+    <PackageReference Include="Microsoft.Web.WebView2" />
+    <PackageReference Include="Win2D.uwp" />
+  </ItemGroup>
+</Project>

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -163,6 +163,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     public readonly IContactService ContactService;
     public readonly ISmimeCertificateService _smimeCertificateService;
     private readonly IShareActivationService _shareActivationService;
+    private readonly ISynchronizationManager _synchronizationManager;
 
     public ComposePageViewModel(IMailDialogService dialogService,
                                 IMailService mailService,
@@ -175,9 +176,10 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                                 IWinoRequestDelegator worker,
                                 IContactService contactService,
                                 IFontService fontService,
-                                IPreferencesService preferencesService,
-                                ISmimeCertificateService smimeCertificateService,
-                                IShareActivationService shareActivationService)
+                                 IPreferencesService preferencesService,
+                                 ISmimeCertificateService smimeCertificateService,
+                                 IShareActivationService shareActivationService,
+                                 ISynchronizationManager synchronizationManager)
     {
         NativeAppService = nativeAppService;
         ContactService = contactService;
@@ -194,6 +196,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         _worker = worker;
         _smimeCertificateService = smimeCertificateService;
         _shareActivationService = shareActivationService;
+        _synchronizationManager = synchronizationManager;
 
         foreach (var cert in _smimeCertificateService.GetCertificates(emailAddress: SelectedAlias?.AliasAddress))
         {
@@ -389,10 +392,13 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
             var localDraftCopy = CurrentMailDraftItem.MailCopy;
             var (retryReason, referenceMailCopy) = await ResolveRetryDraftContextAsync().ConfigureAwait(false);
+            var mimeResourcePath = await _mimeFileService
+                .GetMimeResourcePathAsync((localDraftCopy.AssignedAccount ?? ComposingAccount).Id, localDraftCopy.FileId)
+                .ConfigureAwait(false);
             var draftPreparationRequest = new DraftPreparationRequest(
                 localDraftCopy.AssignedAccount ?? ComposingAccount,
                 localDraftCopy,
-                CurrentMimeMessage.GetBase64MimeMessage(),
+                Path.Combine(mimeResourcePath, "mail.eml"),
                 retryReason,
                 referenceMailCopy);
 
@@ -749,8 +755,9 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         if (accountId != Guid.Empty)
         {
-            var synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(accountId).ConfigureAwait(false);
-            hasPendingOperation = synchronizer?.HasPendingOperation(CurrentMailDraftItem.MailCopy.UniqueId) ?? false;
+            hasPendingOperation = await _synchronizationManager
+                .HasPendingOperationAsync(accountId, CurrentMailDraftItem.MailCopy.UniqueId)
+                .ConfigureAwait(false);
         }
 
         // Newly created local drafts can have a short period where request queue is empty
@@ -792,7 +799,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                 downloadIfNeeded = false;
 
                 // Download missing MIME message using SynchronizationManager
-                await SynchronizationManager.Instance.DownloadMimeMessageAsync(
+                await _synchronizationManager.DownloadMimeMessageAsync(
                     CurrentMailDraftItem.MailCopy,
                     CurrentMailDraftItem.MailCopy.AssignedAccount.Id);
 

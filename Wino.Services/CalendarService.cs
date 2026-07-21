@@ -253,6 +253,12 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         return result;
     }
 
+    public async Task<List<CalendarItem>> GetCalendarEventsAsync(Guid calendarId, DateTime periodStart, DateTime periodEnd)
+    {
+        var calendar = await GetAccountCalendarAsync(calendarId).ConfigureAwait(false);
+        return await GetCalendarEventsAsync(calendar, new TimeRange(periodStart, periodEnd)).ConfigureAwait(false);
+    }
+
     public async Task<AccountCalendar> GetAccountCalendarAsync(Guid accountCalendarId)
     {
         var calendar = await Connection.GetAsync<AccountCalendar>(accountCalendarId);

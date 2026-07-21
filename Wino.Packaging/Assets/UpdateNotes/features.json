@@ -1,0 +1,44 @@
+[
+    {
+        "title": "# Outlook, Gmail & IMAP/SMTP",
+        "description": "Connect all your email accounts in one place. Wino supports Microsoft Outlook (Office 365), Gmail, and any standard IMAP/SMTP server — giving you a unified inbox experience.",
+        "imageUrl": "ms-appx:///Assets/UpdateNotes/Images/Mail.svg",
+        "imageWidth": 128,
+        "imageHeight": 128
+    },
+    {
+        "title": "# Calendar with CalDAV Support",
+        "description": "Manage your schedule alongside your emails. Create local calendars or connect to remote CalDAV-compatible servers. View, create, and respond to events and invitations.",
+        "imageUrl": "ms-appx:///Assets/UpdateNotes/Images/Calendar.svg",
+        "imageWidth": 128,
+        "imageHeight": 128
+    },
+    {
+        "title": "# S/MIME Signing & Encryption",
+        "description": "Keep your communications secure. Sign and encrypt emails with personal certificates to ensure your messages are authentic and private.",
+        "imageUrl": "ms-appx:///Assets/UpdateNotes/Images/Security.svg",
+        "imageWidth": 128,
+        "imageHeight": 128
+    },
+    {
+        "title": "# Conversation Threading",
+        "description": "Follow discussions with ease. Emails are grouped by conversation thread so you never lose context in long email chains.",
+        "imageUrl": "ms-appx:///Assets/UpdateNotes/Images/Thread.svg",
+        "imageWidth": 128,
+        "imageHeight": 128
+    },
+    {
+        "title": "# Actionable Notifications",
+        "description": "Stay productive without switching apps. Mark as read, delete, or archive emails directly from Windows toast notifications.",
+        "imageUrl": "ms-appx:///Assets/UpdateNotes/Images/Notification.svg",
+        "imageWidth": 128,
+        "imageHeight": 128
+    },
+    {
+        "title": "# Rich Customization",
+        "description": "Make Wino yours. Choose from built-in themes, create custom themes with your own wallpapers and accent colors, configure swipe actions, and set keyboard shortcuts.",
+        "imageUrl": "ms-appx:///Assets/UpdateNotes/Images/Customize.svg",
+        "imageWidth": 128,
+        "imageHeight": 128
+    }
+]

@@ -2,6 +2,8 @@ using CommunityToolkit.Mvvm.Messaging;
 using FluentAssertions;
 using MimeKit;
 using Moq;
+using System.Text;
+using System.Text.Json;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -21,6 +23,7 @@ public class MailThreadingTests : IAsyncLifetime
     private MailService _mailService = null!;
     private MailAccount _account = null!;
     private MailItemFolder _draftFolder = null!;
+    private readonly Dictionary<Guid, MimeMessage> _mimeMessages = [];
 
     public async Task InitializeAsync()
     {
@@ -72,19 +75,36 @@ public class MailThreadingTests : IAsyncLifetime
         await _databaseService.Connection.InsertAsync(preferences, typeof(MailAccountPreferences));
         await _databaseService.Connection.InsertAsync(alias, typeof(MailAccountAlias));
 
-        _mailService = BuildMailService(_databaseService);
+        _mailService = BuildMailService(_databaseService, _mimeMessages);
     }
 
     public async Task DisposeAsync() => await _databaseService.DisposeAsync();
 
     [Fact]
+    public void DraftCreationOptions_RpcPayload_ContainsOnlyReferenceIdentifier()
+    {
+        var referencedMailUniqueId = Guid.NewGuid();
+        var payload = JsonSerializer.SerializeToUtf8Bytes(new DraftCreationOptions
+        {
+            Reason = DraftCreationReason.Reply,
+            ReferencedMessage = new ReferencedMessage { MailCopyUniqueId = referencedMailUniqueId },
+        });
+        var json = Encoding.UTF8.GetString(payload);
+
+        json.Should().Contain(referencedMailUniqueId.ToString());
+        json.Should().NotContain("MimeMessage");
+        json.Should().NotContain("Encoding");
+        payload.Should().HaveCountLessThan(200);
+    }
+
+    [Fact]
     public async Task CreateDraftAsync_EmptyDraft_AssignsGeneratedMessageId()
     {
-        var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(
+        var result = await _mailService.CreateDraftAsync(
             _account.Id,
             new DraftCreationOptions { Reason = DraftCreationReason.Empty });
-
-        var mimeMessage = draftBase64MimeMessage.GetMimeMessageFromBase64();
+        var draftMailCopy = await _mailService.GetSingleMailItemAsync(result.DraftMailUniqueId);
+        var mimeMessage = _mimeMessages[draftMailCopy.FileId];
 
         draftMailCopy.MessageId.Should().MatchRegex("^[0-9a-fA-F-]{36}@wino-mail\\.app$");
         mimeMessage.MessageId.Should().Be(draftMailCopy.MessageId);
@@ -105,19 +125,19 @@ public class MailThreadingTests : IAsyncLifetime
             MessageId = parentMessageId
         };
 
-        var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(
+        await StoreReferencedMessageAsync(referencedMailCopy, referencedMimeMessage);
+        var result = await _mailService.CreateDraftAsync(
             _account.Id,
             new DraftCreationOptions
             {
                 Reason = DraftCreationReason.Reply,
                 ReferencedMessage = new ReferencedMessage
                 {
-                    MimeMessage = referencedMimeMessage,
-                    MailCopy = referencedMailCopy
+                    MailCopyUniqueId = referencedMailCopy.UniqueId
                 }
             });
-
-        var mimeMessage = draftBase64MimeMessage.GetMimeMessageFromBase64();
+        var draftMailCopy = await _mailService.GetSingleMailItemAsync(result.DraftMailUniqueId);
+        var mimeMessage = _mimeMessages[draftMailCopy.FileId];
 
         draftMailCopy.InReplyTo.Should().Be(parentMessageId);
         draftMailCopy.References.Should().Be(parentMessageId);
@@ -139,19 +159,20 @@ public class MailThreadingTests : IAsyncLifetime
         referencedMimeMessage.References.Add(rootMessageId);
         referencedMimeMessage.References.Add(middleMessageId);
 
-        var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(
+        var referencedMailCopy = new MailCopy { UniqueId = Guid.NewGuid(), Id = Guid.NewGuid().ToString(), MessageId = parentMessageId };
+        await StoreReferencedMessageAsync(referencedMailCopy, referencedMimeMessage);
+        var result = await _mailService.CreateDraftAsync(
             _account.Id,
             new DraftCreationOptions
             {
                 Reason = DraftCreationReason.Reply,
                 ReferencedMessage = new ReferencedMessage
                 {
-                    MimeMessage = referencedMimeMessage,
-                    MailCopy = new MailCopy { UniqueId = Guid.NewGuid(), Id = Guid.NewGuid().ToString(), MessageId = parentMessageId }
+                    MailCopyUniqueId = referencedMailCopy.UniqueId
                 }
             });
-
-        var mimeMessage = draftBase64MimeMessage.GetMimeMessageFromBase64();
+        var draftMailCopy = await _mailService.GetSingleMailItemAsync(result.DraftMailUniqueId);
+        var mimeMessage = _mimeMessages[draftMailCopy.FileId];
 
         draftMailCopy.References.Should().Be($"{rootMessageId};{middleMessageId};{parentMessageId}");
         draftMailCopy.Subject.Should().Be("Re: Existing subject");
@@ -176,17 +197,18 @@ public class MailThreadingTests : IAsyncLifetime
             References = rootMessageId
         };
 
-        var (draftMailCopy, _) = await _mailService.CreateDraftAsync(
+        await StoreReferencedMessageAsync(referencedMailCopy, referencedMimeMessage);
+        var result = await _mailService.CreateDraftAsync(
             _account.Id,
             new DraftCreationOptions
             {
                 Reason = DraftCreationReason.Reply,
                 ReferencedMessage = new ReferencedMessage
                 {
-                    MimeMessage = referencedMimeMessage,
-                    MailCopy = referencedMailCopy
+                    MailCopyUniqueId = referencedMailCopy.UniqueId
                 }
             });
+        var draftMailCopy = await _mailService.GetSingleMailItemAsync(result.DraftMailUniqueId);
 
         draftMailCopy.InReplyTo.Should().Be(parentMessageId);
         draftMailCopy.References.Should().Be($"{rootMessageId};{parentMessageId}");
@@ -212,19 +234,20 @@ public class MailThreadingTests : IAsyncLifetime
         var referencedMimeMessage = CreateReferencedMimeMessage("Alias reply");
         referencedMimeMessage.Headers.Add("Delivered-To", "<support@test.local>");
 
-        var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(
+        var referencedMailCopy = new MailCopy { UniqueId = Guid.NewGuid(), Id = Guid.NewGuid().ToString(), MessageId = "alias-parent@domain.com" };
+        await StoreReferencedMessageAsync(referencedMailCopy, referencedMimeMessage);
+        var result = await _mailService.CreateDraftAsync(
             _account.Id,
             new DraftCreationOptions
             {
                 Reason = DraftCreationReason.Reply,
                 ReferencedMessage = new ReferencedMessage
                 {
-                    MimeMessage = referencedMimeMessage,
-                    MailCopy = new MailCopy { UniqueId = Guid.NewGuid(), Id = Guid.NewGuid().ToString(), MessageId = "alias-parent@domain.com" }
+                    MailCopyUniqueId = referencedMailCopy.UniqueId
                 }
             });
-
-        var mimeMessage = draftBase64MimeMessage.GetMimeMessageFromBase64();
+        var draftMailCopy = await _mailService.GetSingleMailItemAsync(result.DraftMailUniqueId);
+        var mimeMessage = _mimeMessages[draftMailCopy.FileId];
 
         draftMailCopy.FromAddress.Should().Be("support@test.local");
         mimeMessage.From.Mailboxes.Should().ContainSingle(m => m.Address == "support@test.local");
@@ -454,14 +477,33 @@ public class MailThreadingTests : IAsyncLifetime
         public void Receive(BulkMailReadStatusChanged message) => BulkUpdates.Add(message);
     }
 
-    private static MailService BuildMailService(InMemoryDatabaseService db)
+    private async Task StoreReferencedMessageAsync(MailCopy mailCopy, MimeMessage mimeMessage)
+    {
+        mailCopy.FileId = mailCopy.FileId == Guid.Empty ? Guid.NewGuid() : mailCopy.FileId;
+        mailCopy.FolderId = _draftFolder.Id;
+        await _databaseService.Connection.InsertAsync(mailCopy, typeof(MailCopy));
+        _mimeMessages[mailCopy.FileId] = mimeMessage;
+    }
+
+    private static MailService BuildMailService(InMemoryDatabaseService db, Dictionary<Guid, MimeMessage> mimeMessages)
     {
         var signatureService = new Mock<ISignatureService>();
         var authProvider = new Mock<IAuthenticationProvider>();
         var mimeFileService = new Mock<IMimeFileService>();
         mimeFileService
             .Setup(x => x.SaveMimeMessageAsync(It.IsAny<Guid>(), It.IsAny<MimeMessage>(), It.IsAny<Guid>()))
-            .ReturnsAsync(true);
+            .Returns<Guid, MimeMessage, Guid>((fileId, message, _) =>
+            {
+                mimeMessages[fileId] = message;
+                return Task.FromResult(true);
+            });
+        mimeFileService
+            .Setup(x => x.GetMimeMessageInformationAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Returns<Guid, Guid, CancellationToken>((fileId, _, _) =>
+                Task.FromResult(new MimeMessageInformation(mimeMessages[fileId], Path.GetTempPath())));
+        mimeFileService
+            .Setup(x => x.GetMimeResourcePathAsync(It.IsAny<Guid>(), It.IsAny<Guid>()))
+            .ReturnsAsync(Path.GetTempPath());
         mimeFileService
             .Setup(x => x.CreateHTMLPreviewVisitor(It.IsAny<MimeMessage>(), It.IsAny<string>()))
             .Returns<MimeMessage, string>((_, _) => new HtmlPreviewVisitor(string.Empty));

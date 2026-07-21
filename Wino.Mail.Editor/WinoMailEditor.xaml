@@ -1,0 +1,384 @@
+<UserControl
+    x:Class="Wino.Mail.Editor.WinoMailEditor"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Wino.Mail.Editor"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    x:Name="Root"
+    Loaded="WinoMailEditor_Loaded"
+    Unloaded="WinoMailEditor_Unloaded">
+    <Grid RowSpacing="4">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <local:EditorSelectorBar
+            x:Name="CategoryBar"
+            Margin="8,4"
+            SelectionChanged="CategoryBar_SelectionChanged" />
+
+        <Grid x:Name="ToolbarHost" Grid.Row="1">
+            <CommandBar
+                x:Name="FormattingBar"
+                DefaultLabelPosition="Collapsed"
+                IsDynamicOverflowEnabled="True">
+                <CommandBar.Content>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <ComboBox
+                            x:Name="FontFamilyComboBox"
+                            Width="220"
+                            PlaceholderText="Font"
+                            SelectionChanged="FontFamilyComboBox_SelectionChanged">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock FontFamily="{Binding PreviewFontFamily}" Text="{Binding DisplayName}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <ComboBox
+                            x:Name="FontSizeComboBox"
+                            Width="88"
+                            PlaceholderText="Size"
+                            SelectionChanged="FontSizeComboBox_SelectionChanged">
+                            <ComboBoxItem Content="10" />
+                            <ComboBoxItem Content="12" />
+                            <ComboBoxItem Content="14" />
+                            <ComboBoxItem Content="16" />
+                            <ComboBoxItem Content="18" />
+                            <ComboBoxItem Content="24" />
+                            <ComboBoxItem Content="32" />
+                            <ComboBoxItem Content="48" />
+                        </ComboBox>
+                    </StackPanel>
+                </CommandBar.Content>
+                <CommandBar.PrimaryCommands>
+                    <AppBarToggleButton
+                        x:Name="BoldButton"
+                        Click="FormattingButton_Click"
+                        Label="Bold"
+                        Tag="bold">
+                        <AppBarToggleButton.Icon>
+                            <FontIcon Glyph="&#xE8DD;" />
+                        </AppBarToggleButton.Icon>
+                    </AppBarToggleButton>
+                    <AppBarToggleButton
+                        x:Name="ItalicButton"
+                        Click="FormattingButton_Click"
+                        Label="Italic"
+                        Tag="italic">
+                        <AppBarToggleButton.Icon>
+                            <FontIcon Glyph="&#xE8DB;" />
+                        </AppBarToggleButton.Icon>
+                    </AppBarToggleButton>
+                    <AppBarToggleButton
+                        x:Name="UnderlineButton"
+                        Click="FormattingButton_Click"
+                        Label="Underline"
+                        Tag="underline">
+                        <AppBarToggleButton.Icon>
+                            <FontIcon Glyph="&#xE8DC;" />
+                        </AppBarToggleButton.Icon>
+                    </AppBarToggleButton>
+                    <AppBarToggleButton
+                        x:Name="StrikeButton"
+                        Click="FormattingButton_Click"
+                        Label="Strikethrough"
+                        Tag="strikeThrough">
+                        <AppBarToggleButton.Icon>
+                            <FontIcon Glyph="&#xEDE0;" />
+                        </AppBarToggleButton.Icon>
+                    </AppBarToggleButton>
+                    <AppBarButton x:Name="ColorButton" Label="Text color">
+                        <AppBarButton.Icon>
+                            <FontIcon Glyph="&#xE8D3;" />
+                        </AppBarButton.Icon>
+                        <AppBarButton.Flyout>
+                            <MenuFlyout>
+                                <MenuFlyoutItem
+                                    Click="ColorMenuItem_Click"
+                                    Tag="#000000"
+                                    Text="Black" />
+                                <MenuFlyoutItem
+                                    Click="ColorMenuItem_Click"
+                                    Tag="#666666"
+                                    Text="Gray" />
+                                <MenuFlyoutItem
+                                    Click="ColorMenuItem_Click"
+                                    Tag="#c62828"
+                                    Text="Red" />
+                                <MenuFlyoutItem
+                                    Click="ColorMenuItem_Click"
+                                    Tag="#ef6c00"
+                                    Text="Orange" />
+                                <MenuFlyoutItem
+                                    Click="ColorMenuItem_Click"
+                                    Tag="#2e7d32"
+                                    Text="Green" />
+                                <MenuFlyoutItem
+                                    Click="ColorMenuItem_Click"
+                                    Tag="#1565c0"
+                                    Text="Blue" />
+                                <MenuFlyoutItem
+                                    Click="ColorMenuItem_Click"
+                                    Tag="#6a1b9a"
+                                    Text="Purple" />
+                            </MenuFlyout>
+                        </AppBarButton.Flyout>
+                    </AppBarButton>
+                    <AppBarToggleButton
+                        x:Name="BulletsButton"
+                        Click="FormattingButton_Click"
+                        Label="Bullets"
+                        Tag="insertUnorderedList">
+                        <AppBarToggleButton.Icon>
+                            <FontIcon Glyph="&#xE8FD;" />
+                        </AppBarToggleButton.Icon>
+                    </AppBarToggleButton>
+                    <AppBarToggleButton
+                        x:Name="NumberingButton"
+                        Click="FormattingButton_Click"
+                        Label="Numbering"
+                        Tag="insertOrderedList">
+                        <AppBarToggleButton.Icon>
+                            <FontIcon Glyph="&#xE8EF;" />
+                        </AppBarToggleButton.Icon>
+                    </AppBarToggleButton>
+                    <AppBarButton
+                        x:Name="OutdentButton"
+                        Click="CommandButton_Click"
+                        Label="Outdent"
+                        Tag="outdent">
+                        <AppBarButton.Icon>
+                            <FontIcon Glyph="&#xE89B;" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                    <AppBarButton
+                        x:Name="IndentButton"
+                        Click="CommandButton_Click"
+                        Label="Indent"
+                        Tag="indent">
+                        <AppBarButton.Icon>
+                            <FontIcon Glyph="&#xE89C;" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                    <AppBarButton x:Name="AlignmentButton" Label="Alignment">
+                        <AppBarButton.Icon>
+                            <FontIcon Glyph="&#xE8E4;" />
+                        </AppBarButton.Icon>
+                        <AppBarButton.Flyout>
+                            <MenuFlyout>
+                                <MenuFlyoutItem
+                                    Click="CommandMenuItem_Click"
+                                    Tag="justifyLeft"
+                                    Text="Left" />
+                                <MenuFlyoutItem
+                                    Click="CommandMenuItem_Click"
+                                    Tag="justifyCenter"
+                                    Text="Center" />
+                                <MenuFlyoutItem
+                                    Click="CommandMenuItem_Click"
+                                    Tag="justifyRight"
+                                    Text="Right" />
+                                <MenuFlyoutItem
+                                    Click="CommandMenuItem_Click"
+                                    Tag="justifyFull"
+                                    Text="Justify" />
+                            </MenuFlyout>
+                        </AppBarButton.Flyout>
+                    </AppBarButton>
+                    <AppBarButton
+                        x:Name="UndoButton"
+                        Click="CommandButton_Click"
+                        Label="Undo"
+                        Tag="undo">
+                        <AppBarButton.Icon>
+                            <SymbolIcon Symbol="Undo" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                    <AppBarButton
+                        x:Name="RedoButton"
+                        Click="CommandButton_Click"
+                        Label="Redo"
+                        Tag="redo">
+                        <AppBarButton.Icon>
+                            <SymbolIcon Symbol="Redo" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                </CommandBar.PrimaryCommands>
+            </CommandBar>
+
+            <CommandBar
+                x:Name="InsertBar"
+                DefaultLabelPosition="Right"
+                Visibility="Collapsed">
+                <CommandBar.PrimaryCommands>
+                    <AppBarButton
+                        x:Name="AttachmentButton"
+                        Click="AttachmentButton_Click"
+                        Label="Attach files">
+                        <AppBarButton.Icon>
+                            <FontIcon Glyph="&#xE723;" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                    <AppBarButton
+                        x:Name="InlineImageButton"
+                        Click="InlineImageButton_Click"
+                        Label="Inline image">
+                        <AppBarButton.Icon>
+                            <FontIcon Glyph="&#xEB9F;" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                    <AppBarButton x:Name="LinkButton" Label="Insert link">
+                        <AppBarButton.Icon>
+                            <FontIcon Glyph="&#xE71B;" />
+                        </AppBarButton.Icon>
+                        <AppBarButton.Flyout>
+                            <Flyout>
+                                <StackPanel Width="320" Spacing="8">
+                                    <TextBlock Text="Link URL" />
+                                    <TextBox
+                                        x:Name="LinkUrlTextBox"
+                                        InputScope="Url"
+                                        PlaceholderText="https://example.com" />
+                                    <Button
+                                        HorizontalAlignment="Right"
+                                        Click="ApplyLinkButton_Click"
+                                        Content="Apply link" />
+                                </StackPanel>
+                            </Flyout>
+                        </AppBarButton.Flyout>
+                    </AppBarButton>
+                    <AppBarButton
+                        x:Name="UnlinkButton"
+                        Click="CommandButton_Click"
+                        Label="Remove link"
+                        Tag="unlink">
+                        <AppBarButton.Icon>
+                            <FontIcon Glyph="&#xE71C;" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                </CommandBar.PrimaryCommands>
+            </CommandBar>
+
+            <CommandBar
+                x:Name="TableBar"
+                DefaultLabelPosition="Right"
+                Visibility="Collapsed">
+                <CommandBar.PrimaryCommands>
+                    <AppBarButton x:Name="InsertTableButton" Label="Insert table">
+                        <AppBarButton.Icon>
+                            <FontIcon Glyph="&#xE80A;" />
+                        </AppBarButton.Icon>
+                        <AppBarButton.Flyout>
+                            <Flyout>
+                                <StackPanel Width="220" Spacing="8">
+                                    <TextBlock Text="Rows" />
+                                    <TextBox
+                                        x:Name="TableRowsTextBox"
+                                        InputScope="Number"
+                                        Text="3" />
+                                    <TextBlock Text="Columns" />
+                                    <TextBox
+                                        x:Name="TableColumnsTextBox"
+                                        InputScope="Number"
+                                        Text="3" />
+                                    <Button
+                                        HorizontalAlignment="Right"
+                                        Click="InsertTableConfirmButton_Click"
+                                        Content="Insert table" />
+                                </StackPanel>
+                            </Flyout>
+                        </AppBarButton.Flyout>
+                    </AppBarButton>
+                    <AppBarButton
+                        x:Name="AddRowButton"
+                        Click="TableCommandButton_Click"
+                        Label="Add row"
+                        Tag="addRow" />
+                    <AppBarButton
+                        x:Name="RemoveRowButton"
+                        Click="TableCommandButton_Click"
+                        Label="Remove row"
+                        Tag="removeRow" />
+                    <AppBarButton
+                        x:Name="AddColumnButton"
+                        Click="TableCommandButton_Click"
+                        Label="Add column"
+                        Tag="addColumn" />
+                    <AppBarButton
+                        x:Name="RemoveColumnButton"
+                        Click="TableCommandButton_Click"
+                        Label="Remove column"
+                        Tag="removeColumn" />
+                    <AppBarButton
+                        x:Name="DeleteTableButton"
+                        Click="TableCommandButton_Click"
+                        Label="Delete table"
+                        Tag="deleteTable" />
+                </CommandBar.PrimaryCommands>
+            </CommandBar>
+
+            <CommandBar
+                x:Name="SecurityBar"
+                DefaultLabelPosition="Right"
+                Visibility="Collapsed">
+                <CommandBar.PrimaryCommands>
+                    <AppBarToggleButton
+                        x:Name="SmimeSignButton"
+                        Click="SmimeSignButton_Click"
+                        Label="Digitally sign">
+                        <AppBarToggleButton.Icon>
+                            <FontIcon Glyph="&#xE73E;" />
+                        </AppBarToggleButton.Icon>
+                    </AppBarToggleButton>
+                    <AppBarToggleButton
+                        x:Name="SmimeEncryptButton"
+                        Click="SmimeEncryptButton_Click"
+                        Label="Encrypt with S/MIME">
+                        <AppBarToggleButton.Icon>
+                            <FontIcon Glyph="&#xE72E;" />
+                        </AppBarToggleButton.Icon>
+                    </AppBarToggleButton>
+                </CommandBar.PrimaryCommands>
+            </CommandBar>
+        </Grid>
+
+        <Border
+            Grid.Row="2"
+            Margin="8,0"
+            BorderBrush="{ThemeResource SystemControlForegroundBaseLowBrush}"
+            BorderThickness="1"
+            CornerRadius="8">
+            <Grid>
+                <muxc:WebView2
+                    x:Name="EditorWebView2"
+                    x:Load="{x:Bind LoadWebView2, Mode=OneWay}"
+                    AllowDrop="True"
+                    DragOver="EditorWebView_DragOver"
+                    Drop="EditorWebView_Drop"
+                    Loaded="EditorWebView2_Loaded" />
+                <WebView
+                    x:Name="CompatibilityWebView"
+                    x:Load="{x:Bind LoadCompatibilityWebView, Mode=OneWay}"
+                    AllowDrop="True"
+                    DragOver="EditorWebView_DragOver"
+                    Drop="EditorWebView_Drop"
+                    Loaded="CompatibilityWebView_Loaded"
+                    NavigationCompleted="CompatibilityWebView_NavigationCompleted"
+                    ScriptNotify="CompatibilityWebView_ScriptNotify" />
+            </Grid>
+        </Border>
+
+        <muxc:InfoBar
+            x:Name="StatusBar"
+            Title="Editor"
+            Grid.Row="3"
+            Margin="8,0"
+            IsClosable="False"
+            IsOpen="True"
+            Message="Starting editor…" />
+    </Grid>
+</UserControl>

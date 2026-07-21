@@ -1,0 +1,124 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <RootNamespace>Wino.Mail.Uwp</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseUwp>true</UseUwp>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <Platforms>x86;x64;arm64</Platforms>
+    <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+    <Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">x64</Platform>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-$(Platform.ToLowerInvariant())</RuntimeIdentifier>
+    <DefaultLanguage>en-US</DefaultLanguage>
+    <SelfContained>true</SelfContained>
+    <PublishAot>false</PublishAot>
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsTrimmable>false</IsTrimmable>
+    <DependencyPropertyGeneratorUseWindowsUIXaml>true</DependencyPropertyGeneratorUseWindowsUIXaml>
+    <EnableGeneratedDependencyPropertyAttributeEmbeddedMode>true</EnableGeneratedDependencyPropertyAttributeEmbeddedMode>
+    <EnableGeneratedDependencyPropertyEmbeddedMode>true</EnableGeneratedDependencyPropertyEmbeddedMode>
+    <DefineConstants>$(DefineConstants);WINDOWS_UWP;GENERATED_DEPENDENCY_PROPERTY_USE_WINDOWS_UI_XAML;GENERATED_DEPENDENCY_PROPERTY_ATTRIBUTE_EMBEDDED_MODE;GENERATED_DEPENDENCY_PROPERTY_EMBEDDED_MODE</DefineConstants>
+    <PublishProfile>win-$(Platform).pubxml</PublishProfile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ColorHashSharp" />
+    <PackageReference Include="CommunityToolkit.Common" />
+    <PackageReference Include="CommunityToolkit.Labs.AppServices" />
+    <PackageReference Include="CommunityToolkit.Labs.Uwp.Controls.TitleBar" />
+    <PackageReference Include="CommunityToolkit.Uwp.Animations" />
+    <PackageReference Include="CommunityToolkit.Uwp.Controls.Segmented" />
+    <PackageReference Include="CommunityToolkit.Uwp.Controls.SettingsControls" />
+    <PackageReference Include="CommunityToolkit.Uwp.Controls.Sizers" />
+    <PackageReference Include="CommunityToolkit.Uwp.Controls.TabbedCommandBar" />
+    <PackageReference Include="CommunityToolkit.Uwp.Controls.TokenizingTextBox" />
+    <PackageReference Include="CommunityToolkit.Uwp.Extensions" />
+    <PackageReference Include="CommunityToolkit.Uwp.Lottie" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="EmailValidation" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+    <PackageReference Include="Microsoft.Identity.Client" />
+    <PackageReference Include="Microsoft.UI.Xaml" />
+    <PackageReference Include="Microsoft.Xaml.Behaviors.Uwp.Managed" />
+    <PackageReference Include="Serilog.Extensions.Logging" />
+    <PackageReference Include="Sentry.Serilog" />
+    <PackageReference Include="Wino.Mail.Contracts" />
+    <PackageReference Include="Win2D.uwp" />
+    <PackageReference Include="gravatar-dotnet" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- PackageDownload avoids the generator package's WinAppSDK runtime dependency. -->
+    <PackageDownload Include="CommunityToolkit.Labs.WinUI.DependencyPropertyGenerator" Version="[0.1.250926-build.2293]" />
+    <Analyzer Include="$(NuGetPackageRoot)communitytoolkit.labs.winui.dependencypropertygenerator\0.1.250926-build.2293\analyzers\dotnet\roslyn4.12\cs\CommunityToolkit.DependencyPropertyGenerator.SourceGenerators.dll" />
+    <CompilerVisibleProperty Include="DependencyPropertyGeneratorUseWindowsUIXaml" />
+    <CompilerVisibleProperty Include="EnableGeneratedDependencyPropertyAttributeEmbeddedMode" />
+    <CompilerVisibleProperty Include="EnableGeneratedDependencyPropertyEmbeddedMode" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Wino.AppServices.Contracts\Wino.AppServices.Contracts.csproj" />
+    <ProjectReference Include="..\Wino.Calendar.ViewModels\Wino.Calendar.ViewModels.csproj" />
+    <ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
+    <ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />
+    <ProjectReference Include="..\Wino.Mail.Editor\Wino.Mail.Editor.csproj" />
+  </ItemGroup>
+
+  <!--
+    The modern .NET target selects the Toolkit's net9 UWP assemblies but does not
+    automatically copy their sibling PRI files. Those files contain the control
+    templates addressed through ms-appx component resource URIs (for example,
+    Segmented/Segmented.xaml), so a loose package otherwise builds successfully
+    and then fails while loading App.xaml.
+  -->
+  <Target Name="ResolveUwpToolkitPriFiles" AfterTargets="ResolveReferences">
+    <ItemGroup>
+      <UwpToolkitPri Include="@(ReferenceCopyLocalPaths->'%(RootDir)%(Directory)%(Filename).pri')" Condition="'%(ReferenceCopyLocalPaths.Extension)' == '.dll' and&#xA;                                $([System.String]::Copy('%(ReferenceCopyLocalPaths.Filename)').StartsWith('CommunityToolkit.')) and&#xA;                                Exists('%(ReferenceCopyLocalPaths.RootDir)%(ReferenceCopyLocalPaths.Directory)%(ReferenceCopyLocalPaths.Filename).pri')" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="CopyUwpToolkitPriFilesIntoOutput" AfterTargets="Build" DependsOnTargets="ResolveUwpToolkitPriFiles">
+    <Copy SourceFiles="@(UwpToolkitPri)" DestinationFiles="@(UwpToolkitPri->'$(OutDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" Condition="'@(UwpToolkitPri)' != ''" />
+  </Target>
+
+  <Target Name="AddUwpToolkitPriFilesToPackagePayload" BeforeTargets="_ComputeAppxPackagePayload" DependsOnTargets="ResolveUwpToolkitPriFiles">
+    <ItemGroup>
+      <AppxPackagePayload Include="@(UwpToolkitPri)">
+        <TargetPath>%(Filename)%(Extension)</TargetPath>
+      </AppxPackagePayload>
+    </ItemGroup>
+  </Target>
+
+  <!-- WAP consumes the .NET publish output for SDK-style project references.
+       Add the Toolkit PRI files to that output so controls such as TitleBar can
+       resolve their templates after MSIX deployment. -->
+  <Target Name="AddUwpToolkitPriFilesToPublishOutput" AfterTargets="ComputeResolvedFilesToPublishList" DependsOnTargets="ResolveUwpToolkitPriFiles">
+    <ItemGroup>
+      <ResolvedFileToPublish Include="@(UwpToolkitPri)">
+        <RelativePath>%(Filename)%(Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+
+  <!--
+    Desktop Bridge consumes the UWP .build.appxrecipe even though it invokes the
+    modern .NET Publish target first. Keep the recipe's AppX payload synchronized
+    with that publish output; otherwise WAP loose deployment silently reuses an
+    old UWP assembly and source breakpoints do not match the running package.
+  -->
+  <Target Name="SyncModernUwpPublishToAppxRecipe" AfterTargets="Publish" Condition="'$(PublishDir)' != ''">
+    <ItemGroup>
+      <_ModernUwpPublishedFile Include="$(PublishDir)**\*" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(_ModernUwpPublishedFile)"
+      DestinationFiles="@(_ModernUwpPublishedFile->'$(OutDir)AppX\%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

@@ -1,6 +1,16 @@
-﻿namespace Wino.Core.Domain.Interfaces;
+using System.Threading;
+using System.Threading.Tasks;
 
-public interface IOutlookAuthenticator : IAuthenticator { }
+namespace Wino.Core.Domain.Interfaces;
+
+public interface IOutlookAuthenticator : IAuthenticator
+{
+    Task<Models.Authentication.TokenInformationEx> GenerateTokenInformationAsync(
+        Entities.Shared.MailAccount account,
+        nint parentWindowHandle,
+        CancellationToken cancellationToken);
+}
+
 public interface IGmailAuthenticator : IAuthenticator
 {
     bool ProposeCopyAuthURL { get; set; }
