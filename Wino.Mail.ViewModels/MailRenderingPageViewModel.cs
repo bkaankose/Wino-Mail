@@ -26,6 +26,7 @@ using Wino.Core.Domain.Models.Printing;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.ViewModels.Models;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.UI;
@@ -339,6 +340,8 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
                 var draftPreparationRequest = new DraftPreparationRequest(initializedMailItemViewModel.MailCopy.AssignedAccount, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason, initializedMailItemViewModel.MailCopy);
 
                 await _requestDelegator.ExecuteAsync(draftPreparationRequest);
+
+                Messenger.Send(new ActiveMailItemChangedEvent(new MailItemViewModel(draftMailCopy)));
                 ComposeRequested?.Invoke(this, new ComposeDraftRequestedEventArgs(draftMailCopy.UniqueId));
 
             }

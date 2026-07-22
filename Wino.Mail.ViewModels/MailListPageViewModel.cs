@@ -852,6 +852,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(targetMail.MailCopy.AssignedAccount.Id, draftOptions).ConfigureAwait(false);
         var draftPreparationRequest = new DraftPreparationRequest(targetMail.MailCopy.AssignedAccount, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason, targetMail.MailCopy);
         await _winoRequestDelegator.ExecuteAsync(draftPreparationRequest);
+
+        Messenger.Send(new ActiveMailItemChangedEvent(new MailItemViewModel(draftMailCopy)));
     }
 
     public IEnumerable<MailOperationMenuItem> GetAvailableMailActions(IEnumerable<MailItemViewModel> contextMailItems)
