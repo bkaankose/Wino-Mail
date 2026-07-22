@@ -590,7 +590,7 @@ public sealed class CalDavClient : ICalDavClient
     }
 
     private static bool HasRecurrence(CalendarEvent calendarEvent)
-        => (calendarEvent.RecurrenceRules?.Any() ?? false)
+        => calendarEvent.RecurrenceRule != null
            || (calendarEvent.RecurrenceDates?.GetAllPeriods().Any() ?? false);
 
     private static string BuildRemoteEventId(string uid, string occurrenceKey)
@@ -716,9 +716,9 @@ public sealed class CalDavClient : ICalDavClient
     {
         var recurrenceLines = new List<string>();
 
-        if (sourceEvent.RecurrenceRules != null)
+        if (sourceEvent.RecurrenceRule != null)
         {
-            recurrenceLines.AddRange(sourceEvent.RecurrenceRules.Select(r => $"RRULE:{r}"));
+            recurrenceLines.Add($"RRULE:{sourceEvent.RecurrenceRule}");
         }
 
         if (sourceEvent.ExceptionDates != null)

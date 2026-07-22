@@ -19,6 +19,7 @@ using Microsoft.Graph.Models;
 using Microsoft.Graph.Models.ODataErrors;
 using Microsoft.Kiota.Abstractions;
 using Microsoft.Kiota.Abstractions.Authentication;
+using Microsoft.Kiota.Http.HttpClientLibrary;
 using MimeKit;
 using MoreLinq.Extensions;
 using Serilog;
@@ -152,7 +153,11 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         handlers.Add(GetGraphRateLimitHandler());
 
         var httpClient = GraphClientFactory.Create(handlers);
-        _graphClient = new GraphServiceClient(httpClient, new BaseBearerTokenAuthenticationProvider(tokenProvider));
+        var requestAdapter = new HttpClientRequestAdapter(
+            new BaseBearerTokenAuthenticationProvider(tokenProvider),
+            httpClient: httpClient);
+
+        _graphClient = new GraphServiceClient(requestAdapter);
 
         _outlookChangeProcessor = outlookChangeProcessor;
         _errorHandlingFactory = errorHandlingFactory;
@@ -809,6 +814,14 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                     _logger.Debug("Successfully mapped remote draft {RemoteId} to local draft {LocalId}",
                         mailCopy.Id, localDraftCopyUniqueId);
                     return null; // Don't create new mail copy, existing one was updated
+                }
+
+                if (await _outlookChangeProcessor.IsMailExistsInFolderAsync(mailCopy.Id, assignedFolder.Id).ConfigureAwait(false) ||
+                    await _outlookChangeProcessor.IsMailExistsAsync(Account.Id, localDraftCopyUniqueId).ConfigureAwait(false))
+                {
+                    _logger.Debug("Skipping duplicate remote draft {RemoteId} for local draft {LocalId}",
+                        mailCopy.Id, localDraftCopyUniqueId);
+                    return null;
                 }
 
                 // Local copy doesn't exist. Continue execution to insert mail copy.
@@ -2271,6 +2284,13 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         var errorCode = errorJson["error"]["code"].GetValue<string>();
         var errorMessage = errorJson["error"]["message"].GetValue<string>();
 
+        if (bundle?.UIChangeRequest is CreateDraftRequest createDraftRequest)
+        {
+            await _outlookChangeProcessor
+                .MarkDraftSyncFailedAsync(createDraftRequest.Item.UniqueId, errorMessage)
+                .ConfigureAwait(false);
+        }
+
         if (response.StatusCode == HttpStatusCode.Forbidden &&
             string.Equals(errorCode, "ErrorSendAsDenied", StringComparison.OrdinalIgnoreCase) &&
             bundle?.UIChangeRequest is SendDraftRequest sendDraftRequest)
@@ -2334,6 +2354,9 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                || normalizedMessage.Contains("does not exist")
                || normalizedMessage.Contains("cannot be found");
     }
+
+    protected override Task MarkDraftSyncFailedAsync(Guid mailUniqueId, string error)
+        => _outlookChangeProcessor.MarkDraftSyncFailedAsync(mailUniqueId, error);
 
     private static bool IsExistingEntityOperation(IUIChangeRequest request)
         => request is BatchDeleteRequest

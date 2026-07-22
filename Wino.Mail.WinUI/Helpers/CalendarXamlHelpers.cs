@@ -50,12 +50,12 @@ public static class CalendarXamlHelpers
         };
 
         var recurrenceLines = Regex.Split(calendarItemViewModel.CalendarItem.Recurrence, Constants.CalendarEventRecurrenceRuleSeperator);
-        foreach (var line in recurrenceLines.Where(line => !string.IsNullOrWhiteSpace(line)))
-        {
-            calendarEvent.RecurrenceRules.Add(new RecurrencePattern(line));
-        }
+        var recurrenceRuleLine = recurrenceLines.FirstOrDefault(line => !string.IsNullOrWhiteSpace(line));
+        calendarEvent.RecurrenceRule = recurrenceRuleLine == null
+            ? null
+            : new RecurrencePattern(recurrenceRuleLine);
 
-        var recurrenceRule = calendarEvent.RecurrenceRules.FirstOrDefault();
+        var recurrenceRule = calendarEvent.RecurrenceRule;
         if (recurrenceRule == null)
         {
             return string.Empty;

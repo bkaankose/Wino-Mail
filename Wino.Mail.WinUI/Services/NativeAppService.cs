@@ -21,7 +21,6 @@ namespace Wino.Services;
 public class NativeAppService : INativeAppService, IAppMetadataService
 {
     private string _mimeMessagesFolder = string.Empty;
-    private string _editorBundlePath = string.Empty;
 
     public Func<IntPtr> GetCoreWindowHwnd { get; set; } = static () => IntPtr.Zero;
 
@@ -45,20 +44,6 @@ public class NativeAppService : INativeAppService, IAppMetadataService
         _mimeMessagesFolder = mimeFolder.Path;
 
         return _mimeMessagesFolder;
-    }
-
-    public async Task<string> GetEditorBundlePathAsync()
-    {
-        if (string.IsNullOrEmpty(_editorBundlePath))
-        {
-            var editorFileFromBundle = await StorageFile.GetFileFromApplicationUriAsync(new Uri("ms-appx:///JS/editor.html"))
-                .AsTask()
-                .ConfigureAwait(false);
-
-            _editorBundlePath = editorFileFromBundle.Path;
-        }
-
-        return _editorBundlePath;
     }
 
     [Obsolete("This should be removed. There should be no functionality.")]

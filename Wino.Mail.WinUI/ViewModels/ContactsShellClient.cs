@@ -9,7 +9,7 @@ using Wino.Core.ViewModels;
 
 namespace Wino.Mail.WinUI.ViewModels;
 
-public sealed class ContactsShellClient(INavigationService navigationService) : CoreBaseViewModel, IShellClient
+public sealed partial class ContactsShellClient(INavigationService navigationService) : CoreBaseViewModel, IShellClient
 {
     public WinoApplicationMode Mode => WinoApplicationMode.Contacts;
     public MenuItemCollection? MenuItems { get; private set; }

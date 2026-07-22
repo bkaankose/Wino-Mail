@@ -63,7 +63,7 @@ public interface IAccountService
     /// Creates new account with the given server information if any.
     /// Also sets the account as Startup account if there are no accounts.
     /// </summary>
-    Task CreateAccountAsync(MailAccount account, CustomServerInformation customServerInformation);
+    Task CreateAccountAsync(MailAccount account, CustomServerInformation? customServerInformation);
 
     /// <summary>
     /// Fixed authentication errors for account by forcing interactive login.

@@ -130,10 +130,10 @@ private string searchQuery = string.Empty;
 
 ## WebView2 Mail Rendering
 
-- `reader.html` for reading mails, `editor.html` for composing (Jodit editor)
-- Virtual host mapping: `https://wino.mail/reader.html`
-- JavaScript interop via `ExecuteScriptFunctionAsync()`
-- MIME content downloaded on-demand, not during sync
+- `Wino.Editor` owns the reusable `WinoMailRenderer` and `WinoMailEditor` WinUI controls
+- Reader/editor HTML, CSS, and JavaScript are embedded in `Wino.Editor`; do not add a second asset bundle to `Wino.Mail.WinUI`
+- WebView2 readiness is signaled by the embedded document bridge before rendering or editing commands run
+- MIME content is downloaded on-demand, not during sync
 
 ## Common Pitfalls
 

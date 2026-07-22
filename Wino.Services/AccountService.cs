@@ -678,7 +678,7 @@ public class AccountService : BaseDatabaseService, IAccountService
         await Connection.ExecuteAsync("DELETE FROM MailAccountAlias WHERE Id = ?", aliasId).ConfigureAwait(false);
     }
 
-    public async Task CreateAccountAsync(MailAccount account, CustomServerInformation customServerInformation)
+    public async Task CreateAccountAsync(MailAccount account, CustomServerInformation? customServerInformation)
     {
         Guard.IsNotNull(account);
 

@@ -360,6 +360,10 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
                                               _dialogService.HandleSystemFolderConfigurationDialogAsync(unavailableSpecialFolderException.AccountId, _folderService);
                                           });
         }
+        catch (MimePersistenceException ex)
+        {
+            _dialogService.InfoBarMessage(Translator.Info_DraftCreationFailed, ex.Message, InfoBarMessageType.Error);
+        }
         catch (NotImplementedException)
         {
             _dialogService.ShowNotSupportedMessage();

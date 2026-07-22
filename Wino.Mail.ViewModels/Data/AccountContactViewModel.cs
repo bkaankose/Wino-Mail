@@ -65,6 +65,10 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
     public string PreviewText => string.Empty;
     public bool IsRead => true;
     public bool IsDraft => false;
+    public bool IsLocalDraft => false;
+    public bool IsDraftSyncFailed => false;
+    public bool ShouldShowDraftSyncWarning => false;
+    public string DraftSyncTooltip => string.Empty;
     public bool HasAttachments => false;
     public bool IsCalendarEvent => false;
     public bool IsFlagged => false;

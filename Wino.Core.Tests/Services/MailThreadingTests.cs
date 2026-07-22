@@ -6,6 +6,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Tests.Helpers;
@@ -89,6 +90,67 @@ public class MailThreadingTests : IAsyncLifetime
         draftMailCopy.MessageId.Should().MatchRegex("^[0-9a-fA-F-]{36}@wino-mail\\.app$");
         mimeMessage.MessageId.Should().Be(draftMailCopy.MessageId);
         mimeMessage.Headers[HeaderId.MessageId].Should().Be(MailHeaderExtensions.ToHeaderMessageId(draftMailCopy.MessageId));
+        draftMailCopy.DraftSyncState.Should().Be(DraftSyncState.PendingSync);
+    }
+
+    [Fact]
+    public async Task CreateDraftAsync_WhenMimeSaveFails_ThrowsWithoutCreatingRowOrMessage()
+    {
+        var mailService = BuildMailService(_databaseService, saveMimeSuccessfully: false);
+        var recipient = new DraftCreatedRecipient();
+        WeakReferenceMessenger.Default.Register<DraftCreated>(recipient);
+
+        try
+        {
+            var act = () => mailService.CreateDraftAsync(
+                _account.Id,
+                new DraftCreationOptions { Reason = DraftCreationReason.Empty });
+
+            await act.Should().ThrowAsync<MimePersistenceException>();
+            (await _databaseService.Connection.Table<MailCopy>().CountAsync()).Should().Be(0);
+            recipient.Messages.Should().BeEmpty();
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.UnregisterAll(recipient);
+        }
+    }
+
+    [Fact]
+    public async Task DraftSyncTransitions_FailurePublishesOnce_AndMappingResetsState()
+    {
+        var (draft, _) = await _mailService.CreateDraftAsync(
+            _account.Id,
+            new DraftCreationOptions { Reason = DraftCreationReason.Empty });
+
+        var recipient = new DraftFailedRecipient();
+        WeakReferenceMessenger.Default.Register<DraftFailed>(recipient);
+
+        try
+        {
+            await _mailService.MarkDraftSyncAttemptAsync(draft.UniqueId);
+            await _mailService.MarkDraftSyncFailedAsync(draft.UniqueId, "network unavailable");
+            await _mailService.MarkDraftSyncFailedAsync(draft.UniqueId, "duplicate safety-net failure");
+
+            recipient.Messages.Should().ContainSingle();
+
+            var mapped = await _mailService.MapLocalDraftAsync(
+                _account.Id,
+                draft.UniqueId,
+                "remote-id",
+                "remote-draft-id",
+                "remote-thread-id");
+
+            mapped.Should().BeTrue();
+            var stored = await _databaseService.Connection.FindAsync<MailCopy>(draft.UniqueId);
+            stored.DraftSyncState.Should().Be(DraftSyncState.Synced);
+            stored.DraftSyncAttemptCount.Should().Be(0);
+            stored.LastDraftSyncError.Should().BeNull();
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.UnregisterAll(recipient);
+        }
     }
 
     [Fact]
@@ -454,14 +516,26 @@ public class MailThreadingTests : IAsyncLifetime
         public void Receive(BulkMailReadStatusChanged message) => BulkUpdates.Add(message);
     }
 
-    private static MailService BuildMailService(InMemoryDatabaseService db)
+    internal sealed class DraftCreatedRecipient : IRecipient<DraftCreated>
+    {
+        public List<DraftCreated> Messages { get; } = [];
+        public void Receive(DraftCreated message) => Messages.Add(message);
+    }
+
+    internal sealed class DraftFailedRecipient : IRecipient<DraftFailed>
+    {
+        public List<DraftFailed> Messages { get; } = [];
+        public void Receive(DraftFailed message) => Messages.Add(message);
+    }
+
+    private static MailService BuildMailService(InMemoryDatabaseService db, bool saveMimeSuccessfully = true)
     {
         var signatureService = new Mock<ISignatureService>();
         var authProvider = new Mock<IAuthenticationProvider>();
         var mimeFileService = new Mock<IMimeFileService>();
         mimeFileService
             .Setup(x => x.SaveMimeMessageAsync(It.IsAny<Guid>(), It.IsAny<MimeMessage>(), It.IsAny<Guid>()))
-            .ReturnsAsync(true);
+            .ReturnsAsync(saveMimeSuccessfully);
         mimeFileService
             .Setup(x => x.CreateHTMLPreviewVisitor(It.IsAny<MimeMessage>(), It.IsAny<string>()))
             .Returns<MimeMessage, string>((_, _) => new HtmlPreviewVisitor(string.Empty));

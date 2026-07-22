@@ -7,7 +7,7 @@ using Wino.Mail.WinUI;
 
 namespace Wino.Services;
 
-public class StatePersistenceService : ObservableObject, IStatePersistanceService
+public partial class StatePersistenceService : ObservableObject, IStatePersistanceService
 {
     public event EventHandler<string?>? StatePropertyChanged;
 

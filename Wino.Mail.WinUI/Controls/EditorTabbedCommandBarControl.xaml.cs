@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.WinUI;
@@ -7,6 +8,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Windows.UI;
+using Wino.Editor;
 
 namespace Wino.Mail.Controls;
 
@@ -57,7 +59,6 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         if (_subscribedTarget != null)
         {
             _subscribedTarget.StateChanged -= CommandTarget_StateChanged;
-            _subscribedTarget.CapabilitiesChanged -= CommandTarget_CapabilitiesChanged;
         }
 
         _subscribedTarget = target;
@@ -65,7 +66,6 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         if (_subscribedTarget != null)
         {
             _subscribedTarget.StateChanged += CommandTarget_StateChanged;
-            _subscribedTarget.CapabilitiesChanged += CommandTarget_CapabilitiesChanged;
             ApplyCapabilities(_subscribedTarget.Capabilities);
             ApplyState(_subscribedTarget.CurrentState);
         }
@@ -79,7 +79,6 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         }
 
         _subscribedTarget.StateChanged -= CommandTarget_StateChanged;
-        _subscribedTarget.CapabilitiesChanged -= CommandTarget_CapabilitiesChanged;
         _subscribedTarget = null;
     }
 
@@ -107,22 +106,45 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         ApplyState(e);
     }
 
-    private void CommandTarget_CapabilitiesChanged(object? sender, EditorCapabilities e)
-    {
-        ApplyCapabilities(e);
-    }
-
     private void ApplyCapabilities(EditorCapabilities capabilities)
     {
-        FontFamilyComboBox.ItemsSource = capabilities.Fonts;
-        FontSizeComboBox.ItemsSource = capabilities.FontSizes;
-        AlignmentComboBox.ItemsSource = capabilities.Alignments;
-        ParagraphStyleComboBox.ItemsSource = capabilities.ParagraphStyles;
-        _textColorOptions = capabilities.TextColors;
-        _highlightColorOptions = capabilities.HighlightColors;
-        TextColorComboBox.ItemsSource = _textColorOptions;
-        HighlightColorComboBox.ItemsSource = _highlightColorOptions;
-        LineHeightComboBox.ItemsSource = capabilities.LineHeights;
+        var wasApplyingState = _isApplyingState;
+        _isApplyingState = true;
+
+        try
+        {
+            var fonts = capabilities.Fonts.ToArray();
+            var fontSizes = capabilities.FontSizes.ToArray();
+            var alignments = capabilities.Alignments.ToArray();
+            var paragraphStyles = capabilities.ParagraphStyles.ToArray();
+            var lineHeights = capabilities.LineHeights.ToArray();
+
+            SetItemsSourceIfChanged(FontFamilyComboBox, fonts);
+            SetItemsSourceIfChanged(FontSizeComboBox, fontSizes);
+            SetItemsSourceIfChanged(AlignmentComboBox, alignments);
+            SetItemsSourceIfChanged(ParagraphStyleComboBox, paragraphStyles);
+            _textColorOptions = capabilities.TextColors.ToArray();
+            _highlightColorOptions = capabilities.HighlightColors.ToArray();
+            SetItemsSourceIfChanged(TextColorComboBox, _textColorOptions);
+            SetItemsSourceIfChanged(HighlightColorComboBox, _highlightColorOptions);
+            SetItemsSourceIfChanged(LineHeightComboBox, lineHeights);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error applying capabilities: {ex}");
+        }
+        finally
+        {
+            _isApplyingState = wasApplyingState;
+        }
+    }
+
+    private static void SetItemsSourceIfChanged(ItemsControl control, object itemsSource)
+    {
+        if (!ReferenceEquals(control.ItemsSource, itemsSource))
+        {
+            control.ItemsSource = itemsSource;
+        }
     }
 
     private void ApplyState(EditorState state)
@@ -287,7 +309,7 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
 
     private async void FontSizeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_isApplyingState || FontSizeComboBox.SelectedItem is not int fontSize)
+        if (_isApplyingState || e.AddedItems.FirstOrDefault() is not int fontSize)
         {
             return;
         }

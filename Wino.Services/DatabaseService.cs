@@ -90,6 +90,54 @@ public class DatabaseService : IDatabaseService
                 .ConfigureAwait(false);
         }
 
+        if (!mailCopyColumns.Any(c => c.Name == nameof(MailCopy.DraftSyncState)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailCopy)} ADD COLUMN {nameof(MailCopy.DraftSyncState)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
+
+        if (!mailCopyColumns.Any(c => c.Name == nameof(MailCopy.DraftSyncAttemptCount)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailCopy)} ADD COLUMN {nameof(MailCopy.DraftSyncAttemptCount)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
+
+        if (!mailCopyColumns.Any(c => c.Name == nameof(MailCopy.LastDraftSyncAttemptUtc)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailCopy)} ADD COLUMN {nameof(MailCopy.LastDraftSyncAttemptUtc)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
+        if (!mailCopyColumns.Any(c => c.Name == nameof(MailCopy.LastDraftSyncError)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailCopy)} ADD COLUMN {nameof(MailCopy.LastDraftSyncError)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
+        await Connection.ExecuteAsync($@"
+UPDATE {nameof(MailCopy)}
+SET {nameof(MailCopy.DraftSyncState)} = {(int)DraftSyncState.PendingSync}
+WHERE {nameof(MailCopy.IsDraft)} = 1
+  AND COALESCE({nameof(MailCopy.DraftSyncState)}, {(int)DraftSyncState.None}) = {(int)DraftSyncState.None}
+  AND {nameof(MailCopy.DraftId)} LIKE 'localDraft\_%' ESCAPE '\'").ConfigureAwait(false);
+
+        await Connection.ExecuteAsync($@"
+UPDATE {nameof(MailCopy)}
+SET {nameof(MailCopy.DraftSyncState)} = {(int)DraftSyncState.Synced}
+WHERE {nameof(MailCopy.IsDraft)} = 1
+  AND COALESCE({nameof(MailCopy.DraftSyncState)}, {(int)DraftSyncState.None}) = {(int)DraftSyncState.None}
+  AND {nameof(MailCopy.DraftId)} IS NOT NULL
+  AND {nameof(MailCopy.DraftId)} NOT LIKE 'localDraft\_%' ESCAPE '\'").ConfigureAwait(false);
+
+        await Connection.ExecuteAsync($@"
+UPDATE {nameof(MailCopy)}
+SET {nameof(MailCopy.DraftSyncAttemptCount)} = 0
+WHERE {nameof(MailCopy.DraftSyncAttemptCount)} IS NULL").ConfigureAwait(false);
+
         if (!mailCopyColumns.Any(c => c.Name == nameof(MailCopy.ImapUid)))
         {
             await Connection

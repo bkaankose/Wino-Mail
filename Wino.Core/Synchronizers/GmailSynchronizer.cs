@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -10,14 +10,10 @@ using System.Threading.Tasks;
 using System.Web;
 using CommunityToolkit.Mvvm.Messaging;
 using Google;
-using Google.Apis.Calendar.v3.Data;
-using Google.Apis.Gmail.v1;
-using Google.Apis.Gmail.v1.Data;
-using Google.Apis.Http;
-using Google.Apis.PeopleService.v1;
-using Google.Apis.Requests;
-using Google.Apis.Services;
-using Google.Apis.Upload;
+using global::Google.Apis.Calendar.v3;
+using global::Google.Apis.Calendar.v3.Data;
+using global::Google.Apis.Gmail.v1;
+using global::Google.Apis.Gmail.v1.Data;
 using MailKit;
 using Microsoft.IdentityModel.Tokens;
 using MimeKit;
@@ -38,6 +34,7 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
 using Wino.Core.Helpers;
 using Wino.Core.Http;
+using Wino.Core.Google;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Misc;
 using Wino.Core.Requests.Bundles;
@@ -46,9 +43,8 @@ using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Messaging.UI;
 using Wino.Services;
-using CalendarService = Google.Apis.Calendar.v3.CalendarService;
-using DriveFile = Google.Apis.Drive.v3.Data.File;
-using DriveService = Google.Apis.Drive.v3.DriveService;
+using DriveFile = global::Google.Apis.Drive.v3.Data.File;
+using GoogleCalendarService = Wino.Core.Google.CalendarService;
 
 namespace Wino.Core.Synchronizers.Mail;
 
@@ -78,7 +74,7 @@ public partial class GmailSynchronizerJsonContext : JsonSerializerContext;
 /// - CreateMinimalMailCopyAsync: Extracts MailCopy fields from Gmail Metadata format
 /// - DownloadMissingMimeMessageAsync: Downloads raw MIME only when explicitly requested
 /// </summary>
-public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message, Event>, IHttpClientFactory
+public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Event>
 {
     public override uint BatchModificationSize => 1000;
 
@@ -92,9 +88,9 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     // https://github.com/googleapis/google-api-dotnet-client/issues/2603
     private const uint MaximumAllowedBatchRequestSize = 10;
 
-    private readonly ConfigurableHttpClient _googleHttpClient;
+    private readonly HttpClient _googleHttpClient;
     private readonly GmailService _gmailService;
-    private readonly CalendarService _calendarService;
+    private readonly GoogleCalendarService _calendarService;
     private readonly DriveService _driveService;
     private readonly PeopleServiceService _peopleService;
 
@@ -113,22 +109,15 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     {
         var messageHandler = new GmailClientMessageHandler(authenticator, account);
 
-        var initializer = new BaseClientService.Initializer()
-        {
-            HttpClientFactory = this
-        };
-
-        _googleHttpClient = new ConfigurableHttpClient(messageHandler);
-        _gmailService = new GmailService(initializer);
-        _peopleService = new PeopleServiceService(initializer);
-        _calendarService = new CalendarService(initializer);
-        _driveService = new DriveService(initializer);
+        _googleHttpClient = new HttpClient(messageHandler, disposeHandler: true);
+        _gmailService = new GmailService(_googleHttpClient);
+        _peopleService = new PeopleServiceService(_googleHttpClient);
+        _calendarService = new GoogleCalendarService(_googleHttpClient);
+        _driveService = new DriveService(_googleHttpClient);
 
         _gmailChangeProcessor = gmailChangeProcessor;
         _gmailSynchronizerErrorHandlerFactory = gmailSynchronizerErrorHandlerFactory;
     }
-
-    public ConfigurableHttpClient CreateHttpClient(CreateHttpClientArgs args) => _googleHttpClient;
 
     public override async Task<ProfileInformation> GetProfileInformationAsync()
     {
@@ -137,7 +126,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         string base64ProfilePicture = string.Empty;
 
-        Google.Apis.PeopleService.v1.Data.Person userProfile = null;
+        global::Google.Apis.PeopleService.v1.Data.Person userProfile = null;
 
         try
         {
@@ -224,7 +213,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         }
     }
 
-    private static string GetPrimaryProfileEmail(Google.Apis.PeopleService.v1.Data.Person userProfile)
+    private static string GetPrimaryProfileEmail(global::Google.Apis.PeopleService.v1.Data.Person userProfile)
         => userProfile?.EmailAddresses?
             .FirstOrDefault(email => email?.Metadata?.Primary == true)?.Value
             ?? userProfile?.EmailAddresses?.FirstOrDefault(email => !string.IsNullOrWhiteSpace(email?.Value))?.Value;
@@ -454,7 +443,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                     cancellationToken.ThrowIfCancellationRequested();
 
                     var request = _gmailService.Users.Messages.List("me");
-                    request.LabelIds = new Google.Apis.Util.Repeatable<string>(new[] { folder.RemoteFolderId });
+                    request.LabelIds = new global::Google.Apis.Util.Repeatable<string>(new[] { folder.RemoteFolderId });
                     request.IncludeSpamTrash = true;
                     request.MaxResults = 500; // API max is 500
                     request.PageToken = pageToken;
@@ -1394,7 +1383,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
     #region Mail Integrations
 
-    public override List<IRequestBundle<IClientServiceRequest>> Move(BatchMoveRequest request)
+    public override List<IRequestBundle<IGoogleApiRequest>> Move(BatchMoveRequest request)
     {
         var toFolder = request[0].ToFolder;
         var fromFolder = request[0].FromFolder;
@@ -1428,10 +1417,10 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
 
-        return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request)];
+        return [new HttpRequestBundle<IGoogleApiRequest>(networkCall, request)];
     }
 
-    public override List<IRequestBundle<IClientServiceRequest>> ChangeFlag(BatchChangeFlagRequest request)
+    public override List<IRequestBundle<IGoogleApiRequest>> ChangeFlag(BatchChangeFlagRequest request)
     {
         bool isFlagged = request[0].IsFlagged;
 
@@ -1447,10 +1436,10 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
 
-        return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request)];
+        return [new HttpRequestBundle<IGoogleApiRequest>(networkCall, request)];
     }
 
-    public override List<IRequestBundle<IClientServiceRequest>> ChangeJunkState(BatchChangeJunkStateRequest request)
+    public override List<IRequestBundle<IGoogleApiRequest>> ChangeJunkState(BatchChangeJunkStateRequest request)
     {
         bool isJunk = request[0].IsJunk;
 
@@ -1477,10 +1466,10 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
 
-        return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request)];
+        return [new HttpRequestBundle<IGoogleApiRequest>(networkCall, request)];
     }
 
-    public override List<IRequestBundle<IClientServiceRequest>> MarkRead(BatchMarkReadRequest request)
+    public override List<IRequestBundle<IGoogleApiRequest>> MarkRead(BatchMarkReadRequest request)
     {
         bool readStatus = request[0].IsRead;
 
@@ -1496,10 +1485,10 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
 
-        return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request)];
+        return [new HttpRequestBundle<IGoogleApiRequest>(networkCall, request)];
     }
 
-    public override List<IRequestBundle<IClientServiceRequest>> Delete(BatchDeleteRequest request)
+    public override List<IRequestBundle<IGoogleApiRequest>> Delete(BatchDeleteRequest request)
     {
         var batchModifyRequest = new BatchDeleteMessagesRequest
         {
@@ -1508,10 +1497,10 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         var networkCall = _gmailService.Users.Messages.BatchDelete(batchModifyRequest, "me");
 
-        return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request)];
+        return [new HttpRequestBundle<IGoogleApiRequest>(networkCall, request)];
     }
 
-    public override List<IRequestBundle<IClientServiceRequest>> CreateDraft(CreateDraftRequest singleRequest)
+    public override List<IRequestBundle<IGoogleApiRequest>> CreateDraft(CreateDraftRequest singleRequest)
     {
         Draft draft = null;
 
@@ -1525,10 +1514,10 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         var networkCall = _gmailService.Users.Drafts.Create(draft, "me");
 
-        return [new HttpRequestBundle<IClientServiceRequest>(networkCall, singleRequest, singleRequest)];
+        return [new HttpRequestBundle<IGoogleApiRequest>(networkCall, singleRequest, singleRequest)];
     }
 
-    public override List<IRequestBundle<IClientServiceRequest>> Archive(BatchArchiveRequest request)
+    public override List<IRequestBundle<IGoogleApiRequest>> Archive(BatchArchiveRequest request)
     {
         bool isArchiving = request[0].IsArchiving;
         var batchModifyRequest = new BatchModifyMessagesRequest
@@ -1547,10 +1536,10 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
 
-        return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request)];
+        return [new HttpRequestBundle<IGoogleApiRequest>(networkCall, request)];
     }
 
-    public override List<IRequestBundle<IClientServiceRequest>> SendDraft(SendDraftRequest singleDraftRequest)
+    public override List<IRequestBundle<IGoogleApiRequest>> SendDraft(SendDraftRequest singleDraftRequest)
     {
 
         var message = new Message();
@@ -1577,7 +1566,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         var networkCall = _gmailService.Users.Drafts.Send(draft, "me");
 
-        return [new HttpRequestBundle<IClientServiceRequest>(networkCall, singleDraftRequest, singleDraftRequest)];
+        return [new HttpRequestBundle<IGoogleApiRequest>(networkCall, singleDraftRequest, singleDraftRequest)];
     }
 
     public override async Task<List<MailCopy>> OnlineSearchAsync(string queryText, List<IMailItemFolder> folders, CancellationToken cancellationToken = default)
@@ -1702,7 +1691,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         foreach (var batch in batches)
         {
-            var batchRequest = new BatchRequest(_gmailService);
+            var batchRequest = new GoogleBatchRequest(_gmailService);
             var downloadedMessages = new List<Message>();
             var batchTasks = new List<Task>();
 
@@ -1863,7 +1852,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         }
     }
 
-    public override List<IRequestBundle<IClientServiceRequest>> RenameFolder(RenameFolderRequest request)
+    public override List<IRequestBundle<IGoogleApiRequest>> RenameFolder(RenameFolderRequest request)
     {
         var label = new Label()
         {
@@ -1872,10 +1861,10 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         var networkCall = _gmailService.Users.Labels.Update(label, "me", request.Folder.RemoteFolderId);
 
-        return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request, request)];
+        return [new HttpRequestBundle<IGoogleApiRequest>(networkCall, request, request)];
     }
 
-    public override List<IRequestBundle<IClientServiceRequest>> EmptyFolder(EmptyFolderRequest request)
+    public override List<IRequestBundle<IGoogleApiRequest>> EmptyFolder(EmptyFolderRequest request)
     {
         // Create batch delete request.
 
@@ -1884,16 +1873,16 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         return Delete(new BatchDeleteRequest(deleteRequests));
     }
 
-    public override List<IRequestBundle<IClientServiceRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request)
+    public override List<IRequestBundle<IGoogleApiRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request)
         => MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(a => new MarkReadRequest(a, true))));
 
-    public override List<IRequestBundle<IClientServiceRequest>> DeleteFolder(DeleteFolderRequest request)
+    public override List<IRequestBundle<IGoogleApiRequest>> DeleteFolder(DeleteFolderRequest request)
     {
         var networkCall = _gmailService.Users.Labels.Delete("me", request.Folder.RemoteFolderId);
-        return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request, request)];
+        return [new HttpRequestBundle<IGoogleApiRequest>(networkCall, request, request)];
     }
 
-    public override List<IRequestBundle<IClientServiceRequest>> CreateSubFolder(CreateSubFolderRequest request)
+    public override List<IRequestBundle<IGoogleApiRequest>> CreateSubFolder(CreateSubFolderRequest request)
     {
         var parentLabelName = request.Folder.FolderName;
 
@@ -1916,10 +1905,10 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         };
 
         var networkCall = _gmailService.Users.Labels.Create(label, "me");
-        return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request, request)];
+        return [new HttpRequestBundle<IGoogleApiRequest>(networkCall, request, request)];
     }
 
-    public override List<IRequestBundle<IClientServiceRequest>> CreateRootFolder(CreateRootFolderRequest request)
+    public override List<IRequestBundle<IGoogleApiRequest>> CreateRootFolder(CreateRootFolderRequest request)
     {
         var label = new Label()
         {
@@ -1927,14 +1916,14 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         };
 
         var networkCall = _gmailService.Users.Labels.Create(label, "me");
-        return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request, request)];
+        return [new HttpRequestBundle<IGoogleApiRequest>(networkCall, request, request)];
     }
 
     #endregion
 
     #region Request Execution
 
-    public override async Task ExecuteNativeRequestsAsync(List<IRequestBundle<IClientServiceRequest>> batchedRequests,
+    public override async Task ExecuteNativeRequestsAsync(List<IRequestBundle<IGoogleApiRequest>> batchedRequests,
                                                           CancellationToken cancellationToken = default)
     {
         // First apply all UI changes immediately before any batching.
@@ -1951,7 +1940,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
             foreach (var bundle in batchedBundles)
             {
-                var nativeBatchRequest = new BatchRequest(requestGroup.Key);
+                var nativeBatchRequest = new GoogleBatchRequest(requestGroup.Key);
                 var bundleTasks = new List<Task>();
 
                 foreach (var requestBundle in bundle)
@@ -1967,9 +1956,16 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         }
     }
 
-    private async Task ProcessGmailRequestErrorAsync(RequestError error, IRequestBundle<IClientServiceRequest> bundle)
+    private async Task ProcessGmailGoogleRequestErrorAsync(GoogleRequestError error, IRequestBundle<IGoogleApiRequest> bundle)
     {
         if (error == null) return;
+
+        if (bundle?.UIChangeRequest is CreateDraftRequest createDraftRequest)
+        {
+            await _gmailChangeProcessor
+                .MarkDraftSyncFailedAsync(createDraftRequest.Item.UniqueId, error.Message)
+                .ConfigureAwait(false);
+        }
 
         var isEntityNotFound = IsKnownGmailEntityNotFoundError(error, bundle);
 
@@ -2031,8 +2027,8 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     }
 
     private static bool IsKnownGmailEntityNotFoundError(
-        RequestError error,
-        IRequestBundle<IClientServiceRequest> bundle)
+        GoogleRequestError error,
+        IRequestBundle<IGoogleApiRequest> bundle)
     {
         if (error?.Code != 404 || bundle?.UIChangeRequest == null)
             return false;
@@ -2053,6 +2049,9 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                || normalizedMessage.Contains("event not found")
                || normalizedMessage.Contains("calendar not found");
     }
+
+    protected override Task MarkDraftSyncFailedAsync(Guid mailUniqueId, string error)
+        => _gmailChangeProcessor.MarkDraftSyncFailedAsync(mailUniqueId, error);
 
     private static bool IsExistingEntityOperation(IUIChangeRequest request)
         => request is BatchDeleteRequest
@@ -2112,20 +2111,20 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         }
     }
 
-    private async Task ProcessSingleNativeRequestResponseAsync(IRequestBundle<IClientServiceRequest> bundle,
-                                                               RequestError error,
+    private async Task ProcessSingleNativeRequestResponseAsync(IRequestBundle<IGoogleApiRequest> bundle,
+                                                               GoogleRequestError error,
                                                                HttpResponseMessage httpResponseMessage,
                                                                CancellationToken cancellationToken = default)
     {
         if (error != null)
         {
-            await ProcessGmailRequestErrorAsync(error, bundle).ConfigureAwait(false);
+            await ProcessGmailGoogleRequestErrorAsync(error, bundle).ConfigureAwait(false);
             return;
         }
 
         await PersistSuccessfulMailStateChangesAsync(bundle).ConfigureAwait(false);
 
-        if (bundle is HttpRequestBundle<IClientServiceRequest, Message> messageBundle)
+        if (bundle is HttpRequestBundle<IGoogleApiRequest, Message> messageBundle)
         {
             var gmailMessage = await messageBundle.DeserializeBundleAsync(httpResponseMessage, GmailSynchronizerJsonContext.Default.Message, cancellationToken).ConfigureAwait(false);
 
@@ -2141,11 +2140,11 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
             await UpdateAccountSyncIdentifierAsync(gmailMessage.HistoryId).ConfigureAwait(false);
         }
-        else if (bundle is HttpRequestBundle<IClientServiceRequest, Label> folderBundle)
+        else if (bundle is HttpRequestBundle<IGoogleApiRequest, Label> folderBundle)
         {
             // TODO: Handle new Gmail Label added or updated.
         }
-        else if (bundle is HttpRequestBundle<IClientServiceRequest, Event> eventBundle && eventBundle.Request is CreateCalendarEventRequest createCalendarEventRequest)
+        else if (bundle is HttpRequestBundle<IGoogleApiRequest, Event> eventBundle && eventBundle.Request is CreateCalendarEventRequest createCalendarEventRequest)
         {
             var createdEvent = await eventBundle.DeserializeBundleAsync(httpResponseMessage, GmailSynchronizerJsonContext.Default.Event, cancellationToken).ConfigureAwait(false);
 
@@ -2154,7 +2153,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
             await UploadCalendarEventAttachmentsAsync(createCalendarEventRequest, createdEvent, cancellationToken).ConfigureAwait(false);
         }
-        else if (bundle is HttpRequestBundle<IClientServiceRequest, Draft> draftBundle && draftBundle.Request is CreateDraftRequest createDraftRequest)
+        else if (bundle is HttpRequestBundle<IGoogleApiRequest, Draft> draftBundle && draftBundle.Request is CreateDraftRequest createDraftRequest)
         {
             // New draft mail is created.
 
@@ -2183,7 +2182,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         }
     }
 
-    private async Task PersistSuccessfulMailStateChangesAsync(IRequestBundle<IClientServiceRequest> bundle)
+    private async Task PersistSuccessfulMailStateChangesAsync(IRequestBundle<IGoogleApiRequest> bundle)
     {
         switch (bundle.UIChangeRequest)
         {
@@ -2704,6 +2703,14 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
                         return null;
                     }
+
+                    if (await _gmailChangeProcessor.IsMailExistsInFolderAsync(baseMailCopy.Id, assignedFolder.Id).ConfigureAwait(false) ||
+                        await _gmailChangeProcessor.IsMailExistsAsync(Account.Id, localDraftCopyUniqueId).ConfigureAwait(false))
+                    {
+                        _logger.Debug("Skipping duplicate remote draft {RemoteId} for local draft {LocalId}",
+                            baseMailCopy.Id, localDraftCopyUniqueId);
+                        return null;
+                    }
                 }
             }
         }
@@ -2801,7 +2808,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
     #region Calendar Operations
 
-    public override List<IRequestBundle<IClientServiceRequest>> CreateCalendarEvent(CreateCalendarEventRequest request)
+    public override List<IRequestBundle<IGoogleApiRequest>> CreateCalendarEvent(CreateCalendarEventRequest request)
     {
         var calendarItem = request.PreparedItem;
         var attendees = request.PreparedEvent.Attendees;
@@ -2882,13 +2889,13 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         var insertRequest = _calendarService.Events.Insert(googleEvent, calendar.RemoteCalendarId);
         insertRequest.SendUpdates = attendees.Count > 0
-            ? Google.Apis.Calendar.v3.EventsResource.InsertRequest.SendUpdatesEnum.All
-            : Google.Apis.Calendar.v3.EventsResource.InsertRequest.SendUpdatesEnum.None;
+            ? global::Google.Apis.Calendar.v3.EventsResource.InsertRequest.SendUpdatesEnum.All
+            : global::Google.Apis.Calendar.v3.EventsResource.InsertRequest.SendUpdatesEnum.None;
 
-        return [new HttpRequestBundle<IClientServiceRequest, Event>(insertRequest, request)];
+        return [new HttpRequestBundle<IGoogleApiRequest, Event>(insertRequest, request)];
     }
 
-    public override List<IRequestBundle<IClientServiceRequest>> AcceptEvent(AcceptEventRequest request)
+    public override List<IRequestBundle<IGoogleApiRequest>> AcceptEvent(AcceptEventRequest request)
     {
         var calendarItem = request.Item;
         var calendar = calendarItem.AssignedCalendar;
@@ -2928,13 +2935,13 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         // Send updates to other attendees if there's a message
         patchRequest.SendUpdates = !string.IsNullOrEmpty(request.ResponseMessage)
-            ? Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All
-            : Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
+            ? global::Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All
+            : global::Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
 
-        return [new HttpRequestBundle<IClientServiceRequest>(patchRequest, request)];
+        return [new HttpRequestBundle<IGoogleApiRequest>(patchRequest, request)];
     }
 
-    public override List<IRequestBundle<IClientServiceRequest>> DeclineEvent(DeclineEventRequest request)
+    public override List<IRequestBundle<IGoogleApiRequest>> DeclineEvent(DeclineEventRequest request)
     {
         var calendarItem = request.Item;
         var calendar = calendarItem.AssignedCalendar;
@@ -2966,13 +2973,13 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         }, calendar.RemoteCalendarId, remoteEventId);
 
         patchRequest.SendUpdates = !string.IsNullOrEmpty(request.ResponseMessage)
-            ? Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All
-            : Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
+            ? global::Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All
+            : global::Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
 
-        return [new HttpRequestBundle<IClientServiceRequest>(patchRequest, request)];
+        return [new HttpRequestBundle<IGoogleApiRequest>(patchRequest, request)];
     }
 
-    public override List<IRequestBundle<IClientServiceRequest>> TentativeEvent(TentativeEventRequest request)
+    public override List<IRequestBundle<IGoogleApiRequest>> TentativeEvent(TentativeEventRequest request)
     {
         var calendarItem = request.Item;
         var calendar = calendarItem.AssignedCalendar;
@@ -3004,13 +3011,13 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         }, calendar.RemoteCalendarId, remoteEventId);
 
         patchRequest.SendUpdates = !string.IsNullOrEmpty(request.ResponseMessage)
-            ? Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All
-            : Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
+            ? global::Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All
+            : global::Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
 
-        return [new HttpRequestBundle<IClientServiceRequest>(patchRequest, request)];
+        return [new HttpRequestBundle<IGoogleApiRequest>(patchRequest, request)];
     }
 
-    public override List<IRequestBundle<IClientServiceRequest>> UpdateCalendarEvent(UpdateCalendarEventRequest request)
+    public override List<IRequestBundle<IGoogleApiRequest>> UpdateCalendarEvent(UpdateCalendarEventRequest request)
     {
         var calendarItem = request.Item;
         var attendees = request.Attendees;
@@ -3086,16 +3093,16 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         // Send notifications to attendees if the event has attendees
         updateRequest.SendUpdates = (attendees != null && attendees.Count > 0)
-            ? Google.Apis.Calendar.v3.EventsResource.UpdateRequest.SendUpdatesEnum.All
-            : Google.Apis.Calendar.v3.EventsResource.UpdateRequest.SendUpdatesEnum.None;
+            ? global::Google.Apis.Calendar.v3.EventsResource.UpdateRequest.SendUpdatesEnum.All
+            : global::Google.Apis.Calendar.v3.EventsResource.UpdateRequest.SendUpdatesEnum.None;
 
-        return [new HttpRequestBundle<IClientServiceRequest>(updateRequest, request)];
+        return [new HttpRequestBundle<IGoogleApiRequest>(updateRequest, request)];
     }
 
-    public override List<IRequestBundle<IClientServiceRequest>> ChangeStartAndEndDate(ChangeStartAndEndDateRequest request)
+    public override List<IRequestBundle<IGoogleApiRequest>> ChangeStartAndEndDate(ChangeStartAndEndDateRequest request)
         => UpdateCalendarEvent(request);
 
-    public override List<IRequestBundle<IClientServiceRequest>> DeleteCalendarEvent(DeleteCalendarEventRequest request)
+    public override List<IRequestBundle<IGoogleApiRequest>> DeleteCalendarEvent(DeleteCalendarEventRequest request)
     {
         var calendarItem = request.Item;
 
@@ -3115,9 +3122,9 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         var deleteRequest = _calendarService.Events.Delete(calendar.RemoteCalendarId, remoteEventId);
 
         // Send cancellation notifications to attendees
-        deleteRequest.SendUpdates = Google.Apis.Calendar.v3.EventsResource.DeleteRequest.SendUpdatesEnum.All;
+        deleteRequest.SendUpdates = global::Google.Apis.Calendar.v3.EventsResource.DeleteRequest.SendUpdatesEnum.All;
 
-        return [new HttpRequestBundle<IClientServiceRequest>(deleteRequest, request)];
+        return [new HttpRequestBundle<IGoogleApiRequest>(deleteRequest, request)];
     }
 
     #endregion
@@ -3161,7 +3168,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         }, request.AssignedCalendar.RemoteCalendarId, createdEvent.Id);
 
         patchRequest.SupportsAttachments = true;
-        patchRequest.SendUpdates = Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
+        patchRequest.SendUpdates = global::Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
 
         await patchRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -3186,7 +3193,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         var uploadProgress = await uploadRequest.UploadAsync(cancellationToken).ConfigureAwait(false);
 
-        if (uploadProgress.Status != UploadStatus.Completed)
+        if (uploadProgress.Status != GoogleUploadStatus.Completed)
         {
             throw new InvalidOperationException(
                 $"Failed to upload '{fileName}' to Google Drive. Upload status: {uploadProgress.Status}.");

@@ -129,11 +129,22 @@ public class MailCopy
     /// </summary>
     public string DraftId { get; set; }
 
+    public DraftSyncState DraftSyncState { get; set; }
+
+    public int DraftSyncAttemptCount { get; set; }
+
+    public DateTime? LastDraftSyncAttemptUtc { get; set; }
+
+    public string LastDraftSyncError { get; set; }
+
     /// <summary>
     /// Whether this mail is only created locally.
     /// </summary>
     [Ignore]
     public bool IsLocalDraft => !string.IsNullOrEmpty(DraftId) && DraftId.StartsWith(Constants.LocalDraftStartPrefix);
+
+    [Ignore]
+    public bool IsDraftSyncFailed => IsLocalDraft && DraftSyncState == DraftSyncState.SyncFailed;
 
     /// <summary>
     /// Whether this copy is draft or not.

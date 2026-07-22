@@ -15,7 +15,7 @@ public partial class MergedAccountMenuItem : MenuItemBase<MergedInbox, IMenuItem
     public IEnumerable<MailAccount> HoldingAccounts { get; }
 
     [ObservableProperty]
-    private int unreadItemCount;
+    public partial int UnreadItemCount { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsSynchronizationProgressVisible), nameof(IsProgressIndeterminate), nameof(SynchronizationProgress), nameof(SynchronizationProgressValue))]
@@ -50,10 +50,10 @@ public partial class MergedAccountMenuItem : MenuItemBase<MergedInbox, IMenuItem
     public bool IsProgressIndeterminate => IsSynchronizationInProgress && TotalItemsToSync <= 0;
 
     [ObservableProperty]
-    private string mergedAccountName;
+    public partial string MergedAccountName { get; set; }
 
     [ObservableProperty]
-    private bool _isEnabled = true;
+    public partial bool IsEnabled { get; set; } = true;
 
     public MergedAccountMenuItem(MergedInbox mergedInbox, IEnumerable<MailAccount> holdingAccounts, IMenuItem parent) : base(mergedInbox, mergedInbox.Id, parent)
     {

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -23,9 +22,12 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.Reader;
+using Wino.Editor;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Extensions;
+using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Messaging.Client.Mails;
@@ -43,9 +45,11 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     private bool _isPoppedOut;
     private bool _isInitialFocusHandled;
+    private bool _shouldApplyInitialFocus;
     private readonly Dictionary<TokenizingTextBox, List<AccountContact>> _recipientSuggestions = [];
 
     public bool SupportsPopOut => !_isPoppedOut;
+    public bool HasEditorKeyboardFocus => WebViewEditor.FocusState != FocusState.Unfocused;
     public event EventHandler<PopOutRequestedEventArgs>? PopOutRequested;
     public event EventHandler<PopoutHostActionRequestedEventArgs>? HostActionRequested;
 
@@ -62,6 +66,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
     public ComposePage()
     {
         InitializeComponent();
+        WebViewEditor.IsEditorDarkMode = WinoApplication.Current.UnderlyingThemeService.IsUnderlyingThemeDark();
         ViewModel.SaveHTMLasPDFFunc = async path =>
         {
             var webView = GetWebView();
@@ -115,19 +120,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
         comboBox.SelectedItem = null;
     }
 
-    private async void GlobalFocusManagerGotFocus(object? sender, FocusManagerGotFocusEventArgs e)
-    {
-        // In order to delegate cursor to the inner editor for WebView2.
-        // When the control got focus, we invoke script to focus the editor.
-        // This is not done on the WebView2 handlers, because somehow it is
-        // repeatedly focusing itself, even though when it has the focus already.
-
-        if (e.NewFocusedElement == WebViewEditor)
-        {
-            await WebViewEditor.FocusEditorAsync(true);
-        }
-    }
-
     private async void SubjectTextBoxPreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (e.Key != VirtualKey.Tab || IsShiftKeyDown())
@@ -144,34 +136,31 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     private IDisposable GetSuggestionBoxDisposable(TokenizingTextBox box)
     {
-        return Observable.FromEventPattern<TypedEventHandler<AutoSuggestBox, AutoSuggestBoxTextChangedEventArgs>, AutoSuggestBoxTextChangedEventArgs>(
-            x => box.TextChanged += x,
-            x => box.TextChanged -= x)
-                .Throttle(TimeSpan.FromMilliseconds(120))
-                .ObserveOn(SynchronizationContext.Current!)
-                .Subscribe(t =>
-                {
-                    if (t.EventArgs.Reason == AutoSuggestionBoxTextChangeReason.UserInput)
-                    {
-                        if (t.Sender is AutoSuggestBox senderBox && senderBox.Text.Length >= 2)
-                        {
-                            _ = ViewModel.ContactService.GetAddressInformationAsync(senderBox.Text).ContinueWith(x =>
-                            {
-                                _ = ViewModel.ExecuteUIThread(() =>
-                                {
-                                    var addresses = x.Result ?? [];
+        return new SuggestionBoxTextDebouncer(box, TimeSpan.FromMilliseconds(120), (senderBox, args) =>
+        {
+            if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput)
+            {
+                return;
+            }
 
-                                    _recipientSuggestions[box] = addresses;
-                                    senderBox.ItemsSource = addresses;
-                                });
-                            });
-                        }
-                        else
-                        {
-                            _recipientSuggestions[box] = [];
-                        }
-                    }
+            if (senderBox.Text.Length >= 2)
+            {
+                _ = ViewModel.ContactService.GetAddressInformationAsync(senderBox.Text).ContinueWith(task =>
+                {
+                    _ = ViewModel.ExecuteUIThread(() =>
+                    {
+                        var addresses = task.Result ?? [];
+
+                        _recipientSuggestions[box] = addresses;
+                        senderBox.ItemsSource = addresses;
+                    });
                 });
+            }
+            else
+            {
+                _recipientSuggestions[box] = [];
+            }
+        });
     }
 
     private void OnComposeGridDragOver(object sender, DragEventArgs e)
@@ -278,7 +267,8 @@ public sealed partial class ComposePage : ComposePageAbstract,
                     }
                 }
 
-                await WebViewEditor.InsertImagesAsync(imagesInformation);
+                await WebViewEditor.InsertImagesAsync(
+                    imagesInformation.Select(image => new EditorImageInfo(image.Data, image.Name)));
             }
         }
         // State should be reset even when an exception occurs, otherwise the UI will be stuck in a dragging state.
@@ -325,7 +315,8 @@ public sealed partial class ComposePage : ComposePageAbstract,
     {
         base.OnNavigatedTo(e);
 
-        // FocusManager.GotFocus += GlobalFocusManagerGotFocus;
+        _shouldApplyInitialFocus = ConsumeInitialFocusRequest(e.Parameter as MailItemViewModel);
+        _isInitialFocusHandled = false;
 
         var webView = GetWebView();
 
@@ -450,7 +441,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
     {
         if (draftMailItemViewModel == null || !draftMailItemViewModel.IsDraft) return;
 
-        // Reset the initial focus flag for the newly loaded draft.
+        _shouldApplyInitialFocus = ConsumeInitialFocusRequest(draftMailItemViewModel);
         _isInitialFocusHandled = false;
         await ViewModel.RefreshDraftAsync(draftMailItemViewModel);
         await ApplyInitialFocusAsync();
@@ -538,7 +529,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
     {
         base.OnNavigatingFrom(e);
 
-        FocusManager.GotFocus -= GlobalFocusManagerGotFocus;
         ComposeAiActionsPanel.CancelPendingOperation();
         await ViewModel.UpdateMimeChangesAsync();
         ViewModel.SaveHTMLasPDFFunc = null;
@@ -649,7 +639,18 @@ public sealed partial class ComposePage : ComposePageAbstract,
     }
 
     private bool ShouldFocusRecipients()
-        => !ShouldFocusEditor();
+        => _shouldApplyInitialFocus && !ShouldFocusEditor();
+
+    private static bool ConsumeInitialFocusRequest(MailItemViewModel? draft)
+    {
+        if (draft is not { ShouldFocusComposerOnOpen: true })
+        {
+            return false;
+        }
+
+        draft.ShouldFocusComposerOnOpen = false;
+        return true;
+    }
 
     private bool ShouldFocusEditor()
     {
@@ -670,8 +671,9 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     private async Task ApplyInitialFocusAsync()
     {
-        if (_isInitialFocusHandled)
+        if (_isInitialFocusHandled || !_shouldApplyInitialFocus)
         {
+            _isInitialFocusHandled = true;
             return;
         }
 
@@ -692,7 +694,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
             {
                 ToBox.Focus(FocusState.Programmatic);
 
-                if (FocusManager.GetFocusedElement() == ToBox)
+                if (ReferenceEquals(FocusManager.GetFocusedElement(), ToBox))
                 {
                     return;
                 }
@@ -704,6 +706,9 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     private async Task RenderComposeHtmlAsync(string html)
     {
+        await WebViewEditor.SetDefaultTypographyAsync(
+            ViewModel.PreferencesService.ComposerFont,
+            ViewModel.PreferencesService.ComposerFontSize);
         await WebViewEditor.RenderHtmlAsync(html);
         await ApplyInitialFocusAsync();
     }

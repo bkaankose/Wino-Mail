@@ -158,7 +158,9 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
 
             if (Account.ProviderType == MailProviderType.Outlook)
             {
-                await _winoRequestDelegator.ExecuteAsync(Account.Id, [new MailCategoryCreateRequest(newCategory)]).ConfigureAwait(false);
+                await _winoRequestDelegator.ExecuteAsync(
+                    Account.Id,
+                    new IRequestBase[] { new MailCategoryCreateRequest(newCategory) }).ConfigureAwait(false);
             }
         }
         else
@@ -176,13 +178,17 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
             {
                 if (string.IsNullOrWhiteSpace(previousRemoteId))
                 {
-                    await _winoRequestDelegator.ExecuteAsync(Account.Id, [new MailCategoryCreateRequest(existingCategory)]).ConfigureAwait(false);
+                    await _winoRequestDelegator.ExecuteAsync(
+                        Account.Id,
+                        new IRequestBase[] { new MailCategoryCreateRequest(existingCategory) }).ConfigureAwait(false);
                 }
                 else
                 {
                     var affectedMessages = await BuildAffectedMessageTargetsAsync(existingCategory.Id).ConfigureAwait(false);
                     var updateRequest = new MailCategoryUpdateRequest(existingCategory, previousName, previousRemoteId, affectedMessages);
-                    await _winoRequestDelegator.ExecuteAsync(Account.Id, [updateRequest]).ConfigureAwait(false);
+                    await _winoRequestDelegator.ExecuteAsync(
+                        Account.Id,
+                        new IRequestBase[] { updateRequest }).ConfigureAwait(false);
                 }
             }
         }

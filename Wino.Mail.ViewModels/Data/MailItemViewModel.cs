@@ -9,12 +9,21 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+#if WINRT_EXPOSED
+using WinRT;
+#endif
 
 namespace Wino.Mail.ViewModels.Data;
 
 /// <summary>
 /// Single view model for IMailItem representation.
 /// </summary>
+#if WINRT_EXPOSED
+[GeneratedWinRTExposedType]
+[GeneratedBindableCustomProperty(
+    new string[] { nameof(IsSelected), nameof(IsBusy) },
+    new Type[] { })]
+#endif
 public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMailItemDisplayInformation
 {
     private bool isSyncingCategories;
@@ -35,6 +44,10 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
     [NotifyPropertyChangedFor(nameof(IsFocused))]
     [NotifyPropertyChangedFor(nameof(IsRead))]
     [NotifyPropertyChangedFor(nameof(IsDraft))]
+    [NotifyPropertyChangedFor(nameof(IsLocalDraft))]
+    [NotifyPropertyChangedFor(nameof(IsDraftSyncFailed))]
+    [NotifyPropertyChangedFor(nameof(ShouldShowDraftSyncWarning))]
+    [NotifyPropertyChangedFor(nameof(DraftSyncTooltip))]
     [NotifyPropertyChangedFor(nameof(DraftId))]
     [NotifyPropertyChangedFor(nameof(Id))]
     [NotifyPropertyChangedFor(nameof(Subject))]
@@ -69,6 +82,12 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
     /// </summary>
     [ObservableProperty]
     public partial bool IsBusy { get; set; }
+
+    /// <summary>
+    /// One-shot navigation hint used only when this draft was just created by a compose action.
+    /// Existing drafts opened from the mail list leave keyboard focus in the list.
+    /// </summary>
+    public bool ShouldFocusComposerOnOpen { get; set; }
 
     public bool IsThreadExpanded => false;
 
@@ -118,6 +137,18 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
         get => MailCopy.IsDraft;
         set => SetProperty(MailCopy.IsDraft, value, MailCopy, (u, n) => u.IsDraft = n);
     }
+
+    public bool IsLocalDraft => MailCopy.IsLocalDraft;
+
+    public DraftSyncState DraftSyncState => MailCopy.DraftSyncState;
+
+    public bool IsDraftSyncFailed => MailCopy.IsDraftSyncFailed;
+
+    public bool ShouldShowDraftSyncWarning => IsLocalDraft && DraftSyncState != Wino.Core.Domain.Enums.DraftSyncState.Synced;
+
+    public string DraftSyncTooltip => IsDraftSyncFailed
+        ? Translator.Draft_SyncFailedTooltip
+        : Translator.Draft_NotSyncedTooltip;
 
     public bool HasReadReceiptTracking => MailCopy.IsReadReceiptRequested;
 
@@ -285,7 +316,7 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
 
     public string SortingName => FromName;
 
-    public IEnumerable<Guid> GetContainingIds() => [MailCopy.UniqueId];
+    public IEnumerable<Guid> GetContainingIds() => new[] { MailCopy.UniqueId };
 
     public IEnumerable<MailItemViewModel> GetSelectedMailItems()
     {
@@ -308,6 +339,7 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
             nameof(IsDraft) => MailCopyChangeFlags.IsDraft,
             nameof(HasReadReceiptTracking) or nameof(IsReadReceiptAcknowledged) or nameof(ReadReceiptDisplayText) => MailCopyChangeFlags.ReadReceiptState,
             nameof(DraftId) => MailCopyChangeFlags.DraftId,
+            nameof(DraftSyncState) or nameof(IsLocalDraft) or nameof(IsDraftSyncFailed) or nameof(ShouldShowDraftSyncWarning) or nameof(DraftSyncTooltip) => MailCopyChangeFlags.DraftSyncState,
             nameof(Id) => MailCopyChangeFlags.Id,
             nameof(Subject) => MailCopyChangeFlags.Subject,
             nameof(PreviewText) => MailCopyChangeFlags.PreviewText,
@@ -354,6 +386,10 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
             changedFlags |= SetIfChanged(MailCopy.InReplyTo, source.InReplyTo, value => MailCopy.InReplyTo = value, MailCopyChangeFlags.InReplyTo);
             changedFlags |= SetIfChanged(MailCopy.IsDraft, source.IsDraft, value => MailCopy.IsDraft = value, MailCopyChangeFlags.IsDraft);
             changedFlags |= SetIfChanged(MailCopy.DraftId, source.DraftId, value => MailCopy.DraftId = value, MailCopyChangeFlags.DraftId);
+            changedFlags |= SetIfChanged(MailCopy.DraftSyncState, source.DraftSyncState, value => MailCopy.DraftSyncState = value, MailCopyChangeFlags.DraftSyncState);
+            changedFlags |= SetIfChanged(MailCopy.DraftSyncAttemptCount, source.DraftSyncAttemptCount, value => MailCopy.DraftSyncAttemptCount = value, MailCopyChangeFlags.DraftSyncState);
+            changedFlags |= SetIfChanged(MailCopy.LastDraftSyncAttemptUtc, source.LastDraftSyncAttemptUtc, value => MailCopy.LastDraftSyncAttemptUtc = value, MailCopyChangeFlags.DraftSyncState);
+            changedFlags |= SetIfChanged(MailCopy.LastDraftSyncError, source.LastDraftSyncError, value => MailCopy.LastDraftSyncError = value, MailCopyChangeFlags.DraftSyncState);
             changedFlags |= SetIfChanged(MailCopy.CreationDate, source.CreationDate, value => MailCopy.CreationDate = value, MailCopyChangeFlags.CreationDate);
             changedFlags |= SetIfChanged(MailCopy.Subject, source.Subject, value => MailCopy.Subject = value, MailCopyChangeFlags.Subject);
             changedFlags |= SetIfChanged(MailCopy.PreviewText, source.PreviewText, value => MailCopy.PreviewText = value, MailCopyChangeFlags.PreviewText);
@@ -501,7 +537,21 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
         }
 
         if ((changedFlags & MailCopyChangeFlags.DraftId) != 0)
+        {
             Queue(nameof(DraftId));
+            Queue(nameof(IsLocalDraft));
+            Queue(nameof(IsDraftSyncFailed));
+            Queue(nameof(ShouldShowDraftSyncWarning));
+            Queue(nameof(DraftSyncTooltip));
+        }
+
+        if ((changedFlags & MailCopyChangeFlags.DraftSyncState) != 0)
+        {
+            Queue(nameof(DraftSyncState));
+            Queue(nameof(IsDraftSyncFailed));
+            Queue(nameof(ShouldShowDraftSyncWarning));
+            Queue(nameof(DraftSyncTooltip));
+        }
 
         if ((changedFlags & MailCopyChangeFlags.Id) != 0)
             Queue(nameof(Id));

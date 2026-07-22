@@ -40,7 +40,7 @@ public partial class MergedAccountFolderMenuItem : MenuItemBase<List<IMailItemFo
     public new IEnumerable<IMenuItem> SubMenuItems => base.SubMenuItems;
 
     [ObservableProperty]
-    private int unreadItemCount;
+    public partial int UnreadItemCount { get; set; }
 
     // Merged account's shared folder menu item does not have an entity id.
     // Navigations to specific folders are done by explicit folder id if needed.

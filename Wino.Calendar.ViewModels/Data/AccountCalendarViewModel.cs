@@ -4,9 +4,15 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+#if WINRT_EXPOSED
+using WinRT;
+#endif
 
 namespace Wino.Calendar.ViewModels.Data;
 
+#if WINRT_EXPOSED
+[GeneratedWinRTExposedType]
+#endif
 public partial class AccountCalendarViewModel : ObservableObject, IAccountCalendar
 {
     public MailAccount Account { get; }
@@ -21,7 +27,7 @@ public partial class AccountCalendarViewModel : ObservableObject, IAccountCalend
     }
 
     [ObservableProperty]
-    private bool _isChecked;
+    public partial bool IsChecked { get; set; }
 
     partial void OnIsCheckedChanged(bool value) => IsExtended = value;
 

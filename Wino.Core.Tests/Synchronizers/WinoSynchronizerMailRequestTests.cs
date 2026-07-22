@@ -82,6 +82,50 @@ public sealed class WinoSynchronizerMailRequestTests
         synchronizer.ExecuteNativeRequestsInvocationCount.Should().Be(1);
     }
 
+    [Fact]
+    public async Task ExecuteRequests_should_create_a_native_bundle_for_each_local_draft()
+    {
+        var synchronizer = new TestMailSynchronizer();
+        var draftFolder = new MailItemFolder
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = synchronizer.Account.Id,
+            RemoteFolderId = "drafts"
+        };
+
+        synchronizer.QueueRequest(CreateDraftRequest());
+        synchronizer.QueueRequest(CreateDraftRequest());
+
+        var result = await synchronizer.SynchronizeMailsAsync(new MailSynchronizationOptions
+        {
+            AccountId = synchronizer.Account.Id,
+            Type = MailSynchronizationType.ExecuteRequests
+        });
+
+        result.CompletedState.Should().Be(SynchronizationCompletedState.Success);
+        synchronizer.CreateDraftInvocationCount.Should().Be(2);
+        synchronizer.LastNativeRequestCount.Should().Be(2);
+
+        CreateDraftRequest CreateDraftRequest()
+        {
+            var copy = new MailCopy
+            {
+                UniqueId = Guid.NewGuid(),
+                Id = Guid.NewGuid().ToString(),
+                FolderId = draftFolder.Id,
+                DraftId = $"localDraft_{Guid.NewGuid()}",
+                AssignedFolder = draftFolder,
+                AssignedAccount = synchronizer.Account
+            };
+
+            return new CreateDraftRequest(new DraftPreparationRequest(
+                synchronizer.Account,
+                copy,
+                string.Empty,
+                DraftCreationReason.Empty));
+        }
+    }
+
     private sealed class TestMailSynchronizer
         : WinoSynchronizer<object, object, object>
     {
@@ -96,6 +140,8 @@ public sealed class WinoSynchronizerMailRequestTests
         public int MarkReadInvocationCount { get; private set; }
         public int LastMarkReadBatchCount { get; private set; }
         public int ExecuteNativeRequestsInvocationCount { get; private set; }
+        public int CreateDraftInvocationCount { get; private set; }
+        public int LastNativeRequestCount { get; private set; }
 
         public override List<IRequestBundle<object>> CreateRootFolder(CreateRootFolderRequest request)
         {
@@ -110,9 +156,16 @@ public sealed class WinoSynchronizerMailRequestTests
             return [new TestRequestBundle(new object(), request[0])];
         }
 
+        public override List<IRequestBundle<object>> CreateDraft(CreateDraftRequest request)
+        {
+            CreateDraftInvocationCount++;
+            return [new TestRequestBundle(new object(), request)];
+        }
+
         public override Task ExecuteNativeRequestsAsync(List<IRequestBundle<object>> batchedRequests, CancellationToken cancellationToken = default)
         {
             ExecuteNativeRequestsInvocationCount++;
+            LastNativeRequestCount = batchedRequests.Count;
             return Task.CompletedTask;
         }
 

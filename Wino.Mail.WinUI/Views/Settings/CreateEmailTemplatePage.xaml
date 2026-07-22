@@ -6,6 +6,7 @@
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
+    xmlns:editor="using:Wino.Editor"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:mailControls="using:Wino.Mail.Controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -53,7 +54,10 @@
                 BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 CornerRadius="7">
-                <mailControls:WebViewEditorControl x:Name="WebViewEditor" />
+                <editor:WinoMailEditor
+                    x:Name="WebViewEditor"
+                    AutomationProperties.AutomationId="TemplateMailEditor"
+                    IsEditorWebViewEditor="False" />
             </Border>
         </StackPanel>
 

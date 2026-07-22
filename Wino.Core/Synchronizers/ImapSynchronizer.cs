@@ -263,8 +263,29 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             var remoteDraftFolder = await client.GetFolderAsync(request.DraftPreperationRequest.CreatedLocalDraftCopy.AssignedFolder.RemoteFolderId).ConfigureAwait(false);
 
             await remoteDraftFolder.OpenAsync(FolderAccess.ReadWrite).ConfigureAwait(false);
-            await remoteDraftFolder.AppendAsync(request.DraftPreperationRequest.CreatedLocalDraftMimeMessage, MessageFlags.Draft).ConfigureAwait(false);
-            await remoteDraftFolder.CloseAsync().ConfigureAwait(false);
+            try
+            {
+                var appendedUid = await remoteDraftFolder
+                    .AppendAsync(request.DraftPreperationRequest.CreatedLocalDraftMimeMessage, MessageFlags.Draft)
+                    .ConfigureAwait(false);
+
+                if (appendedUid.HasValue)
+                {
+                    var localDraft = request.DraftPreperationRequest.CreatedLocalDraftCopy;
+                    await _imapChangeProcessor.MapLocalDraftAsync(
+                        Account.Id,
+                        localDraft.UniqueId,
+                        MailkitClientExtensions.CreateUid(localDraft.AssignedFolder.Id, appendedUid.Value.Id),
+                        localDraft.UniqueId.ToString(),
+                        localDraft.ThreadId,
+                        appendedUid.Value.Id,
+                        remoteDraftFolder.UidValidity).ConfigureAwait(false);
+                }
+            }
+            finally
+            {
+                await remoteDraftFolder.CloseAsync().ConfigureAwait(false);
+            }
         }, request, request);
     }
 
@@ -541,6 +562,14 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             bool isMappingSuccessful = await _imapChangeProcessor.MapLocalDraftAsync(Account.Id, localDraftCopyUniqueId, mailCopy.Id, draftHeaderValue, mailCopy.ThreadId);
 
             if (isMappingSuccessful) return null;
+
+            if (await _imapChangeProcessor.IsMailExistsInFolderAsync(mailCopy.Id, assignedFolder.Id).ConfigureAwait(false) ||
+                await _imapChangeProcessor.IsMailExistsAsync(Account.Id, localDraftCopyUniqueId).ConfigureAwait(false))
+            {
+                _logger.Debug("Skipping duplicate remote draft {RemoteId} for local draft {LocalId}",
+                    mailCopy.Id, localDraftCopyUniqueId);
+                return null;
+            }
 
             // Local copy doesn't exists. Continue execution to insert mail copy.
         }
@@ -861,6 +890,13 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             }
             catch (Exception ex)
             {
+                if (item.Request is CreateDraftRequest createDraftRequest)
+                {
+                    await _imapChangeProcessor
+                        .MarkDraftSyncFailedAsync(createDraftRequest.Item.UniqueId, ex.Message)
+                        .ConfigureAwait(false);
+                }
+
                 var errorContext = new SynchronizerErrorContext
                 {
                     Account = Account,
@@ -910,6 +946,9 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         var mode = Account.ServerInformation?.CalendarSupportMode ?? ImapCalendarSupportMode.Disabled;
         return mode != ImapCalendarSupportMode.LocalOnly;
     }
+
+    protected override Task MarkDraftSyncFailedAsync(Guid mailUniqueId, string error)
+        => _imapChangeProcessor.MarkDraftSyncFailedAsync(mailUniqueId, error);
 
     /// <summary>
     /// Assigns special folder type for the given local folder.

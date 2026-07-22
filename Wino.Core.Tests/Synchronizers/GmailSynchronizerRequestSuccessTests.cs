@@ -3,7 +3,6 @@ using System.Net;
 using System.Net.Http;
 using System.Reflection;
 using FluentAssertions;
-using Google.Apis.Requests;
 using Moq;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Exceptions;
@@ -12,6 +11,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Integration.Processors;
+using Wino.Core.Google;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Mail;
 using Wino.Core.Synchronizers.Mail;
@@ -91,7 +91,7 @@ public sealed class GmailSynchronizerRequestSuccessTests
             new MarkReadRequest(CreateMailCopy("mail-1"), IsRead: true),
             new MarkReadRequest(CreateMailCopy("mail-2"), IsRead: true)
         ]);
-        var bundle = new HttpRequestBundle<IClientServiceRequest>(Mock.Of<IClientServiceRequest>(), request);
+        var bundle = new HttpRequestBundle<IGoogleApiRequest>(Mock.Of<IGoogleApiRequest>(), request);
         using var response = new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(string.Empty)
@@ -123,7 +123,7 @@ public sealed class GmailSynchronizerRequestSuccessTests
             new ChangeFlagRequest(CreateMailCopy("mail-1"), IsFlagged: true),
             new ChangeFlagRequest(CreateMailCopy("mail-2"), IsFlagged: true)
         ]);
-        var bundle = new HttpRequestBundle<IClientServiceRequest>(Mock.Of<IClientServiceRequest>(), request);
+        var bundle = new HttpRequestBundle<IGoogleApiRequest>(Mock.Of<IGoogleApiRequest>(), request);
         using var response = new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(string.Empty)
@@ -152,12 +152,12 @@ public sealed class GmailSynchronizerRequestSuccessTests
         [
             new MarkReadRequest(CreateMailCopy("mail-1"), IsRead: true)
         ]);
-        var bundle = new HttpRequestBundle<IClientServiceRequest>(Mock.Of<IClientServiceRequest>(), request);
+        var bundle = new HttpRequestBundle<IGoogleApiRequest>(Mock.Of<IGoogleApiRequest>(), request);
         using var response = new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(string.Empty)
         };
-        var error = new RequestError
+        var error = new GoogleRequestError
         {
             Code = 429,
             Message = "rate limit"
@@ -186,12 +186,12 @@ public sealed class GmailSynchronizerRequestSuccessTests
         request.ApplyUIChanges();
 
         var synchronizer = CreateSynchronizer(changeProcessor.Object, errorFactory.Object);
-        var bundle = new HttpRequestBundle<IClientServiceRequest>(Mock.Of<IClientServiceRequest>(), request);
+        var bundle = new HttpRequestBundle<IGoogleApiRequest>(Mock.Of<IGoogleApiRequest>(), request);
         using var response = new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(string.Empty)
         };
-        var error = new RequestError
+        var error = new GoogleRequestError
         {
             Code = 429,
             Message = "rate limit"
@@ -218,12 +218,12 @@ public sealed class GmailSynchronizerRequestSuccessTests
 
         var synchronizer = CreateSynchronizer(changeProcessor.Object, errorFactory.Object);
         var request = new DeleteRequest(CreateMailCopy("mail-1"));
-        var bundle = new HttpRequestBundle<IClientServiceRequest>(Mock.Of<IClientServiceRequest>(), request, request);
+        var bundle = new HttpRequestBundle<IGoogleApiRequest>(Mock.Of<IGoogleApiRequest>(), request, request);
         using var response = new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(string.Empty)
         };
-        var error = new RequestError
+        var error = new GoogleRequestError
         {
             Code = 404,
             Message = "Not Found"
@@ -250,12 +250,12 @@ public sealed class GmailSynchronizerRequestSuccessTests
 
         var synchronizer = CreateSynchronizer(changeProcessor.Object, errorFactory.Object);
         var request = new DeleteRequest(CreateMailCopy("mail-1"));
-        var bundle = new HttpRequestBundle<IClientServiceRequest>(Mock.Of<IClientServiceRequest>(), request, request);
+        var bundle = new HttpRequestBundle<IGoogleApiRequest>(Mock.Of<IGoogleApiRequest>(), request, request);
         using var response = new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(string.Empty)
         };
-        var error = new RequestError
+        var error = new GoogleRequestError
         {
             Code = 404,
             Message = "Requested entity was not found."
@@ -298,9 +298,9 @@ public sealed class GmailSynchronizerRequestSuccessTests
 
     private static async Task InvokeProcessSingleNativeRequestResponseAsync(
         GmailSynchronizer synchronizer,
-        HttpRequestBundle<IClientServiceRequest> bundle,
+        HttpRequestBundle<IGoogleApiRequest> bundle,
         HttpResponseMessage response,
-        RequestError? error = null)
+        GoogleRequestError? error = null)
     {
         var method = typeof(GmailSynchronizer).GetMethod(
             "ProcessSingleNativeRequestResponseAsync",

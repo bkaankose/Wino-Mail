@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Services;
@@ -22,29 +23,29 @@ public class MailAuthenticatorConfiguration : IAuthenticatorConfig
 
         if (isMailAccessGranted)
         {
-            scopes.AddRange(
-            [
+            scopes.AddRange(new[]
+            {
                 "mail.readwrite",
                 "mail.send",
                 "Mail.Send.Shared",
                 "Mail.ReadWrite.Shared",
                 "MailboxSettings.ReadWrite"
-            ]);
+            });
         }
 
         if (isCalendarAccessGranted)
         {
-            scopes.AddRange(
-            [
+            scopes.AddRange(new[]
+            {
                 "Calendars.ReadBasic",
                 "Calendars.ReadWrite",
                 "Calendars.ReadWrite.Shared",
                 "Calendars.Read",
                 "Calendars.Read.Shared"
-            ]);
+            });
         }
 
-        return [.. scopes];
+        return scopes.ToArray();
     }
 
     public string[] GetGmailScope(bool isMailAccessGranted, bool isCalendarAccessGranted)
@@ -57,24 +58,24 @@ public class MailAuthenticatorConfiguration : IAuthenticatorConfig
 
         if (isMailAccessGranted)
         {
-            scopes.AddRange(
-            [
+            scopes.AddRange(new[]
+            {
                 "https://mail.google.com/",
                 "https://www.googleapis.com/auth/gmail.labels"
-            ]);
+            });
         }
 
         if (isCalendarAccessGranted)
         {
-            scopes.AddRange(
-            [
+            scopes.AddRange(new[]
+            {
                 "https://www.googleapis.com/auth/calendar",
                 "https://www.googleapis.com/auth/calendar.events",
                 "https://www.googleapis.com/auth/calendar.settings.readonly",
                 "https://www.googleapis.com/auth/drive.file"
-            ]);
+            });
         }
 
-        return [.. scopes];
+        return scopes.ToArray();
     }
 }

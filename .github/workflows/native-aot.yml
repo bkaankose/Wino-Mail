@@ -1,0 +1,77 @@
+name: Native AOT Compatibility
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  native-aot:
+    name: Publish x64 and run SQLite AOT smoke test
+    runs-on: windows-latest
+    env:
+      NUGET_CONFIG_PATH: ${{ github.workspace }}\nuget.config
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.301
+        env:
+          NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Restore x64 Native AOT projects
+        shell: pwsh
+        run: |
+          dotnet restore Wino.Mail.WinUI/Wino.Mail.WinUI.csproj `
+            --configfile $env:NUGET_CONFIG_PATH `
+            -r win-x64 `
+            -p:Platform=x64 `
+            -p:Configuration=Release `
+            -p:UseNativeAot=true
+          if ($LASTEXITCODE -ne 0) { throw 'WinUI restore failed.' }
+
+          dotnet restore Wino.Services.AotSmoke/Wino.Services.AotSmoke.csproj `
+            --configfile $env:NUGET_CONFIG_PATH `
+            -r win-x64 `
+            -p:Platform=x64
+          if ($LASTEXITCODE -ne 0) { throw 'SQLite smoke harness restore failed.' }
+
+      - name: Publish warning-clean Native AOT WinUI application
+        shell: pwsh
+        run: |
+          dotnet publish Wino.Mail.WinUI/Wino.Mail.WinUI.csproj `
+            --configuration Release `
+            --no-restore `
+            -r win-x64 `
+            /m:1 `
+            /p:Platform=x64 `
+            /p:EnableMsixTooling=false `
+            /p:GenerateAppxPackageOnBuild=false `
+            /p:AppxPackageSigningEnabled=false `
+            /p:TreatWarningsAsErrors=true `
+            /p:TrimmerSingleWarn=false
+          if ($LASTEXITCODE -ne 0) { throw 'WinUI Native AOT publish failed.' }
+
+          $nativeExecutable = Get-ChildItem Wino.Mail.WinUI/bin/Release -Recurse -Filter Wino.Mail.WinUI.exe | Select-Object -First 1
+          if (-not $nativeExecutable) { throw 'WinUI Native AOT executable was not generated.' }
+
+      - name: Publish and run SQLite Native AOT smoke harness
+        shell: pwsh
+        run: |
+          dotnet publish Wino.Services.AotSmoke/Wino.Services.AotSmoke.csproj `
+            --configuration Release `
+            --no-restore `
+            -r win-x64 `
+            /p:Platform=x64 `
+            /p:TreatWarningsAsErrors=true `
+            /p:TrimmerSingleWarn=false
+          if ($LASTEXITCODE -ne 0) { throw 'SQLite Native AOT publish failed.' }
+
+          & Wino.Services.AotSmoke/bin/x64/Release/net10.0/win-x64/publish/Wino.Services.AotSmoke.exe
+          if ($LASTEXITCODE -ne 0) { throw 'SQLite Native AOT smoke test failed.' }

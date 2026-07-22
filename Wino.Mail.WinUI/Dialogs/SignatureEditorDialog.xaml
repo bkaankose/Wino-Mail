@@ -9,6 +9,7 @@
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
+    xmlns:editor="using:Wino.Editor"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     Title="{x:Bind domain:Translator.SignatureEditorDialog_Title}"
@@ -55,8 +56,10 @@
                 BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 CornerRadius="6">
-                <controls2:WebViewEditorControl
+                <editor:WinoMailEditor
                     x:Name="WebViewEditor"
+                    AutomationProperties.AutomationId="SignatureMailEditor"
+                    IsEditorWebViewEditor="False"
                     IsPasteOptionsEnabled="True" />
             </Border>
         </Grid>

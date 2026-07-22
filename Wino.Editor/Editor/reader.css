@@ -1,0 +1,9 @@
+:root { color-scheme: light dark; --wino-font-family: "Segoe UI"; --wino-font-size: 15px; }
+html, body { box-sizing: border-box; min-height: 100%; margin: 0; background: transparent; }
+body { padding: 0; color: CanvasText; background: Canvas; font-family: var(--wino-font-family); font-size: var(--wino-font-size); overflow-wrap: anywhere; }
+:root[data-theme="light"] body { color: #1b1b1b; background: #ffffff; }
+:root[data-theme="dark"] body { color: #f3f3f3; background: #202020; }
+#wino-reader { min-height: 100%; font-family: var(--wino-font-family); font-size: var(--wino-font-size); outline: none; }
+img { max-width: 100%; height: auto; }
+table { max-width: 100%; }
+pre { white-space: pre-wrap; }

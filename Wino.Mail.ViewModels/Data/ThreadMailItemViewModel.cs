@@ -9,12 +9,21 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+#if WINRT_EXPOSED
+using WinRT;
+#endif
 
 namespace Wino.Mail.ViewModels.Data;
 
 /// <summary>
 /// Thread mail item (multiple IMailItem) view model representation.
 /// </summary>
+#if WINRT_EXPOSED
+[GeneratedWinRTExposedType]
+[GeneratedBindableCustomProperty(
+    new string[] { nameof(IsSelected), nameof(IsThreadExpanded), nameof(IsSelectedOrExpanded), nameof(IsBusy) },
+    new Type[] { })]
+#endif
 public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListItem, IMailItemDisplayInformation
 {
     private readonly string _threadId;
@@ -123,6 +132,16 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     /// Gets whether any email in this thread is a draft
     /// </summary>
     public bool IsDraft => ThreadEmails.Any(e => e.IsDraft);
+
+    public bool IsLocalDraft => ThreadEmails.Any(e => e.IsLocalDraft);
+
+    public bool IsDraftSyncFailed => ThreadEmails.Any(e => e.IsDraftSyncFailed);
+
+    public bool ShouldShowDraftSyncWarning => ThreadEmails.Any(e => e.ShouldShowDraftSyncWarning);
+
+    public string DraftSyncTooltip => IsDraftSyncFailed
+        ? Translator.Draft_SyncFailedTooltip
+        : Translator.Draft_NotSyncedTooltip;
 
     /// <summary>
     /// Gets the draft ID from the latest email if it's a draft
@@ -402,6 +421,10 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
                 Queue(nameof(PreviewText));
                 Queue(nameof(IsFocused));
                 Queue(nameof(DraftId));
+                Queue(nameof(IsLocalDraft));
+                Queue(nameof(IsDraftSyncFailed));
+                Queue(nameof(ShouldShowDraftSyncWarning));
+                Queue(nameof(DraftSyncTooltip));
                 Queue(nameof(Id));
                 Queue(nameof(Importance));
                 Queue(nameof(ThreadId));
@@ -444,7 +467,17 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
                     Queue(nameof(IsFocused));
 
                 if ((changedFlags & MailCopyChangeFlags.DraftId) != 0)
+                {
                     Queue(nameof(DraftId));
+                    Queue(nameof(IsLocalDraft));
+                }
+
+                if ((changedFlags & MailCopyChangeFlags.DraftSyncState) != 0)
+                {
+                    Queue(nameof(IsDraftSyncFailed));
+                    Queue(nameof(ShouldShowDraftSyncWarning));
+                    Queue(nameof(DraftSyncTooltip));
+                }
 
                 if ((changedFlags & MailCopyChangeFlags.Id) != 0)
                     Queue(nameof(Id));
@@ -511,6 +544,14 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
 
         if ((changedFlags & MailCopyChangeFlags.IsDraft) != 0 || changedFlags == MailCopyChangeFlags.All)
             Queue(nameof(IsDraft));
+
+        if ((changedFlags & MailCopyChangeFlags.DraftSyncState) != 0 || changedFlags == MailCopyChangeFlags.All)
+        {
+            Queue(nameof(IsLocalDraft));
+            Queue(nameof(IsDraftSyncFailed));
+            Queue(nameof(ShouldShowDraftSyncWarning));
+            Queue(nameof(DraftSyncTooltip));
+        }
 
         if ((changedFlags & MailCopyChangeFlags.Categories) != 0 || changedFlags == MailCopyChangeFlags.All)
         {

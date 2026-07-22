@@ -62,6 +62,14 @@ public interface IMailService
     /// <returns>True if mapping is done. False if local copy doesn't exists.</returns>
     Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId);
 
+    Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId, uint imapUid, uint imapUidValidity);
+
+    Task MarkDraftSyncFailedAsync(Guid mailUniqueId, string error);
+
+    Task MarkDraftSyncAttemptAsync(Guid mailUniqueId);
+
+    Task<List<MailCopy>> GetUnsyncedLocalDraftsAsync(Guid accountId);
+
     /// <summary>
     /// Maps new mail item with the existing local draft copy.
     /// </summary>
@@ -98,6 +106,8 @@ public interface IMailService
     /// </summary>
     /// <param name="mailCopyId">Native mail id of the message.</param>
     Task<bool> IsMailExistsAsync(string mailCopyId);
+
+    Task<bool> IsMailExistsAsync(Guid accountId, Guid mailUniqueId);
 
     /// <summary>
     /// Checks whether the given mail copy ids exists in the database.

@@ -25,7 +25,8 @@ public interface ISynchronizationManager
                         INotificationBuilder notificationBuilder,
                         IAuthenticationProvider authenticationProvider,
                         IWinoTelemetryService telemetryService,
-                        IPreferencesService preferencesService);
+                        IPreferencesService preferencesService,
+                        IDraftSyncRetryService draftSyncRetryService);
 
     /// <summary>
     /// Tests IMAP server connectivity for the given server information.

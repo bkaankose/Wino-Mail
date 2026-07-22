@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
-using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -17,7 +16,7 @@ using Wino.Services;
 
 namespace Wino.Mail.WinUI.Services;
 
-public class PreferencesService(IConfigurationService configurationService) : ObservableObject, IPreferencesService
+public partial class PreferencesService(IConfigurationService configurationService) : ObservableObject, IPreferencesService
 {
     private readonly IConfigurationService _configurationService = configurationService;
 
@@ -53,7 +52,7 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
 
         foreach (var property in GetSyncablePreferenceProperties())
         {
-            settings[property.Name] = property.GetValue(this);
+            settings[property.Name] = property.Getter(this);
         }
 
         using var stream = new MemoryStream();
@@ -95,7 +94,7 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
 
             try
             {
-                property.SetValue(this, ReadPreferenceValue(property.PropertyType, value));
+                property.Setter(this, ReadPreferenceValue(property.PropertyType, value));
                 appliedCount++;
             }
             catch (Exception)
@@ -696,23 +695,16 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         return diagnosticId;
     }
 
-    private static IEnumerable<PropertyInfo> GetSyncablePreferenceProperties()
-    {
-        foreach (var property in typeof(IPreferencesService).GetProperties(BindingFlags.Instance | BindingFlags.Public))
-        {
-            if (!property.CanRead || !property.CanWrite || property.GetIndexParameters().Length > 0)
-            {
-                continue;
-            }
+    private sealed record PreferenceAccessor(
+        string Name,
+        Type PropertyType,
+        Func<PreferencesService, object?> Getter,
+        Action<PreferencesService, object?> Setter);
 
-            if (property.Name == nameof(IPreferencesService.DiagnosticId))
-            {
-                continue;
-            }
+    private static partial PreferenceAccessor[] GetGeneratedSyncablePreferenceProperties();
 
-            yield return property;
-        }
-    }
+    private static IEnumerable<PreferenceAccessor> GetSyncablePreferenceProperties()
+        => GetGeneratedSyncablePreferenceProperties();
 }
 
 

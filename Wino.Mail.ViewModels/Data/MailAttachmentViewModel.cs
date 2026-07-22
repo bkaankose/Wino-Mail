@@ -23,7 +23,7 @@ public partial class MailAttachmentViewModel : ObservableObject
     /// Gets or sets whether attachment is busy with opening or saving etc.
     /// </summary>
     [ObservableProperty]
-    private bool isBusy;
+    public partial bool IsBusy { get; set; }
 
     public MailAttachmentViewModel(MimePart mimePart)
     {

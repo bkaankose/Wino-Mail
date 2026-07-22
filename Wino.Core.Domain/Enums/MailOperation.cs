@@ -78,5 +78,6 @@ public enum MailOperation
     Print,
     ViewMessageSource,
     DiscardLocalDraft,
-    Navigate // For toast activation
+    Navigate, // For toast activation
+    RetryDraftUpload
 }

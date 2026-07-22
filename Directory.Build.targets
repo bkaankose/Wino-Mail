@@ -1,0 +1,79 @@
+<Project>
+  <PropertyGroup>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <Nullable>annotations</Nullable>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' and '$(TargetFramework)' != 'netstandard2.0' and '$(IsTestProject)' != 'true'">
+    <!-- Release is the repository-wide Native AOT compatibility gate. -->
+    <IsAotCompatible>true</IsAotCompatible>
+    <IsTrimmable>true</IsTrimmable>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' and '$(TargetFramework)' == 'netstandard2.0'">
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' and $(TargetFramework.Contains('-windows'))">
+    <CsWinRTAotOptimizerEnabled>true</CsWinRTAotOptimizerEnabled>
+    <CsWinRTAotWarningLevel>2</CsWinRTAotWarningLevel>
+    <EnableBindingDiagnostics>true</EnableBindingDiagnostics>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Wino.Mail.WinUI'">
+    <!-- WinAppSDK experimental-channel generated code references experimental WinUI APIs. -->
+    <NoWarn>$(NoWarn);CS8305</NoWarn>
+  </PropertyGroup>
+
+  <!--
+    The MSIX targets can retain both a pre-link CopyLocal item and its Native AOT
+    publish replacement. Prefer the publish item for every colliding package path;
+    non-colliding XAML, PRI, manifest, and Windows App SDK payload items are untouched.
+  -->
+  <Target Name="WinoPreferNativeAotPublishPayload"
+          AfterTargets="WinAppSdkRemoveLinkedFilesFromPayload"
+          BeforeTargets="_ComputeAppxPackagePayload"
+          Condition="'$(MSBuildProjectName)' == 'Wino.Mail.WinUI' and '$(PublishAot)' == 'true' and '$(IncludePublishItemsOutputGroup)' == 'true'">
+    <PropertyGroup>
+      <_WinoNativeAotLinkedOutputRoot>$([System.IO.Path]::GetFullPath('$(IntermediateOutputPath)linked\'))</_WinoNativeAotLinkedOutputRoot>
+      <_WinoNativeAotExecutable>$(OutputPath)native\$(TargetName).exe</_WinoNativeAotExecutable>
+    </PropertyGroup>
+    <ItemGroup>
+      <_WinoNativeAotPublishPayload Include="@(PackagingOutputs)"
+                                    Condition="'%(OutputGroup)' == 'PublishItemsOutputGroupOutput'" />
+      <PackagingOutputs Remove="@(_WinoNativeAotPublishPayload)"
+                        MatchOnMetadata="TargetPath"
+                        MatchOnMetadataOptions="PathLike" />
+      <PackagingOutputs Include="@(_WinoNativeAotPublishPayload)" />
+      <_WinoNativeAotPublishPayload Remove="@(_WinoNativeAotPublishPayload)" />
+
+      <!--
+        CallTarget isolates ILC's item lists on .NET 10, so also filter by the
+        metadata/path that survives into PackagingOutputs. Native runtime assets
+        (WinAppSDK, WebView2, SQLite, MSAL) have no NearestTargetFramework.
+      -->
+      <PackagingOutputs Remove="@(PackagingOutputs)"
+                        Condition="'%(PackagingOutputs.Extension)' == '.dll' and '%(PackagingOutputs.NearestTargetFramework)' != ''" />
+      <PackagingOutputs Remove="@(PackagingOutputs)"
+                        Condition="'%(PackagingOutputs.Extension)' == '.dll' and $([System.String]::Copy('%(PackagingOutputs.FullPath)').Contains('\lib\net'))" />
+      <PackagingOutputs Remove="@(PackagingOutputs)"
+                        Condition="$([System.String]::Copy('%(PackagingOutputs.FullPath)').Contains('\microsoft.netcore.app.runtime.win-'))" />
+
+      <!-- The linked directory contains IL inputs to ILC, never Native AOT runtime payload. -->
+      <PackagingOutputs Remove="@(PackagingOutputs)"
+                        Condition="$([System.String]::Copy('%(FullPath)').StartsWith('$(_WinoNativeAotLinkedOutputRoot)'))" />
+
+      <!-- .NET 10 does not surface the ILC executable in ResolvedFileToPublish for this WinUI app. -->
+      <PackagingOutputs Include="$(_WinoNativeAotExecutable)" Condition="Exists('$(_WinoNativeAotExecutable)')">
+        <TargetPath>$(TargetName).exe</TargetPath>
+        <OutputGroup>PublishItemsOutputGroupOutput</OutputGroup>
+        <ProjectName>$(ProjectName)</ProjectName>
+      </PackagingOutputs>
+    </ItemGroup>
+  </Target>
+</Project>

@@ -177,10 +177,12 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                                 nativeRequests.AddRange(Delete(new BatchDeleteRequest(group.Cast<DeleteRequest>())));
                                 break;
                             case MailSynchronizerOperation.CreateDraft:
-                                nativeRequests.AddRange(CreateDraft(group.ElementAt(0) as CreateDraftRequest));
+                                foreach (var request in group.Cast<CreateDraftRequest>())
+                                    nativeRequests.AddRange(CreateDraft(request));
                                 break;
                             case MailSynchronizerOperation.Send:
-                                nativeRequests.AddRange(SendDraft(group.ElementAt(0) as SendDraftRequest));
+                                foreach (var request in group.Cast<SendDraftRequest>())
+                                    nativeRequests.AddRange(SendDraft(request));
                                 break;
                             case MailSynchronizerOperation.ChangeFlag:
                                 nativeRequests.AddRange(ChangeFlag(new BatchChangeFlagRequest(group.Cast<ChangeFlagRequest>())));
@@ -256,6 +258,17 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 try
                 {
                     await ExecuteNativeRequestsAsync(nativeRequests, activeSynchronizationCancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    foreach (var createDraftRequest in requestCopies
+                                 .OfType<CreateDraftRequest>()
+                                 .Where(request => request.Item?.IsLocalDraft == true))
+                    {
+                        await MarkDraftSyncFailedAsync(createDraftRequest.Item.UniqueId, ex.Message).ConfigureAwait(false);
+                    }
+
+                    throw;
                 }
                 finally
                 {
@@ -656,6 +669,8 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     public virtual List<IRequestBundle<TBaseRequest>> MoveToFocused(BatchMoveToFocusedRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> CreateDraft(CreateDraftRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> SendDraft(SendDraftRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+
+    protected virtual Task MarkDraftSyncFailedAsync(Guid mailUniqueId, string error) => Task.CompletedTask;
     public virtual List<IRequestBundle<TBaseRequest>> Archive(BatchArchiveRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> RenameFolder(RenameFolderRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> EmptyFolder(EmptyFolderRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));

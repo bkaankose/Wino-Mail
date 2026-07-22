@@ -8,6 +8,7 @@
     xmlns:customcontrols="using:Wino.Mail.WinUI.Controls.CustomControls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
+    xmlns:editor="using:Wino.Editor"
     xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -353,8 +354,8 @@
                             </Grid.ColumnDefinitions>
 
                             <TextBlock
-                                Margin="0,1,0,0"
-                                VerticalAlignment="Top"
+                                Margin="0,-1,0,0"
+                                VerticalAlignment="Center"
                                 FontWeight="SemiBold"
                                 Text="{x:Bind domain:Translator.ComposerTo}"
                                 Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.ToItems.Count), Mode=OneWay}" />
@@ -513,15 +514,17 @@
 
                 <Grid Background="White" Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsDarkEditor), Mode=OneWay}" />
 
-                <WebView2
-                    x:Name="Chromium"
+                <editor:WinoMailRenderer
+                    x:Name="MailRenderer"
+                    AutomationProperties.AutomationId="MailMessageRenderer"
                     AutomationProperties.HelpText="{x:Bind domain:Translator.Reader_MessageBodyAutomationHelpText, Mode=OneTime}"
                     AutomationProperties.Name="{x:Bind domain:Translator.Reader_MessageBodyAutomationName, Mode=OneTime}"
-                    NavigationStarting="WebViewNavigationStarting">
-                    <WebView2.KeyboardAccelerators>
+                    InitializationFailed="MailRenderer_InitializationFailed"
+                    NavigationRequested="MailRenderer_NavigationRequested">
+                    <editor:WinoMailRenderer.KeyboardAccelerators>
                         <KeyboardAccelerator Key="Escape" Invoked="EscapeInvoked" />
-                    </WebView2.KeyboardAccelerators>
-                </WebView2>
+                    </editor:WinoMailRenderer.KeyboardAccelerators>
+                </editor:WinoMailRenderer>
 
                 <ProgressRing
                     Width="50"

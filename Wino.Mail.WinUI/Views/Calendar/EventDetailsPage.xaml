@@ -14,6 +14,7 @@
     xmlns:data="using:Wino.Calendar.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:enums="using:Wino.Core.Domain.Enums"
+    xmlns:editor="using:Wino.Editor"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:local="using:Wino.Calendar.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -419,7 +420,12 @@
                         </Grid>
 
                         <!--  WebView  -->
-                        <WebView2 x:Name="EventDetailsWebView" Grid.Row="3" />
+                        <editor:WinoMailRenderer
+                            x:Name="EventDetailsRenderer"
+                            Grid.Row="3"
+                            AutomationProperties.AutomationId="CalendarEventDescriptionRenderer"
+                            InitializationFailed="EventDetailsRenderer_InitializationFailed"
+                            NavigationRequested="EventDetailsRenderer_NavigationRequested" />
                     </Grid>
                 </Grid>
 

@@ -1,44 +1,24 @@
 using System;
-using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using Microsoft.Web.WebView2.Core;
+using Wino.Editor;
 
 namespace Wino.Mail.WinUI.Extensions;
 
 public static class WebViewExtensions
 {
-    private static readonly object _environmentLock = new();
-    private static bool _environmentInitialized;
-    private static Task<CoreWebView2Environment>? _sharedEnvironmentTask;
-
     /// <summary>
     /// Sets WebView2 environment variables once per process.
     /// Must be called before any WebView2 is initialized.
     /// </summary>
     public static void EnsureWebView2Environment()
     {
-        if (_environmentInitialized) return;
-
-        Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00FFFFFF");
-        Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
-            "--enable-features=OverlayScrollbar,msOverlayScrollbarWinStyle,msOverlayScrollbarWinStyleAnimation,msWebView2CodeCache");
-
-        _environmentInitialized = true;
+        WinoWebViewEnvironment.ConfigureProcessEnvironment();
     }
 
     public static Task<CoreWebView2Environment> GetSharedEnvironmentAsync()
     {
-        EnsureWebView2Environment();
-
-        lock (_environmentLock)
-        {
-            if (_sharedEnvironmentTask == null || _sharedEnvironmentTask.IsFaulted || _sharedEnvironmentTask.IsCanceled)
-            {
-                _sharedEnvironmentTask = CoreWebView2Environment.CreateAsync().AsTask();
-            }
-
-            return _sharedEnvironmentTask;
-        }
+        return WinoWebViewEnvironment.GetSharedEnvironmentAsync();
     }
 
     /// <summary>

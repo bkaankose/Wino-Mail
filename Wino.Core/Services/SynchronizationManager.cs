@@ -21,6 +21,7 @@ using Wino.Core.Domain.Models.Telemetry;
 using Wino.Core.Helpers;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
+using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 
 namespace Wino.Core.Services;
@@ -51,6 +52,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     private INotificationBuilder _notificationBuilder;
     private IWinoTelemetryService _telemetryService;
     private IPreferencesService _preferencesService;
+    private IDraftSyncRetryService _draftSyncRetryService;
 
     private bool _isInitialized = false;
     private bool _isRegisteredForProgressMessages;
@@ -72,7 +74,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                                      INotificationBuilder notificationBuilder,
                                      IAuthenticationProvider authenticationProvider,
                                      IWinoTelemetryService telemetryService,
-                                     IPreferencesService preferencesService)
+                                     IPreferencesService preferencesService,
+                                     IDraftSyncRetryService draftSyncRetryService)
     {
         await _initializationSemaphore.WaitAsync();
 
@@ -87,6 +90,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             _notificationBuilder = notificationBuilder ?? throw new ArgumentNullException(nameof(notificationBuilder));
             _telemetryService = telemetryService ?? throw new ArgumentNullException(nameof(telemetryService));
             _preferencesService = preferencesService ?? throw new ArgumentNullException(nameof(preferencesService));
+            _draftSyncRetryService = draftSyncRetryService ?? throw new ArgumentNullException(nameof(draftSyncRetryService));
 
             // DO NOT create synchronizers here to avoid requiring window handles during initialization.
             // Synchronizers will be created lazily when first accessed via GetOrCreateSynchronizerAsync.
@@ -216,6 +220,29 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                 .MergeIssues([SynchronizationIssue.FromException(exception, "MailSync")]);
             TrackMailSynchronizationSummary(options, null, result, stopwatch.Elapsed);
             return result;
+        }
+
+        if (options.Type is MailSynchronizationType.ExecuteRequests or MailSynchronizationType.FullFolders)
+        {
+            try
+            {
+                var queuedRetries = await _draftSyncRetryService
+                    .QueueEligibleRetriesAsync(options.AccountId, synchronizer)
+                    .ConfigureAwait(false);
+
+                if (queuedRetries && options.Type == MailSynchronizationType.FullFolders)
+                {
+                    WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+                    {
+                        AccountId = options.AccountId,
+                        Type = MailSynchronizationType.ExecuteRequests
+                    }));
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Draft retry sweep failed for account {AccountId}", options.AccountId);
+            }
         }
 
         _logger.Information("Starting mail synchronization for account {AccountId} with type {SyncType}",

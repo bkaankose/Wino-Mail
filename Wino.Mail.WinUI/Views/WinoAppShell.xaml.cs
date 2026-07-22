@@ -14,6 +14,8 @@ using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using Windows.Foundation;
 using Windows.System;
+using Wino.Calendar.ViewModels;
+using Wino.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
@@ -24,15 +26,13 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Calendar.ViewModels;
+using Wino.Helpers;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
-using Wino.Mail.WinUI.ViewModels;
-using Wino.Controls;
 using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
-using Wino.Helpers;
+using Wino.Mail.WinUI.ViewModels;
 using Wino.MenuFlyouts;
 using Wino.MenuFlyouts.Context;
 using Wino.Messaging.Client.Accounts;
@@ -64,6 +64,8 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     private bool _isSyncingNavigationViewSelection;
     private bool _isSynchronizingVisibleDateRangeCalendar;
     private bool _isPreparedForWindowClose;
+    private readonly HashSet<IShellClient> _preparedClients = [];
+    private readonly WinUIDispatcher _pageDispatcher;
     private Grid? _paneContentGrid;
     private RowDefinition? _paneCustomContentRowDefinition;
     private RowDefinition? _paneItemsContainerRowDefinition;
@@ -72,19 +74,11 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     {
         InitializeComponent();
 
-        var pageDispatcher = new WinUIDispatcher(DispatcherQueue);
-        ViewModel.MailClient.Dispatcher = pageDispatcher;
-        ViewModel.CalendarClient.Dispatcher = pageDispatcher;
-        ViewModel.GetClient(WinoApplicationMode.Contacts).Dispatcher = pageDispatcher;
-        ViewModel.GetClient(WinoApplicationMode.Settings).Dispatcher = pageDispatcher;
-
-        ViewModel.MailClient.PropertyChanged += MailClientPropertyChanged;
-        ViewModel.CalendarClient.PropertyChanged += CalendarClientPropertyChanged;
+        _pageDispatcher = new WinUIDispatcher(DispatcherQueue);
         ViewModel.PropertyChanged += ViewModelPropertyChanged;
         ViewModel.PreferencesService.PreferenceChanged += PreferencesServiceChanged;
         ViewModel.StatePersistenceService.StatePropertyChanged += StatePersistenceServiceChanged;
 
-        InitializeCalendarControls();
         UpdateEventDetailsVisualState();
     }
 
@@ -119,13 +113,15 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
         _activeMode = mode;
         ViewModel.SetCurrentMode(mode);
+        var client = PrepareClient(mode);
+        AttachModeVisuals(mode, client);
 
         RefreshNavigationViewBindings(syncMailSelection: mode != WinoApplicationMode.Mail);
 
         ApplyModeLayout();
         UpdateTitleBarSubtitle();
 
-        ViewModel.CurrentClient.Activate(activationContext);
+        client.Activate(activationContext);
         ResetShellModeNavigationState();
         NotifyTitleBarContentChanged();
     }
@@ -157,7 +153,10 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         Bindings.StopTracking();
 
         navigationView.MenuItemsSource = null;
-        CalendarHostListView.ItemsSource = null;
+        if (CalendarHostListView != null)
+        {
+            CalendarHostListView.ItemsSource = null;
+        }
         WindowCleanupHelper.CleanupFrame(InnerShellFrame);
     }
 
@@ -172,8 +171,6 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         UpdateNavigationPaneLayout(navigationView.DisplayMode);
-        RefreshNavigationViewBindings();
-        RefreshCalendarControls();
 
         if (_activeMode == null)
         {
@@ -181,6 +178,11 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
             {
                 IsInitialActivation = true
             });
+        }
+        else
+        {
+            RefreshNavigationViewBindings();
+            RefreshCalendarControls();
         }
     }
 
@@ -195,23 +197,30 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private void DeactivateCurrentMode()
     {
+        if (_activeMode == null || !ViewModel.TryGetClient(_activeMode.Value, out var activeClient))
+            return;
+
         if (_activeMode == WinoApplicationMode.Mail)
         {
             WeakReferenceMessenger.Default.Send(new ClearMailSelectionsRequested());
             WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
             ViewModel.StatePersistenceService.IsReadingMail = false;
-            ViewModel.MailClient.Deactivate();
+            activeClient.Deactivate();
         }
         else if (_activeMode == WinoApplicationMode.Calendar)
         {
             ViewModel.StatePersistenceService.IsEventDetailsVisible = false;
-            ViewModel.CalendarClient.Deactivate();
+            activeClient.Deactivate();
+            if (CalendarHostListView != null)
+            {
+                CalendarHostListView.ItemsSource = null;
+            }
             WindowCleanupHelper.CleanupFrame(InnerShellFrame);
             GC.Collect();
         }
         else if (_activeMode == WinoApplicationMode.Contacts)
         {
-            ViewModel.CurrentClient.Deactivate();
+            activeClient.Deactivate();
         }
         else if (_activeMode == WinoApplicationMode.Settings)
         {
@@ -220,7 +229,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
                 settingsPage.ResetForModeSwitch();
             }
 
-            ViewModel.CurrentClient.Deactivate();
+            activeClient.Deactivate();
         }
     }
 
@@ -229,34 +238,43 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         ViewModel.StatePersistenceService.IsReadingMail = false;
         ViewModel.StatePersistenceService.IsEventDetailsVisible = false;
 
-        ViewModel.MailClient.Deactivate();
-        ViewModel.CalendarClient.Deactivate();
-
-        if (ViewModel.GetClient(WinoApplicationMode.Contacts) is ContactsShellClient contactsClient)
+        foreach (var client in ViewModel.InitializedClients.ToArray())
         {
-            contactsClient.PrepareForShellShutdown();
-        }
+            client.Deactivate();
 
-        if (ViewModel.GetClient(WinoApplicationMode.Settings) is SettingsShellClient settingsClient)
-        {
-            settingsClient.PrepareForShellShutdown();
-        }
-
-        if (ViewModel.MailClient is MailAppShellViewModel mailClient)
-        {
-            mailClient.PrepareForShellShutdown();
-        }
-
-        if (ViewModel.CalendarClient is CalendarAppShellViewModel calendarClient)
-        {
-            calendarClient.PrepareForShellShutdown();
+            switch (client)
+            {
+                case ContactsShellClient contactsClient:
+                    contactsClient.PrepareForShellShutdown();
+                    break;
+                case SettingsShellClient settingsClient:
+                    settingsClient.PrepareForShellShutdown();
+                    break;
+                case MailAppShellViewModel mailClient:
+                    mailClient.PrepareForShellShutdown();
+                    break;
+                case CalendarAppShellViewModel calendarClient:
+                    calendarClient.PrepareForShellShutdown();
+                    break;
+            }
         }
     }
 
     private void DetachLifetimeSubscriptions()
     {
-        ViewModel.MailClient.PropertyChanged -= MailClientPropertyChanged;
-        ViewModel.CalendarClient.PropertyChanged -= CalendarClientPropertyChanged;
+        foreach (var client in _preparedClients)
+        {
+            if (client is IMailShellClient)
+            {
+                client.PropertyChanged -= MailClientPropertyChanged;
+            }
+            else if (client is ICalendarShellClient)
+            {
+                client.PropertyChanged -= CalendarClientPropertyChanged;
+            }
+        }
+
+        _preparedClients.Clear();
         ViewModel.PropertyChanged -= ViewModelPropertyChanged;
         ViewModel.PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
         ViewModel.StatePersistenceService.StatePropertyChanged -= StatePersistenceServiceChanged;
@@ -284,17 +302,70 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         ViewModel.StatePersistenceService.CoreWindowTitle = string.Empty;
     }
 
-    private void InitializeCalendarControls()
-    {
-        CalendarHostListView.ItemsSource = ViewModel.CalendarClient.GroupedAccountCalendars;
-
-        RefreshCalendarControls();
-    }
 
     private void RefreshCalendarControls()
     {
-        CalendarHostListView.ItemsSource = ViewModel.CalendarClient.GroupedAccountCalendars;
+        if (_activeMode != WinoApplicationMode.Calendar ||
+            !TryGetCalendarClient(out var calendarClient) ||
+            CalendarHostListView == null)
+        {
+            return;
+        }
+
+        CalendarHostListView.ItemsSource = calendarClient.GroupedAccountCalendars;
+        SynchronizeCalendarsNavigationItem.IsEnabled = calendarClient.CanSynchronizeCalendars;
         SynchronizeVisibleDateRangeCalendar();
+    }
+
+    private IShellClient PrepareClient(WinoApplicationMode mode)
+    {
+        var client = ViewModel.GetClient(mode);
+
+        if (!_preparedClients.Add(client))
+            return client;
+
+        client.Dispatcher = _pageDispatcher;
+
+        if (client is IMailShellClient)
+        {
+            client.PropertyChanged += MailClientPropertyChanged;
+        }
+        else if (client is ICalendarShellClient)
+        {
+            client.PropertyChanged += CalendarClientPropertyChanged;
+        }
+
+        return client;
+    }
+
+    private void AttachModeVisuals(WinoApplicationMode mode, IShellClient client)
+    {
+        // Applying x:Load bindings before touching named controls ensures that only the
+        // requested mode's pane is materialized.
+        Bindings.Update();
+
+        if (mode == WinoApplicationMode.Calendar && client is ICalendarShellClient)
+        {
+            _ = FindName(nameof(CalendarPaneContent));
+            RefreshCalendarControls();
+        }
+        else if (mode == WinoApplicationMode.Contacts)
+        {
+            _ = FindName(nameof(ContactsPaneContent));
+        }
+    }
+
+    private bool TryGetCalendarClient(out ICalendarShellClient? calendarClient)
+    {
+        if (ViewModel.TryGetClient(WinoApplicationMode.Calendar, out var client) &&
+            client is ICalendarShellClient initializedCalendarClient)
+        {
+            calendarClient = initializedCalendarClient;
+            return true;
+        }
+
+        calendarClient = null;
+        return false;
     }
 
     private void RefreshNavigationViewBindings(bool syncMailSelection = true)
@@ -308,7 +379,9 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     private void UpdateEventDetailsVisualState()
     {
         VisualStateManager.GoToState(this,
-            ViewModel.StatePersistenceService.IsEventDetailsVisible ? StateEventDetailsContent : StateDefaultShellContent,
+            _activeMode == WinoApplicationMode.Calendar && ViewModel.StatePersistenceService.IsEventDetailsVisible
+                ? StateEventDetailsContent
+                : StateDefaultShellContent,
             false);
     }
 
@@ -390,11 +463,14 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     {
         _ = DispatcherQueue.EnqueueAsync(async () =>
         {
-            await ViewModel.MailClient.HandleAccountCreatedAsync(message.Account);
-
             var targetMode = !message.Account.IsMailAccessGranted && message.Account.IsCalendarAccessGranted
                 ? WinoApplicationMode.Calendar
                 : WinoApplicationMode.Mail;
+
+            if (targetMode == WinoApplicationMode.Mail)
+            {
+                await ViewModel.MailClient.HandleAccountCreatedAsync(message.Account);
+            }
 
             ViewModel.NavigationService.ChangeApplicationMode(targetMode);
         });
@@ -658,6 +734,16 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
             return;
         }
 
+        if (_activeMode != WinoApplicationMode.Calendar)
+            return;
+
+        if (e.PropertyName == nameof(ICalendarShellClient.CanSynchronizeCalendars) &&
+            sender is ICalendarShellClient calendarClient &&
+            SynchronizeCalendarsNavigationItem != null)
+        {
+            SynchronizeCalendarsNavigationItem.IsEnabled = calendarClient.CanSynchronizeCalendars;
+        }
+
         if (e.PropertyName == nameof(ICalendarShellClient.CurrentVisibleRange) ||
             e.PropertyName == nameof(ICalendarShellClient.VisibleDateRangeText))
         {
@@ -705,6 +791,13 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
             return;
         }
 
+        if (_activeMode != WinoApplicationMode.Calendar ||
+            !TryGetCalendarClient(out var calendarClient) ||
+            VisibleDateRangeCalendarView == null)
+        {
+            return;
+        }
+
         _isSynchronizingVisibleDateRangeCalendar = true;
 
         try
@@ -712,7 +805,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
             VisibleDateRangeCalendarView.FirstDayOfWeek = MapFirstDayOfWeek(ViewModel.PreferencesService.FirstDayOfWeek);
             VisibleDateRangeCalendarView.SelectedDates.Clear();
 
-            var currentRange = ViewModel.CalendarClient.CurrentVisibleRange;
+            var currentRange = calendarClient.CurrentVisibleRange;
             if (currentRange == null)
                 return;
 
@@ -731,7 +824,8 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private void PreferencesServiceChanged(object? sender, string propertyName)
     {
-        if (propertyName == nameof(IPreferencesService.FirstDayOfWeek))
+        if (_activeMode == WinoApplicationMode.Calendar &&
+            propertyName == nameof(IPreferencesService.FirstDayOfWeek))
         {
             SynchronizeVisibleDateRangeCalendar();
         }
@@ -752,10 +846,12 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private void ViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName != nameof(ViewModel.SelectedMenuItem) || !ViewModel.CurrentClient.HandlesNavigationSelection)
+        if (e.PropertyName != nameof(ViewModel.SelectedMenuItem) ||
+            !ViewModel.TryGetClient(ViewModel.CurrentMode, out var currentClient) ||
+            !currentClient.HandlesNavigationSelection)
             return;
 
-        SetNavigationViewSelectedItem(ViewModel.SelectedMenuItem);
+        SetNavigationViewSelectedItem(currentClient.SelectedMenuItem);
     }
 
     private void SetNavigationViewSelectedItem(object? item)
@@ -820,25 +916,45 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         {
             if (ViewModel.IsCalendarMode)
             {
+                _ = FindName(nameof(CalendarPaneContent));
                 PaneCustomContent.Visibility = Visibility.Visible;
-                CalendarPaneContent.Visibility = Visibility.Visible;
-                ContactsPaneContent.Visibility = Visibility.Collapsed;
+                if (CalendarPaneContent != null)
+                {
+                    CalendarPaneContent.Visibility = Visibility.Visible;
+                }
+                if (ContactsPaneContent != null)
+                {
+                    ContactsPaneContent.Visibility = Visibility.Collapsed;
+                }
                 InnerShellFrame.Margin = new Thickness(0);
                 return;
             }
 
             if (ViewModel.IsContactsMode)
             {
+                _ = FindName(nameof(ContactsPaneContent));
                 PaneCustomContent.Visibility = Visibility.Visible;
-                CalendarPaneContent.Visibility = Visibility.Collapsed;
-                ContactsPaneContent.Visibility = Visibility.Visible;
+                if (CalendarPaneContent != null)
+                {
+                    CalendarPaneContent.Visibility = Visibility.Collapsed;
+                }
+                if (ContactsPaneContent != null)
+                {
+                    ContactsPaneContent.Visibility = Visibility.Visible;
+                }
                 InnerShellFrame.Margin = new Thickness(0);
                 return;
             }
         }
 
-        CalendarPaneContent.Visibility = Visibility.Collapsed;
-        ContactsPaneContent.Visibility = Visibility.Collapsed;
+        if (CalendarPaneContent != null)
+        {
+            CalendarPaneContent.Visibility = Visibility.Collapsed;
+        }
+        if (ContactsPaneContent != null)
+        {
+            ContactsPaneContent.Visibility = Visibility.Collapsed;
+        }
         PaneCustomContent.Visibility = Visibility.Collapsed;
         InnerShellFrame.Margin = displayMode == NavigationViewDisplayMode.Minimal
             ? new Thickness(7, 0, 0, 0)

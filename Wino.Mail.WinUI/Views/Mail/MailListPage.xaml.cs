@@ -273,6 +273,12 @@ public sealed partial class MailListPage : MailListPageAbstract,
                 return;
             }
 
+            if (operation == MailOperation.RetryDraftUpload)
+            {
+                await ViewModel.RetryDraftUploadAsync(composeTargetItem);
+                return;
+            }
+
             var prepRequest = new MailOperationPreperationRequest(operation, targetItems.Select(a => a.MailCopy));
 
             await ViewModel.ExecuteMailOperationAsync(prepRequest);
@@ -860,6 +866,44 @@ public sealed partial class MailListPage : MailListPageAbstract,
     {
         await ViewModel.UndoLatestQueuedActionCommand.ExecuteAsync(null);
         args.Handled = true;
+    }
+
+    private async void SelectAllKeyboardAcceleratorInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (IsKeyboardFocusInsideComposer())
+        {
+            args.Handled = false;
+            return;
+        }
+
+        await ViewModel.MailCollection.ToggleSelectAllAsync();
+        args.Handled = true;
+    }
+
+    private bool IsKeyboardFocusInsideComposer()
+    {
+        if (RenderingFrame.Content is not ComposePage composePage)
+        {
+            return false;
+        }
+
+        if (composePage.HasEditorKeyboardFocus)
+        {
+            return true;
+        }
+
+        var focusedElement = FocusManager.GetFocusedElement() as DependencyObject;
+        while (focusedElement != null)
+        {
+            if (ReferenceEquals(focusedElement, composePage))
+            {
+                return true;
+            }
+
+            focusedElement = VisualTreeHelper.GetParent(focusedElement);
+        }
+
+        return false;
     }
 
     private async Task WinoClickItemInternalAsync(object? clickedItem, ListViewBase? sourceListView = null)

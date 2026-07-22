@@ -28,6 +28,7 @@ public static class CoreContainerSetup
         services.AddTransient<IOutlookChangeProcessor, OutlookChangeProcessor>();
         services.AddTransient<IWinoRequestProcessor, WinoRequestProcessor>();
         services.AddTransient<IWinoRequestDelegator, WinoRequestDelegator>();
+        services.AddTransient<IDraftSyncRetryService, DraftSyncRetryService>();
         services.AddTransient<IImapTestService, ImapTestService>();
         services.AddTransient<IAuthenticationProvider, AuthenticationProvider>();
         services.AddTransient<IAutoDiscoveryService, AutoDiscoveryService>();

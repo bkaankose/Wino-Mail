@@ -13,7 +13,6 @@
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:folders="using:Wino.Core.Domain.Models.Folders"
     xmlns:helpers="using:Wino.Helpers"
-    xmlns:interactivity="using:Microsoft.Xaml.Interactivity"
     xmlns:interfaces="using:Wino.Core.Domain.Interfaces"
     xmlns:local="using:Wino.Views"
     xmlns:mailViewModels="using:Wino.Mail.ViewModels"
@@ -72,6 +71,7 @@
                             Visibility="{x:Bind IsMoveTarget}" />
 
                         <CheckBox
+                            x:Name="FolderJumpListCheckBox"
                             AutomationProperties.AutomationId="AccountDetailsPageCheckBox3"
                             Grid.Column="2"
                             MinWidth="0"
@@ -79,7 +79,7 @@
                             VerticalAlignment="Center"
                             Checked="JumpListCheckboxToggled"
                             IsChecked="{x:Bind IsJumpListEnabled}"
-                            IsEnabled="{Binding ViewModel.IsJumpListEnabled, ElementName=PageRoot}"
+                            Loaded="JumpListCheckBoxLoaded"
                             Tag="{x:Bind}"
                             Unchecked="JumpListCheckboxToggled"
                             Visibility="{x:Bind IsMoveTarget}" />
@@ -436,7 +436,9 @@
                                 </controls:SettingsCard.HeaderIcon>
                                 <ToggleSwitch
 
-                                    AutomationProperties.AutomationId="AccountDetailsPageToggleSwitch3" IsOn="{x:Bind ViewModel.IsJumpListEnabled, Mode=TwoWay}" />
+                                    AutomationProperties.AutomationId="AccountDetailsPageToggleSwitch3"
+                                    IsOn="{x:Bind ViewModel.IsJumpListEnabled, Mode=TwoWay}"
+                                    Toggled="JumpListMasterToggled" />
                             </controls:SettingsCard>
                         </controls:SettingsExpander.Items>
                     </controls:SettingsExpander>

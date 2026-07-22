@@ -1,13 +1,12 @@
 ﻿using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using Google.Apis.Http;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Http;
 
-internal class GmailClientMessageHandler : ConfigurableMessageHandler
+internal sealed class GmailClientMessageHandler : DelegatingHandler
 {
     private readonly IGmailAuthenticator _gmailAuthenticator;
     private readonly MailAccount _mailAccount;

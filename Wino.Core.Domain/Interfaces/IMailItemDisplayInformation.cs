@@ -19,6 +19,10 @@ public interface IMailItemDisplayInformation : INotifyPropertyChanged
     string PreviewText { get; }
     bool IsRead { get; }
     bool IsDraft { get; }
+    bool IsLocalDraft { get; }
+    bool IsDraftSyncFailed { get; }
+    bool ShouldShowDraftSyncWarning { get; }
+    string DraftSyncTooltip { get; }
     bool HasAttachments { get; }
     bool IsCalendarEvent { get; }
     bool IsFlagged { get; }

@@ -10,6 +10,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Calendar.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
+    xmlns:editor="using:Wino.Editor"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:mailControls="using:Wino.Mail.Controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -609,8 +610,10 @@
                         </toolkit:TabbedCommandBarItem>
                     </mailControls:EditorTabbedCommandBarControl.PaneCustomContent>
                 </mailControls:EditorTabbedCommandBarControl>
-                <mailControls:WebViewEditorControl
+                <editor:WinoMailEditor
                     x:Name="NotesEditor"
+                    AutomationProperties.AutomationId="CalendarEventNotesEditor"
+                    IsEditorWebViewEditor="False"
                     MinHeight="500"
                     IsEditorDarkMode="{x:Bind ViewModel.IsDarkWebviewRenderer, Mode=OneWay}" />
             </StackPanel>

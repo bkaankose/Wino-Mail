@@ -11,10 +11,10 @@ namespace Wino.Mail.ViewModels.Collections;
 public abstract partial class GroupHeaderBase : ObservableObject
 {
     [ObservableProperty]
-    private int itemCount;
+    public partial int ItemCount { get; set; }
 
     [ObservableProperty]
-    private int unreadCount;
+    public partial int UnreadCount { get; set; }
 
     protected GroupHeaderBase(string key, string displayName)
     {

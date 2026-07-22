@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>Wino.Mail.WinUI</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
@@ -14,6 +14,20 @@
     <!-- Bundle the Windows App SDK and .NET runtime into per-architecture MSIX outputs. -->
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
+    <UseNativeAot Condition="'$(UseNativeAot)' == ''">true</UseNativeAot>
+    <PublishAot Condition="'$(Configuration)' == 'Release'">$(UseNativeAot)</PublishAot>
+    <PublishTrimmed Condition="'$(Configuration)' == 'Release'">$(UseNativeAot)</PublishTrimmed>
+    <TrimMode Condition="'$(Configuration)' == 'Release'">full</TrimMode>
+    <!--
+      Ical.Net 5.2.3 intentionally reflects over its RFC 5545 model and serializer types,
+      MimeKit's otherwise-unused default context probes SQLite dynamically, and CsWinRT's
+      generic WinRT fallback marshaler lacks the linker annotations required by IL2081.
+      Wino roots Ical.Net and the explicit Windows S/MIME context below, so only these
+      upstream analyzer limitations are suppressed during the whole-program AOT link.
+      Ordinary Release analyzer builds remain unsuppressed and continue to reject
+      first-party IL warnings.
+    -->
+    <NoWarn Condition="'$(Configuration)' == 'Release' and '$(PublishAot)' == 'true'">$(NoWarn);IL2026;IL2070;IL2072;IL2075;IL2077;IL2080;IL2081;IL2087</NoWarn>
     <Nullable>enable</Nullable>
 	<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	<!-- Single instancing -->
@@ -148,15 +162,6 @@
     <Content Include="BackgroundImages\Mica.jpg" />
     <Content Include="BackgroundImages\Nighty.jpg" />
     <Content Include="BackgroundImages\Snowflake.jpg" />
-    <Content Include="JS\editor.html" />
-    <Content Include="JS\editor.js" />
-    <Content Include="JS\global.css" />
-    <Content Include="JS\libs\darkreader.js" />
-    <Content Include="JS\libs\jodit.min.css" />
-    <Content Include="JS\libs\jodit.min.js" />
-    <Content Include="JS\libs\linkify-element.min.js" />
-    <Content Include="JS\libs\linkify.min.js" />
-    <Content Include="JS\reader.html" />
   </ItemGroup>
 
   <ItemGroup>
@@ -184,27 +189,24 @@
     <PackageReference Include="CommunityToolkit.WinUI.Controls.TabbedCommandBar" />
     <PackageReference Include="CommunityToolkit.WinUI.Controls.TokenizingTextBox" />
     <PackageReference Include="CommunityToolkit.WinUI.Extensions" />
-    <PackageReference Include="CommunityToolkit.WinUI.Lottie" />
 	  
     <PackageReference Include="Microsoft.Graphics.Win2D" />
+    <PackageReference Include="Microsoft.Windows.CsWinRT" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools.MSIX">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.WindowsAppSDK" />
-	<PackageReference Include="Microsoft.Xaml.Behaviors.WinUI.Managed" />
 	<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
 	<PackageReference Include="Microsoft.Extensions.Logging" />
 	<PackageReference Include="Microsoft.Identity.Client" />
 	  
 	<PackageReference Include="ColorHashSharp" />
-	<PackageReference Include="gravatar-dotnet" />
 	<PackageReference Include="Sentry.Serilog" />
 	<PackageReference Include="Serilog.Extensions.Logging" />
 	<PackageReference Include="sqlite-net-pcl" />
 	<PackageReference Include="EmailValidation" />
-	<PackageReference Include="SkiaSharp.Views.WinUI" />
 	<PackageReference Include="WinUIEx" />
 	<PackageReference Include="Wino.Mail.Contracts" />
   </ItemGroup>
@@ -212,8 +214,16 @@
 	<ProjectReference Include="..\Wino.Calendar.ViewModels\Wino.Calendar.ViewModels.csproj" />
 	<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
 	<ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
+	<ProjectReference Include="..\Wino.Editor\Wino.Editor.csproj" />
 	<ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />
 	<ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' == 'Release' and '$(PublishAot)' == 'true'">
+    <TrimmerRootAssembly Include="Ical.Net" />
+    <TrimmerRootDescriptor Include="ILLink.AotRoots.xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Wino.SourceGenerators\Wino.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="PublishAot;PublishTrimmed;TrimMode;SelfContained" />
   </ItemGroup>
   <ItemGroup>
     <Page Update="Views\Settings\ContactsPage.xaml">
@@ -259,9 +269,6 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Update="Styles\ItemContainerStyles.xaml">
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Update="Styles\WebViewEditorControl.xaml">
       <SubType>Designer</SubType>
     </Page>
     <Page Update="Styles\WinoExpanderStyle.xaml">
@@ -378,7 +385,7 @@
     <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
     <GenerateTestArtifacts>True</GenerateTestArtifacts>
     <AppxBundle>Always</AppxBundle>
-    <AppxBundlePlatforms>x64|arm64</AppxBundlePlatforms>
+    <AppxBundlePlatforms>x64</AppxBundlePlatforms>
     <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
     <PackageCertificateThumbprint>4D0220C9CA6C704D170471B1A2335F76F94EB9DC</PackageCertificateThumbprint>
   </PropertyGroup>

@@ -17,6 +17,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Folders;
@@ -86,6 +87,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private readonly IKeyPressService _keyPressService;
     private readonly IWinoLogger _winoLogger;
     private readonly ISynchronizationManager _synchronizationManager;
+    private readonly IDraftSyncRetryService _draftSyncRetryService;
     private MailItemViewModel _activeMailItem;
 
     public List<SortingOption> SortingOptions { get; } =
@@ -105,7 +107,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private FolderPivotViewModel _selectedFolderPivot;
 
     [ObservableProperty]
-    private bool isMultiSelectionModeEnabled;
+    public partial bool IsMultiSelectionModeEnabled { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SelectedMessageText))]
@@ -121,7 +123,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     public partial string SearchQuery { get; set; }
 
     [ObservableProperty]
-    private FilterOption _selectedFilterOption;
+    public partial FilterOption SelectedFilterOption { get; set; }
     private SortingOption _selectedSortingOption;
 
     // Indicates state when folder is initializing. It can happen after folder navigation, search or filter change applied or loading more items.
@@ -211,7 +213,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  IPreferencesService preferencesService,
                                  INewThemeService themeService,
                                  IWinoLogger winoLogger,
-                                 ISynchronizationManager synchronizationManager)
+                                 ISynchronizationManager synchronizationManager,
+                                 IDraftSyncRetryService draftSyncRetryService)
     {
         _winoLogger = winoLogger;
         _accountService = accountService;
@@ -224,6 +227,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         _winoRequestDelegator = winoRequestDelegator;
         _keyPressService = keyPressService;
         _synchronizationManager = synchronizationManager;
+        _draftSyncRetryService = draftSyncRetryService;
 
         PreferencesService = preferencesService;
         ThemeService = themeService;
@@ -803,9 +807,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             return MailCollection.SelectedItems.OfType<MailItemViewModel>();
 
         if (_activeMailItem != null)
-            return [_activeMailItem];
+            return new[] { _activeMailItem };
 
-        return [];
+        return Array.Empty<MailItemViewModel>();
     }
 
     private async Task CreateDraftForShortcutTargetAsync(DraftCreationReason reason)
@@ -849,13 +853,41 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             }
         };
 
-        var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(targetMail.MailCopy.AssignedAccount.Id, draftOptions).ConfigureAwait(false);
-        var draftPreparationRequest = new DraftPreparationRequest(targetMail.MailCopy.AssignedAccount, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason, targetMail.MailCopy);
-        await _winoRequestDelegator.ExecuteAsync(draftPreparationRequest);
+        try
+        {
+            var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(targetMail.MailCopy.AssignedAccount.Id, draftOptions).ConfigureAwait(false);
+            var draftPreparationRequest = new DraftPreparationRequest(targetMail.MailCopy.AssignedAccount, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason, targetMail.MailCopy);
+            await _winoRequestDelegator.ExecuteAsync(draftPreparationRequest);
+        }
+        catch (MimePersistenceException ex)
+        {
+            _mailDialogService.InfoBarMessage(Translator.Info_DraftCreationFailed, ex.Message, InfoBarMessageType.Error);
+        }
+        catch (UnavailableSpecialFolderException ex)
+        {
+            _mailDialogService.InfoBarMessage(
+                Translator.Info_MissingFolderTitle,
+                string.Format(Translator.Info_MissingFolderMessage, ex.SpecialFolderType),
+                InfoBarMessageType.Warning,
+                Translator.SettingConfigureSpecialFolders_Button,
+                () => _mailDialogService.HandleSystemFolderConfigurationDialogAsync(ex.AccountId, _folderService));
+        }
     }
 
     public IEnumerable<MailOperationMenuItem> GetAvailableMailActions(IEnumerable<MailItemViewModel> contextMailItems)
         => _contextMenuItemService.GetMailItemContextMenuActions(contextMailItems.Select(a => a.MailCopy));
+
+    public async Task RetryDraftUploadAsync(MailItemViewModel draftItem)
+    {
+        try
+        {
+            await _draftSyncRetryService.RetryNowAsync(draftItem?.MailCopy);
+        }
+        catch (Exception ex)
+        {
+            _mailDialogService.InfoBarMessage(Translator.Info_RequestCreationFailedTitle, ex.Message, InfoBarMessageType.Error);
+        }
+    }
 
     public async Task<(IReadOnlyList<MailCategory> Categories, IReadOnlyCollection<Guid> AssignedCategoryIds)> GetAvailableCategoriesAsync(IEnumerable<MailItemViewModel> targetItems)
     {
@@ -1518,6 +1550,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             // AddAsync already handles UI threading internally
             await MailCollection.AddAsync(draftMail);
+            MailCollection.Find(draftMail.UniqueId).ShouldFocusComposerOnOpen = true;
             await MailCollection.SelectMailAsync(draftMail.UniqueId);
 
             await ExecuteUIThread(() =>

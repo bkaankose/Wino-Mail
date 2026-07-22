@@ -82,6 +82,9 @@
 	</ItemGroup>
 	<ItemGroup>
 		<!-- Source Generators -->
-		<ProjectReference Include="..\Wino.SourceGenerators\Wino.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+		<ProjectReference Include="..\Wino.SourceGenerators\Wino.SourceGenerators.csproj"
+			OutputItemType="Analyzer"
+			ReferenceOutputAssembly="false"
+			GlobalPropertiesToRemove="PublishAot;PublishTrimmed;TrimMode;SelfContained" />
 	</ItemGroup>
 </Project>

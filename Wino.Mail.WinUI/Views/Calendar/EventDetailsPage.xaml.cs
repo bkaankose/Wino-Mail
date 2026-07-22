@@ -1,18 +1,16 @@
 using System;
-using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
-using Microsoft.Web.WebView2.Core;
-using Windows.System;
+using Serilog;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
+using Wino.Editor;
 using Wino.Mail.WinUI;
-using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Views.Abstract;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Shell;
@@ -24,56 +22,37 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
     IRecipient<CalendarDescriptionRenderingRequested>
 {
     private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>()!;
-    private TaskCompletionSource<bool> DOMLoadedTask = new TaskCompletionSource<bool>();
-
     public EventDetailsPage()
     {
         InitializeComponent();
 
-        WebViewExtensions.EnsureWebView2Environment();
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
 
-        EventDetailsWebView.CoreWebView2Initialized -= CoreWebViewInitialized;
-        EventDetailsWebView.CoreWebView2Initialized += CoreWebViewInitialized;
-
-        _ = EventDetailsWebView.EnsureCoreWebView2Async();
+        _ = InitializeAndRenderAsync();
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         base.OnNavigatedFrom(e);
 
-        DisposeWebView2();
+        EventDetailsRenderer.Dispose();
     }
 
-    private async void CoreWebViewInitialized(Microsoft.UI.Xaml.Controls.WebView2 sender, CoreWebView2InitializedEventArgs args)
+    private async Task InitializeAndRenderAsync()
     {
-        if (EventDetailsWebView.CoreWebView2 == null) return;
-
-        var editorBundlePath = (await ViewModel.NativeAppService.GetEditorBundlePathAsync()).Replace("editor.html", string.Empty);
-
-        EventDetailsWebView.CoreWebView2.SetVirtualHostNameToFolderMapping("wino.mail", editorBundlePath, CoreWebView2HostResourceAccessKind.Allow);
-
-        EventDetailsWebView.CoreWebView2.DOMContentLoaded -= DOMContentLoaded;
-        EventDetailsWebView.CoreWebView2.DOMContentLoaded += DOMContentLoaded;
-
-        EventDetailsWebView.CoreWebView2.NewWindowRequested -= WindowRequested;
-        EventDetailsWebView.CoreWebView2.NewWindowRequested += WindowRequested;
-
-        EventDetailsWebView.NavigationStarting -= WebViewNavigationStarting;
-        EventDetailsWebView.NavigationStarting += WebViewNavigationStarting;
-
-        EventDetailsWebView.Source = new Uri("https://wino.mail/reader.html");
-    }
-
-    private void DOMContentLoaded(CoreWebView2 sender, CoreWebView2DOMContentLoadedEventArgs args)
-    {
-        DOMLoadedTask.TrySetResult(true);
-        _ = RenderDescriptionAsync();
+        try
+        {
+            await EventDetailsRenderer.InitializeAsync();
+            await RenderDescriptionAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Calendar description WebView2 initialization failed.");
+        }
     }
 
     private async Task RenderDescriptionAsync()
@@ -87,64 +66,27 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
         if (ViewModel?.CurrentEvent?.CalendarItem == null)
             return;
 
-        await DOMLoadedTask.Task;
-
         await UpdateEditorThemeAsync();
         await UpdateReaderFontPropertiesAsync();
 
         var description = ViewModel.CurrentEvent.CalendarItem.Description ?? string.Empty;
-
-        if (string.IsNullOrEmpty(description))
-        {
-            await EventDetailsWebView.ExecuteScriptFunctionAsync("RenderHTML", JsonSerializer.Serialize(" ", BasicTypesJsonContext.Default.String));
-        }
-        else
-        {
-            await EventDetailsWebView.ExecuteScriptFunctionAsync("RenderHTML",
-                JsonSerializer.Serialize(description, BasicTypesJsonContext.Default.String),
-                JsonSerializer.Serialize(true, BasicTypesJsonContext.Default.Boolean));
-        }
+        await EventDetailsRenderer.RenderHtmlAsync(string.IsNullOrEmpty(description) ? " " : description);
     }
 
-    private async void WindowRequested(CoreWebView2 sender, CoreWebView2NewWindowRequestedEventArgs args)
+    private async void EventDetailsRenderer_NavigationRequested(object? sender, RendererNavigationRequestedEventArgs args)
     {
-        args.Handled = true;
-
         try
         {
-            await Launcher.LaunchUriAsync(new Uri(args.Uri));
+            await ViewModel.NativeAppService.LaunchUriAsync(args.Uri);
         }
-        catch (Exception) { }
-    }
-
-    private async void WebViewNavigationStarting(Microsoft.UI.Xaml.Controls.WebView2 sender, CoreWebView2NavigationStartingEventArgs args)
-    {
-        if (args.Uri == "https://wino.mail/reader.html")
-            return;
-
-        args.Cancel = !args.Uri.StartsWith("data:text/html");
-
-        if (args.Cancel && Uri.TryCreate(args.Uri, UriKind.Absolute, out Uri? newUri) && newUri != null)
+        catch (Exception ex)
         {
-            await Launcher.LaunchUriAsync(newUri);
+            Log.Error(ex, "Failed to open a link from the calendar description renderer.");
         }
     }
 
-    private void DisposeWebView2()
-    {
-        if (EventDetailsWebView == null) return;
-
-        EventDetailsWebView.CoreWebView2Initialized -= CoreWebViewInitialized;
-        EventDetailsWebView.NavigationStarting -= WebViewNavigationStarting;
-
-        if (EventDetailsWebView.CoreWebView2 != null)
-        {
-            EventDetailsWebView.CoreWebView2.DOMContentLoaded -= DOMContentLoaded;
-            EventDetailsWebView.CoreWebView2.NewWindowRequested -= WindowRequested;
-        }
-
-        EventDetailsWebView.Close();
-    }
+    private void EventDetailsRenderer_InitializationFailed(object? sender, Exception exception)
+        => Log.Error(exception, "Calendar description WebView2 initialization failed.");
 
     private async Task UpdateEditorThemeAsync()
     {
@@ -154,28 +96,14 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
             return;
         }
 
-        await DOMLoadedTask.Task;
-
-        if (ViewModel.IsDarkWebviewRenderer)
-        {
-            EventDetailsWebView.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Dark;
-            await EventDetailsWebView.ExecuteScriptSafeAsync("SetDarkEditor();");
-        }
-        else
-        {
-            EventDetailsWebView.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Light;
-            await EventDetailsWebView.ExecuteScriptSafeAsync("SetLightEditor();");
-        }
+        EventDetailsRenderer.IsDarkMode = ViewModel.IsDarkWebviewRenderer;
+        await EventDetailsRenderer.InitializeAsync();
     }
 
     private async Task UpdateReaderFontPropertiesAsync()
     {
-        await EventDetailsWebView.ExecuteScriptFunctionAsync("ChangeFontSize", JsonSerializer.Serialize(_preferencesService.ReaderFontSize, BasicTypesJsonContext.Default.Int32));
-
-        var fontName = _preferencesService.ReaderFont;
-        fontName += ", sans-serif";
-
-        await EventDetailsWebView.ExecuteScriptFunctionAsync("ChangeFontFamily", JsonSerializer.Serialize(fontName, BasicTypesJsonContext.Default.String));
+        var fontName = $"{_preferencesService.ReaderFont}, sans-serif";
+        await EventDetailsRenderer.SetReaderTypographyAsync(fontName, _preferencesService.ReaderFontSize);
     }
 
     void IRecipient<ApplicationThemeChanged>.Receive(ApplicationThemeChanged message)

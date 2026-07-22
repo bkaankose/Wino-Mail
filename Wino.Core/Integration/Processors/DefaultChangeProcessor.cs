@@ -41,6 +41,9 @@ public interface IDefaultChangeProcessor
     Task<List<MailItemFolder>> GetLocalFoldersAsync(Guid accountId);
     Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(MailSynchronizationOptions options);
     Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId);
+    Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId, uint imapUid, uint imapUidValidity);
+    Task MarkDraftSyncFailedAsync(Guid mailUniqueId, string error);
+    Task<bool> IsMailExistsAsync(Guid accountId, Guid mailUniqueId);
     Task UpdateFolderLastSyncDateAsync(Guid folderId);
     Task UpdateRemoteAliasInformationAsync(MailAccount account, List<RemoteAccountAlias> remoteAccountAliases);
     Task UpdateAliasSendCapabilityAsync(Guid accountId, string aliasAddress, AliasSendCapability capability);
@@ -190,6 +193,15 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
 
     public Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId)
         => MailService.MapLocalDraftAsync(accountId, localDraftCopyUniqueId, newMailCopyId, newDraftId, newThreadId);
+
+    public Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId, uint imapUid, uint imapUidValidity)
+        => MailService.MapLocalDraftAsync(accountId, localDraftCopyUniqueId, newMailCopyId, newDraftId, newThreadId, imapUid, imapUidValidity);
+
+    public Task MarkDraftSyncFailedAsync(Guid mailUniqueId, string error)
+        => MailService.MarkDraftSyncFailedAsync(mailUniqueId, error);
+
+    public Task<bool> IsMailExistsAsync(Guid accountId, Guid mailUniqueId)
+        => MailService.IsMailExistsAsync(accountId, mailUniqueId);
 
     public Task<List<MailItemFolder>> GetLocalFoldersAsync(Guid accountId)
         => FolderService.GetFoldersAsync(accountId);

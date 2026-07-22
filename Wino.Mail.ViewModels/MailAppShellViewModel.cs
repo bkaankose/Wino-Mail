@@ -13,6 +13,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models;
@@ -51,7 +52,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     #region Menu Items
 
     [ObservableProperty]
-    private object selectedMenuItem;
+    public partial object SelectedMenuItem { get; set; }
 
     private IAccountMenuItem latestSelectedAccountMenuItem;
 
@@ -727,7 +728,9 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             MailAccountId = account.Id
         };
 
-        await _winoRequestDelegator.ExecuteAsync(account.Id, [new CreateRootFolderRequest(placeholderFolder, folderName.Trim())]);
+        await _winoRequestDelegator.ExecuteAsync(
+            account.Id,
+            new IRequestBase[] { new CreateRootFolderRequest(placeholderFolder, folderName.Trim()) });
     }
 
     public Task HandleAccountAttentionAsync(MailAccount account)
@@ -1128,15 +1131,22 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             MailToUri = _launchProtocolService.MailToUri
         };
 
-        var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(account.Id, draftOptions).ConfigureAwait(false);
-
-        if (shareRequest?.Files?.Count > 0)
+        try
         {
-            _shareActivationService.StagePendingComposeShareRequest(draftMailCopy.UniqueId, shareRequest);
-        }
+            var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(account.Id, draftOptions).ConfigureAwait(false);
 
-        var draftPreparationRequest = new DraftPreparationRequest(account, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason);
-        await _winoRequestDelegator.ExecuteAsync(draftPreparationRequest);
+            if (shareRequest?.Files?.Count > 0)
+            {
+                _shareActivationService.StagePendingComposeShareRequest(draftMailCopy.UniqueId, shareRequest);
+            }
+
+            var draftPreparationRequest = new DraftPreparationRequest(account, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason);
+            await _winoRequestDelegator.ExecuteAsync(draftPreparationRequest);
+        }
+        catch (MimePersistenceException ex)
+        {
+            _dialogService.InfoBarMessage(Translator.Info_DraftCreationFailed, ex.Message, InfoBarMessageType.Error);
+        }
     }
 
     public override async Task KeyboardShortcutHook(KeyboardShortcutTriggerDetails args)

@@ -12,7 +12,6 @@
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Identity.Client" />
 		<PackageReference Include="Sentry.Serilog" />
-		<PackageReference Include="System.Reactive" />
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />

@@ -12,7 +12,6 @@ using MailKit;
 using MailKit.Net.Imap;
 using MailKit.Net.Proxy;
 using MailKit.Security;
-using MimeKit.Cryptography;
 using Serilog;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -85,8 +84,6 @@ public class ImapClientPool : IDisposable
         _targetMinimumConnections = CalculateTargetMinimumConnections(_maxConnections, _quirks.UseConservativeConnections);
 
         _implementation = CreateImplementation();
-
-        CryptographyContext.Register(typeof(WindowsSecureMimeContext));
 
         _availableClients = Channel.CreateUnbounded<WinoImapClient>(new UnboundedChannelOptions
         {

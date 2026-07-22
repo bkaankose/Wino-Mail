@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:editor="using:Wino.Editor"
     xmlns:mail="using:Wino.Mail.Controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
@@ -38,7 +39,7 @@
             <Setter Property="Margin" Value="4,0" />
         </Style>
 
-        <DataTemplate x:Key="ColorOptionTemplate" x:DataType="mail:EditorColorOption">
+        <DataTemplate x:Key="ColorOptionTemplate" x:DataType="editor:EditorColorOption">
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <Grid Width="14" Height="14">
                     <Rectangle
@@ -52,7 +53,7 @@
             </StackPanel>
         </DataTemplate>
 
-        <DataTemplate x:Key="ParagraphStyleOptionTemplate" x:DataType="mail:EditorParagraphStyleOption">
+        <DataTemplate x:Key="ParagraphStyleOptionTemplate" x:DataType="editor:EditorParagraphStyleOption">
             <TextBlock Text="{x:Bind Name}" />
         </DataTemplate>
 

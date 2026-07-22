@@ -66,7 +66,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendToServerCommand))]
     [ObservableProperty]
-    private MimeMessage currentMimeMessage = null;
+    public partial MimeMessage CurrentMimeMessage { get; set; } = null;
 
     private readonly BodyBuilder bodyBuilder = new BodyBuilder();
 
@@ -93,6 +93,10 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SendToServerCommand))]
     public partial bool IsRetryingSendToServer { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DraftSyncErrorMessage))]
+    public partial bool IsDraftSyncFailed { get; set; }
 
     [ObservableProperty]
     public partial bool IsImportanceSelected { get; set; }
@@ -145,6 +149,16 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     public ObservableCollection<AccountContact> BCCItems { get; set; } = [];
     public bool ShouldShowSendToServerButton => IsLocalDraft && !IsDraftBusy;
     public bool ShouldShowSendButton => !IsLocalDraft;
+    public string DraftSyncErrorMessage
+    {
+        get
+        {
+            var error = CurrentMailDraftItem?.MailCopy?.LastDraftSyncError;
+            return string.IsNullOrWhiteSpace(error)
+                ? Translator.Draft_SyncFailedInfoBarMessage
+                : $"{Translator.Draft_SyncFailedInfoBarMessage}\n{error}";
+        }
+    }
 
     #endregion
 
@@ -163,6 +177,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     public readonly IContactService ContactService;
     public readonly ISmimeCertificateService _smimeCertificateService;
     private readonly IShareActivationService _shareActivationService;
+    private readonly IDraftSyncRetryService _draftSyncRetryService;
 
     public ComposePageViewModel(IMailDialogService dialogService,
                                 IMailService mailService,
@@ -177,7 +192,8 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                                 IFontService fontService,
                                 IPreferencesService preferencesService,
                                 ISmimeCertificateService smimeCertificateService,
-                                IShareActivationService shareActivationService)
+                                IShareActivationService shareActivationService,
+                                IDraftSyncRetryService draftSyncRetryService)
     {
         NativeAppService = nativeAppService;
         ContactService = contactService;
@@ -194,6 +210,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         _worker = worker;
         _smimeCertificateService = smimeCertificateService;
         _shareActivationService = shareActivationService;
+        _draftSyncRetryService = draftSyncRetryService;
 
         foreach (var cert in _smimeCertificateService.GetCertificates(emailAddress: SelectedAlias?.AliasAddress))
         {
@@ -314,6 +331,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         // Load alias certs
         var certs = _smimeCertificateService.GetCertificates(emailAddress: SelectedAlias.AliasAddress);
+        using var secureMimeContext = new WindowsSecureMimeContext();
 
         if (IsSmimeSignatureEnabled)
         {
@@ -335,12 +353,19 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                     recipients.Add(recipient);
                 }
 
-                CurrentMimeMessage.Body = ApplicationPkcs7Mime.SignAndEncrypt(signer, recipients, CurrentMimeMessage.Body);
+                CurrentMimeMessage.Body = ApplicationPkcs7Mime.SignAndEncrypt(
+                    secureMimeContext,
+                    signer,
+                    recipients,
+                    CurrentMimeMessage.Body);
             }
             else
             {
                 // CurrentMimeMessage.Body = MultipartSigned.Create(signer, CurrentMimeMessage.Body);
-                CurrentMimeMessage.Body = ApplicationPkcs7Mime.Sign(signer, CurrentMimeMessage.Body);
+                CurrentMimeMessage.Body = ApplicationPkcs7Mime.Sign(
+                    secureMimeContext,
+                    signer,
+                    CurrentMimeMessage.Body);
             }
         }
         else if (IsSmimeEncryptionEnabled)
@@ -349,7 +374,10 @@ public partial class ComposePageViewModel : MailBaseViewModel,
             //     ? certs.FirstOrDefault(c => c?.Thumbprint == SelectedAlias.SelectedEncryptionCertificateThumbprint)
             //     : null;
             // Encrypt the message if encryption certificate is selected.
-            CurrentMimeMessage.Body = ApplicationPkcs7Mime.Encrypt(CurrentMimeMessage.To.Mailboxes, CurrentMimeMessage.Body);
+            CurrentMimeMessage.Body = ApplicationPkcs7Mime.Encrypt(
+                secureMimeContext,
+                CurrentMimeMessage.To.Mailboxes,
+                CurrentMimeMessage.Body);
         }
 
         using MemoryStream memoryStream = new();
@@ -387,16 +415,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
             await UpdateMimeChangesAsync().ConfigureAwait(false);
 
-            var localDraftCopy = CurrentMailDraftItem.MailCopy;
-            var (retryReason, referenceMailCopy) = await ResolveRetryDraftContextAsync().ConfigureAwait(false);
-            var draftPreparationRequest = new DraftPreparationRequest(
-                localDraftCopy.AssignedAccount ?? ComposingAccount,
-                localDraftCopy,
-                CurrentMimeMessage.GetBase64MimeMessage(),
-                retryReason,
-                referenceMailCopy);
-
-            await _worker.ExecuteAsync(draftPreparationRequest).ConfigureAwait(false);
+            await _draftSyncRetryService.RetryNowAsync(CurrentMailDraftItem.MailCopy).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -965,32 +984,6 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         return string.IsNullOrWhiteSpace(sanitized) ? "email" : sanitized;
     }
 
-    private async Task<(DraftCreationReason reason, MailCopy referenceMailCopy)> ResolveRetryDraftContextAsync()
-    {
-        if (CurrentMimeMessage == null || CurrentMailDraftItem?.MailCopy?.AssignedAccount == null)
-            return (DraftCreationReason.Empty, null);
-
-        var inReplyTo = CurrentMimeMessage.InReplyTo;
-        if (string.IsNullOrWhiteSpace(inReplyTo) && CurrentMimeMessage.Headers.Contains(HeaderId.InReplyTo))
-            inReplyTo = CurrentMimeMessage.Headers[HeaderId.InReplyTo];
-
-        inReplyTo = MailHeaderExtensions.StripAngleBrackets(inReplyTo);
-        if (string.IsNullOrWhiteSpace(inReplyTo))
-            return (DraftCreationReason.Empty, null);
-
-        var accountId = CurrentMailDraftItem.MailCopy.AssignedAccount.Id;
-        var referenceMailCopy = await _mailService.GetMailCopyByMessageIdAsync(accountId, inReplyTo).ConfigureAwait(false);
-        if (referenceMailCopy == null)
-            return (DraftCreationReason.Empty, null);
-
-        // We cannot perfectly reconstruct original intent (Reply vs ReplyAll) from persisted data.
-        // Infer ReplyAll when multiple recipients exist on the local MIME.
-        var totalRecipients = CurrentMimeMessage.To.Mailboxes.Count() + CurrentMimeMessage.Cc.Mailboxes.Count();
-        var reason = totalRecipients > 1 ? DraftCreationReason.ReplyAll : DraftCreationReason.Reply;
-
-        return (reason, referenceMailCopy);
-    }
-
     public async Task<AccountContact> GetAddressInformationAsync(string tokenText, ObservableCollection<AccountContact> collection)
     {
         // Get model from the service. This will make sure the name is properly included if there is any record.
@@ -1026,10 +1019,35 @@ public partial class ComposePageViewModel : MailBaseViewModel,
             await ExecuteUIThread(async () =>
             {
                 CurrentMailDraftItem.UpdateFrom(updatedMail, changedProperties);
+                IsDraftSyncFailed = updatedMail.IsDraftSyncFailed;
+                OnPropertyChanged(nameof(DraftSyncErrorMessage));
                 await UpdatePendingOperationStateAsync();
                 NotifyComposeActionStateChanged();
             });
         }
+    }
+
+    partial void OnCurrentMailDraftItemChanged(MailItemViewModel value)
+    {
+        IsDraftSyncFailed = value?.MailCopy?.IsDraftSyncFailed == true;
+        OnPropertyChanged(nameof(DraftSyncErrorMessage));
+    }
+
+    protected override async void OnDraftFailed(MailCopy draftMail, MailAccount account)
+    {
+        base.OnDraftFailed(draftMail, account);
+
+        if (CurrentMailDraftItem?.MailCopy?.UniqueId != draftMail.UniqueId)
+            return;
+
+        await ExecuteUIThread(() =>
+        {
+            CurrentMailDraftItem.UpdateFrom(draftMail, MailCopyChangeFlags.DraftSyncState);
+            IsDraftSyncFailed = true;
+            IsDraftBusy = false;
+            OnPropertyChanged(nameof(DraftSyncErrorMessage));
+            NotifyComposeActionStateChanged();
+        });
     }
 
     protected override async void OnMailRemoved(MailCopy removedMail, EntityUpdateSource source)
@@ -1070,6 +1088,9 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
     private bool IsWithinLocalDraftRetryGracePeriod(MailCopy localDraft)
     {
+        if (localDraft?.DraftSyncState == DraftSyncState.SyncFailed)
+            return false;
+
         if (localDraft == null || localDraft.CreationDate == default)
             return false;
 

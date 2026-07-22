@@ -61,10 +61,10 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
     public List<AppThemeBase> AppThemes { get; set; }
 
     [ObservableProperty]
-    private ElementThemeContainer selectedElementTheme;
+    public partial ElementThemeContainer SelectedElementTheme { get; set; }
 
     [ObservableProperty]
-    private MailListDisplayMode selectedInfoDisplayMode;
+    public partial MailListDisplayMode SelectedInfoDisplayMode { get; set; }
 
     private AppColorViewModel _selectedAppColor;
 
@@ -378,6 +378,10 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         public string PreviewText { get; } = previewText;
         public bool IsRead { get; } = false;
         public bool IsDraft { get; } = false;
+        public bool IsLocalDraft { get; } = false;
+        public bool IsDraftSyncFailed { get; } = false;
+        public bool ShouldShowDraftSyncWarning { get; } = false;
+        public string DraftSyncTooltip { get; } = string.Empty;
         public bool HasAttachments { get; } = false;
         public bool IsCalendarEvent { get; } = false;
         public bool IsFlagged { get; } = false;

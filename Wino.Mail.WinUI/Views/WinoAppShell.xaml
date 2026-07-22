@@ -547,7 +547,10 @@
                     x:Name="PaneCustomContent"
                     Padding="0,0,0,6"
                     Visibility="Collapsed">
-                    <Grid x:Name="CalendarPaneContent" Visibility="Collapsed">
+                    <Grid
+                        x:Name="CalendarPaneContent"
+                        x:Load="{x:Bind ViewModel.IsCalendarMode, Mode=OneWay}"
+                        Visibility="Collapsed">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
@@ -583,7 +586,7 @@
                             Margin="0,0,0,12"
                             AutomationProperties.AutomationId="SynchronizeCalendarsNavigationItem"
                             AutomationProperties.Name="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}"
-                            IsEnabled="{x:Bind ViewModel.CalendarClient.CanSynchronizeCalendars, Mode=OneWay}"
+                            IsEnabled="False"
                             IsTabStop="True"
                             KeyDown="SynchronizeCalendarsNavigationItemKeyDown"
                             SelectsOnInvoked="False"
@@ -716,6 +719,7 @@
 
                     <ScrollViewer
                         x:Name="ContactsPaneContent"
+                        x:Load="{x:Bind ViewModel.IsContactsMode, Mode=OneWay}"
                         Margin="20,20,16,0"
                         HorizontalScrollBarVisibility="Disabled"
                         HorizontalScrollMode="Disabled"

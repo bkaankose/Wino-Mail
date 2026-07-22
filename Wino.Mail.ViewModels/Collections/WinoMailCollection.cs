@@ -21,7 +21,7 @@ using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels.Collections;
 
-public class BulkObservableCollection<T> : ObservableCollection<T>
+public partial class BulkObservableCollection<T> : ObservableCollection<T>
 {
     public void AddRange(IEnumerable<T> items)
     {
@@ -87,7 +87,7 @@ public class BulkObservableCollection<T> : ObservableCollection<T>
     }
 }
 
-public sealed class WinoMailGroup : BulkObservableCollection<IMailListItem>
+public sealed partial class WinoMailGroup : BulkObservableCollection<IMailListItem>
 {
     public WinoMailGroup(object key, IEnumerable<IMailListItem> items)
     {
@@ -100,7 +100,7 @@ public sealed class WinoMailGroup : BulkObservableCollection<IMailListItem>
     public new WinoMailGroup Items => this;
 }
 
-public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsChangedMessage>
+public partial class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsChangedMessage>
 {
     private readonly List<IMailListItem> _topLevelItems = [];
     private readonly ListItemComparer _listComparer = new();

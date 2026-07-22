@@ -88,6 +88,7 @@ public class MailService : BaseDatabaseService, IMailService
             IsDraft = true,
             FolderId = draftFolder.Id,
             DraftId = $"{Constants.LocalDraftStartPrefix}{Guid.NewGuid()}",
+            DraftSyncState = DraftSyncState.PendingSync,
             AssignedFolder = draftFolder,
             AssignedAccount = composerAccount,
             FileId = Guid.NewGuid(),
@@ -106,9 +107,22 @@ public class MailService : BaseDatabaseService, IMailService
                 copy.ThreadId = MailHeaderExtensions.SplitMessageIds(copy.References).FirstOrDefault() ?? copy.InReplyTo;
         }
 
-        await Connection.InsertAsync(copy, typeof(MailCopy));
+        var isMimeSaved = await _mimeFileService
+            .SaveMimeMessageAsync(copy.FileId, createdDraftMimeMessage, composerAccount.Id)
+            .ConfigureAwait(false);
 
-        await _mimeFileService.SaveMimeMessageAsync(copy.FileId, createdDraftMimeMessage, composerAccount.Id);
+        if (!isMimeSaved)
+            throw new MimePersistenceException("The draft could not be saved to local storage.");
+
+        try
+        {
+            await Connection.InsertAsync(copy, typeof(MailCopy)).ConfigureAwait(false);
+        }
+        catch
+        {
+            await _mimeFileService.DeleteMimeMessageAsync(composerAccount.Id, copy.FileId).ConfigureAwait(false);
+            throw;
+        }
 
         ReportUIChange(new DraftCreated(copy, composerAccount));
 
@@ -826,6 +840,10 @@ public class MailService : BaseDatabaseService, IMailService
         {
             // Pinning is managed locally for now, so server refreshes should not clear it.
             mailCopy.IsPinned = existingMailCopy.IsPinned;
+            mailCopy.DraftSyncState = existingMailCopy.DraftSyncState;
+            mailCopy.DraftSyncAttemptCount = existingMailCopy.DraftSyncAttemptCount;
+            mailCopy.LastDraftSyncAttemptUtc = existingMailCopy.LastDraftSyncAttemptUtc;
+            mailCopy.LastDraftSyncError = existingMailCopy.LastDraftSyncError;
         }
 
         await Connection.UpdateAsync(mailCopy, typeof(MailCopy)).ConfigureAwait(false);
@@ -1920,6 +1938,12 @@ public class MailService : BaseDatabaseService, IMailService
     }
 
     public async Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId)
+        => await MapLocalDraftAsync(accountId, localDraftCopyUniqueId, newMailCopyId, newDraftId, newThreadId, null, null).ConfigureAwait(false);
+
+    public async Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId, uint imapUid, uint imapUidValidity)
+        => await MapLocalDraftAsync(accountId, localDraftCopyUniqueId, newMailCopyId, newDraftId, newThreadId, (uint?)imapUid, imapUidValidity).ConfigureAwait(false);
+
+    private async Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId, uint? imapUid, uint? imapUidValidity)
     {
         var localDraftCopy = await Connection.FindWithQueryAsync<MailCopy>(
             "SELECT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id WHERE MailCopy.UniqueId = ? AND MailItemFolder.MailAccountId = ?",
@@ -1936,17 +1960,29 @@ public class MailService : BaseDatabaseService, IMailService
 
         localDraftCopy = await HydrateMailCopyAsync(localDraftCopy).ConfigureAwait(false);
 
-        bool isIdChanging = localDraftCopy.Id != newMailCopyId;
-
         localDraftCopy.Id = newMailCopyId;
         if (!string.IsNullOrEmpty(newDraftId))
             localDraftCopy.DraftId = newDraftId;
         if (!string.IsNullOrEmpty(newThreadId))
             localDraftCopy.ThreadId = newThreadId;
 
-        await UpdateMailAsync(localDraftCopy).ConfigureAwait(false);
+        if (imapUid.HasValue)
+            localDraftCopy.ImapUid = imapUid.Value;
+        if (imapUidValidity.HasValue)
+            localDraftCopy.ImapUidValidity = imapUidValidity.Value;
 
-        ReportUIChange(new DraftMapped(oldLocalDraftId, localDraftCopy.DraftId));
+        localDraftCopy.DraftSyncState = DraftSyncState.Synced;
+        localDraftCopy.DraftSyncAttemptCount = 0;
+        localDraftCopy.LastDraftSyncError = null;
+
+        await Connection.UpdateAsync(localDraftCopy, typeof(MailCopy)).ConfigureAwait(false);
+        var hydratedDraftCopy = await HydrateMailCopyAsync(localDraftCopy).ConfigureAwait(false);
+        ReportUpdatedMails([hydratedDraftCopy], MailCopyChangeFlags.Id |
+                                                 MailCopyChangeFlags.DraftId |
+                                                 MailCopyChangeFlags.ThreadId |
+                                                 MailCopyChangeFlags.DraftSyncState);
+
+        ReportUIChange(new DraftMapped(oldLocalDraftId, hydratedDraftCopy.DraftId));
 
         return true;
     }
@@ -1959,7 +1995,10 @@ public class MailService : BaseDatabaseService, IMailService
             var shouldUpdateDraftId = !string.IsNullOrEmpty(newDraftId);
 
             if ((shouldUpdateThreadId && item.ThreadId != newThreadId) ||
-                (shouldUpdateDraftId && item.DraftId != newDraftId))
+                (shouldUpdateDraftId && item.DraftId != newDraftId) ||
+                item.DraftSyncState != DraftSyncState.Synced ||
+                item.DraftSyncAttemptCount != 0 ||
+                !string.IsNullOrEmpty(item.LastDraftSyncError))
             {
                 var oldDraftId = item.DraftId;
                 var changedProperties = MailCopyChangeFlags.None;
@@ -1976,6 +2015,16 @@ public class MailService : BaseDatabaseService, IMailService
                     changedProperties |= MailCopyChangeFlags.ThreadId;
                 }
 
+                if (item.DraftSyncState != DraftSyncState.Synced ||
+                    item.DraftSyncAttemptCount != 0 ||
+                    !string.IsNullOrEmpty(item.LastDraftSyncError))
+                {
+                    item.DraftSyncState = DraftSyncState.Synced;
+                    item.DraftSyncAttemptCount = 0;
+                    item.LastDraftSyncError = null;
+                    changedProperties |= MailCopyChangeFlags.DraftSyncState;
+                }
+
                 ReportUIChange(new DraftMapped(oldDraftId, item.DraftId));
 
                 return changedProperties;
@@ -1983,6 +2032,54 @@ public class MailService : BaseDatabaseService, IMailService
 
             return MailCopyChangeFlags.None;
         });
+    }
+
+    public async Task MarkDraftSyncFailedAsync(Guid mailUniqueId, string error)
+    {
+        var draftCopy = await GetSingleMailItemAsync(mailUniqueId).ConfigureAwait(false);
+        if (draftCopy == null || !draftCopy.IsLocalDraft || draftCopy.DraftSyncState == DraftSyncState.SyncFailed)
+            return;
+
+        draftCopy.DraftSyncState = DraftSyncState.SyncFailed;
+        draftCopy.LastDraftSyncError = string.IsNullOrWhiteSpace(error) ? "Draft upload failed." : error;
+        draftCopy.LastDraftSyncAttemptUtc = DateTime.UtcNow;
+
+        await Connection.UpdateAsync(draftCopy, typeof(MailCopy)).ConfigureAwait(false);
+        var hydratedDraftCopy = await HydrateMailCopyAsync(draftCopy).ConfigureAwait(false);
+        ReportUpdatedMails([hydratedDraftCopy], MailCopyChangeFlags.DraftSyncState);
+        ReportUIChange(new DraftFailed(hydratedDraftCopy, hydratedDraftCopy.AssignedAccount));
+    }
+
+    public async Task MarkDraftSyncAttemptAsync(Guid mailUniqueId)
+    {
+        var draftCopy = await GetSingleMailItemAsync(mailUniqueId).ConfigureAwait(false);
+        if (draftCopy == null || !draftCopy.IsLocalDraft)
+            return;
+
+        draftCopy.DraftSyncState = DraftSyncState.PendingSync;
+        draftCopy.DraftSyncAttemptCount++;
+        draftCopy.LastDraftSyncAttemptUtc = DateTime.UtcNow;
+        draftCopy.LastDraftSyncError = null;
+
+        await Connection.UpdateAsync(draftCopy, typeof(MailCopy)).ConfigureAwait(false);
+        var hydratedDraftCopy = await HydrateMailCopyAsync(draftCopy).ConfigureAwait(false);
+        ReportUpdatedMails([hydratedDraftCopy], MailCopyChangeFlags.DraftSyncState);
+    }
+
+    public async Task<List<MailCopy>> GetUnsyncedLocalDraftsAsync(Guid accountId)
+    {
+        var drafts = await Connection.QueryAsync<MailCopy>($@"
+SELECT MailCopy.*
+FROM MailCopy
+INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id
+WHERE MailItemFolder.MailAccountId = ?
+  AND MailCopy.IsDraft = 1
+  AND MailCopy.DraftSyncState != ?
+  AND MailCopy.DraftId LIKE 'localDraft\_%' ESCAPE '\'",
+            accountId,
+            (int)DraftSyncState.Synced).ConfigureAwait(false);
+
+        return await HydrateMailCopiesAsync(drafts).ConfigureAwait(false);
     }
 
     public async Task<List<MailCopy>> GetDownloadedUnreadMailsAsync(Guid accountId, IEnumerable<string> downloadedMailCopyIds)
@@ -2008,6 +2105,14 @@ public class MailService : BaseDatabaseService, IMailService
 
     public Task<bool> IsMailExistsAsync(string mailCopyId)
         => Connection.ExecuteScalarAsync<bool>("SELECT EXISTS(SELECT 1 FROM MailCopy WHERE Id = ?)", mailCopyId);
+
+    public Task<bool> IsMailExistsAsync(Guid accountId, Guid mailUniqueId)
+        => Connection.ExecuteScalarAsync<bool>(@"
+SELECT EXISTS(
+    SELECT 1
+    FROM MailCopy
+    INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id
+    WHERE MailCopy.UniqueId = ? AND MailItemFolder.MailAccountId = ?)", mailUniqueId, accountId);
 
     public async Task<List<MailCopy>> GetExistingMailsAsync(Guid folderId, IEnumerable<MailKit.UniqueId> uniqueIds)
     {

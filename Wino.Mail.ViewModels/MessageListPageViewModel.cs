@@ -298,7 +298,7 @@ public partial class MessageListPageViewModel : MailBaseViewModel
 
     private bool IsValidSwipeActionIndex(int index) => index >= 0 && index < availableSwipeActions.Count;
 
-    private sealed class DemoMailItemDisplayInformation : IMailItemDisplayInformation
+    private sealed partial class DemoMailItemDisplayInformation : IMailItemDisplayInformation
     {
         public event PropertyChangedEventHandler PropertyChanged
         {
@@ -312,6 +312,10 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         public string PreviewText => "Agenda draft, attendee updates, and a few follow-up items for this week.";
         public bool IsRead => false;
         public bool IsDraft => false;
+        public bool IsLocalDraft => false;
+        public bool IsDraftSyncFailed => false;
+        public bool ShouldShowDraftSyncWarning => false;
+        public string DraftSyncTooltip => string.Empty;
         public bool HasAttachments => true;
         public bool IsCalendarEvent => false;
         public bool IsFlagged => true;
@@ -326,7 +330,8 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         public string AccountColorHex => "#00FF00";
         public AccountNicknamePosition AccountNicknamePosition => Wino.Core.Domain.Enums.AccountNicknamePosition.Right;
         public IReadOnlyList<MailCategory> Categories =>
-        [
+        new MailCategory[]
+        {
             new()
             {
                 Id = Guid.NewGuid(),
@@ -341,7 +346,7 @@ public partial class MessageListPageViewModel : MailBaseViewModel
                 BackgroundColorHex = "#E4E8FF",
                 TextColorHex = "#4255C5"
             }
-        ];
+        };
         public bool HasCategories => Categories.Count > 0;
         public AccountContact SenderContact => new()
         {

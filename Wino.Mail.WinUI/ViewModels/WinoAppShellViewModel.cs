@@ -1,7 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -10,42 +11,34 @@ using Wino.Core.ViewModels;
 
 namespace Wino.Mail.WinUI.ViewModels;
 
-public sealed class WinoAppShellViewModel : CoreBaseViewModel, IShellViewModel
+public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellViewModel
 {
-    private readonly Dictionary<WinoApplicationMode, IShellClient> _shellClients;
+    private readonly Dictionary<WinoApplicationMode, IShellClient> _shellClients = [];
+    private readonly IServiceProvider _serviceProvider;
     private readonly IStoreUpdateService _storeUpdateService;
     private readonly IMailDialogService _dialogService;
     private WinoApplicationMode _currentMode;
 
-    public WinoAppShellViewModel(IMailShellClient mailClient,
-                                 ICalendarShellClient calendarClient,
-                                 IEnumerable<IShellClient> shellClients,
+    public WinoAppShellViewModel(IServiceProvider serviceProvider,
                                  IPreferencesService preferencesService,
                                  IStatePersistanceService statePersistenceService,
                                  INavigationService navigationService,
                                  IStoreUpdateService storeUpdateService,
                                  IMailDialogService dialogService)
     {
-        MailClient = mailClient;
-        CalendarClient = calendarClient;
+        _serviceProvider = serviceProvider;
         PreferencesService = preferencesService;
         StatePersistenceService = statePersistenceService;
         NavigationService = navigationService;
         _storeUpdateService = storeUpdateService;
         _dialogService = dialogService;
 
-        _shellClients = shellClients.ToDictionary(client => client.Mode);
-
-        foreach (var client in _shellClients.Values)
-        {
-            client.PropertyChanged += ChildPropertyChanged;
-        }
-
         StatePersistenceService.StatePropertyChanged += StatePersistenceServiceChanged;
     }
 
-    public IMailShellClient MailClient { get; }
-    public ICalendarShellClient CalendarClient { get; }
+    public IMailShellClient MailClient => (IMailShellClient)GetClient(WinoApplicationMode.Mail);
+    public ICalendarShellClient CalendarClient => (ICalendarShellClient)GetClient(WinoApplicationMode.Calendar);
+    public IEnumerable<IShellClient> InitializedClients => _shellClients.Values;
     public IPreferencesService PreferencesService { get; }
     public IStatePersistanceService StatePersistenceService { get; }
     public INavigationService NavigationService { get; }
@@ -120,7 +113,26 @@ public sealed class WinoAppShellViewModel : CoreBaseViewModel, IShellViewModel
     }
 
     public IShellClient GetClient(WinoApplicationMode mode)
-        => _shellClients[mode];
+    {
+        if (_shellClients.TryGetValue(mode, out var client))
+            return client;
+
+        client = mode switch
+        {
+            WinoApplicationMode.Mail => _serviceProvider.GetRequiredService<IMailShellClient>(),
+            WinoApplicationMode.Calendar => _serviceProvider.GetRequiredService<ICalendarShellClient>(),
+            WinoApplicationMode.Contacts => _serviceProvider.GetRequiredService<ContactsShellClient>(),
+            WinoApplicationMode.Settings => _serviceProvider.GetRequiredService<SettingsShellClient>(),
+            _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null)
+        };
+
+        _shellClients.Add(mode, client);
+        client.PropertyChanged += ChildPropertyChanged;
+        return client;
+    }
+
+    public bool TryGetClient(WinoApplicationMode mode, out IShellClient? client)
+        => _shellClients.TryGetValue(mode, out client);
 
     public void SetCurrentMode(WinoApplicationMode mode)
     {
@@ -130,7 +142,7 @@ public sealed class WinoAppShellViewModel : CoreBaseViewModel, IShellViewModel
 
     private void ChildPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (ReferenceEquals(sender, CurrentClient))
+        if (TryGetClient(CurrentMode, out var currentClient) && ReferenceEquals(sender, currentClient))
         {
             if (e.PropertyName == nameof(IShellClient.SelectedMenuItem))
             {

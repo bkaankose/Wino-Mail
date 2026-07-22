@@ -113,7 +113,6 @@
                 <ResourceDictionary Source="Controls/ListView/WinoListViewStyles.xaml" />
                 <ResourceDictionary Source="/Styles/ItemContainerStyles.xaml" />
                 <ResourceDictionary Source="/Styles/ImagePreviewControl.xaml" />
-                <ResourceDictionary Source="/Styles/WebViewEditorControl.xaml" />
                 <ResourceDictionary Source="Controls/ListView/WinoListViewStyles.xaml" />
 
                 <ResourceDictionary Source="/Styles/CalendarThemeResources.xaml" />

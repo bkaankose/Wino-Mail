@@ -508,6 +508,7 @@ public static class XamlHelpers
             MailOperation.LightEditor => string.Empty,
             MailOperation.Print => Translator.MailOperation_Print,
             MailOperation.ViewMessageSource => Translator.MailOperation_ViewMessageSource,
+            MailOperation.RetryDraftUpload => Translator.Draft_RetryUpload,
             MailOperation.Navigate => Translator.MailOperation_Navigate,
             _ => "unknown",
         };

@@ -10,6 +10,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Mail.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
+    xmlns:editor="using:Wino.Editor"
     xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:mail="using:Wino.Core.Domain.Entities.Mail"
@@ -25,6 +26,13 @@
     mc:Ignorable="d">
 
     <Page.Resources>
+        <Style x:Key="ComposeFieldLabelStyle" TargetType="TextBlock">
+            <Setter Property="MinWidth" Value="56" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+        </Style>
+
         <DataTemplate x:Key="ContactTokenTemplate" x:DataType="entities:IContactDisplayItem">
             <Grid>
                 <Grid.ContextFlyout>
@@ -113,25 +121,25 @@
                     </Grid.RowDefinitions>
 
                     <TextBlock
-                Style="{StaticResource CaptionTextBlockStyle}"
                         MaxLines="2"
+                        Style="{StaticResource CaptionTextBlockStyle}"
                         Text="{x:Bind FileName}"
                         TextTrimming="CharacterEllipsis" />
 
                     <TextBlock
-                Style="{StaticResource CaptionTextBlockStyle}"
                         Grid.Row="1"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Bottom"
                         Foreground="Gray"
+                        Style="{StaticResource CaptionTextBlockStyle}"
                         Text="{x:Bind ReadableSize}" />
                 </Grid>
 
                 <Button
-                    AutomationProperties.AutomationId="ComposePageButton"
                     Grid.Column="2"
                     Margin="0,4"
                     VerticalAlignment="Stretch"
+                    AutomationProperties.AutomationId="ComposePageButton"
                     Background="Transparent"
                     BorderThickness="0"
                     Click="RemoveAttachment_Click"
@@ -154,10 +162,29 @@
         RowSpacing="7">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+        <muxc:InfoBar
+            x:Name="DraftSyncFailedInfoBar"
+            Title="{x:Bind domain:Translator.Draft_SyncFailedInfoBarTitle, Mode=OneTime}"
+            Grid.Row="0"
+            x:Load="{x:Bind ViewModel.IsDraftSyncFailed, Mode=OneWay}"
+            IsClosable="False"
+            IsOpen="{x:Bind ViewModel.IsDraftSyncFailed, Mode=OneWay}"
+            Message="{x:Bind ViewModel.DraftSyncErrorMessage, Mode=OneWay}"
+            Severity="Warning">
+            <muxc:InfoBar.ActionButton>
+                <Button
+                    AutomationProperties.AutomationId="ComposeRetryDraftUploadButton"
+                    Command="{x:Bind ViewModel.SendToServerCommand}"
+                    Content="{x:Bind domain:Translator.Draft_RetryUpload, Mode=OneTime}" />
+            </muxc:InfoBar.ActionButton>
+        </muxc:InfoBar>
+
         <Border
+            Grid.Row="1"
             Background="{ThemeResource WinoContentZoneBackgroud}"
             BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
@@ -182,10 +209,10 @@
                             OverflowButtonAlignment="Left">
                             <AppBarElementContainer Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.AvailableEmailTemplates.Count), Mode=OneWay}">
                                 <ComboBox
-                                    AutomationProperties.AutomationId="EmailTemplatesComboBox"
                                     x:Name="EmailTemplatesComboBox"
                                     MinWidth="220"
                                     Margin="0,8,8,0"
+                                    AutomationProperties.AutomationId="EmailTemplatesComboBox"
                                     ItemsSource="{x:Bind ViewModel.AvailableEmailTemplates, Mode=OneWay}"
                                     PlaceholderText="{x:Bind domain:Translator.Composer_EmailTemplatesPlaceholder}"
                                     SelectionChanged="EmailTemplateSelectionChanged">
@@ -197,19 +224,19 @@
                                 </ComboBox>
                             </AppBarElementContainer>
                             <AppBarButton
-                                AutomationProperties.AutomationId="ComposePageAppBarButton"
                                 MinWidth="40"
                                 HorizontalContentAlignment="Center"
                                 VerticalContentAlignment="Center"
+                                AutomationProperties.AutomationId="ComposePageAppBarButton"
                                 Visibility="{x:Bind ViewModel.IsDraftBusy, Mode=OneWay}">
                                 <ProgressRing IsActive="True" />
                             </AppBarButton>
                             <AppBarToggleButton
-                                AutomationProperties.AutomationId="ComposeAiActionsToggleButton"
                                 x:Name="ComposeAiActionsToggleButton"
                                 MinWidth="40"
-                                AutomationProperties.Name="{x:Bind domain:Translator.Composer_AiActions, Mode=OneTime}"
                                 HorizontalContentAlignment="Center"
+                                AutomationProperties.AutomationId="ComposeAiActionsToggleButton"
+                                AutomationProperties.Name="{x:Bind domain:Translator.Composer_AiActions, Mode=OneTime}"
                                 Checked="ComposeAiActionsToggleButton_Checked"
                                 LabelPosition="Collapsed"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AiActions}"
@@ -223,7 +250,7 @@
                                 AutomationProperties.Name="{x:Bind domain:Translator.Buttons_PopOut, Mode=OneTime}"
                                 Click="PopOutButton_Click"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_PopOut}"
-                                Visibility="{x:Bind GetPopOutButtonVisibility(), Mode=OneWay}">
+                                Visibility="{x:Bind GetPopOutButtonVisibility(), Mode=OneTime}">
                                 <AppBarButton.Icon>
                                     <coreControls:WinoFontIcon Icon="OpenInNewWindow" />
                                 </AppBarButton.Icon>
@@ -237,26 +264,27 @@
                                     <coreControls:WinoFontIcon Icon="{x:Bind GetEditorThemeIcon(WebViewEditor.IsEditorDarkMode), Mode=OneWay}" />
                                 </AppBarButton.Icon>
                             </AppBarButton>
-                            <AppBarButton
-
-                                AutomationProperties.AutomationId="ComposePageAppBarButton2" Label="{x:Bind domain:Translator.MailOperation_SaveAs}">
+                            <AppBarButton AutomationProperties.AutomationId="ComposePageAppBarButton2" Label="{x:Bind domain:Translator.MailOperation_SaveAs}">
                                 <AppBarButton.Icon>
                                     <coreControls:WinoFontIcon Icon="Save" />
                                 </AppBarButton.Icon>
                                 <AppBarButton.Flyout>
                                     <coreControls:WinoMenuFlyout Placement="BottomEdgeAlignedRight">
                                         <MenuFlyoutItem
-
-                                            AutomationProperties.AutomationId="ComposePageMenuFlyoutItem4" Click="ExportPdf_Click" Text="{x:Bind domain:Translator.Buttons_PDF}" />
+                                            AutomationProperties.AutomationId="ComposePageMenuFlyoutItem4"
+                                            Click="ExportPdf_Click"
+                                            Text="{x:Bind domain:Translator.Buttons_PDF}" />
                                         <MenuFlyoutItem
-
-                                            AutomationProperties.AutomationId="ComposePageMenuFlyoutItem5" Click="ExportEml_Click" Text="{x:Bind domain:Translator.Buttons_EML}" />
+                                            AutomationProperties.AutomationId="ComposePageMenuFlyoutItem5"
+                                            Click="ExportEml_Click"
+                                            Text="{x:Bind domain:Translator.Buttons_EML}" />
                                     </coreControls:WinoMenuFlyout>
                                 </AppBarButton.Flyout>
                             </AppBarButton>
                             <AppBarButton
-
-                                AutomationProperties.AutomationId="ComposePageAppBarButton3" Command="{x:Bind ViewModel.DiscardCommand}" Label="{x:Bind domain:Translator.Buttons_Discard}">
+                                AutomationProperties.AutomationId="ComposePageAppBarButton3"
+                                Command="{x:Bind ViewModel.DiscardCommand}"
+                                Label="{x:Bind domain:Translator.Buttons_Discard}">
                                 <AppBarButton.Icon>
                                     <coreControls:WinoFontIcon Icon="Delete" />
                                 </AppBarButton.Icon>
@@ -287,8 +315,8 @@
                     <controls1:EditorTabbedCommandBarControl.InsertCustomContent>
                         <StackPanel Orientation="Horizontal">
                             <AppBarButton
-                                AutomationProperties.AutomationId="FilesButton"
                                 x:Name="FilesButton"
+                                AutomationProperties.AutomationId="FilesButton"
                                 AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_AddAttachment, Mode=OneTime}"
                                 Command="{x:Bind ViewModel.AttachFilesCommand}"
                                 LabelPosition="Collapsed">
@@ -302,8 +330,8 @@
                     <controls1:EditorTabbedCommandBarControl.OptionsCustomContent>
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <ToggleSplitButton
-                                AutomationProperties.AutomationId="ImportanceSplitButton"
                                 x:Name="ImportanceSplitButton"
+                                AutomationProperties.AutomationId="ImportanceSplitButton"
                                 AutomationProperties.Name="{x:Bind domain:Translator.Composer_Importance, Mode=OneTime}"
                                 IsChecked="{x:Bind ViewModel.IsImportanceSelected, Mode=TwoWay}">
                                 <ToggleSplitButton.Content>
@@ -346,9 +374,9 @@
                                 </ToggleSplitButton.Flyout>
                             </ToggleSplitButton>
                             <muxc:ToggleSplitButton
-                                AutomationProperties.AutomationId="SignatureToggleButton"
                                 x:Name="SignatureToggleButton"
                                 Margin="8,0,0,0"
+                                AutomationProperties.AutomationId="SignatureToggleButton"
                                 AutomationProperties.Name="{x:Bind domain:Translator.Composer_EnableSmimeSignature, Mode=OneTime}"
                                 IsChecked="{x:Bind ViewModel.IsSmimeSignatureEnabled, Mode=TwoWay}"
                                 IsEnabled="{x:Bind ViewModel.AreCertificatesAvailable, Mode=OneWay}"
@@ -364,16 +392,15 @@
                                 <muxc:ToggleSplitButton.Flyout>
                                     <Flyout Placement="Bottom">
                                         <ListView
-                                            AutomationProperties.AutomationId="ComposePageListView"
                                             Width="320"
+                                            AutomationProperties.AutomationId="ComposePageListView"
                                             ItemsSource="{x:Bind ViewModel.AvailableCertificates, Mode=OneWay}"
                                             SelectedItem="{x:Bind ViewModel.SelectedSigningCertificate, Mode=TwoWay}">
                                             <ListView.ItemTemplate>
                                                 <DataTemplate xmlns:x509="using:System.Security.Cryptography.X509Certificates" x:DataType="x509:X509Certificate2">
                                                     <StackPanel Padding="8,4" Orientation="Vertical">
                                                         <TextBlock FontWeight="SemiBold" Text="{x:Bind Subject}" />
-                                                        <TextBlock
-                Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind Issuer}" />
+                                                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind Issuer}" />
                                                         <TextBlock>
                                                             <Run Text="{x:Bind domain:Translator.Composer_CertificateExpires, Mode=OneTime}" />
                                                             <Run Text="{x:Bind NotAfter, Mode=OneTime}" />
@@ -386,9 +413,9 @@
                                 </muxc:ToggleSplitButton.Flyout>
                             </muxc:ToggleSplitButton>
                             <ToggleButton
-                                AutomationProperties.AutomationId="EncryptionToggleButton"
                                 x:Name="EncryptionToggleButton"
                                 Margin="8,0,0,0"
+                                AutomationProperties.AutomationId="EncryptionToggleButton"
                                 AutomationProperties.Name="{x:Bind domain:Translator.Composer_EnableSmimeEncryption, Mode=OneTime}"
                                 IsChecked="{x:Bind ViewModel.IsSmimeEncryptionEnabled, Mode=TwoWay}"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_EnableSmimeEncryption}">
@@ -402,8 +429,8 @@
                                 </ToggleButton.Content>
                             </ToggleButton>
                             <ToggleButton
-                                AutomationProperties.AutomationId="XBindDomainTranslatorComposerRequestReadReceiptModeOneTime"
                                 Margin="8,0,0,0"
+                                AutomationProperties.AutomationId="XBindDomainTranslatorComposerRequestReadReceiptModeOneTime"
                                 AutomationProperties.Name="{x:Bind domain:Translator.Composer_RequestReadReceipt, Mode=OneTime}"
                                 IsChecked="{x:Bind ViewModel.IsReadReceiptRequested, Mode=TwoWay}"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_RequestReadReceipt}">
@@ -443,14 +470,14 @@
 
                     <!--  From  -->
                     <TextBlock
-                        HorizontalAlignment="Right"
-                        VerticalAlignment="Center"
-                        Text="{x:Bind domain:Translator.ComposerFrom}" />
+                        AutomationProperties.AutomationId="ComposeFromLabel"
+                        Style="{StaticResource ComposeFieldLabelStyle}"
+                        Text="{x:Bind domain:Translator.ComposerFrom, Mode=OneTime}" />
 
                     <ComboBox
-                        AutomationProperties.AutomationId="AccountsComboBox"
                         x:Name="AccountsComboBox"
                         Grid.Column="1"
+                        AutomationProperties.AutomationId="AccountsComboBox"
                         IsEditable="False"
                         ItemsSource="{x:Bind ViewModel.AvailableAliases, Mode=OneWay}"
                         SelectedItem="{x:Bind ViewModel.SelectedAlias, Mode=TwoWay}"
@@ -466,9 +493,9 @@
                     <TextBlock
                         Grid.Row="1"
                         Margin="0,4,0,0"
-                        HorizontalAlignment="Right"
-                        VerticalAlignment="Center"
-                        Text="{x:Bind domain:Translator.ComposerTo}" />
+                        AutomationProperties.AutomationId="ComposeToLabel"
+                        Style="{StaticResource ComposeFieldLabelStyle}"
+                        Text="{x:Bind domain:Translator.ComposerTo, Mode=OneTime}" />
 
                     <Grid
                         Grid.Row="1"
@@ -488,18 +515,18 @@
                             LostFocus="AddressBoxLostFocus"
                             PlaceholderText="{x:Bind domain:Translator.ComposerToPlaceholder}"
                             SuggestedItemTemplate="{StaticResource ContactSuggestionTemplate}"
-                            Tag="ToBox"
                             TabIndex="1"
+                            Tag="ToBox"
                             TokenDelimiter=";"
                             TokenItemAdding="TokenItemAdding"
                             TokenItemTemplate="{StaticResource ContactTokenTemplate}" />
 
                         <Button
-                            AutomationProperties.AutomationId="CCBCCShowButton"
                             x:Name="CCBCCShowButton"
                             Grid.Column="1"
                             Margin="6,6,0,0"
                             VerticalAlignment="Center"
+                            AutomationProperties.AutomationId="CCBCCShowButton"
                             Click="ShowCCBCCClicked"
                             GotFocus="CCBBCGotFocus"
                             TabIndex="2"
@@ -519,8 +546,7 @@
                         x:Name="CCTextBlock"
                         Grid.Row="2"
                         Margin="0,4,0,0"
-                        HorizontalAlignment="Right"
-                        VerticalAlignment="Center"
+                        Style="{StaticResource ComposeFieldLabelStyle}"
                         Text="Cc: "
                         Visibility="{x:Bind ViewModel.IsCCBCCVisible, Mode=OneWay}" />
 
@@ -533,8 +559,8 @@
                         LostFocus="AddressBoxLostFocus"
                         PlaceholderText="{x:Bind domain:Translator.ComposerToPlaceholder}"
                         SuggestedItemTemplate="{StaticResource ContactSuggestionTemplate}"
-                        Tag="CCBox"
                         TabIndex="3"
+                        Tag="CCBox"
                         TokenDelimiter=";"
                         TokenItemAdding="TokenItemAdding"
                         TokenItemTemplate="{StaticResource ContactTokenTemplate}"
@@ -543,8 +569,7 @@
                     <TextBlock
                         x:Name="BccTextBlock"
                         Grid.Row="3"
-                        HorizontalAlignment="Right"
-                        VerticalAlignment="Center"
+                        Style="{StaticResource ComposeFieldLabelStyle}"
                         Text="Bcc: "
                         Visibility="{x:Bind ViewModel.IsCCBCCVisible, Mode=OneWay}" />
 
@@ -557,8 +582,8 @@
                         LostFocus="AddressBoxLostFocus"
                         PlaceholderText="{x:Bind domain:Translator.ComposerToPlaceholder}"
                         SuggestedItemTemplate="{StaticResource ContactSuggestionTemplate}"
-                        Tag="BCCBox"
                         TabIndex="4"
+                        Tag="BCCBox"
                         TokenDelimiter=";"
                         TokenItemAdding="TokenItemAdding"
                         TokenItemTemplate="{StaticResource ContactTokenTemplate}"
@@ -568,16 +593,16 @@
                     <TextBlock
                         Grid.Row="4"
                         Margin="0,4,0,0"
-                        HorizontalAlignment="Right"
-                        VerticalAlignment="Center"
-                        Text="{x:Bind domain:Translator.ComposerSubject}" />
+                        AutomationProperties.AutomationId="ComposeSubjectLabel"
+                        Style="{StaticResource ComposeFieldLabelStyle}"
+                        Text="{x:Bind domain:Translator.ComposerSubject, Mode=OneTime}" />
 
                     <TextBox
-                        AutomationProperties.AutomationId="SubjectTextBox"
                         x:Name="SubjectTextBox"
                         Grid.Row="4"
                         Grid.Column="1"
                         Margin="0,4,0,0"
+                        AutomationProperties.AutomationId="SubjectTextBox"
                         BorderThickness="0"
                         PreviewKeyDown="SubjectTextBoxPreviewKeyDown"
                         TabIndex="5"
@@ -594,12 +619,12 @@
 
                     <!--  Attachments  -->
                     <ListView
-                        AutomationProperties.AutomationId="AttachmentsListView"
                         x:Name="AttachmentsListView"
                         Grid.Row="6"
                         Grid.ColumnSpan="2"
                         ui:ListViewExtensions.Command="{x:Bind ViewModel.OpenAttachmentCommand}"
                         x:Load="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.IncludedAttachments.Count), Mode=OneWay}"
+                        AutomationProperties.AutomationId="AttachmentsListView"
                         IsItemClickEnabled="True"
                         ItemTemplate="{StaticResource ComposerFileAttachmentTemplate}"
                         ItemsSource="{x:Bind ViewModel.IncludedAttachments, Mode=OneWay}"
@@ -632,25 +657,25 @@
                             StrokeDashArray="3,4"
                             StrokeThickness="2" />
                         <TextBlock
-                Style="{StaticResource SubtitleTextBlockStyle}"
                             x:Name="FilesDropZoneText"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
                             Opacity="0.5"
+                            Style="{StaticResource SubtitleTextBlockStyle}"
                             Text="{x:Bind domain:Translator.ComposerAttachmentsDropZone_Message}" />
                     </Grid>
                 </Grid>
             </Grid>
         </Border>
         <Border
-            Grid.Row="1"
-            Background="{ThemeResource WinoContentZoneBackgroud}"
-            BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
-            BorderThickness="1"
-            CornerRadius="7">
-            <Grid Margin="1" CornerRadius="7">
-                <controls1:WebViewEditorControl
+            Grid.Row="2"
+            Background="Transparent"
+            CornerRadius="{ThemeResource ControlCornerRadius}">
+            <Grid>
+                <editor:WinoMailEditor
                     x:Name="WebViewEditor"
+                    AutomationProperties.AutomationId="ComposeMailEditor"
+                    IsEditorWebViewEditor="False"
                     IsTabStop="True"
                     TabIndex="6" />
 
@@ -672,11 +697,11 @@
                             StrokeDashArray="3,4"
                             StrokeThickness="2" />
                         <TextBlock
-                Style="{StaticResource SubtitleTextBlockStyle}"
                             x:Name="ImagesDropZoneText"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
                             Opacity="0.5"
+                            Style="{StaticResource SubtitleTextBlockStyle}"
                             Text="{x:Bind domain:Translator.ComposerImagesDropZone_Message}" />
                     </Grid>
                 </Grid>
