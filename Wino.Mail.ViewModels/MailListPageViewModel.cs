@@ -1520,7 +1520,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     {
         base.OnDraftCreated(draftMail, account);
 
-        if (!BelongsToActiveFolder(draftMail)) return;
+        if (!BelongsToActiveFolder(draftMail) && !ShouldIncludeByThread(draftMail)) return;
 
         try
         {
