@@ -1001,7 +1001,15 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private bool ShouldIncludeByThread(MailCopy mailItem)
         => PreferencesService.IsThreadingEnabled
            && !string.IsNullOrEmpty(mailItem?.ThreadId)
-           && ThreadIdExistsInCollection(mailItem);
+           && ThreadIdExistsInCollection(mailItem)
+           && !IsExcludedFromThreadByFolder(mailItem);
+
+    private bool IsExcludedFromThreadByFolder(MailCopy mailItem)
+    {
+        if (mailItem?.AssignedFolder?.SpecialFolderType is SpecialFolderType.Deleted or SpecialFolderType.Junk)
+            return true;
+        return ActiveFolder?.SpecialFolderType is SpecialFolderType.Deleted or SpecialFolderType.Junk;
+    }
 
     private bool ShouldIncludeAddedMailInCurrentList(MailCopy addedMail)
     {

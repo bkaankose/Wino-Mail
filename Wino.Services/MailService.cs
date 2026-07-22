@@ -421,7 +421,10 @@ public class MailService : BaseDatabaseService, IMailService
         mails.RemoveAll(m => m.AssignedAccount == null || m.AssignedFolder == null);
         await _sentMailReceiptService.PopulateReceiptStatesAsync(mails).ConfigureAwait(false);
 
-        if (!options.CreateThreads || mails.Count == 0 || options.IsCategoryView)
+        bool isDeletedOrJunkView = options.Folders.Any(f =>
+            f.SpecialFolderType is SpecialFolderType.Deleted or SpecialFolderType.Junk);
+
+        if (!options.CreateThreads || mails.Count == 0 || options.IsCategoryView || isDeletedOrJunkView)
             return [.. mails];
 
         // 6. Expand threads: one batch query for all sibling mails across all threads.
@@ -472,7 +475,10 @@ public class MailService : BaseDatabaseService, IMailService
             }
 
             AssignPropertiesFromCaches(threadMails, folderCache, accountCache, contactCache);
-            mails.AddRange(threadMails.Where(m => m.AssignedAccount != null && m.AssignedFolder != null));
+            mails.AddRange(threadMails.Where(m =>
+                m.AssignedAccount != null
+                && m.AssignedFolder != null
+                && m.AssignedFolder.SpecialFolderType is not (SpecialFolderType.Deleted or SpecialFolderType.Junk)));
         }
 
         await _sentMailReceiptService.PopulateReceiptStatesAsync(mails).ConfigureAwait(false);
