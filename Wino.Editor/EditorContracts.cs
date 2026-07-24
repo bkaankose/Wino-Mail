@@ -48,6 +48,7 @@ public interface IHtmlMailRenderer : IDisposable
         string? bodyAutomationName,
         string? plainTextFallbackAutomationName,
         string? accessibleText);
+    Task EnterIdleAsync();
     void SetMemoryUsageTargetLevel(CoreWebView2MemoryUsageTargetLevel level);
     WebView2 GetUnderlyingWebView();
 }

@@ -55,6 +55,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
 {
     private const double RENDERING_COLUMN_MIN_WIDTH = 375;
     private const int SELECTION_SETTLE_DELAY_MS = 120;
+    private const int RENDERING_FRAME_RELEASE_DELAY_MS = 2000;
     private const int SELECT_MAIL_CONTAINER_MAX_ATTEMPTS = 40;
     private const int SELECT_MAIL_CONTAINER_RETRY_DELAY_MS = 50;
     private int _idleNavigationRequestVersion = 0;
@@ -574,9 +575,14 @@ public sealed partial class MailListPage : MailListPageAbstract,
         {
             if (RenderingFrame.Content is MailRenderingPage renderingPage)
             {
-                _ = renderingPage.ClearRenderedContentAsync();
+                await renderingPage.PrepareForIdleAsync();
             }
         }
+
+        await Task.Delay(RENDERING_FRAME_RELEASE_DELAY_MS);
+
+        if (requestVersion != _idleNavigationRequestVersion) return;
+        if (ViewModel.SelectedItemsCount != 0) return;
 
         // Ensure rendering frame actually navigates away from Compose/Rendering pages.
         // Otherwise those pages keep their messenger registrations alive.

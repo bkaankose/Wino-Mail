@@ -177,6 +177,12 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         }
     }
 
+    public async Task PrepareForIdleAsync()
+    {
+        await ClearRenderedContentAsync();
+        await MailRenderer.EnterIdleAsync();
+    }
+
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         base.OnNavigatedFrom(e);

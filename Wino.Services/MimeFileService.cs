@@ -84,13 +84,14 @@ public class MimeFileService : IMimeFileService
         return File.Exists(completeFilePath);
     }
 
-    public HtmlPreviewVisitor CreateHTMLPreviewVisitor(MimeMessage message, string mimeLocalPath)
+    public HtmlPreviewVisitor CreateHTMLPreviewVisitor(MimeMessage message, string _)
     {
-        var visitor = new HtmlPreviewVisitor(mimeLocalPath);
+        var visitor = new HtmlPreviewVisitor();
 
         message.Accept(visitor);
 
-        // TODO: Match cid with attachments if any.
+        foreach (var error in visitor.CryptographyErrors)
+            _logger.Warning(error, "An S/MIME operation failed while preparing a mail preview");
 
         return visitor;
     }

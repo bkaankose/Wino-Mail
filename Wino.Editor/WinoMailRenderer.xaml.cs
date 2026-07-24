@@ -9,12 +9,18 @@ namespace Wino.Editor;
 public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer
 {
     private static readonly TimeSpan InitializationTimeout = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan DisposalDelay = TimeSpan.FromSeconds(2);
+    private readonly SemaphoreSlim _browserOperationGate = new(1, 1);
     private Task? _initializationTask;
     private readonly TaskCompletionSource<bool> _loadedSource =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
     private TaskCompletionSource<bool> _ready = CreateReadySource();
+    private CancellationTokenSource? _disposeDelayCancellation;
     private bool _isDarkMode;
+    private bool _browserEventsAttached;
+    private bool _disposeRequested;
     private bool _disposed;
+    private long _idleSinceTickCount;
     private string _originalHtml = string.Empty;
     private bool _shouldLinkify = true;
     private string _fontFamily = "Segoe UI";
@@ -41,7 +47,7 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer
         {
             if (_isDarkMode == value) return;
             _isDarkMode = value;
-            if (_ready.Task.IsCompletedSuccessfully) _ = ApplyThemeAsync();
+            if (_ready.Task.IsCompletedSuccessfully) _ = ApplyThemeWhenReadyAsync();
         }
     }
 
@@ -51,36 +57,32 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer
     /// </summary>
     public CoreWebView2Environment? WebViewEnvironment { get; set; }
 
-    public async Task InitializeAsync()
-    {
-        //ObjectDisposedException.ThrowIf(_disposed, this);
-        await _loadedSource.Task;
-        _initializationTask ??= InitializeCoreAsync();
-        await _initializationTask;
-        // ObjectDisposedException.ThrowIf(_disposed, this);
-    }
+    public Task InitializeAsync() =>
+        RunBrowserOperationAsync(EnsureInitializedCoreAsync);
 
-    public async Task RenderHtmlAsync(string html, bool shouldLinkify = true)
-    {
-        _originalHtml = html ?? string.Empty;
-        _shouldLinkify = shouldLinkify;
-        _contentVersion++;
-        await InitializeAsync();
-        await RenderPendingHtmlAsync();
-    }
+    public Task RenderHtmlAsync(string html, bool shouldLinkify = true) =>
+        RunBrowserOperationAsync(async () =>
+        {
+            _originalHtml = html ?? string.Empty;
+            _shouldLinkify = shouldLinkify;
+            _contentVersion++;
+            await EnsureInitializedCoreAsync();
+            await RenderPendingHtmlAsync();
+        });
 
-    public async Task SetThemeAsync(bool isDarkMode)
-    {
-        bool wasReady = _ready.Task.IsCompletedSuccessfully;
-        bool themeChanged = _isDarkMode != isDarkMode;
-        _isDarkMode = isDarkMode;
+    public Task SetThemeAsync(bool isDarkMode) =>
+        RunBrowserOperationAsync(async () =>
+        {
+            bool wasReady = _ready.Task.IsCompletedSuccessfully;
+            bool themeChanged = _isDarkMode != isDarkMode;
+            _isDarkMode = isDarkMode;
 
-        await InitializeAsync();
+            await EnsureInitializedCoreAsync();
 
-        // Initialization applies the preloaded theme itself. Only an already-running
-        // document needs an explicit update.
-        if (wasReady && themeChanged) await ApplyThemeAsync();
-    }
+            // Initialization applies the preloaded theme itself. Only an already-running
+            // document needs an explicit update.
+            if (wasReady && themeChanged) await ApplyThemeAsync();
+        });
 
     public Task RenderPlainTextAsync(string text, bool shouldLinkify = true)
     {
@@ -92,22 +94,29 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer
 
     public Task<string> GetOriginalHtmlAsync() => Task.FromResult(_originalHtml);
 
-    public async Task ClearAsync()
-    {
-        _originalHtml = string.Empty;
-        _contentVersion++;
-        await InitializeAsync();
-        await ExecuteDirectAsync("window.WinoRenderer.clear()");
-        _renderedContentVersion = _contentVersion;
-    }
+    public Task ClearAsync() =>
+        RunBrowserOperationAsync(async () =>
+        {
+            _originalHtml = string.Empty;
+            _contentVersion++;
 
-    public async Task SetReaderTypographyAsync(string? fontFamily, int fontSize)
-    {
-        _fontFamily = fontFamily ?? "Segoe UI";
-        _fontSize = Math.Clamp(fontSize, 8, 72);
-        await InitializeAsync();
-        await ApplyTypographyAsync();
-    }
+            // Do not pay WebView2's startup cost only to clear a renderer that has
+            // never displayed content.
+            if (_initializationTask is null) return;
+
+            await EnsureInitializedCoreAsync();
+            await ExecuteDirectAsync("window.WinoRenderer.clear()");
+            _renderedContentVersion = _contentVersion;
+        });
+
+    public Task SetReaderTypographyAsync(string? fontFamily, int fontSize) =>
+        RunBrowserOperationAsync(async () =>
+        {
+            _fontFamily = fontFamily ?? "Segoe UI";
+            _fontSize = Math.Clamp(fontSize, 8, 72);
+            await EnsureInitializedCoreAsync();
+            await ApplyTypographyAsync();
+        });
 
     public async Task SetAccessibilityContextAsync(
         string? subject,
@@ -122,23 +131,24 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer
             "Plain text message",
             bodyContext);
 
-    public async Task SetAccessibilityContextAsync(
+    public Task SetAccessibilityContextAsync(
         string? subject,
         string? sender,
         string? date,
         string? bodyAutomationName,
         string? plainTextFallbackAutomationName,
         string? accessibleText)
-    {
-        _accessibilitySubject = subject ?? string.Empty;
-        _accessibilitySender = sender ?? string.Empty;
-        _accessibilityDate = date ?? string.Empty;
-        _accessibilityBodyName = bodyAutomationName ?? "Message body";
-        _accessibilityFallbackName = plainTextFallbackAutomationName ?? "Plain text message";
-        _accessibilityText = accessibleText ?? string.Empty;
-        await InitializeAsync();
-        await ApplyAccessibilityAsync();
-    }
+        => RunBrowserOperationAsync(async () =>
+        {
+            _accessibilitySubject = subject ?? string.Empty;
+            _accessibilitySender = sender ?? string.Empty;
+            _accessibilityDate = date ?? string.Empty;
+            _accessibilityBodyName = bodyAutomationName ?? "Message body";
+            _accessibilityFallbackName = plainTextFallbackAutomationName ?? "Plain text message";
+            _accessibilityText = accessibleText ?? string.Empty;
+            await EnsureInitializedCoreAsync();
+            await ApplyAccessibilityAsync();
+        });
 
     public Microsoft.UI.Xaml.Controls.WebView2 GetUnderlyingWebView() =>
         !_disposed && RendererWebView2 is not null
@@ -151,14 +161,79 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer
             RendererWebView2.CoreWebView2.MemoryUsageTargetLevel = level;
     }
 
+    /// <summary>
+    /// Reduces the initialized WebView2's memory target without destroying the
+    /// control. A subsequent render restores its normal memory target.
+    /// </summary>
+    public async Task EnterIdleAsync()
+    {
+        await _browserOperationGate.WaitAsync();
+        try
+        {
+            if (_disposed || _initializationTask is null) return;
+            EnterIdleCore();
+        }
+        finally
+        {
+            _browserOperationGate.Release();
+        }
+    }
+
+    private async Task RunBrowserOperationAsync(Func<Task> operation)
+    {
+        await _browserOperationGate.WaitAsync();
+        try
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
+            // Disposal takes the same gate, so an in-flight initialization or
+            // render always finishes before the native control is closed.
+            RestoreActiveBrowserState();
+            await operation();
+        }
+        finally
+        {
+            _browserOperationGate.Release();
+        }
+    }
+
+    private async Task EnsureInitializedCoreAsync()
+    {
+        await _loadedSource.Task;
+
+        if (_initializationTask is null)
+        {
+            if (_ready.Task.IsCompleted)
+                _ready = CreateReadySource();
+
+            _initializationTask = InitializeCoreAsync();
+        }
+
+        var initializationTask = _initializationTask;
+
+        try
+        {
+            await initializationTask;
+        }
+        catch
+        {
+            if (ReferenceEquals(_initializationTask, initializationTask))
+            {
+                _initializationTask = null;
+                DetachBrowserEvents();
+            }
+
+            throw;
+        }
+    }
+
     private async Task InitializeCoreAsync()
     {
         string document = await EditorAssetProvider.GetReaderDocumentAsync(IsDarkMode);
         var environment = WebViewEnvironment ?? await WinoWebViewEnvironment.GetSharedEnvironmentAsync();
         await RendererWebView2.EnsureCoreWebView2Async(environment);
         ObjectDisposedException.ThrowIf(_disposed, this);
-        RendererWebView2.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
-        RendererWebView2.CoreWebView2.NewWindowRequested += CoreWebView2_NewWindowRequested;
+        AttachBrowserEvents();
         _allowNextInternalNavigation = true;
         try
         {
@@ -218,6 +293,23 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer
         string accessibleTextJson = JsonSerializer.Serialize(_accessibilityText, EditorJsonContext.Default.String);
         return ExecuteDirectAsync(
             $"window.WinoRenderer.setAccessibility({subjectJson}, {senderJson}, {dateJson}, {bodyNameJson}, {fallbackNameJson}, {accessibleTextJson})");
+    }
+
+    private async Task ApplyThemeWhenReadyAsync()
+    {
+        try
+        {
+            await RunBrowserOperationAsync(ApplyThemeAsync);
+        }
+        catch (ObjectDisposedException)
+        {
+            // The theme notification raced the end of the two-second disposal
+            // grace period. The renderer is no longer visible, so no work remains.
+        }
+        catch (Exception exception)
+        {
+            InitializationFailed?.Invoke(this, exception);
+        }
     }
 
     private async Task<string> ExecuteDirectAsync(string script)
@@ -318,36 +410,82 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer
     private async void WinoMailRenderer_Loaded(object sender, RoutedEventArgs e)
     {
         _loadedSource.TrySetResult(true);
-        try
-        {
-            await InitializeAsync();
-            SetMemoryUsageTargetLevel(CoreWebView2MemoryUsageTargetLevel.Normal);
-        }
-        catch (Exception exception)
+        CancelPendingDisposal();
+
+        // Keep initialization lazy. Hosts initialize explicitly when HTML is
+        // actually needed; merely constructing or loading the control is cheap.
+        if (_initializationTask is null) return;
+
+        try { await InitializeAsync(); }
+        catch (Exception exception) { InitializationFailed?.Invoke(this, exception); }
+    }
+
+    private async void WinoMailRenderer_Unloaded(object sender, RoutedEventArgs e)
+    {
+        try { await EnterIdleAsync(); }
+        catch (Exception exception) when (exception is not ObjectDisposedException)
         {
             InitializationFailed?.Invoke(this, exception);
         }
     }
 
-    private void WinoMailRenderer_Unloaded(object sender, RoutedEventArgs e) =>
-        SetMemoryUsageTargetLevel(CoreWebView2MemoryUsageTargetLevel.Low);
+    private void AttachBrowserEvents()
+    {
+        if (_browserEventsAttached || RendererWebView2?.CoreWebView2 is null) return;
+
+        RendererWebView2.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
+        RendererWebView2.CoreWebView2.NewWindowRequested += CoreWebView2_NewWindowRequested;
+        _browserEventsAttached = true;
+    }
+
+    private void DetachBrowserEvents()
+    {
+        if (!_browserEventsAttached || RendererWebView2?.CoreWebView2 is null) return;
+
+        RendererWebView2.CoreWebView2.WebMessageReceived -= CoreWebView2_WebMessageReceived;
+        RendererWebView2.CoreWebView2.NewWindowRequested -= CoreWebView2_NewWindowRequested;
+        _browserEventsAttached = false;
+    }
+
+    private void EnterIdleCore()
+    {
+        var coreWebView = RendererWebView2?.CoreWebView2;
+        if (coreWebView is null) return;
+
+        if (_idleSinceTickCount == 0)
+            _idleSinceTickCount = Environment.TickCount64;
+
+        // An invisible WebView avoids rendering work while the reading pane is
+        // empty. MemoryUsageTargetLevel does not depend on controller visibility.
+        RendererWebView2.Visibility = Visibility.Collapsed;
+        coreWebView.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low;
+    }
+
+    private void RestoreActiveBrowserState()
+    {
+        var coreWebView = RendererWebView2?.CoreWebView2;
+        _idleSinceTickCount = 0;
+
+        if (coreWebView is not null)
+            coreWebView.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Normal;
+
+        if (RendererWebView2 is not null)
+            RendererWebView2.Visibility = Visibility.Visible;
+    }
 
     private void DisposeBrowser()
     {
         _allowNextInternalNavigation = false;
-
-        if (RendererWebView2?.CoreWebView2 is not null)
-        {
-            RendererWebView2.CoreWebView2.WebMessageReceived -= CoreWebView2_WebMessageReceived;
-            RendererWebView2.CoreWebView2.NewWindowRequested -= CoreWebView2_NewWindowRequested;
-        }
+        DetachBrowserEvents();
 
         if (RendererWebView2 is not null)
         {
             try { RendererWebView2.Close(); }
-            catch (InvalidOperationException) { }
+            catch (Exception exception) when (
+                exception is InvalidOperationException or ObjectDisposedException)
+            {
+            }
         }
-
     }
 
     private static TaskCompletionSource<bool> CreateReadySource() =>
@@ -355,12 +493,78 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
-        _loadedSource.TrySetException(new ObjectDisposedException(nameof(WinoMailRenderer)));
-        _ready.TrySetException(new ObjectDisposedException(nameof(WinoMailRenderer)));
-        DisposeBrowser();
+        if (_disposed || _disposeRequested) return;
+
+        _disposeRequested = true;
+        _disposeDelayCancellation = new CancellationTokenSource();
+        _ = DisposeAfterDelayAsync(_disposeDelayCancellation);
         GC.SuppressFinalize(this);
+    }
+
+    private async Task DisposeAfterDelayAsync(CancellationTokenSource cancellationSource)
+    {
+        try
+        {
+            // Reduce resources immediately, while retaining a warm engine for the
+            // two-second mail-selection reuse window.
+            try
+            {
+                await EnterIdleAsync();
+            }
+            catch (Exception exception) when (
+                exception is InvalidOperationException or ObjectDisposedException)
+            {
+                // The native control was already closing. Continue to the final
+                // idempotent Close call below.
+            }
+
+            var elapsedIdleTime = _idleSinceTickCount == 0
+                ? TimeSpan.Zero
+                : TimeSpan.FromMilliseconds(
+                    Math.Max(0, Environment.TickCount64 - _idleSinceTickCount));
+            var remainingDelay = DisposalDelay - elapsedIdleTime;
+
+            if (remainingDelay > TimeSpan.Zero)
+                await Task.Delay(remainingDelay, cancellationSource.Token);
+
+            await _browserOperationGate.WaitAsync(cancellationSource.Token);
+
+            try
+            {
+                if (!_disposeRequested || cancellationSource.IsCancellationRequested)
+                    return;
+
+                _disposed = true;
+                _disposeRequested = false;
+                _loadedSource.TrySetException(new ObjectDisposedException(nameof(WinoMailRenderer)));
+                _ready.TrySetException(new ObjectDisposedException(nameof(WinoMailRenderer)));
+                DisposeBrowser();
+            }
+            finally
+            {
+                _browserOperationGate.Release();
+            }
+        }
+        catch (OperationCanceledException) when (cancellationSource.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            if (ReferenceEquals(_disposeDelayCancellation, cancellationSource))
+            {
+                _disposeDelayCancellation = null;
+            }
+
+            cancellationSource.Dispose();
+        }
+    }
+
+    private void CancelPendingDisposal()
+    {
+        if (!_disposeRequested) return;
+
+        _disposeRequested = false;
+        _disposeDelayCancellation?.Cancel();
     }
 }
 

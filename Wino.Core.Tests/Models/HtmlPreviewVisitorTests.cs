@@ -1,6 +1,9 @@
 using Xunit;
 using FluentAssertions;
 using MimeKit;
+using MimeKit.Cryptography;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Updates;
 using Wino.Services.Extensions;
@@ -157,6 +160,200 @@ public class HtmlPreviewVisitorTests
     }
 
     [Fact]
+    public void HtmlPreviewVisitor_Should_Prefer_Html_Regardless_Of_Alternative_Order()
+    {
+        // Arrange
+        var message = new MimeMessage
+        {
+            Body = new MultipartAlternative
+            {
+                new TextPart("html") { Text = "<html><body><strong>Rich body</strong></body></html>" },
+                new TextPart("plain") { Text = "Plain body" }
+            }
+        };
+
+        var visitor = new HtmlPreviewVisitor();
+
+        // Act
+        message.Accept(visitor);
+
+        // Assert
+        visitor.HtmlBody.Should().Contain("<strong>Rich body</strong>");
+        visitor.HtmlBody.Should().NotContain("Plain body");
+        visitor.Attachments.Should().BeEmpty("unchosen body alternatives are not attachments");
+    }
+
+    [Fact]
+    public void HtmlPreviewVisitor_Should_Not_Use_A_Text_Attachment_As_The_Body()
+    {
+        // Arrange
+        var textAttachment = new TextPart("plain")
+        {
+            FileName = "notes.txt",
+            Text = "Attachment text"
+        };
+        textAttachment.ContentDisposition = new ContentDisposition(ContentDisposition.Attachment);
+
+        var binaryAttachment = new MimePart("application", "pdf")
+        {
+            FileName = "document.pdf",
+            Content = new MimeContent(new MemoryStream([1, 2, 3]))
+        };
+        binaryAttachment.ContentDisposition = new ContentDisposition(ContentDisposition.Attachment);
+
+        var message = new MimeMessage
+        {
+            Body = new Multipart("mixed")
+            {
+                textAttachment,
+                new TextPart("html") { Text = "<html><body>Actual body</body></html>" },
+                binaryAttachment
+            }
+        };
+
+        var visitor = new HtmlPreviewVisitor();
+
+        // Act
+        message.Accept(visitor);
+
+        // Assert
+        visitor.HtmlBody.Should().Contain("Actual body");
+        visitor.HtmlBody.Should().NotContain("Attachment text");
+        visitor.Attachments.Should().BeEquivalentTo([textAttachment, binaryAttachment]);
+    }
+
+    [Fact]
+    public void HtmlPreviewVisitor_Should_Inline_Safe_Cid_Images_Without_Listing_Them_As_Attachments()
+    {
+        // Arrange
+        var image = new MimePart("image", "png")
+        {
+            ContentId = "logo@example",
+            Content = new MimeContent(new MemoryStream([1, 2, 3, 4]))
+        };
+
+        var related = new MultipartRelated
+        {
+            new TextPart("html")
+            {
+                Text = """<html><body><img id="logo" src="cid:logo@example"></body></html>"""
+            },
+            image
+        };
+        related.ContentType.Parameters["start"] = "<root@example>";
+        ((TextPart)related[0]).ContentId = "root@example";
+
+        var message = new MimeMessage { Body = related };
+        var visitor = new HtmlPreviewVisitor();
+
+        // Act
+        message.Accept(visitor);
+
+        // Assert
+        visitor.HtmlBody.Should().Contain("src=\"data:image/png;base64,AQIDBA==\"");
+        visitor.Attachments.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void HtmlPreviewVisitor_Should_Drop_Unsafe_Resource_Schemes_And_SrcSet_Candidates()
+    {
+        // Arrange
+        var html = """
+            <html>
+                <body>
+                    <a id="file-link" href="file:///C:/secrets.txt">file</a>
+                    <img id="svg" src="data:image/svg+xml,%3Csvg%20onload='alert(1)'/%3E">
+                    <img id="set" srcset="javascript:alert(1) 1x, https://example.com/safe.png 2x">
+                </body>
+            </html>
+            """;
+
+        var message = new MimeMessage { Body = new TextPart("html") { Text = html } };
+        var visitor = new HtmlPreviewVisitor();
+
+        // Act
+        message.Accept(visitor);
+
+        // Assert
+        visitor.HtmlBody.Should().NotContain("file:///C:/secrets.txt");
+        visitor.HtmlBody.Should().NotContain("data:image/svg+xml");
+        visitor.HtmlBody.Should().NotContain("javascript:");
+        visitor.HtmlBody.Should().Contain("srcset=\"https://example.com/safe.png 2x\"");
+    }
+
+    [Fact]
+    public void HtmlPreviewVisitor_Should_Verify_Detached_Smime_Without_Using_Default_Sqlite_Context()
+    {
+        // Arrange
+        using var certificate = CreateSigningCertificate();
+        using var context = new WindowsSecureMimeContext();
+        var body = new TextPart("html") { Text = "<html><body>Detached signed body</body></html>" };
+        var signer = new CmsSigner(certificate) { DigestAlgorithm = DigestAlgorithm.Sha256 };
+        var message = new MimeMessage
+        {
+            Body = MultipartSigned.Create(context, signer, body)
+        };
+        var visitor = new HtmlPreviewVisitor();
+
+        // Act
+        message.Accept(visitor);
+
+        // Assert
+        visitor.HtmlBody.Should().Contain("Detached signed body");
+        visitor.Signatures.Should().ContainSingle("the explicit Windows context parsed the signature");
+        visitor.CryptographyErrors.Should().NotContain(error =>
+            error.Message.Contains("SQLite is not available", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void HtmlPreviewVisitor_Should_Extract_Opaque_Smime_Without_Using_Default_Sqlite_Context()
+    {
+        // Arrange
+        using var certificate = CreateSigningCertificate();
+        using var context = new WindowsSecureMimeContext();
+        var body = new TextPart("plain") { Text = "Opaque signed body" };
+        var signer = new CmsSigner(certificate) { DigestAlgorithm = DigestAlgorithm.Sha256 };
+        var message = new MimeMessage
+        {
+            Body = ApplicationPkcs7Mime.Sign(context, signer, body)
+        };
+        var visitor = new HtmlPreviewVisitor();
+
+        // Act
+        message.Accept(visitor);
+
+        // Assert
+        visitor.HtmlBody.Should().Contain("Opaque signed body");
+        visitor.Signatures.Should().ContainSingle("the signed content was extracted and verified");
+        visitor.CryptographyErrors.Should().NotContain(error =>
+            error.Message.Contains("SQLite is not available", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void HtmlPreviewVisitor_Should_Render_Detached_Content_When_The_Signature_Is_Invalid()
+    {
+        // Arrange
+        using var certificate = CreateSigningCertificate();
+        using var context = new WindowsSecureMimeContext();
+        var body = new TextPart("plain") { Text = "Original signed body" };
+        var signer = new CmsSigner(certificate) { DigestAlgorithm = DigestAlgorithm.Sha256 };
+        var signed = MultipartSigned.Create(context, signer, body);
+
+        ((TextPart)signed[0]).Text = "Tampered but still renderable body";
+
+        var message = new MimeMessage { Body = signed };
+        var visitor = new HtmlPreviewVisitor();
+
+        // Act
+        message.Accept(visitor);
+
+        // Assert
+        visitor.HtmlBody.Should().Contain("Tampered but still renderable body");
+        visitor.Signatures.Should().ContainSingle();
+        visitor.Signatures.Values.Should().ContainSingle().Which.Should().BeFalse();
+    }
+
+    [Fact]
     public void HtmlAgilityPackExtensions_Should_Create_Accessible_Text_With_Block_Boundaries()
     {
         // Arrange
@@ -199,5 +396,25 @@ public class HtmlPreviewVisitorTests
 
         // Assert
         accessibilityName.Should().Be("Better inbox. Mail actions are easier to find.");
+    }
+
+    private static X509Certificate2 CreateSigningCertificate()
+    {
+        using var rsa = RSA.Create(2048);
+        var request = new CertificateRequest(
+            "CN=Wino Preview Test, E=preview@wino.test",
+            rsa,
+            HashAlgorithmName.SHA256,
+            RSASignaturePadding.Pkcs1);
+
+        request.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, false));
+        request.CertificateExtensions.Add(new X509KeyUsageExtension(
+            System.Security.Cryptography.X509Certificates.X509KeyUsageFlags.DigitalSignature,
+            false));
+        request.CertificateExtensions.Add(new X509SubjectKeyIdentifierExtension(request.PublicKey, false));
+
+        return request.CreateSelfSigned(
+            DateTimeOffset.UtcNow.AddDays(-1),
+            DateTimeOffset.UtcNow.AddDays(1));
     }
 }
