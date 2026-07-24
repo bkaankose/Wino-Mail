@@ -12,6 +12,12 @@ public sealed record EditorMessage
 
     [JsonPropertyName("message")]
     public string? Message { get; init; }
+
+    [JsonPropertyName("url")]
+    public string? Url { get; init; }
+
+    [JsonPropertyName("command")]
+    public string? Command { get; init; }
 }
 
 public sealed record EditorSelectionState
@@ -49,6 +55,12 @@ public sealed record EditorSelectionState
     [JsonPropertyName("imageSelected")]
     public bool ImageSelected { get; init; }
 
+    [JsonPropertyName("imageAltText")]
+    public string? ImageAltText { get; init; }
+
+    [JsonPropertyName("imageLinkUrl")]
+    public string? ImageLinkUrl { get; init; }
+
     [JsonPropertyName("hasSelection")]
     public bool HasSelection { get; init; }
 
@@ -80,6 +92,7 @@ public sealed record EditorSelectionState
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(EditorMessage))]
 [JsonSerializable(typeof(EditorSelectionState))]
+[JsonSerializable(typeof(EditorImagePropertiesCommandArgs))]
 [JsonSerializable(typeof(RendererMessage))]
 [JsonSerializable(typeof(string))]
 internal sealed partial class EditorJsonContext : JsonSerializerContext;

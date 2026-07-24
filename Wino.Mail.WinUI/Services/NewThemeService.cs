@@ -158,6 +158,8 @@ public class NewThemeService : INewThemeService
         get { return currentBackdropType; }
         set
         {
+            value = NormalizeBackdropType(value);
+
             // Only update if the backdrop type has actually changed
             if (currentBackdropType == value) return;
 
@@ -206,8 +208,13 @@ public class NewThemeService : INewThemeService
         var storedThemeId = _configurationService.Get<Guid?>(CurrentApplicationThemeKey, null);
         currentApplicationThemeId = storedThemeId;
 
-        // Load backdrop setting, default to Mica
-        currentBackdropType = (WindowBackdropType)_configurationService.Get(WindowBackdropTypeKey, (int)WindowBackdropType.Mica);
+        // Load the backdrop setting, default to Mica. Older releases stored
+        // AcrylicBase and AcrylicThin, which WinUI 3 renders identically to DesktopAcrylic.
+        var storedBackdropType = (WindowBackdropType)_configurationService.Get(WindowBackdropTypeKey, (int)WindowBackdropType.Mica);
+        currentBackdropType = NormalizeBackdropType(storedBackdropType);
+
+        if (storedBackdropType != currentBackdropType)
+            _configurationService.Set(WindowBackdropTypeKey, (int)currentBackdropType);
 
         // Apply backdrop first, then theme
         ApplyBackdrop(currentBackdropType);
@@ -224,6 +231,8 @@ public class NewThemeService : INewThemeService
 
     public void ApplyBackdrop(WindowBackdropType backdropType)
     {
+        backdropType = NormalizeBackdropType(backdropType);
+
         if (GetThemeWindow() is not WindowEx windowEx)
         {
             Debug.WriteLine("No active WindowEx found, cannot apply backdrop");
@@ -237,8 +246,6 @@ public class NewThemeService : INewThemeService
                 WindowBackdropType.Mica => new MicaBackdrop() { Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.Base },
                 WindowBackdropType.MicaAlt => new MicaBackdrop() { Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.BaseAlt },
                 WindowBackdropType.DesktopAcrylic => new DesktopAcrylicBackdrop(),
-                WindowBackdropType.AcrylicBase => new DesktopAcrylicBackdrop(), // Using DesktopAcrylic as base
-                WindowBackdropType.AcrylicThin => new DesktopAcrylicBackdrop(), // Using DesktopAcrylic as thin
                 WindowBackdropType.None => null,
                 _ => new MicaBackdrop() { Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.Base }
             };
@@ -694,10 +701,17 @@ public class NewThemeService : INewThemeService
             new BackdropTypeWrapper(WindowBackdropType.None, "None"),
             new BackdropTypeWrapper(WindowBackdropType.Mica, "Mica"),
             new BackdropTypeWrapper(WindowBackdropType.MicaAlt, "Mica Alt"),
-            new BackdropTypeWrapper(WindowBackdropType.DesktopAcrylic, "Desktop Acrylic"),
-            new BackdropTypeWrapper(WindowBackdropType.AcrylicBase, "Acrylic Base"),
-            new BackdropTypeWrapper(WindowBackdropType.AcrylicThin, "Acrylic Thin")
+            new BackdropTypeWrapper(WindowBackdropType.DesktopAcrylic, "Desktop Acrylic")
         };
+    }
+
+    private static WindowBackdropType NormalizeBackdropType(WindowBackdropType backdropType)
+    {
+#pragma warning disable CS0618 // Legacy values are intentionally supported for settings migration.
+        return backdropType is WindowBackdropType.AcrylicBase or WindowBackdropType.AcrylicThin
+            ? WindowBackdropType.DesktopAcrylic
+            : backdropType;
+#pragma warning restore CS0618
     }
 
     private WindowEx? GetThemeWindow() => _windowManager.ActiveWindow ?? WinoApplication.MainWindow;

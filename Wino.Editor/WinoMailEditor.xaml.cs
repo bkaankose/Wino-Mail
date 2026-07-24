@@ -69,6 +69,7 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
     public event EventHandler<MailEditorFilesSelectedEventArgs>? AttachmentsSelected;
     public event EventHandler<MailEditorFilesSelectedEventArgs>? InlineImagesSelected;
     public event EventHandler<EditorState>? StateChanged;
+    public event EventHandler<EditorShortcutKind>? ShortcutRequested;
 
     public IReadOnlyList<EditorFontFamilyOption> AvailableFonts
     {
@@ -204,6 +205,8 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
         _bridge = new EditorBridge(EditorWebView2);
         _bridge.SelectionStateChanged += Bridge_SelectionStateChanged;
         _bridge.ContentChanged += Bridge_ContentChanged;
+        _bridge.LinkNavigationRequested += Bridge_LinkNavigationRequested;
+        _bridge.ShortcutRequested += Bridge_ShortcutRequested;
 
         try
         {
@@ -227,11 +230,37 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
         if (_bridge is null) return;
         _bridge.SelectionStateChanged -= Bridge_SelectionStateChanged;
         _bridge.ContentChanged -= Bridge_ContentChanged;
+        _bridge.LinkNavigationRequested -= Bridge_LinkNavigationRequested;
+        _bridge.ShortcutRequested -= Bridge_ShortcutRequested;
         _bridge.Dispose();
         _bridge = null;
     }
 
     private void Bridge_ContentChanged(object? sender, EventArgs e) => ContentChanged?.Invoke(this, EventArgs.Empty);
+
+    private static async void Bridge_LinkNavigationRequested(object? sender, string url)
+    {
+        try
+        {
+            if (Uri.TryCreate(url, UriKind.Absolute, out var uri) &&
+                (uri.Scheme == Uri.UriSchemeHttp ||
+                 uri.Scheme == Uri.UriSchemeHttps ||
+                 uri.Scheme == Uri.UriSchemeMailto ||
+                 uri.Scheme == Uri.UriSchemeFtp))
+            {
+                await Windows.System.Launcher.LaunchUriAsync(uri);
+            }
+        }
+        catch { }
+    }
+
+    private void Bridge_ShortcutRequested(object? sender, string command)
+    {
+        if (string.Equals(command, "openLinkDialog", StringComparison.OrdinalIgnoreCase))
+        {
+            ShortcutRequested?.Invoke(this, EditorShortcutKind.OpenLinkDialog);
+        }
+    }
 
     private void Bridge_SelectionStateChanged(object? sender, EditorSelectionState state)
     {
@@ -264,6 +293,7 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
             IsOrderedList = state.OrderedList,
             IsUnorderedList = state.UnorderedList,
             HasSelection = state.HasSelection,
+            IsImageSelected = state.ImageSelected,
             IsDarkMode = state.DarkMode,
             IsSpellCheckEnabled = state.SpellCheck,
             Alignment = Enum.TryParse<EditorTextAlignment>(state.Alignment, true, out var alignment) ? alignment : EditorTextAlignment.Left,
@@ -274,6 +304,8 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
             HighlightColor = state.HighlightColor,
             LineHeight = state.LineHeight,
             LinkUrl = state.LinkUrl,
+            ImageAltText = state.ImageAltText,
+            ImageLinkUrl = state.ImageLinkUrl,
             SelectedText = state.SelectedText
         };
         StateChanged?.Invoke(this, CurrentState);
@@ -299,9 +331,35 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
             case EditorCommandKind.SetTextColor: await _bridge!.ExecuteCommandAsync("foreColor", command.Value?.ToString()); break;
             case EditorCommandKind.SetHighlightColor: await _bridge!.ExecuteCommandAsync("backColor", command.Value?.ToString()); break;
             case EditorCommandKind.SetLineHeight: await _bridge!.SetLineHeightAsync(command.Value?.ToString() ?? "normal"); break;
+            case EditorCommandKind.ClearFormatting: await _bridge!.ExecuteCommandAsync("removeFormat"); break;
             case EditorCommandKind.InsertImage: await PickInlineImagesAsync(); break;
-            case EditorCommandKind.InsertLink when command.Value is EditorLinkCommandArgs link: await _bridge!.CreateLinkAsync(link.Url, link.Text, link.OpenInNewWindow); break;
-            case EditorCommandKind.RemoveLink: await _bridge!.ExecuteCommandAsync("unlink"); break;
+            case EditorCommandKind.SetImageProperties when command.Value is EditorImagePropertiesCommandArgs image:
+                await _bridge!.SetSelectedImagePropertiesAsync(image);
+                break;
+            case EditorCommandKind.InsertLink when command.Value is EditorLinkCommandArgs link:
+                if (CurrentState.IsImageSelected)
+                {
+                    await _bridge!.SetSelectedImagePropertiesAsync(new EditorImagePropertiesCommandArgs(
+                        CurrentState.ImageAltText ?? string.Empty,
+                        link.Url,
+                        link.OpenInNewWindow));
+                }
+                else
+                {
+                    await _bridge!.CreateLinkAsync(link.Url, link.Text, link.OpenInNewWindow);
+                }
+                break;
+            case EditorCommandKind.RemoveLink:
+                if (CurrentState.IsImageSelected)
+                {
+                    await _bridge!.SetSelectedImagePropertiesAsync(new EditorImagePropertiesCommandArgs(
+                        CurrentState.ImageAltText ?? string.Empty));
+                }
+                else
+                {
+                    await _bridge!.RemoveLinkAsync();
+                }
+                break;
             case EditorCommandKind.InsertEmoji:
                 await _bridge!.InsertEmojiAsync(command.Value?.ToString() ?? "😊");
                 break;

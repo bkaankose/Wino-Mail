@@ -1598,7 +1598,19 @@
                             IsEnabled="{x:Bind ViewModel.CanSynchronize, Mode=OneWay}"
                             ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Sync}"
                             Visibility="{x:Bind ViewModel.IsSyncButtonVisible, Mode=OneWay}">
-                            <coreControls:WinoFontIcon FontSize="14" Icon="Sync" />
+                            <Grid>
+                                <coreControls:WinoFontIcon
+                                    x:Name="SyncFolderIcon"
+                                    FontSize="14"
+                                    Icon="Sync"
+                                    x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsAccountSynchronizerInSynchronization), Mode=OneWay}" />
+                                <ProgressRing
+                                    x:Name="SyncFolderProgressRing"
+                                    Width="16"
+                                    Height="16"
+                                    IsActive="{x:Bind ViewModel.IsAccountSynchronizerInSynchronization, Mode=OneWay}"
+                                    x:Load="{x:Bind ViewModel.IsAccountSynchronizerInSynchronization, Mode=OneWay}" />
+                            </Grid>
                         </Button>
                         <ToggleButton
                             x:Name="SelectionModeToggle"

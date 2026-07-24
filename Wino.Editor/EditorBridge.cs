@@ -19,6 +19,8 @@ internal sealed partial class EditorBridge : IDisposable
 
     public event EventHandler<EditorSelectionState>? SelectionStateChanged;
     public event EventHandler? ContentChanged;
+    public event EventHandler<string>? LinkNavigationRequested;
+    public event EventHandler<string>? ShortcutRequested;
 
     public async Task InitializeAsync()
     {
@@ -55,6 +57,15 @@ internal sealed partial class EditorBridge : IDisposable
         string urlJson = JsonSerializer.Serialize(url, EditorJsonContext.Default.String);
         string textJson = text is null ? "null" : JsonSerializer.Serialize(text, EditorJsonContext.Default.String);
         return ExecuteScriptAsync($"window.WinoEditor.createLink({urlJson}, {textJson}, {openInNewWindow.ToString().ToLowerInvariant()})");
+    }
+
+    public Task RemoveLinkAsync() =>
+        ExecuteScriptAsync("window.WinoEditor.removeLink()");
+
+    public Task SetSelectedImagePropertiesAsync(EditorImagePropertiesCommandArgs properties)
+    {
+        string propertiesJson = JsonSerializer.Serialize(properties, EditorJsonContext.Default.EditorImagePropertiesCommandArgs);
+        return ExecuteScriptAsync($"window.WinoEditorImages.setSelectedProperties({propertiesJson})");
     }
 
     public Task InsertImageAsync(string dataUri) =>
@@ -102,7 +113,7 @@ internal sealed partial class EditorBridge : IDisposable
 
     public Task SetTypographyAsync(string? fontFamily, int fontSize)
     {
-        string fontJson = JsonSerializer.Serialize(fontFamily ?? "Segoe UI", EditorJsonContext.Default.String);
+        string fontJson = JsonSerializer.Serialize(fontFamily ?? "Calibri", EditorJsonContext.Default.String);
         return ExecuteScriptAsync($"window.WinoEditor.setTypography({fontJson}, {Math.Clamp(fontSize, 8, 72)})");
     }
 
@@ -167,6 +178,12 @@ internal sealed partial class EditorBridge : IDisposable
                 break;
             case "contentChanged":
                 ContentChanged?.Invoke(this, EventArgs.Empty);
+                break;
+            case "openLink" when !string.IsNullOrWhiteSpace(message.Url):
+                LinkNavigationRequested?.Invoke(this, message.Url);
+                break;
+            case "shortcut" when !string.IsNullOrWhiteSpace(message.Command):
+                ShortcutRequested?.Invoke(this, message.Command);
                 break;
         }
     }

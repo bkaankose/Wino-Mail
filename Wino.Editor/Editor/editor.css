@@ -50,6 +50,35 @@
     pointer-events: none;
 }
 
+.wino-link-bubble {
+    position: fixed;
+    display: none;
+    min-height: 30px;
+    padding: 4px 10px;
+    border: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
+    border-radius: 6px;
+    color: CanvasText;
+    background: Canvas;
+    box-shadow: 0 4px 14px rgb(0 0 0 / 18%);
+    font: 12px/20px "Segoe UI", sans-serif;
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+.wino-link-bubble.is-visible {
+    display: block;
+}
+
+#wino-editor a {
+    color: LinkText;
+    text-decoration: underline;
+    cursor: text;
+}
+
+#wino-editor a:hover {
+    text-decoration-thickness: 2px;
+}
+
 .wino-image-frame {
     position: fixed;
     box-sizing: border-box;

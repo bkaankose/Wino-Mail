@@ -6,8 +6,16 @@
     let stateTimer = 0;
     let contentTimer = 0;
     let pasteAsHtml = true;
+    let pasteAsPlainTextOnce = false;
     let darkMode = false;
     let spellCheck = true;
+    let displayedLink = null;
+    const linkBubble = document.createElement("button");
+    linkBubble.type = "button";
+    linkBubble.className = "wino-link-bubble";
+    linkBubble.dataset.winoEditorArtifact = "true";
+    linkBubble.textContent = "Remove link";
+    document.getElementById("wino-overlay").appendChild(linkBubble);
 
     function post(message) {
         if (window.chrome && window.chrome.webview) {
@@ -114,27 +122,33 @@
         return "left";
     }
 
-    function fontFamily() {
+    function fontFamily(computed) {
         const value = String(document.queryCommandValue("fontName") || "").trim();
-        return value.replace(/^['\"]|['\"]$/g, "");
+        const computedValue = computed ? String(computed.fontFamily || "").split(",")[0].trim() : "";
+        return (computedValue || value).replace(/^['\"]|['\"]$/g, "");
     }
 
     function selectionState() {
         const node = currentNode();
         const selection = window.getSelection();
         const computed = node ? window.getComputedStyle(node) : null;
+        const imageProperties = window.WinoEditorImages && window.WinoEditorImages.getSelectedProperties
+            ? window.WinoEditorImages.getSelectedProperties()
+            : null;
         return {
             bold: queryState("bold"),
             italic: queryState("italic"),
             underline: queryState("underline"),
             strikethrough: queryState("strikeThrough"),
             color: normalizeColor(document.queryCommandValue("foreColor")),
-            fontFamily: fontFamily(),
+            fontFamily: fontFamily(computed),
             orderedList: queryState("insertOrderedList"),
             unorderedList: queryState("insertUnorderedList"),
             alignment: alignment(),
             inTable: Boolean(node && node.closest("table")),
-            imageSelected: Boolean(window.WinoEditorImages && window.WinoEditorImages.isSelected())
+            imageSelected: Boolean(imageProperties)
+            ,imageAltText: imageProperties ? imageProperties.altText : null
+            ,imageLinkUrl: imageProperties ? imageProperties.linkUrl : null
             ,hasSelection: Boolean(selection && !selection.isCollapsed)
             ,selectedText: selection ? selection.toString() : ""
             ,fontSize: computed ? parseInt(computed.fontSize, 10) || null : null
@@ -158,6 +172,41 @@
         window.clearTimeout(contentTimer);
         contentTimer = window.setTimeout(() => post({ type: "contentChanged" }), 120);
         sendState();
+    }
+
+    function currentLink() {
+        const node = currentNode();
+        return node && node.closest ? node.closest("a") : null;
+    }
+
+    function hideLinkBubble() {
+        displayedLink = null;
+        linkBubble.classList.remove("is-visible");
+        linkBubble.removeAttribute("aria-label");
+    }
+
+    function updateLinkBubble() {
+        const anchor = currentLink();
+        if (!anchor || !editor.contains(anchor)) {
+            hideLinkBubble();
+            return;
+        }
+
+        const rectangle = anchor.getBoundingClientRect();
+        if (rectangle.width === 0 && rectangle.height === 0) {
+            hideLinkBubble();
+            return;
+        }
+
+        displayedLink = anchor;
+        linkBubble.classList.add("is-visible");
+        linkBubble.style.left = `${Math.max(8, Math.min(window.innerWidth - linkBubble.offsetWidth - 8, rectangle.left))}px`;
+        const preferredTop = rectangle.bottom + 6;
+        const fallbackTop = rectangle.top - linkBubble.offsetHeight - 6;
+        linkBubble.style.top = `${Math.max(8, preferredTop + linkBubble.offsetHeight <= window.innerHeight - 8
+            ? preferredTop
+            : fallbackTop)}px`;
+        linkBubble.setAttribute("aria-label", `Remove link ${anchor.href}`);
     }
 
     function replaceTemporaryFontSizes(pixelSize, existingFonts) {
@@ -216,12 +265,30 @@
     function createLink(url, text, openInNewWindow) {
         if (!url) return false;
         restoreSelection();
+        const existingAnchor = currentLink();
+        if (existingAnchor) {
+            existingAnchor.href = url;
+            if (text) existingAnchor.textContent = text;
+            if (openInNewWindow) {
+                existingAnchor.target = "_blank";
+                existingAnchor.rel = "noopener noreferrer";
+            } else {
+                existingAnchor.removeAttribute("target");
+                existingAnchor.removeAttribute("rel");
+            }
+            sendContentChanged();
+            return true;
+        }
+
         const selection = window.getSelection();
         if (selection && selection.isCollapsed) {
             const anchor = document.createElement("a");
             anchor.href = url;
             anchor.textContent = text || url;
-            if (openInNewWindow) anchor.target = "_blank";
+            if (openInNewWindow) {
+                anchor.target = "_blank";
+                anchor.rel = "noopener noreferrer";
+            }
             const range = selection.getRangeAt(0);
             range.insertNode(anchor);
             range.setStartAfter(anchor);
@@ -237,6 +304,33 @@
         const anchor = linkedNode && linkedNode.closest("a");
         if (anchor && openInNewWindow) anchor.target = "_blank";
         return result;
+    }
+
+    function removeLink(anchorOverride) {
+        restoreSelection();
+        const anchor = anchorOverride || currentLink() || displayedLink;
+        if (!anchor) return false;
+
+        const parent = anchor.parentNode;
+        const firstChild = anchor.firstChild;
+        const lastChild = anchor.lastChild;
+        while (anchor.firstChild) parent.insertBefore(anchor.firstChild, anchor);
+        anchor.remove();
+
+        if (firstChild && lastChild) {
+            const range = document.createRange();
+            range.setStartBefore(firstChild);
+            range.setEndAfter(lastChild);
+            range.collapse(false);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            lastRange = range.cloneRange();
+        }
+
+        hideLinkBubble();
+        sendContentChanged();
+        return true;
     }
 
     function insertHtml(html, range) {
@@ -309,32 +403,281 @@
     }
 
     function setTypography(fontFamily, fontSize) {
-        editor.style.fontFamily = fontFamily || "Segoe UI";
+        editor.style.fontFamily = fontFamily || "Calibri";
         editor.style.fontSize = `${Math.max(8, Math.min(72, Number(fontSize) || 14))}px`;
         sendState();
     }
 
+    function clearFormatting() {
+        return exec("removeFormat");
+    }
+
+    function lineBreakOffsets(value) {
+        const offsets = [];
+        let textOffset = 0;
+        String(value || "").replace(/\r\n?/g, "\n").split("").forEach(character => {
+            if (character === "\n") offsets.push(textOffset);
+            else textOffset += 1;
+        });
+        return offsets;
+    }
+
+    function textWithoutLineBreaks(value) {
+        return String(value || "").replace(/\r\n?/g, "\n").replace(/\n/g, "");
+    }
+
+    function structuralLineBreakOffsets(container) {
+        const offsets = [];
+        let textOffset = 0;
+        const blockTags = /^(DIV|P|LI|BLOCKQUOTE|H[1-6]|PRE|TABLE|TR)$/;
+
+        function visit(parent) {
+            const children = Array.from(parent.childNodes);
+            children.forEach((child, index) => {
+                if (child.nodeType === Node.TEXT_NODE) {
+                    textOffset += textWithoutLineBreaks(child.nodeValue).length;
+                    return;
+                }
+
+                if (child.nodeType !== Node.ELEMENT_NODE) return;
+                if (child.tagName === "BR") {
+                    offsets.push(textOffset);
+                    return;
+                }
+
+                const isBlock = blockTags.test(child.tagName);
+                if (isBlock && textOffset > 0) offsets.push(textOffset);
+                visit(child);
+                const nextElement = children[index + 1];
+                if (isBlock && nextElement && nextElement.nodeType !== Node.ELEMENT_NODE) {
+                    offsets.push(textOffset);
+                }
+            });
+        }
+
+        visit(container);
+        return offsets;
+    }
+
+    function insertBreakAtTextOffset(container, targetOffset) {
+        const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+        let currentOffset = 0;
+        let textNode = walker.nextNode();
+
+        while (textNode) {
+            const compactValue = textWithoutLineBreaks(textNode.nodeValue);
+            const nextOffset = currentOffset + compactValue.length;
+            if (targetOffset <= nextOffset) {
+                const localOffset = Math.max(0, targetOffset - currentOffset);
+                let rawOffset = 0;
+                let compactOffset = 0;
+                while (rawOffset < textNode.nodeValue.length && compactOffset < localOffset) {
+                    const character = textNode.nodeValue[rawOffset];
+                    rawOffset += 1;
+                    if (character !== "\r" && character !== "\n") compactOffset += 1;
+                }
+                const breakElement = document.createElement("br");
+                if (localOffset === 0) {
+                    let boundary = textNode;
+                    while (boundary.parentNode !== container && boundary.parentElement &&
+                        !/^(DIV|P|LI|BLOCKQUOTE|H[1-6]|PRE)$/.test(boundary.parentElement.tagName)) {
+                        boundary = boundary.parentElement;
+                    }
+                    boundary.parentNode.insertBefore(breakElement, boundary);
+                } else if (localOffset === compactValue.length) {
+                    let boundary = textNode;
+                    while (boundary.parentNode !== container && boundary.parentElement &&
+                        !/^(DIV|P|LI|BLOCKQUOTE|H[1-6]|PRE)$/.test(boundary.parentElement.tagName)) {
+                        boundary = boundary.parentElement;
+                    }
+                    boundary.parentNode.insertBefore(breakElement, boundary.nextSibling);
+                } else {
+                    const tail = textNode.splitText(rawOffset);
+                    tail.parentNode.insertBefore(breakElement, tail);
+                }
+                return true;
+            }
+            currentOffset = nextOffset;
+            textNode = walker.nextNode();
+        }
+
+        return false;
+    }
+
+    function normalizePastedHtml(html, plainText) {
+        const container = document.createElement("div");
+        container.innerHTML = html || "";
+        container.querySelectorAll("script,style,link,meta,iframe,object,embed").forEach(node => node.remove());
+        container.querySelectorAll("*").forEach(node => {
+            Array.from(node.attributes).forEach(attribute => {
+                if (/^on/i.test(attribute.name)) node.removeAttribute(attribute.name);
+            });
+            if (node.tagName === "A" && node.hasAttribute("href") &&
+                !/^(https?|mailto|ftp):/i.test(node.getAttribute("href").trim())) {
+                node.removeAttribute("href");
+            }
+        });
+
+        const normalizedPlainText = String(plainText || "").replace(/\r\n?/g, "\n");
+        const domText = container.textContent || "";
+        if (normalizedPlainText.includes("\n") &&
+            textWithoutLineBreaks(domText) === textWithoutLineBreaks(normalizedPlainText)) {
+            const existingOffsets = new Set(structuralLineBreakOffsets(container));
+            lineBreakOffsets(normalizedPlainText)
+                .filter(offset => !existingOffsets.has(offset))
+                .sort((left, right) => right - left)
+                .forEach(offset => insertBreakAtTextOffset(container, offset));
+            const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+            let textNode = walker.nextNode();
+            while (textNode) {
+                textNode.nodeValue = textNode.nodeValue.replace(/\r\n?|\n/g, "");
+                textNode = walker.nextNode();
+            }
+        }
+
+        return container.innerHTML;
+    }
+
+    function linkifyBlock(block) {
+        if (!block || typeof linkifyElement !== "function") return;
+
+        const selection = window.getSelection();
+        let marker = null;
+        if (selection && selection.rangeCount > 0 && selection.isCollapsed &&
+            block.contains(selection.getRangeAt(0).commonAncestorContainer)) {
+            marker = document.createElement("span");
+            marker.dataset.winoEditorArtifact = "true";
+            const range = selection.getRangeAt(0);
+            range.insertNode(marker);
+        }
+
+        linkifyElement(block, {
+            defaultProtocol: "https",
+            target: "_blank",
+            rel: "noopener noreferrer",
+            ignoreTags: ["A", "CODE", "PRE", "SCRIPT", "STYLE"],
+            attributes: { "data-wino-auto-link": "true" }
+        });
+
+        if (marker && marker.isConnected) {
+            const range = document.createRange();
+            range.setStartBefore(marker);
+            range.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            marker.remove();
+            lastRange = range.cloneRange();
+        }
+    }
+
+    function linkifyAroundSelection(includePreviousBlock) {
+        const node = currentNode();
+        const block = node && node.closest
+            ? node.closest("p,div,li,blockquote,h1,h2,h3,h4,h5,h6") || editor
+            : editor;
+        if (includePreviousBlock && block !== editor && block.previousElementSibling) {
+            linkifyBlock(block.previousElementSibling);
+        }
+        linkifyBlock(block);
+    }
+
     editor.addEventListener("paste", event => {
-        if (pasteAsHtml) return;
+        const hasImageFiles = event.clipboardData &&
+            Array.from(event.clipboardData.files || []).some(file => file.type.startsWith("image/"));
+        if (hasImageFiles && !pasteAsPlainTextOnce) return;
+
         event.preventDefault();
         const text = event.clipboardData ? event.clipboardData.getData("text/plain") : "";
-        document.execCommand("insertText", false, text);
+        const clipboardHtml = event.clipboardData ? event.clipboardData.getData("text/html") : "";
+        const shouldPasteHtml = pasteAsHtml && !pasteAsPlainTextOnce && clipboardHtml;
+        pasteAsPlainTextOnce = false;
+        if (shouldPasteHtml) {
+            document.execCommand("insertHTML", false, normalizePastedHtml(clipboardHtml, text));
+        } else {
+            document.execCommand("insertText", false, text);
+        }
+        linkifyAroundSelection(false);
+        rememberSelection();
+        sendContentChanged();
     });
 
     document.execCommand("styleWithCSS", false, false);
 
+    document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && linkBubble.classList.contains("is-visible")) {
+            event.preventDefault();
+            event.stopPropagation();
+            hideLinkBubble();
+            return;
+        }
+
+        if (!(event.ctrlKey || event.metaKey)) return;
+
+        if (event.key.toLowerCase() === "k") {
+            event.preventDefault();
+            rememberSelection();
+            post({ type: "shortcut", command: "openLinkDialog" });
+            return;
+        }
+
+        if (event.shiftKey && event.key.toLowerCase() === "v") {
+            pasteAsPlainTextOnce = true;
+            return;
+        }
+
+        if (event.key === "\\") {
+            event.preventDefault();
+            clearFormatting();
+        }
+    }, true);
+    document.addEventListener("keyup", event => {
+        if (event.key.toLowerCase() === "v") pasteAsPlainTextOnce = false;
+    }, true);
+
     document.addEventListener("selectionchange", () => {
         rememberSelection();
         sendState();
+        window.setTimeout(updateLinkBubble, 0);
     });
-    editor.addEventListener("input", sendContentChanged);
+    editor.addEventListener("input", event => {
+        const isLinkBoundary = event.inputType === "insertParagraph" ||
+            event.inputType === "insertLineBreak" ||
+            event.inputType === "insertFromPaste" ||
+            (event.inputType === "insertText" && /\s/.test(event.data || ""));
+        if (isLinkBoundary) {
+            linkifyAroundSelection(
+                event.inputType === "insertParagraph" || event.inputType === "insertLineBreak");
+        }
+        sendContentChanged();
+    });
     editor.addEventListener("keyup", sendState);
-    editor.addEventListener("mouseup", sendState);
+    editor.addEventListener("mouseup", () => { sendState(); updateLinkBubble(); });
     editor.addEventListener("focus", sendState);
+    editor.addEventListener("click", event => {
+        const anchor = event.target && event.target.closest ? event.target.closest("a") : null;
+        if (!anchor || !editor.contains(anchor)) return;
+
+        event.preventDefault();
+        if ((event.ctrlKey || event.metaKey) && anchor.href) {
+            post({ type: "openLink", url: anchor.href });
+            hideLinkBubble();
+        } else {
+            window.setTimeout(updateLinkBubble, 0);
+        }
+    });
+    editor.addEventListener("scroll", () => updateLinkBubble());
+    window.addEventListener("resize", () => updateLinkBubble());
+    linkBubble.addEventListener("pointerdown", event => event.preventDefault());
+    linkBubble.addEventListener("click", event => {
+        event.preventDefault();
+        removeLink(displayedLink);
+    });
 
     window.WinoEditor = {
         exec,
         createLink,
+        removeLink,
+        clearFormatting,
         insertHtml,
         setContent,
         getContent,

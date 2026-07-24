@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
     xmlns:editor="using:Wino.Editor"
     xmlns:mail="using:Wino.Mail.Controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -121,6 +122,17 @@
                         <PathIcon Data="{StaticResource StrikePathIcon}" />
                     </AppBarToggleButton.Icon>
                 </AppBarToggleButton>
+
+                <AppBarButton
+                    AutomationProperties.AutomationId="ClearFormattingButton"
+                    x:Name="ClearFormattingButton"
+                    Click="ClearFormattingButton_Click"
+                    Label="{x:Bind domain:Translator.Composer_ClearFormatting, Mode=OneTime}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_ClearFormattingShortcut, Mode=OneTime}">
+                    <AppBarButton.Icon>
+                        <SymbolIcon Symbol="Clear" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
 
                 <AppBarSeparator />
 
@@ -366,6 +378,18 @@
                     ToolTipService.ToolTip="Insert image">
                     <AppBarButton.Icon>
                         <PathIcon Data="{StaticResource AddPhotoPathIcon}" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+
+                <AppBarButton
+                    AutomationProperties.AutomationId="ImagePropertiesButton"
+                    x:Name="ImagePropertiesButton"
+                    Click="ImagePropertiesButton_Click"
+                    Label="{x:Bind domain:Translator.Composer_ImageProperties, Mode=OneTime}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_ImageProperties, Mode=OneTime}"
+                    Visibility="Collapsed">
+                    <AppBarButton.Icon>
+                        <SymbolIcon Symbol="Edit" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 

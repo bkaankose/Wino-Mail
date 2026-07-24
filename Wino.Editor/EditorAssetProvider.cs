@@ -26,6 +26,8 @@ internal static class EditorAssetProvider
             "editor.html",
             "editor.css",
             "darkreader.js",
+            "linkify.min.js",
+            "linkify-element.min.js",
             "editor.js",
             "editor-images.js",
             "editor-tables.js"));

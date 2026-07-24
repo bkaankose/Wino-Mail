@@ -14,6 +14,7 @@ public interface IEditorCommandTarget
     EditorState CurrentState { get; }
     EditorCapabilities Capabilities { get; }
     event EventHandler<EditorState>? StateChanged;
+    event EventHandler<EditorShortcutKind>? ShortcutRequested;
     Task ExecuteCommandAsync(EditorCommand command);
 }
 
@@ -41,7 +42,9 @@ public enum EditorCommandKind
     SetTextColor,
     SetHighlightColor,
     SetLineHeight,
+    ClearFormatting,
     InsertImage,
+    SetImageProperties,
     InsertLink,
     RemoveLink,
     InsertEmoji,
@@ -76,7 +79,9 @@ public sealed record class EditorCommand(EditorCommandKind Kind, object? Value =
     public static EditorCommand SetTextColor(string color) => new(EditorCommandKind.SetTextColor, color);
     public static EditorCommand SetHighlightColor(string color) => new(EditorCommandKind.SetHighlightColor, color);
     public static EditorCommand SetLineHeight(string lineHeight) => new(EditorCommandKind.SetLineHeight, lineHeight);
+    public static EditorCommand ClearFormatting() => new(EditorCommandKind.ClearFormatting);
     public static EditorCommand InsertImage() => new(EditorCommandKind.InsertImage);
+    public static EditorCommand SetImageProperties(EditorImagePropertiesCommandArgs args) => new(EditorCommandKind.SetImageProperties, args);
     public static EditorCommand InsertEmoji() => new(EditorCommandKind.InsertEmoji);
     public static EditorCommand InsertLink(EditorLinkCommandArgs args) => new(EditorCommandKind.InsertLink, args);
     public static EditorCommand RemoveLink() => new(EditorCommandKind.RemoveLink);
@@ -95,7 +100,17 @@ public sealed record class EditorTableCommandArgs(
     [property: JsonPropertyName("rows")] int Rows,
     [property: JsonPropertyName("columns")] int Columns);
 
+public sealed record class EditorImagePropertiesCommandArgs(
+    [property: JsonPropertyName("altText")] string AltText,
+    [property: JsonPropertyName("linkUrl")] string? LinkUrl = null,
+    [property: JsonPropertyName("openInNewWindow")] bool OpenInNewWindow = true);
+
 public sealed record class EditorImageInfo(string Data, string Name);
+
+public enum EditorShortcutKind
+{
+    OpenLinkDialog
+}
 
 public sealed record class EditorColorOption(string Name, string Value)
 {
@@ -238,6 +253,7 @@ public sealed record class EditorState
     public bool CanIndent { get; init; } = true;
     public bool CanOutdent { get; init; }
     public bool HasSelection { get; init; }
+    public bool IsImageSelected { get; init; }
     public bool IsDarkMode { get; init; }
     public bool IsBuiltInToolbarVisible { get; init; }
     public bool IsSpellCheckEnabled { get; init; } = true;
@@ -249,5 +265,7 @@ public sealed record class EditorState
     public string? HighlightColor { get; init; }
     public string? LineHeight { get; init; }
     public string? LinkUrl { get; init; }
+    public string? ImageAltText { get; init; }
+    public string? ImageLinkUrl { get; init; }
     public string? SelectedText { get; init; }
 }

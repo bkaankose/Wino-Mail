@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Windows.UI;
+using Wino.Core.Domain;
 using Wino.Editor;
 
 namespace Wino.Mail.Controls;
@@ -59,6 +60,7 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         if (_subscribedTarget != null)
         {
             _subscribedTarget.StateChanged -= CommandTarget_StateChanged;
+            _subscribedTarget.ShortcutRequested -= CommandTarget_ShortcutRequested;
         }
 
         _subscribedTarget = target;
@@ -66,6 +68,7 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         if (_subscribedTarget != null)
         {
             _subscribedTarget.StateChanged += CommandTarget_StateChanged;
+            _subscribedTarget.ShortcutRequested += CommandTarget_ShortcutRequested;
             ApplyCapabilities(_subscribedTarget.Capabilities);
             ApplyState(_subscribedTarget.CurrentState);
         }
@@ -79,6 +82,7 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         }
 
         _subscribedTarget.StateChanged -= CommandTarget_StateChanged;
+        _subscribedTarget.ShortcutRequested -= CommandTarget_ShortcutRequested;
         _subscribedTarget = null;
     }
 
@@ -104,6 +108,14 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
     private void CommandTarget_StateChanged(object? sender, EditorState e)
     {
         ApplyState(e);
+    }
+
+    private void CommandTarget_ShortcutRequested(object? sender, EditorShortcutKind shortcut)
+    {
+        if (shortcut == EditorShortcutKind.OpenLinkDialog)
+        {
+            _ = ShowLinkDialogAsync();
+        }
     }
 
     private void ApplyCapabilities(EditorCapabilities capabilities)
@@ -159,8 +171,10 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         OrderedListButton.IsChecked = state.IsOrderedList;
         IndentButton.IsEnabled = state.CanIndent;
         OutdentButton.IsEnabled = state.CanOutdent;
-        RemoveLinkButton.IsEnabled = !string.IsNullOrWhiteSpace(state.LinkUrl);
+        RemoveLinkButton.IsEnabled = !string.IsNullOrWhiteSpace(state.LinkUrl) ||
+            (state.IsImageSelected && !string.IsNullOrWhiteSpace(state.ImageLinkUrl));
         RemoveLinkButton.Visibility = RemoveLinkButton.IsEnabled ? Visibility.Visible : Visibility.Collapsed;
+        ImagePropertiesButton.Visibility = state.IsImageSelected ? Visibility.Visible : Visibility.Collapsed;
         BuiltInToolbarButton.IsChecked = state.IsBuiltInToolbarVisible;
         SpellCheckButton.IsChecked = state.IsSpellCheckEnabled;
 
@@ -279,11 +293,13 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
     private async void ItalicButton_Click(object sender, RoutedEventArgs e) => await ExecuteAsync(EditorCommand.ToggleItalic());
     private async void UnderlineButton_Click(object sender, RoutedEventArgs e) => await ExecuteAsync(EditorCommand.ToggleUnderline());
     private async void StrikeButton_Click(object sender, RoutedEventArgs e) => await ExecuteAsync(EditorCommand.ToggleStrikethrough());
+    private async void ClearFormattingButton_Click(object sender, RoutedEventArgs e) => await ExecuteAsync(EditorCommand.ClearFormatting());
     private async void BulletListButton_Click(object sender, RoutedEventArgs e) => await ExecuteAsync(EditorCommand.ToggleUnorderedList());
     private async void OrderedListButton_Click(object sender, RoutedEventArgs e) => await ExecuteAsync(EditorCommand.ToggleOrderedList());
     private async void IndentButton_Click(object sender, RoutedEventArgs e) => await ExecuteAsync(EditorCommand.Indent());
     private async void OutdentButton_Click(object sender, RoutedEventArgs e) => await ExecuteAsync(EditorCommand.Outdent());
     private async void ImageButton_Click(object sender, RoutedEventArgs e) => await ExecuteAsync(EditorCommand.InsertImage());
+    private async void ImagePropertiesButton_Click(object sender, RoutedEventArgs e) => await ShowImagePropertiesDialogAsync();
     private async void EmojiButton_Click(object sender, RoutedEventArgs e) => await ExecuteAsync(EditorCommand.InsertEmoji());
     private async void RemoveLinkButton_Click(object sender, RoutedEventArgs e) => await ExecuteAsync(EditorCommand.RemoveLink());
 
@@ -371,7 +387,9 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         await ExecuteAsync(EditorCommand.ToggleSpellCheck(SpellCheckButton.IsChecked == true));
     }
 
-    private async void LinkButton_Click(object sender, RoutedEventArgs e)
+    private async void LinkButton_Click(object sender, RoutedEventArgs e) => await ShowLinkDialogAsync();
+
+    private async Task ShowLinkDialogAsync()
     {
         if (CommandTarget == null)
         {
@@ -379,30 +397,32 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         }
 
         var currentState = CommandTarget.CurrentState;
+        var isImageSelected = currentState.IsImageSelected;
         var urlTextBox = new TextBox
         {
-            Header = "URL",
-            Text = currentState.LinkUrl ?? string.Empty,
-            PlaceholderText = "https://example.com"
+            Header = Translator.Composer_LinkUrl,
+            Text = isImageSelected ? currentState.ImageLinkUrl ?? string.Empty : currentState.LinkUrl ?? string.Empty,
+            PlaceholderText = Translator.Composer_LinkUrlPlaceholder
         };
         var textTextBox = new TextBox
         {
-            Header = "Text",
+            Header = Translator.Composer_LinkText,
             Text = currentState.SelectedText ?? string.Empty,
-            PlaceholderText = "Link text"
+            PlaceholderText = Translator.Composer_LinkTextPlaceholder,
+            Visibility = isImageSelected ? Visibility.Collapsed : Visibility.Visible
         };
         var openInNewWindow = new CheckBox
         {
-            Content = "Open in new window",
+            Content = Translator.Composer_OpenLinkInNewWindow,
             IsChecked = true
         };
 
         var dialog = new ContentDialog
         {
             XamlRoot = XamlRoot,
-            Title = "Insert link",
-            PrimaryButtonText = "Apply",
-            CloseButtonText = "Cancel",
+            Title = isImageSelected ? Translator.Composer_EditImageLink : Translator.Composer_InsertLink,
+            PrimaryButtonText = Translator.Buttons_Apply,
+            CloseButtonText = Translator.Buttons_Cancel,
             DefaultButton = ContentDialogButton.Primary,
             Content = new StackPanel
             {
@@ -419,6 +439,58 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         if (await dialog.ShowAsync() == ContentDialogResult.Primary && !string.IsNullOrWhiteSpace(urlTextBox.Text))
         {
             await ExecuteAsync(EditorCommand.InsertLink(new EditorLinkCommandArgs(urlTextBox.Text.Trim(), textTextBox.Text.Trim(), openInNewWindow.IsChecked == true)));
+        }
+    }
+
+    private async Task ShowImagePropertiesDialogAsync()
+    {
+        if (CommandTarget?.CurrentState is not { IsImageSelected: true } currentState)
+        {
+            return;
+        }
+
+        var altTextBox = new TextBox
+        {
+            Header = Translator.Composer_ImageAltText,
+            Text = currentState.ImageAltText ?? string.Empty,
+            PlaceholderText = Translator.Composer_ImageAltTextPlaceholder
+        };
+        var urlTextBox = new TextBox
+        {
+            Header = Translator.Composer_LinkUrl,
+            Text = currentState.ImageLinkUrl ?? string.Empty,
+            PlaceholderText = Translator.Composer_LinkUrlPlaceholder
+        };
+        var openInNewWindow = new CheckBox
+        {
+            Content = Translator.Composer_OpenLinkInNewWindow,
+            IsChecked = true
+        };
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = Translator.Composer_ImageProperties,
+            PrimaryButtonText = Translator.Buttons_Apply,
+            CloseButtonText = Translator.Buttons_Cancel,
+            DefaultButton = ContentDialogButton.Primary,
+            Content = new StackPanel
+            {
+                Spacing = 12,
+                Children =
+                {
+                    altTextBox,
+                    urlTextBox,
+                    openInNewWindow
+                }
+            }
+        };
+
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        {
+            await ExecuteAsync(EditorCommand.SetImageProperties(new EditorImagePropertiesCommandArgs(
+                altTextBox.Text.Trim(),
+                string.IsNullOrWhiteSpace(urlTextBox.Text) ? null : urlTextBox.Text.Trim(),
+                openInNewWindow.IsChecked == true)));
         }
     }
 

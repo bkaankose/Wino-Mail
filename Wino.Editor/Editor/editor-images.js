@@ -18,7 +18,8 @@
     }
 
     function clearOverlay() {
-        while (overlay.firstChild) overlay.removeChild(overlay.firstChild);
+        if (frame) frame.remove();
+        handles.forEach(handle => handle.remove());
         frame = null;
         handles = [];
     }
@@ -74,6 +75,53 @@
         selectedImage = image;
         updateOverlay();
         window.WinoEditor.notifySelectionChanged();
+    }
+
+    function selectedProperties() {
+        if (!selectedImage || !document.documentElement.contains(selectedImage)) {
+            return null;
+        }
+
+        const anchor = selectedImage.closest("a");
+        return {
+            altText: selectedImage.alt || "",
+            linkUrl: anchor ? anchor.href : null
+        };
+    }
+
+    function setSelectedProperties(properties) {
+        if (!selectedImage || !document.documentElement.contains(selectedImage)) {
+            return false;
+        }
+
+        selectedImage.alt = String(properties && properties.altText || "");
+        const linkUrl = String(properties && properties.linkUrl || "").trim();
+        const openInNewWindow = !properties || properties.openInNewWindow !== false;
+        const currentAnchor = selectedImage.closest("a");
+
+        if (linkUrl) {
+            const anchor = currentAnchor || document.createElement("a");
+            anchor.href = linkUrl;
+            if (openInNewWindow) {
+                anchor.target = "_blank";
+                anchor.rel = "noopener noreferrer";
+            } else {
+                anchor.removeAttribute("target");
+                anchor.removeAttribute("rel");
+            }
+
+            if (!currentAnchor) {
+                selectedImage.replaceWith(anchor);
+                anchor.appendChild(selectedImage);
+            }
+        } else if (currentAnchor) {
+            currentAnchor.replaceWith(selectedImage);
+        }
+
+        updateOverlay();
+        window.WinoEditor.notifyContentChanged();
+        window.WinoEditor.notifySelectionChanged();
+        return true;
     }
 
     function beginResize(event) {
@@ -202,6 +250,7 @@
     });
 
     editor.addEventListener("paste", event => {
+        if (event.defaultPrevented) return;
         const files = event.clipboardData && Array.from(event.clipboardData.files).filter(file => file.type.startsWith("image/"));
         if (!files || files.length === 0) return;
         event.preventDefault();
@@ -228,6 +277,8 @@
         clearSelection,
         isSelected() {
             return Boolean(selectedImage && document.documentElement.contains(selectedImage));
-        }
+        },
+        getSelectedProperties: selectedProperties,
+        setSelectedProperties
     };
 }());
