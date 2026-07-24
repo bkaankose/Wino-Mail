@@ -117,6 +117,21 @@ public class NotificationBuilder : INotificationBuilder
         }
     }
 
+    public async Task CreateTestNotificationsAsync(IEnumerable<MailCopy> mailItems)
+    {
+        try
+        {
+            foreach (var mailItem in mailItems)
+            {
+                await CreateSingleNotificationAsync(mailItem);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to create test notifications.");
+        }
+    }
+
     public async Task UpdateTaskbarIconBadgeAsync()
     {
         var totalUnreadCount = 0;
@@ -338,7 +353,7 @@ public class NotificationBuilder : INotificationBuilder
         var avatarThumbnail = await _thumbnailService.GetThumbnailAsync(mailItem.FromAddress, awaitLoad: true);
         if (avatarThumbnail != null)
         {
-            builder.SetAppLogoOverride(new Uri(avatarThumbnail.AppDataUri), AppNotificationImageCrop.Default);
+            builder.SetAppLogoOverride(new Uri(avatarThumbnail.AppDataUri), AppNotificationImageCrop.Circle);
         }
 
         builder.SetTimeStamp(mailItem.CreationDate.ToLocalTime());

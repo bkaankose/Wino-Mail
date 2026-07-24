@@ -33,6 +33,19 @@ public class ThumbnailImageProcessorTests
         result!.FileExtension.Should().Be(".png");
     }
 
+    [Fact]
+    public void HasExpectedDimensions_RejectsLegacyAvatarSize()
+    {
+        var legacyAvatar = CreateImageBytes(48, 48, SKColors.Red);
+        var currentAvatar = CreateImageBytes(
+            ThumbnailImageProcessor.AvatarCachePixelSize,
+            ThumbnailImageProcessor.AvatarCachePixelSize,
+            SKColors.Red);
+
+        ThumbnailImageProcessor.HasExpectedDimensions(legacyAvatar).Should().BeFalse();
+        ThumbnailImageProcessor.HasExpectedDimensions(currentAvatar).Should().BeTrue();
+    }
+
     private static byte[] CreateImageBytes(int width, int height, SKColor color)
     {
         using var bitmap = new SKBitmap(new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Premul));

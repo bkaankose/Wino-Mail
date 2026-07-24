@@ -29,7 +29,11 @@ public static class ThumbnailImageProcessor
         using (var canvas = new SKCanvas(outputBitmap))
         {
             canvas.Clear(SKColors.Transparent);
-            canvas.DrawBitmap(sourceBitmap, sourceRect, new SKRect(0, 0, pixelSize, pixelSize));
+            canvas.DrawBitmap(
+                sourceBitmap,
+                sourceRect,
+                new SKRect(0, 0, pixelSize, pixelSize),
+                new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None));
         }
 
         using var outputImage = SKImage.FromBitmap(outputBitmap);
@@ -40,6 +44,15 @@ public static class ThumbnailImageProcessor
         return encodedData == null
             ? null
             : new NormalizedThumbnail(encodedData.ToArray(), hasTransparency ? ".png" : ".jpg");
+    }
+
+    public static bool HasExpectedDimensions(byte[] imageData, int pixelSize = AvatarCachePixelSize)
+    {
+        if (imageData == null || imageData.Length == 0 || pixelSize <= 0)
+            return false;
+
+        using var bitmap = SKBitmap.Decode(imageData);
+        return bitmap?.Width == pixelSize && bitmap.Height == pixelSize;
     }
 
     private static bool HasTransparentPixels(SKBitmap bitmap)

@@ -15,6 +15,12 @@ public interface INotificationBuilder
     Task CreateNotificationsAsync(IEnumerable<MailCopy> newMailItems);
 
     /// <summary>
+    /// Creates toast notifications for the specified mails without applying
+    /// account notification preferences. Intended for manual UI testing.
+    /// </summary>
+    Task CreateTestNotificationsAsync(IEnumerable<MailCopy> mailItems);
+
+    /// <summary>
     /// Gets the unread Inbox messages for each account and updates the taskbar icon.
     /// </summary>
     /// <returns></returns>
