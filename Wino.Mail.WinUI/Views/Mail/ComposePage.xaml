@@ -242,7 +242,7 @@
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AiActions}"
                                 Visibility="{x:Bind GetAiActionsToggleVisibility(ViewModel.PreferencesService.IsAiActionsPanelHidden), Mode=OneTime}">
                                 <AppBarToggleButton.Icon>
-                                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE945;" />
+                                    <PathIcon Data="{StaticResource AiSparklePathIcon}" />
                                 </AppBarToggleButton.Icon>
                             </AppBarToggleButton>
                             <AppBarButton
@@ -652,9 +652,11 @@
         </Border>
         <Border
             Grid.Row="2"
-            Background="Transparent"
+            Background="{ThemeResource ReadingPaneBackgroundColorBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
             CornerRadius="{ThemeResource ControlCornerRadius}">
-            <Grid>
+            <Grid CornerRadius="{ThemeResource ControlCornerRadius}">
                 <editor:WinoMailEditor
                     x:Name="WebViewEditor"
                     AutomationProperties.AutomationId="ComposeMailEditor"

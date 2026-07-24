@@ -16,8 +16,9 @@
     <Page.Resources>
         <DataTemplate x:Key="AddOnNotPurchasedTemplate" x:DataType="viewModelData:WinoAddOnItemViewModel">
             <controls:SettingsCard
-
-                AutomationProperties.AutomationId="WinoAccountManagementPageSettingsCard" ActionIcon="Add" IsActionIconVisible="True">
+                ActionIcon="Add"
+                AutomationProperties.AutomationId="WinoAccountManagementPageSettingsCard"
+                IsActionIconVisible="True">
                 <controls:SettingsCard.HeaderIcon>
                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="{x:Bind IconGlyph}" />
                 </controls:SettingsCard.HeaderIcon>
@@ -77,9 +78,7 @@
         </DataTemplate>
 
         <DataTemplate x:Key="AiPackPurchasedTemplate" x:DataType="viewModelData:WinoAddOnItemViewModel">
-            <controls:SettingsExpander
-
-                AutomationProperties.AutomationId="WinoAccountManagementPageSettingsExpander" IsExpanded="True">
+            <controls:SettingsExpander AutomationProperties.AutomationId="WinoAccountManagementPageSettingsExpander" IsExpanded="True">
                 <controls:SettingsExpander.HeaderIcon>
                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="{x:Bind IconGlyph}" />
                 </controls:SettingsExpander.HeaderIcon>
@@ -91,9 +90,9 @@
                             Background="{ThemeResource SystemAccentColor}"
                             CornerRadius="4">
                             <TextBlock
-                Style="{StaticResource CaptionTextBlockStyle}"
                                 FontWeight="SemiBold"
                                 Foreground="White"
+                                Style="{StaticResource CaptionTextBlockStyle}"
                                 Text="PRO" />
                         </Border>
                     </StackPanel>
@@ -115,9 +114,7 @@
                     </StackPanel>
                 </controls:SettingsExpander.Description>
                 <controls:SettingsExpander.Items>
-                    <controls:SettingsCard
-
-                        AutomationProperties.AutomationId="WinoAccountManagementPageSettingsCard2" HorizontalContentAlignment="Stretch">
+                    <controls:SettingsCard HorizontalContentAlignment="Stretch" AutomationProperties.AutomationId="WinoAccountManagementPageSettingsCard2">
                         <controls:SettingsCard.Header>
                             <StackPanel Spacing="8">
                                 <StackPanel
@@ -125,9 +122,7 @@
                                     Spacing="8"
                                     Visibility="{x:Bind ShowUsageSummary, Mode=OneWay}">
                                     <StackPanel Orientation="Horizontal" Spacing="4">
-                                        <TextBlock
-                Style="{StaticResource SubtitleTextBlockStyle}"
-                                            Text="{x:Bind UsageCount, Mode=OneWay}" />
+                                        <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind UsageCount, Mode=OneWay}" />
                                         <TextBlock
                                             Margin="0,0,0,2"
                                             VerticalAlignment="Bottom"
@@ -182,9 +177,7 @@
         </DataTemplate>
 
         <DataTemplate x:Key="UnlimitedAccountsPurchasedTemplate" x:DataType="viewModelData:WinoAddOnItemViewModel">
-            <controls:SettingsCard
-
-                AutomationProperties.AutomationId="WinoAccountManagementPageSettingsCard3">
+            <controls:SettingsCard AutomationProperties.AutomationId="WinoAccountManagementPageSettingsCard3">
                 <controls:SettingsCard.HeaderIcon>
                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="{x:Bind IconGlyph}" />
                 </controls:SettingsCard.HeaderIcon>
@@ -265,8 +258,8 @@
                         Source="ms-appx:///Assets/AppEntries/MailAssets/Square150x150Logo.png" />
 
                     <TextBlock
-                Style="{StaticResource SubtitleTextBlockStyle}"
                         HorizontalAlignment="Center"
+                        Style="{StaticResource SubtitleTextBlockStyle}"
                         Text="{x:Bind domain:Translator.WinoAccount_Management_SignedOutTitle}" />
 
                     <TextBlock
@@ -288,8 +281,9 @@
                             Content="{x:Bind domain:Translator.Buttons_SignIn}"
                             Style="{StaticResource AccentButtonStyle}" />
                         <Button
-
-                            AutomationProperties.AutomationId="WinoAccountManagementPageButton3" Command="{x:Bind ViewModel.RegisterCommand}" Content="{x:Bind domain:Translator.Buttons_CreateAccount}" />
+                            AutomationProperties.AutomationId="WinoAccountManagementPageButton3"
+                            Command="{x:Bind ViewModel.RegisterCommand}"
+                            Content="{x:Bind domain:Translator.Buttons_CreateAccount}" />
                     </StackPanel>
 
                     <TextBlock
@@ -299,8 +293,8 @@
                         Text="{x:Bind domain:Translator.WinoAccount_Management_AddOnsSectionHeader}" />
 
                     <ListView
-                        AutomationProperties.AutomationId="SignedOutAddOnsList"
                         x:Name="SignedOutAddOnsList"
+                        AutomationProperties.AutomationId="SignedOutAddOnsList"
                         ItemContainerStyle="{StaticResource StretchedItemContainerStyle}"
                         ItemTemplateSelector="{StaticResource WinoAddOnTemplateSelector}"
                         ItemsSource="{x:Bind ViewModel.AddOns, Mode=OneWay}"
@@ -318,9 +312,7 @@
                     Style="{StaticResource BodyStrongTextBlockStyle}"
                     Text="{x:Bind domain:Translator.WinoAccount_Management_ProfileSectionHeader}" />
 
-                <controls:SettingsCard
-
-                    AutomationProperties.AutomationId="WinoAccountManagementPageSettingsCard4" Header="{x:Bind ViewModel.AccountEmail, Mode=OneWay}">
+                <controls:SettingsCard AutomationProperties.AutomationId="WinoAccountManagementPageSettingsCard4" Header="{x:Bind ViewModel.AccountEmail, Mode=OneWay}">
                     <controls:SettingsCard.HeaderIcon>
                         <PathIcon
                             HorizontalAlignment="Center"
@@ -383,8 +375,8 @@
                     Text="{x:Bind domain:Translator.WinoAccount_Management_AddOnsSectionHeader}" />
 
                 <ListView
-                    AutomationProperties.AutomationId="SignedInAddOnsList"
                     x:Name="SignedInAddOnsList"
+                    AutomationProperties.AutomationId="SignedInAddOnsList"
                     ItemContainerStyle="{StaticResource StretchedItemContainerStyle}"
                     ItemTemplateSelector="{StaticResource WinoAddOnTemplateSelector}"
                     ItemsSource="{x:Bind ViewModel.AddOns, Mode=OneWay}"
@@ -396,8 +388,9 @@
                     Text="{x:Bind domain:Translator.WinoAccount_Management_DataSectionHeader}" />
 
                 <controls:SettingsCard
-
-                    AutomationProperties.AutomationId="WinoAccountManagementPageSettingsCard7" Description="{x:Bind domain:Translator.WinoAccount_Management_SyncPreferencesDescription}" Header="{x:Bind domain:Translator.WinoAccount_Management_SyncPreferencesTitle}">
+                    AutomationProperties.AutomationId="WinoAccountManagementPageSettingsCard7"
+                    Description="{x:Bind domain:Translator.WinoAccount_Management_SyncPreferencesDescription}"
+                    Header="{x:Bind domain:Translator.WinoAccount_Management_SyncPreferencesTitle}">
                     <controls:SettingsCard.HeaderIcon>
                         <PathIcon
                             HorizontalAlignment="Center"
@@ -406,11 +399,13 @@
                     </controls:SettingsCard.HeaderIcon>
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <Button
-
-                            AutomationProperties.AutomationId="WinoAccountManagementPageButton4" Command="{x:Bind ViewModel.ExportSettingsCommand}" Content="{x:Bind domain:Translator.Buttons_Export}" />
+                            AutomationProperties.AutomationId="WinoAccountManagementPageButton4"
+                            Command="{x:Bind ViewModel.ExportSettingsCommand}"
+                            Content="{x:Bind domain:Translator.Buttons_Export}" />
                         <Button
-
-                            AutomationProperties.AutomationId="WinoAccountManagementPageButton5" Command="{x:Bind ViewModel.ImportSettingsCommand}" Content="{x:Bind domain:Translator.Buttons_Import}" />
+                            AutomationProperties.AutomationId="WinoAccountManagementPageButton5"
+                            Command="{x:Bind ViewModel.ImportSettingsCommand}"
+                            Content="{x:Bind domain:Translator.Buttons_Import}" />
                     </StackPanel>
                 </controls:SettingsCard>
 

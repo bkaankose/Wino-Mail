@@ -65,13 +65,13 @@
                                 VerticalAlignment="Top"
                                 Background="#22FFFFFF"
                                 CornerRadius="28">
-                                <FontIcon
+                                <PathIcon
+                                    Width="26"
+                                    Height="26"
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
-                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
-                                    FontSize="26"
-                                    Foreground="White"
-                                    Glyph="&#xE945;" />
+                                    Data="{StaticResource AiSparklePathIcon}"
+                                    Foreground="White" />
                             </Border>
 
                             <StackPanel Grid.Column="1" Spacing="6">

@@ -36,6 +36,7 @@
     height: 100%;
     min-height: 100%;
     padding: 16px;
+    border-radius: 7px;
     background: Canvas !important;
     overflow: auto;
     outline: none;

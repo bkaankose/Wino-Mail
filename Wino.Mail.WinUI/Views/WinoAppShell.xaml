@@ -719,8 +719,8 @@
 
                     <ScrollViewer
                         x:Name="ContactsPaneContent"
-                        x:Load="{x:Bind ViewModel.IsContactsMode, Mode=OneWay}"
                         Margin="20,20,16,0"
+                        x:Load="{x:Bind ViewModel.IsContactsMode, Mode=OneWay}"
                         HorizontalScrollBarVisibility="Disabled"
                         HorizontalScrollMode="Disabled"
                         VerticalScrollBarVisibility="Auto"

@@ -1410,9 +1410,7 @@
             SpaciousSingleMailItemTemplate="{StaticResource SpaciousSingleMailRowTemplate}"
             SpaciousThreadMailItemTemplate="{StaticResource SpaciousThreadMailRowTemplate}" />
 
-        <CollectionViewSource
-            x:Key="MailCollectionViewSource"
-            IsSourceGrouped="True" />
+        <CollectionViewSource x:Key="MailCollectionViewSource" IsSourceGrouped="True" />
 
         <DataTemplate x:Key="MailGroupHeaderDefaultTemplate" x:DataType="mailListCore:MailListGroup">
             <Grid
@@ -1601,15 +1599,15 @@
                             <Grid>
                                 <coreControls:WinoFontIcon
                                     x:Name="SyncFolderIcon"
+                                    x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsAccountSynchronizerInSynchronization), Mode=OneWay}"
                                     FontSize="14"
-                                    Icon="Sync"
-                                    x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsAccountSynchronizerInSynchronization), Mode=OneWay}" />
+                                    Icon="Sync" />
                                 <ProgressRing
                                     x:Name="SyncFolderProgressRing"
                                     Width="16"
                                     Height="16"
-                                    IsActive="{x:Bind ViewModel.IsAccountSynchronizerInSynchronization, Mode=OneWay}"
-                                    x:Load="{x:Bind ViewModel.IsAccountSynchronizerInSynchronization, Mode=OneWay}" />
+                                    x:Load="{x:Bind ViewModel.IsAccountSynchronizerInSynchronization, Mode=OneWay}"
+                                    IsActive="{x:Bind ViewModel.IsAccountSynchronizerInSynchronization, Mode=OneWay}" />
                             </Grid>
                         </Button>
                         <ToggleButton

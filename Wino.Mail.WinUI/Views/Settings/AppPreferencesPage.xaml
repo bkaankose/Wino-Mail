@@ -242,7 +242,7 @@
                         Header="{x:Bind domain:Translator.SettingsAppPreferences_HideAiActionsPanel_Title}">
                         <ToggleSwitch AutomationProperties.AutomationId="AppPreferencesHideAiActionsPanelToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsAiActionsPanelHidden, Mode=TwoWay}" />
                         <!--<controls:SettingsCard.HeaderIcon>
-                            <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE945;" />
+                            <PathIcon Data="{StaticResource AiSparklePathIcon}" />
                         </controls:SettingsCard.HeaderIcon>-->
                     </controls:SettingsCard>
                 </controls:SettingsExpander.Items>

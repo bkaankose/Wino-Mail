@@ -7,7 +7,7 @@
     x:Name="Root"
     Loaded="WinoMailEditor_Loaded"
     Unloaded="WinoMailEditor_Unloaded">
-    <Grid RowSpacing="4">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
