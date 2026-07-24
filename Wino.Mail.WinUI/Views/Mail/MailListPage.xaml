@@ -26,8 +26,10 @@
     xmlns:toolkitExt="using:CommunityToolkit.WinUI"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
     xmlns:wino="using:Wino.Mail.WinUI"
+    xmlns:xamlData="using:Microsoft.UI.Xaml.Data"
     x:Name="root"
     KeyboardAcceleratorPlacementMode="Hidden"
+    Loaded="MailListPageLoaded"
     ProcessKeyboardAccelerators="WinoListViewProcessKeyboardAccelerators"
     SizeChanged="PageSizeChanged"
     mc:Ignorable="d">
@@ -1433,6 +1435,25 @@
             <Grid />
         </DataTemplate>
 
+        <DataTemplate x:Key="MailSemanticZoomGroupTemplate" x:DataType="xamlData:ICollectionViewGroup">
+            <Border
+                MinHeight="52"
+                Margin="4"
+                Padding="12"
+                AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetMailGroupDateString(Group)}"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="6">
+                <TextBlock
+                    VerticalAlignment="Center"
+                    FontWeight="SemiBold"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="{x:Bind helpers:XamlHelpers.GetMailGroupDateString(Group)}"
+                    TextTrimming="CharacterEllipsis" />
+            </Border>
+        </DataTemplate>
+
         <listview:WinoMailGroupHeaderTemplateSelector
             x:Key="MailGroupHeaderTemplateSelector"
             DefaultHeaderTemplate="{StaticResource MailGroupHeaderDefaultTemplate}"
@@ -1672,40 +1693,58 @@
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                    <listview:ThreadedMailListView
-                        x:Name="MailListView"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Stretch"
-                        toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
-                        toolkitExt:ScrollViewerExtensions.VerticalScrollBarMargin="-6"
-                        AutomationProperties.AutomationId="MailListView"
-                        CanDragItems="True"
-                        GroupHeaderTemplateSelector="{StaticResource MailGroupHeaderTemplateSelector}"
-                        IsTouchMultiSelectMode="{x:Bind ViewModel.IsMultiSelectionModeEnabled, Mode=OneWay}"
-                        ItemContainerStyleSelector="{StaticResource WinoMailItemContainerStyleSelector}"
-                        ItemTemplateSelector="{StaticResource MailItemTemplateSelector}"
-                        LoadMoreCommand="{x:Bind ViewModel.LoadMoreItemsCommand}"
-                        MailItemsSource="{x:Bind ViewModel.MailCollection.Items, Mode=OneWay}"
-                        ProcessKeyboardAccelerators="WinoListViewProcessKeyboardAccelerators"
-                        ProjectionOptions="{x:Bind ViewModel.MailListOptions, Mode=OneWay}"
-                        SelectionMode="Extended"
-                        SelectionSnapshotChanged="MailListViewSelectionSnapshotChanged">
-                        <listview:ThreadedMailListView.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <ItemsStackPanel AreStickyGroupHeadersEnabled="True" GroupPadding="4,0,4,4" />
-                            </ItemsPanelTemplate>
-                        </listview:ThreadedMailListView.ItemsPanel>
-                        <listview:ThreadedMailListView.ItemContainerTransitions>
-                            <TransitionCollection>
-                                <RepositionThemeTransition IsStaggeringEnabled="False" />
-                            </TransitionCollection>
-                        </listview:ThreadedMailListView.ItemContainerTransitions>
-                        <listview:ThreadedMailListView.Resources>
-                            <ResourceDictionary>
-                                <Style BasedOn="{StaticResource MailListHeaderStyle}" TargetType="ListViewHeaderItem" />
-                            </ResourceDictionary>
-                        </listview:ThreadedMailListView.Resources>
-                    </listview:ThreadedMailListView>
+                    <SemanticZoom
+                        x:Name="MailSemanticZoom"
+                        AutomationProperties.AutomationId="MailListSemanticZoom"
+                        IsZoomedInViewActive="True">
+                        <SemanticZoom.ZoomedInView>
+                            <listview:ThreadedMailListView
+                                x:Name="MailListView"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Stretch"
+                                toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
+                                toolkitExt:ScrollViewerExtensions.VerticalScrollBarMargin="-6"
+                                AutomationProperties.AutomationId="MailListView"
+                                CanDragItems="True"
+                                GroupHeaderTemplateSelector="{StaticResource MailGroupHeaderTemplateSelector}"
+                                IsTouchMultiSelectMode="{x:Bind ViewModel.IsMultiSelectionModeEnabled, Mode=OneWay}"
+                                ItemContainerStyleSelector="{StaticResource WinoMailItemContainerStyleSelector}"
+                                ItemTemplateSelector="{StaticResource MailItemTemplateSelector}"
+                                LoadMoreCommand="{x:Bind ViewModel.LoadMoreItemsCommand}"
+                                MailItemsSource="{x:Bind ViewModel.MailCollection.Items, Mode=OneWay}"
+                                ProcessKeyboardAccelerators="WinoListViewProcessKeyboardAccelerators"
+                                ProjectionOptions="{x:Bind ViewModel.MailListOptions, Mode=OneWay}"
+                                SelectionMode="Extended"
+                                SelectionSnapshotChanged="MailListViewSelectionSnapshotChanged">
+                                <listview:ThreadedMailListView.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <ItemsStackPanel AreStickyGroupHeadersEnabled="True" GroupPadding="4,0,4,4" />
+                                    </ItemsPanelTemplate>
+                                </listview:ThreadedMailListView.ItemsPanel>
+                                <listview:ThreadedMailListView.ItemContainerTransitions>
+                                    <TransitionCollection>
+                                        <RepositionThemeTransition IsStaggeringEnabled="False" />
+                                    </TransitionCollection>
+                                </listview:ThreadedMailListView.ItemContainerTransitions>
+                                <listview:ThreadedMailListView.Resources>
+                                    <ResourceDictionary>
+                                        <Style BasedOn="{StaticResource MailListHeaderStyle}" TargetType="ListViewHeaderItem" />
+                                    </ResourceDictionary>
+                                </listview:ThreadedMailListView.Resources>
+                            </listview:ThreadedMailListView>
+                        </SemanticZoom.ZoomedInView>
+                        <SemanticZoom.ZoomedOutView>
+                            <ListView
+                                x:Name="MailGroupNavigator"
+                                Padding="4"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Stretch"
+                                AutomationProperties.AutomationId="MailListGroupNavigator"
+                                AutomationProperties.Name="{x:Bind domain:Translator.SettingsMessageList_Title}"
+                                ItemTemplate="{StaticResource MailSemanticZoomGroupTemplate}"
+                                SelectionMode="None" />
+                        </SemanticZoom.ZoomedOutView>
+                    </SemanticZoom>
 
                     <Border
                         x:Name="DraggingMessageBorder"

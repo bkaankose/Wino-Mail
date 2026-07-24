@@ -244,6 +244,11 @@ public static class XamlHelpers
     }
     public static string GetMailGroupDateString(object groupObject)
     {
+        if (groupObject is global::Wino.Mail.Controls.Core.MailListGroup mailListGroup)
+        {
+            groupObject = mailListGroup.Key;
+        }
+
         if (groupObject is global::Wino.Mail.Controls.Core.MailListProjectionGroupKey projectionGroupKey)
         {
             if (projectionGroupKey.IsPinned)

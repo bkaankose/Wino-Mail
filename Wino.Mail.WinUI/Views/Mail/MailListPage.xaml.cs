@@ -63,6 +63,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
     private IPopoutClient? _activePopoutClient;
     private readonly Dictionary<FrameworkElement, HostedContentPopoutWindow> _hostedPopoutWindows = [];
     private PendingHostedPopoutNavigation? _pendingHostedPopoutNavigation;
+    private CollectionViewSource MailCollectionViewSource =>
+        (CollectionViewSource)Resources["MailCollectionViewSource"];
 
     private IStatePersistanceService StatePersistenceService { get; } = WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception($"Can't resolve {nameof(IStatePersistanceService)}");
     public ObservableCollection<TitleBarSearchSuggestion> SearchSuggestions { get; } = [];
@@ -76,8 +78,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
     public MailListPage()
     {
         InitializeComponent();
-        MailListView.GroupedViewSource =
-            (CollectionViewSource)Resources["MailCollectionViewSource"];
+        MailListView.GroupedViewSource = MailCollectionViewSource;
         RenderingFrame.Navigated += RenderingFrame_Navigated;
     }
 
@@ -104,6 +105,10 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
     }
 
+    private void MailListPageLoaded(object sender, RoutedEventArgs e)
+    {
+        MailGroupNavigator.ItemsSource = MailCollectionViewSource.View?.CollectionGroups;
+    }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {

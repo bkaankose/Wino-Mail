@@ -2567,7 +2567,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 completedTrackingSynchronizationCount = 0;
                 OnPropertyChanged(nameof(IsArchiveSpecialFolder));
 
-                SelectedFilterOption = FilterOptions[0];
                 SelectedSortingOption = SortingOptions[0];
                 SearchQuery = string.Empty;
                 IsInSearchMode = false;
