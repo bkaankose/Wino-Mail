@@ -7,6 +7,7 @@
     xmlns:controls1="using:Wino.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     mc:Ignorable="d">
@@ -277,13 +278,27 @@
                     <FontIcon Glyph="&#xE16E;" />
                 </controls:SettingsExpander.HeaderIcon>
                 <controls:SettingsExpander.Items>
+                    <controls:SettingsCard
+                        Description="{x:Bind domain:Translator.SettingsPreviewTextFilter_UseRegex_Description}"
+                        Header="{x:Bind domain:Translator.SettingsPreviewTextFilter_UseRegex}">
+                        <CheckBox
+                            MinWidth="0"
+                            IsChecked="{x:Bind ViewModel.PreferencesService.PreviewTextFilterUseRegex, Mode=TwoWay}" />
+                    </controls:SettingsCard>
                     <controls:SettingsCard HorizontalContentAlignment="Stretch" ContentAlignment="Vertical">
-                        <TextBox
-                            AcceptsReturn="True"
-                            Height="120"
-                            PlaceholderText="{x:Bind domain:Translator.SettingsPreviewTextFilter_Placeholder}"
-                            Text="{x:Bind ViewModel.PreferencesService.PreviewTextFilterPatterns, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
-                            TextWrapping="Wrap" />
+                        <StackPanel Spacing="4">
+                            <TextBox
+                                AcceptsReturn="True"
+                                Height="120"
+                                PlaceholderText="{x:Bind domain:Translator.SettingsPreviewTextFilter_Placeholder}"
+                                Text="{x:Bind ViewModel.PreviewFilterPatternsDraft, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                TextWrapping="Wrap" />
+                            <TextBlock
+                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                Text="{x:Bind ViewModel.PreviewFilterErrorMessage, Mode=OneWay}"
+                                TextWrapping="Wrap"
+                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ViewModel.PreviewFilterErrorMessage), Mode=OneWay}" />
+                        </StackPanel>
                     </controls:SettingsCard>
                 </controls:SettingsExpander.Items>
             </controls:SettingsExpander>

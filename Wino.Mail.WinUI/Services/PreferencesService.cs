@@ -25,7 +25,9 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
 
     private static object InitPreviewTextFilter(IConfigurationService config)
     {
-        PreviewTextFilter.Initialize(() => config.Get<string>(nameof(PreviewTextFilterPatterns), null));
+        PreviewTextFilter.Initialize(
+            () => config.Get<string>(nameof(PreviewTextFilterPatterns), null),
+            () => config.Get(nameof(PreviewTextFilterUseRegex), false));
         return null;
     }
 
@@ -284,6 +286,16 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         {
             PreviewTextFilter.SetPatterns(value);
             SetPropertyAndSave(nameof(PreviewTextFilterPatterns), value);
+        }
+    }
+
+    public bool PreviewTextFilterUseRegex
+    {
+        get => _configurationService.Get(nameof(PreviewTextFilterUseRegex), false);
+        set
+        {
+            PreviewTextFilter.SetUseRegex(value);
+            SetPropertyAndSave(nameof(PreviewTextFilterUseRegex), value);
         }
     }
 
