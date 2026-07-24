@@ -16,7 +16,6 @@
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
     x:Name="root"
-    IsDarkEditor="{x:Bind ViewModel.IsDarkWebviewRenderer, Mode=TwoWay}"
     mc:Ignorable="d">
 
     <Page.KeyboardAccelerators>
@@ -281,7 +280,7 @@
                     IsAIActionsPaneToggleVisible="{x:Bind GetAiActionsToggleVisible(ViewModel.PreferencesService.IsAiActionsPanelHidden), Mode=OneWay}"
                     IsEditorThemeDark="{x:Bind ViewModel.IsDarkWebviewRenderer, Mode=TwoWay}"
                     IsEditorThemeToggleVisible="True"
-                    IsPopOutButtonVisible="{x:Bind SupportsPopOut, Mode=OneWay}"
+                    IsPopOutButtonVisible="{x:Bind SupportsPopOut, Mode=OneTime}"
                     ItemInvokedCommand="{x:Bind ViewModel.OperationClickedCommand}"
                     MenuItems="{x:Bind ViewModel.MenuItems, Mode=OneWay}"
                     PopOutClicked="RendererCommandBar_PopOutClicked">
@@ -512,14 +511,13 @@
             CornerRadius="8">
             <Grid Margin="1" CornerRadius="8">
 
-                <Grid Background="White" Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsDarkEditor), Mode=OneWay}" />
-
                 <editor:WinoMailRenderer
                     x:Name="MailRenderer"
                     AutomationProperties.AutomationId="MailMessageRenderer"
                     AutomationProperties.HelpText="{x:Bind domain:Translator.Reader_MessageBodyAutomationHelpText, Mode=OneTime}"
                     AutomationProperties.Name="{x:Bind domain:Translator.Reader_MessageBodyAutomationName, Mode=OneTime}"
                     InitializationFailed="MailRenderer_InitializationFailed"
+                    IsDarkMode="{x:Bind ViewModel.IsDarkWebviewRenderer, Mode=OneWay}"
                     NavigationRequested="MailRenderer_NavigationRequested">
                     <editor:WinoMailRenderer.KeyboardAccelerators>
                         <KeyboardAccelerator Key="Escape" Invoked="EscapeInvoked" />

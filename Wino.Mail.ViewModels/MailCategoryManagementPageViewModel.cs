@@ -51,11 +51,12 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
         if (parameters is not Guid accountId)
             return;
 
-        Account = await _accountService.GetAccountAsync(accountId);
+        var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+        await ExecuteUIThread(() => Account = account).ConfigureAwait(false);
 
-        if (Account != null)
+        if (account != null)
         {
-            await LoadCategoriesAsync();
+            await LoadCategoriesAsync().ConfigureAwait(false);
         }
     }
 
@@ -69,10 +70,11 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
         if (!CanRefresh)
             return;
 
-        var shouldContinue = await _dialogService.ShowConfirmationDialogAsync(
-            Translator.MailCategoryManagementPage_RefreshConfirmationMessage,
-            Translator.Buttons_Refresh,
-            Translator.Buttons_Refresh).ConfigureAwait(false);
+        var shouldContinue = await ExecuteUIThreadAsync(() =>
+            _dialogService.ShowConfirmationDialogAsync(
+                Translator.MailCategoryManagementPage_RefreshConfirmationMessage,
+                Translator.Buttons_Refresh,
+                Translator.Buttons_Refresh)).ConfigureAwait(false);
 
         if (!shouldContinue)
             return;
@@ -91,10 +93,11 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
         if (category == null)
             return;
 
-        var shouldDelete = await _dialogService.ShowConfirmationDialogAsync(
-            string.Format(Translator.MailCategoryManagementPage_DeleteConfirmationMessage, category.Name),
-            Translator.MailCategoryManagementPage_DeleteConfirmationTitle,
-            Translator.Buttons_Delete).ConfigureAwait(false);
+        var shouldDelete = await ExecuteUIThreadAsync(() =>
+            _dialogService.ShowConfirmationDialogAsync(
+                string.Format(Translator.MailCategoryManagementPage_DeleteConfirmationMessage, category.Name),
+                Translator.MailCategoryManagementPage_DeleteConfirmationTitle,
+                Translator.Buttons_Delete)).ConfigureAwait(false);
 
         if (!shouldDelete)
             return;
@@ -116,16 +119,18 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
 
     private async Task CreateOrUpdateCategoryAsync(MailCategory existingCategory = null)
     {
-        var dialogResult = await _dialogService.ShowEditMailCategoryDialogAsync(existingCategory).ConfigureAwait(false);
+        var dialogResult = await ExecuteUIThreadAsync(() =>
+            _dialogService.ShowEditMailCategoryDialogAsync(existingCategory)).ConfigureAwait(false);
         if (dialogResult == null)
             return;
 
         if (string.IsNullOrWhiteSpace(dialogResult.Name))
         {
-            await _dialogService.ShowMessageAsync(
-                Translator.MailCategoryDialog_InvalidNameMessage,
-                Translator.MailCategoryDialog_InvalidNameTitle,
-                WinoCustomMessageDialogIcon.Warning).ConfigureAwait(false);
+            await ExecuteUIThreadAsync(() =>
+                _dialogService.ShowMessageAsync(
+                    Translator.MailCategoryDialog_InvalidNameMessage,
+                    Translator.MailCategoryDialog_InvalidNameTitle,
+                    WinoCustomMessageDialogIcon.Warning)).ConfigureAwait(false);
             return;
         }
 
@@ -135,10 +140,11 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
 
         if (alreadyExists)
         {
-            await _dialogService.ShowMessageAsync(
-                Translator.MailCategoryDialog_DuplicateMessage,
-                Translator.MailCategoryDialog_DuplicateTitle,
-                WinoCustomMessageDialogIcon.Warning).ConfigureAwait(false);
+            await ExecuteUIThreadAsync(() =>
+                _dialogService.ShowMessageAsync(
+                    Translator.MailCategoryDialog_DuplicateMessage,
+                    Translator.MailCategoryDialog_DuplicateTitle,
+                    WinoCustomMessageDialogIcon.Warning)).ConfigureAwait(false);
             return;
         }
 

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
@@ -487,6 +488,35 @@ public class FolderService : BaseDatabaseService, IFolderService
         const string query = "SELECT * FROM MailItemFolder WHERE MailAccountId = ?";
         var rows = await Connection.QueryAsync<MailItemFolder>(query, accountId).ConfigureAwait(false);
         return ApplyFolderSort(rows).ToList();
+    }
+
+    public async Task<List<MailItemFolder>> GetFoldersByIdsAsync(
+        IReadOnlyCollection<Guid> folderIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (folderIds == null || folderIds.Count == 0)
+            return [];
+
+        var distinctIds = folderIds.Distinct().ToArray();
+        var folders = new List<MailItemFolder>(distinctIds.Length);
+        const int batchSize = 400;
+
+        for (var offset = 0; offset < distinctIds.Length; offset += batchSize)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var batch = distinctIds.Skip(offset).Take(batchSize).ToArray();
+            var placeholders = string.Join(",", batch.Select(_ => "?"));
+            var query = $"SELECT * FROM MailItemFolder WHERE Id IN ({placeholders})";
+            var rows = await Connection
+                .QueryAsync<MailItemFolder>(query, batch.Cast<object>().ToArray())
+                .ConfigureAwait(false);
+
+            folders.AddRange(rows);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return folders;
     }
 
     public async Task<List<MailItemFolder>> GetVisibleFoldersAsync(Guid accountId)

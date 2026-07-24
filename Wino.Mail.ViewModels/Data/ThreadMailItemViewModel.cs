@@ -302,10 +302,25 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
             return;
         }
 
-        ThreadEmails.RemoveAt(currentIndex);
+        var orderedPeers = ThreadEmails.Where(candidate => !ReferenceEquals(candidate, email)).ToList();
+        var insertIndex = 0;
+        for (; insertIndex < orderedPeers.Count; insertIndex++)
+        {
+            var shouldInsertBefore = _isNewestEmailFirst
+                ? orderedPeers[insertIndex].MailCopy.CreationDate < email.MailCopy.CreationDate
+                : orderedPeers[insertIndex].MailCopy.CreationDate > email.MailCopy.CreationDate;
 
-        var insertIndex = GetEmailInsertIndex(email);
-        ThreadEmails.Insert(insertIndex, email);
+            if (shouldInsertBefore)
+            {
+                break;
+            }
+        }
+
+        if (insertIndex != currentIndex)
+        {
+            ThreadEmails.Move(currentIndex, insertIndex);
+        }
+
         RefreshLatestMailCache();
     }
 

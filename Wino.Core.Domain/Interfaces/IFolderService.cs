@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -17,6 +18,7 @@ public interface IFolderService
     Task<MailItemFolder> GetFolderAsync(Guid folderId);
     Task<MailItemFolder> GetFolderAsync(Guid accountId, string remoteFolderId);
     Task<List<MailItemFolder>> GetFoldersAsync(Guid accountId);
+    Task<List<MailItemFolder>> GetFoldersByIdsAsync(IReadOnlyCollection<Guid> folderIds, CancellationToken cancellationToken = default);
     Task<MailItemFolder> GetSpecialFolderByAccountIdAsync(Guid accountId, SpecialFolderType type);
     Task<int> GetCurrentItemCountForFolder(Guid folderId);
     Task<int> GetFolderNotificationBadgeAsync(Guid folderId);

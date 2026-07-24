@@ -37,20 +37,24 @@ public class ContextMenuItemService : IContextMenuItemService
     }
     public virtual IEnumerable<MailOperationMenuItem> GetMailItemContextMenuActions(IEnumerable<MailCopy> selectedMailItems)
     {
-        if (selectedMailItems == null)
-            return default;
+        var selectedItems = selectedMailItems?
+            .Where(static item => item != null)
+            .ToList() ?? [];
+
+        if (selectedItems.Count == 0)
+            return [];
 
         var operationList = new List<MailOperationMenuItem>();
 
         // Disable archive button for Archive folder itself.
 
-        bool isArchiveFolder = selectedMailItems.All(a => a.AssignedFolder.SpecialFolderType == SpecialFolderType.Archive);
-        bool isDraftOrSent = selectedMailItems.All(a => a.AssignedFolder.SpecialFolderType == SpecialFolderType.Draft || a.AssignedFolder.SpecialFolderType == SpecialFolderType.Sent);
-        bool isJunkFolder = selectedMailItems.All(a => a.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk);
+        bool isArchiveFolder = selectedItems.All(a => a.AssignedFolder.SpecialFolderType == SpecialFolderType.Archive);
+        bool isDraftOrSent = selectedItems.All(a => a.AssignedFolder.SpecialFolderType == SpecialFolderType.Draft || a.AssignedFolder.SpecialFolderType == SpecialFolderType.Sent);
+        bool isJunkFolder = selectedItems.All(a => a.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk);
 
-        bool isSingleItem = selectedMailItems.Count() == 1;
+        bool isSingleItem = selectedItems.Count == 1;
 
-        MailCopy singleItem = selectedMailItems.FirstOrDefault();
+        MailCopy singleItem = selectedItems[0];
 
         if (isSingleItem && singleItem.IsLocalDraft)
         {
@@ -91,10 +95,10 @@ public class ContextMenuItemService : IContextMenuItemService
         }
         else
         {
-            bool isAllRead = selectedMailItems.All(a => a.IsRead);
-            bool isAllUnread = selectedMailItems.All(a => !a.IsRead);
-            bool isAllFlagged = selectedMailItems.All(a => a.IsFlagged);
-            bool isAllNotFlagged = selectedMailItems.All(a => !a.IsFlagged);
+            bool isAllRead = selectedItems.All(a => a.IsRead);
+            bool isAllUnread = selectedItems.All(a => !a.IsRead);
+            bool isAllFlagged = selectedItems.All(a => a.IsFlagged);
+            bool isAllNotFlagged = selectedItems.All(a => !a.IsFlagged);
 
             List<MailOperationMenuItem> readOperations = (isAllRead, isAllUnread) switch
             {

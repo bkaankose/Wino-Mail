@@ -217,18 +217,21 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     public void Receive(TitleBarShellContentUpdated message)
     {
-        ApplyTitleBarSearchHost();
-        RefreshBackButtonVisibility();
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            ApplyTitleBarSearchHost();
+            RefreshBackButtonVisibility();
+        });
     }
 
     public void Receive(ApplicationThemeChanged message)
     {
-        UpdateTitleBarColors(message.IsUnderlyingThemeDark);
+        DispatcherQueue.TryEnqueue(() => UpdateTitleBarColors(message.IsUnderlyingThemeDark));
     }
 
     public void Receive(InfoBarMessageRequested message)
     {
-        ShowInfoBarMessage(message);
+        DispatcherQueue.TryEnqueue(() => ShowInfoBarMessage(message));
     }
 
     public void Receive(WinoAccountProfileUpdatedMessage message)
@@ -446,7 +449,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         if (shellPage.GetShellFrame().Content is not MailListPage mailListPage)
             return true;
 
-        await mailListPage.ViewModel.MailCollection.UnselectAllAsync();
+        await mailListPage.ClearMailSelectionAsync();
         WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
 
         return true;

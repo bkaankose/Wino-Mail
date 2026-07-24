@@ -145,7 +145,8 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     public ObservableCollection<AccountContactViewModel> BccItems { get; set; } = [];
     public ObservableCollection<MailAttachmentViewModel> Attachments { get; set; } = [];
     public ObservableCollection<MailAttachmentViewModel> DisplayedAttachments { get; set; } = [];
-    public ObservableCollection<IMenuOperation> MenuItems { get; set; } = [];
+    [ObservableProperty]
+    public partial IReadOnlyList<IMenuOperation> MenuItems { get; set; } = [];
 
     #endregion
 
@@ -187,6 +188,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         _folderService = folderService;
         _fileService = fileService;
         _requestDelegator = requestDelegator;
+        IsDarkWebviewRenderer = _underlyingThemeService.IsUnderlyingThemeDark();
     }
 
     [RelayCommand]
@@ -338,8 +340,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
                 var draftPreparationRequest = new DraftPreparationRequest(initializedMailItemViewModel.MailCopy.AssignedAccount, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason, initializedMailItemViewModel.MailCopy);
 
-                await _requestDelegator.ExecuteAsync(draftPreparationRequest);
-                ComposeRequested?.Invoke(this, new ComposeDraftRequestedEventArgs(draftMailCopy.UniqueId));
+                await _requestDelegator.ExecuteAsync(draftPreparationRequest).ConfigureAwait(false);
+                await ExecuteUIThread(() =>
+                    ComposeRequested?.Invoke(this, new ComposeDraftRequestedEventArgs(draftMailCopy.UniqueId)));
 
             }
             else if (initializedMailItemViewModel != null)
@@ -391,7 +394,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         {
             if (ClearRenderedHtmlAsyncFunc != null)
             {
-                await ExecuteUIThread(async () => await ClearRenderedHtmlAsyncFunc());
+                await ExecuteUIThreadAsync(ClearRenderedHtmlAsyncFunc);
             }
 
             // This page can be accessed for 2 purposes.
@@ -443,12 +446,12 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         try
         {
             // To show the progress on the UI.
-            CurrentDownloadPercentage = 1;
+            await ExecuteUIThread(() => CurrentDownloadPercentage = 1);
 
             // Download missing MIME message using SynchronizationManager
             await SynchronizationManager.Instance.DownloadMimeMessageAsync(
                 mailItemViewModel.MailCopy,
-                mailItemViewModel.MailCopy.AssignedAccount.Id);
+                mailItemViewModel.MailCopy.AssignedAccount.Id).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -460,7 +463,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         }
         finally
         {
-            ResetProgress();
+            await ExecuteUIThread(ResetProgress);
         }
     }
 
@@ -564,7 +567,8 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
         if (RenderHtmlAsyncFunc != null)
         {
-            await ExecuteUIThread(async () => await RenderHtmlAsyncFunc(CurrentRenderModel.RenderHtml));
+            await ExecuteUIThreadAsync(() => RenderHtmlAsyncFunc(CurrentRenderModel.RenderHtml))
+                .ConfigureAwait(false);
         }
     }
 
@@ -630,16 +634,19 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
     private void InitializeCommandBarItems()
     {
-        MenuItems.Clear();
+        var menuItems = new List<IMenuOperation>();
 
         // Save As PDF
-        MenuItems.Add(MailOperationMenuItem.Create(MailOperation.SaveAs, true, true));
+        menuItems.Add(MailOperationMenuItem.Create(MailOperation.SaveAs, true, true));
 
         // Print
-        MenuItems.Add(MailOperationMenuItem.Create(MailOperation.Print, true, true));
+        menuItems.Add(MailOperationMenuItem.Create(MailOperation.Print, true, true));
 
         if (initializedMailItemViewModel == null)
+        {
+            MenuItems = menuItems;
             return;
+        }
 
         var assignedFolder = initializedMailItemViewModel.MailCopy.AssignedFolder;
 
@@ -647,57 +654,60 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         {
             Log.Warning("Skipping folder-specific mail commands because AssignedFolder is missing for {MailUniqueId}",
                 initializedMailItemViewModel.MailCopy.UniqueId);
+            MenuItems = menuItems;
             return;
         }
 
-        MenuItems.Add(MailOperationMenuItem.Create(MailOperation.Seperator));
+        menuItems.Add(MailOperationMenuItem.Create(MailOperation.Seperator));
 
         // You can't do these to draft items.
         if (!initializedMailItemViewModel.IsDraft)
         {
             // Reply
-            MenuItems.Add(MailOperationMenuItem.Create(MailOperation.Reply));
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.Reply));
 
             // Reply All
-            MenuItems.Add(MailOperationMenuItem.Create(MailOperation.ReplyAll));
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.ReplyAll));
 
             // Forward
-            MenuItems.Add(MailOperationMenuItem.Create(MailOperation.Forward));
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.Forward));
         }
 
         if (initializedMimeMessageInformation?.MimeMessage != null)
         {
-            MenuItems.Add(MailOperationMenuItem.Create(MailOperation.ViewMessageSource, true, true));
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.ViewMessageSource, true, true));
         }
 
         // Archive - Unarchive
         if (assignedFolder.SpecialFolderType == SpecialFolderType.Archive)
-            MenuItems.Add(MailOperationMenuItem.Create(MailOperation.UnArchive));
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.UnArchive));
         else
-            MenuItems.Add(MailOperationMenuItem.Create(MailOperation.Archive));
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.Archive));
 
         // Delete
-        MenuItems.Add(MailOperationMenuItem.Create(MailOperation.SoftDelete));
+        menuItems.Add(MailOperationMenuItem.Create(MailOperation.SoftDelete));
 
         // Flag - Clear Flag
         if (initializedMailItemViewModel.IsFlagged)
-            MenuItems.Add(MailOperationMenuItem.Create(MailOperation.ClearFlag));
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.ClearFlag));
         else
-            MenuItems.Add(MailOperationMenuItem.Create(MailOperation.SetFlag));
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.SetFlag));
 
         // Secondary items.
 
         // Read - Unread
         if (initializedMailItemViewModel.IsRead)
-            MenuItems.Add(MailOperationMenuItem.Create(MailOperation.MarkAsUnread, true, false));
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.MarkAsUnread, true, false));
         else
-            MenuItems.Add(MailOperationMenuItem.Create(MailOperation.MarkAsRead, true, false));
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.MarkAsRead, true, false));
 
         if (assignedFolder.SpecialFolderType == SpecialFolderType.Junk)
-            MenuItems.Add(MailOperationMenuItem.Create(MailOperation.MarkAsNotJunk, true, true));
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.MarkAsNotJunk, true, true));
         else if (!initializedMailItemViewModel.IsDraft &&
                  assignedFolder.SpecialFolderType != SpecialFolderType.Sent)
-            MenuItems.Add(MailOperationMenuItem.Create(MailOperation.MoveToJunk, true, true));
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.MoveToJunk, true, true));
+
+        MenuItems = menuItems;
     }
 
     protected override async void OnMailUpdated(MailCopy updatedMail, EntityUpdateSource source, MailCopyChangeFlags changedProperties)
@@ -1007,25 +1017,25 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
     public void Receive(ThumbnailAdded message)
     {
-        UpdateThumbnails(ToItems, message.Email);
-        UpdateThumbnails(CcItems, message.Email);
-        UpdateThumbnails(BccItems, message.Email);
+        _ = ExecuteUIThread(() =>
+        {
+            UpdateThumbnails(ToItems, message.Email);
+            UpdateThumbnails(CcItems, message.Email);
+            UpdateThumbnails(BccItems, message.Email);
+        });
     }
 
-    private void UpdateThumbnails(ObservableCollection<AccountContactViewModel> items, string email)
+    private static void UpdateThumbnails(ObservableCollection<AccountContactViewModel> items, string email)
     {
-        if (Dispatcher == null || items.Count == 0) return;
+        if (items.Count == 0) return;
 
-        Dispatcher.ExecuteOnUIThread(() =>
+        foreach (var item in items)
         {
-            foreach (var item in items)
+            if (item.Address.Equals(email, StringComparison.OrdinalIgnoreCase))
             {
-                if (item.Address.Equals(email, StringComparison.OrdinalIgnoreCase))
-                {
-                    item.ThumbnailUpdatedEvent = !item.ThumbnailUpdatedEvent;
-                }
+                item.ThumbnailUpdatedEvent = !item.ThumbnailUpdatedEvent;
             }
-        });
+        }
     }
 
     [RelayCommand]

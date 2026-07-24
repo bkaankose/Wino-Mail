@@ -16,6 +16,7 @@
     xmlns:interfaces="using:Wino.Core.Domain.Interfaces"
     xmlns:listview="using:Wino.Mail.WinUI.Controls.ListView"
     xmlns:mail="using:Wino.Core.Domain.Entities.Mail"
+    xmlns:mailListCore="using:Wino.Mail.Controls.Core"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:menuflyouts="using:Wino.MenuFlyouts"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
@@ -160,10 +161,10 @@
                     Width="28"
                     Height="28"
                     VerticalAlignment="Center"
+                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                     x:Phase="2"
                     FontSize="12"
-                    MailItemInformation="{x:Bind}"
-                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}" />
+                    MailItemInformation="{x:Bind}" />
 
                 <Grid
                     Grid.Column="1"
@@ -187,12 +188,12 @@
                             AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
                             AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                         <TextBlock
-                            Grid.Column="1"
                             x:Name="DraftTagTextBlock"
+                            Grid.Column="1"
                             Margin="0,0,4,0"
+                            x:Load="{x:Bind IsDraft, Mode=OneWay}"
                             Foreground="{StaticResource DeleteBrush}"
-                            Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}"
-                            x:Load="{x:Bind IsDraft, Mode=OneWay}" />
+                            Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}" />
                         <TextBlock
                             Grid.Column="2"
                             FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
@@ -263,10 +264,10 @@
                         Spacing="2">
                         <ItemsControl
                             x:Name="CategoriesItemsControl"
+                            x:Load="{x:Bind HasCategories, Mode=OneWay}"
                             IsHitTestVisible="False"
                             ItemTemplate="{StaticResource CompactMailCategoryTemplate}"
-                            ItemsSource="{x:Bind Categories, Mode=OneWay}"
-                            x:Load="{x:Bind HasCategories, Mode=OneWay}">
+                            ItemsSource="{x:Bind Categories, Mode=OneWay}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <StackPanel Orientation="Horizontal" />
@@ -282,20 +283,20 @@
                             Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ReadReceiptDisplayText), Mode=OneWay}" />
                         <ContentPresenter
                             x:Name="AttachmentSymbolPresenter"
+                            x:Load="{x:Bind HasAttachments, Mode=OneWay}"
                             x:Phase="1"
-                            ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}"
-                            x:Load="{x:Bind HasAttachments, Mode=OneWay}" />
+                            ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}" />
                         <ContentPresenter
                             x:Name="FlaggedSymbolPresenter"
+                            x:Load="{x:Bind IsFlagged, Mode=OneWay}"
                             x:Phase="1"
-                            ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}"
-                            x:Load="{x:Bind IsFlagged, Mode=OneWay}" />
+                            ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}" />
                         <ProgressRing
                             x:Name="BusyProgressRing"
                             Width="12"
                             Height="12"
-                            IsActive="{x:Bind IsBusy, Mode=OneWay}"
-                            x:Load="{x:Bind IsBusy, Mode=OneWay}" />
+                            x:Load="{x:Bind IsBusy, Mode=OneWay}"
+                            IsActive="{x:Bind IsBusy, Mode=OneWay}" />
                     </StackPanel>
                 </StackPanel>
                 <ContentControl
@@ -332,10 +333,10 @@
                     Width="30"
                     Height="30"
                     VerticalAlignment="Center"
+                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                     x:Phase="2"
                     FontSize="12"
-                    MailItemInformation="{x:Bind}"
-                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}" />
+                    MailItemInformation="{x:Bind}" />
 
                 <Grid
                     Grid.Column="1"
@@ -362,12 +363,12 @@
                             AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
                             AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                         <TextBlock
-                            Grid.Column="1"
                             x:Name="DraftTagTextBlock"
+                            Grid.Column="1"
                             Margin="0,0,4,0"
+                            x:Load="{x:Bind IsDraft, Mode=OneWay}"
                             Foreground="{StaticResource DeleteBrush}"
-                            Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}"
-                            x:Load="{x:Bind IsDraft, Mode=OneWay}" />
+                            Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}" />
                         <TextBlock
                             Grid.Column="2"
                             FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
@@ -435,11 +436,11 @@
                         Grid.Row="3"
                         Margin="0,2,0,0"
                         HorizontalAlignment="Left"
+                        x:Load="{x:Bind HasCategories, Mode=OneWay}"
                         x:Phase="1"
                         IsHitTestVisible="False"
                         ItemTemplate="{StaticResource DetailedMailCategoryTemplate}"
-                        ItemsSource="{x:Bind Categories, Mode=OneWay}"
-                        x:Load="{x:Bind HasCategories, Mode=OneWay}">
+                        ItemsSource="{x:Bind Categories, Mode=OneWay}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <StackPanel Orientation="Horizontal" />
@@ -465,20 +466,20 @@
                             Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ReadReceiptDisplayText), Mode=OneWay}" />
                         <ContentPresenter
                             x:Name="AttachmentSymbolPresenter"
+                            x:Load="{x:Bind HasAttachments, Mode=OneWay}"
                             x:Phase="1"
-                            ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}"
-                            x:Load="{x:Bind HasAttachments, Mode=OneWay}" />
+                            ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}" />
                         <ContentPresenter
                             x:Name="FlaggedSymbolPresenter"
+                            x:Load="{x:Bind IsFlagged, Mode=OneWay}"
                             x:Phase="1"
-                            ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}"
-                            x:Load="{x:Bind IsFlagged, Mode=OneWay}" />
+                            ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}" />
                         <ProgressRing
                             x:Name="BusyProgressRing"
                             Width="12"
                             Height="12"
-                            IsActive="{x:Bind IsBusy, Mode=OneWay}"
-                            x:Load="{x:Bind IsBusy, Mode=OneWay}" />
+                            x:Load="{x:Bind IsBusy, Mode=OneWay}"
+                            IsActive="{x:Bind IsBusy, Mode=OneWay}" />
                     </StackPanel>
                 </StackPanel>
                 <ContentControl
@@ -514,10 +515,10 @@
                     Width="36"
                     Height="36"
                     VerticalAlignment="Center"
+                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                     x:Phase="2"
                     FontSize="12"
-                    MailItemInformation="{x:Bind}"
-                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}" />
+                    MailItemInformation="{x:Bind}" />
 
                 <Grid
                     Grid.Column="1"
@@ -548,12 +549,12 @@
                                 AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
                                 AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                             <TextBlock
-                                Grid.Column="1"
                                 x:Name="DraftTagTextBlock"
+                                Grid.Column="1"
                                 Margin="0,0,4,0"
+                                x:Load="{x:Bind IsDraft, Mode=OneWay}"
                                 Foreground="{StaticResource DeleteBrush}"
-                                Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}"
-                                x:Load="{x:Bind IsDraft, Mode=OneWay}" />
+                                Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}" />
                             <TextBlock
                                 Grid.Column="2"
                                 FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
@@ -636,20 +637,20 @@
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ReadReceiptDisplayText), Mode=OneWay}" />
                             <ContentPresenter
                                 x:Name="AttachmentSymbolPresenter"
+                                x:Load="{x:Bind HasAttachments, Mode=OneWay}"
                                 x:Phase="1"
-                                ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}"
-                                x:Load="{x:Bind HasAttachments, Mode=OneWay}" />
+                                ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}" />
                             <ContentPresenter
                                 x:Name="FlaggedSymbolPresenter"
+                                x:Load="{x:Bind IsFlagged, Mode=OneWay}"
                                 x:Phase="1"
-                                ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}"
-                                x:Load="{x:Bind IsFlagged, Mode=OneWay}" />
+                                ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}" />
                             <ProgressRing
                                 x:Name="BusyProgressRing"
                                 Width="12"
                                 Height="12"
-                                IsActive="{x:Bind IsBusy, Mode=OneWay}"
-                                x:Load="{x:Bind IsBusy, Mode=OneWay}" />
+                                x:Load="{x:Bind IsBusy, Mode=OneWay}"
+                                IsActive="{x:Bind IsBusy, Mode=OneWay}" />
                         </StackPanel>
                     </Grid>
                     <ItemsControl
@@ -657,11 +658,11 @@
                         Grid.Row="3"
                         Margin="0,4,0,0"
                         HorizontalAlignment="Left"
+                        x:Load="{x:Bind HasCategories, Mode=OneWay}"
                         x:Phase="1"
                         IsHitTestVisible="False"
                         ItemTemplate="{StaticResource DetailedMailCategoryTemplate}"
-                        ItemsSource="{x:Bind Categories, Mode=OneWay}"
-                        x:Load="{x:Bind HasCategories, Mode=OneWay}">
+                        ItemsSource="{x:Bind Categories, Mode=OneWay}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <StackPanel Orientation="Horizontal" />
@@ -686,20 +687,12 @@
                 x:DefaultBindMode="OneWay"
                 Background="Transparent"
                 ContextRequested="MailItemContextRequested">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
                 <Grid
                     MinHeight="56"
                     Padding="8,4,8,4"
-                    CanDrag="True"
                     ColumnSpacing="6"
-                    DragStarting="ThreadHeaderDragStart"
-                    DropCompleted="ThreadHeaderDragFinished"
                     PointerEntered="MailRowPointerEntered"
-                    PointerExited="MailRowPointerExited"
-                    Tapped="ThreadHeaderTapped">
+                    PointerExited="MailRowPointerExited">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -710,10 +703,10 @@
                         Width="28"
                         Height="28"
                         VerticalAlignment="Center"
+                        x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                         x:Phase="2"
                         FontSize="12"
-                        MailItemInformation="{x:Bind}"
-                        x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}" />
+                        MailItemInformation="{x:Bind}" />
                     <Grid
                         Grid.Column="1"
                         VerticalAlignment="Center"
@@ -736,12 +729,12 @@
                                 AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
                                 AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                             <TextBlock
-                                Grid.Column="1"
                                 x:Name="DraftTagTextBlock"
+                                Grid.Column="1"
                                 Margin="0,0,4,0"
+                                x:Load="{x:Bind IsDraft, Mode=OneWay}"
                                 Foreground="{StaticResource DeleteBrush}"
-                                Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}"
-                                x:Load="{x:Bind IsDraft, Mode=OneWay}" />
+                                Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}" />
                             <TextBlock
                                 Grid.Column="2"
                                 FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
@@ -769,16 +762,20 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <Grid Width="12" VerticalAlignment="Center">
+                            <Grid
+                                Width="12"
+                                VerticalAlignment="Center"
+                                Background="Transparent"
+                                PointerPressed="ThreadExpanderPointerPressed">
                                 <FontIcon
                                     FontSize="10"
                                     Glyph="&#xE76C;"
                                     Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
                                 <FontIcon
                                     x:Name="ExpandedThreadGlyph"
+                                    x:Load="{x:Bind IsThreadExpanded, Mode=OneWay}"
                                     FontSize="10"
-                                    Glyph="&#xE96E;"
-                                    x:Load="{x:Bind IsThreadExpanded, Mode=OneWay}" />
+                                    Glyph="&#xE96E;" />
                             </Grid>
                             <TextBlock
                                 x:Name="ReadSubjectTextBlock"
@@ -828,20 +825,20 @@
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ReadReceiptDisplayText), Mode=OneWay}" />
                             <ContentPresenter
                                 x:Name="AttachmentSymbolPresenter"
+                                x:Load="{x:Bind HasAttachments, Mode=OneWay}"
                                 x:Phase="1"
-                                ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}"
-                                x:Load="{x:Bind HasAttachments, Mode=OneWay}" />
+                                ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}" />
                             <ContentPresenter
                                 x:Name="FlaggedSymbolPresenter"
+                                x:Load="{x:Bind IsFlagged, Mode=OneWay}"
                                 x:Phase="1"
-                                ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}"
-                                x:Load="{x:Bind IsFlagged, Mode=OneWay}" />
+                                ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}" />
                             <ProgressRing
                                 x:Name="BusyProgressRing"
                                 Width="12"
                                 Height="12"
-                                IsActive="{x:Bind IsBusy, Mode=OneWay}"
-                                x:Load="{x:Bind IsBusy, Mode=OneWay}" />
+                                x:Load="{x:Bind IsBusy, Mode=OneWay}"
+                                IsActive="{x:Bind IsBusy, Mode=OneWay}" />
                         </StackPanel>
                     </StackPanel>
                     <ContentControl
@@ -854,22 +851,6 @@
                         ContentTemplate="{StaticResource MailRowHoverActionOverlayTemplate}"
                         Visibility="Collapsed" />
                 </Grid>
-                <ListView
-                    x:Name="ThreadMailItemsListView"
-                    Grid.Row="1"
-                    Margin="20,0,8,0"
-                    AutomationProperties.AutomationId="CompactThreadMailItemsListView"
-                    CanDragItems="True"
-                    DragItemsCompleted="ThreadItemsListViewDragItemsCompleted"
-                    DragItemsStarting="ThreadItemsListViewDragItemsStarting"
-                    IsItemClickEnabled="True"
-                    ItemClick="ThreadItemsListViewItemClicked"
-                    ItemContainerStyle="{StaticResource DefaultMailListViewItemStyle}"
-                    ItemTemplate="{StaticResource CompactSingleMailItemTemplate}"
-                    ItemsSource="{x:Bind ThreadEmails, Mode=OneWay}"
-                    ProcessKeyboardAccelerators="WinoListViewProcessKeyboardAccelerators"
-                    SelectionMode="None"
-                    x:Load="{x:Bind IsThreadExpanded, Mode=OneWay}" />
             </Grid>
         </DataTemplate>
 
@@ -878,20 +859,12 @@
                 x:DefaultBindMode="OneWay"
                 Background="Transparent"
                 ContextRequested="MailItemContextRequested">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
                 <Grid
                     MinHeight="76"
                     Padding="8,6,8,6"
-                    CanDrag="True"
                     ColumnSpacing="8"
-                    DragStarting="ThreadHeaderDragStart"
-                    DropCompleted="ThreadHeaderDragFinished"
                     PointerEntered="MailRowPointerEntered"
-                    PointerExited="MailRowPointerExited"
-                    Tapped="ThreadHeaderTapped">
+                    PointerExited="MailRowPointerExited">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -902,10 +875,10 @@
                         Width="30"
                         Height="30"
                         VerticalAlignment="Center"
+                        x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                         x:Phase="2"
                         FontSize="12"
-                        MailItemInformation="{x:Bind}"
-                        x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}" />
+                        MailItemInformation="{x:Bind}" />
                     <StackPanel
                         Grid.Column="1"
                         VerticalAlignment="Center"
@@ -924,12 +897,12 @@
                                 AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
                                 AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                             <TextBlock
-                                Grid.Column="1"
                                 x:Name="DraftTagTextBlock"
+                                Grid.Column="1"
                                 Margin="0,0,4,0"
+                                x:Load="{x:Bind IsDraft, Mode=OneWay}"
                                 Foreground="{StaticResource DeleteBrush}"
-                                Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}"
-                                x:Load="{x:Bind IsDraft, Mode=OneWay}" />
+                                Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}" />
                             <TextBlock
                                 Grid.Column="2"
                                 FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
@@ -957,16 +930,20 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <Grid Width="12" VerticalAlignment="Center">
+                            <Grid
+                                Width="12"
+                                VerticalAlignment="Center"
+                                Background="Transparent"
+                                PointerPressed="ThreadExpanderPointerPressed">
                                 <FontIcon
                                     FontSize="10"
                                     Glyph="&#xE76C;"
                                     Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
                                 <FontIcon
                                     x:Name="ExpandedThreadGlyph"
+                                    x:Load="{x:Bind IsThreadExpanded, Mode=OneWay}"
                                     FontSize="10"
-                                    Glyph="&#xE96E;"
-                                    x:Load="{x:Bind IsThreadExpanded, Mode=OneWay}" />
+                                    Glyph="&#xE96E;" />
                             </Grid>
                             <TextBlock
                                 x:Name="ReadSubjectTextBlock"
@@ -1023,20 +1000,20 @@
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ReadReceiptDisplayText), Mode=OneWay}" />
                             <ContentPresenter
                                 x:Name="AttachmentSymbolPresenter"
+                                x:Load="{x:Bind HasAttachments, Mode=OneWay}"
                                 x:Phase="1"
-                                ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}"
-                                x:Load="{x:Bind HasAttachments, Mode=OneWay}" />
+                                ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}" />
                             <ContentPresenter
                                 x:Name="FlaggedSymbolPresenter"
+                                x:Load="{x:Bind IsFlagged, Mode=OneWay}"
                                 x:Phase="1"
-                                ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}"
-                                x:Load="{x:Bind IsFlagged, Mode=OneWay}" />
+                                ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}" />
                             <ProgressRing
                                 x:Name="BusyProgressRing"
                                 Width="12"
                                 Height="12"
-                                IsActive="{x:Bind IsBusy, Mode=OneWay}"
-                                x:Load="{x:Bind IsBusy, Mode=OneWay}" />
+                                x:Load="{x:Bind IsBusy, Mode=OneWay}"
+                                IsActive="{x:Bind IsBusy, Mode=OneWay}" />
                         </StackPanel>
                     </StackPanel>
                     <ContentControl
@@ -1049,22 +1026,6 @@
                         ContentTemplate="{StaticResource MailRowHoverActionOverlayTemplate}"
                         Visibility="Collapsed" />
                 </Grid>
-                <ListView
-                    x:Name="ThreadMailItemsListView"
-                    Grid.Row="1"
-                    Margin="24,0,8,0"
-                    AutomationProperties.AutomationId="MediumThreadMailItemsListView"
-                    CanDragItems="True"
-                    DragItemsCompleted="ThreadItemsListViewDragItemsCompleted"
-                    DragItemsStarting="ThreadItemsListViewDragItemsStarting"
-                    IsItemClickEnabled="True"
-                    ItemClick="ThreadItemsListViewItemClicked"
-                    ItemContainerStyle="{StaticResource DefaultMailListViewItemStyle}"
-                    ItemTemplate="{StaticResource MediumSingleMailItemTemplate}"
-                    ItemsSource="{x:Bind ThreadEmails, Mode=OneWay}"
-                    ProcessKeyboardAccelerators="WinoListViewProcessKeyboardAccelerators"
-                    SelectionMode="None"
-                    x:Load="{x:Bind IsThreadExpanded, Mode=OneWay}" />
             </Grid>
         </DataTemplate>
 
@@ -1073,20 +1034,12 @@
                 x:DefaultBindMode="OneWay"
                 Background="Transparent"
                 ContextRequested="MailItemContextRequested">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
                 <Grid
                     MinHeight="88"
                     Padding="4,8,8,8"
-                    CanDrag="True"
                     ColumnSpacing="8"
-                    DragStarting="ThreadHeaderDragStart"
-                    DropCompleted="ThreadHeaderDragFinished"
                     PointerEntered="MailRowPointerEntered"
-                    PointerExited="MailRowPointerExited"
-                    Tapped="ThreadHeaderTapped">
+                    PointerExited="MailRowPointerExited">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -1098,10 +1051,10 @@
                         Width="36"
                         Height="36"
                         VerticalAlignment="Center"
+                        x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                         x:Phase="2"
                         FontSize="12"
-                        MailItemInformation="{x:Bind}"
-                        x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}" />
+                        MailItemInformation="{x:Bind}" />
                     <StackPanel
                         Grid.Column="1"
                         VerticalAlignment="Center"
@@ -1120,12 +1073,12 @@
                                 AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
                                 AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
                             <TextBlock
-                                Grid.Column="1"
                                 x:Name="DraftTagTextBlock"
+                                Grid.Column="1"
                                 Margin="0,0,4,0"
+                                x:Load="{x:Bind IsDraft, Mode=OneWay}"
                                 Foreground="{StaticResource DeleteBrush}"
-                                Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}"
-                                x:Load="{x:Bind IsDraft, Mode=OneWay}" />
+                                Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}" />
                             <TextBlock
                                 Grid.Column="2"
                                 FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
@@ -1153,16 +1106,20 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <Grid Width="12" VerticalAlignment="Center">
+                            <Grid
+                                Width="12"
+                                VerticalAlignment="Center"
+                                Background="Transparent"
+                                PointerPressed="ThreadExpanderPointerPressed">
                                 <FontIcon
                                     FontSize="10"
                                     Glyph="&#xE76C;"
                                     Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
                                 <FontIcon
                                     x:Name="ExpandedThreadGlyph"
+                                    x:Load="{x:Bind IsThreadExpanded, Mode=OneWay}"
                                     FontSize="10"
-                                    Glyph="&#xE96E;"
-                                    x:Load="{x:Bind IsThreadExpanded, Mode=OneWay}" />
+                                    Glyph="&#xE96E;" />
                             </Grid>
                             <TextBlock
                                 x:Name="ReadSubjectTextBlock"
@@ -1219,20 +1176,20 @@
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ReadReceiptDisplayText), Mode=OneWay}" />
                             <ContentPresenter
                                 x:Name="AttachmentSymbolPresenter"
+                                x:Load="{x:Bind HasAttachments, Mode=OneWay}"
                                 x:Phase="1"
-                                ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}"
-                                x:Load="{x:Bind HasAttachments, Mode=OneWay}" />
+                                ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}" />
                             <ContentPresenter
                                 x:Name="FlaggedSymbolPresenter"
+                                x:Load="{x:Bind IsFlagged, Mode=OneWay}"
                                 x:Phase="1"
-                                ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}"
-                                x:Load="{x:Bind IsFlagged, Mode=OneWay}" />
+                                ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}" />
                             <ProgressRing
                                 x:Name="BusyProgressRing"
                                 Width="12"
                                 Height="12"
-                                IsActive="{x:Bind IsBusy, Mode=OneWay}"
-                                x:Load="{x:Bind IsBusy, Mode=OneWay}" />
+                                x:Load="{x:Bind IsBusy, Mode=OneWay}"
+                                IsActive="{x:Bind IsBusy, Mode=OneWay}" />
                         </StackPanel>
                     </StackPanel>
                     <ContentControl
@@ -1245,22 +1202,6 @@
                         ContentTemplate="{StaticResource MailRowHoverActionOverlayTemplate}"
                         Visibility="Collapsed" />
                 </Grid>
-                <ListView
-                    x:Name="ThreadMailItemsListView"
-                    Grid.Row="1"
-                    Margin="24,0,8,0"
-                    AutomationProperties.AutomationId="SpaciousThreadMailItemsListView"
-                    CanDragItems="True"
-                    DragItemsCompleted="ThreadItemsListViewDragItemsCompleted"
-                    DragItemsStarting="ThreadItemsListViewDragItemsStarting"
-                    IsItemClickEnabled="True"
-                    ItemClick="ThreadItemsListViewItemClicked"
-                    ItemContainerStyle="{StaticResource DefaultMailListViewItemStyle}"
-                    ItemTemplate="{StaticResource SpaciousSingleMailItemTemplate}"
-                    ItemsSource="{x:Bind ThreadEmails, Mode=OneWay}"
-                    ProcessKeyboardAccelerators="WinoListViewProcessKeyboardAccelerators"
-                    SelectionMode="None"
-                    x:Load="{x:Bind IsThreadExpanded, Mode=OneWay}" />
             </Grid>
         </DataTemplate>
 
@@ -1273,22 +1214,205 @@
                 MailItem="{x:Bind}" />
         </DataTemplate>
 
+        <!--
+            The list selects stable projected rows. These lightweight wrappers keep the
+            existing mail visuals bound to their original view-model types.
+        -->
+        <DataTemplate x:Key="CompactSingleMailRowTemplate" x:DataType="mailListCore:MailListRow">
+            <Grid Margin="{x:Bind helpers:XamlHelpers.GetCompactMailListRowMargin(Kind), Mode=OneTime}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid
+                    x:Name="CompactExpandedThreadChevron"
+                    Width="12"
+                    VerticalAlignment="Stretch"
+                    x:Load="{x:Bind helpers:XamlHelpers.IsThreadMessageHead(Kind), Mode=OneTime}"
+                    Background="Transparent"
+                    PointerPressed="ThreadExpanderPointerPressed">
+                    <FontIcon
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontSize="10"
+                        Glyph="&#xE96E;" />
+                </Grid>
+                <ContentPresenter
+                    Grid.Column="1"
+                    Content="{x:Bind SourceItem}"
+                    ContentTemplate="{StaticResource CompactSingleMailItemTemplate}" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="MediumSingleMailRowTemplate" x:DataType="mailListCore:MailListRow">
+            <Grid Margin="{x:Bind helpers:XamlHelpers.GetDetailedMailListRowMargin(Kind), Mode=OneTime}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid
+                    x:Name="MediumExpandedThreadChevron"
+                    Width="12"
+                    VerticalAlignment="Stretch"
+                    x:Load="{x:Bind helpers:XamlHelpers.IsThreadMessageHead(Kind), Mode=OneTime}"
+                    Background="Transparent"
+                    PointerPressed="ThreadExpanderPointerPressed">
+                    <FontIcon
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontSize="10"
+                        Glyph="&#xE96E;" />
+                </Grid>
+                <ContentPresenter
+                    Grid.Column="1"
+                    Content="{x:Bind SourceItem}"
+                    ContentTemplate="{StaticResource MediumSingleMailItemTemplate}" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="SpaciousSingleMailRowTemplate" x:DataType="mailListCore:MailListRow">
+            <Grid Margin="{x:Bind helpers:XamlHelpers.GetDetailedMailListRowMargin(Kind), Mode=OneTime}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid
+                    x:Name="SpaciousExpandedThreadChevron"
+                    Width="12"
+                    VerticalAlignment="Stretch"
+                    x:Load="{x:Bind helpers:XamlHelpers.IsThreadMessageHead(Kind), Mode=OneTime}"
+                    Background="Transparent"
+                    PointerPressed="ThreadExpanderPointerPressed">
+                    <FontIcon
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontSize="10"
+                        Glyph="&#xE96E;" />
+                </Grid>
+                <ContentPresenter
+                    Grid.Column="1"
+                    Content="{x:Bind SourceItem}"
+                    ContentTemplate="{StaticResource SpaciousSingleMailItemTemplate}" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="CompactThreadMailRowTemplate" x:DataType="mailListCore:MailListRow">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid
+                    x:Name="CompactThreadChevron"
+                    Width="12"
+                    VerticalAlignment="Stretch"
+                    Background="Transparent"
+                    PointerPressed="ThreadExpanderPointerPressed">
+                    <FontIcon
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontSize="10"
+                        Glyph="&#xE76C;"
+                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsExpanded), Mode=OneWay}" />
+                    <FontIcon
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontSize="10"
+                        Glyph="&#xE96E;"
+                        Visibility="{x:Bind IsExpanded, Mode=OneWay}" />
+                </Grid>
+                <ContentPresenter
+                    Grid.Column="1"
+                    Content="{x:Bind SourceItem}"
+                    ContentTemplate="{StaticResource CompactSingleMailItemTemplate}" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="MediumThreadMailRowTemplate" x:DataType="mailListCore:MailListRow">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid
+                    x:Name="MediumThreadChevron"
+                    Width="12"
+                    VerticalAlignment="Stretch"
+                    Background="Transparent"
+                    PointerPressed="ThreadExpanderPointerPressed">
+                    <FontIcon
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontSize="10"
+                        Glyph="&#xE76C;"
+                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsExpanded), Mode=OneWay}" />
+                    <FontIcon
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontSize="10"
+                        Glyph="&#xE96E;"
+                        Visibility="{x:Bind IsExpanded, Mode=OneWay}" />
+                </Grid>
+                <ContentPresenter
+                    Grid.Column="1"
+                    Content="{x:Bind SourceItem}"
+                    ContentTemplate="{StaticResource MediumSingleMailItemTemplate}" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="SpaciousThreadMailRowTemplate" x:DataType="mailListCore:MailListRow">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid
+                    x:Name="SpaciousThreadChevron"
+                    Width="12"
+                    VerticalAlignment="Stretch"
+                    Background="Transparent"
+                    PointerPressed="ThreadExpanderPointerPressed">
+                    <FontIcon
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontSize="10"
+                        Glyph="&#xE76C;"
+                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsExpanded), Mode=OneWay}" />
+                    <FontIcon
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontSize="10"
+                        Glyph="&#xE96E;"
+                        Visibility="{x:Bind IsExpanded, Mode=OneWay}" />
+                </Grid>
+                <ContentPresenter
+                    Grid.Column="1"
+                    Content="{x:Bind SourceItem}"
+                    ContentTemplate="{StaticResource SpaciousSingleMailItemTemplate}" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="CalendarMailRowTemplate" x:DataType="mailListCore:MailListRow">
+            <Grid Margin="{x:Bind helpers:XamlHelpers.GetDetailedMailListRowMargin(Kind), Mode=OneTime}">
+                <ContentPresenter Content="{x:Bind SourceItem}" ContentTemplate="{StaticResource CalendarMailItemTemplate}" />
+            </Grid>
+        </DataTemplate>
+
         <listview:WinoMailItemTemplateSelector
             x:Key="MailItemTemplateSelector"
-            CalendarMailItemTemplate="{StaticResource CalendarMailItemTemplate}"
-            CompactSingleMailItemTemplate="{StaticResource CompactSingleMailItemTemplate}"
-            CompactThreadMailItemTemplate="{StaticResource CompactThreadMailItemTemplate}"
-            MediumSingleMailItemTemplate="{StaticResource MediumSingleMailItemTemplate}"
-            MediumThreadMailItemTemplate="{StaticResource MediumThreadMailItemTemplate}"
-            SpaciousSingleMailItemTemplate="{StaticResource SpaciousSingleMailItemTemplate}"
-            SpaciousThreadMailItemTemplate="{StaticResource SpaciousThreadMailItemTemplate}" />
+            CalendarMailItemTemplate="{StaticResource CalendarMailRowTemplate}"
+            CompactSingleMailItemTemplate="{StaticResource CompactSingleMailRowTemplate}"
+            CompactThreadMailItemTemplate="{StaticResource CompactThreadMailRowTemplate}"
+            MediumSingleMailItemTemplate="{StaticResource MediumSingleMailRowTemplate}"
+            MediumThreadMailItemTemplate="{StaticResource MediumThreadMailRowTemplate}"
+            SpaciousSingleMailItemTemplate="{StaticResource SpaciousSingleMailRowTemplate}"
+            SpaciousThreadMailItemTemplate="{StaticResource SpaciousThreadMailRowTemplate}" />
 
         <CollectionViewSource
-            x:Name="MailCollectionViewSource"
-            IsSourceGrouped="True"
-            Source="{x:Bind ViewModel.MailCollection.MailItems, Mode=OneWay}" />
+            x:Key="MailCollectionViewSource"
+            IsSourceGrouped="True" />
 
-        <DataTemplate x:Key="MailGroupHeaderDefaultTemplate" x:DataType="data:WinoMailGroup">
+        <DataTemplate x:Key="MailGroupHeaderDefaultTemplate" x:DataType="mailListCore:MailListGroup">
             <Grid
                 Margin="0,0,0,6"
                 AllowFocusOnInteraction="False"
@@ -1305,7 +1429,7 @@
             </Grid>
         </DataTemplate>
 
-        <DataTemplate x:Key="MailGroupHeaderEmptyTemplate" x:DataType="data:WinoMailGroup">
+        <DataTemplate x:Key="MailGroupHeaderEmptyTemplate" x:DataType="mailListCore:MailListGroup">
             <Grid />
         </DataTemplate>
 
@@ -1316,10 +1440,6 @@
     </Page.Resources>
 
     <Page.KeyboardAccelerators>
-        <KeyboardAccelerator
-            Key="A"
-            Invoked="SelectAllKeyboardAcceleratorInvoked"
-            Modifiers="Control" />
         <KeyboardAccelerator
             Key="Z"
             Invoked="UndoKeyboardAcceleratorInvoked"
@@ -1356,15 +1476,16 @@
 
                 <!--  Action bar  -->
                 <Grid
+                    x:Name="ActionBarGrid"
                     Margin="0,0,0,5"
+                    x:Load="{x:Bind ViewModel.PreferencesService.IsMailListActionBarEnabled}"
                     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
-                    CornerRadius="8"
-                    Visibility="{x:Bind ViewModel.PreferencesService.IsMailListActionBarEnabled}">
+                    CornerRadius="8">
                     <coreControls:OperationCommandBar
                         HorizontalAlignment="Left"
                         DefaultLabelPosition="Collapsed"
                         IsAIActionsPaneToggleVisible="False"
-                        IsEnabled="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.MailCollection.SelectedItemsCount), Mode=OneWay}"
+                        IsEnabled="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.SelectedItemsCount), Mode=OneWay}"
                         ItemInvokedCommand="{x:Bind ViewModel.ExecuteTopBarActionCommand}"
                         MenuItems="{x:Bind ViewModel.ActionItems, Mode=OneWay}"
                         OverflowButtonVisibility="Auto" />
@@ -1466,10 +1587,8 @@
                             AutomationProperties.Name="{x:Bind domain:Translator.Buttons_Multiselect}"
                             Background="Transparent"
                             BorderThickness="0"
-                            Checked="SelectionModeToggleChecked"
                             IsChecked="{x:Bind ViewModel.IsMultiSelectionModeEnabled, Mode=TwoWay}"
-                            ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Multiselect}"
-                            Unchecked="SelectionModeToggleUnchecked">
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Multiselect}">
                             <coreControls:WinoFontIcon FontSize="16" Icon="MultiSelect" />
                         </ToggleButton>
                         <DropDownButton
@@ -1553,34 +1672,40 @@
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-
-                    <listview:WinoListView
+                    <listview:ThreadedMailListView
                         x:Name="MailListView"
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Stretch"
                         toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
                         toolkitExt:ScrollViewerExtensions.VerticalScrollBarMargin="-6"
+                        AutomationProperties.AutomationId="MailListView"
                         CanDragItems="True"
                         GroupHeaderTemplateSelector="{StaticResource MailGroupHeaderTemplateSelector}"
-                        IsItemClickEnabled="True"
-                        ItemClick="WinoListViewItemClicked"
+                        IsTouchMultiSelectMode="{x:Bind ViewModel.IsMultiSelectionModeEnabled, Mode=OneWay}"
                         ItemContainerStyleSelector="{StaticResource WinoMailItemContainerStyleSelector}"
                         ItemTemplateSelector="{StaticResource MailItemTemplateSelector}"
-                        ItemsSource="{x:Bind MailCollectionViewSource.View, Mode=OneWay}"
                         LoadMoreCommand="{x:Bind ViewModel.LoadMoreItemsCommand}"
+                        MailItemsSource="{x:Bind ViewModel.MailCollection.Items, Mode=OneWay}"
                         ProcessKeyboardAccelerators="WinoListViewProcessKeyboardAccelerators"
-                        SelectionMode="None">
-                        <listview:WinoListView.ItemsPanel>
+                        ProjectionOptions="{x:Bind ViewModel.MailListOptions, Mode=OneWay}"
+                        SelectionMode="Extended"
+                        SelectionSnapshotChanged="MailListViewSelectionSnapshotChanged">
+                        <listview:ThreadedMailListView.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <ItemsStackPanel AreStickyGroupHeadersEnabled="True" GroupPadding="4,0,4,4" />
                             </ItemsPanelTemplate>
-                        </listview:WinoListView.ItemsPanel>
-                        <listview:WinoListView.Resources>
+                        </listview:ThreadedMailListView.ItemsPanel>
+                        <listview:ThreadedMailListView.ItemContainerTransitions>
+                            <TransitionCollection>
+                                <RepositionThemeTransition IsStaggeringEnabled="False" />
+                            </TransitionCollection>
+                        </listview:ThreadedMailListView.ItemContainerTransitions>
+                        <listview:ThreadedMailListView.Resources>
                             <ResourceDictionary>
                                 <Style BasedOn="{StaticResource MailListHeaderStyle}" TargetType="ListViewHeaderItem" />
                             </ResourceDictionary>
-                        </listview:WinoListView.Resources>
-                    </listview:WinoListView>
+                        </listview:ThreadedMailListView.Resources>
+                    </listview:ThreadedMailListView>
 
                     <Border
                         x:Name="DraggingMessageBorder"

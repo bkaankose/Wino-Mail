@@ -1,8 +1,8 @@
 using System.Text;
 using System.Text.Json;
-using Microsoft.Web.WebView2.Core;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.Web.WebView2.Core;
 
 namespace Wino.Editor;
 
@@ -53,11 +53,11 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer
 
     public async Task InitializeAsync()
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        //ObjectDisposedException.ThrowIf(_disposed, this);
         await _loadedSource.Task;
         _initializationTask ??= InitializeCoreAsync();
         await _initializationTask;
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        // ObjectDisposedException.ThrowIf(_disposed, this);
     }
 
     public async Task RenderHtmlAsync(string html, bool shouldLinkify = true)
@@ -67,6 +67,19 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer
         _contentVersion++;
         await InitializeAsync();
         await RenderPendingHtmlAsync();
+    }
+
+    public async Task SetThemeAsync(bool isDarkMode)
+    {
+        bool wasReady = _ready.Task.IsCompletedSuccessfully;
+        bool themeChanged = _isDarkMode != isDarkMode;
+        _isDarkMode = isDarkMode;
+
+        await InitializeAsync();
+
+        // Initialization applies the preloaded theme itself. Only an already-running
+        // document needs an explicit update.
+        if (wasReady && themeChanged) await ApplyThemeAsync();
     }
 
     public Task RenderPlainTextAsync(string text, bool shouldLinkify = true)
@@ -140,7 +153,7 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer
 
     private async Task InitializeCoreAsync()
     {
-        string document = await EditorAssetProvider.GetReaderDocumentAsync();
+        string document = await EditorAssetProvider.GetReaderDocumentAsync(IsDarkMode);
         var environment = WebViewEnvironment ?? await WinoWebViewEnvironment.GetSharedEnvironmentAsync();
         await RendererWebView2.EnsureCoreWebView2Async(environment);
         ObjectDisposedException.ThrowIf(_disposed, this);

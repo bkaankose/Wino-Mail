@@ -209,11 +209,14 @@ public partial class MergedAccountDetailsPageViewModel : MailBaseViewModel,
         UnlinkAccountsCommand.NotifyCanExecuteChanged();
     }
 
-    public void Receive(MergedInboxRenamed message)
+    public async void Receive(MergedInboxRenamed message)
     {
-        if (EditingMergedAccount?.MergedInbox.Id == message.MergedInboxId)
+        await ExecuteUIThread(() =>
         {
-            EditingMergedAccount.MergedInbox.Name = message.NewName;
-        }
+            if (EditingMergedAccount?.MergedInbox.Id == message.MergedInboxId)
+            {
+                EditingMergedAccount.MergedInbox.Name = message.NewName;
+            }
+        });
     }
 }

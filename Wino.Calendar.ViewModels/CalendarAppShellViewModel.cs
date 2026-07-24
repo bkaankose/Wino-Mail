@@ -220,8 +220,11 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         if (e.PropertyName != nameof(IAccountCalendarStateService.IsAnySynchronizationInProgress))
             return;
 
-        OnPropertyChanged(nameof(CanSynchronizeCalendars));
-        SyncCommand.NotifyCanExecuteChanged();
+        _ = ExecuteUIThread(() =>
+        {
+            OnPropertyChanged(nameof(CanSynchronizeCalendars));
+            SyncCommand.NotifyCanExecuteChanged();
+        });
     }
 
     private void AttachRuntimeSubscriptions()
@@ -473,16 +476,19 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         SelectedDateNavigationHeaderIndex = DateNavigationHeaderItems.Count > 0 ? 0 : -1;
     }
 
-    public void Receive(CalendarDisplayTypeChangedMessage message)
+    public async void Receive(CalendarDisplayTypeChangedMessage message)
     {
-        OnPropertyChanged(nameof(IsVerticalCalendar));
-        UpdateDateNavigationHeaderItems();
+        await ExecuteUIThread(() =>
+        {
+            OnPropertyChanged(nameof(IsVerticalCalendar));
+            UpdateDateNavigationHeaderItems();
+        });
     }
 
     public async void Receive(AccountRemovedMessage message)
     {
-        await InitializeAccountCalendarsAsync();
-        ValidateConfiguredNewEventCalendar();
+        await InitializeAccountCalendarsAsync().ConfigureAwait(false);
+        await ExecuteUIThread(ValidateConfiguredNewEventCalendar);
     }
 
     private AccountCalendar TryResolveConfiguredNewEventCalendar()

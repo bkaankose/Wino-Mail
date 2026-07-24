@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -11,7 +10,6 @@ using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using Serilog;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Printing;
 using Wino.Editor;
@@ -100,13 +98,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         var nativeSettings = settings.ToCoreWebView2PdfRenderSettings(webView.CoreWebView2.Environment);
         var pdfStream = await webView.CoreWebView2.PrintToPdfStreamAsync(nativeSettings);
         return pdfStream.AsStreamForRead();
-    }
-
-    public override async void OnEditorThemeChanged()
-    {
-        base.OnEditorThemeChanged();
-
-        await UpdateEditorThemeAsync();
     }
 
     private async Task RenderInternalAsync(string htmlBody)
@@ -337,8 +328,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     private async Task UpdateEditorThemeAsync()
     {
-        MailRenderer.IsDarkMode = ViewModel.IsDarkWebviewRenderer;
-        await InitializeMailRendererAsync();
+        await MailRenderer.SetThemeAsync(ViewModel.IsDarkWebviewRenderer);
     }
 
     private async Task InitializeMailRendererAsync()
@@ -347,9 +337,10 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         {
             await MailRenderer.InitializeAsync();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            throw new InvalidOperationException(Translator.Exception_WebView2RuntimeMissing_Message, ex);
+            // TODO: Debug object disposal.
+            // throw new InvalidOperationException(Translator.Exception_WebView2RuntimeMissing_Message, ex);
         }
     }
 
@@ -361,7 +352,8 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     void IRecipient<ApplicationThemeChanged>.Receive(ApplicationThemeChanged message)
     {
-        ViewModel.IsDarkWebviewRenderer = message.IsUnderlyingThemeDark;
+        DispatcherQueue.TryEnqueue(() =>
+            ViewModel.IsDarkWebviewRenderer = message.IsUnderlyingThemeDark);
     }
 
     private void InternetAddressClicked(object sender, RoutedEventArgs e)

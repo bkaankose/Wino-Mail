@@ -1,10 +1,12 @@
 using System.Diagnostics;
+using System.Collections.Concurrent;
 using FluentAssertions;
 using Moq;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Tests.Helpers;
 using Wino.Services;
@@ -280,6 +282,105 @@ public class MailFetchingTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task FetchMailPageAsync_InitialPageCombinesPinnedAndRegularSeeds()
+    {
+        var oldPinned = BuildMail(_inboxFolder.Id, DateTime.UtcNow.AddDays(-30));
+        oldPinned.IsPinned = true;
+        var regular = Enumerable.Range(0, 30)
+            .Select(index => BuildMail(_inboxFolder.Id, DateTime.UtcNow.AddMinutes(-index)))
+            .ToList();
+        await _databaseService.Connection.InsertAsync(oldPinned, typeof(MailCopy));
+        await _databaseService.Connection.InsertAllAsync(regular, typeof(MailCopy));
+
+        var page = await _mailService.FetchMailPageAsync(
+            BuildOptions([_inboxFolder], createThreads: false, take: 20));
+
+        page.Items.Should().HaveCount(21);
+        page.Items.Should().ContainSingle(mail => mail.UniqueId == oldPinned.UniqueId);
+        page.HasMore.Should().BeTrue();
+        page.NextCursor.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task FetchMailPageAsync_KeysetPagingHandlesEqualDatesWithoutDuplicates()
+    {
+        var creationDate = DateTime.UtcNow;
+        var mails = Enumerable.Range(0, 205)
+            .Select(_ => BuildMail(_inboxFolder.Id, creationDate))
+            .ToList();
+        await _databaseService.Connection.InsertAllAsync(mails, typeof(MailCopy));
+
+        var loadedIds = new ConcurrentDictionary<Guid, bool>();
+        MailFetchCursor cursor = null;
+        var allResults = new List<MailCopy>();
+        bool hasMore;
+
+        do
+        {
+            var options = BuildOptions([_inboxFolder], createThreads: false) with
+            {
+                ExistingUniqueIds = loadedIds
+            };
+            var page = await _mailService.FetchMailPageAsync(options, cursor);
+            allResults.AddRange(page.Items);
+            foreach (var mail in page.Items)
+            {
+                loadedIds.TryAdd(mail.UniqueId, true);
+            }
+
+            cursor = page.NextCursor;
+            hasMore = page.HasMore;
+        }
+        while (hasMore);
+
+        allResults.Should().HaveCount(205);
+        allResults.Select(mail => mail.UniqueId).Should().OnlyHaveUniqueItems();
+        allResults.Select(mail => mail.UniqueId).Should().BeEquivalentTo(mails.Select(mail => mail.UniqueId));
+    }
+
+    [Fact]
+    public async Task FetchMailPageAsync_SenderCursorHandlesEqualNamesAndDates()
+    {
+        var creationDate = DateTime.UtcNow;
+        var mails = Enumerable.Range(0, 125)
+            .Select(index =>
+            {
+                var mail = BuildMail(_inboxFolder.Id, creationDate);
+                mail.FromName = $"Sender {index / 5:D2}";
+                return mail;
+            })
+            .ToList();
+        await _databaseService.Connection.InsertAllAsync(mails, typeof(MailCopy));
+
+        var loadedIds = new ConcurrentDictionary<Guid, bool>();
+        var allResults = new List<MailCopy>();
+        MailFetchCursor cursor = null;
+        bool hasMore;
+
+        do
+        {
+            var options = BuildOptions([_inboxFolder], createThreads: false, take: 25) with
+            {
+                SortingOptionType = SortingOptionType.Sender,
+                ExistingUniqueIds = loadedIds
+            };
+            var page = await _mailService.FetchMailPageAsync(options, cursor);
+            allResults.AddRange(page.Items);
+            foreach (var mail in page.Items)
+            {
+                loadedIds.TryAdd(mail.UniqueId, true);
+            }
+
+            cursor = page.NextCursor;
+            hasMore = page.HasMore;
+        }
+        while (hasMore);
+
+        allResults.Should().HaveCount(125);
+        allResults.Select(mail => mail.UniqueId).Should().OnlyHaveUniqueItems();
+    }
+
+    [Fact]
     public async Task CreateAssignmentAsync_ExistingAssignment_IsIgnored()
     {
         var archiveFolder = await CreateFolderAsync(_testAccount, "Archive", "archive-existing", SpecialFolderType.Archive);
@@ -489,7 +590,7 @@ public class MailFetchingTests : IAsyncLifetime
         bool deduplicateByServerId = false)
     {
         return new MailListInitializationOptions(
-            Folders: folders,
+            Folders: folders.Cast<IMailItemFolder>().ToList(),
             FilterType: FilterOptionType.All,
             SortingOptionType: SortingOptionType.ReceiveDate,
             CreateThreads: createThreads,

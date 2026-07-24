@@ -40,12 +40,23 @@
       <Platform Solution="*|x86" Project="x86" />
     </Project>
     <Project Path="Wino.Editor/Wino.Editor.csproj">
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+      <Platform Solution="Debug|arm64" Project="x86" />
+      <Platform Solution="Release|arm64" Project="arm64" />
+    </Project>
+    <Project Path="Wino.Mail.ViewModels/Wino.Mail.ViewModels.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
-    <Project Path="Wino.Mail.ViewModels/Wino.Mail.ViewModels.csproj">
+    <Project Path="Wino.Mail.Controls.Core/Wino.Mail.Controls.Core.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="Wino.Mail.Controls/Wino.Mail.Controls.csproj">
+      <Platform Solution="*|arm64" Project="ARM64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
@@ -72,6 +83,11 @@
     <Platform Solution="*|x86" Project="x86" />
   </Project>
   <Project Path="Wino.Mail.ViewModels.Tests/Wino.Mail.ViewModels.Tests.csproj">
+    <Platform Solution="*|arm64" Project="arm64" />
+    <Platform Solution="*|x64" Project="x64" />
+    <Platform Solution="*|x86" Project="x86" />
+  </Project>
+  <Project Path="Wino.Mail.Controls.Tests/Wino.Mail.Controls.Tests.csproj">
     <Platform Solution="*|arm64" Project="arm64" />
     <Platform Solution="*|x64" Project="x64" />
     <Platform Solution="*|x86" Project="x86" />

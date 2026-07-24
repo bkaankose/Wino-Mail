@@ -94,6 +94,9 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private readonly IMailService _mailService;
     private bool _hasRegisteredPersistentRecipients;
     private readonly SemaphoreSlim _menuRefreshSemaphore = new(1, 1);
+    private readonly object _folderNavigationSync = new();
+    private IBaseFolderMenuItem _pendingNavigationFolder;
+    private TaskCompletionSource<bool> _pendingNavigationCompletion;
 
     private readonly SemaphoreSlim accountInitFolderUpdateSlim = new SemaphoreSlim(1);
 
@@ -161,7 +164,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         await ExecuteUIThread(() =>
         {
             FooterItems.Clear();
-        });
+        }).ConfigureAwait(false);
     }
 
     private static void ApplySynchronizationProgress(IAccountMenuItem accountMenuItem, SynchronizationProgressCategory category)
@@ -185,9 +188,11 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private async Task LoadAccountsAsync()
     {
         // First clear all account menu items.
-        await ExecuteUIThread(() => MenuItems.RemoveRange(MenuItems.Where(a => a is IAccountMenuItem).ToList()));
+        await ExecuteUIThread(() =>
+            MenuItems.RemoveRange(MenuItems.Where(a => a is IAccountMenuItem).ToList()))
+            .ConfigureAwait(false);
 
-        var accounts = await GetMailEnabledAccountsAsync();
+        var accounts = await GetMailEnabledAccountsAsync().ConfigureAwait(false);
 
         List<Guid> initializedAccountIds = new();
 
@@ -220,7 +225,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                 await ExecuteUIThread(() =>
                 {
                     MenuItems.Add(mergedAccountMenuItem);
-                });
+                }).ConfigureAwait(false);
 
             }
             else
@@ -231,7 +236,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                 await ExecuteUIThread(() =>
                 {
                     MenuItems.Add(accountMenuItem);
-                });
+                }).ConfigureAwait(false);
 
                 initializedAccountIds.Add(account.Id);
             }
@@ -240,13 +245,16 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         // Re-assign latest selected account menu item for containers to reflect changes better.
         // Also , this will ensure that the latest selected account is still selected after re-creation.
 
-        if (latestSelectedAccountMenuItem != null && TryGetLoadedAccountMenuItem(latestSelectedAccountMenuItem.EntityId.GetValueOrDefault(), out IAccountMenuItem foundLatestSelectedAccountMenuItem))
+        await ExecuteUIThread(() =>
         {
-            await ExecuteUIThread(() =>
+            if (latestSelectedAccountMenuItem != null &&
+                TryGetLoadedAccountMenuItem(
+                    latestSelectedAccountMenuItem.EntityId.GetValueOrDefault(),
+                    out IAccountMenuItem foundLatestSelectedAccountMenuItem))
             {
                 foundLatestSelectedAccountMenuItem.IsSelected = true;
-            });
-        }
+            }
+        }).ConfigureAwait(false);
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -328,6 +336,13 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     public void PrepareForShellShutdown()
     {
+        lock (_folderNavigationSync)
+        {
+            _pendingNavigationCompletion?.TrySetResult(false);
+            _pendingNavigationCompletion = null;
+            _pendingNavigationFolder = null;
+        }
+
         if (_hasRegisteredPersistentRecipients)
         {
             UnregisterRecipients();
@@ -559,25 +574,73 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     public async Task NavigateFolderAsync(IBaseFolderMenuItem baseFolderMenuItem, TaskCompletionSource<bool> folderInitAwaitTask = null)
     {
-        // It's already there. Don't navigate again.
-        if (SelectedMenuItem == baseFolderMenuItem) return;
+        if (baseFolderMenuItem == null)
+            return;
 
+        Task<bool> existingNavigationTask = null;
+        TaskCompletionSource<bool> supersededCompletion = null;
+        lock (_folderNavigationSync)
+        {
+            if (ReferenceEquals(_pendingNavigationFolder, baseFolderMenuItem))
+            {
+                existingNavigationTask = _pendingNavigationCompletion?.Task;
+            }
+            else if (ReferenceEquals(SelectedMenuItem, baseFolderMenuItem) &&
+                     _pendingNavigationCompletion == null)
+            {
+                folderInitAwaitTask?.TrySetResult(true);
+                return;
+            }
+            else
+            {
+                supersededCompletion = _pendingNavigationCompletion;
+                folderInitAwaitTask ??= new TaskCompletionSource<bool>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                _pendingNavigationFolder = baseFolderMenuItem;
+                _pendingNavigationCompletion = folderInitAwaitTask;
+            }
+        }
+
+        if (existingNavigationTask != null)
+        {
+            var existingResult = await existingNavigationTask;
+            folderInitAwaitTask?.TrySetResult(existingResult);
+            return;
+        }
+
+        supersededCompletion?.TrySetResult(false);
+
+        var navigationSucceeded = false;
         await ExecuteUIThread(() =>
         {
             SelectedMenuItem = baseFolderMenuItem;
             baseFolderMenuItem.IsSelected = true;
 
-            folderInitAwaitTask ??= new TaskCompletionSource<bool>();
-
             var args = new NavigateMailFolderEventArgs(baseFolderMenuItem, folderInitAwaitTask);
 
-            NavigationService.Navigate(WinoPage.MailListPage, args, NavigationReferenceFrame.InnerShellFrame);
+            navigationSucceeded = NavigationService.Navigate(
+                WinoPage.MailListPage,
+                args,
+                NavigationReferenceFrame.InnerShellFrame);
 
             UpdateWindowTitleForFolder(baseFolderMenuItem);
         });
 
-        // Wait until mail list page picks up the event and finish initialization of the mails.
+        if (!navigationSucceeded)
+        {
+            folderInitAwaitTask.TrySetResult(false);
+        }
+
         await folderInitAwaitTask.Task;
+
+        lock (_folderNavigationSync)
+        {
+            if (ReferenceEquals(_pendingNavigationCompletion, folderInitAwaitTask))
+            {
+                _pendingNavigationFolder = null;
+                _pendingNavigationCompletion = null;
+            }
+        }
     }
 
     private void UpdateWindowTitleForFolder(IBaseFolderMenuItem folder)
@@ -865,6 +928,22 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         }
     }
 
+    private async Task HandleNavigationItemInvokedAsync(IMenuItem menuItem)
+    {
+        switch (menuItem)
+        {
+            case FixAccountIssuesMenuItem fixAccountItem:
+                await FixAccountIssuesAsync(fixAccountItem.Account);
+                break;
+            case RateMenuItem:
+                await _storeRatingService.LaunchStorePageForReviewAsync();
+                break;
+            case NewMailMenuItem:
+                await HandleCreateNewMailAsync();
+                break;
+        }
+    }
+
     public async Task ChangeLoadedAccountAsync(IAccountMenuItem clickedBaseAccountMenuItem, bool navigateInbox = true)
     {
         if (clickedBaseAccountMenuItem == null) return;
@@ -872,10 +951,12 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         // User clicked an account in Windows Mail style menu.
         // List folders for this account and select Inbox.
 
-        await MenuItems.SetAccountMenuItemEnabledStatusAsync(false);
+        await MenuItems.SetAccountMenuItemEnabledStatusAsync(false).ConfigureAwait(false);
 
         // Load account folder structure and replace the visible folders.
-        var folders = await _folderService.GetAccountFoldersForDisplayAsync(clickedBaseAccountMenuItem);
+        var folders = await _folderService
+            .GetAccountFoldersForDisplayAsync(clickedBaseAccountMenuItem)
+            .ConfigureAwait(false);
 
         await ExecuteUIThread(() =>
         {
@@ -889,17 +970,16 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             clickedBaseAccountMenuItem.IsSelected = true;
 
             latestSelectedAccountMenuItem = clickedBaseAccountMenuItem;
-        });
+        }).ConfigureAwait(false);
 
-        await MenuItems.ReplaceFoldersAsync(folders);
+        await MenuItems.ReplaceFoldersAsync(folders).ConfigureAwait(false);
 
-        await UpdateUnreadItemCountAsync();
-        await MenuItems.SetAccountMenuItemEnabledStatusAsync(true);
+        await UpdateUnreadItemCountAsync().ConfigureAwait(false);
+        await MenuItems.SetAccountMenuItemEnabledStatusAsync(true).ConfigureAwait(false);
 
         if (navigateInbox)
         {
-            await Task.Yield();
-            await NavigateInboxAsync(clickedBaseAccountMenuItem);
+            await NavigateInboxAsync(clickedBaseAccountMenuItem).ConfigureAwait(false);
         }
     }
 
@@ -922,100 +1002,94 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         var unreadCountResult = await _folderService.GetUnreadItemCountResultsAsync(accountIds).ConfigureAwait(false);
         var unreadCategoryCountResult = await _mailCategoryService.GetUnreadCategoryCountResultsAsync(accountIds).ConfigureAwait(false);
 
-        // Recursively update all folders' unread counts to 0.
-        // Query above only returns unread counts that exists. We need to reset the rest to 0 first.
-
+        // Apply the complete unread-count snapshot in one UI transaction. This avoids
+        // dispatcher churn proportional to the number of accounts/folders/categories.
         await ExecuteUIThread(() =>
         {
             MenuItems.UpdateUnreadItemCountsToZero();
-        });
 
-        foreach (var accountMenuItem in accountMenuItems)
-        {
-            if (accountMenuItem is MergedAccountMenuItem mergedAccountMenuItem)
+            foreach (var accountMenuItem in accountMenuItems)
             {
-                await ExecuteUIThread(() =>
+                if (accountMenuItem is MergedAccountMenuItem mergedAccountMenuItem)
                 {
                     mergedAccountMenuItem.RefreshFolderItemCount();
-                });
-            }
-            else
-            {
-                await ExecuteUIThread(() =>
+                }
+                else
                 {
                     accountMenuItem.UnreadItemCount = unreadCountResult
-                    .Where(a => a.AccountId == accountMenuItem.HoldingAccounts.First().Id && a.SpecialFolderType == SpecialFolderType.Inbox)
-                    .Sum(a => a.UnreadItemCount);
-                });
+                        .Where(a => a.AccountId == accountMenuItem.HoldingAccounts.First().Id &&
+                                    a.SpecialFolderType == SpecialFolderType.Inbox)
+                        .Sum(a => a.UnreadItemCount);
+                }
             }
-        }
 
-        // Try to update unread counts for all folders.
-        foreach (var unreadCount in unreadCountResult)
-        {
-            if (MenuItems.TryGetFolderMenuItem(unreadCount.FolderId, out IBaseFolderMenuItem folderMenuItem))
+            foreach (var unreadCount in unreadCountResult)
             {
+                if (!MenuItems.TryGetFolderMenuItem(unreadCount.FolderId, out IBaseFolderMenuItem folderMenuItem))
+                    continue;
+
                 if (folderMenuItem is IMergedAccountFolderMenuItem mergedAccountFolderMenuItem)
                 {
-                    await ExecuteUIThread(() =>
-                    {
-                        folderMenuItem.UnreadItemCount = unreadCountResult.Where(a => a.SpecialFolderType == unreadCount.SpecialFolderType && mergedAccountFolderMenuItem.HandlingFolders.Select(b => b.Id).Contains(a.FolderId)).Sum(a => a.UnreadItemCount);
-                    });
+                    folderMenuItem.UnreadItemCount = unreadCountResult
+                        .Where(a => a.SpecialFolderType == unreadCount.SpecialFolderType &&
+                                    mergedAccountFolderMenuItem.HandlingFolders.Select(b => b.Id).Contains(a.FolderId))
+                        .Sum(a => a.UnreadItemCount);
                 }
                 else
                 {
-                    await ExecuteUIThread(() =>
-                    {
-                        folderMenuItem.UnreadItemCount = unreadCount.UnreadItemCount;
-                    });
+                    folderMenuItem.UnreadItemCount = unreadCount.UnreadItemCount;
                 }
             }
-        }
 
-        foreach (var unreadCategoryCount in unreadCategoryCountResult)
-        {
-            if (MenuItems.TryGetCategoryMenuItem(unreadCategoryCount.CategoryId, out var categoryMenuItem))
+            foreach (var unreadCategoryCount in unreadCategoryCountResult)
             {
+                if (!MenuItems.TryGetCategoryMenuItem(unreadCategoryCount.CategoryId, out var categoryMenuItem))
+                    continue;
+
                 if (categoryMenuItem is IMergedMailCategoryMenuItem mergedCategoryMenuItem)
                 {
-                    await ExecuteUIThread(() =>
-                    {
-                        categoryMenuItem.UnreadItemCount = unreadCategoryCountResult
-                            .Where(a => mergedCategoryMenuItem.Categories.Any(b => b.Id == a.CategoryId))
-                            .Sum(a => a.UnreadItemCount);
-                    });
+                    categoryMenuItem.UnreadItemCount = unreadCategoryCountResult
+                        .Where(a => mergedCategoryMenuItem.Categories.Any(b => b.Id == a.CategoryId))
+                        .Sum(a => a.UnreadItemCount);
                 }
                 else
                 {
-                    await ExecuteUIThread(() =>
-                    {
-                        categoryMenuItem.UnreadItemCount = unreadCategoryCount.UnreadItemCount;
-                    });
+                    categoryMenuItem.UnreadItemCount = unreadCategoryCount.UnreadItemCount;
                 }
             }
-        }
+        }).ConfigureAwait(false);
 
         // Update unread badge after all unread counts are updated.
-        await _notificationBuilder.UpdateTaskbarIconBadgeAsync();
+        await _notificationBuilder.UpdateTaskbarIconBadgeAsync().ConfigureAwait(false);
     }
 
     private async Task NavigateInboxAsync(IAccountMenuItem clickedBaseAccountMenuItem)
     {
         var folderInitAwaitTask = new TaskCompletionSource<bool>();
+        IBaseFolderMenuItem inboxFolder = null;
 
-        if (clickedBaseAccountMenuItem is AccountMenuItem accountMenuItem)
+        await ExecuteUIThread(() =>
         {
-            if (MenuItems.TryGetWindowsStyleRootSpecialFolderMenuItem(accountMenuItem.AccountId, SpecialFolderType.Inbox, out FolderMenuItem inboxFolder))
+            if (clickedBaseAccountMenuItem is AccountMenuItem accountMenuItem)
             {
-                await NavigateFolderAsync(inboxFolder, folderInitAwaitTask);
+                MenuItems.TryGetWindowsStyleRootSpecialFolderMenuItem(
+                    accountMenuItem.AccountId,
+                    SpecialFolderType.Inbox,
+                    out FolderMenuItem accountInboxFolder);
+                inboxFolder = accountInboxFolder;
             }
-        }
-        else if (clickedBaseAccountMenuItem is MergedAccountMenuItem mergedAccountMenuItem)
+            else if (clickedBaseAccountMenuItem is MergedAccountMenuItem mergedAccountMenuItem)
+            {
+                MenuItems.TryGetMergedAccountSpecialFolderMenuItem(
+                    mergedAccountMenuItem.EntityId.GetValueOrDefault(),
+                    SpecialFolderType.Inbox,
+                    out inboxFolder);
+            }
+        });
+
+        if (inboxFolder != null)
         {
-            if (MenuItems.TryGetMergedAccountSpecialFolderMenuItem(mergedAccountMenuItem.EntityId.GetValueOrDefault(), SpecialFolderType.Inbox, out IBaseFolderMenuItem inboxFolder))
-            {
-                await NavigateFolderAsync(inboxFolder, folderInitAwaitTask);
-            }
+            await NavigateFolderAsync(inboxFolder, folderInitAwaitTask);
         }
     }
 
@@ -1178,7 +1252,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     }
 
     public void Receive(MailtoProtocolMessageRequested message)
-        => _ = ExecuteUIThread(() => _ = HandleMailToProtocolMessageAsync());
+        => _ = ExecuteUIThreadAsync(HandleMailToProtocolMessageAsync);
 
     private async Task HandleMailToProtocolMessageAsync()
     {
@@ -1257,16 +1331,16 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     private async Task RecreateMenuItemsAsync()
     {
-        await _menuRefreshSemaphore.WaitAsync();
+        await _menuRefreshSemaphore.WaitAsync().ConfigureAwait(false);
         try
         {
             await ExecuteUIThread(() =>
             {
                 MenuItems.Clear();
                 MenuItems.Add(CreateMailMenuItem);
-            });
+            }).ConfigureAwait(false);
 
-            await LoadAccountsAsync();
+            await LoadAccountsAsync().ConfigureAwait(false);
         }
         finally
         {
@@ -1277,37 +1351,45 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private async Task RestoreSelectedAccountAfterMenuRefreshAsync(bool automaticallyNavigateFirstItem)
     {
         IAccountMenuItem validSelectedMenuItem = null;
-        bool hasPreviousSelection = latestSelectedAccountMenuItem != null;
+        var hasPreviousSelection = false;
 
-        if (hasPreviousSelection)
+        await ExecuteUIThread(() =>
         {
-            var selectedEntityId = latestSelectedAccountMenuItem.EntityId.GetValueOrDefault();
+            hasPreviousSelection = latestSelectedAccountMenuItem != null;
 
-            if (selectedEntityId != Guid.Empty &&
-                TryGetLoadedAccountMenuItem(selectedEntityId, out IAccountMenuItem foundSelectedMenuItem))
+            if (hasPreviousSelection)
             {
-                validSelectedMenuItem = foundSelectedMenuItem;
-            }
-            else
-            {
-                latestSelectedAccountMenuItem = null;
-            }
-        }
+                var selectedEntityId = latestSelectedAccountMenuItem.EntityId.GetValueOrDefault();
 
-        if (validSelectedMenuItem == null)
-        {
-            validSelectedMenuItem = MenuItems.FirstOrDefault(a => a is IAccountMenuItem) as IAccountMenuItem;
-            hasPreviousSelection = false;
-        }
+                if (selectedEntityId != Guid.Empty &&
+                    TryGetLoadedAccountMenuItem(selectedEntityId, out IAccountMenuItem foundSelectedMenuItem))
+                {
+                    validSelectedMenuItem = foundSelectedMenuItem;
+                }
+                else
+                {
+                    latestSelectedAccountMenuItem = null;
+                }
+            }
+
+            if (validSelectedMenuItem == null)
+            {
+                validSelectedMenuItem = MenuItems.FirstOrDefault(a => a is IAccountMenuItem) as IAccountMenuItem;
+                hasPreviousSelection = false;
+            }
+        }).ConfigureAwait(false);
 
         if (validSelectedMenuItem != null)
         {
-            await ChangeLoadedAccountAsync(validSelectedMenuItem, hasPreviousSelection || automaticallyNavigateFirstItem);
+            await ChangeLoadedAccountAsync(
+                validSelectedMenuItem,
+                hasPreviousSelection || automaticallyNavigateFirstItem)
+                .ConfigureAwait(false);
         }
         else
         {
-            await ExecuteUIThread(() => SelectedMenuItem = null);
-            if (!await NavigateToMailEmptyStateIfNeededAsync())
+            await ExecuteUIThread(() => SelectedMenuItem = null).ConfigureAwait(false);
+            if (!await NavigateToMailEmptyStateIfNeededAsync().ConfigureAwait(false))
             {
                 NavigateToWelcomeWizard();
             }
@@ -1324,11 +1406,12 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     }
 
     private void NavigateToWelcomeWizard()
-        => NavigationService.Navigate(
-            WinoPage.WelcomeHostPage,
-            null,
-            NavigationReferenceFrame.ShellFrame,
-            NavigationTransitionType.None);
+        => _ = ExecuteUIThread(() =>
+            NavigationService.Navigate(
+                WinoPage.WelcomeHostPage,
+                null,
+                NavigationReferenceFrame.ShellFrame,
+                NavigationTransitionType.None));
 
     private Task<List<MailAccount>> GetMailEnabledAccountsAsync()
         => GetAccountsByCapabilityAsync(requireMail: true);
@@ -1345,18 +1428,20 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     private async Task<bool> NavigateToMailEmptyStateIfNeededAsync()
     {
-        var accounts = await _accountService.GetAccountsAsync();
+        var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
         if (!accounts.Any() || accounts.Any(account => account.IsMailAccessGranted))
             return false;
 
-        latestSelectedAccountMenuItem = null;
-        await ExecuteUIThread(() => SelectedMenuItem = null);
-
-        NavigationService.Navigate(
-            WinoPage.IdlePage,
-            MailEmptyStateNavigationParameter,
-            NavigationReferenceFrame.InnerShellFrame,
-            NavigationTransitionType.None);
+        await ExecuteUIThread(() =>
+        {
+            latestSelectedAccountMenuItem = null;
+            SelectedMenuItem = null;
+            NavigationService.Navigate(
+                WinoPage.IdlePage,
+                MailEmptyStateNavigationParameter,
+                NavigationReferenceFrame.InnerShellFrame,
+                NavigationTransitionType.None);
+        }).ConfigureAwait(false);
 
         return true;
     }
@@ -1368,25 +1453,45 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     private async Task RefreshLoadedAccountFolderStructureAsync(Guid accountId)
     {
-        if (!IsAccountCurrentlyLoaded(accountId) || latestSelectedAccountMenuItem == null)
+        IAccountMenuItem loadedAccountMenuItem = null;
+        Guid? selectedFolderId = null;
+
+        await ExecuteUIThread(() =>
+        {
+            if (!IsAccountCurrentlyLoaded(accountId) || latestSelectedAccountMenuItem == null)
+                return;
+
+            loadedAccountMenuItem = latestSelectedAccountMenuItem;
+            selectedFolderId = (SelectedMenuItem as IBaseFolderMenuItem)?.HandlingFolders
+                ?.FirstOrDefault(a => a.MailAccountId == accountId)?.Id;
+        }).ConfigureAwait(false);
+
+        if (loadedAccountMenuItem == null)
             return;
 
-        var selectedFolderId = (SelectedMenuItem as IBaseFolderMenuItem)?.HandlingFolders
-            ?.FirstOrDefault(a => a.MailAccountId == accountId)?.Id;
+        var folders = await _folderService
+            .GetAccountFoldersForDisplayAsync(loadedAccountMenuItem)
+            .ConfigureAwait(false);
 
-        var folders = await _folderService.GetAccountFoldersForDisplayAsync(latestSelectedAccountMenuItem);
+        await MenuItems.ReplaceFoldersAsync(folders).ConfigureAwait(false);
+        await UpdateUnreadItemCountAsync().ConfigureAwait(false);
 
-        await MenuItems.ReplaceFoldersAsync(folders);
-        await UpdateUnreadItemCountAsync();
-
-        if (selectedFolderId.HasValue &&
-            MenuItems.TryGetFolderMenuItem(selectedFolderId.Value, out IBaseFolderMenuItem selectedFolderMenuItem))
+        IBaseFolderMenuItem selectedFolderMenuItem = null;
+        await ExecuteUIThread(() =>
         {
-            await NavigateFolderAsync(selectedFolderMenuItem);
+            if (selectedFolderId.HasValue)
+            {
+                MenuItems.TryGetFolderMenuItem(selectedFolderId.Value, out selectedFolderMenuItem);
+            }
+        }).ConfigureAwait(false);
+
+        if (selectedFolderMenuItem != null)
+        {
+            await NavigateFolderAsync(selectedFolderMenuItem).ConfigureAwait(false);
         }
         else
         {
-            await NavigateInboxAsync(latestSelectedAccountMenuItem);
+            await NavigateInboxAsync(loadedAccountMenuItem).ConfigureAwait(false);
         }
     }
 
@@ -1406,14 +1511,13 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     public async void Receive(MergedInboxRenamed message)
     {
-        var mergedInboxMenuItem = MenuItems.FirstOrDefault(a => a.EntityId == message.MergedInboxId);
-
-        if (mergedInboxMenuItem == null) return;
-
-        if (mergedInboxMenuItem is MergedAccountMenuItem mergedAccountMenuItemCasted)
+        await ExecuteUIThread(() =>
         {
-            await ExecuteUIThread(() => { mergedAccountMenuItemCasted.MergedAccountName = message.NewName; });
-        }
+            if (MenuItems.FirstOrDefault(a => a.EntityId == message.MergedInboxId) is MergedAccountMenuItem mergedAccountMenuItem)
+            {
+                mergedAccountMenuItem.MergedAccountName = message.NewName;
+            }
+        });
     }
 
     public async void Receive(LanguageChanged message)
@@ -1434,21 +1538,18 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         }
     }
 
-    public void Receive(AccountMenuItemsReordered message) => ReorderAccountMenuItems(message.newOrderDictionary);
+    public async void Receive(AccountMenuItemsReordered message)
+        => await ExecuteUIThread(() => ReorderAccountMenuItems(message.newOrderDictionary));
 
     private async void UpdateFolderCollection(IMailItemFolder updatedMailItemFolder)
     {
-        var menuItem = MenuItems.GetAllFolderMenuItems(updatedMailItemFolder.Id);
-
-        if (!menuItem.Any()) return;
-
-        foreach (var item in menuItem)
+        await ExecuteUIThread(() =>
         {
-            await ExecuteUIThread(() =>
+            foreach (var item in MenuItems.GetAllFolderMenuItems(updatedMailItemFolder.Id))
             {
                 item.UpdateFolder(updatedMailItemFolder);
-            });
-        }
+            }
+        });
     }
 
     protected override void OnFolderRenamed(IMailItemFolder mailItemFolder)
@@ -1462,14 +1563,20 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     {
         base.OnFolderDeleted(folder);
 
-        bool wasSelected = SelectedMenuItem is IBaseFolderMenuItem selectedFolder &&
-            selectedFolder.HandlingFolders.Any(a => a.Id == folder.Id);
+        var wasSelected = false;
+        IAccountMenuItem accountToNavigate = null;
 
-        await ExecuteUIThread(() => MenuItems.RemoveFolderMenuItem(folder.Id));
-
-        if (wasSelected && latestSelectedAccountMenuItem != null)
+        await ExecuteUIThread(() =>
         {
-            await NavigateInboxAsync(latestSelectedAccountMenuItem);
+            wasSelected = SelectedMenuItem is IBaseFolderMenuItem selectedFolder &&
+                selectedFolder.HandlingFolders.Any(a => a.Id == folder.Id);
+            accountToNavigate = latestSelectedAccountMenuItem;
+            MenuItems.RemoveFolderMenuItem(folder.Id);
+        });
+
+        if (wasSelected && accountToNavigate != null)
+        {
+            await NavigateInboxAsync(accountToNavigate);
             return;
         }
 
@@ -1489,12 +1596,12 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         if (progress.Category != SynchronizationProgressCategory.Mail)
             return;
 
-        var accountMenuItem = MenuItems.GetSpecificAccountMenuItem(progress.AccountId);
-
-        if (accountMenuItem == null) return;
-
         await ExecuteUIThread(() =>
         {
+            var accountMenuItem = MenuItems.GetSpecificAccountMenuItem(progress.AccountId);
+            if (accountMenuItem == null)
+                return;
+
             accountMenuItem.ApplySynchronizationProgress(progress);
 
             // If this account is part of a merged inbox, update the merged inbox progress as well
@@ -1507,7 +1614,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     public async void Receive(NavigateAppPreferencesRequested message)
     {
-        NavigationService.Navigate(WinoPage.SettingsPage, WinoPage.AppPreferencesPage);
+        await ExecuteUIThread(() =>
+            NavigationService.Navigate(WinoPage.SettingsPage, WinoPage.AppPreferencesPage));
     }
 
     protected override void RegisterRecipients()
@@ -1551,9 +1659,9 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
         if (!remainingMailAccounts.Any())
         {
-            latestSelectedAccountMenuItem = null;
             await ExecuteUIThread(() =>
             {
+                latestSelectedAccountMenuItem = null;
                 SelectedMenuItem = null;
                 MenuItems?.Clear();
                 MenuItems?.Add(CreateMailMenuItem);
@@ -1567,11 +1675,17 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             return;
         }
 
-        if (latestSelectedAccountMenuItem?.HoldingAccounts?.Any(a => a.Id == message.Account.Id) == true)
+        var removedAccountWasSelected = false;
+        await ExecuteUIThread(() =>
         {
-            latestSelectedAccountMenuItem = null;
-            await ExecuteUIThread(() => SelectedMenuItem = null);
-        }
+            removedAccountWasSelected =
+                latestSelectedAccountMenuItem?.HoldingAccounts?.Any(a => a.Id == message.Account.Id) == true;
+            if (removedAccountWasSelected)
+            {
+                latestSelectedAccountMenuItem = null;
+                SelectedMenuItem = null;
+            }
+        });
 
         await RecreateMenuItemsAsync();
         await RestoreSelectedAccountAfterMenuRefreshAsync(false);
@@ -1613,8 +1727,12 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     public async void Receive(AccountUpdatedMessage message)
     {
         var updatedAccount = message.Account;
+        var isListed = false;
 
-        if (!updatedAccount.IsMailAccessGranted || !MenuItems.TryGetAccountMenuItem(updatedAccount.Id, out _))
+        await ExecuteUIThread(() =>
+            isListed = MenuItems.TryGetAccountMenuItem(updatedAccount.Id, out _));
+
+        if (!updatedAccount.IsMailAccessGranted || !isListed)
         {
             await RecreateMenuItemsAsync();
             await RestoreSelectedAccountAfterMenuRefreshAsync(false);
@@ -1637,7 +1755,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         => OnNavigatedFrom(NavigationMode.New, null!);
 
     Task IShellClient.HandleNavigationItemInvokedAsync(IMenuItem menuItem)
-        => MenuItemInvokedOrSelectedAsync(menuItem);
+        => HandleNavigationItemInvokedAsync(menuItem);
 
     Task IShellClient.HandleNavigationSelectionChangedAsync(IMenuItem menuItem)
         => menuItem == null ? Task.CompletedTask : MenuItemInvokedOrSelectedAsync(menuItem);

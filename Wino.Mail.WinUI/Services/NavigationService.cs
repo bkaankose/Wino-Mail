@@ -38,7 +38,9 @@ public class NavigationService : NavigationServiceBase, INavigationService
     private WinoPage[] _renderingPageTypes = new WinoPage[]
     {
         WinoPage.MailRenderingPage,
-        WinoPage.ComposePage
+        WinoPage.ComposePage,
+        WinoPage.TestPage
+
     };
 
     private static readonly WinoPage[] MailOnlyPages =
@@ -51,7 +53,8 @@ public class NavigationService : NavigationServiceBase, INavigationService
         WinoPage.WelcomeHostPage,
         WinoPage.ProviderSelectionPage,
         WinoPage.AccountSetupProgressPage,
-        WinoPage.SpecialImapCredentialsPage
+        WinoPage.SpecialImapCredentialsPage,
+        WinoPage.TestPage
     ];
 
     private static readonly WinoPage[] CalendarOnlyPages =
@@ -148,6 +151,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
             WinoPage.ReadComposePanePage => typeof(ReadComposePanePage),
             WinoPage.MailRenderingPage => typeof(MailRenderingPage),
             WinoPage.ComposePage => typeof(ComposePage),
+            WinoPage.TestPage => typeof(TestPage),
             WinoPage.MailListPage => typeof(MailListPage),
             WinoPage.SettingsPage => typeof(SettingsPage),
             WinoPage.WelcomePageV2 => typeof(WelcomePageV2),
@@ -430,6 +434,11 @@ public class NavigationService : NavigationServiceBase, INavigationService
                         if (listingFrame.Content is MailRenderingPage renderingPage)
                         {
                             _ = renderingPage.RefreshMailItemAsync(mailItemViewModel);
+                        }
+
+                        if (listingFrame.Content is TestPage testpage)
+                        {
+                            _ = testpage.ViewModel.RefreshMailItemAsync(mailItemViewModel);
                         }
                     }
                     else if (listingFrame.Content != null

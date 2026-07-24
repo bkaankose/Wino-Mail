@@ -20,6 +20,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls;
 
@@ -33,6 +34,12 @@ public static class XamlHelpers
     #region Converters
 
     public static Thickness GetMailItemControlMargin(bool isDisplayedInThread) => isDisplayedInThread ? new Thickness(40, 0, 6, 0) : new Thickness(6, 0, 6, 0);
+    public static Thickness GetCompactMailListRowMargin(global::Wino.Mail.Controls.Core.MailListRowKind kind)
+        => kind == global::Wino.Mail.Controls.Core.MailListRowKind.ThreadChild ? new Thickness(20, 0, 0, 0) : new Thickness(0);
+    public static Thickness GetDetailedMailListRowMargin(global::Wino.Mail.Controls.Core.MailListRowKind kind)
+        => kind == global::Wino.Mail.Controls.Core.MailListRowKind.ThreadChild ? new Thickness(24, 0, 0, 0) : new Thickness(0);
+    public static bool IsThreadMessageHead(global::Wino.Mail.Controls.Core.MailListRowKind kind)
+        => kind == global::Wino.Mail.Controls.Core.MailListRowKind.ThreadHead;
     public static bool IsMultiple(int count) => count > 1;
     public static bool ReverseIsMultiple(int count) => count < 1;
     public static PopupPlacementMode GetPlaccementModeForCalendarType(CalendarDisplayType type)
@@ -237,6 +244,14 @@ public static class XamlHelpers
     }
     public static string GetMailGroupDateString(object groupObject)
     {
+        if (groupObject is global::Wino.Mail.Controls.Core.MailListProjectionGroupKey projectionGroupKey)
+        {
+            if (projectionGroupKey.IsPinned)
+                return Translator.FolderCustomization_SectionPinned;
+
+            groupObject = projectionGroupKey.Value!;
+        }
+
         if (groupObject is MailListGroupKey pinnedGroupKey)
         {
             if (pinnedGroupKey.IsPinned)

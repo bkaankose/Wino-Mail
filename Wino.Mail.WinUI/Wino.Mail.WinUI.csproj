@@ -18,6 +18,7 @@
     <PublishAot Condition="'$(Configuration)' == 'Release'">$(UseNativeAot)</PublishAot>
     <PublishTrimmed Condition="'$(Configuration)' == 'Release'">$(UseNativeAot)</PublishTrimmed>
     <TrimMode Condition="'$(Configuration)' == 'Release'">full</TrimMode>
+    <IncludePublishItemsOutputGroup Condition="'$(Configuration)' == 'Release' and '$(PublishAot)' == 'true'">true</IncludePublishItemsOutputGroup>
     <!--
       Ical.Net 5.2.3 intentionally reflects over its RFC 5545 model and serializer types,
       MimeKit's otherwise-unused default context probes SQLite dynamically, and CsWinRT's
@@ -123,6 +124,7 @@
     <None Remove="Views\Calendar\CalendarPage.xaml" />
     <None Remove="Views\Calendar\EventDetailsPage.xaml" />
     <None Remove="Views\Settings\ContactsPage.xaml" />
+    <None Remove="Views\TestPage.xaml" />
   </ItemGroup>
   <ItemGroup>
     <Page Remove="AppThemes\Acrylic.xaml" />
@@ -216,6 +218,8 @@
 	<ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
 	<ProjectReference Include="..\Wino.Editor\Wino.Editor.csproj" />
 	<ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />
+	<ProjectReference Include="..\Wino.Mail.Controls\Wino.Mail.Controls.csproj" />
+	<ProjectReference Include="..\Wino.Mail.Controls.Core\Wino.Mail.Controls.Core.csproj" />
 	<ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)' == 'Release' and '$(PublishAot)' == 'true'">
@@ -331,6 +335,11 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Views\Mail\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Views\TestPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
   </ItemGroup>
   <ItemGroup>
     <Page Update="Controls\Calendar\CalendarPeriodControl.xaml">

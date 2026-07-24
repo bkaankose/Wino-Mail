@@ -372,18 +372,23 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
 
     private async Task LoadAttachmentsAsync(Guid calendarItemId)
     {
-        Attachments.Clear();
-
         try
         {
-            var attachments = await _calendarService.GetAttachmentsAsync(calendarItemId);
+            var attachments = await _calendarService
+                .GetAttachmentsAsync(calendarItemId)
+                .ConfigureAwait(false);
 
-            foreach (var attachment in attachments)
+            await ExecuteUIThread(() =>
             {
-                Attachments.Add(new CalendarAttachmentViewModel(attachment));
-            }
+                Attachments.Clear();
 
-            OnPropertyChanged(nameof(HasAttachments));
+                foreach (var attachment in attachments)
+                {
+                    Attachments.Add(new CalendarAttachmentViewModel(attachment));
+                }
+
+                OnPropertyChanged(nameof(HasAttachments));
+            }).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

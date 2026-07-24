@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Collections.Specialized;
-using System.ComponentModel;
+using System.Text;
 using System.Windows.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
@@ -15,10 +15,11 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Helpers;
+using Wino.Messaging.Client.Shell;
 
 namespace Wino.Mail.WinUI.Controls;
 
-public sealed partial class OperationCommandBar : CommandBar
+public sealed partial class OperationCommandBar : CommandBar, IRecipient<LanguageChanged>
 {
     private const string MailOperationTemplateKey = "OperationCommandBarMailOperationTemplate";
     private const string FolderOperationTemplateKey = "OperationCommandBarFolderOperationTemplate";
@@ -28,10 +29,11 @@ public sealed partial class OperationCommandBar : CommandBar
     private const string SeparatorTemplateKey = "OperationCommandBarSeparatorTemplate";
 
     private readonly IPreferencesService? _preferencesService;
-    private readonly HashSet<INotifyPropertyChanged> _trackedMenuItems = [];
+    private bool _isCommandRefreshQueued;
+    private string? _renderedCommandSignature;
 
     [GeneratedDependencyProperty]
-    public partial ObservableCollection<IMenuOperation>? MenuItems { get; set; }
+    public partial IReadOnlyList<IMenuOperation>? MenuItems { get; set; }
 
     [GeneratedDependencyProperty]
     public partial ICommand? ItemInvokedCommand { get; set; }
@@ -63,25 +65,18 @@ public sealed partial class OperationCommandBar : CommandBar
         OverflowButtonVisibility = CommandBarOverflowButtonVisibility.Auto;
 
         Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
         DynamicOverflowItemsChanging += OperationCommandBar_DynamicOverflowItemsChanging;
     }
 
     partial void OnMenuItemsPropertyChanged(DependencyPropertyChangedEventArgs e)
     {
-        if (e.OldValue is INotifyCollectionChanged oldCollection)
-        {
-            oldCollection.CollectionChanged -= MenuItems_CollectionChanged;
-        }
+        QueueCommandRefresh();
+    }
 
-        DetachTrackedMenuItemHandlers();
-
-        if (e.NewValue is ObservableCollection<IMenuOperation> newItems)
-        {
-            newItems.CollectionChanged += MenuItems_CollectionChanged;
-            TrackMenuItemHandlers((IEnumerable<IMenuOperation>)newItems);
-        }
-
-        RefreshCommands();
+    partial void OnItemInvokedCommandChanged(ICommand? newValue)
+    {
+        InvalidateCommands();
     }
 
     partial void OnIsAIActionsEnabledChanged(bool newValue)
@@ -91,27 +86,58 @@ public sealed partial class OperationCommandBar : CommandBar
 
     partial void OnIsAIActionsPaneToggleVisibleChanged(bool newValue)
     {
-        RefreshCommands();
+        QueueCommandRefresh();
     }
 
     partial void OnIsEditorThemeDarkChanged(bool newValue)
     {
-        RefreshCommands();
+        QueueCommandRefresh();
     }
 
     partial void OnIsEditorThemeToggleVisibleChanged(bool newValue)
     {
-        RefreshCommands();
+        QueueCommandRefresh();
     }
 
     partial void OnIsPopOutButtonVisibleChanged(bool newValue)
     {
-        RefreshCommands();
+        QueueCommandRefresh();
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        RefreshCommands();
+        if (_preferencesService != null)
+        {
+            _preferencesService.PreferenceChanged -= PreferencesService_PreferenceChanged;
+            _preferencesService.PreferenceChanged += PreferencesService_PreferenceChanged;
+        }
+
+        WeakReferenceMessenger.Default.Unregister<LanguageChanged>(this);
+        WeakReferenceMessenger.Default.Register<LanguageChanged>(this);
+        InvalidateCommands();
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        if (_preferencesService != null)
+        {
+            _preferencesService.PreferenceChanged -= PreferencesService_PreferenceChanged;
+        }
+
+        WeakReferenceMessenger.Default.Unregister<LanguageChanged>(this);
+    }
+
+    private void PreferencesService_PreferenceChanged(object? sender, string propertyName)
+    {
+        if (propertyName == nameof(IPreferencesService.IsShowActionLabelsEnabled))
+        {
+            DispatcherQueue.TryEnqueue(InvalidateCommands);
+        }
+    }
+
+    public void Receive(LanguageChanged message)
+    {
+        DispatcherQueue.TryEnqueue(InvalidateCommands);
     }
 
     private void OperationCommandBar_DynamicOverflowItemsChanging(CommandBar sender, DynamicOverflowItemsChangingEventArgs args)
@@ -126,93 +152,33 @@ public sealed partial class OperationCommandBar : CommandBar
         }
     }
 
-    private void MenuItems_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    private void QueueCommandRefresh()
     {
-        if (e.Action == NotifyCollectionChangedAction.Reset)
+        if (!IsLoaded || _isCommandRefreshQueued)
         {
-            DetachTrackedMenuItemHandlers();
-
-            if (sender is IEnumerable<IMenuOperation> refreshedItems)
-            {
-                TrackMenuItemHandlers(refreshedItems);
-            }
-        }
-        else
-        {
-            UntrackMenuItemHandlers(e.OldItems);
-            TrackMenuItemHandlers(e.NewItems);
+            return;
         }
 
-        RefreshCommands();
-    }
-
-    private void MenuItem_PropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (string.IsNullOrEmpty(e.PropertyName)
-            || e.PropertyName == nameof(IMenuOperation.IsEnabled)
-            || e.PropertyName == nameof(IMenuOperation.IsSecondaryMenuPreferred)
-            || e.PropertyName == nameof(MenuOperationItemBase<MailOperation>.Operation)
-            || e.PropertyName == nameof(MenuOperationItemBase<MailOperation>.Identifier))
+        _isCommandRefreshQueued = true;
+        if (!DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
         {
+            _isCommandRefreshQueued = false;
+            RefreshCommands();
+        }))
+        {
+            _isCommandRefreshQueued = false;
             RefreshCommands();
         }
     }
 
-    private void TrackMenuItemHandlers(IEnumerable<IMenuOperation> items)
-    {
-        foreach (var item in items)
-        {
-            if (item is INotifyPropertyChanged propertyChanged && _trackedMenuItems.Add(propertyChanged))
-            {
-                propertyChanged.PropertyChanged += MenuItem_PropertyChanged;
-            }
-        }
-    }
-
-    private void TrackMenuItemHandlers(System.Collections.IList? items)
-    {
-        if (items == null)
-        {
-            return;
-        }
-
-        foreach (var item in items)
-        {
-            if (item is IMenuOperation menuItem)
-            {
-                TrackMenuItemHandlers((IEnumerable<IMenuOperation>)new IMenuOperation[] { menuItem });
-            }
-        }
-    }
-
-    private void UntrackMenuItemHandlers(System.Collections.IList? items)
-    {
-        if (items == null)
-        {
-            return;
-        }
-
-        foreach (var item in items)
-        {
-            if (item is INotifyPropertyChanged propertyChanged && _trackedMenuItems.Remove(propertyChanged))
-            {
-                propertyChanged.PropertyChanged -= MenuItem_PropertyChanged;
-            }
-        }
-    }
-
-    private void DetachTrackedMenuItemHandlers()
-    {
-        foreach (var item in _trackedMenuItems)
-        {
-            item.PropertyChanged -= MenuItem_PropertyChanged;
-        }
-
-        _trackedMenuItems.Clear();
-    }
-
     private void RefreshCommands()
     {
+        var commandSignature = CreateCommandSignature();
+        if (string.Equals(_renderedCommandSignature, commandSignature, StringComparison.Ordinal))
+        {
+            return;
+        }
+
         ClearGeneratedCommands();
 
         if (IsAIActionsPaneToggleVisible)
@@ -233,6 +199,7 @@ public sealed partial class OperationCommandBar : CommandBar
         if (MenuItems == null)
         {
             UpdateOverflowButtonVisibility();
+            _renderedCommandSignature = commandSignature;
             return;
         }
 
@@ -255,6 +222,31 @@ public sealed partial class OperationCommandBar : CommandBar
         }
 
         UpdateOverflowButtonVisibility();
+        _renderedCommandSignature = commandSignature;
+    }
+
+    private string CreateCommandSignature()
+    {
+        var signature = new StringBuilder();
+        signature
+            .Append(IsAIActionsPaneToggleVisible).Append('|')
+            .Append(IsPopOutButtonVisible).Append('|')
+            .Append(IsEditorThemeToggleVisible).Append('|')
+            .Append(IsEditorThemeDark).Append('|')
+            .Append(_preferencesService?.IsShowActionLabelsEnabled == true).Append('|');
+
+        foreach (var item in MenuItems ?? [])
+        {
+            var identifier = item?.Identifier ?? string.Empty;
+            signature
+                .Append(item?.GetType().FullName).Append(':')
+                .Append(identifier.Length).Append(':')
+                .Append(identifier).Append(':')
+                .Append(item?.IsEnabled).Append(':')
+                .Append(item?.IsSecondaryMenuPreferred).Append('|');
+        }
+
+        return signature.ToString();
     }
 
     private void ClearGeneratedCommands()
@@ -498,7 +490,8 @@ public sealed partial class OperationCommandBar : CommandBar
 
     public void InvalidateCommands()
     {
-        RefreshCommands();
+        _renderedCommandSignature = null;
+        QueueCommandRefresh();
     }
 
     private sealed class SeparatorCommandBarItemViewModel;

@@ -654,12 +654,24 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             if (!IsPageActive(lifetimeVersion))
                 return;
 
-            var currentSettings = CurrentSettings;
-            if (currentSettings == null)
+            CalendarSettings currentSettings = null;
+            VisibleDateRange currentVisibleRange = null;
+            DateRange currentLoadedDateWindow = null;
+
+            await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () =>
             {
-                RefreshSettings();
+                if (CurrentSettings == null)
+                {
+                    RefreshSettings();
+                }
+
                 currentSettings = CurrentSettings;
-            }
+                currentVisibleRange = CurrentVisibleRange;
+                currentLoadedDateWindow = LoadedDateWindow;
+            }).ConfigureAwait(false);
+
+            if (currentSettings == null || !IsPageActive(lifetimeVersion))
+                return;
 
             var today = _dateContextProvider.GetToday();
             var visibleRange = CalendarRangeResolver.Resolve(request, currentSettings, today);
@@ -669,7 +681,10 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
                 previousRange.StartDate.ToDateTime(TimeOnly.MinValue),
                 nextRange.EndDate.AddDays(1).ToDateTime(TimeOnly.MinValue));
 
-            var shouldReload = forceReload || !IsSameVisibleRange(CurrentVisibleRange, visibleRange) || !IsSameDateRange(LoadedDateWindow, loadedDateWindow);
+            var shouldReload =
+                forceReload ||
+                !IsSameVisibleRange(currentVisibleRange, visibleRange) ||
+                !IsSameDateRange(currentLoadedDateWindow, loadedDateWindow);
             List<CalendarItemViewModel> loadedItems = null;
 
             if (shouldReload)
@@ -729,19 +744,38 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         }
     }
 
-    public Task ReloadCurrentVisibleRangeAsync()
+    public async Task ReloadCurrentVisibleRangeAsync()
     {
-        if (CurrentVisibleRange == null)
-            return Task.CompletedTask;
+        VisibleDateRange visibleRange = null;
 
-        RefreshSettings();
-        return ApplyDisplayRequestAsync(new CalendarDisplayRequest(CurrentVisibleRange.DisplayType, CurrentVisibleRange.AnchorDate), forceReload: true);
+        await ExecuteUIThread(() =>
+        {
+            visibleRange = CurrentVisibleRange;
+            if (visibleRange != null)
+            {
+                RefreshSettings();
+            }
+        }).ConfigureAwait(false);
+
+        if (visibleRange == null)
+            return;
+
+        await ApplyDisplayRequestAsync(
+            new CalendarDisplayRequest(visibleRange.DisplayType, visibleRange.AnchorDate),
+            forceReload: true).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<CalendarItem>> SearchCalendarItemsAsync(string queryText, int limit, CancellationToken cancellationToken)
     {
         var results = await _calendarService.SearchCalendarItemsAsync(queryText, limit, cancellationToken).ConfigureAwait(false);
-        var activeCalendarIds = AccountCalendarStateService.ActiveCalendars.Select(calendar => calendar.Id).ToHashSet();
+        HashSet<Guid> activeCalendarIds = null;
+
+        await ExecuteUIThread(() =>
+        {
+            activeCalendarIds = AccountCalendarStateService.ActiveCalendars
+                .Select(calendar => calendar.Id)
+                .ToHashSet();
+        }).ConfigureAwait(false);
 
         return results
             .Where(result => activeCalendarIds.Contains(result.CalendarId))
@@ -757,18 +791,26 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     private async Task NavigateToPendingCalendarTargetAsync(CalendarItemTarget target)
     {
         CalendarItemViewModel calendarItemViewModel = null;
+        AccountCalendarViewModel assignedCalendar = null;
 
-        if (_loadedCalendarItems.TryGetValue(target.Item.Id, out var loadedCalendarItemViewModel))
+        await ExecuteUIThread(() =>
         {
-            calendarItemViewModel = loadedCalendarItemViewModel;
-        }
-        else
+            _loadedCalendarItems.TryGetValue(target.Item.Id, out calendarItemViewModel);
+        }).ConfigureAwait(false);
+
+        if (calendarItemViewModel == null)
         {
             var targetItem = await _calendarService.GetCalendarItemTargetAsync(target).ConfigureAwait(false);
             if (targetItem == null)
                 return;
 
-            targetItem.AssignedCalendar ??= AccountCalendarStateService.ActiveCalendars.FirstOrDefault(calendar => calendar.Id == targetItem.CalendarId);
+            await ExecuteUIThread(() =>
+            {
+                assignedCalendar = AccountCalendarStateService.ActiveCalendars
+                    .FirstOrDefault(calendar => calendar.Id == targetItem.CalendarId);
+            }).ConfigureAwait(false);
+
+            targetItem.AssignedCalendar ??= assignedCalendar;
             calendarItemViewModel = new CalendarItemViewModel(targetItem);
         }
 
@@ -783,7 +825,13 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     {
         var loadedItems = new Dictionary<Guid, CalendarItemViewModel>();
         var loadPeriod = new TimeRange(loadedDateWindow.StartDate, loadedDateWindow.EndDate);
-        var activeCalendars = AccountCalendarStateService.ActiveCalendars.ToList();
+        List<AccountCalendarViewModel> activeCalendars = null;
+
+        await ExecuteUIThread(() =>
+        {
+            activeCalendars = AccountCalendarStateService.ActiveCalendars.ToList();
+        }).ConfigureAwait(false);
+
         var pendingCalendarItemIds = await GetPendingCalendarItemIdsAsync(activeCalendars, lifetimeVersion).ConfigureAwait(false);
 
         foreach (var calendarViewModel in activeCalendars)
@@ -855,39 +903,45 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     public async void Receive(LoadCalendarMessage message)
         => await ApplyDisplayRequestAsync(message.DisplayRequest, message.ForceReload, message.PendingTarget);
 
-    public void Receive(CalendarSettingsUpdatedMessage message)
+    public async void Receive(CalendarSettingsUpdatedMessage message)
     {
-        RefreshSettings();
-        _ = ReloadCurrentVisibleRangeAsync();
+        await ExecuteUIThread(RefreshSettings);
+        await ReloadCurrentVisibleRangeAsync().ConfigureAwait(false);
     }
 
-    public void Receive(CalendarItemTappedMessage message)
-    {
-        if (message.CalendarItemViewModel == null)
-            return;
-
-        DisplayDetailsCalendarItemViewModel = message.CalendarItemViewModel;
-    }
-
-    public void Receive(CalendarItemDoubleTappedMessage message)
-        => NavigateEvent(message.CalendarItemViewModel, CalendarEventTargetType.Single);
-
-    public void Receive(CalendarItemRightTappedMessage message)
+    public async void Receive(CalendarItemTappedMessage message)
     {
         if (message.CalendarItemViewModel == null)
             return;
 
-        DisplayDetailsCalendarItemViewModel = message.CalendarItemViewModel;
+        await ExecuteUIThread(() =>
+            DisplayDetailsCalendarItemViewModel = message.CalendarItemViewModel);
     }
 
-    public void Receive(CalendarItemContextActionRequestedMessage message)
+    public async void Receive(CalendarItemDoubleTappedMessage message)
+        => await ExecuteUIThread(() =>
+            NavigateEvent(message.CalendarItemViewModel, CalendarEventTargetType.Single));
+
+    public async void Receive(CalendarItemRightTappedMessage message)
+    {
+        if (message.CalendarItemViewModel == null)
+            return;
+
+        await ExecuteUIThread(() =>
+            DisplayDetailsCalendarItemViewModel = message.CalendarItemViewModel);
+    }
+
+    public async void Receive(CalendarItemContextActionRequestedMessage message)
     {
         if (message.CalendarItemViewModel == null)
             return;
 
         if (message.Action.ActionType == CalendarContextMenuActionType.Open)
         {
-            NavigateEvent(message.CalendarItemViewModel, message.Action.TargetType ?? CalendarEventTargetType.Single);
+            await ExecuteUIThread(() =>
+                NavigateEvent(
+                    message.CalendarItemViewModel,
+                    message.Action.TargetType ?? CalendarEventTargetType.Single));
             return;
         }
 
@@ -896,12 +950,15 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
     public async void Receive(AccountRemovedMessage message)
     {
-        if (DisplayDetailsCalendarItemViewModel?.AssignedCalendar?.AccountId == message.Account.Id)
+        await ExecuteUIThread(() =>
         {
-            DisplayDetailsCalendarItemViewModel = null;
-        }
+            if (DisplayDetailsCalendarItemViewModel?.AssignedCalendar?.AccountId == message.Account.Id)
+            {
+                DisplayDetailsCalendarItemViewModel = null;
+            }
 
-        EnsureSelectedQuickEventAccountCalendar();
+            EnsureSelectedQuickEventAccountCalendar();
+        });
         await ReloadCurrentVisibleRangeAsync().ConfigureAwait(false);
     }
 
@@ -1256,10 +1313,11 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
         if (targetItem.IsRecurringParent)
         {
-            var confirmed = await _dialogService.ShowConfirmationDialogAsync(
-                Translator.DialogMessage_DeleteRecurringSeriesMessage,
-                Translator.DialogMessage_DeleteRecurringSeriesTitle,
-                Translator.Buttons_Delete).ConfigureAwait(false);
+            var confirmed = await ExecuteUIThreadAsync(() =>
+                _dialogService.ShowConfirmationDialogAsync(
+                    Translator.DialogMessage_DeleteRecurringSeriesMessage,
+                    Translator.DialogMessage_DeleteRecurringSeriesTitle,
+                    Translator.Buttons_Delete)).ConfigureAwait(false);
 
             if (!confirmed)
                 return;
@@ -1343,9 +1401,20 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         targetItem ??= calendarItemViewModel.CalendarItem;
         if (targetItem == calendarItemViewModel.CalendarItem || targetItem.AssignedCalendar == null)
         {
+            AccountCalendarViewModel assignedCalendar = null;
             targetItem.AssignedCalendar = await _calendarService.GetAccountCalendarAsync(targetItem.CalendarId).ConfigureAwait(false)
-                                        ?? calendarItemViewModel.AssignedCalendar
-                                        ?? ResolveAssignedCalendar(targetItem.CalendarId);
+                                        ?? calendarItemViewModel.AssignedCalendar;
+
+            if (targetItem.AssignedCalendar == null)
+            {
+                await ExecuteUIThread(() =>
+                {
+                    assignedCalendar = AccountCalendarStateService.AllCalendars
+                        .FirstOrDefault(calendar => calendar.Id == targetItem.CalendarId);
+                }).ConfigureAwait(false);
+
+                targetItem.AssignedCalendar = assignedCalendar;
+            }
         }
 
         return targetItem;

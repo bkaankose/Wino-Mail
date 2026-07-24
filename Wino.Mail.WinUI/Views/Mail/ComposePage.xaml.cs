@@ -67,17 +67,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
     {
         InitializeComponent();
         WebViewEditor.IsEditorDarkMode = WinoApplication.Current.UnderlyingThemeService.IsUnderlyingThemeDark();
-        ViewModel.SaveHTMLasPDFFunc = async path =>
-        {
-            var webView = GetWebView();
-
-            if (webView?.CoreWebView2 == null)
-            {
-                return false;
-            }
-
-            return await webView.CoreWebView2.PrintToPdfAsync(path, null);
-        };
         ViewModel.CloseRequested += ViewModel_CloseRequested;
     }
 
@@ -531,7 +520,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
         ComposeAiActionsPanel.CancelPendingOperation();
         await ViewModel.UpdateMimeChangesAsync();
-        ViewModel.SaveHTMLasPDFFunc = null;
         ViewModel.RenderHtmlBodyAsyncFunc = null;
 
         DisposeDisposables();
@@ -600,16 +588,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
         {
             ViewModel.RemoveAttachmentCommand.Execute(attachment);
         }
-    }
-
-    private async void ExportPdf_Click(object sender, RoutedEventArgs e)
-    {
-        await ViewModel.ExportAsPdfAsync();
-    }
-
-    private async void ExportEml_Click(object sender, RoutedEventArgs e)
-    {
-        await ViewModel.ExportAsEmlAsync();
     }
 
     protected override void RegisterRecipients()

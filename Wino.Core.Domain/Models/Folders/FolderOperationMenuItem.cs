@@ -5,10 +5,9 @@ namespace Wino.Core.Domain.Models.Folders;
 
 public class FolderOperationMenuItem : MenuOperationItemBase<FolderOperation>
 {
-    protected FolderOperationMenuItem(FolderOperation operation, bool isEnabled, bool isSecondaryMenuItem = false) : base(operation, isEnabled)
-    {
-        IsSecondaryMenuPreferred = isSecondaryMenuItem;
-    }
+    private FolderOperationMenuItem(FolderOperation operation, bool isEnabled, bool isSecondaryMenuItem)
+        : base(operation, isEnabled, isSecondaryMenuItem)
+    { }
 
     public static FolderOperationMenuItem Create(FolderOperation operation, bool isEnabled = true, bool isSecondaryMenuItem = false)
         => new FolderOperationMenuItem(operation, isEnabled, isSecondaryMenuItem);

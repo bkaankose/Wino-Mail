@@ -55,6 +55,70 @@ public class CoreBaseViewModel : ObservableRecipient, INavigationAware
 
         return Dispatcher.ExecuteOnUIThread(action);
     }
+
+    public async Task ExecuteUIThreadAsync(Func<Task> action)
+    {
+        if (action == null)
+            return;
+
+        if (Dispatcher == null)
+        {
+            await action().ConfigureAwait(false);
+            return;
+        }
+
+        var completionSource = new TaskCompletionSource<object>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await Dispatcher.ExecuteOnUIThread(() => _ = ExecuteAndCaptureAsync())
+            .ConfigureAwait(false);
+        await completionSource.Task.ConfigureAwait(false);
+
+        async Task ExecuteAndCaptureAsync()
+        {
+            try
+            {
+                // Deliberately preserve the UI context for continuations inside the callback.
+                await action();
+                completionSource.TrySetResult(null);
+            }
+            catch (Exception ex)
+            {
+                completionSource.TrySetException(ex);
+            }
+        }
+    }
+
+    public async Task<T> ExecuteUIThreadAsync<T>(Func<Task<T>> action)
+    {
+        if (action == null)
+            return default;
+
+        if (Dispatcher == null)
+            return await action().ConfigureAwait(false);
+
+        var completionSource = new TaskCompletionSource<T>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await Dispatcher.ExecuteOnUIThread(() => _ = ExecuteAndCaptureAsync())
+            .ConfigureAwait(false);
+        return await completionSource.Task.ConfigureAwait(false);
+
+        async Task ExecuteAndCaptureAsync()
+        {
+            try
+            {
+                // Deliberately preserve the UI context for continuations inside the callback.
+                var result = await action();
+                completionSource.TrySetResult(result);
+            }
+            catch (Exception ex)
+            {
+                completionSource.TrySetException(ex);
+            }
+        }
+    }
+
     public void ReportUIChange<TMessage>(TMessage message) where TMessage : class, IUIMessage => Messenger.Send(message);
 
     protected virtual void OnDispatcherAssigned() { }

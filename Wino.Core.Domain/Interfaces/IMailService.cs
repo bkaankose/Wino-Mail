@@ -25,6 +25,7 @@ public interface IMailService
     /// Caution: This method is not safe. Use other overrides.
     /// </summary>
     Task<List<MailCopy>> GetMailItemsAsync(IEnumerable<string> mailCopyIds);
+    Task<MailFetchPage> FetchMailPageAsync(MailListInitializationOptions options, MailFetchCursor cursor = null, CancellationToken cancellationToken = default);
     Task<List<MailCopy>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default);
     Task<List<MailCopy>> FetchPinnedMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default);
 

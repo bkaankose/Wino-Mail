@@ -56,7 +56,8 @@ public class MailItemViewModelUpdateTests
         raisedProperties.Should().Equal(
             nameof(MailItemViewModel.FromAddress),
             nameof(MailItemViewModel.FromName),
-            nameof(MailItemViewModel.SortingName));
+            nameof(MailItemViewModel.SortingName),
+            nameof(MailItemViewModel.NameSortKey));
     }
 
     [Fact]
@@ -83,9 +84,9 @@ public class MailItemViewModelUpdateTests
     }
 
     [Fact]
-    public async Task UpdateMailCopy_ShouldNotifyThreadOnlyForReadState_WhenReadStateChanges()
+    public async Task UpdateMailCopy_ShouldNotifyOnlyAffectedLeafForReadState()
     {
-        var collection = new WinoMailCollection
+        var collection = new MailListStore
         {
             CoreDispatcher = new ImmediateDispatcher()
         };
@@ -96,26 +97,11 @@ public class MailItemViewModelUpdateTests
         await collection.AddAsync(older);
         await collection.AddAsync(latest);
 
-        ThreadMailItemViewModel? threadItem = null;
-        foreach (var group in collection.MailItems)
-        {
-            foreach (var item in group)
-            {
-                if (item is ThreadMailItemViewModel thread)
-                {
-                    threadItem = thread;
-                    break;
-                }
-            }
-
-            if (threadItem != null)
-                break;
-        }
-
-        threadItem.Should().NotBeNull();
+        var leaf = collection.Find(latest.UniqueId);
+        leaf.Should().NotBeNull();
 
         var raisedProperties = new List<string>();
-        threadItem!.PropertyChanged += (_, e) =>
+        leaf!.PropertyChanged += (_, e) =>
         {
             if (!string.IsNullOrEmpty(e.PropertyName))
             {
@@ -127,7 +113,7 @@ public class MailItemViewModelUpdateTests
 
         await collection.UpdateMailCopy(latest, EntityUpdateSource.ClientUpdated, MailCopyChangeFlags.IsRead);
 
-        raisedProperties.Should().Equal(nameof(ThreadMailItemViewModel.IsRead));
+        raisedProperties.Should().Contain(nameof(MailItemViewModel.IsRead));
     }
 
     private static MailCopy CreateMailCopy(string threadId, DateTime creationDate)

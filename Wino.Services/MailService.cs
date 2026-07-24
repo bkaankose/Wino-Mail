@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -172,12 +173,18 @@ public class MailService : BaseDatabaseService, IMailService
         return await HydrateMailCopyAsync(mailCopy).ConfigureAwait(false);
     }
 
-    private static (string Query, object[] Parameters) BuildMailFetchQuery(MailListInitializationOptions options, bool pinnedOnly = false)
+    private static (string Query, object[] Parameters) BuildMailFetchQuery(
+        MailListInitializationOptions options,
+        bool pinnedOnly = false,
+        bool unpinnedOnly = false,
+        MailFetchCursor cursor = null,
+        int? takeOverride = null,
+        bool includeExistingUniqueIds = true)
     {
         var sql = new StringBuilder();
         sql.Append(options.IsCategoryView
             ? "SELECT DISTINCT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id INNER JOIN MailCategoryAssignment ON MailCopy.UniqueId = MailCategoryAssignment.MailCopyUniqueId"
-            : "SELECT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id");
+            : "SELECT MailCopy.* FROM MailCopy");
 
         var whereClauses = new List<string>();
         var parameters = new List<object>();
@@ -212,6 +219,10 @@ public class MailService : BaseDatabaseService, IMailService
         {
             whereClauses.Add("MailCopy.IsPinned = 1");
         }
+        else if (unpinnedOnly)
+        {
+            whereClauses.Add("MailCopy.IsPinned = 0");
+        }
 
         // Focused filter
         if (options.IsFocusedOnly != null)
@@ -231,11 +242,37 @@ public class MailService : BaseDatabaseService, IMailService
         }
 
         // Exclude existing items
-        if (options.ExistingUniqueIds?.Any() ?? false)
+        if (includeExistingUniqueIds && (options.ExistingUniqueIds?.Any() ?? false))
         {
             var excludePlaceholders = string.Join(",", options.ExistingUniqueIds.Select(_ => "?"));
             whereClauses.Add($"MailCopy.UniqueId NOT IN ({excludePlaceholders})");
             parameters.AddRange(options.ExistingUniqueIds.Keys.Select(id => (object)id));
+        }
+
+        if (cursor != null)
+        {
+            if (options.SortingOptionType == SortingOptionType.Sender)
+            {
+                whereClauses.Add(
+                    "(COALESCE(MailCopy.FromName, '') > ? OR " +
+                    "(COALESCE(MailCopy.FromName, '') = ? AND " +
+                    "(MailCopy.CreationDate < ? OR " +
+                    "(MailCopy.CreationDate = ? AND MailCopy.UniqueId > ?))))");
+                parameters.Add(cursor.SenderName ?? string.Empty);
+                parameters.Add(cursor.SenderName ?? string.Empty);
+                parameters.Add(cursor.CreationDate);
+                parameters.Add(cursor.CreationDate);
+                parameters.Add(cursor.UniqueId);
+            }
+            else
+            {
+                whereClauses.Add(
+                    "(MailCopy.CreationDate < ? OR " +
+                    "(MailCopy.CreationDate = ? AND MailCopy.UniqueId > ?))");
+                parameters.Add(cursor.CreationDate);
+                parameters.Add(cursor.CreationDate);
+                parameters.Add(cursor.UniqueId);
+            }
         }
 
         if (whereClauses.Any())
@@ -246,14 +283,14 @@ public class MailService : BaseDatabaseService, IMailService
 
         // Sorting
         if (options.SortingOptionType == SortingOptionType.ReceiveDate)
-            sql.Append(" ORDER BY IsPinned DESC, CreationDate DESC");
+            sql.Append(" ORDER BY IsPinned DESC, CreationDate DESC, UniqueId ASC");
         else if (options.SortingOptionType == SortingOptionType.Sender)
-            sql.Append(" ORDER BY IsPinned DESC, FromName ASC, CreationDate DESC");
+            sql.Append(" ORDER BY IsPinned DESC, COALESCE(FromName, '') ASC, CreationDate DESC, UniqueId ASC");
 
         // Pagination
         if (!pinnedOnly)
         {
-            var limit = options.Take > 0 ? options.Take : ItemLoadCount;
+            var limit = takeOverride ?? (options.Take > 0 ? options.Take : ItemLoadCount);
             sql.Append($" LIMIT {limit}");
 
             if (options.Skip > 0)
@@ -365,135 +402,253 @@ public class MailService : BaseDatabaseService, IMailService
     private static string ResolveServerMailId(MailCopy mail)
         => string.IsNullOrWhiteSpace(mail?.Id) ? mail?.UniqueId.ToString("N") ?? string.Empty : mail.Id;
 
-    public Task<List<MailCopy>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default)
-        => FetchMailsInternalAsync(options, pinnedOnly: false, cancellationToken);
-
-    public Task<List<MailCopy>> FetchPinnedMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default)
-        => FetchMailsInternalAsync(options, pinnedOnly: true, cancellationToken);
-
-    private async Task<List<MailCopy>> FetchMailsInternalAsync(MailListInitializationOptions options, bool pinnedOnly, CancellationToken cancellationToken = default)
+    public async Task<MailFetchPage> FetchMailPageAsync(
+        MailListInitializationOptions options,
+        MailFetchCursor cursor = null,
+        CancellationToken cancellationToken = default)
     {
-        List<MailCopy> mails;
+        ArgumentNullException.ThrowIfNull(options);
+        if (options.Folders == null || options.Folders.Count == 0)
+            return new([], cursor, false);
+        if (cursor != null && cursor.SortingOptionType != options.SortingOptionType)
+            throw new ArgumentException("The mail cursor does not match the requested sorting mode.", nameof(cursor));
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var stopwatch = Stopwatch.StartNew();
+        var existingIds = options.ExistingUniqueIds?.Keys.ToHashSet() ?? [];
 
         if (options.PreFetchMailCopies != null && !options.IsCategoryView)
         {
-            mails = ApplyOptionsToPreFetchedMails(options, pinnedOnly);
-        }
-        else
-        {
-            var (query, parameters) = BuildMailFetchQuery(options, pinnedOnly);
-            mails = await Connection.QueryAsync<MailCopy>(query, parameters);
+            var prefetched = ApplyOptionsToPreFetchedMails(options);
+            var hydrated = await ExpandAndHydrateAsync(prefetched, options, existingIds, cancellationToken).ConfigureAwait(false);
+            stopwatch.Stop();
+            _logger.Debug(
+                "Fetched {MailCount} prefetched mails in {ElapsedMilliseconds} ms.",
+                hydrated.Count,
+                stopwatch.ElapsedMilliseconds);
+            return new(hydrated, null, false);
         }
 
-        if (mails.Count == 0)
-            return mails;
+        var pinned = new List<MailCopy>();
+        if (cursor == null)
+        {
+            var (pinnedQuery, pinnedParameters) = BuildMailFetchQuery(
+                options,
+                pinnedOnly: true,
+                includeExistingUniqueIds: false);
+            pinned = await Connection.QueryAsync<MailCopy>(pinnedQuery, pinnedParameters).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        var (regular, nextCursor, hasMore) = await FetchRegularSeedsAsync(
+            options,
+            cursor,
+            existingIds,
+            cancellationToken).ConfigureAwait(false);
+
+        var seeds = pinned
+            .Concat(regular)
+            .Where(mail => !existingIds.Contains(mail.UniqueId))
+            .DistinctBy(mail => mail.UniqueId)
+            .ToList();
+        var queryMilliseconds = stopwatch.ElapsedMilliseconds;
+        var mails = await ExpandAndHydrateAsync(seeds, options, existingIds, cancellationToken).ConfigureAwait(false);
+
+        stopwatch.Stop();
+        _logger.Debug(
+            "Fetched mail page with {SeedCount} seeds and {MailCount} hydrated mails in {ElapsedMilliseconds} ms ({QueryMilliseconds} ms query). HasMore: {HasMore}.",
+            seeds.Count,
+            mails.Count,
+            stopwatch.ElapsedMilliseconds,
+            queryMilliseconds,
+            hasMore);
+
+        return new(mails, nextCursor, hasMore);
+    }
+
+    public async Task<List<MailCopy>> FetchMailsAsync(
+        MailListInitializationOptions options,
+        CancellationToken cancellationToken = default)
+        => [.. (await FetchMailPageAsync(options, cancellationToken: cancellationToken).ConfigureAwait(false)).Items];
+
+    public async Task<List<MailCopy>> FetchPinnedMailsAsync(
+        MailListInitializationOptions options,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (options.Folders == null || options.Folders.Count == 0)
+            return [];
 
         cancellationToken.ThrowIfCancellationRequested();
+        var (query, parameters) = BuildMailFetchQuery(
+            options,
+            pinnedOnly: true,
+            includeExistingUniqueIds: false);
+        var pinned = await Connection.QueryAsync<MailCopy>(query, parameters).ConfigureAwait(false);
+        return await ExpandAndHydrateAsync(
+            pinned,
+            options,
+            options.ExistingUniqueIds?.Keys.ToHashSet() ?? [],
+            cancellationToken).ConfigureAwait(false);
+    }
 
-        // Pre-load all data needed for property assignment in as few DB round-trips as possible.
-        // 1. Seed the folder cache directly from the options folders - these cover the vast majority
-        //    of mails in a normal folder view and require zero extra DB calls.
-        var folderCache = options.Folders
-            .OfType<MailItemFolder>()
-            .ToDictionary(f => f.Id);
+    private async Task<(List<MailCopy> Seeds, MailFetchCursor Cursor, bool HasMore)> FetchRegularSeedsAsync(
+        MailListInitializationOptions options,
+        MailFetchCursor cursor,
+        HashSet<Guid> existingIds,
+        CancellationToken cancellationToken)
+    {
+        var targetCount = options.Take > 0 ? options.Take : ItemLoadCount;
+        var seeds = new List<MailCopy>(targetCount);
+        var seenIds = new HashSet<Guid>();
+        var scanCursor = cursor;
+        var hasMore = false;
 
-        // 2. Load all accounts in one call (typically 1-5 accounts) instead of N per-mail lookups.
-        var allAccounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
-        var accountCache = allAccounts.ToDictionary(a => a.Id);
-
-        // 3. Fetch any folders not already in the cache (rare for normal views, common for merged inboxes
-        //    that include Sent/Draft copies belonging to different folder objects).
-        var uncachedFolderIds = mails
-            .Select(m => m.FolderId)
-            .Distinct()
-            .Where(id => !folderCache.ContainsKey(id))
-            .ToList();
-
-        if (uncachedFolderIds.Count > 0)
-        {
-            var folders = await Task.WhenAll(
-                uncachedFolderIds.Select(id => _folderService.GetFolderAsync(id))).ConfigureAwait(false);
-
-            foreach (var f in folders.Where(f => f != null))
-                folderCache[f.Id] = f;
-        }
-
-        // 4. Batch-fetch all sender contacts in a single SQL IN(...) query instead of one query per mail.
-        var uniqueAddresses = mails
-            .Where(m => !string.IsNullOrEmpty(m.FromAddress))
-            .Select(m => m.FromAddress)
-            .Distinct()
-            .ToList();
-
-        var contactList = await _contactService.GetContactsByAddressesAsync(uniqueAddresses).ConfigureAwait(false);
-        var contactCache = contactList.ToDictionary(c => c.Address);
-
-        cancellationToken.ThrowIfCancellationRequested();
-
-        // 5. Assign all properties synchronously from the pre-loaded in-memory caches - no DB calls here.
-        AssignPropertiesFromCaches(mails, folderCache, accountCache, contactCache);
-        mails.RemoveAll(m => m.AssignedAccount == null || m.AssignedFolder == null);
-        await _sentMailReceiptService.PopulateReceiptStatesAsync(mails).ConfigureAwait(false);
-
-        if (!options.CreateThreads || mails.Count == 0 || options.IsCategoryView)
-            return [.. mails];
-
-        // 6. Expand threads: one batch query for all sibling mails across all threads.
-        var uniqueThreadIds = mails
-            .Where(m => !string.IsNullOrEmpty(m.ThreadId))
-            .Select(m => m.ThreadId)
-            .Distinct()
-            .ToList();
-
-        if (uniqueThreadIds.Count == 0)
-            return [.. mails];
-
-        var existingMailIds = mails.Select(m => m.Id).ToHashSet();
-        var threadMails = await GetMailsByThreadIdsAsync(uniqueThreadIds, existingMailIds).ConfigureAwait(false);
-
-        if (threadMails?.Count > 0)
+        while (seeds.Count < targetCount)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            var remaining = targetCount - seeds.Count;
+            var queryLimit = remaining + 1;
+            var (query, parameters) = BuildMailFetchQuery(
+                options,
+                unpinnedOnly: true,
+                cursor: scanCursor,
+                takeOverride: queryLimit,
+                includeExistingUniqueIds: false);
+            var rows = await Connection.QueryAsync<MailCopy>(query, parameters).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
 
-            // Load any folders that thread mails belong to but are not yet cached.
-            var newFolderIds = threadMails
-                .Select(m => m.FolderId)
-                .Distinct()
-                .Where(id => !folderCache.ContainsKey(id))
-                .ToList();
-
-            if (newFolderIds.Count > 0)
+            if (rows.Count == 0)
             {
-                var newFolders = await Task.WhenAll(
-                    newFolderIds.Select(id => _folderService.GetFolderAsync(id))).ConfigureAwait(false);
-
-                foreach (var f in newFolders.Where(f => f != null))
-                    folderCache[f.Id] = f;
+                hasMore = false;
+                break;
             }
 
-            // Batch-fetch contacts for any new senders in thread mails.
-            var newAddresses = threadMails
-                .Where(m => !string.IsNullOrEmpty(m.FromAddress) && !contactCache.ContainsKey(m.FromAddress))
-                .Select(m => m.FromAddress)
-                .Distinct()
-                .ToList();
-
-            if (newAddresses.Count > 0)
+            var consumedCount = rows.Count == queryLimit ? rows.Count - 1 : rows.Count;
+            var consumed = rows.Take(consumedCount).ToList();
+            if (consumed.Count == 0)
             {
-                var newContacts = await _contactService.GetContactsByAddressesAsync(newAddresses).ConfigureAwait(false);
-                foreach (var c in newContacts.Where(c => c != null))
-                    contactCache[c.Address] = c;
+                hasMore = rows.Count > 0;
+                break;
             }
 
-            AssignPropertiesFromCaches(threadMails, folderCache, accountCache, contactCache);
-            mails.AddRange(threadMails.Where(m => m.AssignedAccount != null && m.AssignedFolder != null));
+            foreach (var mail in consumed)
+            {
+                if (!existingIds.Contains(mail.UniqueId) && seenIds.Add(mail.UniqueId))
+                {
+                    seeds.Add(mail);
+                }
+            }
+
+            scanCursor = CreateCursor(options.SortingOptionType, consumed[^1]);
+            hasMore = rows.Count == queryLimit;
+            if (!hasMore)
+                break;
         }
 
-        await _sentMailReceiptService.PopulateReceiptStatesAsync(mails).ConfigureAwait(false);
+        return (seeds, scanCursor, hasMore);
+    }
+
+    private async Task<List<MailCopy>> ExpandAndHydrateAsync(
+        IEnumerable<MailCopy> seedMails,
+        MailListInitializationOptions options,
+        HashSet<Guid> existingIds,
+        CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var mails = seedMails?
+            .Where(mail => mail != null && !existingIds.Contains(mail.UniqueId))
+            .DistinctBy(mail => mail.UniqueId)
+            .ToList() ?? [];
+        if (mails.Count == 0)
+            return [];
 
         cancellationToken.ThrowIfCancellationRequested();
-        return [.. mails];
+
+        if (options.CreateThreads && !options.IsCategoryView)
+        {
+            var threadIds = mails
+                .Where(mail => !string.IsNullOrWhiteSpace(mail.ThreadId))
+                .Select(mail => mail.ThreadId)
+                .Distinct()
+                .ToList();
+
+            if (threadIds.Count > 0)
+            {
+                var seedMailIds = mails
+                    .Where(mail => !string.IsNullOrWhiteSpace(mail.Id))
+                    .Select(mail => mail.Id)
+                    .ToHashSet();
+                var threadMails = await GetMailsByThreadIdsAsync(threadIds, seedMailIds).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                mails = mails
+                    .Concat(threadMails ?? [])
+                    .Where(mail => mail != null && !existingIds.Contains(mail.UniqueId))
+                    .DistinctBy(mail => mail.UniqueId)
+                    .ToList();
+            }
+        }
+
+        var folderCache = options.Folders
+            .OfType<MailItemFolder>()
+            .GroupBy(folder => folder.Id)
+            .ToDictionary(group => group.Key, group => group.First());
+        var uncachedFolderIds = mails
+            .Select(mail => mail.FolderId)
+            .Distinct()
+            .Where(folderId => !folderCache.ContainsKey(folderId))
+            .ToArray();
+
+        if (uncachedFolderIds.Length > 0)
+        {
+            var folders = await _folderService
+                .GetFoldersByIdsAsync(uncachedFolderIds, cancellationToken)
+                .ConfigureAwait(false);
+            foreach (var folder in folders.Where(folder => folder != null))
+            {
+                folderCache[folder.Id] = folder;
+            }
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
+        var accountCache = accounts.ToDictionary(account => account.Id);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var addresses = mails
+            .Where(mail => !string.IsNullOrWhiteSpace(mail.FromAddress))
+            .Select(mail => mail.FromAddress)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var contacts = addresses.Count == 0
+            ? []
+            : await _contactService.GetContactsByAddressesAsync(addresses).ConfigureAwait(false);
+        var contactCache = contacts
+            .Where(contact => contact != null && !string.IsNullOrWhiteSpace(contact.Address))
+            .GroupBy(contact => contact.Address, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        AssignPropertiesFromCaches(mails, folderCache, accountCache, contactCache);
+        mails.RemoveAll(mail => mail.AssignedAccount == null || mail.AssignedFolder == null);
+        await _sentMailReceiptService.PopulateReceiptStatesAsync(mails).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        stopwatch.Stop();
+        _logger.Debug(
+            "Expanded and hydrated {MailCount} mails in {ElapsedMilliseconds} ms.",
+            mails.Count,
+            stopwatch.ElapsedMilliseconds);
+        return mails;
     }
+
+    private static MailFetchCursor CreateCursor(SortingOptionType sortingOptionType, MailCopy mail) =>
+        new(
+            sortingOptionType,
+            mail.CreationDate,
+            mail.FromName ?? string.Empty,
+            mail.UniqueId);
 
     /// <summary>
     /// Assigns AssignedFolder, AssignedAccount, and SenderContact to each mail from pre-loaded

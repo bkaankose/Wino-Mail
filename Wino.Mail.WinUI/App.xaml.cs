@@ -15,10 +15,10 @@ using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.Windows.AppLifecycle;
 using Microsoft.Windows.AppNotifications;
 using Sentry;
+using Serilog;
 using Windows.ApplicationModel.Activation;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
-using Serilog;
 using Wino.Calendar.ViewModels;
 using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Core;
@@ -433,6 +433,7 @@ public partial class App : WinoApplication,
         services.AddSingleton(typeof(ContactsShellClient));
         services.AddSingleton(typeof(SettingsShellClient));
         services.AddSingleton(typeof(WinoAppShellViewModel));
+
         services.AddSingleton<IMailShellClient>(serviceProvider => serviceProvider.GetRequiredService<MailAppShellViewModel>());
         services.AddSingleton<ICalendarShellClient>(serviceProvider => serviceProvider.GetRequiredService<CalendarAppShellViewModel>());
         services.AddSingleton<IShellClient>(serviceProvider => serviceProvider.GetRequiredService<MailAppShellViewModel>());
@@ -460,6 +461,7 @@ public partial class App : WinoApplication,
         services.AddTransient(typeof(MailNotificationSettingsPageViewModel));
         services.AddTransient(typeof(ReadComposePanePageViewModel));
         services.AddTransient(typeof(MergedAccountDetailsPageViewModel));
+        services.AddTransient(typeof(TestPageViewModel));
         services.AddTransient(typeof(AppPreferencesPageViewModel));
         services.AddTransient(typeof(StoragePageViewModel));
         services.AddTransient(typeof(WinoAccountManagementPageViewModel));
@@ -1382,7 +1384,10 @@ public partial class App : WinoApplication,
         WeakReferenceMessenger.Default.Register<LanguageChanged>(this);
     }
 
-    public async void Receive(NewMailSynchronizationRequested message)
+    public void Receive(NewMailSynchronizationRequested message)
+        => _ = HandleMailSynchronizationRequestedAsync(message);
+
+    private async Task HandleMailSynchronizationRequestedAsync(NewMailSynchronizationRequested message)
     {
         if (_synchronizationManager == null) return;
 
@@ -1390,7 +1395,12 @@ public partial class App : WinoApplication,
 
         try
         {
-            syncResult = await _synchronizationManager.SynchronizeMailAsync(message.Options);
+            // Messenger recipients run synchronously on the sender's thread. Mail actions are
+            // commonly requested by the UI thread, so force the synchronous setup/batching
+            // portion of synchronization onto the thread pool as well as its async continuations.
+            syncResult = await Task
+                .Run(() => _synchronizationManager.SynchronizeMailAsync(message.Options))
+                .ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -1406,7 +1416,7 @@ public partial class App : WinoApplication,
 
         if (syncResult.CompletedState is SynchronizationCompletedState.Success or SynchronizationCompletedState.PartiallyCompleted)
         {
-            await ClearInvalidCredentialAttentionIfNeededAsync(message.Options.AccountId);
+            await ClearInvalidCredentialAttentionIfNeededAsync(message.Options.AccountId).ConfigureAwait(false);
 
             if (message.Options.Type is MailSynchronizationType.FullFolders or MailSynchronizationType.FoldersOnly)
             {

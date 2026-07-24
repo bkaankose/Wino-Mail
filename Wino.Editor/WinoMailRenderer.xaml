@@ -9,6 +9,7 @@
         <muxc:WebView2
             x:Name="RendererWebView2"
             AutomationProperties.AutomationId="WinoMailRendererWebView"
+            DefaultBackgroundColor="Transparent"
             NavigationCompleted="RendererWebView2_NavigationCompleted"
             NavigationStarting="RendererWebView2_NavigationStarting" />
     </Grid>

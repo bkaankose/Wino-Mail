@@ -90,7 +90,7 @@ public partial class CreateEmailTemplatePageViewModel(
         }
 
         _editingTemplate = template;
-        NavigationService.GoBack();
+        await ExecuteUIThread(() => NavigationService.GoBack()).ConfigureAwait(false);
     }
 
     public async Task DeleteAsync()
@@ -98,15 +98,16 @@ public partial class CreateEmailTemplatePageViewModel(
         if (_editingTemplate == null)
             return;
 
-        var shouldDelete = await _dialogService.ShowConfirmationDialogAsync(
-            string.Format(Translator.DialogMessage_DeleteEmailTemplateConfirmationMessage, _editingTemplate.Name),
-            Translator.DialogMessage_DeleteEmailTemplateConfirmationTitle,
-            Translator.Buttons_Delete).ConfigureAwait(false);
+        var shouldDelete = await ExecuteUIThreadAsync(() =>
+            _dialogService.ShowConfirmationDialogAsync(
+                string.Format(Translator.DialogMessage_DeleteEmailTemplateConfirmationMessage, _editingTemplate.Name),
+                Translator.DialogMessage_DeleteEmailTemplateConfirmationTitle,
+                Translator.Buttons_Delete)).ConfigureAwait(false);
 
         if (!shouldDelete)
             return;
 
         await _emailTemplateService.DeleteEmailTemplateAsync(_editingTemplate).ConfigureAwait(false);
-        NavigationService.GoBack();
+        await ExecuteUIThread(() => NavigationService.GoBack()).ConfigureAwait(false);
     }
 }

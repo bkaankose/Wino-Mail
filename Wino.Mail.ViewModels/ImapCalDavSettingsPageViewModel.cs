@@ -862,25 +862,39 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         if (serverInformation == null)
             throw new InvalidOperationException(Translator.Exception_ImapAutoDiscoveryFailed);
 
-        await ExecuteUIThread(async () =>
+        var shouldDiscoverCalDav = false;
+        await ExecuteUIThread(() =>
         {
             ApplyServerInformation(serverInformation);
+            shouldDiscoverCalDav =
+                IsCalendarSupportEnabled &&
+                SelectedCalendarSupportMode == ImapCalendarSupportMode.CalDav;
+        }).ConfigureAwait(false);
 
-            if (IsCalendarSupportEnabled && SelectedCalendarSupportMode == ImapCalendarSupportMode.CalDav)
+        if (!shouldDiscoverCalDav)
+            return;
+
+        var discoveredCalDavUri = await _autoDiscoveryService
+            .DiscoverCalDavServiceUriAsync(minimalSettings.Email)
+            .ConfigureAwait(false);
+
+        await ExecuteUIThread(() =>
+        {
+            if (discoveredCalDavUri != null)
             {
-                var discoveredCalDavUri = await _autoDiscoveryService.DiscoverCalDavServiceUriAsync(minimalSettings.Email);
-                if (discoveredCalDavUri != null)
-                {
-                    CalDavServiceUrl = discoveredCalDavUri.ToString();
-                }
+                CalDavServiceUrl = discoveredCalDavUri.ToString();
+            }
 
+            if (IsCalendarSupportEnabled &&
+                SelectedCalendarSupportMode == ImapCalendarSupportMode.CalDav)
+            {
                 if (string.IsNullOrWhiteSpace(CalDavUsername))
                     CalDavUsername = minimalSettings.Email;
 
                 if (string.IsNullOrWhiteSpace(CalDavPassword))
                     CalDavPassword = minimalSettings.Password;
             }
-        });
+        }).ConfigureAwait(false);
     }
     private async Task ValidateImapConnectivityAsync(CustomServerInformation serverInformation)
     {
@@ -907,8 +921,11 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                 $"{Translator.IMAPSetupDialog_CertificateValidTo}: {connectivityResult.CertificateExpirationDateString}\n\n" +
                 $"{Translator.IMAPSetupDialog_CertificateAllowanceRequired_Row1}";
 
-            var allowCertificate = await _mailDialogService
-                .ShowConfirmationDialogAsync(certificateMessage, Translator.GeneralTitle_Warning, Translator.Buttons_Allow)
+            var allowCertificate = await ExecuteUIThreadAsync(() =>
+                    _mailDialogService.ShowConfirmationDialogAsync(
+                        certificateMessage,
+                        Translator.GeneralTitle_Warning,
+                        Translator.Buttons_Allow))
                 .ConfigureAwait(false);
 
             TrackImapSetupEvent(

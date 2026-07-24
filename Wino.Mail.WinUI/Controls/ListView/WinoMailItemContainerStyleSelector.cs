@@ -1,7 +1,9 @@
 using System;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
+using global::Wino.Mail.Controls.Core;
 
 namespace Wino.Mail.WinUI.Controls.ListView;
 
@@ -15,6 +17,21 @@ public partial class WinoMailItemContainerStyleSelector : StyleSelector
 
     protected override Style SelectStyleCore(object item, DependencyObject container)
     {
+        if (item is global::Wino.Mail.Controls.Core.MailListRow row)
+        {
+            return row.IsThreadHead
+                ? ResolveStyle(
+                    IsSwipeActionsEnabled,
+                    ThreadStyle,
+                    ThreadStyleWithoutSwipe,
+                    nameof(global::Wino.Mail.Controls.Core.MailListRowKind.ThreadHead))
+                : ResolveStyle(
+                    IsSwipeActionsEnabled,
+                    MailItemStyle,
+                    MailItemStyleWithoutSwipe,
+                    row.Kind.ToString());
+        }
+
         if (item is MailItemViewModel)
         {
             return ResolveStyle(

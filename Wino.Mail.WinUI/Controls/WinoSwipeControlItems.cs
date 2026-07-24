@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI;
@@ -8,6 +10,7 @@ using Microsoft.UI.Xaml.Media;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Helpers;
+using Wino.Mail.Controls.Core;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.WinUI;
@@ -23,7 +26,7 @@ public partial class WinoSwipeControl : SwipeControl
     private bool _isLoaded;
 
     [GeneratedDependencyProperty]
-    public partial IMailListItem? MailItem { get; set; }
+    public partial MailListRow? MailRow { get; set; }
 
     [GeneratedDependencyProperty(DefaultValue = SwipeMode.Execute)]
     public partial SwipeMode LeftItemsMode { get; set; }
@@ -40,7 +43,7 @@ public partial class WinoSwipeControl : SwipeControl
         Unloaded += OnUnloaded;
     }
 
-    partial void OnMailItemPropertyChanged(DependencyPropertyChangedEventArgs e)
+    partial void OnMailRowPropertyChanged(DependencyPropertyChangedEventArgs e)
     {
         if (_isLoaded)
         {
@@ -73,7 +76,7 @@ public partial class WinoSwipeControl : SwipeControl
         DetachSwipeItems();
         ClearSwipeItems();
 
-        if (MailItem == null)
+        if (GetMailItems().Count == 0)
         {
             return;
         }
@@ -125,9 +128,13 @@ public partial class WinoSwipeControl : SwipeControl
 
     private SwipeItem? GetSwipeItem(MailOperation operation)
     {
-        if (MailItem == null) return null;
+        var mailItems = GetMailItems();
+        if (mailItems.Count == 0)
+        {
+            return null;
+        }
 
-        var finalOperation = ResolveFinalOperation(operation, MailItem);
+        var finalOperation = ResolveFinalOperation(operation, mailItems);
 
         var item = new SwipeItem()
         {
@@ -143,23 +150,32 @@ public partial class WinoSwipeControl : SwipeControl
         return item;
     }
 
-    private static MailOperation ResolveFinalOperation(MailOperation operation, IMailListItem mailItem)
+    private IReadOnlyList<MailItemViewModel> GetMailItems()
     {
-        if (mailItem is MailItemViewModel singleItem)
+        if (MailRow is { IsThreadHead: true, Thread: { } thread })
         {
-            if (operation == MailOperation.MarkAsRead && singleItem.IsRead)
-                return MailOperation.MarkAsUnread;
-
-            if (operation == MailOperation.MarkAsUnread && !singleItem.IsRead)
-                return MailOperation.MarkAsRead;
+            return thread.Items.OfType<MailItemViewModel>().ToArray();
         }
-        else if (mailItem is ThreadMailItemViewModel threadItem)
-        {
-            if (operation == MailOperation.MarkAsRead && threadItem.ThreadEmails.All(a => a.IsRead))
-                return MailOperation.MarkAsUnread;
 
-            if (operation == MailOperation.MarkAsUnread && threadItem.ThreadEmails.All(a => !a.IsRead))
-                return MailOperation.MarkAsRead;
+        return MailRow?.SourceItem is MailItemViewModel mailItem
+            ? new[] { mailItem }
+            : Array.Empty<MailItemViewModel>();
+    }
+
+    private static MailOperation ResolveFinalOperation(
+        MailOperation operation,
+        IReadOnlyList<MailItemViewModel> mailItems)
+    {
+        if (operation == MailOperation.MarkAsRead &&
+            mailItems.All(static item => item.IsRead))
+        {
+            return MailOperation.MarkAsUnread;
+        }
+
+        if (operation == MailOperation.MarkAsUnread &&
+            mailItems.All(static item => !item.IsRead))
+        {
+            return MailOperation.MarkAsRead;
         }
 
         return operation;
@@ -170,11 +186,15 @@ public partial class WinoSwipeControl : SwipeControl
 
     private void SwipeItemInvoked(SwipeItem sender, SwipeItemInvokedEventArgs args)
     {
-        if (MailItem == null) return;
+        var mailItems = GetMailItems();
+        if (mailItems.Count == 0)
+        {
+            return;
+        }
 
         var operation = (MailOperation)sender.CommandParameter;
-        var finalOperation = ResolveFinalOperation(operation, MailItem);
+        var finalOperation = ResolveFinalOperation(operation, mailItems);
 
-        WeakReferenceMessenger.Default.Send(new SwipeActionRequested(finalOperation, MailItem));
+        WeakReferenceMessenger.Default.Send(new SwipeActionRequested(finalOperation, mailItems));
     }
 }

@@ -37,11 +37,9 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     public event EventHandler CloseRequested;
 
     private static readonly TimeSpan LocalDraftRetryGracePeriod = TimeSpan.FromSeconds(15);
-    private const string MimeFileName = "mail.eml";
 
     public Func<Task<string>> GetHTMLBodyFunction;
     public Func<string, Task> RenderHtmlBodyAsyncFunc { get; set; }
-    public Func<string, Task<bool>> SaveHTMLasPDFFunc { get; set; }
 
     public override async Task KeyboardShortcutHook(KeyboardShortcutTriggerDetails args)
     {
@@ -441,106 +439,48 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     {
         if (isUpdatingMimeBlocked || CurrentMimeMessage == null || ComposingAccount == null || CurrentMailDraftItem == null) return;
 
-        // Save recipients.
+        MailCopy draftMailCopy = null;
+        Guid composingAccountId = Guid.Empty;
 
-        SaveAddressInfo(ToItems, CurrentMimeMessage.To);
-        SaveAddressInfo(CCItems, CurrentMimeMessage.Cc);
-        SaveAddressInfo(BCCItems, CurrentMimeMessage.Bcc);
+        await ExecuteUIThreadAsync(async () =>
+        {
+            // Recipient collections, editor callbacks, and MailItemViewModel notifications
+            // are all UI-bound. Keep the complete snapshot/update phase on the dispatcher.
+            SaveAddressInfo(ToItems, CurrentMimeMessage.To);
+            SaveAddressInfo(CCItems, CurrentMimeMessage.Cc);
+            SaveAddressInfo(BCCItems, CurrentMimeMessage.Bcc);
 
-        SaveImportance();
-        SaveSubject();
-        SaveFromAddress();
-        SaveReadReceiptRequest();
-        SaveReplyToAddress();
+            SaveImportance();
+            SaveSubject();
+            SaveFromAddress();
+            SaveReadReceiptRequest();
+            SaveReplyToAddress();
 
-        await SaveAttachmentsAsync();
-        await SaveBodyAsync();
-        await UpdateMailCopyAsync();
+            await SaveAttachmentsAsync();
+            await SaveBodyAsync();
+            UpdateMailCopyProperties();
+
+            draftMailCopy = CurrentMailDraftItem.MailCopy;
+            composingAccountId = ComposingAccount.Id;
+        }).ConfigureAwait(false);
+
+        if (draftMailCopy == null || composingAccountId == Guid.Empty)
+            return;
+
+        await _mailService.UpdateMailAsync(draftMailCopy).ConfigureAwait(false);
 
         // Save mime file.
-        await _mimeFileService.SaveMimeMessageAsync(CurrentMailDraftItem.MailCopy.FileId, CurrentMimeMessage, ComposingAccount.Id).ConfigureAwait(false);
+        await _mimeFileService
+            .SaveMimeMessageAsync(draftMailCopy.FileId, CurrentMimeMessage, composingAccountId)
+            .ConfigureAwait(false);
     }
 
-    public async Task ExportAsPdfAsync()
-    {
-        if (SaveHTMLasPDFFunc == null)
-        {
-            return;
-        }
-
-        try
-        {
-            var pickedFilePath = await _dialogService.PickFilePathAsync($"{GetSuggestedExportFileName()}.pdf").ConfigureAwait(false);
-
-            if (string.IsNullOrWhiteSpace(pickedFilePath))
-            {
-                return;
-            }
-
-            bool isSaved = await SaveHTMLasPDFFunc(pickedFilePath).ConfigureAwait(false);
-
-            if (isSaved)
-            {
-                _dialogService.InfoBarMessage(
-                    Translator.Info_PDFSaveSuccessTitle,
-                    string.Format(Translator.Info_PDFSaveSuccessMessage, pickedFilePath),
-                    InfoBarMessageType.Success);
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Failed to save compose draft as PDF.");
-            _dialogService.InfoBarMessage(Translator.Info_PDFSaveFailedTitle, ex.Message, InfoBarMessageType.Error);
-        }
-    }
-
-    public async Task ExportAsEmlAsync()
-    {
-        if (CurrentMailDraftItem?.MailCopy == null || ComposingAccount == null)
-        {
-            _dialogService.InfoBarMessage(Translator.Info_ComposerMissingMIMETitle, Translator.Info_ComposerMissingMIMEMessage, InfoBarMessageType.Error);
-            return;
-        }
-
-        try
-        {
-            await UpdateMimeChangesAsync().ConfigureAwait(false);
-
-            var pickedFilePath = await _dialogService.PickFilePathAsync($"{GetSuggestedExportFileName()}.eml").ConfigureAwait(false);
-
-            if (string.IsNullOrWhiteSpace(pickedFilePath))
-            {
-                return;
-            }
-
-            var resourcePath = await _mimeFileService
-                .GetMimeResourcePathAsync(ComposingAccount.Id, CurrentMailDraftItem.MailCopy.FileId)
-                .ConfigureAwait(false);
-            var sourceFilePath = Path.Combine(resourcePath, MimeFileName);
-
-            File.Copy(sourceFilePath, pickedFilePath, true);
-
-            _dialogService.InfoBarMessage(
-                Translator.Info_EMLSaveSuccessTitle,
-                string.Format(Translator.Info_EMLSaveSuccessMessage, pickedFilePath),
-                InfoBarMessageType.Success);
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Failed to save compose draft as EML.");
-            _dialogService.InfoBarMessage(Translator.Info_EMLSaveFailedTitle, ex.Message, InfoBarMessageType.Error);
-        }
-    }
-
-    private async Task UpdateMailCopyAsync()
+    private void UpdateMailCopyProperties()
     {
         CurrentMailDraftItem.Subject = CurrentMimeMessage.Subject;
         CurrentMailDraftItem.PreviewText = CurrentMimeMessage.TextBody;
         CurrentMailDraftItem.FromAddress = SelectedAlias.AliasAddress;
         CurrentMailDraftItem.HasAttachments = CurrentMimeMessage.Attachments.Any();
-
-        // Update database.
-        await _mailService.UpdateMailAsync(CurrentMailDraftItem.MailCopy);
     }
 
     private async Task SaveAttachmentsAsync()
@@ -640,9 +580,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         {
             CurrentMailDraftItem = mailItem;
 
-            await UpdatePendingOperationStateAsync();
-            await LoadEmailTemplatesAsync();
-            await TryPrepareComposeAsync(true);
+            await InitializeCurrentDraftAsync().ConfigureAwait(false);
         }
     }
 
@@ -651,18 +589,29 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         if (draftMailItemViewModel == null || !draftMailItemViewModel.IsDraft) return;
 
         // Save current draft before switching.
-        await UpdateMimeChangesAsync();
+        await UpdateMimeChangesAsync().ConfigureAwait(false);
 
         // Reset state for the new draft.
-        isUpdatingMimeBlocked = false;
-        ComposingAccount = null;
-        IncludedAttachments.Clear();
+        await ExecuteUIThread(() =>
+        {
+            isUpdatingMimeBlocked = false;
+            ComposingAccount = null;
+            IncludedAttachments.Clear();
+            CurrentMailDraftItem = draftMailItemViewModel;
+        }).ConfigureAwait(false);
 
-        // Set the new draft item and prepare it.
-        CurrentMailDraftItem = draftMailItemViewModel;
-        await UpdatePendingOperationStateAsync();
-        await LoadEmailTemplatesAsync();
-        await TryPrepareComposeAsync(true);
+        await InitializeCurrentDraftAsync().ConfigureAwait(false);
+    }
+
+    private async Task InitializeCurrentDraftAsync()
+    {
+        // These initialization paths are independent. Run service/file work together,
+        // then let each path commit only its small UI-bound portion through the dispatcher.
+        await Task.WhenAll(
+            UpdatePendingOperationStateAsync(),
+            LoadEmailTemplatesAsync(),
+            TryPrepareComposeAsync(true))
+            .ConfigureAwait(false);
     }
 
     private async Task LoadEmailTemplatesAsync()
@@ -791,7 +740,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     {
         if (CurrentMailDraftItem == null) return;
 
-        bool isComposerInitialized = await InitializeComposerAccountAsync();
+        bool isComposerInitialized = await InitializeComposerAccountAsync().ConfigureAwait(false);
 
         if (!isComposerInitialized) return;
 
@@ -813,7 +762,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                 // Download missing MIME message using SynchronizationManager
                 await SynchronizationManager.Instance.DownloadMimeMessageAsync(
                     CurrentMailDraftItem.MailCopy,
-                    CurrentMailDraftItem.MailCopy.AssignedAccount.Id);
+                    CurrentMailDraftItem.MailCopy.AssignedAccount.Id).ConfigureAwait(false);
 
                 goto retry;
             }
@@ -838,8 +787,11 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         var mimeFilePath = mimeMessageInformation.Path;
 
         var renderModel = _mimeFileService.GetMailRenderModel(replyingMime, mimeFilePath);
+        var toItems = await ResolveAddressInfoAsync(replyingMime.To).ConfigureAwait(false);
+        var ccItems = await ResolveAddressInfoAsync(replyingMime.Cc).ConfigureAwait(false);
+        var bccItems = await ResolveAddressInfoAsync(replyingMime.Bcc).ConfigureAwait(false);
 
-        await ExecuteUIThread(async () =>
+        await ExecuteUIThread(() =>
         {
             // Extract information
 
@@ -849,9 +801,12 @@ public partial class ComposePageViewModel : MailBaseViewModel,
             CCItems.Clear();
             BCCItems.Clear();
 
-            await LoadAddressInfoAsync(replyingMime.To, ToItems);
-            await LoadAddressInfoAsync(replyingMime.Cc, CCItems);
-            await LoadAddressInfoAsync(replyingMime.Bcc, BCCItems);
+            foreach (var contact in toItems)
+                ToItems.Add(contact);
+            foreach (var contact in ccItems)
+                CCItems.Add(contact);
+            foreach (var contact in bccItems)
+                BCCItems.Add(contact);
 
             LoadAttachments();
             ApplyPendingSharedAttachments();
@@ -863,11 +818,12 @@ public partial class ComposePageViewModel : MailBaseViewModel,
             IsReadReceiptRequested = replyingMime.HasReadReceiptRequest();
 
             Messenger.Send(new CreateNewComposeMailRequested(renderModel));
-        });
+        }).ConfigureAwait(false);
 
         if (RenderHtmlBodyAsyncFunc != null)
         {
-            await ExecuteUIThread(async () => await RenderHtmlBodyAsyncFunc(renderModel.RenderHtml));
+            await ExecuteUIThreadAsync(() => RenderHtmlBodyAsyncFunc(renderModel.RenderHtml))
+                .ConfigureAwait(false);
         }
     }
 
@@ -904,8 +860,10 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         }
     }
 
-    private async Task LoadAddressInfoAsync(InternetAddressList list, ObservableCollection<AccountContact> collection)
+    private async Task<List<AccountContact>> ResolveAddressInfoAsync(InternetAddressList list)
     {
+        var contacts = new List<AccountContact>();
+
         foreach (var item in list)
         {
             if (item is MailboxAddress mailboxAddress)
@@ -913,11 +871,15 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                 var foundContact = await ContactService.GetAddressInformationByAddressAsync(mailboxAddress.Address).ConfigureAwait(false)
                     ?? new AccountContact() { Name = mailboxAddress.Name, Address = mailboxAddress.Address };
 
-                await ExecuteUIThread(() => { collection.Add(foundContact); });
+                contacts.Add(foundContact);
             }
             else if (item is GroupAddress groupAddress)
-                await LoadAddressInfoAsync(groupAddress.Members, collection);
+            {
+                contacts.AddRange(await ResolveAddressInfoAsync(groupAddress.Members).ConfigureAwait(false));
+            }
         }
+
+        return contacts;
     }
 
     private void SaveFromAddress()
@@ -961,29 +923,6 @@ public partial class ComposePageViewModel : MailBaseViewModel,
             list.Add(new MailboxAddress(item.Name, item.Address));
     }
 
-    private string GetSuggestedExportFileName()
-    {
-        var subject = string.IsNullOrWhiteSpace(Subject) ? Translator.MailItemNoSubject : Subject;
-        return SanitizeFileNamePart(subject);
-    }
-
-    private static string SanitizeFileNamePart(string value)
-    {
-        var invalidCharacters = Path.GetInvalidFileNameChars();
-        var sanitizedChars = value.Trim().ToCharArray();
-
-        for (var i = 0; i < sanitizedChars.Length; i++)
-        {
-            if (Array.IndexOf(invalidCharacters, sanitizedChars[i]) >= 0)
-            {
-                sanitizedChars[i] = '_';
-            }
-        }
-
-        var sanitized = new string(sanitizedChars).Trim();
-        return string.IsNullOrWhiteSpace(sanitized) ? "email" : sanitized;
-    }
-
     public async Task<AccountContact> GetAddressInformationAsync(string tokenText, ObservableCollection<AccountContact> collection)
     {
         // Get model from the service. This will make sure the name is properly included if there is any record.
@@ -1016,14 +955,14 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         if (updatedMail.UniqueId == CurrentMailDraftItem.MailCopy.UniqueId)
         {
-            await ExecuteUIThread(async () =>
+            await ExecuteUIThread(() =>
             {
                 CurrentMailDraftItem.UpdateFrom(updatedMail, changedProperties);
                 IsDraftSyncFailed = updatedMail.IsDraftSyncFailed;
                 OnPropertyChanged(nameof(DraftSyncErrorMessage));
-                await UpdatePendingOperationStateAsync();
-                NotifyComposeActionStateChanged();
             });
+
+            await UpdatePendingOperationStateAsync().ConfigureAwait(false);
         }
     }
 

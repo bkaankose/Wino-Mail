@@ -4,7 +4,9 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
+using global::Wino.Mail.Controls.Core;
 using Wino.Mail.WinUI;
 
 namespace Wino.Mail.WinUI.Controls.ListView;
@@ -25,6 +27,22 @@ public partial class WinoMailItemTemplateSelector : DataTemplateSelector
 
     protected override DataTemplate SelectTemplateCore(object item, DependencyObject container)
     {
+        if (item is global::Wino.Mail.Controls.Core.MailListRow row)
+        {
+            if (row.IsThreadHead)
+            {
+                return GetThreadMailTemplate() ?? throw new Exception("Missing template for thread heads.");
+            }
+
+            if (row.SourceItem is MailItemViewModel { MailCopy.ItemType: not MailItemType.Mail } &&
+                CalendarMailItemTemplate != null)
+            {
+                return CalendarMailItemTemplate;
+            }
+
+            return GetSingleMailTemplate() ?? throw new Exception("Missing template for mail rows.");
+        }
+
         if (item is MailItemViewModel mailItemViewModel)
         {
             // Check if it's a calendar-related item

@@ -55,12 +55,12 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
 
         try
         {
-            var updateNotes = await _updateManager.GetLatestUpdateNotesAsync();
-            UpdateSections = updateNotes.Sections;
+            var updateNotes = await _updateManager.GetLatestUpdateNotesAsync().ConfigureAwait(false);
+            await ExecuteUIThread(() => UpdateSections = updateNotes.Sections);
         }
         catch (Exception)
         {
-            UpdateSections = [];
+            await ExecuteUIThread(() => UpdateSections = []);
         }
     }
 
@@ -80,7 +80,8 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
 
         try
         {
-            var account = await _dialogService.ShowWinoAccountLoginDialogAsync().ConfigureAwait(false);
+            var account = await ExecuteUIThreadAsync(
+                _dialogService.ShowWinoAccountLoginDialogAsync).ConfigureAwait(false);
             if (account == null)
             {
                 return;
@@ -99,7 +100,11 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
         }
         catch (Exception ex)
         {
-            await _dialogService.ShowMessageAsync(ex.Message, Translator.GeneralTitle_Error, WinoCustomMessageDialogIcon.Error);
+            await ExecuteUIThreadAsync(() =>
+                _dialogService.ShowMessageAsync(
+                    ex.Message,
+                    Translator.GeneralTitle_Error,
+                    WinoCustomMessageDialogIcon.Error)).ConfigureAwait(false);
         }
         finally
         {

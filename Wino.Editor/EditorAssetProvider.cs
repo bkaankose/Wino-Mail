@@ -5,6 +5,10 @@ namespace Wino.Editor;
 internal static class EditorAssetProvider
 {
     private const string ResourcePrefix = "Wino.Editor.Assets.Editor.";
+    private const string LightReaderDocumentTag =
+        "<html id=\"wino-document\" lang=\"en\" data-theme=\"light\">";
+    private const string DarkReaderDocumentTag =
+        "<html id=\"wino-document\" lang=\"en\" data-theme=\"dark\">";
 
     private static readonly string[] PackagedScriptFileNames =
     [
@@ -37,7 +41,13 @@ internal static class EditorAssetProvider
 
     public static Task<string> GetEditorDocumentAsync() => EditorDocument.Value;
 
-    public static Task<string> GetReaderDocumentAsync() => ReaderDocument.Value;
+    public static async Task<string> GetReaderDocumentAsync(bool isDarkMode)
+    {
+        string document = await ReaderDocument.Value.ConfigureAwait(false);
+        return isDarkMode
+            ? document.Replace(LightReaderDocumentTag, DarkReaderDocumentTag, StringComparison.Ordinal)
+            : document;
+    }
 
     private static async Task<string> BuildDocumentAsync(
         string pageFileName,

@@ -126,7 +126,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                 $"{Translator.IMAPSetupDialog_CertificateValidTo}: {connectivityResult.CertificateExpirationDateString}\n\n" +
                 $"{Translator.IMAPSetupDialog_CertificateAllowanceRequired_Row1}";
 
-            var allowCertificate = await ExecuteUIThreadTaskAsync(
+            var allowCertificate = await ExecuteUIThreadAsync(
                 () => MailDialogService.ShowConfirmationDialogAsync(certificateMessage, Translator.GeneralTitle_Warning, Translator.Buttons_Allow))
                 .ConfigureAwait(false);
 
@@ -157,65 +157,6 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
         await _calDavClient.DiscoverCalendarsAsync(settings).ConfigureAwait(false);
     }
 
-    private async Task ExecuteUIThreadTaskAsync(Func<Task> action)
-    {
-        if (Dispatcher == null)
-        {
-            await action().ConfigureAwait(false);
-            return;
-        }
-
-        var completionSource = new TaskCompletionSource<object>();
-
-        await ExecuteUIThread(() =>
-        {
-            _ = ExecuteAndCaptureAsync();
-
-            async Task ExecuteAndCaptureAsync()
-            {
-                try
-                {
-                    await action().ConfigureAwait(false);
-                    completionSource.TrySetResult(null);
-                }
-                catch (Exception ex)
-                {
-                    completionSource.TrySetException(ex);
-                }
-            }
-        });
-
-        await completionSource.Task.ConfigureAwait(false);
-    }
-
-    private async Task<T> ExecuteUIThreadTaskAsync<T>(Func<Task<T>> action)
-    {
-        if (Dispatcher == null)
-            return await action().ConfigureAwait(false);
-
-        var completionSource = new TaskCompletionSource<T>();
-
-        await ExecuteUIThread(() =>
-        {
-            _ = ExecuteAndCaptureAsync();
-
-            async Task ExecuteAndCaptureAsync()
-            {
-                try
-                {
-                    var result = await action().ConfigureAwait(false);
-                    completionSource.TrySetResult(result);
-                }
-                catch (Exception ex)
-                {
-                    completionSource.TrySetException(ex);
-                }
-            }
-        });
-
-        return await completionSource.Task.ConfigureAwait(false);
-    }
-
     [RelayCommand]
     private void EditMergedAccounts(MergedAccountProviderDetailViewModel mergedAccountProviderDetailViewModel)
     {
@@ -232,7 +173,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     {
         try
         {
-            var exportPath = await ExecuteUIThreadTaskAsync(
+            var exportPath = await ExecuteUIThreadAsync(
                 () => MailDialogService.PickFilePathAsync(LocalExportFileName))
                 .ConfigureAwait(false);
 
@@ -269,7 +210,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     {
         try
         {
-            var fileContent = await ExecuteUIThreadTaskAsync(
+            var fileContent = await ExecuteUIThreadAsync(
                 () => MailDialogService.PickWindowsFileContentAsync(".json"))
                 .ConfigureAwait(false);
 
@@ -357,9 +298,11 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
     public override async Task InitializeAccountsAsync()
     {
-        StartupAccount = null;
-
-        Accounts.Clear();
+        await ExecuteUIThread(() =>
+        {
+            StartupAccount = null;
+            Accounts.Clear();
+        }).ConfigureAwait(false);
 
         var accounts = await AccountService.GetAccountsAsync().ConfigureAwait(false);
 

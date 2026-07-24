@@ -9,6 +9,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Mail.Controls.Core;
 #if WINRT_EXPOSED
 using WinRT;
 #endif
@@ -21,10 +22,10 @@ namespace Wino.Mail.ViewModels.Data;
 #if WINRT_EXPOSED
 [GeneratedWinRTExposedType]
 [GeneratedBindableCustomProperty(
-    new string[] { nameof(IsSelected), nameof(IsBusy) },
+    new string[] { nameof(IsBusy) },
     new Type[] { })]
 #endif
-public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMailItemDisplayInformation
+public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMailItemDisplayInformation, IMailListSourceItem
 {
     private bool isSyncingCategories;
 
@@ -57,12 +58,16 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
     [NotifyPropertyChangedFor(nameof(IsCalendarEvent))]
     [NotifyPropertyChangedFor(nameof(Importance))]
     [NotifyPropertyChangedFor(nameof(ThreadId))]
+    [NotifyPropertyChangedFor(nameof(ThreadKey))]
     [NotifyPropertyChangedFor(nameof(MessageId))]
     [NotifyPropertyChangedFor(nameof(References))]
     [NotifyPropertyChangedFor(nameof(InReplyTo))]
     [NotifyPropertyChangedFor(nameof(FileId))]
     [NotifyPropertyChangedFor(nameof(FolderId))]
     [NotifyPropertyChangedFor(nameof(UniqueId))]
+    [NotifyPropertyChangedFor(nameof(StableId))]
+    [NotifyPropertyChangedFor(nameof(DateSortKey))]
+    [NotifyPropertyChangedFor(nameof(NameSortKey))]
     [NotifyPropertyChangedFor(nameof(ContactPictureFileId))]
     [NotifyPropertyChangedFor(nameof(SenderContact))]
     [NotifyPropertyChangedFor(nameof(Categories))]
@@ -72,8 +77,9 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
     [ObservableProperty]
     public partial bool IsDisplayedInThread { get; set; }
 
+    // Compatibility state for non-mail-list surfaces. The active threaded mail
+    // list never writes this property; native container selection is authoritative.
     [ObservableProperty]
-    [NotifyPropertyChangedRecipients]
     public partial bool IsSelected { get; set; }
 
     /// <summary>
@@ -90,6 +96,14 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
     public bool ShouldFocusComposerOnOpen { get; set; }
 
     public bool IsThreadExpanded => false;
+
+    public Guid StableId => UniqueId;
+
+    public string? ThreadKey => ThreadId;
+
+    public DateTimeOffset DateSortKey => new(CreationDate);
+
+    public string NameSortKey => SortingName ?? string.Empty;
 
     public AccountContact SenderContact => MailCopy.SenderContact;
 
@@ -499,6 +513,7 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
         {
             Queue(nameof(CreationDate));
             Queue(nameof(SortingDate));
+            Queue(nameof(DateSortKey));
         }
 
         if ((changedFlags & MailCopyChangeFlags.IsFlagged) != 0)
@@ -511,6 +526,7 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
         {
             Queue(nameof(FromName));
             Queue(nameof(SortingName));
+            Queue(nameof(NameSortKey));
         }
 
         if ((changedFlags & MailCopyChangeFlags.FromAddress) != 0)
@@ -518,6 +534,7 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
             Queue(nameof(FromAddress));
             Queue(nameof(FromName));
             Queue(nameof(SortingName));
+            Queue(nameof(NameSortKey));
         }
 
         if ((changedFlags & MailCopyChangeFlags.IsFocused) != 0)
@@ -572,7 +589,10 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
             Queue(nameof(Importance));
 
         if ((changedFlags & MailCopyChangeFlags.ThreadId) != 0)
+        {
             Queue(nameof(ThreadId));
+            Queue(nameof(ThreadKey));
+        }
 
         if ((changedFlags & MailCopyChangeFlags.MessageId) != 0)
             Queue(nameof(MessageId));
@@ -590,7 +610,10 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
             Queue(nameof(FolderId));
 
         if ((changedFlags & MailCopyChangeFlags.UniqueId) != 0)
+        {
             Queue(nameof(UniqueId));
+            Queue(nameof(StableId));
+        }
 
         if ((changedFlags & MailCopyChangeFlags.SenderContact) != 0)
         {

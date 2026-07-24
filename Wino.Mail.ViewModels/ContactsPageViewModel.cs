@@ -101,7 +101,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         => await ExecuteUIThread(() => { OnPropertyChanged(nameof(IsEmpty)); });
 
     void IRecipient<NewContactRequested>.Receive(NewContactRequested message)
-        => _ = AddContactAsync();
+        => _ = ExecuteUIThreadAsync(AddContactAsync);
 
     [RelayCommand]
     private async Task ReloadContactsAsync()

@@ -7,7 +7,7 @@ using Wino.Core.Domain.Models.Folders;
 
 namespace Wino.Core.Domain.Models.MailItem;
 
-public record MailListInitializationOptions(IEnumerable<IMailItemFolder> Folders,
+public record MailListInitializationOptions(IReadOnlyList<IMailItemFolder> Folders,
                                             FilterOptionType FilterType,
                                             SortingOptionType SortingOptionType,
                                             bool CreateThreads,

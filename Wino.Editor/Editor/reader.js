@@ -2,6 +2,7 @@
     "use strict";
     const reader = document.getElementById("wino-reader");
     let originalHtml = "";
+    let presentationVersion = 0;
 
     function post(message) {
         if (window.chrome && window.chrome.webview) window.chrome.webview.postMessage(message);
@@ -17,21 +18,39 @@
         return decodeURIComponent(encoded);
     }
 
+    function beginPresentationUpdate() {
+        presentationVersion += 1;
+        reader.style.visibility = "hidden";
+        return presentationVersion;
+    }
+
+    function revealAfterStylesSettle(version) {
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                if (version === presentationVersion) reader.style.visibility = "visible";
+            });
+        });
+    }
+
     function render(base64Html, linkify) {
+        const version = beginPresentationUpdate();
         originalHtml = decode(base64Html);
         reader.innerHTML = originalHtml;
         if (linkify && window.linkifyElement) {
             window.linkifyElement(reader, { target: "_blank", rel: "noopener noreferrer", ignoreTags: ["A", "SCRIPT", "STYLE", "TEXTAREA", "CODE", "PRE"] });
         }
+        revealAfterStylesSettle(version);
         return true;
     }
 
     function setTheme(isDark) {
+        const version = beginPresentationUpdate();
         document.documentElement.dataset.theme = isDark ? "dark" : "light";
         if (window.DarkReader) {
             if (isDark) window.DarkReader.enable({ brightness: 100, contrast: 90, sepia: 0 });
             else window.DarkReader.disable();
         }
+        revealAfterStylesSettle(version);
     }
 
     function setTypography(fontFamily, fontSize) {
@@ -58,6 +77,7 @@
     window.WinoRenderer = {
         render,
         clear() {
+            beginPresentationUpdate();
             originalHtml = "";
             while (reader.firstChild) reader.removeChild(reader.firstChild);
         },
