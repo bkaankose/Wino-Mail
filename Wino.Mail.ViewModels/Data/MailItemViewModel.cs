@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Linq;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.MailItem;
 
 namespace Wino.Mail.ViewModels.Data;
 
@@ -18,6 +20,9 @@ namespace Wino.Mail.ViewModels.Data;
 public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMailItemDisplayInformation
 {
     private bool isSyncingCategories;
+    private string _cachedFilteredPreview;
+    private string _cachedRawPreview;
+    private int _cachedFilterVersion = -1;
 
     public MailItemViewModel(MailCopy mailCopy, AccountNicknamePosition accountNicknamePosition = AccountNicknamePosition.None)
     {
@@ -205,8 +210,34 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
 
     public string PreviewText
     {
-        get => MailCopy.PreviewText;
+        get
+        {
+            var raw = MailCopy.PreviewText;
+
+            if (!PreviewTextFilter.HasPatterns)
+                return raw;
+
+            if (_cachedRawPreview == raw && _cachedFilterVersion == PreviewTextFilter.Version)
+                return _cachedFilteredPreview ?? raw;
+
+            // Return raw immediately, filter in background.
+            _ = FilterPreviewTextAsync(raw, PreviewTextFilter.Version);
+            return _cachedFilteredPreview ?? raw;
+        }
         set => SetProperty(MailCopy.PreviewText, value, MailCopy, (u, n) => u.PreviewText = n);
+    }
+
+    private async Task FilterPreviewTextAsync(string raw, int version)
+    {
+        var filtered = await PreviewTextFilter.ApplyAsync(raw);
+
+        if (version != PreviewTextFilter.Version) return;
+
+        _cachedRawPreview = raw;
+        _cachedFilteredPreview = filtered;
+        _cachedFilterVersion = version;
+
+        OnPropertyChanged(nameof(PreviewText));
     }
 
     public string FromAddress

@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain;
@@ -8,12 +10,51 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Navigation;
 
 namespace Wino.Mail.ViewModels;
 
 public partial class MessageListPageViewModel : MailBaseViewModel
 {
     public IPreferencesService PreferencesService { get; }
+
+    // Milliseconds to wait after the last keystroke before validating and applying the filter,
+    // so nothing is re-evaluated while the user is still typing.
+    private const int PreviewFilterApplyDelayMs = 1000;
+    private CancellationTokenSource _previewFilterApplyCts;
+
+    private string previewFilterPatternsDraft = string.Empty;
+    /// <summary>
+    /// Working copy of the filter patterns bound to the settings text box. Editing it validates
+    /// immediately (cheap) and applies to the saved preference after a short debounce, so no
+    /// explicit "apply" action is needed.
+    /// </summary>
+    public string PreviewFilterPatternsDraft
+    {
+        get => previewFilterPatternsDraft;
+        set
+        {
+            if (!SetProperty(ref previewFilterPatternsDraft, value)) return;
+
+            // Clear the (now possibly stale) warning as soon as the user types; it is
+            // re-evaluated once typing pauses (see the debounce below).
+            PreviewFilterErrorMessage = string.Empty;
+            ScheduleApplyPreviewFilter();
+        }
+    }
+
+    private string previewFilterErrorMessage = string.Empty;
+    /// <summary>
+    /// Human-readable description of any invalid preview-text-filter patterns.
+    /// Empty when all patterns are valid; bound to a warning shown below the input box.
+    /// </summary>
+    public string PreviewFilterErrorMessage
+    {
+        get => previewFilterErrorMessage;
+        private set => SetProperty(ref previewFilterErrorMessage, value);
+    }
+
     private readonly IThumbnailService _thumbnailService;
     private readonly IStatePersistanceService _statePersistenceService;
     private readonly IDialogServiceBase _dialogService;
@@ -286,6 +327,75 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         {
             selectedTimeFormatPreferenceIndex = timeFormatPreferenceOptions.IndexOf(TimeFormatPreference.UseLanguageCulture);
         }
+    }
+
+    public override void OnNavigatedTo(NavigationMode mode, object parameters)
+    {
+        base.OnNavigatedTo(mode, parameters);
+
+        previewFilterPatternsDraft = PreferencesService.PreviewTextFilterPatterns ?? string.Empty;
+        OnPropertyChanged(nameof(PreviewFilterPatternsDraft));
+
+        PreferencesService.PreferenceChanged += OnPreferenceChanged;
+        RefreshPreviewFilterError();
+    }
+
+    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    {
+        base.OnNavigatedFrom(mode, parameters);
+
+        PreferencesService.PreferenceChanged -= OnPreferenceChanged;
+
+        // Flush any pending edit that the debounce timer has not applied yet.
+        _previewFilterApplyCts?.Cancel();
+        ApplyPreviewFilterDraft();
+    }
+
+    private void OnPreferenceChanged(object sender, string key)
+    {
+        // Re-validate against the current draft when the regex toggle changes.
+        if (key == nameof(IPreferencesService.PreviewTextFilterUseRegex))
+        {
+            RefreshPreviewFilterError();
+        }
+    }
+
+    private async void ScheduleApplyPreviewFilter()
+    {
+        _previewFilterApplyCts?.Cancel();
+        _previewFilterApplyCts?.Dispose();
+
+        var cts = new CancellationTokenSource();
+        _previewFilterApplyCts = cts;
+
+        try
+        {
+            await Task.Delay(PreviewFilterApplyDelayMs, cts.Token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        if (cts.IsCancellationRequested) return;
+
+        RefreshPreviewFilterError();
+        ApplyPreviewFilterDraft();
+    }
+
+    private void ApplyPreviewFilterDraft()
+    {
+        if (PreferencesService.PreviewTextFilterPatterns == previewFilterPatternsDraft) return;
+
+        PreferencesService.PreviewTextFilterPatterns = previewFilterPatternsDraft;
+    }
+
+    private void RefreshPreviewFilterError()
+    {
+        var errors = PreviewTextFilter.Validate(previewFilterPatternsDraft, PreferencesService.PreviewTextFilterUseRegex);
+        PreviewFilterErrorMessage = errors.Count == 0
+            ? string.Empty
+            : string.Join(Environment.NewLine, errors.Select(e => string.Format(Translator.SettingsPreviewTextFilter_InvalidPattern, e.Line, e.Message)));
     }
 
     [RelayCommand]

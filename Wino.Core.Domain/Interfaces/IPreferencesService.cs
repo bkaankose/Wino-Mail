@@ -301,6 +301,17 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// </summary>
     AccountNicknamePosition AccountNicknamePosition { get; set; }
 
+    /// <summary>
+    /// Setting: Newline-delimited patterns to strip from preview text at display time.
+    /// </summary>
+    string PreviewTextFilterPatterns { get; set; }
+
+    /// <summary>
+    /// Setting: When true the preview text filter patterns are treated as regular
+    /// expressions; when false (default) they are matched as plain text.
+    /// </summary>
+    bool PreviewTextFilterUseRegex { get; set; }
+
     #endregion
 
     #region Calendar
