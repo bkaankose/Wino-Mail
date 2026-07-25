@@ -48,6 +48,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
     IRecipient<ClearMailSelectionsRequested>,
     IRecipient<ActiveMailItemChangedEvent>,
     IRecipient<SelectMailItemContainerEvent>,
+    IRecipient<ComposeDetachedDraftRequested>,
     IRecipient<DisposeRenderingFrameRequested>,
     IHostedPopoutSource,
     IWinoFrameProvider,
@@ -61,6 +62,13 @@ public sealed partial class MailListPage : MailListPageAbstract,
     private int _idleNavigationRequestVersion = 0;
     private int _mailActivationRequestVersion = 0;
     private int _selectMailContainerRequestVersion = 0;
+
+    /// <summary>
+    /// True while the rendering frame hosts a composer for a draft that is not part of the
+    /// mail listing. The reader panel has to stay visible even though nothing is selected.
+    /// </summary>
+    private bool _isDetachedComposerActive;
+
     private IPopoutClient? _activePopoutClient;
     private readonly Dictionary<FrameworkElement, HostedContentPopoutWindow> _hostedPopoutWindows = [];
     private PendingHostedPopoutNavigation? _pendingHostedPopoutNavigation;
@@ -114,6 +122,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         base.OnNavigatedFrom(e);
+
+        _isDetachedComposerActive = false;
 
         InvalidatePendingIdleNavigation();
         InvalidatePendingMailActivation();
@@ -438,6 +448,9 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     private void ApplyActiveMailItemChange(MailItemViewModel? selectedMailItemViewModel)
     {
+        // Selection drives the rendering frame from here on. Any detached composer is replaced.
+        _isDetachedComposerActive = false;
+
         // No active mail item. Go to empty page.
         if (selectedMailItemViewModel == null)
         {
@@ -570,6 +583,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
         if (requestVersion != _idleNavigationRequestVersion) return;
         if (ViewModel.SelectedItemsCount != 0) return;
+        if (_isDetachedComposerActive) return;
 
         if (IsRenderingPageActive())
         {
@@ -583,6 +597,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
         if (requestVersion != _idleNavigationRequestVersion) return;
         if (ViewModel.SelectedItemsCount != 0) return;
+        if (_isDetachedComposerActive) return;
 
         // Ensure rendering frame actually navigates away from Compose/Rendering pages.
         // Otherwise those pages keep their messenger registrations alive.
@@ -677,6 +692,47 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
     }
 
+    async void IRecipient<ComposeDetachedDraftRequested>.Receive(ComposeDetachedDraftRequested message)
+    {
+        if (message.Draft == null) return;
+
+        // The draft is not listed, so there is nothing to select. Drop the current selection
+        // and host the composer in the rendering frame on its own.
+        InvalidatePendingMailContainerSelection();
+
+        MailListView.ClearSelection();
+        await MailListView.WaitForSelectionSyncAsync();
+
+        // Clearing the selection reports a null active mail item, which would navigate the
+        // rendering frame to the idle page. Discard that pending work before opening the composer.
+        InvalidatePendingMailActivation();
+        InvalidatePendingIdleNavigation();
+
+        var composerPageTransition = NavigationTransitionType.None;
+
+        if (IsRenderingPageActive())
+        {
+            // Prepare WebView2 animation from Rendering to Composing page.
+            PrepareRenderingPageWebViewTransition();
+
+            // Dispose existing HTML content from rendering page webview.
+            if (RenderingFrame.Content is MailRenderingPage renderingPage)
+            {
+                _ = renderingPage.ClearRenderedContentAsync();
+            }
+        }
+        else if (!IsComposingPageActive())
+        {
+            composerPageTransition = NavigationTransitionType.DrillIn;
+        }
+
+        _isDetachedComposerActive = true;
+
+        ViewModel.NavigationService.Navigate(WinoPage.ComposePage, message.Draft, NavigationReferenceFrame.RenderingFrame, composerPageTransition);
+
+        UpdateAdaptiveness();
+    }
+
     private bool IsPendingMailContainerSelectionCurrent(int requestVersion)
         => Volatile.Read(ref _selectMailContainerRequestVersion) == requestVersion;
 
@@ -699,6 +755,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     public void Receive(DisposeRenderingFrameRequested message)
     {
+        _isDetachedComposerActive = false;
+
         InvalidatePendingMailContainerSelection();
         ViewModel.NavigationService.Navigate(WinoPage.IdlePage, null, NavigationReferenceFrame.RenderingFrame, NavigationTransitionType.DrillIn);
         UpdateAdaptiveness();
@@ -709,6 +767,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         WeakReferenceMessenger.Default.Register<ClearMailSelectionsRequested>(this);
         WeakReferenceMessenger.Default.Register<ActiveMailItemChangedEvent>(this);
         WeakReferenceMessenger.Default.Register<SelectMailItemContainerEvent>(this);
+        WeakReferenceMessenger.Default.Register<ComposeDetachedDraftRequested>(this);
         WeakReferenceMessenger.Default.Register<DisposeRenderingFrameRequested>(this);
     }
 
@@ -717,6 +776,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         WeakReferenceMessenger.Default.Unregister<ClearMailSelectionsRequested>(this);
         WeakReferenceMessenger.Default.Unregister<ActiveMailItemChangedEvent>(this);
         WeakReferenceMessenger.Default.Unregister<SelectMailItemContainerEvent>(this);
+        WeakReferenceMessenger.Default.Unregister<ComposeDetachedDraftRequested>(this);
         WeakReferenceMessenger.Default.Unregister<DisposeRenderingFrameRequested>(this);
     }
 
@@ -738,6 +798,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
     {
         bool isMultiSelectionEnabled = ViewModel.IsMultiSelectionModeEnabled;
         bool hasReaderSelection =
+            _isDetachedComposerActive ||
             (ViewModel.HasSingleItemSelected && !isMultiSelectionEnabled) ||
             ViewModel.HasSingleFullySelectedThread;
 
@@ -1070,6 +1131,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
     {
         if (RenderingFrame.Content is not FrameworkElement content)
             throw new InvalidOperationException("RenderingFrame does not host detachable content.");
+
+        _isDetachedComposerActive = false;
 
         InvalidatePendingIdleNavigation();
         DetachPopoutClient();

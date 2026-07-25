@@ -2008,6 +2008,22 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     {
         base.OnDraftCreated(draftMail, account);
 
+        // Drafts always live in the account's Draft folder. When the active listing doesn't
+        // display that folder, the draft must not be injected into the list. Open the composer
+        // in a detached state instead so the user stays in the folder they are working on.
+        if (!ShouldIncludeAddedMailInCurrentList(draftMail))
+        {
+            await ExecuteUIThread(() =>
+            {
+                var detachedDraft = CreateMailItemViewModel(draftMail);
+                detachedDraft.ShouldFocusComposerOnOpen = true;
+
+                Messenger.Send(new ComposeDetachedDraftRequested(detachedDraft));
+            });
+
+            return;
+        }
+
         var acquired = false;
         try
         {

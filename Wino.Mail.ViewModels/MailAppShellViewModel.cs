@@ -1195,8 +1195,14 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             return;
         }
 
-        // Navigate to draft folder.
-        await NavigateSpecialFolderAsync(account, SpecialFolderType.Draft, true);
+        // Creating a draft doesn't switch the user's folder anymore. The mail list page hosts the
+        // composer for the new draft in place, keeping the currently listed folder untouched.
+        // Only when there is no folder listed at all we fall back to the Draft folder, so the
+        // composer has a host page to be rendered in.
+        if (SelectedMenuItem is not IBaseFolderMenuItem)
+        {
+            await NavigateSpecialFolderAsync(account, SpecialFolderType.Draft, true);
+        }
 
         // Generate empty mime message.
         var draftOptions = new DraftCreationOptions

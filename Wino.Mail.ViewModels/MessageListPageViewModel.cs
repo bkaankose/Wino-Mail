@@ -348,10 +348,14 @@ public partial class MessageListPageViewModel : MailBaseViewModel
             }
         };
         public bool HasCategories => Categories.Count > 0;
-        public AccountContact SenderContact => new()
+
+        // Cached and consistent with FromName/FromAddress: the avatar resolves its address, display
+        // name and picture from this contact, so a fresh instance per access would make the preview
+        // avatar disagree with the sender shown next to it.
+        public AccountContact SenderContact { get; } = new()
         {
-            Address = "hi@bkaan.dev",
-            Name = "Burak Kaan Köse"
+            Address = "ava@contoso.com",
+            Name = "Ava Brooks"
         };
     }
 }
