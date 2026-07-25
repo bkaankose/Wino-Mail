@@ -1,7 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -19,7 +18,7 @@ namespace Wino.Core.ViewModels;
 public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewModel
 {
     public ObservableCollection<IAccountProviderDetailViewModel> Accounts { get; set; } = [];
-    public IEnumerable<IAccountProviderDetailViewModel> StartupAccounts => Accounts.Where(IsStartupEligible);
+    public ObservableCollection<IAccountProviderDetailViewModel> StartupAccounts { get; } = [];
 
     public bool IsPurchasePanelVisible => !HasUnlimitedAccountProduct;
     public bool IsAccountCreationAlmostOnLimit => Accounts != null && Accounts.Count == FREE_ACCOUNT_COUNT - 1;
@@ -133,9 +132,18 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
     private void AccountsChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
         OnPropertyChanged(nameof(HasAccountsDefined));
-        OnPropertyChanged(nameof(StartupAccounts));
-
+        RefreshStartupAccounts();
         RestoreStartupAccountSelection();
+    }
+
+    private void RefreshStartupAccounts()
+    {
+        StartupAccounts.Clear();
+
+        foreach (var account in Accounts.Where(IsStartupEligible))
+        {
+            StartupAccounts.Add(account);
+        }
     }
 
     private void RestoreStartupAccountSelection()
