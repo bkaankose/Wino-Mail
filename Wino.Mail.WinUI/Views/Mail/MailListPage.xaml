@@ -16,6 +16,7 @@
     xmlns:interfaces="using:Wino.Core.Domain.Interfaces"
     xmlns:listview="using:Wino.Mail.WinUI.Controls.ListView"
     xmlns:mail="using:Wino.Core.Domain.Entities.Mail"
+    xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
     xmlns:mailListCore="using:Wino.Mail.Controls.Core"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:menuflyouts="using:Wino.MenuFlyouts"
@@ -157,7 +158,7 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <controls:ImagePreviewControl
+                <mailControls:WinoContactPicture
                     x:Name="SenderPictureControl"
                     Grid.Column="0"
                     Width="28"
@@ -165,8 +166,10 @@
                     VerticalAlignment="Center"
                     x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                     x:Phase="2"
+                    ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(SenderContact, FromName, FromAddress), Mode=OneWay}"
                     FontSize="12"
-                    MailItemInformation="{x:Bind}" />
+                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
 
                 <Grid
                     Grid.Column="1"
@@ -329,7 +332,7 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <controls:ImagePreviewControl
+                <mailControls:WinoContactPicture
                     x:Name="SenderPictureControl"
                     Grid.Column="0"
                     Width="30"
@@ -337,8 +340,10 @@
                     VerticalAlignment="Center"
                     x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                     x:Phase="2"
+                    ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(SenderContact, FromName, FromAddress), Mode=OneWay}"
                     FontSize="12"
-                    MailItemInformation="{x:Bind}" />
+                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
 
                 <Grid
                     Grid.Column="1"
@@ -511,7 +516,7 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <controls:ImagePreviewControl
+                <mailControls:WinoContactPicture
                     x:Name="SenderPictureControl"
                     Grid.Column="0"
                     Width="36"
@@ -519,8 +524,10 @@
                     VerticalAlignment="Center"
                     x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                     x:Phase="2"
+                    ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(SenderContact, FromName, FromAddress), Mode=OneWay}"
                     FontSize="12"
-                    MailItemInformation="{x:Bind}" />
+                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
 
                 <Grid
                     Grid.Column="1"
@@ -700,15 +707,17 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <controls:ImagePreviewControl
+                    <mailControls:WinoContactPicture
                         x:Name="SenderPictureControl"
                         Width="28"
                         Height="28"
                         VerticalAlignment="Center"
                         x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                         x:Phase="2"
+                        ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(SenderContact, FromName, FromAddress), Mode=OneWay}"
                         FontSize="12"
-                        MailItemInformation="{x:Bind}" />
+                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
                     <Grid
                         Grid.Column="1"
                         VerticalAlignment="Center"
@@ -872,15 +881,17 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <controls:ImagePreviewControl
+                    <mailControls:WinoContactPicture
                         x:Name="SenderPictureControl"
                         Width="30"
                         Height="30"
                         VerticalAlignment="Center"
                         x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                         x:Phase="2"
+                        ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(SenderContact, FromName, FromAddress), Mode=OneWay}"
                         FontSize="12"
-                        MailItemInformation="{x:Bind}" />
+                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
                     <StackPanel
                         Grid.Column="1"
                         VerticalAlignment="Center"
@@ -1048,15 +1059,17 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <controls:ImagePreviewControl
+                    <mailControls:WinoContactPicture
                         x:Name="SenderPictureControl"
                         Width="36"
                         Height="36"
                         VerticalAlignment="Center"
                         x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                         x:Phase="2"
+                        ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(SenderContact, FromName, FromAddress), Mode=OneWay}"
                         FontSize="12"
-                        MailItemInformation="{x:Bind}" />
+                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
                     <StackPanel
                         Grid.Column="1"
                         VerticalAlignment="Center"
@@ -1888,16 +1901,111 @@
                 x:Name="NoMailSelectedPanel"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
-                Opacity="0.5"
                 Spacing="6"
                 Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.ThemeService.IsCustomTheme)}">
 
-                <coreControls:WinoFontIcon FontSize="80" Icon="Mail" />
+                <coreControls:WinoFontIcon
+                    HorizontalAlignment="Center"
+                    FontSize="80"
+                    Icon="Mail"
+                    Opacity="0.5" />
 
                 <TextBlock
                     HorizontalAlignment="Center"
+                    Opacity="0.5"
                     Style="{StaticResource SubheaderTextBlockStyle}"
                     Text="{x:Bind ViewModel.SelectedMessageText, Mode=OneWay}" />
+
+                <StackPanel
+                    Width="244"
+                    Margin="0,12,0,0"
+                    Spacing="2"
+                    Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.SelectedItemsCount), Mode=OneWay}">
+                    <HyperlinkButton
+                        MinHeight="44"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Left"
+                        AutomationProperties.AutomationId="MailListPageDeleteSelectedButton"
+                        AutomationProperties.Name="{x:Bind domain:Translator.MailOperation_Delete, Mode=OneTime}"
+                        Command="{x:Bind ViewModel.RequestIdleDeleteCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <coreControls:WinoFontIcon
+                                Width="20"
+                                FontSize="16"
+                                Icon="Delete" />
+                            <TextBlock Text="{x:Bind domain:Translator.MailOperation_Delete, Mode=OneTime}" />
+                        </StackPanel>
+                    </HyperlinkButton>
+
+                    <HyperlinkButton
+                        MinHeight="44"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Left"
+                        AutomationProperties.AutomationId="MailListPageFlagSelectedButton"
+                        AutomationProperties.Name="{x:Bind domain:Translator.MailOperation_Flag, Mode=OneTime}"
+                        Command="{x:Bind ViewModel.RequestIdleFlagCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <coreControls:WinoFontIcon
+                                Width="20"
+                                FontSize="16"
+                                Icon="Flag" />
+                            <TextBlock Text="{x:Bind domain:Translator.MailOperation_Flag, Mode=OneTime}" />
+                        </StackPanel>
+                    </HyperlinkButton>
+
+                    <HyperlinkButton
+                        MinHeight="44"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Left"
+                        AutomationProperties.AutomationId="MailListPageToggleReadSelectedButton"
+                        AutomationProperties.Name="{x:Bind domain:Translator.MarkReadUnread, Mode=OneTime}"
+                        Command="{x:Bind ViewModel.RequestIdleToggleReadCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <coreControls:WinoFontIcon
+                                Width="20"
+                                FontSize="16"
+                                Icon="MarkRead" />
+                            <TextBlock Text="{x:Bind domain:Translator.MarkReadUnread, Mode=OneTime}" />
+                        </StackPanel>
+                    </HyperlinkButton>
+
+                    <HyperlinkButton
+                        MinHeight="44"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Left"
+                        AutomationProperties.AutomationId="MailListPageMoveSelectedButton"
+                        AutomationProperties.Name="{x:Bind domain:Translator.MailOperation_Move, Mode=OneTime}"
+                        Command="{x:Bind ViewModel.RequestIdleMoveCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <coreControls:WinoFontIcon
+                                Width="20"
+                                FontSize="16"
+                                Icon="Move" />
+                            <TextBlock Text="{x:Bind domain:Translator.MailOperation_Move, Mode=OneTime}" />
+                        </StackPanel>
+                    </HyperlinkButton>
+
+                    <Rectangle
+                        Height="1"
+                        Margin="0,8"
+                        Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                    <HyperlinkButton
+                        MinHeight="44"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Left"
+                        AutomationProperties.AutomationId="MailListPageUnselectAllButton"
+                        AutomationProperties.Name="{x:Bind domain:Translator.Buttons_UnselectAll, Mode=OneTime}"
+                        Command="{x:Bind ViewModel.UnselectAllCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <coreControls:WinoFontIcon
+                                Width="20"
+                                FontSize="16"
+                                Icon="Dismiss" />
+                            <TextBlock Text="{x:Bind domain:Translator.Buttons_UnselectAll, Mode=OneTime}" />
+                        </StackPanel>
+                    </HyperlinkButton>
+                </StackPanel>
             </StackPanel>
         </Grid>
 

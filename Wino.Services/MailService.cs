@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -25,6 +26,7 @@ namespace Wino.Services;
 public class MailService : BaseDatabaseService, IMailService
 {
     private const int ItemLoadCount = 100;
+    private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _draftLifecycleLocks = new();
 
     private readonly IFolderService _folderService;
     private readonly IContactService _contactService;
@@ -97,6 +99,11 @@ public class MailService : BaseDatabaseService, IMailService
             InReplyTo = GetNormalizedMimeInReplyTo(createdDraftMimeMessage),
             References = GetNormalizedMimeReferences(createdDraftMimeMessage)
         };
+
+        // Drafts are published to the UI immediately, before a later database
+        // query can hydrate ignored navigation properties. Populate the sender
+        // contact now so a blank draft can show the composing user's avatar.
+        copy.SenderContact = await GetSenderContactForAccountAsync(composerAccount, copy.FromAddress).ConfigureAwait(false);
 
         if (draftCreationOptions.ReferencedMessage != null)
         {
@@ -2100,46 +2107,80 @@ public class MailService : BaseDatabaseService, IMailService
 
     private async Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId, uint? imapUid, uint? imapUidValidity)
     {
-        var localDraftCopy = await Connection.FindWithQueryAsync<MailCopy>(
-            "SELECT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id WHERE MailCopy.UniqueId = ? AND MailItemFolder.MailAccountId = ?",
-            localDraftCopyUniqueId, accountId);
+        var lifecycleLock = _draftLifecycleLocks.GetOrAdd(localDraftCopyUniqueId, static _ => new SemaphoreSlim(1, 1));
+        await lifecycleLock.WaitAsync().ConfigureAwait(false);
 
-        if (localDraftCopy == null)
+        try
         {
-            _logger.Warning("Draft mapping failed because local draft copy with unique id {LocalDraftCopyUniqueId} does not exist.", localDraftCopyUniqueId);
+            var localDraftCopy = await Connection.FindWithQueryAsync<MailCopy>(
+                "SELECT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id WHERE MailCopy.UniqueId = ? AND MailItemFolder.MailAccountId = ?",
+                localDraftCopyUniqueId, accountId);
 
-            return false;
+            if (localDraftCopy == null)
+            {
+                _logger.Warning("Draft mapping failed because local draft copy with unique id {LocalDraftCopyUniqueId} does not exist.", localDraftCopyUniqueId);
+
+                return false;
+            }
+
+            var oldLocalDraftId = localDraftCopy.Id;
+
+            localDraftCopy = await HydrateMailCopyAsync(localDraftCopy).ConfigureAwait(false);
+
+            localDraftCopy.Id = newMailCopyId;
+            if (!string.IsNullOrEmpty(newDraftId))
+                localDraftCopy.DraftId = newDraftId;
+            if (!string.IsNullOrEmpty(newThreadId))
+                localDraftCopy.ThreadId = newThreadId;
+
+            if (imapUid.HasValue)
+                localDraftCopy.ImapUid = imapUid.Value;
+            if (imapUidValidity.HasValue)
+                localDraftCopy.ImapUidValidity = imapUidValidity.Value;
+
+            localDraftCopy.DraftSyncState = DraftSyncState.Synced;
+            localDraftCopy.DraftSyncAttemptCount = 0;
+            localDraftCopy.LastDraftSyncError = null;
+
+            await Connection.UpdateAsync(localDraftCopy, typeof(MailCopy)).ConfigureAwait(false);
+            var hydratedDraftCopy = await HydrateMailCopyAsync(localDraftCopy).ConfigureAwait(false);
+            ReportUpdatedMails([hydratedDraftCopy], MailCopyChangeFlags.Id |
+                                                     MailCopyChangeFlags.DraftId |
+                                                     MailCopyChangeFlags.ThreadId |
+                                                     MailCopyChangeFlags.DraftSyncState);
+
+            ReportUIChange(new DraftMapped(oldLocalDraftId, hydratedDraftCopy.DraftId));
+
+            return true;
         }
+        finally
+        {
+            lifecycleLock.Release();
+        }
+    }
 
-        var oldLocalDraftId = localDraftCopy.Id;
+    public async Task<MailCopy> DiscardLocalDraftAsync(Guid accountId, Guid uniqueMailId)
+    {
+        var lifecycleLock = _draftLifecycleLocks.GetOrAdd(uniqueMailId, static _ => new SemaphoreSlim(1, 1));
+        await lifecycleLock.WaitAsync().ConfigureAwait(false);
 
-        localDraftCopy = await HydrateMailCopyAsync(localDraftCopy).ConfigureAwait(false);
+        try
+        {
+            var currentDraft = await GetSingleMailItemAsync(uniqueMailId).ConfigureAwait(false);
+            if (currentDraft == null || currentDraft.AssignedAccount?.Id != accountId)
+                return null;
 
-        localDraftCopy.Id = newMailCopyId;
-        if (!string.IsNullOrEmpty(newDraftId))
-            localDraftCopy.DraftId = newDraftId;
-        if (!string.IsNullOrEmpty(newThreadId))
-            localDraftCopy.ThreadId = newThreadId;
+            if (!currentDraft.IsLocalDraft)
+                return currentDraft;
 
-        if (imapUid.HasValue)
-            localDraftCopy.ImapUid = imapUid.Value;
-        if (imapUidValidity.HasValue)
-            localDraftCopy.ImapUidValidity = imapUidValidity.Value;
-
-        localDraftCopy.DraftSyncState = DraftSyncState.Synced;
-        localDraftCopy.DraftSyncAttemptCount = 0;
-        localDraftCopy.LastDraftSyncError = null;
-
-        await Connection.UpdateAsync(localDraftCopy, typeof(MailCopy)).ConfigureAwait(false);
-        var hydratedDraftCopy = await HydrateMailCopyAsync(localDraftCopy).ConfigureAwait(false);
-        ReportUpdatedMails([hydratedDraftCopy], MailCopyChangeFlags.Id |
-                                                 MailCopyChangeFlags.DraftId |
-                                                 MailCopyChangeFlags.ThreadId |
-                                                 MailCopyChangeFlags.DraftSyncState);
-
-        ReportUIChange(new DraftMapped(oldLocalDraftId, hydratedDraftCopy.DraftId));
-
-        return true;
+            await DeleteMailInternalAsync(currentDraft, preserveMimeFile: false, reportUiChange: true)
+                .ConfigureAwait(false);
+            return null;
+        }
+        finally
+        {
+            lifecycleLock.Release();
+        }
     }
 
     public Task MapLocalDraftAsync(string mailCopyId, string newDraftId, string newThreadId)

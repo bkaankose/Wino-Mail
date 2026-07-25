@@ -123,9 +123,16 @@ public class WinoRequestProcessor : IWinoRequestProcessor
         if (action == MailOperation.SoftDelete && mailItem.IsDraft)
             action = MailOperation.HardDelete;
 
-        // Rule: Soft/Hard deletes on local drafts are always discard local draft.
-        if ((action == MailOperation.SoftDelete || action == MailOperation.HardDelete) && mailItem.IsLocalDraft)
-            action = MailOperation.DiscardLocalDraft;
+        // A provider response may map the draft while the UI still holds the earlier local
+        // snapshot. Resolve the discard under the same lifecycle lock as draft mapping.
+        if (((action == MailOperation.SoftDelete || action == MailOperation.HardDelete) && mailItem.IsLocalDraft)
+            || action == MailOperation.DiscardLocalDraft)
+        {
+            var mappedDraft = await _mailService
+                .DiscardLocalDraftAsync(mailItem.AssignedAccount.Id, mailItem.UniqueId)
+                .ConfigureAwait(false);
+            return mappedDraft == null ? null : new DeleteRequest(mappedDraft);
+        }
 
         // Rule: Toggle actions must be reverted if ToggleExecution is passed true.
         if (shouldToggleActions)
@@ -218,12 +225,8 @@ public class WinoRequestProcessor : IWinoRequestProcessor
         }
         else if (action == MailOperation.AlwaysMoveToFocused || action == MailOperation.AlwaysMoveToOther)
             return new AlwaysMoveToRequest(mailItem, action == MailOperation.AlwaysMoveToFocused);
-        else if (action == MailOperation.DiscardLocalDraft)
-            await _mailService.DeleteMailAsync(mailItem.AssignedAccount.Id, mailItem.Id);
         else
             throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedAction, action));
-
-        return null;
     }
 
     public async Task<IFolderActionRequest> PrepareFolderRequestAsync(FolderOperationPreperationRequest request)

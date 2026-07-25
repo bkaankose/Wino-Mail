@@ -93,6 +93,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private readonly INativeAppService _nativeAppService;
     private readonly IMailService _mailService;
     private bool _hasRegisteredPersistentRecipients;
+    private int _isCreatingNewMail;
     private readonly SemaphoreSlim _menuRefreshSemaphore = new(1, 1);
     private readonly object _folderNavigationSync = new();
     private IBaseFolderMenuItem _pendingNavigationFolder;
@@ -1178,54 +1179,62 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     public async Task CreateNewMailForAsync(MailAccount account, MailShareRequest shareRequest)
     {
         if (account == null) return;
-
-        // Find draft folder.
-        var draftFolder = await _folderService.GetSpecialFolderByAccountIdAsync(account.Id, SpecialFolderType.Draft);
-
-        if (draftFolder == null)
-        {
-            _dialogService.InfoBarMessage(Translator.Info_DraftFolderMissingTitle,
-                                         Translator.Info_DraftFolderMissingMessage,
-                                         InfoBarMessageType.Error,
-                                         Translator.SettingConfigureSpecialFolders_Button,
-                                         () =>
-                                         {
-                                             _dialogService.HandleSystemFolderConfigurationDialogAsync(account.Id, _folderService);
-                                         });
-            return;
-        }
-
-        // Creating a draft doesn't switch the user's folder anymore. The mail list page hosts the
-        // composer for the new draft in place, keeping the currently listed folder untouched.
-        // Only when there is no folder listed at all we fall back to the Draft folder, so the
-        // composer has a host page to be rendered in.
-        if (SelectedMenuItem is not IBaseFolderMenuItem)
-        {
-            await NavigateSpecialFolderAsync(account, SpecialFolderType.Draft, true);
-        }
-
-        // Generate empty mime message.
-        var draftOptions = new DraftCreationOptions
-        {
-            Reason = DraftCreationReason.Empty,
-            MailToUri = _launchProtocolService.MailToUri
-        };
+        if (Interlocked.Exchange(ref _isCreatingNewMail, 1) != 0) return;
 
         try
         {
-            var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(account.Id, draftOptions).ConfigureAwait(false);
+            // Find draft folder.
+            var draftFolder = await _folderService.GetSpecialFolderByAccountIdAsync(account.Id, SpecialFolderType.Draft);
 
-            if (shareRequest?.Files?.Count > 0)
+            if (draftFolder == null)
             {
-                _shareActivationService.StagePendingComposeShareRequest(draftMailCopy.UniqueId, shareRequest);
+                _dialogService.InfoBarMessage(Translator.Info_DraftFolderMissingTitle,
+                                             Translator.Info_DraftFolderMissingMessage,
+                                             InfoBarMessageType.Error,
+                                             Translator.SettingConfigureSpecialFolders_Button,
+                                             () =>
+                                             {
+                                                 _dialogService.HandleSystemFolderConfigurationDialogAsync(account.Id, _folderService);
+                                             });
+                return;
             }
 
-            var draftPreparationRequest = new DraftPreparationRequest(account, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason);
-            await _winoRequestDelegator.ExecuteAsync(draftPreparationRequest);
+            // Creating a draft doesn't switch the user's folder anymore. The mail list page hosts the
+            // composer for the new draft in place, keeping the currently listed folder untouched.
+            // Only when there is no folder listed at all we fall back to the Draft folder, so the
+            // composer has a host page to be rendered in.
+            if (SelectedMenuItem is not IBaseFolderMenuItem)
+            {
+                await NavigateSpecialFolderAsync(account, SpecialFolderType.Draft, true);
+            }
+
+            // Generate empty mime message.
+            var draftOptions = new DraftCreationOptions
+            {
+                Reason = DraftCreationReason.Empty,
+                MailToUri = _launchProtocolService.MailToUri
+            };
+
+            try
+            {
+                var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(account.Id, draftOptions).ConfigureAwait(false);
+
+                if (shareRequest?.Files?.Count > 0)
+                {
+                    _shareActivationService.StagePendingComposeShareRequest(draftMailCopy.UniqueId, shareRequest);
+                }
+
+                var draftPreparationRequest = new DraftPreparationRequest(account, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason);
+                await _winoRequestDelegator.ExecuteAsync(draftPreparationRequest);
+            }
+            catch (MimePersistenceException ex)
+            {
+                _dialogService.InfoBarMessage(Translator.Info_DraftCreationFailed, ex.Message, InfoBarMessageType.Error);
+            }
         }
-        catch (MimePersistenceException ex)
+        finally
         {
-            _dialogService.InfoBarMessage(Translator.Info_DraftCreationFailed, ex.Message, InfoBarMessageType.Error);
+            Volatile.Write(ref _isCreatingNewMail, 0);
         }
     }
 

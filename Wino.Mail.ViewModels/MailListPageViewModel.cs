@@ -45,7 +45,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     IRecipient<AccountSynchronizerStateChanged>,
     IRecipient<AccountCacheResetMessage>,
     IRecipient<ThumbnailAdded>,
-    IRecipient<SwipeActionRequested>,
+    IRecipient<MailOperationRequested>,
     IRecipient<UndoableMailActionPackChanged>
 {
     private Guid? trackingSynchronizationId = null;
@@ -709,6 +709,31 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         await HandleMailOperation(mailOperation, SelectedItems);
     }
+
+    [RelayCommand]
+    private void RequestIdleDelete()
+        => RequestIdleMailOperation(MailOperation.SoftDelete);
+
+    [RelayCommand]
+    private void RequestIdleFlag()
+        => RequestIdleMailOperation(MailOperation.SetFlag);
+
+    [RelayCommand]
+    private void RequestIdleToggleRead()
+        => RequestIdleMailOperation(MailOperation.MarkAsRead);
+
+    [RelayCommand]
+    private void RequestIdleMove()
+        => RequestIdleMailOperation(MailOperation.Move);
+
+    [RelayCommand]
+    private void UnselectAll()
+        => Messenger.Send(new ClearMailSelectionsRequested());
+
+    private void RequestIdleMailOperation(MailOperation operation)
+        => Messenger.Send(new MailOperationRequested(
+            operation,
+            MailOperationTriggerSource.Idle));
 
     private async Task HandleMailOperation(MailOperation mailOperation, IEnumerable<MailItemViewModel> mailItems)
     {
@@ -1455,6 +1480,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         base.OnMailAdded(addedMail, source);
 
         if (addedMail.AssignedAccount == null || addedMail.AssignedFolder == null) return;
+        if (ShouldSuppressDraftAdd(addedMail)) return;
 
         bool hasLock = false;
 
@@ -1504,7 +1530,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 }
             }
 
-            if (!ShouldIncludeLiveMail(addedMail)) return;
+            if (ShouldSuppressDraftAdd(addedMail) ||
+                !ShouldIncludeLiveMail(addedMail))
+            {
+                return;
+            }
 
             // AddAsync already handles UI threading internally, no need to wrap it
             await MailCollection.AddAsync(addedMail);
@@ -1558,7 +1588,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             bool isItemListed = MailCollection.ContainsMailUniqueId(updatedMail.UniqueId);
             if (!isItemListed)
             {
-                if (ShouldIncludeLiveMail(updatedMail))
+                if (!ShouldSuppressDraftAdd(updatedMail) &&
+                    ShouldIncludeLiveMail(updatedMail))
                 {
                     await MailCollection.AddAsync(updatedMail);
                     await ExecuteUIThread(NotifyItemFoundState);
@@ -1926,6 +1957,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             .Where(x => x != null)
             .GroupBy(x => x.UniqueId)
             .Select(group => group.First())
+            .Where(mail => !ShouldSuppressDraftAdd(mail))
             .ToList() ?? [];
 
         if (targetMails.Count == 0)
@@ -1946,6 +1978,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             var mailsToAdd = targetMails
                 .Where(mail => !MailCollection.ContainsMailUniqueId(mail.UniqueId))
+                .Where(mail => !ShouldSuppressDraftAdd(mail))
                 .Where(ShouldIncludeLiveMail)
                 .ToList();
 
@@ -2059,6 +2092,16 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 listManipulationSemepahore.Release();
             }
         }
+    }
+
+    private bool ShouldSuppressDraftAdd(MailCopy mail)
+    {
+        if (mail?.IsDraft != true || mail.AssignedAccount == null)
+            return false;
+
+        return _synchronizationManager.IsDeleteRequestQueued(
+            mail.AssignedAccount.Id,
+            mail.UniqueId);
     }
 
     protected override void OnDraftMapped(string localDraftCopyId, string remoteDraftCopyId)
@@ -2786,7 +2829,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         Messenger.Register<AccountSynchronizerStateChanged>(this);
         Messenger.Register<AccountCacheResetMessage>(this);
         Messenger.Register<ThumbnailAdded>(this);
-        Messenger.Register<SwipeActionRequested>(this);
+        Messenger.Register<MailOperationRequested>(this);
         Messenger.Register<UndoableMailActionPackChanged>(this);
     }
 
@@ -2801,19 +2844,32 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         Messenger.Unregister<AccountSynchronizerStateChanged>(this);
         Messenger.Unregister<AccountCacheResetMessage>(this);
         Messenger.Unregister<ThumbnailAdded>(this);
-        Messenger.Unregister<SwipeActionRequested>(this);
+        Messenger.Unregister<MailOperationRequested>(this);
         Messenger.Unregister<UndoableMailActionPackChanged>(this);
     }
 
-    public async void Receive(SwipeActionRequested message)
+    public async void Receive(MailOperationRequested message)
     {
-        if (message.MailItems.Count == 0)
+        var mailItems = message.MailItems?.Count > 0
+            ? message.MailItems
+            : message.TriggerSource == MailOperationTriggerSource.Idle
+                ? SelectedItems
+                : [];
+
+        if (mailItems.Count == 0)
         {
             return;
         }
 
-        var mailCopies = message.MailItems.Select(static item => item.MailCopy);
-        var package = new MailOperationPreperationRequest(message.Operation, mailCopies, toggleExecution: true);
+        var mailCopies = mailItems.Select(static item => item.MailCopy);
+        var toggleExecution = message.TriggerSource is
+            MailOperationTriggerSource.Swipe or
+            MailOperationTriggerSource.Idle or
+            MailOperationTriggerSource.Hover;
+        var package = new MailOperationPreperationRequest(
+            message.Operation,
+            mailCopies,
+            toggleExecution);
         await ExecuteMailOperationAsync(package);
     }
 

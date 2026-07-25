@@ -9,6 +9,7 @@
     xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:listview="using:Wino.Mail.WinUI.Controls.ListView"
+    xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:toolkitExt="using:CommunityToolkit.WinUI"
     xmlns:viewModels="using:Wino.Mail.ViewModels.Data"
@@ -31,11 +32,13 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <controls:ImagePreviewControl
+                    <mailControls:WinoContactPicture
                         Grid.Column="0"
                         Width="40"
                         Height="40"
-                        MailItemInformation="{x:Bind Mode=OneWay}" />
+                        ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(SenderContact, FromName, FromAddress), Mode=OneWay}"
+                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
 
                     <StackPanel
                         Grid.Column="1"

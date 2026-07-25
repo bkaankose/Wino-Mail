@@ -486,6 +486,20 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             ? Task.CompletedTask
             : UndoLatestQueuedAction(synchronizer.Account.Id);
 
+    public bool IsDeleteRequestQueued(Guid accountId, Guid uniqueMailId)
+    {
+        lock (_undoActionPackLock)
+        {
+            return _pendingUndoActionPacks.Values
+                .Where(pack => !pack.IsCompleted)
+                .SelectMany(pack => pack.RequestsByAccount.TryGetValue(accountId, out var requests)
+                    ? requests
+                    : [])
+                .OfType<DeleteRequest>()
+                .Any(request => request.Item?.UniqueId == uniqueMailId);
+        }
+    }
+
     public Task UndoLatestQueuedAction(Guid accountId)
     {
         EnsureInitialized();

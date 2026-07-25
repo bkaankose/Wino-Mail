@@ -2170,7 +2170,20 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
             // fetch updates the historyId. Therefore we need to re-synchronize to get the latest history changes
             // which will have the original message downloaded eventually.
 
-            await _gmailChangeProcessor.MapLocalDraftAsync(Account.Id, localDraftCopy.UniqueId, messageDraft.Message.Id, messageDraft.Id, messageDraft.Message.ThreadId);
+            var isMapped = await _gmailChangeProcessor
+                .MapLocalDraftAsync(Account.Id, localDraftCopy.UniqueId, messageDraft.Message.Id, messageDraft.Id, messageDraft.Message.ThreadId)
+                .ConfigureAwait(false);
+
+            if (!isMapped)
+            {
+                // The user discarded the local draft while the create request was in flight.
+                // Remove the remote draft immediately so the following folder sync cannot
+                // download it as a new item and resurrect it in the Drafts list.
+                await _gmailService.Users.Drafts.Delete("me", messageDraft.Id)
+                    .ExecuteAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                return;
+            }
 
             var options = new MailSynchronizationOptions()
             {

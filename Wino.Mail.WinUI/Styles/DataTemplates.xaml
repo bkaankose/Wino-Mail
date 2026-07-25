@@ -12,6 +12,7 @@
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:local="using:Wino.Mail.WinUI.Styles"
+    xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
     xmlns:menu="using:Wino.Core.Domain.MenuItems"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:personalization="using:Wino.Mail.WinUI.Models.Personalization"
@@ -307,10 +308,10 @@
             </ToolTipService.ToolTip>
 
             <Viewbox Width="24">
-                <controls:ImagePreviewControl
-                    Address="{x:Bind Address}"
-                    DisplayNameOverride="{x:Bind DisplayName}"
-                    PreviewContact="{x:Bind PreviewContact}" />
+                <mailControls:WinoContactPicture
+                    ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(PreviewContact, DisplayName, Address), Mode=OneTime}"
+                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
             </Viewbox>
 
             <TextBlock
@@ -328,12 +329,12 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <controls:ImagePreviewControl
+            <mailControls:WinoContactPicture
                 Width="40"
                 Height="40"
-                Address="{x:Bind Address}"
-                DisplayNameOverride="{x:Bind DisplayName}"
-                PreviewContact="{x:Bind PreviewContact}" />
+                ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(PreviewContact, DisplayName, Address), Mode=OneTime}"
+                IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
 
             <TextBlock Grid.Column="1">
                 <Run FontWeight="SemiBold" Text="{x:Bind DisplayName}" />

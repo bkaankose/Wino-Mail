@@ -9,6 +9,7 @@
     xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:mail="using:Wino.Core.Domain.Entities.Mail"
+    xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     HorizontalAlignment="Stretch"
     VerticalAlignment="Stretch"
@@ -92,13 +93,15 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <controls:ImagePreviewControl
+                <mailControls:WinoContactPicture
                     x:Name="ContactImage"
                     Width="35"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     FontSize="14"
-                    MailItemInformation="{x:Bind MailItemInformation, Mode=OneWay}"
+                    ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(MailItemInformation), Mode=OneWay}"
+                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}"
                     Visibility="{x:Bind IsAvatarVisible, Mode=OneWay}" />
 
                 <Grid

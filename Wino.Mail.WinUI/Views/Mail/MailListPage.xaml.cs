@@ -886,7 +886,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
     {
         for (var current = element; current is not null; current = VisualTreeHelper.GetParent(current))
         {
-            if (current is global::Wino.Mail.Controls.WinoMailListViewItem { Row: { } row })
+            if (current is global::Wino.Mail.Controls.MailListView.WinoMailListViewItem { Row: { } row })
             {
                 return row;
             }

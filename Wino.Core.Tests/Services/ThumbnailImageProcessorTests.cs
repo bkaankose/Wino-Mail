@@ -36,7 +36,7 @@ public class ThumbnailImageProcessorTests
     [Fact]
     public void HasExpectedDimensions_RejectsLegacyAvatarSize()
     {
-        var legacyAvatar = CreateImageBytes(48, 48, SKColors.Red);
+        var legacyAvatar = CreateImageBytes(64, 64, SKColors.Red);
         var currentAvatar = CreateImageBytes(
             ThumbnailImageProcessor.AvatarCachePixelSize,
             ThumbnailImageProcessor.AvatarCachePixelSize,

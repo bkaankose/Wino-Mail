@@ -6,7 +6,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Wino.Mail.Controls.Core;
 
-namespace Wino.Mail.Controls;
+namespace Wino.Mail.Controls.MailListView;
 
 public sealed partial class WinoMailListViewItem : ListViewItem
 {

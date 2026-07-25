@@ -195,6 +195,9 @@ public partial class WinoSwipeControl : SwipeControl
         var operation = (MailOperation)sender.CommandParameter;
         var finalOperation = ResolveFinalOperation(operation, mailItems);
 
-        WeakReferenceMessenger.Default.Send(new SwipeActionRequested(finalOperation, mailItems));
+        WeakReferenceMessenger.Default.Send(new MailOperationRequested(
+            finalOperation,
+            MailOperationTriggerSource.Swipe,
+            mailItems));
     }
 }

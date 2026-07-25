@@ -2,7 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Mail.Controls.Core;
 
-namespace Wino.Mail.Controls;
+namespace Wino.Mail.Controls.MailListView;
 
 internal sealed partial class MailListRowTemplateSelector : DataTemplateSelector
 {

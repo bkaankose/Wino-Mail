@@ -91,6 +91,9 @@ public class MailThreadingTests : IAsyncLifetime
         mimeMessage.MessageId.Should().Be(draftMailCopy.MessageId);
         mimeMessage.Headers[HeaderId.MessageId].Should().Be(MailHeaderExtensions.ToHeaderMessageId(draftMailCopy.MessageId));
         draftMailCopy.DraftSyncState.Should().Be(DraftSyncState.PendingSync);
+        draftMailCopy.SenderContact.Should().NotBeNull();
+        draftMailCopy.SenderContact.Address.Should().Be(_account.Address);
+        draftMailCopy.SenderContact.Name.Should().Be(_account.SenderName);
     }
 
     [Fact]

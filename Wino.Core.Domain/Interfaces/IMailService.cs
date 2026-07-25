@@ -13,6 +13,7 @@ public interface IMailService
 {
     Task<MailCopy> GetSingleMailItemAsync(string mailCopyId, string remoteFolderId);
     Task<MailCopy> GetSingleMailItemAsync(Guid uniqueMailId);
+    Task<MailCopy> DiscardLocalDraftAsync(Guid accountId, Guid uniqueMailId);
 
     /// <summary>
     /// Returns the single mail item with the given mail copy id.

@@ -18,6 +18,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Translations;
 using Wino.Core.Services;
+using Wino.Mail.Controls.ContactPicture;
 using Wino.Messaging.Client.Shell;
 using Wino.Services;
 using WinUIEx;
@@ -62,6 +63,10 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
         AppConfiguration.ApplicationDataFolderPath = ApplicationData.Current.LocalFolder.Path;
         AppConfiguration.PublisherSharedFolderPath = ApplicationData.Current.GetPublisherCacheFolder(ApplicationConfiguration.SharedFolderName).Path;
         AppConfiguration.ApplicationTempFolderPath = ApplicationData.Current.TemporaryFolder.Path;
+
+        // Keep new contact thumbnails beside the existing avatar cache. The new
+        // loader uses distinct file names and leaves legacy cache entries untouched.
+        ContactThumbnailLoader.CacheRootFolder = Path.Combine(AppConfiguration.ApplicationDataFolderPath, "thumbnails");
 
         // ThumbnailService requires ApplicationData paths to be setup, so we initialize it after setting up the paths.
         ThumbnailService = Services.GetRequiredService<IThumbnailService>();

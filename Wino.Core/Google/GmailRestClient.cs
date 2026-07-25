@@ -84,6 +84,8 @@ namespace Google.Apis.Gmail.v1
 
             public CreateRequest Create(Draft body, string userId) => new(_httpClient, _service, body, userId);
 
+            public DeleteRequest Delete(string userId, string draftId) => new(_httpClient, _service, userId, draftId);
+
             public ListRequest List(string userId) => new(_httpClient, _service, userId);
 
             public SendRequest Send(Draft body, string userId) => new(_httpClient, _service, body, userId);
@@ -98,6 +100,19 @@ namespace Google.Apis.Gmail.v1
                         () => $"{BaseUri}/{GoogleUrl.Segment(userId)}/drafts",
                         GoogleApiJsonContext.Default.Draft,
                         () => GoogleJsonContent.Create(body, GoogleApiJsonContext.Default.Draft))
+                {
+                }
+            }
+
+            public sealed class DeleteRequest : GoogleApiRequest<GoogleEmptyResponse>
+            {
+                internal DeleteRequest(HttpClient httpClient, object service, string userId, string draftId)
+                    : base(
+                        httpClient,
+                        service,
+                        HttpMethod.Delete,
+                        () => $"{BaseUri}/{GoogleUrl.Segment(userId)}/drafts/{GoogleUrl.Segment(draftId)}",
+                        GoogleApiJsonContext.Default.GoogleEmptyResponse)
                 {
                 }
             }

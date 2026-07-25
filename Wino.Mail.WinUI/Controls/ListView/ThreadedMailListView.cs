@@ -5,7 +5,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Models.MailItem;
-using global::Wino.Mail.Controls;
+using global::Wino.Mail.Controls.MailListView;
 using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.WinUI.Controls.ListView;

@@ -70,6 +70,11 @@ public interface ISynchronizationManager
     Task UndoLatestQueuedAction(IWinoSynchronizerBase synchronizer);
 
     /// <summary>
+    /// Checks whether a delete request for a mail is waiting in the undo queue.
+    /// </summary>
+    bool IsDeleteRequestQueued(Guid accountId, Guid uniqueMailId);
+
+    /// <summary>
     /// Handles folder synchronization for the given account.
     /// </summary>
     Task<MailSynchronizationResult> SynchronizeFoldersAsync(Guid accountId,

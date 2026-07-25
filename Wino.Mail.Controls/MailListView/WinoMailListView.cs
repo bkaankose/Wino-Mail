@@ -8,7 +8,7 @@ using Windows.UI.Core;
 using Wino.Mail.Controls.Core;
 using VirtualKey = Windows.System.VirtualKey;
 
-namespace Wino.Mail.Controls;
+namespace Wino.Mail.Controls.MailListView;
 
 /// <summary>
 /// A virtualized, grouped mail list that projects a flat source into thread rows

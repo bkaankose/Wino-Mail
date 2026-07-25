@@ -46,6 +46,8 @@ public sealed partial class ComposePage : ComposePageAbstract,
     private bool _isPoppedOut;
     private bool _isInitialFocusHandled;
     private bool _shouldApplyInitialFocus;
+    private bool _isNavigatingFrom;
+    private CancellationTokenSource? _editorLifecycleCancellationSource;
     private readonly Dictionary<TokenizingTextBox, List<AccountContact>> _recipientSuggestions = [];
 
     public bool SupportsPopOut => !_isPoppedOut;
@@ -296,14 +298,19 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     private void DisposeDisposables()
     {
-        if (_disposables.Count != 0)
-            _disposables.ForEach(a => a.Dispose());
+        if (_disposables.Count == 0)
+            return;
+
+        _disposables.ForEach(a => a.Dispose());
+        _disposables.Clear();
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
 
+        _isNavigatingFrom = false;
+        _editorLifecycleCancellationSource = new CancellationTokenSource();
         _shouldApplyInitialFocus = ConsumeInitialFocusRequest(e.Parameter as MailItemViewModel);
         _isInitialFocusHandled = false;
 
@@ -321,8 +328,9 @@ public sealed partial class ComposePage : ComposePageAbstract,
         _disposables.Add(GetSuggestionBoxDisposable(BccBox));
         _disposables.Add(WebViewEditor);
 
-        ViewModel.GetHTMLBodyFunction = WebViewEditor.GetHtmlBodyAsync;
-        ViewModel.RenderHtmlBodyAsyncFunc = RenderComposeHtmlAsync;
+        ViewModel.GetHTMLBodyFunction = GetEditorHtmlBodyAsync;
+        var editorLifecycleToken = _editorLifecycleCancellationSource.Token;
+        ViewModel.RenderHtmlBodyAsyncFunc = html => RenderComposeHtmlAsync(html, editorLifecycleToken);
     }
 
     private void ShowCCBCCClicked(object sender, RoutedEventArgs e)
@@ -518,11 +526,40 @@ public sealed partial class ComposePage : ComposePageAbstract,
     {
         base.OnNavigatingFrom(e);
 
-        ComposeAiActionsPanel.CancelPendingOperation();
-        await ViewModel.UpdateMimeChangesAsync();
+        _isNavigatingFrom = true;
+        _editorLifecycleCancellationSource?.Cancel();
         ViewModel.RenderHtmlBodyAsyncFunc = null;
+        ComposeAiActionsPanel.CancelPendingOperation();
 
-        DisposeDisposables();
+        try
+        {
+            await ViewModel.UpdateMimeChangesAsync();
+        }
+        catch (ObjectDisposedException) when (_isNavigatingFrom)
+        {
+            // A second navigation can finish tearing down the editor while this
+            // navigation is still saving the draft. The editor content was already
+            // captured by the winning teardown, so disposal is expected here.
+        }
+        finally
+        {
+            ViewModel.GetHTMLBodyFunction = null;
+            DisposeDisposables();
+            _editorLifecycleCancellationSource?.Dispose();
+            _editorLifecycleCancellationSource = null;
+        }
+    }
+
+    private async Task<string> GetEditorHtmlBodyAsync()
+    {
+        try
+        {
+            return await WebViewEditor.GetHtmlBodyAsync() ?? string.Empty;
+        }
+        catch (ObjectDisposedException) when (_isNavigatingFrom)
+        {
+            return ViewModel.CurrentMimeMessage?.HtmlBody ?? string.Empty;
+        }
     }
 
     public async Task<string?> GetCurrentHtmlAsync(CancellationToken cancellationToken)
@@ -682,12 +719,29 @@ public sealed partial class ComposePage : ComposePageAbstract,
         }
     }
 
-    private async Task RenderComposeHtmlAsync(string html)
+    private async Task RenderComposeHtmlAsync(string html, CancellationToken editorLifecycleToken)
     {
-        await WebViewEditor.SetDefaultTypographyAsync(
-            ViewModel.PreferencesService.ComposerFont,
-            ViewModel.PreferencesService.ComposerFontSize);
-        await WebViewEditor.RenderHtmlAsync(html);
-        await ApplyInitialFocusAsync();
+        if (editorLifecycleToken.IsCancellationRequested)
+            return;
+
+        try
+        {
+            await WebViewEditor.SetDefaultTypographyAsync(
+                ViewModel.PreferencesService.ComposerFont,
+                ViewModel.PreferencesService.ComposerFontSize);
+
+            if (editorLifecycleToken.IsCancellationRequested)
+                return;
+
+            await WebViewEditor.RenderHtmlAsync(html);
+
+            if (!editorLifecycleToken.IsCancellationRequested)
+                await ApplyInitialFocusAsync();
+        }
+        catch (ObjectDisposedException) when (editorLifecycleToken.IsCancellationRequested || _isNavigatingFrom)
+        {
+            // Draft deletion can navigate away while initialization/rendering is
+            // still in flight. Disposal is the expected completion of that work.
+        }
     }
 }

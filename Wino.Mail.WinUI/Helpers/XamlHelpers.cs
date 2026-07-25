@@ -20,6 +20,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Mail.Controls.Core;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls;
@@ -30,6 +31,7 @@ public static class XamlHelpers
 {
     private static CultureInfo AppDisplayCulture => CultureInfo.DefaultThreadCurrentUICulture ?? CultureInfo.CurrentUICulture;
     private static IPreferencesService? PreferencesService => WinoApplication.Current.Services.GetService<IPreferencesService>();
+    private static IContactPictureFileService? ContactPictureFileService => WinoApplication.Current.Services.GetService<IContactPictureFileService>();
 
     #region Converters
 
@@ -64,6 +66,36 @@ public static class XamlHelpers
     public static ListViewSelectionMode BoolToSelectionMode(bool isSelectionMode) => isSelectionMode ? ListViewSelectionMode.Multiple : ListViewSelectionMode.None;
     public static string BoolToSelectionModeText(bool isSelectionMode) => isSelectionMode ? Translator.Buttons_Cancel : Translator.Buttons_Multiselect;
     public static string ConditionalString(bool condition, string trueValue, string falseValue) => condition ? trueValue : falseValue;
+    public static bool GetGravatarEnabled() => PreferencesService?.IsGravatarEnabled ?? true;
+    public static bool GetFaviconEnabled() => PreferencesService?.IsFaviconEnabled ?? true;
+
+    public static object GetContactPicture(
+        AccountContact? contact,
+        string? displayName,
+        string? address)
+    {
+        var resolvedName = !string.IsNullOrWhiteSpace(contact?.Name)
+            ? contact.Name
+            : displayName ?? string.Empty;
+        var resolvedAddress = !string.IsNullOrWhiteSpace(contact?.Address)
+            ? contact.Address
+            : address ?? string.Empty;
+        var localImagePath = contact?.ContactPictureFileId is Guid fileId
+            ? ContactPictureFileService?.GetContactPicturePath(fileId)
+            : null;
+
+        return new ContactPictureIdentity(resolvedName, resolvedAddress, localImagePath);
+    }
+
+    public static object GetContactPicture(IMailItemDisplayInformation? item)
+        => item is null
+            ? new ContactPictureIdentity(string.Empty, string.Empty)
+            : GetContactPicture(item.SenderContact, item.FromName, item.FromAddress);
+
+    public static object GetContactPicture(IContactDisplayItem? item)
+        => item is null
+            ? new ContactPictureIdentity(string.Empty, string.Empty)
+            : GetContactPicture(item.PreviewContact, item.DisplayName, item.Address);
 
     public static Microsoft.UI.Xaml.Media.Imaging.BitmapImage? Base64ToBitmapImage(string base64String)
     {

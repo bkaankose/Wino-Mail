@@ -2413,12 +2413,23 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                 var createdConversationId = json?["conversationId"]?.GetValue<string>();
                 var localDraft = createDraftRequest.DraftPreperationRequest.CreatedLocalDraftCopy;
 
-                await _outlookChangeProcessor.MapLocalDraftAsync(
+                var isMapped = await _outlookChangeProcessor.MapLocalDraftAsync(
                     Account.Id,
                     localDraft.UniqueId,
                     createdDraftId,
                     createdConversationId,
                     createdConversationId).ConfigureAwait(false);
+
+                if (!isMapped)
+                {
+                    // The local draft was discarded while Microsoft Graph was creating it.
+                    // Delete the remote result before the post-request folder sync can add it
+                    // back to the Drafts list as a new message.
+                    await _graphClient.Me.Messages[createdDraftId]
+                        .DeleteAsync()
+                        .ConfigureAwait(false);
+                }
+
                 return;
             }
 

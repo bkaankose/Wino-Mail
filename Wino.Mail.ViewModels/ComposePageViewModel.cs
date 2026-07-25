@@ -549,7 +549,18 @@ public partial class ComposePageViewModel : MailBaseViewModel,
             // Don't send delete request for local drafts. Just delete the record and mime locally.
             if (CurrentMailDraftItem.MailCopy.IsLocalDraft)
             {
-                await _mailService.DeleteMailAsync(ComposingAccount.Id, CurrentMailDraftItem.Id);
+                var mappedDraft = await _mailService
+                    .DiscardLocalDraftAsync(ComposingAccount.Id, CurrentMailDraftItem.UniqueId)
+                    .ConfigureAwait(false);
+
+                if (mappedDraft != null)
+                {
+                    var deletePackage = new MailOperationPreperationRequest(
+                        MailOperation.HardDelete,
+                        mappedDraft,
+                        ignoreHardDeleteProtection: true);
+                    await _worker.ExecuteAsync(deletePackage).ConfigureAwait(false);
+                }
             }
             else
             {

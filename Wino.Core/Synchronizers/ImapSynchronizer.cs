@@ -272,7 +272,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                 if (appendedUid.HasValue)
                 {
                     var localDraft = request.DraftPreperationRequest.CreatedLocalDraftCopy;
-                    await _imapChangeProcessor.MapLocalDraftAsync(
+                    var isMapped = await _imapChangeProcessor.MapLocalDraftAsync(
                         Account.Id,
                         localDraft.UniqueId,
                         MailkitClientExtensions.CreateUid(localDraft.AssignedFolder.Id, appendedUid.Value.Id),
@@ -280,6 +280,18 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                         localDraft.ThreadId,
                         appendedUid.Value.Id,
                         remoteDraftFolder.UidValidity).ConfigureAwait(false);
+
+                    if (!isMapped)
+                    {
+                        // The local draft was discarded while APPEND was in flight. Remove the
+                        // appended message before the folder sync can import it as a new draft.
+                        await remoteDraftFolder
+                            .AddFlagsAsync(appendedUid.Value, MessageFlags.Deleted, true)
+                            .ConfigureAwait(false);
+                        await remoteDraftFolder
+                            .ExpungeAsync([appendedUid.Value])
+                            .ConfigureAwait(false);
+                    }
                 }
             }
             finally

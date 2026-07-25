@@ -19,8 +19,6 @@ namespace Wino.Controls;
 
 public sealed partial class MailItemDisplayInformationControl : UserControl
 {
-    public ImagePreviewControl GetImagePreviewControl() => ContactImage;
-
     public bool IsRunningHoverAction { get; set; }
 
     // Busy animation fields
@@ -187,7 +185,6 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
             _actionItemPropertySource = null;
         }
 
-        ContactImage.Dispose();
         StopBusyAnimation();
     }
 

@@ -17,6 +17,7 @@
     xmlns:editor="using:Wino.Editor"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:local="using:Wino.Calendar.Views"
+    xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:selectors="using:Wino.Mail.WinUI.Selectors"
     Style="{StaticResource PageStyle}"
@@ -469,11 +470,12 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
 
-                                        <controls:ImagePreviewControl
+                                        <mailControls:WinoContactPicture
                                             Width="40"
                                             Height="40"
-                                            Address="{x:Bind Email}"
-                                            DisplayNameOverride="{x:Bind Name}" />
+                                            ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(ResolvedContact, Name, Email), Mode=OneTime}"
+                                            IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                                            IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
 
                                         <Grid Grid.Column="1" RowSpacing="4">
                                             <Grid.RowDefinitions>

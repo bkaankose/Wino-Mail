@@ -154,6 +154,7 @@ private string searchQuery = string.Empty;
 - String interpolation over string.Format
 - Wrap async operations in try-catch
 - Log errors via IWinoLogger
+- Reusable controls in `Wino.Mail.Controls` must be named `Wino{ControlName}`, live in a matching `{ControlName}/` folder, and use the matching `Wino.Mail.Controls.{ControlName}` namespace. Keep control-specific supporting files in that folder as well.
 - For dependency properties in WinUI code, always prefer `[GeneratedDependencyProperty]` from CommunityToolkit over manual `DependencyProperty.Register(...)` declarations.
 - When a `[RelayCommand]` needs enable/disable logic, prefer the command's `CanExecute` over binding `Button.IsEnabled` in XAML; use `[NotifyCanExecuteChangedFor]` on dependent properties and call `NotifyCanExecuteChanged()` explicitly when non-generated state affects the command.
 - In ViewModels, update all UI-bound properties/collections via `ExecuteUIThread(...)` (especially after awaited calls and any use of `ConfigureAwait(false)`).

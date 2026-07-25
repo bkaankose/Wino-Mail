@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:Wino.Controls"
+    xmlns:contactControls="using:Wino.Mail.Controls.ContactPicture"
     xmlns:controls1="using:Wino.Mail.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:customcontrols="using:Wino.Mail.WinUI.Controls.CustomControls"
@@ -58,10 +59,10 @@
                 </ToolTipService.ToolTip>
 
                 <Viewbox Width="24">
-                    <controls:ImagePreviewControl
-                        Address="{x:Bind Address}"
-                        DisplayNameOverride="{x:Bind DisplayName}"
-                        PreviewContact="{x:Bind PreviewContact}" />
+                    <contactControls:WinoContactPicture
+                        ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(PreviewContact, DisplayName, Address), Mode=OneTime}"
+                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
                 </Viewbox>
 
                 <TextBlock

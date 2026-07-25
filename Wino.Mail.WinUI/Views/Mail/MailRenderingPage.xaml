@@ -11,6 +11,7 @@
     xmlns:editor="using:Wino.Editor"
     xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
     xmlns:helpers="using:Wino.Helpers"
+    xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
@@ -43,11 +44,13 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <controls:ImagePreviewControl
+                            <mailControls:WinoContactPicture
                                 Grid.RowSpan="2"
                                 Width="36"
                                 Height="36"
-                                MailItemInformation="{x:Bind}" />
+                                ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(SenderContact, FromName, FromAddress), Mode=OneWay}"
+                                IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                                IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
 
                             <TextBlock Grid.Column="1" Text="{x:Bind Name}" />
 
@@ -296,14 +299,16 @@
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
 
-                            <controls:ImagePreviewControl
+                            <mailControls:WinoContactPicture
                                 x:Name="ContactImage"
                                 Width="36"
                                 Height="36"
                                 AutomationProperties.AccessibilityView="Raw"
+                                ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(ViewModel.CurrentMailItemDisplayInformation), Mode=OneWay}"
                                 FontSize="16"
-                                IsTabStop="False"
-                                MailItemInformation="{x:Bind ViewModel.CurrentMailItemDisplayInformation, Mode=OneWay}" />
+                                IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                                IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}"
+                                IsTabStop="False" />
 
                             <Grid
                                 Grid.Column="1"
