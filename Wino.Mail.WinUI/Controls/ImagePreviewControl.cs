@@ -1,15 +1,19 @@
 using System;
+using System.Collections;
 using System.ComponentModel;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.WinUI;
 using EmailValidation;
+using Fernandezja.ColorHashSharp;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Windows.UI;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI;
@@ -25,9 +29,18 @@ namespace Wino.Controls;
 /// </summary>
 public sealed partial class ImagePreviewControl : PersonPicture, IDisposable
 {
-    private sealed record RefreshSnapshot(string DisplayName, string Address, Guid? ContactPictureFileId);
+    private sealed record RefreshSnapshot(
+        string DisplayName,
+        string Address,
+        Guid? ContactPictureFileId,
+        string IdentityKey);
 
     private static readonly TimeSpan RefreshDebounceDuration = TimeSpan.FromMilliseconds(40);
+    private static readonly ColorHash AvatarColorHash = new(new Options
+    {
+        S = new ArrayList { 0.5 },
+        L = new ArrayList { 0.4 }
+    });
 
     [GeneratedDependencyProperty]
     public partial IMailItemDisplayInformation? MailItemInformation { get; set; }
@@ -48,6 +61,8 @@ public sealed partial class ImagePreviewControl : PersonPicture, IDisposable
     private CancellationTokenSource? _refreshCancellationTokenSource;
     private DispatcherQueueTimer? _scheduledRefreshTimer;
     private long _refreshVersion;
+    private string? _visibleIdentityKey;
+    private string? _appliedPictureKey;
 
     public ImagePreviewControl()
     {
@@ -83,15 +98,22 @@ public sealed partial class ImagePreviewControl : PersonPicture, IDisposable
             _mailItemInformationPropertySource.PropertyChanged += MailItemInformationPropertyChanged;
         }
 
-        RequestRefresh();
+        RequestRefresh(resetIfIdentityChanged: true);
     }
 
-    partial void OnPreviewContactPropertyChanged(DependencyPropertyChangedEventArgs e) => RequestRefresh();
-    partial void OnAddressPropertyChanged(DependencyPropertyChangedEventArgs e) => RequestRefresh();
-    partial void OnDisplayNameOverridePropertyChanged(DependencyPropertyChangedEventArgs e) => RequestRefresh();
+    partial void OnPreviewContactPropertyChanged(DependencyPropertyChangedEventArgs e) => RequestRefresh(resetIfIdentityChanged: true);
+    partial void OnAddressPropertyChanged(DependencyPropertyChangedEventArgs e) => RequestRefresh(resetIfIdentityChanged: true);
+    partial void OnDisplayNameOverridePropertyChanged(DependencyPropertyChangedEventArgs e) => RequestRefresh(resetIfIdentityChanged: true);
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        if (_mailItemInformationPropertySource == null &&
+            MailItemInformation is INotifyPropertyChanged observableMailItemInformation)
+        {
+            _mailItemInformationPropertySource = observableMailItemInformation;
+            _mailItemInformationPropertySource.PropertyChanged += MailItemInformationPropertyChanged;
+        }
+
         RequestRefresh();
     }
 
@@ -100,9 +122,6 @@ public sealed partial class ImagePreviewControl : PersonPicture, IDisposable
 
     public void Dispose()
     {
-        Loaded -= OnLoaded;
-        Unloaded -= OnUnloaded;
-
         if (_mailItemInformationPropertySource != null)
         {
             _mailItemInformationPropertySource.PropertyChanged -= MailItemInformationPropertyChanged;
@@ -112,6 +131,8 @@ public sealed partial class ImagePreviewControl : PersonPicture, IDisposable
         CancelScheduledRefresh();
         CancelActiveRefresh();
         ProfilePicture = null;
+        _visibleIdentityKey = null;
+        _appliedPictureKey = null;
     }
 
     private void MailItemInformationPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -124,19 +145,48 @@ public sealed partial class ImagePreviewControl : PersonPicture, IDisposable
             || e.PropertyName == nameof(IMailItemDisplayInformation.FromAddress)
             || e.PropertyName == nameof(IMailItemDisplayInformation.ThumbnailUpdatedEvent))
         {
-            RequestRefresh();
+            RequestRefresh(resetIfIdentityChanged: true);
         }
     }
 
-    private void RequestRefresh()
+    private void RequestRefresh(bool resetIfIdentityChanged = false)
     {
         if (DispatcherQueue == null || DispatcherQueue.HasThreadAccess)
         {
+            if (resetIfIdentityChanged)
+                ResetVisibleAvatarIfIdentityChanged();
+
             QueueRefresh();
             return;
         }
 
-        DispatcherQueue.TryEnqueue(QueueRefresh);
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (resetIfIdentityChanged)
+                ResetVisibleAvatarIfIdentityChanged();
+
+            QueueRefresh();
+        });
+    }
+
+    private void ResetVisibleAvatarIfIdentityChanged()
+    {
+        var address = ResolveAddress();
+        var displayName = ResolveDisplayName(address);
+        var contactPictureFileId = ResolveContactPictureFileId();
+        var identityKey = BuildIdentityKey(address, contactPictureFileId);
+
+        if (string.Equals(identityKey, _visibleIdentityKey, StringComparison.Ordinal))
+        {
+            if (ProfilePicture == null)
+                ApplyFallbackVisualState(displayName);
+
+            return;
+        }
+
+        _visibleIdentityKey = identityKey;
+        _appliedPictureKey = null;
+        ApplyFallbackVisualState(displayName);
     }
 
     private void QueueRefresh()
@@ -217,7 +267,7 @@ public sealed partial class ImagePreviewControl : PersonPicture, IDisposable
             if (snapshot == null)
                 return;
 
-            await ApplyInitialVisualStateAsync(snapshot.DisplayName, refreshVersion, cancellationToken).ConfigureAwait(false);
+            await ApplyInitialVisualStateAsync(snapshot, refreshVersion, cancellationToken).ConfigureAwait(false);
 
             // Skip all picture loading if the user has disabled sender pictures.
             if (_preferencesService?.IsShowSenderPicturesEnabled == false)
@@ -229,10 +279,14 @@ public sealed partial class ImagePreviewControl : PersonPicture, IDisposable
                 var filePath = _contactPictureFileService.GetContactPicturePath(snapshot.ContactPictureFileId.Value);
                 if (!string.IsNullOrEmpty(filePath))
                 {
+                    var pictureKey = $"contact:{snapshot.ContactPictureFileId.Value:N}";
+                    if (await IsPictureAlreadyAppliedAsync(pictureKey, refreshVersion, cancellationToken).ConfigureAwait(false))
+                        return;
+
                     var fileBitmap = await CreateBitmapFromFileAsync(filePath, cancellationToken).ConfigureAwait(false);
                     if (fileBitmap != null)
                     {
-                        await ApplyProfilePictureAsync(fileBitmap, refreshVersion, cancellationToken).ConfigureAwait(false);
+                        await ApplyProfilePictureAsync(fileBitmap, pictureKey, refreshVersion, cancellationToken).ConfigureAwait(false);
                         return;
                     }
                 }
@@ -250,10 +304,14 @@ public sealed partial class ImagePreviewControl : PersonPicture, IDisposable
 
                 if (thumbnailResult != null)
                 {
+                    var pictureKey = $"thumbnail:{thumbnailResult.FilePath}";
+                    if (await IsPictureAlreadyAppliedAsync(pictureKey, refreshVersion, cancellationToken).ConfigureAwait(false))
+                        return;
+
                     var thumbnailBitmap = await CreateBitmapFromFileAsync(thumbnailResult.FilePath, cancellationToken).ConfigureAwait(false);
                     if (thumbnailBitmap != null)
                     {
-                        await ApplyProfilePictureAsync(thumbnailBitmap, refreshVersion, cancellationToken).ConfigureAwait(false);
+                        await ApplyProfilePictureAsync(thumbnailBitmap, pictureKey, refreshVersion, cancellationToken).ConfigureAwait(false);
                         return;
                     }
                 }
@@ -281,13 +339,22 @@ public sealed partial class ImagePreviewControl : PersonPicture, IDisposable
 
             var address = ResolveAddress();
             var displayName = ResolveDisplayName(address);
-            var contactPictureFileId = PreviewContact?.ContactPictureFileId
-                                       ?? MailItemInformation?.SenderContact?.ContactPictureFileId
-                                       ?? MailItemInformation?.ContactPictureFileId;
+            var contactPictureFileId = ResolveContactPictureFileId();
+            var identityKey = BuildIdentityKey(address, contactPictureFileId);
 
-            return new RefreshSnapshot(displayName, address, contactPictureFileId);
+            return new RefreshSnapshot(displayName, address, contactPictureFileId, identityKey);
         }).ConfigureAwait(false);
     }
+
+    private Guid? ResolveContactPictureFileId()
+        => PreviewContact?.ContactPictureFileId
+           ?? MailItemInformation?.SenderContact?.ContactPictureFileId
+           ?? MailItemInformation?.ContactPictureFileId;
+
+    private static string BuildIdentityKey(string address, Guid? contactPictureFileId)
+        => contactPictureFileId.HasValue
+            ? $"contact:{contactPictureFileId.Value:N}"
+            : $"address:{address.Trim().ToLowerInvariant()}";
 
     private string ResolveAddress()
     {
@@ -327,20 +394,54 @@ public sealed partial class ImagePreviewControl : PersonPicture, IDisposable
 
         return resolvedAddress.Trim();
     }
-    private async Task ApplyInitialVisualStateAsync(string displayName, long refreshVersion, CancellationToken cancellationToken)
+    private async Task ApplyInitialVisualStateAsync(RefreshSnapshot snapshot, long refreshVersion, CancellationToken cancellationToken)
     {
         await ExecuteOnUiThreadAsync(() =>
         {
             if (!IsActiveRefresh(refreshVersion, cancellationToken))
                 return;
 
-            DisplayName = displayName;
-            Initials = null;
-            ProfilePicture = null;
+            if (!string.Equals(snapshot.IdentityKey, _visibleIdentityKey, StringComparison.Ordinal))
+            {
+                _visibleIdentityKey = snapshot.IdentityKey;
+                _appliedPictureKey = null;
+                ApplyFallbackVisualState(snapshot.DisplayName);
+            }
+            else if (ProfilePicture == null)
+            {
+                ApplyFallbackVisualState(snapshot.DisplayName);
+            }
         }).ConfigureAwait(false);
     }
 
-    private async Task ApplyProfilePictureAsync(BitmapImage bitmapImage, long refreshVersion, CancellationToken cancellationToken)
+    private void ApplyFallbackVisualState(string displayName)
+    {
+        var colorSource = string.IsNullOrWhiteSpace(displayName) ? "?" : displayName.Trim();
+        var generatedColor = AvatarColorHash.BuildToColor(colorSource);
+
+        DisplayName = displayName;
+        Initials = null;
+        ProfilePicture = null;
+        Background = new SolidColorBrush(Color.FromArgb(255, generatedColor.R, generatedColor.G, generatedColor.B));
+        Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 255, 255));
+    }
+
+    private async Task<bool> IsPictureAlreadyAppliedAsync(
+        string pictureKey,
+        long refreshVersion,
+        CancellationToken cancellationToken)
+    {
+        return await ExecuteOnUiThreadAsync(() =>
+            IsActiveRefresh(refreshVersion, cancellationToken) &&
+            ProfilePicture != null &&
+            string.Equals(pictureKey, _appliedPictureKey, StringComparison.Ordinal)).ConfigureAwait(false);
+    }
+
+    private async Task ApplyProfilePictureAsync(
+        BitmapImage bitmapImage,
+        string pictureKey,
+        long refreshVersion,
+        CancellationToken cancellationToken)
     {
         await ExecuteOnUiThreadAsync(() =>
         {
@@ -349,7 +450,9 @@ public sealed partial class ImagePreviewControl : PersonPicture, IDisposable
 
             DisplayName = string.Empty;
             Initials = string.Empty;
+            Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
             ProfilePicture = bitmapImage;
+            _appliedPictureKey = pictureKey;
         }).ConfigureAwait(false);
     }
 
