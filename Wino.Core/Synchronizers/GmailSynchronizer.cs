@@ -48,6 +48,9 @@ using GoogleCalendarService = Wino.Core.Google.CalendarService;
 
 namespace Wino.Core.Synchronizers.Mail;
 
+[JsonSourceGenerationOptions(
+    PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
+    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(Message))]
 [JsonSerializable(typeof(Label))]
 [JsonSerializable(typeof(Draft))]

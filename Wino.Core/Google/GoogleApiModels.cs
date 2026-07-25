@@ -85,6 +85,7 @@ namespace Google.Apis.Gmail.v1.Data
 
     public sealed class History
     {
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
         public ulong? Id { get; set; }
 
         public IList<HistoryLabelAdded> LabelsAdded { get; set; }
@@ -165,6 +166,7 @@ namespace Google.Apis.Gmail.v1.Data
     {
         public IList<History> History { get; set; }
 
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
         public ulong? HistoryId { get; set; }
 
         public string NextPageToken { get; set; }
@@ -191,10 +193,12 @@ namespace Google.Apis.Gmail.v1.Data
 
     public sealed class Message
     {
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
         public ulong? HistoryId { get; set; }
 
         public string Id { get; set; }
 
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
         public long? InternalDate { get; set; }
 
         public IList<string> LabelIds { get; set; }
@@ -245,6 +249,7 @@ namespace Google.Apis.Gmail.v1.Data
     {
         public string EmailAddress { get; set; }
 
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
         public ulong? HistoryId { get; set; }
 
         public long? MessagesTotal { get; set; }
