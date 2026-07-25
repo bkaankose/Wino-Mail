@@ -929,22 +929,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         }
     }
 
-    private async Task HandleNavigationItemInvokedAsync(IMenuItem menuItem)
-    {
-        switch (menuItem)
-        {
-            case FixAccountIssuesMenuItem fixAccountItem:
-                await FixAccountIssuesAsync(fixAccountItem.Account);
-                break;
-            case RateMenuItem:
-                await _storeRatingService.LaunchStorePageForReviewAsync();
-                break;
-            case NewMailMenuItem:
-                await HandleCreateNewMailAsync();
-                break;
-        }
-    }
-
     public async Task ChangeLoadedAccountAsync(IAccountMenuItem clickedBaseAccountMenuItem, bool navigateInbox = true)
     {
         if (clickedBaseAccountMenuItem == null) return;
@@ -1770,7 +1754,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         => OnNavigatedFrom(NavigationMode.New, null!);
 
     Task IShellClient.HandleNavigationItemInvokedAsync(IMenuItem menuItem)
-        => HandleNavigationItemInvokedAsync(menuItem);
+        => MenuItemInvokedOrSelectedAsync(menuItem);
 
     Task IShellClient.HandleNavigationSelectionChangedAsync(IMenuItem menuItem)
         => menuItem == null ? Task.CompletedTask : MenuItemInvokedOrSelectedAsync(menuItem);
