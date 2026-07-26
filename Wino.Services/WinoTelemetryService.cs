@@ -1,114 +1,115 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Microsoft.Extensions.Logging;
 using Sentry;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Telemetry;
 
 namespace Wino.Services;
 
 public sealed partial class WinoTelemetryService : IWinoTelemetryService
 {
-    private const int MaxPropertyValueLength = 200;
-
-    private readonly IAppMetadataService _appMetadataService;
+    private readonly IWinoTelemetryContextProvider _contextProvider;
     private readonly ILogger<WinoTelemetryService> _logger;
+    private readonly IWinoTelemetrySink _sink;
+    private readonly WinoTelemetryDeduplicator _deduplicator = new();
 
     public WinoTelemetryService(
-        IAppMetadataService appMetadataService,
-        ILogger<WinoTelemetryService> logger)
+        IWinoTelemetryContextProvider contextProvider,
+        ILogger<WinoTelemetryService> logger,
+        IWinoTelemetrySink sink)
     {
-        _appMetadataService = appMetadataService;
+        _contextProvider = contextProvider;
         _logger = logger;
+        _sink = sink;
     }
 
+    [Obsolete("Use the typed WinoTelemetryEvent overload.")]
     public void TrackEvent(
         string eventName,
         IReadOnlyDictionary<string, string> properties = null,
         WinoTelemetryLevel level = WinoTelemetryLevel.Info)
+        => TrackEvent(new WinoTelemetryEvent
+        {
+            Name = eventName,
+            Level = level,
+            Tags = properties
+        });
+
+    public void TrackEvent(WinoTelemetryEvent telemetryEvent)
     {
-        if (string.IsNullOrWhiteSpace(eventName))
+        if (telemetryEvent == null || string.IsNullOrWhiteSpace(telemetryEvent.Name))
             return;
 
-        var safeProperties = CreateSafeProperties(properties);
-        safeProperties["event_name"] = eventName.Trim();
-        safeProperties["app_version"] = _appMetadataService.AppVersion;
-        safeProperties["build_configuration"] = _appMetadataService.BuildConfiguration;
-        safeProperties["environment"] = _appMetadataService.SentryEnvironment;
-        safeProperties["release"] = _appMetadataService.SentryRelease;
-        safeProperties["dist"] = _appMetadataService.SentryDist;
-        safeProperties["package_name"] = _appMetadataService.PackageName;
+        var telemetryContext = _contextProvider.GetCurrent();
+        if (!telemetryContext.IsTelemetryEnabled)
+            return;
 
-        WinoTelemetryLog.TelemetryEventTracked(_logger, eventName, level.ToString());
-
-        SentrySdk.AddBreadcrumb(eventName, category: "telemetry", data: safeProperties);
-
-        var sentryEvent = new SentryEvent
+        if (!_deduplicator.ShouldSend(
+                telemetryEvent.DeduplicationKey,
+                telemetryEvent.DeduplicationWindow,
+                DateTimeOffset.UtcNow,
+                out var suppressedRepeatCount))
         {
-            Level = ToSentryLevel(level),
-            Logger = "Wino.Telemetry",
-            Message = eventName
-        };
+            return;
+        }
 
+        var eventName = telemetryEvent.Name.Trim();
+        var safeTags = WinoTelemetrySanitizer.CreateSafeProperties(telemetryEvent.Tags);
+        var safeContext = WinoTelemetrySanitizer.CreateSafeProperties(telemetryEvent.Context);
+
+        safeTags["event_name"] = eventName;
+        safeTags["diagnostic_id"] = telemetryContext.DiagnosticId;
+        safeTags["app_mode"] = telemetryContext.AppMode;
+        safeTags["app_version"] = telemetryContext.AppVersion;
+        safeTags["build_configuration"] = telemetryContext.BuildConfiguration;
+        safeTags["environment"] = telemetryContext.SentryEnvironment;
+        safeTags["release"] = telemetryContext.SentryRelease;
+        safeTags["dist"] = telemetryContext.SentryDist;
+        safeTags["package_name"] = telemetryContext.PackageName;
+
+        if (suppressedRepeatCount > 0)
+        {
+            safeContext["suppressed_repeat_count"] = suppressedRepeatCount.ToString();
+        }
+
+        WinoTelemetryLog.TelemetryEventTracked(_logger, eventName, telemetryEvent.Level.ToString());
+
+        _sink.AddBreadcrumb(eventName, safeTags);
+
+        if (!telemetryEvent.CaptureAsEvent)
+        {
+            return;
+        }
+
+        var sentryEvent = telemetryEvent.Exception == null
+            ? new SentryEvent()
+            : new SentryEvent(telemetryEvent.Exception);
+
+        sentryEvent.Level = ToSentryLevel(telemetryEvent.Level);
+        sentryEvent.Logger = "Wino.Telemetry";
+        sentryEvent.Message = eventName;
+
+        sentryEvent.User = new SentryUser { Id = telemetryContext.DiagnosticId };
         sentryEvent.SetTag("telemetry_event", eventName);
-        sentryEvent.SetTag("app_version", _appMetadataService.AppVersion);
-        sentryEvent.SetTag("build_configuration", _appMetadataService.BuildConfiguration);
-        sentryEvent.SetTag("environment", _appMetadataService.SentryEnvironment);
-        sentryEvent.SetTag("release", _appMetadataService.SentryRelease);
-        sentryEvent.SetTag("dist", _appMetadataService.SentryDist);
-        sentryEvent.SetTag("package_name", _appMetadataService.PackageName);
 
-        foreach (var property in safeProperties)
+        foreach (var property in safeTags)
         {
             sentryEvent.SetTag(property.Key, property.Value);
-            sentryEvent.SetExtra(property.Key, property.Value);
         }
 
-        SentrySdk.CaptureEvent(sentryEvent);
-    }
-
-    private static Dictionary<string, string> CreateSafeProperties(IReadOnlyDictionary<string, string> properties)
-    {
-        var safeProperties = new Dictionary<string, string>(StringComparer.Ordinal);
-
-        if (properties == null)
-            return safeProperties;
-
-        foreach (var property in properties.Where(property => !string.IsNullOrWhiteSpace(property.Key)))
+        if (safeContext.Count > 0)
         {
-            if (IsForbiddenPropertyKey(property.Key) || property.Value == null)
-                continue;
-
-            safeProperties[property.Key.Trim()] = NormalizeValue(property.Value);
+            sentryEvent.Contexts["diagnostics"] = safeContext;
         }
 
-        return safeProperties;
-    }
+        if (telemetryEvent.Fingerprint is { Count: > 0 })
+        {
+            sentryEvent.SetFingerprint(telemetryEvent.Fingerprint);
+        }
 
-    private static bool IsForbiddenPropertyKey(string key)
-    {
-        var normalizedKey = key.Trim().ToLowerInvariant();
-
-        return normalizedKey.Contains("password", StringComparison.Ordinal)
-               || normalizedKey.Contains("token", StringComparison.Ordinal)
-               || normalizedKey.Contains("secret", StringComparison.Ordinal)
-               || normalizedKey.Contains("username", StringComparison.Ordinal)
-               || normalizedKey.Contains("email", StringComparison.Ordinal)
-               || normalizedKey.Contains("local_part", StringComparison.Ordinal)
-               || normalizedKey.Contains("subject", StringComparison.Ordinal)
-               || normalizedKey.Contains("content", StringComparison.Ordinal)
-               || normalizedKey.Contains("body", StringComparison.Ordinal)
-               || normalizedKey.Contains("query", StringComparison.Ordinal)
-               || normalizedKey.Contains("path", StringComparison.Ordinal);
-    }
-
-    private static string NormalizeValue(string value)
-    {
-        var normalizedValue = value.Trim();
-        return normalizedValue.Length <= MaxPropertyValueLength
-            ? normalizedValue
-            : normalizedValue[..MaxPropertyValueLength];
+        _sink.CaptureEvent(sentryEvent);
     }
 
     private static SentryLevel ToSentryLevel(WinoTelemetryLevel level)

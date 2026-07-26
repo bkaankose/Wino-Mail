@@ -33,14 +33,26 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
     [GeneratedDependencyProperty]
     public partial EditorColorOption? SelectedHighlightColorOption { get; set; }
 
+    private const string LineSpacingGroupName = "ComposerLineSpacing";
+
     private bool _isApplyingState;
     private IEditorCommandTarget? _subscribedTarget;
     private static readonly SolidColorBrush TransparentBrush = new(EditorColorOption.ParseColorValue(null));
     private IReadOnlyList<EditorColorOption> _textColorOptions = Array.Empty<EditorColorOption>();
     private IReadOnlyList<EditorColorOption> _highlightColorOptions = Array.Empty<EditorColorOption>();
+    private readonly List<ICommandBarElement> _injectedInsertCommands = [];
+    private readonly List<ICommandBarElement> _injectedOptionsCommands = [];
 
     public Brush SelectedTextColorBrush => SelectedTextColorOption?.Brush ?? TransparentBrush;
     public Brush SelectedHighlightColorBrush => SelectedHighlightColorOption?.Brush ?? TransparentBrush;
+    public string SelectedTextColorName => SelectedTextColorOption?.Name ?? string.Empty;
+    public string SelectedHighlightColorName => SelectedHighlightColorOption?.Name ?? string.Empty;
+
+    // Shortcuts are part of the tooltip so the toolbar teaches them instead of hiding them.
+    public string BoldTooltip => $"{Translator.Composer_Bold} (Ctrl+B)";
+    public string ItalicTooltip => $"{Translator.Composer_Italic} (Ctrl+I)";
+    public string UnderlineTooltip => $"{Translator.Composer_Underline} (Ctrl+U)";
+    public string LinkTooltip => $"{Translator.Composer_InsertLink} (Ctrl+K)";
 
     public EditorTabbedCommandBarControl()
     {
@@ -91,6 +103,48 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         AttachCommandTarget(newValue);
     }
 
+    partial void OnInsertCustomContentChanged(object? newValue)
+        => ApplyInjectedCommands(InsertTabItem, _injectedInsertCommands, newValue);
+
+    partial void OnOptionsCustomContentChanged(object? newValue)
+    {
+        ApplyInjectedCommands(OptionsTabItem, _injectedOptionsCommands, newValue);
+
+        // Nothing injected means nothing to separate from.
+        OptionsInjectedCommandsSeparator.Visibility = _injectedOptionsCommands.Count > 0
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    /// <summary>
+    /// The composer owns these commands, but they have to sit directly in the command bar. A command bar only
+    /// lays out labels and builds its overflow menu for its own children, so anything nested in a container
+    /// would show up with the wrong label position and never collapse when the window gets narrow.
+    /// </summary>
+    private static void ApplyInjectedCommands(CommandBar tabItem, List<ICommandBarElement> injectedCommands, object? content)
+    {
+        foreach (var injectedCommand in injectedCommands)
+        {
+            tabItem.PrimaryCommands.Remove(injectedCommand);
+        }
+
+        injectedCommands.Clear();
+
+        if (content is not Panel panel)
+        {
+            return;
+        }
+
+        var commands = panel.Children.OfType<ICommandBarElement>().ToList();
+
+        foreach (var command in commands)
+        {
+            panel.Children.Remove((UIElement)command);
+            tabItem.PrimaryCommands.Insert(injectedCommands.Count, command);
+            injectedCommands.Add(command);
+        }
+    }
+
     partial void OnSelectedTextColorOptionChanged(EditorColorOption? newValue) => Bindings.Update();
 
     partial void OnSelectedHighlightColorOptionChanged(EditorColorOption? newValue) => Bindings.Update();
@@ -127,19 +181,17 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         {
             var fonts = capabilities.Fonts.ToArray();
             var fontSizes = capabilities.FontSizes.ToArray();
-            var alignments = capabilities.Alignments.ToArray();
             var paragraphStyles = capabilities.ParagraphStyles.ToArray();
-            var lineHeights = capabilities.LineHeights.ToArray();
 
             SetItemsSourceIfChanged(FontFamilyComboBox, fonts);
             SetItemsSourceIfChanged(FontSizeComboBox, fontSizes);
-            SetItemsSourceIfChanged(AlignmentComboBox, alignments);
             SetItemsSourceIfChanged(ParagraphStyleComboBox, paragraphStyles);
             _textColorOptions = capabilities.TextColors.ToArray();
             _highlightColorOptions = capabilities.HighlightColors.ToArray();
-            SetItemsSourceIfChanged(TextColorComboBox, _textColorOptions);
-            SetItemsSourceIfChanged(HighlightColorComboBox, _highlightColorOptions);
-            SetItemsSourceIfChanged(LineHeightComboBox, lineHeights);
+            SetItemsSourceIfChanged(TextColorGridView, _textColorOptions);
+            SetItemsSourceIfChanged(HighlightColorGridView, _highlightColorOptions);
+
+            BuildLineSpacingMenu(capabilities.LineHeights);
         }
         catch (Exception ex)
         {
@@ -159,10 +211,67 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         }
     }
 
+    private void BuildLineSpacingMenu(IReadOnlyList<string> lineHeights)
+    {
+        if (LineSpacingMenuFlyout.Items.Count == lineHeights.Count)
+        {
+            return;
+        }
+
+        LineSpacingMenuFlyout.Items.Clear();
+
+        foreach (var lineHeight in lineHeights)
+        {
+            var item = new RadioMenuFlyoutItem
+            {
+                Text = GetLineSpacingName(lineHeight),
+                GroupName = LineSpacingGroupName,
+                Tag = lineHeight
+            };
+
+            item.Click += LineSpacingMenuItem_Click;
+            LineSpacingMenuFlyout.Items.Add(item);
+        }
+    }
+
+    private EditorTextAlignment GetAlignment(AppBarToggleButton button)
+    {
+        if (button == AlignCenterButton) return EditorTextAlignment.Center;
+        if (button == AlignRightButton) return EditorTextAlignment.Right;
+        if (button == AlignJustifyButton) return EditorTextAlignment.Justify;
+
+        return EditorTextAlignment.Left;
+    }
+
+    /// <summary>
+    /// The editor reports the raw CSS line-height, which is not something to show to a person as is.
+    /// </summary>
+    private static string GetLineSpacingName(string lineHeight)
+        => string.IsNullOrWhiteSpace(lineHeight) || string.Equals(lineHeight, "normal", StringComparison.OrdinalIgnoreCase)
+            ? Translator.Composer_LineSpacingDefault
+            : lineHeight;
+
     private void ApplyState(EditorState state)
     {
         _isApplyingState = true;
 
+        try
+        {
+            ApplyStateCore(state);
+        }
+        catch (Exception ex)
+        {
+            // A failure here must not leave _isApplyingState stuck, which would silently swallow every command.
+            Debug.WriteLine($"Error applying editor state: {ex}");
+        }
+        finally
+        {
+            _isApplyingState = false;
+        }
+    }
+
+    private void ApplyStateCore(EditorState state)
+    {
         BoldButton.IsChecked = state.IsBold;
         ItalicButton.IsChecked = state.IsItalic;
         UnderlineButton.IsChecked = state.IsUnderline;
@@ -171,34 +280,50 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         OrderedListButton.IsChecked = state.IsOrderedList;
         IndentButton.IsEnabled = state.CanIndent;
         OutdentButton.IsEnabled = state.CanOutdent;
+
+        // Contextual commands stay in place and grey out. Hiding them would make the row jump under the pointer.
         RemoveLinkButton.IsEnabled = !string.IsNullOrWhiteSpace(state.LinkUrl) ||
             (state.IsImageSelected && !string.IsNullOrWhiteSpace(state.ImageLinkUrl));
-        RemoveLinkButton.Visibility = RemoveLinkButton.IsEnabled ? Visibility.Visible : Visibility.Collapsed;
-        ImagePropertiesButton.Visibility = state.IsImageSelected ? Visibility.Visible : Visibility.Collapsed;
-        BuiltInToolbarButton.IsChecked = state.IsBuiltInToolbarVisible;
+        ImagePropertiesButton.IsEnabled = state.IsImageSelected;
+
         SpellCheckButton.IsChecked = state.IsSpellCheckEnabled;
 
-        AlignmentComboBox.SelectedItem = state.Alignment;
-        FontFamilyComboBox.SelectedItem = MatchStringItem(FontFamilyComboBox.ItemsSource, state.FontFamily);
+        ApplyAlignmentState(state.Alignment);
+        ApplyLineSpacingState(state.LineHeight);
+
+        FontFamilyComboBox.SelectedItem = MatchFontItem(state.FontFamily);
         FontSizeComboBox.SelectedItem = MatchValueItem<int>(FontSizeComboBox.ItemsSource, state.FontSize);
-        LineHeightComboBox.SelectedItem = MatchStringItem(LineHeightComboBox.ItemsSource, state.LineHeight);
         ParagraphStyleComboBox.SelectedItem = MatchParagraphItem(state.ParagraphStyle);
         SelectedTextColorOption = ResolveColorOption(_textColorOptions, state.TextColor);
         SelectedHighlightColorOption = ResolveColorOption(_highlightColorOptions, state.HighlightColor);
-        TextColorComboBox.SelectedItem = SelectedTextColorOption;
-        HighlightColorComboBox.SelectedItem = SelectedHighlightColorOption;
-
-        _isApplyingState = false;
+        TextColorGridView.SelectedItem = SelectedTextColorOption;
+        HighlightColorGridView.SelectedItem = SelectedHighlightColorOption;
     }
 
-    private static object? MatchStringItem(object? itemsSource, string? value)
+    private void ApplyAlignmentState(EditorTextAlignment alignment)
     {
-        if (itemsSource is IEnumerable<string> strings)
+        AlignLeftButton.IsChecked = alignment == EditorTextAlignment.Left;
+        AlignCenterButton.IsChecked = alignment == EditorTextAlignment.Center;
+        AlignRightButton.IsChecked = alignment == EditorTextAlignment.Right;
+        AlignJustifyButton.IsChecked = alignment == EditorTextAlignment.Justify;
+    }
+
+    private void ApplyLineSpacingState(string? lineHeight)
+    {
+        foreach (var item in LineSpacingMenuFlyout.Items.OfType<RadioMenuFlyoutItem>())
         {
-            return strings.FirstOrDefault(item => string.Equals(item, value, StringComparison.OrdinalIgnoreCase));
+            item.IsChecked = item.Tag is string itemValue && string.Equals(itemValue, lineHeight, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    private object? MatchFontItem(string? value)
+    {
+        if (FontFamilyComboBox.ItemsSource is not IEnumerable<EditorFontFamilyOption> fonts)
+        {
+            return null;
         }
 
-        return null;
+        return fonts.FirstOrDefault(item => string.Equals(item.DisplayName, value, StringComparison.OrdinalIgnoreCase));
     }
 
     private static object? MatchValueItem<T>(object? itemsSource, T? value) where T : struct
@@ -303,24 +428,37 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
     private async void EmojiButton_Click(object sender, RoutedEventArgs e) => await ExecuteAsync(EditorCommand.InsertEmoji());
     private async void RemoveLinkButton_Click(object sender, RoutedEventArgs e) => await ExecuteAsync(EditorCommand.RemoveLink());
 
-    private async void AlignmentComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void AlignmentButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_isApplyingState || AlignmentComboBox.SelectedItem is not EditorTextAlignment alignment)
+        if (_isApplyingState || sender is not AppBarToggleButton button)
         {
             return;
         }
 
-        await ExecuteAsync(EditorCommand.SetAlignment(alignment));
+        // Alignment is a choice, not a switch: clicking the checked button must not turn alignment off.
+        button.IsChecked = true;
+
+        await ExecuteAsync(EditorCommand.SetAlignment(GetAlignment(button)));
+    }
+
+    private async void LineSpacingMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingState || sender is not RadioMenuFlyoutItem { Tag: string lineHeight } || string.IsNullOrWhiteSpace(lineHeight))
+        {
+            return;
+        }
+
+        await ExecuteAsync(EditorCommand.SetLineHeight(lineHeight));
     }
 
     private async void FontFamilyComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_isApplyingState || FontFamilyComboBox.SelectedItem is not string fontFamily || string.IsNullOrWhiteSpace(fontFamily))
+        if (_isApplyingState || FontFamilyComboBox.SelectedItem is not EditorFontFamilyOption font)
         {
             return;
         }
 
-        await ExecuteAsync(EditorCommand.SetFontFamily(fontFamily));
+        await ExecuteAsync(EditorCommand.SetFontFamily(font.DisplayName));
     }
 
     private async void FontSizeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -343,11 +481,38 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         await ExecuteAsync(EditorCommand.SetParagraphStyle(paragraphStyle.Tag));
     }
 
-    private async void TextColorComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void TextColorGridView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        SelectedTextColorOption = TextColorComboBox.SelectedItem as EditorColorOption;
+        SelectedTextColorOption = TextColorGridView.SelectedItem as EditorColorOption;
 
         if (_isApplyingState || SelectedTextColorOption == null)
+        {
+            return;
+        }
+
+        TextColorFlyout.Hide();
+
+        await ExecuteAsync(EditorCommand.SetTextColor(SelectedTextColorOption.Value));
+    }
+
+    private async void HighlightColorGridView_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        SelectedHighlightColorOption = HighlightColorGridView.SelectedItem as EditorColorOption;
+
+        if (_isApplyingState || SelectedHighlightColorOption == null)
+        {
+            return;
+        }
+
+        HighlightColorFlyout.Hide();
+
+        await ExecuteAsync(EditorCommand.SetHighlightColor(SelectedHighlightColorOption.Value));
+    }
+
+    // The primary half of the split button re-applies the color that is already shown on it.
+    private async void TextColorSplitButton_Click(SplitButton sender, SplitButtonClickEventArgs args)
+    {
+        if (SelectedTextColorOption == null)
         {
             return;
         }
@@ -355,31 +520,14 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         await ExecuteAsync(EditorCommand.SetTextColor(SelectedTextColorOption.Value));
     }
 
-    private async void HighlightColorComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void HighlightColorSplitButton_Click(SplitButton sender, SplitButtonClickEventArgs args)
     {
-        SelectedHighlightColorOption = HighlightColorComboBox.SelectedItem as EditorColorOption;
-
-        if (_isApplyingState || SelectedHighlightColorOption == null)
+        if (SelectedHighlightColorOption == null)
         {
             return;
         }
 
         await ExecuteAsync(EditorCommand.SetHighlightColor(SelectedHighlightColorOption.Value));
-    }
-
-    private async void LineHeightComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_isApplyingState || LineHeightComboBox.SelectedItem is not string lineHeight || string.IsNullOrWhiteSpace(lineHeight))
-        {
-            return;
-        }
-
-        await ExecuteAsync(EditorCommand.SetLineHeight(lineHeight));
-    }
-
-    private async void BuiltInToolbarButton_Click(object sender, RoutedEventArgs e)
-    {
-        await ExecuteAsync(EditorCommand.ToggleBuiltInToolbar(BuiltInToolbarButton.IsChecked == true));
     }
 
     private async void SpellCheckButton_Click(object sender, RoutedEventArgs e)
@@ -498,7 +646,7 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
     {
         var rowsBox = new NumberBox
         {
-            Header = "Rows",
+            Header = Translator.Composer_TableRows,
             Minimum = 1,
             Maximum = 10,
             SmallChange = 1,
@@ -506,7 +654,7 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         };
         var columnsBox = new NumberBox
         {
-            Header = "Columns",
+            Header = Translator.Composer_TableColumns,
             Minimum = 1,
             Maximum = 10,
             SmallChange = 1,
@@ -516,9 +664,9 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         var dialog = new ContentDialog
         {
             XamlRoot = XamlRoot,
-            Title = "Insert table",
-            PrimaryButtonText = "Insert",
-            CloseButtonText = "Cancel",
+            Title = Translator.Composer_InsertTable,
+            PrimaryButtonText = Translator.Buttons_Insert,
+            CloseButtonText = Translator.Buttons_Cancel,
             DefaultButton = ContentDialogButton.Primary,
             Content = new StackPanel
             {

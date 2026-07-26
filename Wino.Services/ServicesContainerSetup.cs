@@ -11,6 +11,8 @@ public static class ServicesContainerSetup
         services.AddSingleton<IDatabaseService, DatabaseService>();
 
         services.AddSingleton<IApplicationConfiguration, ApplicationConfiguration>();
+        services.AddSingleton<IWinoTelemetryContextProvider, WinoTelemetryContextProvider>();
+        services.AddSingleton<IWinoTelemetrySink, SentryWinoTelemetrySink>();
         services.AddSingleton<IWinoLogger, WinoLogger>();
         services.AddSingleton<IWinoTelemetryService, WinoTelemetryService>();
         services.AddSingleton<ILaunchProtocolService, LaunchProtocolService>();

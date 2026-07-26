@@ -116,6 +116,11 @@ public sealed record class EditorColorOption(string Name, string Value)
 {
     public SolidColorBrush Brush => new(ParseColorValue(Value));
 
+    /// <summary>
+    /// False for the "Automatic" / "No color" entries that clear the color instead of applying one.
+    /// </summary>
+    public bool HasColor => !string.IsNullOrWhiteSpace(Value);
+
     public static Color ParseColorValue(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -233,7 +238,7 @@ public sealed record class EditorParagraphStyleOption(string Name, string Tag);
 
 public sealed record class EditorCapabilities
 {
-    public IReadOnlyList<string> Fonts { get; init; } = Array.Empty<string>();
+    public IReadOnlyList<EditorFontFamilyOption> Fonts { get; init; } = Array.Empty<EditorFontFamilyOption>();
     public IReadOnlyList<int> FontSizes { get; init; } = Array.Empty<int>();
     public IReadOnlyList<EditorColorOption> TextColors { get; init; } = Array.Empty<EditorColorOption>();
     public IReadOnlyList<EditorColorOption> HighlightColors { get; init; } = Array.Empty<EditorColorOption>();

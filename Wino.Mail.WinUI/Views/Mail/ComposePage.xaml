@@ -1,4 +1,4 @@
-<abstract:ComposePageAbstract
+﻿<abstract:ComposePageAbstract
     x:Class="Wino.Views.Mail.ComposePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -208,15 +208,19 @@
                             CommandAlignment="Right"
                             IsDynamicOverflowEnabled="True"
                             OverflowButtonAlignment="Left">
-                            <AppBarElementContainer Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.AvailableEmailTemplates.Count), Mode=OneWay}">
+                            <AppBarElementContainer VerticalContentAlignment="Center" Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.AvailableEmailTemplates.Count), Mode=OneWay}">
                                 <ComboBox
                                     x:Name="EmailTemplatesComboBox"
-                                    MinWidth="220"
-                                    Margin="0,8,8,0"
+                                    MinWidth="200"
+                                    Height="32"
+                                    Margin="0,0,8,0"
+                                    VerticalAlignment="Center"
                                     AutomationProperties.AutomationId="EmailTemplatesComboBox"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.Composer_EmailTemplatesPlaceholder, Mode=OneTime}"
                                     ItemsSource="{x:Bind ViewModel.AvailableEmailTemplates, Mode=OneWay}"
                                     PlaceholderText="{x:Bind domain:Translator.Composer_EmailTemplatesPlaceholder}"
-                                    SelectionChanged="EmailTemplateSelectionChanged">
+                                    SelectionChanged="EmailTemplateSelectionChanged"
+                                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_EmailTemplatesPlaceholder, Mode=OneTime}">
                                     <ComboBox.ItemTemplate>
                                         <DataTemplate x:DataType="mail:EmailTemplate">
                                             <TextBlock Text="{x:Bind Name}" />
@@ -224,14 +228,26 @@
                                     </ComboBox.ItemTemplate>
                                 </ComboBox>
                             </AppBarElementContainer>
-                            <AppBarButton
-                                MinWidth="40"
-                                HorizontalContentAlignment="Center"
-                                VerticalContentAlignment="Center"
-                                AutomationProperties.AutomationId="ComposePageAppBarButton"
-                                Visibility="{x:Bind ViewModel.IsDraftBusy, Mode=OneWay}">
-                                <ProgressRing IsActive="True" />
-                            </AppBarButton>
+
+                            <!--  Draft autosave. A spinner alone says something is happening but not what.  -->
+                            <AppBarElementContainer VerticalContentAlignment="Center" Visibility="{x:Bind ViewModel.IsDraftBusy, Mode=OneWay}">
+                                <StackPanel
+                                    Margin="4,0,8,0"
+                                    VerticalAlignment="Center"
+                                    Orientation="Horizontal"
+                                    Spacing="8">
+                                    <ProgressRing
+                                        Width="16"
+                                        Height="16"
+                                        IsActive="True" />
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="{x:Bind domain:Translator.Composer_SavingDraft, Mode=OneTime}" />
+                                </StackPanel>
+                            </AppBarElementContainer>
+
                             <AppBarToggleButton
                                 x:Name="ComposeAiActionsToggleButton"
                                 MinWidth="40"
@@ -247,9 +263,11 @@
                                 </AppBarToggleButton.Icon>
                             </AppBarToggleButton>
                             <AppBarButton
+                                MinWidth="40"
                                 AutomationProperties.AutomationId="XBindDomainTranslatorButtonsPopOutModeOneTime"
                                 AutomationProperties.Name="{x:Bind domain:Translator.Buttons_PopOut, Mode=OneTime}"
                                 Click="PopOutButton_Click"
+                                LabelPosition="Collapsed"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_PopOut}"
                                 Visibility="{x:Bind GetPopOutButtonVisibility(), Mode=OneTime}">
                                 <AppBarButton.Icon>
@@ -257,42 +275,62 @@
                                 </AppBarButton.Icon>
                             </AppBarButton>
                             <AppBarButton
+                                MinWidth="40"
                                 AutomationProperties.AutomationId="XBindGetEditorThemeToolTipWebViewEditorIsEditorDarkModeModeOneWay"
                                 AutomationProperties.Name="{x:Bind GetEditorThemeToolTip(WebViewEditor.IsEditorDarkMode), Mode=OneWay}"
                                 Click="ToggleEditorThemeClicked"
+                                LabelPosition="Collapsed"
                                 ToolTipService.ToolTip="{x:Bind GetEditorThemeToolTip(WebViewEditor.IsEditorDarkMode), Mode=OneWay}">
                                 <AppBarButton.Icon>
                                     <coreControls:WinoFontIcon Icon="{x:Bind GetEditorThemeIcon(WebViewEditor.IsEditorDarkMode), Mode=OneWay}" />
                                 </AppBarButton.Icon>
                             </AppBarButton>
+
+                            <AppBarSeparator />
+
                             <AppBarButton
                                 AutomationProperties.AutomationId="ComposePageAppBarButton3"
                                 Command="{x:Bind ViewModel.DiscardCommand}"
-                                Label="{x:Bind domain:Translator.Buttons_Discard}">
+                                Label="{x:Bind domain:Translator.Buttons_Discard}"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Discard, Mode=OneTime}">
                                 <AppBarButton.Icon>
                                     <coreControls:WinoFontIcon Icon="Delete" />
                                 </AppBarButton.Icon>
                             </AppBarButton>
 
-                            <AppBarButton
-                                AutomationProperties.AutomationId="ComposePageAppBarButton4"
-                                Command="{x:Bind ViewModel.SendCommand}"
-                                Label="{x:Bind domain:Translator.Buttons_Send}"
-                                Visibility="{x:Bind ViewModel.ShouldShowSendButton, Mode=OneWay}">
-                                <AppBarButton.Icon>
-                                    <coreControls:WinoFontIcon Icon="Send" />
-                                </AppBarButton.Icon>
-                            </AppBarButton>
-                            <AppBarButton
-                                AutomationProperties.AutomationId="ComposePageAppBarButton5"
-                                Command="{x:Bind ViewModel.SendToServerCommand}"
-                                Label="{x:Bind domain:Translator.Buttons_SendToServer}"
-                                ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_LocalDraftSyncInfo}"
-                                Visibility="{x:Bind ViewModel.ShouldShowSendToServerButton, Mode=OneWay}">
-                                <AppBarButton.Icon>
-                                    <coreControls:WinoFontIcon Icon="SendNew" />
-                                </AppBarButton.Icon>
-                            </AppBarButton>
+                            <!--  Send is the one thing this page exists for, so it is the only accented control on it.  -->
+                            <AppBarElementContainer VerticalContentAlignment="Center" Visibility="{x:Bind ViewModel.ShouldShowSendButton, Mode=OneWay}">
+                                <Button
+                                    Height="32"
+                                    Margin="4,0,8,0"
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="ComposePageAppBarButton4"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.Buttons_Send, Mode=OneTime}"
+                                    Command="{x:Bind ViewModel.SendCommand}"
+                                    Style="{StaticResource AccentButtonStyle}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <coreControls:WinoFontIcon FontSize="14" Icon="Send" />
+                                        <TextBlock Text="{x:Bind domain:Translator.Buttons_Send, Mode=OneTime}" />
+                                    </StackPanel>
+                                </Button>
+                            </AppBarElementContainer>
+
+                            <AppBarElementContainer VerticalContentAlignment="Center" Visibility="{x:Bind ViewModel.ShouldShowSendToServerButton, Mode=OneWay}">
+                                <Button
+                                    Height="32"
+                                    Margin="4,0,8,0"
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="ComposePageAppBarButton5"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.Buttons_SendToServer, Mode=OneTime}"
+                                    Command="{x:Bind ViewModel.SendToServerCommand}"
+                                    Style="{StaticResource AccentButtonStyle}"
+                                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_LocalDraftSyncInfo}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <coreControls:WinoFontIcon FontSize="14" Icon="SendNew" />
+                                        <TextBlock Text="{x:Bind domain:Translator.Buttons_SendToServer, Mode=OneTime}" />
+                                    </StackPanel>
+                                </Button>
+                            </AppBarElementContainer>
                         </toolkit:TabbedCommandBarItem>
                     </controls1:EditorTabbedCommandBarControl.PaneCustomContent>
 
@@ -301,9 +339,10 @@
                             <AppBarButton
                                 x:Name="FilesButton"
                                 AutomationProperties.AutomationId="FilesButton"
-                                AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_AddAttachment, Mode=OneTime}"
+                                AutomationProperties.Name="{x:Bind domain:Translator.Composer_AttachFiles, Mode=OneTime}"
                                 Command="{x:Bind ViewModel.AttachFilesCommand}"
-                                LabelPosition="Collapsed">
+                                Label="{x:Bind domain:Translator.Composer_AttachFiles, Mode=OneTime}"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AttachFilesDescription, Mode=OneTime}">
                                 <AppBarButton.Icon>
                                     <PathIcon Data="{StaticResource AttachPathIcon}" />
                                 </AppBarButton.Icon>
@@ -312,121 +351,137 @@
                     </controls1:EditorTabbedCommandBarControl.InsertCustomContent>
 
                     <controls1:EditorTabbedCommandBarControl.OptionsCustomContent>
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <ToggleSplitButton
-                                x:Name="ImportanceSplitButton"
+                        <StackPanel Orientation="Horizontal">
+
+                            <!--  Importance is a three way choice, so it reads as a checked list instead of an on/off button.  -->
+                            <AppBarButton
+                                x:Name="ImportanceButton"
                                 AutomationProperties.AutomationId="ImportanceSplitButton"
                                 AutomationProperties.Name="{x:Bind domain:Translator.Composer_Importance, Mode=OneTime}"
-                                IsChecked="{x:Bind ViewModel.IsImportanceSelected, Mode=TwoWay}">
-                                <ToggleSplitButton.Content>
-                                    <Viewbox Width="16" Height="16">
-                                        <SymbolIcon x:Name="ImportanceSplitButtonContent" Symbol="Important" />
-                                    </Viewbox>
-                                </ToggleSplitButton.Content>
-                                <ToggleSplitButton.Flyout>
-                                    <Flyout x:Name="ImportanceFlyout" Placement="Bottom">
-                                        <StackPanel Orientation="Horizontal">
-                                            <StackPanel.Resources>
-                                                <Style TargetType="Button">
-                                                    <Setter Property="Padding" Value="4" />
-                                                    <Setter Property="MinWidth" Value="0" />
-                                                    <Setter Property="MinHeight" Value="0" />
-                                                    <Setter Property="Margin" Value="6" />
-                                                    <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
-                                                </Style>
-                                            </StackPanel.Resources>
-                                            <Button
-                                                AutomationProperties.AutomationId="XBindDomainTranslatorComposerHighImportanceModeOneTime"
-                                                AutomationProperties.Name="{x:Bind domain:Translator.Composer_HighImportance, Mode=OneTime}"
-                                                Click="ImportanceClicked">
-                                                <Button.Tag>
-                                                    <mailkit:MessageImportance>High</mailkit:MessageImportance>
-                                                </Button.Tag>
+                                Label="{x:Bind domain:Translator.Composer_Importance, Mode=OneTime}"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_ImportanceDescription, Mode=OneTime}">
+                                <AppBarButton.Icon>
+                                    <SymbolIcon x:Name="ImportanceButtonIcon" Symbol="Important" />
+                                </AppBarButton.Icon>
+                                <AppBarButton.Flyout>
+                                    <MenuFlyout x:Name="ImportanceFlyout" Placement="Bottom">
+                                        <RadioMenuFlyoutItem
+                                            x:Name="HighImportanceMenuItem"
+                                            AutomationProperties.AutomationId="HighImportanceMenuItem"
+                                            Click="ImportanceClicked"
+                                            GroupName="ComposerImportance"
+                                            Text="{x:Bind domain:Translator.Composer_HighImportance, Mode=OneTime}">
+                                            <RadioMenuFlyoutItem.Tag>
+                                                <mailkit:MessageImportance>High</mailkit:MessageImportance>
+                                            </RadioMenuFlyoutItem.Tag>
+                                            <RadioMenuFlyoutItem.Icon>
                                                 <SymbolIcon Symbol="Important" />
-                                            </Button>
-                                            <Button
-                                                AutomationProperties.AutomationId="XBindDomainTranslatorComposerLowImportanceModeOneTime"
-                                                AutomationProperties.Name="{x:Bind domain:Translator.Composer_LowImportance, Mode=OneTime}"
-                                                Click="ImportanceClicked">
-                                                <Button.Tag>
-                                                    <mailkit:MessageImportance>Low</mailkit:MessageImportance>
-                                                </Button.Tag>
+                                            </RadioMenuFlyoutItem.Icon>
+                                        </RadioMenuFlyoutItem>
+                                        <RadioMenuFlyoutItem
+                                            x:Name="NormalImportanceMenuItem"
+                                            AutomationProperties.AutomationId="NormalImportanceMenuItem"
+                                            Click="ImportanceClicked"
+                                            GroupName="ComposerImportance"
+                                            IsChecked="True"
+                                            Text="{x:Bind domain:Translator.Composer_NormalImportance, Mode=OneTime}">
+                                            <RadioMenuFlyoutItem.Tag>
+                                                <mailkit:MessageImportance>Normal</mailkit:MessageImportance>
+                                            </RadioMenuFlyoutItem.Tag>
+                                        </RadioMenuFlyoutItem>
+                                        <RadioMenuFlyoutItem
+                                            x:Name="LowImportanceMenuItem"
+                                            AutomationProperties.AutomationId="LowImportanceMenuItem"
+                                            Click="ImportanceClicked"
+                                            GroupName="ComposerImportance"
+                                            Text="{x:Bind domain:Translator.Composer_LowImportance, Mode=OneTime}">
+                                            <RadioMenuFlyoutItem.Tag>
+                                                <mailkit:MessageImportance>Low</mailkit:MessageImportance>
+                                            </RadioMenuFlyoutItem.Tag>
+                                            <RadioMenuFlyoutItem.Icon>
                                                 <SymbolIcon Symbol="Priority" />
-                                            </Button>
-                                        </StackPanel>
-                                    </Flyout>
-                                </ToggleSplitButton.Flyout>
-                            </ToggleSplitButton>
-                            <muxc:ToggleSplitButton
+                                            </RadioMenuFlyoutItem.Icon>
+                                        </RadioMenuFlyoutItem>
+                                    </MenuFlyout>
+                                </AppBarButton.Flyout>
+                            </AppBarButton>
+
+                            <AppBarToggleButton
                                 x:Name="SignatureToggleButton"
-                                Margin="8,0,0,0"
                                 AutomationProperties.AutomationId="SignatureToggleButton"
                                 AutomationProperties.Name="{x:Bind domain:Translator.Composer_EnableSmimeSignature, Mode=OneTime}"
                                 IsChecked="{x:Bind ViewModel.IsSmimeSignatureEnabled, Mode=TwoWay}"
                                 IsEnabled="{x:Bind ViewModel.AreCertificatesAvailable, Mode=OneWay}"
+                                Label="{x:Bind domain:Translator.Composer_SmimeSignature, Mode=OneTime}"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_EnableSmimeSignature}">
-                                <muxc:ToggleSplitButton.Content>
-                                    <Viewbox
-                                        Width="16"
-                                        Height="16"
-                                        Margin="0,0,4,0">
-                                        <PathIcon Data="M15 18c.835.629 1.875 1.001 3 1.001a4.978 4.978 0 0 0 3-.999v3.246a.75.75 0 0 1-1.09.67l-.09-.055L18 20.591l-1.82 1.272a.75.75 0 0 1-1.172-.51l-.007-.105L15 18.001Zm4.25-14.996a2.75 2.75 0 0 1 2.745 2.582l.005.168.001 5.246a5.027 5.027 0 0 0-1.5-1.331L20.5 5.754a1.25 1.25 0 0 0-1.122-1.244l-.128-.006H4.75a1.25 1.25 0 0 0-1.244 1.122l-.006.128v9.5c0 .647.492 1.18 1.122 1.243l.128.007h8.92c.1.172.21.338.33.496v1.004H4.75a2.75 2.75 0 0 1-2.745-2.583L2 15.254v-9.5a2.75 2.75 0 0 1 2.582-2.745l.168-.005h14.5ZM18 10A4 4 0 1 1 18 18 4 4 0 0 1 18 10Zm-6.75 2.5a.75.75 0 0 1 .102 1.493L11.25 14h-4.5a.75.75 0 0 1-.102-1.493l.102-.007h4.5Zm6-5.5a.75.75 0 0 1 .102 1.493l-.102.007H6.75a.75.75 0 0 1-.102-1.493L6.75 7h10.5Z" />
-                                    </Viewbox>
-                                </muxc:ToggleSplitButton.Content>
-                                <muxc:ToggleSplitButton.Flyout>
+                                <AppBarToggleButton.Icon>
+                                    <PathIcon Data="M15 18c.835.629 1.875 1.001 3 1.001a4.978 4.978 0 0 0 3-.999v3.246a.75.75 0 0 1-1.09.67l-.09-.055L18 20.591l-1.82 1.272a.75.75 0 0 1-1.172-.51l-.007-.105L15 18.001Zm4.25-14.996a2.75 2.75 0 0 1 2.745 2.582l.005.168.001 5.246a5.027 5.027 0 0 0-1.5-1.331L20.5 5.754a1.25 1.25 0 0 0-1.122-1.244l-.128-.006H4.75a1.25 1.25 0 0 0-1.244 1.122l-.006.128v9.5c0 .647.492 1.18 1.122 1.243l.128.007h8.92c.1.172.21.338.33.496v1.004H4.75a2.75 2.75 0 0 1-2.745-2.583L2 15.254v-9.5a2.75 2.75 0 0 1 2.582-2.745l.168-.005h14.5ZM18 10A4 4 0 1 1 18 18 4 4 0 0 1 18 10Zm-6.75 2.5a.75.75 0 0 1 .102 1.493L11.25 14h-4.5a.75.75 0 0 1-.102-1.493l.102-.007h4.5Zm6-5.5a.75.75 0 0 1 .102 1.493l-.102.007H6.75a.75.75 0 0 1-.102-1.493L6.75 7h10.5Z" />
+                                </AppBarToggleButton.Icon>
+                            </AppBarToggleButton>
+
+                            <!--  Which certificate signs the mail is a separate question from whether it is signed at all.  -->
+                            <AppBarButton
+                                x:Name="SigningCertificateButton"
+                                MinWidth="40"
+                                AutomationProperties.AutomationId="SigningCertificateButton"
+                                AutomationProperties.Name="{x:Bind domain:Translator.Composer_SigningCertificate, Mode=OneTime}"
+                                IsEnabled="{x:Bind ViewModel.AreCertificatesAvailable, Mode=OneWay}"
+                                LabelPosition="Collapsed"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_SigningCertificate, Mode=OneTime}">
+                                <!--  Reads as the dropdown half of the signature toggle it sits next to.  -->
+                                <AppBarButton.Icon>
+                                    <FontIcon FontSize="12" Glyph="&#xE70D;" />
+                                </AppBarButton.Icon>
+                                <AppBarButton.Flyout>
                                     <Flyout Placement="Bottom">
-                                        <ListView
-                                            Width="320"
-                                            AutomationProperties.AutomationId="ComposePageListView"
-                                            ItemsSource="{x:Bind ViewModel.AvailableCertificates, Mode=OneWay}"
-                                            SelectedItem="{x:Bind ViewModel.SelectedSigningCertificate, Mode=TwoWay}">
-                                            <ListView.ItemTemplate>
-                                                <DataTemplate xmlns:x509="using:System.Security.Cryptography.X509Certificates" x:DataType="x509:X509Certificate2">
-                                                    <StackPanel Padding="8,4" Orientation="Vertical">
-                                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind Subject}" />
-                                                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind Issuer}" />
-                                                        <TextBlock>
-                                                            <Run Text="{x:Bind domain:Translator.Composer_CertificateExpires, Mode=OneTime}" />
-                                                            <Run Text="{x:Bind NotAfter, Mode=OneTime}" />
-                                                        </TextBlock>
-                                                    </StackPanel>
-                                                </DataTemplate>
-                                            </ListView.ItemTemplate>
-                                        </ListView>
+                                        <StackPanel Spacing="8">
+                                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.Composer_SigningCertificate, Mode=OneTime}" />
+                                            <ListView
+                                                Width="320"
+                                                AutomationProperties.AutomationId="ComposePageListView"
+                                                ItemsSource="{x:Bind ViewModel.AvailableCertificates, Mode=OneWay}"
+                                                SelectedItem="{x:Bind ViewModel.SelectedSigningCertificate, Mode=TwoWay}">
+                                                <ListView.ItemTemplate>
+                                                    <DataTemplate xmlns:x509="using:System.Security.Cryptography.X509Certificates" x:DataType="x509:X509Certificate2">
+                                                        <StackPanel Padding="8,4" Orientation="Vertical">
+                                                            <TextBlock FontWeight="SemiBold" Text="{x:Bind Subject}" />
+                                                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind Issuer}" />
+                                                            <TextBlock>
+                                                                <Run Text="{x:Bind domain:Translator.Composer_CertificateExpires, Mode=OneTime}" />
+                                                                <Run Text="{x:Bind NotAfter, Mode=OneTime}" />
+                                                            </TextBlock>
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ListView.ItemTemplate>
+                                            </ListView>
+                                        </StackPanel>
                                     </Flyout>
-                                </muxc:ToggleSplitButton.Flyout>
-                            </muxc:ToggleSplitButton>
-                            <ToggleButton
+                                </AppBarButton.Flyout>
+                            </AppBarButton>
+
+                            <AppBarToggleButton
                                 x:Name="EncryptionToggleButton"
-                                Margin="8,0,0,0"
                                 AutomationProperties.AutomationId="EncryptionToggleButton"
                                 AutomationProperties.Name="{x:Bind domain:Translator.Composer_EnableSmimeEncryption, Mode=OneTime}"
                                 IsChecked="{x:Bind ViewModel.IsSmimeEncryptionEnabled, Mode=TwoWay}"
+                                Label="{x:Bind domain:Translator.Composer_SmimeEncryption, Mode=OneTime}"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_EnableSmimeEncryption}">
-                                <ToggleButton.Content>
-                                    <Viewbox
-                                        Width="16"
-                                        Height="16"
-                                        Margin="0,0,4,0">
-                                        <PathIcon Data="M12 2a4 4 0 0 1 4 4v2h1.75A2.25 2.25 0 0 1 20 10.25v9.5A2.25 2.25 0 0 1 17.75 22H6.25A2.25 2.25 0 0 1 4 19.75v-9.5A2.25 2.25 0 0 1 6.25 8H8V6a4 4 0 0 1 4-4Zm5.75 7.5H6.25a.75.75 0 0 0-.75.75v9.5c0 .414.336.75.75.75h11.5a.75.75 0 0 0 .75-.75v-9.5a.75.75 0 0 0-.75-.75Zm-5.75 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0-10A2.5 2.5 0 0 0 9.5 6v2h5V6A2.5 2.5 0 0 0 12 3.5Z" />
-                                    </Viewbox>
-                                </ToggleButton.Content>
-                            </ToggleButton>
-                            <ToggleButton
-                                Margin="8,0,0,0"
+                                <AppBarToggleButton.Icon>
+                                    <PathIcon Data="M12 2a4 4 0 0 1 4 4v2h1.75A2.25 2.25 0 0 1 20 10.25v9.5A2.25 2.25 0 0 1 17.75 22H6.25A2.25 2.25 0 0 1 4 19.75v-9.5A2.25 2.25 0 0 1 6.25 8H8V6a4 4 0 0 1 4-4Zm5.75 7.5H6.25a.75.75 0 0 0-.75.75v9.5c0 .414.336.75.75.75h11.5a.75.75 0 0 0 .75-.75v-9.5a.75.75 0 0 0-.75-.75Zm-5.75 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0-10A2.5 2.5 0 0 0 9.5 6v2h5V6A2.5 2.5 0 0 0 12 3.5Z" />
+                                </AppBarToggleButton.Icon>
+                            </AppBarToggleButton>
+
+                            <AppBarToggleButton
+                                x:Name="ReadReceiptToggleButton"
                                 AutomationProperties.AutomationId="XBindDomainTranslatorComposerRequestReadReceiptModeOneTime"
                                 AutomationProperties.Name="{x:Bind domain:Translator.Composer_RequestReadReceipt, Mode=OneTime}"
                                 IsChecked="{x:Bind ViewModel.IsReadReceiptRequested, Mode=TwoWay}"
+                                Label="{x:Bind domain:Translator.Composer_ReadReceipt, Mode=OneTime}"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_RequestReadReceipt}">
-                                <ToggleButton.Content>
-                                    <Viewbox
-                                        Width="16"
-                                        Height="16"
-                                        Margin="0,0,4,0">
-                                        <PathIcon Data="M10.75 2.5a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.5 9.25a8.25 8.25 0 1 1 15.036 4.71l2.507 2.507a.75.75 0 1 1-1.06 1.06l-2.507-2.507A8.25 8.25 0 0 1 2.5 9.25Zm8.25-3.5a.75.75 0 0 1 .75.75v2.44l1.78 1.187a.75.75 0 0 1-.832 1.248l-2.114-1.41a.75.75 0 0 1-.334-.624V6.5a.75.75 0 0 1 .75-.75Z" />
-                                    </Viewbox>
-                                </ToggleButton.Content>
-                            </ToggleButton>
+                                <AppBarToggleButton.Icon>
+                                    <PathIcon Data="M10.75 2.5a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.5 9.25a8.25 8.25 0 1 1 15.036 4.71l2.507 2.507a.75.75 0 1 1-1.06 1.06l-2.507-2.507A8.25 8.25 0 0 1 2.5 9.25Zm8.25-3.5a.75.75 0 0 1 .75.75v2.44l1.78 1.187a.75.75 0 0 1-.832 1.248l-2.114-1.41a.75.75 0 0 1-.334-.624V6.5a.75.75 0 0 1 .75-.75Z" />
+                                </AppBarToggleButton.Icon>
+                            </AppBarToggleButton>
                         </StackPanel>
                     </controls1:EditorTabbedCommandBarControl.OptionsCustomContent>
                 </controls1:EditorTabbedCommandBarControl>

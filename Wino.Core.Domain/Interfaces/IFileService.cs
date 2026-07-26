@@ -24,5 +24,9 @@ public interface IFileService
     /// <param name="destinationFolder">Target path to save the archive file.</param>
     /// <param name="archiveFileName">Archive file name.</param>
     /// <returns>Created archive path, or an empty string if logs are not found.</returns>
-    Task<string> CreateLogsArchiveAsync(string logsFolder, string destinationFolder, string archiveFileName);
+    Task<string> CreateLogsArchiveAsync(
+        string logsFolder,
+        string destinationFolder,
+        string archiveFileName,
+        bool sanitizeSensitiveData = false);
 }

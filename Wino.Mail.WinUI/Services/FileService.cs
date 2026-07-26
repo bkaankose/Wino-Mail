@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Windows.Storage;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
+using Wino.Services;
 
 namespace Wino.Mail.WinUI.Services;
 
@@ -40,7 +41,11 @@ public class FileService : IFileService
     public async Task<bool> SaveLogsToFolderAsync(string logsFolder, string destinationFolder)
         => !string.IsNullOrEmpty(await CreateLogsArchiveAsync(logsFolder, destinationFolder, Constants.LogArchiveFileName));
 
-    public async Task<string> CreateLogsArchiveAsync(string logsFolder, string destinationFolder, string archiveFileName)
+    public async Task<string> CreateLogsArchiveAsync(
+        string logsFolder,
+        string destinationFolder,
+        string archiveFileName,
+        bool sanitizeSensitiveData = false)
     {
         var logFiles = Directory.GetFiles(logsFolder, "*.log");
 
@@ -56,7 +61,21 @@ public class FileService : IFileService
             var zipArchiveEntry = archive.CreateEntry(Path.GetFileName(logFile), CompressionLevel.Fastest);
             using var zipStream = zipArchiveEntry.Open();
 
-            await logFileStream.CopyToAsync(zipStream);
+            if (!sanitizeSensitiveData)
+            {
+                await logFileStream.CopyToAsync(zipStream);
+                continue;
+            }
+
+            using var reader = new StreamReader(logFileStream);
+            using var writer = new StreamWriter(zipStream, leaveOpen: true);
+
+            while (await reader.ReadLineAsync() is { } line)
+            {
+                await writer.WriteLineAsync(DiagnosticLogRedactor.Redact(line));
+            }
+
+            await writer.FlushAsync();
         }
 
         return Path.Combine(destinationFolder, archiveFileName);

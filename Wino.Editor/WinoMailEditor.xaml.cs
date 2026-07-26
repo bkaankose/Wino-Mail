@@ -478,7 +478,7 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
 
     private EditorCapabilities BuildCapabilities() => new()
     {
-        Fonts = AvailableFonts.Select(font => font.DisplayName).ToArray(),
+        Fonts = AvailableFonts,
         FontSizes = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 48, 72],
         TextColors =
         [

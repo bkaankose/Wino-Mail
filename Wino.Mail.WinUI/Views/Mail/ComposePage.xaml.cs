@@ -446,19 +446,22 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     private void ImportanceClicked(object sender, RoutedEventArgs e)
     {
-        ImportanceFlyout.Hide();
-        ImportanceSplitButton.IsChecked = true;
-
-        if (sender is Button senderButton && senderButton.Tag is MessageImportance importance)
+        if (sender is not RadioMenuFlyoutItem { Tag: MessageImportance importance })
         {
-            ViewModel.SelectedMessageImportance = importance;
-            if (ImportanceSplitButton.Content is Viewbox viewbox &&
-                viewbox.Child is SymbolIcon symbolIcon &&
-                senderButton.Content is SymbolIcon contentIcon)
-            {
-                symbolIcon.Symbol = contentIcon.Symbol;
-            }
+            return;
         }
+
+        ViewModel.SelectedMessageImportance = importance;
+
+        // Normal is the absence of an importance header, not a third value to write.
+        ViewModel.IsImportanceSelected = importance != MessageImportance.Normal;
+
+        // Keep the toolbar icon in sync with the choice so the tab does not have to be opened to read it.
+        ImportanceButtonIcon.Symbol = importance switch
+        {
+            MessageImportance.Low => Symbol.Priority,
+            _ => Symbol.Important
+        };
     }
 
     private async void AddressBoxLostFocus(object sender, RoutedEventArgs e)

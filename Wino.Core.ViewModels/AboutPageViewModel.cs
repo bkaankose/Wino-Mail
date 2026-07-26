@@ -116,7 +116,8 @@ public partial class AboutPageViewModel : CoreBaseViewModel
         var archiveFileName = $"{GetSafeFileName(diagnosticId)}.zip";
         var archivePath = await _fileService.CreateLogsArchiveAsync(_appInitializerService.ApplicationDataFolderPath,
                                                                      _appInitializerService.ApplicationTempFolderPath,
-                                                                     archiveFileName);
+                                                                     archiveFileName,
+                                                                     sanitizeSensitiveData: true);
 
         if (string.IsNullOrEmpty(archivePath))
         {

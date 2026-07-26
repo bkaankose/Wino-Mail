@@ -1245,10 +1245,48 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         if (exception != null)
             properties["exception_type"] = exception.GetType().Name;
 
-        _telemetryService.TrackEvent(
-            eventName,
-            ImapSetupTelemetrySanitizer.FilterAllowed(properties),
-            level);
+        var allowedProperties = ImapSetupTelemetrySanitizer.FilterAllowed(properties);
+        var tags = new Dictionary<string, string>(StringComparer.Ordinal);
+        var context = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var property in allowedProperties)
+        {
+            if (property.Key.EndsWith("_host", StringComparison.Ordinal))
+            {
+                context[property.Key] = property.Value;
+            }
+            else
+            {
+                tags[property.Key] = property.Value;
+            }
+        }
+
+        var shouldCaptureAsEvent =
+            string.Equals(result, "failure", StringComparison.Ordinal)
+            || string.Equals(result, "rejected", StringComparison.Ordinal)
+            || !string.IsNullOrWhiteSpace(failureCategory)
+            || exception != null;
+
+        tags["event_kind"] = shouldCaptureAsEvent ? "setup_failure" : "setup_activity";
+
+        _telemetryService.TrackEvent(new WinoTelemetryEvent
+        {
+            Name = eventName,
+            Level = level,
+            Tags = tags,
+            Context = context,
+            CaptureAsEvent = shouldCaptureAsEvent,
+            Fingerprint = shouldCaptureAsEvent
+                ? (string[])
+                [
+                    "imap_setup_failure",
+                    eventName,
+                    failureStage ?? "unknown",
+                    failureCategory ?? "unknown",
+                    exception?.GetType().Name ?? "none"
+                ]
+                : null
+        });
     }
 
     private static void AddProperties(IDictionary<string, string> target, IReadOnlyDictionary<string, string> source)

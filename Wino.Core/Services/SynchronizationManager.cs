@@ -1133,26 +1133,32 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         if (!ShouldTrackSynchronizationTelemetry(result.CompletedState))
             return;
 
-        var properties = CreateSynchronizationTelemetryProperties(
+        var tags = CreateSynchronizationTelemetryProperties(
             synchronizer?.Account,
             "mail",
             options.Type.ToString(),
             result.CompletedState,
             duration);
 
-        properties["successful_folder_count"] = result.SuccessfulFolderCount.ToString();
-        properties["failed_folder_count"] = result.FailedFolderCount.ToString();
-        properties["total_folder_count"] = result.FolderResults.Count.ToString();
-        properties["downloaded_count_bucket"] = GetCountBucket(result.TotalDownloadedCount);
-        properties["updated_count_bucket"] = GetCountBucket(result.TotalUpdatedCount);
-        properties["deleted_count_bucket"] = GetCountBucket(result.TotalDeletedCount);
+        var context = new Dictionary<string, string>
+        {
+            ["successful_folder_count"] = result.SuccessfulFolderCount.ToString(),
+            ["failed_folder_count"] = result.FailedFolderCount.ToString(),
+            ["total_folder_count"] = result.FolderResults.Count.ToString(),
+            ["downloaded_count_bucket"] = GetCountBucket(result.TotalDownloadedCount),
+            ["updated_count_bucket"] = GetCountBucket(result.TotalUpdatedCount),
+            ["deleted_count_bucket"] = GetCountBucket(result.TotalDeletedCount)
+        };
+        MoveDetailedServerPropertiesToContext(tags, context);
 
-        AddIssueTelemetry(properties, result.AllIssues?.ToList(), result.Exception);
-
-        _telemetryService.TrackEvent(
-            "sync_summary",
-            properties,
-            GetTelemetryLevel(result.CompletedState));
+        var issues = result.AllIssues?.ToList();
+        AddIssueTelemetry(tags, context, issues, result.Exception);
+        TrackSynchronizationFailure(
+            options.AccountId,
+            tags,
+            context,
+            issues,
+            result.Exception);
     }
 
     private void TrackCalendarSynchronizationSummary(
@@ -1167,20 +1173,63 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         if (!ShouldTrackSynchronizationTelemetry(result.CompletedState))
             return;
 
-        var properties = CreateSynchronizationTelemetryProperties(
+        var tags = CreateSynchronizationTelemetryProperties(
             synchronizer?.Account,
             "calendar",
             options.Type.ToString(),
             result.CompletedState,
             duration);
 
-        properties["downloaded_count_bucket"] = GetCountBucket(result.DownloadedEvents?.Count() ?? 0);
-        AddIssueTelemetry(properties, result.AllIssues?.ToList(), result.Exception);
+        var context = new Dictionary<string, string>
+        {
+            ["downloaded_count_bucket"] = GetCountBucket(result.DownloadedEvents?.Count() ?? 0)
+        };
+        MoveDetailedServerPropertiesToContext(tags, context);
+        var issues = result.AllIssues?.ToList();
+        AddIssueTelemetry(tags, context, issues, result.Exception);
+        TrackSynchronizationFailure(
+            options.AccountId,
+            tags,
+            context,
+            issues,
+            result.Exception);
+    }
 
-        _telemetryService.TrackEvent(
-            "sync_summary",
-            properties,
-            GetTelemetryLevel(result.CompletedState));
+    private void TrackSynchronizationFailure(
+        Guid accountId,
+        IReadOnlyDictionary<string, string> tags,
+        IReadOnlyDictionary<string, string> context,
+        IReadOnlyCollection<SynchronizationIssue> issues,
+        Exception exception)
+    {
+        var firstIssue = issues?.FirstOrDefault();
+        var issueCategory = firstIssue?.Category ?? SynchronizerErrorCategory.Unknown;
+        var exceptionType = firstIssue?.ExceptionType
+                            ?? exception?.GetType().Name
+                            ?? "Unknown";
+        var shouldCaptureStack = issueCategory is SynchronizerErrorCategory.Unknown
+            or SynchronizerErrorCategory.Validation;
+        var fingerprint = new[]
+        {
+            "sync_failure",
+            tags.GetValueOrDefault("provider", "unknown"),
+            tags.GetValueOrDefault("sync_area", "unknown"),
+            tags.GetValueOrDefault("sync_type", "unknown"),
+            issueCategory.ToString(),
+            exceptionType
+        };
+
+        _telemetryService.TrackEvent(new WinoTelemetryEvent
+        {
+            Name = "sync_failure",
+            Level = shouldCaptureStack ? WinoTelemetryLevel.Error : WinoTelemetryLevel.Warning,
+            Exception = shouldCaptureStack ? exception : null,
+            Tags = tags,
+            Context = context,
+            Fingerprint = fingerprint,
+            DeduplicationKey = $"{accountId:N}:{string.Join(':', fingerprint)}",
+            DeduplicationWindow = TimeSpan.FromMinutes(30)
+        });
     }
 
     private static Dictionary<string, string> CreateSynchronizationTelemetryProperties(
@@ -1192,11 +1241,11 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     {
         var properties = new Dictionary<string, string>
         {
+            ["event_kind"] = "sync_failure",
             ["feature"] = "sync",
             ["sync_area"] = syncArea,
             ["sync_type"] = syncType,
             ["state"] = completedState.ToString(),
-            ["duration_bucket"] = GetDurationBucket(duration),
             ["provider"] = account?.ProviderType.ToString() ?? "unknown",
             ["special_provider"] = account?.SpecialImapProvider.ToString() ?? "unknown",
             ["mail_enabled"] = (account?.IsMailAccessGranted == true).ToString(),
@@ -1213,38 +1262,50 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             properties["feature"] = "sync";
         }
 
+        properties["duration_bucket"] = GetDurationBucket(duration);
         return properties;
     }
 
     private static void AddIssueTelemetry(
-        IDictionary<string, string> properties,
+        IDictionary<string, string> tags,
+        IDictionary<string, string> context,
         IReadOnlyCollection<SynchronizationIssue> issues,
         Exception exception)
     {
         var firstIssue = issues?.FirstOrDefault();
 
-        properties["issue_count"] = (issues?.Count ?? 0).ToString();
+        context["issue_count"] = (issues?.Count ?? 0).ToString();
 
         if (firstIssue != null)
         {
-            properties["issue_category"] = firstIssue.Category.ToString();
-            properties["issue_severity"] = firstIssue.Severity.ToString();
+            tags["issue_category"] = firstIssue.Category.ToString();
+            tags["issue_severity"] = firstIssue.Severity.ToString();
+            context["was_handled"] = firstIssue.WasHandled.ToString();
+            context["can_continue_sync"] = firstIssue.CanContinueSync.ToString();
+            context["is_entity_not_found"] = firstIssue.IsEntityNotFound.ToString();
 
             if (!string.IsNullOrWhiteSpace(firstIssue.ExceptionType))
-                properties["exception_type"] = firstIssue.ExceptionType;
+                tags["exception_type"] = firstIssue.ExceptionType;
         }
 
-        if (exception != null && !properties.ContainsKey("exception_type"))
-            properties["exception_type"] = exception.GetType().Name;
+        if (exception != null && !tags.ContainsKey("exception_type"))
+            tags["exception_type"] = exception.GetType().Name;
     }
 
-    private static WinoTelemetryLevel GetTelemetryLevel(SynchronizationCompletedState completedState)
-        => completedState switch
+    private static void MoveDetailedServerPropertiesToContext(
+        IDictionary<string, string> tags,
+        IDictionary<string, string> context)
+    {
+        var detailedKeys = tags.Keys
+            .Where(key => key.EndsWith("_host", StringComparison.Ordinal))
+            .ToArray();
+
+        foreach (var key in detailedKeys)
         {
-            SynchronizationCompletedState.Failed => WinoTelemetryLevel.Warning,
-            SynchronizationCompletedState.PartiallyCompleted => WinoTelemetryLevel.Warning,
-            _ => WinoTelemetryLevel.Info
-        };
+            context[key] = tags[key];
+            tags.Remove(key);
+        }
+    }
 
     public static bool ShouldTrackSynchronizationTelemetry(SynchronizationCompletedState completedState)
         => completedState is SynchronizationCompletedState.Failed or SynchronizationCompletedState.PartiallyCompleted;

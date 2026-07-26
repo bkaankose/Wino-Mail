@@ -8,6 +8,7 @@ using Serilog.Core;
 using Serilog.Events;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Telemetry;
 
 namespace Wino.Services;
 
@@ -20,6 +21,9 @@ public class WinoLogger : IWinoLogger
     private const string PackageNameTag = "package_name";
     private const string DistTag = "dist";
     private const string ErrorOriginTag = "error_origin";
+    private const string AppModeTag = "app_mode";
+    private const string EventKindTag = "event_kind";
+    private const string UserInitiatedTag = "user_initiated";
     private const string AccountSetupErrorOrigin = "AccountSetup";
     private const string DiagnosticLogsUploadOperation = "DiagnosticLogsUpload";
 
@@ -27,15 +31,18 @@ public class WinoLogger : IWinoLogger
     private readonly IPreferencesService _preferencesService;
     private readonly IApplicationConfiguration _applicationConfiguration;
     private readonly IAppMetadataService _appMetadataService;
+    private readonly IWinoTelemetryContextProvider _telemetryContextProvider;
 
     public WinoLogger(
         IPreferencesService preferencesService,
         IApplicationConfiguration applicationConfiguration,
-        IAppMetadataService appMetadataService)
+        IAppMetadataService appMetadataService,
+        IWinoTelemetryContextProvider telemetryContextProvider)
     {
         _preferencesService = preferencesService;
         _applicationConfiguration = applicationConfiguration;
         _appMetadataService = appMetadataService;
+        _telemetryContextProvider = telemetryContextProvider;
 
         RefreshLoggingLevel();
     }
@@ -51,7 +58,8 @@ public class WinoLogger : IWinoLogger
 
     public void SetupLogger(string fullLogFilePath)
     {
-        var diagnosticId = _preferencesService.DiagnosticId;
+        var telemetryContext = _telemetryContextProvider.GetCurrent();
+        var diagnosticId = telemetryContext.DiagnosticId;
 
         // Initialize Sentry
         SentrySdk.Init(options =>
@@ -64,6 +72,8 @@ public class WinoLogger : IWinoLogger
             options.DefaultTags[BuildConfigurationTag] = _appMetadataService.BuildConfiguration;
             options.DefaultTags[PackageNameTag] = _appMetadataService.PackageName;
             options.DefaultTags[DistTag] = _appMetadataService.SentryDist;
+            options.DefaultTags[AppModeTag] = telemetryContext.AppMode;
+            options.SendDefaultPii = false;
 #if DEBUG
             options.Debug = false;
 #else
@@ -74,15 +84,26 @@ public class WinoLogger : IWinoLogger
             // Set user context and filter out known exceptions.
             options.SetBeforeSend((sentryEvent, hint) =>
             {
+                var currentContext = _telemetryContextProvider.GetCurrent();
+                var isUserInitiated = sentryEvent.Tags.TryGetValue(UserInitiatedTag, out var userInitiated)
+                    && string.Equals(userInitiated, bool.TrueString, StringComparison.OrdinalIgnoreCase);
+
+                if (!currentContext.IsTelemetryEnabled && !isUserInitiated)
+                    return null;
+
                 // Don't send synchronization failure exceptions to Sentry.
                 var isAccountSetupError = sentryEvent.Tags.TryGetValue(ErrorOriginTag, out var errorOrigin)
                     && string.Equals(errorOrigin, AccountSetupErrorOrigin, System.StringComparison.Ordinal);
+                var isStructuredSyncFailure = sentryEvent.Tags.TryGetValue(EventKindTag, out var eventKind)
+                    && string.Equals(eventKind, "sync_failure", StringComparison.Ordinal);
 
-                if (ShouldDropHandledSynchronizationEvent(sentryEvent, isAccountSetupError))
+                if (!isStructuredSyncFailure &&
+                    ShouldDropHandledSynchronizationEvent(sentryEvent, isAccountSetupError))
                     return null;
 
-                ApplyDiagnosticId(sentryEvent, _preferencesService.DiagnosticId);
+                ApplyDiagnosticId(sentryEvent, currentContext.DiagnosticId);
                 ApplyAppMetadata(sentryEvent);
+                sentryEvent.SetTag(AppModeTag, currentContext.AppMode);
                 return sentryEvent;
             });
         });
@@ -94,7 +115,9 @@ public class WinoLogger : IWinoLogger
         Log.Logger = new LoggerConfiguration()
                     .MinimumLevel.ControlledBy(_levelSwitch)
                     .WriteTo.File(fullLogFilePath, retainedFileCountLimit: 3, rollOnFileSizeLimit: true, rollingInterval: RollingInterval.Day)
-                    .WriteTo.Sentry(minimumBreadcrumbLevel: Serilog.Events.LogEventLevel.Information,
+                    // Sentry breadcrumbs must go through the explicit sanitized telemetry APIs.
+                    // Local structured logs can contain mailbox or filesystem identifiers.
+                    .WriteTo.Sentry(minimumBreadcrumbLevel: Serilog.Events.LogEventLevel.Fatal,
                                    minimumEventLevel: Serilog.Events.LogEventLevel.Fatal)
                     .WriteTo.Debug()
                     .Enrich.FromLogContext()
@@ -104,19 +127,23 @@ public class WinoLogger : IWinoLogger
 
     public void TrackEvent(string eventName, Dictionary<string, string> properties = null)
     {
-        SentrySdk.AddBreadcrumb(eventName, data: properties);
+        var telemetryContext = _telemetryContextProvider.GetCurrent();
+        if (!telemetryContext.IsTelemetryEnabled)
+            return;
+
+        var safeProperties = WinoTelemetrySanitizer.CreateSafeProperties(properties);
+        SentrySdk.AddBreadcrumb(eventName, data: safeProperties);
 
         SentrySdk.ConfigureScope(scope =>
         {
-            ApplyDiagnosticId(scope, _preferencesService.DiagnosticId);
+            ApplyDiagnosticId(scope, telemetryContext.DiagnosticId);
             ApplyAppMetadata(scope);
+            scope.SetTag(AppModeTag, telemetryContext.AppMode);
 
-            if (properties != null)
+            foreach (var prop in safeProperties)
             {
-                foreach (var prop in properties)
-                {
+                if (WinoTelemetrySanitizer.IsSearchableTag(prop.Key))
                     scope.SetTag(prop.Key, prop.Value);
-                }
             }
         });
     }
@@ -125,10 +152,18 @@ public class WinoLogger : IWinoLogger
     {
         if (exception == null) return;
 
+        var telemetryContext = _telemetryContextProvider.GetCurrent();
+        if (!telemetryContext.IsTelemetryEnabled)
+            return;
+
+        var safeProperties = WinoTelemetrySanitizer.CreateSafeProperties(properties);
+
         SentrySdk.CaptureException(exception, scope =>
         {
-            ApplyDiagnosticId(scope, _preferencesService.DiagnosticId);
+            ApplyDiagnosticId(scope, telemetryContext.DiagnosticId);
             ApplyAppMetadata(scope);
+            scope.SetTag(AppModeTag, telemetryContext.AppMode);
+            scope.SetTag(EventKindTag, "exception");
 
             if (!string.IsNullOrWhiteSpace(operationName))
             {
@@ -136,13 +171,10 @@ public class WinoLogger : IWinoLogger
                 scope.SetExtra("Operation", operationName);
             }
 
-            if (properties == null) return;
-
-            foreach (var property in properties)
+            foreach (var property in safeProperties)
             {
-                if (string.IsNullOrWhiteSpace(property.Key) || property.Value == null) continue;
-
-                scope.SetTag(property.Key, property.Value);
+                if (WinoTelemetrySanitizer.IsSearchableTag(property.Key))
+                    scope.SetTag(property.Key, property.Value);
                 scope.SetExtra(property.Key, property.Value);
             }
         });
@@ -161,6 +193,8 @@ public class WinoLogger : IWinoLogger
         ApplyDiagnosticId(sentryEvent, diagnosticId);
         ApplyAppMetadata(sentryEvent);
         sentryEvent.SetTag("operation", DiagnosticLogsUploadOperation);
+        sentryEvent.SetTag(EventKindTag, "diagnostic_upload");
+        sentryEvent.SetTag(UserInitiatedTag, bool.TrueString);
 
         var hint = new SentryHint();
         hint.AddAttachment(logArchivePath, AttachmentType.Default, "application/zip");
@@ -170,6 +204,8 @@ public class WinoLogger : IWinoLogger
             ApplyDiagnosticId(scope, diagnosticId);
             ApplyAppMetadata(scope);
             scope.SetTag("operation", DiagnosticLogsUploadOperation);
+            scope.SetTag(EventKindTag, "diagnostic_upload");
+            scope.SetTag(UserInitiatedTag, bool.TrueString);
         });
 
         await SentrySdk.FlushAsync(TimeSpan.FromSeconds(5));
@@ -215,10 +251,12 @@ public class WinoLogger : IWinoLogger
 
     private void ApplyAppMetadata(Scope scope)
     {
+        WinoTelemetryContextSnapshot telemetryContext = _telemetryContextProvider.GetCurrent();
         scope.SetTag(AppVersionTag, _appMetadataService.AppVersion);
         scope.SetTag(BuildConfigurationTag, _appMetadataService.BuildConfiguration);
         scope.SetTag(PackageNameTag, _appMetadataService.PackageName);
         scope.SetTag(DistTag, _appMetadataService.SentryDist);
+        scope.SetTag(AppModeTag, telemetryContext.AppMode);
         scope.SetExtra("SentryEnvironment", _appMetadataService.SentryEnvironment);
         scope.SetExtra("SentryRelease", _appMetadataService.SentryRelease);
         scope.SetExtra("SentryDist", _appMetadataService.SentryDist);
@@ -226,10 +264,12 @@ public class WinoLogger : IWinoLogger
 
     private void ApplyAppMetadata(SentryEvent sentryEvent)
     {
+        WinoTelemetryContextSnapshot telemetryContext = _telemetryContextProvider.GetCurrent();
         sentryEvent.SetTag(AppVersionTag, _appMetadataService.AppVersion);
         sentryEvent.SetTag(BuildConfigurationTag, _appMetadataService.BuildConfiguration);
         sentryEvent.SetTag(PackageNameTag, _appMetadataService.PackageName);
         sentryEvent.SetTag(DistTag, _appMetadataService.SentryDist);
+        sentryEvent.SetTag(AppModeTag, telemetryContext.AppMode);
         sentryEvent.SetExtra("SentryEnvironment", _appMetadataService.SentryEnvironment);
         sentryEvent.SetExtra("SentryRelease", _appMetadataService.SentryRelease);
         sentryEvent.SetExtra("SentryDist", _appMetadataService.SentryDist);

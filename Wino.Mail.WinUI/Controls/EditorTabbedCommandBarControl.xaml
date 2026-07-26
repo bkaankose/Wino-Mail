@@ -6,6 +6,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:editor="using:Wino.Editor"
+    xmlns:helpers="using:Wino.Helpers"
     xmlns:mail="using:Wino.Mail.Controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
@@ -13,51 +14,66 @@
     mc:Ignorable="d">
 
     <UserControl.Resources>
-        <Style
-            x:Key="CompactComboBoxStyle"
-            BasedOn="{StaticResource DefaultComboBoxStyle}"
-            TargetType="ComboBox">
-            <Setter Property="MinWidth" Value="72" />
-            <Setter Property="MaxWidth" Value="132" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="4,0,0,0" />
-        </Style>
-
-        <Style x:Key="CompactPickerContainerStyle" TargetType="AppBarElementContainer">
+        <!--  Pickers sit next to 48px app bar buttons, so they are vertically centered against them.  -->
+        <Style x:Key="PickerContainerStyle" TargetType="AppBarElementContainer">
             <Setter Property="MinWidth" Value="0" />
-            <Setter Property="Margin" Value="0,8,0,0" />
+            <Setter Property="Margin" Value="2,0" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
 
-        <Style x:Key="CompactPickerBorderStyle" TargetType="Border">
-            <!--<Setter Property="Background" Value="{ThemeResource ControlFillColorSecondaryBrush}" />-->
-            <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
+        <Style x:Key="PickerComboBoxStyle" BasedOn="{StaticResource DefaultComboBoxStyle}" TargetType="ComboBox">
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Padding" Value="10,0,0,0" />
+        </Style>
+
+        <Style x:Key="ColorPickerButtonStyle" BasedOn="{StaticResource SplitButtonCommandBarStyle}" TargetType="SplitButton">
+            <Setter Property="Padding" Value="12,8,0,8" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="ColorPaletteGridViewStyle" TargetType="GridView">
+            <Setter Property="SelectionMode" Value="Single" />
+            <Setter Property="IsItemClickEnabled" Value="False" />
             <Setter Property="Padding" Value="0" />
-            <Setter Property="MinHeight" Value="36" />
-            <Setter Property="Margin" Value="4,0" />
+            <Setter Property="Width" Value="228" />
+            <Setter Property="MaxHeight" Value="184" />
         </Style>
 
-        <DataTemplate x:Key="ColorOptionTemplate" x:DataType="editor:EditorColorOption">
-            <StackPanel Orientation="Horizontal" Spacing="8">
-                <Grid Width="14" Height="14">
-                    <Rectangle
-                        Fill="{x:Bind Brush}"
-                        RadiusX="3"
-                        RadiusY="3"
-                        Stroke="{ThemeResource TextFillColorSecondaryBrush}"
-                        StrokeThickness="1" />
-                </Grid>
-                <TextBlock VerticalAlignment="Center" Text="{x:Bind Name}" />
-            </StackPanel>
+        <!--  Every font is previewed with its own typeface so the list can be scanned by look, not by name.  -->
+        <DataTemplate x:Key="FontFamilyOptionTemplate" x:DataType="editor:EditorFontFamilyOption">
+            <TextBlock
+                FontFamily="{x:Bind PreviewFontFamily}"
+                Text="{x:Bind DisplayName}"
+                TextTrimming="CharacterEllipsis" />
+        </DataTemplate>
+
+        <DataTemplate x:Key="ColorSwatchTemplate" x:DataType="editor:EditorColorOption">
+            <Grid
+                Width="28"
+                Height="28"
+                AutomationProperties.Name="{x:Bind Name}"
+                ToolTipService.ToolTip="{x:Bind Name}">
+                <Rectangle
+                    Fill="{x:Bind Brush}"
+                    RadiusX="4"
+                    RadiusY="4"
+                    Stroke="{ThemeResource ControlStrokeColorDefaultBrush}"
+                    StrokeThickness="1" />
+                <!--  "Automatic" / "No color" entries are drawn with a slash instead of a fill.  -->
+                <Path
+                    Data="M 4,24 L 24,4"
+                    Stroke="{ThemeResource SystemFillColorCriticalBrush}"
+                    StrokeThickness="1.5"
+                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(HasColor)}" />
+            </Grid>
         </DataTemplate>
 
         <DataTemplate x:Key="ParagraphStyleOptionTemplate" x:DataType="editor:EditorParagraphStyleOption">
             <TextBlock Text="{x:Bind Name}" />
         </DataTemplate>
-
     </UserControl.Resources>
 
     <toolkit:TabbedCommandBar>
@@ -65,12 +81,6 @@
             <SolidColorBrush x:Key="TabContentContentBorderBackground" Color="Transparent" />
             <SolidColorBrush x:Key="TabContentContentBorderBorderBrush" Color="Transparent" />
             <Thickness x:Key="TabContentBorderBorderThickness">0</Thickness>
-            <Style BasedOn="{StaticResource DefaultAppBarToggleButtonStyle}" TargetType="AppBarToggleButton">
-                <Setter Property="Width" Value="50" />
-            </Style>
-            <Style BasedOn="{StaticResource DefaultAppBarButtonStyle}" TargetType="AppBarButton">
-                <Setter Property="Width" Value="50" />
-            </Style>
         </toolkit:TabbedCommandBar.Resources>
 
         <toolkit:TabbedCommandBar.PaneCustomContent>
@@ -78,13 +88,56 @@
         </toolkit:TabbedCommandBar.PaneCustomContent>
 
         <toolkit:TabbedCommandBar.MenuItems>
-            <toolkit:TabbedCommandBarItem DefaultLabelPosition="Collapsed" Header="Format">
+
+            <!--  ============================ FORMAT ============================  -->
+            <!--  Icon only: these are the commands every editor renders the same way, and labels would cost the whole row.  -->
+            <toolkit:TabbedCommandBarItem DefaultLabelPosition="Collapsed" Header="{x:Bind domain:Translator.Composer_TabFormat, Mode=OneTime}">
+                <toolkit:TabbedCommandBarItem.Resources>
+                    <Style BasedOn="{StaticResource DefaultAppBarButtonStyle}" TargetType="AppBarButton">
+                        <Setter Property="Width" Value="44" />
+                    </Style>
+                    <Style BasedOn="{StaticResource DefaultAppBarToggleButtonStyle}" TargetType="AppBarToggleButton">
+                        <Setter Property="Width" Value="44" />
+                    </Style>
+                </toolkit:TabbedCommandBarItem.Resources>
+
+                <!--  Font  -->
+                <AppBarElementContainer Style="{StaticResource PickerContainerStyle}">
+                    <ComboBox
+                        x:Name="FontFamilyComboBox"
+                        MinWidth="152"
+                        MaxWidth="152"
+                        AutomationProperties.AutomationId="FontFamilyComboBox"
+                        AutomationProperties.Name="{x:Bind domain:Translator.Composer_Font, Mode=OneTime}"
+                        ItemTemplate="{StaticResource FontFamilyOptionTemplate}"
+                        PlaceholderText="{x:Bind domain:Translator.Composer_Font, Mode=OneTime}"
+                        SelectionChanged="FontFamilyComboBox_SelectionChanged"
+                        Style="{StaticResource PickerComboBoxStyle}"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_Font, Mode=OneTime}" />
+                </AppBarElementContainer>
+
+                <AppBarElementContainer Style="{StaticResource PickerContainerStyle}">
+                    <ComboBox
+                        x:Name="FontSizeComboBox"
+                        MinWidth="76"
+                        MaxWidth="76"
+                        AutomationProperties.AutomationId="FontSizeComboBox"
+                        AutomationProperties.Name="{x:Bind domain:Translator.Composer_FontSize, Mode=OneTime}"
+                        PlaceholderText="{x:Bind domain:Translator.Composer_FontSize, Mode=OneTime}"
+                        SelectionChanged="FontSizeComboBox_SelectionChanged"
+                        Style="{StaticResource PickerComboBoxStyle}"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_FontSize, Mode=OneTime}" />
+                </AppBarElementContainer>
+
+                <AppBarSeparator />
+
+                <!--  Character formatting  -->
                 <AppBarToggleButton
                     x:Name="BoldButton"
                     AutomationProperties.AutomationId="BoldButton"
                     Click="BoldButton_Click"
-                    Label="Bold"
-                    ToolTipService.ToolTip="Bold (Ctrl+B)">
+                    Label="{x:Bind domain:Translator.Composer_Bold, Mode=OneTime}"
+                    ToolTipService.ToolTip="{x:Bind BoldTooltip, Mode=OneTime}">
                     <AppBarToggleButton.Icon>
                         <PathIcon Data="{StaticResource BoldPathIcon}" />
                     </AppBarToggleButton.Icon>
@@ -94,8 +147,8 @@
                     x:Name="ItalicButton"
                     AutomationProperties.AutomationId="ItalicButton"
                     Click="ItalicButton_Click"
-                    Label="Italic"
-                    ToolTipService.ToolTip="Italic (Ctrl+I)">
+                    Label="{x:Bind domain:Translator.Composer_Italic, Mode=OneTime}"
+                    ToolTipService.ToolTip="{x:Bind ItalicTooltip, Mode=OneTime}">
                     <AppBarToggleButton.Icon>
                         <PathIcon Data="{StaticResource ItalicPathIcon}" />
                     </AppBarToggleButton.Icon>
@@ -105,8 +158,8 @@
                     x:Name="UnderlineButton"
                     AutomationProperties.AutomationId="UnderlineButton"
                     Click="UnderlineButton_Click"
-                    Label="Underline"
-                    ToolTipService.ToolTip="Underline (Ctrl+U)">
+                    Label="{x:Bind domain:Translator.Composer_Underline, Mode=OneTime}"
+                    ToolTipService.ToolTip="{x:Bind UnderlineTooltip, Mode=OneTime}">
                     <AppBarToggleButton.Icon>
                         <PathIcon Data="{StaticResource UnderlinePathIcon}" />
                     </AppBarToggleButton.Icon>
@@ -116,12 +169,104 @@
                     x:Name="StrikeButton"
                     AutomationProperties.AutomationId="StrikeButton"
                     Click="StrikeButton_Click"
-                    Label="Strikethrough"
-                    ToolTipService.ToolTip="Strikethrough">
+                    Label="{x:Bind domain:Translator.Composer_Strikethrough, Mode=OneTime}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_Strikethrough, Mode=OneTime}">
                     <AppBarToggleButton.Icon>
                         <PathIcon Data="{StaticResource StrikePathIcon}" />
                     </AppBarToggleButton.Icon>
                 </AppBarToggleButton>
+
+                <!--  Text color: the swatch under the "A" is the current color, the chevron opens the palette.  -->
+                <AppBarElementContainer Style="{StaticResource PickerContainerStyle}">
+                    <SplitButton
+                        x:Name="TextColorSplitButton"
+                        AutomationProperties.AutomationId="TextColorSplitButton"
+                        AutomationProperties.Name="{x:Bind domain:Translator.Composer_TextColor, Mode=OneTime}"
+                        Click="TextColorSplitButton_Click"
+                        Style="{StaticResource ColorPickerButtonStyle}"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_TextColor, Mode=OneTime}">
+                        <Grid Width="16" Height="18">
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Top"
+                                FontSize="14"
+                                FontWeight="SemiBold"
+                                Text="A" />
+                            <Rectangle
+                                Height="4"
+                                VerticalAlignment="Bottom"
+                                Fill="{x:Bind SelectedTextColorBrush, Mode=OneWay}"
+                                RadiusX="1"
+                                RadiusY="1"
+                                Stroke="{ThemeResource ControlStrokeColorDefaultBrush}"
+                                StrokeThickness="1" />
+                        </Grid>
+                        <SplitButton.Flyout>
+                            <Flyout x:Name="TextColorFlyout" Placement="Bottom">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.Composer_TextColor, Mode=OneTime}" />
+                                    <TextBlock
+                                        Margin="0,0,0,4"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="{x:Bind SelectedTextColorName, Mode=OneWay}" />
+                                    <GridView
+                                        x:Name="TextColorGridView"
+                                        AutomationProperties.AutomationId="TextColorGridView"
+                                        AutomationProperties.Name="{x:Bind domain:Translator.Composer_TextColor, Mode=OneTime}"
+                                        ItemTemplate="{StaticResource ColorSwatchTemplate}"
+                                        SelectionChanged="TextColorGridView_SelectionChanged"
+                                        Style="{StaticResource ColorPaletteGridViewStyle}" />
+                                </StackPanel>
+                            </Flyout>
+                        </SplitButton.Flyout>
+                    </SplitButton>
+                </AppBarElementContainer>
+
+                <!--  Highlight: the "A" sits on the current highlight color.  -->
+                <AppBarElementContainer Style="{StaticResource PickerContainerStyle}">
+                    <SplitButton
+                        x:Name="HighlightColorSplitButton"
+                        AutomationProperties.AutomationId="HighlightColorSplitButton"
+                        AutomationProperties.Name="{x:Bind domain:Translator.Composer_HighlightColor, Mode=OneTime}"
+                        Click="HighlightColorSplitButton_Click"
+                        Style="{StaticResource ColorPickerButtonStyle}"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_HighlightColor, Mode=OneTime}">
+                        <Grid Width="18" Height="18">
+                            <Rectangle
+                                Fill="{x:Bind SelectedHighlightColorBrush, Mode=OneWay}"
+                                RadiusX="4"
+                                RadiusY="4"
+                                Stroke="{ThemeResource ControlStrokeColorDefaultBrush}"
+                                StrokeThickness="1" />
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                FontSize="12"
+                                FontWeight="SemiBold"
+                                Text="A" />
+                        </Grid>
+                        <SplitButton.Flyout>
+                            <Flyout x:Name="HighlightColorFlyout" Placement="Bottom">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.Composer_HighlightColor, Mode=OneTime}" />
+                                    <TextBlock
+                                        Margin="0,0,0,4"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="{x:Bind SelectedHighlightColorName, Mode=OneWay}" />
+                                    <GridView
+                                        x:Name="HighlightColorGridView"
+                                        AutomationProperties.AutomationId="HighlightColorGridView"
+                                        AutomationProperties.Name="{x:Bind domain:Translator.Composer_HighlightColor, Mode=OneTime}"
+                                        ItemTemplate="{StaticResource ColorSwatchTemplate}"
+                                        SelectionChanged="HighlightColorGridView_SelectionChanged"
+                                        Style="{StaticResource ColorPaletteGridViewStyle}" />
+                                </StackPanel>
+                            </Flyout>
+                        </SplitButton.Flyout>
+                    </SplitButton>
+                </AppBarElementContainer>
 
                 <AppBarButton
                     x:Name="ClearFormattingButton"
@@ -136,12 +281,27 @@
 
                 <AppBarSeparator />
 
+                <!--  Paragraph  -->
+                <AppBarElementContainer Style="{StaticResource PickerContainerStyle}">
+                    <ComboBox
+                        x:Name="ParagraphStyleComboBox"
+                        MinWidth="132"
+                        MaxWidth="132"
+                        AutomationProperties.AutomationId="ParagraphStyleComboBox"
+                        AutomationProperties.Name="{x:Bind domain:Translator.Composer_ParagraphStyle, Mode=OneTime}"
+                        ItemTemplate="{StaticResource ParagraphStyleOptionTemplate}"
+                        PlaceholderText="{x:Bind domain:Translator.Composer_ParagraphStyle, Mode=OneTime}"
+                        SelectionChanged="ParagraphStyleComboBox_SelectionChanged"
+                        Style="{StaticResource PickerComboBoxStyle}"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_ParagraphStyle, Mode=OneTime}" />
+                </AppBarElementContainer>
+
                 <AppBarToggleButton
                     x:Name="BulletListButton"
                     AutomationProperties.AutomationId="BulletListButton"
                     Click="BulletListButton_Click"
-                    Label="Bullets"
-                    ToolTipService.ToolTip="Bulleted list">
+                    Label="{x:Bind domain:Translator.Composer_BulletList, Mode=OneTime}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_BulletList, Mode=OneTime}">
                     <AppBarToggleButton.Icon>
                         <PathIcon Data="{StaticResource BulletedListPathIcon}" />
                     </AppBarToggleButton.Icon>
@@ -151,8 +311,8 @@
                     x:Name="OrderedListButton"
                     AutomationProperties.AutomationId="OrderedListButton"
                     Click="OrderedListButton_Click"
-                    Label="Numbered list"
-                    ToolTipService.ToolTip="Numbered list">
+                    Label="{x:Bind domain:Translator.Composer_OrderedList, Mode=OneTime}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_OrderedList, Mode=OneTime}">
                     <AppBarToggleButton.Icon>
                         <PathIcon Data="{StaticResource OrderedListPathIcon}" />
                     </AppBarToggleButton.Icon>
@@ -162,8 +322,8 @@
                     x:Name="OutdentButton"
                     AutomationProperties.AutomationId="OutdentButton"
                     Click="OutdentButton_Click"
-                    Label="Outdent"
-                    ToolTipService.ToolTip="Outdent">
+                    Label="{x:Bind domain:Translator.Composer_Outdent, Mode=OneTime}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_Outdent, Mode=OneTime}">
                     <AppBarButton.Icon>
                         <PathIcon Data="{StaticResource DecreaseIndentPathIcon}" />
                     </AppBarButton.Icon>
@@ -173,223 +333,88 @@
                     x:Name="IndentButton"
                     AutomationProperties.AutomationId="IndentButton"
                     Click="IndentButton_Click"
-                    Label="Indent"
-                    ToolTipService.ToolTip="Indent">
+                    Label="{x:Bind domain:Translator.Composer_Indent, Mode=OneTime}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_Indent, Mode=OneTime}">
                     <AppBarButton.Icon>
                         <PathIcon Data="{StaticResource IncreaseIndentPathIcon}" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 
-                <AppBarElementContainer Style="{StaticResource CompactPickerContainerStyle}" ToolTipService.ToolTip="Text alignment">
-                    <Border Style="{StaticResource CompactPickerBorderStyle}">
-                        <Grid ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="32" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <PathIcon
-                                Width="14"
-                                Height="14"
-                                Margin="10,0,0,0"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                Data="{StaticResource AlignLeftPathIcon}"
-                                Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                            <ComboBox
-                                x:Name="AlignmentComboBox"
-                                Grid.Column="1"
-                                MinWidth="94"
-                                AutomationProperties.AutomationId="AlignmentComboBox"
-                                SelectionChanged="AlignmentComboBox_SelectionChanged"
-                                Style="{StaticResource CompactComboBoxStyle}" />
-                        </Grid>
-                    </Border>
-                </AppBarElementContainer>
+                <!--  Alignment is a one click choice per option. The checked button is the current alignment.  -->
+                <AppBarToggleButton
+                    x:Name="AlignLeftButton"
+                    AutomationProperties.AutomationId="AlignLeftButton"
+                    Click="AlignmentButton_Click"
+                    Label="{x:Bind domain:Translator.Composer_AlignLeft, Mode=OneTime}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AlignLeft, Mode=OneTime}">
+                    <AppBarToggleButton.Icon>
+                        <PathIcon Data="{StaticResource AlignLeftPathIcon}" />
+                    </AppBarToggleButton.Icon>
+                </AppBarToggleButton>
 
-                <AppBarElementContainer Style="{StaticResource CompactPickerContainerStyle}" ToolTipService.ToolTip="Font family">
-                    <Border Style="{StaticResource CompactPickerBorderStyle}">
-                        <Grid ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="32" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <FontIcon
-                                Margin="10,0,0,0"
-                                VerticalAlignment="Center"
-                                FontSize="14"
-                                Glyph="&#xE8D2;" />
-                            <ComboBox
-                                x:Name="FontFamilyComboBox"
-                                Grid.Column="1"
-                                MinWidth="110"
-                                AutomationProperties.AutomationId="FontFamilyComboBox"
-                                PlaceholderText="Font"
-                                SelectionChanged="FontFamilyComboBox_SelectionChanged"
-                                Style="{StaticResource CompactComboBoxStyle}" />
-                            <ComboBox
-                                x:Name="FontSizeComboBox"
-                                Grid.Column="2"
-                                MinWidth="72"
-                                HorizontalContentAlignment="Center"
-                                AutomationProperties.AutomationId="FontSizeComboBox"
-                                PlaceholderText="Size"
-                                SelectionChanged="FontSizeComboBox_SelectionChanged"
-                                Style="{StaticResource CompactComboBoxStyle}" />
-                        </Grid>
-                    </Border>
-                </AppBarElementContainer>
+                <AppBarToggleButton
+                    x:Name="AlignCenterButton"
+                    AutomationProperties.AutomationId="AlignCenterButton"
+                    Click="AlignmentButton_Click"
+                    Label="{x:Bind domain:Translator.Composer_AlignCenter, Mode=OneTime}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AlignCenter, Mode=OneTime}">
+                    <AppBarToggleButton.Icon>
+                        <PathIcon Data="{StaticResource AlignCenterPathIcon}" />
+                    </AppBarToggleButton.Icon>
+                </AppBarToggleButton>
 
-                <AppBarElementContainer Style="{StaticResource CompactPickerContainerStyle}" ToolTipService.ToolTip="Paragraph style">
-                    <Border Style="{StaticResource CompactPickerBorderStyle}">
-                        <Grid ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="32" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <PathIcon
-                                Width="14"
-                                Height="14"
-                                Margin="10,0,0,0"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                Data="{StaticResource ParagraphPathIcon}"
-                                Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                            <ComboBox
-                                x:Name="ParagraphStyleComboBox"
-                                Grid.Column="1"
-                                MinWidth="104"
-                                AutomationProperties.AutomationId="ParagraphStyleComboBox"
-                                ItemTemplate="{StaticResource ParagraphStyleOptionTemplate}"
-                                PlaceholderText="Paragraph"
-                                SelectionChanged="ParagraphStyleComboBox_SelectionChanged"
-                                Style="{StaticResource CompactComboBoxStyle}" />
-                        </Grid>
-                    </Border>
-                </AppBarElementContainer>
+                <AppBarToggleButton
+                    x:Name="AlignRightButton"
+                    AutomationProperties.AutomationId="AlignRightButton"
+                    Click="AlignmentButton_Click"
+                    Label="{x:Bind domain:Translator.Composer_AlignRight, Mode=OneTime}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AlignRight, Mode=OneTime}">
+                    <AppBarToggleButton.Icon>
+                        <PathIcon Data="{StaticResource AlignRightPathIcon}" />
+                    </AppBarToggleButton.Icon>
+                </AppBarToggleButton>
 
-                <AppBarElementContainer Style="{StaticResource CompactPickerContainerStyle}" ToolTipService.ToolTip="Text color">
-                    <Border Style="{StaticResource CompactPickerBorderStyle}">
-                        <Grid ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="32" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <Grid
-                                Width="18"
-                                Height="18"
-                                Margin="8,0,0,0"
-                                VerticalAlignment="Center">
-                                <Rectangle
-                                    Fill="{x:Bind SelectedTextColorBrush, Mode=OneWay}"
-                                    RadiusX="4"
-                                    RadiusY="4"
-                                    Stroke="{ThemeResource TextFillColorSecondaryBrush}"
-                                    StrokeThickness="1" />
-                                <TextBlock
-                                    HorizontalAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    FontSize="11"
-                                    FontWeight="SemiBold"
-                                    Text="A" />
-                            </Grid>
-                            <ComboBox
-                                x:Name="TextColorComboBox"
-                                Grid.Column="1"
-                                MinWidth="104"
-                                AutomationProperties.AutomationId="TextColorComboBox"
-                                ItemTemplate="{StaticResource ColorOptionTemplate}"
-                                PlaceholderText="Text"
-                                SelectionChanged="TextColorComboBox_SelectionChanged"
-                                Style="{StaticResource CompactComboBoxStyle}" />
-                        </Grid>
-                    </Border>
-                </AppBarElementContainer>
+                <AppBarToggleButton
+                    x:Name="AlignJustifyButton"
+                    AutomationProperties.AutomationId="AlignJustifyButton"
+                    Click="AlignmentButton_Click"
+                    Label="{x:Bind domain:Translator.Composer_AlignJustify, Mode=OneTime}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AlignJustify, Mode=OneTime}">
+                    <AppBarToggleButton.Icon>
+                        <PathIcon Data="{StaticResource AlignJustifyPathIcon}" />
+                    </AppBarToggleButton.Icon>
+                </AppBarToggleButton>
 
-                <AppBarElementContainer Style="{StaticResource CompactPickerContainerStyle}" ToolTipService.ToolTip="Highlight color">
-                    <Border Style="{StaticResource CompactPickerBorderStyle}">
-                        <Grid ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="32" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <Grid
-                                Width="18"
-                                Height="18"
-                                Margin="8,0,0,0"
-                                VerticalAlignment="Center">
-                                <Rectangle
-                                    Fill="{x:Bind SelectedHighlightColorBrush, Mode=OneWay}"
-                                    RadiusX="4"
-                                    RadiusY="4"
-                                    Stroke="{ThemeResource TextFillColorSecondaryBrush}"
-                                    StrokeThickness="1" />
-                                <Rectangle
-                                    Width="10"
-                                    Height="2"
-                                    Margin="0,0,0,3"
-                                    VerticalAlignment="Bottom"
-                                    Fill="{ThemeResource TextFillColorPrimaryBrush}" />
-                            </Grid>
-                            <ComboBox
-                                x:Name="HighlightColorComboBox"
-                                Grid.Column="1"
-                                MinWidth="108"
-                                AutomationProperties.AutomationId="HighlightColorComboBox"
-                                ItemTemplate="{StaticResource ColorOptionTemplate}"
-                                PlaceholderText="Highlight"
-                                SelectionChanged="HighlightColorComboBox_SelectionChanged"
-                                Style="{StaticResource CompactComboBoxStyle}" />
-                        </Grid>
-                    </Border>
-                </AppBarElementContainer>
-
-                <AppBarElementContainer Style="{StaticResource CompactPickerContainerStyle}" ToolTipService.ToolTip="Line height">
-                    <Border Style="{StaticResource CompactPickerBorderStyle}">
-                        <Grid ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="32" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <FontIcon
-                                Margin="9,0,0,0"
-                                VerticalAlignment="Center"
-                                FontSize="14"
-                                Glyph="&#xE8C8;" />
-                            <ComboBox
-                                x:Name="LineHeightComboBox"
-                                Grid.Column="1"
-                                MinWidth="72"
-                                AutomationProperties.AutomationId="LineHeightComboBox"
-                                PlaceholderText="Line"
-                                SelectionChanged="LineHeightComboBox_SelectionChanged"
-                                Style="{StaticResource CompactComboBoxStyle}" />
-                        </Grid>
-                    </Border>
-                </AppBarElementContainer>
+                <AppBarButton
+                    x:Name="LineSpacingButton"
+                    AutomationProperties.AutomationId="LineSpacingButton"
+                    Label="{x:Bind domain:Translator.Composer_LineSpacing, Mode=OneTime}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_LineSpacing, Mode=OneTime}">
+                    <AppBarButton.Icon>
+                        <PathIcon Data="{StaticResource LineSpacingPathIcon}" />
+                    </AppBarButton.Icon>
+                    <AppBarButton.Flyout>
+                        <MenuFlyout x:Name="LineSpacingMenuFlyout" Placement="Bottom" />
+                    </AppBarButton.Flyout>
+                </AppBarButton>
             </toolkit:TabbedCommandBarItem>
 
-            <toolkit:TabbedCommandBarItem DefaultLabelPosition="Collapsed" Header="Insert">
+            <!--  ============================ INSERT ============================  -->
+            <!--  Labelled: these commands are used rarely enough that an icon alone is a guessing game.  -->
+            <toolkit:TabbedCommandBarItem
+                x:Name="InsertTabItem"
+                DefaultLabelPosition="Right"
+                Header="{x:Bind domain:Translator.Composer_TabInsert, Mode=OneTime}">
+
+                <!--  "Attach files" is injected in front of these by the composer, which owns the attachment list.  -->
                 <AppBarButton
                     x:Name="ImageButton"
                     AutomationProperties.AutomationId="ImageButton"
                     Click="ImageButton_Click"
-                    Label="Image"
-                    ToolTipService.ToolTip="Insert image">
+                    Label="{x:Bind domain:Translator.Composer_InsertPicture, Mode=OneTime}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_InsertPictureDescription, Mode=OneTime}">
                     <AppBarButton.Icon>
                         <PathIcon Data="{StaticResource AddPhotoPathIcon}" />
-                    </AppBarButton.Icon>
-                </AppBarButton>
-
-                <AppBarButton
-                    x:Name="ImagePropertiesButton"
-                    AutomationProperties.AutomationId="ImagePropertiesButton"
-                    Click="ImagePropertiesButton_Click"
-                    Label="{x:Bind domain:Translator.Composer_ImageProperties, Mode=OneTime}"
-                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_ImageProperties, Mode=OneTime}"
-                    Visibility="Collapsed">
-                    <AppBarButton.Icon>
-                        <SymbolIcon Symbol="Edit" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 
@@ -397,19 +422,33 @@
                     x:Name="EmojiButton"
                     AutomationProperties.AutomationId="EmojiButton"
                     Click="EmojiButton_Click"
-                    Label="Emoji"
-                    ToolTipService.ToolTip="Insert emoji">
+                    Label="{x:Bind domain:Translator.Emoji, Mode=OneTime}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_InsertEmojiDescription, Mode=OneTime}">
                     <AppBarButton.Icon>
                         <PathIcon Data="{StaticResource EmojiPathIcon}" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 
                 <AppBarButton
+                    x:Name="TableButton"
+                    AutomationProperties.AutomationId="TableButton"
+                    Click="TableButton_Click"
+                    Label="{x:Bind domain:Translator.Composer_Table, Mode=OneTime}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_InsertTable, Mode=OneTime}">
+                    <AppBarButton.Icon>
+                        <PathIcon Data="{StaticResource TablePathIcon}" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+
+                <AppBarSeparator />
+
+                <!--  Link commands stay in place and grey out instead of disappearing, so the row never jumps.  -->
+                <AppBarButton
                     x:Name="LinkButton"
                     AutomationProperties.AutomationId="LinkButton"
                     Click="LinkButton_Click"
-                    Label="Link"
-                    ToolTipService.ToolTip="Insert or edit link">
+                    Label="{x:Bind domain:Translator.Composer_Link, Mode=OneTime}"
+                    ToolTipService.ToolTip="{x:Bind LinkTooltip, Mode=OneTime}">
                     <AppBarButton.Icon>
                         <PathIcon Data="{StaticResource AddLinkPathIcon}" />
                     </AppBarButton.Icon>
@@ -419,59 +458,49 @@
                     x:Name="RemoveLinkButton"
                     AutomationProperties.AutomationId="RemoveLinkButton"
                     Click="RemoveLinkButton_Click"
-                    Label="Remove link"
-                    ToolTipService.ToolTip="Remove link"
-                    Visibility="Collapsed">
+                    IsEnabled="False"
+                    Label="{x:Bind domain:Translator.Composer_RemoveLink, Mode=OneTime}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_RemoveLink, Mode=OneTime}">
                     <AppBarButton.Icon>
                         <SymbolIcon Symbol="Remove" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 
                 <AppBarButton
-                    x:Name="TableButton"
-                    AutomationProperties.AutomationId="TableButton"
-                    Click="TableButton_Click"
-                    Label="Table"
-                    ToolTipService.ToolTip="Insert table">
+                    x:Name="ImagePropertiesButton"
+                    AutomationProperties.AutomationId="ImagePropertiesButton"
+                    Click="ImagePropertiesButton_Click"
+                    IsEnabled="False"
+                    Label="{x:Bind domain:Translator.Composer_ImageProperties, Mode=OneTime}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_ImagePropertiesDescription, Mode=OneTime}">
                     <AppBarButton.Icon>
-                        <FontIcon Glyph="&#xE14C;" />
+                        <SymbolIcon Symbol="Edit" />
                     </AppBarButton.Icon>
                 </AppBarButton>
-
-                <AppBarElementContainer ToolTipService.ToolTip="Insert actions">
-                    <ContentPresenter Content="{x:Bind InsertCustomContent, Mode=OneWay}" />
-                </AppBarElementContainer>
             </toolkit:TabbedCommandBarItem>
 
-            <toolkit:TabbedCommandBarItem DefaultLabelPosition="Collapsed" Header="Options">
-                <AppBarToggleButton
-                    x:Name="BuiltInToolbarButton"
-                    AutomationProperties.AutomationId="BuiltInToolbarButton"
-                    Click="BuiltInToolbarButton_Click"
-                    Label="Web toolbar"
-                    ToolTipService.ToolTip="Toggle built-in web toolbar">
-                    <AppBarToggleButton.Icon>
-                        <PathIcon Data="{StaticResource WebviewToolBarPathIcon}" />
-                    </AppBarToggleButton.Icon>
-                </AppBarToggleButton>
+            <!--  ============================ OPTIONS ============================  -->
+            <!--  Labelled: every command here changes how the mail is *sent*, so it must read as words.  -->
+            <toolkit:TabbedCommandBarItem
+                x:Name="OptionsTabItem"
+                DefaultLabelPosition="Right"
+                Header="{x:Bind domain:Translator.Composer_TabOptions, Mode=OneTime}">
+
+                <!--  Importance, signing, encryption and read receipts are injected in front of these by the composer.  -->
+                <AppBarSeparator x:Name="OptionsInjectedCommandsSeparator" />
 
                 <AppBarToggleButton
                     x:Name="SpellCheckButton"
                     AutomationProperties.AutomationId="SpellCheckButton"
                     Click="SpellCheckButton_Click"
-                    Label="Spell check"
-                    ToolTipService.ToolTip="Toggle spell check">
+                    Label="{x:Bind domain:Translator.Composer_SpellCheck, Mode=OneTime}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_SpellCheckDescription, Mode=OneTime}">
                     <AppBarToggleButton.Icon>
                         <FontIcon Glyph="&#xEA53;" />
                     </AppBarToggleButton.Icon>
                 </AppBarToggleButton>
 
-                <AppBarElementContainer ToolTipService.ToolTip="Composer options">
-                    <ContentPresenter Content="{x:Bind OptionsCustomContent, Mode=OneWay}" />
-                </AppBarElementContainer>
             </toolkit:TabbedCommandBarItem>
         </toolkit:TabbedCommandBar.MenuItems>
     </toolkit:TabbedCommandBar>
 </UserControl>
-
-
