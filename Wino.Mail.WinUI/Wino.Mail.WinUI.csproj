@@ -99,6 +99,7 @@
     <None Remove="Assets\StoreLogo.scale-150.png" />
     <None Remove="Assets\StoreLogo.scale-200.png" />
     <None Remove="Assets\StoreLogo.scale-400.png" />
+    <None Remove="Assets\WinoLogo.png" />
     <None Remove="Assets\UpdateNotes\Images\Calendar.svg" />
     <None Remove="Assets\UpdateNotes\Images\Security.svg" />
     <None Remove="Assets\UpdateNotes\Images\Thread.svg" />
@@ -116,7 +117,7 @@
     <None Remove="Controls\ListView\WinoListViewStyles.xaml" />
     <None Remove="Controls\Calendar\CalendarPeriodControl.xaml" />
     <None Remove="ShellWindow.xaml" />
-    <None Remove="Styles\CalendarShellNavigationViewStyle.xaml" />
+    <None Remove="Styles\WinoAppShellNavigationViewStyle.xaml" />
     <None Remove="Styles\CalendarThemeResources.xaml" />
     <None Remove="Styles\CalendarViewStyles.xaml" />
     <None Remove="Styles\WinoCalendarTypeSelectorControl.xaml" />
@@ -157,6 +158,7 @@
     <Content Include="Assets\UpdateNotes\Images\Mail.svg" />
     <Content Include="Assets\UpdateNotes\Images\Customize.svg" />
     <Content Include="Assets\Wino_Icon.ico" />
+    <Content Include="Assets\WinoLogo.png" />
     <Content Include="BackgroundImages\Acrylic.jpg" />
     <Content Include="BackgroundImages\Clouds.jpg" />
     <Content Include="BackgroundImages\Forest.jpg" />
@@ -352,7 +354,7 @@
     </Page>
   </ItemGroup>
   <ItemGroup>
-    <Page Update="Styles\CalendarShellNavigationViewStyle.xaml">
+    <Page Update="Styles\WinoAppShellNavigationViewStyle.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>
@@ -391,10 +393,10 @@
     <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
     <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
     <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
-    <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
+    <AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
     <GenerateTestArtifacts>True</GenerateTestArtifacts>
     <AppxBundle>Always</AppxBundle>
-    <AppxBundlePlatforms>x86|x64|ARM64</AppxBundlePlatforms>
+    <AppxBundlePlatforms>x64</AppxBundlePlatforms>
     <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
     <PackageCertificateThumbprint>4D0220C9CA6C704D170471B1A2335F76F94EB9DC</PackageCertificateThumbprint>
   </PropertyGroup>

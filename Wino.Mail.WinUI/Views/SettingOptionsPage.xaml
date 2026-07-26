@@ -112,7 +112,7 @@
                             Width="56"
                             Height="56"
                             VerticalAlignment="Top"
-                            Source="ms-appx:///Assets/AppEntries/MailAssets/StoreLogo.scale-400.png"
+                            Source="ms-appx:///Assets/AppEntries/MailAssets/StoreLogo.png"
                             Stretch="Uniform" />
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock

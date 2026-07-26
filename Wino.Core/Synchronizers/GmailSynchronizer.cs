@@ -108,11 +108,22 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
     public GmailSynchronizer(MailAccount account,
                              IGmailAuthenticator authenticator,
                              IGmailChangeProcessor gmailChangeProcessor,
-                             IGmailSynchronizerErrorHandlerFactory gmailSynchronizerErrorHandlerFactory) : base(account, WeakReferenceMessenger.Default)
+                             IGmailSynchronizerErrorHandlerFactory gmailSynchronizerErrorHandlerFactory)
+        : this(
+            account,
+            gmailChangeProcessor,
+            gmailSynchronizerErrorHandlerFactory,
+            new GmailClientMessageHandler(authenticator, account))
     {
-        var messageHandler = new GmailClientMessageHandler(authenticator, account);
+    }
 
-        _googleHttpClient = new HttpClient(messageHandler, disposeHandler: true);
+    internal GmailSynchronizer(
+        MailAccount account,
+        IGmailChangeProcessor gmailChangeProcessor,
+        IGmailSynchronizerErrorHandlerFactory gmailSynchronizerErrorHandlerFactory,
+        HttpMessageHandler googleMessageHandler) : base(account, WeakReferenceMessenger.Default)
+    {
+        _googleHttpClient = new HttpClient(googleMessageHandler, disposeHandler: true);
         _gmailService = new GmailService(_googleHttpClient);
         _peopleService = new PeopleServiceService(_googleHttpClient);
         _calendarService = new GoogleCalendarService(_googleHttpClient);
@@ -631,44 +642,7 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
 
             try
             {
-                var request = _calendarService.Events.List(calendar.RemoteCalendarId);
-
-                // Fetch individual event instances (including recurring event occurrences)
-                // rather than recurring event masters. This ensures we get all occurrences
-                // as separate events that can be stored and displayed directly.
-                request.SingleEvents = true;
-                request.ShowDeleted = true;
-
-                if (!string.IsNullOrEmpty(calendar.SynchronizationDeltaToken))
-                {
-                    request.SyncToken = calendar.SynchronizationDeltaToken;
-                }
-                else
-                {
-                    request.TimeMinDateTimeOffset = DateTimeOffset.UtcNow.AddYears(-1);
-                }
-
-                string nextPageToken;
-                string syncToken;
-
-                var allEvents = new List<Event>();
-
-                do
-                {
-                    var events = await request.ExecuteAsync(cancellationToken).ConfigureAwait(false);
-
-                    if (events.Items != null)
-                    {
-                        allEvents.AddRange(events.Items);
-                    }
-
-                    nextPageToken = events.NextPageToken;
-                    syncToken = events.NextSyncToken;
-                    request.PageToken = nextPageToken;
-                }
-                while (!string.IsNullOrEmpty(nextPageToken));
-
-                calendar.SynchronizationDeltaToken = syncToken;
+                var allEvents = await DownloadCalendarEventsAsync(calendar, cancellationToken).ConfigureAwait(false);
 
                 var eventByRemoteId = allEvents
                     .Where(e => !string.IsNullOrWhiteSpace(e.Id))
@@ -737,6 +711,81 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
         }
 
         return CalendarSynchronizationResult.Empty;
+    }
+
+    private async Task<List<Event>> DownloadCalendarEventsAsync(
+        AccountCalendar calendar,
+        CancellationToken cancellationToken)
+    {
+        var currentSyncToken = calendar.SynchronizationDeltaToken;
+
+        try
+        {
+            return await DownloadCalendarEventsAsync(calendar, currentSyncToken, cancellationToken).ConfigureAwait(false);
+        }
+        catch (GoogleApiException ex) when (
+            !string.IsNullOrWhiteSpace(currentSyncToken) &&
+            ex.HttpStatusCode == System.Net.HttpStatusCode.Gone)
+        {
+            // Google invalidates calendar sync tokens independently from OAuth access tokens.
+            // Persist the reset before retrying so a cancelled/failed full sync cannot leave the
+            // account permanently retrying the rejected token.
+            _logger.Warning(
+                ex,
+                "Calendar sync token expired for {CalendarName} in {Name}. Retrying with a full sync.",
+                calendar.Name,
+                Account.Name);
+
+            calendar.SynchronizationDeltaToken = null;
+            await _gmailChangeProcessor.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
+
+            return await DownloadCalendarEventsAsync(calendar, null, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task<List<Event>> DownloadCalendarEventsAsync(
+        AccountCalendar calendar,
+        string syncToken,
+        CancellationToken cancellationToken)
+    {
+        var request = _calendarService.Events.List(calendar.RemoteCalendarId);
+
+        // Fetch individual event instances (including recurring event occurrences)
+        // rather than recurring event masters. This ensures we get all occurrences
+        // as separate events that can be stored and displayed directly.
+        request.SingleEvents = true;
+        request.ShowDeleted = true;
+
+        if (!string.IsNullOrWhiteSpace(syncToken))
+        {
+            request.SyncToken = syncToken;
+        }
+        else
+        {
+            request.TimeMinDateTimeOffset = DateTimeOffset.UtcNow.AddYears(-1);
+        }
+
+        string nextPageToken;
+        string nextSyncToken = null;
+        var allEvents = new List<Event>();
+
+        do
+        {
+            var events = await request.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+
+            if (events.Items != null)
+            {
+                allEvents.AddRange(events.Items);
+            }
+
+            nextPageToken = events.NextPageToken;
+            nextSyncToken = events.NextSyncToken;
+            request.PageToken = nextPageToken;
+        }
+        while (!string.IsNullOrEmpty(nextPageToken));
+
+        calendar.SynchronizationDeltaToken = nextSyncToken;
+        return allEvents;
     }
 
     private static IEnumerable<Event> OrderCalendarEventsForPersistence(IEnumerable<Event> events)

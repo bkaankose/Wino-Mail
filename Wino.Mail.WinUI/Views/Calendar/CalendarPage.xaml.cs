@@ -202,8 +202,14 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
     private async void CalendarSurfaceCalendarItemDropped(object sender, CalendarItemDroppedEventArgs e)
         => await ViewModel.MoveCalendarItemAsync(e.CalendarItemViewModel, e.TargetStart);
 
-    private void QuickEventAccountSelectorSelectionChanged(object sender, SelectionChangedEventArgs e)
-        => QuickEventAccountSelectorFlyout.Hide();
+    private void QuickEventAccountSelectorItemClicked(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is not Wino.Calendar.ViewModels.Data.AccountCalendarViewModel accountCalendar)
+            return;
+
+        ViewModel.SelectedQuickEventAccountCalendar = accountCalendar;
+        QuickEventAccountSelectorFlyout.Hide();
+    }
 
     private void QuickEventPopupClosed(object sender, object e)
     {

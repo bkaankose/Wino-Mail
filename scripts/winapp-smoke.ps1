@@ -154,11 +154,22 @@ if (-not (Test-Path $outputDirectory)) {
 }
 
 $appxManifest = Join-Path $outputDirectory "AppxManifest.xml"
+$exePath = Join-Path $outputDirectory "Wino.Mail.WinUI.exe"
+
+# NativeAOT Release builds place the runnable package layout under AppX while
+# framework-dependent builds keep it at the target-framework output root.
+if ((-not (Test-Path $appxManifest) -or -not (Test-Path $exePath)) -and
+    (Test-Path (Join-Path $outputDirectory "AppX\AppxManifest.xml")) -and
+    (Test-Path (Join-Path $outputDirectory "AppX\Wino.Mail.WinUI.exe"))) {
+    $outputDirectory = Join-Path $outputDirectory "AppX"
+    $appxManifest = Join-Path $outputDirectory "AppxManifest.xml"
+    $exePath = Join-Path $outputDirectory "Wino.Mail.WinUI.exe"
+}
+
 if (-not (Test-Path $appxManifest)) {
     throw "AppxManifest.xml was not found at $appxManifest."
 }
 
-$exePath = Join-Path $outputDirectory "Wino.Mail.WinUI.exe"
 if (-not (Test-Path $exePath)) {
     throw "Wino.Mail.WinUI.exe was not found at $exePath."
 }

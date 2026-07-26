@@ -58,7 +58,6 @@ public class NewThemeService : INewThemeService
 
     // Keep reference so it does not get optimized/garbage collected
     private readonly UISettings uiSettings = new UISettings();
-
     private readonly IConfigurationService _configurationService;
     private readonly IUnderlyingThemeService _underlyingThemeService;
     private readonly IApplicationResourceManager<ResourceDictionary> _applicationResourceManager;
@@ -105,6 +104,9 @@ public class NewThemeService : INewThemeService
                 rootContent.RequestedTheme = value.ToWindowsElementTheme();
 
             _configurationService.Set(UnderlyingThemeService.SelectedAppThemeKey, value);
+
+            if (!string.IsNullOrEmpty(accentColor))
+                UpdateAccentColor(accentColor);
 
             UpdateSystemCaptionButtonColors();
 
@@ -357,22 +359,84 @@ public class NewThemeService : INewThemeService
         if (!string.IsNullOrEmpty(hex))
         {
             var color = CommunityToolkit.WinUI.Helpers.ColorHelper.ToColor(hex);
-            var brush = new SolidColorBrush(color);
+            var white = Color.FromArgb(255, 255, 255, 255);
+            var black = Color.FromArgb(255, 0, 0, 0);
+            var light1 = BlendColor(color, white, 0.20);
+            var light2 = BlendColor(color, white, 0.40);
+            var light3 = BlendColor(color, white, 0.60);
+            var dark1 = BlendColor(color, black, 0.20);
+            var dark2 = BlendColor(color, black, 0.40);
+            var dark3 = BlendColor(color, black, 0.60);
+            var isDarkTheme = _underlyingThemeService.IsUnderlyingThemeDark();
 
-            if (_applicationResourceManager.ContainsResourceKey("SystemAccentColor"))
-                _applicationResourceManager.ReplaceResource("SystemAccentColor", color);
+            SetColorResource("SystemAccentColor", color);
+            SetColorResource("SystemAccentColorLight1", light1);
+            SetColorResource("SystemAccentColorLight2", light2);
+            SetColorResource("SystemAccentColorLight3", light3);
+            SetColorResource("SystemAccentColorDark1", dark1);
+            SetColorResource("SystemAccentColorDark2", dark2);
+            SetColorResource("SystemAccentColorDark3", dark3);
 
-            if (_applicationResourceManager.ContainsResourceKey("NavigationViewSelectionIndicatorForeground"))
-                _applicationResourceManager.ReplaceResource("NavigationViewSelectionIndicatorForeground", brush);
+            // WinUI control templates redirect their checked/selected states to these
+            // semantic brushes. Mutating the existing brushes is important: many of
+            // those redirects are StaticResource references and retain the original
+            // brush instance for the lifetime of the application.
+            var accentFill = isDarkTheme ? light2 : dark1;
+            SetBrushResource("AccentFillColorDefaultBrush", accentFill);
+            SetBrushResource("AccentFillColorSecondaryBrush", accentFill, 0.90);
+            SetBrushResource("AccentFillColorTertiaryBrush", accentFill, 0.80);
+            SetBrushResource("AccentFillColorSelectedTextBackgroundBrush", color);
 
-            if (_applicationResourceManager.ContainsResourceKey("SystemControlBackgroundAccentBrush"))
-                _applicationResourceManager.ReplaceResource("SystemControlBackgroundAccentBrush", brush);
+            SetBrushResource("AccentTextFillColorPrimaryBrush", isDarkTheme ? light3 : dark2);
+            SetBrushResource("AccentTextFillColorSecondaryBrush", isDarkTheme ? light3 : dark3);
+            SetBrushResource("AccentTextFillColorTertiaryBrush", isDarkTheme ? light2 : dark1);
 
-            if (_applicationResourceManager.ContainsResourceKey("SystemColorControlAccentBrush"))
-                _applicationResourceManager.ReplaceResource("SystemColorControlAccentBrush", brush);
+            SetBrushResource("NavigationViewSelectionIndicatorForeground", accentFill);
+            SetBrushResource("SystemControlBackgroundAccentBrush", accentFill);
+            SetBrushResource("SystemColorControlAccentBrush", accentFill);
 
             RefreshThemeResource();
         }
+    }
+
+    private void SetColorResource(string resourceKey, Color color)
+    {
+        if (_applicationResourceManager.ContainsResourceKey(resourceKey))
+        {
+            _applicationResourceManager.ReplaceResource(resourceKey, color);
+        }
+    }
+
+    private void SetBrushResource(string resourceKey, Color color, double opacity = 1)
+    {
+        if (!_applicationResourceManager.ContainsResourceKey(resourceKey))
+        {
+            return;
+        }
+
+        var brush = _applicationResourceManager.GetResource<object>(resourceKey) as SolidColorBrush;
+
+        if (brush != null)
+        {
+            brush.Color = color;
+            brush.Opacity = opacity;
+        }
+        else
+        {
+            _applicationResourceManager.ReplaceResource(resourceKey, new SolidColorBrush(color)
+            {
+                Opacity = opacity
+            });
+        }
+    }
+
+    private static Color BlendColor(Color source, Color target, double amount)
+    {
+        return Color.FromArgb(
+            source.A,
+            (byte)Math.Round(source.R + ((target.R - source.R) * amount)),
+            (byte)Math.Round(source.G + ((target.G - source.G) * amount)),
+            (byte)Math.Round(source.B + ((target.B - source.B) * amount)));
     }
 
     private void RefreshThemeResource()

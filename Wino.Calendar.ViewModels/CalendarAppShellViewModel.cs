@@ -79,6 +79,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     private readonly IDateContextProvider _dateContextProvider;
     private bool _runtimeSubscriptionsAttached;
     private bool _hasRegisteredPersistentRecipients;
+    private bool _suppressDisplayTypeNavigation;
     private DateTime? _navigationDate;
 
     public CalendarAppShellViewModel(
@@ -139,7 +140,11 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         Messenger.Send(new CalendarDisplayTypeChangedMessage(StatePersistenceService.CalendarDisplayType));
         OnPropertyChanged(nameof(IsVerticalCalendar));
         UpdateDateNavigationHeaderItems();
-        NavigateCalendarDate(GetDisplayTypeSwitchDate());
+
+        if (!_suppressDisplayTypeNavigation)
+        {
+            NavigateCalendarDate(GetDisplayTypeSwitchDate());
+        }
     }
 
     private async void PreferencesServiceChanged(object sender, string e)
@@ -293,6 +298,9 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
                 continue;
 
             var accountCalendars = await _calendarService.GetAccountCalendarsAsync(account.Id).ConfigureAwait(false);
+            if (accountCalendars.Count == 0)
+                continue;
+
             var calendarViewModels = accountCalendars.Select(calendar => new AccountCalendarViewModel(account, calendar)).ToList();
             var groupedAccountCalendarViewModel = new GroupedAccountCalendarViewModel(account, calendarViewModels);
 
@@ -347,7 +355,32 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     [RelayCommand]
     private void TodayClicked()
     {
-        NavigateCalendarDate(_dateContextProvider.GetToday().ToDateTime(TimeOnly.MinValue));
+        var today = _dateContextProvider.GetToday();
+
+        if (StatePersistenceService.CalendarDisplayType == CalendarDisplayType.WorkWeek)
+        {
+            var settings = PreferencesService.GetCurrentCalendarSettings();
+            var todayWorkWeek = CalendarRangeResolver.Resolve(
+                new CalendarDisplayRequest(CalendarDisplayType.WorkWeek, today),
+                settings,
+                today);
+
+            if (!todayWorkWeek.Contains(today))
+            {
+                _suppressDisplayTypeNavigation = true;
+
+                try
+                {
+                    StatePersistenceService.CalendarDisplayType = CalendarDisplayType.Week;
+                }
+                finally
+                {
+                    _suppressDisplayTypeNavigation = false;
+                }
+            }
+        }
+
+        NavigateCalendarDate(today.ToDateTime(TimeOnly.MinValue));
     }
 
     [RelayCommand]

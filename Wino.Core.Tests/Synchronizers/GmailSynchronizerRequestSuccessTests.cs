@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Reflection;
 using FluentAssertions;
 using Moq;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Entities.Shared;
@@ -72,6 +73,36 @@ public sealed class GmailSynchronizerRequestSuccessTests
         await InvokeUpdateAccountSyncIdentifierAsync(synchronizer, 123);
 
         changeProcessor.Verify(x => x.UpdateAccountDeltaSynchronizationIdentifierAsync(It.IsAny<Guid>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DownloadCalendarEventsAsync_ExpiredSyncToken_PersistsResetAndRetriesFullSync()
+    {
+        var persistedTokens = new List<string?>();
+        var changeProcessor = new Mock<IGmailChangeProcessor>(MockBehavior.Strict);
+        changeProcessor
+            .Setup(x => x.UpdateAccountCalendarAsync(It.IsAny<AccountCalendar>()))
+            .Callback<AccountCalendar>(calendar => persistedTokens.Add(calendar.SynchronizationDeltaToken))
+            .Returns(Task.CompletedTask);
+
+        var handler = new ExpiredCalendarSyncTokenHandler();
+        var synchronizer = CreateSynchronizer(changeProcessor.Object, handler);
+        var calendar = new AccountCalendar
+        {
+            Id = Guid.NewGuid(),
+            RemoteCalendarId = "primary",
+            Name = "Primary",
+            SynchronizationDeltaToken = "expired-token"
+        };
+
+        await InvokeDownloadCalendarEventsAsync(synchronizer, calendar);
+
+        persistedTokens.Should().ContainSingle().Which.Should().BeNull();
+        calendar.SynchronizationDeltaToken.Should().Be("fresh-token");
+        handler.RequestUris.Should().HaveCount(2);
+        handler.RequestUris[0].Query.Should().Contain("syncToken=expired-token");
+        handler.RequestUris[1].Query.Should().NotContain("syncToken=");
+        handler.RequestUris[1].Query.Should().Contain("timeMin=");
     }
 
     [Fact]
@@ -286,6 +317,24 @@ public sealed class GmailSynchronizerRequestSuccessTests
         return new GmailSynchronizer(account, authenticator.Object, changeProcessor, errorFactory ?? Mock.Of<IGmailSynchronizerErrorHandlerFactory>());
     }
 
+    private static GmailSynchronizer CreateSynchronizer(
+        IGmailChangeProcessor changeProcessor,
+        HttpMessageHandler messageHandler)
+    {
+        var account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Name = "Gmail",
+            Address = "user@example.com"
+        };
+
+        return new GmailSynchronizer(
+            account,
+            changeProcessor,
+            Mock.Of<IGmailSynchronizerErrorHandlerFactory>(),
+            messageHandler);
+    }
+
     private static MailCopy CreateMailCopy(string id) =>
         new()
         {
@@ -324,5 +373,54 @@ public sealed class GmailSynchronizerRequestSuccessTests
         var task = method!.Invoke(synchronizer, [historyId]) as Task;
         task.Should().NotBeNull();
         await task!;
+    }
+
+    private static async Task InvokeDownloadCalendarEventsAsync(
+        GmailSynchronizer synchronizer,
+        AccountCalendar calendar)
+    {
+        var method = typeof(GmailSynchronizer).GetMethod(
+            "DownloadCalendarEventsAsync",
+            BindingFlags.Instance | BindingFlags.NonPublic,
+            binder: null,
+            types: [typeof(AccountCalendar), typeof(CancellationToken)],
+            modifiers: null);
+
+        method.Should().NotBeNull();
+
+        var task = method!.Invoke(synchronizer, [calendar, CancellationToken.None]) as Task;
+        task.Should().NotBeNull();
+        await task!;
+    }
+
+    private sealed class ExpiredCalendarSyncTokenHandler : HttpMessageHandler
+    {
+        public List<Uri> RequestUris { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            RequestUris.Add(request.RequestUri!);
+
+            if (RequestUris.Count == 1)
+            {
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Gone)
+                {
+                    Content = new StringContent(
+                        """
+                        {"error":{"code":410,"message":"Sync token is no longer valid, a full sync is required."}}
+                        """)
+                });
+            }
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {"items":[],"nextSyncToken":"fresh-token"}
+                    """)
+            });
+        }
     }
 }

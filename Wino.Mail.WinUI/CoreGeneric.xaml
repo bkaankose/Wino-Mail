@@ -32,9 +32,9 @@
             <Thickness x:Key="CommandBarBorderThicknessOpen">0</Thickness>
 
             <!--  Override AppBarToggleButton's checked background color.  -->
-            <StaticResource x:Key="AppBarToggleButtonBackgroundChecked" ResourceKey="SystemAccentColor" />
-            <StaticResource x:Key="AppBarToggleButtonBackgroundCheckedPointerOver" ResourceKey="SystemAccentColor" />
-            <StaticResource x:Key="AppBarToggleButtonBackgroundCheckedPressed" ResourceKey="SystemAccentColor" />
+            <StaticResource x:Key="AppBarToggleButtonBackgroundChecked" ResourceKey="AccentFillColorDefaultBrush" />
+            <StaticResource x:Key="AppBarToggleButtonBackgroundCheckedPointerOver" ResourceKey="AccentFillColorSecondaryBrush" />
+            <StaticResource x:Key="AppBarToggleButtonBackgroundCheckedPressed" ResourceKey="AccentFillColorTertiaryBrush" />
 
             <Thickness x:Key="ImapSetupDialogSubPagePadding">24,24,24,24</Thickness>
 

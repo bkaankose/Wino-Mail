@@ -252,10 +252,11 @@
                     Spacing="16">
 
                     <Image
-                        Width="64"
-                        Height="64"
+                        Width="112"
+                        Height="112"
                         HorizontalAlignment="Center"
-                        Source="ms-appx:///Assets/AppEntries/MailAssets/Square150x150Logo.png" />
+                        Source="ms-appx:///Assets/WinoLogo.png"
+                        Stretch="Uniform" />
 
                     <TextBlock
                         HorizontalAlignment="Center"

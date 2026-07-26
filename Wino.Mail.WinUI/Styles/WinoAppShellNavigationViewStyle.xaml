@@ -11,7 +11,7 @@
         <StackPanel Orientation="Vertical" />
     </ItemsPanelTemplate>
 
-    <Style x:Key="CalendarShellNavigationViewStyle" TargetType="controls:NavigationView">
+    <Style x:Key="WinoAppShellNavigationViewStyle" TargetType="controls:NavigationView">
         <Setter Property="PaneToggleButtonStyle" Value="{StaticResource PaneToggleButtonStyle}" />
         <Setter Property="IsTabStop" Value="False" />
         <Setter Property="CompactPaneLength" Value="{ThemeResource NavigationViewCompactPaneLength}" />

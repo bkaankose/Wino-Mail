@@ -29,7 +29,7 @@
             OpenPaneLength="{x:Bind StatePersistenceService.OpenPaneLength, Mode=TwoWay}"
             PaneDisplayMode="Auto"
             ScrollViewer.VerticalScrollBarVisibility="Hidden"
-            Style="{StaticResource CalendarShellNavigationViewStyle}">
+            Style="{StaticResource WinoAppShellNavigationViewStyle}">
             <Grid>
                 <Frame
                     x:Name="InnerShellFrame"

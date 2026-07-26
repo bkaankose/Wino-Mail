@@ -203,8 +203,8 @@
                 <muxc:NavigationViewItem.InfoBadge>
                     <muxc:InfoBadge
                         x:Name="FolderInfoBadge"
-                        Background="{StaticResource SystemAccentColor}"
-                        Foreground="White"
+                        Background="{ThemeResource AccentFillColorDefaultBrush}"
+                        Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
                         Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(UnreadItemCount), Mode=OneWay}"
                         Value="{x:Bind UnreadItemCount, Mode=OneWay}" />
                 </muxc:NavigationViewItem.InfoBadge>
@@ -261,8 +261,8 @@
                 </muxc:NavigationViewItem.Icon>
                 <muxc:NavigationViewItem.InfoBadge>
                     <muxc:InfoBadge
-                        Background="{StaticResource SystemAccentColor}"
-                        Foreground="White"
+                        Background="{ThemeResource AccentFillColorDefaultBrush}"
+                        Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
                         Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(UnreadItemCount), Mode=OneWay}"
                         Value="{x:Bind UnreadItemCount, Mode=OneWay}" />
                 </muxc:NavigationViewItem.InfoBadge>
@@ -296,8 +296,8 @@
                 </muxc:NavigationViewItem.Icon>
                 <muxc:NavigationViewItem.InfoBadge>
                     <muxc:InfoBadge
-                        Background="{StaticResource SystemAccentColor}"
-                        Foreground="White"
+                        Background="{ThemeResource AccentFillColorDefaultBrush}"
+                        Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
                         Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(UnreadItemCount), Mode=OneWay}"
                         Value="{x:Bind UnreadItemCount, Mode=OneWay}" />
                 </muxc:NavigationViewItem.InfoBadge>
@@ -350,8 +350,8 @@
                 <muxc:NavigationViewItem.InfoBadge>
                     <muxc:InfoBadge
                         x:Name="FolderInfoBadge"
-                        Background="{StaticResource SystemAccentColor}"
-                        Foreground="White"
+                        Background="{ThemeResource AccentFillColorDefaultBrush}"
+                        Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
                         Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(UnreadItemCount), Mode=OneWay}"
                         Value="{x:Bind UnreadItemCount, Mode=OneWay}" />
                 </muxc:NavigationViewItem.InfoBadge>
@@ -445,8 +445,8 @@
                 <muxc:NavigationViewItem.InfoBadge>
                     <muxc:InfoBadge
                         x:Name="FolderInfoBadge"
-                        Background="{StaticResource SystemAccentColor}"
-                        Foreground="White"
+                        Background="{ThemeResource AccentFillColorDefaultBrush}"
+                        Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
                         Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(UnreadItemCount), Mode=OneWay}"
                         Value="{x:Bind UnreadItemCount, Mode=OneWay}" />
                 </muxc:NavigationViewItem.InfoBadge>
@@ -536,7 +536,7 @@
             PaneOpening="NavigationPaneOpening"
             ScrollViewer.VerticalScrollBarVisibility="Hidden"
             SelectionChanged="MenuSelectionChanged"
-            Style="{StaticResource CalendarShellNavigationViewStyle}">
+            Style="{StaticResource WinoAppShellNavigationViewStyle}">
             <muxc:NavigationView.ContentTransitions>
                 <TransitionCollection>
                     <AddDeleteThemeTransition />
