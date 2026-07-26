@@ -94,6 +94,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private readonly IMailService _mailService;
     private bool _hasRegisteredPersistentRecipients;
     private int _isCreatingNewMail;
+    private int _initialShellSynchronizationRequested;
     private readonly SemaphoreSlim _menuRefreshSemaphore = new(1, 1);
     private readonly object _folderNavigationSync = new();
     private IBaseFolderMenuItem _pendingNavigationFolder;
@@ -291,7 +292,9 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         await HandlePendingShareRequestAsync();
         await ValidateWebView2RuntimeAsync();
 
-        if (shouldRunStartupFlows && !Debugger.IsAttached)
+        if (shouldRunStartupFlows &&
+            !Debugger.IsAttached &&
+            Interlocked.Exchange(ref _initialShellSynchronizationRequested, 1) == 0)
         {
             await ForceAllAccountSynchronizationsAsync();
         }
