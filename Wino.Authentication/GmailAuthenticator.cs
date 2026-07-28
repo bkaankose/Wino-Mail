@@ -57,6 +57,20 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
         return new TokenInformationEx(storedToken.AccessToken, account?.Address);
     }
 
+    public async Task<TokenInformationEx> RefreshTokenInformationAsync(MailAccount account)
+    {
+        var credentialKey = GetCredentialKey(account);
+        var storedToken = await ReadTokenAsync(credentialKey).ConfigureAwait(false);
+
+        if (storedToken == null)
+        {
+            throw new AuthenticationAttentionException(account);
+        }
+
+        storedToken = await RefreshTokenAsync(account, storedToken, credentialKey).ConfigureAwait(false);
+        return new TokenInformationEx(storedToken.AccessToken, account?.Address);
+    }
+
     public Task DeleteTokenInformationAsync(MailAccount account)
     {
         var tokenPath = GetTokenPath(GetCredentialKey(account));

@@ -30,6 +30,7 @@ public class NotificationBuilder : INotificationBuilder
     private const string ProviderIconRootUri = "ms-appx:///Assets/Providers/";
     private static readonly Uri DefaultJumpListIconUri = new("ms-appx:///Assets/AppEntries/MailAssets/Square44x44Logo.scale-200.png");
     private static int _calendarTaskbarBadgeCount;
+    private static readonly SemaphoreSlim TaskbarBadgeUpdateLock = new(1, 1);
     private static readonly MailOperation[] SupportedMailNotificationActions =
     [
         MailOperation.MarkAsRead,
@@ -67,6 +68,15 @@ public class NotificationBuilder : INotificationBuilder
         WeakReferenceMessenger.Default.Register<BulkMailReadStatusChanged>(this, (r, msg) =>
         {
             QueueRemoveNotifications(msg.UniqueIds);
+        });
+
+        WeakReferenceMessenger.Default.Register<BulkMailUpdatedMessage>(this, (r, msg) =>
+        {
+            if (msg.Source == EntityUpdateSource.Server &&
+                (msg.ChangedProperties & (MailCopyChangeFlags.IsRead | MailCopyChangeFlags.FolderId)) != 0)
+            {
+                _ = UpdateTaskbarIconBadgeAsync();
+            }
         });
     }
 
@@ -134,15 +144,16 @@ public class NotificationBuilder : INotificationBuilder
 
     public async Task UpdateTaskbarIconBadgeAsync()
     {
-        var totalUnreadCount = 0;
+        await TaskbarBadgeUpdateLock.WaitAsync().ConfigureAwait(false);
 
         try
         {
+            var totalUnreadCount = 0;
             var accounts = await _accountService.GetAccountsAsync();
 
             foreach (var account in accounts)
             {
-                if (!account.Preferences.IsTaskbarBadgeEnabled)
+                if (!account.IsMailAccessGranted || !account.Preferences.IsTaskbarBadgeEnabled)
                     continue;
 
                 var accountInbox = await _folderService.GetSpecialFolderByAccountIdAsync(account.Id, SpecialFolderType.Inbox);
@@ -158,6 +169,10 @@ public class NotificationBuilder : INotificationBuilder
         catch (Exception ex)
         {
             Log.Error(ex, "Error while updating taskbar badge.");
+        }
+        finally
+        {
+            TaskbarBadgeUpdateLock.Release();
         }
     }
 

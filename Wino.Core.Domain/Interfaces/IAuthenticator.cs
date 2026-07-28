@@ -14,6 +14,12 @@ public interface IAuthenticator
 
     Task<TokenInformationEx> GetTokenInformationAsync(MailAccount account);
 
+    /// <summary>
+    /// Forces the provider to refresh its cached token without showing interactive UI.
+    /// </summary>
+    Task<TokenInformationEx> RefreshTokenInformationAsync(MailAccount account)
+        => GetTokenInformationAsync(account);
+
     Task<TokenInformationEx> GenerateTokenInformationAsync(MailAccount account);
 
     Task DeleteTokenInformationAsync(MailAccount account);

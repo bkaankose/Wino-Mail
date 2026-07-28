@@ -91,22 +91,38 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
     {
         await EnsureTokenCacheAttachedAsync();
 
-        try
-        {
-            var cachedTokenInfo = await TryGetCachedTokenInformationAsync(account).ConfigureAwait(false);
+        var cachedTokenInfo = await TryGetCachedTokenInformationSafelyAsync(account, forceRefresh: false)
+            .ConfigureAwait(false);
 
-            if (cachedTokenInfo != null)
-            {
-                ApplyTokenInformation(account, cachedTokenInfo);
-                return cachedTokenInfo;
-            }
-        }
-        catch (MsalUiRequiredException)
+        if (cachedTokenInfo == null)
         {
-            // Existing accounts must only enter the interactive flow after an explicit user action.
+            cachedTokenInfo = await TryGetCachedTokenInformationSafelyAsync(account, forceRefresh: true)
+                .ConfigureAwait(false);
+        }
+
+        if (cachedTokenInfo != null)
+        {
+            ApplyTokenInformation(account, cachedTokenInfo);
+            return cachedTokenInfo;
         }
 
         throw new AuthenticationAttentionException(account);
+    }
+
+    public async Task<TokenInformationEx> RefreshTokenInformationAsync(MailAccount account)
+    {
+        await EnsureTokenCacheAttachedAsync().ConfigureAwait(false);
+
+        var tokenInfo = await TryGetCachedTokenInformationSafelyAsync(account, forceRefresh: true)
+            .ConfigureAwait(false);
+
+        if (tokenInfo == null)
+        {
+            throw new AuthenticationAttentionException(account);
+        }
+
+        ApplyTokenInformation(account, tokenInfo);
+        return tokenInfo;
     }
 
     public async Task<TokenInformationEx> GenerateTokenInformationAsync(MailAccount account)
@@ -203,7 +219,27 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
             ? property.GetString()
             : null;
 
-    private async Task<TokenInformationEx> TryGetCachedTokenInformationAsync(MailAccount account)
+    private async Task<TokenInformationEx> TryGetCachedTokenInformationSafelyAsync(
+        MailAccount account,
+        bool forceRefresh)
+    {
+        try
+        {
+            return await TryGetCachedTokenInformationAsync(account, forceRefresh).ConfigureAwait(false);
+        }
+        catch (MsalUiRequiredException)
+        {
+            return null;
+        }
+        catch (MsalClientException)
+        {
+            return null;
+        }
+    }
+
+    private async Task<TokenInformationEx> TryGetCachedTokenInformationAsync(
+        MailAccount account,
+        bool forceRefresh)
     {
         var scopes = GetScope(account);
         var cachedAccounts = (await _publicClientApplication.GetAccountsAsync().ConfigureAwait(false)).ToList();
@@ -213,6 +249,7 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
         {
             var authResult = await _publicClientApplication
                 .AcquireTokenSilent(scopes, storedAccount)
+                .WithForceRefresh(forceRefresh)
                 .ExecuteAsync()
                 .ConfigureAwait(false);
 
@@ -221,21 +258,31 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
 
         foreach (var cachedAccount in cachedAccounts)
         {
-            var tokenInfo = await TryGetMatchingTokenInformationAsync(account, scopes, cachedAccount).ConfigureAwait(false);
+            var tokenInfo = await TryGetMatchingTokenInformationAsync(account, scopes, cachedAccount, forceRefresh)
+                .ConfigureAwait(false);
 
             if (tokenInfo != null)
                 return tokenInfo;
         }
 
-        return await TryGetMatchingTokenInformationAsync(account, scopes, PublicClientApplication.OperatingSystemAccount).ConfigureAwait(false);
+        return await TryGetMatchingTokenInformationAsync(
+            account,
+            scopes,
+            PublicClientApplication.OperatingSystemAccount,
+            forceRefresh).ConfigureAwait(false);
     }
 
-    private async Task<TokenInformationEx> TryGetMatchingTokenInformationAsync(MailAccount account, IEnumerable<string> scopes, IAccount cachedAccount)
+    private async Task<TokenInformationEx> TryGetMatchingTokenInformationAsync(
+        MailAccount account,
+        IEnumerable<string> scopes,
+        IAccount cachedAccount,
+        bool forceRefresh)
     {
         try
         {
             var authResult = await _publicClientApplication
                 .AcquireTokenSilent(scopes, cachedAccount)
+                .WithForceRefresh(forceRefresh)
                 .ExecuteAsync()
                 .ConfigureAwait(false);
 

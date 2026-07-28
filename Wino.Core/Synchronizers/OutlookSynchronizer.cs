@@ -149,6 +149,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         // Update request handlers for Graph client.
         var handlers = GraphClientFactory.CreateDefaultHandlers();
 
+        handlers.Add(new GraphAuthenticationRetryHandler(Account, authenticator));
         handlers.Add(GetMicrosoftImmutableIdHandler());
         handlers.Add(GetGraphRateLimitHandler());
 

@@ -1658,6 +1658,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     {
         var remainingAccounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
         var remainingMailAccounts = remainingAccounts.Where(account => account.IsMailAccessGranted).ToList();
+        await _notificationBuilder.UpdateTaskbarIconBadgeAsync().ConfigureAwait(false);
 
         if (!remainingMailAccounts.Any())
         {

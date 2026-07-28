@@ -1,4 +1,6 @@
-﻿using System.Net.Http;
+﻿using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Shared;
@@ -19,13 +21,23 @@ internal sealed class GmailClientMessageHandler : DelegatingHandler
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        // This call here will automatically trigger Google Auth's interactive login if the token is not found.
-        // or refresh the token based on the FileDataStore.
-
         var tokenInformation = await _gmailAuthenticator.GetTokenInformationAsync(_mailAccount);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokenInformation.AccessToken);
 
-        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenInformation.AccessToken);
+        var response = await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
 
-        return await base.SendAsync(request, cancellationToken);
+        if (response.StatusCode != HttpStatusCode.Unauthorized)
+        {
+            return response;
+        }
+
+        response.Dispose();
+
+        var refreshedToken = await _gmailAuthenticator
+            .RefreshTokenInformationAsync(_mailAccount)
+            .ConfigureAwait(false);
+
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", refreshedToken.AccessToken);
+        return await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 }

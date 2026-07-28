@@ -403,8 +403,11 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     public Task FolderSyncToggledAsync(IMailItemFolder folderStructure, bool isEnabled)
         => _folderService.ChangeFolderSynchronizationStateAsync(folderStructure.Id, isEnabled);
 
-    public Task FolderShowUnreadToggled(IMailItemFolder folderStructure, bool isEnabled)
-        => _folderService.ChangeFolderShowUnreadCountStateAsync(folderStructure.Id, isEnabled);
+    public async Task FolderShowUnreadToggled(IMailItemFolder folderStructure, bool isEnabled)
+    {
+        await _folderService.ChangeFolderShowUnreadCountStateAsync(folderStructure.Id, isEnabled);
+        await _notificationBuilder.UpdateTaskbarIconBadgeAsync();
+    }
 
     public async Task FolderJumpListToggledAsync(IMailItemFolder folderStructure, bool isEnabled)
     {
@@ -582,6 +585,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
             case nameof(IsFocusedInboxEnabled) when IsFocusedInboxSupportedForAccount:
                 Account.Preferences.IsFocusedInboxEnabled = IsFocusedInboxEnabled;
                 await _accountService.UpdateAccountAsync(Account);
+                await _notificationBuilder.UpdateTaskbarIconBadgeAsync();
                 break;
             case nameof(AreNotificationsEnabled):
                 Account.Preferences.IsNotificationsEnabled = AreNotificationsEnabled;
@@ -598,6 +602,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
             case nameof(IsTaskbarBadgeEnabled):
                 Account.Preferences.IsTaskbarBadgeEnabled = IsTaskbarBadgeEnabled;
                 await _accountService.UpdateAccountAsync(Account);
+                await _notificationBuilder.UpdateTaskbarIconBadgeAsync();
                 break;
             case nameof(IsJumpListEnabled):
                 Account.Preferences.IsJumpListEnabled = IsJumpListEnabled;
@@ -611,6 +616,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
                 try
                 {
                     await UpdateOAuthCapabilityAsync(SelectedCapabilityOption);
+                    await _notificationBuilder.UpdateTaskbarIconBadgeAsync();
                 }
                 catch (Exception ex)
                 {
