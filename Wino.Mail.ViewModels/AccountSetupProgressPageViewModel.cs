@@ -241,7 +241,8 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 var authTokenInfo = await SynchronizationManager.Instance.HandleAuthorizationAsync(
                     WizardContext.SelectedProvider.Type,
                     _createdAccount,
-                    _createdAccount.ProviderType == MailProviderType.Gmail);
+                    _createdAccount.ProviderType == MailProviderType.Gmail,
+                    forceInteractive: true);
 
                 _createdAccount.AuthenticationAddress = authTokenInfo.AuthenticationAddress;
                 _createdAccount.Address = authTokenInfo.AccountAddress;
@@ -488,6 +489,13 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
             IsSetupFailed = true;
             FailureMessage = Translator.AccountSetup_FailureMessage;
 
+            if (ex is ImapValidationException { ProtocolLog.Length: > 0 } validationException)
+            {
+                await _dialogService.ShowImapValidationFailedDialogAsync(
+                    validationException.Message,
+                    validationException.ProtocolLog);
+            }
+
             // Rollback if DB write happened
             if (_dbWritten && _createdAccount != null)
             {
@@ -606,7 +614,11 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
         }
 
         if (!connectivityResult.IsSuccess)
-            throw new InvalidOperationException(connectivityResult.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage);
+        {
+            throw new ImapValidationException(
+                connectivityResult.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage,
+                connectivityResult.ProtocolLog);
+        }
     }
 
     private async Task ValidateCalDavConnectivityAsync(CustomServerInformation serverInformation)

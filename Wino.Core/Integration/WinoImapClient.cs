@@ -24,6 +24,11 @@ public class WinoImapClient : ImapClient
         HookEvents();
     }
 
+    public WinoImapClient(IProtocolLogger protocolLogger) : base(protocolLogger)
+    {
+        HookEvents();
+    }
+
     private void HookEvents()
     {
         Disconnected += ClientDisconnected;

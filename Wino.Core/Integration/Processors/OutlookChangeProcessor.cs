@@ -252,8 +252,12 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
             await CalendarService.UpdateCalendarItemAsync(savingItem, attendees).ConfigureAwait(false);
         }
 
-        // Save reminders separately
-        await CalendarService.SaveRemindersAsync(savingItemId, reminders).ConfigureAwait(false);
+        // Provider reminders initialize newly imported events only. Once an event exists
+        // locally, Wino owns its reminder list and schedules every selected reminder.
+        if (isNewItem)
+        {
+            await CalendarService.SaveRemindersAsync(savingItemId, reminders).ConfigureAwait(false);
+        }
 
         // Save attachments metadata separately
         if (attachments != null && attachments.Count > 0)

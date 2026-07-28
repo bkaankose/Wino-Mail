@@ -4,11 +4,15 @@ using System.Reflection;
 using FluentAssertions;
 using Microsoft.Kiota.Abstractions;
 using Moq;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Requests.Bundles;
+using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Mail;
 using Wino.Core.Synchronizers.Mail;
 using Xunit;
@@ -59,6 +63,36 @@ public sealed class OutlookSynchronizerRequestSuccessTests
         changeProcessor.Verify(x => x.ChangeFlagStatusAsync("mail-id", true), Times.Once);
     }
 
+    [Fact]
+    public async Task HandleSuccessfulResponseAsync_CreateCalendarEvent_PersistsEveryLocalReminder()
+    {
+        var changeProcessor = new Mock<IOutlookChangeProcessor>(MockBehavior.Strict);
+        var request = CreateCalendarEventRequest();
+        var expectedRemoteEventId = $"remote-event::{request.PreparedItem.Id:N}";
+
+        changeProcessor
+            .Setup(x => x.PersistCreatedCalendarEventAsync(
+                request.PreparedItem,
+                request.PreparedEvent.Attendees,
+                It.Is<List<Reminder>>(reminders =>
+                    reminders.Count == 2
+                    && reminders.Any(r => r.DurationInSeconds == 15 * 60)
+                    && reminders.Any(r => r.DurationInSeconds == 30 * 60)),
+                expectedRemoteEventId))
+            .Returns(Task.CompletedTask);
+
+        var synchronizer = CreateSynchronizer(changeProcessor.Object);
+        var bundle = new HttpRequestBundle<RequestInformation>(new RequestInformation(), request, request);
+        using var response = new HttpResponseMessage(HttpStatusCode.Created)
+        {
+            Content = new StringContent("""{"id":"remote-event"}""")
+        };
+
+        await InvokeHandleSuccessfulResponseAsync(synchronizer, bundle, response);
+
+        changeProcessor.VerifyAll();
+    }
+
     private static OutlookSynchronizer CreateSynchronizer(IOutlookChangeProcessor changeProcessor)
     {
         var account = new MailAccount
@@ -84,6 +118,36 @@ public sealed class OutlookSynchronizerRequestSuccessTests
             IsRead = false,
             IsFlagged = false
         };
+
+    private static CreateCalendarEventRequest CreateCalendarEventRequest()
+    {
+        var accountId = Guid.NewGuid();
+        var calendar = new AccountCalendar
+        {
+            Id = Guid.NewGuid(),
+            AccountId = accountId,
+            RemoteCalendarId = "calendar",
+            Name = "Calendar"
+        };
+
+        var composeResult = new CalendarEventComposeResult
+        {
+            AccountId = accountId,
+            CalendarId = calendar.Id,
+            Title = "Planning",
+            StartDate = new DateTime(2026, 7, 28, 10, 0, 0),
+            EndDate = new DateTime(2026, 7, 28, 11, 0, 0),
+            TimeZoneId = TimeZoneInfo.Local.Id,
+            ShowAs = CalendarItemShowAs.Busy,
+            SelectedReminders =
+            [
+                new Reminder { DurationInSeconds = 15 * 60, ReminderType = CalendarItemReminderType.Popup },
+                new Reminder { DurationInSeconds = 30 * 60, ReminderType = CalendarItemReminderType.Popup }
+            ]
+        };
+
+        return new CreateCalendarEventRequest(composeResult, calendar);
+    }
 
     private static async Task InvokeHandleSuccessfulResponseAsync(
         OutlookSynchronizer synchronizer,

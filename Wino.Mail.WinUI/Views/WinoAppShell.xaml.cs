@@ -313,7 +313,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         }
 
         CalendarHostListView.ItemsSource = calendarClient.GroupedAccountCalendars;
-        SynchronizeCalendarsNavigationItem.IsEnabled = calendarClient.CanSynchronizeCalendars;
+        SynchronizeCalendarsButton.IsEnabled = calendarClient.CanSynchronizeCalendars;
         SynchronizeVisibleDateRangeCalendar();
     }
 
@@ -432,18 +432,8 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     private static void InvokeNewContact()
         => WeakReferenceMessenger.Default.Send(new NewContactRequested());
 
-    private async void SynchronizeCalendarsNavigationItemTapped(object sender, TappedRoutedEventArgs e)
+    private async void SynchronizeCalendarsButtonClick(object sender, RoutedEventArgs e)
     {
-        e.Handled = true;
-        await InvokeCalendarSynchronizationAsync();
-    }
-
-    private async void SynchronizeCalendarsNavigationItemKeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        if (e.Key is not (VirtualKey.Enter or VirtualKey.Space))
-            return;
-
-        e.Handled = true;
         await InvokeCalendarSynchronizationAsync();
     }
 
@@ -739,9 +729,9 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
         if (e.PropertyName == nameof(ICalendarShellClient.CanSynchronizeCalendars) &&
             sender is ICalendarShellClient calendarClient &&
-            SynchronizeCalendarsNavigationItem != null)
+            SynchronizeCalendarsButton != null)
         {
-            SynchronizeCalendarsNavigationItem.IsEnabled = calendarClient.CanSynchronizeCalendars;
+            SynchronizeCalendarsButton.IsEnabled = calendarClient.CanSynchronizeCalendars;
         }
 
         if (e.PropertyName == nameof(ICalendarShellClient.CurrentVisibleRange) ||

@@ -136,7 +136,12 @@ public class ImapChangeProcessor : DefaultChangeProcessor, IImapChangeProcessor
             await CalendarService.UpdateCalendarItemAsync(savingItem, attendees).ConfigureAwait(false);
         }
 
-        await CalendarService.SaveRemindersAsync(savingItemId, reminders).ConfigureAwait(false);
+        // Provider reminders initialize newly imported events only. Existing reminder
+        // selections are local state and must survive later CalDAV synchronization.
+        if (isNewItem)
+        {
+            await CalendarService.SaveRemindersAsync(savingItemId, reminders).ConfigureAwait(false);
+        }
     }
 
     public Task SaveCalendarItemIcsAsync(Guid accountId, Guid calendarId, Guid calendarItemId, string remoteEventId, string remoteResourceHref, string eTag, string icsContent)

@@ -321,6 +321,12 @@ namespace Google.Apis.Calendar.v3.Data
 
         public IList<EventAttendee> Attendees { get; set; }
 
+        /// <summary>
+        /// When updating an event, indicates that the attendee list is intentionally partial.
+        /// This allows an attendee to update only their own response without replacing guests.
+        /// </summary>
+        public bool? AttendeesOmitted { get; set; }
+
         public string Description { get; set; }
 
         public EventDateTime End { get; set; }

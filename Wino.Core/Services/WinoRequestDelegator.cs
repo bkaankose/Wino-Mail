@@ -170,15 +170,23 @@ public class WinoRequestDelegator : IWinoRequestDelegator
             CalendarSynchronizerOperation.AcceptEvent => new AcceptEventRequest(calendarPreparationRequest.CalendarItem, calendarPreparationRequest.ResponseMessage),
             CalendarSynchronizerOperation.DeclineEvent => CreateDeclineRequest(calendarPreparationRequest.CalendarItem, calendarPreparationRequest.ResponseMessage),
             CalendarSynchronizerOperation.TentativeEvent => new TentativeEventRequest(calendarPreparationRequest.CalendarItem, calendarPreparationRequest.ResponseMessage),
-            CalendarSynchronizerOperation.UpdateEvent => new UpdateCalendarEventRequest(calendarPreparationRequest.CalendarItem, calendarPreparationRequest.Attendees)
+            CalendarSynchronizerOperation.UpdateEvent => new UpdateCalendarEventRequest(
+                calendarPreparationRequest.CalendarItem,
+                calendarPreparationRequest.Attendees,
+                calendarPreparationRequest.Reminders)
             {
                 OriginalItem = calendarPreparationRequest.OriginalItem,
-                OriginalAttendees = calendarPreparationRequest.OriginalAttendees
+                OriginalAttendees = calendarPreparationRequest.OriginalAttendees,
+                OriginalReminders = calendarPreparationRequest.OriginalReminders
             },
-            CalendarSynchronizerOperation.ChangeStartAndEndDate => new ChangeStartAndEndDateRequest(calendarPreparationRequest.CalendarItem, calendarPreparationRequest.Attendees)
+            CalendarSynchronizerOperation.ChangeStartAndEndDate => new ChangeStartAndEndDateRequest(
+                calendarPreparationRequest.CalendarItem,
+                calendarPreparationRequest.Attendees,
+                calendarPreparationRequest.Reminders)
             {
                 OriginalItem = calendarPreparationRequest.OriginalItem,
-                OriginalAttendees = calendarPreparationRequest.OriginalAttendees
+                OriginalAttendees = calendarPreparationRequest.OriginalAttendees,
+                OriginalReminders = calendarPreparationRequest.OriginalReminders
             },
             _ => throw new NotImplementedException($"Calendar operation {calendarPreparationRequest.Operation} is not implemented yet.")
         };

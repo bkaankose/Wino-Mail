@@ -11,7 +11,10 @@ namespace Wino.Core.Requests.Calendar;
 /// Request to update an existing calendar event on the server.
 /// The calendar item should be already updated in the local database before queuing this request.
 /// </summary>
-public record UpdateCalendarEventRequest(CalendarItem Item, List<CalendarEventAttendee> Attendees) : CalendarRequestBase(Item)
+public record UpdateCalendarEventRequest(
+    CalendarItem Item,
+    List<CalendarEventAttendee> Attendees,
+    List<Reminder> Reminders = null) : CalendarRequestBase(Item)
 {
     /// <summary>
     /// Original attendees before the update, used for reverting changes if the update fails.
@@ -22,6 +25,11 @@ public record UpdateCalendarEventRequest(CalendarItem Item, List<CalendarEventAt
     /// Original calendar item state before the update, used for reverting changes if the update fails.
     /// </summary>
     public CalendarItem OriginalItem { get; init; }
+
+    /// <summary>
+    /// Original reminders before the update, retained with the request for revert handling.
+    /// </summary>
+    public List<Reminder> OriginalReminders { get; init; }
 
     public override CalendarSynchronizerOperation Operation => CalendarSynchronizerOperation.UpdateEvent;
 

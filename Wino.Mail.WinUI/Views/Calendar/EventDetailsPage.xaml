@@ -190,8 +190,9 @@
 
                     <!--  Reminder  -->
                     <Button
-
-                        AutomationProperties.AutomationId="EventDetailsPageButton5" Style="{StaticResource TransparentActionButtonStyle}">
+                        AutomationProperties.AutomationId="EventDetailsReminderButton"
+                        AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventDetails_Reminder, Mode=OneTime}"
+                        Style="{StaticResource TransparentActionButtonStyle}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <coreControls:WinoFontIcon FontSize="16" Icon="Reminder" />
                             <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventDetails_Reminder}" />
@@ -199,16 +200,18 @@
                         <Button.Flyout>
                             <Flyout>
                                 <ListView
-                                    AutomationProperties.AutomationId="EventDetailsPageListView"
                                     Width="200"
                                     MaxHeight="300"
+                                    AutomationProperties.AutomationId="EventDetailsReminderOptionsList"
                                     ItemsSource="{x:Bind ViewModel.ReminderOptions}"
                                     SelectionMode="None">
                                     <ListView.ItemTemplate>
                                         <DataTemplate x:DataType="calendarViewModels:ReminderOption">
                                             <CheckBox
-
-                                                AutomationProperties.AutomationId="EventDetailsPageCheckBox" Content="{x:Bind DisplayText}" IsChecked="{x:Bind IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                AutomationProperties.AutomationId="{x:Bind AutomationId}"
+                                                AutomationProperties.Name="{x:Bind DisplayText}"
+                                                Content="{x:Bind DisplayText}"
+                                                IsChecked="{x:Bind IsSelected, Mode=TwoWay}" />
                                         </DataTemplate>
                                     </ListView.ItemTemplate>
                                 </ListView>

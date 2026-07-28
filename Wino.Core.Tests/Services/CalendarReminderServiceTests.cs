@@ -112,6 +112,51 @@ public class CalendarReminderServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task CheckAndNotifyAsync_WhenEventHasMultipleLocalReminders_ReturnsEachAtItsOwnTrigger()
+    {
+        var eventStartLocal = new DateTime(2026, 1, 1, 10, 30, 0);
+        var calendarItem = await CreateCalendarItemWithReminderAsync(
+            startDate: eventStartLocal,
+            reminderDurationInSeconds: 30 * 60,
+            reminderType: CalendarItemReminderType.Popup);
+
+        await _calendarService.SaveRemindersAsync(calendarItem.Id,
+        [
+            new Reminder
+            {
+                Id = Guid.NewGuid(),
+                CalendarItemId = calendarItem.Id,
+                DurationInSeconds = 30 * 60,
+                ReminderType = CalendarItemReminderType.Popup
+            },
+            new Reminder
+            {
+                Id = Guid.NewGuid(),
+                CalendarItemId = calendarItem.Id,
+                DurationInSeconds = 15 * 60,
+                ReminderType = CalendarItemReminderType.Popup
+            }
+        ]);
+
+        HashSet<string> sentReminderKeys = [];
+
+        var thirtyMinuteReminder = await _calendarService.CheckAndNotifyAsync(
+            eventStartLocal.AddMinutes(-30).AddSeconds(-30),
+            eventStartLocal.AddMinutes(-30),
+            sentReminderKeys);
+        var fifteenMinuteReminder = await _calendarService.CheckAndNotifyAsync(
+            eventStartLocal.AddMinutes(-15).AddSeconds(-30),
+            eventStartLocal.AddMinutes(-15),
+            sentReminderKeys);
+
+        thirtyMinuteReminder.Should().ContainSingle()
+            .Which.ReminderDurationInSeconds.Should().Be(30 * 60);
+        fifteenMinuteReminder.Should().ContainSingle()
+            .Which.ReminderDurationInSeconds.Should().Be(15 * 60);
+        sentReminderKeys.Should().HaveCount(2);
+    }
+
+    [Fact]
     public async Task CheckAndNotifyAsync_WhenCalendarAccessNotGranted_ReturnsEmpty()
     {
         var restrictedAccount = new MailAccount

@@ -312,11 +312,14 @@ public class Program
         // We need to notify the App to handle the activation (e.g., bring window to front, handle protocol).
         if (Application.Current is App app)
         {
+            // Restore an existing managed window immediately. The complete activation route still
+            // runs below to process mode changes, protocols, notifications, or window creation.
+            app.TryActivateExistingWindowForRedirectedActivation(args);
             app.HandleRedirectedActivation(args);
         }
     }
 
-    private static bool ShouldBringWindowToForegroundAfterRedirection(AppActivationArguments args)
+    internal static bool ShouldBringWindowToForegroundAfterRedirection(AppActivationArguments args)
     {
         if (args.Kind == ExtendedActivationKind.StartupTask)
             return false;

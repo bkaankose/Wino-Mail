@@ -626,7 +626,9 @@ public class ImapClientPool : IDisposable
 
     private WinoImapClient CreateNewClient()
     {
-        var client = new WinoImapClient();
+        var client = ImapClientPoolOptions.ProtocolLoggerFactory == null
+            ? new WinoImapClient()
+            : new WinoImapClient(ImapClientPoolOptions.ProtocolLoggerFactory());
 
         if (!string.IsNullOrEmpty(_customServerInformation.ProxyServer))
         {

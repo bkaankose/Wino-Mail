@@ -235,6 +235,41 @@
                     </controls:SettingsCard>
 
                     <controls:SettingsCard
+                        AutomationProperties.AutomationId="AccountDetailsProtocolLogEnabledCard"
+                        Description="{x:Bind domain:Translator.ProtocolLog_EnableDescription, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.ProtocolLog_EnableTitle, Mode=OneTime}"
+                        Visibility="{x:Bind ViewModel.IsImapServer, Mode=OneWay}">
+                        <controls:SettingsCard.HeaderIcon>
+                            <FontIcon Glyph="&#xE9D9;" />
+                        </controls:SettingsCard.HeaderIcon>
+                        <CheckBox
+                            AutomationProperties.AutomationId="AccountDetailsProtocolLogEnabledCheckBox"
+                            AutomationProperties.Name="{x:Bind domain:Translator.ProtocolLog_EnableTitle, Mode=OneTime}"
+                            Content="{x:Bind domain:Translator.ProtocolLog_EnableCheckbox, Mode=OneTime}"
+                            IsChecked="{x:Bind ViewModel.IsProtocolLogEnabled, Mode=TwoWay}" />
+                    </controls:SettingsCard>
+
+                    <controls:SettingsCard
+                        AutomationProperties.AutomationId="AccountDetailsProtocolLogExportCard"
+                        Description="{x:Bind domain:Translator.ProtocolLog_ExportDescription, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.ProtocolLog_ExportTitle, Mode=OneTime}"
+                        Visibility="{x:Bind ViewModel.IsImapServer, Mode=OneWay}">
+                        <controls:SettingsCard.HeaderIcon>
+                            <SymbolIcon Symbol="Download" />
+                        </controls:SettingsCard.HeaderIcon>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button
+                                AutomationProperties.AutomationId="AccountDetailsProtocolLogExportButton"
+                                Command="{x:Bind ViewModel.ExportProtocolLogsCommand}"
+                                Content="{x:Bind domain:Translator.ProtocolLog_ExportAction, Mode=OneTime}" />
+                            <Button
+                                AutomationProperties.AutomationId="AccountDetailsProtocolLogUploadButton"
+                                Command="{x:Bind ViewModel.UploadProtocolLogsCommand}"
+                                Content="{x:Bind domain:Translator.ProtocolLog_UploadAction, Mode=OneTime}" />
+                        </StackPanel>
+                    </controls:SettingsCard>
+
+                    <controls:SettingsCard
 
                         AutomationProperties.AutomationId="AccountDetailsPageSettingsCard7" Description="{x:Bind domain:Translator.Buttons_Save}" Header="{x:Bind domain:Translator.SettingsEditAccountDetails_Title}">
                         <controls:SettingsCard.HeaderIcon>

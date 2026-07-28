@@ -2203,6 +2203,12 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
             if (createdEvent == null || string.IsNullOrWhiteSpace(createdEvent.Id))
                 return;
 
+            await _gmailChangeProcessor.PersistCreatedCalendarEventAsync(
+                createCalendarEventRequest.PreparedItem,
+                createCalendarEventRequest.PreparedEvent.Attendees,
+                createCalendarEventRequest.PreparedEvent.Reminders,
+                createdEvent.Id).ConfigureAwait(false);
+
             await UploadCalendarEventAttachmentsAsync(createCalendarEventRequest, createdEvent, cancellationToken).ConfigureAwait(false);
         }
         else if (bundle is HttpRequestBundle<IGoogleApiRequest, Draft> draftBundle && draftBundle.Request is CreateDraftRequest createDraftRequest)
@@ -2880,77 +2886,13 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
         var reminders = request.PreparedEvent.Reminders;
         var calendar = request.AssignedCalendar;
 
-        var googleEvent = new Event
-        {
-            Id = calendarItem.Id.ToString("N").ToLowerInvariant(),
-            Summary = calendarItem.Title,
-            Description = calendarItem.Description,
-            Location = calendarItem.Location,
-            Status = calendarItem.Status == CalendarItemStatus.Accepted ? "confirmed" : "tentative",
-            Transparency = calendarItem.ShowAs == CalendarItemShowAs.Free ? "transparent" : "opaque"
-        };
-
-        if (calendarItem.IsAllDayEvent)
-        {
-            googleEvent.Start = new EventDateTime
-            {
-                Date = FormatGoogleCalendarDate(calendarItem.StartDate),
-                TimeZone = NormalizeGoogleTimeZoneId(calendarItem.StartTimeZone)
-            };
-            googleEvent.End = new EventDateTime
-            {
-                Date = FormatGoogleCalendarDate(calendarItem.EndDate),
-                TimeZone = NormalizeGoogleTimeZoneId(calendarItem.EndTimeZone)
-            };
-        }
-        else
-        {
-            var startTimeZone = NormalizeGoogleTimeZoneId(calendarItem.StartTimeZone);
-            var endTimeZone = NormalizeGoogleTimeZoneId(calendarItem.EndTimeZone ?? calendarItem.StartTimeZone);
-
-            googleEvent.Start = new EventDateTime
-            {
-                DateTimeDateTimeOffset = new DateTimeOffset(calendarItem.StartDate, ResolveOffset(calendarItem.StartDate, calendarItem.StartTimeZone)),
-                TimeZone = startTimeZone
-            };
-            googleEvent.End = new EventDateTime
-            {
-                DateTimeDateTimeOffset = new DateTimeOffset(calendarItem.EndDate, ResolveOffset(calendarItem.EndDate, calendarItem.EndTimeZone ?? calendarItem.StartTimeZone)),
-                TimeZone = endTimeZone
-            };
-        }
-
-        if (attendees.Count > 0)
-        {
-            googleEvent.Attendees = attendees.Select(a => new EventAttendee
-            {
-                Email = a.Email,
-                DisplayName = a.Name,
-                Optional = a.IsOptionalAttendee
-            }).ToList();
-        }
-
-        if (reminders.Count > 0)
-        {
-            googleEvent.Reminders = new Event.RemindersData
-            {
-                UseDefault = false,
-                Overrides = reminders.Select(reminder => new EventReminder
-                {
-                    Method = reminder.ReminderType == CalendarItemReminderType.Email ? "email" : "popup",
-                    Minutes = (int)Math.Max(0, reminder.DurationInSeconds / 60)
-                }).ToList()
-            };
-        }
-
-        if (!string.IsNullOrWhiteSpace(calendarItem.Recurrence))
-        {
-            googleEvent.Recurrence = calendarItem.Recurrence
-                .Split(Wino.Core.Domain.Constants.CalendarEventRecurrenceRuleSeperator, StringSplitOptions.RemoveEmptyEntries)
-                .Select(line => line.Trim())
-                .Where(line => !string.IsNullOrWhiteSpace(line))
-                .ToList();
-        }
+        var googleEvent = CreateGoogleCalendarEvent(
+            calendarItem,
+            attendees,
+            reminders,
+            includeEventId: true,
+            includeStatus: true,
+            includeEmptyRecurrence: false);
 
         var insertRequest = _calendarService.Events.Insert(googleEvent, calendar.RemoteCalendarId);
         insertRequest.SendUpdates = attendees.Count > 0
@@ -2980,23 +2922,10 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
         // Get the current user's email from the account
         var userEmail = Account.Address;
 
-        // Create a patch event to update only the attendee response
-        var patchEvent = new Event();
-
-        // We need to get the event first to update the specific attendee
-        // However, for efficiency, we'll use the patch method with sendUpdates parameter
-        var patchRequest = _calendarService.Events.Patch(new Event
-        {
-            // The API will handle updating the current user's attendee status
-            Attendees = new List<EventAttendee>
-            {
-                new EventAttendee
-                {
-                    Email = userEmail,
-                    ResponseStatus = "accepted"
-                }
-            }
-        }, calendar.RemoteCalendarId, remoteEventId);
+        var patchRequest = _calendarService.Events.Patch(
+            CreateGoogleRsvpPatch(userEmail, "accepted", request.ResponseMessage),
+            calendar.RemoteCalendarId,
+            remoteEventId);
 
         // Send updates to other attendees if there's a message
         patchRequest.SendUpdates = !string.IsNullOrEmpty(request.ResponseMessage)
@@ -3024,18 +2953,10 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
 
         var userEmail = Account.Address;
 
-        var patchRequest = _calendarService.Events.Patch(new Event
-        {
-            Attendees = new List<EventAttendee>
-            {
-                new EventAttendee
-                {
-                    Email = userEmail,
-                    ResponseStatus = "declined",
-                    Comment = request.ResponseMessage
-                }
-            }
-        }, calendar.RemoteCalendarId, remoteEventId);
+        var patchRequest = _calendarService.Events.Patch(
+            CreateGoogleRsvpPatch(userEmail, "declined", request.ResponseMessage),
+            calendar.RemoteCalendarId,
+            remoteEventId);
 
         patchRequest.SendUpdates = !string.IsNullOrEmpty(request.ResponseMessage)
             ? global::Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All
@@ -3062,18 +2983,10 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
 
         var userEmail = Account.Address;
 
-        var patchRequest = _calendarService.Events.Patch(new Event
-        {
-            Attendees = new List<EventAttendee>
-            {
-                new EventAttendee
-                {
-                    Email = userEmail,
-                    ResponseStatus = "tentative",
-                    Comment = request.ResponseMessage
-                }
-            }
-        }, calendar.RemoteCalendarId, remoteEventId);
+        var patchRequest = _calendarService.Events.Patch(
+            CreateGoogleRsvpPatch(userEmail, "tentative", request.ResponseMessage),
+            calendar.RemoteCalendarId,
+            remoteEventId);
 
         patchRequest.SendUpdates = !string.IsNullOrEmpty(request.ResponseMessage)
             ? global::Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All
@@ -3086,6 +2999,7 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
     {
         var calendarItem = request.Item;
         var attendees = request.Attendees;
+        var reminders = request.Reminders;
 
         // Get the calendar for this event
         var calendar = calendarItem.AssignedCalendar;
@@ -3100,66 +3014,23 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
             throw new InvalidOperationException("Cannot update event without remote event ID");
         }
 
-        // Convert CalendarItem to Google Event for update
-        var googleEvent = new Event
-        {
-            Summary = calendarItem.Title,
-            Description = calendarItem.Description,
-            Location = calendarItem.Location,
-            Status = calendarItem.Status == CalendarItemStatus.Accepted ? "confirmed" : "tentative",
-            Transparency = calendarItem.ShowAs == CalendarItemShowAs.Free ? "transparent" : "opaque"
-        };
+        var googleEvent = CreateGoogleCalendarEvent(
+            calendarItem,
+            attendees,
+            reminders,
+            includeEventId: false,
+            includeStatus: false,
+            includeEmptyRecurrence: true);
 
-        // Set start and end time with proper timezone handling
-        // CalendarItem stores dates in the event's timezone (StartTimeZone/EndTimeZone)
-        // When user edits in local timezone, the dates are already converted and stored correctly
-        if (calendarItem.IsAllDayEvent)
-        {
-            // All-day events use Date instead of DateTime
-            googleEvent.Start = new EventDateTime
-            {
-                Date = FormatGoogleCalendarDate(calendarItem.StartDate)
-            };
-            googleEvent.End = new EventDateTime
-            {
-                Date = FormatGoogleCalendarDate(calendarItem.EndDate)
-            };
-        }
-        else
-        {
-            // Regular events with time
-            // StartDate and EndDate are stored in the event's timezone
-            // We preserve the timezone information during update
-            googleEvent.Start = new EventDateTime
-            {
-                DateTimeDateTimeOffset = new DateTimeOffset(calendarItem.StartDate, TimeSpan.Zero),
-                TimeZone = calendarItem.StartTimeZone ?? TimeZoneInfo.Local.Id
-            };
-            googleEvent.End = new EventDateTime
-            {
-                DateTimeDateTimeOffset = new DateTimeOffset(calendarItem.EndDate, TimeSpan.Zero),
-                TimeZone = calendarItem.EndTimeZone ?? TimeZoneInfo.Local.Id
-            };
-        }
+        // Patch preserves provider-managed fields (attachments, conference data and reminders
+        // when they were not part of this update) while still allowing explicit empty lists
+        // to clear attendees and recurrence.
+        var updateRequest = _calendarService.Events.Patch(googleEvent, calendar.RemoteCalendarId, remoteEventId);
 
-        // Add attendees if any
-        if (attendees != null && attendees.Count > 0)
-        {
-            googleEvent.Attendees = attendees.Select(a => new EventAttendee
-            {
-                Email = a.Email,
-                DisplayName = a.Name,
-                Optional = a.IsOptionalAttendee
-            }).ToList();
-        }
-
-        // Update the event using Google Calendar API
-        var updateRequest = _calendarService.Events.Update(googleEvent, calendar.RemoteCalendarId, remoteEventId);
-
-        // Send notifications to attendees if the event has attendees
-        updateRequest.SendUpdates = (attendees != null && attendees.Count > 0)
-            ? global::Google.Apis.Calendar.v3.EventsResource.UpdateRequest.SendUpdatesEnum.All
-            : global::Google.Apis.Calendar.v3.EventsResource.UpdateRequest.SendUpdatesEnum.None;
+        // Removing the last attendee still requires a notification update.
+        updateRequest.SendUpdates = (attendees?.Count > 0 || request.OriginalAttendees?.Count > 0)
+            ? global::Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All
+            : global::Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
 
         return [new HttpRequestBundle<IGoogleApiRequest>(updateRequest, request)];
     }
@@ -3277,6 +3148,118 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
             MimeType = uploadedFile.MimeType ?? contentType,
             Title = uploadedFile.Name ?? fileName
         };
+    }
+
+    private static Event CreateGoogleRsvpPatch(string attendeeEmail, string responseStatus, string comment)
+        => new()
+        {
+            // Google patch replaces arrays wholesale unless attendeesOmitted is true.
+            // Marking this as a partial attendee list preserves every other guest.
+            AttendeesOmitted = true,
+            Attendees =
+            [
+                new EventAttendee
+                {
+                    Email = attendeeEmail,
+                    ResponseStatus = responseStatus,
+                    Comment = comment
+                }
+            ]
+        };
+
+    private static Event CreateGoogleCalendarEvent(
+        CalendarItem calendarItem,
+        IReadOnlyCollection<CalendarEventAttendee> attendees,
+        IReadOnlyCollection<Reminder> reminders,
+        bool includeEventId,
+        bool includeStatus,
+        bool includeEmptyRecurrence)
+    {
+        var googleEvent = new Event
+        {
+            Id = includeEventId ? calendarItem.Id.ToString("N").ToLowerInvariant() : null,
+            Summary = calendarItem.Title,
+            Description = calendarItem.Description,
+            Location = calendarItem.Location,
+            // Event status is not the attendee's response status. Updates must leave it
+            // untouched; RSVP changes use attendees[].responseStatus instead.
+            Status = includeStatus ? "confirmed" : null,
+            Transparency = calendarItem.ShowAs == CalendarItemShowAs.Free ? "transparent" : "opaque",
+            Attendees = attendees?
+                .Select(attendee => new EventAttendee
+                {
+                    Email = attendee.Email,
+                    DisplayName = attendee.Name,
+                    Optional = attendee.IsOptionalAttendee
+                })
+                .ToList()
+        };
+
+        if (calendarItem.IsAllDayEvent)
+        {
+            googleEvent.Start = new EventDateTime
+            {
+                Date = FormatGoogleCalendarDate(calendarItem.StartDate),
+                TimeZone = NormalizeGoogleTimeZoneId(calendarItem.StartTimeZone)
+            };
+            googleEvent.End = new EventDateTime
+            {
+                Date = FormatGoogleCalendarDate(calendarItem.EndDate),
+                TimeZone = NormalizeGoogleTimeZoneId(calendarItem.EndTimeZone ?? calendarItem.StartTimeZone)
+            };
+        }
+        else
+        {
+            var startTimeZone = NormalizeGoogleTimeZoneId(calendarItem.StartTimeZone);
+            var endTimeZoneId = calendarItem.EndTimeZone ?? calendarItem.StartTimeZone;
+            var endTimeZone = NormalizeGoogleTimeZoneId(endTimeZoneId);
+
+            googleEvent.Start = new EventDateTime
+            {
+                DateTimeDateTimeOffset = new DateTimeOffset(
+                    DateTime.SpecifyKind(calendarItem.StartDate, DateTimeKind.Unspecified),
+                    ResolveOffset(calendarItem.StartDate, calendarItem.StartTimeZone)),
+                TimeZone = startTimeZone
+            };
+            googleEvent.End = new EventDateTime
+            {
+                DateTimeDateTimeOffset = new DateTimeOffset(
+                    DateTime.SpecifyKind(calendarItem.EndDate, DateTimeKind.Unspecified),
+                    ResolveOffset(calendarItem.EndDate, endTimeZoneId)),
+                TimeZone = endTimeZone
+            };
+        }
+
+        if (reminders != null)
+        {
+            googleEvent.Reminders = new Event.RemindersData
+            {
+                UseDefault = false,
+                Overrides = reminders
+                    .Select(reminder => new EventReminder
+                    {
+                        Method = reminder.ReminderType == CalendarItemReminderType.Email ? "email" : "popup",
+                        Minutes = (int)Math.Max(0, reminder.DurationInSeconds / 60)
+                    })
+                    .ToList()
+            };
+        }
+
+        // Recurrence is owned by the series master. Sending it on an occurrence can
+        // make providers reject an otherwise valid instance edit.
+        if (!calendarItem.IsRecurringChild &&
+            (includeEmptyRecurrence || !string.IsNullOrWhiteSpace(calendarItem.Recurrence)))
+        {
+            googleEvent.Recurrence = string.IsNullOrWhiteSpace(calendarItem.Recurrence)
+                ? []
+                : calendarItem.Recurrence
+                    .Split(Wino.Core.Domain.Constants.CalendarEventRecurrenceRuleSeperator, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(line => line.Trim())
+                    .Where(line => !string.IsNullOrWhiteSpace(line))
+                    .ToList();
+        }
+
+        return googleEvent;
     }
 
     private static TimeSpan ResolveOffset(DateTime dateTime, string timeZoneId)

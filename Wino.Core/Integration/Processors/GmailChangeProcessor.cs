@@ -116,7 +116,7 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
 
                     // Leave it empty if it's not populated.
                     Recurrence = GoogleIntegratorExtensions.GetRecurrenceString(calendarEvent) == null ? string.Empty : GoogleIntegratorExtensions.GetRecurrenceString(calendarEvent),
-                    Status = GetStatus(calendarEvent.Status),
+                    Status = ResolveCalendarItemStatus(calendarEvent),
                     Title = string.IsNullOrEmpty(calendarEvent.Summary) ? parentRecurringEvent.Title : calendarEvent.Summary,
                     UpdatedAt = DateTimeOffset.UtcNow,
                     Visibility = string.IsNullOrEmpty(calendarEvent.Visibility) ? parentRecurringEvent.Visibility : GetVisibility(calendarEvent.Visibility),
@@ -154,7 +154,7 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                     EndTimeZone = endTimeZone,
 
                     Recurrence = GoogleIntegratorExtensions.GetRecurrenceString(calendarEvent),
-                    Status = GetStatus(calendarEvent.Status),
+                    Status = ResolveCalendarItemStatus(calendarEvent),
                     Title = calendarEvent.Summary,
                     UpdatedAt = DateTimeOffset.UtcNow,
                     Visibility = GetVisibility(calendarEvent.Visibility),
@@ -352,7 +352,7 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
             existingCalendarItem.StartTimeZone = startTimeZone ?? parentRecurringEvent?.StartTimeZone ?? existingCalendarItem.StartTimeZone;
             existingCalendarItem.EndTimeZone = endTimeZone ?? parentRecurringEvent?.EndTimeZone ?? existingCalendarItem.EndTimeZone;
             existingCalendarItem.Recurrence = GoogleIntegratorExtensions.GetRecurrenceString(calendarEvent) ?? existingCalendarItem.Recurrence ?? string.Empty;
-            existingCalendarItem.Status = GetStatus(calendarEvent.Status);
+            existingCalendarItem.Status = ResolveCalendarItemStatus(calendarEvent);
             existingCalendarItem.Title = string.IsNullOrEmpty(calendarEvent.Summary) ? parentRecurringEvent?.Title ?? existingCalendarItem.Title : calendarEvent.Summary;
             existingCalendarItem.UpdatedAt = DateTimeOffset.UtcNow;
             existingCalendarItem.Visibility = string.IsNullOrEmpty(calendarEvent.Visibility) ? parentRecurringEvent?.Visibility ?? existingCalendarItem.Visibility : GetVisibility(calendarEvent.Visibility);
@@ -368,35 +368,9 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                 existingCalendarItem.RecurringCalendarItemId = parentRecurringEvent.Id;
             }
 
-            // Prepare reminders list from Gmail event for update
-            List<Reminder> reminders = null;
-            if (calendarEvent.Reminders?.Overrides != null && calendarEvent.Reminders.Overrides.Count > 0)
-            {
-                reminders = new List<Reminder>();
-                foreach (var reminderOverride in calendarEvent.Reminders.Overrides)
-                {
-                    if (reminderOverride.Minutes.HasValue)
-                    {
-                        var durationInSeconds = reminderOverride.Minutes.Value * 60; // Convert minutes to seconds
-                        var reminderType = reminderOverride.Method switch
-                        {
-                            "email" => CalendarItemReminderType.Email,
-                            _ => CalendarItemReminderType.Popup
-                        };
-
-                        reminders.Add(new Reminder
-                        {
-                            Id = Guid.NewGuid(),
-                            CalendarItemId = existingCalendarItem.Id,
-                            DurationInSeconds = durationInSeconds,
-                            ReminderType = reminderType
-                        });
-                    }
-                }
-            }
-
-            // Save reminders
-            await CalendarService.SaveRemindersAsync(existingCalendarItem.Id, reminders).ConfigureAwait(false);
+            // Do not overwrite reminders for an existing local event. Provider reminders
+            // are imported only when the event is first created locally; Wino owns all
+            // subsequent reminder selection and notification scheduling.
 
             // Prepare attachments metadata from Gmail event for update
             List<CalendarAttachment> attachments = null;
@@ -454,14 +428,26 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
             return calendarEvent.Organizer.Email;
     }
 
-    private CalendarItemStatus GetStatus(string status)
+    internal static CalendarItemStatus ResolveCalendarItemStatus(Event calendarEvent)
     {
-        return status switch
+        if (string.Equals(calendarEvent?.Status, "cancelled", StringComparison.OrdinalIgnoreCase))
+            return CalendarItemStatus.Cancelled;
+
+        var selfResponse = calendarEvent?.Attendees?
+            .FirstOrDefault(attendee => attendee?.Self == true)?
+            .ResponseStatus;
+
+        return selfResponse switch
         {
-            "confirmed" => CalendarItemStatus.Accepted,
+            "needsAction" => CalendarItemStatus.NotResponded,
             "tentative" => CalendarItemStatus.Tentative,
-            "cancelled" => CalendarItemStatus.Cancelled,
-            _ => CalendarItemStatus.Accepted
+            "accepted" => CalendarItemStatus.Accepted,
+            "declined" => CalendarItemStatus.Cancelled,
+            _ => calendarEvent?.Status switch
+            {
+                "tentative" => CalendarItemStatus.Tentative,
+                _ => CalendarItemStatus.Accepted
+            }
         };
     }
 

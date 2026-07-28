@@ -59,6 +59,11 @@ public interface IDefaultChangeProcessor
     Task UpdateAccountCalendarAsync(AccountCalendar accountCalendar);
 
     Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken);
+    Task PersistCreatedCalendarEventAsync(
+        CalendarItem calendarItem,
+        List<CalendarEventAttendee> attendees,
+        List<Reminder> reminders,
+        string remoteEventId);
     Task<List<MailCopy>> GetMailCopiesAsync(IEnumerable<string> mailCopyIds);
     Task CreateMailRawAsync(MailAccount account, MailItemFolder mailItemFolder, NewMailItemPackage package);
     Task ApplyMailStateUpdatesAsync(IEnumerable<MailCopyStateUpdate> updates);
@@ -151,6 +156,67 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
 
     public Task<string> UpdateAccountDeltaSynchronizationIdentifierAsync(Guid accountId, string synchronizationDeltaIdentifier)
         => AccountService.UpdateSyncIdentifierRawAsync(accountId, synchronizationDeltaIdentifier);
+
+    public async Task PersistCreatedCalendarEventAsync(
+        CalendarItem calendarItem,
+        List<CalendarEventAttendee> attendees,
+        List<Reminder> reminders,
+        string remoteEventId)
+    {
+        ArgumentNullException.ThrowIfNull(calendarItem);
+
+        if (string.IsNullOrWhiteSpace(remoteEventId))
+            throw new ArgumentException("A remote event ID is required.", nameof(remoteEventId));
+
+        var existingRemoteItem = await CalendarService
+            .GetCalendarItemAsync(calendarItem.CalendarId, remoteEventId)
+            .ConfigureAwait(false);
+
+        if (existingRemoteItem != null && existingRemoteItem.Id != calendarItem.Id)
+        {
+            ReassignCalendarItemId(reminders, existingRemoteItem.Id);
+            await CalendarService.SaveRemindersAsync(existingRemoteItem.Id, reminders).ConfigureAwait(false);
+            return;
+        }
+
+        calendarItem.RemoteEventId = remoteEventId;
+        calendarItem.AssignedCalendar ??= await CalendarService
+            .GetAccountCalendarAsync(calendarItem.CalendarId)
+            .ConfigureAwait(false);
+
+        ReassignCalendarItemId(attendees, calendarItem.Id);
+        ReassignCalendarItemId(reminders, calendarItem.Id);
+
+        var existingLocalItem = await CalendarService.GetCalendarItemAsync(calendarItem.Id).ConfigureAwait(false);
+        if (existingLocalItem == null)
+        {
+            await CalendarService.CreateNewCalendarItemAsync(calendarItem, attendees).ConfigureAwait(false);
+        }
+        else
+        {
+            await CalendarService.UpdateCalendarItemAsync(calendarItem, attendees).ConfigureAwait(false);
+        }
+
+        await CalendarService.SaveRemindersAsync(calendarItem.Id, reminders).ConfigureAwait(false);
+    }
+
+    private static void ReassignCalendarItemId(IEnumerable<CalendarEventAttendee> attendees, Guid calendarItemId)
+    {
+        if (attendees == null)
+            return;
+
+        foreach (var attendee in attendees)
+            attendee.CalendarItemId = calendarItemId;
+    }
+
+    private static void ReassignCalendarItemId(IEnumerable<Reminder> reminders, Guid calendarItemId)
+    {
+        if (reminders == null)
+            return;
+
+        foreach (var reminder in reminders)
+            reminder.CalendarItemId = calendarItemId;
+    }
 
     public Task ChangeFlagStatusAsync(string mailCopyId, bool isFlagged)
         => MailService.ChangeFlagStatusAsync(mailCopyId, isFlagged);

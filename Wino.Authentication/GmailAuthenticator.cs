@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authentication;
 
@@ -34,7 +35,9 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
     public async Task<TokenInformationEx> GenerateTokenInformationAsync(MailAccount account)
     {
         await DeleteTokenInformationAsync(account).ConfigureAwait(false);
-        return await GetTokenInformationAsync(account).ConfigureAwait(false);
+        var credentialKey = GetCredentialKey(account);
+        var storedToken = await AuthorizeInteractivelyAsync(account, credentialKey).ConfigureAwait(false);
+        return new TokenInformationEx(storedToken.AccessToken, account?.Address);
     }
 
     public async Task<TokenInformationEx> GetTokenInformationAsync(MailAccount account)
@@ -44,11 +47,11 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
 
         if (storedToken == null)
         {
-            storedToken = await AuthorizeInteractivelyAsync(account, credentialKey).ConfigureAwait(false);
+            throw new AuthenticationAttentionException(account);
         }
         else if (storedToken.ExpiresAtUtc <= DateTimeOffset.UtcNow.AddMinutes(5))
         {
-            storedToken = await RefreshTokenAsync(storedToken, credentialKey).ConfigureAwait(false);
+            storedToken = await RefreshTokenAsync(account, storedToken, credentialKey).ConfigureAwait(false);
         }
 
         return new TokenInformationEx(storedToken.AccessToken, account?.Address);
@@ -94,11 +97,14 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
         return storedToken;
     }
 
-    private async Task<StoredGoogleToken> RefreshTokenAsync(StoredGoogleToken currentToken, string credentialKey)
+    private async Task<StoredGoogleToken> RefreshTokenAsync(
+        MailAccount account,
+        StoredGoogleToken currentToken,
+        string credentialKey)
     {
         if (string.IsNullOrWhiteSpace(currentToken.RefreshToken))
         {
-            return await AuthorizeInteractivelyAsync(null, credentialKey).ConfigureAwait(false);
+            throw new AuthenticationAttentionException(account);
         }
 
         using var requestContent = new FormUrlEncodedContent(new Dictionary<string, string>
@@ -109,6 +115,14 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
         });
 
         using var response = await HttpClient.PostAsync("https://oauth2.googleapis.com/token", requestContent).ConfigureAwait(false);
+
+        if (response.StatusCode is System.Net.HttpStatusCode.BadRequest or
+            System.Net.HttpStatusCode.Unauthorized or
+            System.Net.HttpStatusCode.Forbidden)
+        {
+            throw new AuthenticationAttentionException(account);
+        }
+
         var tokenResponse = await ReadTokenResponseAsync(response).ConfigureAwait(false);
         var storedToken = CreateStoredToken(tokenResponse, currentToken.RefreshToken);
         await WriteTokenAsync(credentialKey, storedToken).ConfigureAwait(false);

@@ -2439,6 +2439,13 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                 if (string.IsNullOrWhiteSpace(createdEventId))
                     return;
 
+                var trackedRemoteEventId = createdEventId.WithClientTrackingId(createCalendarEventRequest.PreparedItem.Id);
+                await _outlookChangeProcessor.PersistCreatedCalendarEventAsync(
+                    createCalendarEventRequest.PreparedItem,
+                    createCalendarEventRequest.PreparedEvent.Attendees,
+                    createCalendarEventRequest.PreparedEvent.Reminders,
+                    trackedRemoteEventId).ConfigureAwait(false);
+
                 await UploadCalendarEventAttachmentsAsync(createCalendarEventRequest, createdEventId, CancellationToken.None).ConfigureAwait(false);
                 return;
             }
@@ -3153,16 +3160,17 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
         if (calendarItem.IsAllDayEvent)
         {
+            var allDayTimeZone = calendarItem.StartTimeZone ?? TimeZoneInfo.Local.Id;
             outlookEvent.IsAllDay = true;
             outlookEvent.Start = new Microsoft.Graph.Models.DateTimeTimeZone
             {
                 DateTime = FormatGraphDate(calendarItem.StartDate),
-                TimeZone = calendarItem.StartTimeZone ?? TimeZoneInfo.Local.Id
+                TimeZone = allDayTimeZone
             };
             outlookEvent.End = new Microsoft.Graph.Models.DateTimeTimeZone
             {
                 DateTime = FormatGraphDate(calendarItem.EndDate),
-                TimeZone = calendarItem.EndTimeZone ?? calendarItem.StartTimeZone ?? TimeZoneInfo.Local.Id
+                TimeZone = allDayTimeZone
             };
         }
         else
@@ -3180,18 +3188,15 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             };
         }
 
-        if (attendees.Count > 0)
+        outlookEvent.Attendees = attendees.Select(a => new Microsoft.Graph.Models.Attendee
         {
-            outlookEvent.Attendees = attendees.Select(a => new Microsoft.Graph.Models.Attendee
+            EmailAddress = new Microsoft.Graph.Models.EmailAddress
             {
-                EmailAddress = new Microsoft.Graph.Models.EmailAddress
-                {
-                    Address = a.Email,
-                    Name = a.Name
-                },
-                Type = a.IsOptionalAttendee ? Microsoft.Graph.Models.AttendeeType.Optional : Microsoft.Graph.Models.AttendeeType.Required
-            }).ToList();
-        }
+                Address = a.Email,
+                Name = a.Name
+            },
+            Type = a.IsOptionalAttendee ? Microsoft.Graph.Models.AttendeeType.Optional : Microsoft.Graph.Models.AttendeeType.Required
+        }).ToList();
 
         if (reminders.Count > 0)
         {
@@ -3202,6 +3207,11 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
             outlookEvent.IsReminderOn = true;
             outlookEvent.ReminderMinutesBeforeStart = (int)Math.Max(0, reminder.DurationInSeconds / 60);
+        }
+        else
+        {
+            outlookEvent.IsReminderOn = false;
+            outlookEvent.ReminderMinutesBeforeStart = null;
         }
 
         var recurrence = CalendarRecurrenceMapper.CreateOutlookRecurrence(calendarItem);
@@ -3296,6 +3306,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     {
         var calendarItem = request.Item;
         var attendees = request.Attendees;
+        var reminders = request.Reminders;
 
         // Get the calendar for this event
         var calendar = calendarItem.AssignedCalendar;
@@ -3332,17 +3343,17 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         // Set start and end time using DateTimeTimeZone
         if (calendarItem.IsAllDayEvent)
         {
-            // All-day events
+            var allDayTimeZone = calendarItem.StartTimeZone ?? TimeZoneInfo.Local.Id;
             outlookEvent.IsAllDay = true;
             outlookEvent.Start = new Microsoft.Graph.Models.DateTimeTimeZone
             {
                 DateTime = FormatGraphDate(calendarItem.StartDate),
-                TimeZone = "UTC"
+                TimeZone = allDayTimeZone
             };
             outlookEvent.End = new Microsoft.Graph.Models.DateTimeTimeZone
             {
                 DateTime = FormatGraphDate(calendarItem.EndDate),
-                TimeZone = "UTC"
+                TimeZone = allDayTimeZone
             };
         }
         else
@@ -3363,18 +3374,53 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             };
         }
 
-        // Add attendees if any
-        if (attendees != null && attendees.Count > 0)
+        if (attendees != null)
         {
-            outlookEvent.Attendees = attendees.Select(a => new Microsoft.Graph.Models.Attendee
-            {
-                EmailAddress = new Microsoft.Graph.Models.EmailAddress
+            // An explicit empty collection removes the final attendee from the event,
+            // while null means the caller did not load attendees for this update.
+            outlookEvent.Attendees = attendees
+                .Select(a => new Microsoft.Graph.Models.Attendee
                 {
-                    Address = a.Email,
-                    Name = a.Name
-                },
-                Type = a.IsOptionalAttendee ? Microsoft.Graph.Models.AttendeeType.Optional : Microsoft.Graph.Models.AttendeeType.Required
-            }).ToList();
+                    EmailAddress = new Microsoft.Graph.Models.EmailAddress
+                    {
+                        Address = a.Email,
+                        Name = a.Name
+                    },
+                    Type = a.IsOptionalAttendee ? Microsoft.Graph.Models.AttendeeType.Optional : Microsoft.Graph.Models.AttendeeType.Required
+                })
+                .ToList();
+        }
+
+        if (reminders != null)
+        {
+            var reminder = reminders
+                .OrderBy(reminder => reminder.DurationInSeconds)
+                .FirstOrDefault(reminder => reminder.ReminderType == CalendarItemReminderType.Popup)
+                ?? reminders.OrderBy(reminder => reminder.DurationInSeconds).FirstOrDefault();
+
+            if (reminder == null)
+            {
+                outlookEvent.IsReminderOn = false;
+                outlookEvent.ReminderMinutesBeforeStart = null;
+            }
+            else
+            {
+                outlookEvent.IsReminderOn = true;
+                outlookEvent.ReminderMinutesBeforeStart = (int)Math.Max(0, reminder.DurationInSeconds / 60);
+            }
+        }
+
+        // Recurrence belongs to the series master; Graph can reject it on an occurrence.
+        if (!calendarItem.IsRecurringChild)
+        {
+            // Graph PATCH accepts null recurrence to remove an existing series.
+            outlookEvent.Recurrence = CalendarRecurrenceMapper.CreateOutlookRecurrence(calendarItem);
+            if (outlookEvent.Recurrence == null)
+            {
+                // Kiota omits null model properties by default. AdditionalData forces the
+                // explicit JSON null required by Graph to remove an existing recurrence.
+                outlookEvent.AdditionalData["recurrence"] = null;
+            }
         }
 
         // Update the event using Graph API

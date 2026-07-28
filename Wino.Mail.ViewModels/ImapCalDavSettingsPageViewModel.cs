@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.AutoDiscovery;
@@ -329,9 +330,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                 serverInformation: TryBuildServerInformationForTelemetry(),
                 level: WinoTelemetryLevel.Warning);
 
-            await ShowPageErrorAsync(
-                Translator.IMAPSetupDialog_ValidationFailed_Title,
-                ex.Message);
+            await ShowImapValidationFailureAsync(ex);
         }
     }
 
@@ -375,9 +374,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                 serverInformation: serverInformation ?? TryBuildServerInformationForTelemetry(),
                 level: WinoTelemetryLevel.Warning);
 
-            await ShowPageErrorAsync(
-                Translator.IMAPSetupDialog_ValidationFailed_Title,
-                ex.Message);
+            await ShowImapValidationFailureAsync(ex);
         }
     }
 
@@ -422,9 +419,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                 serverInformation: serverInformation ?? TryBuildServerInformationForTelemetry(),
                 level: WinoTelemetryLevel.Warning);
 
-            await ShowPageErrorAsync(
-                Translator.IMAPSetupDialog_ValidationFailed_Title,
-                ex.Message);
+            await ShowImapValidationFailureAsync(ex);
         }
     }
     [RelayCommand]
@@ -507,9 +502,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                 serverInformation: serverInformation ?? TryBuildServerInformationForTelemetry(),
                 level: WinoTelemetryLevel.Warning);
 
-            await ShowPageErrorAsync(
-                Translator.IMAPSetupDialog_ValidationFailed_Title,
-                ex.Message);
+            await ShowImapValidationFailureAsync(ex);
         }
     }
 
@@ -947,7 +940,26 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         }
 
         if (!connectivityResult.IsSuccess)
-            throw new InvalidOperationException(connectivityResult.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage);
+        {
+            throw new ImapValidationException(
+                connectivityResult.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage,
+                connectivityResult.ProtocolLog);
+        }
+    }
+
+    private async Task ShowImapValidationFailureAsync(Exception exception)
+    {
+        await ShowPageErrorAsync(
+            Translator.IMAPSetupDialog_ValidationFailed_Title,
+            exception.Message);
+
+        if (exception is ImapValidationException { ProtocolLog.Length: > 0 } validationException)
+        {
+            await ExecuteUIThreadAsync(() =>
+                _mailDialogService.ShowImapValidationFailedDialogAsync(
+                    validationException.Message,
+                    validationException.ProtocolLog));
+        }
     }
 
     private async Task ValidateCalDavConnectivityAsync(CustomServerInformation serverInformation)

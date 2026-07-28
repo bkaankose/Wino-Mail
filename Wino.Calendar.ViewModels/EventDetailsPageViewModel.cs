@@ -400,43 +400,23 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     {
         ReminderOptions.Clear();
 
-        // Add predefined options from service
         var predefinedMinutes = _calendarService.GetPredefinedReminderMinutes();
-        var predefinedOptions = predefinedMinutes.Select(m => new ReminderOption(m)).ToList();
+        var selectedMinutes = (Reminders ?? [])
+            .Select(reminder => (int)(reminder.DurationInSeconds / 60))
+            .ToHashSet();
+        var optionMinutes = predefinedMinutes
+            .Concat(selectedMinutes)
+            .Distinct()
+            .OrderByDescending(minutes => minutes);
 
-        // Add custom reminders from synced data
-        if (Reminders != null)
+        foreach (var minutes in optionMinutes)
         {
-            foreach (var reminder in Reminders)
+            ReminderOptions.Add(new ReminderOption(
+                minutes,
+                isCustom: !predefinedMinutes.Contains(minutes))
             {
-                // Convert seconds to minutes
-                var minutesDiff = (int)(reminder.DurationInSeconds / 60);
-
-                // Check if this is a custom value not in predefined list
-                if (!predefinedMinutes.Contains(minutesDiff))
-                {
-                    predefinedOptions.Add(new ReminderOption(minutesDiff, isCustom: true));
-                }
-            }
-        }
-
-        // Sort by minutes descending and add to collection
-        foreach (var option in predefinedOptions.OrderByDescending(o => o.Minutes))
-        {
-            ReminderOptions.Add(option);
-        }
-
-        // Set selected state based on current reminders
-        if (Reminders != null)
-        {
-            foreach (var reminder in Reminders)
-            {
-                // Convert seconds to minutes
-                var minutesDiff = (int)(reminder.DurationInSeconds / 60);
-
-                var matchingOption = ReminderOptions.FirstOrDefault(o => o.Minutes == minutesDiff);
-                matchingOption?.IsSelected = true;
-            }
+                IsSelected = selectedMinutes.Contains(minutes)
+            });
         }
     }
 
@@ -456,23 +436,23 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
             // Capture original state BEFORE making any changes for potential revert
             var originalItem = await _calendarService.GetCalendarItemAsync(CurrentEvent.CalendarItem.Id);
             var originalAttendees = await _calendarService.GetAttendeesAsync(CurrentEvent.CalendarItem.Id);
+            var originalReminders = await _calendarService.GetRemindersAsync(CurrentEvent.CalendarItem.Id);
 
-            // Get selected reminder options
             var selectedOptions = ReminderOptions.Where(o => o.IsSelected).ToList();
-
-            // Create separate Reminder entities for each selected option
             var newReminders = new List<Reminder>();
 
             foreach (var option in selectedOptions)
             {
-                var durationInSeconds = option.Minutes * 60; // Convert minutes to seconds
+                var durationInSeconds = option.Minutes * 60L;
+                var existingReminder = originalReminders.FirstOrDefault(
+                    reminder => reminder.DurationInSeconds == durationInSeconds);
 
                 newReminders.Add(new Reminder
                 {
-                    Id = Guid.NewGuid(),
+                    Id = existingReminder?.Id ?? Guid.NewGuid(),
                     CalendarItemId = CurrentEvent.Id,
                     DurationInSeconds = durationInSeconds,
-                    ReminderType = CalendarItemReminderType.Popup
+                    ReminderType = existingReminder?.ReminderType ?? CalendarItemReminderType.Popup
                 });
             }
 
@@ -496,7 +476,9 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
                 CurrentEvent.Attendees.ToList(),
                 ResponseMessage: null,
                 OriginalItem: originalItem,
-                OriginalAttendees: originalAttendees);
+                OriginalAttendees: originalAttendees,
+                Reminders: newReminders,
+                OriginalReminders: originalReminders);
 
             await _winoRequestDelegator.ExecuteAsync(preparationRequest);
 
@@ -811,6 +793,7 @@ public partial class ReminderOption : ObservableObject
 {
     public int Minutes { get; }
     public bool IsCustom { get; }
+    public string AutomationId => $"EventDetailsReminderOption{Minutes}CheckBox";
 
     [ObservableProperty]
     public partial bool IsSelected { get; set; }

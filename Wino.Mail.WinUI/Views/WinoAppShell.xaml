@@ -554,56 +554,55 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
-                        <coreControls:WinoNavigationViewItem
-                            x:Name="NewCalendarEventNavigationItem"
-                            Grid.Row="0"
-                            Height="50"
-                            Margin="0,0,0,12"
-                            AutomationProperties.AutomationId="NewCalendarEventNavigationItem"
-                            AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_NewEventButton, Mode=OneTime}"
-                            IsTabStop="True"
-                            KeyDown="NewCalendarEventNavigationItemKeyDown"
-                            SelectsOnInvoked="False"
-                            Tapped="NewCalendarEventNavigationItemTapped">
-                            <muxc:NavigationViewItem.Icon>
-                                <coreControls:WinoFontIcon Icon="NewMail" />
-                            </muxc:NavigationViewItem.Icon>
-                            <TextBlock
-                                Margin="0"
-                                VerticalAlignment="Center"
-                                Style="{StaticResource BodyStrongTextBlockStyle}"
-                                Text="{x:Bind domain:Translator.CalendarEventCompose_NewEventButton, Mode=OneTime}" />
-                        </coreControls:WinoNavigationViewItem>
+                        <Grid Grid.Row="0" Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
 
-                        <coreControls:WinoNavigationViewItem
-                            x:Name="SynchronizeCalendarsNavigationItem"
-                            Grid.Row="1"
-                            Height="50"
-                            Margin="0,0,0,12"
-                            AutomationProperties.AutomationId="SynchronizeCalendarsNavigationItem"
-                            AutomationProperties.Name="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}"
-                            IsEnabled="False"
-                            IsTabStop="True"
-                            KeyDown="SynchronizeCalendarsNavigationItemKeyDown"
-                            SelectsOnInvoked="False"
-                            Tapped="SynchronizeCalendarsNavigationItemTapped">
-                            <muxc:NavigationViewItem.Icon>
-                                <coreControls:WinoFontIcon Icon="Sync" />
-                            </muxc:NavigationViewItem.Icon>
-                            <TextBlock
-                                Margin="0"
+                            <coreControls:WinoNavigationViewItem
+                                x:Name="NewCalendarEventNavigationItem"
+                                Height="50"
+                                AutomationProperties.AutomationId="NewCalendarEventNavigationItem"
+                                AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_NewEventButton, Mode=OneTime}"
+                                IsTabStop="True"
+                                KeyDown="NewCalendarEventNavigationItemKeyDown"
+                                SelectsOnInvoked="False"
+                                Tapped="NewCalendarEventNavigationItemTapped">
+                                <muxc:NavigationViewItem.Icon>
+                                    <coreControls:WinoFontIcon Icon="NewMail" />
+                                </muxc:NavigationViewItem.Icon>
+                                <TextBlock
+                                    Margin="0"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                                    Text="{x:Bind domain:Translator.CalendarEventCompose_NewEventButton, Mode=OneTime}" />
+                            </coreControls:WinoNavigationViewItem>
+
+                            <Button
+                                x:Name="SynchronizeCalendarsButton"
+                                Grid.Column="1"
+                                Width="36"
+                                Height="36"
+                                Margin="4,0,12,0"
                                 VerticalAlignment="Center"
-                                Style="{StaticResource BodyStrongTextBlockStyle}"
-                                Text="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}" />
-                        </coreControls:WinoNavigationViewItem>
+                                AutomationProperties.AutomationId="SynchronizeCalendarsButton"
+                                AutomationProperties.Name="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Click="SynchronizeCalendarsButtonClick"
+                                IsEnabled="False"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}">
+                                <coreControls:WinoFontIcon FontSize="14" Icon="Sync" />
+                            </Button>
+                        </Grid>
 
                         <muxc:CalendarView
                             x:Name="VisibleDateRangeCalendarView"
-                            Grid.Row="2"
+                            Grid.Row="1"
                             Margin="12,0"
                             HorizontalAlignment="Stretch"
                             AutomationProperties.AutomationId="VisibleDateRangeCalendarView"
@@ -613,7 +612,7 @@
 
                         <ListView
                             x:Name="CalendarHostListView"
-                            Grid.Row="3"
+                            Grid.Row="2"
                             AutomationProperties.AutomationId="CalendarHostListView"
                             SelectionMode="None">
                             <ListView.Header>

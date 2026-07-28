@@ -100,6 +100,12 @@ public class MailAccount
     public bool IsCalendarAccessGranted { get; set; }
 
     /// <summary>
+    /// Gets or sets whether MailKit IMAP and SMTP protocol diagnostics are captured for this account.
+    /// Protocol logging is opt-in and disabled by default.
+    /// </summary>
+    public bool IsProtocolLogEnabled { get; set; }
+
+    /// <summary>
     /// Contains the merged inbox this account belongs to.
     /// Ignored for all SQLite operations.
     /// </summary>

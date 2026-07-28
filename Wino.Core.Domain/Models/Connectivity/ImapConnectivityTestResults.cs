@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using System.Text.Json.Serialization;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 
 namespace Wino.Core.Domain.Models.Connectivity;
@@ -18,11 +19,19 @@ public class ImapConnectivityTestResults
     public bool IsCertificateUIRequired { get; set; }
 
     public string FailedReason { get; set; }
+    public string ProtocolLog { get; set; }
     public static ImapConnectivityTestResults Success() => new ImapConnectivityTestResults() { IsSuccess = true };
-    public static ImapConnectivityTestResults Failure(Exception ex) => new ImapConnectivityTestResults()
+    public static ImapConnectivityTestResults Failure(Exception ex)
     {
-        FailedReason = string.Join(Environment.NewLine, ex.GetInnerExceptions().Select(e => e.Message))
-    };
+        var validationException = ex.GetInnerExceptions().OfType<ImapValidationException>().FirstOrDefault();
+
+        return new ImapConnectivityTestResults()
+        {
+            FailedReason = validationException?.Message
+                ?? string.Join(Environment.NewLine, ex.GetInnerExceptions().Select(e => e.Message)),
+            ProtocolLog = validationException?.ProtocolLog
+        };
+    }
 
     public static ImapConnectivityTestResults CertificateUIRequired(string issuer,
         string expirationString,

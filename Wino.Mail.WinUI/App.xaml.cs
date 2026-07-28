@@ -1872,6 +1872,29 @@ public partial class App : WinoApplication,
         }
     }
 
+    internal void TryActivateExistingWindowForRedirectedActivation(AppActivationArguments args)
+    {
+        if (!_appHostInfrastructureInitialized ||
+            !Program.ShouldBringWindowToForegroundAfterRedirection(args))
+        {
+            return;
+        }
+
+        _ = TryEnqueueActivationOnUiThread(() =>
+        {
+            var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+            var activationWindow = windowManager.GetWindow(WinoWindowKind.Shell)
+                                   ?? windowManager.GetWindow(WinoWindowKind.Welcome)
+                                   ?? MainWindow;
+
+            if (activationWindow == null)
+                return;
+
+            MainWindow = activationWindow;
+            windowManager.ActivateWindow(activationWindow);
+        });
+    }
+
     private async Task ActivateRedirectedShellAsync(RedirectedActivationRoute route)
     {
         if (!HasActivationUiThreadAccess())

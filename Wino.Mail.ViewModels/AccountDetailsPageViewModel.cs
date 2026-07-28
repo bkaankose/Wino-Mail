@@ -8,16 +8,19 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Diagnostics;
 using Wino.Core.Misc;
 using Wino.Core.Services;
 using Wino.Core.ViewModels.Data;
@@ -36,6 +39,10 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     private readonly INewThemeService _themeService;
     private readonly IImapTestService _imapTestService;
     private readonly INotificationBuilder _notificationBuilder;
+    private readonly IApplicationConfiguration _applicationConfiguration;
+    private readonly IFileService _fileService;
+    private readonly IPreferencesService _preferencesService;
+    private readonly IWinoLogger _winoLogger;
     private bool isLoaded = false;
 
     [ObservableProperty]
@@ -102,6 +109,9 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     public partial bool IsJumpListEnabled { get; set; }
 
     [ObservableProperty]
+    public partial bool IsProtocolLogEnabled { get; set; }
+
+    [ObservableProperty]
     public partial AccountCapabilityOption SelectedCapabilityOption { get; set; }
 
     public bool IsFocusedInboxSupportedForAccount => Account != null && Account.Preferences.IsFocusedInboxEnabled != null;
@@ -156,7 +166,11 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         IStatePersistanceService statePersistanceService,
         INewThemeService themeService,
         IImapTestService imapTestService,
-        INotificationBuilder notificationBuilder)
+        INotificationBuilder notificationBuilder,
+        IApplicationConfiguration applicationConfiguration,
+        IFileService fileService,
+        IPreferencesService preferencesService,
+        IWinoLogger winoLogger)
     {
         _dialogService = dialogService;
         _accountService = accountService;
@@ -166,6 +180,10 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         _themeService = themeService;
         _imapTestService = imapTestService;
         _notificationBuilder = notificationBuilder;
+        _applicationConfiguration = applicationConfiguration;
+        _fileService = fileService;
+        _preferencesService = preferencesService;
+        _winoLogger = winoLogger;
 
         var colorHexList = _themeService.GetAvailableAccountColors();
         AvailableColors = colorHexList.Select(a => new AppColorViewModel(a)).ToList();
@@ -213,6 +231,113 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     }
 
     [RelayCommand]
+    private async Task ExportProtocolLogsAsync()
+    {
+        if (Account == null)
+            return;
+
+        var logsFolder = WinoProtocolLogger.GetAccountLogFolder(
+            _applicationConfiguration.ApplicationDataFolderPath,
+            Account.Id);
+
+        if (!System.IO.Directory.Exists(logsFolder))
+        {
+            _dialogService.InfoBarMessage(
+                Translator.Info_LogsNotFoundTitle,
+                Translator.ProtocolLog_NoLogsMessage,
+                InfoBarMessageType.Error);
+            return;
+        }
+
+        var selectedFolderPath = await _dialogService.PickWindowsFolderAsync();
+        if (string.IsNullOrEmpty(selectedFolderPath))
+            return;
+
+        try
+        {
+            var archiveFileName = $"Wino-Protocol-{Account.Id:N}-{DateTime.Now:yyyyMMdd-HHmmss}.zip";
+            var archivePath = await _fileService.CreateLogsArchiveAsync(
+                logsFolder,
+                selectedFolderPath,
+                archiveFileName);
+
+            if (string.IsNullOrEmpty(archivePath))
+            {
+                _dialogService.InfoBarMessage(
+                    Translator.Info_LogsNotFoundTitle,
+                    Translator.ProtocolLog_NoLogsMessage,
+                    InfoBarMessageType.Error);
+                return;
+            }
+
+            _dialogService.InfoBarMessage(
+                Translator.ProtocolLog_ArchiveSavedTitle,
+                string.Format(Translator.ProtocolLog_ArchiveSavedMessage, archiveFileName),
+                InfoBarMessageType.Success);
+        }
+        catch (Exception ex)
+        {
+            _dialogService.InfoBarMessage(
+                Translator.GeneralTitle_Error,
+                ex.Message,
+                InfoBarMessageType.Error);
+        }
+    }
+
+    [RelayCommand]
+    private async Task UploadProtocolLogsAsync()
+    {
+        if (Account == null)
+            return;
+
+        var logsFolder = WinoProtocolLogger.GetAccountLogFolder(
+            _applicationConfiguration.ApplicationDataFolderPath,
+            Account.Id);
+
+        if (!System.IO.Directory.Exists(logsFolder))
+        {
+            _dialogService.InfoBarMessage(
+                Translator.Info_LogsNotFoundTitle,
+                Translator.ProtocolLog_NoLogsMessage,
+                InfoBarMessageType.Error);
+            return;
+        }
+
+        var archiveFileName = $"Wino-Protocol-{Account.Id:N}.zip";
+        var archivePath = await _fileService.CreateLogsArchiveAsync(
+            logsFolder,
+            _applicationConfiguration.ApplicationTempFolderPath,
+            archiveFileName,
+            sanitizeSensitiveData: true);
+
+        if (string.IsNullOrEmpty(archivePath))
+        {
+            _dialogService.InfoBarMessage(
+                Translator.Info_LogsNotFoundTitle,
+                Translator.ProtocolLog_NoLogsMessage,
+                InfoBarMessageType.Error);
+            return;
+        }
+
+        try
+        {
+            await _winoLogger.UploadDiagnosticLogsAsync(archivePath, _preferencesService.DiagnosticId);
+            _dialogService.InfoBarMessage(
+                Translator.Info_LogsUploadedTitle,
+                string.Format(Translator.Info_LogsUploadedMessage, archiveFileName),
+                InfoBarMessageType.Success);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to upload IMAP protocol logs to Sentry.");
+            _dialogService.InfoBarMessage(
+                Translator.GeneralTitle_Error,
+                Translator.Info_LogsUploadFailedMessage,
+                InfoBarMessageType.Error);
+        }
+    }
+
+    [RelayCommand]
     private async Task DeleteAccountAsync()
     {
         if (Account == null)
@@ -243,7 +368,16 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         }
         catch (Exception ex)
         {
-            _dialogService.InfoBarMessage(Translator.IMAPSetupDialog_ValidationFailed_Title, ex.Message, InfoBarMessageType.Error);
+            if (ex is ImapValidationException { ProtocolLog.Length: > 0 } validationException)
+            {
+                await _dialogService.ShowImapValidationFailedDialogAsync(
+                    validationException.Message,
+                    validationException.ProtocolLog);
+            }
+            else
+            {
+                _dialogService.InfoBarMessage(Translator.IMAPSetupDialog_ValidationFailed_Title, ex.Message, InfoBarMessageType.Error);
+            }
         }
     }
 
@@ -299,6 +433,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
             IsAppendMessageSettinEnabled = Account.Preferences.ShouldAppendMessagesToSentFolder;
             IsTaskbarBadgeEnabled = Account.Preferences.IsTaskbarBadgeEnabled;
             IsJumpListEnabled = Account.Preferences.IsJumpListEnabled;
+            IsProtocolLogEnabled = Account.IsProtocolLogEnabled;
 
             if (!string.IsNullOrEmpty(Account.AccountColorHex))
             {
@@ -342,13 +477,23 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         }
     }
 
-    private Task UpdateAccountAsync()
+    private async Task UpdateAccountAsync()
     {
+        var protocolLogSettingChanged = Account.IsProtocolLogEnabled != IsProtocolLogEnabled;
+
         Account.Name = AccountName;
         Account.SenderName = SenderName;
         Account.AccountColorHex = SelectedColor?.Hex ?? string.Empty;
+        Account.IsProtocolLogEnabled = IsProtocolLogEnabled;
 
-        return _accountService.UpdateAccountAsync(Account);
+        await _accountService.UpdateAccountAsync(Account);
+
+        if (protocolLogSettingChanged)
+        {
+            // The MailKit protocol logger is selected when the account synchronizer and its pool
+            // are constructed. Recreate it so the opt-in change takes effect immediately.
+            await SynchronizationManager.Instance.DestroySynchronizerAsync(Account.Id);
+        }
     }
 
     private async Task LoadAccountCalendarsAsync()

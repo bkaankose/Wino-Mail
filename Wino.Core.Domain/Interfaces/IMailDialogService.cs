@@ -72,6 +72,11 @@ public interface IMailDialogService : IDialogServiceBase
     Task ShowMessageSourceDialogAsync(string messageSource);
 
     /// <summary>
+    /// Presents the detailed error and temporary protocol transcript from a failed IMAP/SMTP validation.
+    /// </summary>
+    Task ShowImapValidationFailedDialogAsync(string errorMessage, string protocolLog);
+
+    /// <summary>
     /// Presents a dialog to the user for keyboard shortcut creation/modification.
     /// </summary>
     /// <param name="existingShortcut">Existing shortcut to edit, or null for new shortcut.</param>

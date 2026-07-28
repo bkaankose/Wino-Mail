@@ -24,6 +24,7 @@ using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Diagnostics;
 using Wino.Core.Extensions;
 using Wino.Core.Helpers;
 using Wino.Core.Integration;
@@ -93,11 +94,18 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         _autoDiscoveryService = autoDiscoveryService;
         _calendarService = calendarService;
 
-        var poolOptions = ImapClientPoolOptions.CreateDefault(Account.ServerInformation);
+        var poolOptions = ImapClientPoolOptions.CreateDefault(
+            Account.ServerInformation,
+            Account.IsProtocolLogEnabled
+                ? () => WinoProtocolLogger.CreateAccountLogger(
+                    _applicationConfiguration.ApplicationDataFolderPath,
+                    Account.Id,
+                    MailProtocol.Imap)
+                : null);
 
         _clientPool = new ImapClientPool(poolOptions);
         _localCalendarOperationHandler = new LocalCalendarOperationHandler(Account, _imapChangeProcessor, _calendarService, _applicationConfiguration.ApplicationDataFolderPath, "local");
-        _calDavCalendarOperationHandler = new CalDavCalendarOperationHandler(this, Account, _calendarService, _calDavClient);
+        _calDavCalendarOperationHandler = new CalDavCalendarOperationHandler(this, Account, _imapChangeProcessor, _calendarService, _calDavClient);
     }
 
     /// <summary>
@@ -322,7 +330,12 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
             var singleRequest = request.Request;
 
-            using var smtpClient = new MailKit.Net.Smtp.SmtpClient();
+            using var smtpClient = Account.IsProtocolLogEnabled
+                ? new MailKit.Net.Smtp.SmtpClient(WinoProtocolLogger.CreateAccountLogger(
+                    _applicationConfiguration.ApplicationDataFolderPath,
+                    Account.Id,
+                    MailProtocol.Smtp))
+                : new MailKit.Net.Smtp.SmtpClient();
 
             if (smtpClient.IsConnected && client.IsAuthenticated) return;
 
@@ -1880,6 +1893,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
     {
         private readonly ImapSynchronizer _owner;
         private readonly MailAccount _account;
+        private readonly IImapChangeProcessor _changeProcessor;
         private readonly ICalendarService _calendarService;
         private readonly ICalDavClient _calDavClient;
 
@@ -1888,17 +1902,26 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         public CalDavCalendarOperationHandler(
             ImapSynchronizer owner,
             MailAccount account,
+            IImapChangeProcessor changeProcessor,
             ICalendarService calendarService,
             ICalDavClient calDavClient)
         {
             _owner = owner;
             _account = account;
+            _changeProcessor = changeProcessor;
             _calendarService = calendarService;
             _calDavClient = calDavClient;
         }
 
-        public Task CreateCalendarEventAsync(CreateCalendarEventRequest request)
-            => UpsertCalendarEventAsync(request.PreparedItem, request.PreparedEvent.Attendees);
+        public async Task CreateCalendarEventAsync(CreateCalendarEventRequest request)
+        {
+            await UpsertCalendarEventAsync(request.PreparedItem, request.PreparedEvent.Attendees).ConfigureAwait(false);
+            await _changeProcessor.PersistCreatedCalendarEventAsync(
+                request.PreparedItem,
+                request.PreparedEvent.Attendees,
+                request.PreparedEvent.Reminders,
+                request.PreparedItem.RemoteEventId).ConfigureAwait(false);
+        }
 
         public Task UpdateCalendarEventAsync(UpdateCalendarEventRequest request)
             => UpsertCalendarEventAsync(request.Item, request.Attendees);

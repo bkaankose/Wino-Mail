@@ -199,6 +199,13 @@ WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
                 .ConfigureAwait(false);
         }
 
+        if (!accountColumns.Any(c => c.Name == nameof(MailAccount.IsProtocolLogEnabled)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailAccount)} ADD COLUMN {nameof(MailAccount.IsProtocolLogEnabled)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
+
         var folderColumns = await Connection.GetTableInfoAsync(nameof(MailItemFolder)).ConfigureAwait(false);
 
         if (!folderColumns.Any(c => c.Name == nameof(MailItemFolder.HighestKnownUid)))

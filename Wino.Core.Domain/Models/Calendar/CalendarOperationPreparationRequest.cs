@@ -13,6 +13,11 @@ namespace Wino.Core.Domain.Models.Calendar;
 /// <param name="ResponseMessage">Optional message to include with event responses (Accept, Decline, Tentative).</param>
 /// <param name="OriginalItem">Original calendar item state before update (for revert capability).</param>
 /// <param name="OriginalAttendees">Original attendees list before update (for revert capability).</param>
+/// <param name="Reminders">
+/// Reminders to persist for an update. A null value leaves provider reminders unchanged;
+/// an empty list explicitly disables all reminders.
+/// </param>
+/// <param name="OriginalReminders">Original reminders before update, retained for revert parity.</param>
 public record CalendarOperationPreparationRequest(
     CalendarSynchronizerOperation Operation,
     CalendarItem CalendarItem = null,
@@ -20,4 +25,6 @@ public record CalendarOperationPreparationRequest(
     string ResponseMessage = null,
     CalendarItem OriginalItem = null,
     List<CalendarEventAttendee> OriginalAttendees = null,
-    CalendarEventComposeResult ComposeResult = null);
+    CalendarEventComposeResult ComposeResult = null,
+    List<Reminder> Reminders = null,
+    List<Reminder> OriginalReminders = null);

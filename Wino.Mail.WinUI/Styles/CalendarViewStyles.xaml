@@ -6,6 +6,25 @@
     xmlns:local="using:Wino.Mail.WinUI.Styles"
     xmlns:selectors1="using:Wino.Selectors">
 
+    <Style x:Key="WinoCalendarViewDayItemStyle" TargetType="CalendarViewDayItem">
+        <Setter Property="MinWidth" Value="40" />
+        <Setter Property="MinHeight" Value="40" />
+        <Setter Property="Margin" Value="1" />
+        <Setter Property="Padding" Value="0,0,0,4" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="FocusVisualMargin" Value="-3" />
+        <Setter Property="FocusVisualPrimaryBrush" Value="{ThemeResource CalendarViewFocusVisualPrimaryBrush}" />
+        <Setter Property="FocusVisualPrimaryThickness" Value="2" />
+        <Setter Property="FocusVisualSecondaryBrush" Value="{ThemeResource CalendarViewFocusVisualSecondaryBrush}" />
+        <Setter Property="FocusVisualSecondaryThickness" Value="1" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CalendarViewDayItem" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="WinoCalendarViewStyle" TargetType="CalendarView">
         <Setter Property="BlackoutStrikethroughBrush" Value="{ThemeResource CalendarViewBlackoutStrikethroughBrush}" />
         <Setter Property="SelectedHoverBorderBrush" Value="{ThemeResource CalendarViewSelectedHoverBorderBrush}" />
@@ -46,6 +65,7 @@
         <Setter Property="DayItemFontFamily" Value="XamlAutoFontFamily" />
         <Setter Property="DayItemFontSize" Value="{ThemeResource CalendarViewDayItemFontSize}" />
         <Setter Property="DayItemMargin" Value="{ThemeResource CalendarViewDayItemMargin}" />
+        <Setter Property="CalendarViewDayItemStyle" Value="{StaticResource WinoCalendarViewDayItemStyle}" />
         <Setter Property="FirstOfMonthLabelFontFamily" Value="XamlAutoFontFamily" />
         <Setter Property="FirstOfMonthLabelFontSize" Value="{ThemeResource CalendarViewFirstOfMonthLabelFontSize}" />
         <Setter Property="FirstOfMonthLabelMargin" Value="{ThemeResource CalendarViewFirstOfMonthLabelMargin}" />

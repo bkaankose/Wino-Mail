@@ -233,6 +233,26 @@ public class DialogService : DialogServiceBase, IMailDialogService
             InfoBarMessage(Translator.ClipboardTextCopied_Title, string.Format(Translator.ClipboardTextCopied_Message, Translator.MessageSourceDialog_Title), InfoBarMessageType.Information);
     }
 
+    public async Task ShowImapValidationFailedDialogAsync(string errorMessage, string protocolLog)
+    {
+        var dialog = new ImapValidationFailedDialog
+        {
+            ErrorMessage = errorMessage,
+            ProtocolLog = protocolLog,
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(dialog);
+
+        if (dialog.Copied)
+        {
+            InfoBarMessage(
+                Translator.ClipboardTextCopied_Title,
+                string.Format(Translator.ClipboardTextCopied_Message, Translator.ImapValidationFailedDialog_Title),
+                InfoBarMessageType.Information);
+        }
+    }
+
     public async Task ShowAccountReorderDialogAsync(ObservableCollection<IAccountProviderDetailViewModel> availableAccounts)
     {
         var accountReorderDialog = new AccountReorderDialog(availableAccounts)
