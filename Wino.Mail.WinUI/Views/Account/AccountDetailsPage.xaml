@@ -493,6 +493,17 @@
     </controls:SettingsCard>-->
 
                     <controls:SettingsCard
+                        AutomationProperties.AutomationId="AccountDetailsMailFiltersCard"
+                        Command="{x:Bind ViewModel.ManageMailFiltersCommand}"
+                        Description="{x:Bind domain:Translator.MailFilters_AccountCardDescription, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.MailFilters_Title, Mode=OneTime}"
+                        IsClickEnabled="True">
+                        <controls:SettingsCard.HeaderIcon>
+                            <FontIcon Glyph="&#xE71C;" />
+                        </controls:SettingsCard.HeaderIcon>
+                    </controls:SettingsCard>
+
+                    <controls:SettingsCard
                         AutomationProperties.AutomationId="AccountDetailsPageSettingsCard18"
                         Command="{x:Bind ViewModel.EditSignatureCommand}"
                         Description="{x:Bind domain:Translator.SettingsSignature_Description}"

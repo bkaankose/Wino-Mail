@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using FluentAssertions;
 using MimeKit;
 using Moq;
@@ -7,6 +8,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Tests.Helpers;
+using Wino.Messaging.UI;
 using Wino.Services;
 using Wino.Services.Extensions;
 using Xunit;
@@ -148,6 +150,65 @@ public class MailCopyPersistenceTests : IAsyncLifetime
         allCopies.Should().HaveCount(2);
     }
 
+    [Fact]
+    public async Task CreateMailAsync_WithSuppressedUiChange_PersistsWithoutMailAddedMessage()
+    {
+        const string messageId = "filtered-arrival@test.local";
+        var existingCopy = new MailCopy
+        {
+            UniqueId = Guid.NewGuid(),
+            Id = MailkitClientExtensions.CreateUid(_deletedFolder.Id, 87),
+            ImapUid = 87,
+            FolderId = _deletedFolder.Id,
+            MessageId = messageId,
+            FileId = Guid.NewGuid(),
+            FromAddress = "sender@test.local",
+            FromName = "Sender",
+            Subject = "Filtered arrival",
+            CreationDate = DateTime.UtcNow
+        };
+        await _databaseService.Connection.InsertAsync(existingCopy, typeof(MailCopy));
+
+        var mailCopy = new MailCopy
+        {
+            Id = MailkitClientExtensions.CreateUid(_inboxFolder.Id, 88),
+            ImapUid = 88,
+            MessageId = messageId,
+            FileId = Guid.NewGuid(),
+            FromAddress = "sender@test.local",
+            FromName = "Sender",
+            Subject = "Filtered arrival",
+            CreationDate = DateTime.UtcNow
+        };
+        var recipient = new MailRetrievalRecipient(mailCopy.Id, existingCopy.Id);
+        WeakReferenceMessenger.Default.Register<MailAddedMessage>(recipient);
+        WeakReferenceMessenger.Default.Register<BulkMailAddedMessage>(recipient);
+        WeakReferenceMessenger.Default.Register<MailRemovedMessage>(recipient);
+        WeakReferenceMessenger.Default.Register<BulkMailRemovedMessage>(recipient);
+
+        try
+        {
+            var inserted = await _mailService.CreateMailAsync(
+                _account.Id,
+                new NewMailItemPackage(
+                    mailCopy,
+                    null,
+                    _inboxFolder.RemoteFolderId,
+                    SuppressUiChange: true));
+
+            inserted.Should().BeTrue();
+            var persisted = await _databaseService.Connection
+                .Table<MailCopy>()
+                .FirstOrDefaultAsync(copy => copy.Id == mailCopy.Id);
+            persisted.Should().NotBeNull();
+            recipient.MatchingUiChangeCount.Should().Be(0);
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.UnregisterAll(recipient);
+        }
+    }
+
     private static MailService BuildMailService(InMemoryDatabaseService db)
     {
         var signatureService = new Mock<ISignatureService>();
@@ -187,5 +248,40 @@ public class MailCopyPersistenceTests : IAsyncLifetime
             preferencesService.Object,
             sentMailReceiptService,
             mailCategoryService);
+    }
+
+    public sealed class MailRetrievalRecipient(params string[] targetMailIds) :
+        IRecipient<MailAddedMessage>,
+        IRecipient<BulkMailAddedMessage>,
+        IRecipient<MailRemovedMessage>,
+        IRecipient<BulkMailRemovedMessage>
+    {
+        private readonly HashSet<string> _targetMailIds = targetMailIds.ToHashSet(StringComparer.Ordinal);
+
+        public int MatchingUiChangeCount { get; private set; }
+
+        public void Receive(MailAddedMessage message)
+        {
+            if (message.AddedMail != null && _targetMailIds.Contains(message.AddedMail.Id))
+                MatchingUiChangeCount++;
+        }
+
+        public void Receive(BulkMailAddedMessage message)
+        {
+            MatchingUiChangeCount += message.AddedMails.Count(
+                mail => mail != null && _targetMailIds.Contains(mail.Id));
+        }
+
+        public void Receive(MailRemovedMessage message)
+        {
+            if (message.RemovedMail != null && _targetMailIds.Contains(message.RemovedMail.Id))
+                MatchingUiChangeCount++;
+        }
+
+        public void Receive(BulkMailRemovedMessage message)
+        {
+            MatchingUiChangeCount += message.RemovedMails.Count(
+                mail => mail != null && _targetMailIds.Contains(mail.Id));
+        }
     }
 }

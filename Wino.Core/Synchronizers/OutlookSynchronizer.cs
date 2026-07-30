@@ -71,7 +71,7 @@ public partial class OutlookSynchronizerJsonContext : JsonSerializerContext;
 /// - CreateMailCopyFromMessageAsync: Creates MailCopy from Message metadata
 /// - DownloadMissingMimeMessageAsync: Downloads raw MIME only when explicitly requested
 /// </summary>
-public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message, Event>
+public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message, Event>, IProviderMailFilterSynchronizer
 {
     public override uint BatchModificationSize => 20;
     public override uint InitialMessageDownloadCountPerFolder => 1000;
@@ -121,6 +121,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     private readonly GraphServiceClient _graphClient;
     private readonly IOutlookSynchronizerErrorHandlerFactory _errorHandlingFactory;
     private readonly IMailCategoryService _mailCategoryService;
+    private readonly IMailFilterExecutor _mailFilterExecutor;
     private bool _isFolderStructureChanged;
     private bool _hasForcedCategoryResyncForCurrentDelta;
 
@@ -142,7 +143,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                                IAuthenticator authenticator,
                                IOutlookChangeProcessor outlookChangeProcessor,
                                IOutlookSynchronizerErrorHandlerFactory errorHandlingFactory,
-                               IMailCategoryService mailCategoryService) : base(account, WeakReferenceMessenger.Default)
+                               IMailCategoryService mailCategoryService,
+                               IMailFilterExecutor mailFilterExecutor = null) : base(account, WeakReferenceMessenger.Default)
     {
         var tokenProvider = new MicrosoftTokenProvider(Account, authenticator);
 
@@ -163,6 +165,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         _outlookChangeProcessor = outlookChangeProcessor;
         _errorHandlingFactory = errorHandlingFactory;
         _mailCategoryService = mailCategoryService;
+        _mailFilterExecutor = mailFilterExecutor;
     }
 
     #region MS Graph Handlers
@@ -177,6 +180,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     protected override async Task<MailSynchronizationResult> SynchronizeMailsInternalAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
         var downloadedMessageIds = new List<string>();
+        var filterCandidateIds = new List<string>();
         var folderResults = new List<FolderSyncResult>();
         _hasForcedCategoryResyncForCurrentDelta = false;
 
@@ -201,6 +205,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                 for (int i = 0; i < totalFolders; i++)
                 {
                     var folder = synchronizationFolders[i];
+                    var isIncrementalSync = !string.IsNullOrEmpty(folder.DeltaToken);
 
                     // Update progress based on folder completion
                     var progressPercentage = (int)Math.Round((double)(i + 1) / totalFolders * 100);
@@ -211,6 +216,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                     {
                         var folderDownloadedMessageIds = await SynchronizeFolderAsync(folder, cancellationToken).ConfigureAwait(false);
                         downloadedMessageIds.AddRange(folderDownloadedMessageIds);
+                        if (isIncrementalSync)
+                            filterCandidateIds.AddRange(folderDownloadedMessageIds);
 
                         folderResults.Add(FolderSyncResult.Successful(folder.Id, folder.FolderName, folderDownloadedMessageIds.Count()));
                     }
@@ -288,7 +295,11 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         // Get all unread new downloaded items and return in the result.
         // This is primarily used in notifications.
 
+        var suppressedIds = _mailFilterExecutor == null
+            ? new HashSet<string>(StringComparer.Ordinal)
+            : await _mailFilterExecutor.ProcessNewMessagesAsync(Account.Id, filterCandidateIds, cancellationToken).ConfigureAwait(false);
         var unreadNewItems = await _outlookChangeProcessor.GetDownloadedUnreadMailsAsync(Account.Id, downloadedMessageIds).ConfigureAwait(false);
+        unreadNewItems.RemoveAll(item => suppressedIds.Contains(item.Id));
 
         return MailSynchronizationResult.CompletedWithFolderResults(unreadNewItems, folderResults);
     }
@@ -1227,9 +1238,21 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                 {
                     foreach (var package in newMailPackages)
                     {
+                        var shouldSuppressUiChange = _mailFilterExecutor != null
+                            && await _mailFilterExecutor
+                                .ShouldSuppressNewMessageAsync(
+                                    Account.Id,
+                                    package.AssignedRemoteFolderId,
+                                    package.Copy,
+                                    cancellationToken)
+                                .ConfigureAwait(false);
+                        var packageToCreate = shouldSuppressUiChange
+                            ? package with { SuppressUiChange = true }
+                            : package;
+
                         // Only add to downloaded message ids if it's inserted successfuly.
                         // Updates should not be added to the list because they are not new.
-                        bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+                        bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, packageToCreate).ConfigureAwait(false);
 
                         if (isInserted)
                         {
@@ -3453,6 +3476,275 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         var deleteRequest = _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events[remoteEventId].ToDeleteRequestInformation();
 
         return [new HttpRequestBundle<RequestInformation>(deleteRequest, request)];
+    }
+
+    #endregion
+
+    #region Provider mail filters
+
+    public async Task<IReadOnlyList<MailFilter>> GetProviderFiltersAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await _graphClient.Me.MailFolders[INBOX_NAME].MessageRules
+            .GetAsync(cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+
+        return response?.Value?
+            .Where(rule => rule != null)
+            .Select(ToMailFilter)
+            .ToList() ?? [];
+    }
+
+    public async Task<MailFilter> CreateProviderFilterAsync(
+        MailFilter filter,
+        CancellationToken cancellationToken = default)
+    {
+        var created = await _graphClient.Me.MailFolders[INBOX_NAME].MessageRules
+            .PostAsync(ToOutlookRule(filter), cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+
+        return created == null
+            ? throw new InvalidOperationException("Outlook did not return the created inbox rule.")
+            : CopyLocalMetadata(ToMailFilter(created), filter);
+    }
+
+    public async Task<MailFilter> UpdateProviderFilterAsync(
+        MailFilter filter,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(filter.RemoteId))
+            throw new InvalidOperationException("The Outlook rule has no remote identifier.");
+
+        var updated = await _graphClient.Me.MailFolders[INBOX_NAME].MessageRules[filter.RemoteId]
+            .PatchAsync(ToOutlookRule(filter), cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+
+        return updated == null
+            ? throw new InvalidOperationException("Outlook did not return the updated inbox rule.")
+            : CopyLocalMetadata(ToMailFilter(updated), filter);
+    }
+
+    public Task DeleteProviderFilterAsync(string remoteId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(remoteId))
+            throw new ArgumentException("A remote Outlook rule identifier is required.", nameof(remoteId));
+
+        return _graphClient.Me.MailFolders[INBOX_NAME].MessageRules[remoteId]
+            .DeleteAsync(cancellationToken: cancellationToken);
+    }
+
+    private static MailFilter ToMailFilter(MessageRule rule)
+    {
+        var filter = new MailFilter
+        {
+            ManagementType = MailFilterManagementType.Provider,
+            RemoteId = rule.Id,
+            Name = string.IsNullOrWhiteSpace(rule.DisplayName) ? "Outlook rule" : rule.DisplayName,
+            IsEnabled = rule.IsEnabled ?? true,
+            Sequence = rule.Sequence ?? 0,
+            IsReadOnly = rule.IsReadOnly ?? false,
+            ProviderHasError = rule.HasError ?? false,
+            StopProcessing = rule.Actions?.StopProcessingRules ?? false,
+            ProviderSummary = BuildOutlookSummary(rule)
+        };
+
+        var conditions = rule.Conditions;
+        AddTextConditions(filter, MailFilterConditionField.Subject, conditions?.SubjectContains);
+        AddTextConditions(filter, MailFilterConditionField.PreviewText, conditions?.BodyContains);
+        AddTextConditions(filter, MailFilterConditionField.FromName, conditions?.SenderContains);
+
+        if (conditions?.FromAddresses != null)
+        {
+            foreach (var recipient in conditions.FromAddresses)
+            {
+                var address = recipient?.EmailAddress?.Address;
+                if (!string.IsNullOrWhiteSpace(address))
+                {
+                    filter.Conditions.Add(new MailFilterCondition
+                    {
+                        Field = MailFilterConditionField.FromAddress,
+                        Operator = MailFilterConditionOperator.Equals,
+                        Value = address
+                    });
+                }
+            }
+        }
+
+        if (conditions?.HasAttachments is bool hasAttachments)
+        {
+            filter.Conditions.Add(new MailFilterCondition
+            {
+                Field = MailFilterConditionField.HasAttachments,
+                Operator = MailFilterConditionOperator.Equals,
+                Value = hasAttachments.ToString()
+            });
+        }
+
+        if (conditions?.Importance is Microsoft.Graph.Models.Importance importance)
+        {
+            filter.Conditions.Add(new MailFilterCondition
+            {
+                Field = MailFilterConditionField.Importance,
+                Operator = MailFilterConditionOperator.Equals,
+                Value = importance.ToString()
+            });
+        }
+
+        var actions = rule.Actions;
+        if (actions?.MarkAsRead is bool markAsRead)
+            AddAction(filter, markAsRead ? MailFilterActionType.MarkRead : MailFilterActionType.MarkUnread);
+        if (!string.IsNullOrWhiteSpace(actions?.MoveToFolder))
+            AddAction(filter, MailFilterActionType.Move, actions.MoveToFolder);
+        if (actions?.Delete == true)
+            AddAction(filter, MailFilterActionType.SoftDelete);
+        if (actions?.PermanentDelete == true)
+            AddAction(filter, MailFilterActionType.HardDelete);
+
+        return filter;
+    }
+
+    private static MessageRule ToOutlookRule(MailFilter filter)
+    {
+        if (filter.MatchMode != MailFilterMatchMode.All
+            || filter.Conditions.Any(condition => !IsOutlookFilterConditionSupported(condition)))
+        {
+            throw new NotSupportedException("One or more conditions cannot be represented by Outlook inbox rules.");
+        }
+
+        var predicates = new MessageRulePredicates();
+        foreach (var condition in filter.Conditions.OrderBy(condition => condition.Order))
+        {
+            switch (condition.Field)
+            {
+                case MailFilterConditionField.FromAddress:
+                    predicates.FromAddresses ??= [];
+                    predicates.FromAddresses.Add(new Recipient
+                    {
+                        EmailAddress = new EmailAddress { Address = condition.Value }
+                    });
+                    break;
+                case MailFilterConditionField.FromName:
+                    predicates.SenderContains ??= [];
+                    predicates.SenderContains.Add(condition.Value);
+                    break;
+                case MailFilterConditionField.Subject:
+                    predicates.SubjectContains ??= [];
+                    predicates.SubjectContains.Add(condition.Value);
+                    break;
+                case MailFilterConditionField.PreviewText:
+                    predicates.BodyContains ??= [];
+                    predicates.BodyContains.Add(condition.Value);
+                    break;
+                case MailFilterConditionField.HasAttachments:
+                    predicates.HasAttachments = bool.TryParse(condition.Value, out var hasAttachments) && hasAttachments;
+                    break;
+                case MailFilterConditionField.Importance:
+                    if (Enum.TryParse<Microsoft.Graph.Models.Importance>(condition.Value, true, out var importance))
+                        predicates.Importance = importance;
+                    break;
+            }
+        }
+
+        var actions = new MessageRuleActions
+        {
+            StopProcessingRules = filter.StopProcessing
+        };
+        foreach (var action in filter.Actions.OrderBy(action => action.Order))
+        {
+            switch (action.Type)
+            {
+                case MailFilterActionType.MarkRead:
+                    actions.MarkAsRead = true;
+                    break;
+                case MailFilterActionType.MarkUnread:
+                    throw new NotSupportedException("Outlook inbox rules cannot mark a message as unread.");
+                case MailFilterActionType.Move:
+                case MailFilterActionType.Archive:
+                case MailFilterActionType.MoveToJunk:
+                case MailFilterActionType.MarkAsNotJunk:
+                    actions.MoveToFolder = action.TargetRemoteFolderId;
+                    break;
+                case MailFilterActionType.SoftDelete:
+                    actions.Delete = true;
+                    break;
+                case MailFilterActionType.HardDelete:
+                    actions.PermanentDelete = true;
+                    break;
+                default:
+                    throw new NotSupportedException($"{action.Type} is not supported by Outlook inbox rules.");
+            }
+        }
+
+        return new MessageRule
+        {
+            DisplayName = filter.Name,
+            Sequence = filter.Sequence,
+            IsEnabled = filter.IsEnabled,
+            Conditions = predicates,
+            Actions = actions
+        };
+    }
+
+    private static bool IsOutlookFilterConditionSupported(MailFilterCondition condition)
+        => condition.Field switch
+        {
+            MailFilterConditionField.FromAddress => condition.Operator == MailFilterConditionOperator.Equals,
+            MailFilterConditionField.FromName
+                or MailFilterConditionField.Subject
+                or MailFilterConditionField.PreviewText => condition.Operator == MailFilterConditionOperator.Contains,
+            MailFilterConditionField.HasAttachments
+                or MailFilterConditionField.Importance => condition.Operator == MailFilterConditionOperator.Equals,
+            _ => false
+        };
+
+    private static MailFilter CopyLocalMetadata(MailFilter providerFilter, MailFilter source)
+    {
+        providerFilter.Id = source.Id;
+        providerFilter.MailAccountId = source.MailAccountId;
+        providerFilter.IsWinoCreated = source.IsWinoCreated;
+        providerFilter.IsReadOnly = source.IsWinoCreated ? false : providerFilter.IsReadOnly;
+        providerFilter.CreatedAtUtc = source.CreatedAtUtc;
+        return providerFilter;
+    }
+
+    private static void AddTextConditions(
+        MailFilter filter,
+        MailFilterConditionField field,
+        IEnumerable<string> values)
+    {
+        if (values == null)
+            return;
+
+        foreach (var value in values.Where(value => !string.IsNullOrWhiteSpace(value)))
+        {
+            filter.Conditions.Add(new MailFilterCondition
+            {
+                Field = field,
+                Operator = MailFilterConditionOperator.Contains,
+                Value = value
+            });
+        }
+    }
+
+    private static void AddAction(MailFilter filter, MailFilterActionType type, string targetRemoteFolderId = null)
+        => filter.Actions.Add(new MailFilterAction
+        {
+            Type = type,
+            TargetRemoteFolderId = targetRemoteFolderId
+        });
+
+    private static string BuildOutlookSummary(MessageRule rule)
+    {
+        var conditionCount = (rule.Conditions?.SubjectContains?.Count ?? 0)
+            + (rule.Conditions?.BodyContains?.Count ?? 0)
+            + (rule.Conditions?.SenderContains?.Count ?? 0)
+            + (rule.Conditions?.FromAddresses?.Count ?? 0)
+            + (rule.Conditions?.HasAttachments.HasValue == true ? 1 : 0)
+            + (rule.Conditions?.Importance.HasValue == true ? 1 : 0);
+        var actionCount = (rule.Actions?.MarkAsRead.HasValue == true ? 1 : 0)
+            + (!string.IsNullOrWhiteSpace(rule.Actions?.MoveToFolder) ? 1 : 0)
+            + (rule.Actions?.Delete == true ? 1 : 0)
+            + (rule.Actions?.PermanentDelete == true ? 1 : 0);
+        return string.Format(Translator.MailFilters_ProviderSummary, conditionCount, actionCount);
     }
 
     #endregion

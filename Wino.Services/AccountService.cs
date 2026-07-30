@@ -354,6 +354,17 @@ public class AccountService : BaseDatabaseService, IAccountService
         await Connection.Table<MailItemFolder>().DeleteAsync(a => a.MailAccountId == account.Id);
         await Connection.Table<AccountSignature>().DeleteAsync(a => a.MailAccountId == account.Id);
         await Connection.Table<MailAccountAlias>().DeleteAsync(a => a.AccountId == account.Id);
+        var filterIds = await Connection.Table<MailFilter>()
+            .Where(a => a.MailAccountId == account.Id)
+            .ToListAsync()
+            .ConfigureAwait(false);
+        foreach (var filter in filterIds)
+        {
+            await Connection.Table<MailFilterCondition>().DeleteAsync(a => a.MailFilterId == filter.Id).ConfigureAwait(false);
+            await Connection.Table<MailFilterAction>().DeleteAsync(a => a.MailFilterId == filter.Id).ConfigureAwait(false);
+            await Connection.Table<MailFilterExecution>().DeleteAsync(a => a.MailFilterId == filter.Id).ConfigureAwait(false);
+        }
+        await Connection.Table<MailFilter>().DeleteAsync(a => a.MailAccountId == account.Id).ConfigureAwait(false);
 
         // Account belongs to a merged inbox.
         // In case of there'll be a single account in the merged inbox, remove the merged inbox as well.

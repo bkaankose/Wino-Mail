@@ -21,6 +21,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Mail.Controls.Core;
+using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls;
@@ -32,6 +33,65 @@ public static class XamlHelpers
     private static CultureInfo AppDisplayCulture => CultureInfo.DefaultThreadCurrentUICulture ?? CultureInfo.CurrentUICulture;
     private static IPreferencesService? PreferencesService => WinoApplication.Current.Services.GetService<IPreferencesService>();
     private static IContactPictureFileService? ContactPictureFileService => WinoApplication.Current.Services.GetService<IContactPictureFileService>();
+
+    #region Mail Filter Editor
+
+    public static string GetFilterFieldGlyph(MailFilterConditionField field) => field switch
+    {
+        MailFilterConditionField.FromAddress => "\uE715",
+        MailFilterConditionField.FromName => "\uE77B",
+        MailFilterConditionField.Subject => "\uE8BD",
+        MailFilterConditionField.PreviewText => "\uE7C3",
+        MailFilterConditionField.HasAttachments => "\uE723",
+        MailFilterConditionField.Importance => "\uE8C9",
+        _ => "\uE71C"
+    };
+
+    public static string GetFilterActionGlyph(MailFilterActionType action) => action switch
+    {
+        MailFilterActionType.Move => "\uE8DE",
+        MailFilterActionType.Archive => "\uE7B8",
+        MailFilterActionType.SoftDelete => "\uE74D",
+        MailFilterActionType.HardDelete => "\uE74D",
+        MailFilterActionType.MarkRead => "\uE8C3",
+        MailFilterActionType.MarkUnread => "\uE715",
+        MailFilterActionType.SetFlag => "\uE7C1",
+        MailFilterActionType.ClearFlag => "\uE894",
+        MailFilterActionType.MoveToJunk => "\uE730",
+        MailFilterActionType.MarkAsNotJunk => "\uE8FB",
+        _ => "\uE945"
+    };
+
+    private static Brush GetThemeBrush(string key, string fallbackKey = "AccentFillColorDefaultBrush")
+    {
+        if (Application.Current.Resources.TryGetValue(key, out var resource) && resource is Brush brush)
+            return brush;
+
+        return Application.Current.Resources[fallbackKey] as Brush;
+    }
+
+    public static Brush GetFilterActionIconBackground(MailFilterActionType action) => GetThemeBrush(action switch
+    {
+        MailFilterActionType.MarkRead or MailFilterActionType.MarkAsNotJunk => "SystemFillColorSuccessBackgroundBrush",
+        MailFilterActionType.SetFlag or MailFilterActionType.ClearFlag => "SystemFillColorCautionBackgroundBrush",
+        MailFilterActionType.MoveToJunk or MailFilterActionType.SoftDelete or MailFilterActionType.HardDelete => "SystemFillColorCriticalBackgroundBrush",
+        _ => "SystemFillColorAttentionBackgroundBrush"
+    }, "SubtleFillColorSecondaryBrush");
+
+    public static Brush GetFilterActionIconForeground(MailFilterActionType action) => GetThemeBrush(action switch
+    {
+        MailFilterActionType.MarkRead or MailFilterActionType.MarkAsNotJunk => "SystemFillColorSuccessBrush",
+        MailFilterActionType.SetFlag or MailFilterActionType.ClearFlag => "SystemFillColorCautionBrush",
+        MailFilterActionType.MoveToJunk or MailFilterActionType.SoftDelete or MailFilterActionType.HardDelete => "SystemFillColorCriticalBrush",
+        _ => "SystemFillColorAttentionBrush"
+    });
+
+    public static Brush GetSelectionBorderBrush(bool isSelected)
+        => GetThemeBrush(isSelected ? "AccentFillColorDefaultBrush" : "CardStrokeColorDefaultBrush");
+
+    public static int GetManagementCardSpan(bool isProviderAvailable) => isProviderAvailable ? 1 : 2;
+
+    #endregion
 
     #region Converters
 

@@ -407,10 +407,88 @@ namespace Google.Apis.Gmail.v1
         {
             internal SettingsResource(HttpClient httpClient, object service)
             {
+                Filters = new FiltersResource(httpClient, service);
                 SendAs = new SendAsResource(httpClient, service);
             }
 
+            public FiltersResource Filters { get; }
+
             public SendAsResource SendAs { get; }
+
+            public sealed class FiltersResource
+            {
+                private readonly HttpClient _httpClient;
+                private readonly object _service;
+
+                internal FiltersResource(HttpClient httpClient, object service)
+                {
+                    _httpClient = httpClient;
+                    _service = service;
+                }
+
+                public ListRequest List(string userId) => new(_httpClient, _service, userId);
+
+                public GetRequest Get(string userId, string id) => new(_httpClient, _service, userId, id);
+
+                public CreateRequest Create(Filter body, string userId)
+                    => new(_httpClient, _service, body, userId);
+
+                public DeleteRequest Delete(string userId, string id)
+                    => new(_httpClient, _service, userId, id);
+
+                public sealed class ListRequest : GoogleApiRequest<ListFiltersResponse>
+                {
+                    internal ListRequest(HttpClient httpClient, object service, string userId)
+                        : base(
+                            httpClient,
+                            service,
+                            HttpMethod.Get,
+                            () => $"{BaseUri}/{GoogleUrl.Segment(userId)}/settings/filters",
+                            GoogleApiJsonContext.Default.ListFiltersResponse)
+                    {
+                    }
+                }
+
+                public sealed class GetRequest : GoogleApiRequest<Filter>
+                {
+                    internal GetRequest(HttpClient httpClient, object service, string userId, string id)
+                        : base(
+                            httpClient,
+                            service,
+                            HttpMethod.Get,
+                            () => $"{BaseUri}/{GoogleUrl.Segment(userId)}/settings/filters/{GoogleUrl.Segment(id)}",
+                            GoogleApiJsonContext.Default.Filter)
+                    {
+                    }
+                }
+
+                public sealed class CreateRequest : GoogleApiRequest<Filter>
+                {
+                    internal CreateRequest(HttpClient httpClient, object service, Filter body, string userId)
+                        : base(
+                            httpClient,
+                            service,
+                            HttpMethod.Post,
+                            () => $"{BaseUri}/{GoogleUrl.Segment(userId)}/settings/filters",
+                            GoogleApiJsonContext.Default.Filter,
+                            () => GoogleJsonContent.Create(body, GoogleApiJsonContext.Default.Filter))
+                    {
+                    }
+                }
+
+                public sealed class DeleteRequest : GoogleApiRequest<GoogleEmptyResponse>
+                {
+                    internal DeleteRequest(HttpClient httpClient, object service, string userId, string id)
+                        : base(
+                            httpClient,
+                            service,
+                            HttpMethod.Delete,
+                            () => $"{BaseUri}/{GoogleUrl.Segment(userId)}/settings/filters/{GoogleUrl.Segment(id)}",
+                            GoogleApiJsonContext.Default.GoogleEmptyResponse)
+                    {
+                    }
+                }
+            }
 
             public sealed class SendAsResource
             {

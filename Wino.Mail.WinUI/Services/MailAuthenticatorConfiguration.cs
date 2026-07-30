@@ -61,7 +61,8 @@ public class MailAuthenticatorConfiguration : IAuthenticatorConfig
             scopes.AddRange(new[]
             {
                 "https://mail.google.com/",
-                "https://www.googleapis.com/auth/gmail.labels"
+                "https://www.googleapis.com/auth/gmail.labels",
+                "https://www.googleapis.com/auth/gmail.settings.basic"
             });
         }
 

@@ -44,6 +44,7 @@ using Wino.Core.Requests.Mail;
 using Wino.Messaging.UI;
 using Wino.Services;
 using DriveFile = global::Google.Apis.Drive.v3.Data.File;
+using GmailFilter = global::Google.Apis.Gmail.v1.Data.Filter;
 using GoogleCalendarService = Wino.Core.Google.CalendarService;
 
 namespace Wino.Core.Synchronizers.Mail;
@@ -77,7 +78,7 @@ public partial class GmailSynchronizerJsonContext : JsonSerializerContext;
 /// - CreateMinimalMailCopyAsync: Extracts MailCopy fields from Gmail Metadata format
 /// - DownloadMissingMimeMessageAsync: Downloads raw MIME only when explicitly requested
 /// </summary>
-public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Event>
+public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Event>, IProviderMailFilterSynchronizer
 {
     public override uint BatchModificationSize => 1000;
 
@@ -99,6 +100,7 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
 
     private readonly IGmailChangeProcessor _gmailChangeProcessor;
     private readonly IGmailSynchronizerErrorHandlerFactory _gmailSynchronizerErrorHandlerFactory;
+    private readonly IMailFilterExecutor _mailFilterExecutor;
     private readonly ILogger _logger = Log.ForContext<GmailSynchronizer>();
 
     // Keeping a reference for quick access to the virtual archive folder.
@@ -108,12 +110,14 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
     public GmailSynchronizer(MailAccount account,
                              IGmailAuthenticator authenticator,
                              IGmailChangeProcessor gmailChangeProcessor,
-                             IGmailSynchronizerErrorHandlerFactory gmailSynchronizerErrorHandlerFactory)
+                             IGmailSynchronizerErrorHandlerFactory gmailSynchronizerErrorHandlerFactory,
+                             IMailFilterExecutor mailFilterExecutor = null)
         : this(
             account,
             gmailChangeProcessor,
             gmailSynchronizerErrorHandlerFactory,
-            new GmailClientMessageHandler(authenticator, account))
+            new GmailClientMessageHandler(authenticator, account),
+            mailFilterExecutor)
     {
     }
 
@@ -121,7 +125,8 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
         MailAccount account,
         IGmailChangeProcessor gmailChangeProcessor,
         IGmailSynchronizerErrorHandlerFactory gmailSynchronizerErrorHandlerFactory,
-        HttpMessageHandler googleMessageHandler) : base(account, WeakReferenceMessenger.Default)
+        HttpMessageHandler googleMessageHandler,
+        IMailFilterExecutor mailFilterExecutor = null) : base(account, WeakReferenceMessenger.Default)
     {
         _googleHttpClient = new HttpClient(googleMessageHandler, disposeHandler: true);
         _gmailService = new GmailService(_googleHttpClient);
@@ -131,6 +136,7 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
 
         _gmailChangeProcessor = gmailChangeProcessor;
         _gmailSynchronizerErrorHandlerFactory = gmailSynchronizerErrorHandlerFactory;
+        _mailFilterExecutor = mailFilterExecutor;
     }
 
     public override async Task<ProfileInformation> GetProfileInformationAsync()
@@ -255,6 +261,7 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
         _logger.Information("Internal mail synchronization started for {Name}", Account.Name);
 
         var downloadedMessageIds = new List<string>();
+        var shouldRunLocalFilters = false;
         var folderResults = new List<FolderSyncResult>();
 
         try
@@ -339,6 +346,10 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
                         _logger.Information("Full resync completed. Set history ID to {HistoryId}", profile.HistoryId.Value);
                     }
                 }
+                else
+                {
+                    shouldRunLocalFilters = true;
+                }
 
                 UpdateSyncProgress(0, 0, "Changes synchronized");
 
@@ -383,7 +394,11 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
         }
 
         // Get all unread new downloaded items for notifications
+        var suppressedIds = _mailFilterExecutor == null || !shouldRunLocalFilters
+            ? new HashSet<string>(StringComparer.Ordinal)
+            : await _mailFilterExecutor.ProcessNewMessagesAsync(Account.Id, downloadedMessageIds, cancellationToken).ConfigureAwait(false);
         var unreadNewItems = await _gmailChangeProcessor.GetDownloadedUnreadMailsAsync(Account.Id, downloadedMessageIds).ConfigureAwait(false);
+        unreadNewItems.RemoveAll(item => suppressedIds.Contains(item.Id));
 
         return MailSynchronizationResult.CompletedWithFolderResults(unreadNewItems, folderResults);
     }
@@ -477,7 +492,10 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
                         {
                             // Draft folder needs MIME during initial sync so compose can open immediately.
                             bool shouldDownloadRawMime = folder.SpecialFolderType == SpecialFolderType.Draft || folder.RemoteFolderId == ServiceConstants.DRAFT_LABEL_ID;
-                            await DownloadMessagesInBatchAsync(newMessageIds, downloadRawMime: shouldDownloadRawMime, cancellationToken).ConfigureAwait(false);
+                            await DownloadMessagesInBatchAsync(
+                                newMessageIds,
+                                downloadRawMime: shouldDownloadRawMime,
+                                cancellationToken: cancellationToken).ConfigureAwait(false);
 
                             foreach (var id in newMessageIds)
                             {
@@ -561,7 +579,11 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
                     {
                         // Deduplicate message IDs
                         var uniqueAddedIds = addedMessageIds.Distinct().ToList();
-                        await DownloadMessagesInBatchAsync(uniqueAddedIds, downloadRawMime: true, cancellationToken).ConfigureAwait(false);
+                        await DownloadMessagesInBatchAsync(
+                            uniqueAddedIds,
+                            downloadRawMime: true,
+                            suppressMatchingLocalFilters: true,
+                            cancellationToken).ConfigureAwait(false);
                         downloadedMessageIds.AddRange(uniqueAddedIds);
                     }
 
@@ -1723,7 +1745,11 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
     /// <param name="cancellationToken">Cancellation token</param>
     private async Task DownloadMessagesInBatchAsync(IEnumerable<string> messageIds, CancellationToken cancellationToken = default)
     {
-        await DownloadMessagesInBatchAsync(messageIds, downloadRawMime: false, cancellationToken).ConfigureAwait(false);
+        await DownloadMessagesInBatchAsync(
+            messageIds,
+            downloadRawMime: false,
+            suppressMatchingLocalFilters: false,
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -1733,7 +1759,11 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
     /// <param name="messageIds">List of Gmail message IDs to download</param>
     /// <param name="downloadRawMime">True to download Raw format with MIME, false for Metadata only</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    private async Task DownloadMessagesInBatchAsync(IEnumerable<string> messageIds, bool downloadRawMime, CancellationToken cancellationToken = default)
+    private async Task DownloadMessagesInBatchAsync(
+        IEnumerable<string> messageIds,
+        bool downloadRawMime,
+        bool suppressMatchingLocalFilters = false,
+        CancellationToken cancellationToken = default)
     {
         var messageIdList = messageIds.ToList();
         if (messageIdList.Count == 0) return;
@@ -1791,7 +1821,33 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
                     var packages = await CreateNewMailPackagesAsync(gmailMessage, null, cancellationToken).ConfigureAwait(false);
 
                     if (packages != null)
-                        pendingPackages.AddRange(packages);
+                    {
+                        var shouldSuppressUiChange = false;
+                        if (suppressMatchingLocalFilters && _mailFilterExecutor != null)
+                        {
+                            foreach (var package in packages)
+                            {
+                                if (await _mailFilterExecutor
+                                    .ShouldSuppressNewMessageAsync(
+                                        Account.Id,
+                                        package.AssignedRemoteFolderId,
+                                        package.Copy,
+                                        cancellationToken)
+                                    .ConfigureAwait(false))
+                                {
+                                    shouldSuppressUiChange = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        foreach (var package in packages)
+                        {
+                            pendingPackages.Add(shouldSuppressUiChange
+                                ? package with { SuppressUiChange = true }
+                                : package);
+                        }
+                    }
 
                     // Update sync identifier if available
                     if (gmailMessage.HistoryId.HasValue)
@@ -3290,4 +3346,306 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
 
         return timeZoneId;
     }
+
+    #region Provider mail filters
+
+    public async Task<IReadOnlyList<MailFilter>> GetProviderFiltersAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await _gmailService.Users.Settings.Filters.List("me")
+            .ExecuteAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return response?.Filter?
+            .Where(filter => filter != null)
+            .Select((filter, index) => ToMailFilter(filter, index))
+            .ToList() ?? [];
+    }
+
+    public async Task<MailFilter> CreateProviderFilterAsync(
+        MailFilter filter,
+        CancellationToken cancellationToken = default)
+    {
+        var created = await _gmailService.Users.Settings.Filters
+            .Create(ToGmailFilter(filter), "me")
+            .ExecuteAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return created == null
+            ? throw new InvalidOperationException("Gmail did not return the created filter.")
+            : CopyLocalMetadata(ToMailFilter(created, 0), filter);
+    }
+
+    public async Task<MailFilter> UpdateProviderFilterAsync(
+        MailFilter filter,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(filter.RemoteId))
+            throw new InvalidOperationException("The Gmail filter has no remote identifier.");
+
+        // Gmail has no update endpoint. Create the replacement first, delete the old
+        // filter second, and remove the replacement if the second operation fails.
+        var created = await _gmailService.Users.Settings.Filters
+            .Create(ToGmailFilter(filter), "me")
+            .ExecuteAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        if (created == null || string.IsNullOrWhiteSpace(created.Id))
+            throw new InvalidOperationException("Gmail did not return the replacement filter.");
+
+        try
+        {
+            await DeleteProviderFilterAsync(filter.RemoteId, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            try
+            {
+                await DeleteProviderFilterAsync(created.Id, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception rollbackException)
+            {
+                _logger.Error(
+                    rollbackException,
+                    "Failed to roll back replacement Gmail filter {FilterId} for account {AccountId}.",
+                    created.Id,
+                    Account.Id);
+            }
+
+            throw;
+        }
+
+        return CopyLocalMetadata(ToMailFilter(created, 0), filter);
+    }
+
+    public async Task DeleteProviderFilterAsync(string remoteId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(remoteId))
+            throw new ArgumentException("A remote Gmail filter identifier is required.", nameof(remoteId));
+
+        await _gmailService.Users.Settings.Filters.Delete("me", remoteId)
+            .ExecuteAsync(cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static MailFilter ToMailFilter(GmailFilter gmailFilter, int index)
+    {
+        var filter = new MailFilter
+        {
+            ManagementType = MailFilterManagementType.Provider,
+            RemoteId = gmailFilter.Id,
+            Name = $"Gmail filter {index + 1}",
+            IsEnabled = true,
+            Sequence = index,
+            IsReadOnly = true,
+            ProviderSummary = BuildGmailSummary(gmailFilter)
+        };
+
+        var criteria = gmailFilter.Criteria;
+        if (!string.IsNullOrWhiteSpace(criteria?.From))
+            AddGmailCondition(filter, MailFilterConditionField.FromAddress, criteria.From);
+        if (!string.IsNullOrWhiteSpace(criteria?.Subject))
+            AddGmailCondition(filter, MailFilterConditionField.Subject, criteria.Subject);
+        if (!string.IsNullOrWhiteSpace(criteria?.Query))
+            AddGmailCondition(filter, MailFilterConditionField.PreviewText, criteria.Query);
+        if (criteria?.HasAttachment is bool hasAttachment)
+        {
+            filter.Conditions.Add(new MailFilterCondition
+            {
+                Field = MailFilterConditionField.HasAttachments,
+                Operator = MailFilterConditionOperator.Equals,
+                Value = hasAttachment.ToString()
+            });
+        }
+
+        var addLabels = gmailFilter.Action?.AddLabelIds?.ToHashSet(StringComparer.OrdinalIgnoreCase)
+            ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var removeLabels = gmailFilter.Action?.RemoveLabelIds?.ToHashSet(StringComparer.OrdinalIgnoreCase)
+            ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (removeLabels.Contains("UNREAD"))
+            AddGmailAction(filter, MailFilterActionType.MarkRead);
+        else if (addLabels.Contains("UNREAD"))
+            AddGmailAction(filter, MailFilterActionType.MarkUnread);
+
+        if (addLabels.Contains("STARRED"))
+            AddGmailAction(filter, MailFilterActionType.SetFlag);
+        else if (removeLabels.Contains("STARRED"))
+            AddGmailAction(filter, MailFilterActionType.ClearFlag);
+
+        if (addLabels.Contains("TRASH"))
+            AddGmailAction(filter, MailFilterActionType.SoftDelete);
+        else if (addLabels.Contains("SPAM"))
+            AddGmailAction(filter, MailFilterActionType.MoveToJunk);
+        else if (removeLabels.Contains("SPAM"))
+            AddGmailAction(filter, MailFilterActionType.MarkAsNotJunk);
+        else if (removeLabels.Contains("INBOX"))
+        {
+            var targetLabel = addLabels.FirstOrDefault(label => !IsStateLabel(label));
+            AddGmailAction(
+                filter,
+                targetLabel == null ? MailFilterActionType.Archive : MailFilterActionType.Move,
+                targetLabel);
+        }
+
+        return filter;
+    }
+
+    private static GmailFilter ToGmailFilter(MailFilter filter)
+    {
+        if (filter.StopProcessing || filter.MatchMode != MailFilterMatchMode.All)
+            throw new NotSupportedException("Gmail filters do not support stop processing or match-any behavior.");
+
+        var criteria = new FilterCriteria();
+        var queryParts = new List<string>();
+        foreach (var condition in filter.Conditions.OrderBy(condition => condition.Order))
+        {
+            if (!IsGmailFilterConditionSupported(condition))
+            {
+                throw new NotSupportedException(
+                    $"{condition.Field} with {condition.Operator} is not supported by Gmail filters.");
+            }
+
+            switch (condition.Field)
+            {
+                case MailFilterConditionField.FromAddress:
+                    criteria.From = condition.Value;
+                    break;
+                case MailFilterConditionField.Subject:
+                    criteria.Subject = condition.Value;
+                    break;
+                case MailFilterConditionField.PreviewText:
+                    queryParts.Add(condition.Value);
+                    break;
+                case MailFilterConditionField.HasAttachments:
+                    criteria.HasAttachment = bool.TryParse(condition.Value, out var hasAttachment) && hasAttachment;
+                    break;
+                case MailFilterConditionField.Importance:
+                    queryParts.Add(string.Equals(condition.Value, "High", StringComparison.OrdinalIgnoreCase)
+                        ? "is:important"
+                        : "-is:important");
+                    break;
+                default:
+                    throw new NotSupportedException($"{condition.Field} is not supported by Gmail filters.");
+            }
+        }
+
+        if (queryParts.Count > 0)
+            criteria.Query = string.Join(" ", queryParts);
+
+        var addLabels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var removeLabels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var action in filter.Actions.OrderBy(action => action.Order))
+        {
+            switch (action.Type)
+            {
+                case MailFilterActionType.MarkRead:
+                    removeLabels.Add("UNREAD");
+                    break;
+                case MailFilterActionType.MarkUnread:
+                    addLabels.Add("UNREAD");
+                    break;
+                case MailFilterActionType.SetFlag:
+                    addLabels.Add("STARRED");
+                    break;
+                case MailFilterActionType.ClearFlag:
+                    removeLabels.Add("STARRED");
+                    break;
+                case MailFilterActionType.Move:
+                    removeLabels.Add("INBOX");
+                    addLabels.Add(action.TargetRemoteFolderId);
+                    break;
+                case MailFilterActionType.Archive:
+                    removeLabels.Add("INBOX");
+                    break;
+                case MailFilterActionType.MoveToJunk:
+                    removeLabels.Add("INBOX");
+                    addLabels.Add("SPAM");
+                    break;
+                case MailFilterActionType.MarkAsNotJunk:
+                    removeLabels.Add("SPAM");
+                    addLabels.Add("INBOX");
+                    break;
+                case MailFilterActionType.SoftDelete:
+                    removeLabels.Add("INBOX");
+                    addLabels.Add("TRASH");
+                    break;
+                default:
+                    throw new NotSupportedException($"{action.Type} is not supported by Gmail filters.");
+            }
+        }
+
+        return new GmailFilter
+        {
+            Criteria = criteria,
+            Action = new FilterAction
+            {
+                AddLabelIds = addLabels.Count == 0 ? null : addLabels.ToList(),
+                RemoveLabelIds = removeLabels.Count == 0 ? null : removeLabels.ToList()
+            }
+        };
+    }
+
+    private static MailFilter CopyLocalMetadata(MailFilter providerFilter, MailFilter source)
+    {
+        providerFilter.Id = source.Id;
+        providerFilter.MailAccountId = source.MailAccountId;
+        providerFilter.Name = source.Name;
+        providerFilter.IsWinoCreated = source.IsWinoCreated;
+        providerFilter.IsReadOnly = false;
+        providerFilter.CreatedAtUtc = source.CreatedAtUtc;
+        return providerFilter;
+    }
+
+    private static void AddGmailCondition(
+        MailFilter filter,
+        MailFilterConditionField field,
+        string value)
+        => filter.Conditions.Add(new MailFilterCondition
+        {
+            Field = field,
+            Operator = MailFilterConditionOperator.Contains,
+            Value = value
+        });
+
+    private static void AddGmailAction(
+        MailFilter filter,
+        MailFilterActionType type,
+        string targetRemoteFolderId = null)
+        => filter.Actions.Add(new MailFilterAction
+        {
+            Type = type,
+            TargetRemoteFolderId = targetRemoteFolderId
+        });
+
+    private static bool IsStateLabel(string label)
+        => label is "INBOX" or "UNREAD" or "STARRED" or "IMPORTANT" or "TRASH" or "SPAM";
+
+    private static bool IsGmailFilterConditionSupported(MailFilterCondition condition)
+        => condition.Field switch
+        {
+            MailFilterConditionField.FromAddress
+                or MailFilterConditionField.Subject
+                or MailFilterConditionField.PreviewText => condition.Operator == MailFilterConditionOperator.Contains,
+            MailFilterConditionField.HasAttachments
+                or MailFilterConditionField.Importance => condition.Operator == MailFilterConditionOperator.Equals,
+            _ => false
+        };
+
+    private static string BuildGmailSummary(GmailFilter filter)
+    {
+        var criteriaCount = new[]
+        {
+            filter.Criteria?.From,
+            filter.Criteria?.Subject,
+            filter.Criteria?.Query,
+            filter.Criteria?.NegatedQuery
+        }.Count(value => !string.IsNullOrWhiteSpace(value))
+            + (filter.Criteria?.HasAttachment.HasValue == true ? 1 : 0);
+        var actionCount = (filter.Action?.AddLabelIds?.Count ?? 0)
+            + (filter.Action?.RemoveLabelIds?.Count ?? 0)
+            + (!string.IsNullOrWhiteSpace(filter.Action?.Forward) ? 1 : 0);
+        return string.Format(Translator.MailFilters_ProviderSummary, criteriaCount, actionCount);
+    }
+
+    #endregion
 }

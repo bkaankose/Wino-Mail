@@ -10,4 +10,5 @@ public record NewMailItemPackage(
     MimeMessage Mime,
     string AssignedRemoteFolderId,
     IReadOnlyList<AccountContact> ExtractedContacts = null,
-    IReadOnlyList<string> CategoryNames = null);
+    IReadOnlyList<string> CategoryNames = null,
+    bool SuppressUiChange = false);

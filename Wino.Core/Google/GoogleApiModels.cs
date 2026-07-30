@@ -177,6 +177,51 @@ namespace Google.Apis.Gmail.v1.Data
         public IList<Label> Labels { get; set; }
     }
 
+    public sealed class Filter
+    {
+        public FilterAction Action { get; set; }
+
+        public FilterCriteria Criteria { get; set; }
+
+        public string Id { get; set; }
+    }
+
+    public sealed class FilterAction
+    {
+        public IList<string> AddLabelIds { get; set; }
+
+        public string Forward { get; set; }
+
+        public IList<string> RemoveLabelIds { get; set; }
+    }
+
+    public sealed class FilterCriteria
+    {
+        public bool? ExcludeChats { get; set; }
+
+        public string From { get; set; }
+
+        public bool? HasAttachment { get; set; }
+
+        public string NegatedQuery { get; set; }
+
+        public string Query { get; set; }
+
+        public long? Size { get; set; }
+
+        public string SizeComparison { get; set; }
+
+        public string Subject { get; set; }
+
+        public string To { get; set; }
+    }
+
+    public sealed class ListFiltersResponse
+    {
+        [JsonPropertyName("filter")]
+        public IList<Filter> Filter { get; set; }
+    }
+
     public sealed class ListMessagesResponse
     {
         public IList<Message> Messages { get; set; }

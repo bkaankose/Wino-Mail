@@ -70,6 +70,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
     private readonly ICalDavClient _calDavClient;
     private readonly IAutoDiscoveryService _autoDiscoveryService;
     private readonly ICalendarService _calendarService;
+    private readonly IMailFilterExecutor _mailFilterExecutor;
     private readonly SemaphoreSlim _calDavDiscoveryLock = new(1, 1);
     private Uri _cachedCalDavServiceUri;
     private bool _isCalDavDiscoveryAttempted;
@@ -84,7 +85,8 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                             IImapSynchronizerErrorHandlerFactory errorHandlerFactory,
                             ICalDavClient calDavClient,
                             IAutoDiscoveryService autoDiscoveryService,
-                            ICalendarService calendarService) : base(account, WeakReferenceMessenger.Default)
+                            ICalendarService calendarService,
+                            IMailFilterExecutor mailFilterExecutor = null) : base(account, WeakReferenceMessenger.Default)
     {
         _imapChangeProcessor = imapChangeProcessor;
         _applicationConfiguration = applicationConfiguration;
@@ -93,6 +95,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         _calDavClient = calDavClient;
         _autoDiscoveryService = autoDiscoveryService;
         _calendarService = calendarService;
+        _mailFilterExecutor = mailFilterExecutor;
 
         var poolOptions = ImapClientPoolOptions.CreateDefault(
             Account.ServerInformation,
@@ -703,6 +706,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
     protected override async Task<MailSynchronizationResult> SynchronizeMailsInternalAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
         var downloadedMessageIds = new List<string>();
+        var filterCandidateIds = new List<string>();
         var folderResults = new List<FolderSyncResult>();
 
         _logger.Information("Internal synchronization started for {Name}", Account.Name);
@@ -749,9 +753,16 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
                         try
                         {
+                            var wasPreviouslySynchronized = folder.LastSynchronizedDate.HasValue;
                             client = await _clientPool.GetClientAsync(linkedToken).ConfigureAwait(false);
                             var folderResult = await _unifiedSynchronizer
-                                .SynchronizeFolderAsync(client, folder, this, Account.ServerInformation?.IncomingServer, linkedToken)
+                                .SynchronizeFolderAsync(
+                                    client,
+                                    folder,
+                                    this,
+                                    Account.ServerInformation?.IncomingServer,
+                                    linkedToken,
+                                    suppressMatchingLocalFilters: wasPreviouslySynchronized)
                                 .ConfigureAwait(false);
 
                             List<string> folderDownloadedIds = null;
@@ -766,6 +777,8 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                                 if (folderDownloadedIds != null && folderDownloadedIds.Count > 0)
                                 {
                                     downloadedMessageIds.AddRange(folderDownloadedIds);
+                                    if (wasPreviouslySynchronized)
+                                        filterCandidateIds.AddRange(folderDownloadedIds);
                                 }
                             }
                         }
@@ -843,7 +856,11 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         // Get all unread new downloaded items and return in the result.
         // This is primarily used in notifications.
 
+        var suppressedIds = _mailFilterExecutor == null
+            ? new HashSet<string>(StringComparer.Ordinal)
+            : await _mailFilterExecutor.ProcessNewMessagesAsync(Account.Id, filterCandidateIds, cancellationToken).ConfigureAwait(false);
         var unreadNewItems = await _imapChangeProcessor.GetDownloadedUnreadMailsAsync(Account.Id, downloadedMessageIds).ConfigureAwait(false);
+        unreadNewItems.RemoveAll(item => suppressedIds.Contains(item.Id));
 
         return MailSynchronizationResult.CompletedWithFolderResults(unreadNewItems, folderResults);
     }

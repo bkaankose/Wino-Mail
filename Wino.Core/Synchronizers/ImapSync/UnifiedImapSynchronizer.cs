@@ -37,6 +37,7 @@ public class UnifiedImapSynchronizer
     private readonly IFolderService _folderService;
     private readonly IMailService _mailService;
     private readonly IImapSynchronizerErrorHandlerFactory _errorHandlerFactory;
+    private readonly IMailFilterExecutor _mailFilterExecutor;
 
     // Metadata-first synchronization flags: no full MIME body download.
     private readonly MessageSummaryItems _mailSynchronizationFlags =
@@ -57,11 +58,13 @@ public class UnifiedImapSynchronizer
     public UnifiedImapSynchronizer(
         IFolderService folderService,
         IMailService mailService,
-        IImapSynchronizerErrorHandlerFactory errorHandlerFactory)
+        IImapSynchronizerErrorHandlerFactory errorHandlerFactory,
+        IMailFilterExecutor mailFilterExecutor = null)
     {
         _folderService = folderService;
         _mailService = mailService;
         _errorHandlerFactory = errorHandlerFactory;
+        _mailFilterExecutor = mailFilterExecutor;
     }
 
     /// <summary>
@@ -96,7 +99,8 @@ public class UnifiedImapSynchronizer
         MailItemFolder folder,
         IImapSynchronizer synchronizer,
         string serverHost,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool suppressMatchingLocalFilters = false)
     {
         var strategy = DetermineSyncStrategy(client, serverHost);
         _logger.Debug("Using {Strategy} sync strategy for folder {FolderName}", strategy, folder.FolderName);
@@ -110,9 +114,9 @@ public class UnifiedImapSynchronizer
         {
             var downloadedIds = strategy switch
             {
-                ImapSyncStrategy.QResync => await SynchronizeWithQResyncAsync(client, folder, synchronizer, cancellationToken).ConfigureAwait(false),
-                ImapSyncStrategy.Condstore => await SynchronizeWithCondstoreAsync(client, folder, synchronizer, cancellationToken).ConfigureAwait(false),
-                _ => await SynchronizeWithUidDeltaAsync(client, folder, synchronizer, cancellationToken).ConfigureAwait(false)
+                ImapSyncStrategy.QResync => await SynchronizeWithQResyncAsync(client, folder, synchronizer, cancellationToken, suppressMatchingLocalFilters).ConfigureAwait(false),
+                ImapSyncStrategy.Condstore => await SynchronizeWithCondstoreAsync(client, folder, synchronizer, cancellationToken, suppressMatchingLocalFilters).ConfigureAwait(false),
+                _ => await SynchronizeWithUidDeltaAsync(client, folder, synchronizer, cancellationToken, suppressMatchingLocalFilters).ConfigureAwait(false)
             };
 
             bool highestModeSeqChanged = folder.HighestModeSeq != originalHighestModeSeq;
@@ -178,7 +182,8 @@ public class UnifiedImapSynchronizer
         MailItemFolder localFolder,
         IList<UniqueId> uids,
         IImapSynchronizer synchronizer,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool suppressMatchingLocalFilters = false)
     {
         if (uids == null || uids.Count == 0)
             return [];
@@ -215,7 +220,13 @@ public class UnifiedImapSynchronizer
                     .FetchAsync(new UniqueIdSet(newBatch.ToList(), SortOrder.Ascending), _mailSynchronizationFlags, cancellationToken)
                     .ConfigureAwait(false);
 
-                downloadedMessageIds.AddRange(await ProcessSummariesCoreAsync(synchronizer, localFolder, newSummaryBatch, existingByUid, cancellationToken).ConfigureAwait(false));
+                downloadedMessageIds.AddRange(await ProcessSummariesCoreAsync(
+                    synchronizer,
+                    localFolder,
+                    newSummaryBatch,
+                    existingByUid,
+                    cancellationToken,
+                    suppressMatchingLocalFilters).ConfigureAwait(false));
             }
         }
 
@@ -229,7 +240,8 @@ public class UnifiedImapSynchronizer
         IImapClient client,
         MailItemFolder folder,
         IImapSynchronizer synchronizer,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool suppressMatchingLocalFilters)
     {
         if (client is not WinoImapClient)
             throw new InvalidOperationException("QRESYNC requires WinoImapClient.");
@@ -316,7 +328,14 @@ public class UnifiedImapSynchronizer
                 }
             }
 
-            downloadedMessageIds = await DownloadMessagesByUidsAsync(client, remoteFolder, folder, newOrUnknownUids, synchronizer, cancellationToken).ConfigureAwait(false);
+            downloadedMessageIds = await DownloadMessagesByUidsAsync(
+                client,
+                remoteFolder,
+                folder,
+                newOrUnknownUids,
+                synchronizer,
+                cancellationToken,
+                suppressMatchingLocalFilters).ConfigureAwait(false);
 
             folder.HighestModeSeq = unchecked((long)remoteFolder.HighestModSeq);
 
@@ -349,7 +368,8 @@ public class UnifiedImapSynchronizer
         IImapClient client,
         MailItemFolder folder,
         IImapSynchronizer synchronizer,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool suppressMatchingLocalFilters)
     {
         var downloadedMessageIds = new List<string>();
         IMailFolder remoteFolder = null;
@@ -390,7 +410,14 @@ public class UnifiedImapSynchronizer
                     }
                 }
 
-                downloadedMessageIds = await DownloadMessagesByUidsAsync(client, remoteFolder, folder, changedUids, synchronizer, cancellationToken).ConfigureAwait(false);
+                downloadedMessageIds = await DownloadMessagesByUidsAsync(
+                    client,
+                    remoteFolder,
+                    folder,
+                    changedUids,
+                    synchronizer,
+                    cancellationToken,
+                    suppressMatchingLocalFilters).ConfigureAwait(false);
                 folder.HighestModeSeq = unchecked((long)remoteFolder.HighestModSeq);
             }
 
@@ -414,7 +441,8 @@ public class UnifiedImapSynchronizer
         IImapClient client,
         MailItemFolder folder,
         IImapSynchronizer synchronizer,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool suppressMatchingLocalFilters)
     {
         var downloadedMessageIds = new List<string>();
         IMailFolder remoteFolder = null;
@@ -442,7 +470,14 @@ public class UnifiedImapSynchronizer
                     .SearchAsync(SearchQuery.Uids(new UniqueIdRange(minUid, UniqueId.MaxValue)), cancellationToken)
                     .ConfigureAwait(false);
 
-                downloadedMessageIds = await DownloadMessagesByUidsAsync(client, remoteFolder, folder, deltaUids, synchronizer, cancellationToken).ConfigureAwait(false);
+                downloadedMessageIds = await DownloadMessagesByUidsAsync(
+                    client,
+                    remoteFolder,
+                    folder,
+                    deltaUids,
+                    synchronizer,
+                    cancellationToken,
+                    suppressMatchingLocalFilters).ConfigureAwait(false);
                 UpdateHighestKnownUid(folder, remoteFolder, deltaUids.Select(a => a.Id));
             }
 
@@ -509,14 +544,21 @@ public class UnifiedImapSynchronizer
         MailItemFolder localFolder,
         IList<IMessageSummary> summaries,
         CancellationToken cancellationToken)
-        => ProcessSummariesCoreAsync(synchronizer, localFolder, summaries, existingByUid: null, cancellationToken);
+        => ProcessSummariesCoreAsync(
+            synchronizer,
+            localFolder,
+            summaries,
+            existingByUid: null,
+            cancellationToken,
+            suppressMatchingLocalFilters: false);
 
     private async Task<List<string>> ProcessSummariesCoreAsync(
         IImapSynchronizer synchronizer,
         MailItemFolder localFolder,
         IList<IMessageSummary> summaries,
         IReadOnlyDictionary<uint, MailCopy> existingByUid,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool suppressMatchingLocalFilters)
     {
         var downloadedMessageIds = new List<string>();
 
@@ -566,7 +608,20 @@ public class UnifiedImapSynchronizer
                 if (package == null)
                     continue;
 
-                var inserted = await _mailService.CreateMailAsync(localFolder.MailAccountId, package).ConfigureAwait(false);
+                var shouldSuppressUiChange = suppressMatchingLocalFilters
+                    && _mailFilterExecutor != null
+                    && await _mailFilterExecutor
+                        .ShouldSuppressNewMessageAsync(
+                            localFolder.MailAccountId,
+                            package.AssignedRemoteFolderId,
+                            package.Copy,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                var packageToCreate = shouldSuppressUiChange
+                    ? package with { SuppressUiChange = true }
+                    : package;
+
+                var inserted = await _mailService.CreateMailAsync(localFolder.MailAccountId, packageToCreate).ConfigureAwait(false);
                 if (inserted)
                 {
                     downloadedMessageIds.Add(package.Copy.Id);

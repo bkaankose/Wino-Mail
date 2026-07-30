@@ -1045,7 +1045,12 @@ public class MailService : BaseDatabaseService, IMailService
         return mailCopy;
     }
 
-    private async Task RemoveOtherImapCopiesWithSameMessageIdAsync(MailAccount account, MailItemFolder assignedFolder, MailCopy mailCopy, bool hasFreshMime)
+    private async Task RemoveOtherImapCopiesWithSameMessageIdAsync(
+        MailAccount account,
+        MailItemFolder assignedFolder,
+        MailCopy mailCopy,
+        bool hasFreshMime,
+        bool reportUiChange)
     {
         if (account?.ProviderType != MailProviderType.IMAP4 || assignedFolder == null || mailCopy == null)
             return;
@@ -1088,7 +1093,8 @@ public class MailService : BaseDatabaseService, IMailService
                 removedMails.Add(removedMail);
         }
 
-        ReportRemovedMails(removedMails);
+        if (reportUiChange)
+            ReportRemovedMails(removedMails);
     }
 
     private async Task<List<MailCopy>> DeleteMailCopiesAsync(IReadOnlyList<MailCopy> mailCopies, bool preserveMimeFile, bool reportUiChange)
@@ -1621,7 +1627,7 @@ public class MailService : BaseDatabaseService, IMailService
         {
             var insertedMail = await InsertMailAsync(pendingInsert.MailCopy, reportUiChange: false).ConfigureAwait(false);
 
-            if (insertedMail != null)
+            if (insertedMail != null && !pendingInsert.Package.SuppressUiChange)
                 insertedMails.Add(insertedMail);
         }
 
@@ -1633,7 +1639,7 @@ public class MailService : BaseDatabaseService, IMailService
                 reportUiChange: false,
                 existingMailCopy: pendingUpdate.ExistingMailCopy).ConfigureAwait(false);
 
-            if (updatedMail != null)
+            if (updatedMail != null && !pendingUpdate.Package.SuppressUiChange)
                 updatedMails.Add(updatedMail);
         }
 
@@ -1688,7 +1694,12 @@ public class MailService : BaseDatabaseService, IMailService
         mailCopy.SenderContact = await GetSenderContactForAccountAsync(account, mailCopy.FromAddress).ConfigureAwait(false);
         mailCopy.FolderId = assignedFolder.Id;
 
-        await RemoveOtherImapCopiesWithSameMessageIdAsync(account, assignedFolder, mailCopy, mimeMessage != null).ConfigureAwait(false);
+        await RemoveOtherImapCopiesWithSameMessageIdAsync(
+            account,
+            assignedFolder,
+            mailCopy,
+            mimeMessage != null,
+            reportUiChange: !package.SuppressUiChange).ConfigureAwait(false);
 
         // Only save MIME files if they don't exists.
         // This is because 1 mail may have multiple copies in different folders.
@@ -1725,7 +1736,10 @@ public class MailService : BaseDatabaseService, IMailService
         {
             mailCopy.UniqueId = existingCopyItem.UniqueId;
 
-            await UpdateMailAsync(mailCopy, reportUiChange: true, existingMailCopy: existingCopyItem).ConfigureAwait(false);
+            await UpdateMailAsync(
+                mailCopy,
+                reportUiChange: !package.SuppressUiChange,
+                existingMailCopy: existingCopyItem).ConfigureAwait(false);
             await ReplaceMailCategoriesForPackageAsync(accountId, mailCopy, package).ConfigureAwait(false);
             await _sentMailReceiptService.TrackSentMailAsync(mailCopy, mimeMessage).ConfigureAwait(false);
             await _sentMailReceiptService.ProcessIncomingReceiptAsync(mailCopy, mimeMessage).ConfigureAwait(false);
@@ -1740,7 +1754,7 @@ public class MailService : BaseDatabaseService, IMailService
                 await DeleteMailAsync(accountId, mailCopy.Id).ConfigureAwait(false);
             }
 
-            await InsertMailAsync(mailCopy, reportUiChange: true).ConfigureAwait(false);
+            await InsertMailAsync(mailCopy, reportUiChange: !package.SuppressUiChange).ConfigureAwait(false);
             await ReplaceMailCategoriesForPackageAsync(accountId, mailCopy, package).ConfigureAwait(false);
             await _sentMailReceiptService.TrackSentMailAsync(mailCopy, mimeMessage).ConfigureAwait(false);
             await _sentMailReceiptService.ProcessIncomingReceiptAsync(mailCopy, mimeMessage).ConfigureAwait(false);

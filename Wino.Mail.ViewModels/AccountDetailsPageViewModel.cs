@@ -204,6 +204,10 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         => Messenger.Send(new BreadcrumbNavigationRequested(Translator.SettingsSignature_Title, WinoPage.SignatureManagementPage, Account.Id));
 
     [RelayCommand]
+    private void ManageMailFilters()
+        => Messenger.Send(new BreadcrumbNavigationRequested(Translator.MailFilters_Title, WinoPage.MailFiltersPage, Account.Id));
+
+    [RelayCommand]
     private void EditAliases()
         => Messenger.Send(new BreadcrumbNavigationRequested(Translator.SettingsManageAliases_Title, WinoPage.AliasManagementPage, Account.Id));
 

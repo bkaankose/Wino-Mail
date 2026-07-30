@@ -24,6 +24,7 @@ public static class ServicesContainerSetup
         services.AddTransient<ICalendarService, CalendarService>();
         services.AddTransient<IMailService, MailService>();
         services.AddTransient<IMailCategoryService, MailCategoryService>();
+        services.AddTransient<IMailFilterService, MailFilterService>();
         services.AddTransient<ISentMailReceiptService, SentMailReceiptService>();
         services.AddTransient<IFolderService, FolderService>();
         services.AddTransient<IAccountService, AccountService>();

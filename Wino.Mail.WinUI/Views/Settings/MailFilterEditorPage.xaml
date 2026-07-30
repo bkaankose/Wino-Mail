@@ -1,0 +1,523 @@
+<abstract:MailFilterEditorPageAbstract
+    x:Class="Wino.Views.Settings.MailFilterEditorPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:Wino.Mail.ViewModels"
+    mc:Ignorable="d">
+
+    <ScrollViewer>
+        <StackPanel MaxWidth="900" Spacing="{StaticResource SettingsCardSpacing}">
+
+            <!--  Filter name  -->
+            <controls:SettingsCard AutomationProperties.AutomationId="MailFilterEditorPageSettingsCard" Header="{x:Bind domain:Translator.MailFilterEditor_Name, Mode=OneTime}">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE8EC;" />
+                </controls:SettingsCard.HeaderIcon>
+                <TextBox
+                    MinWidth="280"
+                    AutomationProperties.AutomationId="MailFilterNameTextBox"
+                    PlaceholderText="{x:Bind domain:Translator.MailFilterEditor_NamePlaceholder, Mode=OneTime}"
+                    Text="{x:Bind ViewModel.FilterName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            </controls:SettingsCard>
+
+            <!--  Runs on  -->
+            <TextBlock
+                Margin="4,12,4,0"
+                Style="{StaticResource BodyStrongTextBlockStyle}"
+                Text="{x:Bind domain:Translator.MailFilterEditor_Management, Mode=OneTime}" />
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!--  Wino managed card  -->
+                <Border
+                    Grid.Column="0"
+                    Grid.ColumnSpan="{x:Bind helpers:XamlHelpers.GetManagementCardSpan(ViewModel.IsProviderAvailable), Mode=OneWay}"
+                    BorderBrush="{x:Bind helpers:XamlHelpers.GetSelectionBorderBrush(ViewModel.IsWinoManaged), Mode=OneWay}"
+                    BorderThickness="2"
+                    CornerRadius="{StaticResource ControlCornerRadius}">
+                    <Button
+                        Padding="14"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Top"
+                        AutomationProperties.AutomationId="MailFilterManagementWinoCard"
+                        AutomationProperties.Name="{x:Bind domain:Translator.MailFilterEditor_WinoManaged, Mode=OneTime}"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderThickness="0"
+                        Click="WinoManagementClicked"
+                        IsEnabled="{x:Bind ViewModel.CanChangeManagementType, Mode=OneWay}">
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border
+                                Width="40"
+                                Height="40"
+                                VerticalAlignment="Top"
+                                Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
+                                CornerRadius="{StaticResource ControlCornerRadius}">
+                                <FontIcon
+                                    FontSize="18"
+                                    Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                    Glyph="&#xE977;" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Spacing="2">
+                                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.MailFilterEditor_WinoManaged, Mode=OneTime}" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind domain:Translator.MailFilterEditor_WinoManagedDescription, Mode=OneTime}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <FontIcon
+                                Grid.Column="2"
+                                VerticalAlignment="Top"
+                                FontSize="14"
+                                Foreground="{ThemeResource AccentFillColorDefaultBrush}"
+                                Glyph="&#xE73E;"
+                                Visibility="{x:Bind ViewModel.IsWinoManaged, Mode=OneWay}" />
+                        </Grid>
+                    </Button>
+                </Border>
+
+                <!--  Provider managed card  -->
+                <Border
+                    Grid.Column="1"
+                    BorderBrush="{x:Bind helpers:XamlHelpers.GetSelectionBorderBrush(ViewModel.IsProviderSelected), Mode=OneWay}"
+                    BorderThickness="2"
+                    CornerRadius="{StaticResource ControlCornerRadius}"
+                    Visibility="{x:Bind ViewModel.IsProviderAvailable, Mode=OneWay}">
+                    <Button
+                        Padding="14"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Top"
+                        AutomationProperties.AutomationId="MailFilterManagementProviderCard"
+                        AutomationProperties.Name="{x:Bind domain:Translator.MailFilterEditor_ProviderManaged, Mode=OneTime}"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderThickness="0"
+                        Click="ProviderManagementClicked"
+                        IsEnabled="{x:Bind ViewModel.CanChangeManagementType, Mode=OneWay}">
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border
+                                Width="40"
+                                Height="40"
+                                VerticalAlignment="Top"
+                                Background="{ThemeResource SystemFillColorAttentionBackgroundBrush}"
+                                CornerRadius="{StaticResource ControlCornerRadius}">
+                                <FontIcon
+                                    FontSize="18"
+                                    Foreground="{ThemeResource SystemFillColorAttentionBrush}"
+                                    Glyph="&#xE753;" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Spacing="2">
+                                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.MailFilterEditor_ProviderManaged, Mode=OneTime}" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind domain:Translator.MailFilterEditor_ProviderManagedDescription, Mode=OneTime}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <FontIcon
+                                Grid.Column="2"
+                                VerticalAlignment="Top"
+                                FontSize="14"
+                                Foreground="{ThemeResource AccentFillColorDefaultBrush}"
+                                Glyph="&#xE73E;"
+                                Visibility="{x:Bind ViewModel.IsProviderSelected, Mode=OneWay}" />
+                        </Grid>
+                    </Button>
+                </Border>
+            </Grid>
+
+            <!--  Source folder (Wino managed only)  -->
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="MailFilterEditorPageSettingsCard3"
+                Header="{x:Bind domain:Translator.MailFilterEditor_SourceFolder, Mode=OneTime}"
+                Visibility="{x:Bind ViewModel.IsWinoManaged, Mode=OneWay}">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE8B7;" />
+                </controls:SettingsCard.HeaderIcon>
+                <ComboBox
+                    MinWidth="240"
+                    AutomationProperties.AutomationId="MailFilterSourceFolderComboBox"
+                    ItemsSource="{x:Bind ViewModel.Folders, Mode=OneWay}"
+                    SelectedItem="{x:Bind ViewModel.SelectedSourceFolder, Mode=TwoWay}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:MailFilterFolderOption">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon FontSize="14" Glyph="&#xE8B7;" />
+                                <TextBlock Text="{x:Bind DisplayName}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </controls:SettingsCard>
+
+            <!--  WHEN block  -->
+            <Border
+                Margin="0,12,0,0"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="{StaticResource OverlayCornerRadius}">
+                <StackPanel>
+                    <Grid
+                        Padding="16,10"
+                        Background="{ThemeResource SystemFillColorAttentionBackgroundBrush}"
+                        ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Border
+                            Padding="10,3"
+                            VerticalAlignment="Center"
+                            Background="{ThemeResource AccentFillColorDefaultBrush}"
+                            CornerRadius="10">
+                            <TextBlock
+                                FontSize="11"
+                                FontWeight="Bold"
+                                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                Text="{x:Bind domain:Translator.MailFilterEditor_WhenBadge, Mode=OneTime}" />
+                        </Border>
+                        <TextBlock
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource BodyStrongTextBlockStyle}"
+                            Text="{x:Bind domain:Translator.MailFilterEditor_WhenTitle, Mode=OneTime}" />
+                        <controls:Segmented
+                            Grid.Column="2"
+                            VerticalAlignment="Center"
+                            AutomationProperties.AutomationId="MailFilterMatchModeSegmented"
+                            SelectedIndex="{x:Bind ViewModel.SelectedMatchModeIndex, Mode=TwoWay}">
+                            <controls:SegmentedItem Content="{x:Bind domain:Translator.MailFilterEditor_MatchAll, Mode=OneTime}" />
+                            <controls:SegmentedItem Content="{x:Bind domain:Translator.MailFilterEditor_MatchAny, Mode=OneTime}" />
+                        </controls:Segmented>
+                    </Grid>
+
+                    <StackPanel Margin="16,14,16,16" Spacing="4">
+                        <ItemsControl HorizontalContentAlignment="Stretch" ItemsSource="{x:Bind ViewModel.Conditions, Mode=OneWay}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:MailFilterConditionEditorItem">
+                                    <StackPanel Margin="0,0,0,8" Spacing="4">
+                                        <TextBlock
+                                            Margin="44,0,0,0"
+                                            FontSize="11"
+                                            FontWeight="Bold"
+                                            Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                            Text="{x:Bind ConjunctionText, Mode=OneWay}"
+                                            Visibility="{x:Bind ShowConjunction, Mode=OneWay}" />
+                                        <Grid ColumnSpacing="8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border
+                                                Width="32"
+                                                Height="32"
+                                                VerticalAlignment="Center"
+                                                Background="{ThemeResource SystemFillColorAttentionBackgroundBrush}"
+                                                CornerRadius="{StaticResource ControlCornerRadius}">
+                                                <FontIcon
+                                                    FontSize="14"
+                                                    Foreground="{ThemeResource SystemFillColorAttentionBrush}"
+                                                    Glyph="{x:Bind helpers:XamlHelpers.GetFilterFieldGlyph(SelectedField.Value), Mode=OneWay}" />
+                                            </Border>
+                                            <ComboBox
+                                                Grid.Column="1"
+                                                MinWidth="170"
+                                                AutomationProperties.AutomationId="MailFilterEditorPageComboBox2"
+                                                ItemsSource="{x:Bind FieldOptions}"
+                                                SelectedItem="{x:Bind SelectedField, Mode=TwoWay}">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:MailFilterConditionFieldOption">
+                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                            <FontIcon FontSize="14" Glyph="{x:Bind helpers:XamlHelpers.GetFilterFieldGlyph(Value), Mode=OneTime}" />
+                                                            <TextBlock Text="{x:Bind DisplayName}" />
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                            <ComboBox
+                                                Grid.Column="2"
+                                                MinWidth="150"
+                                                AutomationProperties.AutomationId="MailFilterEditorPageComboBox3"
+                                                ItemsSource="{x:Bind AvailableOperators, Mode=OneWay}"
+                                                SelectedItem="{x:Bind SelectedOperator, Mode=TwoWay}">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:MailFilterConditionOperatorOption">
+                                                        <TextBlock Text="{x:Bind DisplayName}" />
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                            <Grid Grid.Column="3">
+                                                <TextBox
+                                                    AutomationProperties.AutomationId="MailFilterEditorPageTextBox"
+                                                    Text="{x:Bind Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                    Visibility="{x:Bind IsTextField, Mode=OneWay}" />
+                                                <ComboBox
+                                                    HorizontalAlignment="Stretch"
+                                                    AutomationProperties.AutomationId="MailFilterConditionChoiceComboBox"
+                                                    ItemsSource="{x:Bind ChoiceOptions, Mode=OneWay}"
+                                                    SelectedItem="{x:Bind SelectedChoice, Mode=TwoWay}"
+                                                    Visibility="{x:Bind IsChoiceField, Mode=OneWay}">
+                                                    <ComboBox.ItemTemplate>
+                                                        <DataTemplate x:DataType="vm:MailFilterValueChoiceOption">
+                                                            <TextBlock Text="{x:Bind DisplayName}" />
+                                                        </DataTemplate>
+                                                    </ComboBox.ItemTemplate>
+                                                </ComboBox>
+                                            </Grid>
+                                            <Button
+                                                Grid.Column="4"
+                                                AutomationProperties.AutomationId="MailFilterEditorPageButton"
+                                                AutomationProperties.Name="{x:Bind domain:Translator.MailFilterEditor_Remove, Mode=OneTime}"
+                                                Click="RemoveConditionClicked"
+                                                Tag="{x:Bind}">
+                                                <FontIcon FontSize="14" Glyph="&#xE74D;" />
+                                            </Button>
+                                        </Grid>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button
+                            HorizontalAlignment="Left"
+                            AutomationProperties.AutomationId="MailFilterEditorPageButton2"
+                            Click="AddConditionClicked">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon FontSize="12" Glyph="&#xE710;" />
+                                <TextBlock Text="{x:Bind domain:Translator.MailFilterEditor_AddCondition, Mode=OneTime}" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!--  THEN block  -->
+            <Border
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="{StaticResource OverlayCornerRadius}">
+                <StackPanel>
+                    <Grid
+                        Padding="16,10"
+                        Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
+                        ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border
+                            Padding="10,3"
+                            VerticalAlignment="Center"
+                            Background="{ThemeResource SystemFillColorSuccessBrush}"
+                            CornerRadius="10">
+                            <TextBlock
+                                FontSize="11"
+                                FontWeight="Bold"
+                                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                Text="{x:Bind domain:Translator.MailFilterEditor_ThenBadge, Mode=OneTime}" />
+                        </Border>
+                        <TextBlock
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource BodyStrongTextBlockStyle}"
+                            Text="{x:Bind domain:Translator.MailFilterEditor_ThenTitle, Mode=OneTime}" />
+                    </Grid>
+
+                    <StackPanel Margin="16,14,16,16" Spacing="4">
+                        <InfoBar
+                            Margin="0,0,0,8"
+                            AutomationProperties.AutomationId="MailFilterExclusiveActionInfoBar"
+                            IsClosable="False"
+                            IsOpen="{x:Bind ViewModel.IsWinoManaged, Mode=OneWay}"
+                            Message="{x:Bind domain:Translator.MailFilterEditor_ExclusiveActionDescription, Mode=OneTime}"
+                            Severity="Informational"
+                            Title="{x:Bind domain:Translator.MailFilterEditor_ExclusiveActionTitle, Mode=OneTime}" />
+                        <ItemsControl HorizontalContentAlignment="Stretch" ItemsSource="{x:Bind ViewModel.Actions, Mode=OneWay}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:MailFilterActionEditorItem">
+                                    <StackPanel Margin="0,0,0,8" Spacing="4">
+                                        <Grid ColumnSpacing="8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border
+                                                Width="32"
+                                                Height="32"
+                                                VerticalAlignment="Center"
+                                                Background="{x:Bind helpers:XamlHelpers.GetFilterActionIconBackground(SelectedAction.Value), Mode=OneWay}"
+                                                CornerRadius="{StaticResource ControlCornerRadius}">
+                                                <FontIcon
+                                                    FontSize="14"
+                                                    Foreground="{x:Bind helpers:XamlHelpers.GetFilterActionIconForeground(SelectedAction.Value), Mode=OneWay}"
+                                                    Glyph="{x:Bind helpers:XamlHelpers.GetFilterActionGlyph(SelectedAction.Value), Mode=OneWay}" />
+                                            </Border>
+                                            <ComboBox
+                                                Grid.Column="1"
+                                                MinWidth="200"
+                                                AutomationProperties.AutomationId="MailFilterEditorPageComboBox4"
+                                                ItemsSource="{x:Bind ActionOptions}"
+                                                SelectedItem="{x:Bind SelectedAction, Mode=TwoWay}">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:MailFilterActionOption">
+                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                            <FontIcon FontSize="14" Glyph="{x:Bind helpers:XamlHelpers.GetFilterActionGlyph(Value), Mode=OneTime}" />
+                                                            <TextBlock Text="{x:Bind DisplayName}" />
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                            <ComboBox
+                                                Grid.Column="2"
+                                                MinWidth="240"
+                                                HorizontalAlignment="Left"
+                                                AutomationProperties.AutomationId="MailFilterEditorPageComboBox5"
+                                                AutomationProperties.Name="{x:Bind domain:Translator.MailFilterEditor_TargetFolder, Mode=OneTime}"
+                                                ItemsSource="{x:Bind FolderOptions}"
+                                                SelectedItem="{x:Bind SelectedTargetFolder, Mode=TwoWay}"
+                                                Visibility="{x:Bind NeedsTargetFolder, Mode=OneWay}">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:MailFilterFolderOption">
+                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                            <FontIcon FontSize="14" Glyph="&#xE8B7;" />
+                                                            <TextBlock Text="{x:Bind DisplayName}" />
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                            <Button
+                                                Grid.Column="3"
+                                                AutomationProperties.AutomationId="MailFilterEditorPageButton3"
+                                                AutomationProperties.Name="{x:Bind domain:Translator.MailFilterEditor_Remove, Mode=OneTime}"
+                                                Click="RemoveActionClicked"
+                                                Tag="{x:Bind}">
+                                                <FontIcon FontSize="14" Glyph="&#xE74D;" />
+                                            </Button>
+                                        </Grid>
+                                        <StackPanel
+                                            Margin="40,0,0,0"
+                                            Orientation="Horizontal"
+                                            Spacing="6"
+                                            Visibility="{x:Bind IsDestructive, Mode=OneWay}">
+                                            <FontIcon
+                                                FontSize="12"
+                                                Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                                Glyph="&#xE7BA;" />
+                                            <TextBlock
+                                                Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                                Style="{StaticResource CaptionTextBlockStyle}"
+                                                Text="{x:Bind domain:Translator.MailFilterEditor_HardDeleteWarning, Mode=OneTime}"
+                                                TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button
+                            HorizontalAlignment="Left"
+                            AutomationProperties.AutomationId="MailFilterEditorPageButton4"
+                            Click="AddActionClicked"
+                            IsEnabled="{x:Bind ViewModel.CanAddAction, Mode=OneWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon FontSize="12" Glyph="&#xE710;" />
+                                <TextBlock Text="{x:Bind domain:Translator.MailFilterEditor_AddAction, Mode=OneTime}" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!--  Live summary  -->
+            <Border
+                Padding="14,12"
+                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                CornerRadius="{StaticResource ControlCornerRadius}">
+                <Grid ColumnSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <FontIcon
+                        VerticalAlignment="Top"
+                        FontSize="14"
+                        Foreground="{ThemeResource AccentFillColorDefaultBrush}"
+                        Glyph="&#xE946;" />
+                    <TextBlock
+                        Grid.Column="1"
+                        AutomationProperties.AutomationId="MailFilterSummaryText"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="{x:Bind ViewModel.Summary, Mode=OneWay}"
+                        TextWrapping="Wrap" />
+                </Grid>
+            </Border>
+
+            <!--  Options  -->
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="MailFilterEditorPageSettingsCard5"
+                Description="{x:Bind domain:Translator.MailFilterEditor_EnabledDescription, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.MailFilterEditor_Enabled, Mode=OneTime}">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE945;" />
+                </controls:SettingsCard.HeaderIcon>
+                <ToggleSwitch AutomationProperties.AutomationId="MailFilterEditorPageToggleSwitch" IsOn="{x:Bind ViewModel.IsEnabled, Mode=TwoWay}" />
+            </controls:SettingsCard>
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="MailFilterEditorPageSettingsCard6"
+                Description="{x:Bind domain:Translator.MailFilterEditor_StopProcessingDescription, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.MailFilterEditor_StopProcessing, Mode=OneTime}">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE71A;" />
+                </controls:SettingsCard.HeaderIcon>
+                <ToggleSwitch AutomationProperties.AutomationId="MailFilterEditorPageToggleSwitch2" IsOn="{x:Bind ViewModel.StopProcessing, Mode=TwoWay}" />
+            </controls:SettingsCard>
+
+            <!--  Footer  -->
+            <StackPanel
+                Margin="0,8,0,0"
+                HorizontalAlignment="Right"
+                Orientation="Horizontal"
+                Spacing="8">
+                <Button
+                    AutomationProperties.AutomationId="MailFilterCancelButton"
+                    Click="CancelClicked"
+                    Content="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}" />
+                <Button
+                    AutomationProperties.AutomationId="MailFilterSaveButton"
+                    Click="SaveClicked"
+                    Style="{StaticResource AccentButtonStyle}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon FontSize="14" Glyph="&#xE74E;" />
+                        <TextBlock Text="{x:Bind domain:Translator.MailFilterEditor_Save, Mode=OneTime}" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</abstract:MailFilterEditorPageAbstract>

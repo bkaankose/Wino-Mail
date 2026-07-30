@@ -27,6 +27,7 @@ public class SynchronizerFactory : ISynchronizerFactory
     private readonly IAutoDiscoveryService _autoDiscoveryService;
     private readonly ICalendarService _calendarService;
     private readonly IMailCategoryService _mailCategoryService;
+    private readonly IMailFilterExecutor _mailFilterExecutor;
 
     private readonly List<IWinoSynchronizerBase> synchronizerCache = new();
 
@@ -43,7 +44,8 @@ public class SynchronizerFactory : ISynchronizerFactory
                                ICalDavClient calDavClient,
                                IAutoDiscoveryService autoDiscoveryService,
                                ICalendarService calendarService,
-                               IMailCategoryService mailCategoryService)
+                               IMailCategoryService mailCategoryService,
+                               IMailFilterExecutor mailFilterExecutor)
     {
         _outlookChangeProcessor = outlookChangeProcessor;
         _gmailChangeProcessor = gmailChangeProcessor;
@@ -59,6 +61,7 @@ public class SynchronizerFactory : ISynchronizerFactory
         _autoDiscoveryService = autoDiscoveryService;
         _calendarService = calendarService;
         _mailCategoryService = mailCategoryService;
+        _mailFilterExecutor = mailFilterExecutor;
     }
 
     public async Task<IWinoSynchronizerBase> GetAccountSynchronizerAsync(Guid accountId)
@@ -89,12 +92,12 @@ public class SynchronizerFactory : ISynchronizerFactory
         {
             case Domain.Enums.MailProviderType.Outlook:
                 var outlookAuthenticator = _authenticationProvider.GetAuthenticator(Domain.Enums.MailProviderType.Outlook) as IOutlookAuthenticator;
-                return new OutlookSynchronizer(mailAccount, outlookAuthenticator, _outlookChangeProcessor, _outlookSynchronizerErrorHandlerFactory, _mailCategoryService);
+                return new OutlookSynchronizer(mailAccount, outlookAuthenticator, _outlookChangeProcessor, _outlookSynchronizerErrorHandlerFactory, _mailCategoryService, _mailFilterExecutor);
             case Domain.Enums.MailProviderType.Gmail:
                 var gmailAuthenticator = _authenticationProvider.GetAuthenticator(Domain.Enums.MailProviderType.Gmail) as IGmailAuthenticator;
-                return new GmailSynchronizer(mailAccount, gmailAuthenticator, _gmailChangeProcessor, _gmailSynchronizerErrorHandlerFactory);
+                return new GmailSynchronizer(mailAccount, gmailAuthenticator, _gmailChangeProcessor, _gmailSynchronizerErrorHandlerFactory, _mailFilterExecutor);
             case Domain.Enums.MailProviderType.IMAP4:
-                return new ImapSynchronizer(mailAccount, _imapChangeProcessor, _applicationConfiguration, _unifiedImapSynchronizer, _imapSynchronizerErrorHandlerFactory, _calDavClient, _autoDiscoveryService, _calendarService);
+                return new ImapSynchronizer(mailAccount, _imapChangeProcessor, _applicationConfiguration, _unifiedImapSynchronizer, _imapSynchronizerErrorHandlerFactory, _calDavClient, _autoDiscoveryService, _calendarService, _mailFilterExecutor);
             default:
                 break;
         }
