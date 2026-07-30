@@ -320,6 +320,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     public bool IsMailSelected(Guid uniqueId) => _selectedItemIds.Contains(uniqueId);
 
+    public Task CreateTestNotificationsAsync(IEnumerable<MailItemViewModel> mailItems)
+        => _notificationBuilder.CreateTestNotificationsAsync(mailItems.Select(static item => item.MailCopy));
+
     public void ApplyMailSelectionSnapshot(MailListSelectionSnapshot snapshot)
     {
         ArgumentNullException.ThrowIfNull(snapshot);

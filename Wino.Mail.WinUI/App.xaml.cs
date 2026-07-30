@@ -43,6 +43,7 @@ using Wino.Mail.WinUI.Models;
 using Wino.Mail.WinUI.Services;
 using Wino.Mail.WinUI.ViewModels;
 using Wino.Messaging.Client.Accounts;
+using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.Server;
@@ -1017,25 +1018,51 @@ public partial class App : WinoApplication,
             return;
         }
 
-        var message = new AccountMenuItemExtended(mailItem.AssignedFolder.Id, mailItem);
-
-        // Store navigation parameter in LaunchProtocolService so AppShell can pick it up.
-        var launchProtocolService = Services.GetRequiredService<ILaunchProtocolService>();
-        launchProtocolService.LaunchParameter = message;
-
         var shellWindowAlreadyExists = HasShellWindow();
+
+        if (!shellWindowAlreadyExists)
+        {
+            // A new shell consumes this while it is creating its initial mail navigation.
+            Services.GetRequiredService<ILaunchProtocolService>().LaunchParameter =
+                new AccountMenuItemExtended(mailItem.AssignedFolder.Id, mailItem);
+        }
 
         await EnsureShellWindowAsync(WinoApplicationMode.Mail, activateWindow: true);
 
-        if (shellWindowAlreadyExists)
+        if (!shellWindowAlreadyExists)
+            return;
+
+        await ExecuteOnActivationUiThreadAsync(async () =>
         {
-            await ExecuteOnActivationUiThreadAsync(() =>
+            var mailShellViewModel = Services.GetRequiredService<MailAppShellViewModel>();
+            var navigatedToFolder = false;
+
+            if (mailShellViewModel.MenuItems.TryGetFolderMenuItem(mailItem.AssignedFolder.Id, out IBaseFolderMenuItem folderMenuItem))
             {
-                WeakReferenceMessenger.Default.Send(message);
-                launchProtocolService.LaunchParameter = null;
-                return Task.CompletedTask;
-            });
-        }
+                await mailShellViewModel.NavigateFolderAsync(folderMenuItem);
+                navigatedToFolder = true;
+            }
+            else if (mailShellViewModel.MenuItems.TryGetAccountMenuItem(account.Id, out IAccountMenuItem accountMenuItem))
+            {
+                await mailShellViewModel.ChangeLoadedAccountAsync(accountMenuItem, navigateInbox: false);
+
+                if (mailShellViewModel.MenuItems.TryGetFolderMenuItem(mailItem.AssignedFolder.Id, out folderMenuItem))
+                {
+                    await mailShellViewModel.NavigateFolderAsync(folderMenuItem);
+                    navigatedToFolder = true;
+                }
+            }
+
+            if (!navigatedToFolder)
+            {
+                LogActivation($"Notification navigation folder was not found for mail {mailItemUniqueId}.");
+                return;
+            }
+
+            // NavigateFolderAsync completes only once MailListPage has initialized, so its
+            // recipient is ready for the selection request.
+            WeakReferenceMessenger.Default.Send(new MailItemNavigationRequested(mailItemUniqueId, ScrollToItem: true));
+        });
     }
 
     /// <summary>

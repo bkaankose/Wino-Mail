@@ -249,6 +249,14 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
             if (clickedAction == null) return;
 
+#if DEBUG
+            if (clickedAction.CreateTestNotification)
+            {
+                await ViewModel.CreateTestNotificationsAsync(targetItems);
+                return;
+            }
+#endif
+
             if (clickedAction.PinState.HasValue)
             {
                 await ViewModel.ChangePinnedStatusAsync(targetItems, clickedAction.PinState.Value);
@@ -362,6 +370,28 @@ public sealed partial class MailListPage : MailListPageAbstract,
             flyout.Items.Add(categorySubItem);
         }
 
+#if DEBUG
+        if (flyout.Items.LastOrDefault() is not MenuFlyoutSeparator)
+        {
+            flyout.Items.Add(new MenuFlyoutSeparator());
+        }
+
+        var testNotificationItem = new MenuFlyoutItem
+        {
+            Text = Translator.Buttons_TestNotification
+        };
+
+        MenuFlyoutLanguageHelper.Apply(testNotificationItem);
+
+        testNotificationItem.Click += (_, _) =>
+        {
+            source.TrySetResult(new MailContextAction(CreateTestNotification: true));
+            flyout.Hide();
+        };
+
+        flyout.Items.Add(testNotificationItem);
+#endif
+
         flyout.Closing += (_, _) => source.TrySetResult(null);
 
         flyout.ShowAt(showAtElement, new FlyoutShowOptions()
@@ -417,7 +447,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         categorySubItem.Items.Add(categoryItem);
     }
 
-    private sealed record MailContextAction(MailOperationMenuItem? Operation = null, MailCategory? Category = null, bool IsCategoryAssignedToAll = false, bool? PinState = null)
+    private sealed record MailContextAction(MailOperationMenuItem? Operation = null, MailCategory? Category = null, bool IsCategoryAssignedToAll = false, bool? PinState = null, bool CreateTestNotification = false)
     {
         public MailContextAction(MailCategory category, bool isCategoryAssignedToAll) : this((MailOperationMenuItem?)null, category, isCategoryAssignedToAll)
         {
