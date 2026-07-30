@@ -45,7 +45,7 @@
         <Setter Property="BorderBrush" Value="{ThemeResource CalendarViewBorderBrush}" />
         <Setter Property="DayItemFontFamily" Value="XamlAutoFontFamily" />
         <Setter Property="DayItemFontSize" Value="{ThemeResource CalendarViewDayItemFontSize}" />
-        <Setter Property="DayItemMargin" Value="{ThemeResource CalendarViewDayItemMargin}" />
+        <Setter Property="DayItemMargin" Value="0" />
         <Setter Property="CalendarItemCornerRadius" Value="8" />
         <Setter Property="FirstOfMonthLabelFontFamily" Value="XamlAutoFontFamily" />
         <Setter Property="FirstOfMonthLabelFontSize" Value="{ThemeResource CalendarViewFirstOfMonthLabelFontSize}" />
