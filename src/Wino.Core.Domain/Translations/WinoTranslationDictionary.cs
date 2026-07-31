@@ -52,6 +52,7 @@ public class WinoTranslationDictionary : Dictionary<string, string>
             AppLanguage.Dutch => "nl_NL",
             AppLanguage.Finnish => "fi_FI",
             AppLanguage.Galician => "gl_ES",
+            AppLanguage.Hebrew => "he_IL",
             AppLanguage.Japanese => "ja_JP",
             AppLanguage.Lithuanian => "lt_LT",
             AppLanguage.Slovak => "sk_SK",

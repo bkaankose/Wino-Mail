@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Linq;
 using FluentAssertions;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Translations;
@@ -21,6 +23,8 @@ public class TranslationServiceTests
     [InlineData("da-DK", AppLanguage.Danish)]
     [InlineData("fi-FI", AppLanguage.Finnish)]
     [InlineData("gl-ES", AppLanguage.Galician)]
+    [InlineData("he-IL", AppLanguage.Hebrew)]
+    [InlineData("he_IL", AppLanguage.Hebrew)]
     [InlineData("ja-JP", AppLanguage.Japanese)]
     [InlineData("lt-LT", AppLanguage.Lithuanian)]
     [InlineData("sk-SK", AppLanguage.Slovak)]
@@ -43,5 +47,14 @@ public class TranslationServiceTests
 
             stream.Should().NotBeNull($"the {language.Code} translation is listed as an app language");
         }
+    }
+
+    [Fact]
+    public void GetAvailableLanguages_HebrewCultureIsRightToLeft()
+    {
+        var service = new TranslationService(null, null);
+        var hebrew = service.GetAvailableLanguages().Single(language => language.Language == AppLanguage.Hebrew);
+
+        new CultureInfo(hebrew.Code).TextInfo.IsRightToLeft.Should().BeTrue();
     }
 }

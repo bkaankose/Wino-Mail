@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Folders;
 
 namespace Wino.Dialogs;
@@ -38,32 +39,32 @@ public sealed partial class MoveMailDialog : ContentDialog
 
     private void VerifySelection()
     {
-        if (SelectedFolder != null)
+        if (SelectedFolder is null)
         {
-            // Don't select non-move capable folders like Categories or More.
+            return;
+        }
 
-            if (!SelectedFolder.IsMoveTarget)
+        if (SelectedFolder.SpecialFolderType == SpecialFolderType.More)
+        {
+            if (FolderTreeView.ContainerFromItem(FolderTreeView.SelectedItem) is TreeViewItem container)
             {
-                // Warn users for only proper mail folders. Not ghost folders.
-                InvalidFolderBorder.Visibility = Visibility.Visible;
-                InvalidFolderText.Text = string.Format(Translator.MoveMailDialog_InvalidFolderMessage, SelectedFolder.FolderName);
-
-                if (FolderTreeView.SelectedItem != null)
-                {
-                    // Toggle the expansion for the selected container if available.
-                    // I don't like the expand arrow touch area. It's better this way.
-
-                    if (FolderTreeView.ContainerFromItem(FolderTreeView.SelectedItem) is Microsoft.UI.Xaml.Controls.TreeViewItem container)
-                    {
-                        container.IsExpanded = !container.IsExpanded;
-                    }
-                }
-                SelectedFolder = null!;
+                container.IsExpanded = !container.IsExpanded;
             }
-            else
-            {
-                Hide();
-            }
+
+            InvalidFolderBorder.Visibility = Visibility.Collapsed;
+            SelectedFolder = null!;
+            return;
+        }
+
+        if (!SelectedFolder.IsMoveTarget)
+        {
+            InvalidFolderBorder.Visibility = Visibility.Visible;
+            InvalidFolderText.Text = string.Format(Translator.MoveMailDialog_InvalidFolderMessage, SelectedFolder.FolderName);
+            SelectedFolder = null!;
+        }
+        else
+        {
+            Hide();
         }
     }
 

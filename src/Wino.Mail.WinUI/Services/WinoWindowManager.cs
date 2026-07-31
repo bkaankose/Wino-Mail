@@ -87,6 +87,14 @@ public partial class WinoWindowManager : IWinoWindowManager
         }
     }
 
+    public IReadOnlyList<WindowEx> GetWindows()
+    {
+        lock (_syncLock)
+        {
+            return _windows.Values.Distinct().ToList();
+        }
+    }
+
     public void ActivateWindow(WindowEx window)
     {
         if (!window.DispatcherQueue.HasThreadAccess)

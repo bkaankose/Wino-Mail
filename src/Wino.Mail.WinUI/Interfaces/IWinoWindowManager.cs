@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using WinUIEx;
 using Wino.Mail.WinUI.Models;
 
@@ -13,6 +14,7 @@ public interface IWinoWindowManager
     WindowEx CreateWindow(WinoWindowKind kind, Func<WindowEx> factory, string? name = null);
     WindowEx? GetWindow(WinoWindowKind kind, string? name = null);
     WindowEx? GetWindow(string name);
+    IReadOnlyList<WindowEx> GetWindows();
     void ActivateWindow(WindowEx window);
     bool ActivateWindow(WinoWindowKind kind, string? name = null);
     void HideWindow(WindowEx window);

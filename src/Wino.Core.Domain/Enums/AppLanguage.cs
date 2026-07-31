@@ -27,5 +27,6 @@ public enum AppLanguage
     Japanese,
     Lithuanian,
     Slovak,
-    Ukrainian
+    Ukrainian,
+    Hebrew
 }

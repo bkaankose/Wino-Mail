@@ -19,6 +19,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Translations;
 using Wino.Core.Services;
 using Wino.Mail.Controls.ContactPicture;
+using Wino.Mail.WinUI.Interfaces;
 using Wino.Messaging.Client.Shell;
 using Wino.Services;
 using WinUIEx;
@@ -38,6 +39,7 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
     public IThumbnailService ThumbnailService { get; }
     protected IDatabaseService DatabaseService { get; }
     protected ITranslationService TranslationService { get; }
+    private readonly IWinoWindowManager _windowManager;
 
     public static WindowEx? MainWindow { get; set; }
 
@@ -57,6 +59,8 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
         NewThemeService = Services.GetRequiredService<INewThemeService>();
         DatabaseService = Services.GetRequiredService<IDatabaseService>();
         TranslationService = Services.GetRequiredService<ITranslationService>();
+        _windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        _windowManager.ActiveWindowChanged += WindowManagerActiveWindowChanged;
         UnderlyingThemeService = Services.GetRequiredService<IUnderlyingThemeService>();
 
         // Make sure the paths are setup on app start.
@@ -122,12 +126,56 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
 
     public virtual void OnLanguageChanged(AppLanguageModel languageModel)
     {
+        if (languageModel == null)
+            return;
+
         var newCulture = new CultureInfo(languageModel.Code);
 
         ApplicationLanguages.PrimaryLanguageOverride = languageModel.Code;
 
         CultureInfo.DefaultThreadCurrentCulture = newCulture;
         CultureInfo.DefaultThreadCurrentUICulture = newCulture;
+
+        var flowDirection = newCulture.TextInfo.IsRightToLeft
+            ? FlowDirection.RightToLeft
+            : FlowDirection.LeftToRight;
+
+        foreach (var window in _windowManager.GetWindows())
+        {
+            ApplyFlowDirection(window, flowDirection);
+        }
+    }
+
+    private void WindowManagerActiveWindowChanged(object? sender, WindowEx? window)
+    {
+        var languageModel = TranslationService.CurrentLanguageModel;
+        if (window == null || languageModel == null)
+            return;
+
+        var culture = new CultureInfo(languageModel.Code);
+        ApplyFlowDirection(window, culture.TextInfo.IsRightToLeft
+            ? FlowDirection.RightToLeft
+            : FlowDirection.LeftToRight);
+    }
+
+    private static void ApplyFlowDirection(WindowEx window, FlowDirection flowDirection)
+    {
+        void ApplyToRoot()
+        {
+            if (window.Content is FrameworkElement rootElement)
+            {
+                rootElement.FlowDirection = flowDirection;
+            }
+        }
+
+        if (window.DispatcherQueue.HasThreadAccess)
+        {
+            ApplyToRoot();
+        }
+        else
+        {
+            window.DispatcherQueue.TryEnqueue(ApplyToRoot);
+        }
     }
 
     public void Receive(LanguageChanged message) => OnLanguageChanged(TranslationService.CurrentLanguageModel);
