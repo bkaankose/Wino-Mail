@@ -6,7 +6,7 @@ param(
     [string]$Platform = "x64",
 
     [string]$Configuration = "Debug",
-    [string]$ProjectPath = "Wino.Mail.WinUI\Wino.Mail.WinUI.csproj",
+    [string]$ProjectPath = "src\Wino.Mail.WinUI\Wino.Mail.WinUI.csproj",
     [string]$OutputRoot = "artifacts\winapp-smoke",
     [int]$TimeoutSeconds = 25,
     [switch]$Restore,

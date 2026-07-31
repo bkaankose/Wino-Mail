@@ -27,11 +27,21 @@ After cloning the repo, open **WinoMail.slnx** in Visual Studio 2022+ and set **
 For command-line builds, restore with the repo NuGet config and build the WinUI app for your target platform:
 
 ```bash
-dotnet restore Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config -p:Platform=x64 -p:RuntimeIdentifier=win-x64
-dotnet build Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false
+dotnet restore src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config -p:Platform=x64 -p:RuntimeIdentifier=win-x64
+dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false
 ```
 
 Supported build platforms are **x86**, **x64**, and **ARM64**.
+
+## Repository Layout
+
+- **src/**: Main application projects, including the WinUI app and shared libraries.
+- **tests/**: Automated test projects and the AOT smoke-test harness.
+- **controls/**: Reusable UI and editor controls, plus the single WinUI playground application used to develop them.
+- **docs/**: Project documentation.
+- **scripts/**: Build, validation, and developer automation scripts.
+
+Keep application code in **src** and reusable controls in **controls**. Use **controls\Wino.Mail.Controls.Playground** to develop and test a control without launching the full mail client.
 
 ## Project Architecture
 
@@ -111,21 +121,21 @@ sequenceDiagram
 
 **Wino.SourceGenerators**: Source generators used by the domain and UI projects, including generated translation helpers.
 
-**Wino.Core.Tests**, **Wino.Mail.ViewModels.Tests**, **Wino.Mail.Test.WinUI**: Automated test projects for core services, view models, and WinUI-specific behavior.
+**Wino.Core.Tests**, **Wino.Mail.ViewModels.Tests**, and **Wino.Mail.Controls.Tests**: Automated test projects for core services, view models, and reusable controls.
 
 ### Good to know
 
-- App data paths are initialized in **Wino.Mail.WinUI\WinoApplication.cs** and exposed through **ApplicationConfiguration**. The SQLite database file is **Wino200.db** under the publisher shared **WinoShared** folder. Local app storage is used for logs, MIME files, contact pictures, thumbnails, custom themes, calendar attachments, and temporary app data.
+- App data paths are initialized in **src\Wino.Mail.WinUI\WinoApplication.cs** and exposed through **ApplicationConfiguration**. The SQLite database file is **Wino200.db** under the publisher shared **WinoShared** folder. Local app storage is used for logs, MIME files, contact pictures, thumbnails, custom themes, calendar attachments, and temporary app data.
 - Mail and calendar now live inside the same WinUI application experience. Calendar is an app entry/mode backed by the same database and service layer, not a separate Wino Calendar application.
 - The database stores mail and calendar metadata, not full MIME content. Mail body MIME files are saved on demand under the local **Mime** folder, with **MailCopy.FileId** resolving to files through **MimeFileService**. Calendar ICS cache files live under the MIME storage root in **CalendarIcs**.
 - Project tries to follow MVVM pattern as much as possible. [MVVM Toolkit](https://learn.microsoft.com/en-us/dotnet/communitytoolkit/mvvm/) is used for observable properties, commands, and messaging. Prefer generated public partial properties and commands over manual boilerplate.
 - Project has event Pub-Sub on top of MVVM and it's widely used with [Messenger](https://learn.microsoft.com/en-us/dotnet/communitytoolkit/mvvm/messenger). Messenger handlers may run off the UI thread, so dispatch before updating UI-bound state or touching WinUI/WinRT APIs.
 - As a rule, I want to avoid introducing new libraries into the code as much as I can. Try to avoid it as long as you really really don't need it. This will help maintainability going forward.
-- Project has custom localization system built in to support changing the language at runtime. Add or change source strings only in **Wino.Core.Domain\Translations\en_US\resources.json**. **Translator** properties are generated during build by the source generator. Non-English resources are maintained with **scripts\translate_resources.py** and audited with **scripts\validate_resources.py**; do not hand-edit localized **resources.json** files.
+- Project has a custom localization system that supports changing the language at runtime. Add or change source strings in **src\Wino.Core.Domain\Translations\en_US\resources.json**, then use **scripts\translate_resources.py** to update localized resources and **scripts\validate_resources.py** to audit them. **Translator** properties are generated during build by the source generator. Translations are managed in this repository; no external translation service is used.
 - Cached user settings and exported/imported preferences are managed in **PreferencesService**.
 - Cached UI values at runtime, like whether the reader is opened or whether the navigation menu is opened, are managed in **StatePersistenceService**.
-- Rendering and composing mail is done with [WebView2](https://learn.microsoft.com/en-us/microsoft-edge/webview2/) through the reusable **Wino.Editor** project. Its HTML, CSS, and JavaScript are embedded in the library and loaded through a readiness-signaled bridge; **Wino.Mail.WinUI** should not carry a second editor asset bundle.
-- Dependency injection is configured from **Wino.Mail.WinUI\App.xaml.cs**. Core services are registered through **RegisterCoreServices()** in **Wino.Core\CoreContainerSetup.cs**, shared services through **RegisterSharedServices()** in **Wino.Services\ServicesContainerSetup.cs**, and view models through the WinUI app registration.
+- Rendering and composing mail is done with [WebView2](https://learn.microsoft.com/en-us/microsoft-edge/webview2/) through the reusable **controls\Wino.Editor** project. Its HTML, CSS, and JavaScript are embedded in the library and loaded through a readiness-signaled bridge; **src\Wino.Mail.WinUI** should not carry a second editor asset bundle.
+- Dependency injection is configured from **src\Wino.Mail.WinUI\App.xaml.cs**. Core services are registered through **RegisterCoreServices()** in **src\Wino.Core\CoreContainerSetup.cs**, shared services through **RegisterSharedServices()** in **src\Wino.Services\ServicesContainerSetup.cs**, and view models through the WinUI app registration.
 - x86, x64 and ARM64 are supported.
 
 ## How to work on

@@ -1,0 +1,48 @@
+<Page
+    x:Class="Wino.Mail.Controls.Playground.Pages.ContactPicturePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Wino.Mail.Controls.ContactPicture"
+    xmlns:local="using:Wino.Mail.Controls.Playground.Pages">
+    <Page.Resources>
+        <x:Double x:Key="AvatarSize">88</x:Double>
+    </Page.Resources>
+
+    <Grid Padding="32" RowSpacing="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Contact picture" />
+        <TextBlock Grid.Row="1"
+                   Style="{StaticResource BodyTextBlockStyle}"
+                   Text="Initials and colors are rendered locally. Remote image lookup is disabled in this demo." />
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="32">
+            <StackPanel Spacing="8">
+                <controls:WinoContactPicture Width="{StaticResource AvatarSize}"
+                                             Height="{StaticResource AvatarSize}"
+                                             ContactPicture="{x:Bind ViewModel.Ada}"
+                                             IsFaviconEnabled="False"
+                                             IsGravatarEnabled="False" />
+                <TextBlock Text="Ada Lovelace" HorizontalAlignment="Center" />
+            </StackPanel>
+            <StackPanel Spacing="8">
+                <controls:WinoContactPicture Width="{StaticResource AvatarSize}"
+                                             Height="{StaticResource AvatarSize}"
+                                             ContactPicture="{x:Bind ViewModel.Grace}"
+                                             IsFaviconEnabled="False"
+                                             IsGravatarEnabled="False" />
+                <TextBlock Text="Grace Hopper" HorizontalAlignment="Center" />
+            </StackPanel>
+            <StackPanel Spacing="8">
+                <controls:WinoContactPicture Width="{StaticResource AvatarSize}"
+                                             Height="{StaticResource AvatarSize}"
+                                             ContactPicture="{x:Bind ViewModel.NoAddress}"
+                                             IsFaviconEnabled="False"
+                                             IsGravatarEnabled="False" />
+                <TextBlock Text="No address" HorizontalAlignment="Center" />
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</Page>

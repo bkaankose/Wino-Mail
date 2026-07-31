@@ -1,5 +1,5 @@
 param(
-    [string]$Root = "Wino.Mail.WinUI"
+    [string]$Root = "src\Wino.Mail.WinUI"
 )
 
 $focusablePattern = '<\s*(Button|AppBarButton|AppBarToggleButton|ToggleButton|HyperlinkButton|SplitButton|ToggleSplitButton|ComboBox|TextBox|PasswordBox|CheckBox|RadioButton|ListView|GridView|TreeView|FlipView|PipsPager|MenuFlyoutItem)(?=[\s>/])[\s\S]*?>'

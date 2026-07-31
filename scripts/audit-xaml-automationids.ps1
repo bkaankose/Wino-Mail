@@ -1,5 +1,5 @@
 param(
-    [string]$Root = "Wino.Mail.WinUI",
+    [string]$Root = "src\Wino.Mail.WinUI",
     [switch]$Fix
 )
 

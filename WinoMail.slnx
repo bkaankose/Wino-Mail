@@ -12,87 +12,97 @@
     <File Path="Settings.XamlStyler" />
     <File Path="WinoFontIcomoon.json" />
   </Folder>
-  <Folder Name="/lib/">
-    <Project Path="Wino.Authentication/Wino.Authentication.csproj">
+  <Folder Name="/libs/">
+    <Project Path="src/Wino.Authentication/Wino.Authentication.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
-    <Project Path="Wino.Calendar.ViewModels/Wino.Calendar.ViewModels.csproj">
+    <Project Path="src/Wino.Calendar.ViewModels/Wino.Calendar.ViewModels.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
-    <Project Path="Wino.Core.Domain/Wino.Core.Domain.csproj">
-      <BuildDependency Project="Wino.SourceGenerators/Wino.SourceGenerators.csproj" />
+    <Project Path="src/Wino.Core.Domain/Wino.Core.Domain.csproj">
+      <BuildDependency Project="src/Wino.SourceGenerators/Wino.SourceGenerators.csproj" />
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
-    <Project Path="Wino.Core.ViewModels/Wino.Core.ViewModels.csproj">
+    <Project Path="src/Wino.Core.ViewModels/Wino.Core.ViewModels.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
-    <Project Path="Wino.Core/Wino.Core.csproj">
+    <Project Path="src/Wino.Core/Wino.Core.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
-    <Project Path="Wino.Editor/Wino.Editor.csproj">
+    <Project Path="src/Wino.Mail.ViewModels/Wino.Mail.ViewModels.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="src/Wino.Messages/Wino.Messaging.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="src/Wino.Services/Wino.Services.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="src/Wino.SourceGenerators/Wino.SourceGenerators.csproj" />
+  </Folder>
+  <Folder Name="/controls/">
+    <Project Path="controls/Wino.Editor/Wino.Editor.csproj">
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
       <Platform Solution="Debug|arm64" Project="x86" />
       <Platform Solution="Release|arm64" Project="arm64" />
     </Project>
-    <Project Path="Wino.Mail.ViewModels/Wino.Mail.ViewModels.csproj">
+    <Project Path="controls/Wino.Mail.Controls.Core/Wino.Mail.Controls.Core.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
-    <Project Path="Wino.Mail.Controls.Core/Wino.Mail.Controls.Core.csproj">
-      <Platform Solution="*|arm64" Project="arm64" />
+    <Project Path="controls/Wino.Mail.Controls.Playground/Wino.Mail.Controls.Playground.csproj">
+      <Platform Solution="*|arm64" Project="ARM64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
+      <Deploy />
     </Project>
-    <Project Path="Wino.Mail.Controls/Wino.Mail.Controls.csproj">
+    <Project Path="controls/Wino.Mail.Controls/Wino.Mail.Controls.csproj">
       <Platform Solution="*|arm64" Project="ARM64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
-    <Project Path="Wino.Messages/Wino.Messaging.csproj">
-      <Platform Solution="*|arm64" Project="arm64" />
-      <Platform Solution="*|x64" Project="x64" />
-      <Platform Solution="*|x86" Project="x86" />
-    </Project>
-    <Project Path="Wino.Services/Wino.Services.csproj">
-      <Platform Solution="*|arm64" Project="arm64" />
-      <Platform Solution="*|x64" Project="x64" />
-      <Platform Solution="*|x86" Project="x86" />
-    </Project>
-    <Project Path="Wino.SourceGenerators/Wino.SourceGenerators.csproj" />
   </Folder>
-  <Project Path="Wino.Core.Tests/Wino.Core.Tests.csproj">
-    <Platform Solution="*|arm64" Project="arm64" />
-    <Platform Solution="*|x64" Project="x64" />
-    <Platform Solution="*|x86" Project="x86" />
-  </Project>
-  <Project Path="Wino.Services.AotSmoke/Wino.Services.AotSmoke.csproj">
-    <Platform Solution="*|arm64" Project="arm64" />
-    <Platform Solution="*|x64" Project="x64" />
-    <Platform Solution="*|x86" Project="x86" />
-  </Project>
-  <Project Path="Wino.Mail.ViewModels.Tests/Wino.Mail.ViewModels.Tests.csproj">
-    <Platform Solution="*|arm64" Project="arm64" />
-    <Platform Solution="*|x64" Project="x64" />
-    <Platform Solution="*|x86" Project="x86" />
-  </Project>
-  <Project Path="Wino.Mail.Controls.Tests/Wino.Mail.Controls.Tests.csproj">
-    <Platform Solution="*|arm64" Project="arm64" />
-    <Platform Solution="*|x64" Project="x64" />
-    <Platform Solution="*|x86" Project="x86" />
-  </Project>
-  <Project Path="Wino.Mail.WinUI/Wino.Mail.WinUI.csproj" Id="bf340564-2cc8-486d-924d-8474cb5f3316">
+  <Folder Name="/tests/">
+    <Project Path="tests/Wino.Core.Tests/Wino.Core.Tests.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="tests/Wino.Mail.Controls.Tests/Wino.Mail.Controls.Tests.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="tests/Wino.Mail.ViewModels.Tests/Wino.Mail.ViewModels.Tests.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="tests/Wino.Services.AotSmoke/Wino.Services.AotSmoke.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+  </Folder>
+  <Project Path="src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj" Id="bf340564-2cc8-486d-924d-8474cb5f3316">
     <Platform Solution="*|arm64" Project="ARM64" />
     <Platform Solution="*|x64" Project="x64" />
     <Platform Solution="*|x86" Project="x86" />

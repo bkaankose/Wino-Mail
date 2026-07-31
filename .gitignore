@@ -185,9 +185,9 @@ publish/
 # Note: Comment the next line if you want to checkin your web deploy settings,
 # but database connection strings (with potential passwords) will be unencrypted
 *.pubxml
-!Wino.Mail.WinUI/Properties/PublishProfiles/win-x86.pubxml
-!Wino.Mail.WinUI/Properties/PublishProfiles/win-x64.pubxml
-!Wino.Mail.WinUI/Properties/PublishProfiles/win-arm64.pubxml
+!src/Wino.Mail.WinUI/Properties/PublishProfiles/win-x86.pubxml
+!src/Wino.Mail.WinUI/Properties/PublishProfiles/win-x64.pubxml
+!src/Wino.Mail.WinUI/Properties/PublishProfiles/win-arm64.pubxml
 *.publishproj
 
 # Microsoft Azure Web App publish settings. Comment the next line if you want to

@@ -42,8 +42,8 @@ Wino.Mail              → **Deprecated UWP project** (DO NOT EDIT)
 
 ### Dependency Injection Setup
 Services registered in extension methods across projects:
-- `RegisterCoreServices()` in Wino.Core/CoreContainerSetup.cs
-- `RegisterSharedServices()` in Wino.Services/ServicesContainerSetup.cs
+- `RegisterCoreServices()` in src/Wino.Core/CoreContainerSetup.cs
+- `RegisterSharedServices()` in src/Wino.Services/ServicesContainerSetup.cs
 - `RegisterCoreUWPServices()` in CoreUWPContainerSetup.cs
 - ViewModels registered in App.xaml.cs with AddTransient/AddSingleton
 
@@ -79,10 +79,10 @@ Services registered in extension methods across projects:
 ## Localization System
 
 ### Translation Workflow (Custom T4-based System)
-1. Add English strings ONLY to `Wino.Core.Domain/Translations/en_US/resources.json`
+1. Add English strings ONLY to `src/Wino.Core.Domain/Translations/en_US/resources.json`
 2. Build the project - source generators automatically create Translator properties
 3. Use `Translator.{PropertyName}` in ViewModels, XAML (with x:Bind, OneTime mode)
-4. **NEVER** edit other language files - Crowdin manages translations automatically
+4. Update other language files through the repository's translation workflow; they are not synchronized by an external service
 5. **NEVER** hardcode user-facing strings
 
 ### Usage Examples
@@ -112,7 +112,7 @@ _dialogService.InfoBarMessage(Translator.Info_MissingFolderTitle, message);
 ## WebView2 Mail Rendering
 
 ### Architecture
-- **reader.html** (Wino.Mail.WinUI/JS/) for reading mails
+- **reader.html** (components/Wino.Editor/Editor/) for reading mails
 - **editor.html** for composing mails (uses Jodit editor, not Quill as originally planned)
 - WebView2 uses virtual host mapping: `https://wino.mail/reader.html`
 - JavaScript interop via `ExecuteScriptFunctionAsync()` to call functions like `RenderHTML()`
@@ -127,17 +127,17 @@ _dialogService.InfoBarMessage(Translator.Info_MissingFolderTitle, message);
 ## File Structure and Project Organization
 
 ### Critical Rules
-- **NEVER** edit files in Wino.Mail (UWP) project - it's deprecated
-- **ALWAYS** work with Wino.Mail.WinUI for UI components
-- Place ViewModels in Wino.Mail.ViewModels (mail-specific) or Wino.Core.ViewModels (shared)
+- **ALWAYS** work with src/Wino.Mail.WinUI for application UI
+- Place reusable UI in components, with a playground app for rapid iteration
+- Place ViewModels in src/Wino.Mail.ViewModels (mail-specific) or src/Wino.Core.ViewModels (shared)
 - Create abstract base classes in Views/Abstract folders
-- Mail-specific dialog services go in Wino.Mail.WinUI/Services
+- Mail-specific dialog services go in src/Wino.Mail.WinUI/Services
 
 ### Database and Storage
 - SQLite database in publisher cache folder (not app local storage)
 - EML files stored in app local storage, referenced by MailCopy.FileId
 - Paths resolved via MimeFileService.GetMimeMessagePath()
-- Database entities in Wino.Core.Domain/Entities
+- Database entities in src/Wino.Core.Domain/Entities
 
 ## Error Handling and User Feedback
 

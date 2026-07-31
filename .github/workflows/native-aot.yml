@@ -28,7 +28,7 @@ jobs:
       - name: Restore x64 Native AOT projects
         shell: pwsh
         run: |
-          dotnet restore Wino.Mail.WinUI/Wino.Mail.WinUI.csproj `
+          dotnet restore src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj `
             --configfile $env:NUGET_CONFIG_PATH `
             -r win-x64 `
             -p:Platform=x64 `
@@ -36,7 +36,7 @@ jobs:
             -p:UseNativeAot=true
           if ($LASTEXITCODE -ne 0) { throw 'WinUI restore failed.' }
 
-          dotnet restore Wino.Services.AotSmoke/Wino.Services.AotSmoke.csproj `
+          dotnet restore tests/Wino.Services.AotSmoke/Wino.Services.AotSmoke.csproj `
             --configfile $env:NUGET_CONFIG_PATH `
             -r win-x64 `
             -p:Platform=x64
@@ -45,7 +45,7 @@ jobs:
       - name: Publish warning-clean Native AOT WinUI application
         shell: pwsh
         run: |
-          dotnet publish Wino.Mail.WinUI/Wino.Mail.WinUI.csproj `
+          dotnet publish src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj `
             --configuration Release `
             --no-restore `
             -r win-x64 `
@@ -58,13 +58,13 @@ jobs:
             /p:TrimmerSingleWarn=false
           if ($LASTEXITCODE -ne 0) { throw 'WinUI Native AOT publish failed.' }
 
-          $nativeExecutable = Get-ChildItem Wino.Mail.WinUI/bin/Release -Recurse -Filter Wino.Mail.WinUI.exe | Select-Object -First 1
+          $nativeExecutable = Get-ChildItem src/Wino.Mail.WinUI/bin/Release -Recurse -Filter Wino.Mail.WinUI.exe | Select-Object -First 1
           if (-not $nativeExecutable) { throw 'WinUI Native AOT executable was not generated.' }
 
       - name: Publish and run SQLite Native AOT smoke harness
         shell: pwsh
         run: |
-          dotnet publish Wino.Services.AotSmoke/Wino.Services.AotSmoke.csproj `
+          dotnet publish tests/Wino.Services.AotSmoke/Wino.Services.AotSmoke.csproj `
             --configuration Release `
             --no-restore `
             -r win-x64 `
@@ -73,5 +73,5 @@ jobs:
             /p:TrimmerSingleWarn=false
           if ($LASTEXITCODE -ne 0) { throw 'SQLite Native AOT publish failed.' }
 
-          & Wino.Services.AotSmoke/bin/x64/Release/net10.0/win-x64/publish/Wino.Services.AotSmoke.exe
+          & tests/Wino.Services.AotSmoke/bin/x64/Release/net10.0/win-x64/publish/Wino.Services.AotSmoke.exe
           if ($LASTEXITCODE -ne 0) { throw 'SQLite Native AOT smoke test failed.' }
