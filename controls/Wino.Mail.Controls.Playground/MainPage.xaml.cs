@@ -17,6 +17,7 @@ public sealed partial class MainPage : Page
         {
             "contact" => typeof(ContactPicturePage),
             "mailList" => typeof(MailListPage),
+            "editor" => typeof(EditorPage),
             _ => typeof(ContactPicturePage),
         };
 

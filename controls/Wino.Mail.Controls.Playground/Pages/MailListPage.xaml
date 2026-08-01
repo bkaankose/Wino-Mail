@@ -3,54 +3,54 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:automation="using:Microsoft.UI.Xaml.Automation"
+    xmlns:contact="using:Wino.Mail.Controls.ContactPicture"
     xmlns:controls="using:Wino.Mail.Controls.MailListView"
     xmlns:core="using:Wino.Mail.Controls.Core"
-    xmlns:local="using:Wino.Mail.Controls.Playground.Pages">
-    <Grid Padding="32" RowSpacing="20">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
-        <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Mail list" />
-        <TextBlock Grid.Row="1"
-                   Style="{StaticResource BodyTextBlockStyle}"
-                   Text="Select a row or expand a thread to inspect projection, threading, and selection behavior." />
-        <controls:WinoMailListView Grid.Row="2"
-                                   automation:AutomationProperties.Name="Mail list control demo"
-                                   MailItemsSource="{x:Bind ViewModel.Items}"
-                                   ProjectionOptions="{x:Bind ViewModel.ProjectionOptions}">
-            <controls:WinoMailListView.SingleItemTemplate>
-                <DataTemplate x:DataType="core:MailListRow">
-                    <Grid Padding="12,8" ColumnSpacing="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <FontIcon Glyph="&#xE8A5;" />
-                        <TextBlock Grid.Column="1" Text="{x:Bind SourceItem.NameSortKey}" />
-                    </Grid>
-                </DataTemplate>
-            </controls:WinoMailListView.SingleItemTemplate>
-            <controls:WinoMailListView.ThreadHeaderTemplate>
-                <DataTemplate x:DataType="core:MailListRow">
-                    <Grid Padding="12,8" ColumnSpacing="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <FontIcon Glyph="&#xE8B3;" />
-                        <TextBlock Grid.Column="1" FontWeight="SemiBold" Text="{x:Bind SourceItem.NameSortKey}" />
-                        <TextBlock Grid.Column="2" Text="{x:Bind Thread.Count}" />
-                    </Grid>
-                </DataTemplate>
-            </controls:WinoMailListView.ThreadHeaderTemplate>
-            <controls:WinoMailListView.ThreadChildTemplate>
-                <DataTemplate x:DataType="core:MailListRow">
-                    <TextBlock Margin="48,8,12,8" Opacity="0.72" Text="{x:Bind SourceItem.NameSortKey}" />
-                </DataTemplate>
-            </controls:WinoMailListView.ThreadChildTemplate>
-        </controls:WinoMailListView>
+    xmlns:models="using:Wino.Mail.Controls.Playground.Models">
+    <Page.Resources>
+        <DataTemplate x:Key="SingleTemplate" x:DataType="core:MailListRow">
+            <Grid Padding="12,9" ColumnSpacing="12">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                <contact:WinoContactPicture Width="36" Height="36" ContactPicture="{x:Bind models:MailListPlaygroundFormat.ContactPicture(SourceItem)}" IsFaviconEnabled="False" IsGravatarEnabled="False" />
+                <StackPanel Grid.Column="1" Spacing="2">
+                    <TextBlock FontWeight="SemiBold" Text="{x:Bind models:MailListPlaygroundFormat.Subject(SourceItem)}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Style="{ThemeResource CaptionTextBlockStyle}" Text="{x:Bind models:MailListPlaygroundFormat.Sender(SourceItem)}" />
+                    <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" MaxLines="1" Text="{x:Bind models:MailListPlaygroundFormat.Preview(SourceItem)}" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="ThreadHeaderTemplate" x:DataType="core:MailListRow">
+            <Grid Padding="12,9" ColumnSpacing="12">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                <contact:WinoContactPicture Width="36" Height="36" ContactPicture="{x:Bind models:MailListPlaygroundFormat.ContactPicture(SourceItem)}" IsFaviconEnabled="False" IsGravatarEnabled="False" />
+                <StackPanel Grid.Column="1" Spacing="2">
+                    <TextBlock FontWeight="SemiBold" Text="{x:Bind models:MailListPlaygroundFormat.Subject(SourceItem)}" />
+                    <TextBlock Style="{ThemeResource CaptionTextBlockStyle}" Text="{x:Bind models:MailListPlaygroundFormat.Sender(SourceItem)}" />
+                    <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" MaxLines="1" Text="{x:Bind models:MailListPlaygroundFormat.Preview(SourceItem)}" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <FontIcon Grid.Column="2" VerticalAlignment="Center" Glyph="&#xE70D;" />
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="ThreadChildTemplate" x:DataType="core:MailListRow">
+            <Grid Padding="32,7,12,7" ColumnSpacing="10">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                <contact:WinoContactPicture Width="28" Height="28" ContactPicture="{x:Bind models:MailListPlaygroundFormat.ContactPicture(SourceItem)}" IsFaviconEnabled="False" IsGravatarEnabled="False" />
+                <StackPanel Grid.Column="1" Spacing="1"><TextBlock FontWeight="SemiBold" Text="{x:Bind models:MailListPlaygroundFormat.Subject(SourceItem)}" /><TextBlock Style="{ThemeResource CaptionTextBlockStyle}" Text="{x:Bind models:MailListPlaygroundFormat.Sender(SourceItem)}" /></StackPanel>
+            </Grid>
+        </DataTemplate>
+    </Page.Resources>
+    <Grid Padding="24" RowSpacing="16">
+        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+        <StackPanel Spacing="3"><TextBlock Style="{ThemeResource TitleTextBlockStyle}" Text="Threaded mail selection lab" /><TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Virtualized rows, date grouping, and real extended selection. Use Ctrl or Shift to select more than one row." /></StackPanel>
+        <Grid Grid.Row="1" ColumnSpacing="20"><Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="560" /><ColumnDefinition Width="360" /></Grid.ColumnDefinitions>
+            <Border Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10"><Grid RowSpacing="8"><Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                <Grid Margin="16,8,8,0" ColumnSpacing="12"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><StackPanel><TextBlock FontWeight="SemiBold" Text="Inbox projection" /><TextBlock Style="{ThemeResource CaptionTextBlockStyle}" Text="Select a thread header to expand it; selected thread headers resolve to every message in that conversation." /></StackPanel><CommandBar Grid.Column="1" Background="Transparent"><AppBarButton x:Name="RemoveSelectedMailItemsButton" AutomationProperties.AutomationId="RemoveSelectedMailItemsButton" Click="RemoveSelectedMailItems_Click" Icon="Delete" IsEnabled="False" Label="Remove selected mails" /><AppBarButton x:Name="RemoveSelectedThreadsButton" AutomationProperties.AutomationId="RemoveSelectedThreadsButton" Click="RemoveSelectedThreads_Click" Icon="Clear" IsEnabled="False" Label="Remove selected threads" /></CommandBar></Grid>
+                <controls:WinoMailListView x:Name="MailList" Grid.Row="1" Margin="4,0,4,4" AutomationProperties.AutomationId="MailListSelectionControl" MailItemsSource="{x:Bind ViewModel.Items}" ProjectionOptions="{x:Bind ViewModel.ProjectionOptions}" SelectionMode="Extended" SelectionSnapshotChanged="OnSelectionSnapshotChanged" SingleItemTemplate="{StaticResource SingleTemplate}" ThreadChildTemplate="{StaticResource ThreadChildTemplate}" ThreadExpansionChanged="OnThreadExpansionChanged" ThreadHeaderTemplate="{StaticResource ThreadHeaderTemplate}" />
+            </Grid></Border>
+            <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled"><StackPanel Spacing="12">
+                <Border Padding="16" Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10"><StackPanel Spacing="12"><TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Add mail" /><StackPanel Orientation="Horizontal" Spacing="8"><Button Click="AddToMyThread_Click" Content="Add to MyThread1" /><Button Click="AddStandalone_Click" Content="Add standalone" /><Button Click="Reset_Click" Content="Reset" /></StackPanel><TextBox Header="Thread ID" Text="{x:Bind ViewModel.NewThreadId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" /><TextBox Header="Sender" Text="{x:Bind ViewModel.NewSender, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" /><TextBox Header="Sender address" Text="{x:Bind ViewModel.NewSenderAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" /><TextBox Header="Subject" Text="{x:Bind ViewModel.NewSubject, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" /><TextBox Header="Preview" Text="{x:Bind ViewModel.NewPreview, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" TextWrapping="Wrap" /><Button AutomationProperties.AutomationId="AddMailButton" Click="AddMail_Click" Content="Add mail" Style="{StaticResource AccentButtonStyle}" /></StackPanel></Border>
+                <Border Padding="16" Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10"><StackPanel Spacing="8"><TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Selection inspector" /><TextBlock FontWeight="SemiBold" Text="Native selected rows" /><ItemsControl ItemsSource="{x:Bind SelectedRows}" /><TextBlock FontWeight="SemiBold" Text="Resolved mail items" /><ItemsControl ItemsSource="{x:Bind SelectedMailItems}" /><TextBlock FontWeight="SemiBold" Text="Selected thread IDs" /><ItemsControl ItemsSource="{x:Bind SelectedThreads}" /><TextBlock FontWeight="SemiBold" Text="Expanded thread IDs" /><ItemsControl ItemsSource="{x:Bind ExpandedThreads}" /></StackPanel></Border>
+            </StackPanel></ScrollViewer>
+        </Grid>
     </Grid>
 </Page>

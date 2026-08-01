@@ -13,7 +13,16 @@
                     SelectionChanged="NavigationSelectionChanged">
         <NavigationView.MenuItems>
             <NavigationViewItem Content="Contact picture" Icon="Contact" Tag="contact" />
-            <NavigationViewItem Content="Mail list" Icon="Mail" Tag="mailList" />
+            <NavigationViewItem
+                AutomationProperties.AutomationId="MailListSelectionNavigationItem"
+                Content="Mail list selection"
+                Icon="Mail"
+                Tag="mailList" />
+            <NavigationViewItem
+                AutomationProperties.AutomationId="EditorNavigationItem"
+                Content="Compose editor"
+                Icon="Edit"
+                Tag="editor" />
         </NavigationView.MenuItems>
         <Frame x:Name="ContentFrame" />
     </NavigationView>
