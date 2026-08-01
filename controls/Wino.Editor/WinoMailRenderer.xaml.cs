@@ -412,6 +412,11 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer
         _loadedSource.TrySetResult(true);
         CancelPendingDisposal();
 
+        // Reparenting the reader into a pop-out window raises Unloaded before it
+        // raises Loaded again. Restore the WebView that Unloaded put into idle
+        // state so its already-rendered document becomes visible in the new host.
+        RestoreActiveBrowserState();
+
         // Keep initialization lazy. Hosts initialize explicitly when HTML is
         // actually needed; merely constructing or loading the control is cheap.
         if (_initializationTask is null) return;
@@ -422,10 +427,28 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer
 
     private async void WinoMailRenderer_Unloaded(object sender, RoutedEventArgs e)
     {
-        try { await EnterIdleAsync(); }
+        try { await EnterIdleAfterUnloadAsync(); }
         catch (Exception exception) when (exception is not ObjectDisposedException)
         {
             InitializationFailed?.Invoke(this, exception);
+        }
+    }
+
+    private async Task EnterIdleAfterUnloadAsync()
+    {
+        await _browserOperationGate.WaitAsync();
+        try
+        {
+            // Unloaded is asynchronous. A reader can already be loaded in a
+            // pop-out host by the time this continuation gets the operation
+            // gate, in which case it must remain visible.
+            if (_disposed || _initializationTask is null || IsLoaded) return;
+
+            EnterIdleCore();
+        }
+        finally
+        {
+            _browserOperationGate.Release();
         }
     }
 

@@ -27,11 +27,11 @@ public static class HostedContentPopoutCoordinator
             return false;
         }
 
+        // Mark the client before detaching it from its Frame. Detaching causes
+        // navigation lifecycle callbacks, and a hosted page must not dispose
+        // itself while it is being reparented into the pop-out window.
+        client.OnPopoutStateChanged(true);
         var detachedContent = source.DetachHostedContent();
-        if (detachedContent is IPopoutClient detachedClient)
-        {
-            detachedClient.OnPopoutStateChanged(true);
-        }
 
         HostedContentPopoutWindow? popoutWindow = null;
 

@@ -185,6 +185,11 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
+        // This page is moved, rather than discarded, when the reader is popped
+        // out. Retain its WebView2 and render delegates for the new window.
+        if (_isPoppedOut)
+            return;
+
         base.OnNavigatedFrom(e);
 
         // Disposing the page.
