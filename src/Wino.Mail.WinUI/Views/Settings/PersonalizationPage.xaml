@@ -194,6 +194,20 @@
                 Foreground="{ThemeResource InfoBarWarningSeverityIconBackground}"
                 Text="{x:Bind domain:Translator.SettingsElementThemeSelectionDisabled}" />
 
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="PersonalizationCompactAccountMenuSettingsCard"
+                Description="{x:Bind domain:Translator.SettingsCompactAccountMenuItem_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.SettingsCompactAccountMenuItem_Title, Mode=OneTime}">
+                <controls:SettingsCard.HeaderIcon>
+                    <SymbolIcon Symbol="List" />
+                </controls:SettingsCard.HeaderIcon>
+                <controls:SettingsCard.Content>
+                    <ToggleSwitch
+                        AutomationProperties.AutomationId="PersonalizationCompactAccountMenuToggleSwitch"
+                        IsOn="{x:Bind ViewModel.PreferencesService.IsCompactAccountMenuItemEnabled, Mode=TwoWay}" />
+                </controls:SettingsCard.Content>
+            </controls:SettingsCard>
+
             <!--  App Themes  -->
             <controls:SettingsExpander
                 AutomationProperties.AutomationId="PersonalizationPageSettingsExpander2"

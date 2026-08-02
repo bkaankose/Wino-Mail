@@ -130,7 +130,7 @@ public class ContextMenuItemService : IContextMenuItemService
         else if (!isDraftOrSent)
             operationList.Add(MailOperationMenuItem.Create(MailOperation.MoveToJunk));
 
-        // TODO: Focus folder support.
+        AddFocusedInboxActions(operationList, selectedItems);
 
         // Remove the separator if it's the last item remaining.
         // It's creating unpleasent UI glitch.
@@ -195,6 +195,44 @@ public class ContextMenuItemService : IContextMenuItemService
         else if (!mailItem.IsDraft && mailItem.AssignedFolder.SpecialFolderType != SpecialFolderType.Sent)
             actionList.Add(MailOperationMenuItem.Create(MailOperation.MoveToJunk, true, true));
 
+        if (IsOutlookInboxMail(mailItem))
+        {
+            var moveOperation = mailItem.IsFocused ? MailOperation.MoveToOther : MailOperation.MoveToFocused;
+            var alwaysMoveOperation = mailItem.IsFocused ? MailOperation.AlwaysMoveToOther : MailOperation.AlwaysMoveToFocused;
+
+            actionList.Add(MailOperationMenuItem.Create(moveOperation, true, true));
+            actionList.Add(MailOperationMenuItem.Create(alwaysMoveOperation, true, true));
+        }
+
         return actionList;
     }
+
+    private static void AddFocusedInboxActions(List<MailOperationMenuItem> operationList, IReadOnlyCollection<MailCopy> selectedItems)
+    {
+        if (selectedItems.Count == 0 || !selectedItems.All(IsOutlookInboxMail))
+            return;
+
+        operationList.Add(MailOperationMenuItem.Create(MailOperation.Seperator));
+
+        var allFocused = selectedItems.All(static item => item.IsFocused);
+        var allOther = selectedItems.All(static item => !item.IsFocused);
+
+        if (!allFocused)
+            operationList.Add(MailOperationMenuItem.Create(MailOperation.MoveToFocused));
+
+        if (!allOther)
+            operationList.Add(MailOperationMenuItem.Create(MailOperation.MoveToOther));
+
+        // An override is sender-specific, so expose the "Always" action only for one message.
+        if (selectedItems.Count == 1)
+        {
+            operationList.Add(MailOperationMenuItem.Create(
+                allFocused ? MailOperation.AlwaysMoveToOther : MailOperation.AlwaysMoveToFocused));
+        }
+    }
+
+    private static bool IsOutlookInboxMail(MailCopy mailItem)
+        => mailItem?.AssignedAccount?.ProviderType == MailProviderType.Outlook
+           && mailItem.AssignedFolder?.SpecialFolderType == SpecialFolderType.Inbox
+           && !mailItem.IsDraft;
 }

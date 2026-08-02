@@ -1774,8 +1774,22 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
     public override List<IRequestBundle<RequestInformation>> AlwaysMoveTo(BatchAlwaysMoveToRequest request)
     {
-        return ForEachRequest(request, (item) =>
+        List<IRequestBundle<RequestInformation>> bundles = [];
+
+        foreach (var item in request)
         {
+            // Microsoft Graph overrides affect future messages only. Patch the selected message as
+            // well so this operation matches Outlook's "Always move" behavior for the current mail.
+            var message = new Message
+            {
+                InferenceClassification = item.MoveToFocused
+                    ? InferenceClassificationType.Focused
+                    : InferenceClassificationType.Other
+            };
+
+            var messageRequest = _graphClient.Me.Messages[item.Item.Id].ToPatchRequestInformation(message);
+            bundles.Add(new HttpRequestBundle<RequestInformation>(messageRequest, item, item));
+
             var inferenceClassificationOverride = new InferenceClassificationOverride
             {
                 ClassifyAs = item.MoveToFocused ? InferenceClassificationType.Focused : InferenceClassificationType.Other,
@@ -1786,8 +1800,12 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                 }
             };
 
-            return _graphClient.Me.InferenceClassification.Overrides.ToPostRequestInformation(inferenceClassificationOverride);
-        });
+            var overrideRequest = _graphClient.Me.InferenceClassification.Overrides
+                .ToPostRequestInformation(inferenceClassificationOverride);
+            bundles.Add(new HttpRequestBundle<RequestInformation>(overrideRequest, item, item));
+        }
+
+        return bundles;
     }
 
     public override List<IRequestBundle<RequestInformation>> CreateDraft(CreateDraftRequest createDraftRequest)

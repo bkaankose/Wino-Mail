@@ -112,6 +112,12 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(MailItemDisplayMode), value);
     }
 
+    public bool IsCompactAccountMenuItemEnabled
+    {
+        get => _configurationService.Get(nameof(IsCompactAccountMenuItemEnabled), false);
+        set => SetPropertyAndSave(nameof(IsCompactAccountMenuItemEnabled), value);
+    }
+
     public bool IsHardDeleteProtectionEnabled
     {
         get => _configurationService.Get(nameof(IsHardDeleteProtectionEnabled), true);

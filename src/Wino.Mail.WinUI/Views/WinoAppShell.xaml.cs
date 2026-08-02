@@ -814,6 +814,20 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private void PreferencesServiceChanged(object? sender, string propertyName)
     {
+        if (propertyName == nameof(IPreferencesService.IsCompactAccountMenuItemEnabled))
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                if (!ViewModel.IsMailMode)
+                    return;
+
+                navigationView.MenuItemsSource = null;
+                RefreshNavigationViewBindings();
+            });
+
+            return;
+        }
+
         if (_activeMode == WinoApplicationMode.Calendar &&
             propertyName == nameof(IPreferencesService.FirstDayOfWeek))
         {

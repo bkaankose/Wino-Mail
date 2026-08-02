@@ -1,6 +1,7 @@
 using System.Collections;
 using FluentAssertions;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Services;
 using Xunit;
@@ -36,6 +37,44 @@ public sealed class ContextMenuItemServiceTests
         var actions = _service.GetMailItemContextMenuActions([]);
 
         actions.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(true, MailOperation.MoveToOther, MailOperation.AlwaysMoveToOther)]
+    [InlineData(false, MailOperation.MoveToFocused, MailOperation.AlwaysMoveToFocused)]
+    public void GetMailItemContextMenuActions_ForOutlookInbox_OffersFocusedInboxActions(
+        bool isFocused,
+        MailOperation moveOperation,
+        MailOperation alwaysMoveOperation)
+    {
+        var mail = CreateMail(isRead: true);
+        mail.IsFocused = isFocused;
+        mail.AssignedAccount = new MailAccount { ProviderType = MailProviderType.Outlook };
+
+        var operations = _service.GetMailItemContextMenuActions([mail])
+            .Select(action => action.Operation)
+            .ToList();
+
+        operations.Should().Contain(moveOperation);
+        operations.Should().Contain(alwaysMoveOperation);
+    }
+
+    [Theory]
+    [InlineData(MailProviderType.Gmail)]
+    [InlineData(MailProviderType.IMAP4)]
+    public void GetMailItemContextMenuActions_ForNonOutlookAccount_DoesNotOfferFocusedInboxActions(
+        MailProviderType providerType)
+    {
+        var mail = CreateMail(isRead: true);
+        mail.AssignedAccount = new MailAccount { ProviderType = providerType };
+
+        var operations = _service.GetMailItemContextMenuActions([mail])
+            .Select(action => action.Operation);
+
+        operations.Should().NotContain(MailOperation.MoveToFocused);
+        operations.Should().NotContain(MailOperation.MoveToOther);
+        operations.Should().NotContain(MailOperation.AlwaysMoveToFocused);
+        operations.Should().NotContain(MailOperation.AlwaysMoveToOther);
     }
 
     private static MailCopy CreateMail(bool isRead) =>

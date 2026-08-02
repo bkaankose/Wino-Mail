@@ -494,7 +494,8 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
         ParagraphStyles =
         [
             new("Normal", "p"), new("Heading 1", "h1"), new("Heading 2", "h2"),
-            new("Heading 3", "h3"), new("Quote", "blockquote"), new("Preformatted", "pre")
+            new("Heading 3", "h3"), new("Quote", "blockquote"), new("Preformatted", "pre"),
+            new("Code", "code")
         ],
         LineHeights = ["normal", "1", "1.15", "1.5", "2"],
         Alignments = Enum.GetValues<EditorTextAlignment>()

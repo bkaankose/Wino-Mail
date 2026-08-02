@@ -125,6 +125,86 @@
             </controls:AccountNavigationItem>
         </DataTemplate>
 
+        <!--  Compact account item: account name only, in a single-line layout.  -->
+        <DataTemplate x:Key="CompactClickableAccountMenuTemplate" x:DataType="menu:AccountMenuItem">
+            <controls:AccountNavigationItem
+                x:Name="AccountItem"
+                Height="40"
+                HorizontalContentAlignment="Stretch"
+                VerticalContentAlignment="Stretch"
+                AutomationProperties.Name="{x:Bind AccountName, Mode=OneWay}"
+                BindingData="{x:Bind}"
+                ContextRequested="AccountMenuItemContextRequested"
+                DataContext="{x:Bind}"
+                IsActiveAccount="{x:Bind IsSelected, Mode=OneWay}"
+                IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
+                SelectsOnInvoked="False"
+                Style="{StaticResource SingleAccountNavigationViewItemTemplate}">
+                <coreControls:WinoNavigationViewItem.ContentTransitions>
+                    <TransitionCollection>
+                        <EdgeUIThemeTransition Edge="Top" />
+                    </TransitionCollection>
+                </coreControls:WinoNavigationViewItem.ContentTransitions>
+                <muxc:NavigationViewItem.Icon>
+                    <coreControls:WinoFontIcon
+                        FontSize="12"
+                        Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(AccountColorHex), Mode=OneWay}"
+                        Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(Parameter)}" />
+                </muxc:NavigationViewItem.Icon>
+                <muxc:NavigationViewItem.InfoBadge>
+                    <muxc:InfoBadge
+                        Background="{ThemeResource SystemAccentColor}"
+                        Foreground="White"
+                        Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(UnreadItemCount), Mode=OneWay}"
+                        Value="{x:Bind UnreadItemCount, Mode=OneWay}" />
+                </muxc:NavigationViewItem.InfoBadge>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <Grid VerticalAlignment="Stretch">
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
+                            MaxLines="1"
+                            Style="{StaticResource BodyTextBlockStyle}"
+                            Text="{x:Bind AccountName, Mode=OneWay}"
+                            TextTrimming="CharacterEllipsis" />
+                        <ProgressBar
+                            Height="3"
+                            VerticalAlignment="Bottom"
+                            IsIndeterminate="{x:Bind IsProgressIndeterminate, Mode=OneWay}"
+                            ShowError="False"
+                            ShowPaused="False"
+                            Visibility="{x:Bind IsSynchronizationProgressVisible, Mode=OneWay}"
+                            Value="{x:Bind SynchronizationProgressValue, Mode=OneWay}" />
+                    </Grid>
+
+                    <Button
+                        Grid.Column="1"
+                        Width="28"
+                        Height="28"
+                        MinWidth="0"
+                        Padding="4"
+                        VerticalAlignment="Center"
+                        AutomationProperties.AutomationId="CompactAccountAttentionButton"
+                        AutomationProperties.Name="{x:Bind domain:Translator.Info_AccountAttentionRequiredAction, Mode=OneTime}"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource InfoBarWarningSeverityIconBackground}"
+                        BorderThickness="1"
+                        Click="AttentionIconClicked"
+                        Foreground="{ThemeResource InfoBarWarningSeverityIconBackground}"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.Info_AccountAttentionRequiredClickableMessage, Mode=OneTime}"
+                        Visibility="{x:Bind IsAttentionRequired, Mode=OneWay}">
+                        <SymbolIcon Symbol="Important" />
+                    </Button>
+                </Grid>
+            </controls:AccountNavigationItem>
+        </DataTemplate>
+
         <!--  Fix account issues.  -->
         <!--  Authentication  -->
         <DataTemplate x:Key="FixAuthenticationIssueTemplate" x:DataType="menu:FixAccountIssuesMenuItem">
@@ -489,6 +569,7 @@
             x:Key="NavigationMenuTemplateSelector"
             CategoryItemsTemplate="{StaticResource MailCategoryMenuTemplate}"
             ClickableAccountMenuTemplate="{StaticResource ClickableAccountMenuTemplate}"
+            CompactClickableAccountMenuTemplate="{StaticResource CompactClickableAccountMenuTemplate}"
             FixAuthenticationIssueTemplate="{StaticResource FixAuthenticationIssueTemplate}"
             FixMissingFolderConfigTemplate="{StaticResource FixMissingFolderConfig}"
             FolderMenuTemplate="{StaticResource FolderMenuTemplate}"

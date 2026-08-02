@@ -25,6 +25,8 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
     IRecipient<BackBreadcrumNavigationRequested>,
     IRecipient<SettingsRootNavigationRequested>,
     IRecipient<MergedInboxRenamed>,
+    IRecipient<AccountCreatedMessage>,
+    IRecipient<AccountRemovedMessage>,
     IRecipient<AccountUpdatedMessage>,
     ITitleBarSearchHost
 {
@@ -96,6 +98,8 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         WeakReferenceMessenger.Default.Register<BackBreadcrumNavigationRequested>(this);
         WeakReferenceMessenger.Default.Register<SettingsRootNavigationRequested>(this);
         WeakReferenceMessenger.Default.Register<MergedInboxRenamed>(this);
+        WeakReferenceMessenger.Default.Register<AccountCreatedMessage>(this);
+        WeakReferenceMessenger.Default.Register<AccountRemovedMessage>(this);
         WeakReferenceMessenger.Default.Register<AccountUpdatedMessage>(this);
     }
 
@@ -107,6 +111,8 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         WeakReferenceMessenger.Default.Unregister<BackBreadcrumNavigationRequested>(this);
         WeakReferenceMessenger.Default.Unregister<SettingsRootNavigationRequested>(this);
         WeakReferenceMessenger.Default.Unregister<MergedInboxRenamed>(this);
+        WeakReferenceMessenger.Default.Unregister<AccountCreatedMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<AccountRemovedMessage>(this);
         WeakReferenceMessenger.Default.Unregister<AccountUpdatedMessage>(this);
     }
 
@@ -178,6 +184,15 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
             _ = RefreshCurrentPageStateAsync();
             UpdateWindowTitle();
         });
+    }
+
+    public void Receive(AccountCreatedMessage message) => RefreshAfterAccountCollectionChanged();
+
+    public void Receive(AccountRemovedMessage message) => RefreshAfterAccountCollectionChanged();
+
+    private void RefreshAfterAccountCollectionChanged()
+    {
+        DispatcherQueue.TryEnqueue(() => _ = RefreshCurrentPageStateAsync());
     }
 
     public void Receive(MergedInboxRenamed message)
@@ -314,9 +329,10 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
     private async Task RefreshCurrentPageStateAsync()
     {
-        var activePage = PageHistory.LastOrDefault()?.Request.PageType ?? WinoPage.SettingOptionsPage;
+        var activeEntry = PageHistory.LastOrDefault();
+        var activePage = activeEntry?.Request.PageType ?? WinoPage.SettingOptionsPage;
         var rootPage = SettingsNavigationInfoProvider.GetRootPage(activePage);
-        await ViewModel.UpdateActivePageAsync(rootPage);
+        await ViewModel.UpdateActivePageAsync(activePage, activeEntry?.Request.Parameter, activeEntry?.Title);
         WeakReferenceMessenger.Default.Send(new ActiveSettingsPageChanged(rootPage));
     }
 

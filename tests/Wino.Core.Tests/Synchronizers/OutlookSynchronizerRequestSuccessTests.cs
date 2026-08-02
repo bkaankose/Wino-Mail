@@ -63,6 +63,40 @@ public sealed class OutlookSynchronizerRequestSuccessTests
         changeProcessor.Verify(x => x.ChangeFlagStatusAsync("mail-id", true), Times.Once);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void MoveToFocused_CreatesMessagePatchRequest(bool moveToFocused)
+    {
+        var synchronizer = CreateSynchronizer(Mock.Of<IOutlookChangeProcessor>());
+        var request = new MoveToFocusedRequest(CreateMailCopy(), moveToFocused);
+
+        var bundles = synchronizer.MoveToFocused(new BatchMoveToFocusedRequest([request]));
+
+        bundles.Should().ContainSingle();
+        bundles[0].NativeRequest.HttpMethod.Should().Be(Method.PATCH);
+        bundles[0].Request.Should().BeSameAs(request);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void AlwaysMoveTo_CreatesCurrentMessagePatchAndFutureSenderOverride(bool moveToFocused)
+    {
+        var synchronizer = CreateSynchronizer(Mock.Of<IOutlookChangeProcessor>());
+        var mail = CreateMailCopy();
+        mail.FromName = "Sender";
+        mail.FromAddress = "sender@example.com";
+        var request = new AlwaysMoveToRequest(mail, moveToFocused);
+
+        var bundles = synchronizer.AlwaysMoveTo(new BatchAlwaysMoveToRequest([request]));
+
+        bundles.Should().HaveCount(2);
+        bundles.Select(bundle => bundle.NativeRequest.HttpMethod)
+            .Should().ContainInOrder(Method.PATCH, Method.POST);
+        bundles.Should().OnlyContain(bundle => ReferenceEquals(bundle.Request, request));
+    }
+
     [Fact]
     public async Task HandleSuccessfulResponseAsync_CreateCalendarEvent_PersistsEveryLocalReminder()
     {

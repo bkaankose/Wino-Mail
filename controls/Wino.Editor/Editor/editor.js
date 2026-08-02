@@ -10,6 +10,20 @@
     let darkMode = false;
     let spellCheck = true;
     let displayedLink = null;
+    const codeBlockClass = "wino-code-block";
+    const codeBlockStyles = {
+        margin: "0.5em 0",
+        padding: "10px 12px",
+        border: "1px solid #d6d6d6",
+        borderRadius: "4px",
+        color: "#1f1f1f",
+        backgroundColor: "#f5f5f5",
+        fontFamily: 'Consolas, "Courier New", monospace',
+        fontSize: "0.95em",
+        lineHeight: "1.45",
+        whiteSpace: "pre-wrap",
+        overflowWrap: "anywhere"
+    };
     const linkBubble = document.createElement("button");
     linkBubble.type = "button";
     linkBubble.className = "wino-link-bubble";
@@ -146,6 +160,12 @@
         return (computedValue || value).replace(/^['\"]|['\"]$/g, "");
     }
 
+    function paragraphStyle(node) {
+        const block = node && node.closest("p,h1,h2,h3,h4,h5,h6,pre,blockquote");
+        if (!block) return "p";
+        return block.classList.contains(codeBlockClass) ? "code" : block.tagName.toLowerCase();
+    }
+
     function selectionState() {
         const node = currentNode();
         const selection = window.getSelection();
@@ -170,7 +190,7 @@
             ,hasSelection: Boolean(selection && !selection.isCollapsed)
             ,selectedText: selection ? selection.toString() : ""
             ,fontSize: computed ? parseInt(computed.fontSize, 10) || null : null
-            ,paragraphStyle: node && node.closest("p,h1,h2,h3,h4,h5,h6,pre,blockquote") ? node.closest("p,h1,h2,h3,h4,h5,h6,pre,blockquote").tagName.toLowerCase() : "p"
+            ,paragraphStyle: paragraphStyle(node)
             ,highlightColor: selectionColor("background-color", "bgcolor")
             ,lineHeight: computed ? computed.lineHeight : null
             ,linkUrl: node && node.closest("a") ? node.closest("a").href : null
@@ -513,6 +533,29 @@
         return exec("removeFormat");
     }
 
+    function setParagraphStyle(tag) {
+        restoreSelection();
+        const currentBlock = currentNode() && currentNode().closest("p,h1,h2,h3,h4,h5,h6,pre,blockquote");
+        if (currentBlock && currentBlock.classList.contains(codeBlockClass)) {
+            currentBlock.classList.remove(codeBlockClass);
+            Object.keys(codeBlockStyles).forEach(property => currentBlock.style[property] = "");
+            if (!currentBlock.className) currentBlock.removeAttribute("class");
+            if (!currentBlock.getAttribute("style")) currentBlock.removeAttribute("style");
+        }
+
+        const requestedTag = String(tag || "p").toLowerCase();
+        const result = exec("formatBlock", requestedTag === "code" ? "pre" : requestedTag);
+        if (requestedTag !== "code") return result;
+
+        const codeBlock = currentNode() && currentNode().closest("pre");
+        if (!codeBlock) return result;
+        codeBlock.classList.add(codeBlockClass);
+        Object.assign(codeBlock.style, codeBlockStyles);
+        rememberSelection();
+        sendContentChanged();
+        return true;
+    }
+
     function lineBreakOffsets(value) {
         const offsets = [];
         let textOffset = 0;
@@ -819,7 +862,7 @@
         setTypography,
         setPasteAsHtml(value) { pasteAsHtml = Boolean(value); },
         setSpellCheck(value) { spellCheck = Boolean(value); editor.spellcheck = spellCheck; sendState(); },
-        setParagraphStyle(tag) { return exec("formatBlock", tag || "p"); },
+        setParagraphStyle,
         setLineHeight(value) { return applyStyle("lineHeight", value || "normal"); },
         insertEmoji(value) { return insertHtml(String(value || "")); },
         focus() {

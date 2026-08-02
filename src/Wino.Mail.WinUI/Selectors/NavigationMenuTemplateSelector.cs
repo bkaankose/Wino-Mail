@@ -1,6 +1,8 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 
 namespace Wino.Mail.WinUI.Selectors;
@@ -10,6 +12,7 @@ public partial class NavigationMenuTemplateSelector : DataTemplateSelector
     public DataTemplate MenuItemTemplate { get; set; } = null!;
     public DataTemplate ContactsMenuItemTemplate { get; set; } = null!;
     public DataTemplate ClickableAccountMenuTemplate { get; set; } = null!;
+    public DataTemplate CompactClickableAccountMenuTemplate { get; set; } = null!;
     public DataTemplate MergedAccountTemplate { get; set; } = null!;
     public DataTemplate MergedAccountFolderTemplate { get; set; } = null!;
     public DataTemplate MergedAccountMoreExpansionItemTemplate { get; set; } = null!;
@@ -49,7 +52,9 @@ public partial class NavigationMenuTemplateSelector : DataTemplateSelector
             return SeperatorTemplate;
         else if (item is AccountMenuItem)
             // Merged inbox account menu items must be nested.
-            return ClickableAccountMenuTemplate;
+            return WinoApplication.Current.Services.GetRequiredService<IPreferencesService>().IsCompactAccountMenuItemEnabled
+                ? CompactClickableAccountMenuTemplate
+                : ClickableAccountMenuTemplate;
         else if (item is RateMenuItem)
             return RatingItemTemplate;
         else if (item is MergedAccountMenuItem)

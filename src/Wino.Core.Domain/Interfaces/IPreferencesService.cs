@@ -133,6 +133,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     MailListDisplayMode MailItemDisplayMode { get; set; }
 
     /// <summary>
+    /// Setting: Show account menu items in a compact, single-line layout.
+    /// </summary>
+    bool IsCompactAccountMenuItemEnabled { get; set; }
+
+    /// <summary>
     /// Setting: Marking the item as read preference mode.
     /// </summary>
     MailMarkAsOption MarkAsPreference { get; set; }

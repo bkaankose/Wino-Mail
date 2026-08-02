@@ -223,8 +223,19 @@ public class WinoRequestProcessor : IWinoRequestProcessor
 
             return new ChangeJunkStateRequest(true, mailItem, mailItem.AssignedFolder, junkFolder);
         }
-        else if (action == MailOperation.AlwaysMoveToFocused || action == MailOperation.AlwaysMoveToOther)
-            return new AlwaysMoveToRequest(mailItem, action == MailOperation.AlwaysMoveToFocused);
+        else if (action is MailOperation.MoveToFocused or MailOperation.MoveToOther
+                 or MailOperation.AlwaysMoveToFocused or MailOperation.AlwaysMoveToOther)
+        {
+            if (mailItem.AssignedAccount.ProviderType != MailProviderType.Outlook)
+                throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedAction, action));
+
+            var moveToFocused = action is MailOperation.MoveToFocused or MailOperation.AlwaysMoveToFocused;
+
+            if (action is MailOperation.MoveToFocused or MailOperation.MoveToOther)
+                return new MoveToFocusedRequest(mailItem, moveToFocused);
+
+            return new AlwaysMoveToRequest(mailItem, moveToFocused);
+        }
         else
             throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedAction, action));
     }

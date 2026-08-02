@@ -80,6 +80,21 @@
     text-decoration-thickness: 2px;
 }
 
+#wino-editor .wino-code-block {
+    box-sizing: border-box;
+    margin: 0.5em 0;
+    padding: 10px 12px;
+    border: 1px solid #d6d6d6;
+    border-radius: 4px;
+    color: #1f1f1f;
+    background-color: #f5f5f5;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 0.95em;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
 .wino-image-frame {
     position: fixed;
     box-sizing: border-box;

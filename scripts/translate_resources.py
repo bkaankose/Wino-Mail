@@ -60,12 +60,16 @@ LOCALE_LABELS = {
     "zh_CN": "Chinese, Simplified (China)",
 }
 
+DEFAULT_TRANSLATIONS_ROOT = (
+    Path(__file__).resolve().parents[1] / "src" / "Wino.Core.Domain" / "Translations"
+)
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Bulk-sync and translate Wino resources.json files.")
     parser.add_argument(
         "--translations-root",
-        default=str(Path("Wino.Core.Domain") / "Translations"),
+        default=str(DEFAULT_TRANSLATIONS_ROOT),
         help="Path to the translations root directory.",
     )
     parser.add_argument(
