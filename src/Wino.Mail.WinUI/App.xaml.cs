@@ -370,12 +370,15 @@ public partial class App : WinoApplication,
     {
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
         MainWindow = window;
-        windowManager.ActivateWindow(window);
 
         if (applyThemeToWindow)
         {
             await NewThemeService.ApplyThemeToActiveWindowAsync();
         }
+
+        // Theme resources and the backdrop must be ready before the HWND becomes visible.
+        // Activating first lets WinUI render one frame with its default light theme.
+        windowManager.ActivateWindow(window);
 
         UpdateTrayIconState(window is IWinoShellWindow);
     }
@@ -784,7 +787,12 @@ public partial class App : WinoApplication,
 
         CreateWelcomeWindow();
         await NewThemeService.InitializeAsync();
-        MainWindow?.Activate();
+
+        if (MainWindow is WindowEx window)
+        {
+            await ActivateWindowAsync(window, applyThemeToWindow: false);
+        }
+
         LogActivation("Welcome window created and activated.");
     }
 
@@ -831,17 +839,21 @@ public partial class App : WinoApplication,
         {
             ApplyShellWindowTaskbarIdentity(shellWindow, mode);
 
-            if (activateWindow && shellWindow is WindowEx existingWindow)
-            {
-                await ActivateWindowAsync(existingWindow, applyThemeToWindow: false);
-                activateWindow = false;
-            }
-
+            // Rebuild the parked shell while the window is still hidden. Showing the
+            // retained IdlePage first exposes its transient surface as a bright flash.
             navigationService.RestoreShell(mode, new ShellModeActivationContext
             {
                 SuppressStartupFlows = suppressStartupFlows,
                 Parameter = activationParameter
             });
+
+            if (activateWindow && shellWindow is WindowEx existingWindow)
+            {
+                // Background resource saving can release compositor/backdrop state.
+                // Reapply it after restoring content and before making the HWND visible.
+                await ActivateWindowAsync(existingWindow);
+                activateWindow = false;
+            }
         }
 
         ApplyShellWindowTaskbarIdentity(shellWindow, mode);
@@ -1643,8 +1655,11 @@ public partial class App : WinoApplication,
         {
             CreateWindow(null);
             windowManager.HideWindow(WinoWindowKind.Welcome);
-            await NewThemeService.ApplyThemeToActiveWindowAsync();
-            MainWindow?.Activate();
+
+            if (MainWindow is WindowEx window)
+            {
+                await ActivateWindowAsync(window);
+            }
         });
     }
 
