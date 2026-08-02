@@ -93,7 +93,9 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
     private const uint MaximumAllowedBatchRequestSize = 10;
 
     private readonly HttpClient _googleHttpClient;
+    private readonly HttpClient _googleProviderFeatureHttpClient;
     private readonly GmailService _gmailService;
+    private readonly GmailService _gmailFilterService;
     private readonly GoogleCalendarService _calendarService;
     private readonly DriveService _driveService;
     private readonly PeopleServiceService _peopleService;
@@ -117,7 +119,8 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
             gmailChangeProcessor,
             gmailSynchronizerErrorHandlerFactory,
             new GmailClientMessageHandler(authenticator, account),
-            mailFilterExecutor)
+            mailFilterExecutor,
+            new GmailClientMessageHandler(authenticator, account, [ProviderFeature.MailFilters]))
     {
     }
 
@@ -126,10 +129,20 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
         IGmailChangeProcessor gmailChangeProcessor,
         IGmailSynchronizerErrorHandlerFactory gmailSynchronizerErrorHandlerFactory,
         HttpMessageHandler googleMessageHandler,
-        IMailFilterExecutor mailFilterExecutor = null) : base(account, WeakReferenceMessenger.Default)
+        IMailFilterExecutor mailFilterExecutor = null,
+        HttpMessageHandler providerFeatureMessageHandler = null) : base(account, WeakReferenceMessenger.Default)
     {
         _googleHttpClient = new HttpClient(googleMessageHandler, disposeHandler: true);
         _gmailService = new GmailService(_googleHttpClient);
+        if (providerFeatureMessageHandler == null)
+        {
+            _gmailFilterService = _gmailService;
+        }
+        else
+        {
+            _googleProviderFeatureHttpClient = new HttpClient(providerFeatureMessageHandler, disposeHandler: true);
+            _gmailFilterService = new GmailService(_googleProviderFeatureHttpClient);
+        }
         _peopleService = new PeopleServiceService(_googleHttpClient);
         _calendarService = new GoogleCalendarService(_googleHttpClient);
         _driveService = new DriveService(_googleHttpClient);
@@ -3126,10 +3139,13 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
         await base.KillSynchronizerAsync();
 
         _gmailService.Dispose();
+        if (!ReferenceEquals(_gmailFilterService, _gmailService))
+            _gmailFilterService.Dispose();
         _peopleService.Dispose();
         _calendarService.Dispose();
         _driveService.Dispose();
         _googleHttpClient.Dispose();
+        _googleProviderFeatureHttpClient?.Dispose();
     }
 
     private async Task UploadCalendarEventAttachmentsAsync(CreateCalendarEventRequest request, Event createdEvent, CancellationToken cancellationToken)
@@ -3351,7 +3367,7 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
 
     public async Task<IReadOnlyList<MailFilter>> GetProviderFiltersAsync(CancellationToken cancellationToken = default)
     {
-        var response = await _gmailService.Users.Settings.Filters.List("me")
+        var response = await _gmailFilterService.Users.Settings.Filters.List("me")
             .ExecuteAsync(cancellationToken)
             .ConfigureAwait(false);
 
@@ -3365,7 +3381,7 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
         MailFilter filter,
         CancellationToken cancellationToken = default)
     {
-        var created = await _gmailService.Users.Settings.Filters
+        var created = await _gmailFilterService.Users.Settings.Filters
             .Create(ToGmailFilter(filter), "me")
             .ExecuteAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -3384,7 +3400,7 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
 
         // Gmail has no update endpoint. Create the replacement first, delete the old
         // filter second, and remove the replacement if the second operation fails.
-        var created = await _gmailService.Users.Settings.Filters
+        var created = await _gmailFilterService.Users.Settings.Filters
             .Create(ToGmailFilter(filter), "me")
             .ExecuteAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -3422,7 +3438,7 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
         if (string.IsNullOrWhiteSpace(remoteId))
             throw new ArgumentException("A remote Gmail filter identifier is required.", nameof(remoteId));
 
-        await _gmailService.Users.Settings.Filters.Delete("me", remoteId)
+        await _gmailFilterService.Users.Settings.Filters.Delete("me", remoteId)
             .ExecuteAsync(cancellationToken)
             .ConfigureAwait(false);
     }

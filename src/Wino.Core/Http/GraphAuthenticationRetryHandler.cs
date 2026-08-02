@@ -1,9 +1,11 @@
 using System.Net;
 using System.Net.Http;
+using System.Collections.Generic;
 using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Http;
@@ -13,7 +15,8 @@ namespace Wino.Core.Http;
 /// </summary>
 public sealed class GraphAuthenticationRetryHandler(
     MailAccount account,
-    IAuthenticator authenticator) : DelegatingHandler
+    IAuthenticator authenticator,
+    IReadOnlyCollection<ProviderFeature> requiredFeatures = null) : DelegatingHandler
 {
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
@@ -29,7 +32,7 @@ public sealed class GraphAuthenticationRetryHandler(
         response.Dispose();
 
         var refreshedToken = await authenticator
-            .RefreshTokenInformationAsync(account)
+            .RefreshTokenInformationAsync(account, requiredFeatures)
             .ConfigureAwait(false);
 
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", refreshedToken.AccessToken);

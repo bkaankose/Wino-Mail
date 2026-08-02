@@ -9,6 +9,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Messaging.Client.Navigation;
 
@@ -19,13 +20,15 @@ public partial class MailFiltersPageViewModel(
     IMailFilterProviderService providerService,
     IAccountService accountService,
     IFolderService folderService,
-    IMailDialogService dialogService) : MailBaseViewModel
+    IMailDialogService dialogService,
+    IProviderFeatureAuthorizationService featureAuthorizationService) : MailBaseViewModel
 {
     private readonly IMailFilterService _mailFilterService = mailFilterService;
     private readonly IMailFilterProviderService _providerService = providerService;
     private readonly IAccountService _accountService = accountService;
     private readonly IFolderService _folderService = folderService;
     private readonly IMailDialogService _dialogService = dialogService;
+    private readonly IProviderFeatureAuthorizationService _featureAuthorizationService = featureAuthorizationService;
 
     [ObservableProperty]
     public partial MailAccount Account { get; set; }
@@ -35,6 +38,21 @@ public partial class MailFiltersPageViewModel(
 
     [ObservableProperty]
     public partial bool IsEmpty { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsProviderFiltersConnectVisible))]
+    public partial bool IsProviderFiltersSupported { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsProviderFiltersConnectVisible))]
+    [NotifyPropertyChangedFor(nameof(IsProviderFiltersConnectedVisible))]
+    public partial bool IsProviderFiltersEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsProviderFiltersReauthorizationRequired { get; set; }
+
+    public bool IsProviderFiltersConnectVisible => IsProviderFiltersSupported && !IsProviderFiltersEnabled;
+    public bool IsProviderFiltersConnectedVisible => IsProviderFiltersSupported && IsProviderFiltersEnabled;
 
     public ObservableCollection<MailFilterListItemViewModel> Filters { get; } = [];
 
@@ -56,9 +74,21 @@ public partial class MailFiltersPageViewModel(
             var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
             if (account == null)
                 return;
-            await ExecuteUIThread(() => Account = account);
+            var providerFeature = await _featureAuthorizationService
+                .GetFeatureAsync(accountId, ProviderFeature.MailFilters)
+                .ConfigureAwait(false);
+            var providerSupported = _featureAuthorizationService.IsSupported(account, ProviderFeature.MailFilters);
+            var providerEnabled = providerFeature?.AuthorizationState == ProviderFeatureAuthorizationState.Active;
+            await ExecuteUIThread(() =>
+            {
+                Account = account;
+                IsProviderFiltersSupported = providerSupported;
+                IsProviderFiltersEnabled = providerEnabled;
+                IsProviderFiltersReauthorizationRequired =
+                    providerFeature?.AuthorizationState == ProviderFeatureAuthorizationState.ReauthorizationRequired;
+            });
 
-            if (refreshProvider && _providerService.SupportsProviderFilters(account))
+            if (refreshProvider && providerEnabled)
             {
                 try
                 {
@@ -66,11 +96,23 @@ public partial class MailFiltersPageViewModel(
                 }
                 catch (Exception ex)
                 {
+                    var refreshedFeature = await _featureAuthorizationService
+                        .GetFeatureAsync(accountId, ProviderFeature.MailFilters)
+                        .ConfigureAwait(false);
                     await ExecuteUIThread(() => _dialogService.InfoBarMessage(
                             Translator.MailFilters_ProviderRefreshFailedTitle,
                             ex.Message,
                             InfoBarMessageType.Warning))
                         .ConfigureAwait(false);
+                    if (refreshedFeature?.AuthorizationState == ProviderFeatureAuthorizationState.ReauthorizationRequired)
+                    {
+                        providerEnabled = false;
+                        await ExecuteUIThread(() =>
+                        {
+                            IsProviderFiltersEnabled = false;
+                            IsProviderFiltersReauthorizationRequired = true;
+                        });
+                    }
                 }
             }
 
@@ -80,7 +122,10 @@ public partial class MailFiltersPageViewModel(
                 .Where(folder => !string.IsNullOrWhiteSpace(folder.RemoteFolderId))
                 .GroupBy(folder => folder.RemoteFolderId, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(group => group.Key, group => group.First().FolderName, StringComparer.OrdinalIgnoreCase);
-            var items = filters.Select(filter => CreateListItem(filter, folderNames)).ToList();
+            var items = filters
+                .Where(filter => providerEnabled || filter.ManagementType != MailFilterManagementType.Provider)
+                .Select(filter => CreateListItem(filter, folderNames))
+                .ToList();
 
             await ExecuteUIThread(() =>
             {
@@ -105,6 +150,39 @@ public partial class MailFiltersPageViewModel(
             Translator.MailFilterEditor_CreateTitle,
             WinoPage.MailFilterEditorPage,
             new MailFilterEditorNavigationParameter(Account.Id)));
+    }
+
+    public async Task ConnectProviderFiltersAsync()
+    {
+        if (Account == null || !IsProviderFiltersSupported)
+            return;
+
+        await ExecuteUIThread(() => IsBusy = true);
+        var connected = false;
+        try
+        {
+            await _featureAuthorizationService
+                .EnableAsync(Account.Id, ProviderFeature.MailFilters)
+                .ConfigureAwait(false);
+            connected = true;
+        }
+        catch (AccountSetupCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            await ExecuteUIThread(() => _dialogService.InfoBarMessage(
+                Translator.GeneralTitle_Error,
+                ex.Message,
+                InfoBarMessageType.Error));
+        }
+        finally
+        {
+            await ExecuteUIThread(() => IsBusy = false);
+        }
+
+        if (connected)
+            await LoadAsync(Account.Id, refreshProvider: false).ConfigureAwait(false);
     }
 
     public void EditFilter(MailFilterListItemViewModel item)

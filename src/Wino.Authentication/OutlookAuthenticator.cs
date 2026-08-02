@@ -70,10 +70,8 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
         _publicClientApplication = outlookAppBuilder.Build();
     }
 
-    private string[] GetScope(MailAccount account)
-        => AuthenticatorConfig.GetOutlookScope(
-            account?.IsMailAccessGranted != false,
-            account?.IsCalendarAccessGranted == true);
+    private string[] GetScope(MailAccount account, IReadOnlyCollection<ProviderFeature> features = null)
+        => AuthenticatorConfig.GetOutlookScopes(ProviderAuthorizationRequest.ForAccount(account, features));
 
     private async Task EnsureTokenCacheAttachedAsync()
     {
@@ -87,16 +85,18 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
         }
     }
 
-    public async Task<TokenInformationEx> GetTokenInformationAsync(MailAccount account)
+    public async Task<TokenInformationEx> GetTokenInformationAsync(
+        MailAccount account,
+        IReadOnlyCollection<ProviderFeature> requiredFeatures = null)
     {
         await EnsureTokenCacheAttachedAsync();
 
-        var cachedTokenInfo = await TryGetCachedTokenInformationSafelyAsync(account, forceRefresh: false)
+        var cachedTokenInfo = await TryGetCachedTokenInformationSafelyAsync(account, requiredFeatures, forceRefresh: false)
             .ConfigureAwait(false);
 
         if (cachedTokenInfo == null)
         {
-            cachedTokenInfo = await TryGetCachedTokenInformationSafelyAsync(account, forceRefresh: true)
+            cachedTokenInfo = await TryGetCachedTokenInformationSafelyAsync(account, requiredFeatures, forceRefresh: true)
                 .ConfigureAwait(false);
         }
 
@@ -109,11 +109,13 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
         throw new AuthenticationAttentionException(account);
     }
 
-    public async Task<TokenInformationEx> RefreshTokenInformationAsync(MailAccount account)
+    public async Task<TokenInformationEx> RefreshTokenInformationAsync(
+        MailAccount account,
+        IReadOnlyCollection<ProviderFeature> requiredFeatures = null)
     {
         await EnsureTokenCacheAttachedAsync().ConfigureAwait(false);
 
-        var tokenInfo = await TryGetCachedTokenInformationSafelyAsync(account, forceRefresh: true)
+        var tokenInfo = await TryGetCachedTokenInformationSafelyAsync(account, requiredFeatures, forceRefresh: true)
             .ConfigureAwait(false);
 
         if (tokenInfo == null)
@@ -125,7 +127,9 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
         return tokenInfo;
     }
 
-    public async Task<TokenInformationEx> GenerateTokenInformationAsync(MailAccount account)
+    public async Task<TokenInformationEx> GenerateTokenInformationAsync(
+        MailAccount account,
+        IReadOnlyCollection<ProviderFeature> requestedFeatures = null)
     {
         try
         {
@@ -137,7 +141,7 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
 
             if (_nativeAppService.GetCoreWindowHwnd == null) throw new AuthenticationAttentionException(account);
 
-            var interactiveBuilder = _publicClientApplication.AcquireTokenInteractive(GetScope(account));
+            var interactiveBuilder = _publicClientApplication.AcquireTokenInteractive(GetScope(account, requestedFeatures));
             var loginHint = GetAuthenticationAddress(account);
 
             if (!string.IsNullOrWhiteSpace(loginHint))
@@ -221,11 +225,12 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
 
     private async Task<TokenInformationEx> TryGetCachedTokenInformationSafelyAsync(
         MailAccount account,
+        IReadOnlyCollection<ProviderFeature> requiredFeatures,
         bool forceRefresh)
     {
         try
         {
-            return await TryGetCachedTokenInformationAsync(account, forceRefresh).ConfigureAwait(false);
+            return await TryGetCachedTokenInformationAsync(account, requiredFeatures, forceRefresh).ConfigureAwait(false);
         }
         catch (MsalUiRequiredException)
         {
@@ -239,9 +244,10 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
 
     private async Task<TokenInformationEx> TryGetCachedTokenInformationAsync(
         MailAccount account,
+        IReadOnlyCollection<ProviderFeature> requiredFeatures,
         bool forceRefresh)
     {
-        var scopes = GetScope(account);
+        var scopes = GetScope(account, requiredFeatures);
         var cachedAccounts = (await _publicClientApplication.GetAccountsAsync().ConfigureAwait(false)).ToList();
         var storedAccount = FindStoredAccount(cachedAccounts, account);
 

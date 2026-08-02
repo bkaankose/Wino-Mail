@@ -55,6 +55,7 @@ public class DatabaseService : IDatabaseService
             Connection.CreateTableAsync<MailFilterCondition>(),
             Connection.CreateTableAsync<MailFilterAction>(),
             Connection.CreateTableAsync<MailFilterExecution>(),
+            Connection.CreateTableAsync<AccountProviderFeature>(),
             Connection.CreateTableAsync<MailItemFolder>(),
             Connection.CreateTableAsync<MailAccount>(),
             Connection.CreateTableAsync<AccountContact>(),
@@ -409,6 +410,7 @@ SET {nameof(KeyboardShortcut.Action)} =
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailFilterCondition_FilterId ON MailFilterCondition(MailFilterId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailFilterAction_FilterId ON MailFilterAction(MailFilterId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_MailFilterExecution_Filter_Message_Source ON MailFilterExecution(MailFilterId, RemoteMessageId, SourceRemoteFolderId)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_AccountProviderFeature_Account_Feature ON AccountProviderFeature(MailAccountId, Feature)").ConfigureAwait(false);
 
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailItemFolder_MailAccountId ON MailItemFolder(MailAccountId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailItemFolder_MailAccountId_RemoteFolderId ON MailItemFolder(MailAccountId, RemoteFolderId)").ConfigureAwait(false);

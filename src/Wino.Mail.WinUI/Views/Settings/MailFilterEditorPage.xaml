@@ -66,11 +66,11 @@
                                 Width="40"
                                 Height="40"
                                 VerticalAlignment="Top"
-                                Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
+                                Background="{ThemeResource SystemFillColorAttentionBackgroundBrush}"
                                 CornerRadius="{StaticResource ControlCornerRadius}">
                                 <FontIcon
                                     FontSize="18"
-                                    Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                    Foreground="{ThemeResource SystemFillColorSuccessBrush}"
                                     Glyph="&#xE977;" />
                             </Border>
                             <StackPanel Grid.Column="1" Spacing="2">
@@ -192,7 +192,7 @@
                             Padding="10,3"
                             VerticalAlignment="Center"
                             Background="{ThemeResource AccentFillColorDefaultBrush}"
-                            CornerRadius="10">
+                            CornerRadius="4">
                             <TextBlock
                                 FontSize="11"
                                 FontWeight="Bold"
@@ -334,7 +334,7 @@
                             Padding="10,3"
                             VerticalAlignment="Center"
                             Background="{ThemeResource SystemFillColorSuccessBrush}"
-                            CornerRadius="10">
+                            CornerRadius="4">
                             <TextBlock
                                 FontSize="11"
                                 FontWeight="Bold"
@@ -350,13 +350,13 @@
 
                     <StackPanel Margin="16,14,16,16" Spacing="4">
                         <InfoBar
+                            Title="{x:Bind domain:Translator.MailFilterEditor_ExclusiveActionTitle, Mode=OneTime}"
                             Margin="0,0,0,8"
                             AutomationProperties.AutomationId="MailFilterExclusiveActionInfoBar"
                             IsClosable="False"
                             IsOpen="{x:Bind ViewModel.IsWinoManaged, Mode=OneWay}"
                             Message="{x:Bind domain:Translator.MailFilterEditor_ExclusiveActionDescription, Mode=OneTime}"
-                            Severity="Informational"
-                            Title="{x:Bind domain:Translator.MailFilterEditor_ExclusiveActionTitle, Mode=OneTime}" />
+                            Severity="Informational" />
                         <ItemsControl HorizontalContentAlignment="Stretch" ItemsSource="{x:Bind ViewModel.Actions, Mode=OneWay}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:MailFilterActionEditorItem">

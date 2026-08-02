@@ -1,4 +1,5 @@
 ﻿using System.Threading.Tasks;
+using System.Collections.Generic;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Authentication;
@@ -12,15 +13,21 @@ public interface IAuthenticator
     /// </summary>
     MailProviderType ProviderType { get; }
 
-    Task<TokenInformationEx> GetTokenInformationAsync(MailAccount account);
+    Task<TokenInformationEx> GetTokenInformationAsync(
+        MailAccount account,
+        IReadOnlyCollection<ProviderFeature> requiredFeatures = null);
 
     /// <summary>
     /// Forces the provider to refresh its cached token without showing interactive UI.
     /// </summary>
-    Task<TokenInformationEx> RefreshTokenInformationAsync(MailAccount account)
-        => GetTokenInformationAsync(account);
+    Task<TokenInformationEx> RefreshTokenInformationAsync(
+        MailAccount account,
+        IReadOnlyCollection<ProviderFeature> requiredFeatures = null)
+        => GetTokenInformationAsync(account, requiredFeatures);
 
-    Task<TokenInformationEx> GenerateTokenInformationAsync(MailAccount account);
+    Task<TokenInformationEx> GenerateTokenInformationAsync(
+        MailAccount account,
+        IReadOnlyCollection<ProviderFeature> requestedFeatures = null);
 
     Task DeleteTokenInformationAsync(MailAccount account);
 

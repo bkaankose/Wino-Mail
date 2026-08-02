@@ -119,6 +119,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     private readonly ILogger _logger = Log.ForContext<OutlookSynchronizer>();
     private readonly IOutlookChangeProcessor _outlookChangeProcessor;
     private readonly GraphServiceClient _graphClient;
+    private readonly GraphServiceClient _providerFeatureGraphClient;
     private readonly IOutlookSynchronizerErrorHandlerFactory _errorHandlingFactory;
     private readonly IMailCategoryService _mailCategoryService;
     private readonly IMailFilterExecutor _mailFilterExecutor;
@@ -146,12 +147,26 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                                IMailCategoryService mailCategoryService,
                                IMailFilterExecutor mailFilterExecutor = null) : base(account, WeakReferenceMessenger.Default)
     {
-        var tokenProvider = new MicrosoftTokenProvider(Account, authenticator);
+        _graphClient = CreateGraphClient(Account, authenticator);
+        _providerFeatureGraphClient = CreateGraphClient(Account, authenticator, [ProviderFeature.MailFilters]);
+
+        _outlookChangeProcessor = outlookChangeProcessor;
+        _errorHandlingFactory = errorHandlingFactory;
+        _mailCategoryService = mailCategoryService;
+        _mailFilterExecutor = mailFilterExecutor;
+    }
+
+    private GraphServiceClient CreateGraphClient(
+        MailAccount account,
+        IAuthenticator authenticator,
+        IReadOnlyCollection<ProviderFeature> requiredFeatures = null)
+    {
+        var tokenProvider = new MicrosoftTokenProvider(account, authenticator, requiredFeatures);
 
         // Update request handlers for Graph client.
         var handlers = GraphClientFactory.CreateDefaultHandlers();
 
-        handlers.Add(new GraphAuthenticationRetryHandler(Account, authenticator));
+        handlers.Add(new GraphAuthenticationRetryHandler(account, authenticator, requiredFeatures));
         handlers.Add(GetMicrosoftImmutableIdHandler());
         handlers.Add(GetGraphRateLimitHandler());
 
@@ -160,12 +175,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             new BaseBearerTokenAuthenticationProvider(tokenProvider),
             httpClient: httpClient);
 
-        _graphClient = new GraphServiceClient(requestAdapter);
-
-        _outlookChangeProcessor = outlookChangeProcessor;
-        _errorHandlingFactory = errorHandlingFactory;
-        _mailCategoryService = mailCategoryService;
-        _mailFilterExecutor = mailFilterExecutor;
+        return new GraphServiceClient(requestAdapter);
     }
 
     #region MS Graph Handlers
@@ -3502,7 +3512,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
     public async Task<IReadOnlyList<MailFilter>> GetProviderFiltersAsync(CancellationToken cancellationToken = default)
     {
-        var response = await _graphClient.Me.MailFolders[INBOX_NAME].MessageRules
+        var response = await _providerFeatureGraphClient.Me.MailFolders[INBOX_NAME].MessageRules
             .GetAsync(cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
@@ -3516,7 +3526,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         MailFilter filter,
         CancellationToken cancellationToken = default)
     {
-        var created = await _graphClient.Me.MailFolders[INBOX_NAME].MessageRules
+        var created = await _providerFeatureGraphClient.Me.MailFolders[INBOX_NAME].MessageRules
             .PostAsync(ToOutlookRule(filter), cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
@@ -3532,7 +3542,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         if (string.IsNullOrWhiteSpace(filter.RemoteId))
             throw new InvalidOperationException("The Outlook rule has no remote identifier.");
 
-        var updated = await _graphClient.Me.MailFolders[INBOX_NAME].MessageRules[filter.RemoteId]
+        var updated = await _providerFeatureGraphClient.Me.MailFolders[INBOX_NAME].MessageRules[filter.RemoteId]
             .PatchAsync(ToOutlookRule(filter), cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
@@ -3546,7 +3556,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         if (string.IsNullOrWhiteSpace(remoteId))
             throw new ArgumentException("A remote Outlook rule identifier is required.", nameof(remoteId));
 
-        return _graphClient.Me.MailFolders[INBOX_NAME].MessageRules[remoteId]
+        return _providerFeatureGraphClient.Me.MailFolders[INBOX_NAME].MessageRules[remoteId]
             .DeleteAsync(cancellationToken: cancellationToken);
     }
 

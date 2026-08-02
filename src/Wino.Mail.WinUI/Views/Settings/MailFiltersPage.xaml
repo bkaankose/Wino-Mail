@@ -24,11 +24,33 @@
                     </controls:SettingsCard.HeaderIcon>
                 </controls:SettingsCard>
 
+                <InfoBar
+                    x:Name="ProviderFiltersConnectInfoBar"
+                    AutomationProperties.AutomationId="MailFiltersProviderConnectInfoBar"
+                    x:Load="{x:Bind ViewModel.IsProviderFiltersConnectVisible, Mode=OneWay}"
+                    IsClosable="False"
+                    IsOpen="True"
+                    Message="{x:Bind domain:Translator.MailFilters_ProviderFeatureConnectDescription, Mode=OneTime}"
+                    Severity="Informational"
+                    Title="{x:Bind domain:Translator.MailFilters_ProviderFeatureTitle, Mode=OneTime}">
+                    <InfoBar.ActionButton>
+                        <Button
+                            AutomationProperties.AutomationId="MailFiltersProviderConnectButton"
+                            Click="ConnectProviderFiltersClicked"
+                            Content="{x:Bind domain:Translator.MailFilters_ProviderFeatureConnect, Mode=OneTime}" />
+                    </InfoBar.ActionButton>
+                </InfoBar>
+
                 <Button
                     HorizontalAlignment="Right"
                     AutomationProperties.AutomationId="MailFiltersRefreshButton"
                     Click="RefreshClicked"
-                    Content="{x:Bind domain:Translator.MailFilters_Refresh, Mode=OneTime}" />
+                    Visibility="{x:Bind ViewModel.IsProviderFiltersConnectedVisible, Mode=OneWay}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE72C;" />
+                        <TextBlock Text="{x:Bind domain:Translator.MailFilters_Refresh, Mode=OneTime}" />
+                    </StackPanel>
+                </Button>
 
                 <StackPanel
                     x:Name="EmptyFiltersPanel"

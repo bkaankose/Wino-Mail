@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -32,15 +33,18 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
     public bool ProposeCopyAuthURL { get; set; }
     public override MailProviderType ProviderType => MailProviderType.Gmail;
 
-    public async Task<TokenInformationEx> GenerateTokenInformationAsync(MailAccount account)
+    public async Task<TokenInformationEx> GenerateTokenInformationAsync(
+        MailAccount account,
+        IReadOnlyCollection<ProviderFeature> requestedFeatures = null)
     {
-        await DeleteTokenInformationAsync(account).ConfigureAwait(false);
         var credentialKey = GetCredentialKey(account);
-        var storedToken = await AuthorizeInteractivelyAsync(account, credentialKey).ConfigureAwait(false);
+        var storedToken = await AuthorizeInteractivelyAsync(account, credentialKey, requestedFeatures).ConfigureAwait(false);
         return new TokenInformationEx(storedToken.AccessToken, account?.Address);
     }
 
-    public async Task<TokenInformationEx> GetTokenInformationAsync(MailAccount account)
+    public async Task<TokenInformationEx> GetTokenInformationAsync(
+        MailAccount account,
+        IReadOnlyCollection<ProviderFeature> requiredFeatures = null)
     {
         var credentialKey = GetCredentialKey(account);
         var storedToken = await ReadTokenAsync(credentialKey).ConfigureAwait(false);
@@ -57,7 +61,9 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
         return new TokenInformationEx(storedToken.AccessToken, account?.Address);
     }
 
-    public async Task<TokenInformationEx> RefreshTokenInformationAsync(MailAccount account)
+    public async Task<TokenInformationEx> RefreshTokenInformationAsync(
+        MailAccount account,
+        IReadOnlyCollection<ProviderFeature> requiredFeatures = null)
     {
         var credentialKey = GetCredentialKey(account);
         var storedToken = await ReadTokenAsync(credentialKey).ConfigureAwait(false);
@@ -82,11 +88,13 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
         return Task.CompletedTask;
     }
 
-    private async Task<StoredGoogleToken> AuthorizeInteractivelyAsync(MailAccount account, string credentialKey)
+    private async Task<StoredGoogleToken> AuthorizeInteractivelyAsync(
+        MailAccount account,
+        string credentialKey,
+        IReadOnlyCollection<ProviderFeature> requestedFeatures)
     {
-        var scopes = AuthenticatorConfig.GetGmailScope(
-            account?.IsMailAccessGranted != false,
-            account?.IsCalendarAccessGranted == true);
+        var scopes = AuthenticatorConfig.GetGmailScopes(
+            ProviderAuthorizationRequest.ForAccount(account, requestedFeatures));
 
         var authorization = await _codeReceiver.ReceiveCodeAsync(
             (redirectUri, state) => BuildAuthorizationUri(redirectUri, state, scopes),
@@ -106,7 +114,11 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
 
         using var response = await HttpClient.PostAsync("https://oauth2.googleapis.com/token", requestContent).ConfigureAwait(false);
         var tokenResponse = await ReadTokenResponseAsync(response).ConfigureAwait(false);
-        var storedToken = CreateStoredToken(tokenResponse, tokenResponse.RefreshToken);
+        var previousToken = await ReadTokenAsync(credentialKey).ConfigureAwait(false);
+        var storedToken = CreateStoredToken(
+            tokenResponse,
+            string.IsNullOrWhiteSpace(tokenResponse.RefreshToken) ? previousToken?.RefreshToken : tokenResponse.RefreshToken,
+            previousToken?.Scopes);
         await WriteTokenAsync(credentialKey, storedToken).ConfigureAwait(false);
         return storedToken;
     }
@@ -138,7 +150,7 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
         }
 
         var tokenResponse = await ReadTokenResponseAsync(response).ConfigureAwait(false);
-        var storedToken = CreateStoredToken(tokenResponse, currentToken.RefreshToken);
+        var storedToken = CreateStoredToken(tokenResponse, currentToken.RefreshToken, currentToken.Scopes);
         await WriteTokenAsync(credentialKey, storedToken).ConfigureAwait(false);
         return storedToken;
     }
@@ -153,6 +165,7 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
             ["scope"] = string.Join(" ", scopes),
             ["access_type"] = "offline",
             ["prompt"] = "consent",
+            ["include_granted_scopes"] = "true",
             ["state"] = state
         };
 
@@ -175,12 +188,18 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
             ?? throw new InvalidOperationException("Google OAuth returned an empty token response.");
     }
 
-    private static StoredGoogleToken CreateStoredToken(GoogleOAuthTokenResponse response, string refreshToken)
+    private static StoredGoogleToken CreateStoredToken(
+        GoogleOAuthTokenResponse response,
+        string refreshToken,
+        IReadOnlyCollection<string> existingScopes = null)
         => new()
         {
             AccessToken = response.AccessToken,
             RefreshToken = string.IsNullOrWhiteSpace(response.RefreshToken) ? refreshToken : response.RefreshToken,
-            ExpiresAtUtc = DateTimeOffset.UtcNow.AddSeconds(Math.Max(response.ExpiresIn, 60))
+            ExpiresAtUtc = DateTimeOffset.UtcNow.AddSeconds(Math.Max(response.ExpiresIn, 60)),
+            Scopes = string.IsNullOrWhiteSpace(response.Scope)
+                ? existingScopes?.ToList() ?? []
+                : response.Scope.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList()
         };
 
     private async Task<StoredGoogleToken?> ReadTokenAsync(string credentialKey)
@@ -214,6 +233,7 @@ internal sealed class StoredGoogleToken
     public string AccessToken { get; set; } = string.Empty;
     public string RefreshToken { get; set; } = string.Empty;
     public DateTimeOffset ExpiresAtUtc { get; set; }
+    public List<string> Scopes { get; set; } = [];
 }
 
 internal sealed class GoogleOAuthTokenResponse
@@ -226,6 +246,9 @@ internal sealed class GoogleOAuthTokenResponse
 
     [JsonPropertyName("expires_in")]
     public int ExpiresIn { get; set; }
+
+    [JsonPropertyName("scope")]
+    public string Scope { get; set; } = string.Empty;
 }
 
 [JsonSerializable(typeof(StoredGoogleToken))]

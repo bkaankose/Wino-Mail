@@ -25,6 +25,9 @@ public sealed partial class MailFiltersPage : MailFiltersPageAbstract
     private async void RefreshClicked(object sender, RoutedEventArgs e)
         => await ViewModel.LoadAsync(ViewModel.Account?.Id);
 
+    private async void ConnectProviderFiltersClicked(object sender, RoutedEventArgs e)
+        => await ViewModel.ConnectProviderFiltersAsync();
+
     private void EditClicked(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { Tag: MailFilterListItemViewModel item })

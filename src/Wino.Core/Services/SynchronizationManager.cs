@@ -1401,7 +1401,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                 // consent prompt so the locally cached Google token cannot keep old scopes.
                 if (forceInteractive)
                 {
-                    await authenticator.DeleteTokenInformationAsync(account).ConfigureAwait(false);
                     tokenInfo = await authenticator.GenerateTokenInformationAsync(account).ConfigureAwait(false);
                 }
                 else

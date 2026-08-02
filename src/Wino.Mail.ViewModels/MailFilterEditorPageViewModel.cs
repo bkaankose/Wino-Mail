@@ -278,7 +278,8 @@ public partial class MailFilterEditorPageViewModel(
                 folder.FolderName,
                 folder.SpecialFolderType))
             .ToList();
-        var supportsProvider = _providerService.SupportsProviderFilters(account);
+        var supportsProvider = _providerService.SupportsProviderFilters(account)
+            && await _providerService.IsProviderFiltersEnabledAsync(account.Id).ConfigureAwait(false);
         var managementTypes = new List<MailFilterManagementOption>
         {
             new(MailFilterManagementType.WinoLocal, Translator.MailFilterEditor_WinoManaged)
@@ -316,9 +317,7 @@ public partial class MailFilterEditorPageViewModel(
             IsEnabled = source?.IsEnabled ?? true;
             StopProcessing = source?.StopProcessing ?? false;
             SelectedManagementType = ManagementTypes.FirstOrDefault(option =>
-                option.Value == (source?.ManagementType ?? (supportsProvider
-                    ? MailFilterManagementType.Provider
-                    : MailFilterManagementType.WinoLocal)));
+                option.Value == (source?.ManagementType ?? MailFilterManagementType.WinoLocal));
             SelectedMatchMode = MatchModes.First(option => option.Value == (source?.MatchMode ?? MailFilterMatchMode.All));
             SelectedSourceFolder = isDuplicate
                 ? null

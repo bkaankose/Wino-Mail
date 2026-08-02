@@ -1,10 +1,12 @@
-﻿namespace Wino.Core.Domain.Interfaces;
+﻿using Wino.Core.Domain.Models.Authentication;
+
+namespace Wino.Core.Domain.Interfaces;
 
 public interface IAuthenticatorConfig
 {
     string OutlookAuthenticatorClientId { get; }
-    string[] GetOutlookScope(bool isMailAccessGranted, bool isCalendarAccessGranted);
+    string[] GetOutlookScopes(ProviderAuthorizationRequest request);
     string GmailAuthenticatorClientId { get; }
-    string[] GetGmailScope(bool isMailAccessGranted, bool isCalendarAccessGranted);
+    string[] GetGmailScopes(ProviderAuthorizationRequest request);
     string GmailTokenStoreIdentifier { get; }
 }
