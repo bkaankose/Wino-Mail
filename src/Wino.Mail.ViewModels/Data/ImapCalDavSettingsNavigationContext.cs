@@ -63,6 +63,7 @@ public sealed class ImapCalDavSetupResult
     public string EmailAddress { get; init; }
     public bool IsMailAccessGranted { get; init; }
     public bool IsCalendarAccessGranted { get; init; }
+    public bool ShouldAppendMessagesToSentFolder { get; init; } = true;
     public CustomServerInformation ServerInformation { get; init; }
 }
 

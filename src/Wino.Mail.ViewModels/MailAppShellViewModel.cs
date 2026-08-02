@@ -825,9 +825,10 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     {
         try
         {
-            if (account.AttentionReason == AccountAttentionReason.InvalidCredentials)
+            if (account.AttentionReason is AccountAttentionReason.InvalidCredentials or AccountAttentionReason.CertificateValidationFailed)
             {
-                if (account.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook)
+                if (account.AttentionReason == AccountAttentionReason.InvalidCredentials &&
+                    (account.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook))
                 {
                     await SynchronizationManager.Instance.HandleAuthorizationAsync(
                         account.ProviderType,

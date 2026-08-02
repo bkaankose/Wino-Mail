@@ -26,6 +26,7 @@ using Wino.Core.Services;
 using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
+using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels;
 
@@ -132,12 +133,11 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
             Translator.AccountDetailsPage_InitialSynchronization_Description,
             cutoffDateUtc.ToLocalTime().ToString("D", CultureInfo.CurrentUICulture));
 
-    public List<ImapAuthenticationMethodModel> AvailableAuthenticationMethods { get; } =
+    public ObservableCollection<ImapAuthenticationMethodModel> AvailableAuthenticationMethods { get; } =
     [
         new ImapAuthenticationMethodModel(Core.Domain.Enums.ImapAuthenticationMethod.Auto, Translator.ImapAuthenticationMethod_Auto),
         new ImapAuthenticationMethodModel(Core.Domain.Enums.ImapAuthenticationMethod.None, Translator.ImapAuthenticationMethod_None),
         new ImapAuthenticationMethodModel(Core.Domain.Enums.ImapAuthenticationMethod.NormalPassword, Translator.ImapAuthenticationMethod_Plain),
-        new ImapAuthenticationMethodModel(Core.Domain.Enums.ImapAuthenticationMethod.EncryptedPassword, Translator.ImapAuthenticationMethod_EncryptedPassword),
         new ImapAuthenticationMethodModel(Core.Domain.Enums.ImapAuthenticationMethod.Ntlm, Translator.ImapAuthenticationMethod_Ntlm),
         new ImapAuthenticationMethodModel(Core.Domain.Enums.ImapAuthenticationMethod.CramMd5, Translator.ImapAuthenticationMethod_CramMD5),
         new ImapAuthenticationMethodModel(Core.Domain.Enums.ImapAuthenticationMethod.DigestMd5, Translator.ImapAuthenticationMethod_DigestMD5)
@@ -367,7 +367,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     {
         try
         {
-            await _imapTestService.TestImapConnectionAsync(ServerInformation, true);
+            var candidate = BuildCorrectedConnectionCandidate();
+            await ValidateConnectionCandidateAsync(candidate);
             _dialogService.InfoBarMessage(Translator.IMAPSetupDialog_ValidationSuccess_Title, Translator.IMAPSetupDialog_ValidationSuccess_Message, InfoBarMessageType.Success);
         }
         catch (Exception ex)
@@ -388,20 +389,103 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     [RelayCommand]
     private async Task UpdateCustomServerInformationAsync()
     {
-        if (ServerInformation != null)
+        try
         {
-            ServerInformation.IncomingAuthenticationMethod = AvailableAuthenticationMethods[SelectedIncomingServerAuthenticationMethodIndex].ImapAuthenticationMethod;
-            ServerInformation.IncomingServerSocketOption = AvailableConnectionSecurities[SelectedIncomingServerConnectionSecurityIndex].ImapConnectionSecurity;
+            var candidate = BuildCorrectedConnectionCandidate();
+            await ValidateConnectionCandidateAsync(candidate);
 
-            ServerInformation.OutgoingAuthenticationMethod = AvailableAuthenticationMethods[SelectedOutgoingServerAuthenticationMethodIndex].ImapAuthenticationMethod;
-            ServerInformation.OutgoingServerSocketOption = AvailableConnectionSecurities[SelectedOutgoingServerConnectionSecurityIndex].ImapConnectionSecurity;
+            Account.ServerInformation = candidate;
+            Account.AttentionReason = AccountAttentionReason.None;
+            await _accountService.UpdateImapConnectionSettingsAsync(Account, candidate);
+            await SynchronizationManager.Instance.DestroySynchronizerAsync(Account.Id);
+            ServerInformation = candidate;
 
-            Account.ServerInformation = ServerInformation;
+            Messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+            {
+                AccountId = Account.Id,
+                Type = MailSynchronizationType.FullFolders
+            }));
+
+            _dialogService.InfoBarMessage(Translator.IMAPSetupDialog_SaveImapSuccess_Title, Translator.IMAPSetupDialog_SaveImapSuccess_Message, InfoBarMessageType.Success);
         }
+        catch (Exception ex)
+        {
+            _dialogService.InfoBarMessage(Translator.IMAPSetupDialog_ValidationFailed_Title, ex.Message, InfoBarMessageType.Error);
+        }
+    }
 
-        await _accountService.UpdateAccountCustomServerInformationAsync(Account.ServerInformation);
+    private CustomServerInformation BuildCorrectedConnectionCandidate()
+    {
+        if (ServerInformation == null)
+            throw new InvalidOperationException(Translator.Exception_NullAssignedAccount);
 
-        _dialogService.InfoBarMessage(Translator.IMAPSetupDialog_SaveImapSuccess_Title, Translator.IMAPSetupDialog_SaveImapSuccess_Message, InfoBarMessageType.Success);
+        var incomingAuth = AvailableAuthenticationMethods[SelectedIncomingServerAuthenticationMethodIndex].ImapAuthenticationMethod;
+        var outgoingAuth = AvailableAuthenticationMethods[SelectedOutgoingServerAuthenticationMethodIndex].ImapAuthenticationMethod;
+        if (incomingAuth == ImapAuthenticationMethod.EncryptedPassword || outgoingAuth == ImapAuthenticationMethod.EncryptedPassword)
+            throw new InvalidOperationException(Translator.IMAPSetupDialog_EncryptedPasswordPromotionBlocked);
+
+        return new CustomServerInformation
+        {
+            Id = ServerInformation.Id,
+            AccountId = Account.Id,
+            Address = ServerInformation.Address,
+            IncomingServer = ServerInformation.IncomingServer,
+            IncomingServerPort = ServerInformation.IncomingServerPort,
+            IncomingServerUsername = ServerInformation.IncomingServerUsername,
+            IncomingServerPassword = ServerInformation.IncomingServerPassword,
+            IncomingServerType = ServerInformation.IncomingServerType,
+            IncomingAuthenticationMethod = incomingAuth,
+            IncomingServerSocketOption = AvailableConnectionSecurities[SelectedIncomingServerConnectionSecurityIndex].ImapConnectionSecurity,
+            OutgoingServer = ServerInformation.OutgoingServer,
+            OutgoingServerPort = ServerInformation.OutgoingServerPort,
+            OutgoingServerUsername = ServerInformation.OutgoingServerUsername,
+            OutgoingServerPassword = ServerInformation.OutgoingServerPassword,
+            OutgoingAuthenticationMethod = outgoingAuth,
+            OutgoingServerSocketOption = AvailableConnectionSecurities[SelectedOutgoingServerConnectionSecurityIndex].ImapConnectionSecurity,
+            ProxyServer = ServerInformation.ProxyServer,
+            ProxyServerPort = ServerInformation.ProxyServerPort,
+            MaxConcurrentClients = ServerInformation.MaxConcurrentClients,
+            CalendarSupportMode = ServerInformation.CalendarSupportMode,
+            CalDavServiceUrl = ServerInformation.CalDavServiceUrl,
+            CalDavUsername = ServerInformation.CalDavUsername,
+            CalDavPassword = ServerInformation.CalDavPassword,
+            ConnectionPolicyVersion = ImapConnectionPolicyVersion.Corrected
+        };
+    }
+
+    private async Task ValidateConnectionCandidateAsync(CustomServerInformation candidate)
+    {
+        while (true)
+        {
+            var result = await SynchronizationManager.Instance.TestImapConnectivityAsync(candidate);
+            if (!result.IsCertificateUIRequired)
+            {
+                if (!result.IsSuccess)
+                    throw new ImapValidationException(result.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage, result.ProtocolLog);
+                return;
+            }
+
+            var failure = result.CertificateFailure;
+            if (failure?.CanTrust != true)
+                throw new InvalidOperationException(Translator.IMAPSetupDialog_CertificateCannotBeTrusted);
+
+            var message = $"{Translator.IMAPSetupDialog_CertificateAllowanceRequired_Row0}\n\n" +
+                $"{Translator.IMAPSetupDialog_CertificateProtocol}: {failure.Protocol}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateEndpoint}: {failure.Host}:{failure.Port}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateSubject}: {failure.Subject}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateSans}: {failure.SubjectAlternativeNames}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateIssuer}: {failure.Issuer}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateValidFrom}: {failure.ValidFromUtc:u}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateValidTo}: {failure.ValidToUtc:u}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateFingerprint}: {failure.CertificateSha256}\n\n" +
+                Translator.IMAPSetupDialog_CertificateAllowanceRequired_Row1;
+            if (!await _dialogService.ShowServerCertificateTrustDialogAsync(message, failure.CertificateRawData))
+                throw new InvalidOperationException(Translator.IMAPSetupDialog_CertificateDenied);
+
+            candidate.PendingCertificateTrusts.RemoveAll(item => item.Protocol == failure.Protocol &&
+                string.Equals(item.Host, failure.Host, StringComparison.OrdinalIgnoreCase) && item.Port == failure.Port);
+            candidate.PendingCertificateTrusts.Add(failure.CreateTrust(Account.Id));
+        }
     }
 
     public Task FolderSyncToggledAsync(IMailItemFolder folderStructure, bool isEnabled)
@@ -453,9 +537,22 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
             if (ServerInformation != null)
             {
-                SelectedIncomingServerAuthenticationMethodIndex = AvailableAuthenticationMethods.FindIndex(a => a.ImapAuthenticationMethod == ServerInformation.IncomingAuthenticationMethod);
+                if (ServerInformation.ConnectionPolicyVersion == ImapConnectionPolicyVersion.Legacy &&
+                    (ServerInformation.IncomingAuthenticationMethod == ImapAuthenticationMethod.EncryptedPassword ||
+                     ServerInformation.OutgoingAuthenticationMethod == ImapAuthenticationMethod.EncryptedPassword))
+                {
+                    AvailableAuthenticationMethods.Insert(3, new ImapAuthenticationMethodModel(
+                        ImapAuthenticationMethod.EncryptedPassword,
+                        Translator.ImapAuthenticationMethod_EncryptedPassword));
+                }
+
+                SelectedIncomingServerAuthenticationMethodIndex = AvailableAuthenticationMethods
+                    .Select((item, index) => (item, index))
+                    .FirstOrDefault(pair => pair.item.ImapAuthenticationMethod == ServerInformation.IncomingAuthenticationMethod).index;
                 SelectedIncomingServerConnectionSecurityIndex = AvailableConnectionSecurities.FindIndex(a => a.ImapConnectionSecurity == ServerInformation.IncomingServerSocketOption);
-                SelectedOutgoingServerAuthenticationMethodIndex = AvailableAuthenticationMethods.FindIndex(a => a.ImapAuthenticationMethod == ServerInformation.OutgoingAuthenticationMethod);
+                SelectedOutgoingServerAuthenticationMethodIndex = AvailableAuthenticationMethods
+                    .Select((item, index) => (item, index))
+                    .FirstOrDefault(pair => pair.item.ImapAuthenticationMethod == ServerInformation.OutgoingAuthenticationMethod).index;
                 SelectedOutgoingServerConnectionSecurityIndex = AvailableConnectionSecurities.FindIndex(a => a.ImapConnectionSecurity == ServerInformation.OutgoingServerSocketOption);
             }
 

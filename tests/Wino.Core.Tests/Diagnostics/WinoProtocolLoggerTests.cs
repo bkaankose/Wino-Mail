@@ -45,6 +45,44 @@ public sealed class WinoProtocolLoggerTests
         log.Should().NotContain("message body");
     }
 
+    [Fact]
+    public void CreateAccountLogger_WritesImapAndSmtpToSeparateAccountFiles()
+    {
+        var applicationDataPath = Path.Combine(Path.GetTempPath(), $"wino-protocol-{Guid.NewGuid():N}");
+        var accountId = Guid.NewGuid();
+
+        try
+        {
+            using (var imapLogger = WinoProtocolLogger.CreateAccountLogger(
+                       applicationDataPath,
+                       accountId,
+                       MailProtocol.Imap))
+            {
+                LogClient(imapLogger, "A1 NOOP\r\n");
+            }
+
+            using (var smtpLogger = WinoProtocolLogger.CreateAccountLogger(
+                       applicationDataPath,
+                       accountId,
+                       MailProtocol.Smtp))
+            {
+                LogClient(smtpLogger, "EHLO localhost\r\n");
+            }
+
+            var accountFolder = WinoProtocolLogger.GetAccountLogFolder(applicationDataPath, accountId);
+            var imapPath = Path.Combine(accountFolder, WinoProtocolLogger.ImapProtocolLogFileName);
+            var smtpPath = Path.Combine(accountFolder, WinoProtocolLogger.SmtpProtocolLogFileName);
+
+            File.ReadAllText(imapPath).Should().Contain("A1 NOOP").And.NotContain("EHLO localhost");
+            File.ReadAllText(smtpPath).Should().Contain("EHLO localhost").And.NotContain("A1 NOOP");
+        }
+        finally
+        {
+            if (Directory.Exists(applicationDataPath))
+                Directory.Delete(applicationDataPath, recursive: true);
+        }
+    }
+
     private static void LogClient(WinoProtocolLogger logger, string value)
     {
         var bytes = Encoding.UTF8.GetBytes(value);

@@ -77,6 +77,12 @@ public interface IMailDialogService : IDialogServiceBase
     Task ShowImapValidationFailedDialogAsync(string errorMessage, string protocolLog);
 
     /// <summary>
+    /// Shows a fail-closed server-certificate consent dialog and lets the user inspect
+    /// the complete certificate before making an endpoint-scoped trust decision.
+    /// </summary>
+    Task<bool> ShowServerCertificateTrustDialogAsync(string summary, byte[] certificateRawData);
+
+    /// <summary>
     /// Presents a dialog to the user for keyboard shortcut creation/modification.
     /// </summary>
     /// <param name="existingShortcut">Existing shortcut to edit, or null for new shortcut.</param>

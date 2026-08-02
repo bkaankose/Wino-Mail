@@ -363,7 +363,10 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
 
                 // Step: Save to DB
                 SetStepInProgress(Translator.AccountSetup_Step_SavingAccount, SetupOperationSaveAccount);
-                await _accountService.CreateAccountAsync(_createdAccount, customServerInformation);
+                await _accountService.CreateAccountAsync(
+                    _createdAccount,
+                    customServerInformation,
+                    WizardContext.ImapCalDavSetupResult?.ShouldAppendMessagesToSentFolder ?? true);
                 _dbWritten = true;
                 SetCurrentStepSucceeded();
 
@@ -415,7 +418,10 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
 
                 // Step: Save to DB
                 SetStepInProgress(Translator.AccountSetup_Step_SavingAccount, SetupOperationSaveAccount);
-                await _accountService.CreateAccountAsync(_createdAccount, customServerInformation);
+                await _accountService.CreateAccountAsync(
+                    _createdAccount,
+                    customServerInformation,
+                    setupResult.ShouldAppendMessagesToSentFolder);
                 _dbWritten = true;
                 SetCurrentStepSucceeded();
 
@@ -589,35 +595,40 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
 
     private async Task ValidateImapConnectivityAsync(CustomServerInformation serverInformation)
     {
-        var connectivityResult = await SynchronizationManager.Instance
-            .TestImapConnectivityAsync(serverInformation, allowSSLHandshake: false);
-
-        if (connectivityResult.IsCertificateUIRequired)
+        while (true)
         {
+            var connectivityResult = await SynchronizationManager.Instance
+                .TestImapConnectivityAsync(serverInformation);
+
+            if (!connectivityResult.IsCertificateUIRequired)
+            {
+                if (!connectivityResult.IsSuccess)
+                    throw new ImapValidationException(connectivityResult.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage, connectivityResult.ProtocolLog);
+                return;
+            }
+
+            var failure = connectivityResult.CertificateFailure;
+            if (failure?.CanTrust != true)
+                throw new InvalidOperationException(connectivityResult.FailedReason ?? Translator.IMAPSetupDialog_CertificateCannotBeTrusted);
+
             var certificateMessage =
                 $"{Translator.IMAPSetupDialog_CertificateAllowanceRequired_Row0}\n\n" +
-                $"{Translator.IMAPSetupDialog_CertificateIssuer}: {connectivityResult.CertificateIssuer}\n" +
-                $"{Translator.IMAPSetupDialog_CertificateValidFrom}: {connectivityResult.CertificateValidFromDateString}\n" +
-                $"{Translator.IMAPSetupDialog_CertificateValidTo}: {connectivityResult.CertificateExpirationDateString}\n\n" +
+                $"{Translator.IMAPSetupDialog_CertificateProtocol}: {failure.Protocol}\n{Translator.IMAPSetupDialog_CertificateEndpoint}: {failure.Host}:{failure.Port}\n{Translator.IMAPSetupDialog_CertificateSubject}: {failure.Subject}\n{Translator.IMAPSetupDialog_CertificateSans}: {failure.SubjectAlternativeNames}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateIssuer}: {failure.Issuer}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateValidFrom}: {failure.ValidFromUtc:u}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateValidTo}: {failure.ValidToUtc:u}\n{Translator.IMAPSetupDialog_CertificateFingerprint}: {failure.CertificateSha256}\n{Translator.IMAPSetupDialog_CertificateFailureReason}: {failure.ChainStatusDetails}\n\n" +
                 $"{Translator.IMAPSetupDialog_CertificateAllowanceRequired_Row1}";
 
-            var allowCertificate = await _dialogService.ShowConfirmationDialogAsync(
+            var allowCertificate = await _dialogService.ShowServerCertificateTrustDialogAsync(
                 certificateMessage,
-                Translator.GeneralTitle_Warning,
-                Translator.Buttons_Allow);
+                failure.CertificateRawData);
 
             if (!allowCertificate)
                 throw new InvalidOperationException(Translator.IMAPSetupDialog_CertificateDenied);
 
-            connectivityResult = await SynchronizationManager.Instance
-                .TestImapConnectivityAsync(serverInformation, allowSSLHandshake: true);
-        }
-
-        if (!connectivityResult.IsSuccess)
-        {
-            throw new ImapValidationException(
-                connectivityResult.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage,
-                connectivityResult.ProtocolLog);
+            serverInformation.PendingCertificateTrusts.RemoveAll(item => item.Protocol == failure.Protocol &&
+                string.Equals(item.Host, failure.Host, StringComparison.OrdinalIgnoreCase) && item.Port == failure.Port);
+            serverInformation.PendingCertificateTrusts.Add(failure.CreateTrust(serverInformation.AccountId));
         }
     }
 

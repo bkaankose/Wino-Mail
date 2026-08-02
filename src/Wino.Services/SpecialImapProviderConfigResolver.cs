@@ -28,6 +28,7 @@ public class SpecialImapProviderConfigResolver : ISpecialImapProviderConfigResol
                 OutgoingServerSocketOption = ImapConnectionSecurity.Auto,
                 OutgoingAuthenticationMethod = ImapAuthenticationMethod.Auto,
                 MaxConcurrentClients = 5,
+                ConnectionPolicyVersion = ImapConnectionPolicyVersion.Corrected,
                 CalDavServiceUrl = "https://caldav.icloud.com/"
             };
 
@@ -49,6 +50,7 @@ public class SpecialImapProviderConfigResolver : ISpecialImapProviderConfigResol
                 OutgoingServerSocketOption = ImapConnectionSecurity.Auto,
                 OutgoingAuthenticationMethod = ImapAuthenticationMethod.Auto,
                 MaxConcurrentClients = 5,
+                ConnectionPolicyVersion = ImapConnectionPolicyVersion.Corrected,
                 CalDavServiceUrl = "https://caldav.calendar.yahoo.com/"
             };
 

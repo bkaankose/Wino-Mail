@@ -63,7 +63,10 @@ public interface IAccountService
     /// Creates new account with the given server information if any.
     /// Also sets the account as Startup account if there are no accounts.
     /// </summary>
-    Task CreateAccountAsync(MailAccount account, CustomServerInformation? customServerInformation);
+    Task CreateAccountAsync(
+        MailAccount account,
+        CustomServerInformation? customServerInformation,
+        bool shouldAppendMessagesToSentFolder = true);
 
     /// <summary>
     /// Fixed authentication errors for account by forcing interactive login.
@@ -186,6 +189,7 @@ public interface IAccountService
     /// <returns>Whether the notifications should be created after sync or not.</returns>
     Task<bool> IsNotificationsEnabled(Guid accountId);
     Task UpdateAccountCustomServerInformationAsync(CustomServerInformation customServerInformation);
+    Task UpdateImapConnectionSettingsAsync(MailAccount account, CustomServerInformation customServerInformation);
 
     /// <summary>
     /// Updates the last folder structure sync date for the given account.

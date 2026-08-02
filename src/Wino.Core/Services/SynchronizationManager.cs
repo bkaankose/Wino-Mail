@@ -113,9 +113,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     /// Tests IMAP server connectivity for the given server information.
     /// </summary>
     /// <param name="serverInformation">Server information to test</param>
-    /// <param name="allowSSLHandshake">Whether to allow SSL handshake</param>
     /// <returns>Test results indicating success or failure with details</returns>
-    public async Task<ImapConnectivityTestResults> TestImapConnectivityAsync(CustomServerInformation serverInformation, bool allowSSLHandshake)
+    public async Task<ImapConnectivityTestResults> TestImapConnectivityAsync(CustomServerInformation serverInformation)
     {
         EnsureInitialized();
 
@@ -125,10 +124,18 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                               serverInformation.IncomingServer,
                               serverInformation.IncomingServerPort);
 
-            await _imapTestService.TestImapConnectionAsync(serverInformation, allowSSLHandshake);
+            await _imapTestService.TestImapConnectionAsync(serverInformation);
 
             _logger.Information("IMAP connectivity test successful");
             return ImapConnectivityTestResults.Success();
+        }
+        catch (MailServerCertificateException certificateException)
+        {
+            _logger.Warning("Mail server connectivity test requires certificate confirmation for {Protocol} {Host}:{Port}",
+                certificateException.Failure.Protocol,
+                certificateException.Failure.Host,
+                certificateException.Failure.Port);
+            return ImapConnectivityTestResults.CertificateUIRequired(certificateException.Failure);
         }
         catch (ImapTestSSLCertificateException sslTestException)
         {
@@ -137,6 +144,9 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         }
         catch (ImapClientPoolException clientPoolException)
         {
+            if (TryGetCertificateException(clientPoolException, out var certificateException))
+                return ImapConnectivityTestResults.CertificateUIRequired(certificateException.Failure);
+
             if (TryGetSslCertificateException(clientPoolException, out var sslTestException))
             {
                 _logger.Warning("IMAP connectivity test requires SSL certificate confirmation");
@@ -148,6 +158,9 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         }
         catch (Exception exception)
         {
+            if (TryGetCertificateException(exception, out var certificateException))
+                return ImapConnectivityTestResults.CertificateUIRequired(certificateException.Failure);
+
             if (TryGetSslCertificateException(exception, out var sslTestException))
             {
                 _logger.Warning("IMAP connectivity test requires SSL certificate confirmation");
@@ -157,6 +170,15 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             _logger.Error(exception, "IMAP connectivity test failed");
             return ImapConnectivityTestResults.Failure(exception);
         }
+    }
+
+    internal static bool TryGetCertificateException(Exception exception, out MailServerCertificateException certificateException)
+    {
+        certificateException = exception?
+            .GetInnerExceptions()
+            .OfType<MailServerCertificateException>()
+            .FirstOrDefault();
+        return certificateException != null;
     }
 
     internal static bool TryGetSslCertificateException(Exception exception, out ImapTestSSLCertificateException sslException)
@@ -292,6 +314,12 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         }
         catch (Exception ex)
         {
+            if (TryGetCertificateException(ex, out _))
+            {
+                await SetAttentionAsync(synchronizer.Account, AccountAttentionReason.CertificateValidationFailed).ConfigureAwait(false);
+                _notificationBuilder.CreateAttentionRequiredNotification(synchronizer.Account);
+            }
+
             _logger.Error(ex, "Mail synchronization failed for account {AccountId}", options.AccountId);
             var result = MailSynchronizationResult
                 .Failed(ex)
@@ -1364,7 +1392,22 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         => cachedAccount == null ||
            currentAccount == null ||
            cachedAccount.IsMailAccessGranted != currentAccount.IsMailAccessGranted ||
-           cachedAccount.IsCalendarAccessGranted != currentAccount.IsCalendarAccessGranted;
+           cachedAccount.IsCalendarAccessGranted != currentAccount.IsCalendarAccessGranted ||
+           !ConnectionSettingsMatch(cachedAccount.ServerInformation, currentAccount.ServerInformation);
+
+    private static bool ConnectionSettingsMatch(CustomServerInformation left, CustomServerInformation right)
+    {
+        if (ReferenceEquals(left, right)) return true;
+        if (left == null || right == null) return false;
+
+        return left.GetConnectionProperties().OrderBy(item => item.Key)
+            .SequenceEqual(right.GetConnectionProperties().OrderBy(item => item.Key)) &&
+               left.ConnectionPolicyVersion == right.ConnectionPolicyVersion &&
+               left.IncomingServerUsername == right.IncomingServerUsername &&
+               left.IncomingServerPassword == right.IncomingServerPassword &&
+               left.OutgoingServerUsername == right.OutgoingServerUsername &&
+               left.OutgoingServerPassword == right.OutgoingServerPassword;
+    }
 
     /// <summary>
     /// Handles OAuth authentication for the specified provider.
@@ -1462,6 +1505,9 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     }
 
     private async Task SetInvalidCredentialAttentionAsync(MailAccount account)
+        => await SetAttentionAsync(account, AccountAttentionReason.InvalidCredentials).ConfigureAwait(false);
+
+    private async Task SetAttentionAsync(MailAccount account, AccountAttentionReason reason)
     {
         if (account == null || _accountService == null)
             return;
@@ -1471,10 +1517,10 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         if (persistedAccount == null)
             return;
 
-        if (persistedAccount.AttentionReason == AccountAttentionReason.InvalidCredentials)
+        if (persistedAccount.AttentionReason == reason)
             return;
 
-        persistedAccount.AttentionReason = AccountAttentionReason.InvalidCredentials;
+        persistedAccount.AttentionReason = reason;
         await _accountService.UpdateAccountAsync(persistedAccount).ConfigureAwait(false);
     }
 
@@ -1484,7 +1530,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             return false;
 
         var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
-        return account?.AttentionReason == AccountAttentionReason.InvalidCredentials;
+        return account?.AttentionReason is AccountAttentionReason.InvalidCredentials or AccountAttentionReason.CertificateValidationFailed;
     }
 
     private void PublishSynchronizationProgress(AccountSynchronizationProgress progress)

@@ -1863,5 +1863,12 @@
     "MailFilterEditor_SummaryActionJoiner": ", ",
     "MailFilterImportance_Low": "Low",
     "MailFilterImportance_Normal": "Normal",
-    "MailFilterImportance_High": "High"
+    "MailFilterImportance_High": "High",
+    "IMAPSetupDialog_CertificateProtocol": "Protocol",
+    "IMAPSetupDialog_CertificateEndpoint": "Endpoint",
+    "IMAPSetupDialog_CertificateSans": "Subject alternative names",
+    "IMAPSetupDialog_CertificateFingerprint": "SHA-256 fingerprint",
+    "IMAPSetupDialog_CertificateFailureReason": "Validation failure",
+    "IMAPSetupDialog_CertificateCannotBeTrusted": "This certificate cannot be accepted safely. Check the server address and certificate configuration.",
+    "IMAPSetupDialog_EncryptedPasswordPromotionBlocked": "Encrypted password is a legacy setting. Choose Normal password or another supported authentication method before saving."
 }

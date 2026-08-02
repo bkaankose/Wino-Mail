@@ -4,5 +4,6 @@ public enum AccountAttentionReason
 {
     None,
     InvalidCredentials,
-    MissingSystemFolderConfiguration
+    MissingSystemFolderConfiguration,
+    CertificateValidationFailed
 }

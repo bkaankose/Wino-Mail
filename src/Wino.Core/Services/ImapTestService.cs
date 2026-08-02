@@ -14,24 +14,26 @@ namespace Wino.Core.Services;
 
 public class ImapTestService : IImapTestService
 {
-    public ImapTestService()
+    private readonly IServerCertificateTrustService _certificateTrustService;
+
+    public ImapTestService(IServerCertificateTrustService certificateTrustService = null)
     {
+        _certificateTrustService = certificateTrustService;
     }
 
-    public async Task TestImapConnectionAsync(CustomServerInformation serverInformation, bool allowSSLHandShake)
+    public async Task TestImapConnectionAsync(CustomServerInformation serverInformation)
     {
         using var protocolLogStream = new MemoryStream();
+        var protocol = "IMAP";
 
         try
         {
             var poolOptions = ImapClientPoolOptions.CreateTestPool(
                 serverInformation,
-                () => new WinoProtocolLogger(protocolLogStream, MailProtocol.Imap));
+                () => new WinoProtocolLogger(protocolLogStream, MailProtocol.Imap),
+                _certificateTrustService);
 
-            using (var clientPool = new ImapClientPool(poolOptions)
-            {
-                ThrowOnSSLHandshakeCallback = !allowSSLHandShake
-            })
+            using (var clientPool = new ImapClientPool(poolOptions))
             {
                 // This call will make sure that everything is authenticated + connected successfully.
                 var client = await clientPool.GetClientAsync();
@@ -40,23 +42,23 @@ public class ImapTestService : IImapTestService
             }
 
             // Test SMTP connectivity.
+            protocol = "SMTP";
             using var smtpProtocolLogger = new WinoProtocolLogger(protocolLogStream, MailProtocol.Smtp);
             using var smtpClient = new SmtpClient(smtpProtocolLogger);
-            smtpClient.ServerCertificateValidationCallback = (_, certificate, _, sslPolicyErrors)
-                => MailKitServerCertificateValidator.Validate(certificate, sslPolicyErrors, !allowSSLHandShake);
-
             if (!smtpClient.IsConnected)
-                await smtpClient.ConnectAsync(serverInformation.OutgoingServer, int.Parse(serverInformation.OutgoingServerPort), MailKit.Security.SecureSocketOptions.Auto);
+                await MailKitSmtpConnectionPolicy.ConnectAndAuthenticateAsync(
+                    smtpClient,
+                    serverInformation,
+                    _certificateTrustService).ConfigureAwait(false);
 
-            if (!smtpClient.IsAuthenticated)
-                await smtpClient.AuthenticateAsync(serverInformation.OutgoingServerUsername, serverInformation.OutgoingServerPassword);
+            await smtpClient.DisconnectAsync(true).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             var actualError = ex.GetBaseException().Message;
             var message = string.IsNullOrWhiteSpace(actualError)
-                ? "IMAP/SMTP server validation failed."
-                : $"IMAP/SMTP server validation failed: {actualError}";
+                ? $"{protocol} server validation failed."
+                : $"{protocol} server validation failed: {actualError}";
 
             throw new ImapValidationException(
                 message,

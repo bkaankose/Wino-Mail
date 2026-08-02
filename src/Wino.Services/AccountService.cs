@@ -29,6 +29,7 @@ public class AccountService : BaseDatabaseService, IAccountService
     private readonly IMimeFileService _mimeFileService;
     private readonly IPreferencesService _preferencesService;
     private readonly IContactPictureFileService _contactPictureFileService;
+    private readonly IServerCertificateTrustService _serverCertificateTrustService;
 
     private readonly ILogger _logger = Log.ForContext<AccountService>();
 
@@ -37,13 +38,15 @@ public class AccountService : BaseDatabaseService, IAccountService
                           IAuthenticationProvider authenticationProvider,
                           IMimeFileService mimeFileService,
                           IPreferencesService preferencesService,
-                          IContactPictureFileService contactPictureFileService) : base(databaseService)
+                          IContactPictureFileService contactPictureFileService,
+                          IServerCertificateTrustService serverCertificateTrustService = null) : base(databaseService)
     {
         _signatureService = signatureService;
         _authenticationProvider = authenticationProvider;
         _mimeFileService = mimeFileService;
         _preferencesService = preferencesService;
         _contactPictureFileService = contactPictureFileService;
+        _serverCertificateTrustService = serverCertificateTrustService ?? new ServerCertificateTrustService(databaseService);
     }
 
 
@@ -384,7 +387,10 @@ public class AccountService : BaseDatabaseService, IAccountService
         }
 
         if (account.ProviderType == MailProviderType.IMAP4)
+        {
             await Connection.Table<CustomServerInformation>().DeleteAsync(a => a.AccountId == account.Id);
+            await _serverCertificateTrustService.DeleteAccountTrustsAsync(account.Id).ConfigureAwait(false);
+        }
 
         if (account.Preferences != null)
             await Connection.DeleteAsync<MailAccountPreferences>(account.Preferences.Id);
@@ -559,8 +565,82 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     public async Task UpdateAccountCustomServerInformationAsync(CustomServerInformation customServerInformation)
     {
+        var previous = await GetAccountCustomServerInformationAsync(customServerInformation.AccountId).ConfigureAwait(false);
         await Connection.InsertOrReplaceAsync(customServerInformation, typeof(CustomServerInformation)).ConfigureAwait(false);
+        await UpdateCertificateTrustsAsync(previous, customServerInformation).ConfigureAwait(false);
     }
+
+    public async Task UpdateImapConnectionSettingsAsync(MailAccount account, CustomServerInformation customServerInformation)
+    {
+        Guard.IsNotNull(account);
+        Guard.IsNotNull(customServerInformation);
+
+        var previous = await GetAccountCustomServerInformationAsync(account.Id).ConfigureAwait(false);
+        customServerInformation.AccountId = account.Id;
+
+        await Connection.RunInTransactionAsync(connection =>
+        {
+            connection.InsertOrReplace(customServerInformation, typeof(CustomServerInformation));
+            if (account.Preferences != null)
+                connection.Update(account.Preferences, typeof(MailAccountPreferences));
+            connection.Update(account, typeof(MailAccount));
+
+            DeleteChangedEndpointTrust(connection, account.Id, MailServerProtocol.Imap,
+                previous?.IncomingServer, previous?.IncomingServerPort,
+                customServerInformation.IncomingServer, customServerInformation.IncomingServerPort);
+            DeleteChangedEndpointTrust(connection, account.Id, MailServerProtocol.Smtp,
+                previous?.OutgoingServer, previous?.OutgoingServerPort,
+                customServerInformation.OutgoingServer, customServerInformation.OutgoingServerPort);
+
+            foreach (var trust in customServerInformation.PendingCertificateTrusts ?? [])
+            {
+                trust.AccountId = account.Id;
+                trust.Host = NormalizeHost(trust.Host);
+                trust.Id = trust.Id == Guid.Empty ? Guid.NewGuid() : trust.Id;
+                connection.Execute(
+                    $"DELETE FROM {nameof(MailServerCertificateTrust)} WHERE {nameof(MailServerCertificateTrust.AccountId)} = ? AND {nameof(MailServerCertificateTrust.Protocol)} = ? AND {nameof(MailServerCertificateTrust.Host)} = ? AND {nameof(MailServerCertificateTrust.Port)} = ?",
+                    account.Id, (int)trust.Protocol, trust.Host, trust.Port);
+                connection.Insert(trust, typeof(MailServerCertificateTrust));
+            }
+        }).ConfigureAwait(false);
+
+        customServerInformation.PendingCertificateTrusts.Clear();
+        account.ServerInformation = customServerInformation;
+        ReportUIChange(new AccountUpdatedMessage(account));
+    }
+
+    private async Task UpdateCertificateTrustsAsync(CustomServerInformation previous, CustomServerInformation current)
+    {
+        if (previous != null)
+        {
+            if (!EndpointEquals(previous.IncomingServer, previous.IncomingServerPort, current.IncomingServer, current.IncomingServerPort))
+                await _serverCertificateTrustService.DeleteEndpointTrustAsync(current.AccountId, MailServerProtocol.Imap, previous.IncomingServer, ParsePort(previous.IncomingServerPort)).ConfigureAwait(false);
+
+            if (!EndpointEquals(previous.OutgoingServer, previous.OutgoingServerPort, current.OutgoingServer, current.OutgoingServerPort))
+                await _serverCertificateTrustService.DeleteEndpointTrustAsync(current.AccountId, MailServerProtocol.Smtp, previous.OutgoingServer, ParsePort(previous.OutgoingServerPort)).ConfigureAwait(false);
+        }
+
+        await _serverCertificateTrustService.SaveTrustsAsync(current.AccountId, current.PendingCertificateTrusts).ConfigureAwait(false);
+        current.PendingCertificateTrusts.Clear();
+    }
+
+    private static void DeleteChangedEndpointTrust(SQLite.SQLiteConnection connection, Guid accountId, MailServerProtocol protocol,
+        string oldHost, string oldPort, string newHost, string newPort)
+    {
+        if (EndpointEquals(oldHost, oldPort, newHost, newPort))
+            return;
+
+        connection.Execute(
+            $"DELETE FROM {nameof(MailServerCertificateTrust)} WHERE {nameof(MailServerCertificateTrust.AccountId)} = ? AND {nameof(MailServerCertificateTrust.Protocol)} = ? AND {nameof(MailServerCertificateTrust.Host)} = ? AND {nameof(MailServerCertificateTrust.Port)} = ?",
+            accountId, (int)protocol, NormalizeHost(oldHost), ParsePort(oldPort));
+    }
+
+    private static bool EndpointEquals(string firstHost, string firstPort, string secondHost, string secondPort)
+        => string.Equals(NormalizeHost(firstHost), NormalizeHost(secondHost), StringComparison.Ordinal) &&
+           ParsePort(firstPort) == ParsePort(secondPort);
+
+    private static string NormalizeHost(string host) => host?.Trim().ToLowerInvariant() ?? string.Empty;
+    private static int ParsePort(string port) => int.TryParse(port, out var value) ? value : 0;
 
     public async Task UpdateAccountAliasesAsync(Guid accountId, List<MailAccountAlias> aliases)
     {
@@ -690,7 +770,10 @@ public class AccountService : BaseDatabaseService, IAccountService
         await Connection.ExecuteAsync("DELETE FROM MailAccountAlias WHERE Id = ?", aliasId).ConfigureAwait(false);
     }
 
-    public async Task CreateAccountAsync(MailAccount account, CustomServerInformation? customServerInformation)
+    public async Task CreateAccountAsync(
+        MailAccount account,
+        CustomServerInformation? customServerInformation,
+        bool shouldAppendMessagesToSentFolder = true)
     {
         Guard.IsNotNull(account);
 
@@ -726,14 +809,8 @@ public class AccountService : BaseDatabaseService, IAccountService
             Id = Guid.NewGuid(),
             AccountId = account.Id,
             IsNotificationsEnabled = true,
-            ShouldAppendMessagesToSentFolder = false
+            ShouldAppendMessagesToSentFolder = shouldAppendMessagesToSentFolder
         };
-
-        // iCloud does not appends sent messages to sent folder automatically.
-        if (account.SpecialImapProvider == SpecialImapProvider.iCloud || account.SpecialImapProvider == SpecialImapProvider.Yahoo)
-        {
-            preferences.ShouldAppendMessagesToSentFolder = true;
-        }
 
         account.Preferences = preferences;
 
@@ -755,7 +832,12 @@ public class AccountService : BaseDatabaseService, IAccountService
         await Connection.InsertAsync(preferences, typeof(MailAccountPreferences));
 
         if (customServerInformation != null)
+        {
+            customServerInformation.AccountId = account.Id;
             await Connection.InsertAsync(customServerInformation, typeof(CustomServerInformation));
+            await _serverCertificateTrustService.SaveTrustsAsync(account.Id, customServerInformation.PendingCertificateTrusts).ConfigureAwait(false);
+            customServerInformation.PendingCertificateTrusts.Clear();
+        }
 
         if (account.ProviderType == MailProviderType.IMAP4 &&
             customServerInformation?.CalendarSupportMode == ImapCalendarSupportMode.LocalOnly)

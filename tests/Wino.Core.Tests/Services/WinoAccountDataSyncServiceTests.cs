@@ -240,6 +240,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
         serverInformation.IncomingServerPassword.Should().BeEmpty();
         serverInformation.OutgoingServerPassword.Should().BeEmpty();
         serverInformation.CalDavPassword.Should().BeEmpty();
+        serverInformation.ConnectionPolicyVersion.Should().Be(ImapConnectionPolicyVersion.Legacy);
         serverInformation.MaxConcurrentClients.Should().Be(9);
         serverInformation.CalDavServiceUrl.Should().Be("https://dav.example.com");
     }

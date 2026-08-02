@@ -1,5 +1,7 @@
 ﻿using System.Text.Json.Serialization;
 
+using System.Collections.Generic;
+
 namespace Wino.Core.Domain.Models.AutoDiscovery;
 
 public class AutoDiscoveryProviderSetting
@@ -18,4 +20,7 @@ public class AutoDiscoveryProviderSetting
 
     [JsonPropertyName("username")]
     public string Username { get; set; }
+
+    [JsonPropertyName("authentication")]
+    public List<string> AuthenticationMethods { get; set; } = [];
 }

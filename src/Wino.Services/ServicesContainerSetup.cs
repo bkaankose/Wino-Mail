@@ -29,6 +29,7 @@ public static class ServicesContainerSetup
         services.AddTransient<ISentMailReceiptService, SentMailReceiptService>();
         services.AddTransient<IFolderService, FolderService>();
         services.AddTransient<IAccountService, AccountService>();
+        services.AddTransient<IServerCertificateTrustService, ServerCertificateTrustService>();
         services.AddTransient<IContactService, ContactService>();
         services.AddTransient<ISignatureService, SignatureService>();
         services.AddTransient<IEmailTemplateService, EmailTemplateService>();

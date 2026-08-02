@@ -1,6 +1,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -68,6 +70,9 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     [NotifyPropertyChangedFor(nameof(IsLocalCalendarModeSelected))]
     [NotifyPropertyChangedFor(nameof(IsDisabledCalendarModeSelected))]
     public partial bool IsCalendarSupportEnabled { get; set; } = true;
+
+    [ObservableProperty]
+    public partial bool ShouldAppendMessagesToSentFolder { get; set; } = true;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsCalDavSettingsVisible))]
@@ -165,12 +170,11 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     public bool IsLocalCalendarModeSelected => IsCalendarSupportEnabled && SelectedCalendarSupportMode == ImapCalendarSupportMode.LocalOnly;
     public bool IsDisabledCalendarModeSelected => !IsCalendarSupportEnabled || SelectedCalendarSupportMode == ImapCalendarSupportMode.Disabled;
 
-    public List<ImapAuthenticationMethodModel> AvailableAuthenticationMethods { get; } =
+    public ObservableCollection<ImapAuthenticationMethodModel> AvailableAuthenticationMethods { get; } =
     [
         new ImapAuthenticationMethodModel(ImapAuthenticationMethod.Auto, Translator.ImapAuthenticationMethod_Auto),
         new ImapAuthenticationMethodModel(ImapAuthenticationMethod.None, Translator.ImapAuthenticationMethod_None),
         new ImapAuthenticationMethodModel(ImapAuthenticationMethod.NormalPassword, Translator.ImapAuthenticationMethod_Plain),
-        new ImapAuthenticationMethodModel(ImapAuthenticationMethod.EncryptedPassword, Translator.ImapAuthenticationMethod_EncryptedPassword),
         new ImapAuthenticationMethodModel(ImapAuthenticationMethod.Ntlm, Translator.ImapAuthenticationMethod_Ntlm),
         new ImapAuthenticationMethodModel(ImapAuthenticationMethod.CramMd5, Translator.ImapAuthenticationMethod_CramMD5),
         new ImapAuthenticationMethodModel(ImapAuthenticationMethod.DigestMd5, Translator.ImapAuthenticationMethod_DigestMD5)
@@ -199,12 +203,11 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         new ImapCalendarSupportModeOption(ImapCalendarSupportMode.Disabled, Translator.ImapCalDavSettingsPage_CalendarModeDisabled)
     ];
 
-    public List<string> AvailableAuthenticationMethodDisplayNames { get; } =
+    public ObservableCollection<string> AvailableAuthenticationMethodDisplayNames { get; } =
     [
         Translator.ImapAuthenticationMethod_Auto,
         Translator.ImapAuthenticationMethod_None,
         Translator.ImapAuthenticationMethod_Plain,
-        Translator.ImapAuthenticationMethod_EncryptedPassword,
         Translator.ImapAuthenticationMethod_Ntlm,
         Translator.ImapAuthenticationMethod_CramMD5,
         Translator.ImapAuthenticationMethod_DigestMD5
@@ -345,6 +348,9 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             ValidateCapabilitySelection();
             await EnsureImapSettingsPreparedAsync().ConfigureAwait(false);
             serverInformation = BuildServerInformation();
+
+            if (_pageMode == ImapCalDavSettingsPageMode.Edit)
+                serverInformation.AccountId = _editingAccountId;
 
             ValidateImapSettings(serverInformation);
             await ValidateImapConnectivityAsync(serverInformation).ConfigureAwait(false);
@@ -535,6 +541,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             EmailAddress = EmailAddress.Trim(),
             IsMailAccessGranted = IsMailSupportEnabled,
             IsCalendarAccessGranted = serverInformation.CalendarSupportMode != ImapCalendarSupportMode.Disabled,
+            ShouldAppendMessagesToSentFolder = ShouldAppendMessagesToSentFolder,
             ServerInformation = serverInformation
         };
 
@@ -632,6 +639,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
         ApplyServerInformation(account.ServerInformation);
         IsMailSupportEnabled = account.IsMailAccessGranted;
+        ShouldAppendMessagesToSentFolder = account.Preferences?.ShouldAppendMessagesToSentFolder ?? true;
 
         if (account.ServerInformation != null)
         {
@@ -660,6 +668,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             DisplayName = accountCreationDialogResult.SpecialImapProviderDetails.SenderName;
 
         IsMailSupportEnabled = accountCreationDialogResult?.IsMailAccessGranted != false;
+        ShouldAppendMessagesToSentFolder = true;
         IsCalendarSupportEnabled = accountCreationDialogResult?.IsCalendarAccessGranted == true;
         SelectedCalendarSupportMode = accountCreationDialogResult?.SpecialImapProviderDetails?.CalendarSupportMode
             ?? (IsCalendarSupportEnabled ? ImapCalendarSupportMode.CalDav : ImapCalendarSupportMode.Disabled);
@@ -815,6 +824,17 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         if (string.IsNullOrWhiteSpace(CalDavPassword))
             CalDavPassword = IncomingServerPassword;
 
+        if (serverInformation.ConnectionPolicyVersion == ImapConnectionPolicyVersion.Legacy &&
+            (serverInformation.IncomingAuthenticationMethod == ImapAuthenticationMethod.EncryptedPassword ||
+             serverInformation.OutgoingAuthenticationMethod == ImapAuthenticationMethod.EncryptedPassword) &&
+            AvailableAuthenticationMethods.All(item => item.ImapAuthenticationMethod != ImapAuthenticationMethod.EncryptedPassword))
+        {
+            AvailableAuthenticationMethods.Insert(3, new ImapAuthenticationMethodModel(
+                ImapAuthenticationMethod.EncryptedPassword,
+                Translator.ImapAuthenticationMethod_EncryptedPassword));
+            AvailableAuthenticationMethodDisplayNames.Insert(3, Translator.ImapAuthenticationMethod_EncryptedPassword);
+        }
+
         SelectedIncomingServerAuthenticationMethodIndex = FindAuthenticationMethodIndex(serverInformation.IncomingAuthenticationMethod);
         SelectedIncomingServerConnectionSecurityIndex = FindConnectionSecurityIndex(serverInformation.IncomingServerSocketOption);
         SelectedOutgoingServerAuthenticationMethodIndex = FindAuthenticationMethodIndex(serverInformation.OutgoingAuthenticationMethod);
@@ -891,12 +911,28 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     }
     private async Task ValidateImapConnectivityAsync(CustomServerInformation serverInformation)
     {
-        var connectivityResult = await SynchronizationManager.Instance
-            .TestImapConnectivityAsync(serverInformation, allowSSLHandshake: false)
-            .ConfigureAwait(false);
-
-        if (connectivityResult.IsCertificateUIRequired)
+        while (true)
         {
+            var connectivityResult = await SynchronizationManager.Instance
+                .TestImapConnectivityAsync(serverInformation)
+                .ConfigureAwait(false);
+
+            if (!connectivityResult.IsCertificateUIRequired)
+            {
+                if (!connectivityResult.IsSuccess)
+                {
+                    throw new ImapValidationException(
+                        connectivityResult.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage,
+                        connectivityResult.ProtocolLog);
+                }
+
+                return;
+            }
+
+            var failure = connectivityResult.CertificateFailure;
+            if (failure?.CanTrust != true)
+                throw new InvalidOperationException(connectivityResult.FailedReason ?? Translator.IMAPSetupDialog_CertificateCannotBeTrusted);
+
             TrackImapSetupEvent(
                 "imap_certificate_prompted",
                 result: "prompted",
@@ -909,16 +945,19 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
             var certificateMessage =
                 $"{Translator.IMAPSetupDialog_CertificateAllowanceRequired_Row0}\n\n" +
-                $"{Translator.IMAPSetupDialog_CertificateIssuer}: {connectivityResult.CertificateIssuer}\n" +
-                $"{Translator.IMAPSetupDialog_CertificateValidFrom}: {connectivityResult.CertificateValidFromDateString}\n" +
-                $"{Translator.IMAPSetupDialog_CertificateValidTo}: {connectivityResult.CertificateExpirationDateString}\n\n" +
+                $"{Translator.IMAPSetupDialog_CertificateProtocol}: {failure.Protocol}\n{Translator.IMAPSetupDialog_CertificateEndpoint}: {failure.Host}:{failure.Port}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateSubject}: {failure.Subject}\n{Translator.IMAPSetupDialog_CertificateSans}: {failure.SubjectAlternativeNames}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateIssuer}: {failure.Issuer}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateValidFrom}: {failure.ValidFromUtc:u}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateValidTo}: {failure.ValidToUtc:u}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateFingerprint}: {failure.CertificateSha256}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateFailureReason}: {failure.ChainStatusDetails}\n\n" +
                 $"{Translator.IMAPSetupDialog_CertificateAllowanceRequired_Row1}";
 
             var allowCertificate = await ExecuteUIThreadAsync(() =>
-                    _mailDialogService.ShowConfirmationDialogAsync(
+                    _mailDialogService.ShowServerCertificateTrustDialogAsync(
                         certificateMessage,
-                        Translator.GeneralTitle_Warning,
-                        Translator.Buttons_Allow))
+                        failure.CertificateRawData))
                 .ConfigureAwait(false);
 
             TrackImapSetupEvent(
@@ -934,16 +973,11 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             if (!allowCertificate)
                 throw new InvalidOperationException(Translator.IMAPSetupDialog_CertificateDenied);
 
-            connectivityResult = await SynchronizationManager.Instance
-                .TestImapConnectivityAsync(serverInformation, allowSSLHandshake: true)
-                .ConfigureAwait(false);
-        }
-
-        if (!connectivityResult.IsSuccess)
-        {
-            throw new ImapValidationException(
-                connectivityResult.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage,
-                connectivityResult.ProtocolLog);
+            serverInformation.PendingCertificateTrusts.RemoveAll(item =>
+                item.Protocol == failure.Protocol &&
+                string.Equals(item.Host, failure.Host, StringComparison.OrdinalIgnoreCase) &&
+                item.Port == failure.Port);
+            serverInformation.PendingCertificateTrusts.Add(failure.CreateTrust(serverInformation.AccountId));
         }
     }
 
@@ -994,6 +1028,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             EmailAddress = EmailAddress.Trim(),
             IsMailAccessGranted = IsMailSupportEnabled,
             IsCalendarAccessGranted = serverInformation.CalendarSupportMode != ImapCalendarSupportMode.Disabled,
+            ShouldAppendMessagesToSentFolder = ShouldAppendMessagesToSentFolder,
             ServerInformation = serverInformation
         });
 
@@ -1058,11 +1093,17 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         serverInformation.Id = account.ServerInformation?.Id ?? Guid.NewGuid();
         serverInformation.AccountId = account.Id;
 
+        // Calendar-only edits do not validate either mail endpoint, so they must not
+        // silently promote a legacy mail connection policy.
+        if (!IsMailSupportEnabled && account.ServerInformation != null)
+            serverInformation.ConnectionPolicyVersion = account.ServerInformation.ConnectionPolicyVersion;
+
         account.ServerInformation = serverInformation;
         account.AttentionReason = AccountAttentionReason.None;
+        account.Preferences.ShouldAppendMessagesToSentFolder = ShouldAppendMessagesToSentFolder;
 
-        await _accountService.UpdateAccountCustomServerInformationAsync(serverInformation);
-        await _accountService.UpdateAccountAsync(account);
+        await _accountService.UpdateImapConnectionSettingsAsync(account, serverInformation);
+        await SynchronizationManager.Instance.DestroySynchronizerAsync(account.Id);
 
         if (account.IsMailAccessGranted)
         {
@@ -1142,6 +1183,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             ProxyServer = (ProxyServer ?? string.Empty).Trim(),
             ProxyServerPort = (ProxyServerPort ?? string.Empty).Trim(),
             MaxConcurrentClients = MaxConcurrentClients <= 0 ? 5 : MaxConcurrentClients,
+            ConnectionPolicyVersion = ImapConnectionPolicyVersion.Corrected,
             CalendarSupportMode = mode,
             CalDavServiceUrl = mode == ImapCalendarSupportMode.CalDav ? (CalDavServiceUrl ?? string.Empty).Trim() : string.Empty,
             CalDavUsername = mode == ImapCalendarSupportMode.CalDav ? calDavUser : string.Empty,
@@ -1180,10 +1222,10 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         if (!IsValidPort(serverInformation.IncomingServerPort))
             throw new InvalidOperationException(Translator.IMAPAdvancedSetupDialog_ValidationIncomingPortInvalid);
 
-        if (string.IsNullOrWhiteSpace(serverInformation.IncomingServerUsername))
+        if (serverInformation.IncomingAuthenticationMethod != ImapAuthenticationMethod.None && string.IsNullOrWhiteSpace(serverInformation.IncomingServerUsername))
             throw new InvalidOperationException(Translator.IMAPAdvancedSetupDialog_ValidationUsernameRequired);
 
-        if (string.IsNullOrWhiteSpace(serverInformation.IncomingServerPassword))
+        if (serverInformation.IncomingAuthenticationMethod != ImapAuthenticationMethod.None && string.IsNullOrWhiteSpace(serverInformation.IncomingServerPassword))
             throw new InvalidOperationException(Translator.IMAPAdvancedSetupDialog_ValidationPasswordRequired);
 
         if (string.IsNullOrWhiteSpace(serverInformation.OutgoingServer))
@@ -1195,11 +1237,17 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         if (!IsValidPort(serverInformation.OutgoingServerPort))
             throw new InvalidOperationException(Translator.IMAPAdvancedSetupDialog_ValidationOutgoingPortInvalid);
 
-        if (string.IsNullOrWhiteSpace(serverInformation.OutgoingServerUsername))
+        if (serverInformation.OutgoingAuthenticationMethod != ImapAuthenticationMethod.None && string.IsNullOrWhiteSpace(serverInformation.OutgoingServerUsername))
             throw new InvalidOperationException(Translator.IMAPAdvancedSetupDialog_ValidationOutgoingUsernameRequired);
 
-        if (string.IsNullOrWhiteSpace(serverInformation.OutgoingServerPassword))
+        if (serverInformation.OutgoingAuthenticationMethod != ImapAuthenticationMethod.None && string.IsNullOrWhiteSpace(serverInformation.OutgoingServerPassword))
             throw new InvalidOperationException(Translator.IMAPAdvancedSetupDialog_ValidationOutgoingPasswordRequired);
+
+        if (serverInformation.IncomingAuthenticationMethod == ImapAuthenticationMethod.EncryptedPassword ||
+            serverInformation.OutgoingAuthenticationMethod == ImapAuthenticationMethod.EncryptedPassword)
+        {
+            throw new InvalidOperationException(Translator.IMAPSetupDialog_EncryptedPasswordPromotionBlocked);
+        }
     }
 
     private void ValidateCalendarModeSpecificSettings(CustomServerInformation serverInformation)
@@ -1464,7 +1512,12 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
     private int FindAuthenticationMethodIndex(ImapAuthenticationMethod method)
     {
-        var index = AvailableAuthenticationMethods.FindIndex(a => a.ImapAuthenticationMethod == method);
+        var index = AvailableAuthenticationMethods
+            .Select((item, itemIndex) => (item, itemIndex))
+            .Where(pair => pair.item.ImapAuthenticationMethod == method)
+            .Select(pair => pair.itemIndex)
+            .DefaultIfEmpty(-1)
+            .First();
         return index < 0 ? 0 : index;
     }
 

@@ -62,6 +62,7 @@ public class DatabaseService : IDatabaseService
             Connection.CreateTableAsync<ContactGroup>(),
             Connection.CreateTableAsync<ContactGroupMember>(),
             Connection.CreateTableAsync<CustomServerInformation>(),
+            Connection.CreateTableAsync<MailServerCertificateTrust>(),
             Connection.CreateTableAsync<AccountSignature>(),
             Connection.CreateTableAsync<EmailTemplate>(),
             Connection.CreateTableAsync<MergedInbox>(),
@@ -284,6 +285,13 @@ WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
                 .ConfigureAwait(false);
         }
 
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.ConnectionPolicyVersion)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.ConnectionPolicyVersion)} INTEGER NOT NULL DEFAULT {(int)ImapConnectionPolicyVersion.Legacy}")
+                .ConfigureAwait(false);
+        }
+
         var calendarItemColumns = await Connection.GetTableInfoAsync(nameof(CalendarItem)).ConfigureAwait(false);
 
         if (!calendarItemColumns.Any(c => c.Name == nameof(CalendarItem.SnoozedUntil)))
@@ -426,6 +434,7 @@ SET {nameof(KeyboardShortcut.Action)} =
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailAccountAlias_AccountId_AliasAddress ON MailAccountAlias(AccountId, AliasAddress)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_MailAccountPreferences_AccountId ON MailAccountPreferences(AccountId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_CustomServerInformation_AccountId ON CustomServerInformation(AccountId)").ConfigureAwait(false);
+        await Connection.ExecuteAsync($"CREATE UNIQUE INDEX IF NOT EXISTS IX_MailServerCertificateTrust_Endpoint ON {nameof(MailServerCertificateTrust)}({nameof(MailServerCertificateTrust.AccountId)}, {nameof(MailServerCertificateTrust.Protocol)}, {nameof(MailServerCertificateTrust.Host)}, {nameof(MailServerCertificateTrust.Port)})").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_WinoAccount_Email ON WinoAccount(Email)").ConfigureAwait(false);
 
         // Calendar indexes

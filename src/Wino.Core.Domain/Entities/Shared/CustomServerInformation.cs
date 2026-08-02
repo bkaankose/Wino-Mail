@@ -47,6 +47,8 @@ public class CustomServerInformation
     public ImapConnectionSecurity OutgoingServerSocketOption { get; set; }
     public ImapAuthenticationMethod OutgoingAuthenticationMethod { get; set; }
 
+    public ImapConnectionPolicyVersion ConnectionPolicyVersion { get; set; }
+
     public string ProxyServer { get; set; }
     public string ProxyServerPort { get; set; }
 
@@ -55,6 +57,9 @@ public class CustomServerInformation
     /// Default is 5.
     /// </summary>
     public int MaxConcurrentClients { get; set; }
+
+    [Ignore]
+    public List<MailServerCertificateTrust> PendingCertificateTrusts { get; set; } = [];
 
     public Dictionary<string, string> GetConnectionProperties()
     {

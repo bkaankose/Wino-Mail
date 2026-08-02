@@ -20,7 +20,8 @@ public enum MailProtocol
 public sealed class WinoProtocolLogger : IProtocolLogger
 {
     public const string ProtocolLogFolderName = "ProtocolLogs";
-    public const string ProtocolLogFileName = "protocol.log";
+    public const string ImapProtocolLogFileName = "imap.log";
+    public const string SmtpProtocolLogFileName = "smtp.log";
 
     private static readonly ConcurrentDictionary<string, object> FileLocks = new(StringComparer.OrdinalIgnoreCase);
     private static readonly Regex LiteralMarkerRegex = new(@"\{(?<length>\d+)\+?\}\r?\n$", RegexOptions.Compiled);
@@ -42,6 +43,12 @@ public sealed class WinoProtocolLogger : IProtocolLogger
     public static string GetAccountLogFolder(string applicationDataFolderPath, Guid accountId)
         => Path.Combine(applicationDataFolderPath, ProtocolLogFolderName, accountId.ToString("N"));
 
+    public static string GetAccountLogFilePath(
+        string applicationDataFolderPath,
+        Guid accountId,
+        MailProtocol protocol)
+        => Path.Combine(GetAccountLogFolder(applicationDataFolderPath, accountId), GetProtocolLogFileName(protocol));
+
     public static WinoProtocolLogger CreateAccountLogger(
         string applicationDataFolderPath,
         Guid accountId,
@@ -50,7 +57,7 @@ public sealed class WinoProtocolLogger : IProtocolLogger
         var accountFolder = GetAccountLogFolder(applicationDataFolderPath, accountId);
         Directory.CreateDirectory(accountFolder);
 
-        var logPath = Path.Combine(accountFolder, ProtocolLogFileName);
+        var logPath = GetAccountLogFilePath(applicationDataFolderPath, accountId, protocol);
         var stream = new FileStream(logPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
 
         return new WinoProtocolLogger(
@@ -59,6 +66,14 @@ public sealed class WinoProtocolLogger : IProtocolLogger
             leaveOpen: false,
             FileLocks.GetOrAdd(logPath, static _ => new object()));
     }
+
+    private static string GetProtocolLogFileName(MailProtocol protocol)
+        => protocol switch
+        {
+            MailProtocol.Imap => ImapProtocolLogFileName,
+            MailProtocol.Smtp => SmtpProtocolLogFileName,
+            _ => throw new ArgumentOutOfRangeException(nameof(protocol), protocol, null)
+        };
 
     public WinoProtocolLogger(Stream stream, MailProtocol protocol, bool leaveOpen = true)
         : this(stream, protocol, leaveOpen, new object())

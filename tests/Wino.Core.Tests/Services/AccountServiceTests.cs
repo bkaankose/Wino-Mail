@@ -77,6 +77,48 @@ public class AccountServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task CreateAccountAsync_DefaultsToAppendingSentMessages()
+    {
+        var accountId = Guid.NewGuid();
+        var account = CreateImapAccount(accountId);
+        var server = new CustomServerInformation
+        {
+            Id = Guid.NewGuid(),
+            AccountId = accountId,
+            CalendarSupportMode = ImapCalendarSupportMode.LocalOnly
+        };
+
+        await _accountService.CreateAccountAsync(account, server);
+
+        var preferences = await _databaseService.Connection
+            .Table<MailAccountPreferences>()
+            .FirstAsync(item => item.AccountId == accountId);
+
+        preferences.ShouldAppendMessagesToSentFolder.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CreateAccountAsync_UsesRequestedSentMessageAppendPreference()
+    {
+        var accountId = Guid.NewGuid();
+        var account = CreateImapAccount(accountId, "No sent append", "no-append@test.local");
+        var server = new CustomServerInformation
+        {
+            Id = Guid.NewGuid(),
+            AccountId = accountId,
+            CalendarSupportMode = ImapCalendarSupportMode.LocalOnly
+        };
+
+        await _accountService.CreateAccountAsync(account, server, shouldAppendMessagesToSentFolder: false);
+
+        var preferences = await _databaseService.Connection
+            .Table<MailAccountPreferences>()
+            .FirstAsync(item => item.AccountId == accountId);
+
+        preferences.ShouldAppendMessagesToSentFolder.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task CreateAccountAsync_ImapLocalOnly_AssignsDistinctCalendarColorsAcrossAccounts()
     {
         var firstAccountId = Guid.NewGuid();

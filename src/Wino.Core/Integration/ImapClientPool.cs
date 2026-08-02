@@ -64,7 +64,6 @@ public class ImapClientPool : IDisposable
     private Task _maintenanceTask;
     private Task _initialWarmupTask = Task.CompletedTask;
 
-    public bool ThrowOnSSLHandshakeCallback { get; set; }
     public ImapClientPoolOptions ImapClientPoolOptions { get; }
 
     /// <summary>
@@ -544,11 +543,25 @@ public class ImapClientPool : IDisposable
     {
         if (!client.IsConnected)
         {
-            client.ServerCertificateValidationCallback = MyServerCertificateValidationCallback;
+            var host = _customServerInformation.IncomingServer;
+            var port = int.Parse(_customServerInformation.IncomingServerPort);
+            var storedTrust = ImapClientPoolOptions.CertificateTrustService == null
+                ? null
+                : await ImapClientPoolOptions.CertificateTrustService
+                    .GetTrustAsync(_customServerInformation.AccountId, MailServerProtocol.Imap, host, port)
+                    .ConfigureAwait(false);
+            var transientTrust = _customServerInformation.PendingCertificateTrusts?
+                .LastOrDefault(item => item.Protocol == MailServerProtocol.Imap &&
+                                       string.Equals(item.Host, host, StringComparison.OrdinalIgnoreCase) &&
+                                       item.Port == port);
+
+            client.ServerCertificateValidationCallback = (_, certificate, chain, sslPolicyErrors)
+                => MailKitServerCertificateValidator.Validate(
+                    certificate, chain, sslPolicyErrors, MailServerProtocol.Imap, host, port, storedTrust, transientTrust);
 
             await client.ConnectAsync(
-                _customServerInformation.IncomingServer,
-                int.Parse(_customServerInformation.IncomingServerPort),
+                host,
+                port,
                 GetSocketOptions(_customServerInformation.IncomingServerSocketOption),
                 cancellationToken).ConfigureAwait(false);
 
@@ -567,15 +580,24 @@ public class ImapClientPool : IDisposable
             await TryIdentifyAsync(client, cancellationToken).ConfigureAwait(false);
         }
 
-        if (!client.IsAuthenticated)
+        var configuredAuthMethod = _customServerInformation.IncomingAuthenticationMethod;
+        var correctedPolicy = _customServerInformation.ConnectionPolicyVersion == ImapConnectionPolicyVersion.Corrected;
+
+        if (!client.IsAuthenticated && !(correctedPolicy && configuredAuthMethod == ImapAuthenticationMethod.None))
         {
+            var authMethod = configuredAuthMethod;
+
             var cred = new NetworkCredential(
                 _customServerInformation.IncomingServerUsername,
                 _customServerInformation.IncomingServerPassword);
 
-            var authMethod = _customServerInformation.IncomingAuthenticationMethod;
-
-            if (authMethod != ImapAuthenticationMethod.Auto)
+            if (correctedPolicy && authMethod is ImapAuthenticationMethod.NormalPassword or ImapAuthenticationMethod.Auto)
+            {
+                client.AuthenticationMechanisms.Remove("XOAUTH2");
+                client.AuthenticationMechanisms.Remove("OAUTHBEARER");
+                await client.AuthenticateAsync(cred, cancellationToken).ConfigureAwait(false);
+            }
+            else if (authMethod != ImapAuthenticationMethod.Auto)
             {
                 client.AuthenticationMechanisms.Clear();
                 var saslMechanism = GetSASLAuthenticationMethodName(authMethod);
@@ -709,7 +731,9 @@ public class ImapClientPool : IDisposable
     {
         ImapConnectionSecurity.Auto => SecureSocketOptions.Auto,
         ImapConnectionSecurity.None => SecureSocketOptions.None,
-        ImapConnectionSecurity.StartTls => SecureSocketOptions.StartTlsWhenAvailable,
+        ImapConnectionSecurity.StartTls => _customServerInformation.ConnectionPolicyVersion == ImapConnectionPolicyVersion.Corrected
+            ? SecureSocketOptions.StartTls
+            : SecureSocketOptions.StartTlsWhenAvailable,
         ImapConnectionSecurity.SslTls => SecureSocketOptions.SslOnConnect,
         _ => SecureSocketOptions.None
     };
@@ -723,9 +747,6 @@ public class ImapClientPool : IDisposable
         ImapAuthenticationMethod.DigestMd5 => "DIGEST-MD5",
         _ => "PLAIN"
     };
-
-    private bool MyServerCertificateValidationCallback(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
-        => MailKitServerCertificateValidator.Validate(certificate, sslPolicyErrors, ThrowOnSSLHandshakeCallback);
 
     // Legacy compatibility methods
     public Task<bool> EnsureConnectedAsync(IImapClient client) =>

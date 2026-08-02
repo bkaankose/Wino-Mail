@@ -42,6 +42,7 @@ public class InMemoryDatabaseService : IDatabaseService
         await Connection.CreateTableAsync<MailAccount>();
         await Connection.CreateTableAsync<AccountContact>();
         await Connection.CreateTableAsync<CustomServerInformation>();
+        await Connection.CreateTableAsync<MailServerCertificateTrust>();
         await Connection.CreateTableAsync<AccountSignature>();
         await Connection.CreateTableAsync<MergedInbox>();
         await Connection.CreateTableAsync<MailAccountPreferences>();

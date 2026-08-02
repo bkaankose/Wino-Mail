@@ -292,6 +292,11 @@ public class AutoDiscoveryService : IAutoDiscoveryService
         var address = ResolveTemplate(GetElementValue(serverElement, "hostname"), email, localPart, domain);
         var username = ResolveTemplate(GetElementValue(serverElement, "username"), email, localPart, domain);
         var socketType = ResolveTemplate(GetElementValue(serverElement, "socketType"), email, localPart, domain);
+        var authenticationMethods = serverElement.Elements()
+            .Where(element => element.Name.LocalName == "authentication")
+            .Select(element => ResolveTemplate(element.Value, email, localPart, domain)?.Trim())
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .ToList();
 
         if (string.IsNullOrWhiteSpace(address))
             return null;
@@ -305,7 +310,8 @@ public class AutoDiscoveryService : IAutoDiscoveryService
             Address = address.Trim(),
             Port = port,
             Secure = socketType?.Trim() ?? string.Empty,
-            Username = string.IsNullOrWhiteSpace(username) ? email : username.Trim()
+            Username = string.IsNullOrWhiteSpace(username) ? email : username.Trim(),
+            AuthenticationMethods = authenticationMethods
         };
     }
 
@@ -327,14 +333,14 @@ public class AutoDiscoveryService : IAutoDiscoveryService
 
         var secureValue = setting.Secure ?? string.Empty;
 
+        if (secureValue.Contains("STARTTLS", StringComparison.OrdinalIgnoreCase))
+            return 2;
+
         if (secureValue.Contains("SSL", StringComparison.OrdinalIgnoreCase) ||
             secureValue.Contains("TLS", StringComparison.OrdinalIgnoreCase))
         {
             return 3;
         }
-
-        if (secureValue.Contains("STARTTLS", StringComparison.OrdinalIgnoreCase))
-            return 2;
 
         return 1;
     }

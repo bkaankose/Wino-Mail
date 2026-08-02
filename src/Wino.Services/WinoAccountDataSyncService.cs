@@ -390,7 +390,8 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             CalendarSupportMode = (ImapCalendarSupportMode)mailbox.CalendarSupportMode,
             ProxyServer = mailbox.ProxyServer?.Trim() ?? string.Empty,
             ProxyServerPort = mailbox.ProxyServerPort?.Trim() ?? string.Empty,
-            MaxConcurrentClients = mailbox.MaxConcurrentClients.GetValueOrDefault(DefaultMaxConcurrentClients)
+            MaxConcurrentClients = mailbox.MaxConcurrentClients.GetValueOrDefault(DefaultMaxConcurrentClients),
+            ConnectionPolicyVersion = ImapConnectionPolicyVersion.Legacy
         };
     }
 

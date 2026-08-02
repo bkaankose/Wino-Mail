@@ -71,6 +71,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
     private readonly IAutoDiscoveryService _autoDiscoveryService;
     private readonly ICalendarService _calendarService;
     private readonly IMailFilterExecutor _mailFilterExecutor;
+    private readonly IServerCertificateTrustService _serverCertificateTrustService;
     private readonly SemaphoreSlim _calDavDiscoveryLock = new(1, 1);
     private Uri _cachedCalDavServiceUri;
     private bool _isCalDavDiscoveryAttempted;
@@ -86,7 +87,8 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                             ICalDavClient calDavClient,
                             IAutoDiscoveryService autoDiscoveryService,
                             ICalendarService calendarService,
-                            IMailFilterExecutor mailFilterExecutor = null) : base(account, WeakReferenceMessenger.Default)
+                            IMailFilterExecutor mailFilterExecutor = null,
+                            IServerCertificateTrustService serverCertificateTrustService = null) : base(account, WeakReferenceMessenger.Default)
     {
         _imapChangeProcessor = imapChangeProcessor;
         _applicationConfiguration = applicationConfiguration;
@@ -96,6 +98,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         _autoDiscoveryService = autoDiscoveryService;
         _calendarService = calendarService;
         _mailFilterExecutor = mailFilterExecutor;
+        _serverCertificateTrustService = serverCertificateTrustService;
 
         var poolOptions = ImapClientPoolOptions.CreateDefault(
             Account.ServerInformation,
@@ -104,7 +107,8 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                     _applicationConfiguration.ApplicationDataFolderPath,
                     Account.Id,
                     MailProtocol.Imap)
-                : null);
+                : null,
+            _serverCertificateTrustService);
 
         _clientPool = new ImapClientPool(poolOptions);
         _localCalendarOperationHandler = new LocalCalendarOperationHandler(Account, _imapChangeProcessor, _calendarService, _applicationConfiguration.ApplicationDataFolderPath, "local");
@@ -340,44 +344,140 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                     MailProtocol.Smtp))
                 : new MailKit.Net.Smtp.SmtpClient();
 
-            if (smtpClient.IsConnected && client.IsAuthenticated) return;
-
             if (!smtpClient.IsConnected)
-                await smtpClient.ConnectAsync(Account.ServerInformation.OutgoingServer, int.Parse(Account.ServerInformation.OutgoingServerPort), MailKit.Security.SecureSocketOptions.Auto);
-
-            if (!smtpClient.IsAuthenticated)
-                await smtpClient.AuthenticateAsync(Account.ServerInformation.OutgoingServerUsername, Account.ServerInformation.OutgoingServerPassword);
+                await MailKitSmtpConnectionPolicy.ConnectAndAuthenticateAsync(
+                    smtpClient,
+                    Account.ServerInformation,
+                    _serverCertificateTrustService).ConfigureAwait(false);
 
             // Keep the original MIME intact because its local draft header is used to map
             // drafts uploaded through IMAP. Only the outgoing SMTP/sent copy is sanitized.
             var smtpMessage = CreateSmtpMessage(singleRequest.Mime);
 
             // TODO: Transfer progress implementation as popup in the UI.
-            await smtpClient.SendAsync(smtpMessage, default);
-            await smtpClient.DisconnectAsync(true);
+            await smtpClient.SendAsync(smtpMessage, default).ConfigureAwait(false);
 
-            // SMTP sent the message, but we need to remove it from the Draft folder.
-            var draftFolder = singleRequest.MailItem.AssignedFolder;
-
-            var folder = await client.GetFolderAsync(draftFolder.RemoteFolderId);
-
-            await folder.OpenAsync(FolderAccess.ReadWrite);
-            await folder.AddFlagsAsync(GetUniqueId(singleRequest.MailItem), MessageFlags.Deleted, true);
-            await folder.ExpungeAsync();
-            await folder.CloseAsync();
-
-            // Check whether we need to create a copy of the message to Sent folder.
-            // This comes from the account preferences.
-
-            if (singleRequest.AccountPreferences.ShouldAppendMessagesToSentFolder && singleRequest.SentFolder != null)
+            // SMTP acceptance is irreversible. Nothing after this point may fail the request and
+            // cause the UI/request processor to offer or perform the send again.
+            try
             {
-                var sentFolder = await client.GetFolderAsync(singleRequest.SentFolder.RemoteFolderId);
-
-                await sentFolder.OpenAsync(FolderAccess.ReadWrite);
-                await sentFolder.AppendAsync(smtpMessage, MessageFlags.Seen);
-                await sentFolder.CloseAsync();
+                await smtpClient.DisconnectAsync(true).ConfigureAwait(false);
             }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex,
+                    "SMTP accepted message {MailId}, but disconnect failed for account {AccountId}.",
+                    singleRequest.MailItem.Id,
+                    Account.Id);
+            }
+
+            await FinalizeAcceptedDraftAsync(client, singleRequest, smtpMessage).ConfigureAwait(false);
         }, request, request);
+    }
+
+    private async Task FinalizeAcceptedDraftAsync(
+        IImapClient client,
+        SendDraftPreparationRequest request,
+        MimeMessage smtpMessage)
+    {
+        var draft = request.MailItem;
+        var draftUid = GetUniqueId(draft);
+
+        try
+        {
+            var remoteDraftFolder = await client
+                .GetFolderAsync(draft.AssignedFolder.RemoteFolderId)
+                .ConfigureAwait(false);
+
+            await remoteDraftFolder.OpenAsync(FolderAccess.ReadWrite).ConfigureAwait(false);
+            try
+            {
+                await DeleteRemoteDraftIfPresentAsync(remoteDraftFolder, draftUid).ConfigureAwait(false);
+            }
+            finally
+            {
+                await client.CloseSelectedMailboxAsync(remoteDraftFolder, _logger).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex,
+                "SMTP accepted message {MailId}, but IMAP draft cleanup failed for folder {FolderName}, UID {Uid}.",
+                draft.Id,
+                draft.AssignedFolder?.FolderName,
+                draftUid.Id);
+        }
+
+        // Do not wait for a later folder reconciliation to observe the deletion. SMTP acceptance
+        // is the commit point for sending, so the local draft must be removed immediately even
+        // when the provider already removed the remote UID as a side effect of SMTP submission.
+        try
+        {
+            await _imapChangeProcessor.DeleteMailAsync(Account.Id, draft.Id).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex,
+                "SMTP accepted message {MailId}, but deleting its local draft copy failed for account {AccountId}.",
+                draft.Id,
+                Account.Id);
+        }
+
+        if (!request.AccountPreferences.ShouldAppendMessagesToSentFolder || request.SentFolder == null)
+            return;
+
+        try
+        {
+            var sentFolder = await client
+                .GetFolderAsync(request.SentFolder.RemoteFolderId)
+                .ConfigureAwait(false);
+
+            await sentFolder.OpenAsync(FolderAccess.ReadWrite).ConfigureAwait(false);
+            try
+            {
+                await sentFolder.AppendAsync(smtpMessage, MessageFlags.Seen).ConfigureAwait(false);
+            }
+            finally
+            {
+                await client.CloseSelectedMailboxAsync(sentFolder, _logger).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex,
+                "SMTP accepted message {MailId}, but appending its Sent copy failed for folder {FolderName}.",
+                draft.Id,
+                request.SentFolder.FolderName);
+        }
+    }
+
+    internal static async Task<bool> DeleteRemoteDraftIfPresentAsync(
+        IMailFolder remoteDraftFolder,
+        UniqueId draftUid,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(remoteDraftFolder);
+
+        var matchingUids = await remoteDraftFolder
+            .SearchAsync(SearchQuery.Uids(new UniqueIdSet([draftUid], SortOrder.Ascending)), cancellationToken)
+            .ConfigureAwait(false);
+
+        if (!matchingUids.Contains(draftUid))
+            return false;
+
+        var storeRequest = new StoreFlagsRequest(StoreAction.Add, MessageFlags.Deleted)
+        {
+            Silent = true
+        };
+
+        await remoteDraftFolder
+            .StoreAsync([draftUid], storeRequest, cancellationToken)
+            .ConfigureAwait(false);
+        await remoteDraftFolder
+            .ExpungeAsync([draftUid], cancellationToken)
+            .ConfigureAwait(false);
+
+        return true;
     }
 
     internal static MimeMessage CreateSmtpMessage(MimeMessage draftMessage)

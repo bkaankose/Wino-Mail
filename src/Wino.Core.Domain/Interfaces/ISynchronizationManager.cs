@@ -31,7 +31,7 @@ public interface ISynchronizationManager
     /// <summary>
     /// Tests IMAP server connectivity for the given server information.
     /// </summary>
-    Task<ImapConnectivityTestResults> TestImapConnectivityAsync(CustomServerInformation serverInformation, bool allowSSLHandshake);
+    Task<ImapConnectivityTestResults> TestImapConnectivityAsync(CustomServerInformation serverInformation);
 
     /// <summary>
     /// Starts a new mail synchronization for the given account.

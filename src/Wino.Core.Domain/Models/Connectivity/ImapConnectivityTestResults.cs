@@ -20,6 +20,7 @@ public class ImapConnectivityTestResults
 
     public string FailedReason { get; set; }
     public string ProtocolLog { get; set; }
+    public MailServerCertificateFailure CertificateFailure { get; set; }
     public static ImapConnectivityTestResults Success() => new ImapConnectivityTestResults() { IsSuccess = true };
     public static ImapConnectivityTestResults Failure(Exception ex)
     {
@@ -44,6 +45,19 @@ public class ImapConnectivityTestResults
             CertificateIssuer = issuer,
             CertificateExpirationDateString = expirationString,
             CertificateValidFromDateString = validFromString
+        };
+    }
+
+    public static ImapConnectivityTestResults CertificateUIRequired(MailServerCertificateFailure failure)
+    {
+        return new ImapConnectivityTestResults
+        {
+            IsSuccess = false,
+            IsCertificateUIRequired = true,
+            CertificateFailure = failure,
+            CertificateIssuer = failure?.Issuer,
+            CertificateExpirationDateString = failure?.ValidToUtc.ToString("u"),
+            CertificateValidFromDateString = failure?.ValidFromUtc.ToString("u")
         };
     }
 

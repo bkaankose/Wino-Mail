@@ -113,33 +113,42 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
     private async Task ValidateSpecialImapConnectivityAsync(CustomServerInformation serverInformation)
     {
-        var connectivityResult = await SynchronizationManager.Instance
-            .TestImapConnectivityAsync(serverInformation, allowSSLHandshake: false)
-            .ConfigureAwait(false);
-
-        if (connectivityResult.IsCertificateUIRequired)
+        while (true)
         {
+            var connectivityResult = await SynchronizationManager.Instance
+                .TestImapConnectivityAsync(serverInformation)
+                .ConfigureAwait(false);
+
+            if (!connectivityResult.IsCertificateUIRequired)
+            {
+                if (!connectivityResult.IsSuccess)
+                    throw new InvalidOperationException(connectivityResult.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage);
+                break;
+            }
+
+            var failure = connectivityResult.CertificateFailure;
+            if (failure?.CanTrust != true)
+                throw new InvalidOperationException(connectivityResult.FailedReason ?? Translator.IMAPSetupDialog_CertificateCannotBeTrusted);
+
             var certificateMessage =
                 $"{Translator.IMAPSetupDialog_CertificateAllowanceRequired_Row0}\n\n" +
-                $"{Translator.IMAPSetupDialog_CertificateIssuer}: {connectivityResult.CertificateIssuer}\n" +
-                $"{Translator.IMAPSetupDialog_CertificateValidFrom}: {connectivityResult.CertificateValidFromDateString}\n" +
-                $"{Translator.IMAPSetupDialog_CertificateValidTo}: {connectivityResult.CertificateExpirationDateString}\n\n" +
+                $"{Translator.IMAPSetupDialog_CertificateProtocol}: {failure.Protocol}\n{Translator.IMAPSetupDialog_CertificateEndpoint}: {failure.Host}:{failure.Port}\n{Translator.IMAPSetupDialog_CertificateSubject}: {failure.Subject}\n{Translator.IMAPSetupDialog_CertificateSans}: {failure.SubjectAlternativeNames}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateIssuer}: {failure.Issuer}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateValidFrom}: {failure.ValidFromUtc:u}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateValidTo}: {failure.ValidToUtc:u}\n{Translator.IMAPSetupDialog_CertificateFingerprint}: {failure.CertificateSha256}\n{Translator.IMAPSetupDialog_CertificateFailureReason}: {failure.ChainStatusDetails}\n\n" +
                 $"{Translator.IMAPSetupDialog_CertificateAllowanceRequired_Row1}";
 
             var allowCertificate = await ExecuteUIThreadAsync(
-                () => MailDialogService.ShowConfirmationDialogAsync(certificateMessage, Translator.GeneralTitle_Warning, Translator.Buttons_Allow))
+                () => MailDialogService.ShowServerCertificateTrustDialogAsync(certificateMessage, failure.CertificateRawData))
                 .ConfigureAwait(false);
 
             if (!allowCertificate)
                 throw new InvalidOperationException(Translator.IMAPSetupDialog_CertificateDenied);
 
-            connectivityResult = await SynchronizationManager.Instance
-                .TestImapConnectivityAsync(serverInformation, allowSSLHandshake: true)
-                .ConfigureAwait(false);
+            serverInformation.PendingCertificateTrusts.RemoveAll(item => item.Protocol == failure.Protocol &&
+                string.Equals(item.Host, failure.Host, StringComparison.OrdinalIgnoreCase) && item.Port == failure.Port);
+            serverInformation.PendingCertificateTrusts.Add(failure.CreateTrust(serverInformation.AccountId));
         }
-
-        if (!connectivityResult.IsSuccess)
-            throw new InvalidOperationException(connectivityResult.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage);
 
         if (serverInformation.CalendarSupportMode != ImapCalendarSupportMode.CalDav)
             return;
