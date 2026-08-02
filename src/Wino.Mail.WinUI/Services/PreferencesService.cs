@@ -292,6 +292,12 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(SecondMailNotificationAction), value);
     }
 
+    public NotificationSoundEvent MailNotificationSoundEvent
+    {
+        get => _configurationService.Get(nameof(MailNotificationSoundEvent), NotificationSoundEvent.Mail);
+        set => SetPropertyAndSave(nameof(MailNotificationSoundEvent), value);
+    }
+
     public AppLanguage CurrentLanguage
     {
         get => _configurationService.Get(nameof(CurrentLanguage), TranslationService.DefaultAppLanguage);
@@ -410,6 +416,12 @@ public partial class PreferencesService(IConfigurationService configurationServi
     {
         get => _configurationService.Get(nameof(DefaultSnoozeDurationInMinutes), 5);
         set => SaveProperty(propertyName: nameof(DefaultSnoozeDurationInMinutes), value);
+    }
+
+    public NotificationSoundEvent CalendarNotificationSoundEvent
+    {
+        get => _configurationService.Get(nameof(CalendarNotificationSoundEvent), NotificationSoundEvent.Reminder);
+        set => SetPropertyAndSave(nameof(CalendarNotificationSoundEvent), value);
     }
 
     public NewEventButtonBehavior NewEventButtonBehavior

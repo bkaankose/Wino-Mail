@@ -308,7 +308,7 @@ public class NotificationBuilder : INotificationBuilder
         builder.AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarNavigateAction);
         builder.AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString());
         builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar);
-        builder.SetAudioUri(new Uri("ms-winsoundevent:Notification.Reminder"));
+        builder.SetAudioEvent((AppNotificationSoundEvent)_preferencesService.CalendarNotificationSoundEvent);
 
         var allowedSnoozeMinutes = CalendarReminderSnoozeOptions.GetAllowedSnoozeMinutes(
             reminderDurationInSeconds,
@@ -383,7 +383,7 @@ public class NotificationBuilder : INotificationBuilder
         builder.AddButton(CreateMailNotificationActionButton(firstAction, mailItem.UniqueId));
         builder.AddButton(CreateMailNotificationActionButton(secondAction, mailItem.UniqueId));
         builder.AddButton(CreateDismissButton());
-        builder.SetAudioUri(new Uri("ms-winsoundevent:Notification.Mail"));
+        builder.SetAudioEvent((AppNotificationSoundEvent)_preferencesService.MailNotificationSoundEvent);
 
         ShowNotification(builder, mailItem.UniqueId.ToString());
     }

@@ -252,7 +252,10 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// </summary>
     MailOperation SecondMailNotificationAction { get; set; }
 
-
+    /// <summary>
+    /// Setting: System sound played for mail notifications.
+    /// </summary>
+    NotificationSoundEvent MailNotificationSoundEvent { get; set; }
 
     /// <summary>
     /// Setting: Display font for the mail reader.
@@ -344,6 +347,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// Setting: Default calendar used when New Event is configured to always use a specific calendar.
     /// </summary>
     Guid? DefaultNewEventCalendarId { get; set; }
+
+    /// <summary>
+    /// Setting: System sound played for calendar reminder notifications.
+    /// </summary>
+    NotificationSoundEvent CalendarNotificationSoundEvent { get; set; }
 
     CalendarSettings GetCurrentCalendarSettings();
 

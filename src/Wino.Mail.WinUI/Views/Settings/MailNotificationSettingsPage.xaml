@@ -53,6 +53,29 @@
                 </controls:SettingsExpander.Items>
             </controls:SettingsExpander>
 
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="MailNotificationSoundSettingsCard"
+                Description="{x:Bind domain:Translator.NotificationSound_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.NotificationSound_Title, Mode=OneTime}">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE767;" />
+                </controls:SettingsCard.HeaderIcon>
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <ComboBox
+                        AutomationProperties.AutomationId="MailNotificationSoundComboBox"
+                        ItemsSource="{x:Bind ViewModel.AvailableNotificationSounds, Mode=OneWay}"
+                        SelectedIndex="{x:Bind ViewModel.SelectedNotificationSoundIndex, Mode=TwoWay}" />
+                    <Button
+                        AutomationProperties.AutomationId="MailNotificationSoundPlayButton"
+                        AutomationProperties.Name="{x:Bind domain:Translator.NotificationSound_Play, Mode=OneTime}"
+                        Click="PlayNotificationSoundButton_Click"
+                        Style="{StaticResource SubtleButtonStyle}"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.NotificationSound_Play, Mode=OneTime}">
+                        <FontIcon FontSize="14" Glyph="&#xE768;" />
+                    </Button>
+                </StackPanel>
+            </controls:SettingsCard>
+
         </StackPanel>
     </ScrollViewer>
 </abstract:MailNotificationSettingsPageAbstract>

@@ -32,6 +32,29 @@
 
                     AutomationProperties.AutomationId="CalendarNotificationSettingsPageComboBox2" ItemsSource="{x:Bind ViewModel.SnoozeOptions, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedDefaultSnoozeIndex, Mode=TwoWay}" />
             </controls:SettingsCard>
+
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="CalendarNotificationSoundSettingsCard"
+                Description="{x:Bind domain:Translator.NotificationSound_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.NotificationSound_Title, Mode=OneTime}">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE767;" />
+                </controls:SettingsCard.HeaderIcon>
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <ComboBox
+                        AutomationProperties.AutomationId="CalendarNotificationSoundComboBox"
+                        ItemsSource="{x:Bind ViewModel.AvailableNotificationSounds, Mode=OneWay}"
+                        SelectedIndex="{x:Bind ViewModel.SelectedNotificationSoundIndex, Mode=TwoWay}" />
+                    <Button
+                        AutomationProperties.AutomationId="CalendarNotificationSoundPlayButton"
+                        AutomationProperties.Name="{x:Bind domain:Translator.NotificationSound_Play, Mode=OneTime}"
+                        Click="PlayNotificationSoundButton_Click"
+                        Style="{StaticResource SubtleButtonStyle}"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.NotificationSound_Play, Mode=OneTime}">
+                        <FontIcon FontSize="14" Glyph="&#xE768;" />
+                    </Button>
+                </StackPanel>
+            </controls:SettingsCard>
         </StackPanel>
     </ScrollViewer>
 </abstract:CalendarNotificationSettingsPageAbstract>
