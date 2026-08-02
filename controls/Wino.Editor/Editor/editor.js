@@ -78,12 +78,18 @@
 
     function normalizeColor(value) {
         if (!value) {
-            return "#000000";
+            return "";
         }
 
-        const match = String(value).match(/rgba?\s*\(\s*(\d+)\D+(\d+)\D+(\d+)/i);
+        const colorValue = String(value);
+        const components = colorValue.match(/[\d.]+%?/g) || [];
+        if (/^rgba/i.test(colorValue) && components.length >= 4 && parseFloat(components[3]) === 0) {
+            return "";
+        }
+
+        const match = colorValue.match(/rgba?\s*\(\s*(\d+)\D+(\d+)\D+(\d+)/i);
         if (!match) {
-            const hex = String(value).trim().toLowerCase();
+            const hex = colorValue.trim().toLowerCase();
             if (/^#[0-9a-f]{6}$/.test(hex)) {
                 return hex;
             }
@@ -105,6 +111,18 @@
         }
         const node = selection.anchorNode;
         return node && node.nodeType === Node.ELEMENT_NODE ? node : node && node.parentElement;
+    }
+
+    function selectionColor(property, legacyAttribute) {
+        let element = currentNode();
+        while (element && element !== editor) {
+            const value = element.style && element.style.getPropertyValue(property) ||
+                element.getAttribute && element.getAttribute(legacyAttribute);
+            if (value) return normalizeColor(value);
+            element = element.parentElement;
+        }
+
+        return "";
     }
 
     function queryState(command) {
@@ -140,7 +158,7 @@
             italic: queryState("italic"),
             underline: queryState("underline"),
             strikethrough: queryState("strikeThrough"),
-            color: normalizeColor(document.queryCommandValue("foreColor")),
+            color: selectionColor("color", "color"),
             fontFamily: fontFamily(computed),
             orderedList: queryState("insertOrderedList"),
             unorderedList: queryState("insertUnorderedList"),
@@ -153,7 +171,7 @@
             ,selectedText: selection ? selection.toString() : ""
             ,fontSize: computed ? parseInt(computed.fontSize, 10) || null : null
             ,paragraphStyle: node && node.closest("p,h1,h2,h3,h4,h5,h6,pre,blockquote") ? node.closest("p,h1,h2,h3,h4,h5,h6,pre,blockquote").tagName.toLowerCase() : "p"
-            ,highlightColor: normalizeColor(document.queryCommandValue("backColor"))
+            ,highlightColor: selectionColor("background-color", "bgcolor")
             ,lineHeight: computed ? computed.lineHeight : null
             ,linkUrl: node && node.closest("a") ? node.closest("a").href : null
             ,darkMode
@@ -245,6 +263,10 @@
         restoreSelection();
         let result = false;
 
+        if ((command === "foreColor" || command === "backColor" || command === "hiliteColor") && !value) {
+            return clearColor(command);
+        }
+
         if (command === "foreColor" || command === "backColor" || command === "hiliteColor" || command === "fontName") {
             document.execCommand("styleWithCSS", false, true);
             result = document.execCommand(command, false, value);
@@ -260,6 +282,85 @@
         rememberSelection();
         sendContentChanged();
         return result;
+    }
+
+    function hasExplicitColor(element, property, legacyAttribute) {
+        return Boolean(element && element.style && element.style.getPropertyValue(property)) ||
+            Boolean(legacyAttribute && element && element.hasAttribute && element.hasAttribute(legacyAttribute));
+    }
+
+    function splitAncestorAroundNode(node, ancestor) {
+        if (!node || !ancestor || !ancestor.parentNode || !ancestor.contains(node)) return;
+
+        const beforeRange = document.createRange();
+        beforeRange.selectNodeContents(ancestor);
+        beforeRange.setEndBefore(node);
+
+        const afterRange = document.createRange();
+        afterRange.selectNodeContents(ancestor);
+        afterRange.setStartAfter(node);
+
+        const before = ancestor.cloneNode(false);
+        before.appendChild(beforeRange.cloneContents());
+        const after = ancestor.cloneNode(false);
+        after.appendChild(afterRange.cloneContents());
+        const parent = ancestor.parentNode;
+
+        if (before.hasChildNodes()) parent.insertBefore(before, ancestor);
+        parent.insertBefore(node, ancestor);
+        if (after.hasChildNodes()) parent.insertBefore(after, ancestor);
+        ancestor.remove();
+    }
+
+    function removeEmptyStyle(element) {
+        if (element.hasAttribute("style") && !element.getAttribute("style").trim()) {
+            element.removeAttribute("style");
+        }
+
+        if (element.tagName === "SPAN" && element.attributes.length === 0) {
+            element.replaceWith(...element.childNodes);
+        }
+    }
+
+    function clearColor(command) {
+        restoreSelection();
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) return false;
+
+        const isTextColor = command === "foreColor";
+        const property = isTextColor ? "color" : "background-color";
+        const legacyAttribute = isTextColor ? "color" : "bgcolor";
+        const sentinel = isTextColor ? "rgb(1, 2, 3)" : "rgb(4, 5, 6)";
+        const previousValues = new Map(Array.from(editor.querySelectorAll("*")).map(element => [
+            element,
+            element.style ? element.style.getPropertyValue(property) : ""
+        ]));
+
+        document.execCommand("styleWithCSS", false, true);
+        const result = document.execCommand(command, false, sentinel);
+        document.execCommand("styleWithCSS", false, false);
+
+        const markedElements = Array.from(editor.querySelectorAll("*")).filter(element =>
+            normalizeColor(element.style && element.style.getPropertyValue(property)) === normalizeColor(sentinel) &&
+            previousValues.get(element) !== element.style.getPropertyValue(property));
+
+        markedElements.forEach(element => {
+            const coloredAncestors = [];
+            let ancestor = element.parentElement;
+            while (ancestor && ancestor !== editor) {
+                if (hasExplicitColor(ancestor, property, legacyAttribute)) coloredAncestors.push(ancestor);
+                ancestor = ancestor.parentElement;
+            }
+
+            coloredAncestors.forEach(coloredAncestor => splitAncestorAroundNode(element, coloredAncestor));
+            element.style.removeProperty(property);
+            element.removeAttribute(legacyAttribute);
+            removeEmptyStyle(element);
+        });
+
+        rememberSelection();
+        sendContentChanged();
+        return result || markedElements.length > 0;
     }
 
     function createLink(url, text, openInNewWindow) {
@@ -538,6 +639,31 @@
         return container.innerHTML;
     }
 
+    function linkify(block, convertLineBreaks) {
+        if (!block || typeof linkifyElement !== "function") return;
+
+        linkifyElement(block, {
+            defaultProtocol: "https",
+            nl2br: Boolean(convertLineBreaks),
+            target: "_blank",
+            rel: "noopener noreferrer",
+            ignoreTags: ["A", "CODE", "PRE", "SCRIPT", "STYLE"],
+            attributes: { "data-wino-auto-link": "true" }
+        });
+    }
+
+    function linkifyHtml(html, plainText) {
+        const container = document.createElement("div");
+        if (html) {
+            container.innerHTML = html;
+        } else {
+            container.textContent = plainText || "";
+        }
+
+        linkify(container, !html);
+        return container.innerHTML;
+    }
+
     function linkifyBlock(block) {
         if (!block || typeof linkifyElement !== "function") return;
 
@@ -551,13 +677,7 @@
             range.insertNode(marker);
         }
 
-        linkifyElement(block, {
-            defaultProtocol: "https",
-            target: "_blank",
-            rel: "noopener noreferrer",
-            ignoreTags: ["A", "CODE", "PRE", "SCRIPT", "STYLE"],
-            attributes: { "data-wino-auto-link": "true" }
-        });
+        linkify(block);
 
         if (marker && marker.isConnected) {
             const range = document.createRange();
@@ -592,11 +712,11 @@
         const shouldPasteHtml = pasteAsHtml && !pasteAsPlainTextOnce && clipboardHtml;
         pasteAsPlainTextOnce = false;
         if (shouldPasteHtml) {
-            document.execCommand("insertHTML", false, normalizePastedHtml(clipboardHtml, text));
+            const normalizedHtml = normalizePastedHtml(clipboardHtml, text);
+            document.execCommand("insertHTML", false, linkifyHtml(normalizedHtml, text));
         } else {
-            document.execCommand("insertText", false, text);
+            document.execCommand("insertHTML", false, linkifyHtml(null, text));
         }
-        linkifyAroundSelection(false);
         rememberSelection();
         sendContentChanged();
     });

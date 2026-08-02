@@ -73,4 +73,14 @@ public sealed partial class MailListPage : Page
         else
             foreach (var value in materialized) target.Add(value);
     }
+
+    private void MultiSelectChecked(object sender, RoutedEventArgs e)
+    {
+        MailList.SelectionMode = ListViewSelectionMode.Multiple;
+    }
+
+    private void MultiSelectUnchecked(object sender, RoutedEventArgs e)
+    {
+        MailList.SelectionMode = ListViewSelectionMode.Extended;
+    }
 }

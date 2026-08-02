@@ -18,12 +18,6 @@ public sealed partial class AccountDetailsPage : AccountDetailsPageAbstract
         NavigationCacheMode = NavigationCacheMode.Enabled;
     }
 
-    private void OnTabSelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (TabSelector.SelectedItem != null)
-            ViewModel.SelectedTabIndex = TabSelector.Items.IndexOf(TabSelector.SelectedItem);
-    }
-
     private async void SyncFolderToggled(object sender, RoutedEventArgs e)
     {
         if (sender is CheckBox checkBox && checkBox.Tag is IMailItemFolder folder)
@@ -98,16 +92,4 @@ public sealed partial class AccountDetailsPage : AccountDetailsPageAbstract
         }
     }
 
-    protected override void OnNavigatedTo(NavigationEventArgs e)
-    {
-        base.OnNavigatedTo(e);
-
-        var targetTabIndex = ViewModel.SelectedTabIndex;
-        if (targetTabIndex < 0 || targetTabIndex >= TabSelector.Items.Count)
-        {
-            targetTabIndex = 0;
-        }
-
-        TabSelector.SelectedItem = TabSelector.Items[targetTabIndex];
-    }
 }

@@ -114,7 +114,7 @@ public sealed partial class MailListProjection : IDisposable
             : null;
     }
 
-    public void ExpandThread(string threadKey)
+    public void ExpandThread(string threadKey, bool collapseOtherThreads = true)
     {
         if (!_threadsByKey.TryGetValue(threadKey, out var thread) ||
             thread.Count < 2 ||
@@ -123,9 +123,11 @@ public sealed partial class MailListProjection : IDisposable
             return;
         }
 
-        var collapsed = _expandedThreadKeys
-            .Where(key => !string.Equals(key, threadKey, StringComparison.Ordinal))
-            .ToArray();
+        var collapsed = collapseOtherThreads
+            ? _expandedThreadKeys
+                .Where(key => !string.Equals(key, threadKey, StringComparison.Ordinal))
+                .ToArray()
+            : [];
         foreach (var key in collapsed)
         {
             _expandedThreadKeys.Remove(key);

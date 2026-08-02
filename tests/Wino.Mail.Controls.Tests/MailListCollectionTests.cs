@@ -88,6 +88,28 @@ public sealed class MailListCollectionTests
     }
 
     [Fact]
+    public void Projection_CanExpandMultipleThreads_WhenExistingExpansionsArePreserved()
+    {
+        var collection = new MailListCollection<TestItem>();
+        collection.AddRange(
+        [
+            new TestItem("a1", "thread-a", DateTimeOffset.Now),
+            new TestItem("a2", "thread-a", DateTimeOffset.Now.AddMinutes(-1)),
+            new TestItem("b1", "thread-b", DateTimeOffset.Now.AddMinutes(-2)),
+            new TestItem("b2", "thread-b", DateTimeOffset.Now.AddMinutes(-3)),
+        ]);
+        using var projection = new MailListProjection(collection);
+
+        projection.ExpandThread("thread-a");
+        projection.ExpandThread("thread-b", collapseOtherThreads: false);
+
+        projection.IsThreadExpanded("thread-a").Should().BeTrue();
+        projection.IsThreadExpanded("thread-b").Should().BeTrue();
+        projection.Rows.Count(row => row.ThreadKey == "thread-a").Should().Be(3);
+        projection.Rows.Count(row => row.ThreadKey == "thread-b").Should().Be(3);
+    }
+
+    [Fact]
     public void Projection_ExpansionPreservesUnrelatedRowInstances()
     {
         var single = new TestItem("single", date: DateTimeOffset.Now);

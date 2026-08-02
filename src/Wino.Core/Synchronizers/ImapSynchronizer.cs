@@ -348,11 +348,12 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             if (!smtpClient.IsAuthenticated)
                 await smtpClient.AuthenticateAsync(Account.ServerInformation.OutgoingServerUsername, Account.ServerInformation.OutgoingServerPassword);
 
-            // Remove local draft header before sending to prevent leaking to recipients.
-            singleRequest.Mime.Headers.Remove(Domain.Constants.WinoLocalDraftHeader);
+            // Keep the original MIME intact because its local draft header is used to map
+            // drafts uploaded through IMAP. Only the outgoing SMTP/sent copy is sanitized.
+            var smtpMessage = CreateSmtpMessage(singleRequest.Mime);
 
             // TODO: Transfer progress implementation as popup in the UI.
-            await smtpClient.SendAsync(singleRequest.Mime, default);
+            await smtpClient.SendAsync(smtpMessage, default);
             await smtpClient.DisconnectAsync(true);
 
             // SMTP sent the message, but we need to remove it from the Draft folder.
@@ -373,10 +374,23 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                 var sentFolder = await client.GetFolderAsync(singleRequest.SentFolder.RemoteFolderId);
 
                 await sentFolder.OpenAsync(FolderAccess.ReadWrite);
-                await sentFolder.AppendAsync(singleRequest.Mime, MessageFlags.Seen);
+                await sentFolder.AppendAsync(smtpMessage, MessageFlags.Seen);
                 await sentFolder.CloseAsync();
             }
         }, request, request);
+    }
+
+    internal static MimeMessage CreateSmtpMessage(MimeMessage draftMessage)
+    {
+        ArgumentNullException.ThrowIfNull(draftMessage);
+
+        using var stream = new MemoryStream();
+        draftMessage.WriteTo(stream);
+        stream.Position = 0;
+
+        var smtpMessage = MimeMessage.Load(stream);
+        smtpMessage.Headers.Remove(Domain.Constants.WinoLocalDraftHeader);
+        return smtpMessage;
     }
 
     public override async Task DownloadMissingMimeMessageAsync(MailCopy mailItem,

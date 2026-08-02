@@ -50,6 +50,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     private ITitleBarSearchHost? _activeTitleBarSearchHost;
     private bool _isBackButtonVisibilityReady;
     private bool _isSynchronizingTitleBarSearch;
+    private bool _isTitleBarSearchBoxFocused;
     private bool _isPreparedForClose;
 
     public ShellWindow()
@@ -333,6 +334,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
             TitleBarSearchBox.PlaceholderText = _activeTitleBarSearchHost?.SearchPlaceholderText ?? Translator.SearchBarPlaceholder;
             TitleBarSearchBox.ItemsSource = _activeTitleBarSearchHost?.SearchSuggestions;
             TitleBarSearchBox.Text = _activeTitleBarSearchHost?.SearchText ?? string.Empty;
+            UpdateTitleBarCloseSearchButtonVisibility();
         }
         finally
         {
@@ -346,7 +348,46 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
             return;
 
         _activeTitleBarSearchHost.SearchText = sender.Text;
+        UpdateTitleBarCloseSearchButtonVisibility();
         await _activeTitleBarSearchHost.OnTitleBarSearchTextChangedAsync();
+    }
+
+    private async void TitleBarCloseSearchButtonClicked(object sender, RoutedEventArgs e)
+    {
+        if (_activeTitleBarSearchHost == null)
+            return;
+
+        _isSynchronizingTitleBarSearch = true;
+        try
+        {
+            TitleBarSearchBox.Text = string.Empty;
+            _activeTitleBarSearchHost.SearchText = string.Empty;
+            UpdateTitleBarCloseSearchButtonVisibility();
+        }
+        finally
+        {
+            _isSynchronizingTitleBarSearch = false;
+        }
+
+        await _activeTitleBarSearchHost.OnTitleBarSearchTextChangedAsync();
+        TitleBarSearchBox.Focus(FocusState.Programmatic);
+    }
+
+    private void UpdateTitleBarCloseSearchButtonVisibility()
+        => TitleBarCloseSearchButton.Visibility = _isTitleBarSearchBoxFocused || string.IsNullOrEmpty(TitleBarSearchBox.Text)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+
+    private void TitleBarSearchBoxGotFocus(object sender, RoutedEventArgs e)
+    {
+        _isTitleBarSearchBoxFocused = true;
+        UpdateTitleBarCloseSearchButtonVisibility();
+    }
+
+    private void TitleBarSearchBoxLostFocus(object sender, RoutedEventArgs e)
+    {
+        _isTitleBarSearchBoxFocused = false;
+        UpdateTitleBarCloseSearchButtonVisibility();
     }
 
     private void TitleBarSearchSuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)

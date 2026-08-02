@@ -1631,8 +1631,10 @@
                             AutomationProperties.Name="{x:Bind domain:Translator.Buttons_Multiselect}"
                             Background="Transparent"
                             BorderThickness="0"
+                            Checked="MultiSelectChecked"
                             IsChecked="{x:Bind ViewModel.IsMultiSelectionModeEnabled, Mode=TwoWay}"
-                            ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Multiselect}">
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Multiselect}"
+                            Unchecked="MultiSelectUnchecked">
                             <coreControls:WinoFontIcon FontSize="16" Icon="MultiSelect" />
                         </ToggleButton>
                         <DropDownButton

@@ -44,12 +44,18 @@
                     MinWidth="400"
                     MaxWidth="520"
                     Margin="12,0,16,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
                     <AutoSuggestBox
                         x:Name="TitleBarSearchBox"
                         VerticalAlignment="Center"
                         AutomationProperties.AutomationId="TitleBarSearchBox"
                         AutomationProperties.Name="{x:Bind domain:Translator.SearchBarPlaceholder}"
                         BorderBrush="Transparent"
+                        GotFocus="TitleBarSearchBoxGotFocus"
+                        LostFocus="TitleBarSearchBoxLostFocus"
                         PlaceholderText="{x:Bind domain:Translator.SearchBarPlaceholder}"
                         QueryIcon="Find"
                         QuerySubmitted="TitleBarSearchQuerySubmitted"
@@ -68,6 +74,22 @@
                             </DataTemplate>
                         </AutoSuggestBox.ItemTemplate>
                     </AutoSuggestBox>
+                    <Button
+                        x:Name="TitleBarCloseSearchButton"
+                        Grid.Column="1"
+                        Width="32"
+                        Height="32"
+                        Margin="4,0,0,0"
+                        VerticalAlignment="Center"
+                        AutomationProperties.AutomationId="TitleBarCloseSearchButton"
+                        AutomationProperties.Name="{x:Bind domain:Translator.SearchBar_Close}"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        Click="TitleBarCloseSearchButtonClicked"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.SearchBar_Close}"
+                        Visibility="Collapsed">
+                        <FontIcon FontSize="12" Glyph="&#xE711;" />
+                    </Button>
                 </Grid>
             </TitleBar.Content>
             <TitleBar.RightHeader>

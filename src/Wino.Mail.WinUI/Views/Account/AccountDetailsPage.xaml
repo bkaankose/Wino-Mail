@@ -100,7 +100,7 @@
                 x:Name="TabSelector"
                 Grid.Row="0"
                 HorizontalAlignment="Center"
-                SelectionChanged="OnTabSelectionChanged">
+                SelectedIndex="{x:Bind ViewModel.SelectedTabIndex, Mode=TwoWay}">
                 <controls:SegmentedItem Content="{x:Bind domain:Translator.AccountDetailsPage_TabGeneral, Mode=OneTime}">
                     <controls:SegmentedItem.Icon>
                         <SymbolIcon Symbol="ContactInfo" />

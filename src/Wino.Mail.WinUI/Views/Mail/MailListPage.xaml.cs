@@ -1243,6 +1243,10 @@ public sealed partial class MailListPage : MailListPageAbstract,
         return true;
     }
 
+    private void MultiSelectChecked(object sender, RoutedEventArgs e) => MailListView.SelectionMode = ListViewSelectionMode.Multiple;
+
+    private void MultiSelectUnchecked(object sender, RoutedEventArgs e) => MailListView.SelectionMode = ListViewSelectionMode.Extended;
+
     private async Task ContinuePendingHostedPopoutNavigationAsync(FrameworkElement content, PendingHostedPopoutNavigation pendingHostedNavigation)
     {
         if (!ReferenceEquals(_pendingHostedPopoutNavigation, pendingHostedNavigation))

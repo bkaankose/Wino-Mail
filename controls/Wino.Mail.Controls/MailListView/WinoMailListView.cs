@@ -452,7 +452,7 @@ public partial class WinoMailListView : ListView
             return;
         }
 
-        if (IsTouchMultiSelectMode)
+        if (SelectionMode == ListViewSelectionMode.Multiple)
         {
             if (_pressedRow?.IsThreadHead == true)
             {
@@ -490,6 +490,9 @@ public partial class WinoMailListView : ListView
 
         var isControlGesture = IsKeyDown(VirtualKey.Control);
         var isShiftGesture = IsKeyDown(VirtualKey.Shift);
+        var isMultiSelectGesture =
+            SelectionMode == ListViewSelectionMode.Multiple ||
+            isControlGesture;
         var wasPressedRowSelected =
             ReferenceEquals(_pressedRow, row) &&
             _pressedRowWasSelected;
@@ -503,32 +506,26 @@ public partial class WinoMailListView : ListView
                     return;
                 }
 
-                if (IsTouchMultiSelectMode)
+                if (row.IsThreadHead && isMultiSelectGesture)
                 {
-                    if (row.IsThreadHead)
-                    {
-                        ToggleWholeThreadSelection(row);
-                    }
-
-                    return;
-                }
-
-                if (row.IsThreadHead && isControlGesture)
-                {
-                    ToggleThreadRepresentativeSelection(row);
+                    ToggleWholeThreadSelection(row);
                     return;
                 }
 
                 if (!row.IsThreadHead)
                 {
-                    if (!isControlGesture &&
+                    if (!isMultiSelectGesture &&
                         wasPressedRowSelected)
                     {
                         _tokens.Remove(SelectionToken.ForItem(row.SourceItem));
                         QueueSelectionRestore();
                     }
 
-                    CollapseExpandedThreadsExcept(row.IsThreadChild ? row.ThreadKey : null);
+                    if (!isMultiSelectGesture)
+                    {
+                        CollapseExpandedThreadsExcept(row.IsThreadChild ? row.ThreadKey : null);
+                    }
+
                     return;
                 }
 
@@ -568,7 +565,7 @@ public partial class WinoMailListView : ListView
 
     private void ToggleWholeThreadSelection(MailListRow row)
     {
-        if (row.Thread is not { } thread)
+        if (_projection is null || row.Thread is not { } thread)
         {
             return;
         }
@@ -576,11 +573,22 @@ public partial class WinoMailListView : ListView
         var threadToken = SelectionToken.ForThread(thread.Key);
         var isFullySelected = _tokens.Contains(threadToken) ||
             thread.Items.All(item => _tokens.Contains(SelectionToken.ForItem(item)));
+        var shouldCollapse =
+            isFullySelected &&
+            _projection.IsThreadExpanded(thread.Key);
 
         RemoveSelectionTokensForThread(thread.Key);
-        if (!isFullySelected)
+        if (shouldCollapse)
         {
-            _tokens.Add(threadToken);
+            _projection.CollapseThread(thread.Key);
+            QueueSelectionRestore();
+            return;
+        }
+
+        _tokens.Add(threadToken);
+        if (!_projection.IsThreadExpanded(thread.Key))
+        {
+            _projection.ExpandThread(thread.Key, collapseOtherThreads: false);
         }
 
         QueueSelectionRestore();
@@ -623,45 +631,6 @@ public partial class WinoMailListView : ListView
         {
             list.KeepActiveSelection();
         }
-    }
-
-    private void ToggleThreadRepresentativeSelection(MailListRow row)
-    {
-        if (row.Thread is not { } thread)
-        {
-            return;
-        }
-
-        var representative = row.SourceItem;
-        var representativeToken = SelectionToken.ForItem(representative);
-        var threadToken = SelectionToken.ForThread(thread.Key);
-        var wasRepresentativeSelected =
-            _tokens.Contains(threadToken) ||
-            _tokens.Contains(representativeToken);
-
-        if (_tokens.Remove(threadToken))
-        {
-            // Preserve the remaining leaf selection when a previous touch gesture
-            // selected the thread as one token.
-            foreach (var item in thread.Items)
-            {
-                if (item.StableId != representative.StableId)
-                {
-                    _tokens.Add(SelectionToken.ForItem(item));
-                }
-            }
-        }
-
-        if (wasRepresentativeSelected)
-        {
-            _tokens.Remove(representativeToken);
-        }
-        else
-        {
-            _tokens.Add(representativeToken);
-        }
-
-        QueueSelectionRestore();
     }
 
     private void CollapseExpandedThreadsExcept(string? retainedThreadKey)
