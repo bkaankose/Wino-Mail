@@ -45,13 +45,15 @@ public static class HostedContentPopoutCoordinator
 
         popoutWindow.SetHostedContent(detachedContent);
         source.OnHostedContentPoppedOut(detachedContent, popoutWindow, descriptor);
-        windowManager.ActivateWindow(popoutWindow);
 
         var themeService = WinoApplication.Current.Services.GetService<INewThemeService>();
         if (themeService != null)
         {
             await themeService.ApplyThemeToActiveWindowAsync();
         }
+
+        // Do not expose the pop-out until its theme resources and backdrop are ready.
+        windowManager.ActivateWindow(popoutWindow);
 
         return true;
     }

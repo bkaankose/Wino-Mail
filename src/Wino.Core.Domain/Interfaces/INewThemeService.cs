@@ -41,7 +41,8 @@ public interface INewThemeService : IInitializeAsync
 
     /// <summary>
     /// Re-applies the current theme (backdrop, root theme, accent, caption colors)
-    /// to the currently active window. Use after a window transition.
+    /// to the window selected by the window manager. Call before making a newly
+    /// created window visible so WinUI cannot render its default light theme first.
     /// </summary>
     Task ApplyThemeToActiveWindowAsync();
 }
