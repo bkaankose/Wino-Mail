@@ -36,12 +36,14 @@ public sealed record MailFilterValueChoiceOption(string Value, string DisplayNam
 public partial class MailFilterConditionEditorItem : ObservableObject
 {
     private static readonly IReadOnlyList<MailFilterValueChoiceOption> BooleanChoices =
+    (MailFilterValueChoiceOption[])
     [
         new(bool.TrueString, Translator.Buttons_Yes),
         new(bool.FalseString, Translator.Buttons_No)
     ];
 
     private static readonly IReadOnlyList<MailFilterValueChoiceOption> ImportanceChoices =
+    (MailFilterValueChoiceOption[])
     [
         new(nameof(MailImportance.Low), Translator.MailFilterImportance_Low),
         new(nameof(MailImportance.Normal), Translator.MailFilterImportance_Normal),
@@ -213,11 +215,13 @@ public partial class MailFilterEditorPageViewModel(
 
     public IReadOnlyList<MailFilterManagementOption> ManagementTypes { get; private set; } = [];
     public IReadOnlyList<MailFilterMatchOption> MatchModes { get; } =
+    (MailFilterMatchOption[])
     [
         new(MailFilterMatchMode.All, Translator.MailFilterEditor_MatchAll),
         new(MailFilterMatchMode.Any, Translator.MailFilterEditor_MatchAny)
     ];
     public IReadOnlyList<MailFilterConditionFieldOption> ConditionFields { get; } =
+    (MailFilterConditionFieldOption[])
     [
         new(MailFilterConditionField.FromAddress, Translator.MailFilterField_FromAddress),
         new(MailFilterConditionField.FromName, Translator.MailFilterField_FromName),
@@ -227,6 +231,7 @@ public partial class MailFilterEditorPageViewModel(
         new(MailFilterConditionField.Importance, Translator.MailFilterField_Importance)
     ];
     public IReadOnlyList<MailFilterConditionOperatorOption> ConditionOperators { get; } =
+    (MailFilterConditionOperatorOption[])
     [
         new(MailFilterConditionOperator.Equals, Translator.MailFilterOperator_Equals),
         new(MailFilterConditionOperator.NotEquals, Translator.MailFilterOperator_NotEquals),
@@ -236,6 +241,7 @@ public partial class MailFilterEditorPageViewModel(
         new(MailFilterConditionOperator.EndsWith, Translator.MailFilterOperator_EndsWith)
     ];
     public IReadOnlyList<MailFilterActionOption> ActionTypes { get; } =
+    (MailFilterActionOption[])
     [
         new(MailFilterActionType.MarkRead, Translator.MailFilterAction_MarkRead),
         new(MailFilterActionType.MarkUnread, Translator.MailFilterAction_MarkUnread),
