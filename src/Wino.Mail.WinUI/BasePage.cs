@@ -98,8 +98,6 @@ public abstract class BasePage<T> : BasePage where T : CoreBaseViewModel
         var parameter = e.Parameter;
 
         PrepareForClose(mode, parameter);
-
-        GC.Collect();
     }
 
     public override void PrepareForClose()
