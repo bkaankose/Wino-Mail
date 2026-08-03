@@ -72,7 +72,6 @@
         </DataTemplate>
     </Page.Resources>
 
-    <ScrollViewer>
         <Grid Padding="16,12" RowSpacing="12">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -193,5 +192,4 @@
                 </ListView>
             </Expander>
         </Grid>
-    </ScrollViewer>
 </abstract:FolderCustomizationPageAbstract>

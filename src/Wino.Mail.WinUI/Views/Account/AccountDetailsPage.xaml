@@ -89,7 +89,6 @@
         </DataTemplate>
     </Page.Resources>
 
-    <ScrollViewer>
         <Grid RowSpacing="12">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -379,7 +378,6 @@
                                 HorizontalContentAlignment="Stretch"
                                 VerticalContentAlignment="Stretch"
                                 ContentAlignment="Vertical">
-                                <ScrollViewer>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
@@ -427,7 +425,6 @@
                                             ItemsSource="{x:Bind ViewModel.CurrentFolders, Mode=OneWay}"
                                             SelectionMode="None" />
                                     </Grid>
-                                </ScrollViewer>
                             </controls:SettingsCard>
                         </controls:SettingsExpander.Items>
                     </controls:SettingsExpander>
@@ -701,5 +698,4 @@
                 </VisualState>
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
-    </ScrollViewer>
 </abstract:AccountDetailsPageAbstract>

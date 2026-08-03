@@ -10,7 +10,6 @@
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     mc:Ignorable="d">
 
-    <ScrollViewer>
         <StackPanel>
             <StackPanel.ChildrenTransitions>
                 <TransitionCollection>
@@ -162,5 +161,4 @@
                     AutomationProperties.AutomationId="ReadComposePanePageToggleSwitch4" IsOn="{x:Bind ViewModel.PreferencesService.RenderPlaintextLinks, Mode=TwoWay}" />
             </controls:SettingsCard>
         </StackPanel>
-    </ScrollViewer>
 </abstract:ReadComposePanePageAbstract>

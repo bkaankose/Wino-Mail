@@ -11,7 +11,6 @@
     mc:Ignorable="d">
 
     <Grid>
-        <ScrollViewer>
             <StackPanel MaxWidth="900" Spacing="{StaticResource SettingsCardSpacing}">
                 <controls:SettingsCard
                     AutomationProperties.AutomationId="MailFiltersNewFilterCard"
@@ -151,7 +150,6 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </StackPanel>
-        </ScrollViewer>
 
         <ProgressRing
             HorizontalAlignment="Center"

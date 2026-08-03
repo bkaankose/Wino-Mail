@@ -237,7 +237,6 @@
             UnlimitedAccountsPurchasedTemplate="{StaticResource UnlimitedAccountsPurchasedTemplate}" />
     </Page.Resources>
 
-    <ScrollViewer>
         <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
 
             <StackPanel
@@ -412,5 +411,4 @@
 
             </StackPanel>
         </StackPanel>
-    </ScrollViewer>
 </abstract:WinoAccountManagementPageAbstract>

@@ -60,7 +60,6 @@
         </DataTemplate>
     </Page.Resources>
 
-    <ScrollViewer>
         <StackPanel>
             <controls:SettingsCard
                 AutomationProperties.AutomationId="MergedAccountDetailsPageSettingsCard3"
@@ -174,5 +173,4 @@
                 </Grid>
             </controls:SettingsCard>
         </StackPanel>
-    </ScrollViewer>
 </abstract:MergedAccountDetailsPageAbstract>

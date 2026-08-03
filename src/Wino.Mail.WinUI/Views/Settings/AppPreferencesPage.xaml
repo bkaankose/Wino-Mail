@@ -12,7 +12,6 @@
     xmlns:translations="using:Wino.Core.Domain.Models.Translations"
     mc:Ignorable="d">
 
-    <ScrollViewer>
         <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
             <controls:SettingsCard
                 AutomationProperties.AutomationId="AppPreferencesPageSettingsCard"
@@ -262,7 +261,6 @@
                 </VisualState>
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
-    </ScrollViewer>
 </abstract:AppPreferencesPageAbstract>
 
 

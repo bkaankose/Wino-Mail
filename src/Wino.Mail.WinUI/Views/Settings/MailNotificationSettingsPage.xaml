@@ -10,7 +10,6 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <ScrollViewer>
         <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
             <controls:SettingsExpander
                 AutomationProperties.AutomationId="MailNotificationSettingsPageSettingsExpander"
@@ -77,5 +76,4 @@
             </controls:SettingsCard>
 
         </StackPanel>
-    </ScrollViewer>
 </abstract:MailNotificationSettingsPageAbstract>

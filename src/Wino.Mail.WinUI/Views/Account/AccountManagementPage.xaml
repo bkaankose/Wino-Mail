@@ -85,9 +85,9 @@
             RootAccountTemplate="{StaticResource RootAccountTemplate}" />
     </Page.Resources>
 
-    <ScrollViewer Margin="-12,0">
-        <Grid
+    <Grid
             MaxWidth="900"
+            Margin="-12,0"
             Padding="20"
             HorizontalAlignment="Stretch"
             RowSpacing="20">
@@ -310,5 +310,4 @@
                 </StackPanel>
             </Grid>
         </Grid>
-    </ScrollViewer>
 </abstract:AccountManagementPageAbstract>

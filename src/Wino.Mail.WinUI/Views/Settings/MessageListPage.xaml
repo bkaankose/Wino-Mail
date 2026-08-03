@@ -11,7 +11,6 @@
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     mc:Ignorable="d">
 
-    <ScrollViewer>
         <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
             <StackPanel.ChildrenTransitions>
                 <TransitionCollection>
@@ -343,5 +342,4 @@
                 </controls:SettingsExpander.Items>
             </controls:SettingsExpander>
         </StackPanel>
-    </ScrollViewer>
 </abstract:MessageListPageAbstract>

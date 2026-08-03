@@ -61,7 +61,6 @@
         </DataTemplate>
     </Page.Resources>
 
-    <ScrollViewer>
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -134,5 +133,4 @@
                 <ItemsControl ItemTemplate="{StaticResource SignatureDialogTemplate}" ItemsSource="{x:Bind ViewModel.Signatures}" />
             </StackPanel>
         </Grid>
-    </ScrollViewer>
 </abstract:SignatureManagementPageAbstract>

@@ -14,12 +14,11 @@
     x:Name="root"
     mc:Ignorable="d">
 
-    <ScrollViewer HorizontalAlignment="Center" VerticalScrollBarVisibility="Auto">
-        <StackPanel
-            MaxWidth="880"
-            Margin="0,12"
-            HorizontalAlignment="Stretch"
-            Spacing="20">
+    <StackPanel
+        MaxWidth="880"
+        Margin="0,12"
+        HorizontalAlignment="Stretch"
+        Spacing="20">
 
             <StackPanel Spacing="6">
                 <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind domain:Translator.ProviderSelection_Title}" />
@@ -394,5 +393,4 @@
                     Style="{StaticResource AccentButtonStyle}" />
             </Grid>
         </StackPanel>
-    </ScrollViewer>
 </abstract:ProviderSelectionPageAbstract>

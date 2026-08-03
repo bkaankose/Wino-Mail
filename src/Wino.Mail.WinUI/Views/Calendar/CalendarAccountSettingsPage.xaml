@@ -28,8 +28,7 @@
         </StackPanel>
 
         <!--  Settings Cards  -->
-        <ScrollViewer Grid.Row="1">
-            <StackPanel MaxWidth="900" Spacing="4">
+        <StackPanel Grid.Row="1" MaxWidth="900" Spacing="4">
 
                 <!--  Account Color  -->
                 <controls:SettingsCard
@@ -78,6 +77,5 @@
                 </controls:SettingsCard>
 
             </StackPanel>
-        </ScrollViewer>
     </Grid>
 </abstract:CalendarAccountSettingsPageAbstract>

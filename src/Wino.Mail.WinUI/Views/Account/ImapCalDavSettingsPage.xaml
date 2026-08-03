@@ -9,7 +9,6 @@
     mc:Ignorable="d">
 
     <Grid>
-        <ScrollViewer>
             <Grid
                 MaxWidth="980"
                 Padding="36,28,36,36"
@@ -348,7 +347,6 @@
                     </Grid>
                 </StackPanel>
             </Grid>
-        </ScrollViewer>
 
         <Border
             MaxWidth="700"

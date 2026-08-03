@@ -115,7 +115,6 @@
             SystemThemeTemplate="{StaticResource SystemAppThemeTemplate}" />
     </Page.Resources>
 
-    <ScrollViewer>
         <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
             <StackPanel.ChildrenTransitions>
                 <TransitionCollection>
@@ -288,5 +287,4 @@
                 Text="{x:Bind domain:Translator.SettingsWindowBackdrop_Disabled}" />
 
         </StackPanel>
-    </ScrollViewer>
 </abstract:PersonalizationPageAbstract>

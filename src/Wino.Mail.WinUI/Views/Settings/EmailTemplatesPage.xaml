@@ -10,7 +10,6 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <ScrollViewer>
         <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
             <controls:SettingsCard
                 AutomationProperties.AutomationId="EmailTemplatesPageSettingsCard"
@@ -42,5 +41,4 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
         </StackPanel>
-    </ScrollViewer>
 </abstract:EmailTemplatesPageAbstract>

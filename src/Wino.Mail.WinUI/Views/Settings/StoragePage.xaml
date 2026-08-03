@@ -13,7 +13,6 @@
     x:Name="root"
     mc:Ignorable="d">
 
-    <ScrollViewer>
         <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
             <Grid
                 Padding="16"
@@ -122,5 +121,4 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
         </StackPanel>
-    </ScrollViewer>
 </abstract:StoragePageAbstract>

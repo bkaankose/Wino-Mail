@@ -123,8 +123,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
     private void SettingsFrameNavigated(object sender, NavigationEventArgs e)
     {
-        UpdateBackNavigationState();
-        _ = RefreshCurrentPageStateAsync();
+        ContentScrollViewer.ChangeView(null, 0, null, true);
     }
 
     private void GoBackFrame(Core.Domain.Enums.NavigationTransitionEffect slideEffect)
@@ -165,10 +164,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
             return;
         }
 
-        NavigateToSettingsHome();
-        NavigateBreadcrumb(new BreadcrumbNavigationRequested(
-            SettingsNavigationInfoProvider.GetPageTitle(message.PageType),
-            message.PageType));
+        NavigateDirectlyToRootPage(message.PageType);
     }
 
     public void Receive(AccountUpdatedMessage message)
@@ -222,16 +218,55 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
     private void NavigateToRootPage(WinoPage targetPage)
     {
-        NavigateToSettingsHome();
-
-        if (targetPage != WinoPage.SettingOptionsPage)
+        if (targetPage == WinoPage.SettingOptionsPage)
         {
-            NavigateBreadcrumb(new BreadcrumbNavigationRequested(
-                SettingsNavigationInfoProvider.GetPageTitle(targetPage),
-                targetPage));
+            NavigateToSettingsHome();
+            UpdateWindowTitle();
             return;
         }
 
+        NavigateDirectlyToRootPage(targetPage);
+    }
+
+    private void NavigateDirectlyToRootPage(WinoPage targetPage)
+    {
+        var pageType = ViewModel.NavigationService.GetPageType(targetPage);
+
+        if (pageType == null)
+            return;
+
+        SettingsFrame.BackStack.Clear();
+        SettingsFrame.ForwardStack.Clear();
+
+        if (!SettingsFrame.Navigate(pageType, null, new SlideNavigationTransitionInfo
+            {
+                Effect = SlideNavigationTransitionEffect.FromRight
+            }))
+        {
+            return;
+        }
+
+        // Keep Settings home as the logical breadcrumb parent without constructing it first.
+        SettingsFrame.BackStack.Clear();
+        SettingsFrame.BackStack.Add(new PageStackEntry(
+            typeof(SettingOptionsPage),
+            null,
+            new SuppressNavigationTransitionInfo()));
+
+        PageHistory.Clear();
+        PageHistory.Add(new BreadcrumbNavigationItemViewModel(
+            new BreadcrumbNavigationRequested(Translator.MenuSettings, WinoPage.SettingOptionsPage),
+            isActive: false,
+            stepNumber: 1,
+            backStackDepth: 1));
+        PageHistory.Add(new BreadcrumbNavigationItemViewModel(
+            new BreadcrumbNavigationRequested(SettingsNavigationInfoProvider.GetPageTitle(targetPage), targetPage),
+            isActive: true,
+            stepNumber: 2,
+            backStackDepth: 2));
+
+        UpdateBackNavigationState();
+        _ = RefreshCurrentPageStateAsync();
         UpdateWindowTitle();
     }
 
