@@ -27,7 +27,7 @@
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Graph.Core" Version="4.0.1" />
     <PackageVersion Include="Microsoft.Graphics.Win2D" Version="1.4.0" />
-    <PackageVersion Include="Microsoft.Identity.Client" Version="4.86.1" />
+    <PackageVersion Include="Microsoft.Identity.Client" Version="4.87.0" />
     <PackageVersion Include="Microsoft.Identity.Client.Broker" Version="4.86.1" />
     <PackageVersion Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.86.1" />
     <PackageVersion Include="Microsoft.NETCore.UniversalWindowsPlatform" Version="6.2.14" />
