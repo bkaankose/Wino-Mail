@@ -27,7 +27,7 @@ jobs:
       CERTIFICATE_CER_PATH: ${{ github.workspace }}\artifacts\release\Wino-Mail-Beta.cer
     steps:
       - name: Checkout selected branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.ref }}
           fetch-depth: 0
