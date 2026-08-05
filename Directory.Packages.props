@@ -45,7 +45,7 @@
     <PackageVersion Include="Serilog.Sinks.Debug" Version="3.0.0" />
     <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageVersion Include="Serilog.Sinks.ApplicationInsights" Version="5.0.1" />
-    <PackageVersion Include="SkiaSharp" Version="4.150.1" />
+    <PackageVersion Include="SkiaSharp" Version="4.151.0" />
     <PackageVersion Include="sqlite-net-pcl" Version="1.11.285" />
     <PackageVersion Include="System.Drawing.Common" Version="10.0.10" />
     <PackageVersion Include="System.Private.Uri" Version="4.3.2" />
