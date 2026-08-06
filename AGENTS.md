@@ -47,6 +47,13 @@ dotnet restore src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.con
 - When the prompt already names likely files, types, or symbols, start there instead of re-mapping the repository
 - If a WinUI build only reports `XamlCompiler.exe exited with code 1`, rerun with the diagnostic logging command above and inspect the terminal output plus `winui-build.log` for real `WMC`/`WMC1121`/binding diagnostics before guessing
 
+## NuGet Dependency Policy
+
+- Published cross-repository dependencies must always use `PackageReference`; NuGet is the source of truth.
+- Never condition `PackageReference` or `ProjectReference` on whether a sibling repository or local project path exists.
+- Never let the presence of a local checkout change the dependency graph or build output.
+- To consume cross-repository changes, publish a new NuGet package version and update the centrally managed package version.
+
 ## Architecture
 
 ### Solution Structure
