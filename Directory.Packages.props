@@ -55,7 +55,7 @@
     <PackageVersion Include="HtmlKit" Version="1.2.0" />
     <PackageVersion Include="MailKit" Version="4.17.0" />
     <PackageVersion Include="TimePeriodLibrary.NET" Version="2.1.6" />
-    <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.11" />
     <PackageVersion Include="System.Text.Encodings.Web" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2526" />
     <PackageVersion Include="Microsoft.WindowsAppSDK" Version="2.1.4-experimental8" />
