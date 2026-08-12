@@ -30,6 +30,14 @@ public interface IMailDialogService : IDialogServiceBase
     // Custom dialogs
     Task<IMailItemFolder> ShowMoveMailFolderDialogAsync(List<IMailItemFolder> availableFolders);
     Task<MailAccount> ShowAccountPickerDialogAsync(List<MailAccount> availableAccounts);
+
+    /// <summary>
+    /// Displays a dialog for entering the mailbox address to use when the resolved
+    /// address conflicts with an existing account during setup.
+    /// </summary>
+    /// <param name="conflictingAddress">Resolved address that conflicts with an existing account.</param>
+    /// <returns>Entered address, or null if the dialog is dismissed.</returns>
+    Task<string> ShowAccountAddressEntryDialogAsync(string conflictingAddress);
     Task<AccountCalendarPickingResult> ShowSingleCalendarPickerDialogAsync(List<CalendarPickerAccountGroup> availableCalendarGroups);
 
     /// <summary>

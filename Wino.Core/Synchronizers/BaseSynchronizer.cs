@@ -231,7 +231,7 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
             Account.SenderName = profileInformation.SenderName;
             Account.Base64ProfilePictureData = profileInformation.Base64ProfilePictureData;
 
-            if (!string.IsNullOrEmpty(profileInformation.AccountAddress))
+            if (!string.IsNullOrEmpty(profileInformation.AccountAddress) && !Account.IsAddressUserOverridden)
             {
                 Account.Address = profileInformation.AccountAddress;
             }

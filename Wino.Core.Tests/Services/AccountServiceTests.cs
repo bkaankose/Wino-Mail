@@ -7,6 +7,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Misc;
 using Wino.Core.Tests.Helpers;
 using Wino.Services;
@@ -117,6 +118,49 @@ public class AccountServiceTests : IAsyncLifetime
             .Count()
             .Should()
             .BeGreaterThanOrEqualTo(50);
+    }
+
+    [Fact]
+    public async Task UpdateProfileInformationAsync_UserOverriddenAddress_IsNotOverwritten()
+    {
+        var accountId = Guid.NewGuid();
+        var account = CreateImapAccount(accountId, address: "chosen@outlook.com");
+        account.IsAddressUserOverridden = true;
+
+        await _accountService.CreateAccountAsync(account, null);
+
+        await _accountService.UpdateProfileInformationAsync(accountId, new ProfileInformation("Sender", null, "primary@gmail.com"));
+
+        var updated = await _accountService.GetAccountAsync(accountId);
+        updated.Address.Should().Be("chosen@outlook.com");
+    }
+
+    [Fact]
+    public async Task UpdateProfileInformationAsync_NotOverridden_AddressIsUpdatedFromProfile()
+    {
+        var accountId = Guid.NewGuid();
+        var account = CreateImapAccount(accountId, address: "old@test.local");
+
+        await _accountService.CreateAccountAsync(account, null);
+
+        await _accountService.UpdateProfileInformationAsync(accountId, new ProfileInformation("Sender", null, "new@test.local"));
+
+        var updated = await _accountService.GetAccountAsync(accountId);
+        updated.Address.Should().Be("new@test.local");
+    }
+
+    [Fact]
+    public async Task UpdateProfileInformationAsync_NotOverridden_ThrowsWhenProfileAddressCollides()
+    {
+        var existingAccountId = Guid.NewGuid();
+        await _accountService.CreateAccountAsync(CreateImapAccount(existingAccountId, "Existing Account", "taken@test.local"), null);
+
+        var accountId = Guid.NewGuid();
+        await _accountService.CreateAccountAsync(CreateImapAccount(accountId, "New Account", "old@test.local"), null);
+
+        var act = () => _accountService.UpdateProfileInformationAsync(accountId, new ProfileInformation("Sender", null, "taken@test.local"));
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
     private static MailAccount CreateImapAccount(Guid accountId, string name = "IMAP Test Account", string address = "imap@test.local")

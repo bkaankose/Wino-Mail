@@ -1613,6 +1613,9 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             AddAlias(proxyAddress["smtp:".Length..]);
         }
 
+        // Personal Microsoft accounts don't return aliases in proxyAddresses.
+        AddAlias(Account.Address);
+
         return aliases.Values.ToList();
     }
 
