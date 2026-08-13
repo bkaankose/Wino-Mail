@@ -1,0 +1,173 @@
+<Page
+    x:Class="Wino.Mail.Controls.Playground.Pages.IntelligenceHeaderPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:intelligence="using:Wino.Mail.Controls.IntelligenceHeader"
+    xmlns:local="using:Wino.Mail.Controls.Playground.Pages"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <DataTemplate x:Key="HeaderVariantOptionTemplate" x:DataType="local:IntelligenceHeaderVariantOption">
+            <TextBlock Text="{x:Bind Title}" />
+        </DataTemplate>
+    </Page.Resources>
+
+    <ScrollViewer>
+        <Grid Padding="28" ColumnSpacing="24" RowSpacing="20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="*" MinWidth="260" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.ColumnSpan="2" Spacing="4">
+                <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Wino Intelligence Header" />
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="Collapsed signal pills, passive facts, and generated features behind explicit triggers. The control holds no data of its own — every string below is supplied by this page."
+                    TextWrapping="Wrap" />
+            </StackPanel>
+
+            <Border
+                Grid.Row="1"
+                Padding="24"
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+                <StackPanel Spacing="20">
+                    <intelligence:WinoIntelligenceHeader
+                        x:Name="IntelligenceHeader"
+                        ActionInvoked="HeaderActionInvoked"
+                        AutomationProperties.AutomationId="IntelligenceHeaderPlaygroundControl"
+                        ExpansionChanged="HeaderExpansionChanged"
+                        FeatureCancelRequested="HeaderFeatureCancelRequested"
+                        FeatureRequested="HeaderFeatureRequested"
+                        ProcessRequested="HeaderProcessRequested"
+                        SimilarMailChosen="HeaderSimilarMailChosen"
+                        SuggestedReplyChosen="HeaderSuggestedReplyChosen" />
+
+                    <StackPanel Spacing="8">
+                        <TextBlock FontWeight="SemiBold" Text="Page response" />
+                        <TextBlock
+                            x:Name="ResultSummary"
+                            AutomationProperties.AutomationId="IntelligenceHeaderResultSummary"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="Expand the strip and request a generated feature."
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <StackPanel Grid.Row="1" Grid.Column="1" Spacing="16">
+                <StackPanel Spacing="5">
+                    <TextBlock Text="Header variant" />
+                    <ComboBox
+                        x:Name="HeaderVariantComboBox"
+                        HorizontalAlignment="Stretch"
+                        AutomationProperties.AutomationId="IntelligenceHeaderVariantComboBox"
+                        ItemTemplate="{StaticResource HeaderVariantOptionTemplate}"
+                        ItemsSource="{x:Bind VariantOptions}"
+                        SelectionChanged="HeaderVariantChanged" />
+                </StackPanel>
+
+                <StackPanel Spacing="5">
+                    <ToggleSwitch
+                        x:Name="ExpandedToggle"
+                        AutomationProperties.AutomationId="IntelligenceHeaderExpandedToggle"
+                        Header="Expanded"
+                        Toggled="ExpandedToggled" />
+                    <ToggleSwitch
+                        x:Name="AddToCalendarToggle"
+                        AutomationProperties.AutomationId="IntelligenceHeaderAddToCalendarToggle"
+                        Header="Add to calendar available"
+                        IsOn="True"
+                        Toggled="AvailabilityToggled" />
+                    <ToggleSwitch
+                        x:Name="TranslateToggle"
+                        AutomationProperties.AutomationId="IntelligenceHeaderTranslateToggle"
+                        Header="Translate available"
+                        IsOn="True"
+                        Toggled="AvailabilityToggled" />
+                    <ToggleSwitch
+                        x:Name="FindSimilarToggle"
+                        AutomationProperties.AutomationId="IntelligenceHeaderFindSimilarToggle"
+                        Header="Find similar available"
+                        IsOn="True"
+                        Toggled="AvailabilityToggled" />
+                </StackPanel>
+
+                <StackPanel Spacing="8">
+                    <TextBlock FontWeight="SemiBold" Text="Simulated host" />
+                    <ToggleSwitch
+                        x:Name="AutoCompleteToggle"
+                        AutomationProperties.AutomationId="IntelligenceHeaderAutoCompleteToggle"
+                        Header="Auto-complete requests"
+                        IsOn="True" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="Turn this off to terminate requests by hand and prove the busy state always recovers."
+                        TextWrapping="Wrap" />
+                    <Button
+                        x:Name="CompletePendingButton"
+                        HorizontalAlignment="Stretch"
+                        AutomationProperties.AutomationId="IntelligenceHeaderCompletePendingButton"
+                        Click="CompletePendingClicked"
+                        Content="Complete pending request" />
+                    <Button
+                        x:Name="FailPendingButton"
+                        HorizontalAlignment="Stretch"
+                        AutomationProperties.AutomationId="IntelligenceHeaderFailPendingButton"
+                        Click="FailPendingClicked"
+                        Content="Fail pending request" />
+                    <Button
+                        x:Name="CompleteStaleButton"
+                        HorizontalAlignment="Stretch"
+                        AutomationProperties.AutomationId="IntelligenceHeaderCompleteStaleButton"
+                        Click="CompleteStaleClicked"
+                        Content="Complete with a stale id" />
+                </StackPanel>
+
+                <StackPanel Spacing="8">
+                    <TextBlock FontWeight="SemiBold" Text="Content" />
+                    <Button
+                        x:Name="SwapMessageButton"
+                        HorizontalAlignment="Stretch"
+                        AutomationProperties.AutomationId="IntelligenceHeaderSwapMessageButton"
+                        Click="SwapMessageClicked"
+                        Content="Swap to another message" />
+                    <Button
+                        x:Name="ResetButton"
+                        HorizontalAlignment="Stretch"
+                        AutomationProperties.AutomationId="IntelligenceHeaderResetButton"
+                        Click="ResetClicked"
+                        Content="Reset" />
+                </StackPanel>
+            </StackPanel>
+
+            <Border
+                Grid.Row="2"
+                Grid.ColumnSpan="2"
+                Padding="20"
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+                <StackPanel Spacing="8">
+                    <TextBlock FontWeight="SemiBold" Text="Event trace" />
+                    <ListView
+                        x:Name="EventTraceList"
+                        MaxHeight="220"
+                        AutomationProperties.AutomationId="IntelligenceHeaderEventTrace"
+                        ItemsSource="{x:Bind EventTrace}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </ScrollViewer>
+</Page>

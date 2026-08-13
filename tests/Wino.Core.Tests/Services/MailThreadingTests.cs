@@ -194,6 +194,37 @@ public class MailThreadingTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task CreateDraftAsync_Reply_EncodesPlainTextPrefillAboveQuotedMessage()
+    {
+        var referencedMimeMessage = CreateReferencedMimeMessage("Original subject", "original@domain.com");
+        referencedMimeMessage.Body = new TextPart("html") { Text = "<p>Quoted body</p>" };
+
+        var (_, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(
+            _account.Id,
+            new DraftCreationOptions
+            {
+                Reason = DraftCreationReason.Reply,
+                InitialBodyText = "First <line> & value\nSecond line",
+                ReferencedMessage = new ReferencedMessage
+                {
+                    MimeMessage = referencedMimeMessage,
+                    MailCopy = new MailCopy
+                    {
+                        UniqueId = Guid.NewGuid(),
+                        Id = Guid.NewGuid().ToString(),
+                        MessageId = "original@domain.com"
+                    }
+                }
+            });
+
+        var html = draftBase64MimeMessage.GetMimeMessageFromBase64().HtmlBody;
+
+        html.Should().Contain("First &lt;line&gt; &amp; value<br>Second line");
+        html.IndexOf("First &lt;line&gt;", StringComparison.Ordinal)
+            .Should().BeLessThan(html.IndexOf("Quoted body", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task CreateDraftAsync_Reply_AppendsReferencesChainOnce()
     {
         const string rootMessageId = "root@domain.com";

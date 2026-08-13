@@ -29,6 +29,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\Wino.Calendar.ViewModels\Wino.Calendar.ViewModels.csproj" />
 		<ProjectReference Include="..\..\src\Wino.Core\Wino.Core.csproj" />
+		<ProjectReference Include="..\..\src\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
 		<ProjectReference Include="..\..\src\Wino.Services\Wino.Services.csproj" />
 		<ProjectReference Include="..\..\src\Wino.Core.Domain\Wino.Core.Domain.csproj" />
 	</ItemGroup>

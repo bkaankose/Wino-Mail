@@ -2,5 +2,6 @@
 public enum SearchMode
 {
     Local,
-    Online
+    Online,
+    Semantic
 }

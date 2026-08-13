@@ -1,0 +1,61 @@
+using Wino.Mail.Controls.Core.IntelligenceHeader;
+
+namespace Wino.Mail.Controls.IntelligenceHeader;
+
+public sealed partial class WinoIntelligenceHeader
+{
+    partial void OnContentKeyChanged(string newValue) => OnContentKeyPropertyChanged(this, ContentKeyProperty);
+    partial void OnProcessingStateChanged(WinoIntelligenceProcessingState newValue) => OnStatePropertyChanged(this, ProcessingStateProperty);
+    partial void OnIsExpandedChanged(bool newValue) => OnExpansionPropertyChanged(this, IsExpandedProperty);
+    partial void OnHeaderTitleChanged(string newValue) => OnStatePropertyChanged(this, HeaderTitleProperty);
+    partial void OnActionHeadingTextChanged(string newValue) => OnStatePropertyChanged(this, ActionHeadingTextProperty);
+    partial void OnDeadlineTextChanged(string newValue) => OnStatePropertyChanged(this, DeadlineTextProperty);
+    partial void OnDeadlineDetailTextChanged(string newValue) => OnStatePropertyChanged(this, DeadlineDetailTextProperty);
+    partial void OnNeedsReplyChanged(bool newValue) => OnStatePropertyChanged(this, NeedsReplyProperty);
+    partial void OnNeedsReplyTextChanged(string newValue) => OnStatePropertyChanged(this, NeedsReplyTextProperty);
+    partial void OnNeedsReplyDetailTextChanged(string newValue) => OnStatePropertyChanged(this, NeedsReplyDetailTextProperty);
+    partial void OnNoSignalSubtitleTextChanged(string newValue) => OnStatePropertyChanged(this, NoSignalSubtitleTextProperty);
+    partial void OnUnprocessedSubtitleTextChanged(string newValue) => OnStatePropertyChanged(this, UnprocessedSubtitleTextProperty);
+    partial void OnQueuedSubtitleTextChanged(string newValue) => OnStatePropertyChanged(this, QueuedSubtitleTextProperty);
+    partial void OnProcessingSubtitleTextChanged(string newValue) => OnStatePropertyChanged(this, ProcessingSubtitleTextProperty);
+    partial void OnProcessingFailedSubtitleTextChanged(string newValue) => OnStatePropertyChanged(this, ProcessingFailedSubtitleTextProperty);
+    partial void OnUnavailableSubtitleTextChanged(string newValue) => OnStatePropertyChanged(this, UnavailableSubtitleTextProperty);
+    partial void OnProcessButtonTextChanged(string newValue) => OnStatePropertyChanged(this, ProcessButtonTextProperty);
+    partial void OnRetryProcessButtonTextChanged(string newValue) => OnStatePropertyChanged(this, RetryProcessButtonTextProperty);
+    partial void OnInsightsLockedTextChanged(string newValue) => OnStatePropertyChanged(this, InsightsLockedTextProperty);
+    partial void OnIsAddToCalendarAvailableChanged(bool newValue) => OnStatePropertyChanged(this, IsAddToCalendarAvailableProperty);
+    partial void OnIsProcessingAvailableChanged(bool newValue) => OnStatePropertyChanged(this, IsProcessingAvailableProperty);
+    partial void OnIsSummaryAvailableChanged(bool newValue) => OnStatePropertyChanged(this, IsSummaryAvailableProperty);
+    partial void OnIsSuggestedRepliesAvailableChanged(bool newValue) => OnStatePropertyChanged(this, IsSuggestedRepliesAvailableProperty);
+    partial void OnIsTranslateAvailableChanged(bool newValue) => OnStatePropertyChanged(this, IsTranslateAvailableProperty);
+    partial void OnIsFindSimilarMailAvailableChanged(bool newValue) => OnStatePropertyChanged(this, IsFindSimilarMailAvailableProperty);
+    partial void OnProcessAutomationTextChanged(string newValue) => OnStatePropertyChanged(this, ProcessAutomationTextProperty);
+    partial void OnSummarizeButtonTextChanged(string newValue) => OnStatePropertyChanged(this, SummarizeButtonTextProperty);
+    partial void OnSummarizingTextChanged(string newValue) => OnStatePropertyChanged(this, SummarizingTextProperty);
+    partial void OnSuggestRepliesButtonTextChanged(string newValue) => OnStatePropertyChanged(this, SuggestRepliesButtonTextProperty);
+    partial void OnDraftingRepliesTextChanged(string newValue) => OnStatePropertyChanged(this, DraftingRepliesTextProperty);
+    partial void OnFindSimilarButtonTextChanged(string newValue) => OnStatePropertyChanged(this, FindSimilarButtonTextProperty);
+    partial void OnCancelButtonTextChanged(string newValue) => OnStatePropertyChanged(this, CancelButtonTextProperty);
+    partial void OnTranslationCancelButtonTextChanged(string newValue) => OnStatePropertyChanged(this, TranslationCancelButtonTextProperty);
+    partial void OnCopyTextChanged(string newValue) => OnStatePropertyChanged(this, CopyTextProperty);
+    partial void OnRegenerateTextChanged(string newValue) => OnStatePropertyChanged(this, RegenerateTextProperty);
+    partial void OnClosePanelTextChanged(string newValue) => OnStatePropertyChanged(this, ClosePanelTextProperty);
+    partial void OnTranslateTargetHintFormatChanged(string newValue) => OnStatePropertyChanged(this, TranslateTargetHintFormatProperty);
+    partial void OnExpandedTextChanged(string newValue) => OnStatePropertyChanged(this, ExpandedTextProperty);
+    partial void OnCollapsedTextChanged(string newValue) => OnStatePropertyChanged(this, CollapsedTextProperty);
+    partial void OnSummaryTextChanged(string newValue) => OnResultsPropertyChanged(this, SummaryTextProperty);
+    partial void OnSuggestedRepliesChanged(IEnumerable<WinoIntelligenceReply>? newValue) => OnResultsPropertyChanged(this, SuggestedRepliesProperty);
+    partial void OnSimilarMailItemsChanged(IEnumerable<WinoIntelligenceSimilarMailItem>? newValue) => OnResultsPropertyChanged(this, SimilarMailItemsProperty);
+    partial void OnTranslationLanguagesChanged(IEnumerable<WinoIntelligenceLanguageOption>? newValue) => OnTranslationPropertyChanged(this, TranslationLanguagesProperty);
+    partial void OnSelectedSourceLanguageChanged(string newValue) => OnTranslationPropertyChanged(this, SelectedSourceLanguageProperty);
+    partial void OnSelectedTargetLanguageChanged(string newValue) => OnTranslationPropertyChanged(this, SelectedTargetLanguageProperty);
+    partial void OnIsTranslationBusyChanged(bool newValue) => OnTranslationPropertyChanged(this, IsTranslationBusyProperty);
+    partial void OnHasTranslationResultChanged(bool newValue) => OnTranslationPropertyChanged(this, HasTranslationResultProperty);
+    partial void OnIsTranslationAppliedChanged(bool newValue) => OnTranslationPropertyChanged(this, IsTranslationAppliedProperty);
+    partial void OnTranslationStatusTextChanged(string newValue) => OnTranslationPropertyChanged(this, TranslationStatusTextProperty);
+    partial void OnTranslateButtonTextChanged(string newValue) => OnTranslationPropertyChanged(this, TranslateButtonTextProperty);
+    partial void OnTranslateAgainButtonTextChanged(string newValue) => OnTranslationPropertyChanged(this, TranslateAgainButtonTextProperty);
+    partial void OnShowOriginalButtonTextChanged(string newValue) => OnTranslationPropertyChanged(this, ShowOriginalButtonTextProperty);
+    partial void OnSourceLanguageLabelChanged(string newValue) => OnTranslationPropertyChanged(this, SourceLanguageLabelProperty);
+    partial void OnTargetLanguageLabelChanged(string newValue) => OnTranslationPropertyChanged(this, TargetLanguageLabelProperty);
+}

@@ -121,6 +121,96 @@ private string searchQuery = string.Empty;
 - `x:Bind` does not implicitly convert `double` to `GridLength`; when binding `RowDefinition.Height` or `ColumnDefinition.Width`, use a `XamlHelpers` method such as `DoubleToGridLength(...)`
 - For `ComboBox` controls in XAML, never use `DisplayMemberPath` or `SelectedValuePath`; use a typed `ItemTemplate` and bind `SelectedItem` explicitly, preferably with `x:Bind`
 
+### WinUI Control Authoring Standard
+
+These rules use the `CommunityToolkit/Windows` `components/` controls as the reference design.
+
+They apply to new reusable controls and material control changes.
+
+Wino rules take precedence over legacy toolkit examples. For example, use generated dependency properties instead of manual registration.
+
+Reference snapshot: [`CommunityToolkit/Windows@413892f`](https://github.com/CommunityToolkit/Windows/tree/413892f3e929beae3fbcf9863b8385e570407a41/components).
+
+#### Control structure
+
+- Derive from the most specific WinUI base class that supplies the required semantics.
+- For a templated control, set `DefaultStyleKey = typeof(ControlType)` in the constructor.
+- For a templated control, define the visual tree, default style, and `ControlTemplate` in XAML.
+- Register every default style through `Themes/Generic.xaml`.
+- For a large template, put its resource dictionary in the control folder and merge it from `Themes/Generic.xaml`.
+- Keep behavior in partial C# files. Split large property, event, input, or automation implementations into focused files.
+- Expose customization through dependency properties, data templates, styles, and template parts. Do not require visual-tree replacement for common changes.
+
+#### Template contract
+
+- Name every code-accessed template element `PART_{DescriptiveName}` in XAML.
+- Declare each part name once. For example, use `private const string PartHeaderPresenterName = "PART_HeaderPresenter"`.
+- Add `[TemplatePart(Name = PartHeaderPresenterName, Type = typeof(ContentPresenter))]` for every code-accessed part.
+- Never use an unprefixed template-part name or an ad hoc string in `GetTemplateChild(...)`.
+- Declare template-part fields as nullable. A custom template can omit a part.
+- Resolve template parts only in `OnApplyTemplate()` or in a helper that it calls.
+- Treat a missing optional part as a supported template variation.
+- If a required part is missing, disable only the affected behavior and log a clear error when logging is available.
+
+Use this template lifecycle order:
+
+1. Detach handlers from the previous template parts.
+2. Call `base.OnApplyTemplate()` exactly once.
+3. Resolve each part with `GetTemplateChild(PartHeaderPresenterName) as ContentPresenter`.
+4. Attach handlers to the new parts exactly once.
+5. Apply property values and update visual states without transitions.
+
+Property callbacks must tolerate calls before template application and after template replacement.
+
+#### Dependency properties and events
+
+- Use `[GeneratedDependencyProperty]` on a public partial property for each bindable, styleable, or animatable value.
+- Use the generated property callback pattern for validation and dependent visual updates.
+- Keep the dependency property as the source of truth. Do not copy its value into duplicate state.
+- Use the correct default value. Never share a mutable collection as dependency-property metadata.
+- Document each public property, event, enum, and control with XML comments.
+- Use a routed event only when the event must bubble through the XAML tree.
+- Do not register property-change callbacks each time that `OnApplyTemplate()` runs.
+- If callback registration is necessary, store its token and unregister it during cleanup.
+
+#### Visual states and themes
+
+- Express interactive and layout modes with named visual states instead of direct code changes when practical.
+- Declare every code-selected state with `[TemplateVisualState(Name = ..., GroupName = ...)]`.
+- Store state and group names in constants. Use the same names in C# and XAML.
+- Centralize state selection in an `UpdateVisualStates(bool useTransitions)` method when the control has multiple state inputs.
+- Include applicable normal, pointer-over, pressed, disabled, focus, orientation, validation, empty, and loading states.
+- Use `{ThemeResource}` values for colors, brushes, borders, and focus visuals.
+- Preserve Light, Dark, and High Contrast behavior. Do not encode state with color alone.
+- Keep animations interruptible. Do not make correct control state depend on animation completion.
+
+#### Input, automation, and lifecycle
+
+- Provide equivalent keyboard, pointer, touch, and gamepad behavior for every supported action.
+- Preserve visible focus and logical tab order. Do not make a noninteractive element a tab stop.
+- Prefer a semantic base class such as `ButtonBase`, `RangeBase`, or `ItemsControl` when it matches the control.
+- Override `OnCreateAutomationPeer()` when the base peer does not expose the control's semantics.
+- Implement the applicable UI Automation control type and provider patterns in a dedicated peer class.
+- Raise automation property-change events when range, value, selection, toggle, or expand state changes.
+- Respect an explicit `AutomationProperties.Name` before you calculate a fallback name.
+- Mark decorative template elements with `AutomationProperties.AccessibilityView="Raw"` when they must not appear as separate content.
+- Give interactive parts stable automation IDs when tests or accessibility tools must target them.
+- Detach template-part handlers before template replacement.
+- Detach handlers from external or long-lived event sources during unload or disposal.
+- Follow the repository rule that wires XAML-backed framework and input events in XAML, not in constructors.
+
+#### Samples and verification
+
+- Add or update a focused playground page for every public control and important state change.
+- Keep playground data local and deterministic. The control demo must not require an account or network access.
+- Add tests for dependency-property defaults, callbacks, public events, and control-specific behavior.
+- Apply the template twice in a test when the control owns template-part handlers. Make sure that handlers do not duplicate.
+- Test keyboard behavior and the automation peer for interactive controls.
+- Test custom-template behavior when template parts are optional.
+- Build the control library and the playground after XAML, resource, or template changes.
+- Run the XAML automation-ID audit and inspect the control in Light, Dark, and High Contrast themes.
+- Do not report a control as verified from compilation alone. State which interactions and themes you inspected.
+
 ## Localization
 
 1. Add English strings ONLY to src/Wino.Core.Domain/Translations/en_US/resources.json

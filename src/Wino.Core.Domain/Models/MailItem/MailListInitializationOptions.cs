@@ -16,9 +16,16 @@ public record MailListInitializationOptions(IReadOnlyList<IMailItemFolder> Folde
                                             ConcurrentDictionary<Guid, bool> ExistingUniqueIds = null,
                                             List<MailCopy> PreFetchMailCopies = null,
                                             bool DeduplicateByServerId = false,
+                                            bool PreservePreFetchedOrder = false,
                                             int Skip = 0,
                                             int Take = 0)
 {
     public IReadOnlyList<Guid> CategoryIds { get; init; }
+    public string Sender { get; init; } = string.Empty;
+    public DateTimeOffset? ReceivedAfterUtc { get; init; }
+    public DateTimeOffset? ReceivedBeforeUtc { get; init; }
+    public bool RequireAttachments { get; init; }
+    public bool RequireUnread { get; init; }
+    public bool RequireFlagged { get; init; }
     public bool IsCategoryView => CategoryIds?.Count > 0;
 }

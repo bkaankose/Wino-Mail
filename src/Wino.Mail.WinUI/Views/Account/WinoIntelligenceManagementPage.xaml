@@ -1,0 +1,522 @@
+<abstract:WinoIntelligenceManagementPageAbstract
+    x:Class="Wino.Views.WinoIntelligenceManagementPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:data="using:Wino.Mail.ViewModels.Data"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    x:Name="PageRoot"
+    Unloaded="PageRoot_Unloaded"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <DataTemplate x:Key="RangeBucketTemplate" x:DataType="data:SemanticIndexRangeBucketViewModel">
+            <Grid Width="{x:Bind BarWidth}" Height="64">
+                <Border
+                    Height="{x:Bind BarHeight}"
+                    Margin="0,0,1.5,0"
+                    VerticalAlignment="Bottom"
+                    Background="{x:Bind helpers:XamlHelpers.IntelligenceBucketBrush(Coverage), Mode=OneWay}"
+                    CornerRadius="1.5"
+                    ToolTipService.ToolTip="{x:Bind Tooltip}" />
+            </Grid>
+        </DataTemplate>
+    </Page.Resources>
+
+    <Grid>
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+            <StackPanel
+                MaxWidth="1000"
+                Padding="24,16,24,40"
+                HorizontalAlignment="Stretch"
+                Spacing="0">
+
+                <!--  Hero: one headline state, and only the facts and actions no card below carries.  -->
+                <Border
+                    Padding="20"
+                    AutomationProperties.AutomationId="WinoIntelligenceHeroPanel"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                    <StackPanel Spacing="16">
+                        <Grid ColumnSpacing="14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <Border
+                                Width="44"
+                                Height="44"
+                                VerticalAlignment="Center"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="10">
+                                <PathIcon
+                                    Width="22"
+                                    Height="22"
+                                    Data="{StaticResource AiSparklePathIcon}"
+                                    Foreground="{StaticResource WinoIntelligenceIconBrush}" />
+                            </Border>
+
+                            <StackPanel
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Spacing="2">
+                                <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="{x:Bind domain:Translator.SemanticIndex_Title, Mode=OneTime}" />
+                                <TextBlock
+                                    AutomationProperties.AutomationId="WinoIntelligenceAccountAddress"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{ThemeResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind ViewModel.AccountAddress, Mode=OneWay}" />
+                            </StackPanel>
+
+                            <!--  The headline state sits opposite the title. Every action it could
+                                  offer already exists on a card below, so the hero carries none.  -->
+                            <Border
+                                Grid.Column="2"
+                                Padding="10,4"
+                                VerticalAlignment="Center"
+                                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="12">
+                                <StackPanel
+                                    AutomationProperties.AutomationId="WinoIntelligenceHeroState"
+                                    Orientation="Horizontal"
+                                    Spacing="7">
+                                    <Ellipse
+                                        Width="7"
+                                        Height="7"
+                                        VerticalAlignment="Center"
+                                        Fill="{x:Bind helpers:XamlHelpers.IntelligenceHeroStateBrush(ViewModel.HeroStateType), Mode=OneWay}"
+                                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsHeroProgressVisible), Mode=OneWay}" />
+                                    <ProgressRing
+                                        Width="13"
+                                        Height="13"
+                                        VerticalAlignment="Center"
+                                        IsActive="{x:Bind ViewModel.IsHeroProgressVisible, Mode=OneWay}"
+                                        Visibility="{x:Bind ViewModel.IsHeroProgressVisible, Mode=OneWay}" />
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        FontWeight="SemiBold"
+                                        Style="{ThemeResource CaptionTextBlockStyle}"
+                                        Text="{x:Bind ViewModel.HeroStateText, Mode=OneWay}" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <!--  One line of facts the cards below do not already state.  -->
+                        <Grid ColumnSpacing="20">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="WinoIntelligenceIndexedCountText"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{ThemeResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ViewModel.IndexedMessageCountDetail, Mode=OneWay}" />
+
+                            <StackPanel
+                                Grid.Column="1"
+                                HorizontalAlignment="Right"
+                                AutomationProperties.AutomationId="WinoIntelligenceQuota"
+                                Spacing="4">
+                                <TextBlock
+                                    HorizontalAlignment="Right"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{ThemeResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind ViewModel.QuotaSummary, Mode=OneWay}" />
+                                <ProgressBar
+                                    Width="180"
+                                    HorizontalAlignment="Right"
+                                    AutomationProperties.AutomationId="WinoIntelligenceQuotaBar"
+                                    Maximum="100"
+                                    Visibility="{x:Bind ViewModel.IsQuotaAvailable, Mode=OneWay}"
+                                    Value="{x:Bind ViewModel.QuotaUsagePercentage, Mode=OneWay}" />
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!--  Alerts. Only what the hero cannot say on its own.  -->
+                <StackPanel Margin="0,14,0,0" Spacing="8">
+                    <InfoBar
+                        AutomationProperties.AutomationId="WinoIntelligenceStatusInfoBar"
+                        IsClosable="False"
+                        IsOpen="{x:Bind ViewModel.IsStatusInfoBarVisible, Mode=OneWay}"
+                        Message="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
+                        Severity="{x:Bind helpers:XamlHelpers.InfoBarSeverityConverter(ViewModel.StatusType), Mode=OneWay}">
+                        <InfoBar.ActionButton>
+                            <Button
+                                AutomationProperties.AutomationId="WinoIntelligenceReviewPrivacyPolicyButton"
+                                Click="ReviewPrivacyPolicyButton_Click"
+                                Content="{x:Bind domain:Translator.Intelligence_ReviewPrivacyPolicyButton, Mode=OneTime}"
+                                Visibility="{x:Bind ViewModel.IsConsentActionVisible, Mode=OneWay}" />
+                        </InfoBar.ActionButton>
+                    </InfoBar>
+
+                    <InfoBar
+                        AutomationProperties.AutomationId="WinoIntelligenceEverythingWarning"
+                        IsClosable="False"
+                        IsOpen="{x:Bind ViewModel.ShouldShowEverythingWarning, Mode=OneWay}"
+                        Message="{x:Bind domain:Translator.SemanticIndex_EverythingWarning, Mode=OneTime}"
+                        Severity="Warning" />
+
+                    <InfoBar
+                        AutomationProperties.AutomationId="WinoIntelligenceUpgradeBanner"
+                        IsClosable="False"
+                        IsOpen="{x:Bind ViewModel.IsUpgradeRecommended, Mode=OneWay}"
+                        Message="{x:Bind domain:Translator.SemanticIndex_UpgradeMessage, Mode=OneTime}"
+                        Severity="Informational">
+                        <InfoBar.ActionButton>
+                            <Button
+                                AutomationProperties.AutomationId="WinoIntelligenceUpgradeButton"
+                                Command="{x:Bind ViewModel.UpgradeEmbeddingProfileCommand}"
+                                Content="{x:Bind domain:Translator.SemanticIndex_UpgradeButton, Mode=OneTime}" />
+                        </InfoBar.ActionButton>
+                    </InfoBar>
+                </StackPanel>
+
+                <StackPanel Spacing="8">
+                    <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="{x:Bind domain:Translator.Intelligence_SynchronizationTitle, Mode=OneTime}" />
+                    <StackPanel Spacing="2">
+                        <controls:SettingsCard
+                            AutomationProperties.AutomationId="WinoIntelligenceEnabledCard"
+                            Description="{x:Bind domain:Translator.SemanticIndex_Description, Mode=OneTime}"
+                            Header="{x:Bind domain:Translator.SemanticIndex_EnableTitle, Mode=OneTime}">
+                            <controls:SettingsCard.HeaderIcon>
+                                <PathIcon Data="{StaticResource AiSparklePathIcon}" Foreground="{StaticResource WinoIntelligenceIconBrush}" />
+                            </controls:SettingsCard.HeaderIcon>
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <ProgressRing
+                                    Width="20"
+                                    Height="20"
+                                    IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
+                                    Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay}" />
+                                <ToggleSwitch
+                                    x:Name="WinoIntelligenceToggle"
+                                    AutomationProperties.AutomationId="WinoIntelligenceEnabledToggle"
+                                    IsEnabled="{x:Bind ViewModel.CanChangeSemanticIndexingState, Mode=OneWay}"
+                                    IsOn="{x:Bind ViewModel.IsSemanticIndexingEnabled, Mode=OneWay}"
+                                    OffContent="{x:Bind domain:Translator.SemanticIndex_Off, Mode=OneTime}"
+                                    OnContent="{x:Bind domain:Translator.SemanticIndex_On, Mode=OneTime}"
+                                    Toggled="WinoIntelligenceToggle_Toggled" />
+                            </StackPanel>
+                        </controls:SettingsCard>
+
+                        <!--  Range: the histogram shows where the mail actually is, over the same day offsets.  -->
+                        <controls:SettingsCard
+                            AutomationProperties.AutomationId="WinoIntelligenceRangeCard"
+                            ContentAlignment="Vertical"
+                            Description="{x:Bind domain:Translator.SemanticIndex_RangeDescription, Mode=OneTime}"
+                            Header="{x:Bind domain:Translator.SemanticIndex_RangeTitle, Mode=OneTime}"
+                            Visibility="{x:Bind ViewModel.IsEnabledContentVisible, Mode=OneWay}">
+                            <controls:SettingsCard.HeaderIcon>
+                                <FontIcon Glyph="&#xE787;" />
+                            </controls:SettingsCard.HeaderIcon>
+                            <!--  A panel cannot be disabled, so the whole range editor sits in a content host.  -->
+                            <ContentControl
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Stretch"
+                                IsEnabled="{x:Bind ViewModel.HasAvailableMessages, Mode=OneWay}"
+                                IsTabStop="False">
+                                <StackPanel Spacing="12">
+                                    <StackPanel
+                                        AutomationProperties.AutomationId="WinoIntelligenceRangePresets"
+                                        Orientation="Horizontal"
+                                        Spacing="6">
+                                        <ToggleButton
+                                            MinWidth="0"
+                                            Padding="11,4"
+                                            Command="{x:Bind ViewModel.ApplyRangePresetCommand}"
+                                            CommandParameter="only-new"
+                                            Content="{x:Bind domain:Translator.SemanticIndex_RangeOnlyNew, Mode=OneTime}"
+                                            CornerRadius="14"
+                                            FontSize="12"
+                                            IsChecked="{x:Bind helpers:XamlHelpers.IsRangePresetSelected(ViewModel.SelectedRangePreset, 'only-new'), Mode=OneWay}" />
+                                        <ToggleButton
+                                            MinWidth="0"
+                                            Padding="11,4"
+                                            Command="{x:Bind ViewModel.ApplyRangePresetCommand}"
+                                            CommandParameter="one-week"
+                                            Content="{x:Bind domain:Translator.SemanticIndex_RangeOneWeek, Mode=OneTime}"
+                                            CornerRadius="14"
+                                            FontSize="12"
+                                            IsChecked="{x:Bind helpers:XamlHelpers.IsRangePresetSelected(ViewModel.SelectedRangePreset, 'one-week'), Mode=OneWay}" />
+                                        <ToggleButton
+                                            MinWidth="0"
+                                            Padding="11,4"
+                                            Command="{x:Bind ViewModel.ApplyRangePresetCommand}"
+                                            CommandParameter="one-month"
+                                            Content="{x:Bind domain:Translator.SemanticIndex_RangeOneMonth, Mode=OneTime}"
+                                            CornerRadius="14"
+                                            FontSize="12"
+                                            IsChecked="{x:Bind helpers:XamlHelpers.IsRangePresetSelected(ViewModel.SelectedRangePreset, 'one-month'), Mode=OneWay}" />
+                                        <ToggleButton
+                                            MinWidth="0"
+                                            Padding="11,4"
+                                            Command="{x:Bind ViewModel.ApplyRangePresetCommand}"
+                                            CommandParameter="three-months"
+                                            Content="{x:Bind domain:Translator.SemanticIndex_RangeThreeMonths, Mode=OneTime}"
+                                            CornerRadius="14"
+                                            FontSize="12"
+                                            IsChecked="{x:Bind helpers:XamlHelpers.IsRangePresetSelected(ViewModel.SelectedRangePreset, 'three-months'), Mode=OneWay}" />
+                                        <ToggleButton
+                                            MinWidth="0"
+                                            Padding="11,4"
+                                            Command="{x:Bind ViewModel.ApplyRangePresetCommand}"
+                                            CommandParameter="six-months"
+                                            Content="{x:Bind domain:Translator.SemanticIndex_RangeSixMonths, Mode=OneTime}"
+                                            CornerRadius="14"
+                                            FontSize="12"
+                                            IsChecked="{x:Bind helpers:XamlHelpers.IsRangePresetSelected(ViewModel.SelectedRangePreset, 'six-months'), Mode=OneWay}" />
+                                        <ToggleButton
+                                            MinWidth="0"
+                                            Padding="11,4"
+                                            Command="{x:Bind ViewModel.ApplyRangePresetCommand}"
+                                            CommandParameter="one-year"
+                                            Content="{x:Bind domain:Translator.SemanticIndex_RangeOneYear, Mode=OneTime}"
+                                            CornerRadius="14"
+                                            FontSize="12"
+                                            IsChecked="{x:Bind helpers:XamlHelpers.IsRangePresetSelected(ViewModel.SelectedRangePreset, 'one-year'), Mode=OneWay}" />
+                                        <ToggleButton
+                                            MinWidth="0"
+                                            Padding="11,4"
+                                            Command="{x:Bind ViewModel.ApplyRangePresetCommand}"
+                                            CommandParameter="everything"
+                                            Content="{x:Bind domain:Translator.SemanticIndex_RangeEverything, Mode=OneTime}"
+                                            CornerRadius="14"
+                                            FontSize="12"
+                                            IsChecked="{x:Bind helpers:XamlHelpers.IsRangePresetSelected(ViewModel.SelectedRangePreset, 'everything'), Mode=OneWay}" />
+                                    </StackPanel>
+
+                                    <TextBlock
+                                        AutomationProperties.AutomationId="WinoIntelligenceSelectedRangeSummary"
+                                        Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                        Text="{x:Bind ViewModel.SelectedRangeSummary, Mode=OneWay}"
+                                        TextWrapping="Wrap" />
+
+                                    <StackPanel HorizontalAlignment="Left" Spacing="2">
+                                        <ItemsRepeater
+                                            Width="560"
+                                            Height="64"
+                                            AutomationProperties.AutomationId="WinoIntelligenceRangeHistogram"
+                                            ItemTemplate="{StaticResource RangeBucketTemplate}"
+                                            ItemsSource="{x:Bind ViewModel.RangeBuckets, Mode=OneWay}">
+                                            <ItemsRepeater.Layout>
+                                                <StackLayout Orientation="Horizontal" Spacing="0" />
+                                            </ItemsRepeater.Layout>
+                                        </ItemsRepeater>
+
+                                        <controls:RangeSelector
+                                            Width="560"
+                                            AutomationProperties.AutomationId="WinoIntelligenceRangeSelector"
+                                            AutomationProperties.Name="{x:Bind ViewModel.SelectedRangeSummary, Mode=OneWay}"
+                                            IsEnabled="{x:Bind ViewModel.HasAvailableMessages, Mode=OneWay}"
+                                            Maximum="{x:Bind ViewModel.RangeMaximum, Mode=OneWay}"
+                                            Minimum="0"
+                                            RangeEnd="{x:Bind ViewModel.SelectedRangeEndOffset, Mode=TwoWay}"
+                                            RangeStart="{x:Bind ViewModel.SelectedRangeStartOffset, Mode=TwoWay}"
+                                            StepFrequency="1" />
+
+                                        <Grid Width="560">
+                                            <TextBlock
+                                                HorizontalAlignment="Left"
+                                                Style="{ThemeResource CaptionTextBlockStyle}"
+                                                Text="{x:Bind ViewModel.OldestAvailableDateText, Mode=OneWay}" />
+                                            <TextBlock
+                                                HorizontalAlignment="Right"
+                                                Style="{ThemeResource CaptionTextBlockStyle}"
+                                                Text="{x:Bind ViewModel.NewestAvailableDateText, Mode=OneWay}" />
+                                        </Grid>
+                                    </StackPanel>
+                                </StackPanel>
+                            </ContentControl>
+                        </controls:SettingsCard>
+
+                        <controls:SettingsCard
+                            AutomationProperties.AutomationId="WinoIntelligenceNewMessagesCard"
+                            Description="{x:Bind domain:Translator.SemanticIndex_NewMessagesDescription, Mode=OneTime}"
+                            Header="{x:Bind domain:Translator.SemanticIndex_NewMessagesTitle, Mode=OneTime}"
+                            Visibility="{x:Bind ViewModel.IsEnabledContentVisible, Mode=OneWay}">
+                            <controls:SettingsCard.HeaderIcon>
+                                <FontIcon Glyph="&#xE715;" />
+                            </controls:SettingsCard.HeaderIcon>
+                            <controls:Segmented AutomationProperties.AutomationId="WinoIntelligenceNewMessagesSegmented" SelectedIndex="{x:Bind ViewModel.NewMessageModeIndex, Mode=TwoWay}">
+                                <controls:SegmentedItem Content="{x:Bind domain:Translator.SemanticIndex_AutomaticNewMessages, Mode=OneTime}" />
+                                <controls:SegmentedItem Content="{x:Bind domain:Translator.SemanticIndex_ManualNewMessages, Mode=OneTime}" />
+                            </controls:Segmented>
+                        </controls:SettingsCard>
+
+                        <!--  Idle: header states the plan, content is the single action.
+                              Running: header states the progress, content is the two lanes.  -->
+                        <controls:SettingsCard
+                            AutomationProperties.AutomationId="WinoIntelligenceStartCard"
+                            ContentAlignment="{x:Bind helpers:XamlHelpers.IndexingCardContentAlignment(ViewModel.IsJobActive), Mode=OneWay}"
+                            Description="{x:Bind ViewModel.PlanCardDescription, Mode=OneWay}"
+                            Header="{x:Bind ViewModel.PlanCardTitle, Mode=OneWay}"
+                            Visibility="{x:Bind ViewModel.IsEnabledContentVisible, Mode=OneWay}">
+                            <controls:SettingsCard.HeaderIcon>
+                                <FontIcon Glyph="&#xE768;" />
+                            </controls:SettingsCard.HeaderIcon>
+
+                            <Grid>
+                                <Button
+                                    AutomationProperties.AutomationId="WinoIntelligenceStartButton"
+                                    Command="{x:Bind ViewModel.StartIndexingCommand}"
+                                    Content="{x:Bind ViewModel.StartButtonText, Mode=OneWay}"
+                                    Style="{ThemeResource AccentButtonStyle}"
+                                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsJobActive), Mode=OneWay}" />
+
+                                <!--  Two lanes, because embeddings and insights finish at different times.  -->
+                                <StackPanel Spacing="14" Visibility="{x:Bind ViewModel.IsJobActive, Mode=OneWay}">
+                                    <Grid ColumnSpacing="10" RowSpacing="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock
+                                            VerticalAlignment="Center"
+                                            Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                            Text="{x:Bind domain:Translator.SemanticIndex_EmbeddingTitle, Mode=OneTime}" />
+                                        <ProgressBar
+                                            Grid.Column="1"
+                                            VerticalAlignment="Center"
+                                            AutomationProperties.AutomationId="WinoIntelligenceIndexingProgressBar"
+                                            Maximum="{x:Bind ViewModel.ProgressMaximum, Mode=OneWay}"
+                                            Value="{x:Bind ViewModel.ProgressValue, Mode=OneWay}" />
+                                        <TextBlock
+                                            Grid.Column="2"
+                                            VerticalAlignment="Center"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{ThemeResource CaptionTextBlockStyle}"
+                                            Text="{x:Bind ViewModel.ProgressText, Mode=OneWay}" />
+
+                                        <TextBlock
+                                            Grid.Row="1"
+                                            VerticalAlignment="Center"
+                                            Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                            Text="{x:Bind domain:Translator.SemanticIndex_MetadataTitle, Mode=OneTime}" />
+                                        <ProgressBar
+                                            Grid.Row="1"
+                                            Grid.Column="1"
+                                            VerticalAlignment="Center"
+                                            AutomationProperties.AutomationId="WinoIntelligenceMetadataProgressBar"
+                                            Maximum="{x:Bind ViewModel.ProgressMaximum, Mode=OneWay}"
+                                            Value="{x:Bind ViewModel.MetadataProgressValue, Mode=OneWay}" />
+                                        <TextBlock
+                                            Grid.Row="1"
+                                            Grid.Column="2"
+                                            VerticalAlignment="Center"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{ThemeResource CaptionTextBlockStyle}"
+                                            Text="{x:Bind ViewModel.MetadataProgressText, Mode=OneWay}" />
+                                    </Grid>
+
+                                    <TextBlock
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{ThemeResource CaptionTextBlockStyle}"
+                                        Text="{x:Bind domain:Translator.SemanticIndex_BackgroundNotice, Mode=OneTime}"
+                                        TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Grid>
+                        </controls:SettingsCard>
+
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel Visibility="{x:Bind ViewModel.IsEnabledContentVisible, Mode=OneWay}">
+                    <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="{x:Bind domain:Translator.Intelligence_DataManagementTitle, Mode=OneTime}" />
+                    <StackPanel Spacing="2">
+                        <controls:SettingsCard
+                            AutomationProperties.AutomationId="WinoIntelligenceMessageCoverageCard"
+                            Description="{x:Bind ViewModel.CoverageDescription, Mode=OneWay}"
+                            Header="{x:Bind domain:Translator.SemanticIndex_MessageCoverage, Mode=OneTime}">
+                            <controls:SettingsCard.HeaderIcon>
+                                <FontIcon Glyph="&#xE8A5;" />
+                            </controls:SettingsCard.HeaderIcon>
+                        </controls:SettingsCard>
+
+                        <controls:SettingsCard
+                            AutomationProperties.AutomationId="WinoIntelligenceDeleteCard"
+                            Description="{x:Bind domain:Translator.SemanticIndex_DeleteDescription, Mode=OneTime}"
+                            Header="{x:Bind domain:Translator.SemanticIndex_DeleteTitle, Mode=OneTime}">
+                            <controls:SettingsCard.HeaderIcon>
+                                <FontIcon Foreground="{ThemeResource SystemFillColorCriticalBrush}" Glyph="&#xE74D;" />
+                            </controls:SettingsCard.HeaderIcon>
+                            <Button
+                                AutomationProperties.AutomationId="WinoIntelligenceDeleteButton"
+                                Background="{ThemeResource DeleteBrush}"
+                                Command="{x:Bind ViewModel.DeleteSemanticIndexCommand}"
+                                Content="{x:Bind domain:Translator.SemanticIndex_Delete, Mode=OneTime}"
+                                Foreground="White" />
+                        </controls:SettingsCard>
+
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <ContentDialog
+            x:Name="ProcessConsentPolicyDialog"
+            Title="{x:Bind domain:Translator.WinoAccount_ProcessConsentPolicyTitle, Mode=OneTime}"
+            MaxWidth="720"
+            AutomationProperties.AutomationId="WinoIntelligenceProcessConsentPolicyDialog"
+            CloseButtonText="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}"
+            DefaultButton="Primary"
+            PrimaryButtonClick="ProcessConsentPolicyDialog_PrimaryButtonClick"
+            PrimaryButtonText="{x:Bind domain:Translator.Intelligence_AcceptPrivacyPolicyButton, Mode=OneTime}">
+            <Grid
+                Width="640"
+                Height="520"
+                MaxWidth="640"
+                RowSpacing="12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Text="{x:Bind ViewModel.ProcessConsentNotice, Mode=OneWay}" TextWrapping="WrapWholeWords" />
+                <WebView2
+                    x:Name="ProcessConsentPolicyWebView"
+                    Grid.Row="1"
+                    AutomationProperties.AutomationId="WinoIntelligenceProcessConsentPolicyWebView" />
+                <CheckBox
+                    x:Name="ProcessConsentAcknowledgementCheckBox"
+                    Grid.Row="2"
+                    AutomationProperties.AutomationId="WinoIntelligenceProcessConsentAcknowledgementCheckBox"
+                    Checked="ProcessConsentAcknowledgementCheckBox_Changed"
+                    Unchecked="ProcessConsentAcknowledgementCheckBox_Changed">
+                    <TextBlock
+                        MaxWidth="590"
+                        Text="{x:Bind domain:Translator.Intelligence_PrivacyPolicyAcknowledgement, Mode=OneTime}"
+                        TextWrapping="WrapWholeWords" />
+                </CheckBox>
+                <TextBlock
+                    x:Name="ProcessConsentPolicyErrorText"
+                    Grid.Row="3"
+                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                    TextWrapping="WrapWholeWords"
+                    Visibility="Collapsed" />
+            </Grid>
+        </ContentDialog>
+    </Grid>
+</abstract:WinoIntelligenceManagementPageAbstract>

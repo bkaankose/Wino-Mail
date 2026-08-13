@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -7,9 +8,11 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Translations;
 using Wino.Mail.Api.Contracts.Ai;
 using Wino.Mail.Api.Contracts.Auth;
 using Wino.Mail.Api.Contracts.Common;
+using Wino.Mail.AI.Abstractions;
 using Wino.Services;
 using Wino.Core.Tests.Helpers;
 using Xunit;
@@ -19,7 +22,6 @@ namespace Wino.Core.Tests.Services;
 public class WinoAccountProfileServiceTests : IAsyncLifetime
 {
     private readonly Mock<IWinoAccountApiClient> _apiClient = new();
-    private readonly Mock<IStoreManagementService> _storeManagementService = new();
     private InMemoryDatabaseService _databaseService = null!;
     private WinoAccountProfileService _service = null!;
 
@@ -27,7 +29,7 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
     {
         _databaseService = new InMemoryDatabaseService();
         await _databaseService.InitializeAsync();
-        _service = new WinoAccountProfileService(_databaseService, _apiClient.Object, _storeManagementService.Object);
+        _service = new WinoAccountProfileService(_databaseService, _apiClient.Object);
     }
 
     public async Task DisposeAsync()
@@ -177,7 +179,8 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
                 "Premium",
                 authResult.User.HasPassword,
                 authResult.User.HasGoogleLogin,
-                authResult.User.HasFacebookLogin)));
+                authResult.User.HasFacebookLogin,
+                true)));
 
         await _service.LoginAsync("first@example.com", "pw");
 
@@ -187,75 +190,71 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
         result.Account.Should().NotBeNull();
         result.Account!.Email.Should().Be("updated@example.com");
         result.Account.AccountStatus.Should().Be("Premium");
+        result.Account.IsUnlimitedAccountsEnabled.Should().BeTrue();
 
         var persisted = await _databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync();
         persisted.Should().NotBeNull();
         persisted!.Email.Should().Be("updated@example.com");
         persisted.AccountStatus.Should().Be("Premium");
+        persisted.IsUnlimitedAccountsEnabled.Should().BeTrue();
         persisted.AccessToken.Should().Be(authResult.AccessToken);
         persisted.RefreshToken.Should().Be(authResult.RefreshToken);
     }
 
     [Fact]
-    public async Task ProcessBillingCallbackAsync_ShouldConfirmPurchasedAddOn()
+    public async Task SummarizeAsync_ShouldReturnAiResponse()
     {
         var authResult = CreateAuthResult("first@example.com");
-        var callbackUri = new Uri("wino://billing/success?productCode=UNLIMITED_ACCOUNTS");
 
         _apiClient
             .Setup(x => x.LoginAsync("first@example.com", "pw", default))
             .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(authResult));
 
         _apiClient
-            .Setup(x => x.GetCurrentUserAsync(default))
-            .ReturnsAsync(ApiEnvelope<AuthUserDto>.Success(authResult.User));
-
-        _storeManagementService
-            .Setup(x => x.HasProductAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS))
-            .ReturnsAsync(true);
+            .Setup(x => x.SummarizeAsync(It.IsAny<IReadOnlyList<MailContentSegment>>(), "en", default))
+            .ReturnsAsync(ApiEnvelope<AiSummaryResultDto>.Success(new AiSummaryResultDto("Summary")));
 
         await _service.LoginAsync("first@example.com", "pw");
 
-        var processed = await _service.ProcessBillingCallbackAsync(callbackUri);
+        var response = await _service.SummarizeAsync(
+            [new MailContentSegment("s000001", MailContentSection.CurrentMessage, MailContentSegmentKind.Paragraph, "Hello")],
+            "en");
 
-        processed.Should().BeTrue();
-        _apiClient.Verify(x => x.GetCurrentUserAsync(default), Times.AtLeastOnce);
+        response.IsSuccess.Should().BeTrue();
+        response.Result?.Text.Should().Be("Summary");
     }
 
     [Fact]
-    public async Task SummarizeAsync_ShouldReturnQuotaBackedResponse()
+    public async Task RewriteAsync_ShouldPassCurrentApplicationLanguage()
     {
-        var authResult = CreateAuthResult("first@example.com");
+        var authResult = CreateAuthResult("rewrite@example.com");
+        var translationService = new Mock<ITranslationService>();
+        translationService.SetupGet(x => x.CurrentLanguageModel)
+            .Returns(new AppLanguageModel(AppLanguage.Turkish, "Turkish", "tr-TR"));
+        var localizedService = new WinoAccountProfileService(
+            _databaseService,
+            _apiClient.Object,
+            translationService.Object);
 
         _apiClient
-            .Setup(x => x.LoginAsync("first@example.com", "pw", default))
+            .Setup(x => x.LoginAsync("rewrite@example.com", "pw", default))
             .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(authResult));
-
         _apiClient
-            .Setup(x => x.SummarizeAsync("<p>Hello</p>", "en", default))
-            .ReturnsAsync(ApiEnvelope<AiTextResultDto>.Success(
-                new AiTextResultDto("<p>Summary</p>"),
-                new QuotaInfoDto(
-                    "Active",
-                    DateTimeOffset.UtcNow.AddDays(-1),
-                    DateTimeOffset.UtcNow.AddDays(29),
-                    1000,
-                    4,
-                    996,
-                    new AiPackProductInfoDto("AI_PACK", 1000, 4.99m, "USD", "month"))));
+            .Setup(x => x.RewriteAsync("<p>Hello</p>", "polite", "tr-TR", default))
+            .ReturnsAsync(ApiEnvelope<AiTextResultDto>.Success(new AiTextResultDto("<p>Merhaba</p>")));
 
-        await _service.LoginAsync("first@example.com", "pw");
-
-        var response = await _service.SummarizeAsync("<p>Hello</p>", "en");
+        await localizedService.LoginAsync("rewrite@example.com", "pw");
+        var response = await localizedService.RewriteAsync("<p>Hello</p>", "polite");
 
         response.IsSuccess.Should().BeTrue();
-        response.Result?.Html.Should().Be("<p>Summary</p>");
+        response.Result?.Html.Should().Be("<p>Merhaba</p>");
+        _apiClient.Verify(x => x.RewriteAsync("<p>Hello</p>", "polite", "tr-TR", default), Times.Once);
     }
 
     private static AuthResultDto CreateAuthResult(string email)
     {
         return new AuthResultDto(
-            new AuthUserDto(Guid.NewGuid(), email, "Active", true, false, false),
+            new AuthUserDto(Guid.NewGuid(), email, "Active", true, false, false, false),
             "access-token",
             DateTimeOffset.UtcNow.AddMinutes(30),
             "refresh-token",

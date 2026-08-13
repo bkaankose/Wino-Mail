@@ -1,5 +1,4 @@
 using Wino.Core.Domain;
-using Wino.Mail.Api.Contracts.Common;
 
 namespace Wino.Mail.WinUI.Services;
 
@@ -12,17 +11,7 @@ public static class WinoAccountAiErrorTranslator
             return Translator.GeneralTitle_Error;
         }
 
-        return errorCode switch
-        {
-            ApiErrorCodes.AiPackRequired => Translator.WinoAccount_Error_AiPackRequired,
-            ApiErrorCodes.AiQuotaExceeded => Translator.WinoAccount_Error_AiQuotaExceeded,
-            ApiErrorCodes.AiHtmlEmpty => Translator.WinoAccount_Error_AiHtmlEmpty,
-            ApiErrorCodes.AiHtmlTooLarge => Translator.WinoAccount_Error_AiHtmlTooLarge,
-            ApiErrorCodes.AiUnsupportedLanguage => Translator.WinoAccount_Error_AiUnsupportedLanguage,
-            ApiErrorCodes.Forbidden => Translator.WinoAccount_Error_Forbidden,
-            ApiErrorCodes.ValidationFailed => Translator.WinoAccount_Error_ValidationFailed,
-            _ => errorCode
-        };
+        return WinoAccountApiErrorTranslator.Translate(errorCode);
     }
 
     public static string Format(string? errorCode, string? errorMessage)
@@ -34,6 +23,11 @@ public static class WinoAccountAiErrorTranslator
         if (!hasCode && !hasMessage)
         {
             return Translator.GeneralTitle_Error;
+        }
+
+        if (IsTransportConsentRequired(errorCode, errorMessage))
+        {
+            return Translator.WinoAccount_TransportConsentRequired;
         }
 
         var formattedCode = translatedCode;
@@ -54,4 +48,9 @@ public static class WinoAccountAiErrorTranslator
 
         return $"{formattedCode}{System.Environment.NewLine}{errorMessage}";
     }
+
+    public static bool IsTransportConsentRequired(string? errorCode, string? errorMessage)
+        => errorCode is WinoAccountApiErrorTranslator.TransportConsentRequiredCode or WinoAccountApiErrorTranslator.TransportConsentVersionOutdatedCode ||
+           errorMessage is WinoAccountApiErrorTranslator.TransportConsentRequiredCode or WinoAccountApiErrorTranslator.TransportConsentVersionOutdatedCode ||
+           string.Equals(errorMessage, Translator.WinoAccount_TransportConsentRequired, System.StringComparison.Ordinal);
 }

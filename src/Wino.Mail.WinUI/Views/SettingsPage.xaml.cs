@@ -8,11 +8,13 @@ using Microsoft.UI.Xaml.Navigation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
+using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.UI;
 using Wino.Views.Abstract;
@@ -32,6 +34,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 {
     public ObservableCollection<BreadcrumbNavigationItemViewModel> PageHistory { get; set; } = [];
     public ObservableCollection<TitleBarSearchSuggestion> SearchSuggestions { get; } = [];
+    public SearchBarMode SearchMode => SearchBarMode.Settings;
     public string SearchText { get; set; } = string.Empty;
     public string SearchPlaceholderText => Translator.SettingsHome_SearchPlaceholder;
 
@@ -48,8 +51,11 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         SettingsFrame.Navigated -= SettingsFrameNavigated;
         SettingsFrame.Navigated += SettingsFrameNavigated;
 
-        var initialPage = e.Parameter as WinoPage? ?? WinoPage.SettingOptionsPage;
-        NavigateToRootPage(initialPage);
+        var activationContext = e.Parameter as SettingsPageActivationContext;
+        var initialPage = activationContext?.TargetPage
+                          ?? e.Parameter as WinoPage?
+                          ?? WinoPage.SettingOptionsPage;
+        NavigateToRootPage(initialPage, activationContext?.PageParameter);
     }
 
     public override void OnLanguageChanged()
@@ -216,7 +222,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         UpdateWindowTitle();
     }
 
-    private void NavigateToRootPage(WinoPage targetPage)
+    private void NavigateToRootPage(WinoPage targetPage, object? pageParameter = null)
     {
         if (targetPage == WinoPage.SettingOptionsPage)
         {
@@ -225,10 +231,10 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
             return;
         }
 
-        NavigateDirectlyToRootPage(targetPage);
+        NavigateDirectlyToRootPage(targetPage, pageParameter);
     }
 
-    private void NavigateDirectlyToRootPage(WinoPage targetPage)
+    private void NavigateDirectlyToRootPage(WinoPage targetPage, object? pageParameter = null)
     {
         var pageType = ViewModel.NavigationService.GetPageType(targetPage);
 
@@ -238,7 +244,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         SettingsFrame.BackStack.Clear();
         SettingsFrame.ForwardStack.Clear();
 
-        if (!SettingsFrame.Navigate(pageType, null, new SlideNavigationTransitionInfo
+        if (!SettingsFrame.Navigate(pageType, pageParameter, new SlideNavigationTransitionInfo
             {
                 Effect = SlideNavigationTransitionEffect.FromRight
             }))
@@ -260,7 +266,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
             stepNumber: 1,
             backStackDepth: 1));
         PageHistory.Add(new BreadcrumbNavigationItemViewModel(
-            new BreadcrumbNavigationRequested(SettingsNavigationInfoProvider.GetPageTitle(targetPage), targetPage),
+            new BreadcrumbNavigationRequested(SettingsNavigationInfoProvider.GetPageTitle(targetPage), targetPage, pageParameter),
             isActive: true,
             stepNumber: 2,
             backStackDepth: 2));

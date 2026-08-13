@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -248,6 +249,25 @@ public class MailService : BaseDatabaseService, IMailService
             parameters.Add(searchPattern);
         }
 
+        if (!string.IsNullOrWhiteSpace(options.Sender))
+        {
+            whereClauses.Add("MailCopy.FromAddress = ? COLLATE NOCASE");
+            parameters.Add(options.Sender.Trim());
+        }
+        if (options.ReceivedAfterUtc is { } receivedAfter)
+        {
+            whereClauses.Add("MailCopy.CreationDate >= ?");
+            parameters.Add(receivedAfter.UtcDateTime);
+        }
+        if (options.ReceivedBeforeUtc is { } receivedBefore)
+        {
+            whereClauses.Add("MailCopy.CreationDate < ?");
+            parameters.Add(receivedBefore.UtcDateTime);
+        }
+        if (options.RequireAttachments) whereClauses.Add("MailCopy.HasAttachments = 1");
+        if (options.RequireUnread) whereClauses.Add("MailCopy.IsRead = 0");
+        if (options.RequireFlagged) whereClauses.Add("MailCopy.IsFlagged = 1");
+
         // Exclude existing items
         if (includeExistingUniqueIds && (options.ExistingUniqueIds?.Any() ?? false))
         {
@@ -348,6 +368,16 @@ public class MailService : BaseDatabaseService, IMailService
                 || (!string.IsNullOrEmpty(m.FromAddress) && m.FromAddress.Contains(search, StringComparison.OrdinalIgnoreCase)));
         }
 
+        if (!string.IsNullOrWhiteSpace(options.Sender))
+            query = query.Where(m => string.Equals(m.FromAddress, options.Sender.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (options.ReceivedAfterUtc is { } receivedAfter)
+            query = query.Where(m => m.CreationDate.ToUniversalTime() >= receivedAfter.UtcDateTime);
+        if (options.ReceivedBeforeUtc is { } receivedBefore)
+            query = query.Where(m => m.CreationDate.ToUniversalTime() < receivedBefore.UtcDateTime);
+        if (options.RequireAttachments) query = query.Where(m => m.HasAttachments);
+        if (options.RequireUnread) query = query.Where(m => !m.IsRead);
+        if (options.RequireFlagged) query = query.Where(m => m.IsFlagged);
+
         if (options.ExistingUniqueIds?.Any() ?? false)
         {
             query = query.Where(m => !options.ExistingUniqueIds.ContainsKey(m.UniqueId));
@@ -371,16 +401,19 @@ public class MailService : BaseDatabaseService, IMailService
                 .GroupBy(m => m.UniqueId)
                 .Select(group => group.First());
 
-        query = options.SortingOptionType switch
+        if (!options.PreservePreFetchedOrder)
         {
-            SortingOptionType.Sender => query
-                .OrderByDescending(m => m.IsPinned)
-                .ThenBy(m => m.FromName)
-                .ThenByDescending(m => m.CreationDate),
-            _ => query
-                .OrderByDescending(m => m.IsPinned)
-                .ThenByDescending(m => m.CreationDate)
-        };
+            query = options.SortingOptionType switch
+            {
+                SortingOptionType.Sender => query
+                    .OrderByDescending(m => m.IsPinned)
+                    .ThenBy(m => m.FromName)
+                    .ThenByDescending(m => m.CreationDate),
+                _ => query
+                    .OrderByDescending(m => m.IsPinned)
+                    .ThenByDescending(m => m.CreationDate)
+            };
+        }
 
         if (!pinnedOnly && options.Skip > 0)
         {
@@ -1966,6 +1999,15 @@ public class MailService : BaseDatabaseService, IMailService
         if (signature != null)
         {
             builder.HtmlBody = gap + signature + builder.HtmlBody;
+        }
+
+        if (!string.IsNullOrWhiteSpace(draftCreationOptions.InitialBodyText))
+        {
+            var encoded = WebUtility.HtmlEncode(draftCreationOptions.InitialBodyText)
+                .Replace("\r\n", "<br>", StringComparison.Ordinal)
+                .Replace("\n", "<br>", StringComparison.Ordinal)
+                .Replace("\r", "<br>", StringComparison.Ordinal);
+            builder.HtmlBody = $"""<div style="font-family: '{_preferencesService.ComposerFont}', Arial, sans-serif; font-size: {_preferencesService.ComposerFontSize}px">{encoded}</div>""" + builder.HtmlBody;
         }
 
         // Manage "To"

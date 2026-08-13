@@ -248,20 +248,6 @@
                                 </StackPanel>
                             </AppBarElementContainer>
 
-                            <AppBarToggleButton
-                                x:Name="ComposeAiActionsToggleButton"
-                                MinWidth="40"
-                                HorizontalContentAlignment="Center"
-                                AutomationProperties.AutomationId="ComposeAiActionsToggleButton"
-                                AutomationProperties.Name="{x:Bind domain:Translator.Composer_AiActions, Mode=OneTime}"
-                                Checked="ComposeAiActionsToggleButton_Checked"
-                                LabelPosition="Collapsed"
-                                ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AiActions}"
-                                Visibility="{x:Bind GetAiActionsToggleVisibility(ViewModel.PreferencesService.IsAiActionsPanelHidden), Mode=OneTime}">
-                                <AppBarToggleButton.Icon>
-                                    <PathIcon Data="{StaticResource AiSparklePathIcon}" />
-                                </AppBarToggleButton.Icon>
-                            </AppBarToggleButton>
                             <AppBarButton
                                 MinWidth="40"
                                 AutomationProperties.AutomationId="XBindDomainTranslatorButtonsPopOutModeOneTime"
@@ -646,15 +632,6 @@
                         PreviewKeyDown="SubjectTextBoxPreviewKeyDown"
                         TabIndex="5"
                         Text="{x:Bind ViewModel.Subject, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-
-                    <coreControls:AiActionsPanel
-                        x:Name="ComposeAiActionsPanel"
-                        Grid.Row="5"
-                        Grid.ColumnSpan="2"
-                        Margin="0,8,0,0"
-                        AvailableActions="Rewrite"
-                        HtmlHost="{x:Bind}"
-                        Visibility="{x:Bind GetAiActionsPanelVisibility(ComposeAiActionsToggleButton.IsChecked, ViewModel.PreferencesService.IsAiActionsPanelHidden), Mode=OneWay}" />
 
                     <!--  Attachments  -->
                     <ListView

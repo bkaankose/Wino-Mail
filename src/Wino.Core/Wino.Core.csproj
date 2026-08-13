@@ -28,6 +28,8 @@
 		<PackageReference Include="NodaTime" />
 		<PackageReference Include="Sentry.Serilog" />
 		<PackageReference Include="SkiaSharp" />
+		<PackageReference Include="Wino.Mail.AI.Abstractions" />
+		<PackageReference Include="Wino.Mail.AI.ContentProcessing" />
 	</ItemGroup>
 	
 	<ItemGroup>

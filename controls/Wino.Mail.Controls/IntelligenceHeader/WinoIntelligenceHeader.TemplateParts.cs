@@ -1,0 +1,155 @@
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Wino.Mail.Controls.IntelligenceProgressRing;
+
+namespace Wino.Mail.Controls.IntelligenceHeader;
+
+[TemplatePart(Name = PartLayoutRootName, Type = typeof(Grid))]
+[TemplatePart(Name = PartHeaderToggleButtonName, Type = typeof(Button))]
+[TemplatePart(Name = PartHeaderContentRootName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartTitleTextBlockName, Type = typeof(TextBlock))]
+[TemplatePart(Name = PartSubtitleTextBlockName, Type = typeof(TextBlock))]
+[TemplatePart(Name = PartDeadlinePillName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartDeadlinePillTextName, Type = typeof(TextBlock))]
+[TemplatePart(Name = PartNeedsReplyPillName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartNeedsReplyPillTextName, Type = typeof(TextBlock))]
+[TemplatePart(Name = PartProcessButtonName, Type = typeof(Button))]
+[TemplatePart(Name = PartProcessingStatusPanelName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartProcessingProgressRingName, Type = typeof(WinoIntelligenceProgressRing))]
+[TemplatePart(Name = PartProcessingStatusTextBlockName, Type = typeof(TextBlock))]
+[TemplatePart(Name = PartChevronIconName, Type = typeof(FontIcon))]
+[TemplatePart(Name = PartBodyRootName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartFactsPanelName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartDeadlineFactCardName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartDeadlineFactTextBlockName, Type = typeof(TextBlock))]
+[TemplatePart(Name = PartAddToCalendarButtonName, Type = typeof(Button))]
+[TemplatePart(Name = PartNeedsReplyFactCardName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartNeedsReplyFactTextBlockName, Type = typeof(TextBlock))]
+[TemplatePart(Name = PartInsightsLockedPanelName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartInsightsLockedTextBlockName, Type = typeof(TextBlock))]
+[TemplatePart(Name = PartSummaryChipButtonName, Type = typeof(Button))]
+[TemplatePart(Name = PartSummaryCancelButtonName, Type = typeof(Button))]
+[TemplatePart(Name = PartSummaryChipLabelName, Type = typeof(TextBlock))]
+[TemplatePart(Name = PartSummaryChipHintName, Type = typeof(TextBlock))]
+[TemplatePart(Name = PartSummaryResultDotName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartRepliesChipButtonName, Type = typeof(Button))]
+[TemplatePart(Name = PartRepliesCancelButtonName, Type = typeof(Button))]
+[TemplatePart(Name = PartRepliesChipLabelName, Type = typeof(TextBlock))]
+[TemplatePart(Name = PartRepliesChipHintName, Type = typeof(TextBlock))]
+[TemplatePart(Name = PartRepliesResultDotName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartTranslateChipButtonName, Type = typeof(Button))]
+[TemplatePart(Name = PartTranslateCancelButtonName, Type = typeof(Button))]
+[TemplatePart(Name = PartTranslateChipLabelName, Type = typeof(TextBlock))]
+[TemplatePart(Name = PartTranslateChipHintName, Type = typeof(TextBlock))]
+[TemplatePart(Name = PartTranslateResultDotName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartSimilarChipButtonName, Type = typeof(Button))]
+[TemplatePart(Name = PartSimilarCancelButtonName, Type = typeof(Button))]
+[TemplatePart(Name = PartSimilarChipLabelName, Type = typeof(TextBlock))]
+[TemplatePart(Name = PartSimilarChipHintName, Type = typeof(TextBlock))]
+[TemplatePart(Name = PartSimilarResultDotName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartPanelHostName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartSummaryPanelName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartRepliesPanelName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartTranslatePanelName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartSimilarPanelName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartSummaryWaitingPanelName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartRepliesWaitingPanelName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartSimilarWaitingPanelName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartSummaryWaitingRingName, Type = typeof(WinoIntelligenceProgressRing))]
+[TemplatePart(Name = PartRepliesWaitingRingName, Type = typeof(WinoIntelligenceProgressRing))]
+[TemplatePart(Name = PartSimilarWaitingRingName, Type = typeof(WinoIntelligenceProgressRing))]
+[TemplatePart(Name = PartSummaryResultTextBlockName, Type = typeof(TextBlock))]
+[TemplatePart(Name = PartSuggestedRepliesListName, Type = typeof(ListView))]
+[TemplatePart(Name = PartSimilarMailListName, Type = typeof(ListView))]
+[TemplatePart(Name = PartTranslationSourceComboBoxName, Type = typeof(ComboBox))]
+[TemplatePart(Name = PartTranslationTargetComboBoxName, Type = typeof(ComboBox))]
+[TemplatePart(Name = PartTranslationRunButtonName, Type = typeof(Button))]
+[TemplatePart(Name = PartTranslationStatusTextBlockName, Type = typeof(TextBlock))]
+[TemplatePart(Name = PartTranslationBusyTextBlockName, Type = typeof(TextBlock))]
+[TemplatePart(Name = PartTranslationAppliedPanelName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartTranslationWaitingPanelName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartTranslationWaitingRingName, Type = typeof(WinoIntelligenceProgressRing))]
+[TemplatePart(Name = PartSummaryCopyButtonName, Type = typeof(Button))]
+[TemplatePart(Name = PartSummaryRegenerateButtonName, Type = typeof(Button))]
+[TemplatePart(Name = PartRepliesRegenerateButtonName, Type = typeof(Button))]
+[TemplatePart(Name = PartSimilarRegenerateButtonName, Type = typeof(Button))]
+[TemplatePart(Name = PartSummaryCloseButtonName, Type = typeof(Button))]
+[TemplatePart(Name = PartRepliesCloseButtonName, Type = typeof(Button))]
+[TemplatePart(Name = PartTranslateCloseButtonName, Type = typeof(Button))]
+[TemplatePart(Name = PartSimilarCloseButtonName, Type = typeof(Button))]
+public sealed partial class WinoIntelligenceHeader
+{
+    private const string PartLayoutRootName = "PART_LayoutRoot";
+    private const string PartHeaderToggleButtonName = "PART_HeaderToggleButton";
+    private const string PartHeaderContentRootName = "PART_HeaderContentRoot";
+    private const string PartTitleTextBlockName = "PART_TitleTextBlock";
+    private const string PartSubtitleTextBlockName = "PART_SubtitleTextBlock";
+    private const string PartDeadlinePillName = "PART_DeadlinePill";
+    private const string PartDeadlinePillTextName = "PART_DeadlinePillText";
+    private const string PartNeedsReplyPillName = "PART_NeedsReplyPill";
+    private const string PartNeedsReplyPillTextName = "PART_NeedsReplyPillText";
+    private const string PartProcessButtonName = "PART_ProcessButton";
+    private const string PartProcessingStatusPanelName = "PART_ProcessingStatusPanel";
+    private const string PartProcessingProgressRingName = "PART_ProcessingProgressRing";
+    private const string PartProcessingStatusTextBlockName = "PART_ProcessingStatusTextBlock";
+    private const string PartChevronIconName = "PART_ChevronIcon";
+    private const string PartBodyRootName = "PART_BodyRoot";
+    private const string PartFactsPanelName = "PART_FactsPanel";
+    private const string PartDeadlineFactCardName = "PART_DeadlineFactCard";
+    private const string PartDeadlineFactTextBlockName = "PART_DeadlineFactTextBlock";
+    private const string PartAddToCalendarButtonName = "PART_AddToCalendarButton";
+    private const string PartNeedsReplyFactCardName = "PART_NeedsReplyFactCard";
+    private const string PartNeedsReplyFactTextBlockName = "PART_NeedsReplyFactTextBlock";
+    private const string PartInsightsLockedPanelName = "PART_InsightsLockedPanel";
+    private const string PartInsightsLockedTextBlockName = "PART_InsightsLockedTextBlock";
+    private const string PartSummaryChipButtonName = "PART_SummaryChipButton";
+    private const string PartSummaryCancelButtonName = "PART_SummaryCancelButton";
+    private const string PartSummaryChipLabelName = "PART_SummaryChipLabel";
+    private const string PartSummaryChipHintName = "PART_SummaryChipHint";
+    private const string PartSummaryResultDotName = "PART_SummaryResultDot";
+    private const string PartRepliesChipButtonName = "PART_RepliesChipButton";
+    private const string PartRepliesCancelButtonName = "PART_RepliesCancelButton";
+    private const string PartRepliesChipLabelName = "PART_RepliesChipLabel";
+    private const string PartRepliesChipHintName = "PART_RepliesChipHint";
+    private const string PartRepliesResultDotName = "PART_RepliesResultDot";
+    private const string PartTranslateChipButtonName = "PART_TranslateChipButton";
+    private const string PartTranslateCancelButtonName = "PART_TranslateCancelButton";
+    private const string PartTranslateChipLabelName = "PART_TranslateChipLabel";
+    private const string PartTranslateChipHintName = "PART_TranslateChipHint";
+    private const string PartTranslateResultDotName = "PART_TranslateResultDot";
+    private const string PartSimilarChipButtonName = "PART_SimilarChipButton";
+    private const string PartSimilarCancelButtonName = "PART_SimilarCancelButton";
+    private const string PartSimilarChipLabelName = "PART_SimilarChipLabel";
+    private const string PartSimilarChipHintName = "PART_SimilarChipHint";
+    private const string PartSimilarResultDotName = "PART_SimilarResultDot";
+    private const string PartPanelHostName = "PART_PanelHost";
+    private const string PartSummaryPanelName = "PART_SummaryPanel";
+    private const string PartRepliesPanelName = "PART_RepliesPanel";
+    private const string PartTranslatePanelName = "PART_TranslatePanel";
+    private const string PartSimilarPanelName = "PART_SimilarPanel";
+    private const string PartSummaryWaitingPanelName = "PART_SummaryWaitingPanel";
+    private const string PartRepliesWaitingPanelName = "PART_RepliesWaitingPanel";
+    private const string PartSimilarWaitingPanelName = "PART_SimilarWaitingPanel";
+    private const string PartSummaryWaitingRingName = "PART_SummaryWaitingRing";
+    private const string PartRepliesWaitingRingName = "PART_RepliesWaitingRing";
+    private const string PartSimilarWaitingRingName = "PART_SimilarWaitingRing";
+    private const string PartSummaryResultTextBlockName = "PART_SummaryResultTextBlock";
+    private const string PartSuggestedRepliesListName = "PART_SuggestedRepliesList";
+    private const string PartSimilarMailListName = "PART_SimilarMailList";
+    private const string PartTranslationSourceComboBoxName = "PART_TranslationSourceComboBox";
+    private const string PartTranslationTargetComboBoxName = "PART_TranslationTargetComboBox";
+    private const string PartTranslationRunButtonName = "PART_TranslationRunButton";
+    private const string PartTranslationStatusTextBlockName = "PART_TranslationStatusTextBlock";
+    private const string PartTranslationBusyTextBlockName = "PART_TranslationBusyTextBlock";
+    private const string PartTranslationAppliedPanelName = "PART_TranslationAppliedPanel";
+    private const string PartTranslationWaitingPanelName = "PART_TranslationWaitingPanel";
+    private const string PartTranslationWaitingRingName = "PART_TranslationWaitingRing";
+    private const string PartSummaryCopyButtonName = "PART_SummaryCopyButton";
+    private const string PartSummaryRegenerateButtonName = "PART_SummaryRegenerateButton";
+    private const string PartRepliesRegenerateButtonName = "PART_RepliesRegenerateButton";
+    private const string PartSimilarRegenerateButtonName = "PART_SimilarRegenerateButton";
+    private const string PartSummaryCloseButtonName = "PART_SummaryCloseButton";
+    private const string PartRepliesCloseButtonName = "PART_RepliesCloseButton";
+    private const string PartTranslateCloseButtonName = "PART_TranslateCloseButton";
+    private const string PartSimilarCloseButtonName = "PART_SimilarCloseButton";
+}

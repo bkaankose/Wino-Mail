@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -37,7 +37,6 @@ using Wino.Views.Abstract;
 namespace Wino.Views.Mail;
 
 public sealed partial class ComposePage : ComposePageAbstract,
-    IAiHtmlActionHost,
     IPopoutClient,
     IRecipient<ApplicationThemeChanged>
 {
@@ -57,11 +56,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     public WebView2 GetWebView() => WebViewEditor.GetUnderlyingWebView();
 
-    public Visibility GetAiActionsToggleVisibility(bool isHidden) => isHidden ? Visibility.Collapsed : Visibility.Visible;
     public Visibility GetPopOutButtonVisibility() => SupportsPopOut ? Visibility.Visible : Visibility.Collapsed;
-
-    public Visibility GetAiActionsPanelVisibility(bool? isChecked, bool isHidden)
-        => !isHidden && isChecked == true ? Visibility.Visible : Visibility.Collapsed;
 
     private readonly List<IDisposable> _disposables = [];
 
@@ -366,11 +361,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
         Clipboard.SetContent(package);
     }
 
-    private async void ComposeAiActionsToggleButton_Checked(object sender, RoutedEventArgs e)
-    {
-        await ComposeAiActionsPanel.RefreshAvailabilityAsync();
-    }
-
     private async void TokenItemAdding(TokenizingTextBox sender, TokenItemAddingEventArgs args)
     {
         var deferral = args.GetDeferral();
@@ -532,7 +522,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
         _isNavigatingFrom = true;
         _editorLifecycleCancellationSource?.Cancel();
         ViewModel.RenderHtmlBodyAsyncFunc = null;
-        ComposeAiActionsPanel.CancelPendingOperation();
 
         try
         {
@@ -564,47 +553,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
             return ViewModel.CurrentMimeMessage?.HtmlBody ?? string.Empty;
         }
     }
-
-    public async Task<string?> GetCurrentHtmlAsync(CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        var html = await WebViewEditor.GetHtmlBodyAsync();
-        cancellationToken.ThrowIfCancellationRequested();
-        return html;
-    }
-
-    public async Task ApplyHtmlResultAsync(string html, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        await WebViewEditor.RenderHtmlAsync(html);
-        cancellationToken.ThrowIfCancellationRequested();
-    }
-
-    public Task<string?> TryGetCachedTranslationHtmlAsync(string languageCode, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult<string?>(null);
-    }
-
-    public Task SaveCachedTranslationHtmlAsync(string languageCode, string html, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.CompletedTask;
-    }
-
-    public Task<string?> TryGetCachedSummaryTextAsync(CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult<string?>(null);
-    }
-
-    public Task SaveCachedSummaryTextAsync(string summary, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.CompletedTask;
-    }
-
-    public string GetSuggestedSummaryFileName() => "email-summary.txt";
 
     private void OpenAttachment_Click(object sender, RoutedEventArgs e)
     {

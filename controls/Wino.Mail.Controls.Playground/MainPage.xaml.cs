@@ -18,6 +18,9 @@ public sealed partial class MainPage : Page
             "contact" => typeof(ContactPicturePage),
             "mailList" => typeof(MailListPage),
             "editor" => typeof(EditorPage),
+            "searchBar" => typeof(SearchBarPage),
+            "intelligenceHeader" => typeof(IntelligenceHeaderPage),
+            "intelligenceProgress" => typeof(IntelligenceProgressPage),
             _ => typeof(ContactPicturePage),
         };
 

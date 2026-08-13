@@ -22,6 +22,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
+using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Messaging.Client.Calendar;
 
 namespace Wino.Calendar.Views;
@@ -36,6 +37,7 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
     private bool _hasAttachedNavigationLifetimeEvents;
 
     public ObservableCollection<TitleBarSearchSuggestion> SearchSuggestions { get; } = [];
+    public SearchBarMode SearchMode => SearchBarMode.Calendar;
 
     public string SearchText { get; set; } = string.Empty;
 

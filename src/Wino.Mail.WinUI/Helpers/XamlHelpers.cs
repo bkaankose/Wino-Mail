@@ -20,6 +20,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.SemanticIndexing;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Collections;
@@ -206,6 +207,72 @@ public static class XamlHelpers
             _ => InfoBarSeverity.Informational,
         };
     }
+
+    public static string InfoBarMessageTypeGlyph(InfoBarMessageType messageType) => messageType switch
+    {
+        InfoBarMessageType.Success => "",
+        InfoBarMessageType.Warning => "",
+        InfoBarMessageType.Error => "",
+        _ => "",
+    };
+
+    public static Brush InfoBarMessageTypeBrush(InfoBarMessageType messageType)
+    {
+        var key = messageType switch
+        {
+            InfoBarMessageType.Success => "SystemFillColorSuccessBrush",
+            InfoBarMessageType.Warning => "SystemFillColorCautionBrush",
+            InfoBarMessageType.Error => "SystemFillColorCriticalBrush",
+            _ => "TextFillColorPrimaryBrush",
+        };
+
+        return (Brush)Application.Current.Resources[key];
+    }
+
+    /// <summary>
+    /// Fill of the hero state dot on the intelligence page. Unlike an InfoBar the
+    /// neutral state is the accent colour, because the dot has no other meaning.
+    /// </summary>
+    public static Brush IntelligenceHeroStateBrush(InfoBarMessageType messageType)
+    {
+        var key = messageType switch
+        {
+            InfoBarMessageType.Success => "SystemFillColorSuccessBrush",
+            InfoBarMessageType.Warning => "SystemFillColorCautionBrush",
+            InfoBarMessageType.Error => "SystemFillColorCriticalBrush",
+            _ => "AccentFillColorDefaultBrush",
+        };
+
+        return (Brush)Application.Current.Resources[key];
+    }
+
+    /// <summary>
+    /// Fill of one message volume histogram column. Indexed buckets read as done,
+    /// selected buckets as scheduled, and everything else recedes.
+    /// </summary>
+    public static Brush IntelligenceBucketBrush(SemanticIndexBucketCoverage coverage)
+    {
+        var key = coverage switch
+        {
+            SemanticIndexBucketCoverage.Indexed => "SystemFillColorSuccessBrush",
+            SemanticIndexBucketCoverage.Selected => "AccentFillColorDefaultBrush",
+            _ => "ControlStrongFillColorDisabledBrush",
+        };
+
+        return (Brush)Application.Current.Resources[key];
+    }
+
+    /// <summary>
+    /// The indexing card keeps its action on the right while idle, and gives the whole
+    /// card width to the progress lanes once a job is running.
+    /// </summary>
+    public static CommunityToolkit.WinUI.Controls.ContentAlignment IndexingCardContentAlignment(bool isJobActive)
+        => isJobActive
+            ? CommunityToolkit.WinUI.Controls.ContentAlignment.Vertical
+            : CommunityToolkit.WinUI.Controls.ContentAlignment.Right;
+
+    public static bool IsRangePresetSelected(SemanticIndexRangePreset current, string targetPresetId)
+        => current == SemanticIndexRangePresetExtensions.FromStableId(targetPresetId);
 
     public static SolidColorBrush GetReadableTextColor(string backgroundColor)
     {

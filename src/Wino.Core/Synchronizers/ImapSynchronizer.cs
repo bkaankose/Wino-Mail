@@ -38,10 +38,11 @@ using Wino.Core.Misc;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 using Wino.Services.Extensions;
+using Wino.Mail.AI.Abstractions;
 
 namespace Wino.Core.Synchronizers.Mail;
 
-public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreationPackage, object>, IImapSynchronizer
+public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreationPackage, object>, IImapSynchronizer, ISemanticMailBodySynchronizer
 {
     /// <summary>
     /// N/A for IMAP as it doesn't support batch modifications natively.
@@ -491,6 +492,65 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         var smtpMessage = MimeMessage.Load(stream);
         smtpMessage.Headers.Remove(Domain.Constants.WinoLocalDraftHeader);
         return smtpMessage;
+    }
+
+    public async Task<SemanticMailContent> GetSemanticBodyAsync(
+        MailBodyLocator locator,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(locator);
+        if (locator.ImapUid is not uint uid || locator.ImapUidValidity is not uint expectedUidValidity)
+        {
+            throw new ArgumentException("IMAP semantic body retrieval requires UID and UIDVALIDITY.", nameof(locator));
+        }
+
+        IImapClient client = null;
+        var destroyClient = false;
+        try
+        {
+            client = await _clientPool.GetClientAsync().ConfigureAwait(false);
+            var remoteFolder = await client.GetFolderAsync(locator.RemoteFolderId, cancellationToken).ConfigureAwait(false);
+            await remoteFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
+            if (remoteFolder.UidValidity != expectedUidValidity)
+            {
+                throw new InvalidOperationException("IMAP UIDVALIDITY changed; synchronize the folder before indexing.");
+            }
+
+            var uniqueId = new UniqueId(uid);
+            var summaries = await remoteFolder.FetchAsync(
+                [uniqueId],
+                MessageSummaryItems.UniqueId | MessageSummaryItems.BodyStructure | MessageSummaryItems.Envelope,
+                cancellationToken).ConfigureAwait(false);
+            var summary = summaries.SingleOrDefault()
+                ?? throw new SynchronizerEntityNotFoundException("The IMAP message no longer exists in the selected folder.");
+            var selectedPart = summary.TextBody ?? summary.HtmlBody
+                ?? throw new InvalidOperationException("IMAP message contains no indexable text body part.");
+            var entity = await remoteFolder.GetBodyPartAsync(uniqueId, selectedPart, cancellationToken).ConfigureAwait(false);
+            if (entity is not TextPart textPart)
+            {
+                throw new InvalidOperationException("The selected IMAP body part is not textual.");
+            }
+
+            return new SemanticMailContent(
+                new MailBodyContent(
+                    textPart.IsHtml ? MailBodyFormat.Html : MailBodyFormat.PlainText,
+                    textPart.Text ?? string.Empty),
+                summary.Envelope?.From?.Mailboxes.Select(x => new MailAddress(x.Address, x.Name)).ToArray() ?? [],
+                summary.Envelope?.To?.Mailboxes.Select(x => x.Address).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray() ?? [],
+                summary.Envelope?.Cc?.Mailboxes.Select(x => x.Address).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray() ?? []);
+        }
+        catch
+        {
+            destroyClient = true;
+            throw;
+        }
+        finally
+        {
+            if (client is not null)
+            {
+                _clientPool.Release(client, destroyClient);
+            }
+        }
     }
 
     public override async Task DownloadMissingMimeMessageAsync(MailCopy mailItem,
@@ -1335,7 +1395,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         }
     }
 
-    public override async Task<List<MailCopy>> OnlineSearchAsync(string queryText, List<IMailItemFolder> folders, CancellationToken cancellationToken = default)
+    public override async Task<List<MailCopy>> OnlineSearchAsync(RemoteMailSearchCriteria criteria, List<IMailItemFolder> folders, CancellationToken cancellationToken = default)
     {
         IImapClient client = null;
 
@@ -1360,7 +1420,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                 await remoteFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
 
                 // Look for subject and body.
-                var query = SearchQuery.BodyContains(queryText).Or(SearchQuery.SubjectContains(queryText));
+                var query = BuildOnlineSearchQuery(criteria);
 
                 var searchResultsInFolder = await remoteFolder.SearchAsync(query, cancellationToken).ConfigureAwait(false);
                 Dictionary<string, UniqueId> searchResultsIdsInFolder = [];
@@ -1403,6 +1463,20 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         {
             _clientPool.Release(client);
         }
+    }
+
+    internal static SearchQuery BuildOnlineSearchQuery(RemoteMailSearchCriteria criteria)
+    {
+        SearchQuery query = string.IsNullOrWhiteSpace(criteria.Query)
+            ? SearchQuery.All
+            : SearchQuery.BodyContains(criteria.Query).Or(SearchQuery.SubjectContains(criteria.Query));
+        if (!string.IsNullOrWhiteSpace(criteria.Sender)) query = query.And(SearchQuery.FromContains(criteria.Sender));
+        if (criteria.ReceivedAfterUtc is { } after) query = query.And(SearchQuery.DeliveredAfter(after.UtcDateTime));
+        if (criteria.ReceivedBeforeUtc is { } before) query = query.And(SearchQuery.DeliveredBefore(before.UtcDateTime));
+        if (criteria.HasAttachments) query = query.And(SearchQuery.HeaderContains("Content-Disposition", "attachment"));
+        if (criteria.IsUnread) query = query.And(SearchQuery.NotSeen);
+        if (criteria.IsFlagged) query = query.And(SearchQuery.Flagged);
+        return query;
     }
 
     /// <summary>

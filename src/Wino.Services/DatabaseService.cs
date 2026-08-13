@@ -86,6 +86,7 @@ public class DatabaseService : IDatabaseService
     private async Task EnsureSchemaUpgradesAsync()
     {
         await EnsureKeyboardShortcutSchemaAsync().ConfigureAwait(false);
+        await EnsureWinoAccountSchemaAsync().ConfigureAwait(false);
 
         var mailCopyColumns = await Connection.GetTableInfoAsync(nameof(MailCopy)).ConfigureAwait(false);
 
@@ -292,6 +293,13 @@ WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
                 .ConfigureAwait(false);
         }
 
+        if (!accountPreferencesColumns.Any(c => c.Name == nameof(MailAccountPreferences.IsSemanticIndexingEnabled)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailAccountPreferences)} ADD COLUMN {nameof(MailAccountPreferences.IsSemanticIndexingEnabled)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
+
         var calendarItemColumns = await Connection.GetTableInfoAsync(nameof(CalendarItem)).ConfigureAwait(false);
 
         if (!calendarItemColumns.Any(c => c.Name == nameof(CalendarItem.SnoozedUntil)))
@@ -354,6 +362,19 @@ WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
         }
 
         await Connection.ExecuteAsync("DROP TABLE IF EXISTS WinoAccountAddOnCache").ConfigureAwait(false);
+    }
+
+    private async Task EnsureWinoAccountSchemaAsync()
+    {
+        var columns = await Connection.GetTableInfoAsync(nameof(WinoAccount)).ConfigureAwait(false);
+        if (columns.Any(c => c.Name == nameof(WinoAccount.IsUnlimitedAccountsEnabled)))
+        {
+            return;
+        }
+
+        await Connection.ExecuteAsync(
+            $"ALTER TABLE {nameof(WinoAccount)} ADD COLUMN {nameof(WinoAccount.IsUnlimitedAccountsEnabled)} INTEGER NOT NULL DEFAULT 0")
+            .ConfigureAwait(false);
     }
 
     private async Task EnsureKeyboardShortcutSchemaAsync()

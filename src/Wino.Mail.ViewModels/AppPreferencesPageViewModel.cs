@@ -30,7 +30,8 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
         SearchModes =
         [
             Translator.SettingsAppPreferences_SearchMode_Local,
-            Translator.SettingsAppPreferences_SearchMode_Online
+            Translator.SettingsAppPreferences_SearchMode_Online,
+            Translator.SettingsAppPreferences_SearchMode_Semantic
         ];
 
         CloseBehaviorModes =

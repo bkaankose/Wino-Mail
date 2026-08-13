@@ -1,4 +1,5 @@
-﻿using System.Collections.ObjectModel;
+﻿using System;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -39,12 +40,12 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
     [ObservableProperty]
     public partial IAccountProviderDetailViewModel StartupAccount { get; set; }
 
-    public int FREE_ACCOUNT_COUNT { get; } = 3;
+    public int FREE_ACCOUNT_COUNT { get; } = Constants.FreeAccountLimit;
     protected IDialogServiceBase DialogService { get; }
     protected INavigationService NavigationService { get; }
     protected IAccountService AccountService { get; }
     protected IProviderService ProviderService { get; }
-    protected IStoreManagementService StoreManagementService { get; }
+    protected IWinoBillingService BillingService { get; }
     protected IWinoAccountProfileService WinoAccountProfileService { get; }
     protected IAuthenticationProvider AuthenticationProvider { get; }
     protected IPreferencesService PreferencesService { get; }
@@ -53,7 +54,7 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
                                               INavigationService navigationService,
                                               IAccountService accountService,
                                               IProviderService providerService,
-                                              IStoreManagementService storeManagementService,
+                                              IWinoBillingService billingService,
                                               IWinoAccountProfileService winoAccountProfileService,
                                               IAuthenticationProvider authenticationProvider,
                                               IPreferencesService preferencesService)
@@ -62,7 +63,7 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
         NavigationService = navigationService;
         AccountService = accountService;
         ProviderService = providerService;
-        StoreManagementService = storeManagementService;
+        BillingService = billingService;
         WinoAccountProfileService = winoAccountProfileService;
         AuthenticationProvider = authenticationProvider;
         PreferencesService = preferencesService;
@@ -79,24 +80,34 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
     [RelayCommand]
     public async Task PurchaseUnlimitedAccountAsync()
     {
-        var purchaseResult = await StoreManagementService.PurchaseAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS);
-
-        if (purchaseResult == StorePurchaseResult.Succeeded)
-            DialogService.InfoBarMessage(Translator.Info_PurchaseThankYouTitle, Translator.Info_PurchaseThankYouMessage, InfoBarMessageType.Success);
-        else if (purchaseResult == StorePurchaseResult.AlreadyPurchased)
-            DialogService.InfoBarMessage(Translator.Info_PurchaseExistsTitle, Translator.Info_PurchaseExistsMessage, InfoBarMessageType.Warning);
-
-        bool shouldRefreshPurchasePanel = purchaseResult == StorePurchaseResult.Succeeded || purchaseResult == StorePurchaseResult.AlreadyPurchased;
-
-        if (shouldRefreshPurchasePanel)
+        if (await WinoAccountProfileService.GetAuthenticatedAccountAsync().ConfigureAwait(false) == null)
         {
-            await ManageStorePurchasesAsync();
+            DialogService.InfoBarMessage(
+                Translator.GeneralTitle_Warning,
+                Translator.WinoAccount_Management_CheckoutSignInRequired,
+                InfoBarMessageType.Warning);
+            await ExecuteUIThread(() => NavigationService.Navigate(WinoPage.WinoAccountManagementPage));
+            return;
         }
+
+        if (!await BillingService.OpenCheckoutAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS).ConfigureAwait(false))
+        {
+            DialogService.InfoBarMessage(
+                Translator.GeneralTitle_Error,
+                Translator.WinoAccount_Management_PurchaseStartFailed,
+                InfoBarMessageType.Error);
+            return;
+        }
+
+        DialogService.InfoBarMessage(
+            Translator.GeneralTitle_Info,
+            Translator.WinoAccount_Management_CheckoutOpened,
+            InfoBarMessageType.Information);
     }
 
     public async Task ManageStorePurchasesAsync()
     {
-        var hasUnlimitedAccountProduct = await StoreManagementService.HasProductAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS).ConfigureAwait(false);
+        var hasUnlimitedAccountProduct = await BillingService.HasUnlimitedAccountsAsync().ConfigureAwait(false);
 
         await ExecuteUIThread(() =>
         {

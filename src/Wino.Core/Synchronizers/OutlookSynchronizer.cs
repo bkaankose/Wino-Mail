@@ -46,6 +46,7 @@ using Wino.Core.Requests.Category;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Messaging.UI;
+using Wino.Mail.AI.Abstractions;
 using GlobalizationCultureInfo = System.Globalization.CultureInfo;
 
 namespace Wino.Core.Synchronizers.Mail;
@@ -71,7 +72,7 @@ public partial class OutlookSynchronizerJsonContext : JsonSerializerContext;
 /// - CreateMailCopyFromMessageAsync: Creates MailCopy from Message metadata
 /// - DownloadMissingMimeMessageAsync: Downloads raw MIME only when explicitly requested
 /// </summary>
-public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message, Event>, IProviderMailFilterSynchronizer
+public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message, Event>, IProviderMailFilterSynchronizer, ISemanticMailBodySynchronizer
 {
     public override uint BatchModificationSize => 20;
     public override uint InitialMessageDownloadCountPerFolder => 1000;
@@ -2051,6 +2052,34 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             Categories = categoryNames?.ToList() ?? []
         });
 
+    public async Task<SemanticMailContent> GetSemanticBodyAsync(
+        MailBodyLocator locator,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(locator);
+
+        var providerMessageId = locator.ProviderMessageId ?? locator.RemoteMessageId;
+        var message = await _graphClient.Me.Messages[providerMessageId]
+            .GetAsync(request =>
+            {
+                request.QueryParameters.Select = ["body", "from", "toRecipients", "ccRecipients"];
+                request.Headers.Add("Prefer", "outlook.body-content-type=\"html\"");
+            }, cancellationToken)
+            .ConfigureAwait(false);
+
+        var content = message?.Body?.Content ?? string.Empty;
+        var format = message?.Body?.ContentType == BodyType.Html
+            ? MailBodyFormat.Html
+            : MailBodyFormat.PlainText;
+        return new SemanticMailContent(
+            new MailBodyContent(format, content),
+            message?.From?.EmailAddress is { Address: { Length: > 0 } address } from
+                ? [new MailAddress(address, from.Name)]
+                : [],
+            message?.ToRecipients?.Select(x => x.EmailAddress?.Address).Where(x => !string.IsNullOrWhiteSpace(x)).Cast<string>().ToArray() ?? [],
+            message?.CcRecipients?.Select(x => x.EmailAddress?.Address).Where(x => !string.IsNullOrWhiteSpace(x)).Cast<string>().ToArray() ?? []);
+    }
+
     public override async Task DownloadMissingMimeMessageAsync(MailCopy mailItem,
                                                            MailKit.ITransferProgress transferProgress = null,
                                                            CancellationToken cancellationToken = default)
@@ -2593,8 +2622,9 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         throw new SynchronizerException(formattedErrorString);
     }
 
-    public override async Task<List<MailCopy>> OnlineSearchAsync(string queryText, List<IMailItemFolder> folders, CancellationToken cancellationToken = default)
+    public override async Task<List<MailCopy>> OnlineSearchAsync(RemoteMailSearchCriteria criteria, List<IMailItemFolder> folders, CancellationToken cancellationToken = default)
     {
+        var queryText = BuildOnlineSearchQuery(criteria);
         var messagesById = new Dictionary<string, Message>(StringComparer.Ordinal);
 
         // Perform search for each folder separately.
@@ -2698,6 +2728,19 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
         // Get results from database and return.
         return await _outlookChangeProcessor.GetMailCopiesAsync(messageIdsWithKnownFolder).ConfigureAwait(false);
+    }
+
+    internal static string BuildOnlineSearchQuery(RemoteMailSearchCriteria criteria)
+    {
+        var terms = new List<string>();
+        if (!string.IsNullOrWhiteSpace(criteria.Query)) terms.Add(criteria.Query.Trim());
+        if (!string.IsNullOrWhiteSpace(criteria.Sender)) terms.Add($"from:{criteria.Sender.Trim()}");
+        if (criteria.ReceivedAfterUtc is { } after) terms.Add($"received>={after.UtcDateTime:yyyy-MM-dd}");
+        if (criteria.ReceivedBeforeUtc is { } before) terms.Add($"received<{before.UtcDateTime:yyyy-MM-dd}");
+        if (criteria.HasAttachments) terms.Add("hasAttachments:true");
+        if (criteria.IsUnread) terms.Add("isRead:false");
+        if (criteria.IsFlagged) terms.Add("flag:flagged");
+        return string.Join(' ', terms);
     }
 
     private async Task<MimeMessage> DownloadMimeMessageAsync(string messageId, CancellationToken cancellationToken = default)

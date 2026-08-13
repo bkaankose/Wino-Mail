@@ -9,6 +9,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
+using Wino.Core.Diagnostics;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
@@ -20,7 +21,6 @@ using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Diagnostics;
 using Wino.Core.Misc;
 using Wino.Core.Services;
 using Wino.Core.ViewModels.Data;
@@ -218,6 +218,10 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     [RelayCommand]
     private void CustomizeFolderList()
         => Messenger.Send(new BreadcrumbNavigationRequested(Translator.FolderCustomization_Title, WinoPage.FolderCustomizationPage, Account.Id));
+
+    [RelayCommand]
+    private void ManageWinoIntelligence()
+        => Messenger.Send(new BreadcrumbNavigationRequested(Translator.SemanticIndex_PageTitle, WinoPage.WinoIntelligenceManagementPage, Account.Id));
 
     [RelayCommand]
     private void EditImapCalDavSettings()

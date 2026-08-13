@@ -10,4 +10,5 @@ public class CalendarEventComposeNavigationArgs
     public bool IsAllDay { get; set; }
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
+    public string NotesHtml { get; set; } = string.Empty;
 }

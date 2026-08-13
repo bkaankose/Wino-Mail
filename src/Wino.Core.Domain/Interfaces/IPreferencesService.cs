@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.ComponentModel;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
@@ -93,11 +93,6 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsWinoAccountButtonHidden { get; set; }
 
     /// <summary>
-    /// Setting: Whether AI actions panels and their toggle buttons should be hidden.
-    /// </summary>
-    bool IsAiActionsPanelHidden { get; set; }
-
-    /// <summary>
     /// Setting: Default target language code used for AI translation actions.
     /// </summary>
     string AiDefaultTranslationLanguageCode { get; set; }
@@ -111,6 +106,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// Setting: Preferred folder path used when saving AI summaries.
     /// </summary>
     string AiSummarySavePath { get; set; }
+
+    /// <summary>
+    /// Setting: Render messages with the offline simplified Reader View.
+    /// </summary>
+    bool IsReaderViewEnabled { get; set; }
 
     /// <summary>
     /// Serializes the current syncable preferences snapshot.

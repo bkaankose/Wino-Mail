@@ -8,9 +8,17 @@
     <RootNamespace>Wino.Mail.Controls</RootNamespace>
     <Platforms>x86;x64;ARM64</Platforms>
 	<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!--
+      WMC1510: a ResourceDictionary has no x:Class, so DataTemplates in Themes/Generic.xaml cannot
+      use x:DataType/x:Bind and must bind by property path. The compiler cannot prove those paths
+      survive trimming. They do: every type bound this way is marked [GeneratedBindableCustomProperty].
+      Keep that invariant when adding templates here, or this suppression stops being true.
+    -->
+    <NoWarn>$(NoWarn);WMC1510</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Labs.WinUI.DependencyPropertyGenerator" />
     <!--
       Keep WinUI's transitive SDK tooling aligned with the app project.
       Otherwise solution builds can load an older task assembly from this

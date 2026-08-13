@@ -9,6 +9,7 @@ using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
+using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Views.Abstract;
 
 namespace Wino.Views.Settings;
@@ -16,6 +17,7 @@ namespace Wino.Views.Settings;
 public sealed partial class ContactsPage : ContactsPageAbstract, ITitleBarSearchHost
 {
     public ObservableCollection<TitleBarSearchSuggestion> SearchSuggestions { get; } = [];
+    public SearchBarMode SearchMode => SearchBarMode.Contacts;
 
     public string SearchText
     {

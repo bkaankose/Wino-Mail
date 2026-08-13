@@ -47,10 +47,19 @@ public partial class SettingsShellClient(INavigationService navigationService) :
 
         RebuildMenuItems();
 
-        var targetPage = activationContext.Parameter as WinoPage? ?? WinoPage.SettingOptionsPage;
+        var settingsActivationContext = activationContext.Parameter as SettingsPageActivationContext;
+        var targetPage = settingsActivationContext?.TargetPage
+                         ?? activationContext.Parameter as WinoPage?
+                         ?? WinoPage.SettingOptionsPage;
         SetSelectedRootPage(SettingsNavigationInfoProvider.GetRootPage(targetPage));
 
-        navigationService.Navigate(WinoPage.SettingsPage, targetPage, NavigationReferenceFrame.InnerShellFrame);
+        object navigationParameter = settingsActivationContext is not null
+            ? settingsActivationContext
+            : (object)targetPage;
+        navigationService.Navigate(
+            WinoPage.SettingsPage,
+            navigationParameter,
+            NavigationReferenceFrame.InnerShellFrame);
     }
 
     public void Deactivate()

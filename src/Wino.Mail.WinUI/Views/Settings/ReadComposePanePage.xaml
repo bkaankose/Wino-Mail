@@ -129,6 +129,19 @@
             </controls:SettingsCard>
 
             <controls:SettingsCard
+                AutomationProperties.AutomationId="ReadComposePanePageReaderViewCard"
+                Description="{x:Bind domain:Translator.SettingsReaderView_Description}"
+                Header="{x:Bind domain:Translator.SettingsReaderView_Title}">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE8A5;" />
+                </controls:SettingsCard.HeaderIcon>
+                <ToggleSwitch
+                    AutomationProperties.AutomationId="ReadComposePanePageReaderViewToggle"
+                    AutomationProperties.Name="{x:Bind domain:Translator.SettingsReaderView_Title}"
+                    IsOn="{x:Bind ViewModel.PreferencesService.IsReaderViewEnabled, Mode=TwoWay}" />
+            </controls:SettingsCard>
+
+            <controls:SettingsCard
 
                 AutomationProperties.AutomationId="ReadComposePanePageSettingsCard8" Header="{x:Bind domain:Translator.SettingsLoadImages_Title}">
                 <controls:SettingsCard.HeaderIcon>

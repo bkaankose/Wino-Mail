@@ -1,9 +1,19 @@
 :root { color-scheme: light dark; --wino-font-family: "Segoe UI"; --wino-font-size: 15px; }
-html { box-sizing: border-box; height: 100%; margin: 0; background: transparent; }
-body { box-sizing: border-box; min-height: 100%; margin: 0; padding: 16px; color: CanvasText; background: Canvas; font-family: var(--wino-font-family); font-size: var(--wino-font-size); overflow-wrap: anywhere; }
-:root[data-theme="light"] body { color: #1b1b1b; background: #ffffff; }
-:root[data-theme="dark"] body { color: #f3f3f3; background: #202020; }
+html { box-sizing: border-box; height: 100%; margin: 0; background: #ffffff; }
+body { box-sizing: border-box; min-height: 100%; margin: 0; padding: 16px; color: CanvasText; background: transparent !important; font-family: var(--wino-font-family); font-size: var(--wino-font-size); overflow-wrap: anywhere; }
+:root[data-theme="light"] { background: #ffffff; }
+:root[data-theme="light"] body { color: #1b1b1b; background: #ffffff !important; }
+:root[data-theme="dark"] { background: transparent; }
+:root[data-theme="dark"] body { color: #f3f3f3; background: transparent !important; }
 #wino-reader { min-height: 100%; visibility: hidden; font-family: var(--wino-font-family); font-size: var(--wino-font-size); outline: none; }
+.wino-reader { box-sizing: border-box; width: min(100%, 760px); margin-inline: auto; padding: 16px; line-height: 1.62; color: inherit; background: transparent !important; }
+.wino-reader p, .wino-reader blockquote, .wino-reader pre { margin: 0 0 1em; }
+.wino-reader h2 { margin: 1.4em 0 .5em; font-size: 1.3em; }
+.wino-reader blockquote { padding-inline-start: 1em; color: GrayText; border-inline-start: 3px solid GrayText; }
+.wino-reader details { margin-top: 1.5em; padding-top: .75em; border-top: 1px solid GrayText; }
+.wino-reader summary { cursor: pointer; font-weight: 600; }
+.wino-reader a { color: LinkText; }
+.wino-reader pre { white-space: pre-wrap; font-family: Consolas, monospace; }
 img { max-width: 100%; height: auto; }
 table { max-width: 100%; }
 pre { white-space: pre-wrap; }

@@ -9,6 +9,7 @@
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageVersion Include="CommunityToolkit.WinUI.Animations" Version="8.2.251219" />
     <PackageVersion Include="CommunityToolkit.WinUI.Controls.Segmented" Version="8.2.251219" />
+    <PackageVersion Include="CommunityToolkit.WinUI.Controls.RangeSelector" Version="8.2.251219" />
     <PackageVersion Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" />
     <PackageVersion Include="CommunityToolkit.WinUI.Controls.Sizers" Version="8.2.251219" />
     <PackageVersion Include="CommunityToolkit.WinUI.Controls.TabbedCommandBar" Version="8.2.251219" />
@@ -33,7 +34,10 @@
     <PackageVersion Include="Microsoft.NETCore.UniversalWindowsPlatform" Version="6.2.14" />
     <PackageVersion Include="Microsoft.Windows.SDK.BuildTools.MSIX" Version="1.7.260610101" />
     <PackageVersion Include="Microsoft.Windows.CsWinRT" Version="2.3.1" />
-    <PackageVersion Include="Wino.Mail.Contracts" Version="1.0.18" />
+    <PackageVersion Include="Wino.Mail.Contracts" Version="2.0.0-alpha.4" />
+    <PackageVersion Include="Wino.Mail.AI.Abstractions" Version="0.1.0-alpha.21" />
+    <PackageVersion Include="Wino.Mail.AI.ContentProcessing" Version="0.1.0-alpha.21" />
+    <PackageVersion Include="Wino.Mail.AI.SqliteVec" Version="0.1.0-alpha.21" />
     <PackageVersion Include="MimeKit" Version="4.17.0" />
     <PackageVersion Include="morelinq" Version="4.4.0" />
     <PackageVersion Include="Nito.AsyncEx" Version="5.1.2" />
@@ -48,6 +52,7 @@
     <PackageVersion Include="SkiaSharp" Version="4.150.1" />
     <PackageVersion Include="sqlite-net-pcl" Version="1.11.285" />
     <PackageVersion Include="System.Drawing.Common" Version="10.0.5" />
+    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.10" />
     <PackageVersion Include="System.Private.Uri" Version="4.3.2" />
     <PackageVersion Include="System.Text.Encoding.CodePages" Version="9.0.10" />
     <PackageVersion Include="System.Text.Json" Version="10.0.10" />

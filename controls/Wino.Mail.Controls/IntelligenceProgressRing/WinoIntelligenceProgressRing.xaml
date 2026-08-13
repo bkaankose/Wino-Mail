@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Wino.Mail.Controls.IntelligenceProgressRing">
+
+    <SolidColorBrush x:Key="WinoIntelligenceProgressRingDefaultBrush" Color="{ThemeResource SystemAccentColor}" />
+
+    <Style TargetType="local:WinoIntelligenceProgressRing">
+        <Setter Property="Foreground" Value="{ThemeResource WinoIntelligenceProgressRingDefaultBrush}" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="local:WinoIntelligenceProgressRing">
+                    <Viewbox Stretch="Uniform">
+                        <!--
+                            The Grid must match the composition canvas (WinoCompositionAnimatedVisual.CanvasSize,
+                            64x64) and the players inside it. The Viewbox measures this Grid and clips to its own
+                            bounds, so a Grid smaller than its children scales the wrong box and crops the
+                            animation — at 32x32 only the top-left quarter survived.
+                        -->
+                        <Grid
+                            x:Name="LayoutRoot"
+                            Width="64"
+                            Height="64">
+                            <AnimatedVisualPlayer
+                                x:Name="DotsPlayer"
+                                Width="64"
+                                Height="64"
+                                AutoPlay="False"
+                                Stretch="Uniform"
+                                Visibility="Collapsed" />
+                            <AnimatedVisualPlayer
+                                x:Name="CubesPlayer"
+                                Width="64"
+                                Height="64"
+                                AutoPlay="False"
+                                Stretch="Uniform"
+                                Visibility="Collapsed" />
+                            <AnimatedVisualPlayer
+                                x:Name="TranslatePlayer"
+                                Width="64"
+                                Height="64"
+                                AutoPlay="False"
+                                Stretch="Uniform"
+                                Visibility="Collapsed" />
+                            <AnimatedVisualPlayer
+                                x:Name="SummarizePlayer"
+                                Width="64"
+                                Height="64"
+                                AutoPlay="False"
+                                Stretch="Uniform"
+                                Visibility="Collapsed" />
+                            <AnimatedVisualPlayer
+                                x:Name="RewritePlayer"
+                                Width="64"
+                                Height="64"
+                                AutoPlay="False"
+                                Stretch="Uniform"
+                                Visibility="Collapsed" />
+                        </Grid>
+                    </Viewbox>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+</ResourceDictionary>

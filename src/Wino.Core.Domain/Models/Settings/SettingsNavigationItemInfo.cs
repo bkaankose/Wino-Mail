@@ -153,6 +153,7 @@ public static class SettingsNavigationInfoProvider
             WinoPage.ManageAccountsPage => Translator.SettingsManageAccountSettings_Title,
             WinoPage.AccountManagementPage => Translator.SettingsManageAccountSettings_Title,
             WinoPage.WinoAccountManagementPage => Translator.WinoAccount_SettingsSection_Title,
+            WinoPage.WinoAccountConsentPage => Translator.WinoAccount_ConsentPageTitle,
             WinoPage.PersonalizationPage => Translator.SettingsPersonalization_Title,
             WinoPage.AboutPage => Translator.SettingsAbout_Title,
             WinoPage.MessageListPage => Translator.SettingsMessageList_Title,
@@ -190,6 +191,7 @@ public static class SettingsNavigationInfoProvider
             WinoPage.CreateEmailTemplatePage => WinoPage.EmailTemplatesPage,
             WinoPage.CalendarSettingsPage => WinoPage.CalendarPreferenceSettingsPage,
             WinoPage.CalendarAccountSettingsPage => WinoPage.CalendarPreferenceSettingsPage,
+            WinoPage.WinoAccountConsentPage => WinoPage.WinoAccountManagementPage,
             _ => pageType
         };
 

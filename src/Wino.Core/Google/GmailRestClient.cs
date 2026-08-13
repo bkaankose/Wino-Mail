@@ -286,7 +286,10 @@ namespace Google.Apis.Gmail.v1
             {
                 _httpClient = httpClient;
                 _service = service;
+                Attachments = new AttachmentsResource(httpClient, service);
             }
+
+            public AttachmentsResource Attachments { get; }
 
             public BatchDeleteRequest BatchDelete(BatchDeleteMessagesRequest body, string userId)
                 => new(_httpClient, _service, body, userId);
@@ -343,10 +346,13 @@ namespace Google.Apis.Gmail.v1
                     _id = id;
                     RequestUriFactory = () => GoogleUrl.AddQuery(
                         $"{BaseUri}/{GoogleUrl.Segment(_userId)}/messages/{GoogleUrl.Segment(_id)}",
-                        ("format", Format.ToString().ToLowerInvariant()));
+                        ("format", Format.ToString().ToLowerInvariant()),
+                        ("fields", Fields));
                 }
 
                 public FormatEnum Format { get; set; } = FormatEnum.Full;
+
+                public string Fields { get; set; }
 
                 public enum FormatEnum
                 {
@@ -354,6 +360,36 @@ namespace Google.Apis.Gmail.v1
                     Metadata,
                     Minimal,
                     Raw
+                }
+            }
+
+            public sealed class AttachmentsResource
+            {
+                private readonly HttpClient _httpClient;
+                private readonly object _service;
+
+                internal AttachmentsResource(HttpClient httpClient, object service)
+                {
+                    _httpClient = httpClient;
+                    _service = service;
+                }
+
+                public GetRequest Get(string userId, string messageId, string id)
+                    => new(_httpClient, _service, userId, messageId, id);
+
+                public sealed class GetRequest : GoogleApiRequest<MessagePartBody>
+                {
+                    internal GetRequest(HttpClient httpClient, object service, string userId, string messageId, string id)
+                        : base(
+                            httpClient,
+                            service,
+                            HttpMethod.Get,
+                            () => GoogleUrl.AddQuery(
+                                $"{BaseUri}/{GoogleUrl.Segment(userId)}/messages/{GoogleUrl.Segment(messageId)}/attachments/{GoogleUrl.Segment(id)}",
+                                ("fields", "data")),
+                            GoogleApiJsonContext.Default.MessagePartBody)
+                    {
+                    }
                 }
             }
 

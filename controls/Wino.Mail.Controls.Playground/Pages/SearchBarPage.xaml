@@ -1,0 +1,132 @@
+<Page
+    x:Class="Wino.Mail.Controls.Playground.Pages.SearchBarPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:Wino.Mail.Controls.Playground.Pages"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:search="using:Wino.Mail.Controls.SearchBar"
+    xmlns:searchCore="using:Wino.Mail.Controls.Core.SearchBar"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <DataTemplate x:Key="SearchSuggestionTemplate" x:DataType="searchCore:SearchBarSuggestion">
+            <Grid MinHeight="48" Padding="8,5" RowSpacing="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock FontWeight="SemiBold" Text="{x:Bind Title}" />
+                <TextBlock
+                    Grid.Row="1"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="{x:Bind Subtitle}"
+                    TextTrimming="CharacterEllipsis" />
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="ModeOptionTemplate" x:DataType="local:SearchModeOption">
+            <TextBlock Text="{x:Bind Title}" />
+        </DataTemplate>
+    </Page.Resources>
+
+    <ScrollViewer>
+        <Grid Padding="28" ColumnSpacing="24" RowSpacing="20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="*" MinWidth="260" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.ColumnSpan="2" Spacing="4">
+                <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Wino Search Bar" />
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="History, suggestion templates, semantic availability, and provider-neutral mail filters."
+                    TextWrapping="Wrap" />
+            </StackPanel>
+
+            <Border
+                Grid.Row="1"
+                Padding="24"
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+                <StackPanel Spacing="20">
+                    <search:WinoSearchBar
+                        x:Name="SearchBar"
+                        AutomationProperties.AutomationId="SearchBarPlaygroundControl"
+                        AutomationProperties.Name="Playground search"
+                        ClearSearchHistoryRequested="SearchBarClearHistoryRequested"
+                        ItemTemplate="{StaticResource SearchSuggestionTemplate}"
+                        SearchOptionsChanged="SearchBarOptionsChanged"
+                        SenderSuggestionsRequested="SearchBarSenderSuggestionsRequested"
+                        SearchSubmitted="SearchBarSubmitted"
+                        SearchTextChanged="SearchBarTextChanged" />
+
+                    <StackPanel Spacing="8">
+                        <TextBlock FontWeight="SemiBold" Text="Page response" />
+                        <TextBlock
+                            x:Name="ResultSummary"
+                            AutomationProperties.AutomationId="SearchBarResultSummary"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="Focus the empty search bar to view recent searches."
+                            TextWrapping="Wrap" />
+                        <ListView
+                            x:Name="ResultsList"
+                            AutomationProperties.AutomationId="SearchBarResultsList"
+                            ItemsSource="{x:Bind Results}"
+                            MaxHeight="220" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <StackPanel Grid.Row="1" Grid.Column="1" Spacing="16">
+                <StackPanel Spacing="5">
+                    <TextBlock Text="Shell mode" />
+                    <ComboBox
+                        x:Name="ModeComboBox"
+                        AutomationProperties.AutomationId="SearchBarModeComboBox"
+                        HorizontalAlignment="Stretch"
+                        ItemTemplate="{StaticResource ModeOptionTemplate}"
+                        ItemsSource="{x:Bind ModeOptions}"
+                        SelectedIndex="0"
+                        SelectionChanged="ModeComboBoxSelectionChanged" />
+                </StackPanel>
+                <ToggleSwitch
+                    x:Name="SemanticAvailabilityToggle"
+                    AutomationProperties.AutomationId="SearchBarSemanticAvailabilityToggle"
+                    Header="Wino Intelligence available"
+                    IsOn="True"
+                    Toggled="SemanticAvailabilityToggled" />
+                <ToggleSwitch
+                    x:Name="SemanticBusyToggle"
+                    AutomationProperties.AutomationId="SearchBarSemanticBusyToggle"
+                    Header="Semantic request busy"
+                    Toggled="SemanticBusyToggled" />
+            </StackPanel>
+
+            <Border
+                Grid.Row="2"
+                Grid.ColumnSpan="2"
+                Padding="16"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+                <StackPanel Spacing="8">
+                    <TextBlock FontWeight="SemiBold" Text="Event trace" />
+                    <ListView
+                        x:Name="EventTraceList"
+                        AutomationProperties.AutomationId="SearchBarEventTraceList"
+                        ItemsSource="{x:Bind EventTrace}"
+                        MaxHeight="180" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </ScrollViewer>
+</Page>

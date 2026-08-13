@@ -23,6 +23,21 @@
                 Content="Compose editor"
                 Icon="Edit"
                 Tag="editor" />
+            <NavigationViewItem
+                AutomationProperties.AutomationId="SearchBarNavigationItem"
+                Content="Search bar"
+                Icon="Find"
+                Tag="searchBar" />
+            <NavigationViewItem
+                AutomationProperties.AutomationId="IntelligenceHeaderNavigationItem"
+                Content="Intelligence header"
+                Icon="Emoji2"
+                Tag="intelligenceHeader" />
+            <NavigationViewItem
+                AutomationProperties.AutomationId="IntelligenceProgressNavigationItem"
+                Content="Intelligence progress"
+                Icon="Sync"
+                Tag="intelligenceProgress" />
         </NavigationView.MenuItems>
         <Frame x:Name="ContentFrame" />
     </NavigationView>

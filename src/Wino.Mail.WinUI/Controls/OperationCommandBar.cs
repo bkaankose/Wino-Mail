@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
@@ -52,6 +53,9 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
 
     [GeneratedDependencyProperty]
     public partial bool IsPopOutButtonVisible { get; set; }
+
+    [GeneratedDependencyProperty]
+    public partial bool IsReaderViewToggleVisible { get; set; }
 
     public event EventHandler<bool>? AIActionsEnabledChanged;
     public event EventHandler? PopOutClicked;
@@ -104,6 +108,11 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
         QueueCommandRefresh();
     }
 
+    partial void OnIsReaderViewToggleVisibleChanged(bool newValue)
+    {
+        QueueCommandRefresh();
+    }
+
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         if (_preferencesService != null)
@@ -129,7 +138,7 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
 
     private void PreferencesService_PreferenceChanged(object? sender, string propertyName)
     {
-        if (propertyName == nameof(IPreferencesService.IsShowActionLabelsEnabled))
+        if (propertyName is nameof(IPreferencesService.IsShowActionLabelsEnabled) or nameof(IPreferencesService.IsReaderViewEnabled))
         {
             DispatcherQueue.TryEnqueue(InvalidateCommands);
         }
@@ -196,6 +205,11 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
             PrimaryCommands.Add(CreateThemeToggleButton());
         }
 
+        if (IsReaderViewToggleVisible)
+        {
+            SecondaryCommands.Add(CreateReaderViewToggleButton());
+        }
+
         if (MenuItems == null)
         {
             UpdateOverflowButtonVisibility();
@@ -232,6 +246,8 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
             .Append(IsAIActionsPaneToggleVisible).Append('|')
             .Append(IsPopOutButtonVisible).Append('|')
             .Append(IsEditorThemeToggleVisible).Append('|')
+            .Append(IsReaderViewToggleVisible).Append('|')
+            .Append(_preferencesService?.IsReaderViewEnabled == true).Append('|')
             .Append(IsEditorThemeDark).Append('|')
             .Append(_preferencesService?.IsShowActionLabelsEnabled == true).Append('|');
 
@@ -270,6 +286,7 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
                     button.Click -= PopOutButton_Click;
                     break;
                 case AppBarToggleButton toggleButton:
+                    toggleButton.Click -= ReaderViewButton_Click;
                     toggleButton.ClearValue(AppBarToggleButton.IsCheckedProperty);
                     break;
             }
@@ -375,6 +392,25 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
 
         button.Click += PopOutButton_Click;
         return button;
+    }
+
+    private AppBarToggleButton CreateReaderViewToggleButton()
+    {
+        var button = new AppBarToggleButton
+        {
+            Label = Translator.Reader_ReaderView,
+            IsChecked = _preferencesService?.IsReaderViewEnabled == true,
+            Icon = new FontIcon { Glyph = "\uE8A5" },
+        };
+        AutomationProperties.SetName(button, Translator.Reader_ReaderView);
+        button.Click += ReaderViewButton_Click;
+        return button;
+    }
+
+    private void ReaderViewButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_preferencesService is not null && sender is AppBarToggleButton button)
+            _preferencesService.IsReaderViewEnabled = button.IsChecked == true;
     }
 
     private void OperationButton_Click(object sender, RoutedEventArgs e)

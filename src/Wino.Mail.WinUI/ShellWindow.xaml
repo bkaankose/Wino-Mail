@@ -10,6 +10,9 @@
     xmlns:local="using:Wino.Mail.WinUI"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:searchModels="using:Wino.Mail.WinUI.Models"
+    xmlns:searchControls="using:Wino.Mail.Controls.SearchBar"
+    xmlns:searchCore="using:Wino.Mail.Controls.Core.SearchBar"
+    xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
     xmlns:winuiex="using:WinUIEx"
     Title="ShellWindow"
     mc:Ignorable="d">
@@ -17,6 +20,26 @@
     <!--  SystemBackdrop will be set by NewThemeService  -->
 
     <Grid>
+        <Grid.Resources>
+            <DataTemplate x:Key="TitleBarSenderSuggestionTemplate" x:DataType="searchCore:SearchBarContactSuggestion">
+                <Grid MinHeight="48" Padding="8,4" ColumnSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <mailControls:WinoContactPicture
+                        Width="32"
+                        Height="32"
+                        ContactPicture="{x:Bind ContactPicture, Mode=OneTime}"
+                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind DisplayName}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind Address}" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </Grid>
+            </DataTemplate>
+        </Grid.Resources>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -40,28 +63,41 @@
                 <VerticalAlignment x:Key="TitleBarContentVerticalAlignment">Stretch</VerticalAlignment>
             </TitleBar.Resources>-->
             <TitleBar.Content>
-                <Grid
-                    MinWidth="400"
-                    MaxWidth="520"
-                    Margin="12,0,16,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <AutoSuggestBox
+                <searchControls:WinoSearchBar
                         x:Name="TitleBarSearchBox"
+                        MinWidth="400"
+                        MaxWidth="520"
+                        Margin="12,0,16,0"
                         VerticalAlignment="Center"
                         AutomationProperties.AutomationId="TitleBarSearchBox"
                         AutomationProperties.Name="{x:Bind domain:Translator.SearchBarPlaceholder}"
-                        BorderBrush="Transparent"
-                        GotFocus="TitleBarSearchBoxGotFocus"
-                        LostFocus="TitleBarSearchBoxLostFocus"
+                        AttachmentsFilterText="{x:Bind domain:Translator.SearchBar_Attachments}"
+                        ClearHistoryText="{x:Bind domain:Translator.SearchBar_ClearHistory}"
+                        ClearText="{x:Bind domain:Translator.SearchBar_Close}"
+                        ClearSearchHistoryRequested="TitleBarClearSearchHistoryRequested"
+                        DateLabelText="{x:Bind domain:Translator.SearchBar_Date}"
+                        EmptyHistoryText="{x:Bind domain:Translator.SearchBar_NoRecentSearches}"
+                        FlaggedFilterText="{x:Bind domain:Translator.SearchBar_Flagged}"
+                        MeaningToggleText="{x:Bind domain:Translator.SearchBar_Meaning}"
                         PlaceholderText="{x:Bind domain:Translator.SearchBarPlaceholder}"
-                        QueryIcon="Find"
-                        QuerySubmitted="TitleBarSearchQuerySubmitted"
-                        SuggestionChosen="TitleBarSearchSuggestionChosen"
-                        TextChanged="TitleBarSearchTextChanged">
-                        <AutoSuggestBox.ItemTemplate>
+                        ReachLabelText="{x:Bind domain:Translator.SearchBar_Reach}"
+                        RecentSearchesText="{x:Bind domain:Translator.SearchBar_RecentSearches}"
+                        RemoveSenderText="{x:Bind domain:Translator.SearchBar_RemoveSender}"
+                        ResetText="{x:Bind domain:Translator.SearchBar_ResetFilters}"
+                        ScopeLabelText="{x:Bind domain:Translator.SearchBar_Scope}"
+                        SearchButtonText="{x:Bind domain:Translator.SearchBar_SearchButton}"
+                        SearchOptionsChanged="TitleBarSearchOptionsChanged"
+                        SearchOptionsText="{x:Bind domain:Translator.SearchBar_SearchOptions}"
+                        SearchSubmitted="TitleBarSearchSubmitted"
+                        SearchTextChanged="TitleBarSearchTextChanged"
+                        SemanticPlaceholderText="{x:Bind domain:Translator.SearchBar_SemanticPlaceholder}"
+                        SemanticSearchExplanationText="{x:Bind domain:Translator.SearchBar_SemanticExplanation}"
+                        SenderSuggestionItemTemplate="{StaticResource TitleBarSenderSuggestionTemplate}"
+                        SenderPlaceholderText="{x:Bind domain:Translator.SearchBar_SenderPlaceholder}"
+                        SenderSuggestionsRequested="TitleBarSenderSuggestionsRequested"
+                        SenderLabelText="{x:Bind domain:Translator.SearchBar_Sender}"
+                        UnreadFilterText="{x:Bind domain:Translator.SearchBar_Unread}">
+                        <searchControls:WinoSearchBar.ItemTemplate>
                             <DataTemplate x:DataType="searchModels:TitleBarSearchSuggestion">
                                 <StackPanel Padding="0,4">
                                     <TextBlock Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" />
@@ -72,25 +108,8 @@
                                         TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                             </DataTemplate>
-                        </AutoSuggestBox.ItemTemplate>
-                    </AutoSuggestBox>
-                    <Button
-                        x:Name="TitleBarCloseSearchButton"
-                        Grid.Column="1"
-                        Width="32"
-                        Height="32"
-                        Margin="4,0,0,0"
-                        VerticalAlignment="Center"
-                        AutomationProperties.AutomationId="TitleBarCloseSearchButton"
-                        AutomationProperties.Name="{x:Bind domain:Translator.SearchBar_Close}"
-                        Background="Transparent"
-                        BorderBrush="Transparent"
-                        Click="TitleBarCloseSearchButtonClicked"
-                        ToolTipService.ToolTip="{x:Bind domain:Translator.SearchBar_Close}"
-                        Visibility="Collapsed">
-                        <FontIcon FontSize="12" Glyph="&#xE711;" />
-                    </Button>
-                </Grid>
+                        </searchControls:WinoSearchBar.ItemTemplate>
+                </searchControls:WinoSearchBar>
             </TitleBar.Content>
             <TitleBar.RightHeader>
                 <StackPanel Orientation="Horizontal" Spacing="8">
@@ -255,21 +274,23 @@
                                                         x:Name="WinoAccountFlyoutEmailText"
                                                         Style="{StaticResource BodyStrongTextBlockStyle}"
                                                         TextWrapping="WrapWholeWords" />
-                                                    <TextBlock
-                                                        x:Name="WinoAccountFlyoutStatusText"
-                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                        Style="{StaticResource CaptionTextBlockStyle}"
-                                                        TextWrapping="WrapWholeWords" />
                                                 </StackPanel>
                                             </StackPanel>
                                         </Border>
 
-                                        <!--  Sign out button  -->
-                                        <Button
-                                            HorizontalAlignment="Stretch"
-                                            AutomationProperties.AutomationId="ShellWindowButton3"
-                                            Click="SignOutWinoAccountClicked"
-                                            Content="{x:Bind domain:Translator.WinoAccount_SignOutButton_Action}" />
+                                        <!--  Account actions  -->
+                                        <StackPanel Spacing="8">
+                                            <Button
+                                                HorizontalAlignment="Stretch"
+                                                AutomationProperties.AutomationId="WinoAccountFlyoutManageAccountButton"
+                                                Click="ManageWinoAccountClicked"
+                                                Content="{x:Bind domain:Translator.WinoAccount_Titlebar_ManageAccount}" />
+                                            <Button
+                                                HorizontalAlignment="Stretch"
+                                                AutomationProperties.AutomationId="ShellWindowButton3"
+                                                Click="SignOutWinoAccountClicked"
+                                                Content="{x:Bind domain:Translator.WinoAccount_SignOutButton_Action}" />
+                                        </StackPanel>
                                     </StackPanel>
                                 </Grid>
                             </Flyout>

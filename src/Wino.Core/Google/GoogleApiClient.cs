@@ -38,6 +38,7 @@ namespace Wino.Core.Google;
 [JsonSerializable(typeof(ListMessagesResponse))]
 [JsonSerializable(typeof(ListSendAsResponse))]
 [JsonSerializable(typeof(Message))]
+[JsonSerializable(typeof(MessagePartBody))]
 [JsonSerializable(typeof(Person))]
 [JsonSerializable(typeof(Profile))]
 [JsonSerializable(typeof(DriveFile), TypeInfoPropertyName = "DriveFile")]

@@ -235,15 +235,6 @@
                         </controls:SettingsCard.HeaderIcon>-->
                     </controls:SettingsCard>
 
-                    <controls:SettingsCard
-                        AutomationProperties.AutomationId="AppPreferencesPageSettingsCard12"
-                        Description="{x:Bind domain:Translator.SettingsAppPreferences_HideAiActionsPanel_Description}"
-                        Header="{x:Bind domain:Translator.SettingsAppPreferences_HideAiActionsPanel_Title}">
-                        <ToggleSwitch AutomationProperties.AutomationId="AppPreferencesHideAiActionsPanelToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsAiActionsPanelHidden, Mode=TwoWay}" />
-                        <!--<controls:SettingsCard.HeaderIcon>
-                            <PathIcon Data="{StaticResource AiSparklePathIcon}" />
-                        </controls:SettingsCard.HeaderIcon>-->
-                    </controls:SettingsCard>
                 </controls:SettingsExpander.Items>
             </controls:SettingsExpander>
         </StackPanel>

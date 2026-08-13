@@ -97,6 +97,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private readonly IWinoLogger _winoLogger;
     private readonly ISynchronizationManager _synchronizationManager;
     private readonly IDraftSyncRetryService _draftSyncRetryService;
+    private readonly IIntelligenceSearchService _intelligenceSearchService;
     private MailItemViewModel _activeMailItem;
     private IReadOnlyList<MailItemViewModel> _selectedItems = [];
     private IReadOnlySet<Guid> _selectedItemIds = new HashSet<Guid>();
@@ -141,6 +142,22 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     [ObservableProperty]
     public partial string SearchQuery { get; set; }
+
+    public MailSearchCriteria SearchCriteria { get; private set; } = MailSearchCriteria.Empty;
+    private IReadOnlyList<IMailItemFolder> SearchHandlingFolders { get; set; } = [];
+
+    public bool IsSemanticSearchAvailable => _intelligenceSearchService is not null;
+
+    [ObservableProperty]
+    public partial bool IsSemanticSearchBusy { get; set; }
+
+    public void SetSearchCriteria(MailSearchCriteria criteria, IReadOnlyList<IMailItemFolder> folders)
+    {
+        SearchCriteria = criteria ?? MailSearchCriteria.Empty;
+        SearchHandlingFolders = folders ?? [];
+        SearchQuery = SearchCriteria.Query;
+        IsOnlineSearchEnabled = SearchCriteria.ExecutionMode == SearchMode.Online;
+    }
 
     [ObservableProperty]
     public partial FilterOption SelectedFilterOption { get; set; }
@@ -234,7 +251,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  INewThemeService themeService,
                                  IWinoLogger winoLogger,
                                  ISynchronizationManager synchronizationManager,
-                                 IDraftSyncRetryService draftSyncRetryService)
+                                 IDraftSyncRetryService draftSyncRetryService,
+                                 IIntelligenceSearchService intelligenceSearchService = null)
     {
         _winoLogger = winoLogger;
         _accountService = accountService;
@@ -248,6 +266,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         _keyPressService = keyPressService;
         _synchronizationManager = synchronizationManager;
         _draftSyncRetryService = draftSyncRetryService;
+        _intelligenceSearchService = intelligenceSearchService;
 
         PreferencesService = preferencesService;
         ThemeService = themeService;
@@ -884,7 +903,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             isLoadingMore = true;
             cursor = nextMailCursor;
-            var handlingFolders = ActiveFolder.HandlingFolders
+            var handlingFolders = (!string.IsNullOrWhiteSpace(SearchQuery) && SearchHandlingFolders.Count > 0
+                    ? SearchHandlingFolders
+                    : ActiveFolder.HandlingFolders)
                 .Where(folder => folder != null)
                 .GroupBy(folder => folder.Id)
                 .Select(group => group.First())
@@ -902,6 +923,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 SelectedFilterOption,
                 SelectedSortingOption,
                 SearchQuery ?? string.Empty,
+                SearchCriteria,
                 IsInSearchMode,
                 IsOnlineSearchEnabled,
                 handlingFolders,
@@ -2224,6 +2246,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         FilterOption Filter,
         SortingOption Sorting,
         string Query,
+        MailSearchCriteria SearchCriteria,
         bool IsSearchMode,
         bool IsOnlineSearch,
         IReadOnlyList<IMailItemFolder> HandlingFolders,
@@ -2254,7 +2277,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }
 
         var folder = ActiveFolder;
-        var handlingFolders = folder.HandlingFolders
+        var handlingFolders = (!string.IsNullOrWhiteSpace(SearchQuery) && SearchHandlingFolders.Count > 0
+                ? SearchHandlingFolders
+                : folder.HandlingFolders)
             .Where(item => item != null)
             .GroupBy(item => item.Id)
             .Select(group => group.First())
@@ -2273,6 +2298,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             SelectedFilterOption,
             SelectedSortingOption,
             SearchQuery ?? string.Empty,
+            SearchCriteria,
             IsInSearchMode,
             IsOnlineSearchEnabled,
             handlingFolders,
@@ -2284,6 +2310,25 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         context != null &&
         context.Generation == Volatile.Read(ref mailLoadGeneration) &&
         !context.CancellationToken.IsCancellationRequested;
+
+    private static bool MatchesSemanticPostFilters(MailCopy item, MailSearchCriteria criteria)
+    {
+        if (!string.IsNullOrWhiteSpace(criteria.Sender) &&
+            !string.Equals(item.FromAddress, criteria.Sender, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var receivedUtc = item.CreationDate.Kind == DateTimeKind.Utc
+            ? new DateTimeOffset(item.CreationDate)
+            : new DateTimeOffset(item.CreationDate.ToUniversalTime());
+        if (criteria.ReceivedAfterUtc is { } after && receivedUtc < after)
+            return false;
+        if (criteria.ReceivedBeforeUtc is { } before && receivedUtc >= before)
+            return false;
+
+        return (!criteria.HasAttachments || item.HasAttachments) &&
+               (!criteria.IsUnread || !item.IsRead) &&
+               (!criteria.IsFlagged || item.IsFlagged);
+    }
 
     private void CancelActiveMailLoad()
     {
@@ -2313,7 +2358,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         string searchQuery,
         System.Collections.Concurrent.ConcurrentDictionary<Guid, bool> existingUniqueIds,
         List<MailCopy> preFetchedMailCopies = null,
-        bool deduplicateByServerId = false)
+        bool deduplicateByServerId = false,
+        bool preservePreFetchedOrder = false)
     {
         var options = new MailListInitializationOptions(context.HandlingFolders,
                                                         context.Filter.Type,
@@ -2323,7 +2369,16 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                                         searchQuery,
                                                         existingUniqueIds,
                                                         preFetchedMailCopies,
-                                                        DeduplicateByServerId: deduplicateByServerId);
+                                                        DeduplicateByServerId: deduplicateByServerId,
+                                                        PreservePreFetchedOrder: preservePreFetchedOrder)
+        {
+            Sender = context.SearchCriteria.Sender,
+            ReceivedAfterUtc = context.SearchCriteria.ReceivedAfterUtc,
+            ReceivedBeforeUtc = context.SearchCriteria.ReceivedBeforeUtc,
+            RequireAttachments = context.SearchCriteria.HasAttachments,
+            RequireUnread = context.SearchCriteria.IsUnread,
+            RequireFlagged = context.SearchCriteria.IsFlagged,
+        };
 
         if (context.CategoryIds.Count == 0)
             return options;
@@ -2368,7 +2423,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         await InitializeFolderAsync();
     }
 
-    private async Task<List<MailCopy>> PerformSynchronizerOnlineSearchAsync(string queryText,
+    private async Task<List<MailCopy>> PerformSynchronizerOnlineSearchAsync(MailSearchCriteria criteria,
                                                                              IEnumerable<IMailItemFolder> handlingFolders,
                                                                              CancellationToken cancellationToken)
     {
@@ -2388,19 +2443,48 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         var searchTasks = foldersByAccount.Select(async groupedFolders =>
         {
-            var synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(groupedFolders.Key).ConfigureAwait(false);
-            if (synchronizer == null) return new List<MailCopy>();
+            try
+            {
+                var synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(groupedFolders.Key).ConfigureAwait(false);
+                if (synchronizer == null) return (Results: new List<MailCopy>(), FailedAccount: string.Empty);
 
-            var accountResults = await synchronizer.OnlineSearchAsync(queryText, groupedFolders.ToList(), cancellationToken).ConfigureAwait(false);
-            return accountResults ?? new List<MailCopy>();
+                var remoteCriteria = new RemoteMailSearchCriteria(
+                    criteria.Query,
+                    criteria.Sender,
+                    criteria.ReceivedAfterUtc,
+                    criteria.ReceivedBeforeUtc,
+                    criteria.HasAttachments,
+                    criteria.IsUnread,
+                    criteria.IsFlagged);
+                var accountResults = await synchronizer.OnlineSearchAsync(remoteCriteria, groupedFolders.ToList(), cancellationToken).ConfigureAwait(false);
+                return (Results: accountResults ?? new List<MailCopy>(), FailedAccount: string.Empty);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Online search failed for account {AccountId}.", groupedFolders.Key);
+                var account = await _accountService.GetAccountAsync(groupedFolders.Key).ConfigureAwait(false);
+                return (Results: new List<MailCopy>(), FailedAccount: account?.Name ?? groupedFolders.Key.ToString());
+            }
         });
 
         var allResults = await Task.WhenAll(searchTasks).ConfigureAwait(false);
+        var failedAccounts = allResults.Select(result => result.FailedAccount).Where(name => !string.IsNullOrWhiteSpace(name)).ToArray();
+        if (failedAccounts.Length > 0)
+        {
+            await ExecuteUIThread(() => _mailDialogService.InfoBarMessage(
+                Translator.OnlineSearch_PartialTitle,
+                string.Format(Translator.OnlineSearch_PartialMessage, string.Join(", ", failedAccounts)),
+                InfoBarMessageType.Warning));
+        }
 
         var accountIdsByFolderId = distinctFolders.ToDictionary(folder => folder.Id, folder => folder.MailAccountId);
         var preferredFolderIds = distinctFolders.Select(folder => folder.Id).ToHashSet();
 
-        return DeduplicateOnlineSearchResults(allResults.SelectMany(a => a), accountIdsByFolderId, preferredFolderIds);
+        return DeduplicateOnlineSearchResults(allResults.SelectMany(result => result.Results), accountIdsByFolderId, preferredFolderIds);
     }
 
     private static List<MailCopy> DeduplicateOnlineSearchResults(IEnumerable<MailCopy> results,
@@ -2462,16 +2546,64 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             context.CancellationToken.ThrowIfCancellationRequested();
 
             var isDoingSearch = !string.IsNullOrWhiteSpace(context.Query);
+            var isDoingSemanticSearch = isDoingSearch &&
+                context.SearchCriteria.ExecutionMode == SearchMode.Semantic &&
+                _intelligenceSearchService is not null;
             var isDoingOnlineSearch = isDoingSearch &&
-                (PreferencesService.DefaultSearchMode == SearchMode.Online || context.IsOnlineSearch);
+                !isDoingSemanticSearch &&
+                (context.SearchCriteria.ExecutionMode == SearchMode.Online || context.IsOnlineSearch);
             List<MailCopy> onlineSearchItems = null;
+
+            if (isDoingSemanticSearch)
+            {
+                try
+                {
+                    await ExecuteUIThread(() => IsSemanticSearchBusy = true);
+                    var semanticResult = await _intelligenceSearchService.SearchAsync(new IntelligenceSearchOptions(
+                        context.Query,
+                        context.HandlingFolders.OfType<MailItemFolder>().ToArray(),
+                        IsUnread: context.SearchCriteria.IsUnread || context.Filter.Type == FilterOptionType.Unread ? true : null,
+                        IsFlagged: context.SearchCriteria.IsFlagged || context.Filter.Type == FilterOptionType.Flagged ? true : null,
+                        HasAttachments: context.SearchCriteria.HasAttachments || context.Filter.Type == FilterOptionType.Files ? true : null), context.CancellationToken).ConfigureAwait(false);
+                    onlineSearchItems = semanticResult.Items
+                        .Where(item => MatchesSemanticPostFilters(item, context.SearchCriteria))
+                        .ToList();
+                    if (semanticResult.Omissions.Count > 0 && IsCurrentMailLoad(context))
+                    {
+                        await ExecuteUIThread(() => _mailDialogService.InfoBarMessage(
+                            Translator.SemanticSearch_PartialTitle,
+                            Translator.SemanticSearch_PartialMessage,
+                            InfoBarMessageType.Warning));
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warning(ex, "Failed to perform semantic search.");
+                    isDoingSemanticSearch = false;
+                    if (IsCurrentMailLoad(context))
+                    {
+                        await ExecuteUIThread(() => _mailDialogService.InfoBarMessage(
+                            Translator.GeneralTitle_Error,
+                            ex.Message,
+                            InfoBarMessageType.Warning));
+                    }
+                }
+                finally
+                {
+                    await ExecuteUIThread(() => IsSemanticSearchBusy = false);
+                }
+            }
 
             if (isDoingOnlineSearch)
             {
                 try
                 {
                     onlineSearchItems = await PerformSynchronizerOnlineSearchAsync(
-                        context.Query,
+                        context.SearchCriteria,
                         context.HandlingFolders,
                         context.CancellationToken).ConfigureAwait(false);
                     if (IsCurrentMailLoad(context))
@@ -2507,10 +2639,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             var options = CreateInitializationOptions(
                 context,
-                isDoingOnlineSearch ? string.Empty : context.Query,
+                isDoingOnlineSearch || isDoingSemanticSearch ? string.Empty : context.Query,
                 new ConcurrentDictionary<Guid, bool>(),
                 onlineSearchItems,
-                isDoingOnlineSearch);
+                isDoingOnlineSearch,
+                isDoingSemanticSearch);
             var page = await _mailService
                 .FetchMailPageAsync(options, cancellationToken: context.CancellationToken)
                 .ConfigureAwait(false);
@@ -2547,9 +2680,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                     return;
 
                 FinishedLoading = !page.HasMore;
-                HasNoOnlineSearchResult = isDoingOnlineSearch && page.Items.Count == 0;
+                HasNoOnlineSearchResult = (isDoingOnlineSearch || isDoingSemanticSearch) && page.Items.Count == 0;
                 OnPropertyChanged(nameof(HasNoOnlineSearchResult));
-                IsOnlineSearchButtonVisible = isDoingSearch && !isDoingOnlineSearch;
+                IsOnlineSearchButtonVisible = isDoingSearch && !isDoingOnlineSearch && !isDoingSemanticSearch;
             });
 
             stopwatch.Stop();

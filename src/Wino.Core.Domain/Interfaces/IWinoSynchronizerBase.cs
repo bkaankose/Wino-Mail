@@ -5,6 +5,7 @@ using MailKit;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Models.Folders;
+using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 
 namespace Wino.Core.Domain.Interfaces;
@@ -42,10 +43,10 @@ public interface IWinoSynchronizerBase : IBaseSynchronizer
     /// <summary>
     /// Perform online search on the server.
     /// </summary>
-    /// <param name="queryText">Search query.</param>
+    /// <param name="criteria">Structured provider-neutral search criteria.</param>
     /// <param name="folders">Folders to include in search. All folders if null.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Search results after downloading missing mail copies from server.</returns>
-    Task<List<MailCopy>> OnlineSearchAsync(string queryText, List<IMailItemFolder> folders, CancellationToken cancellationToken = default);
+    Task<List<MailCopy>> OnlineSearchAsync(RemoteMailSearchCriteria criteria, List<IMailItemFolder> folders, CancellationToken cancellationToken = default);
     Task DownloadCalendarAttachmentAsync(CalendarItem calendarItem, CalendarAttachment attachment, string localFilePath, CancellationToken cancellationToken);
 }

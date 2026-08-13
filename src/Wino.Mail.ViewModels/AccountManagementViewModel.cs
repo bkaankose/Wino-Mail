@@ -45,14 +45,14 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                                       INavigationService navigationService,
                                       IAccountService accountService,
                                       IProviderService providerService,
-                                      IStoreManagementService storeManagementService,
+                                      IWinoBillingService billingService,
                                       IWinoAccountProfileService winoAccountProfileService,
                                       IWinoAccountDataSyncService syncService,
                                       IWinoLogger winoLogger,
                                       ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
                                       ICalDavClient calDavClient,
                                       IAuthenticationProvider authenticationProvider,
-                                      IPreferencesService preferencesService) : base(dialogService, navigationService, accountService, providerService, storeManagementService, winoAccountProfileService, authenticationProvider, preferencesService)
+                                      IPreferencesService preferencesService) : base(dialogService, navigationService, accountService, providerService, billingService, winoAccountProfileService, authenticationProvider, preferencesService)
     {
         MailDialogService = dialogService;
         _syncService = syncService;

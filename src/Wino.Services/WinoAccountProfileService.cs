@@ -1,5 +1,7 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,23 +15,23 @@ using Wino.Mail.Api.Contracts.Auth;
 using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.Api.Contracts.Users;
 using Wino.Messaging.UI;
+using Wino.Mail.AI.Abstractions;
 
 namespace Wino.Services;
 
 public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccountProfileService
 {
     private readonly IWinoAccountApiClient _apiClient;
-    private readonly IStoreManagementService _storeManagementService;
-    private readonly SemaphoreSlim _billingCallbackLock = new(1, 1);
+    private readonly ITranslationService? _translationService;
     private readonly SemaphoreSlim _tokenRefreshLock = new(1, 1);
     private readonly ILogger _logger = Log.ForContext<WinoAccountProfileService>();
 
     public WinoAccountProfileService(IDatabaseService databaseService,
                                      IWinoAccountApiClient apiClient,
-                                     IStoreManagementService storeManagementService) : base(databaseService)
+                                     ITranslationService? translationService = null) : base(databaseService)
     {
         _apiClient = apiClient;
-        _storeManagementService = storeManagementService;
+        _translationService = translationService;
     }
 
     public async Task<WinoAccountOperationResult> RegisterAsync(string email, string password, CancellationToken cancellationToken = default)
@@ -196,95 +198,21 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
         return response;
     }
 
-    public async Task<ApiEnvelope<AiStatusResultDto>> GetAiStatusAsync(CancellationToken cancellationToken = default)
-    {
-        var account = await GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false);
-        if (account == null)
-        {
-            return ApiEnvelope<AiStatusResultDto>.Failure("MissingAccessToken");
-        }
+    public async Task<ApiEnvelope<AiSummaryResultDto>> SummarizeAsync(IReadOnlyList<MailContentSegment> segments, string targetLanguage, CancellationToken cancellationToken = default)
+        => await ExecuteAiOperationAsync(account => _apiClient.SummarizeAsync(segments, targetLanguage, cancellationToken), "summarize", cancellationToken).ConfigureAwait(false);
 
-        var response = await _apiClient.GetAiStatusAsync(cancellationToken).ConfigureAwait(false);
-        if (!response.IsSuccess)
-        {
-            _logger.Warning("Failed to load AI status for Wino account {Email}. Error code: {ErrorCode}", account.Email, response.ErrorCode);
-            return response;
-        }
-
-        return response;
-    }
-
-    public async Task<ApiEnvelope<AiTextResultDto>> SummarizeAsync(string html, string targetLanguage, CancellationToken cancellationToken = default)
-        => await ExecuteAiOperationAsync(account => _apiClient.SummarizeAsync(html, targetLanguage, cancellationToken), "summarize", cancellationToken).ConfigureAwait(false);
-
-    public async Task<ApiEnvelope<AiTextResultDto>> TranslateAsync(string html, string targetLanguage, CancellationToken cancellationToken = default)
-        => await ExecuteAiOperationAsync(account => _apiClient.TranslateAsync(html, targetLanguage, cancellationToken), "translate", cancellationToken).ConfigureAwait(false);
+    public async Task<ApiEnvelope<AiTranslationResultDto>> TranslateAsync(IReadOnlyList<MailContentSegment> segments, string? sourceLanguage, string targetLanguage, CancellationToken cancellationToken = default)
+        => await ExecuteAiOperationAsync(account => _apiClient.TranslateAsync(segments, sourceLanguage, targetLanguage, cancellationToken), "translate", cancellationToken).ConfigureAwait(false);
 
     public async Task<ApiEnvelope<AiTextResultDto>> RewriteAsync(string html, string mode, CancellationToken cancellationToken = default)
-        => await ExecuteAiOperationAsync(account => _apiClient.RewriteAsync(html, mode, cancellationToken), "rewrite", cancellationToken).ConfigureAwait(false);
-
-    public async Task<ApiEnvelope<JsonElement>> SyncStoreEntitlementsAsync(CancellationToken cancellationToken = default)
-    {
-        var account = await GetActiveAccountAsync().ConfigureAwait(false);
-        if (account == null || string.IsNullOrWhiteSpace(account.AccessToken))
-        {
-            return ApiEnvelope<JsonElement>.Failure("MissingAccessToken");
-        }
-
-        string? storeIdKey = null;
-        string? purchaseIdKey = null;
-
-        var collectionsTicketResponse = await _apiClient.CreateCollectionsIdTicketAsync(cancellationToken).ConfigureAwait(false);
-        if (collectionsTicketResponse.IsSuccess && collectionsTicketResponse.Result != null)
-        {
-            storeIdKey = await _storeManagementService.GetCustomerCollectionsIdAsync(
-                collectionsTicketResponse.Result.ServiceTicket,
-                collectionsTicketResponse.Result.PublisherUserId).ConfigureAwait(false);
-
-            if (string.IsNullOrWhiteSpace(storeIdKey))
-            {
-                _logger.Warning("Failed to obtain Microsoft Store collections ID key for Wino account {Email}.", account.Email);
-            }
-        }
-        else
-        {
-            _logger.Warning("Failed to create Microsoft Store collections ticket for Wino account {Email}. Error code: {ErrorCode}", account.Email, collectionsTicketResponse.ErrorCode);
-        }
-
-        var purchaseTicketResponse = await _apiClient.CreatePurchaseIdTicketAsync(cancellationToken).ConfigureAwait(false);
-        if (purchaseTicketResponse.IsSuccess && purchaseTicketResponse.Result != null)
-        {
-            purchaseIdKey = await _storeManagementService.GetCustomerPurchaseIdAsync(
-                purchaseTicketResponse.Result.ServiceTicket,
-                purchaseTicketResponse.Result.PublisherUserId).ConfigureAwait(false);
-
-            if (string.IsNullOrWhiteSpace(purchaseIdKey))
-            {
-                _logger.Warning("Failed to obtain Microsoft Store purchase ID key for Wino account {Email}.", account.Email);
-            }
-        }
-        else
-        {
-            _logger.Warning("Failed to create Microsoft Store purchase ticket for Wino account {Email}. Error code: {ErrorCode}", account.Email, purchaseTicketResponse.ErrorCode);
-        }
-
-        if (string.IsNullOrWhiteSpace(storeIdKey) && string.IsNullOrWhiteSpace(purchaseIdKey))
-        {
-            return ApiEnvelope<JsonElement>.Failure("StoreEntitlementKeysMissing");
-        }
-
-        var response = await _apiClient.SyncStoreEntitlementsAsync(storeIdKey, purchaseIdKey, cancellationToken).ConfigureAwait(false);
-        if (!response.IsSuccess)
-        {
-            _logger.Warning("Failed to sync Microsoft Store entitlements for Wino account {Email}. Error code: {ErrorCode}", account.Email, response.ErrorCode);
-            return response;
-        }
-
-        await RefreshProfileAsync(cancellationToken).ConfigureAwait(false);
-        await GetAiStatusAsync(cancellationToken).ConfigureAwait(false);
-
-        return response;
-    }
+        => await ExecuteAiOperationAsync(
+            account => _apiClient.RewriteAsync(
+                html,
+                mode,
+                _translationService?.CurrentLanguageModel?.Code ?? CultureInfo.CurrentUICulture.Name ?? "en-US",
+                cancellationToken),
+            "rewrite",
+            cancellationToken).ConfigureAwait(false);
 
     public async Task<string?> GetSettingsAsync(CancellationToken cancellationToken = default)
     {
@@ -316,53 +244,6 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
             ?? throw new InvalidOperationException("MissingAccessToken");
 
         await _apiClient.ReplaceMailboxesAsync(request, cancellationToken).ConfigureAwait(false);
-    }
-
-    public async Task<bool> ProcessBillingCallbackAsync(Uri callbackUri, CancellationToken cancellationToken = default)
-    {
-        await _billingCallbackLock.WaitAsync(cancellationToken).ConfigureAwait(false);
-
-        try
-        {
-            var targetProductType = ResolveProductType(callbackUri);
-            if (targetProductType == null)
-            {
-                _logger.Warning("Billing callback was ignored because productCode is missing or unsupported. Uri: {Uri}", callbackUri);
-                return false;
-            }
-
-            if (await GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false) == null)
-            {
-                _logger.Warning("Billing callback was ignored because there is no authenticated Wino account.");
-                return false;
-            }
-
-            const int maxAttempts = 15;
-
-            for (var attempt = 0; attempt < maxAttempts; attempt++)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                var refreshResult = await RefreshProfileAsync(cancellationToken).ConfigureAwait(false);
-
-                if (refreshResult.IsSuccess && await _storeManagementService.HasProductAsync(targetProductType.Value).ConfigureAwait(false))
-                {
-                    ReportUIChange(new WinoAccountAddOnPurchasedMessage(targetProductType.Value));
-                    return true;
-                }
-
-                if (attempt < maxAttempts - 1)
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken).ConfigureAwait(false);
-                }
-            }
-
-            return false;
-        }
-        finally
-        {
-            _billingCallbackLock.Release();
-        }
     }
 
     public async Task SignOutAsync(CancellationToken cancellationToken = default)
@@ -426,14 +307,14 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
     private void PublishProfileUpdated(WinoAccount account)
         => ReportUIChange(new WinoAccountProfileUpdatedMessage(account));
 
-    private async Task<ApiEnvelope<AiTextResultDto>> ExecuteAiOperationAsync(Func<WinoAccount, Task<ApiEnvelope<AiTextResultDto>>> executeAsync,
-                                                                             string operationName,
-                                                                             CancellationToken cancellationToken)
+    private async Task<ApiEnvelope<T>> ExecuteAiOperationAsync<T>(Func<WinoAccount, Task<ApiEnvelope<T>>> executeAsync,
+                                                                   string operationName,
+                                                                   CancellationToken cancellationToken)
     {
         var account = await GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false);
         if (account == null)
         {
-            return ApiEnvelope<AiTextResultDto>.Failure("MissingAccessToken");
+            return ApiEnvelope<T>.Failure("MissingAccessToken");
         }
 
         var response = await executeAsync(account).ConfigureAwait(false);
@@ -451,7 +332,8 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
            string.Equals(left.AccountStatus, right.AccountStatus, StringComparison.Ordinal) &&
            left.HasPassword == right.HasPassword &&
            left.HasGoogleLogin == right.HasGoogleLogin &&
-           left.HasFacebookLogin == right.HasFacebookLogin;
+           left.HasFacebookLogin == right.HasFacebookLogin &&
+           left.IsUnlimitedAccountsEnabled == right.IsUnlimitedAccountsEnabled;
 
     private static WinoAccount MergeAccountProfile(WinoAccount existingAccount, AuthUserDto profile)
         => new()
@@ -462,50 +344,13 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
             HasPassword = profile.HasPassword,
             HasGoogleLogin = profile.HasGoogleLogin,
             HasFacebookLogin = profile.HasFacebookLogin,
+            IsUnlimitedAccountsEnabled = profile.IsUnlimitedAccountsEnabled,
             AccessToken = existingAccount.AccessToken,
             AccessTokenExpiresAtUtc = existingAccount.AccessTokenExpiresAtUtc,
             RefreshToken = existingAccount.RefreshToken,
             RefreshTokenExpiresAtUtc = existingAccount.RefreshTokenExpiresAtUtc,
             LastAuthenticatedUtc = existingAccount.LastAuthenticatedUtc
         };
-
-    private static WinoAddOnProductType? ResolveProductType(Uri callbackUri)
-    {
-        var productCode = GetQueryParameter(callbackUri, "productCode");
-        if (string.IsNullOrWhiteSpace(productCode))
-        {
-            return null;
-        }
-
-        return productCode.Trim().ToUpperInvariant() switch
-        {
-            "AI_PACK" => WinoAddOnProductType.AI_PACK,
-            "UNLIMITED_ACCOUNTS" => WinoAddOnProductType.UNLIMITED_ACCOUNTS,
-            _ => null
-        };
-    }
-
-    private static string GetQueryParameter(Uri uri, string key)
-    {
-        var query = uri.Query;
-        if (string.IsNullOrWhiteSpace(query))
-        {
-            return string.Empty;
-        }
-
-        foreach (var part in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
-        {
-            var pieces = part.Split('=', 2);
-            if (pieces.Length == 0 || !string.Equals(pieces[0], key, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            return pieces.Length > 1 ? Uri.UnescapeDataString(pieces[1]) : string.Empty;
-        }
-
-        return string.Empty;
-    }
 
     private static WinoAccount Map(AuthResultDto result)
         => new()
@@ -516,6 +361,7 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
             HasPassword = result.User.HasPassword,
             HasGoogleLogin = result.User.HasGoogleLogin,
             HasFacebookLogin = result.User.HasFacebookLogin,
+            IsUnlimitedAccountsEnabled = result.User.IsUnlimitedAccountsEnabled,
             AccessToken = result.AccessToken,
             AccessTokenExpiresAtUtc = result.AccessTokenExpiresAtUtc.UtcDateTime,
             RefreshToken = result.RefreshToken,

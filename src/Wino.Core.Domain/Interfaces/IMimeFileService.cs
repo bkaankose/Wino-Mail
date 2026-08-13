@@ -59,25 +59,19 @@ public interface IMimeFileService
     /// </summary>
     Task<bool> DeleteMimeMessageAsync(Guid accountId, Guid fileId);
 
-    /// <summary>
-    /// Returns cached translated html for the given mime resource if it exists.
-    /// </summary>
-    Task<string> GetTranslatedHtmlAsync(Guid accountId, Guid fileId, string targetLanguage, CancellationToken cancellationToken = default);
+    Task<string> GetTranslationMapJsonAsync(Guid accountId, Guid fileId, string cacheKey, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Saves translated html for the given mime resource.
-    /// </summary>
-    Task SaveTranslatedHtmlAsync(Guid accountId, Guid fileId, string targetLanguage, string html, CancellationToken cancellationToken = default);
+    Task SaveTranslationMapJsonAsync(Guid accountId, Guid fileId, string cacheKey, string json, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Returns cached summary text for the given mime resource if it exists.
     /// </summary>
-    Task<string> GetSummaryTextAsync(Guid accountId, Guid fileId, CancellationToken cancellationToken = default);
+    Task<string> GetSummaryTextAsync(Guid accountId, Guid fileId, string cacheKey, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Saves summary text for the given mime resource.
     /// </summary>
-    Task SaveSummaryTextAsync(Guid accountId, Guid fileId, string summary, CancellationToken cancellationToken = default);
+    Task SaveSummaryTextAsync(Guid accountId, Guid fileId, string cacheKey, string summary, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Prepares the final model containing rendering details.

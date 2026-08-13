@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.Windows.AppLifecycle;
 using Microsoft.Windows.AppNotifications;
 using Windows.ApplicationModel.Activation;
+using Wino.Core.Activation;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Launch;
 using Wino.Mail.WinUI;
@@ -53,6 +54,9 @@ internal sealed class AppActivationHandler
 
         if (activationArgs.Kind == ExtendedActivationKind.StartupTask)
             return new LaunchActivationRoute(AppActivationPath.StartupTask, launchArgs, activationArgs);
+
+        if (IsBillingSuccessProtocol(activationArgs))
+            return new LaunchActivationRoute(AppActivationPath.BillingSuccessProtocol, launchArgs, activationArgs);
 
         if (!_host.HasConfiguredAccounts)
             return new LaunchActivationRoute(AppActivationPath.WelcomeWithoutAccounts, launchArgs, activationArgs);
@@ -150,6 +154,10 @@ internal sealed class AppActivationHandler
                     await _host.CompleteStandardLaunchAsync(route.LaunchArgs, _host.HasConfiguredAccounts);
                 }
                 break;
+            case AppActivationPath.BillingSuccessProtocol:
+                _host.LogActivation("Processing billing success protocol activation from OnLaunched.");
+                await _host.HandleBillingSuccessProtocolActivationAsync(activateWindow: true);
+                break;
             case AppActivationPath.CalendarEntryBootstrap:
                 if (route.PendingBootstrapActivation != null)
                 {
@@ -195,6 +203,15 @@ internal sealed class AppActivationHandler
                 AppActivationPath.ShareTarget,
                 args,
                 WinoApplicationMode.Mail,
+                shouldActivateWindow);
+        }
+
+        if (IsBillingSuccessProtocol(args))
+        {
+            return new RedirectedActivationRoute(
+                AppActivationPath.BillingSuccessProtocol,
+                args,
+                WinoApplicationMode.Settings,
                 shouldActivateWindow);
         }
 
@@ -305,6 +322,13 @@ internal sealed class AppActivationHandler
             return;
         }
 
+        if (route.Path == AppActivationPath.BillingSuccessProtocol)
+        {
+            _host.LogActivation("Processing redirected billing success protocol activation.");
+            await _host.HandleBillingSuccessProtocolActivationAsync(activateWindow: true);
+            return;
+        }
+
         if (route.Path == AppActivationPath.ToastLaunch)
         {
             _host.LogActivation("Processing redirected toast launch activation.");
@@ -338,6 +362,13 @@ internal sealed class AppActivationHandler
         {
             return false;
         }
+    }
+
+    private static bool IsBillingSuccessProtocol(AppActivationArguments activationArgs)
+    {
+        return activationArgs.Kind == ExtendedActivationKind.Protocol &&
+               activationArgs.Data is IProtocolActivatedEventArgs protocolArgs &&
+               WinoProtocolActivationResolver.IsBillingSuccess(protocolArgs.Uri);
     }
 
     private static IDictionary<string, string>? CopyUserInput(IDictionary<string, string>? userInput)

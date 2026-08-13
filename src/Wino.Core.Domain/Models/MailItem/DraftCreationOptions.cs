@@ -10,6 +10,11 @@ public class DraftCreationOptions
     public DraftCreationReason Reason { get; set; }
 
     /// <summary>
+    /// Optional plain-text content inserted at the editable start of a generated draft.
+    /// </summary>
+    public string InitialBodyText { get; set; }
+
+    /// <summary>
     /// Used for forward/reply
     /// </summary>
     public ReferencedMessage ReferencedMessage { get; set; }

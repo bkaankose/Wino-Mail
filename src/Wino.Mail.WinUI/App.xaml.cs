@@ -422,6 +422,7 @@ public partial class App : WinoApplication,
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<IMailDialogService, DialogService>();
         services.AddSingleton<IAiActionOptionsService, AiActionOptionsService>();
+        services.AddSingleton<ISearchHistoryService, SearchHistoryService>();
         services.AddSingleton<ReleaseLocalAccountDataCleanupService>();
         services.AddTransient<IProviderService, ProviderService>();
         services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();
@@ -459,6 +460,7 @@ public partial class App : WinoApplication,
 
         services.AddTransient(typeof(ImapCalDavSettingsPageViewModel));
         services.AddTransient(typeof(AccountDetailsPageViewModel));
+        services.AddTransient(typeof(WinoIntelligenceManagementPageViewModel));
         services.AddTransient(typeof(FolderCustomizationPageViewModel));
         services.AddTransient(typeof(SignatureManagementPageViewModel));
         services.AddTransient(typeof(MessageListPageViewModel));
@@ -469,6 +471,7 @@ public partial class App : WinoApplication,
         services.AddTransient(typeof(AppPreferencesPageViewModel));
         services.AddTransient(typeof(StoragePageViewModel));
         services.AddTransient(typeof(WinoAccountManagementPageViewModel));
+        services.AddTransient(typeof(WinoAccountConsentPageViewModel));
         services.AddTransient(typeof(AliasManagementPageViewModel));
         services.AddTransient(typeof(MailCategoryManagementPageViewModel));
         services.AddTransient(typeof(MailFiltersPageViewModel));
@@ -552,6 +555,8 @@ public partial class App : WinoApplication,
             _synchronizationManager = Services.GetRequiredService<ISynchronizationManager>();
             _preferencesService = Services.GetRequiredService<IPreferencesService>();
             _accountService = Services.GetRequiredService<IAccountService>();
+
+            await Services.GetRequiredService<ISemanticIndexCoordinator>().InitializeAsync();
 
             _hasConfiguredAccounts = (await _accountService.GetAccountsAsync()).Any();
 

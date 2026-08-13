@@ -11,6 +11,7 @@ using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Storage;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Messaging.Client.Shell;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Mail.WinUI.Controls;
@@ -46,7 +47,8 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
         _disposables.Add(NotesEditor);
 
         ViewModel.GetHtmlNotesAsync = async () => await NotesEditor.GetHtmlBodyAsync() ?? string.Empty;
-        await NotesEditor.RenderHtmlAsync(" ");
+        var args = e.Parameter as CalendarEventComposeNavigationArgs;
+        await NotesEditor.RenderHtmlAsync(string.IsNullOrWhiteSpace(args?.NotesHtml) ? " " : args.NotesHtml);
     }
 
     protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)

@@ -47,6 +47,26 @@ public class MailAccountPreferences
     public bool IsJumpListEnabled { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets whether semantic indexing is explicitly enabled for this mail account.
+    /// Disabled by default so existing synchronization behavior is unchanged.
+    /// </summary>
+    public bool IsSemanticIndexingEnabled { get; set; }
+
+    /// <summary>
+    /// Stable id of the range preset the user last chose for semantic indexing.
+    /// Null until the user picks one, which is when the one month default applies.
+    /// </summary>
+    public string SemanticIndexRangePresetId { get; set; }
+
+    /// <summary>
+    /// First and last selected message dates, stored only for a custom range.
+    /// Dates are kept instead of day offsets because offsets shift as mail arrives.
+    /// </summary>
+    public DateTime? SemanticIndexRangeCutoffUtc { get; set; }
+
+    public DateTime? SemanticIndexRangeThroughUtc { get; set; }
+
+    /// <summary>
     /// Gets or sets signature for new messages. Null if signature is not needed.
     /// </summary>
     public Guid? SignatureIdForNewMessages { get; set; }

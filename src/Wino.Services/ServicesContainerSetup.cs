@@ -1,5 +1,8 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Interfaces;
+using Wino.Mail.AI.Abstractions;
+using Wino.Mail.AI.Cryptography;
+using Wino.Mail.AI.ContentProcessing;
 
 namespace Wino.Services;
 
@@ -8,6 +11,7 @@ public static class ServicesContainerSetup
     public static void RegisterSharedServices(this IServiceCollection services)
     {
         services.AddSingleton<ITranslationService, TranslationService>();
+        services.AddSingleton<IMailContentProjector, MailContentProjector>();
         services.AddSingleton<IDatabaseService, DatabaseService>();
 
         services.AddSingleton<IApplicationConfiguration, ApplicationConfiguration>();
@@ -38,7 +42,18 @@ public static class ServicesContainerSetup
         services.AddTransient<ISpecialImapProviderConfigResolver, SpecialImapProviderConfigResolver>();
         services.AddTransient<IKeyboardShortcutService, KeyboardShortcutService>();
         services.AddSingleton<IWinoAccountApiClient, WinoAccountApiClient>();
+        services.AddSingleton<IIntelligenceBackend, CloudIntelligenceBackend>();
+        services.AddSingleton<IIntelligenceSearchEligibilityService, IntelligenceSearchEligibilityService>();
+        services.AddSingleton<IIntelligenceSearchService, IntelligenceSearchService>();
         services.AddSingleton<IWinoAccountProfileService, WinoAccountProfileService>();
+        services.AddSingleton<IWinoBillingService, WinoBillingService>();
+        services.AddSingleton<ISemanticIndexJobRegistry, SemanticIndexJobRegistry>();
+        services.AddSingleton<IIntelligenceMessageContextResolver, IntelligenceMessageContextResolver>();
+        services.AddSingleton<ISemanticIndexCoordinator, SemanticIndexCoordinator>();
+        services.AddSingleton<IWinoIntelligenceCoordinator, WinoIntelligenceCoordinator>();
+        services.AddSingleton<ILocalIntelligenceStore, LocalIntelligenceStore>();
+        services.AddSingleton<IContentEnvelopeEncryptor>(_ =>
+            new PemContentEnvelopeEncryptor(EmbeddedIntelligencePublicKeyProvider.Load()));
         services.AddTransient<IWinoAccountDataSyncService, WinoAccountDataSyncService>();
         services.AddSingleton<IContactPictureFileService, ContactPictureFileService>();
 

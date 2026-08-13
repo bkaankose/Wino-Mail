@@ -22,7 +22,7 @@ public partial class WinoAddOnItemViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowPurchaseState))]
-    [NotifyPropertyChangedFor(nameof(ShowUsageSummary))]
+    [NotifyPropertyChangedFor(nameof(IsNotPurchased))]
     public partial bool IsPurchased { get; set; }
 
     public ICommand? PurchaseCommand { get; set; }
@@ -30,7 +30,6 @@ public partial class WinoAddOnItemViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowLoadingState))]
     [NotifyPropertyChangedFor(nameof(ShowPurchaseState))]
-    [NotifyPropertyChangedFor(nameof(ShowUsageSummary))]
     [NotifyPropertyChangedFor(nameof(ShowErrorState))]
     public partial bool IsLoading { get; set; }
 
@@ -39,42 +38,21 @@ public partial class WinoAddOnItemViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowErrorState))]
-    [NotifyPropertyChangedFor(nameof(ShowUsageSummary))]
-    public partial bool HasUsageData { get; set; }
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowErrorState))]
-    [NotifyPropertyChangedFor(nameof(ShowUsageSummary))]
     public partial string ErrorText { get; set; } = string.Empty;
 
     [ObservableProperty]
-    public partial int UsageCount { get; set; }
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowUsageSummary))]
-    public partial int UsageLimit { get; set; } = 1;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowUsageSummary))]
-    public partial double UsagePercentage { get; set; }
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowUsageSummary))]
     public partial string RenewalText { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowUsageSummary))]
-    public partial string UsageResetText { get; set; } = string.Empty;
 
     public bool ShowLoadingState => IsLoading;
 
-    public bool ShowPurchaseState => !IsLoading && string.IsNullOrWhiteSpace(ErrorText);
+    public bool ShowPurchaseState => !IsPurchased && !IsLoading && string.IsNullOrWhiteSpace(ErrorText);
 
-    public bool ShowUsageSummary => ProductType == WinoAddOnProductType.AI_PACK &&
-                                    IsPurchased &&
-                                    !IsLoading &&
-                                    string.IsNullOrWhiteSpace(ErrorText) &&
-                                    HasUsageData;
+    /// <summary>
+    /// Drives the unowned half of a product card. Ownership is surfaced by a disabled
+    /// "Purchased" button rather than a separate success badge, so there is no
+    /// ShowPurchasedState counterpart.
+    /// </summary>
+    public bool IsNotPurchased => !IsPurchased;
 
     public bool ShowErrorState => !IsLoading && !string.IsNullOrWhiteSpace(ErrorText);
 

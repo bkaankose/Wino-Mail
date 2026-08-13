@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -42,9 +43,11 @@ using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Messaging.UI;
+using Wino.Mail.AI.Abstractions;
 using Wino.Services;
 using DriveFile = global::Google.Apis.Drive.v3.Data.File;
 using GmailFilter = global::Google.Apis.Gmail.v1.Data.Filter;
+using GmailMessagePart = global::Google.Apis.Gmail.v1.Data.MessagePart;
 using GoogleCalendarService = Wino.Core.Google.CalendarService;
 
 namespace Wino.Core.Synchronizers.Mail;
@@ -78,7 +81,7 @@ public partial class GmailSynchronizerJsonContext : JsonSerializerContext;
 /// - CreateMinimalMailCopyAsync: Extracts MailCopy fields from Gmail Metadata format
 /// - DownloadMissingMimeMessageAsync: Downloads raw MIME only when explicitly requested
 /// </summary>
-public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Event>, IProviderMailFilterSynchronizer
+public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Event>, IProviderMailFilterSynchronizer, ISemanticMailBodySynchronizer
 {
     public override uint BatchModificationSize => 1000;
 
@@ -1656,8 +1659,9 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
         return [new HttpRequestBundle<IGoogleApiRequest>(networkCall, singleDraftRequest, singleDraftRequest)];
     }
 
-    public override async Task<List<MailCopy>> OnlineSearchAsync(string queryText, List<IMailItemFolder> folders, CancellationToken cancellationToken = default)
+    public override async Task<List<MailCopy>> OnlineSearchAsync(RemoteMailSearchCriteria criteria, List<IMailItemFolder> folders, CancellationToken cancellationToken = default)
     {
+        var queryText = BuildOnlineSearchQuery(criteria);
         if (string.IsNullOrWhiteSpace(queryText))
             return [];
 
@@ -1909,6 +1913,103 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
         if (gmailMessage.HistoryId.HasValue)
         {
             await UpdateAccountSyncIdentifierAsync(gmailMessage.HistoryId.Value).ConfigureAwait(false);
+        }
+    }
+
+    public async Task<SemanticMailContent> GetSemanticBodyAsync(
+        MailBodyLocator locator,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(locator);
+
+        var providerMessageId = locator.ProviderMessageId ?? locator.RemoteMessageId;
+        var request = _gmailService.Users.Messages.Get("me", providerMessageId);
+        request.Format = UsersResource.MessagesResource.GetRequest.FormatEnum.Full;
+        request.Fields = "payload(headers,mimeType,filename,body(data,attachmentId),parts(headers,mimeType,filename,body(data,attachmentId),parts(headers,mimeType,filename,body(data,attachmentId),parts(headers,mimeType,filename,body(data,attachmentId),parts)))))";
+
+        var message = await request.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+        var parts = new List<GmailMessagePart>();
+        CollectSemanticTextParts(message?.Payload, parts);
+        var selected = parts.FirstOrDefault(part => string.Equals(part.MimeType, "text/plain", StringComparison.OrdinalIgnoreCase))
+            ?? parts.FirstOrDefault(part => string.Equals(part.MimeType, "text/html", StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException("Gmail message contains no indexable text body part.");
+
+        var data = selected.Body?.Data;
+        if (string.IsNullOrWhiteSpace(data) && !string.IsNullOrWhiteSpace(selected.Body?.AttachmentId))
+        {
+            var body = await _gmailService.Users.Messages.Attachments
+                .Get("me", providerMessageId, selected.Body.AttachmentId)
+                .ExecuteAsync(cancellationToken)
+                .ConfigureAwait(false);
+            data = body?.Data;
+        }
+
+        if (string.IsNullOrWhiteSpace(data))
+        {
+            throw new InvalidOperationException("Gmail text body part contains no data.");
+        }
+
+        var format = string.Equals(selected.MimeType, "text/html", StringComparison.OrdinalIgnoreCase)
+            ? MailBodyFormat.Html
+            : MailBodyFormat.PlainText;
+        return new SemanticMailContent(
+            new MailBodyContent(format, Encoding.UTF8.GetString(Base64UrlEncoder.DecodeBytes(data))),
+            ParseSemanticFrom(message?.Payload),
+            ParseSemanticRecipients(message?.Payload, "To"),
+            ParseSemanticRecipients(message?.Payload, "Cc"));
+    }
+
+    internal static string BuildOnlineSearchQuery(RemoteMailSearchCriteria criteria)
+    {
+        var terms = new List<string>();
+        if (!string.IsNullOrWhiteSpace(criteria.Query)) terms.Add(criteria.Query.Trim());
+        if (!string.IsNullOrWhiteSpace(criteria.Sender)) terms.Add($"from:({criteria.Sender.Trim()})");
+        if (criteria.ReceivedAfterUtc is { } after) terms.Add($"after:{after.UtcDateTime:yyyy/MM/dd}");
+        if (criteria.ReceivedBeforeUtc is { } before) terms.Add($"before:{before.UtcDateTime:yyyy/MM/dd}");
+        if (criteria.HasAttachments) terms.Add("has:attachment");
+        if (criteria.IsUnread) terms.Add("is:unread");
+        if (criteria.IsFlagged) terms.Add("is:starred");
+        return string.Join(' ', terms);
+    }
+
+    private static IReadOnlyList<global::Wino.Mail.AI.Abstractions.MailAddress> ParseSemanticFrom(GmailMessagePart part)
+    {
+        var value = part?.Headers?.FirstOrDefault(x => string.Equals(x.Name, "From", StringComparison.OrdinalIgnoreCase))?.Value;
+        return !string.IsNullOrWhiteSpace(value) && InternetAddressList.TryParse(value, out var addresses)
+            ? addresses.Mailboxes.Select(x => new global::Wino.Mail.AI.Abstractions.MailAddress(x.Address, x.Name)).ToArray()
+            : [];
+    }
+
+    private static IReadOnlyList<string> ParseSemanticRecipients(GmailMessagePart part, string headerName)
+    {
+        var value = part?.Headers?.FirstOrDefault(x => string.Equals(x.Name, headerName, StringComparison.OrdinalIgnoreCase))?.Value;
+        return !string.IsNullOrWhiteSpace(value) && InternetAddressList.TryParse(value, out var addresses)
+            ? addresses.Mailboxes.Select(x => x.Address).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray()
+            : [];
+    }
+
+    private static void CollectSemanticTextParts(GmailMessagePart part, ICollection<GmailMessagePart> parts)
+    {
+        if (part is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(part.Filename) &&
+            (string.Equals(part.MimeType, "text/plain", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(part.MimeType, "text/html", StringComparison.OrdinalIgnoreCase)))
+        {
+            parts.Add(part);
+        }
+
+        if (part.Parts is null)
+        {
+            return;
+        }
+
+        foreach (var child in part.Parts)
+        {
+            CollectSemanticTextParts(child, parts);
         }
     }
 

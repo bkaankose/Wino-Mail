@@ -30,6 +30,8 @@ public class AccountService : BaseDatabaseService, IAccountService
     private readonly IPreferencesService _preferencesService;
     private readonly IContactPictureFileService _contactPictureFileService;
     private readonly IServerCertificateTrustService _serverCertificateTrustService;
+    private readonly ISemanticIndexJobRegistry _semanticIndexJobRegistry;
+    private readonly ILocalIntelligenceStore _localIntelligenceStore;
 
     private readonly ILogger _logger = Log.ForContext<AccountService>();
 
@@ -39,7 +41,9 @@ public class AccountService : BaseDatabaseService, IAccountService
                           IMimeFileService mimeFileService,
                           IPreferencesService preferencesService,
                           IContactPictureFileService contactPictureFileService,
-                          IServerCertificateTrustService serverCertificateTrustService = null) : base(databaseService)
+                          IServerCertificateTrustService serverCertificateTrustService = null,
+                          ISemanticIndexJobRegistry semanticIndexJobRegistry = null,
+                          ILocalIntelligenceStore localIntelligenceStore = null) : base(databaseService)
     {
         _signatureService = signatureService;
         _authenticationProvider = authenticationProvider;
@@ -47,6 +51,8 @@ public class AccountService : BaseDatabaseService, IAccountService
         _preferencesService = preferencesService;
         _contactPictureFileService = contactPictureFileService;
         _serverCertificateTrustService = serverCertificateTrustService ?? new ServerCertificateTrustService(databaseService);
+        _semanticIndexJobRegistry = semanticIndexJobRegistry;
+        _localIntelligenceStore = localIntelligenceStore;
     }
 
 
@@ -318,7 +324,12 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     public async Task DeleteAccountAsync(MailAccount account)
     {
+        if (_semanticIndexJobRegistry is not null)
+            await _semanticIndexJobRegistry.CancelAndWaitAsync(account.Id).ConfigureAwait(false);
+
         await DeleteProviderTokenAsync(account).ConfigureAwait(false);
+        if (_localIntelligenceStore is not null)
+            await _localIntelligenceStore.DeleteMailboxAsync(account.Id).ConfigureAwait(false);
 
         // Collect calendar entities before deletion so we can notify UI subscribers.
         var accountCalendars = await Connection.Table<AccountCalendar>()

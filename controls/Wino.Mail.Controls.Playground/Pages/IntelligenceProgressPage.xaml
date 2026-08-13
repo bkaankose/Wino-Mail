@@ -1,0 +1,291 @@
+<Page
+    x:Class="Wino.Mail.Controls.Playground.Pages.IntelligenceProgressPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:progress="using:Wino.Mail.Controls.IntelligenceProgressRing"
+    mc:Ignorable="d">
+
+    <Grid Padding="32" RowSpacing="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Spacing="6">
+            <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Intelligence progress" />
+            <TextBlock
+                MaxWidth="760"
+                HorizontalAlignment="Left"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Text="Composition-powered progress visuals for indexing and content-generation tasks. Every mode is an animated visual source, respects the Windows animation preference, and stops when IsActive is false."
+                TextWrapping="WrapWholeWords" />
+        </StackPanel>
+
+        <Border
+            Grid.Row="1"
+            Padding="16,12"
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8">
+            <Grid ColumnSpacing="24">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <ToggleSwitch
+                    x:Name="AnimationsToggle"
+                    AutomationProperties.AutomationId="IntelligenceProgressAnimationsToggle"
+                    Header="Animations"
+                    IsOn="True"
+                    OffContent="Paused"
+                    OnContent="Running"
+                    Toggled="AnimationsToggled" />
+                <Button
+                    Grid.Column="1"
+                    VerticalAlignment="Bottom"
+                    AutomationProperties.AutomationId="IntelligenceProgressRestartButton"
+                    Click="RestartAnimationsClicked"
+                    Content="Restart all" />
+                <StackPanel
+                    Grid.Column="2"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="10">
+                    <TextBlock VerticalAlignment="Center" Text="Preview size" />
+                    <Slider
+                        x:Name="SizeSlider"
+                        Width="160"
+                        AutomationProperties.AutomationId="IntelligenceProgressSizeSlider"
+                        Header=""
+                        Maximum="64"
+                        Minimum="16"
+                        StepFrequency="4"
+                        Value="40" />
+                    <TextBlock
+                        Width="44"
+                        VerticalAlignment="Center"
+                        Text="{Binding ElementName=SizeSlider, Path=Value}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <GridView
+            Grid.Row="2"
+            AutomationProperties.AutomationId="IntelligenceProgressGallery"
+            IsItemClickEnabled="False"
+            IsTabStop="False"
+            SelectionMode="None"
+            ScrollViewer.VerticalScrollBarVisibility="Auto"
+            ScrollViewer.VerticalScrollMode="Enabled">
+            <GridView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <ItemsWrapGrid
+                        ItemHeight="210"
+                        ItemWidth="286"
+                        MaximumRowsOrColumns="3"
+                        Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </GridView.ItemsPanel>
+            <GridView.ItemContainerStyle>
+                <Style TargetType="GridViewItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="Margin" Value="0,0,12,12" />
+                    <Setter Property="IsHitTestVisible" Value="False" />
+                </Style>
+            </GridView.ItemContainerStyle>
+
+            <Border
+                Padding="18"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+                <Grid RowSpacing="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Spacing="3">
+                        <TextBlock FontWeight="SemiBold" Text="Orbit dots" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="General indexing and background work"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+                    <progress:WinoIntelligenceProgressRing
+                        x:Name="DotsProgress"
+                        Grid.Row="1"
+                        Width="{Binding ElementName=SizeSlider, Path=Value}"
+                        Height="{Binding ElementName=SizeSlider, Path=Value}"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Animation="Dots"
+                        IsActive="True" />
+                    <TextBlock
+                        Grid.Row="2"
+                        FontFamily="Consolas"
+                        FontSize="12"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="Animation=&quot;Dots&quot;" />
+                </Grid>
+            </Border>
+
+            <Border
+                Padding="18"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+                <Grid RowSpacing="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Spacing="3">
+                        <TextBlock FontWeight="SemiBold" Text="Cubes" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="A segmented snake loops across two cube rows"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+                    <progress:WinoIntelligenceProgressRing
+                        x:Name="CubesProgress"
+                        Grid.Row="1"
+                        Width="{Binding ElementName=SizeSlider, Path=Value}"
+                        Height="{Binding ElementName=SizeSlider, Path=Value}"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Animation="Cubes"
+                        IsActive="True" />
+                    <TextBlock
+                        Grid.Row="2"
+                        FontFamily="Consolas"
+                        FontSize="12"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="Animation=&quot;Cubes&quot;" />
+                </Grid>
+            </Border>
+
+            <Border
+                Padding="18"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+                <Grid RowSpacing="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Spacing="3">
+                        <TextBlock FontWeight="SemiBold" Text="Translate" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="Two language cards exchange a translation token"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+                    <progress:WinoIntelligenceProgressRing
+                        x:Name="TranslateProgress"
+                        Grid.Row="1"
+                        Width="{Binding ElementName=SizeSlider, Path=Value}"
+                        Height="{Binding ElementName=SizeSlider, Path=Value}"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Animation="Translate"
+                        IsActive="True" />
+                    <TextBlock
+                        Grid.Row="2"
+                        FontFamily="Consolas"
+                        FontSize="12"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="Animation=&quot;Translate&quot;" />
+                </Grid>
+            </Border>
+
+            <Border
+                Padding="18"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+                <Grid RowSpacing="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Spacing="3">
+                        <TextBlock FontWeight="SemiBold" Text="Summarize" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="Document lines condense into a shorter result"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+                    <progress:WinoIntelligenceProgressRing
+                        x:Name="SummarizeProgress"
+                        Grid.Row="1"
+                        Width="{Binding ElementName=SizeSlider, Path=Value}"
+                        Height="{Binding ElementName=SizeSlider, Path=Value}"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Animation="Summarize"
+                        IsActive="True" />
+                    <TextBlock
+                        Grid.Row="2"
+                        FontFamily="Consolas"
+                        FontSize="12"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="Animation=&quot;Summarize&quot;" />
+                </Grid>
+            </Border>
+
+            <Border
+                Padding="18"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+                <Grid RowSpacing="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Spacing="3">
+                        <TextBlock FontWeight="SemiBold" Text="Rewrite" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="A pen traces two replacement lines"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+                    <progress:WinoIntelligenceProgressRing
+                        x:Name="RewriteProgress"
+                        Grid.Row="1"
+                        Width="{Binding ElementName=SizeSlider, Path=Value}"
+                        Height="{Binding ElementName=SizeSlider, Path=Value}"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Animation="Rewrite"
+                        IsActive="True" />
+                    <TextBlock
+                        Grid.Row="2"
+                        FontFamily="Consolas"
+                        FontSize="12"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="Animation=&quot;Rewrite&quot;" />
+                </Grid>
+            </Border>
+        </GridView>
+    </Grid>
+</Page>

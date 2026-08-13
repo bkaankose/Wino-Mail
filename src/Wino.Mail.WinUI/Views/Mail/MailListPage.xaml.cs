@@ -30,6 +30,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
+using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Controls.ListView;
@@ -52,8 +53,9 @@ public sealed partial class MailListPage : MailListPageAbstract,
     IRecipient<DisposeRenderingFrameRequested>,
     IHostedPopoutSource,
     IWinoFrameProvider,
-    ITitleBarSearchHost
+    IMailTitleBarSearchHost
 {
+    public event EventHandler<bool> SemanticSearchBusyChanged;
     private const double RENDERING_COLUMN_MIN_WIDTH = 375;
     private const int SELECTION_SETTLE_DELAY_MS = 120;
     private const int RENDERING_FRAME_RELEASE_DELAY_MS = 2000;
@@ -75,8 +77,33 @@ public sealed partial class MailListPage : MailListPageAbstract,
     private CollectionViewSource MailCollectionViewSource =>
         (CollectionViewSource)Resources["MailCollectionViewSource"];
 
+    private IContactService ContactService { get; } = WinoApplication.Current.Services.GetRequiredService<IContactService>();
+    private IFolderService FolderService { get; } = WinoApplication.Current.Services.GetRequiredService<IFolderService>();
+    private IAccountService AccountService { get; } = WinoApplication.Current.Services.GetRequiredService<IAccountService>();
+    private IIntelligenceSearchEligibilityService IntelligenceEligibilityService { get; } = WinoApplication.Current.Services.GetRequiredService<IIntelligenceSearchEligibilityService>();
+    private IMailDialogService MailDialogService { get; } = WinoApplication.Current.Services.GetRequiredService<IMailDialogService>();
+
     private IStatePersistanceService StatePersistenceService { get; } = WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception($"Can't resolve {nameof(IStatePersistanceService)}");
     public ObservableCollection<TitleBarSearchSuggestion> SearchSuggestions { get; } = [];
+    public SearchBarMode SearchMode => SearchBarMode.Mail;
+    public IReadOnlyList<SearchBarContactSuggestion> SenderSuggestions { get; private set; } = [];
+    public bool IsSemanticSearchAvailable => ViewModel.IsSemanticSearchAvailable;
+    public bool IsSemanticSearchBusy => ViewModel.IsSemanticSearchBusy;
+    public string SemanticUnavailableReasonText => IsSemanticSearchAvailable ? string.Empty : Translator.WinoIntelligence_InsightsLocked;
+    public IReadOnlyList<SearchBarOptionItem> ScopeOptions
+    {
+        get
+        {
+            var options = new List<SearchBarOptionItem>
+            {
+                new((int)SearchBarScope.CurrentFolder, Translator.SearchBar_ScopeCurrentFolder),
+            };
+            if (ViewModel.ActiveFolder?.HandlingFolders.Select(folder => folder.MailAccountId).Distinct().Take(2).Count() == 1)
+                options.Add(new((int)SearchBarScope.CurrentAccount, Translator.SearchBar_ScopeCurrentAccount));
+            options.Add(new((int)SearchBarScope.AllAccounts, Translator.SearchBar_ScopeAllAccounts));
+            return options;
+        }
+    }
     public string SearchText
     {
         get => ViewModel.SearchQuery;
@@ -87,6 +114,11 @@ public sealed partial class MailListPage : MailListPageAbstract,
     public MailListPage()
     {
         InitializeComponent();
+        ViewModel.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(ViewModel.IsSemanticSearchBusy))
+                SemanticSearchBusyChanged?.Invoke(this, ViewModel.IsSemanticSearchBusy);
+        };
         MailListView.GroupedViewSource = MailCollectionViewSource;
         RenderingFrame.Navigated += RenderingFrame_Navigated;
     }
@@ -779,6 +811,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         if (string.IsNullOrWhiteSpace(SearchText))
         {
             ViewModel.IsOnlineSearchButtonVisible = false;
+            ViewModel.SetSearchCriteria(MailSearchCriteria.Empty, []);
             await ViewModel.PerformSearchAsync();
         }
     }
@@ -1138,6 +1171,137 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
 
         return Task.CompletedTask;
+    }
+
+    public async Task RequestSenderSuggestionsAsync(string query)
+    {
+        var contacts = await ContactService.SearchContactsAsync(query).ConfigureAwait(false);
+        var suggestions = contacts.Take(8).Select(contact => new SearchBarContactSuggestion
+        {
+            DisplayName = contact.DisplayName,
+            Address = contact.Address,
+            Initials = GetInitials(contact.DisplayName),
+            ContactPicture = XamlHelpers.GetContactPicture(contact, contact.DisplayName, contact.Address),
+            Tag = contact,
+        }).ToArray();
+        await DispatcherQueue.EnqueueAsync(() => SenderSuggestions = suggestions);
+    }
+
+    public async Task<SemanticSearchAvailability> GetSemanticSearchAvailabilityAsync(SearchBarFilterSnapshot filters)
+    {
+        var folders = await ResolveSearchFoldersAsync(filters.Scope).ConfigureAwait(false);
+        var eligibility = await IntelligenceEligibilityService.ResolveAsync(
+            folders.Select(folder => folder.MailAccountId).Distinct().ToArray()).ConfigureAwait(false);
+        if (!eligibility.HasCompatibleBackends)
+            return new(false, Translator.SearchBar_SemanticUnavailableMixedBackend);
+        if (!eligibility.HasEligibleAccounts)
+            return new(false, Translator.WinoIntelligence_InsightsLocked);
+        return new(true, string.Empty);
+    }
+
+    public async Task OnMailSearchSubmittedAsync(SearchBarSubmittedEventArgs args)
+    {
+        IReadOnlyList<MailItemFolder> folders = await ResolveSearchFoldersAsync(args.Filters.Scope).ConfigureAwait(false);
+        if (args.IsSemanticSearchEnabled)
+        {
+            var eligibility = await IntelligenceEligibilityService.ResolveAsync(
+                folders.Select(folder => folder.MailAccountId).Distinct().ToArray()).ConfigureAwait(false);
+            if (!eligibility.HasCompatibleBackends)
+            {
+                await DispatcherQueue.EnqueueAsync(() => MailDialogService.InfoBarMessage(
+                    Translator.GeneralTitle_Error,
+                    Translator.SearchBar_SemanticUnavailableMixedBackend,
+                    InfoBarMessageType.Warning));
+                return;
+            }
+
+            var eligibleAccountIds = eligibility.Accounts.Where(account => account.IsEligible).Select(account => account.AccountId).ToHashSet();
+            var omittedNames = eligibility.Accounts.Where(account => !account.IsEligible).Select(account => account.AccountName).ToArray();
+            folders = folders.Where(folder => eligibleAccountIds.Contains(folder.MailAccountId)).ToArray();
+            if (omittedNames.Length > 0)
+            {
+                await DispatcherQueue.EnqueueAsync(() => MailDialogService.InfoBarMessage(
+                    Translator.SemanticSearch_PartialTitle,
+                    string.Format(Translator.SemanticSearch_OmittedAccountsMessage, string.Join(", ", omittedNames)),
+                    InfoBarMessageType.Warning));
+            }
+            if (folders.Count == 0)
+                return;
+        }
+        var (afterUtc, beforeUtc) = ResolveUtcDateRange(args.Filters.DateRange, DateTime.Now);
+        var executionMode = args.IsSemanticSearchEnabled
+            ? Wino.Core.Domain.Enums.SearchMode.Semantic
+            : args.Filters.Reach == SearchBarReach.IncludeServer
+                ? Wino.Core.Domain.Enums.SearchMode.Online
+                : Wino.Core.Domain.Enums.SearchMode.Local;
+        var criteria = new MailSearchCriteria(
+            args.QueryText.Trim(),
+            executionMode,
+            (MailSearchScope)(int)args.Filters.Scope,
+            (MailSearchReach)(int)args.Filters.Reach,
+            args.Filters.Sender.Trim(),
+            afterUtc,
+            beforeUtc,
+            args.Filters.HasAttachments,
+            args.Filters.IsUnread,
+            args.Filters.IsFlagged,
+            folders.Select(folder => folder.Id).ToArray(),
+            folders.Select(folder => folder.MailAccountId).Distinct().ToArray());
+
+        await DispatcherQueue.EnqueueAsync(() =>
+        {
+            ViewModel.SetSearchCriteria(criteria, folders);
+            if (ViewModel.PerformSearchCommand.CanExecute(null))
+                ViewModel.PerformSearchCommand.Execute(null);
+        });
+    }
+
+    private async Task<IReadOnlyList<MailItemFolder>> ResolveSearchFoldersAsync(SearchBarScope scope)
+    {
+        var activeFolders = ViewModel.ActiveFolder?.HandlingFolders
+            .OfType<MailItemFolder>()
+            .Where(IsRealSearchableFolder)
+            .ToArray() ?? [];
+        if (scope == SearchBarScope.CurrentFolder)
+            return activeFolders;
+
+        var accountIds = scope == SearchBarScope.CurrentAccount
+            ? activeFolders.Select(folder => folder.MailAccountId).Distinct().Take(2).ToArray()
+            : (await AccountService.GetAccountsAsync().ConfigureAwait(false)).Select(account => account.Id).ToArray();
+        if (scope == SearchBarScope.CurrentAccount && accountIds.Length != 1)
+            return activeFolders;
+
+        var folders = new List<MailItemFolder>();
+        foreach (var accountId in accountIds)
+            folders.AddRange(await FolderService.GetFoldersAsync(accountId).ConfigureAwait(false));
+        return folders.Where(IsRealSearchableFolder).GroupBy(folder => folder.Id).Select(group => group.First()).ToArray();
+    }
+
+    private static bool IsRealSearchableFolder(MailItemFolder folder)
+        => folder is not null && !string.IsNullOrWhiteSpace(folder.RemoteFolderId);
+
+    internal static (DateTimeOffset? AfterUtc, DateTimeOffset? BeforeUtc) ResolveUtcDateRange(
+        SearchBarDateRange range,
+        DateTime localNow)
+    {
+        if (range == SearchBarDateRange.AnyTime)
+            return (null, null);
+
+        var end = localNow.Date.AddDays(1);
+        var start = range switch
+        {
+            SearchBarDateRange.Today => localNow.Date,
+            SearchBarDateRange.LastSevenDays => localNow.Date.AddDays(-6),
+            SearchBarDateRange.LastThirtyDays => localNow.Date.AddDays(-29),
+            _ => localNow.Date,
+        };
+        return (new DateTimeOffset(start).ToUniversalTime(), new DateTimeOffset(end).ToUniversalTime());
+    }
+
+    private static string GetInitials(string value)
+    {
+        var words = (value ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return string.Concat(words.Take(2).Select(word => char.ToUpperInvariant(word[0])));
     }
 
     public bool CanPopOutCurrentContent()

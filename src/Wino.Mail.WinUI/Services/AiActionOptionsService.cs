@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Ai;
@@ -20,6 +20,7 @@ public sealed class AiActionOptionsService : IAiActionOptionsService
             new("pt-BR", Translator.Composer_AiTranslateLanguagePortugueseBrazil),
             new("nl-NL", Translator.Composer_AiTranslateLanguageDutch),
             new("pl-PL", Translator.Composer_AiTranslateLanguagePolish),
+            new("uk-UA", Translator.Composer_AiTranslateLanguageUkrainian),
             new("ru-RU", Translator.Composer_AiTranslateLanguageRussian),
             new("ja-JP", Translator.Composer_AiTranslateLanguageJapanese),
             new("ko-KR", Translator.Composer_AiTranslateLanguageKorean),
@@ -40,7 +41,6 @@ public sealed class AiActionOptionsService : IAiActionOptionsService
             new("friendly", Translator.Composer_AiRewriteFriendly, Translator.Composer_AiRewriteFriendlyDescription),
             new("shorter", Translator.Composer_AiRewriteShorter, Translator.Composer_AiRewriteShorterDescription),
             new("clearer", Translator.Composer_AiRewriteClearer, Translator.Composer_AiRewriteClearerDescription),
-            new(string.Empty, Translator.Composer_AiRewriteCustom, Translator.Composer_AiRewriteCustomDescription, true),
         };
     }
 }

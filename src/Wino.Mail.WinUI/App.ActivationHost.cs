@@ -20,6 +20,7 @@ internal interface IAppActivationHandlerHost
     Task LaunchWelcomeWindowAsync();
     Task<bool> HandleShareTargetActivationAsync(AppActivationArguments activationArgs, bool activateWindow);
     Task<bool> HandleMailToProtocolActivationAsync(MailToUri mailToUri, bool activateWindow);
+    Task HandleBillingSuccessProtocolActivationAsync(bool activateWindow);
     Task<bool> HandlePendingBootstrapActivationAsync(PendingBootstrapActivation pendingBootstrapActivation);
     Task CompleteStandardLaunchAsync(Microsoft.UI.Xaml.LaunchActivatedEventArgs launchArgs, bool hasAnyAccount);
     Task ActivateRedirectedShellAsync(RedirectedActivationRoute route);
@@ -54,6 +55,8 @@ public partial class App : IAppActivationHandlerHost, IAppNotificationHandlerHos
         => HandleShareTargetActivationAsync(activationArgs, activateWindow);
     Task<bool> IAppActivationHandlerHost.HandleMailToProtocolActivationAsync(MailToUri mailToUri, bool activateWindow)
         => HandleMailToProtocolActivationAsync(mailToUri, activateWindow);
+    Task IAppActivationHandlerHost.HandleBillingSuccessProtocolActivationAsync(bool activateWindow)
+        => HandleBillingSuccessProtocolActivationAsync(activateWindow);
     Task<bool> IAppActivationHandlerHost.HandlePendingBootstrapActivationAsync(PendingBootstrapActivation pendingBootstrapActivation)
         => HandlePendingBootstrapActivationAsync(pendingBootstrapActivation);
     Task IAppActivationHandlerHost.CompleteStandardLaunchAsync(Microsoft.UI.Xaml.LaunchActivatedEventArgs launchArgs, bool hasAnyAccount)

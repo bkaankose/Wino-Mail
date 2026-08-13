@@ -122,82 +122,61 @@ public class MimeFileService : IMimeFileService
         return true;
     }
 
-    public async Task<string> GetTranslatedHtmlAsync(Guid accountId, Guid fileId, string targetLanguage, CancellationToken cancellationToken = default)
+    public async Task<string> GetTranslationMapJsonAsync(Guid accountId, Guid fileId, string cacheKey, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(targetLanguage))
-        {
-            return null;
-        }
-
         try
         {
-            var translatedHtmlPath = await GetTranslatedHtmlPathAsync(accountId, fileId, targetLanguage).ConfigureAwait(false);
-            if (!File.Exists(translatedHtmlPath))
-            {
-                return null;
-            }
-
-            return await File.ReadAllTextAsync(translatedHtmlPath, cancellationToken).ConfigureAwait(false);
+            var path = await GetTranslationMapPathAsync(accountId, fileId, cacheKey).ConfigureAwait(false);
+            return File.Exists(path) ? await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false) : null;
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Could not read translated html cache for FileId: {FileId}, Language: {Language}", fileId, targetLanguage);
+            _logger.Error(ex, "Could not read translation map cache for FileId: {FileId}", fileId);
             return null;
         }
     }
 
-    public async Task SaveTranslatedHtmlAsync(Guid accountId, Guid fileId, string targetLanguage, string html, CancellationToken cancellationToken = default)
+    public async Task SaveTranslationMapJsonAsync(Guid accountId, Guid fileId, string cacheKey, string json, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(targetLanguage) || string.IsNullOrWhiteSpace(html))
-        {
+        if (string.IsNullOrWhiteSpace(json))
             return;
-        }
-
         try
         {
-            var translatedHtmlPath = await GetTranslatedHtmlPathAsync(accountId, fileId, targetLanguage).ConfigureAwait(false);
-            await File.WriteAllTextAsync(translatedHtmlPath, html, cancellationToken).ConfigureAwait(false);
+            var path = await GetTranslationMapPathAsync(accountId, fileId, cacheKey).ConfigureAwait(false);
+            await File.WriteAllTextAsync(path, json, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Could not save translated html cache for FileId: {FileId}, Language: {Language}", fileId, targetLanguage);
+            _logger.Error(ex, "Could not save translation map cache for FileId: {FileId}", fileId);
         }
     }
 
-    public async Task<string> GetSummaryTextAsync(Guid accountId, Guid fileId, CancellationToken cancellationToken = default)
+    public async Task<string> GetSummaryTextAsync(Guid accountId, Guid fileId, string cacheKey, CancellationToken cancellationToken = default)
     {
         try
         {
-            var summaryPath = await GetSummaryTextPathAsync(accountId, fileId).ConfigureAwait(false);
-            if (!File.Exists(summaryPath))
-            {
-                return null;
-            }
-
-            return await File.ReadAllTextAsync(summaryPath, cancellationToken).ConfigureAwait(false);
+            var summaryPath = await GetSummaryTextPathAsync(accountId, fileId, cacheKey).ConfigureAwait(false);
+            return File.Exists(summaryPath) ? await File.ReadAllTextAsync(summaryPath, cancellationToken).ConfigureAwait(false) : null;
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Could not read summary cache for FileId: {FileId}", fileId);
+            _logger.Error(ex, "Could not read versioned summary cache for FileId: {FileId}", fileId);
             return null;
         }
     }
 
-    public async Task SaveSummaryTextAsync(Guid accountId, Guid fileId, string summary, CancellationToken cancellationToken = default)
+    public async Task SaveSummaryTextAsync(Guid accountId, Guid fileId, string cacheKey, string summary, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(summary))
-        {
             return;
-        }
-
         try
         {
-            var summaryPath = await GetSummaryTextPathAsync(accountId, fileId).ConfigureAwait(false);
+            var summaryPath = await GetSummaryTextPathAsync(accountId, fileId, cacheKey).ConfigureAwait(false);
             await File.WriteAllTextAsync(summaryPath, NormalizeSummaryText(summary), cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Could not save summary cache for FileId: {FileId}", fileId);
+            _logger.Error(ex, "Could not save versioned summary cache for FileId: {FileId}", fileId);
         }
     }
 
@@ -295,16 +274,16 @@ public class MimeFileService : IMimeFileService
         }
     }
 
-    private async Task<string> GetTranslatedHtmlPathAsync(Guid accountId, Guid fileId, string targetLanguage)
+    private async Task<string> GetTranslationMapPathAsync(Guid accountId, Guid fileId, string cacheKey)
     {
         var resourcePath = await GetMimeResourcePathAsync(accountId, fileId).ConfigureAwait(false);
-        return Path.Combine(resourcePath, $"translated-{SanitizeFileNamePart(targetLanguage)}.html");
+        return Path.Combine(resourcePath, $"translation-map-{SanitizeFileNamePart(cacheKey)}.json");
     }
 
-    private async Task<string> GetSummaryTextPathAsync(Guid accountId, Guid fileId)
+    private async Task<string> GetSummaryTextPathAsync(Guid accountId, Guid fileId, string cacheKey)
     {
         var resourcePath = await GetMimeResourcePathAsync(accountId, fileId).ConfigureAwait(false);
-        return Path.Combine(resourcePath, "summary.txt");
+        return Path.Combine(resourcePath, $"summary-{SanitizeFileNamePart(cacheKey)}.txt");
     }
 
     private static string SanitizeFileNamePart(string value)

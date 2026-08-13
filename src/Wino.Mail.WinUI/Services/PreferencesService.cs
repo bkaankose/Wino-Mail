@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
@@ -188,6 +188,12 @@ public partial class PreferencesService(IConfigurationService configurationServi
     {
         get => _configurationService.Get(nameof(RenderImages), true);
         set => SetPropertyAndSave(nameof(RenderImages), value);
+    }
+
+    public bool IsReaderViewEnabled
+    {
+        get => _configurationService.Get(nameof(IsReaderViewEnabled), false);
+        set => SetPropertyAndSave(nameof(IsReaderViewEnabled), value);
     }
 
     public TimeFormatPreference MailTimeFormatPreference
@@ -530,12 +536,6 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(IsWinoAccountButtonHidden), value);
     }
 
-    public bool IsAiActionsPanelHidden
-    {
-        get => _configurationService.Get(nameof(IsAiActionsPanelHidden), false);
-        set => SetPropertyAndSave(nameof(IsAiActionsPanelHidden), value);
-    }
-
     public string AiDefaultTranslationLanguageCode
     {
         get => _configurationService.Get(nameof(AiDefaultTranslationLanguageCode), "en-US");
@@ -724,5 +724,4 @@ public partial class PreferencesService(IConfigurationService configurationServi
     private static IEnumerable<PreferenceAccessor> GetSyncablePreferenceProperties()
         => GetGeneratedSyncablePreferenceProperties();
 }
-
 

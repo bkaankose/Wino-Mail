@@ -1,9 +1,15 @@
 #nullable enable
+using System.Buffers.Binary;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
@@ -11,13 +17,20 @@ using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using System.Threading;
 using System.Threading.Tasks;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Intelligence;
+using Wino.Mail.AI.Abstractions;
+using Wino.Mail.AI.Cryptography;
 using Wino.Mail.Api.Contracts.Ai;
 using Wino.Mail.Api.Contracts.Auth;
+using Wino.Mail.Api.Contracts.Billing;
 using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.Api.Contracts.Users;
+using Wino.Mail.Contracts.Intelligence;
+using Wino.Mail.Contracts.SemanticIndex;
 
 namespace Wino.Services;
 
@@ -25,33 +38,52 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 {
     private readonly HttpClient _httpClient;
     private readonly IDatabaseService _databaseService;
+    private readonly IContentEnvelopeEncryptor _contentEnvelopeEncryptor;
+    private readonly ITranslationService? _translationService;
     private readonly SemaphoreSlim _tokenRefreshLock = new(1, 1);
     private readonly bool _ownsHttpClient;
 
-    // private const string ApiUrl = "https://localhost:7204/";
-    private const string ApiUrl = "https://api.winomail.app/";
+    private const string ApiUrl = "https://localhost:7204/";
+    // private const string ApiUrl = "https://api.winomail.app/";
 
-    public WinoAccountApiClient(IDatabaseService databaseService, HttpClient? httpClient = null)
+    public WinoAccountApiClient(
+        IDatabaseService databaseService,
+        HttpClient? httpClient = null,
+        IContentEnvelopeEncryptor? contentEnvelopeEncryptor = null,
+        ITranslationService? translationService = null)
     {
         _databaseService = databaseService;
+        _contentEnvelopeEncryptor = contentEnvelopeEncryptor ??
+            new PemContentEnvelopeEncryptor(EmbeddedIntelligencePublicKeyProvider.Load());
+        _translationService = translationService;
 
         if (httpClient != null)
         {
             _httpClient = httpClient;
+            ConfigureHttpVersion(_httpClient);
             return;
         }
 
         var handler = new HttpClientHandler
         {
-            ServerCertificateCustomValidationCallback = ValidateCertificate
+            ServerCertificateCustomValidationCallback = ValidateCertificate,
+            AutomaticDecompression = DecompressionMethods.Brotli | DecompressionMethods.GZip | DecompressionMethods.Deflate,
         };
 
         _httpClient = new HttpClient(handler)
         {
             BaseAddress = new Uri(ApiUrl)
         };
+        ConfigureHttpVersion(_httpClient);
 
         _ownsHttpClient = true;
+    }
+
+    private static void ConfigureHttpVersion(HttpClient client)
+    {
+        // TODO: Azure Support HTTPS 2.0
+        //client.DefaultRequestVersion = HttpVersion.Version20;
+        //client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrHigher;
     }
 
     public Task<WinoAccountApiResult<AuthResultDto>> RegisterAsync(string email, string password, CancellationToken cancellationToken = default)
@@ -107,57 +139,104 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     public Task<ApiEnvelope<AuthUserDto>> GetCurrentUserAsync(CancellationToken cancellationToken = default)
         => SendAuthorizedRequestAsync("api/v1/auth/me", WinoAccountApiJsonContext.Default.ApiEnvelopeAuthUserDto, cancellationToken);
 
-    public Task<ApiEnvelope<AiStatusResultDto>> GetAiStatusAsync(CancellationToken cancellationToken = default)
-        => SendAuthorizedRequestAsync("api/v1/ai/status", WinoAccountApiJsonContext.Default.ApiEnvelopeAiStatusResultDto, cancellationToken);
+    public async Task<TransportConsentDto> GetTransportConsentAsync(CancellationToken cancellationToken = default)
+    {
+        var envelope = await SendAuthorizedRequestAsync("api/v1/ai/consents/transport", WinoAccountApiJsonContext.Default.ApiEnvelopeTransportConsentDto, cancellationToken).ConfigureAwait(false);
+        return envelope.IsSuccess && envelope.Result is not null ? envelope.Result : throw new InvalidOperationException(envelope.ErrorCode ?? "Transport consent could not be loaded.");
+    }
 
-    public Task<ApiEnvelope<AiTextResultDto>> SummarizeAsync(string html, string targetLanguage, CancellationToken cancellationToken = default)
-        => SendAuthorizedRequestAsync(
+    public async Task<TransportConsentDto> AcceptTransportConsentAsync(string policyVersion, string source, CancellationToken cancellationToken = default)
+    {
+        var request = new UpdateTransportConsentRequest(policyVersion, source);
+        var envelope = await SendAuthorizedRequestAsync(HttpMethod.Put, "api/v1/ai/consents/transport", request, WinoAccountApiJsonContext.Default.UpdateTransportConsentRequest, WinoAccountApiJsonContext.Default.ApiEnvelopeTransportConsentDto, cancellationToken).ConfigureAwait(false);
+        return envelope.IsSuccess && envelope.Result is not null ? envelope.Result : throw new InvalidOperationException(envelope.ErrorCode ?? "Transport consent could not be saved.");
+    }
+
+    public async Task<TransportConsentDto> RevokeTransportConsentAsync(string source, CancellationToken cancellationToken = default)
+    {
+        var request = new RevokeProcessConsentRequest(source);
+        var envelope = await SendAuthorizedRequestAsync(HttpMethod.Delete, "api/v1/ai/consents/transport", request, WinoAccountApiJsonContext.Default.RevokeProcessConsentRequest, WinoAccountApiJsonContext.Default.ApiEnvelopeTransportConsentDto, cancellationToken).ConfigureAwait(false);
+        return envelope.IsSuccess && envelope.Result is not null ? envelope.Result : throw new InvalidOperationException(envelope.ErrorCode ?? "Transport consent could not be revoked.");
+    }
+
+    public async Task<ProcessConsentListDto> GetProcessConsentsAsync(CancellationToken cancellationToken = default)
+    {
+        var envelope = await SendAuthorizedRequestAsync("api/v1/ai/consents/process", WinoAccountApiJsonContext.Default.ApiEnvelopeProcessConsentListDto, cancellationToken).ConfigureAwait(false);
+        return envelope.IsSuccess && envelope.Result is not null ? envelope.Result : throw new InvalidOperationException(envelope.ErrorCode ?? "Process consent could not be loaded.");
+    }
+
+    public async Task<MailboxProcessConsentDto> AcceptProcessConsentAsync(Guid mailboxId, string policyVersion, string source, CancellationToken cancellationToken = default)
+    {
+        var request = new UpdateProcessConsentRequest(policyVersion, source);
+        var envelope = await SendAuthorizedRequestAsync(HttpMethod.Put, $"api/v1/ai/consents/process/{mailboxId:D}", request, WinoAccountApiJsonContext.Default.UpdateProcessConsentRequest, WinoAccountApiJsonContext.Default.ApiEnvelopeMailboxProcessConsentDto, cancellationToken).ConfigureAwait(false);
+        return envelope.IsSuccess && envelope.Result is not null ? envelope.Result : throw new InvalidOperationException(envelope.ErrorCode ?? "Process consent could not be saved.");
+    }
+
+    public async Task<MailboxProcessConsentDto> RevokeProcessConsentAsync(Guid mailboxId, string source, CancellationToken cancellationToken = default)
+    {
+        var request = new RevokeProcessConsentRequest(source);
+        var envelope = await SendAuthorizedRequestAsync(HttpMethod.Delete, $"api/v1/ai/consents/process/{mailboxId:D}", request, WinoAccountApiJsonContext.Default.RevokeProcessConsentRequest, WinoAccountApiJsonContext.Default.ApiEnvelopeMailboxProcessConsentDto, cancellationToken).ConfigureAwait(false);
+        return envelope.IsSuccess && envelope.Result is not null ? envelope.Result : throw new InvalidOperationException(envelope.ErrorCode ?? "Process consent could not be revoked.");
+    }
+
+    public async Task<BatchProcessConsentResult> UpdateProcessConsentsAsync(BatchProcessConsentRequest request, CancellationToken cancellationToken = default)
+    {
+        var envelope = await SendAuthorizedRequestAsync(HttpMethod.Post, "api/v1/ai/consents/process:batch", request, WinoAccountApiJsonContext.Default.BatchProcessConsentRequest, WinoAccountApiJsonContext.Default.ApiEnvelopeBatchProcessConsentResult, cancellationToken).ConfigureAwait(false);
+        return envelope.IsSuccess && envelope.Result is not null ? envelope.Result : throw new InvalidOperationException(envelope.ErrorCode ?? "Process consents could not be updated.");
+    }
+
+    public async Task<ApiEnvelope<AiSummaryResultDto>> SummarizeAsync(IReadOnlyList<MailContentSegment> segments, string targetLanguage, CancellationToken cancellationToken = default)
+    {
+        return await SendAuthorizedRequestAsync(
             HttpMethod.Post,
-            "api/v1/ai/summarize",
-            new SummarizeRequest(html, targetLanguage),
+            "api/v2/ai/summarize",
+            new SummarizeRequest(segments, targetLanguage),
             WinoAccountApiJsonContext.Default.SummarizeRequest,
-            WinoAccountApiJsonContext.Default.ApiEnvelopeAiTextResultDto,
-            cancellationToken);
+            WinoAccountApiJsonContext.Default.ApiEnvelopeAiSummaryResultDto,
+            cancellationToken).ConfigureAwait(false);
+    }
 
-    public Task<ApiEnvelope<AiTextResultDto>> TranslateAsync(string html, string targetLanguage, CancellationToken cancellationToken = default)
-        => SendAuthorizedRequestAsync(
+    public async Task<ApiEnvelope<AiTranslationResultDto>> TranslateAsync(IReadOnlyList<MailContentSegment> segments, string? sourceLanguage, string targetLanguage, CancellationToken cancellationToken = default)
+    {
+        return await SendAuthorizedRequestAsync(
             HttpMethod.Post,
-            "api/v1/ai/translate",
-            new TranslateRequest(html, targetLanguage),
+            "api/v2/ai/translate",
+            new TranslateRequest(segments, sourceLanguage, targetLanguage),
             WinoAccountApiJsonContext.Default.TranslateRequest,
-            WinoAccountApiJsonContext.Default.ApiEnvelopeAiTextResultDto,
-            cancellationToken);
+            WinoAccountApiJsonContext.Default.ApiEnvelopeAiTranslationResultDto,
+            cancellationToken).ConfigureAwait(false);
+    }
 
-    public Task<ApiEnvelope<AiTextResultDto>> RewriteAsync(string html, string mode, CancellationToken cancellationToken = default)
-        => SendAuthorizedRequestAsync(
+    public async Task<ApiEnvelope<AiTextResultDto>> RewriteAsync(string html, string mode, string language, CancellationToken cancellationToken = default)
+    {
+        return await SendAuthorizedRequestAsync(
             HttpMethod.Post,
             "api/v1/ai/rewrite",
-            new RewriteRequest(html, mode),
-            WinoAccountApiJsonContext.Default.RewriteRequest,
+            new LocalizedRewriteRequest(html, mode, language),
+            WinoAccountApiJsonContext.Default.LocalizedRewriteRequest,
             WinoAccountApiJsonContext.Default.ApiEnvelopeAiTextResultDto,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
+    }
 
-    public Task<ApiEnvelope<WinoStoreCollectionsIdTicketInfo>> CreateCollectionsIdTicketAsync(CancellationToken cancellationToken = default)
+    public Task<ApiEnvelope<CheckoutSessionResultDto>> CreateCheckoutSessionAsync(string productCode, CancellationToken cancellationToken = default)
         => SendAuthorizedRequestAsync(
             HttpMethod.Post,
-            "api/v1/store/collections-id-ticket",
-            WinoAccountApiJsonContext.Default.ApiEnvelopeWinoStoreCollectionsIdTicketInfo,
+            "api/v1/billing/checkout-session",
+            new CreateCheckoutSessionRequest(productCode),
+            WinoAccountApiJsonContext.Default.CreateCheckoutSessionRequest,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeCheckoutSessionResultDto,
             cancellationToken);
 
-    public Task<ApiEnvelope<WinoStoreCollectionsIdTicketInfo>> CreatePurchaseIdTicketAsync(CancellationToken cancellationToken = default)
+    public Task<ApiEnvelope<BillingStatusResultDto>> GetBillingStatusAsync(CancellationToken cancellationToken = default)
         => SendAuthorizedRequestAsync(
-            HttpMethod.Post,
-            "api/v1/store/purchase-id-ticket",
-            WinoAccountApiJsonContext.Default.ApiEnvelopeWinoStoreCollectionsIdTicketInfo,
+            "api/v1/billing/status",
+            WinoAccountApiJsonContext.Default.ApiEnvelopeBillingStatusResultDto,
             cancellationToken);
 
-    public Task<ApiEnvelope<JsonElement>> SyncStoreEntitlementsAsync(string? storeIdKey, string? purchaseIdKey, CancellationToken cancellationToken = default)
+    public Task<ApiEnvelope<AiUsageStatusDto>> GetAiUsageAsync(CancellationToken cancellationToken = default)
         => SendAuthorizedRequestAsync(
-            HttpMethod.Post,
-            "api/v1/store/entitlements/sync",
-            new SyncStoreEntitlementsRequest(storeIdKey, purchaseIdKey),
-            WinoAccountApiJsonContext.Default.SyncStoreEntitlementsRequest,
-            WinoAccountApiJsonContext.Default.ApiEnvelopeJsonElement,
+            "api/v1/ai/usage",
+            WinoAccountApiJsonContext.Default.ApiEnvelopeAiUsageStatusDto,
             cancellationToken);
 
     public async Task<string?> GetSettingsAsync(CancellationToken cancellationToken = default)
@@ -241,6 +320,348 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<IReadOnlyList<SemanticMailboxDto>> GetSemanticMailboxesAsync(CancellationToken cancellationToken = default)
+    {
+        var envelope = await SendAuthorizedRequestAsync(
+            "api/v1/ai/semantic-index/mailboxes",
+            WinoAccountApiJsonContext.Default.ApiEnvelopeListSemanticMailboxDto,
+            cancellationToken).ConfigureAwait(false);
+        return envelope.IsSuccess && envelope.Result != null
+            ? envelope.Result
+            : throw new InvalidOperationException(envelope.ErrorCode ?? "Semantic mailbox discovery failed.");
+    }
+
+    public async Task<SemanticMailboxDto> EnsureSemanticMailboxAsync(
+        string address,
+        int providerType,
+        CancellationToken cancellationToken = default)
+    {
+        var envelope = await SendAuthorizedRequestAsync(
+            HttpMethod.Put,
+            "api/v1/ai/semantic-index/mailboxes",
+            new EnsureSemanticMailboxRequest(address, providerType),
+            WinoAccountApiJsonContext.Default.EnsureSemanticMailboxRequest,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeSemanticMailboxDto,
+            cancellationToken).ConfigureAwait(false);
+        return envelope.IsSuccess && envelope.Result != null
+            ? envelope.Result
+            : throw SemanticApiFailure(envelope.ErrorCode, "Semantic mailbox creation failed.");
+    }
+
+    public async Task<IntelligenceManifestDto> GetIntelligenceManifestAsync(CancellationToken cancellationToken = default)
+        => RequireResult(await SendAuthorizedRequestAsync(
+            "api/v1/ai/intelligence/manifest",
+            WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceManifestDto,
+            cancellationToken).ConfigureAwait(false), "Intelligence manifest request failed.");
+
+    public async Task<IntelligenceMailboxStatusDto> GetIntelligenceStatusAsync(Guid mailboxId, CancellationToken cancellationToken = default)
+        => RequireResult(await SendAuthorizedRequestAsync(
+            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/status",
+            WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceMailboxStatusDto,
+            cancellationToken).ConfigureAwait(false), "Intelligence status request failed.");
+
+    public async Task<IReadOnlyList<string>> ResolveIntelligenceDeltaAsync(
+        Guid mailboxId,
+        IReadOnlyList<string> remoteMessageIds,
+        CancellationToken cancellationToken = default)
+    {
+        var account = await _databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false)
+            ?? throw new InvalidOperationException("A Wino account is required for mail intelligence.");
+        var route = $"/api/v1/ai/intelligence/mailboxes/{mailboxId:D}/delta:resolve";
+        using var response = await SendAuthorizedAsync(
+            () => CreateAuthorizedRequestAsync(
+                HttpMethod.Post,
+                route.TrimStart('/'),
+                () => new DeltaFrameContent(async (stream, token) =>
+                {
+                    var frameCount = Math.Max(1, (remoteMessageIds.Count + 999) / 1_000);
+                    for (var sequence = 0; sequence < frameCount; sequence++)
+                    {
+                        var ids = remoteMessageIds.Skip(sequence * 1_000).Take(1_000).ToArray();
+                        var frame = new IntelligenceDeltaFrameRequest(sequence, sequence == frameCount - 1, ids);
+                        var plaintext = JsonSerializer.SerializeToUtf8Bytes(
+                            frame, WinoAccountApiJsonContext.Default.IntelligenceDeltaFrameRequest);
+                        byte[]? encoded = null;
+                        try
+                        {
+                            var encrypted = _contentEnvelopeEncryptor.Encrypt(
+                                plaintext,
+                                new ContentEnvelopeContext(account.Id, mailboxId, route),
+                                Guid.NewGuid(),
+                                DateTimeOffset.UtcNow);
+                            try { encoded = ContentEnvelopeBinaryCodec.Encode(encrypted); }
+                            finally
+                            {
+                                CryptographicOperations.ZeroMemory(encrypted.WrappedKey);
+                                CryptographicOperations.ZeroMemory(encrypted.Nonce);
+                                CryptographicOperations.ZeroMemory(encrypted.Tag);
+                                CryptographicOperations.ZeroMemory(encrypted.Ciphertext);
+                            }
+                            var length = new byte[sizeof(int)];
+                            BinaryPrimitives.WriteInt32BigEndian(length, encoded.Length);
+                            await stream.WriteAsync(length, token).ConfigureAwait(false);
+                            await stream.WriteAsync(encoded, token).ConfigureAwait(false);
+                        }
+                        finally
+                        {
+                            CryptographicOperations.ZeroMemory(plaintext);
+                            if (encoded is not null) CryptographicOperations.ZeroMemory(encoded);
+                        }
+                    }
+                })),
+            cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("MissingAccessToken");
+        response.EnsureSuccessStatusCode();
+        var missing = new List<string>();
+        await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        using var reader = new StreamReader(responseStream);
+        while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
+        {
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            var frame = JsonSerializer.Deserialize(line, WinoAccountApiJsonContext.Default.IntelligenceDeltaFrameResult)
+                ?? throw new InvalidOperationException("The intelligence delta response is invalid.");
+            missing.AddRange(frame.MissingRemoteMessageIds);
+            if (frame.IsFinal) break;
+        }
+        return missing;
+    }
+
+    public Task<IntelligenceIngestResultDto> IngestIntelligenceAsync(
+        Guid mailboxId,
+        byte[] encryptedEnvelope,
+        CancellationToken cancellationToken = default)
+        => SendEncryptedIntelligenceAsync(
+            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/ingest",
+            encryptedEnvelope,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceIngestResultDto,
+            "Intelligence ingestion failed.",
+            cancellationToken);
+
+    public async Task<IntelligenceArtifactCursorPageDto> GetIntelligenceArtifactsAsync(
+        Guid mailboxId,
+        string? cursor,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+        => RequireResult(await SendAuthorizedRequestAsync(
+            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/artifacts?cursor={Uri.EscapeDataString(cursor ?? string.Empty)}&pageSize={pageSize}",
+            WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceArtifactCursorPageDto,
+            cancellationToken).ConfigureAwait(false), "Intelligence artifact download failed.");
+
+    public async Task<IntelligenceMailboxStatusDto> RebuildIntelligenceEmbeddingsAsync(
+        Guid mailboxId,
+        CancellationToken cancellationToken = default)
+        => RequireResult(await SendAuthorizedRequestAsync(
+            HttpMethod.Post,
+            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/embeddings:rebuild",
+            WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceMailboxStatusDto,
+            cancellationToken).ConfigureAwait(false), "Embedding rebuild request failed.");
+
+    private async Task<T> SendEncryptedIntelligenceAsync<T>(
+        string endpoint,
+        byte[] encryptedEnvelope,
+        JsonTypeInfo<ApiEnvelope<T>> responseType,
+        string failureMessage,
+        CancellationToken cancellationToken) where T : class
+    {
+        const int maximumAttempts = 5;
+        for (var attempt = 0; attempt < maximumAttempts; attempt++)
+        {
+            try
+            {
+                using var response = await SendAuthorizedAsync(
+                    () => CreateAuthorizedRequestAsync(
+                        HttpMethod.Post,
+                        endpoint,
+                        () =>
+                        {
+                            var content = new ByteArrayContent(encryptedEnvelope);
+                            content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+                            return content;
+                        }),
+                    cancellationToken).ConfigureAwait(false)
+                    ?? throw new InvalidOperationException("MissingAccessToken");
+                if (attempt < maximumAttempts - 1 && response.StatusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.Conflict or
+                    HttpStatusCode.BadGateway or HttpStatusCode.ServiceUnavailable or HttpStatusCode.GatewayTimeout)
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(250 * Math.Pow(2, attempt)), cancellationToken).ConfigureAwait(false);
+                    continue;
+                }
+
+                await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+                var responseEnvelope = await JsonSerializer.DeserializeAsync(
+                    stream,
+                    responseType,
+                    cancellationToken).ConfigureAwait(false);
+                return RequireResult(
+                    responseEnvelope ?? ApiEnvelope<T>.Failure($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim()),
+                    failureMessage);
+            }
+            catch (HttpRequestException) when (attempt < maximumAttempts - 1)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(250 * Math.Pow(2, attempt)), cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        throw new InvalidOperationException($"{failureMessage} Retry limit reached.");
+    }
+
+    public Task<IntelligenceSemanticSearchResultDto> SearchIntelligenceAsync(byte[] encryptedEnvelope, CancellationToken cancellationToken = default)
+        => SendEncryptedIntelligenceAsync(
+            "api/v1/ai/intelligence/search",
+            encryptedEnvelope,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceSemanticSearchResultDto,
+            "Semantic intelligence search failed.",
+            cancellationToken);
+
+    public async Task<IntelligenceSemanticSearchResultDto> SearchIntelligenceAsync(
+        IntelligenceSemanticSearchRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var account = await _databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false)
+            ?? throw new InvalidOperationException("A Wino account is required for semantic search.");
+        var plaintext = JsonSerializer.SerializeToUtf8Bytes(
+            request,
+            WinoAccountApiJsonContext.Default.IntelligenceSemanticSearchRequest);
+        const string route = "/api/v1/ai/intelligence/search";
+        byte[]? encodedEnvelope = null;
+        EncryptedContentEnvelope? encryptedEnvelope = null;
+        try
+        {
+            encryptedEnvelope = _contentEnvelopeEncryptor.Encrypt(
+                plaintext,
+                new ContentEnvelopeContext(account.Id, Guid.Empty, route),
+                Guid.NewGuid(),
+                DateTimeOffset.UtcNow);
+            encodedEnvelope = ContentEnvelopeBinaryCodec.Encode(encryptedEnvelope);
+            return await SearchIntelligenceAsync(encodedEnvelope, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(plaintext);
+            if (encodedEnvelope is not null) CryptographicOperations.ZeroMemory(encodedEnvelope);
+            if (encryptedEnvelope is not null)
+            {
+                CryptographicOperations.ZeroMemory(encryptedEnvelope.WrappedKey);
+                CryptographicOperations.ZeroMemory(encryptedEnvelope.Nonce);
+                CryptographicOperations.ZeroMemory(encryptedEnvelope.Tag);
+                CryptographicOperations.ZeroMemory(encryptedEnvelope.Ciphertext);
+            }
+        }
+    }
+
+    public async Task<WinoDailyBriefing> GetDailyBriefingAsync(
+        Guid mailboxId,
+        DateOnly localDate,
+        string timeZoneId,
+        bool forceRegenerate = false,
+        CancellationToken cancellationToken = default)
+        => RequireResult(await SendAuthorizedRequestAsync(
+            HttpMethod.Post,
+            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/daily-briefing",
+            new LocalizedDailyBriefingRequest(localDate, timeZoneId, GetApplicationLanguage(), forceRegenerate),
+            WinoAccountApiJsonContext.Default.LocalizedDailyBriefingRequest,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeWinoDailyBriefing,
+            cancellationToken).ConfigureAwait(false), "Daily intelligence briefing failed.");
+
+    public async Task<IReadOnlyList<WinoDeadlineMetadata>> GetDeadlinesAsync(
+        Guid mailboxId,
+        DateTimeOffset? dueAfterUtc = null,
+        DateTimeOffset? dueBeforeUtc = null,
+        CancellationToken cancellationToken = default)
+    {
+        var parameters = new List<string>(2);
+        if (dueAfterUtc.HasValue)
+            parameters.Add($"dueAfterUtc={Uri.EscapeDataString(dueAfterUtc.Value.ToString("O", CultureInfo.InvariantCulture))}");
+        if (dueBeforeUtc.HasValue)
+            parameters.Add($"dueBeforeUtc={Uri.EscapeDataString(dueBeforeUtc.Value.ToString("O", CultureInfo.InvariantCulture))}");
+        var endpoint = $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/deadlines" +
+                       (parameters.Count == 0 ? string.Empty : $"?{string.Join("&", parameters)}");
+        return RequireResult(await SendAuthorizedRequestAsync(
+            endpoint,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeIReadOnlyListWinoDeadlineMetadata,
+            cancellationToken).ConfigureAwait(false), "Intelligence deadlines request failed.");
+    }
+
+    public async Task<WinoSuggestedRepliesResult> GetSuggestedRepliesAsync(
+        Guid mailboxId,
+        WinoSuggestedRepliesRequest request,
+        Guid requestId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var account = await _databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false)
+            ?? throw new InvalidOperationException("A Wino account is required for suggested replies.");
+        var wireRequest = new LocalizedSuggestedRepliesRequest(
+            request.Target,
+            request.Thread,
+            request.CandidateExamples,
+            GetApplicationLanguage(),
+            request.Tone,
+            request.Count);
+        var plaintext = JsonSerializer.SerializeToUtf8Bytes(
+            wireRequest,
+            WinoAccountApiJsonContext.Default.LocalizedSuggestedRepliesRequest);
+        var route = $"/api/v1/ai/intelligence/mailboxes/{mailboxId:D}/suggested-replies";
+        byte[]? encodedEnvelope = null;
+        EncryptedContentEnvelope? encryptedEnvelope = null;
+        try
+        {
+            encryptedEnvelope = _contentEnvelopeEncryptor.Encrypt(
+                plaintext,
+                new ContentEnvelopeContext(account.Id, mailboxId, route),
+                requestId,
+                DateTimeOffset.UtcNow);
+            encodedEnvelope = ContentEnvelopeBinaryCodec.Encode(encryptedEnvelope);
+            using var response = await SendAuthorizedAsync(
+                () => CreateAuthorizedRequestAsync(
+                    HttpMethod.Post,
+                    route.TrimStart('/'),
+                    () =>
+                    {
+                        var content = new ByteArrayContent(encodedEnvelope);
+                        content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+                        return content;
+                    }),
+                cancellationToken).ConfigureAwait(false)
+                ?? throw new InvalidOperationException("MissingAccessToken");
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            var envelope = await JsonSerializer.DeserializeAsync(
+                stream,
+                WinoAccountApiJsonContext.Default.ApiEnvelopeWinoSuggestedRepliesResult,
+                cancellationToken).ConfigureAwait(false);
+            return RequireResult(
+                envelope ?? ApiEnvelope<WinoSuggestedRepliesResult>.Failure($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim()),
+                "Suggested replies request failed.");
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(plaintext);
+            if (encodedEnvelope is not null) CryptographicOperations.ZeroMemory(encodedEnvelope);
+            if (encryptedEnvelope is not null)
+            {
+                CryptographicOperations.ZeroMemory(encryptedEnvelope.WrappedKey);
+                CryptographicOperations.ZeroMemory(encryptedEnvelope.Nonce);
+                CryptographicOperations.ZeroMemory(encryptedEnvelope.Tag);
+                CryptographicOperations.ZeroMemory(encryptedEnvelope.Ciphertext);
+            }
+        }
+    }
+
+    public async Task DeleteIntelligenceAsync(Guid mailboxId, CancellationToken cancellationToken = default)
+    {
+        using var response = await SendAuthorizedAsync(
+            () => CreateAuthorizedRequestAsync(HttpMethod.Delete, $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}"),
+            cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("MissingAccessToken");
+        await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static T RequireResult<T>(ApiEnvelope<T> envelope, string fallback) where T : class
+        => envelope.IsSuccess && envelope.Result is not null
+            ? envelope.Result
+            : throw IntelligenceApiFailure(envelope.ErrorCode, fallback);
+
     private async Task<WinoAccountApiResult<AuthResultDto>> SendAuthRequestAsync<TRequest>(string endpoint, TRequest request, JsonTypeInfo<TRequest> typeInfo, CancellationToken cancellationToken)
     {
         try
@@ -273,6 +694,21 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         }
     }
 
+    private static InvalidOperationException SemanticApiFailure(string? errorCode, string fallbackMessage)
+        => new(errorCode switch
+        {
+            ApiErrorCodes.SemanticMailboxLimitExceeded => Translator.SemanticIndex_MailboxLimitExceeded,
+            ApiErrorCodes.SemanticIndexStorageLimitExceeded => Translator.SemanticIndex_StorageLimitExceeded,
+            _ => errorCode ?? fallbackMessage,
+        });
+
+    private static InvalidOperationException IntelligenceApiFailure(string? errorCode, string fallbackMessage)
+        => new(errorCode switch
+        {
+            ApiErrorCodes.AiQuotaExceeded => Translator.Intelligence_QuotaExceeded,
+            _ => errorCode ?? fallbackMessage,
+        });
+
     private static string? ExtractErrorMessage(string? payload)
     {
         if (string.IsNullOrWhiteSpace(payload))
@@ -284,6 +720,26 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         {
             using var document = JsonDocument.Parse(payload);
             return TryGetErrorMessage(document.RootElement);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static string? ExtractErrorCode(string? payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(payload);
+            return TryGetStringProperty(document.RootElement, "errorCode", out var errorCode)
+                ? errorCode
+                : null;
         }
         catch (JsonException)
         {
@@ -366,7 +822,8 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 
         var payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         throw new InvalidOperationException(
-            ExtractErrorMessage(payload)
+            ExtractErrorCode(payload)
+            ?? ExtractErrorMessage(payload)
             ?? $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim());
     }
 
@@ -417,7 +874,6 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             var envelope = string.IsNullOrWhiteSpace(payload)
                 ? null
                 : JsonSerializer.Deserialize(payload, typeInfo);
-
             return envelope ?? ApiEnvelope<TResponse>.Failure($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim());
         }
         catch (Exception ex)
@@ -508,6 +964,17 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         return string.IsNullOrWhiteSpace(account?.AccessToken) ? null : account.AccessToken;
     }
 
+    private string GetApplicationLanguage()
+    {
+        var language = _translationService?.CurrentLanguageModel?.Code;
+        if (!string.IsNullOrWhiteSpace(language))
+            return language;
+
+        return string.IsNullOrWhiteSpace(CultureInfo.CurrentUICulture.Name)
+            ? "en-US"
+            : CultureInfo.CurrentUICulture.Name;
+    }
+
     private async Task<bool> TryRefreshAccessTokenAsync(CancellationToken cancellationToken)
     {
         await _tokenRefreshLock.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -553,6 +1020,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             HasPassword = result.User.HasPassword,
             HasGoogleLogin = result.User.HasGoogleLogin,
             HasFacebookLogin = result.User.HasFacebookLogin,
+            IsUnlimitedAccountsEnabled = result.User.IsUnlimitedAccountsEnabled,
             AccessToken = result.AccessToken,
             AccessTokenExpiresAtUtc = result.AccessTokenExpiresAtUtc.UtcDateTime,
             RefreshToken = result.RefreshToken,
@@ -568,6 +1036,29 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         }
 
         return sslPolicyErrors == System.Net.Security.SslPolicyErrors.None;
+    }
+
+    private sealed class DeltaFrameContent : HttpContent
+    {
+        private readonly Func<Stream, CancellationToken, Task> _writeAsync;
+
+        public DeltaFrameContent(Func<Stream, CancellationToken, Task> writeAsync)
+        {
+            _writeAsync = writeAsync;
+            Headers.ContentType = new MediaTypeHeaderValue("application/x-wino-encrypted-frames");
+        }
+
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context)
+            => _writeAsync(stream, CancellationToken.None);
+
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context, CancellationToken cancellationToken)
+            => _writeAsync(stream, cancellationToken);
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = 0;
+            return false;
+        }
     }
 
     public void Dispose()
@@ -591,17 +1082,71 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(SummarizeRequest))]
 [JsonSerializable(typeof(TranslateRequest))]
 [JsonSerializable(typeof(RewriteRequest))]
-[JsonSerializable(typeof(SyncStoreEntitlementsRequest))]
+[JsonSerializable(typeof(LocalizedRewriteRequest))]
+[JsonSerializable(typeof(CreateCheckoutSessionRequest))]
 [JsonSerializable(typeof(ApiEnvelope<AuthResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<EmailConfirmationResendResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<AuthUserDto>))]
-[JsonSerializable(typeof(ApiEnvelope<AiStatusResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<AiTextResultDto>))]
-[JsonSerializable(typeof(ApiEnvelope<WinoStoreCollectionsIdTicketInfo>))]
+[JsonSerializable(typeof(ApiEnvelope<AiSummaryResultDto>))]
+[JsonSerializable(typeof(ApiEnvelope<AiTranslationResultDto>))]
+[JsonSerializable(typeof(MailTranslationResult))]
+[JsonSerializable(typeof(ApiEnvelope<CheckoutSessionResultDto>))]
+[JsonSerializable(typeof(ApiEnvelope<BillingStatusResultDto>))]
+[JsonSerializable(typeof(ApiEnvelope<AiUsageStatusDto>))]
 [JsonSerializable(typeof(ApiEnvelope<UserMailboxSyncListDto>))]
 [JsonSerializable(typeof(ApiEnvelope<JsonElement>))]
 [JsonSerializable(typeof(ReplaceUserMailboxesRequestDto))]
 [JsonSerializable(typeof(List<UserMailboxSyncItemDto>))]
+[JsonSerializable(typeof(ApiEnvelope<List<SemanticMailboxDto>>))]
+[JsonSerializable(typeof(ApiEnvelope<SemanticMailboxDto>))]
+[JsonSerializable(typeof(EnsureSemanticMailboxRequest))]
+[JsonSerializable(typeof(LocalizedDailyBriefingRequest))]
+[JsonSerializable(typeof(LocalizedSuggestedRepliesRequest))]
+[JsonSerializable(typeof(IndexIntelligenceRequest))]
+[JsonSerializable(typeof(GenerateInsightsRequest))]
+[JsonSerializable(typeof(IntelligenceDeltaFrameRequest))]
+[JsonSerializable(typeof(IntelligenceDeltaFrameResult))]
+[JsonSerializable(typeof(IngestIntelligenceRequest))]
+[JsonSerializable(typeof(IntelligenceIngestDocumentRequest))]
+[JsonSerializable(typeof(IntelligenceCoverageRequest))]
+[JsonSerializable(typeof(IntelligenceMetadataUpdateRequest))]
+[JsonSerializable(typeof(IntelligenceDeleteMessagesRequest))]
+[JsonSerializable(typeof(IntelligenceUpgradeRequest))]
+[JsonSerializable(typeof(IntelligenceSemanticSearchRequest))]
+[JsonSerializable(typeof(List<IntelligenceIndexDocumentRequest>))]
+[JsonSerializable(typeof(IntelligenceIndexDocumentRequest))]
+[JsonSerializable(typeof(ApiEnvelope<IntelligenceManifestDto>))]
+[JsonSerializable(typeof(ApiEnvelope<IntelligenceMailboxStatusDto>))]
+[JsonSerializable(typeof(ApiEnvelope<IntelligenceIngestResultDto>))]
+[JsonSerializable(typeof(ApiEnvelope<IntelligenceArtifactCursorPageDto>))]
+[JsonSerializable(typeof(ApiEnvelope<IntelligenceMailboxStateDto>))]
+[JsonSerializable(typeof(ApiEnvelope<IntelligenceStageResultDto>))]
+[JsonSerializable(typeof(ApiEnvelope<IntelligenceCoverageResultDto>))]
+[JsonSerializable(typeof(ApiEnvelope<IntelligenceArtifactPageDto>))]
+[JsonSerializable(typeof(IntelligenceArtifactDto))]
+[JsonSerializable(typeof(SmartLabelsCapabilityPayload))]
+[JsonSerializable(typeof(PriorityCapabilityPayload))]
+[JsonSerializable(typeof(NeedsReplyCapabilityPayload))]
+[JsonSerializable(typeof(SimilarMessagesCapabilityPayload))]
+[JsonSerializable(typeof(DeadlineCapabilityPayload))]
+[JsonSerializable(typeof(BriefingFactCapabilityPayload))]
+[JsonSerializable(typeof(SuggestedRepliesCapabilityPayload))]
+[JsonSerializable(typeof(ApiEnvelope<IntelligenceSemanticSearchResultDto>))]
+[JsonSerializable(typeof(ApiEnvelope<WinoSuggestedRepliesResult>))]
+[JsonSerializable(typeof(ApiEnvelope<WinoDailyBriefing>))]
+[JsonSerializable(typeof(ApiEnvelope<IReadOnlyList<WinoDeadlineMetadata>>))]
+[JsonSerializable(typeof(TransportConsentDto))]
+[JsonSerializable(typeof(UpdateTransportConsentRequest))]
+[JsonSerializable(typeof(MailboxProcessConsentDto))]
+[JsonSerializable(typeof(ProcessConsentListDto))]
+[JsonSerializable(typeof(UpdateProcessConsentRequest))]
+[JsonSerializable(typeof(RevokeProcessConsentRequest))]
+[JsonSerializable(typeof(BatchProcessConsentRequest))]
+[JsonSerializable(typeof(BatchProcessConsentResult))]
+[JsonSerializable(typeof(List<MailboxProcessConsentDto>))]
+[JsonSerializable(typeof(ApiEnvelope<TransportConsentDto>))]
+[JsonSerializable(typeof(ApiEnvelope<MailboxProcessConsentDto>))]
+[JsonSerializable(typeof(ApiEnvelope<ProcessConsentListDto>))]
+[JsonSerializable(typeof(ApiEnvelope<BatchProcessConsentResult>))]
 internal sealed partial class WinoAccountApiJsonContext : JsonSerializerContext;
-
-internal sealed record SyncStoreEntitlementsRequest(string? StoreIdKey, string? PurchaseIdKey);

@@ -11,6 +11,7 @@
     xmlns:editor="using:Wino.Editor"
     xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
     xmlns:helpers="using:Wino.Helpers"
+    xmlns:intelligenceControls="using:Wino.Mail.Controls.IntelligenceHeader"
     xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
@@ -165,6 +166,7 @@
         RowSpacing="7">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
         <Grid.ChildrenTransitions>
@@ -280,9 +282,9 @@
                     Grid.Row="1"
                     HorizontalContentAlignment="Stretch"
                     DefaultLabelPosition="Right"
-                    IsAIActionsPaneToggleVisible="{x:Bind GetAiActionsToggleVisible(ViewModel.PreferencesService.IsAiActionsPanelHidden), Mode=OneWay}"
                     IsEditorThemeDark="{x:Bind ViewModel.IsDarkWebviewRenderer, Mode=TwoWay}"
                     IsEditorThemeToggleVisible="True"
+                    IsReaderViewToggleVisible="True"
                     IsPopOutButtonVisible="{x:Bind SupportsPopOut, Mode=OneTime}"
                     ItemInvokedCommand="{x:Bind ViewModel.OperationClickedCommand}"
                     MenuItems="{x:Bind ViewModel.MenuItems, Mode=OneWay}"
@@ -292,7 +294,6 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -428,13 +429,6 @@
                     </Grid>
                 </ScrollViewer>
 
-                <coreControls:AiActionsPanel
-                    x:Name="ReaderAiActionsPanel"
-                    Grid.Row="3"
-                    Margin="0,8,0,0"
-                    AvailableActions="Translate, Summarize"
-                    HtmlHost="{x:Bind}"
-                    Visibility="{x:Bind GetAiActionsPanelVisibility(RendererCommandBar.IsAIActionsEnabled, ViewModel.PreferencesService.IsAiActionsPanelHidden), Mode=OneWay}" />
 
                 <!--  Attachments  -->
                 <Grid Grid.Row="4" ColumnSpacing="8">
@@ -508,8 +502,56 @@
             </Grid>
         </Border>
 
-        <Border
+        <intelligenceControls:WinoIntelligenceHeader
+            x:Name="IntelligenceHeader"
             Grid.Row="1"
+            AutomationProperties.AutomationId="MailRenderingIntelligenceHeader"
+            AddToCalendarButtonText="{x:Bind domain:Translator.WinoIntelligence_AddToCalendar, Mode=OneTime}"
+            CancelButtonText="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}"
+            ClosePanelText="{x:Bind domain:Translator.WinoIntelligence_ClosePanel, Mode=OneTime}"
+            CollapsedText="{x:Bind domain:Translator.WinoIntelligence_Collapsed, Mode=OneTime}"
+            CopyText="{x:Bind domain:Translator.WinoIntelligence_Copy, Mode=OneTime}"
+            DraftingRepliesText="{x:Bind domain:Translator.WinoIntelligence_DraftingReplies, Mode=OneTime}"
+            ExpandedText="{x:Bind domain:Translator.WinoIntelligence_Expanded, Mode=OneTime}"
+            FindSimilarButtonText="{x:Bind domain:Translator.WinoIntelligence_FindSimilar, Mode=OneTime}"
+            HeaderTitle="{x:Bind domain:Translator.WinoIntelligence_HeaderTitle, Mode=OneTime}"
+            ActionHeadingText="{x:Bind domain:Translator.WinoIntelligence_AskWino, Mode=OneTime}"
+            InsightsLockedText="{x:Bind domain:Translator.WinoIntelligence_InsightsLocked, Mode=OneTime}"
+            NeedsReplyText="{x:Bind domain:Translator.WinoIntelligence_NeedsReply, Mode=OneTime}"
+            NoSignalSubtitleText="{x:Bind domain:Translator.WinoIntelligence_ActionsAvailable, Mode=OneTime}"
+            ProcessAutomationText="{x:Bind domain:Translator.WinoIntelligence_ProcessAutomation, Mode=OneTime}"
+            ProcessButtonText="{x:Bind domain:Translator.WinoIntelligence_Process, Mode=OneTime}"
+            ProcessingFailedSubtitleText="{x:Bind domain:Translator.WinoIntelligence_ProcessingFailed, Mode=OneTime}"
+            ProcessingSubtitleText="{x:Bind domain:Translator.WinoIntelligence_Processing, Mode=OneTime}"
+            QueuedSubtitleText="{x:Bind domain:Translator.WinoIntelligence_Queued, Mode=OneTime}"
+            RetryProcessButtonText="{x:Bind domain:Translator.WinoIntelligence_RetryProcess, Mode=OneTime}"
+            RegenerateText="{x:Bind domain:Translator.WinoIntelligence_Regenerate, Mode=OneTime}"
+            SimilarMailHeadingText="{x:Bind domain:Translator.WinoIntelligence_SimilarMessages, Mode=OneTime}"
+            SuggestedRepliesHeadingText="{x:Bind domain:Translator.WinoIntelligence_SuggestedReplies, Mode=OneTime}"
+            SuggestRepliesButtonText="{x:Bind domain:Translator.WinoIntelligence_SuggestReplies, Mode=OneTime}"
+            SummarizeButtonText="{x:Bind domain:Translator.WinoIntelligence_Summarize, Mode=OneTime}"
+            SummarizingText="{x:Bind domain:Translator.WinoIntelligence_Summarizing, Mode=OneTime}"
+            SummaryHeadingText="{x:Bind domain:Translator.WinoIntelligence_Summary, Mode=OneTime}"
+            ShowOriginalButtonText="{x:Bind domain:Translator.WinoIntelligence_ShowOriginal, Mode=OneTime}"
+            SourceLanguageLabel="{x:Bind domain:Translator.WinoIntelligence_SourceLanguage, Mode=OneTime}"
+            TargetLanguageLabel="{x:Bind domain:Translator.WinoIntelligence_TargetLanguage, Mode=OneTime}"
+            TranslateButtonText="{x:Bind domain:Translator.WinoIntelligence_Translate, Mode=OneTime}"
+            TranslatePanelHeadingText="{x:Bind domain:Translator.WinoIntelligence_TranslateMessage, Mode=OneTime}"
+            TranslateTargetHintFormat="{x:Bind domain:Translator.WinoIntelligence_TranslateTargetHintFormat, Mode=OneTime}"
+            TranslateAgainButtonText="{x:Bind domain:Translator.WinoIntelligence_TranslateAgain, Mode=OneTime}"
+            TranslationCancelButtonText="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}"
+            UnavailableSubtitleText="{x:Bind domain:Translator.WinoIntelligence_Unavailable, Mode=OneTime}"
+            UnprocessedSubtitleText="{x:Bind domain:Translator.WinoIntelligence_NotProcessed, Mode=OneTime}"
+            Visibility="Collapsed"
+            ActionInvoked="IntelligenceHeader_ActionInvoked"
+            FeatureCancelRequested="IntelligenceHeader_FeatureCancelRequested"
+            FeatureRequested="IntelligenceHeader_FeatureRequested"
+            ProcessRequested="IntelligenceHeader_ProcessRequested"
+            SimilarMailChosen="IntelligenceHeader_SimilarMailChosen"
+            SuggestedReplyChosen="IntelligenceHeader_SuggestedReplyChosen" />
+
+        <Border
+            Grid.Row="2"
             Background="{ThemeResource ReadingPaneBackgroundColorBrush}"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"

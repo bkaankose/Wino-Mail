@@ -44,10 +44,12 @@ public enum WinoPage
     CreateEmailTemplatePage,
     StoragePage,
     WinoAccountManagementPage,
+    WinoAccountConsentPage,
     WelcomePageV2,
     WelcomeHostPage,
     ProviderSelectionPage,
     AccountSetupProgressPage,
     SpecialImapCredentialsPage,
-    TestPage
+    TestPage,
+    WinoIntelligenceManagementPage
 }

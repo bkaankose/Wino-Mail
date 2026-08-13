@@ -38,5 +38,10 @@ public static class Constants
 
     public const string WinoMailIdentiifer = nameof(WinoMailIdentiifer);
     public const string WinoCalendarIdentifier = nameof(WinoCalendarIdentifier);
+
+    /// <summary>
+    /// How many mail accounts can be added without the Unlimited Accounts add-on.
+    /// </summary>
+    public const int FreeAccountLimit = 3;
 }
 
