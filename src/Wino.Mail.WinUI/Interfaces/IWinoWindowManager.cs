@@ -1,0 +1,23 @@
+using System;
+using System.Collections.Generic;
+using WinUIEx;
+using Wino.Mail.WinUI.Models;
+
+namespace Wino.Mail.WinUI.Interfaces;
+
+public interface IWinoWindowManager
+{
+    event EventHandler<WindowEx?> ActiveWindowChanged;
+    event EventHandler<WindowEx> WindowRemoved;
+
+    WindowEx? ActiveWindow { get; }
+    WindowEx CreateWindow(WinoWindowKind kind, Func<WindowEx> factory, string? name = null);
+    WindowEx? GetWindow(WinoWindowKind kind, string? name = null);
+    WindowEx? GetWindow(string name);
+    IReadOnlyList<WindowEx> GetWindows();
+    void ActivateWindow(WindowEx window);
+    bool ActivateWindow(WinoWindowKind kind, string? name = null);
+    void HideWindow(WindowEx window);
+    bool HideWindow(WinoWindowKind kind, string? name = null);
+    void CloseAllWindows();
+}

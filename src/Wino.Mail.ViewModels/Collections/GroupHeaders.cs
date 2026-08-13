@@ -1,0 +1,83 @@
+using System;
+using System.Globalization;
+using CommunityToolkit.Mvvm.ComponentModel;
+using Wino.Core.Domain;
+
+namespace Wino.Mail.ViewModels.Collections;
+
+/// <summary>
+/// Base class for group headers in the flat collection
+/// </summary>
+public abstract partial class GroupHeaderBase : ObservableObject
+{
+    [ObservableProperty]
+    public partial int ItemCount { get; set; }
+
+    [ObservableProperty]
+    public partial int UnreadCount { get; set; }
+
+    protected GroupHeaderBase(string key, string displayName)
+    {
+        Key = key;
+        DisplayName = displayName;
+    }
+
+    /// <summary>
+    /// The unique key for this group (used for sorting and identification)
+    /// </summary>
+    public string Key { get; }
+
+    /// <summary>
+    /// The display name shown in the UI
+    /// </summary>
+    public string DisplayName { get; }
+}
+
+/// <summary>
+/// Group header for date-based grouping
+/// </summary>
+public partial class DateGroupHeader : GroupHeaderBase
+{
+    public DateGroupHeader(DateTime date) : base(date.ToString("yyyy-MM-dd"), FormatDisplayName(date))
+    {
+        Date = date;
+    }
+
+    /// <summary>
+    /// The date this group represents
+    /// </summary>
+    public DateTime Date { get; }
+
+    private static string FormatDisplayName(DateTime date)
+    {
+        var today = DateTime.Today;
+        var yesterday = today.AddDays(-1);
+
+        return date.Date switch
+        {
+            var d when d == today => Translator.Today,
+            var d when d == yesterday => Translator.Yesterday,
+            var d when d >= today.AddDays(-7) => date.ToString("dddd", AppDisplayCulture), // This week
+            var d when d.Year == today.Year => date.ToString("MMMM dd", AppDisplayCulture), // This year
+            _ => date.ToString("MMMM dd, yyyy", AppDisplayCulture) // Other years
+        };
+    }
+
+    private static CultureInfo AppDisplayCulture => CultureInfo.DefaultThreadCurrentUICulture ?? CultureInfo.CurrentUICulture;
+}
+
+/// <summary>
+/// Group header for sender name-based grouping
+/// </summary>
+public partial class SenderGroupHeader : GroupHeaderBase
+{
+    public SenderGroupHeader(string senderName) : base(senderName, senderName)
+    {
+        SenderName = senderName;
+    }
+
+    /// <summary>
+    /// The sender name this group represents
+    /// </summary>
+    public string SenderName { get; }
+}

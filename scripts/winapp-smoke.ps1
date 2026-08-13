@@ -6,13 +6,14 @@ param(
     [string]$Platform = "x64",
 
     [string]$Configuration = "Debug",
-    [string]$ProjectPath = "Wino.Mail.WinUI\Wino.Mail.WinUI.csproj",
+    [string]$ProjectPath = "src\Wino.Mail.WinUI\Wino.Mail.WinUI.csproj",
     [string]$OutputRoot = "artifacts\winapp-smoke",
     [int]$TimeoutSeconds = 25,
     [switch]$Restore,
     [switch]$Build,
     [switch]$Clean,
-    [switch]$KeepRunning
+    [switch]$KeepRunning,
+    [switch]$UseInstalledPackageIdentity
 )
 
 $ErrorActionPreference = "Stop"
@@ -154,11 +155,22 @@ if (-not (Test-Path $outputDirectory)) {
 }
 
 $appxManifest = Join-Path $outputDirectory "AppxManifest.xml"
+$exePath = Join-Path $outputDirectory "Wino.Mail.WinUI.exe"
+
+# NativeAOT Release builds place the runnable package layout under AppX while
+# framework-dependent builds keep it at the target-framework output root.
+if ((-not (Test-Path $appxManifest) -or -not (Test-Path $exePath)) -and
+    (Test-Path (Join-Path $outputDirectory "AppX\AppxManifest.xml")) -and
+    (Test-Path (Join-Path $outputDirectory "AppX\Wino.Mail.WinUI.exe"))) {
+    $outputDirectory = Join-Path $outputDirectory "AppX"
+    $appxManifest = Join-Path $outputDirectory "AppxManifest.xml"
+    $exePath = Join-Path $outputDirectory "Wino.Mail.WinUI.exe"
+}
+
 if (-not (Test-Path $appxManifest)) {
     throw "AppxManifest.xml was not found at $appxManifest."
 }
 
-$exePath = Join-Path $outputDirectory "Wino.Mail.WinUI.exe"
 if (-not (Test-Path $exePath)) {
     throw "Wino.Mail.WinUI.exe was not found at $exePath."
 }
@@ -167,6 +179,47 @@ $runDirectory = Join-Path $repoRoot $OutputRoot
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $artifactDirectory = Join-Path $runDirectory $timestamp
 New-Item -ItemType Directory -Force -Path $artifactDirectory | Out-Null
+
+# A development registration with the Store identity can replace the installed
+# Release package registration. Keep Debug smoke runs side-by-side by default.
+$originalAppxManifestContent = $null
+if ($Configuration -eq "Debug" -and -not $UseInstalledPackageIdentity) {
+    $originalAppxManifestContent = Get-Content -LiteralPath $appxManifest -Raw
+    $isolatedManifest = [xml]$originalAppxManifestContent
+    $namespaceManager = [System.Xml.XmlNamespaceManager]::new($isolatedManifest.NameTable)
+    $namespaceManager.AddNamespace("f", "http://schemas.microsoft.com/appx/manifest/foundation/windows10")
+    $namespaceManager.AddNamespace("mp", "http://schemas.microsoft.com/appx/2014/phone/manifest")
+    $namespaceManager.AddNamespace("uap", "http://schemas.microsoft.com/appx/manifest/uap/windows10")
+
+    $identity = $isolatedManifest.SelectSingleNode("/f:Package/f:Identity", $namespaceManager)
+    $identity.SetAttribute("Name", "58272BurakKSE.WinoMailPreview.Debug")
+
+    $phoneIdentity = $isolatedManifest.SelectSingleNode("/f:Package/mp:PhoneIdentity", $namespaceManager)
+    if ($phoneIdentity) {
+        $phoneIdentity.SetAttribute("PhoneProductId", "e4d0792b-5187-4ef4-b552-b4b873908e78")
+    }
+
+    $displayName = $isolatedManifest.SelectSingleNode("/f:Package/f:Properties/f:DisplayName", $namespaceManager)
+    if ($displayName) {
+        $displayName.InnerText = "Wino Mail (Debug)"
+    }
+
+    foreach ($visualElements in $isolatedManifest.SelectNodes("/f:Package/f:Applications/f:Application/uap:VisualElements", $namespaceManager)) {
+        $visualElements.SetAttribute("DisplayName", "$($visualElements.GetAttribute('DisplayName')) (Debug)")
+    }
+
+    # COM class IDs are machine-wide registrations and must not overlap Release.
+    foreach ($attribute in $isolatedManifest.SelectNodes("//@ToastActivatorCLSID | //@Id", $namespaceManager)) {
+        if ($attribute.Value -eq "72c6d2d0-2538-44fe-a1b1-499f47bb1181") {
+            $attribute.Value = "64cc773f-6f99-4d74-bb16-7d1f7b0366a1"
+        }
+    }
+
+    # Development-mode registration requires the manifest to be named
+    # AppxManifest.xml at the package root. Restore the generated Release
+    # manifest immediately after WinApp CLI finishes registering the package.
+    $isolatedManifest.Save($appxManifest)
+}
 
 $launchArgument = switch ($Mode) {
     "Calendar" { "--wino-calendar" }
@@ -180,6 +233,8 @@ $runArguments = @(
     $outputDirectory,
     "--manifest",
     $appxManifest,
+    "--output-appx-directory",
+    (Join-Path $artifactDirectory "AppX"),
     "--exe",
     "Wino.Mail.WinUI.exe",
     "--detach",
@@ -193,7 +248,15 @@ if ($Clean) {
 }
 
 Write-Host "> winapp $($runArguments -join ' ')"
-$runOutput = & winapp @runArguments 2>&1
+$runOutput = $null
+try {
+    $runOutput = & winapp @runArguments 2>&1
+}
+finally {
+    if ($null -ne $originalAppxManifestContent) {
+        Set-Content -LiteralPath $appxManifest -Value $originalAppxManifestContent -NoNewline
+    }
+}
 $runOutput | Set-Content -Path (Join-Path $artifactDirectory "winapp-run.log")
 
 if ($LASTEXITCODE -ne 0) {

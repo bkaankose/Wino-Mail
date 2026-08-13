@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Wino.Mail.Controls.Playground (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "Wino.Mail.Controls.Playground (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

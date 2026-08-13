@@ -1,0 +1,135 @@
+#wino-document,
+#wino-body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: transparent !important;
+}
+
+#wino-body {
+    color: CanvasText;
+}
+
+:root { color-scheme: light dark; }
+
+:root[data-theme="light"] {
+    color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+}
+
+:root[data-theme="light"] #wino-body {
+    color: #1b1b1b;
+}
+
+:root[data-theme="dark"] #wino-body {
+    color: #f3f3f3;
+}
+
+#wino-editor {
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    padding: 16px;
+    border-radius: 7px;
+    background: Canvas !important;
+    overflow: auto;
+    outline: none;
+    overflow-wrap: anywhere;
+    caret-color: auto;
+}
+
+#wino-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483647;
+    pointer-events: none;
+}
+
+.wino-link-bubble {
+    position: fixed;
+    display: none;
+    min-height: 30px;
+    padding: 4px 10px;
+    border: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
+    border-radius: 6px;
+    color: CanvasText;
+    background: Canvas;
+    box-shadow: 0 4px 14px rgb(0 0 0 / 18%);
+    font: 12px/20px "Segoe UI", sans-serif;
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+.wino-link-bubble.is-visible {
+    display: block;
+}
+
+#wino-editor a {
+    color: LinkText;
+    text-decoration: underline;
+    cursor: text;
+}
+
+#wino-editor a:hover {
+    text-decoration-thickness: 2px;
+}
+
+#wino-editor .wino-code-block {
+    box-sizing: border-box;
+    margin: 0.5em 0;
+    padding: 10px 12px;
+    border: 1px solid #d6d6d6;
+    border-radius: 4px;
+    color: #1f1f1f;
+    background-color: #f5f5f5;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 0.95em;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.wino-image-frame {
+    position: fixed;
+    box-sizing: border-box;
+    border: 2px solid #0067c0;
+    pointer-events: none;
+}
+
+.wino-resize-handle {
+    position: fixed;
+    box-sizing: border-box;
+    width: 10px;
+    height: 10px;
+    border: 1px solid #ffffff;
+    border-radius: 2px;
+    background: #0067c0;
+    pointer-events: auto;
+    touch-action: none;
+}
+
+.wino-n,
+.wino-s {
+    cursor: ns-resize;
+}
+
+.wino-e,
+.wino-w {
+    cursor: ew-resize;
+}
+
+.wino-ne,
+.wino-sw {
+    cursor: nesw-resize;
+}
+
+.wino-nw,
+.wino-se {
+    cursor: nwse-resize;
+}

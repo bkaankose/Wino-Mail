@@ -60,12 +60,16 @@ LOCALE_LABELS = {
     "zh_CN": "Chinese, Simplified (China)",
 }
 
+DEFAULT_TRANSLATIONS_ROOT = (
+    Path(__file__).resolve().parents[1] / "src" / "Wino.Core.Domain" / "Translations"
+)
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Bulk-sync and translate Wino resources.json files.")
     parser.add_argument(
         "--translations-root",
-        default=str(Path("Wino.Core.Domain") / "Translations"),
+        default=str(DEFAULT_TRANSLATIONS_ROOT),
         help="Path to the translations root directory.",
     )
     parser.add_argument(
@@ -187,7 +191,7 @@ def call_openai_chat(
         "- {0}, {1}, {Name}, {{escaped braces}}",
         "- %s, %1$s and similar printf-style tokens",
         "- Ellipses, punctuation, capitalization, line breaks, tabs, HTML, Markdown, and URLs",
-        "- Product and protocol names such as Wino, Gmail, Outlook, IMAP, SMTP, OAuth, CalDav, Edge, Chrome, Firefox, Jodit, WebView2, SQLite",
+        "- Product and protocol names such as Wino, Gmail, Outlook, IMAP, SMTP, OAuth, CalDav, Edge, Chrome, Firefox, WebView2, SQLite",
         "Prefer natural UI phrasing for the target locale.",
         f"Locale code: {locale}",
         "",

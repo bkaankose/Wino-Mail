@@ -1,0 +1,29 @@
+<Page
+    x:Class="Wino.Mail.Controls.Playground.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:Wino.Mail.Controls.Playground"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+    <NavigationView x:Name="Navigation"
+                    Header="Wino Mail Controls Playground"
+                    IsBackButtonVisible="Collapsed"
+                    PaneDisplayMode="Left"
+                    SelectionChanged="NavigationSelectionChanged">
+        <NavigationView.MenuItems>
+            <NavigationViewItem Content="Contact picture" Icon="Contact" Tag="contact" />
+            <NavigationViewItem
+                AutomationProperties.AutomationId="MailListSelectionNavigationItem"
+                Content="Mail list selection"
+                Icon="Mail"
+                Tag="mailList" />
+            <NavigationViewItem
+                AutomationProperties.AutomationId="EditorNavigationItem"
+                Content="Compose editor"
+                Icon="Edit"
+                Tag="editor" />
+        </NavigationView.MenuItems>
+        <Frame x:Name="ContentFrame" />
+    </NavigationView>
+</Page>

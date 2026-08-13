@@ -1,0 +1,43 @@
+<!doctype html>
+<html id="wino-document" lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Wino editor</title>
+    <link rel="stylesheet" href="editor.css">
+    <script>
+        window.__winoBootstrapError = "";
+        window.onerror = function (message, source, line, column) {
+            window.__winoBootstrapError = String(message) + " (line " + line + ", column " + column + ")";
+            try {
+                if (window.external && typeof window.external.notify === "function") {
+                    window.external.notify(JSON.stringify({
+                        type: "bootstrapError",
+                        message: window.__winoBootstrapError
+                    }));
+                }
+            } catch (ignored) { }
+        };
+        function winoGetEditorStatus() {
+            if (window.__winoBootstrapError) {
+                return "JavaScript error: " + window.__winoBootstrapError;
+            }
+            return typeof window.WinoEditor === "object" ? "ready" : "window.WinoEditor is missing";
+        }
+        if (!("isConnected" in Node.prototype)) {
+            Object.defineProperty(Node.prototype, "isConnected", {
+                configurable: true,
+                get: function () { return document.documentElement.contains(this); }
+            });
+        }
+    </script>
+    <script defer src="darkreader.js"></script>
+    <script defer src="editor.js"></script>
+    <script defer src="editor-images.js"></script>
+    <script defer src="editor-tables.js"></script>
+</head>
+<body id="wino-body">
+    <div id="wino-editor" contenteditable="true" spellcheck="true" aria-label="Message body"><p><br></p></div>
+    <div id="wino-overlay" aria-hidden="true"></div>
+</body>
+</html>

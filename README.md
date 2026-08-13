@@ -61,6 +61,16 @@ These releases are distributed as side-loaded packages. To install them, downloa
 
 Check out the [contribution guidelines](/CONTRIBUTING.md) before diving into the source code or opening an issue. There are multiple ways to contribute and all of them are explained in detail there.
 
+## Repository Layout
+
+- `src/` contains the main application and shared libraries.
+- `tests/` contains automated tests and smoke-test projects.
+- `controls/` contains reusable editor and UI controls, plus the single control playground app.
+- `docs/` contains project documentation.
+- `scripts/` contains developer automation.
+
+Component development should start in `controls/` and use `Wino.Mail.Controls.Playground` for rapid iteration before integration into the full mail client.
+
 ## Donate
 
 Your donations will motivate me more to work on Wino in my spare time and cover the expenses to keep [project's website](https://www.winomail.app/) alive.

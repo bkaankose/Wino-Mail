@@ -1,0 +1,29 @@
+<linker>
+  <!-- sqlite-net builds mappings from entity metadata at runtime. -->
+  <assembly fullname="Wino.Core.Domain">
+    <type fullname="Wino.Core.Domain.Entities.Calendar.AccountCalendar" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Calendar.CalendarAttachment" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Calendar.CalendarEventAttendee" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Calendar.CalendarItem" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Calendar.Reminder" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Mail.AccountSignature" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Mail.EmailTemplate" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Mail.MailAccountAlias" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Mail.MailCategory" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Mail.MailCategoryAssignment" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Mail.MailCopy" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Mail.MailInvitationCalendarMapping" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Mail.MailItemFolder" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Mail.MergedInbox" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Mail.SentMailReceiptState" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Shared.AccountContact" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Shared.ContactGroup" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Shared.ContactGroupMember" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Shared.CustomServerInformation" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Shared.KeyboardShortcut" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Shared.MailAccount" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Shared.MailAccountPreferences" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Shared.Thumbnail" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Shared.WinoAccount" preserve="all" />
+  </assembly>
+</linker>

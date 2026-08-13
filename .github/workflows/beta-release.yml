@@ -17,8 +17,8 @@ jobs:
     name: Build and publish beta release
     runs-on: windows-latest
     env:
-      PROJECT_PATH: Wino.Mail.WinUI/Wino.Mail.WinUI.csproj
-      MANIFEST_PATH: Wino.Mail.WinUI/Package.appxmanifest
+      PROJECT_PATH: src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj
+      MANIFEST_PATH: src/Wino.Mail.WinUI/Package.appxmanifest
       CHANGELOG_PATH: CHANGELOG.md
       NUGET_CONFIG_PATH: ${{ github.workspace }}\nuget.config
       PACKAGE_OUTPUT_DIR: ${{ github.workspace }}\artifacts\package

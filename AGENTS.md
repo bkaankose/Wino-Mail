@@ -4,7 +4,7 @@ This file provides guidance to AI agent when working with code in this repositor
 
 ## Project Overview
 
-Wino Mail is a native Windows mail client (Windows 10 1809+ / Windows 11) replacing the deprecated Windows Mail & Calendar. It's **transitioning from UWP to WinUI 3** - always work with WinUI projects (Wino.Mail.WinUI), never edit the deprecated Wino.Mail UWP project.
+Wino Mail is a native Windows mail client (Windows 10 1809+ / Windows 11) replacing the deprecated Windows Mail & Calendar. The active desktop application is the WinUI 3 project at `src/Wino.Mail.WinUI`.
 
 ## Build and Development Commands
 
@@ -13,13 +13,13 @@ Wino Mail is a native Windows mail client (Windows 10 1809+ / Windows 11) replac
 # WinoMail.slnx is the main solution file (VS 2022+)
 
 # Build WinUI project (Debug x64)
-dotnet restore Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config -p:Platform=x64 -p:RuntimeIdentifier=win-x64 && dotnet build Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false
+dotnet restore src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config -p:Platform=x64 -p:RuntimeIdentifier=win-x64 && dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false
 
 # Build WinUI project with diagnostic XAML/compiler logging (use when plain build only shows "XamlCompiler.exe exited with code 1")
-dotnet build Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false "/flp:logfile=winui-build.log;verbosity=diagnostic" /bl:winui-build.binlog
+dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false "/flp:logfile=winui-build.log;verbosity=diagnostic" /bl:winui-build.binlog
 
 # Run tests (Debug x64)
-dotnet test Wino.Core.Tests/Wino.Core.Tests.csproj -c Debug /p:Platform=x64
+dotnet test tests/Wino.Core.Tests/Wino.Core.Tests.csproj -c Debug /p:Platform=x64
 
 # Keep the launched app open for follow-up UIA exploration with winapp ui commands
 .\scripts\winapp-smoke.ps1 -Mode Mail -KeepRunning
@@ -28,7 +28,7 @@ dotnet test Wino.Core.Tests/Wino.Core.Tests.csproj -c Debug /p:Platform=x64
 .\scripts\audit-xaml-automationids.ps1
 
 # Copilot CLI build command (Debug x64)
-dotnet restore Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config -p:Platform=x64 -p:RuntimeIdentifier=win-x64 && dotnet build Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false
+dotnet restore src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config -p:Platform=x64 -p:RuntimeIdentifier=win-x64 && dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false
 ```
 
 **Prerequisites:** Visual Studio 2022+ with ".NET desktop development" workload, .NET SDK 10+
@@ -47,19 +47,27 @@ dotnet restore Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config 
 - When the prompt already names likely files, types, or symbols, start there instead of re-mapping the repository
 - If a WinUI build only reports `XamlCompiler.exe exited with code 1`, rerun with the diagnostic logging command above and inspect the terminal output plus `winui-build.log` for real `WMC`/`WMC1121`/binding diagnostics before guessing
 
+## NuGet Dependency Policy
+
+- Published cross-repository dependencies must always use `PackageReference`; NuGet is the source of truth.
+- Never condition `PackageReference` or `ProjectReference` on whether a sibling repository or local project path exists.
+- Never let the presence of a local checkout change the dependency graph or build output.
+- To consume cross-repository changes, publish a new NuGet package version and update the centrally managed package version.
+
 ## Architecture
 
 ### Solution Structure
 ```
-Wino.Core.Domain       → Entities, interfaces, translations, enums (shared contracts)
-Wino.Core              → Synchronization engine, authenticators, request processing
-Wino.Services          → Database, mail, folder, account services
-Wino.Authentication    → OAuth2 authenticators (Outlook, Gmail)
-Wino.Mail.ViewModels   → Mail-specific ViewModels
-Wino.Core.ViewModels   → Shared ViewModels (settings, personalization)
-Wino.Messaging         → Pub-sub message definitions
-Wino.Mail.WinUI        → **Active WinUI 3 UI project** (use this)
-Wino.Mail              → **Deprecated UWP project** (DO NOT EDIT)
+src/Wino.Core.Domain       → Entities, interfaces, translations, enums (shared contracts)
+src/Wino.Core              → Synchronization engine, authenticators, request processing
+src/Wino.Services          → Database, mail, folder, account services
+src/Wino.Authentication    → OAuth2 authenticators (Outlook, Gmail)
+src/Wino.Mail.ViewModels   → Mail-specific ViewModels
+src/Wino.Core.ViewModels   → Shared ViewModels (settings, personalization)
+src/Wino.Messaging         → Pub-sub message definitions
+src/Wino.Mail.WinUI        → **Active WinUI 3 UI project** (use this)
+controls/                  → Reusable editor and list controls, including the playground app
+tests/                     → Automated test and smoke-test projects
 ```
 
 ### Mail Synchronization Flow
@@ -81,8 +89,8 @@ Wino.Mail              → **Deprecated UWP project** (DO NOT EDIT)
 - See QUEUE_SYNC_IMPLEMENTATION.md for details
 
 ### Dependency Injection
-- `RegisterCoreServices()` in Wino.Core/CoreContainerSetup.cs
-- `RegisterSharedServices()` in Wino.Services/ServicesContainerSetup.cs
+- `RegisterCoreServices()` in src/Wino.Core/CoreContainerSetup.cs
+- `RegisterSharedServices()` in src/Wino.Services/ServicesContainerSetup.cs
 - ViewModels registered in App.xaml.cs
 
 ## Key Patterns
@@ -115,12 +123,12 @@ private string searchQuery = string.Empty;
 
 ## Localization
 
-1. Add English strings ONLY to Wino.Core.Domain/Translations/en_US/resources.json
+1. Add English strings ONLY to src/Wino.Core.Domain/Translations/en_US/resources.json
 2. Build project - source generators create Translator properties
 3. Use Translator.{PropertyName} in code/XAML
-4. NEVER edit any resources.json file outside Wino.Core.Domain/Translations/en_US/resources.json
+4. Update other language files through the repository's translation workflow; they are not synchronized by an external service
 5. Treat all non-en_US translation files as managed externally and leave them untouched, even when adding new localization keys
-6. In XAML, translation bindings must use `Mode=OneTime` because `Wino.Core.Domain/Translator.cs` does not implement `INotifyPropertyChanged`
+6. In XAML, translation bindings must use `Mode=OneTime` because `src/Wino.Core.Domain/Translator.cs` does not implement `INotifyPropertyChanged`
 
 ## Storage
 
@@ -130,10 +138,10 @@ private string searchQuery = string.Empty;
 
 ## WebView2 Mail Rendering
 
-- `reader.html` for reading mails, `editor.html` for composing (Jodit editor)
-- Virtual host mapping: `https://wino.mail/reader.html`
-- JavaScript interop via `ExecuteScriptFunctionAsync()`
-- MIME content downloaded on-demand, not during sync
+- `controls/Wino.Editor` owns the reusable `WinoMailRenderer` and `WinoMailEditor` WinUI controls
+- Reader/editor HTML, CSS, and JavaScript are embedded in `controls/Wino.Editor`; do not add a second asset bundle to `src/Wino.Mail.WinUI`
+- WebView2 readiness is signaled by the embedded document bridge before rendering or editing commands run
+- MIME content is downloaded on-demand, not during sync
 
 ## Common Pitfalls
 
@@ -154,6 +162,7 @@ private string searchQuery = string.Empty;
 - String interpolation over string.Format
 - Wrap async operations in try-catch
 - Log errors via IWinoLogger
+- Reusable controls in `Wino.Mail.Controls` must be named `Wino{ControlName}`, live in a matching `{ControlName}/` folder, and use the matching `Wino.Mail.Controls.{ControlName}` namespace. Keep control-specific supporting files in that folder as well.
 - For dependency properties in WinUI code, always prefer `[GeneratedDependencyProperty]` from CommunityToolkit over manual `DependencyProperty.Register(...)` declarations.
 - When a `[RelayCommand]` needs enable/disable logic, prefer the command's `CanExecute` over binding `Button.IsEnabled` in XAML; use `[NotifyCanExecuteChangedFor]` on dependent properties and call `NotifyCanExecuteChanged()` explicitly when non-generated state affects the command.
 - In ViewModels, update all UI-bound properties/collections via `ExecuteUIThread(...)` (especially after awaited calls and any use of `ConfigureAwait(false)`).

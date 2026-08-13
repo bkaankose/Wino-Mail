@@ -1,0 +1,72 @@
+<abstract:SettingsPageAbstract
+    x:Class="Wino.Views.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
+    xmlns:winuiControls="using:Microsoft.UI.Xaml.Controls"
+    Style="{StaticResource PageStyle}"
+    mc:Ignorable="d">
+
+    <Border Style="{StaticResource PageRootBorderStyle}">
+        <ScrollViewer
+            x:Name="ContentScrollViewer"
+            HorizontalContentAlignment="Stretch"
+            AutomationProperties.AutomationId="SettingsContentScrollViewer"
+            HorizontalScrollBarVisibility="Disabled"
+            HorizontalScrollMode="Disabled"
+            VerticalScrollBarVisibility="Auto"
+            VerticalScrollMode="Auto">
+            <Grid
+                Width="{x:Bind ContentScrollViewer.ViewportWidth, Mode=OneWay}"
+                MaxWidth="900"
+                Padding="40"
+                HorizontalAlignment="Center"
+                RowSpacing="4">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <winuiControls:BreadcrumbBar
+                    x:Name="Breadcrumb"
+                    ItemClicked="BreadItemClicked"
+                    ItemsSource="{x:Bind PageHistory, Mode=OneWay}">
+                    <winuiControls:BreadcrumbBar.ItemTemplate>
+                        <DataTemplate x:DataType="viewModelData:BreadcrumbNavigationItemViewModel">
+                            <!--
+                                TODO: This crashes the app.
+                                AutomationProperties.Name="{x:Bind Title, Mode=OneWay}"
+                            -->
+                            <winuiControls:BreadcrumbBarItem Margin="0,0,8,0">
+                                <winuiControls:BreadcrumbBarItem.ContentTemplate>
+                                    <DataTemplate x:DataType="viewModelData:BreadcrumbNavigationItemViewModel">
+                                        <TextBlock
+                                            Margin="0,0,8,0"
+                                            FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightBySyncState(IsActive), Mode=OneWay}"
+                                            Style="{StaticResource TitleTextBlockStyle}"
+                                            Text="{x:Bind Title}" />
+                                    </DataTemplate>
+                                </winuiControls:BreadcrumbBarItem.ContentTemplate>
+                            </winuiControls:BreadcrumbBarItem>
+                        </DataTemplate>
+                    </winuiControls:BreadcrumbBar.ItemTemplate>
+                </winuiControls:BreadcrumbBar>
+
+                <TextBlock
+                    Grid.Row="1"
+                    Margin="0,0,0,4"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="{x:Bind ViewModel.CurrentDescription, Mode=OneWay}"
+                    TextWrapping="WrapWholeWords" />
+
+                <Frame x:Name="SettingsFrame" Grid.Row="2" />
+            </Grid>
+        </ScrollViewer>
+    </Border>
+</abstract:SettingsPageAbstract>

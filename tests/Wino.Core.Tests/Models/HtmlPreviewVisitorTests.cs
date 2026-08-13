@@ -1,0 +1,420 @@
+using Xunit;
+using FluentAssertions;
+using MimeKit;
+using MimeKit.Cryptography;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
+using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Updates;
+using Wino.Services.Extensions;
+
+namespace Wino.Core.Tests.Models;
+
+public class HtmlPreviewVisitorTests
+{
+    [Fact]
+    public void HtmlPreviewVisitor_Should_Remove_Blocked_Tags_And_Event_Attributes()
+    {
+        // Arrange
+        var html = """
+            <html>
+                <body onload="alert('x')">
+                    <h1 onclick="evil()">hello</h1>
+                    <link rel="stylesheet" href="https://tracker.example/mail.css" />
+                    <script>alert('xss')</script>
+                    <iframe src="https://malicious.example"></iframe>
+                    <object data="https://malicious.example/file.swf"></object>
+                    <img src="https://cdn.example/image.png" onerror="steal()" />
+                </body>
+            </html>
+            """;
+
+        var message = new MimeMessage();
+        message.Body = new TextPart("html") { Text = html };
+
+        var visitor = new HtmlPreviewVisitor(Path.GetTempPath());
+
+        // Act
+        message.Accept(visitor);
+        var output = visitor.HtmlBody;
+
+        // Assert
+        output.Should().NotContain("<script", "script tags must be blocked in rendered html");
+        output.Should().NotContain("<link", "external stylesheet tags must be blocked in rendered html");
+        output.Should().NotContain("<iframe", "iframe tags must be blocked in rendered html");
+        output.Should().NotContain("<object", "object tags must be blocked in rendered html");
+        output.Should().NotContain("onload=", "event handler attributes must be stripped");
+        output.Should().NotContain("onclick=", "event handler attributes must be stripped");
+        output.Should().NotContain("onerror=", "event handler attributes must be stripped");
+        output.Should().Contain("oncontextmenu=\"return false;\"", "body context-menu suppression should be kept");
+    }
+
+    [Fact]
+    public void HtmlPreviewVisitor_Should_Sanitize_Dangerous_Url_Attributes()
+    {
+        // Arrange
+        var html = """
+            <html>
+                <body>
+                    <a id="safe-link" href="https://contoso.com/path">safe</a>
+                    <a id="js-link" href="javascript:alert('xss')">bad</a>
+                    <img id="svg-script" src="data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==" />
+                    <img id="allowed" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB" />
+                </body>
+            </html>
+            """;
+
+        var message = new MimeMessage();
+        message.Body = new TextPart("html") { Text = html };
+
+        var visitor = new HtmlPreviewVisitor(Path.GetTempPath());
+
+        // Act
+        message.Accept(visitor);
+        var output = visitor.HtmlBody;
+
+        // Assert
+        output.Should().Contain("id=\"safe-link\" href=\"https://contoso.com/path\"", "http/https links should be preserved");
+        output.Should().Contain("id=\"js-link\"", "the element should remain");
+        output.Should().NotContain("href=\"javascript:", "javascript URLs must be removed");
+        output.Should().Contain("id=\"allowed\" src=\"data:image/png;base64", "safe image data URLs should be preserved");
+        output.Should().NotContain("id=\"svg-script\" src=\"data:text/html", "non-image data URLs should be removed");
+    }
+
+    [Fact]
+    public void HtmlPreviewVisitor_Should_Normalize_Host_Like_Link_Hrefs()
+    {
+        // Arrange
+        var html = """
+            <html>
+                <body>
+                    <a id="host-link" href="id.mi.com">host</a>
+                    <a id="host-path-link" href="www.example.com/path?q=1#top">host path</a>
+                    <a id="protocol-relative-link" href="//example.com/path">protocol relative</a>
+                    <a id="root-relative-link" href="/unsubscribe/123">root relative</a>
+                    <a id="dot-relative-link" href="./local/page.html">dot relative</a>
+                    <a id="parent-relative-link" href="../help">parent relative</a>
+                    <a id="fragment-link" href="#details">fragment</a>
+                    <a id="query-link" href="?view=compact">query</a>
+                    <img id="relative-image" src="cdn.example.com/logo.png" />
+                </body>
+            </html>
+            """;
+
+        var message = new MimeMessage();
+        message.Body = new TextPart("html") { Text = html };
+
+        var visitor = new HtmlPreviewVisitor(Path.GetTempPath());
+
+        // Act
+        message.Accept(visitor);
+        var output = visitor.HtmlBody;
+
+        // Assert
+        output.Should().Contain("id=\"host-link\" href=\"https://id.mi.com\"", "host-like links would otherwise resolve under the wino.mail virtual host");
+        output.Should().Contain("id=\"host-path-link\" href=\"https://www.example.com/path?q=1#top\"", "host-like links with paths should keep their path/query/fragment");
+        output.Should().Contain("id=\"protocol-relative-link\" href=\"https://example.com/path\"", "protocol-relative links should be explicit before WebView2 resolves them");
+        output.Should().Contain("id=\"root-relative-link\" href=\"/unsubscribe/123\"", "explicit relative links should remain relative");
+        output.Should().Contain("id=\"dot-relative-link\" href=\"./local/page.html\"", "explicit relative links should remain relative");
+        output.Should().Contain("id=\"parent-relative-link\" href=\"../help\"", "explicit relative links should remain relative");
+        output.Should().Contain("id=\"fragment-link\" href=\"#details\"", "same-document links should remain intact");
+        output.Should().Contain("id=\"query-link\" href=\"?view=compact\"", "query-only links should remain intact");
+        output.Should().Contain("id=\"relative-image\" src=\"cdn.example.com/logo.png\"", "this fix is scoped to clickable link attributes");
+    }
+
+    [Fact]
+    public void HtmlPreviewVisitor_Should_Remove_JsonLd_Script_Blocks()
+    {
+        // Arrange
+        var html = """
+            <html>
+                <body>
+                    <p>Visible mail content</p>
+                    <script type="application/ld+json; charset=utf-8">
+                    {
+                        "@context": "https://schema.org",
+                        "@type": "EmailMessage",
+                        "description": "Structured metadata"
+                    }
+                    </script>
+                    <script type="text/javascript">alert('xss')</script>
+                </body>
+            </html>
+            """;
+
+        var message = new MimeMessage();
+        message.Body = new TextPart("html") { Text = html };
+
+        var visitor = new HtmlPreviewVisitor(Path.GetTempPath());
+
+        // Act
+        message.Accept(visitor);
+        var output = visitor.HtmlBody;
+
+        // Assert
+        output.Should().NotContain("<script", "all scripts should be blocked in rendered mail html");
+        output.Should().NotContain("\"@context\": \"https://schema.org\"", "JSON-LD metadata should be removed instead of rendered as visible JSON");
+        output.Should().NotContain("Structured metadata", "JSON-LD content should not remain in the rendered mail html");
+        output.Should().Contain("Visible mail content", "removing JSON-LD must not suppress the rest of the message body");
+        output.Should().NotContain("<script type=\"text/javascript\">", "executable scripts must still be blocked");
+    }
+
+    [Fact]
+    public void HtmlPreviewVisitor_Should_Prefer_Html_Regardless_Of_Alternative_Order()
+    {
+        // Arrange
+        var message = new MimeMessage
+        {
+            Body = new MultipartAlternative
+            {
+                new TextPart("html") { Text = "<html><body><strong>Rich body</strong></body></html>" },
+                new TextPart("plain") { Text = "Plain body" }
+            }
+        };
+
+        var visitor = new HtmlPreviewVisitor();
+
+        // Act
+        message.Accept(visitor);
+
+        // Assert
+        visitor.HtmlBody.Should().Contain("<strong>Rich body</strong>");
+        visitor.HtmlBody.Should().NotContain("Plain body");
+        visitor.Attachments.Should().BeEmpty("unchosen body alternatives are not attachments");
+    }
+
+    [Fact]
+    public void HtmlPreviewVisitor_Should_Not_Use_A_Text_Attachment_As_The_Body()
+    {
+        // Arrange
+        var textAttachment = new TextPart("plain")
+        {
+            FileName = "notes.txt",
+            Text = "Attachment text"
+        };
+        textAttachment.ContentDisposition = new ContentDisposition(ContentDisposition.Attachment);
+
+        var binaryAttachment = new MimePart("application", "pdf")
+        {
+            FileName = "document.pdf",
+            Content = new MimeContent(new MemoryStream([1, 2, 3]))
+        };
+        binaryAttachment.ContentDisposition = new ContentDisposition(ContentDisposition.Attachment);
+
+        var message = new MimeMessage
+        {
+            Body = new Multipart("mixed")
+            {
+                textAttachment,
+                new TextPart("html") { Text = "<html><body>Actual body</body></html>" },
+                binaryAttachment
+            }
+        };
+
+        var visitor = new HtmlPreviewVisitor();
+
+        // Act
+        message.Accept(visitor);
+
+        // Assert
+        visitor.HtmlBody.Should().Contain("Actual body");
+        visitor.HtmlBody.Should().NotContain("Attachment text");
+        visitor.Attachments.Should().BeEquivalentTo([textAttachment, binaryAttachment]);
+    }
+
+    [Fact]
+    public void HtmlPreviewVisitor_Should_Inline_Safe_Cid_Images_Without_Listing_Them_As_Attachments()
+    {
+        // Arrange
+        var image = new MimePart("image", "png")
+        {
+            ContentId = "logo@example",
+            Content = new MimeContent(new MemoryStream([1, 2, 3, 4]))
+        };
+
+        var related = new MultipartRelated
+        {
+            new TextPart("html")
+            {
+                Text = """<html><body><img id="logo" src="cid:logo@example"></body></html>"""
+            },
+            image
+        };
+        related.ContentType.Parameters["start"] = "<root@example>";
+        ((TextPart)related[0]).ContentId = "root@example";
+
+        var message = new MimeMessage { Body = related };
+        var visitor = new HtmlPreviewVisitor();
+
+        // Act
+        message.Accept(visitor);
+
+        // Assert
+        visitor.HtmlBody.Should().Contain("src=\"data:image/png;base64,AQIDBA==\"");
+        visitor.Attachments.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void HtmlPreviewVisitor_Should_Drop_Unsafe_Resource_Schemes_And_SrcSet_Candidates()
+    {
+        // Arrange
+        var html = """
+            <html>
+                <body>
+                    <a id="file-link" href="file:///C:/secrets.txt">file</a>
+                    <img id="svg" src="data:image/svg+xml,%3Csvg%20onload='alert(1)'/%3E">
+                    <img id="set" srcset="javascript:alert(1) 1x, https://example.com/safe.png 2x">
+                </body>
+            </html>
+            """;
+
+        var message = new MimeMessage { Body = new TextPart("html") { Text = html } };
+        var visitor = new HtmlPreviewVisitor();
+
+        // Act
+        message.Accept(visitor);
+
+        // Assert
+        visitor.HtmlBody.Should().NotContain("file:///C:/secrets.txt");
+        visitor.HtmlBody.Should().NotContain("data:image/svg+xml");
+        visitor.HtmlBody.Should().NotContain("javascript:");
+        visitor.HtmlBody.Should().Contain("srcset=\"https://example.com/safe.png 2x\"");
+    }
+
+    [Fact]
+    public void HtmlPreviewVisitor_Should_Verify_Detached_Smime_Without_Using_Default_Sqlite_Context()
+    {
+        // Arrange
+        using var certificate = CreateSigningCertificate();
+        using var context = new WindowsSecureMimeContext();
+        var body = new TextPart("html") { Text = "<html><body>Detached signed body</body></html>" };
+        var signer = new CmsSigner(certificate) { DigestAlgorithm = DigestAlgorithm.Sha256 };
+        var message = new MimeMessage
+        {
+            Body = MultipartSigned.Create(context, signer, body)
+        };
+        var visitor = new HtmlPreviewVisitor();
+
+        // Act
+        message.Accept(visitor);
+
+        // Assert
+        visitor.HtmlBody.Should().Contain("Detached signed body");
+        visitor.Signatures.Should().ContainSingle("the explicit Windows context parsed the signature");
+        visitor.CryptographyErrors.Should().NotContain(error =>
+            error.Message.Contains("SQLite is not available", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void HtmlPreviewVisitor_Should_Extract_Opaque_Smime_Without_Using_Default_Sqlite_Context()
+    {
+        // Arrange
+        using var certificate = CreateSigningCertificate();
+        using var context = new WindowsSecureMimeContext();
+        var body = new TextPart("plain") { Text = "Opaque signed body" };
+        var signer = new CmsSigner(certificate) { DigestAlgorithm = DigestAlgorithm.Sha256 };
+        var message = new MimeMessage
+        {
+            Body = ApplicationPkcs7Mime.Sign(context, signer, body)
+        };
+        var visitor = new HtmlPreviewVisitor();
+
+        // Act
+        message.Accept(visitor);
+
+        // Assert
+        visitor.HtmlBody.Should().Contain("Opaque signed body");
+        visitor.Signatures.Should().ContainSingle("the signed content was extracted and verified");
+        visitor.CryptographyErrors.Should().NotContain(error =>
+            error.Message.Contains("SQLite is not available", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void HtmlPreviewVisitor_Should_Render_Detached_Content_When_The_Signature_Is_Invalid()
+    {
+        // Arrange
+        using var certificate = CreateSigningCertificate();
+        using var context = new WindowsSecureMimeContext();
+        var body = new TextPart("plain") { Text = "Original signed body" };
+        var signer = new CmsSigner(certificate) { DigestAlgorithm = DigestAlgorithm.Sha256 };
+        var signed = MultipartSigned.Create(context, signer, body);
+
+        ((TextPart)signed[0]).Text = "Tampered but still renderable body";
+
+        var message = new MimeMessage { Body = signed };
+        var visitor = new HtmlPreviewVisitor();
+
+        // Act
+        message.Accept(visitor);
+
+        // Assert
+        visitor.HtmlBody.Should().Contain("Tampered but still renderable body");
+        visitor.Signatures.Should().ContainSingle();
+        visitor.Signatures.Values.Should().ContainSingle().Which.Should().BeFalse();
+    }
+
+    [Fact]
+    public void HtmlAgilityPackExtensions_Should_Create_Accessible_Text_With_Block_Boundaries()
+    {
+        // Arrange
+        var html = """
+            <html>
+                <body>
+                    <h1>Project update</h1>
+                    <p>Hello <strong>team</strong>.</p>
+                    <ul><li>First item</li><li>Second item</li></ul>
+                    <img alt="Status chart" src="cid:chart" />
+                    <script>ignored()</script>
+                </body>
+            </html>
+            """;
+
+        // Act
+        var accessibleText = HtmlAgilityPackExtensions.GetAccessibleText(html);
+
+        // Assert
+        accessibleText.Should().Be(string.Join(Environment.NewLine,
+            "Project update",
+            "Hello team.",
+            "- First item",
+            "- Second item",
+            "Status chart"));
+    }
+
+    [Fact]
+    public void UpdateNoteSection_Should_Use_Title_And_Description_For_Accessibility_Name()
+    {
+        // Arrange
+        var section = new UpdateNoteSection
+        {
+            Title = "Better inbox",
+            Description = "Mail actions are easier to find."
+        };
+
+        // Act
+        var accessibilityName = section.AccessibilityName;
+
+        // Assert
+        accessibilityName.Should().Be("Better inbox. Mail actions are easier to find.");
+    }
+
+    private static X509Certificate2 CreateSigningCertificate()
+    {
+        using var rsa = RSA.Create(2048);
+        var request = new CertificateRequest(
+            "CN=Wino Preview Test, E=preview@wino.test",
+            rsa,
+            HashAlgorithmName.SHA256,
+            RSASignaturePadding.Pkcs1);
+
+        request.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, false));
+        request.CertificateExtensions.Add(new X509KeyUsageExtension(
+            System.Security.Cryptography.X509Certificates.X509KeyUsageFlags.DigitalSignature,
+            false));
+        request.CertificateExtensions.Add(new X509SubjectKeyIdentifierExtension(request.PublicKey, false));
+
+        return request.CreateSelfSigned(
+            DateTimeOffset.UtcNow.AddDays(-1),
+            DateTimeOffset.UtcNow.AddDays(1));
+    }
+}

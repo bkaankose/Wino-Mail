@@ -185,6 +185,9 @@ publish/
 # Note: Comment the next line if you want to checkin your web deploy settings,
 # but database connection strings (with potential passwords) will be unencrypted
 *.pubxml
+!src/Wino.Mail.WinUI/Properties/PublishProfiles/win-x86.pubxml
+!src/Wino.Mail.WinUI/Properties/PublishProfiles/win-x64.pubxml
+!src/Wino.Mail.WinUI/Properties/PublishProfiles/win-arm64.pubxml
 *.publishproj
 
 # Microsoft Azure Web App publish settings. Comment the next line if you want to
@@ -402,3 +405,5 @@ Wino/obj/x86/Debug/XamlSaveStateFile.xml
 /.claude/settings.local.json
 scripts/translate_resources.local.bat
 /scripts/validate_resources.local.bat
+/docs
+/prototypes
