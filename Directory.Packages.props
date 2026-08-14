@@ -61,7 +61,7 @@
     <PackageVersion Include="Microsoft.WindowsAppSDK" Version="2.1.4-experimental8" />
     <PackageVersion Include="WinUIEx" Version="2.9.2" />
     <!-- Testing packages -->
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <PackageVersion Include="FluentAssertions" Version="8.10.0" />
