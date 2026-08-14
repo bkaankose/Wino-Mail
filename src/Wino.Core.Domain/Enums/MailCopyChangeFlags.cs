@@ -34,6 +34,7 @@ public enum MailCopyChangeFlags
     ReadReceiptState = 1 << 25,
     Categories = 1 << 26,
     DraftSyncState = 1 << 27,
+    IntelligenceMetadata = 1 << 28,
     All = Id |
           FolderId |
           ThreadId |
@@ -61,5 +62,6 @@ public enum MailCopyChangeFlags
           UniqueId |
           ReadReceiptState |
           Categories |
-          DraftSyncState
+          DraftSyncState |
+          IntelligenceMetadata
 }

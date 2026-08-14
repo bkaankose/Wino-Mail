@@ -355,7 +355,7 @@ public sealed class WinoAccountManagementPageViewModelTests
 
     private static IntelligenceMailboxStatusDto CreateIntelligenceStatus(Guid mailboxId, long size)
         => new(mailboxId, DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow, size,
-            "openai-text-embedding-3-small-768-v2", EmbeddingModelStatuses.Current);
+            "openai-text-embedding-3-small-768-v2", EmbeddingModelStatuses.Current, "en-US");
 
     private static async Task WaitUntilAsync(Func<bool> condition)
     {

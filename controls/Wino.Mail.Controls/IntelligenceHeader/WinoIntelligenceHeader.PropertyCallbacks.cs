@@ -1,4 +1,5 @@
 using Wino.Mail.Controls.Core.IntelligenceHeader;
+using Wino.Mail.Controls.Core.IntelligenceTileBar;
 
 namespace Wino.Mail.Controls.IntelligenceHeader;
 
@@ -14,7 +15,7 @@ public sealed partial class WinoIntelligenceHeader
     partial void OnNeedsReplyChanged(bool newValue) => OnStatePropertyChanged(this, NeedsReplyProperty);
     partial void OnNeedsReplyTextChanged(string newValue) => OnStatePropertyChanged(this, NeedsReplyTextProperty);
     partial void OnNeedsReplyDetailTextChanged(string newValue) => OnStatePropertyChanged(this, NeedsReplyDetailTextProperty);
-    partial void OnNoSignalSubtitleTextChanged(string newValue) => OnStatePropertyChanged(this, NoSignalSubtitleTextProperty);
+    partial void OnBriefingFactTextChanged(string newValue) => OnStatePropertyChanged(this, BriefingFactTextProperty);
     partial void OnUnprocessedSubtitleTextChanged(string newValue) => OnStatePropertyChanged(this, UnprocessedSubtitleTextProperty);
     partial void OnQueuedSubtitleTextChanged(string newValue) => OnStatePropertyChanged(this, QueuedSubtitleTextProperty);
     partial void OnProcessingSubtitleTextChanged(string newValue) => OnStatePropertyChanged(this, ProcessingSubtitleTextProperty);

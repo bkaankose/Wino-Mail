@@ -4,9 +4,9 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
@@ -24,13 +24,12 @@ using Wino.Core.Domain.Models.Printing;
 using Wino.Core.Domain.Models.SemanticIndexing;
 using Wino.Editor;
 using Wino.Helpers;
-using Wino.Mail.Controls.Core.IntelligenceHeader;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.AI.ContentProcessing;
+using Wino.Mail.Controls.Core.IntelligenceHeader;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Models;
 using Wino.Mail.WinUI;
-using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
@@ -45,7 +44,8 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     IPopoutClient,
     IRecipient<ApplicationThemeChanged>,
     IRecipient<SemanticIndexJobChanged>,
-    IRecipient<WinoIntelligenceAccessChanged>
+    IRecipient<WinoIntelligenceAccessChanged>,
+    IRecipient<IntelligenceMetadataChanged>
 {
     private static readonly Regex ExcessiveReaderBreaks = new(
         @"(?is)<pre\b.*?</pre>|(?:<br\s*/?>\s*){3,}",
@@ -56,6 +56,8 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     private readonly IWinoIntelligenceCoordinator _intelligenceCoordinator = App.Current.Services.GetRequiredService<IWinoIntelligenceCoordinator>();
     private readonly IMailContentProjector _contentProjector = App.Current.Services.GetRequiredService<IMailContentProjector>();
     private readonly IAiActionOptionsService _aiActionOptionsService = App.Current.Services.GetRequiredService<IAiActionOptionsService>();
+    private readonly IMailService _mailService = App.Current.Services.GetRequiredService<IMailService>();
+    private readonly IClipboardService _clipboardService = App.Current.Services.GetRequiredService<IClipboardService>();
 
     private bool isRenderingInProgress = false;
     private string _currentRenderedHtml = string.Empty;
@@ -344,7 +346,21 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
                 ToUtc(ViewModel.CreationDate),
                 _currentRenderedHtml,
                 _inferenceProjection,
-                _translationProjection?.Projection);
+                _translationProjection?.Projection,
+                mailCopy.IntelligenceMetadata);
+        }
+        else
+        {
+            // Metadata can arrive after the reader context was created. Keep the same cancellation
+            // scope, but refresh the immutable context so the snapshot sees imported artifacts.
+            _intelligenceContext = _intelligenceContext with
+            {
+                IsSemanticIndexingEnabled = account.Preferences?.IsSemanticIndexingEnabled == true,
+                Html = _currentRenderedHtml,
+                InferenceProjection = _inferenceProjection,
+                TranslationProjection = _translationProjection?.Projection,
+                IntelligenceMetadata = mailCopy.IntelligenceMetadata,
+            };
         }
 
         await RefreshIntelligenceSnapshotAsync();
@@ -352,14 +368,22 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     private void ShowIntelligenceHeaderImmediately(MailItemViewModel mailItem)
     {
-        var canShow = mailItem?.MailCopy is { IsDraft: false, AssignedAccount.Preferences.IsSemanticIndexingEnabled: true };
+        // Access is resolved asynchronously. Keep the stable reader surface visible for every
+        // non-draft until the account snapshot says that the add-on is unavailable.
+        var canShow = mailItem?.MailCopy is { IsDraft: false };
         IntelligenceHeader.Visibility = canShow ? Visibility.Visible : Visibility.Collapsed;
+        IntelligenceHeader.IntelligenceTiles = mailItem?.IntelligenceTiles;
         if (!canShow)
             return;
 
-        IntelligenceHeader.IsSummaryAvailable = true;
-        IntelligenceHeader.IsTranslateAvailable = true;
-        IntelligenceHeader.IsProcessingAvailable = true;
+        if (mailItem.MailCopy.IntelligenceMetadata is { } metadata)
+            ApplyPassiveIntelligenceMetadata(metadata);
+        else
+            ClearPassiveIntelligenceMetadata();
+
+        IntelligenceHeader.IsSummaryAvailable = false;
+        IntelligenceHeader.IsTranslateAvailable = false;
+        IntelligenceHeader.IsProcessingAvailable = false;
         IntelligenceHeader.IsSuggestedRepliesAvailable = false;
         IntelligenceHeader.IsFindSimilarMailAvailable = false;
         IntelligenceHeader.ProcessingState = WinoIntelligenceProcessingState.NotProcessed;
@@ -392,18 +416,55 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         IntelligenceHeader.IsSuggestedRepliesAvailable = snapshot.IsSuggestedRepliesAvailable;
         IntelligenceHeader.IsFindSimilarMailAvailable = snapshot.IsFindSimilarAvailable;
         IntelligenceHeader.ProcessingState = MapProcessingState(snapshot.ProcessingState);
-        IntelligenceHeader.NeedsReply = snapshot.NeedsReply;
-        IntelligenceHeader.NeedsReplyDetailText = string.IsNullOrWhiteSpace(snapshot.NeedsReplyDetail)
-            ? Translator.WinoIntelligence_NeedsReplyDetail
-            : snapshot.NeedsReplyDetail;
-        IntelligenceHeader.DeadlineText = FormatDeadline(snapshot.Deadline);
-        IntelligenceHeader.DeadlineDetailText = snapshot.Deadline?.ActionText ?? string.Empty;
-        IntelligenceHeader.IsAddToCalendarAvailable = snapshot.Deadline is not null;
+        if (_currentMailItem?.MailCopy.IntelligenceMetadata is { } metadata)
+            ApplyPassiveIntelligenceMetadata(metadata);
+        else
+        {
+            IntelligenceHeader.NeedsReply = snapshot.NeedsReply;
+            IntelligenceHeader.NeedsReplyDetailText = string.IsNullOrWhiteSpace(snapshot.NeedsReplyDetail)
+                ? Translator.WinoIntelligence_NeedsReplyDetail
+                : snapshot.NeedsReplyDetail;
+            IntelligenceHeader.BriefingFactText = string.Empty;
+            IntelligenceHeader.DeadlineText = FormatDeadline(snapshot.Deadline);
+            IntelligenceHeader.DeadlineDetailText = snapshot.Deadline?.ActionText ?? string.Empty;
+            IntelligenceHeader.IsAddToCalendarAvailable = snapshot.Deadline is not null;
+        }
         if (!string.IsNullOrWhiteSpace(snapshot.CachedSummary))
             IntelligenceHeader.SummaryText = snapshot.CachedSummary;
-        IntelligenceHeader.Visibility = _intelligenceContext?.IsSemanticIndexingEnabled == true
-            ? Visibility.Visible
-            : Visibility.Collapsed;
+        IntelligenceHeader.IntelligenceTiles = _currentMailItem?.IntelligenceTiles;
+        IntelligenceHeader.Visibility = snapshot.IsVisible ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void ApplyPassiveIntelligenceMetadata(MailIntelligenceMetadata metadata)
+    {
+        IntelligenceHeader.NeedsReply = metadata.NeedsReply?.Value == true;
+        IntelligenceHeader.NeedsReplyDetailText = Translator.WinoIntelligence_NeedsReplyDetail;
+        IntelligenceHeader.BriefingFactText = metadata.Headline;
+        IntelligenceHeader.DeadlineText = metadata.Deadline?.HasDeadline == true
+            ? MailIntelligenceTileFactory.FormatDeadline(metadata.Deadline, CultureInfo.CurrentCulture)
+            : string.Empty;
+        IntelligenceHeader.DeadlineDetailText = string.Empty;
+        IntelligenceHeader.IsAddToCalendarAvailable = metadata.Deadline?.HasDeadline == true;
+        CopyVerificationCodeButton.Tag = metadata.VerificationCode;
+        CopyVerificationCodeButton.Visibility = string.IsNullOrWhiteSpace(metadata.VerificationCode) ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void ClearPassiveIntelligenceMetadata()
+    {
+        IntelligenceHeader.NeedsReply = false;
+        IntelligenceHeader.NeedsReplyDetailText = string.Empty;
+        IntelligenceHeader.BriefingFactText = string.Empty;
+        IntelligenceHeader.DeadlineText = string.Empty;
+        IntelligenceHeader.DeadlineDetailText = string.Empty;
+        IntelligenceHeader.IsAddToCalendarAvailable = false;
+        CopyVerificationCodeButton.Tag = null;
+        CopyVerificationCodeButton.Visibility = Visibility.Collapsed;
+    }
+
+    private async void CopyVerificationCodeButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (CopyVerificationCodeButton.Tag is string code && !string.IsNullOrWhiteSpace(code))
+            await _clipboardService.CopyClipboardAsync(code);
     }
 
     private void ClearIntelligenceContext()
@@ -429,6 +490,8 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         _intelligenceContext = null;
         _intelligenceSnapshot = null;
         IntelligenceHeader.Visibility = Visibility.Collapsed;
+        CopyVerificationCodeButton.Tag = null;
+        CopyVerificationCodeButton.Visibility = Visibility.Collapsed;
     }
 
     private async void IntelligenceHeader_FeatureRequested(object? sender, WinoIntelligenceRequestEventArgs e)
@@ -510,10 +573,11 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             return;
         try
         {
+            IntelligenceHeader.ProcessingState = WinoIntelligenceProcessingState.Processing;
             await _intelligenceCoordinator.RequestProcessingAsync(context);
             if (!IsCurrent(context.ContentKey))
                 return;
-            IntelligenceHeader.ProcessingState = WinoIntelligenceProcessingState.Queued;
+            IntelligenceHeader.ProcessingState = WinoIntelligenceProcessingState.Processed;
             await RefreshIntelligenceSnapshotAsync();
         }
         catch (Exception exception)
@@ -636,7 +700,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         IntelligenceHeader.IsTranslationApplied = true;
         IntelligenceHeader.TranslationStatusText = $"{result.Value.DetectedSourceLanguage} → {targetLanguage}";
         await RenderActiveContentAsync();
-        _dialogService.InfoBarMessage(Translator.WinoIntelligence_Translate, Translator.Reader_AiAppliedMessage, InfoBarMessageType.Information);
     }
 
     private void CancelTranslation()
@@ -774,6 +837,50 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         DispatcherQueue.TryEnqueue(async () => await RefreshIntelligenceSnapshotAsync());
     }
 
+    void IRecipient<IntelligenceMetadataChanged>.Receive(IntelligenceMetadataChanged message)
+    {
+        var mail = _currentMailItem?.MailCopy;
+        if (mail?.AssignedAccount is null)
+            return;
+
+        var remoteId = RemoteMessageIdentity.TryCreate(mail);
+        var matches = message.Scope == IntelligenceMetadataChangeScope.DatabaseReset ||
+            (message.LocalAccountId == mail.AssignedAccount.Id &&
+             (message.Scope == IntelligenceMetadataChangeScope.MailboxReset ||
+              (remoteId is not null && message.RemoteMessageIds.Contains(remoteId))));
+        if (matches)
+            DispatcherQueue.TryEnqueue(async () => await RefreshCurrentIntelligenceMetadataAsync(message.Scope));
+    }
+
+
+    public override void OnLanguageChanged()
+    {
+        base.OnLanguageChanged();
+
+        DispatcherQueue.TryEnqueue(async () =>
+        {
+            _currentMailItem?.RefreshIntelligenceTiles();
+            IntelligenceHeader.IntelligenceTiles = _currentMailItem?.IntelligenceTiles;
+            await RefreshIntelligenceSnapshotAsync();
+        });
+    }
+
+    private async Task RefreshCurrentIntelligenceMetadataAsync(IntelligenceMetadataChangeScope scope)
+    {
+        var mailItem = _currentMailItem;
+        if (mailItem?.MailCopy is null)
+            return;
+
+        if (scope == IntelligenceMetadataChangeScope.Messages)
+            await _mailService.HydrateIntelligenceMetadataAsync(new[] { mailItem.MailCopy });
+        else
+            mailItem.MailCopy.IntelligenceMetadata = null;
+
+        mailItem.UpdateFrom(mailItem.MailCopy, MailCopyChangeFlags.IntelligenceMetadata);
+        ShowIntelligenceHeaderImmediately(mailItem);
+        await LoadIntelligenceContextAsync();
+    }
+
     private void InternetAddressClicked(object sender, RoutedEventArgs e)
     {
         // TODO: Popped out windows don't have xaml root assigned properly, therefore ShowAt will fail.
@@ -829,6 +936,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         WeakReferenceMessenger.Default.Register<ApplicationThemeChanged>(this);
         WeakReferenceMessenger.Default.Register<SemanticIndexJobChanged>(this);
         WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this);
+        WeakReferenceMessenger.Default.Register<IntelligenceMetadataChanged>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -838,6 +946,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
         WeakReferenceMessenger.Default.Unregister<SemanticIndexJobChanged>(this);
         WeakReferenceMessenger.Default.Unregister<WinoIntelligenceAccessChanged>(this);
+        WeakReferenceMessenger.Default.Unregister<IntelligenceMetadataChanged>(this);
     }
 
     private void EscapeInvoked(Microsoft.UI.Xaml.Input.KeyboardAccelerator sender, Microsoft.UI.Xaml.Input.KeyboardAcceleratorInvokedEventArgs args)

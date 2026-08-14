@@ -1,7 +1,9 @@
 using System.Net;
+using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Wino.Core;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
@@ -20,6 +22,14 @@ internal static class Program
     private const string ProductionApiUrl = "https://api.winomail.app/";
     private const string PublisherRelativePath = @"Publishers\mhdqskaa8n2sj\WinoShared";
     private const string DebugLocalStateRelativePath = @"Packages\58272BurakKSE.WinoMailPreview.Debug_mhdqskaa8n2sj\LocalState";
+    private const string PreviewLocalStateRelativePath = @"Packages\58272BurakKSE.WinoMailPreview_mhdqskaa8n2sj\LocalState";
+    private static readonly IReadOnlyList<SemanticSearchPreset> SemanticSearchPresets =
+    [
+        new("Rust developer recruiter", "A recruiter is looking for a Rust software developer or Rust engineer for a job opportunity.", false),
+        new("Wino Mail NuGet publishing", "Notifications from NuGet about publishing Wino Mail packages.", false),
+        new("Complexcity waste segregation", "Wiadomość od Complexcity o nieprawidłowej segregacji śmieci lub odpadów.", false),
+        new("Query builder: Messages from Upwork", "Messages from Upwork", true),
+    ];
 
     [STAThread]
     public static async Task<int> Main(string[] args)
@@ -170,6 +180,7 @@ internal static class Program
         var authenticationProvider = services.GetRequiredService<IAuthenticationProvider>();
         var messageResolver = services.GetRequiredService<IIntelligenceMessageContextResolver>();
         var localStore = services.GetRequiredService<ILocalIntelligenceStore>();
+        var mailService = services.GetRequiredService<IMailService>();
 
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -187,7 +198,7 @@ internal static class Program
             try
             {
                 await RunAccountAsync(selected, accountService, coordinator, apiClient, authenticationProvider,
-                        messageResolver, localStore, cancellationToken)
+                        messageResolver, localStore, mailService, cancellationToken)
                     .ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -211,10 +222,49 @@ internal static class Program
         IAuthenticationProvider authenticationProvider,
         IIntelligenceMessageContextResolver messageResolver,
         ILocalIntelligenceStore localStore,
+        IMailService mailService,
+        CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            var state = await coordinator.GetStateAsync(account.Id, cancellationToken).ConfigureAwait(false);
+            PrintState(state);
+            ConsoleOutput.Header("\nAccount actions:");
+            System.Console.WriteLine("  1. Semantic search");
+            System.Console.WriteLine("  2. Synchronize embeddings and intelligence");
+            System.Console.WriteLine("  0. Back");
+            ConsoleOutput.Prompt("Selection [1]: ");
+            switch (System.Console.ReadLine()?.Trim())
+            {
+                case "" or null or "1":
+                    await RunSemanticSearchMenuAsync(
+                        account, state, apiClient, messageResolver, mailService, cancellationToken).ConfigureAwait(false);
+                    break;
+                case "2":
+                    await SynchronizeIntelligenceAsync(
+                        account, accountService, coordinator, apiClient, authenticationProvider,
+                        messageResolver, localStore, cancellationToken).ConfigureAwait(false);
+                    break;
+                case "0":
+                    return;
+                default:
+                    ConsoleOutput.Warning("Select a listed action.");
+                    break;
+            }
+        }
+    }
+
+    private static async Task SynchronizeIntelligenceAsync(
+        MailAccount account,
+        IAccountService accountService,
+        ISemanticIndexCoordinator coordinator,
+        IWinoAccountApiClient apiClient,
+        IAuthenticationProvider authenticationProvider,
+        IIntelligenceMessageContextResolver messageResolver,
+        ILocalIntelligenceStore localStore,
         CancellationToken cancellationToken)
     {
         var state = await coordinator.GetStateAsync(account.Id, cancellationToken).ConfigureAwait(false);
-        PrintState(state);
         var hasIntelligence = HasIntelligence(state);
         var hasIncompleteIntelligence = HasIncompleteIntelligence(state);
 
@@ -234,7 +284,15 @@ internal static class Program
             }
             else
             {
-                ConsoleOutput.Muted("Keeping existing immutable intelligence. Start-time delta resolution will resume only missing work.");
+                if (Confirm("Reset only this account's local intelligence cache and download the server copy again?"))
+                {
+                    await coordinator.DeleteLocalIndexAsync(account.Id, cancellationToken).ConfigureAwait(false);
+                    ConsoleOutput.Success("Local intelligence cache deleted. Server intelligence was preserved.");
+                }
+                else
+                {
+                    ConsoleOutput.Muted("Keeping existing immutable intelligence. Start-time delta resolution will resume only missing work.");
+                }
             }
         }
 
@@ -304,6 +362,135 @@ internal static class Program
         await VerifyLocalMetadataAsync(account.Id, plan, messageResolver, localStore, cancellationToken).ConfigureAwait(false);
     }
 
+    private static async Task RunSemanticSearchMenuAsync(
+        MailAccount account,
+        SemanticIndexAccountState state,
+        IWinoAccountApiClient apiClient,
+        IIntelligenceMessageContextResolver messageResolver,
+        IMailService mailService,
+        CancellationToken cancellationToken)
+    {
+        var mailboxId = state.ServerMailboxId;
+        if (mailboxId is null)
+        {
+            var mailboxes = await apiClient.GetSemanticMailboxesAsync(cancellationToken).ConfigureAwait(false);
+            mailboxId = mailboxes.SingleOrDefault(mailbox =>
+                mailbox.ProviderType == (int)account.ProviderType &&
+                string.Equals(mailbox.Address.Trim(), account.Address.Trim(), StringComparison.OrdinalIgnoreCase))?.MailboxId;
+        }
+        if (mailboxId is null)
+        {
+            ConsoleOutput.Warning("This account has no semantic mailbox. Synchronize embeddings first.");
+            return;
+        }
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            ConsoleOutput.Header("\nSemantic search queries:");
+            for (var index = 0; index < SemanticSearchPresets.Count; index++)
+            {
+                System.Console.WriteLine($"  {index + 1}. {SemanticSearchPresets[index].Name}");
+                ConsoleOutput.Muted($"     {SemanticSearchPresets[index].Query}");
+            }
+            System.Console.WriteLine($"  {SemanticSearchPresets.Count + 1}. Enter my own query");
+            System.Console.WriteLine("  0. Back");
+            ConsoleOutput.Prompt("Selection: ");
+            var selection = ReadSemanticSearchSelection(System.Console.ReadLine(), System.Console.ReadLine);
+            if (selection is null)
+                return;
+            if (selection.Query.Length == 0)
+            {
+                ConsoleOutput.Warning("Select a listed query or enter a non-empty custom query.");
+                continue;
+            }
+
+            ConsoleOutput.Muted(selection.UseQueryPlanner
+                ? $"Building the semantic query, creating its embedding, and searching for: {selection.Query}"
+                : $"Creating query embedding and searching for: {selection.Query}");
+            var language = string.IsNullOrWhiteSpace(CultureInfo.CurrentUICulture.Name)
+                ? "en-US"
+                : CultureInfo.CurrentUICulture.Name;
+            var response = await apiClient.SearchIntelligenceAsync(
+                new IntelligenceSemanticSearchRequest(
+                    selection.Query,
+                    [new IntelligenceMailboxSearchScopeDto(mailboxId.Value)],
+                    10,
+                    null,
+                    TimeZoneInfo.Local.Id,
+                    language,
+                    selection.UseQueryPlanner),
+                cancellationToken).ConfigureAwait(false);
+
+            foreach (var omission in response.Mailboxes.Where(item => item.OmissionReason is not null))
+                ConsoleOutput.Warning($"Mailbox search omitted: {omission.State} ({omission.OmissionReason})");
+
+            var candidates = await messageResolver.GetCandidatesAsync(account.Id, null, cancellationToken).ConfigureAwait(false);
+            var localIds = candidates
+                .GroupBy(candidate => candidate.RemoteMessageId, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First().UniqueId, StringComparer.Ordinal);
+            var found = new List<(MailCopy Mail, double Similarity)>();
+            foreach (var item in response.Items)
+            {
+                if (!localIds.TryGetValue(item.RemoteMessageId, out var localId))
+                    continue;
+                var mail = await mailService.GetSingleMailItemAsync(localId).ConfigureAwait(false);
+                if (mail is not null)
+                    found.Add((mail, item.Similarity));
+            }
+
+            ConsoleOutput.Header($"\nSemantic search results ({found.Count}):");
+            for (var index = 0; index < found.Count; index++)
+            {
+                var result = found[index];
+                System.Console.WriteLine($"  {index + 1}. {result.Mail.Subject}");
+                ConsoleOutput.Muted($"     {FormatPreview(result.Mail.PreviewText)}");
+                ConsoleOutput.Muted($"     Similarity: {result.Similarity:P1}");
+            }
+            if (found.Count == 0)
+                ConsoleOutput.Warning(response.Items.Count == 0
+                    ? "The semantic index returned no messages. Synchronize embeddings and try again."
+                    : "Search matches could not be resolved to local email records.");
+            if (selection.UseQueryPlanner)
+            {
+                var highConfidenceCount = found.Count(result => result.Similarity >= 0.5d);
+                if (highConfidenceCount > 0)
+                    ConsoleOutput.Success($"Query builder verification passed: {highConfidenceCount} result(s) have at least 50% similarity.");
+                else
+                    ConsoleOutput.Warning("Query builder verification failed: no result reached 50% similarity.");
+            }
+        }
+    }
+
+    internal static SemanticSearchSelection? ReadSemanticSearchSelection(string? selection, Func<string?> readCustomQuery)
+    {
+        var value = selection?.Trim();
+        if (value == "0")
+            return null;
+        if (int.TryParse(value, out var number) && number >= 1 && number <= SemanticSearchPresets.Count)
+        {
+            var preset = SemanticSearchPresets[number - 1];
+            return new(preset.Query, preset.UseQueryPlanner);
+        }
+        if (number == SemanticSearchPresets.Count + 1)
+        {
+            ConsoleOutput.Prompt("Query: ");
+            return new(readCustomQuery()?.Trim() ?? string.Empty, false);
+        }
+        return new(string.Empty, false);
+    }
+
+    private static string FormatPreview(string? preview)
+    {
+        if (string.IsNullOrWhiteSpace(preview))
+            return "(no preview)";
+        var normalized = string.Join(' ', preview.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        return normalized.Length <= 240 ? normalized : $"{normalized[..237]}...";
+    }
+
+    private sealed record SemanticSearchPreset(string Name, string Query, bool UseQueryPlanner);
+
+    internal sealed record SemanticSearchSelection(string Query, bool UseQueryPlanner);
+
     private static async Task VerifyLocalMetadataAsync(
         Guid accountId,
         SemanticIndexPlan plan,
@@ -314,25 +501,37 @@ internal static class Program
         var requiredCapabilities = new HashSet<string>(StringComparer.Ordinal)
         {
             IntelligenceCapabilityIds.SmartLabels,
-            IntelligenceCapabilityIds.Priority,
-            IntelligenceCapabilityIds.NeedsReply,
-            IntelligenceCapabilityIds.Deadline,
             IntelligenceCapabilityIds.BriefingFact,
         };
         var candidates = await messageResolver.GetCandidatesAsync(
             accountId, plan.CutoffUtc, plan.ThroughUtcExclusive, cancellationToken).ConfigureAwait(false);
-        var complete = 0;
-        var artifactCount = 0;
-        var missing = new List<string>();
+        var artifactsByMessage = new Dictionary<string, IReadOnlyList<IntelligenceArtifactDto>>(StringComparer.Ordinal);
+        var briefingIds = new HashSet<Guid>();
         foreach (var candidate in candidates)
         {
             var artifacts = await localStore.GetCurrentArtifactsAsync(
                 accountId, candidate.RemoteMessageId, cancellationToken).ConfigureAwait(false);
+            artifactsByMessage[candidate.RemoteMessageId] = artifacts;
+            var fact = artifacts.FirstOrDefault(artifact =>
+                !artifact.IsDeleted && artifact.Capability == IntelligenceCapability.BriefingFact)?.BriefingFact;
+            if (fact is not null)
+                briefingIds.Add(fact.BriefingId);
+        }
+        var headlines = await localStore.GetBriefingHeadlinesAsync(accountId, briefingIds, cancellationToken).ConfigureAwait(false);
+        var complete = 0;
+        var artifactCount = headlines.Count;
+        var missing = new List<string>();
+        foreach (var candidate in candidates)
+        {
+            var artifacts = artifactsByMessage[candidate.RemoteMessageId];
             var capabilities = artifacts.Where(artifact => !artifact.IsDeleted)
                 .Select(artifact => IntelligenceCapabilityIds.GetStorageId(artifact.Capability))
                 .ToHashSet(StringComparer.Ordinal);
             artifactCount += artifacts.Count;
-            if (requiredCapabilities.IsSubsetOf(capabilities))
+            var briefingId = artifacts.FirstOrDefault(artifact =>
+                !artifact.IsDeleted && artifact.Capability == IntelligenceCapability.BriefingFact)?.BriefingFact?.BriefingId;
+            if (requiredCapabilities.IsSubsetOf(capabilities) &&
+                briefingId is { } id && headlines.ContainsKey(id))
                 complete++;
             else
                 missing.Add(candidate.RemoteMessageId);
@@ -533,7 +732,10 @@ internal static class Program
     {
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var publisherFolder = options.PublisherFolder ?? Path.Combine(localAppData, PublisherRelativePath);
-        var applicationDataFolder = options.ApplicationDataFolder ?? Path.Combine(localAppData, DebugLocalStateRelativePath);
+        var debugApplicationDataFolder = Path.Combine(localAppData, DebugLocalStateRelativePath);
+        var previewApplicationDataFolder = Path.Combine(localAppData, PreviewLocalStateRelativePath);
+        var applicationDataFolder = options.ApplicationDataFolder ??
+            (Directory.Exists(debugApplicationDataFolder) ? debugApplicationDataFolder : previewApplicationDataFolder);
         var tempFolder = Path.Combine(Path.GetTempPath(), "Wino.Intelligence.Console");
         Directory.CreateDirectory(tempFolder);
         return new ConsolePaths(Path.GetFullPath(publisherFolder), Path.GetFullPath(applicationDataFolder), tempFolder);

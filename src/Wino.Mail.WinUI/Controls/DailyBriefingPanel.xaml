@@ -1,0 +1,424 @@
+<UserControl
+    x:Class="Wino.Mail.WinUI.Controls.DailyBriefingPanel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:intelligenceProgress="using:Wino.Mail.Controls.IntelligenceProgressRing"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:primitives="using:Wino.Mail.Controls.Primitives"
+    xmlns:vm="using:Wino.Mail.ViewModels"
+    MaxWidth="400"
+    HorizontalAlignment="Right"
+    AutomationProperties.AutomationId="DailyBriefingPanel"
+    AutomationProperties.Name="{x:Bind domain:Translator.DailyBriefing_Title, Mode=OneTime}"
+    Loaded="OnLoaded"
+    Unloaded="OnUnloaded"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <DataTemplate x:Key="BriefingActionContentTemplate" x:DataType="vm:DailyBriefingActionPresentation">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <FontIcon FontSize="12" Glyph="{x:Bind Glyph}" />
+                <TextBlock FontSize="12" Text="{x:Bind Label}" />
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate x:Key="BriefingItemTemplate" x:DataType="vm:DailyBriefingDisplayItem">
+            <Border
+                Margin="10,4"
+                Padding="9,8,9,9"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{x:Bind helpers:XamlHelpers.GetBriefingPriorityBorderBrush(IsPriority)}"
+                BorderThickness="1"
+                CornerRadius="6">
+                <Grid ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Rectangle
+                        Width="3"
+                        VerticalAlignment="Stretch"
+                        Fill="{ThemeResource SystemFillColorCriticalBrush}"
+                        RadiusX="2"
+                        RadiusY="2"
+                        Visibility="{x:Bind IsPriority}" />
+
+                    <StackPanel Grid.Column="1" Spacing="6">
+                        <primitives:WinoWrapPanel HorizontalSpacing="5" VerticalSpacing="5">
+                            <Border
+                                MinHeight="21"
+                                Padding="7,1"
+                                Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+                                CornerRadius="11"
+                                Visibility="{x:Bind HasUrgency}">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <FontIcon
+                                        VerticalAlignment="Center"
+                                        FontSize="11"
+                                        Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                        Glyph="{x:Bind vm:DailyBriefingIcons.PriorityGlyph, Mode=OneTime}" />
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        FontSize="11"
+                                        FontWeight="SemiBold"
+                                        Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                        Text="{x:Bind UrgencyText}" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border
+                                MinHeight="21"
+                                Padding="7,1"
+                                Background="{x:Bind helpers:XamlHelpers.GetBriefingToneBackground(Tone)}"
+                                CornerRadius="11"
+                                Visibility="{x:Bind HasCategory}">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <FontIcon
+                                        VerticalAlignment="Center"
+                                        FontSize="11"
+                                        Foreground="{x:Bind helpers:XamlHelpers.GetBriefingToneForeground(Tone)}"
+                                        Glyph="{x:Bind CategoryGlyph}" />
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        FontSize="11"
+                                        Foreground="{x:Bind helpers:XamlHelpers.GetBriefingToneForeground(Tone)}"
+                                        Text="{x:Bind CategoryText}" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border
+                                MinHeight="21"
+                                Padding="7,1"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                CornerRadius="11"
+                                Visibility="{x:Bind HasDue}">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <FontIcon
+                                        VerticalAlignment="Center"
+                                        FontSize="11"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Glyph="{x:Bind vm:DailyBriefingIcons.TimeGlyph, Mode=OneTime}" />
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        FontSize="11"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Text="{x:Bind DueText}"
+                                        TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Border>
+                        </primitives:WinoWrapPanel>
+
+                        <TextBlock
+                            FontWeight="SemiBold"
+                            Style="{StaticResource BodyTextBlockStyle}"
+                            Text="{x:Bind Headline}"
+                            TextWrapping="Wrap" />
+
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind Detail}"
+                            TextWrapping="Wrap"
+                            Visibility="{x:Bind HasDetail}" />
+
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                FontSize="11"
+                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                Text="{x:Bind When}" />
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                FontSize="11"
+                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                Text="·" />
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                FontSize="11"
+                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                Text="{x:Bind Source}"
+                                TextTrimming="CharacterEllipsis"
+                                Visibility="{x:Bind HasSource}" />
+                        </StackPanel>
+
+                        <primitives:WinoWrapPanel HorizontalSpacing="6" VerticalSpacing="6">
+                            <Button
+                                MinHeight="30"
+                                Padding="10,3"
+                                AutomationProperties.AutomationId="{x:Bind Action.AutomationId}"
+                                AutomationProperties.Name="{x:Bind Action.Label}"
+                                Click="ActionClicked"
+                                Content="{x:Bind Action}"
+                                ContentTemplate="{StaticResource BriefingActionContentTemplate}"
+                                CornerRadius="4"
+                                Style="{StaticResource AccentButtonStyle}"
+                                Tag="{x:Bind}"
+                                Visibility="{x:Bind Action.IsNative}" />
+                            <Button
+                                MinHeight="30"
+                                Padding="10,3"
+                                AutomationProperties.AutomationId="{x:Bind Action.AutomationId}"
+                                AutomationProperties.Name="{x:Bind Action.Label}"
+                                Click="ActionClicked"
+                                Content="{x:Bind Action}"
+                                ContentTemplate="{StaticResource BriefingActionContentTemplate}"
+                                CornerRadius="4"
+                                Tag="{x:Bind}"
+                                Visibility="{x:Bind Action.IsSource}" />
+                            <Button
+                                MinHeight="30"
+                                Padding="10,3"
+                                AutomationProperties.AutomationId="DailyBriefingOpenButton"
+                                AutomationProperties.Name="{x:Bind domain:Translator.DailyBriefing_ActionOpen, Mode=OneTime}"
+                                Click="OpenItemClicked"
+                                CornerRadius="4"
+                                Tag="{x:Bind}"
+                                Visibility="{x:Bind ShowOpenAction}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon FontSize="12" Glyph="{x:Bind vm:DailyBriefingIcons.OpenMailGlyph, Mode=OneTime}" />
+                                    <TextBlock FontSize="12" Text="{x:Bind domain:Translator.DailyBriefing_ActionOpen, Mode=OneTime}" />
+                                </StackPanel>
+                            </Button>
+                        </primitives:WinoWrapPanel>
+
+                        <StackPanel
+                            Orientation="Horizontal"
+                            Spacing="6"
+                            Visibility="{x:Bind IsAccountVisible, Mode=OneWay}">
+                            <PersonPicture
+                                Width="16"
+                                Height="16"
+                                Initials="{x:Bind AccountInitials}" />
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                FontSize="11"
+                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                Text="{x:Bind AccountName}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="BriefingAccountGroupTemplate" x:DataType="vm:DailyBriefingAccountGroup">
+            <StackPanel Spacing="2">
+                <TextBlock
+                    Margin="12,10,12,2"
+                    FontWeight="SemiBold"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="{x:Bind AccountName}" />
+                <ItemsControl
+                    ItemTemplate="{StaticResource BriefingItemTemplate}"
+                    ItemsSource="{x:Bind Items}" />
+            </StackPanel>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid
+        x:Name="PanelRoot"
+        Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+        BorderThickness="1,0,0,0"
+        DataContext="{x:Bind ViewModel, Mode=OneWay}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid
+            Height="48"
+            Padding="16,0,8,0"
+            ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock
+                VerticalAlignment="Center"
+                Style="{StaticResource BodyStrongTextBlockStyle}"
+                Text="{x:Bind domain:Translator.DailyBriefing_Title, Mode=OneTime}" />
+            <ToggleButton
+                Grid.Column="1"
+                Width="34"
+                Height="32"
+                Padding="0"
+                AutomationProperties.AutomationId="DailyBriefingGroupToggle"
+                AutomationProperties.Name="{x:Bind domain:Translator.DailyBriefing_GroupByAccount, Mode=OneTime}"
+                Background="Transparent"
+                BorderThickness="0"
+                IsChecked="{x:Bind ViewModel.IsGrouped, Mode=TwoWay}"
+                ToolTipService.ToolTip="{x:Bind domain:Translator.DailyBriefing_GroupByAccount, Mode=OneTime}">
+                <FontIcon FontSize="14" Glyph="{x:Bind vm:DailyBriefingIcons.GroupGlyph, Mode=OneTime}" />
+            </ToggleButton>
+            <Button
+                Grid.Column="2"
+                Width="34"
+                Height="32"
+                Padding="0"
+                AutomationProperties.AutomationId="DailyBriefingCloseButton"
+                AutomationProperties.Name="{x:Bind domain:Translator.DailyBriefing_ClosePane, Mode=OneTime}"
+                Background="Transparent"
+                BorderThickness="0"
+                Click="CloseClicked"
+                ToolTipService.ToolTip="{x:Bind domain:Translator.DailyBriefing_ClosePane, Mode=OneTime}">
+                <FontIcon FontSize="13" Glyph="{x:Bind vm:DailyBriefingIcons.CloseGlyph, Mode=OneTime}" />
+            </Button>
+        </Grid>
+
+        <ListView
+            x:Name="DateListView"
+            Grid.Row="1"
+            Height="60"
+            Padding="6,4"
+            AutomationProperties.AutomationId="DailyBriefingDateList"
+            Background="Transparent"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="0,1,0,1"
+            IsItemClickEnabled="False"
+            ItemsSource="{x:Bind ViewModel.Dates, Mode=OneWay}"
+            SelectedIndex="{x:Bind ViewModel.SelectedDateIndex, Mode=TwoWay}"
+            SelectionMode="Single">
+            <ListView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <ItemsStackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ListView.ItemsPanel>
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="Width" Value="54" />
+                    <Setter Property="MinHeight" Value="50" />
+                    <Setter Property="Padding" Value="2" />
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="vm:DailyBriefingDateItem">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock
+                            MaxWidth="49"
+                            HorizontalAlignment="Center"
+                            FontSize="11"
+                            FontWeight="SemiBold"
+                            Text="{x:Bind DisplayName}"
+                            TextTrimming="CharacterEllipsis" />
+                        <TextBlock
+                            HorizontalAlignment="Center"
+                            FontSize="10"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="{x:Bind Date.Day}" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <Grid Grid.Row="2">
+            <ScrollViewer
+                x:Name="ContentScrollViewer"
+                AutomationProperties.AutomationId="DailyBriefingContentScrollViewer"
+                VerticalScrollBarVisibility="Auto"
+                Visibility="{x:Bind ViewModel.ShowContent, Mode=OneWay}">
+                <StackPanel>
+                    <ItemsControl
+                        ItemTemplate="{StaticResource BriefingItemTemplate}"
+                        ItemsSource="{x:Bind ViewModel.FlatItems, Mode=OneWay}"
+                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsGrouped), Mode=OneWay}" />
+                    <ItemsControl
+                        ItemTemplate="{StaticResource BriefingAccountGroupTemplate}"
+                        ItemsSource="{x:Bind ViewModel.AccountGroups, Mode=OneWay}"
+                        Visibility="{x:Bind ViewModel.IsGrouped, Mode=OneWay}" />
+                </StackPanel>
+            </ScrollViewer>
+
+            <StackPanel
+                Margin="24"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="10"
+                Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay}">
+                <intelligenceProgress:WinoIntelligenceProgressRing
+                    Width="42"
+                    Height="42"
+                    Animation="Summarize"
+                    AutomationProperties.AccessibilityView="Raw"
+                    IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}" />
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.DailyBriefing_ReadingLocal, Mode=OneTime}" />
+            </StackPanel>
+
+            <StackPanel
+                Margin="24"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="8"
+                Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay}">
+                <FontIcon FontSize="26" Glyph="{x:Bind vm:DailyBriefingIcons.InformationGlyph, Mode=OneTime}" />
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.DailyBriefing_EmptyTitle, Mode=OneTime}" />
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.DailyBriefing_EmptyMessage, Mode=OneTime}"
+                    TextAlignment="Center"
+                    TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel
+                Margin="24"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="8"
+                Visibility="{x:Bind ViewModel.IsUnavailable, Mode=OneWay}">
+                <FontIcon FontSize="26" Glyph="{x:Bind vm:DailyBriefingIcons.LockGlyph, Mode=OneTime}" />
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.DailyBriefing_UnavailableTitle, Mode=OneTime}" />
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.DailyBriefing_UnavailableMessage, Mode=OneTime}"
+                    TextAlignment="Center"
+                    TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel
+                Margin="24"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="8"
+                Visibility="{x:Bind ViewModel.HasLoadError, Mode=OneWay}">
+                <FontIcon
+                    FontSize="26"
+                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                    Glyph="{x:Bind vm:DailyBriefingIcons.WarningGlyph, Mode=OneTime}" />
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.DailyBriefing_LocalErrorTitle, Mode=OneTime}" />
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind ViewModel.LoadError, Mode=OneWay}"
+                    TextAlignment="Center"
+                    TextWrapping="Wrap" />
+                <Button
+                    HorizontalAlignment="Center"
+                    AutomationProperties.AutomationId="DailyBriefingRetryButton"
+                    Command="{x:Bind ViewModel.RetryCommand}"
+                    Content="{x:Bind domain:Translator.DailyBriefing_Retry, Mode=OneTime}" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

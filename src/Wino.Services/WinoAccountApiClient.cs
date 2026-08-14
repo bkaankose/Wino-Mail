@@ -426,26 +426,38 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         return missing;
     }
 
-    public Task<IntelligenceIngestResultDto> IngestIntelligenceAsync(
+    public async Task<IntelligenceIngestResultDto> IngestIntelligenceAsync(
         Guid mailboxId,
         byte[] encryptedEnvelope,
         CancellationToken cancellationToken = default)
-        => SendEncryptedIntelligenceAsync(
+    {
+        var result = await SendEncryptedIntelligenceAsync(
             $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/ingest",
             encryptedEnvelope,
-            WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceIngestResultDto,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeCompactIntelligenceIngestResultDto,
             "Intelligence ingestion failed.",
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
+
+        return new IntelligenceIngestResultDto(
+            result.Items,
+            result.Artifacts.Select(static artifact => artifact.ToContract()).ToArray());
+    }
 
     public async Task<IntelligenceArtifactCursorPageDto> GetIntelligenceArtifactsAsync(
         Guid mailboxId,
         string? cursor,
         int pageSize,
         CancellationToken cancellationToken = default)
-        => RequireResult(await SendAuthorizedRequestAsync(
+    {
+        var page = RequireResult(await SendAuthorizedRequestAsync(
             $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/artifacts?cursor={Uri.EscapeDataString(cursor ?? string.Empty)}&pageSize={pageSize}",
-            WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceArtifactCursorPageDto,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeCompactIntelligenceArtifactCursorPageDto,
             cancellationToken).ConfigureAwait(false), "Intelligence artifact download failed.");
+
+        return new IntelligenceArtifactCursorPageDto(
+            page.NextCursor,
+            page.Items.Select(static artifact => artifact.ToContract()).ToArray());
+    }
 
     public async Task<IntelligenceMailboxStatusDto> RebuildIntelligenceEmbeddingsAsync(
         Guid mailboxId,
@@ -550,38 +562,17 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         }
     }
 
-    public async Task<WinoDailyBriefing> GetDailyBriefingAsync(
+    public async Task<HeadlineTranslationResultDto> TranslateBriefingHeadlinesAsync(
         Guid mailboxId,
-        DateOnly localDate,
-        string timeZoneId,
-        bool forceRegenerate = false,
+        string targetLanguage,
         CancellationToken cancellationToken = default)
         => RequireResult(await SendAuthorizedRequestAsync(
             HttpMethod.Post,
-            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/daily-briefing",
-            new LocalizedDailyBriefingRequest(localDate, timeZoneId, GetApplicationLanguage(), forceRegenerate),
-            WinoAccountApiJsonContext.Default.LocalizedDailyBriefingRequest,
-            WinoAccountApiJsonContext.Default.ApiEnvelopeWinoDailyBriefing,
-            cancellationToken).ConfigureAwait(false), "Daily intelligence briefing failed.");
-
-    public async Task<IReadOnlyList<WinoDeadlineMetadata>> GetDeadlinesAsync(
-        Guid mailboxId,
-        DateTimeOffset? dueAfterUtc = null,
-        DateTimeOffset? dueBeforeUtc = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new List<string>(2);
-        if (dueAfterUtc.HasValue)
-            parameters.Add($"dueAfterUtc={Uri.EscapeDataString(dueAfterUtc.Value.ToString("O", CultureInfo.InvariantCulture))}");
-        if (dueBeforeUtc.HasValue)
-            parameters.Add($"dueBeforeUtc={Uri.EscapeDataString(dueBeforeUtc.Value.ToString("O", CultureInfo.InvariantCulture))}");
-        var endpoint = $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/deadlines" +
-                       (parameters.Count == 0 ? string.Empty : $"?{string.Join("&", parameters)}");
-        return RequireResult(await SendAuthorizedRequestAsync(
-            endpoint,
-            WinoAccountApiJsonContext.Default.ApiEnvelopeIReadOnlyListWinoDeadlineMetadata,
-            cancellationToken).ConfigureAwait(false), "Intelligence deadlines request failed.");
-    }
+            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/headlines:translate",
+            new HeadlineTranslationRequest(targetLanguage),
+            WinoAccountApiJsonContext.Default.HeadlineTranslationRequest,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeHeadlineTranslationResultDto,
+            cancellationToken).ConfigureAwait(false), "Headline translation failed.");
 
     public async Task<WinoSuggestedRepliesResult> GetSuggestedRepliesAsync(
         Guid mailboxId,
@@ -1101,7 +1092,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(ApiEnvelope<List<SemanticMailboxDto>>))]
 [JsonSerializable(typeof(ApiEnvelope<SemanticMailboxDto>))]
 [JsonSerializable(typeof(EnsureSemanticMailboxRequest))]
-[JsonSerializable(typeof(LocalizedDailyBriefingRequest))]
+[JsonSerializable(typeof(HeadlineTranslationRequest))]
 [JsonSerializable(typeof(LocalizedSuggestedRepliesRequest))]
 [JsonSerializable(typeof(IndexIntelligenceRequest))]
 [JsonSerializable(typeof(GenerateInsightsRequest))]
@@ -1119,23 +1110,22 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceManifestDto>))]
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceMailboxStatusDto>))]
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceIngestResultDto>))]
+[JsonSerializable(typeof(ApiEnvelope<CompactIntelligenceIngestResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceArtifactCursorPageDto>))]
+[JsonSerializable(typeof(ApiEnvelope<CompactIntelligenceArtifactCursorPageDto>))]
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceMailboxStateDto>))]
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceStageResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceCoverageResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceArtifactPageDto>))]
 [JsonSerializable(typeof(IntelligenceArtifactDto))]
 [JsonSerializable(typeof(SmartLabelsCapabilityPayload))]
-[JsonSerializable(typeof(PriorityCapabilityPayload))]
-[JsonSerializable(typeof(NeedsReplyCapabilityPayload))]
 [JsonSerializable(typeof(SimilarMessagesCapabilityPayload))]
-[JsonSerializable(typeof(DeadlineCapabilityPayload))]
 [JsonSerializable(typeof(BriefingFactCapabilityPayload))]
+[JsonSerializable(typeof(BriefingHeadlineCapabilityPayload))]
 [JsonSerializable(typeof(SuggestedRepliesCapabilityPayload))]
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceSemanticSearchResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<WinoSuggestedRepliesResult>))]
-[JsonSerializable(typeof(ApiEnvelope<WinoDailyBriefing>))]
-[JsonSerializable(typeof(ApiEnvelope<IReadOnlyList<WinoDeadlineMetadata>>))]
+[JsonSerializable(typeof(ApiEnvelope<HeadlineTranslationResultDto>))]
 [JsonSerializable(typeof(TransportConsentDto))]
 [JsonSerializable(typeof(UpdateTransportConsentRequest))]
 [JsonSerializable(typeof(MailboxProcessConsentDto))]
@@ -1150,3 +1140,47 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(ApiEnvelope<ProcessConsentListDto>))]
 [JsonSerializable(typeof(ApiEnvelope<BatchProcessConsentResult>))]
 internal sealed partial class WinoAccountApiJsonContext : JsonSerializerContext;
+
+internal sealed record CompactIntelligenceArtifactCursorPageDto(
+    string? NextCursor,
+    IReadOnlyList<CompactIntelligenceArtifactDto> Items);
+
+internal sealed record CompactIntelligenceIngestResultDto(
+    IReadOnlyList<IntelligenceIngestItemResultDto> Items,
+    IReadOnlyList<CompactIntelligenceArtifactDto> Artifacts);
+
+internal sealed class CompactIntelligenceArtifactDto
+{
+    public required string RemoteMessageId { get; init; }
+    public required string ContentHash { get; init; }
+    public required IntelligenceCapability Capability { get; init; }
+    public required int GenerationVersion { get; init; }
+    public required int PayloadSchemaVersion { get; init; }
+    public required long ArtifactRevision { get; init; }
+    public required DateTimeOffset GeneratedAtUtc { get; init; }
+    public bool IsDeleted { get; init; }
+    public double? Confidence { get; init; }
+    public SmartLabelsCapabilityPayload? SmartLabels { get; init; }
+    public SimilarMessagesCapabilityPayload? SimilarMessages { get; init; }
+    public BriefingFactCapabilityPayload? BriefingFact { get; init; }
+    public BriefingHeadlineCapabilityPayload? BriefingHeadline { get; init; }
+    public SuggestedRepliesCapabilityPayload? SuggestedReplies { get; init; }
+
+    public IntelligenceArtifactDto ToContract() => new()
+    {
+        RemoteMessageId = RemoteMessageId,
+        ContentHash = ContentHash,
+        Capability = Capability,
+        GenerationVersion = GenerationVersion,
+        PayloadSchemaVersion = PayloadSchemaVersion,
+        ArtifactRevision = ArtifactRevision,
+        GeneratedAtUtc = GeneratedAtUtc,
+        IsDeleted = IsDeleted,
+        Confidence = Confidence,
+        SmartLabels = SmartLabels,
+        SimilarMessages = SimilarMessages,
+        BriefingFact = BriefingFact,
+        BriefingHeadline = BriefingHeadline,
+        SuggestedReplies = SuggestedReplies,
+    };
+}

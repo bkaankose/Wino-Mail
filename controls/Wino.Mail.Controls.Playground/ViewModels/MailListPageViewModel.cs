@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Wino.Mail.Controls.Core;
+using Wino.Mail.Controls.Core.IntelligenceTileBar;
 using Wino.Mail.Controls.Playground.Models;
 
 namespace Wino.Mail.Controls.Playground.ViewModels;
@@ -74,6 +75,40 @@ public sealed class MailListPageViewModel : INotifyPropertyChanged
         SeedItems();
     }
 
+    public void ApplyMetadata()
+    {
+        if (((IEnumerable<MailListPlaygroundItem>)Items).FirstOrDefault() is { } item)
+        {
+            item.IntelligenceTiles = new WinoIntelligenceTile[]
+            {
+                new(WinoIntelligenceTileKind.Deadline, "\uE787", "Review: Friday, 5:00 PM", "Review deadline: Friday, 5:00 PM"),
+                new(WinoIntelligenceTileKind.NeedsReply, "\uE97A", "Needs reply", "This message needs a reply"),
+                new(WinoIntelligenceTileKind.Priority, "\uE7BA", "Urgent", "Urgent priority", isWarning: true),
+                new(WinoIntelligenceTileKind.SmartLabel, "\uE8EC", "Finance", "Finance"),
+                new(WinoIntelligenceTileKind.BriefingFact, "\uE946", string.Empty, "Action required, urgent: countersign the agreement", true),
+            };
+        }
+    }
+
+    public void ReplaceMetadata()
+    {
+        if (((IEnumerable<MailListPlaygroundItem>)Items).FirstOrDefault() is { } item)
+        {
+            item.IntelligenceTiles = new WinoIntelligenceTile[]
+            {
+                new(WinoIntelligenceTileKind.Deadline, "\uE787", "Pay: Monday", "Payment deadline: Monday"),
+                new(WinoIntelligenceTileKind.SmartLabel, "\uE8EC", "Receipt", "Receipt"),
+                new(WinoIntelligenceTileKind.SmartLabel, "\uE8EC", "Travel", "Travel"),
+            };
+        }
+    }
+
+    public void ClearMetadata()
+    {
+        if (((IEnumerable<MailListPlaygroundItem>)Items).FirstOrDefault() is { } item)
+            item.IntelligenceTiles = Array.Empty<WinoIntelligenceTile>();
+    }
+
     private void SeedItems()
     {
         var now = DateTime.Now;
@@ -85,6 +120,11 @@ public sealed class MailListPageViewModel : INotifyPropertyChanged
             new("ProjectPhoenix", now.AddDays(-2).AddHours(-4), "Morgan Lee", "Phoenix: initial proposal", "The conversation began two days ago.", "morgan@example.com"),
             new("DesignReview", now.Date.AddDays(-1).AddHours(16), "Jamie Park", "Design review follow-up", "Two-message thread grouped under yesterday.", "jamie@example.com"),
             new("DesignReview", now.Date.AddDays(-1).AddHours(11), "Alex Kim", "Design review agenda", "The original agenda for yesterday's review.", "alex@example.com"),
+        };
+        items[1].IntelligenceTiles = new WinoIntelligenceTile[]
+        {
+            new(WinoIntelligenceTileKind.Priority, "\uE7BA", "High priority", "High priority", isWarning: true),
+            new(WinoIntelligenceTileKind.SmartLabel, "\uE8EC", "Action", "Action"),
         };
 
         var senders = new[] { "Avery Stone", "Jordan Blake", "Casey Morgan", "Robin Shah", "Drew Ellis", "Quinn Parker" };

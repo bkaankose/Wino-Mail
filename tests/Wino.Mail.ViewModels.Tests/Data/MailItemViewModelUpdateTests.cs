@@ -2,6 +2,9 @@ using FluentAssertions;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Intelligence;
+using Wino.Mail.AI.Abstractions;
+using Wino.Mail.Controls.Core.IntelligenceTileBar;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
 using Xunit;
@@ -116,6 +119,57 @@ public class MailItemViewModelUpdateTests
         raisedProperties.Should().Contain(nameof(MailItemViewModel.IsRead));
     }
 
+    [Fact]
+    public void IntelligenceTiles_ShouldApplyVisibilityPolicyAndPreserveLabelOrder()
+    {
+        var mail = CreateMailCopy("thread-1", DateTime.UtcNow);
+        mail.IntelligenceMetadata = new MailIntelligenceMetadata(
+            "outlook:test",
+            [
+                new SmartLabelScore(MailSmartLabel.Travel, 0.9),
+                new SmartLabelScore(MailSmartLabel.Finance, 0.8),
+            ],
+            null,
+            string.Empty);
+
+        var sut = new MailItemViewModel(mail);
+
+        sut.IntelligenceTiles.Select(static tile => tile.Kind).Should().Equal(
+            WinoIntelligenceTileKind.SmartLabel,
+            WinoIntelligenceTileKind.SmartLabel);
+        sut.IntelligenceTiles.Select(static tile => tile.Text).Should().Equal(
+            "IntelligenceTile_LabelTravel",
+            "IntelligenceTile_LabelFinance");
+    }
+
+    [Fact]
+    public void ThreadIntelligenceTiles_ShouldComeOnlyFromNewestMessage()
+    {
+        var older = CreateMailCopy("thread-1", DateTime.UtcNow.AddMinutes(-5));
+        older.IntelligenceMetadata = CreatePriorityMetadata(MailPriority.Urgent);
+        var newest = CreateMailCopy("thread-1", DateTime.UtcNow);
+        newest.IntelligenceMetadata = CreatePriorityMetadata(MailPriority.High);
+        var sut = new ThreadMailItemViewModel("thread-1", isNewestEmailFirst: true);
+        sut.AddEmail(new MailItemViewModel(older));
+        sut.AddEmail(new MailItemViewModel(newest));
+
+        sut.IntelligenceTiles.Where(static tile => tile.Kind == WinoIntelligenceTileKind.Priority)
+            .Should().ContainSingle().Which.Text.Should().Be("IntelligenceTile_PriorityHigh");
+    }
+
+    private static MailIntelligenceMetadata CreatePriorityMetadata(MailPriority priority)
+        => new("outlook:test", [], new GeneralFactPayload
+        {
+            BriefingId = Guid.NewGuid(),
+            OccurredAtUtc = DateTimeOffset.UtcNow,
+            Kind = MessageKind.Information,
+            Status = BriefingStatus.Informational,
+            Urgency = priority,
+            PrimaryAction = new NoActionPayload(),
+            TemporalReferences = [],
+            Confidence = 0.9,
+        }, string.Empty);
+
     private static MailCopy CreateMailCopy(string threadId, DateTime creationDate)
         => new()
         {
@@ -170,7 +224,8 @@ public class MailItemViewModelUpdateTests
             FileId = source.FileId,
             SenderContact = source.SenderContact,
             AssignedAccount = source.AssignedAccount,
-            AssignedFolder = source.AssignedFolder
+            AssignedFolder = source.AssignedFolder,
+            IntelligenceMetadata = source.IntelligenceMetadata
         };
 
     private sealed class ImmediateDispatcher : IDispatcher

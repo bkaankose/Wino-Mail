@@ -8,11 +8,11 @@
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:local="using:Wino.Mail.WinUI"
+    xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:searchModels="using:Wino.Mail.WinUI.Models"
     xmlns:searchControls="using:Wino.Mail.Controls.SearchBar"
     xmlns:searchCore="using:Wino.Mail.Controls.Core.SearchBar"
-    xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
+    xmlns:searchModels="using:Wino.Mail.WinUI.Models"
     xmlns:winuiex="using:WinUIEx"
     Title="ShellWindow"
     mc:Ignorable="d">
@@ -22,7 +22,10 @@
     <Grid>
         <Grid.Resources>
             <DataTemplate x:Key="TitleBarSenderSuggestionTemplate" x:DataType="searchCore:SearchBarContactSuggestion">
-                <Grid MinHeight="48" Padding="8,4" ColumnSpacing="10">
+                <Grid
+                    MinHeight="48"
+                    Padding="8,4"
+                    ColumnSpacing="10">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -33,9 +36,19 @@
                         ContactPicture="{x:Bind ContactPicture, Mode=OneTime}"
                         IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
                         IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
-                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
-                        <TextBlock FontWeight="SemiBold" Text="{x:Bind DisplayName}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind Address}" TextTrimming="CharacterEllipsis" />
+                    <StackPanel
+                        Grid.Column="1"
+                        VerticalAlignment="Center"
+                        Spacing="1">
+                        <TextBlock
+                            FontWeight="SemiBold"
+                            Text="{x:Bind DisplayName}"
+                            TextTrimming="CharacterEllipsis" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind Address}"
+                            TextTrimming="CharacterEllipsis" />
                     </StackPanel>
                 </Grid>
             </DataTemplate>
@@ -64,55 +77,79 @@
             </TitleBar.Resources>-->
             <TitleBar.Content>
                 <searchControls:WinoSearchBar
-                        x:Name="TitleBarSearchBox"
-                        MinWidth="400"
-                        MaxWidth="520"
-                        Margin="12,0,16,0"
-                        VerticalAlignment="Center"
-                        AutomationProperties.AutomationId="TitleBarSearchBox"
-                        AutomationProperties.Name="{x:Bind domain:Translator.SearchBarPlaceholder}"
-                        AttachmentsFilterText="{x:Bind domain:Translator.SearchBar_Attachments}"
-                        ClearHistoryText="{x:Bind domain:Translator.SearchBar_ClearHistory}"
-                        ClearText="{x:Bind domain:Translator.SearchBar_Close}"
-                        ClearSearchHistoryRequested="TitleBarClearSearchHistoryRequested"
-                        DateLabelText="{x:Bind domain:Translator.SearchBar_Date}"
-                        EmptyHistoryText="{x:Bind domain:Translator.SearchBar_NoRecentSearches}"
-                        FlaggedFilterText="{x:Bind domain:Translator.SearchBar_Flagged}"
-                        MeaningToggleText="{x:Bind domain:Translator.SearchBar_Meaning}"
-                        PlaceholderText="{x:Bind domain:Translator.SearchBarPlaceholder}"
-                        ReachLabelText="{x:Bind domain:Translator.SearchBar_Reach}"
-                        RecentSearchesText="{x:Bind domain:Translator.SearchBar_RecentSearches}"
-                        RemoveSenderText="{x:Bind domain:Translator.SearchBar_RemoveSender}"
-                        ResetText="{x:Bind domain:Translator.SearchBar_ResetFilters}"
-                        ScopeLabelText="{x:Bind domain:Translator.SearchBar_Scope}"
-                        SearchButtonText="{x:Bind domain:Translator.SearchBar_SearchButton}"
-                        SearchOptionsChanged="TitleBarSearchOptionsChanged"
-                        SearchOptionsText="{x:Bind domain:Translator.SearchBar_SearchOptions}"
-                        SearchSubmitted="TitleBarSearchSubmitted"
-                        SearchTextChanged="TitleBarSearchTextChanged"
-                        SemanticPlaceholderText="{x:Bind domain:Translator.SearchBar_SemanticPlaceholder}"
-                        SemanticSearchExplanationText="{x:Bind domain:Translator.SearchBar_SemanticExplanation}"
-                        SenderSuggestionItemTemplate="{StaticResource TitleBarSenderSuggestionTemplate}"
-                        SenderPlaceholderText="{x:Bind domain:Translator.SearchBar_SenderPlaceholder}"
-                        SenderSuggestionsRequested="TitleBarSenderSuggestionsRequested"
-                        SenderLabelText="{x:Bind domain:Translator.SearchBar_Sender}"
-                        UnreadFilterText="{x:Bind domain:Translator.SearchBar_Unread}">
-                        <searchControls:WinoSearchBar.ItemTemplate>
-                            <DataTemplate x:DataType="searchModels:TitleBarSearchSuggestion">
-                                <StackPanel Padding="0,4">
-                                    <TextBlock Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock
-                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Style="{StaticResource CaptionTextBlockStyle}"
-                                        Text="{x:Bind Subtitle}"
-                                        TextTrimming="CharacterEllipsis" />
-                                </StackPanel>
-                            </DataTemplate>
-                        </searchControls:WinoSearchBar.ItemTemplate>
+                    x:Name="TitleBarSearchBox"
+                    MinWidth="400"
+                    MaxWidth="520"
+                    Margin="12,0,16,0"
+                    VerticalAlignment="Center"
+                    AttachmentsFilterText="{x:Bind domain:Translator.SearchBar_Attachments}"
+                    AutomationProperties.AutomationId="TitleBarSearchBox"
+                    AutomationProperties.Name="{x:Bind domain:Translator.SearchBarPlaceholder}"
+                    ClearHistoryText="{x:Bind domain:Translator.SearchBar_ClearHistory}"
+                    ClearSearchHistoryRequested="TitleBarClearSearchHistoryRequested"
+                    ClearText="{x:Bind domain:Translator.SearchBar_Close}"
+                    DateLabelText="{x:Bind domain:Translator.SearchBar_Date}"
+                    EmptyHistoryText="{x:Bind domain:Translator.SearchBar_NoRecentSearches}"
+                    FlaggedFilterText="{x:Bind domain:Translator.SearchBar_Flagged}"
+                    MeaningToggleText="{x:Bind domain:Translator.SearchBar_Meaning}"
+                    PlaceholderText="{x:Bind domain:Translator.SearchBarPlaceholder}"
+                    ReachLabelText="{x:Bind domain:Translator.SearchBar_Reach}"
+                    RecentSearchesText="{x:Bind domain:Translator.SearchBar_RecentSearches}"
+                    RemoveSenderText="{x:Bind domain:Translator.SearchBar_RemoveSender}"
+                    ResetText="{x:Bind domain:Translator.SearchBar_ResetFilters}"
+                    ScopeLabelText="{x:Bind domain:Translator.SearchBar_Scope}"
+                    SearchButtonText="{x:Bind domain:Translator.SearchBar_SearchButton}"
+                    SearchOptionsChanged="TitleBarSearchOptionsChanged"
+                    SearchOptionsText="{x:Bind domain:Translator.SearchBar_SearchOptions}"
+                    SearchSubmitted="TitleBarSearchSubmitted"
+                    SearchTextChanged="TitleBarSearchTextChanged"
+                    SemanticPlaceholderText="{x:Bind domain:Translator.SearchBar_SemanticPlaceholder}"
+                    SemanticSearchExplanationText="{x:Bind domain:Translator.SearchBar_SemanticExplanation}"
+                    SenderLabelText="{x:Bind domain:Translator.SearchBar_Sender}"
+                    SenderPlaceholderText="{x:Bind domain:Translator.SearchBar_SenderPlaceholder}"
+                    SenderSuggestionItemTemplate="{StaticResource TitleBarSenderSuggestionTemplate}"
+                    SenderSuggestionsRequested="TitleBarSenderSuggestionsRequested"
+                    UnreadFilterText="{x:Bind domain:Translator.SearchBar_Unread}">
+                    <searchControls:WinoSearchBar.ItemTemplate>
+                        <DataTemplate x:DataType="searchModels:TitleBarSearchSuggestion">
+                            <StackPanel Padding="0,4">
+                                <TextBlock Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind Subtitle}"
+                                    TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </searchControls:WinoSearchBar.ItemTemplate>
                 </searchControls:WinoSearchBar>
             </TitleBar.Content>
             <TitleBar.RightHeader>
                 <StackPanel Orientation="Horizontal" Spacing="8">
+                    <ToggleButton
+                        x:Name="DailyBriefingToggleButton"
+                        Width="38"
+                        Height="38"
+                        AutomationProperties.AutomationId="ShellDailyBriefingToggleButton"
+                        AutomationProperties.Name="{x:Bind domain:Translator.DailyBriefing_Menu, Mode=OneTime}"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        Click="DailyBriefingToggleButtonClicked"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.DailyBriefing_Menu, Mode=OneTime}"
+                        Visibility="Collapsed">
+                        <Grid>
+                            <FontIcon
+                                AutomationProperties.AccessibilityView="Raw"
+                                FontSize="16"
+                                Glyph="&#xE946;" />
+                            <InfoBadge
+                                x:Name="DailyBriefingUnseenBadge"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Top"
+                                Background="{ThemeResource SystemAccentColor}"
+                                Visibility="Collapsed" />
+                        </Grid>
+                    </ToggleButton>
                     <Button
                         x:Name="WinoAccountButton"
                         AutomationProperties.AutomationId="WinoAccountButton"
@@ -319,6 +356,13 @@
             CacheSize="0"
             IsNavigationStackEnabled="False"
             Navigated="MainFrameNavigated" />
+
+        <!--  Overlays the navigated frame without a scrim, so the shell underneath stays interactive.  -->
+        <coreControls:DailyBriefingPanel
+            x:Name="DailyBriefingPanelControl"
+            Grid.Row="1"
+            HorizontalAlignment="Right"
+            Canvas.ZIndex="2000" />
 
         <coreControls:WinoInfoBar
             x:Name="ShellInfoBar"

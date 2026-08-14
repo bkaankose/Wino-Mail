@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -20,13 +21,14 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Dialogs;
 using Wino.Mail.Dialogs;
 using Wino.Mail.WinUI.Extensions;
+using Wino.Mail.ViewModels;
 using Wino.Mail.WinUI.Services;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 
 namespace Wino.Services;
 
-public class DialogService : DialogServiceBase, IMailDialogService
+public class DialogService : DialogServiceBase, IMailDialogService, IRecipient<SemanticIndexingCompleted>
 {
     private readonly IWinoAccountProfileService _winoAccountProfileService;
     private readonly IWinoAccountDataSyncService _winoAccountDataSyncService;
@@ -39,7 +41,17 @@ public class DialogService : DialogServiceBase, IMailDialogService
     {
         _winoAccountProfileService = winoAccountProfileService;
         _winoAccountDataSyncService = winoAccountDataSyncService;
+        WeakReferenceMessenger.Default.Register(this);
     }
+
+    public void Receive(SemanticIndexingCompleted message)
+        => InfoBarMessage(
+            Translator.SemanticIndex_CompletedNotificationTitle,
+            string.Format(
+                Translator.SemanticIndex_CompletedNotificationMessage,
+                message.IndexedMessageCount,
+                message.AccountAddress),
+            InfoBarMessageType.Success);
 
     public void ShowReadOnlyCalendarMessage()
         => InfoBarMessage(

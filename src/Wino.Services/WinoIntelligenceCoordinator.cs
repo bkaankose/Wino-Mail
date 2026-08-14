@@ -95,9 +95,40 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
     {
         try
         {
-            var access = await GetAccessAsync(context, cancellationToken).ConfigureAwait(false);
-            if (!access.HasAiPack || (!access.HasTransportConsent && !access.HasProcessConsent))
+            var metadata = context.IntelligenceMetadata;
+            var needsReply = metadata?.NeedsReply?.Value == true;
+            var needsReplyDetail = metadata?.Headline ?? string.Empty;
+            var deadlinePayload = metadata?.Deadline;
+            var deadline = deadlinePayload?.HasDeadline == true
+                ? new WinoIntelligenceDeadline(
+                    deadlinePayload.Action,
+                    deadlinePayload.DueAtUtc,
+                    deadlinePayload.LocalDate,
+                    deadlinePayload.LocalDateEnd,
+                    deadlinePayload.TimeZoneId,
+                    deadlinePayload.Precision,
+                    deadlinePayload.Confidence)
+                : null;
+
+            AccessSnapshot access;
+            try
+            {
+                access = await GetAccessAsync(context, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                _logger.CaptureException(exception, "LoadWinoIntelligenceAccess");
+                access = AccessSnapshot.None;
+            }
+
+            if (metadata?.HasVisibleMetadata != true && !access.HasAiPack)
+            {
                 return WinoIntelligenceSnapshot.Hidden;
+            }
 
             var isSupportedProvider = context.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail or MailProviderType.IMAP4;
             var candidate = access.HasProcessConsent && isSupportedProvider
@@ -111,16 +142,6 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
                 ? await _semanticIndexCoordinator.GetMessageStateAsync(context.LocalAccountId, context.MessageId, cancellationToken).ConfigureAwait(false)
                 : SemanticMessageIndexState.Unsupported;
 
-            var needsReply = false;
-            var needsReplyDetail = string.Empty;
-            WinoIntelligenceDeadline? deadline = null;
-            if (state == SemanticMessageIndexState.Indexed && candidate is not null)
-            {
-                var artifacts = await _localStore.GetCurrentArtifactsAsync(
-                    context.LocalAccountId, candidate.RemoteMessageId, cancellationToken).ConfigureAwait(false);
-                (needsReply, needsReplyDetail, deadline) = ParseArtifacts(artifacts);
-            }
-
             var language = _translationService.CurrentLanguageModel?.Code ?? "en-US";
             var inference = context.InferenceProjection ??
                             _contentProjector.Project(context.Html, MailContentProjectionProfile.Inference).Projection;
@@ -131,7 +152,10 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
                     CreateSummaryCacheKey(inference, language),
                     cancellationToken).ConfigureAwait(false)
                 : string.Empty;
-            var visible = access.HasTransportConsent || processingAvailable;
+            // The header is the entry point for consent, processing, and on-demand actions. An
+            // account that owns the add-on must retain that entry point even before consent or
+            // semantic indexing is enabled.
+            var visible = metadata?.HasVisibleMetadata == true || access.HasAiPack;
             return new WinoIntelligenceSnapshot(
                 visible,
                 access.HasTransportConsent,
@@ -361,6 +385,7 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
     {
         lock (_accessCache)
             _accessCache.Clear();
+        _ = _localStore.DeleteAccessSnapshotsAsync();
     }
 
     public void Dispose()
@@ -377,6 +402,9 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
         if (winoAccount is null)
             return AccessSnapshot.None;
         var key = (winoAccount.Id, context.LocalAccountId);
+        var persisted = await _localStore.GetAccessSnapshotAsync(context.LocalAccountId, cancellationToken).ConfigureAwait(false);
+        if (persisted is not null && persisted.WinoAccountId == winoAccount.Id)
+            return new(persisted.HasAiPack, persisted.HasTransportConsent, persisted.HasProcessConsent, persisted.MailboxId);
         lock (_accessCache)
         {
             if (_accessCache.TryGetValue(key, out var cached))
@@ -408,6 +436,9 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
                 IsCurrent(transport),
                 IsCurrent(process),
                 process?.MailboxId);
+            await _localStore.SaveAccessSnapshotAsync(new(
+                context.LocalAccountId, winoAccount.Id, result.HasAiPack, result.HasTransportConsent,
+                result.HasProcessConsent, result.MailboxId, DateTimeOffset.UtcNow), cancellationToken).ConfigureAwait(false);
             lock (_accessCache)
                 _accessCache[key] = result;
             return result;
@@ -495,12 +526,11 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
     private static (bool NeedsReply, string NeedsReplyDetail, WinoIntelligenceDeadline? Deadline) ParseArtifacts(
         IReadOnlyList<IntelligenceArtifactDto> artifacts)
     {
-        var needsReply = artifacts.FirstOrDefault(x => !x.IsDeleted && x.Capability == IntelligenceCapability.NeedsReply)
-            ?.NeedsReply?.Value == true;
-        var detail = artifacts.FirstOrDefault(x => !x.IsDeleted && x.Capability == IntelligenceCapability.BriefingFact)
-            ?.BriefingFact?.Headline ?? string.Empty;
-        var deadline = artifacts.FirstOrDefault(x => !x.IsDeleted && x.Capability == IntelligenceCapability.Deadline)
-            ?.Deadline;
+        var fact = artifacts.FirstOrDefault(x => !x.IsDeleted && x.Capability == IntelligenceCapability.BriefingFact)?.BriefingFact;
+        var metadata = new MailIntelligenceMetadata(string.Empty, [], fact, string.Empty);
+        var needsReply = metadata.NeedsReply?.Value == true;
+        var detail = string.Empty;
+        var deadline = metadata.Deadline;
         if (deadline?.HasDeadline != true)
             return (needsReply, detail, null);
         return (needsReply, detail, new WinoIntelligenceDeadline(

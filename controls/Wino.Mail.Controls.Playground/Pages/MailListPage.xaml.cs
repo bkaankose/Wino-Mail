@@ -50,6 +50,12 @@ public sealed partial class MailListPage : Page
 
     private void Reset_Click(object sender, RoutedEventArgs e) => ViewModel.Reset();
 
+    private void ApplyMetadata_Click(object sender, RoutedEventArgs e) => ViewModel.ApplyMetadata();
+
+    private void ReplaceMetadata_Click(object sender, RoutedEventArgs e) => ViewModel.ReplaceMetadata();
+
+    private void ClearMetadata_Click(object sender, RoutedEventArgs e) => ViewModel.ClearMetadata();
+
     private void RefreshSelectionInspector()
     {
         if (MailList is null)

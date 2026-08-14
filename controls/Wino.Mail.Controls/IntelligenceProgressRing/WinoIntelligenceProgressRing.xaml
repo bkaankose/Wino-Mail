@@ -28,7 +28,7 @@
                                 Width="64"
                                 Height="64"
                                 AutoPlay="False"
-                                Stretch="Uniform"
+                                Stretch="Fill"
                                 Visibility="Collapsed" />
                             <AnimatedVisualPlayer
                                 x:Name="CubesPlayer"

@@ -16,6 +16,8 @@ using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.Api.Contracts.Users;
 using Wino.Messaging.UI;
 using Wino.Mail.AI.Abstractions;
+using Wino.Mail.Contracts.Intelligence;
+using Wino.Mail.Contracts.SemanticIndex;
 
 namespace Wino.Services;
 
@@ -23,15 +25,21 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 {
     private readonly IWinoAccountApiClient _apiClient;
     private readonly ITranslationService? _translationService;
+    private readonly ISemanticIndexCoordinator? _semanticIndexCoordinator;
+    private readonly ILocalIntelligenceStore? _localIntelligenceStore;
     private readonly SemaphoreSlim _tokenRefreshLock = new(1, 1);
     private readonly ILogger _logger = Log.ForContext<WinoAccountProfileService>();
 
     public WinoAccountProfileService(IDatabaseService databaseService,
                                      IWinoAccountApiClient apiClient,
-                                     ITranslationService? translationService = null) : base(databaseService)
+                                     ITranslationService? translationService = null,
+                                     ISemanticIndexCoordinator? semanticIndexCoordinator = null,
+                                     ILocalIntelligenceStore? localIntelligenceStore = null) : base(databaseService)
     {
         _apiClient = apiClient;
         _translationService = translationService;
+        _semanticIndexCoordinator = semanticIndexCoordinator;
+        _localIntelligenceStore = localIntelligenceStore;
     }
 
     public async Task<WinoAccountOperationResult> RegisterAsync(string email, string password, CancellationToken cancellationToken = default)
@@ -250,6 +258,9 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
     {
         var account = await GetActiveAccountAsync().ConfigureAwait(false);
 
+        // Account-owned local intelligence must be gone before local sign-out can succeed.
+        await PurgeLocalIntelligenceAsync(cancellationToken).ConfigureAwait(false);
+
         if (account != null && !string.IsNullOrWhiteSpace(account.RefreshToken))
         {
             try
@@ -291,8 +302,27 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
     private async Task PersistAccountAsync(WinoAccount account)
     {
+        var existingAccount = await GetActiveAccountAsync().ConfigureAwait(false);
+        if (existingAccount != null && existingAccount.Id != account.Id)
+        {
+            await PurgeLocalIntelligenceAsync().ConfigureAwait(false);
+        }
+
         await Connection.DeleteAllAsync<WinoAccount>().ConfigureAwait(false);
         await Connection.InsertOrReplaceAsync(account, typeof(WinoAccount)).ConfigureAwait(false);
+    }
+
+    private async Task PurgeLocalIntelligenceAsync(CancellationToken cancellationToken = default)
+    {
+        if (_semanticIndexCoordinator != null)
+        {
+            await _semanticIndexCoordinator.ResetLocalStateAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        if (_localIntelligenceStore != null)
+        {
+            await _localIntelligenceStore.DeleteDatabaseAsync(cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private async Task PersistProfileDataAsync(WinoAccount originalAccount, WinoAccount refreshedAccount)

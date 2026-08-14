@@ -50,7 +50,7 @@
             if (isDark) window.DarkReader.enable({ brightness: 100, contrast: 90, sepia: 0 });
             else window.DarkReader.disable();
         }
-        const surfaceColor = isDark ? "transparent" : "#ffffff";
+        const surfaceColor = isDark ? "Canvas" : "#ffffff";
         document.documentElement.style.setProperty("background-color", surfaceColor, "important");
         document.body.style.setProperty("background-color", surfaceColor, "important");
         revealAfterStylesSettle(version);

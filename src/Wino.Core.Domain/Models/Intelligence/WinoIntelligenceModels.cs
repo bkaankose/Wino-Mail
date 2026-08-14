@@ -22,7 +22,8 @@ public sealed record WinoIntelligenceContext(
     DateTimeOffset OccurredAtUtc,
     string Html,
     MailContentProjection? InferenceProjection = null,
-    MailContentProjection? TranslationProjection = null);
+    MailContentProjection? TranslationProjection = null,
+    MailIntelligenceMetadata? IntelligenceMetadata = null);
 
 public sealed record WinoIntelligenceDeadline(
     DeadlineAction Action,

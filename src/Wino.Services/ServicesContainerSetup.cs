@@ -52,6 +52,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<ISemanticIndexCoordinator, SemanticIndexCoordinator>();
         services.AddSingleton<IWinoIntelligenceCoordinator, WinoIntelligenceCoordinator>();
         services.AddSingleton<ILocalIntelligenceStore, LocalIntelligenceStore>();
+        services.AddSingleton<ILocalIntelligenceService, LocalIntelligenceService>();
         services.AddSingleton<IContentEnvelopeEncryptor>(_ =>
             new PemContentEnvelopeEncryptor(EmbeddedIntelligencePublicKeyProvider.Load()));
         services.AddTransient<IWinoAccountDataSyncService, WinoAccountDataSyncService>();

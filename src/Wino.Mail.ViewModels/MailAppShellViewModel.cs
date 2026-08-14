@@ -26,6 +26,7 @@ using Wino.Core.Requests.Folder;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Accounts;
+using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.Server;
@@ -1536,8 +1537,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         {
             if (!MenuItems.TryGetAccountMenuItem(item.Key, out IAccountMenuItem menuItem)) return;
 
-            // Adding +1 since first item is always reserved for CreateMailMenuItem.
-            MenuItems.Move(MenuItems.IndexOf(menuItem), item.Value + 1);
+            // Adding +2 since the first items are New Mail and Daily Briefing.
+            MenuItems.Move(MenuItems.IndexOf(menuItem), item.Value + 2);
         }
     }
 

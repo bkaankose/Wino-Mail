@@ -20,6 +20,7 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Folders;
+using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
@@ -32,6 +33,7 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.Controls.Core;
 using Wino.Messaging.Client.Mails;
+using Wino.Messaging.Client.Shell;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 
@@ -46,7 +48,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     IRecipient<AccountCacheResetMessage>,
     IRecipient<ThumbnailAdded>,
     IRecipient<MailOperationRequested>,
-    IRecipient<UndoableMailActionPackChanged>
+    IRecipient<UndoableMailActionPackChanged>,
+    IRecipient<IntelligenceMetadataChanged>,
+    IRecipient<LanguageChanged>
 {
     private Guid? trackingSynchronizationId = null;
     private int completedTrackingSynchronizationCount = 0;
@@ -2954,6 +2958,57 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         _ = MailCollection.UpdateThumbnailsForAddressAsync(message.Email);
     }
 
+    public async void Receive(IntelligenceMetadataChanged message)
+    {
+        try
+        {
+            var visibleMails = ((IEnumerable<MailItemViewModel>)MailCollection.Items)
+                .Where(item => message.Scope == IntelligenceMetadataChangeScope.DatabaseReset ||
+                    item.MailCopy?.AssignedAccount?.Id == message.LocalAccountId)
+                .Where(item => message.Scope != IntelligenceMetadataChangeScope.Messages ||
+                    (RemoteMessageIdentity.TryCreate(item.MailCopy) is string remoteId && message.RemoteMessageIds.Contains(remoteId)))
+                .Select(static item => item.MailCopy)
+                .ToArray();
+
+            if (visibleMails.Length == 0)
+            {
+                return;
+            }
+
+            if (message.Scope == IntelligenceMetadataChangeScope.Messages)
+            {
+                await _mailService.HydrateIntelligenceMetadataAsync(visibleMails).ConfigureAwait(false);
+            }
+            else
+            {
+                foreach (var mail in visibleMails)
+                {
+                    mail.IntelligenceMetadata = null;
+                }
+            }
+
+            await MailCollection.UpdateMailCopiesAsync(
+                visibleMails,
+                EntityUpdateSource.Server,
+                MailCopyChangeFlags.IntelligenceMetadata).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            _logger.Error(exception, "Failed to refresh visible intelligence metadata.");
+        }
+    }
+
+    public async void Receive(LanguageChanged message)
+    {
+        await ExecuteUIThread(() =>
+        {
+            foreach (var mailItem in MailCollection.Items)
+            {
+                mailItem.RefreshIntelligenceTiles();
+            }
+        });
+    }
+
     protected override void RegisterRecipients()
     {
         base.RegisterRecipients();
@@ -2967,6 +3022,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         Messenger.Register<ThumbnailAdded>(this);
         Messenger.Register<MailOperationRequested>(this);
         Messenger.Register<UndoableMailActionPackChanged>(this);
+        Messenger.Register<IntelligenceMetadataChanged>(this);
+        Messenger.Register<LanguageChanged>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -2982,6 +3039,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         Messenger.Unregister<ThumbnailAdded>(this);
         Messenger.Unregister<MailOperationRequested>(this);
         Messenger.Unregister<UndoableMailActionPackChanged>(this);
+        Messenger.Unregister<IntelligenceMetadataChanged>(this);
+        Messenger.Unregister<LanguageChanged>(this);
     }
 
     public async void Receive(MailOperationRequested message)

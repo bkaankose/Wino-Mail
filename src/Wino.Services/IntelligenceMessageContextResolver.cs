@@ -42,7 +42,18 @@ public sealed class IntelligenceMessageContextResolver(
             (int)SpecialFolderType.Other).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         var messages = rows
-            .GroupBy(row => ToRemoteMessageId(account.ProviderType, row), StringComparer.Ordinal)
+            .Select(row => new
+            {
+                RemoteMessageId = RemoteMessageIdentity.TryCreate(
+                    account.ProviderType,
+                    row.ProviderMessageId,
+                    row.RemoteFolderId,
+                    row.ImapUidValidity == 0 ? row.FolderUidValidity : row.ImapUidValidity,
+                    row.ImapUid),
+                row.CreationDate,
+            })
+            .Where(static row => row.RemoteMessageId is not null)
+            .GroupBy(row => row.RemoteMessageId!, StringComparer.Ordinal)
             .Select(group => group.Max(row => ToUtc(row.CreationDate)))
             .ToArray();
         if (messages.Length == 0)
@@ -164,7 +175,13 @@ public sealed class IntelligenceMessageContextResolver(
 
     private static IntelligenceMessageCandidate ToCandidate(MailProviderType providerType, string accountAddress, CandidateRow row)
     {
-        var canonical = ToRemoteMessageId(providerType, row);
+        var canonical = RemoteMessageIdentity.TryCreate(
+            providerType,
+            row.ProviderMessageId,
+            row.RemoteFolderId,
+            row.ImapUidValidity == 0 ? row.FolderUidValidity : row.ImapUidValidity,
+            row.ImapUid)
+            ?? throw new InvalidOperationException("The mail item has no canonical intelligence identity.");
         var uidValidity = row.ImapUidValidity == 0 ? row.FolderUidValidity : row.ImapUidValidity;
         var isOutgoing = row.SpecialFolderType == SpecialFolderType.Sent ||
                          string.Equals(row.FromAddress, accountAddress, StringComparison.OrdinalIgnoreCase);
@@ -174,15 +191,6 @@ public sealed class IntelligenceMessageContextResolver(
             row.Importance.ToString().ToLowerInvariant(), [row.RemoteFolderId],
             new MailBodyLocator(canonical, row.RemoteFolderId, row.ImapUid, uidValidity, row.ProviderMessageId));
     }
-
-    private static string ToRemoteMessageId(MailProviderType providerType, AvailabilityRow row) => providerType switch
-    {
-        MailProviderType.Outlook => RemoteMessageId.ForOutlook(row.ProviderMessageId),
-        MailProviderType.Gmail => RemoteMessageId.ForGmail(row.ProviderMessageId),
-        MailProviderType.IMAP4 => RemoteMessageId.ForImap(row.RemoteFolderId,
-            row.ImapUidValidity == 0 ? row.FolderUidValidity : row.ImapUidValidity, row.ImapUid),
-        _ => throw new NotSupportedException($"Mail intelligence is not supported for {providerType}.")
-    };
 
     private static DateTimeOffset ToUtc(DateTime value) => value.Kind switch
     {

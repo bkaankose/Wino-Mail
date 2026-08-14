@@ -90,4 +90,38 @@ public sealed class ApiEnvironmentTests
 
         Assert.True(Program.HasIncompleteIntelligence(state));
     }
+
+    [Theory]
+    [InlineData("1", "A recruiter is looking for a Rust software developer or Rust engineer for a job opportunity.", false)]
+    [InlineData("2", "Notifications from NuGet about publishing Wino Mail packages.", false)]
+    [InlineData("3", "Wiadomość od Complexcity o nieprawidłowej segregacji śmieci lub odpadów.", false)]
+    [InlineData("4", "Messages from Upwork", true)]
+    public void PresetSemanticSearchSelectionsReturnTargetedQueries(string selection, string expected, bool useQueryPlanner)
+    {
+        var result = Program.ReadSemanticSearchSelection(selection, () => throw new InvalidOperationException());
+
+        Assert.NotNull(result);
+        Assert.Equal(expected, result.Query);
+        Assert.Equal(useQueryPlanner, result.UseQueryPlanner);
+    }
+
+    [Fact]
+    public void CustomSemanticSearchSelectionReturnsTrimmedInput()
+    {
+        var result = Program.ReadSemanticSearchSelection("5", () => "  my own meaning  ");
+
+        Assert.NotNull(result);
+        Assert.Equal("my own meaning", result.Query);
+        Assert.False(result.UseQueryPlanner);
+    }
+
+    [Theory]
+    [InlineData("0", null)]
+    [InlineData("not-a-choice", "")]
+    public void SemanticSearchSelectionHandlesBackAndInvalidInput(string selection, string? expectedQuery)
+    {
+        var result = Program.ReadSemanticSearchSelection(selection, () => throw new InvalidOperationException());
+
+        Assert.Equal(expectedQuery, result?.Query);
+    }
 }

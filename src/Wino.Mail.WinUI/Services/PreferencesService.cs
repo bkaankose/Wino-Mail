@@ -118,6 +118,12 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(IsCompactAccountMenuItemEnabled), value);
     }
 
+    public bool IsDailyBriefingGroupedByAccount
+    {
+        get => _configurationService.Get(nameof(IsDailyBriefingGroupedByAccount), true);
+        set => SetPropertyAndSave(nameof(IsDailyBriefingGroupedByAccount), value);
+    }
+
     public bool IsHardDeleteProtectionEnabled
     {
         get => _configurationService.Get(nameof(IsHardDeleteProtectionEnabled), true);

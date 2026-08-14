@@ -17,6 +17,8 @@
     xmlns:listview="using:Wino.Mail.WinUI.Controls.ListView"
     xmlns:mail="using:Wino.Core.Domain.Entities.Mail"
     xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
+    xmlns:intelligenceCore="using:Wino.Mail.Controls.Core.IntelligenceTileBar"
+    xmlns:primitives="using:Wino.Mail.Controls.Primitives"
     xmlns:mailListCore="using:Wino.Mail.Controls.Core"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:menuflyouts="using:Wino.MenuFlyouts"
@@ -81,6 +83,89 @@
                 Margin="0,0,4,0"
                 Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneTime}" />
         </DataTemplate>
+
+        <!--
+            Intelligence metadata shares the category tile shape so a row reads as one strip of tiles.
+            The leading mark is what separates it from a category: a per-kind glyph where the tile has
+            one, and the neutral intelligence dot where it does not.
+        -->
+        <DataTemplate x:Key="DetailedIntelligenceTileTemplate" x:DataType="intelligenceCore:WinoIntelligenceTile">
+            <Border
+                x:Name="DetailedIntelligenceTileRoot"
+                Margin="0,0,4,0"
+                Padding="6,2"
+                AutomationProperties.AccessibilityView="Content"
+                AutomationProperties.Name="{x:Bind AccessibleText, Mode=OneTime}"
+                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                CornerRadius="4"
+                ToolTipService.ToolTip="{x:Bind AccessibleText, Mode=OneTime}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <FontIcon
+                        x:Name="DetailedIntelligenceTileGlyph"
+                        VerticalAlignment="Center"
+                        AutomationProperties.AccessibilityView="Raw"
+                        FontSize="11"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Glyph="{x:Bind Glyph, Mode=OneTime}"
+                        Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(Glyph), Mode=OneTime}" />
+                    <Ellipse
+                        x:Name="DetailedIntelligenceTileDot"
+                        Width="6"
+                        Height="6"
+                        VerticalAlignment="Center"
+                        Fill="{ThemeResource TextFillColorSecondaryBrush}"
+                        Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(Glyph), Mode=OneTime}" />
+                    <TextBlock
+                        x:Name="DetailedIntelligenceTileText"
+                        MaxWidth="180"
+                        VerticalAlignment="Center"
+                        Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind Text, Mode=OneTime}"
+                        TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <!--  Compact rows drop labels the same way categories collapse to a dot there.  -->
+        <DataTemplate x:Key="CompactIntelligenceTileTemplate" x:DataType="intelligenceCore:WinoIntelligenceTile">
+            <Border
+                x:Name="CompactIntelligenceTileRoot"
+                Width="18"
+                Height="18"
+                Margin="0,0,4,0"
+                AutomationProperties.AccessibilityView="Content"
+                AutomationProperties.Name="{x:Bind AccessibleText, Mode=OneTime}"
+                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                CornerRadius="9"
+                ToolTipService.ToolTip="{x:Bind AccessibleText, Mode=OneTime}">
+                <Grid>
+                    <FontIcon
+                        x:Name="CompactIntelligenceTileGlyph"
+                        AutomationProperties.AccessibilityView="Raw"
+                        FontSize="10"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Glyph="{x:Bind Glyph, Mode=OneTime}"
+                        Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(Glyph), Mode=OneTime}" />
+                    <Ellipse
+                        x:Name="CompactIntelligenceTileDot"
+                        Width="6"
+                        Height="6"
+                        Fill="{ThemeResource TextFillColorSecondaryBrush}"
+                        Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(Glyph), Mode=OneTime}" />
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <selectors:MailRowTileTemplateSelector
+            x:Key="DetailedMailRowTileTemplateSelector"
+            CategoryTemplate="{StaticResource DetailedMailCategoryTemplate}"
+            IntelligenceTileTemplate="{StaticResource DetailedIntelligenceTileTemplate}" />
+
+        <selectors:MailRowTileTemplateSelector
+            x:Key="CompactMailRowTileTemplateSelector"
+            CategoryTemplate="{StaticResource CompactMailCategoryTemplate}"
+            IntelligenceTileTemplate="{StaticResource CompactIntelligenceTileTemplate}" />
 
         <Style
             x:Key="MailRowHoverActionButtonStyle"
@@ -269,13 +354,13 @@
                         Spacing="2">
                         <ItemsControl
                             x:Name="CategoriesItemsControl"
-                            x:Load="{x:Bind HasCategories, Mode=OneWay}"
+                            x:Load="{x:Bind HasRowTiles, Mode=OneWay}"
                             IsHitTestVisible="False"
-                            ItemTemplate="{StaticResource CompactMailCategoryTemplate}"
-                            ItemsSource="{x:Bind Categories, Mode=OneWay}">
+                            ItemTemplateSelector="{StaticResource CompactMailRowTileTemplateSelector}"
+                            ItemsSource="{x:Bind RowTiles, Mode=OneWay}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Horizontal" />
+                                    <primitives:WinoWrapPanel VerticalSpacing="4" />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                         </ItemsControl>
@@ -443,14 +528,14 @@
                         Grid.Row="3"
                         Margin="0,2,0,0"
                         HorizontalAlignment="Left"
-                        x:Load="{x:Bind HasCategories, Mode=OneWay}"
+                        x:Load="{x:Bind HasRowTiles, Mode=OneWay}"
                         x:Phase="1"
                         IsHitTestVisible="False"
-                        ItemTemplate="{StaticResource DetailedMailCategoryTemplate}"
-                        ItemsSource="{x:Bind Categories, Mode=OneWay}">
+                        ItemTemplateSelector="{StaticResource DetailedMailRowTileTemplateSelector}"
+                        ItemsSource="{x:Bind RowTiles, Mode=OneWay}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal" />
+                                <primitives:WinoWrapPanel VerticalSpacing="4" />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                     </ItemsControl>
@@ -654,27 +739,27 @@
                                 x:Load="{x:Bind IsFlagged, Mode=OneWay}"
                                 x:Phase="1"
                                 ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}" />
-                            <ProgressRing
-                                x:Name="BusyProgressRing"
-                                Width="12"
-                                Height="12"
-                                x:Load="{x:Bind IsBusy, Mode=OneWay}"
-                                IsActive="{x:Bind IsBusy, Mode=OneWay}" />
-                        </StackPanel>
+                        <ProgressRing
+                            x:Name="BusyProgressRing"
+                            Width="12"
+                            Height="12"
+                            x:Load="{x:Bind IsBusy, Mode=OneWay}"
+                            IsActive="{x:Bind IsBusy, Mode=OneWay}" />
+                    </StackPanel>
                     </Grid>
                     <ItemsControl
                         x:Name="CategoriesItemsControl"
                         Grid.Row="3"
                         Margin="0,4,0,0"
                         HorizontalAlignment="Left"
-                        x:Load="{x:Bind HasCategories, Mode=OneWay}"
+                        x:Load="{x:Bind HasRowTiles, Mode=OneWay}"
                         x:Phase="1"
                         IsHitTestVisible="False"
-                        ItemTemplate="{StaticResource DetailedMailCategoryTemplate}"
-                        ItemsSource="{x:Bind Categories, Mode=OneWay}">
+                        ItemTemplateSelector="{StaticResource DetailedMailRowTileTemplateSelector}"
+                        ItemsSource="{x:Bind RowTiles, Mode=OneWay}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal" />
+                                <primitives:WinoWrapPanel VerticalSpacing="4" />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                     </ItemsControl>
@@ -844,13 +929,27 @@
                                 x:Load="{x:Bind IsFlagged, Mode=OneWay}"
                                 x:Phase="1"
                                 ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}" />
-                            <ProgressRing
-                                x:Name="BusyProgressRing"
-                                Width="12"
-                                Height="12"
-                                x:Load="{x:Bind IsBusy, Mode=OneWay}"
-                                IsActive="{x:Bind IsBusy, Mode=OneWay}" />
-                        </StackPanel>
+                        <ProgressRing
+                            x:Name="BusyProgressRing"
+                            Width="12"
+                            Height="12"
+                            x:Load="{x:Bind IsBusy, Mode=OneWay}"
+                            IsActive="{x:Bind IsBusy, Mode=OneWay}" />
+                    </StackPanel>
+                    <ItemsControl
+                        x:Name="IntelligenceTilesItemsControl"
+                        HorizontalAlignment="Right"
+                        x:Load="{x:Bind HasRowIntelligenceTiles, Mode=OneWay}"
+                        x:Phase="1"
+                        IsHitTestVisible="False"
+                        ItemTemplateSelector="{StaticResource CompactMailRowTileTemplateSelector}"
+                        ItemsSource="{x:Bind RowIntelligenceTiles, Mode=OneWay}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <primitives:WinoWrapPanel VerticalSpacing="4" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
                     </StackPanel>
                     <ContentControl
                         x:Name="HoverActionButtons"
@@ -1021,13 +1120,27 @@
                                 x:Load="{x:Bind IsFlagged, Mode=OneWay}"
                                 x:Phase="1"
                                 ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}" />
-                            <ProgressRing
-                                x:Name="BusyProgressRing"
-                                Width="12"
-                                Height="12"
-                                x:Load="{x:Bind IsBusy, Mode=OneWay}"
-                                IsActive="{x:Bind IsBusy, Mode=OneWay}" />
-                        </StackPanel>
+                        <ProgressRing
+                            x:Name="BusyProgressRing"
+                            Width="12"
+                            Height="12"
+                            x:Load="{x:Bind IsBusy, Mode=OneWay}"
+                            IsActive="{x:Bind IsBusy, Mode=OneWay}" />
+                    </StackPanel>
+                    <ItemsControl
+                        x:Name="IntelligenceTilesItemsControl"
+                        HorizontalAlignment="Right"
+                        x:Load="{x:Bind HasRowIntelligenceTiles, Mode=OneWay}"
+                        x:Phase="1"
+                        IsHitTestVisible="False"
+                        ItemTemplateSelector="{StaticResource DetailedMailRowTileTemplateSelector}"
+                        ItemsSource="{x:Bind RowIntelligenceTiles, Mode=OneWay}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <primitives:WinoWrapPanel VerticalSpacing="4" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
                     </StackPanel>
                     <ContentControl
                         x:Name="HoverActionButtons"
@@ -1199,13 +1312,27 @@
                                 x:Load="{x:Bind IsFlagged, Mode=OneWay}"
                                 x:Phase="1"
                                 ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}" />
-                            <ProgressRing
-                                x:Name="BusyProgressRing"
-                                Width="12"
-                                Height="12"
-                                x:Load="{x:Bind IsBusy, Mode=OneWay}"
-                                IsActive="{x:Bind IsBusy, Mode=OneWay}" />
-                        </StackPanel>
+                        <ProgressRing
+                            x:Name="BusyProgressRing"
+                            Width="12"
+                            Height="12"
+                            x:Load="{x:Bind IsBusy, Mode=OneWay}"
+                            IsActive="{x:Bind IsBusy, Mode=OneWay}" />
+                    </StackPanel>
+                    <ItemsControl
+                        x:Name="IntelligenceTilesItemsControl"
+                        HorizontalAlignment="Right"
+                        x:Load="{x:Bind HasRowIntelligenceTiles, Mode=OneWay}"
+                        x:Phase="1"
+                        IsHitTestVisible="False"
+                        ItemTemplateSelector="{StaticResource DetailedMailRowTileTemplateSelector}"
+                        ItemsSource="{x:Bind RowIntelligenceTiles, Mode=OneWay}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <primitives:WinoWrapPanel VerticalSpacing="4" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
                     </StackPanel>
                     <ContentControl
                         x:Name="HoverActionButtons"
@@ -2045,8 +2172,6 @@
         </VisualStateManager.VisualStateGroups>
     </Grid>
 </abstract:MailListPageAbstract>
-
-
 
 
 

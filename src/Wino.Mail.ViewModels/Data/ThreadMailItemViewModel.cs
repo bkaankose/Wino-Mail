@@ -9,6 +9,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Mail.Controls.Core.IntelligenceTileBar;
 #if WINRT_EXPOSED
 using WinRT;
 #endif
@@ -127,6 +128,14 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
         .OrderBy(a => a.Name)
         .ToList();
     public bool HasCategories => ThreadEmails.Any(a => a.HasCategories);
+
+    public IReadOnlyList<WinoIntelligenceTile> IntelligenceTiles => newestMailViewModel?.IntelligenceTiles ?? [];
+
+    public bool HasIntelligenceTiles => IntelligenceTiles.Count > 0;
+
+    public IReadOnlyList<WinoIntelligenceTile> RowIntelligenceTiles => newestMailViewModel?.RowIntelligenceTiles ?? [];
+
+    public bool HasRowIntelligenceTiles => RowIntelligenceTiles.Count > 0;
 
     /// <summary>
     /// Gets whether any email in this thread is a draft
@@ -454,6 +463,10 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
                 Queue(nameof(ThumbnailUpdatedEvent));
                 Queue(nameof(SortingDate));
                 Queue(nameof(SortingName));
+                Queue(nameof(IntelligenceTiles));
+                Queue(nameof(HasIntelligenceTiles));
+                Queue(nameof(RowIntelligenceTiles));
+                Queue(nameof(HasRowIntelligenceTiles));
             }
             else
             {
@@ -531,6 +544,14 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
                 {
                     Queue(nameof(Categories));
                     Queue(nameof(HasCategories));
+                }
+
+                if ((changedFlags & MailCopyChangeFlags.IntelligenceMetadata) != 0)
+                {
+                    Queue(nameof(IntelligenceTiles));
+                    Queue(nameof(HasIntelligenceTiles));
+                    Queue(nameof(RowIntelligenceTiles));
+                    Queue(nameof(HasRowIntelligenceTiles));
                 }
             }
         }

@@ -33,24 +33,28 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     private readonly IAccountService _accountService;
     private readonly ISemanticIndexCoordinator _coordinator;
     private readonly IWinoAccountApiClient _apiClient;
+    private readonly ILocalIntelligenceStore _localStore;
+    private readonly ITranslationService _translationService;
     private SemanticIndexPlan _currentPlan;
     private bool _isApplyingProfile;
     private string _processPolicyVersion = string.Empty;
     private SemanticIndexAvailableRange? _availableRange;
     private IntelligenceMailboxStatusDto? _intelligenceStatus;
     private CancellationTokenSource _rangeRecalculationCancellation;
-    private SemanticIndexJobStatus _lastJobStatus = SemanticIndexJobStatus.Idle;
-
     public WinoIntelligenceManagementPageViewModel(
         IMailDialogService dialogService,
         IAccountService accountService,
         ISemanticIndexCoordinator semanticIndexCoordinator,
-        IWinoAccountApiClient apiClient)
+        IWinoAccountApiClient apiClient,
+        ILocalIntelligenceStore localStore,
+        ITranslationService translationService)
     {
         _dialogService = dialogService;
         _accountService = accountService;
         _coordinator = semanticIndexCoordinator;
         _apiClient = apiClient;
+        _localStore = localStore;
+        _translationService = translationService;
     }
 
     [ObservableProperty]
@@ -69,6 +73,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     [NotifyCanExecuteChangedFor(nameof(StartIndexingCommand))]
     [NotifyCanExecuteChangedFor(nameof(DeleteSemanticIndexCommand))]
     [NotifyCanExecuteChangedFor(nameof(UpgradeEmbeddingProfileCommand))]
+    [NotifyCanExecuteChangedFor(nameof(TranslateHeadlinesCommand))]
     [NotifyPropertyChangedFor(nameof(IsStatusInfoBarVisible))]
     public partial bool IsPageReady { get; set; }
 
@@ -85,6 +90,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     [NotifyCanExecuteChangedFor(nameof(StartIndexingCommand))]
     [NotifyCanExecuteChangedFor(nameof(DeleteSemanticIndexCommand))]
     [NotifyCanExecuteChangedFor(nameof(UpgradeEmbeddingProfileCommand))]
+    [NotifyCanExecuteChangedFor(nameof(TranslateHeadlinesCommand))]
     [NotifyPropertyChangedFor(nameof(IsStatusInfoBarVisible))]
     public partial bool IsBusy { get; set; }
 
@@ -95,10 +101,21 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StartIndexingCommand))]
     [NotifyCanExecuteChangedFor(nameof(UpgradeEmbeddingProfileCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CancelIndexingCommand))]
+    [NotifyPropertyChangedFor(nameof(CanEditMessageRange))]
     [NotifyPropertyChangedFor(nameof(IsStatusInfoBarVisible))]
     [NotifyPropertyChangedFor(nameof(PlanCardTitle))]
     [NotifyPropertyChangedFor(nameof(PlanCardDescription))]
+    [NotifyCanExecuteChangedFor(nameof(TranslateHeadlinesCommand))]
     public partial bool IsJobActive { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsIndexingInProgress))]
+    [NotifyPropertyChangedFor(nameof(IsStatusInfoBarVisible))]
+    [NotifyPropertyChangedFor(nameof(StatusInfoBarTitle))]
+    [NotifyPropertyChangedFor(nameof(StatusInfoBarMessage))]
+    [NotifyPropertyChangedFor(nameof(StatusInfoBarType))]
+    public partial SemanticIndexJobStatus JobStatus { get; set; } = SemanticIndexJobStatus.Idle;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEverythingSelected))]
@@ -118,6 +135,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEverythingSelected))]
     [NotifyPropertyChangedFor(nameof(ShouldShowEverythingWarning))]
+    [NotifyPropertyChangedFor(nameof(CanEditMessageRange))]
     public partial bool HasAvailableMessages { get; set; }
 
     [ObservableProperty]
@@ -149,10 +167,12 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsStatusInfoBarVisible))]
+    [NotifyPropertyChangedFor(nameof(StatusInfoBarMessage))]
     public partial string StatusMessage { get; set; } = string.Empty;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsStatusInfoBarVisible))]
+    [NotifyPropertyChangedFor(nameof(StatusInfoBarType))]
     public partial InfoBarMessageType StatusType { get; set; } = InfoBarMessageType.Information;
 
     [ObservableProperty]
@@ -185,6 +205,19 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
 
     [ObservableProperty]
     public partial string CoverageDescription { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string HeadlineLanguageDescription { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string HeadlineLanguageMismatchMessage { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(TranslateHeadlinesCommand))]
+    public partial bool IsHeadlineLanguageMismatchVisible { get; set; }
+
+    [ObservableProperty]
+    public partial bool DontAskHeadlineLanguageAgain { get; set; }
 
     [ObservableProperty]
     public partial int ProgressMaximum { get; set; } = 1;
@@ -261,14 +294,19 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
 
     public bool IsEnabledContentVisible => IsPageReady && IsSemanticIndexingEnabled;
     public bool CanChangeSemanticIndexingState => IsPageReady && !IsBusy && !IsJobActive;
+    public bool CanEditMessageRange => HasAvailableMessages && !IsJobActive;
 
     /// <summary>
     /// The hero already carries the busy message and the healthy state, so the status
     /// bar is only raised for what the hero cannot say on its own.
     /// </summary>
+    public bool IsIndexingInProgress => JobStatus is SemanticIndexJobStatus.Queued or SemanticIndexJobStatus.Indexing;
+    public string StatusInfoBarTitle => IsIndexingInProgress ? Translator.SemanticIndex_IndexingInfoBarTitle : string.Empty;
+    public string StatusInfoBarMessage => IsIndexingInProgress ? Translator.SemanticIndex_IndexingInfoBarMessage : StatusMessage;
+    public InfoBarMessageType StatusInfoBarType => IsIndexingInProgress ? InfoBarMessageType.Information : StatusType;
     public bool IsStatusInfoBarVisible => IsPageReady && !IsBusy &&
-        !string.IsNullOrWhiteSpace(StatusMessage) &&
-        !(StatusType == InfoBarMessageType.Success && !IsJobActive);
+        (IsIndexingInProgress ||
+         (!string.IsNullOrWhiteSpace(StatusMessage) && StatusType != InfoBarMessageType.Success));
     public bool IsEverythingSelected => HasAvailableMessages &&
         SelectedRangeStartOffset < 0.5 &&
         Math.Abs(SelectedRangeEndOffset - RangeMaximum) < 0.5;
@@ -375,6 +413,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
                 ? await _apiClient.GetIntelligenceStatusAsync(mailboxId).ConfigureAwait(false)
                 : null;
             await ExecuteUIThread(() => ApplyStatus(status));
+            await RefreshHeadlineLanguageAsync(status).ConfigureAwait(false);
         }
         catch (Exception exception)
         {
@@ -497,7 +536,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         try
         {
             var plan = _currentPlan ?? await CalculatePlanAsync().ConfigureAwait(false);
-            await _coordinator.StartIndexingAsync(Account.Id, plan).ConfigureAwait(false);
+            await _coordinator.StartIndexingAsync(Account.Id, plan, notifyWhenCompleted: true).ConfigureAwait(false);
             await ExecuteUIThread(() => ApplySnapshot(_coordinator.GetJobSnapshot(Account.Id)));
         }
         catch (Exception exception)
@@ -508,6 +547,62 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         {
             await SetBusyAsync(false);
         }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanCancelIndexing))]
+    private async Task CancelIndexingAsync()
+    {
+        try
+        {
+            await SetBusyAsync(true, Translator.SemanticIndex_OperationCancelling);
+            await _coordinator.CancelIndexingAsync(Account.Id).ConfigureAwait(false);
+            await RefreshAfterJobAsync().ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            await ShowErrorAsync(exception);
+        }
+        finally
+        {
+            await SetBusyAsync(false);
+        }
+    }
+
+    private bool CanCancelIndexing() => IsJobActive && !IsBusy;
+
+    [RelayCommand(CanExecute = nameof(CanTranslateHeadlines))]
+    private async Task TranslateHeadlinesAsync()
+    {
+        if (Account is null) return;
+        try
+        {
+            await SetBusyAsync(true, Translator.Intelligence_HeadlineTranslationInProgress);
+            var targetLanguage = _translationService.CurrentLanguageModel.Code;
+            var result = await _coordinator.TranslateHeadlinesAsync(Account.Id, targetLanguage).ConfigureAwait(false);
+            await ExecuteUIThread(() =>
+            {
+                IsHeadlineLanguageMismatchVisible = false;
+                HeadlineLanguageDescription = string.Format(Translator.Intelligence_HeadlineLanguage, LanguageName(result.HeadlineLanguage));
+            });
+        }
+        catch (Exception exception)
+        {
+            await ShowErrorAsync(exception);
+        }
+        finally
+        {
+            await SetBusyAsync(false);
+        }
+    }
+
+    private bool CanTranslateHeadlines() => IsPageReady && !IsBusy && !IsJobActive && IsHeadlineLanguageMismatchVisible;
+
+    [RelayCommand]
+    private async Task DismissHeadlineLanguageAsync()
+    {
+        IsHeadlineLanguageMismatchVisible = false;
+        if (Account is not null && DontAskHeadlineLanguageAgain)
+            await _localStore.SetHeadlineLanguagePromptSuppressedAsync(Account.Id, true).ConfigureAwait(false);
     }
 
     [RelayCommand(CanExecute = nameof(CanDeleteSemanticIndex))]
@@ -649,7 +744,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
             await _apiClient.RebuildIntelligenceEmbeddingsAsync(SemanticMailboxId.Value).ConfigureAwait(false);
             var plan = await CalculatePlanAsync().ConfigureAwait(false);
             _currentPlan = plan;
-            await _coordinator.StartIndexingAsync(Account.Id, plan).ConfigureAwait(false);
+            await _coordinator.StartIndexingAsync(Account.Id, plan, notifyWhenCompleted: true).ConfigureAwait(false);
             await ExecuteUIThread(() => IsUpgradeRecommended = false);
         }
         catch (Exception exception)
@@ -736,7 +831,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
 
     private void ApplySnapshot(SemanticIndexJobSnapshot snapshot)
     {
-        _lastJobStatus = snapshot.Status;
+        JobStatus = snapshot.Status;
         IsJobActive = snapshot.IsActive;
         ProgressValue = snapshot.EmbeddingProcessedMessageCount;
         ProgressMaximum = Math.Max(1, snapshot.TotalMessageCount);
@@ -797,6 +892,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         {
             var status = await _apiClient.GetIntelligenceStatusAsync(mailboxId).ConfigureAwait(false);
             await ExecuteUIThread(() => ApplyStatus(status));
+            await RefreshHeadlineLanguageAsync(status).ConfigureAwait(false);
         }
         catch
         {
@@ -831,6 +927,35 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         return $"{status.OldestReceivedAtUtc.Value.LocalDateTime:d MMMM yyyy} – " +
                $"{status.NewestReceivedAtUtc.Value.LocalDateTime:d MMMM yyyy}\n{size}";
     }
+
+    private async Task RefreshHeadlineLanguageAsync(IntelligenceMailboxStatusDto? status)
+    {
+        if (Account is null || SemanticMailboxId is not { } mailboxId) return;
+        var serverLanguage = status?.HeadlineLanguage;
+        if (!string.IsNullOrWhiteSpace(serverLanguage))
+            await _localStore.SetHeadlineLanguageAsync(Account.Id, mailboxId, serverLanguage, CancellationToken.None).ConfigureAwait(false);
+        var language = serverLanguage ?? await _localStore.GetHeadlineLanguageAsync(Account.Id).ConfigureAwait(false) ?? string.Empty;
+        var current = _translationService.CurrentLanguageModel.Code;
+        var suppressed = await _localStore.GetHeadlineLanguagePromptSuppressedAsync(Account.Id).ConfigureAwait(false);
+        await ExecuteUIThread(() =>
+        {
+            HeadlineLanguageDescription = string.IsNullOrWhiteSpace(language)
+                ? string.Empty
+                : string.Format(Translator.Intelligence_HeadlineLanguage, LanguageName(language));
+            HeadlineLanguageMismatchMessage = string.Format(
+                Translator.Intelligence_HeadlineLanguageMismatch,
+                LanguageName(language),
+                LanguageName(current));
+            DontAskHeadlineLanguageAgain = false;
+            IsHeadlineLanguageMismatchVisible = !string.IsNullOrWhiteSpace(language)
+                && !string.Equals(language, current, StringComparison.OrdinalIgnoreCase)
+                && !suppressed;
+            TranslateHeadlinesCommand.NotifyCanExecuteChanged();
+        });
+    }
+
+    private string LanguageName(string code)
+        => _translationService.GetAvailableLanguages().FirstOrDefault(x => string.Equals(x.Code, code, StringComparison.OrdinalIgnoreCase))?.DisplayName ?? code;
 
     /// <summary>
     /// Loads the retrieved message range once. It is a local query that does not depend
@@ -1066,11 +1191,11 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         if (HasError)
             return (Translator.SemanticIndex_HeroStateAttention, InfoBarMessageType.Error, false);
 
-        if (_lastJobStatus == SemanticIndexJobStatus.PausedForQuota)
+        if (JobStatus == SemanticIndexJobStatus.PausedForQuota)
             return (Translator.SemanticIndex_HeroStateAttention, InfoBarMessageType.Warning, false);
 
         if (IsJobActive)
-            return (Translator.SemanticIndex_HeroStateIndexing, InfoBarMessageType.Information, true);
+            return (Translator.SemanticIndex_HeroStateIndexing, InfoBarMessageType.Information, false);
 
         if (IsCalculatingPlan)
             return (Translator.SemanticIndex_PlanCalculating, InfoBarMessageType.Information, true);
@@ -1084,9 +1209,11 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     }
 
     private void RefreshIndexStateSummary()
-        => IndexedMessageCountDetail = IndexedMessageCount > 0
-            ? string.Format(Translator.SemanticIndex_IndexedCount, IndexedMessageCount)
-            : Translator.SemanticIndex_NoIndexedMessages;
+        => IndexedMessageCountDetail = IsJobActive
+            ? string.Empty
+            : IndexedMessageCount > 0
+                ? string.Format(Translator.SemanticIndex_IndexedCount, IndexedMessageCount)
+                : Translator.SemanticIndex_NoIndexedMessages;
 
     /// <summary>
     /// The period usage endpoint is account wide and unrelated to this mailbox's index,

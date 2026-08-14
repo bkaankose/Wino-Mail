@@ -47,8 +47,7 @@ public interface IWinoAccountApiClient
     Task<IntelligenceSemanticSearchResultDto> SearchIntelligenceAsync(IntelligenceSemanticSearchRequest request, CancellationToken cancellationToken = default);
     Task<IntelligenceSemanticSearchResultDto> SearchIntelligenceAsync(byte[] encryptedEnvelope, CancellationToken cancellationToken = default);
     Task<WinoSuggestedRepliesResult> GetSuggestedRepliesAsync(Guid mailboxId, WinoSuggestedRepliesRequest request, Guid requestId, CancellationToken cancellationToken = default);
-    Task<WinoDailyBriefing> GetDailyBriefingAsync(Guid mailboxId, DateOnly localDate, string timeZoneId, bool forceRegenerate = false, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<WinoDeadlineMetadata>> GetDeadlinesAsync(Guid mailboxId, DateTimeOffset? dueAfterUtc = null, DateTimeOffset? dueBeforeUtc = null, CancellationToken cancellationToken = default);
+    Task<HeadlineTranslationResultDto> TranslateBriefingHeadlinesAsync(Guid mailboxId, string targetLanguage, CancellationToken cancellationToken = default);
     Task DeleteIntelligenceAsync(Guid mailboxId, CancellationToken cancellationToken = default);
     Task<TransportConsentDto> GetTransportConsentAsync(CancellationToken cancellationToken = default);
     Task<TransportConsentDto> AcceptTransportConsentAsync(string policyVersion, string source, CancellationToken cancellationToken = default);

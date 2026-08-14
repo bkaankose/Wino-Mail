@@ -518,7 +518,6 @@
             ActionHeadingText="{x:Bind domain:Translator.WinoIntelligence_AskWino, Mode=OneTime}"
             InsightsLockedText="{x:Bind domain:Translator.WinoIntelligence_InsightsLocked, Mode=OneTime}"
             NeedsReplyText="{x:Bind domain:Translator.WinoIntelligence_NeedsReply, Mode=OneTime}"
-            NoSignalSubtitleText="{x:Bind domain:Translator.WinoIntelligence_ActionsAvailable, Mode=OneTime}"
             ProcessAutomationText="{x:Bind domain:Translator.WinoIntelligence_ProcessAutomation, Mode=OneTime}"
             ProcessButtonText="{x:Bind domain:Translator.WinoIntelligence_Process, Mode=OneTime}"
             ProcessingFailedSubtitleText="{x:Bind domain:Translator.WinoIntelligence_ProcessingFailed, Mode=OneTime}"
@@ -549,6 +548,18 @@
             ProcessRequested="IntelligenceHeader_ProcessRequested"
             SimilarMailChosen="IntelligenceHeader_SimilarMailChosen"
             SuggestedReplyChosen="IntelligenceHeader_SuggestedReplyChosen" />
+
+        <Button
+            x:Name="CopyVerificationCodeButton"
+            Grid.Row="1"
+            Margin="0,8,16,0"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            AutomationProperties.AutomationId="MailRenderingCopyVerificationCodeButton"
+            Click="CopyVerificationCodeButton_Click"
+            Content="{x:Bind domain:Translator.Intelligence_ActionCopyCode, Mode=OneTime}"
+            Style="{StaticResource AccentButtonStyle}"
+            Visibility="Collapsed" />
 
         <Border
             Grid.Row="2"

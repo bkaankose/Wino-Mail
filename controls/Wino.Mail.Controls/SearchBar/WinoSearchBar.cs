@@ -5,15 +5,16 @@ using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.AnimatedVisuals;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
-using Wino.Mail.Controls.Core.SearchBar;
-using Wino.Mail.Controls.IntelligenceProgressRing;
 using Windows.Foundation;
 using Windows.System;
 using Windows.UI.ViewManagement;
+using Wino.Mail.Controls.Core.SearchBar;
+using Wino.Mail.Controls.IntelligenceProgressRing;
 
 namespace Wino.Mail.Controls.SearchBar;
 
@@ -339,7 +340,7 @@ public sealed partial class WinoSearchBar : Control
     public WinoSearchBar()
     {
         DefaultStyleKey = typeof(WinoSearchBar);
-        QueryIcon = new SymbolIcon(Symbol.Find);
+        QueryIcon = new AnimatedIcon() { Source = new AnimatedFindVisualSource() }; // new SymbolIcon(Symbol.Find);
     }
 
     /// <summary>Occurs when the user submits a non-empty search.</summary>

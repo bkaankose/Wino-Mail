@@ -30,6 +30,7 @@ public enum SemanticIndexJobStatus
     Calculating,
     Queued,
     Indexing,
+    TranslatingHeadlines,
     PausedForSynchronization,
     PausedForQuota,
     Completed,
@@ -47,7 +48,7 @@ public sealed record SemanticIndexJobSnapshot(
     int MetadataCompletedMessageCount = 0,
     int MetadataFailedMessageCount = 0)
 {
-    public bool IsActive => Status is SemanticIndexJobStatus.Queued or SemanticIndexJobStatus.Indexing or SemanticIndexJobStatus.PausedForSynchronization;
+    public bool IsActive => Status is SemanticIndexJobStatus.Queued or SemanticIndexJobStatus.Indexing or SemanticIndexJobStatus.TranslatingHeadlines or SemanticIndexJobStatus.PausedForSynchronization;
     public int EmbeddingProcessedMessageCount => CompletedMessageCount + EmbeddingFailedMessageCount;
     public int MetadataProcessedMessageCount => MetadataCompletedMessageCount + MetadataFailedMessageCount;
 }

@@ -25,6 +25,7 @@ namespace Wino.Mail.Controls.IntelligenceHeader;
 [TemplatePart(Name = PartAddToCalendarButtonName, Type = typeof(Button))]
 [TemplatePart(Name = PartNeedsReplyFactCardName, Type = typeof(FrameworkElement))]
 [TemplatePart(Name = PartNeedsReplyFactTextBlockName, Type = typeof(TextBlock))]
+[TemplatePart(Name = PartBriefingFactTextBlockName, Type = typeof(TextBlock))]
 [TemplatePart(Name = PartInsightsLockedPanelName, Type = typeof(FrameworkElement))]
 [TemplatePart(Name = PartInsightsLockedTextBlockName, Type = typeof(TextBlock))]
 [TemplatePart(Name = PartSummaryChipButtonName, Type = typeof(Button))]
@@ -100,6 +101,7 @@ public sealed partial class WinoIntelligenceHeader
     private const string PartAddToCalendarButtonName = "PART_AddToCalendarButton";
     private const string PartNeedsReplyFactCardName = "PART_NeedsReplyFactCard";
     private const string PartNeedsReplyFactTextBlockName = "PART_NeedsReplyFactTextBlock";
+    private const string PartBriefingFactTextBlockName = "PART_BriefingFactTextBlock";
     private const string PartInsightsLockedPanelName = "PART_InsightsLockedPanel";
     private const string PartInsightsLockedTextBlockName = "PART_InsightsLockedTextBlock";
     private const string PartSummaryChipButtonName = "PART_SummaryChipButton";

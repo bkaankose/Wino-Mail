@@ -138,6 +138,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsCompactAccountMenuItemEnabled { get; set; }
 
     /// <summary>
+    /// Setting: Group daily briefing items by account instead of showing one flat list.
+    /// </summary>
+    bool IsDailyBriefingGroupedByAccount { get; set; }
+
+    /// <summary>
     /// Setting: Marking the item as read preference mode.
     /// </summary>
     MailMarkAsOption MarkAsPreference { get; set; }

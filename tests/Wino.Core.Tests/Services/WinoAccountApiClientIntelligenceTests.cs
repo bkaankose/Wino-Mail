@@ -28,6 +28,62 @@ namespace Wino.Core.Tests.Services;
 public sealed class WinoAccountApiClientIntelligenceTests
 {
     [Fact]
+    public async Task GetIntelligenceArtifactsAsync_DefaultsOmittedDeletionMarkerToFalse()
+    {
+        var userId = Guid.NewGuid();
+        var mailboxId = Guid.NewGuid();
+        await using var database = new InMemoryDatabaseService();
+        await database.InitializeAsync();
+        await database.Connection.InsertAsync(new WinoAccount
+        {
+            Id = userId,
+            Email = "intelligence@example.test",
+            AccessToken = "access-token",
+            AccessTokenExpiresAtUtc = DateTime.UtcNow.AddHours(1),
+        });
+
+        using var httpClient = new HttpClient(new CompactArtifactRequestHandler())
+        {
+            BaseAddress = new Uri("https://api.example.test/"),
+        };
+        using var client = new WinoAccountApiClient(database, httpClient);
+
+        var page = await client.GetIntelligenceArtifactsAsync(mailboxId, null, 100);
+
+        page.NextCursor.Should().BeNull();
+        var artifact = page.Items.Should().ContainSingle().Subject;
+        artifact.RemoteMessageId.Should().Be("message-1");
+        artifact.IsDeleted.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task IngestIntelligenceAsync_DefaultsOmittedDeletionMarkerToFalse()
+    {
+        var userId = Guid.NewGuid();
+        var mailboxId = Guid.NewGuid();
+        await using var database = new InMemoryDatabaseService();
+        await database.InitializeAsync();
+        await database.Connection.InsertAsync(new WinoAccount
+        {
+            Id = userId,
+            Email = "intelligence@example.test",
+            AccessToken = "access-token",
+            AccessTokenExpiresAtUtc = DateTime.UtcNow.AddHours(1),
+        });
+
+        using var httpClient = new HttpClient(new CompactArtifactRequestHandler())
+        {
+            BaseAddress = new Uri("https://api.example.test/"),
+        };
+        using var client = new WinoAccountApiClient(database, httpClient);
+
+        var result = await client.IngestIntelligenceAsync(mailboxId, [1, 2, 3]);
+
+        result.Items.Should().ContainSingle().Which.RemoteMessageId.Should().Be("message-1");
+        result.Artifacts.Should().ContainSingle().Which.IsDeleted.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task IntelligenceFeatureCalls_UseTypedRoutesApplicationLanguageAndEncryptedReplyContent()
     {
         var userId = Guid.NewGuid();
@@ -70,15 +126,7 @@ public sealed class WinoAccountApiClientIntelligenceTests
             "Europe/Warsaw",
             "tr-TR",
             true));
-        var briefing = await client.GetDailyBriefingAsync(
-            mailboxId,
-            new DateOnly(2026, 8, 10),
-            "Europe/Warsaw",
-            forceRegenerate: true);
-        var deadlines = await client.GetDeadlinesAsync(
-            mailboxId,
-            new DateTimeOffset(2026, 8, 10, 0, 0, 0, TimeSpan.Zero),
-            new DateTimeOffset(2026, 8, 31, 0, 0, 0, TimeSpan.Zero));
+        var translated = await client.TranslateBriefingHeadlinesAsync(mailboxId, "tr-TR");
         var suggestedRequestId = Guid.NewGuid();
         var suggestedReplies = await client.GetSuggestedRepliesAsync(
             mailboxId,
@@ -98,13 +146,12 @@ public sealed class WinoAccountApiClientIntelligenceTests
             suggestedRequestId);
 
         search.Items.Should().ContainSingle().Which.RemoteMessageId.Should().Be("server-m07");
-        briefing.Language.Should().Be("tr-TR");
-        briefing.Items.Should().ContainSingle().Which.Headline.Should().Be("Bugünkü önemli ileti");
-        deadlines.Should().ContainSingle().Which.RemoteMessageId.Should().Be("m19");
+        translated.HeadlineLanguage.Should().Be("tr-TR");
+        translated.Headlines.Should().ContainSingle().Which.Headline.Should().Be("Bugünkü önemli ileti");
         suggestedReplies.Language.Should().Be("tr-TR");
         suggestedReplies.Suggestions.Should().HaveCount(2);
         suggestedReplies.RequestId.Should().Be(suggestedRequestId);
-        handler.RequestCount.Should().Be(4);
+        handler.RequestCount.Should().Be(3);
     }
 
     private sealed class IntelligenceRequestHandler(
@@ -141,23 +188,13 @@ public sealed class WinoAccountApiClientIntelligenceTests
                     """.Replace("__MAILBOX_ID__", mailboxId.ToString("D"), StringComparison.Ordinal));
             }
 
-            if (path.EndsWith("/daily-briefing", StringComparison.Ordinal))
+            if (path.EndsWith("/headlines:translate", StringComparison.Ordinal))
             {
                 using var body = JsonDocument.Parse(await request.Content!.ReadAsStreamAsync(cancellationToken));
-                body.RootElement.GetProperty("Language").GetString().Should().Be("tr-TR");
-                body.RootElement.GetProperty("ForceRegenerate").GetBoolean().Should().BeTrue();
+                body.RootElement.GetProperty("TargetLanguage").GetString().Should().Be("tr-TR");
                 return Json("""
-                    {"isSuccess":true,"result":{"mailboxId":"__MAILBOX_ID__","localDate":"2026-08-10","timeZoneId":"Europe/Warsaw","language":"tr-TR","throughArtifactRevision":12,"generatedAtUtc":"2026-08-10T07:00:00Z","items":[{"remoteMessageId":"m16","section":"important","headline":"Bugünkü önemli ileti","action":"Yanıtla","dueAtUtc":null,"confidence":0.9}]}}
+                    {"isSuccess":true,"result":{"headlineLanguage":"tr-TR","translatedCount":1,"failedCount":0,"throughArtifactRevision":12,"headlines":[{"briefingId":"11111111-1111-1111-1111-111111111111","headline":"Bugünkü önemli ileti","artifactRevision":12,"updatedAtUtc":"2026-08-10T07:00:00Z"}]}}
                     """.Replace("__MAILBOX_ID__", mailboxId.ToString("D"), StringComparison.Ordinal));
-            }
-
-            if (path.EndsWith("/deadlines", StringComparison.Ordinal))
-            {
-                request.RequestUri.Query.Should().Contain("dueAfterUtc=");
-                request.RequestUri.Query.Should().Contain("dueBeforeUtc=");
-                return Json("""
-                    {"isSuccess":true,"result":[{"remoteMessageId":"m19","contentHash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","deadlineKind":"payment","dueAtUtc":"2026-08-17T00:00:00Z","localDate":"2026-08-17","timeZoneId":"UTC","precision":"date","action":"pay","status":"open","confidence":0.95,"generatedAtUtc":"2026-08-10T07:00:00Z"}]}
-                    """);
             }
 
             if (path.EndsWith("/suggested-replies", StringComparison.Ordinal))
@@ -192,5 +229,26 @@ public sealed class WinoAccountApiClientIntelligenceTests
         {
             Content = new StringContent(value, Encoding.UTF8, "application/json"),
         };
+    }
+
+    private sealed class CompactArtifactRequestHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            request.Headers.Authorization?.Scheme.Should().Be("Bearer");
+            var isIngest = request.RequestUri!.AbsolutePath.EndsWith("/ingest", StringComparison.Ordinal);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(isIngest
+                    ? """
+                      {"isSuccess":true,"result":{"items":[{"remoteMessageId":"message-1","status":"indexed","errorCode":null}],"artifacts":[{"remoteMessageId":"message-1","contentHash":"hash-1","capability":"smartLabels","generationVersion":1,"payloadSchemaVersion":1,"artifactRevision":5,"generatedAtUtc":"2026-08-12T10:00:00Z"}]}}
+                      """
+                    : """
+                      {"isSuccess":true,"result":{"nextCursor":null,"items":[{"remoteMessageId":"message-1","contentHash":"hash-1","capability":"smartLabels","generationVersion":1,"payloadSchemaVersion":1,"artifactRevision":5,"generatedAtUtc":"2026-08-12T10:00:00Z"}]}}
+                      """, Encoding.UTF8, "application/json"),
+            });
+        }
     }
 }

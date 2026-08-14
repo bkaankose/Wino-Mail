@@ -3,8 +3,8 @@ html { box-sizing: border-box; height: 100%; margin: 0; background: #ffffff; }
 body { box-sizing: border-box; min-height: 100%; margin: 0; padding: 16px; color: CanvasText; background: transparent !important; font-family: var(--wino-font-family); font-size: var(--wino-font-size); overflow-wrap: anywhere; }
 :root[data-theme="light"] { background: #ffffff; }
 :root[data-theme="light"] body { color: #1b1b1b; background: #ffffff !important; }
-:root[data-theme="dark"] { background: transparent; }
-:root[data-theme="dark"] body { color: #f3f3f3; background: transparent !important; }
+:root[data-theme="dark"] { background: Canvas; }
+:root[data-theme="dark"] body { color: #f3f3f3; background: Canvas !important; }
 #wino-reader { min-height: 100%; visibility: hidden; font-family: var(--wino-font-family); font-size: var(--wino-font-size); outline: none; }
 .wino-reader { box-sizing: border-box; width: min(100%, 760px); margin-inline: auto; padding: 16px; line-height: 1.62; color: inherit; background: transparent !important; }
 .wino-reader p, .wino-reader blockquote, .wino-reader pre { margin: 0 0 1em; }

@@ -4,7 +4,8 @@
     xmlns:intelligence="using:Wino.Mail.Controls.IntelligenceHeader"
     xmlns:intelligenceProgress="using:Wino.Mail.Controls.IntelligenceProgressRing"
     xmlns:local="using:Wino.Mail.Controls.SearchBar"
-    xmlns:primitives="using:Microsoft.UI.Xaml.Controls.Primitives">
+    xmlns:primitives="using:Microsoft.UI.Xaml.Controls.Primitives"
+    xmlns:winoPrimitives="using:Wino.Mail.Controls.Primitives">
 
     <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="ms-appx:///Wino.Mail.Controls/IntelligenceProgressRing/WinoIntelligenceProgressRing.xaml" />
@@ -24,6 +25,8 @@
             <StaticResource x:Key="WinoIntelligenceHeaderNeedsReplyPillBackgroundBrush" ResourceKey="SystemFillColorAttentionBackgroundBrush" />
             <StaticResource x:Key="WinoIntelligenceHeaderNeedsReplyPillForegroundBrush" ResourceKey="SystemFillColorAttentionBrush" />
             <StaticResource x:Key="WinoIntelligenceHeaderSecondaryTextBrush" ResourceKey="TextFillColorSecondaryBrush" />
+            <StaticResource x:Key="WinoMailIntelligenceTileBackgroundBrush" ResourceKey="SubtleFillColorSecondaryBrush" />
+            <StaticResource x:Key="WinoMailIntelligenceTileForegroundBrush" ResourceKey="TextFillColorPrimaryBrush" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
             <StaticResource x:Key="WinoSearchBarPopupBackgroundBrush" ResourceKey="AcrylicInAppFillColorDefaultBrush" />
@@ -38,6 +41,8 @@
             <StaticResource x:Key="WinoIntelligenceHeaderNeedsReplyPillBackgroundBrush" ResourceKey="SystemFillColorAttentionBackgroundBrush" />
             <StaticResource x:Key="WinoIntelligenceHeaderNeedsReplyPillForegroundBrush" ResourceKey="SystemFillColorAttentionBrush" />
             <StaticResource x:Key="WinoIntelligenceHeaderSecondaryTextBrush" ResourceKey="TextFillColorSecondaryBrush" />
+            <StaticResource x:Key="WinoMailIntelligenceTileBackgroundBrush" ResourceKey="SubtleFillColorSecondaryBrush" />
+            <StaticResource x:Key="WinoMailIntelligenceTileForegroundBrush" ResourceKey="TextFillColorPrimaryBrush" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="HighContrast">
             <StaticResource x:Key="WinoIntelligenceIconBrush" ResourceKey="SystemColorWindowTextColorBrush" />
@@ -53,10 +58,12 @@
             <StaticResource x:Key="WinoIntelligenceHeaderNeedsReplyPillBackgroundBrush" ResourceKey="SystemColorButtonFaceColorBrush" />
             <StaticResource x:Key="WinoIntelligenceHeaderNeedsReplyPillForegroundBrush" ResourceKey="SystemColorButtonTextColorBrush" />
             <StaticResource x:Key="WinoIntelligenceHeaderSecondaryTextBrush" ResourceKey="SystemColorGrayTextColorBrush" />
+            <StaticResource x:Key="WinoMailIntelligenceTileBackgroundBrush" ResourceKey="SystemColorButtonFaceColorBrush" />
+            <StaticResource x:Key="WinoMailIntelligenceTileForegroundBrush" ResourceKey="SystemColorButtonTextColorBrush" />
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 
-    <!-- Keep this identity aligned with src/Wino.Mail.WinUI/Styles/FontIcons.xaml. -->
+    <!--  Keep this identity aligned with src/Wino.Mail.WinUI/Styles/FontIcons.xaml.  -->
     <LinearGradientBrush x:Key="WinoIntelligenceIconBrush" StartPoint="0,0" EndPoint="1,1">
         <GradientStop Offset="0" Color="#075FCC" />
         <GradientStop Offset="0.38" Color="#58BFFF" />
@@ -126,28 +133,56 @@
     </DataTemplate>
 
     <DataTemplate x:Key="WinoIntelligenceHeaderSimilarItemTemplate">
-        <Grid MinHeight="54" Padding="8,6" ColumnSpacing="10">
+        <Grid
+            MinHeight="54"
+            Padding="8,6"
+            ColumnSpacing="10">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="32" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <Border Width="30" Height="30" Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="15">
-                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="11" Text="{Binding Initials}" />
+            <Border
+                Width="30"
+                Height="30"
+                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                CornerRadius="15">
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    FontSize="11"
+                    Text="{Binding Initials}" />
             </Border>
-            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                <TextBlock FontWeight="SemiBold" Text="{Binding Subject}" TextTrimming="CharacterEllipsis" />
-                <TextBlock Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}" Style="{StaticResource CaptionTextBlockStyle}" Text="{Binding Meta}" TextTrimming="CharacterEllipsis" />
+            <StackPanel
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                Spacing="2">
+                <TextBlock
+                    FontWeight="SemiBold"
+                    Text="{Binding Subject}"
+                    TextTrimming="CharacterEllipsis" />
+                <TextBlock
+                    Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{Binding Meta}"
+                    TextTrimming="CharacterEllipsis" />
             </StackPanel>
-            <TextBlock Grid.Column="2" VerticalAlignment="Center" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Text="{Binding ScoreText}" />
+            <TextBlock
+                Grid.Column="2"
+                VerticalAlignment="Center"
+                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                Text="{Binding ScoreText}" />
         </Grid>
     </DataTemplate>
 
-    <Style x:Key="WinoIntelligenceChipButtonStyle" BasedOn="{StaticResource DefaultButtonStyle}" TargetType="Button">
+    <Style
+        x:Key="WinoIntelligenceChipButtonStyle"
+        BasedOn="{StaticResource DefaultButtonStyle}"
+        TargetType="Button">
         <Setter Property="MinHeight" Value="34" />
         <Setter Property="MinWidth" Value="0" />
         <Setter Property="Padding" Value="11,5,13,5" />
-        <Setter Property="CornerRadius" Value="17" />
+        <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
         <Setter Property="HorizontalContentAlignment" Value="Left" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
@@ -156,7 +191,10 @@
         Cancel sits inside the chip so a request is aborted where it was started. A Button nested in a
         Button is fine: the inner one handles the pointer, so the outer Click never fires.
     -->
-    <Style x:Key="WinoIntelligenceChipCancelButtonStyle" BasedOn="{StaticResource DefaultButtonStyle}" TargetType="Button">
+    <Style
+        x:Key="WinoIntelligenceChipCancelButtonStyle"
+        BasedOn="{StaticResource DefaultButtonStyle}"
+        TargetType="Button">
         <Setter Property="Width" Value="20" />
         <Setter Property="Height" Value="20" />
         <Setter Property="MinWidth" Value="20" />
@@ -169,7 +207,10 @@
         <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
 
-    <Style x:Key="WinoIntelligencePanelIconButtonStyle" BasedOn="{StaticResource DefaultButtonStyle}" TargetType="Button">
+    <Style
+        x:Key="WinoIntelligencePanelIconButtonStyle"
+        BasedOn="{StaticResource DefaultButtonStyle}"
+        TargetType="Button">
         <Setter Property="Width" Value="30" />
         <Setter Property="Height" Value="30" />
         <Setter Property="MinWidth" Value="30" />
@@ -180,10 +221,33 @@
     </Style>
 
     <DataTemplate x:Key="WinoSearchBarContactSuggestionTemplate">
-        <Grid MinHeight="48" Padding="7,4" ColumnSpacing="9">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="30" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-            <Border Width="28" Height="28" Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="14"><TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="10" Text="{Binding Initials}" /></Border>
-            <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" /><TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" Text="{Binding Address}" TextTrimming="CharacterEllipsis" /></StackPanel>
+        <Grid
+            MinHeight="48"
+            Padding="7,4"
+            ColumnSpacing="9">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="30" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border
+                Width="28"
+                Height="28"
+                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                CornerRadius="14">
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    FontSize="10"
+                    Text="{Binding Initials}" />
+            </Border>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{Binding Address}"
+                    TextTrimming="CharacterEllipsis" />
+            </StackPanel>
         </Grid>
     </DataTemplate>
 
@@ -193,7 +257,10 @@
         Resources scope, so the Border alone paints the field. WinoSearchBar.SynchronizeFieldVisuals
         repaints that Border for focus and for the semantic ("Meaning") state.
     -->
-    <Style x:Key="WinoSearchBarFieldTextBoxStyle" BasedOn="{StaticResource DefaultTextBoxStyle}" TargetType="TextBox">
+    <Style
+        x:Key="WinoSearchBarFieldTextBoxStyle"
+        BasedOn="{StaticResource DefaultTextBoxStyle}"
+        TargetType="TextBox">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="MinHeight" Value="0" />
@@ -206,7 +273,10 @@
         included: the field itself carries the semantic highlight, so outlining the pill as well
         states it twice.
     -->
-    <Style x:Key="WinoSearchBarMeaningToggleStyle" BasedOn="{StaticResource DefaultToggleButtonStyle}" TargetType="ToggleButton">
+    <Style
+        x:Key="WinoSearchBarMeaningToggleStyle"
+        BasedOn="{StaticResource DefaultToggleButtonStyle}"
+        TargetType="ToggleButton">
         <Setter Property="Height" Value="24" />
         <Setter Property="MinHeight" Value="24" />
         <Setter Property="MinWidth" Value="0" />
@@ -220,7 +290,10 @@
         <Setter Property="BorderBrush" Value="Transparent" />
     </Style>
 
-    <Style x:Key="WinoSearchBarInlineIconButtonStyle" BasedOn="{StaticResource DefaultButtonStyle}" TargetType="Button">
+    <Style
+        x:Key="WinoSearchBarInlineIconButtonStyle"
+        BasedOn="{StaticResource DefaultButtonStyle}"
+        TargetType="Button">
         <Setter Property="Width" Value="28" />
         <Setter Property="Height" Value="28" />
         <Setter Property="MinWidth" Value="28" />
@@ -319,7 +392,10 @@
                                         VerticalAlignment="Center"
                                         Orientation="Horizontal"
                                         Spacing="6">
-                                        <Grid Width="16" Height="16" VerticalAlignment="Center">
+                                        <Grid
+                                            Width="16"
+                                            Height="16"
+                                            VerticalAlignment="Center">
                                             <Viewbox x:Name="PART_MeaningSparkle" Stretch="Uniform">
                                                 <PathIcon
                                                     AutomationProperties.AccessibilityView="Raw"
@@ -344,6 +420,11 @@
                                 <Button
                                     x:Name="PART_QueryButton"
                                     Grid.Column="2"
+                                    Width="22"
+                                    Height="22"
+                                    MinWidth="22"
+                                    MinHeight="22"
+                                    Margin="0,0,2,0"
                                     VerticalAlignment="Center"
                                     AutomationProperties.AutomationId="WinoSearchBarQueryButton"
                                     IsTabStop="False"
@@ -371,7 +452,7 @@
                             ShouldConstrainToRootBounds="True">
                             <Border
                                 x:Name="PART_SearchPopupRoot"
-                                Padding="6"
+                                Padding="12"
                                 Background="{ThemeResource WinoSearchBarPopupBackgroundBrush}"
                                 BackgroundSizing="InnerBorderEdge"
                                 BorderBrush="{ThemeResource WinoSearchBarPopupBorderBrush}"
@@ -615,263 +696,552 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="intelligence:WinoIntelligenceHeader">
-                    <Grid x:Name="PART_LayoutRoot" Background="{ThemeResource WinoIntelligenceHeaderBackgroundBrush}" BorderBrush="{ThemeResource WinoIntelligenceHeaderBorderBrush}" BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}">
-                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                    <Grid
+                        x:Name="PART_LayoutRoot"
+                        Background="{ThemeResource WinoIntelligenceHeaderBackgroundBrush}"
+                        BorderBrush="{ThemeResource WinoIntelligenceHeaderBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
 
-                        <Grid ColumnSpacing="6">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                            <Button x:Name="PART_HeaderToggleButton" MinHeight="40" Padding="10,5" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" AutomationProperties.AutomationId="WinoIntelligenceHeaderToggleButton" Background="Transparent" BorderThickness="0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Button
+                                x:Name="PART_HeaderToggleButton"
+                                MinHeight="40"
+                                Padding="10,5"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Stretch"
+                                AutomationProperties.AutomationId="WinoIntelligenceHeaderToggleButton"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                CornerRadius="0">
+                                <!--
+                                    Everything the collapsed header shows lives on this one row: title,
+                                    the optional briefing fact text, and whichever status text applies.
+                                -->
                                 <Grid x:Name="PART_HeaderContentRoot" ColumnSpacing="8">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                    <PathIcon Width="16" Height="16" Data="{StaticResource WinoIntelligenceSparklePathData}" Foreground="{StaticResource WinoIntelligenceHeaderSparkleBrush}" />
-                                    <TextBlock x:Name="PART_TitleTextBlock" Grid.Column="1" VerticalAlignment="Center" FontWeight="SemiBold" />
-                                    <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal" Spacing="6">
-                                        <Border x:Name="PART_DeadlinePill" Padding="7,0" AutomationProperties.AccessibilityView="Raw" Background="{ThemeResource WinoIntelligenceHeaderDeadlinePillBackgroundBrush}" CornerRadius="9" Visibility="Collapsed"><TextBlock x:Name="PART_DeadlinePillText" FontSize="10.5" Foreground="{ThemeResource WinoIntelligenceHeaderDeadlinePillForegroundBrush}" /></Border>
-                                        <Border x:Name="PART_NeedsReplyPill" Padding="7,0" AutomationProperties.AccessibilityView="Raw" Background="{ThemeResource WinoIntelligenceHeaderNeedsReplyPillBackgroundBrush}" CornerRadius="9" Visibility="Collapsed"><TextBlock x:Name="PART_NeedsReplyPillText" FontSize="10.5" Foreground="{ThemeResource WinoIntelligenceHeaderNeedsReplyPillForegroundBrush}" /></Border>
-                                        <TextBlock x:Name="PART_SubtitleTextBlock" VerticalAlignment="Center" AutomationProperties.AccessibilityView="Raw" FontSize="11" Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}" TextTrimming="CharacterEllipsis" />
-                                        <StackPanel x:Name="PART_ProcessingStatusPanel" Orientation="Horizontal" Spacing="6" Visibility="Collapsed"><intelligenceProgress:WinoIntelligenceProgressRing x:Name="PART_ProcessingProgressRing" Width="12" Height="12" Animation="Dots" AutomationProperties.AccessibilityView="Raw" IsActive="False" /><TextBlock x:Name="PART_ProcessingStatusTextBlock" VerticalAlignment="Center" FontSize="11" Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}" /></StackPanel>
-                                    </StackPanel>
-                                    <FontIcon x:Name="PART_ChevronIcon" Grid.Column="3" VerticalAlignment="Center" AutomationProperties.AccessibilityView="Raw" FontSize="10" Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}" Glyph="&#xE70D;" />
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <PathIcon
+                                        Width="16"
+                                        Height="16"
+                                        VerticalAlignment="Center"
+                                        Data="{StaticResource WinoIntelligenceSparklePathData}"
+                                        Foreground="{StaticResource WinoIntelligenceHeaderSparkleBrush}" />
+                                    <TextBlock
+                                        x:Name="PART_TitleTextBlock"
+                                        Grid.Column="1"
+                                        VerticalAlignment="Center"
+                                        FontWeight="SemiBold" />
+                                    <TextBlock
+                                        x:Name="PART_BriefingFactTextBlock"
+                                        Grid.Column="2"
+                                        MaxWidth="360"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        FontSize="11"
+                                        Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}"
+                                        TextTrimming="CharacterEllipsis"
+                                        Visibility="Collapsed" />
+                                    <!--  Subtitle and processing status are mutually exclusive, so they share this cell.  -->
+                                    <Grid Grid.Column="3" VerticalAlignment="Center">
+                                        <TextBlock
+                                            x:Name="PART_SubtitleTextBlock"
+                                            VerticalAlignment="Center"
+                                            AutomationProperties.AccessibilityView="Raw"
+                                            FontSize="11"
+                                            Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}"
+                                            TextTrimming="CharacterEllipsis" />
+                                        <StackPanel
+                                            x:Name="PART_ProcessingStatusPanel"
+                                            VerticalAlignment="Center"
+                                            Orientation="Horizontal"
+                                            Spacing="6"
+                                            Visibility="Collapsed">
+                                            <intelligenceProgress:WinoIntelligenceProgressRing
+                                                x:Name="PART_ProcessingProgressRing"
+                                                Width="12"
+                                                Height="12"
+                                                Animation="Dots"
+                                                AutomationProperties.AccessibilityView="Raw"
+                                                IsActive="False" />
+                                            <TextBlock
+                                                x:Name="PART_ProcessingStatusTextBlock"
+                                                VerticalAlignment="Center"
+                                                FontSize="11"
+                                                Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <FontIcon
+                                        x:Name="PART_ChevronIcon"
+                                        Grid.Column="4"
+                                        VerticalAlignment="Center"
+                                        AutomationProperties.AccessibilityView="Raw"
+                                        FontSize="10"
+                                        Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}"
+                                        Glyph="&#xE70D;" />
                                 </Grid>
                             </Button>
-                            <Button x:Name="PART_ProcessButton" Grid.Column="1" Margin="0,4,6,4" Padding="9,3" VerticalAlignment="Center" AutomationProperties.AutomationId="WinoIntelligenceHeaderProcessButton" Content="{TemplateBinding ProcessButtonText}" CornerRadius="4" FontSize="11" Visibility="Collapsed" />
+                            <Button
+                                x:Name="PART_ProcessButton"
+                                Grid.Column="1"
+                                Margin="6,4,6,4"
+                                Padding="9,3"
+                                VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="WinoIntelligenceHeaderProcessButton"
+                                Content="{TemplateBinding ProcessButtonText}"
+                                CornerRadius="4"
+                                FontSize="11"
+                                Visibility="Collapsed" />
                         </Grid>
 
-                        <Border x:Name="PART_BodyRoot" Grid.Row="1" Padding="12" BorderBrush="{ThemeResource WinoIntelligenceHeaderSeparatorBrush}" BorderThickness="0,1,0,0" Visibility="Collapsed">
+                        <Border
+                            x:Name="PART_BodyRoot"
+                            Grid.Row="1"
+                            Padding="12"
+                            BorderBrush="{ThemeResource WinoIntelligenceHeaderSeparatorBrush}"
+                            BorderThickness="0,1,0,0"
+                            Visibility="Collapsed">
                             <StackPanel Spacing="10">
                                 <StackPanel x:Name="PART_FactsPanel" Spacing="6">
-                                    <Border x:Name="PART_DeadlineFactCard" Padding="10,8" Background="{ThemeResource WinoIntelligenceHeaderCardBackgroundBrush}" BorderBrush="{ThemeResource WinoIntelligenceHeaderCardBorderBrush}" BorderThickness="1" CornerRadius="4">
-                                        <Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><FontIcon FontSize="14" Foreground="{ThemeResource WinoIntelligenceHeaderDeadlinePillForegroundBrush}" Glyph="&#xE823;" /><TextBlock x:Name="PART_DeadlineFactTextBlock" Grid.Column="1" VerticalAlignment="Center" TextWrapping="WrapWholeWords" /><Button x:Name="PART_AddToCalendarButton" Grid.Column="2" AutomationProperties.AutomationId="WinoIntelligenceHeaderAddToCalendarButton" Content="{TemplateBinding AddToCalendarButtonText}" Style="{StaticResource WinoIntelligenceHeaderTriggerButtonStyle}" /></Grid>
+                                    <Border
+                                        x:Name="PART_DeadlineFactCard"
+                                        Padding="10,8"
+                                        Background="{ThemeResource WinoIntelligenceHeaderCardBackgroundBrush}"
+                                        BorderBrush="{ThemeResource WinoIntelligenceHeaderCardBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="4">
+                                        <Grid ColumnSpacing="10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <FontIcon
+                                                FontSize="14"
+                                                Foreground="{ThemeResource WinoIntelligenceHeaderDeadlinePillForegroundBrush}"
+                                                Glyph="&#xE823;" />
+                                            <TextBlock
+                                                x:Name="PART_DeadlineFactTextBlock"
+                                                Grid.Column="1"
+                                                VerticalAlignment="Center"
+                                                TextWrapping="WrapWholeWords" />
+                                            <Button
+                                                x:Name="PART_AddToCalendarButton"
+                                                Grid.Column="2"
+                                                AutomationProperties.AutomationId="WinoIntelligenceHeaderAddToCalendarButton"
+                                                Content="{TemplateBinding AddToCalendarButtonText}"
+                                                Style="{StaticResource WinoIntelligenceHeaderTriggerButtonStyle}" />
+                                        </Grid>
                                     </Border>
-                                    <Border x:Name="PART_NeedsReplyFactCard" Padding="10,8" Background="{ThemeResource WinoIntelligenceHeaderCardBackgroundBrush}" BorderBrush="{ThemeResource WinoIntelligenceHeaderCardBorderBrush}" BorderThickness="1" CornerRadius="4">
-                                        <Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><FontIcon FontSize="14" Foreground="{ThemeResource WinoIntelligenceHeaderNeedsReplyPillForegroundBrush}" Glyph="&#xE97A;" /><TextBlock x:Name="PART_NeedsReplyFactTextBlock" Grid.Column="1" VerticalAlignment="Center" TextWrapping="WrapWholeWords" /></Grid>
+                                    <Border
+                                        x:Name="PART_NeedsReplyFactCard"
+                                        Padding="10,8"
+                                        Background="{ThemeResource WinoIntelligenceHeaderCardBackgroundBrush}"
+                                        BorderBrush="{ThemeResource WinoIntelligenceHeaderCardBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="4">
+                                        <Grid ColumnSpacing="10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <FontIcon
+                                                FontSize="14"
+                                                Foreground="{ThemeResource WinoIntelligenceHeaderNeedsReplyPillForegroundBrush}"
+                                                Glyph="&#xE97A;" />
+                                            <TextBlock
+                                                x:Name="PART_NeedsReplyFactTextBlock"
+                                                Grid.Column="1"
+                                                VerticalAlignment="Center"
+                                                TextWrapping="WrapWholeWords" />
+                                        </Grid>
                                     </Border>
                                 </StackPanel>
 
-                                <Border x:Name="PART_InsightsLockedPanel" Padding="10,8" Background="{ThemeResource WinoIntelligenceHeaderCardBackgroundBrush}" BorderBrush="{ThemeResource WinoIntelligenceHeaderCardBorderBrush}" BorderThickness="1" CornerRadius="4" Visibility="Collapsed"><TextBlock x:Name="PART_InsightsLockedTextBlock" FontSize="12" Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}" TextWrapping="WrapWholeWords" /></Border>
+                                <Border
+                                    x:Name="PART_InsightsLockedPanel"
+                                    Padding="10,8"
+                                    Background="{ThemeResource WinoIntelligenceHeaderCardBackgroundBrush}"
+                                    BorderBrush="{ThemeResource WinoIntelligenceHeaderCardBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="4"
+                                    Visibility="Collapsed">
+                                    <TextBlock
+                                        x:Name="PART_InsightsLockedTextBlock"
+                                        FontSize="12"
+                                        Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}"
+                                        TextWrapping="WrapWholeWords" />
+                                </Border>
 
                                 <!--
                                     The action rail. Every chip has the same internal shape:
-                                    [icon slot][label][result dot][hint][cancel]. The icon slot holds a
-                                    FontIcon and this feature's WinoIntelligenceProgressRing stacked, and
-                                    WinoIntelligenceHeader swaps which one is visible, so progress appears
-                                    on the control the user pressed instead of in a new row.
-
-                                    ItemsWrapGrid is deliberately not used here: it is a virtualizing panel
-                                    that only works inside a ListViewBase and throws in a plain ItemsControl.
-                                    A two-column grid keeps every action visible in a narrow reading pane
-                                    without relying on a subtle horizontal scrollbar.
+                                    [icon][label][result dot][hint]. Progress and cancel live in the
+                                    feature's detail panel, so a chip never changes size while it runs.
+                                    
+                                    The rail wraps instead of using a fixed 2x2 grid. Chips are sized to their
+                                    own content and a hidden chip releases its slot, so the rail stays a
+                                    single tidy run of buttons however many features are available, and only
+                                    spills onto a second line when the reading pane is too narrow for them.
                                 -->
-                                <StackPanel Spacing="6">
-                                    <TextBlock
-                                        FontSize="11"
-                                        FontWeight="SemiBold"
-                                        Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}"
-                                        Text="{TemplateBinding ActionHeadingText}" />
-                                    <Grid ColumnSpacing="6" RowSpacing="6">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="Auto" />
-                                        </Grid.RowDefinitions>
-                                            <Button
-                                                x:Name="PART_SummaryChipButton"
-                                                HorizontalAlignment="Stretch"
-                                                AutomationProperties.AutomationId="WinoIntelligenceHeaderSummarizeButton"
-                                                Style="{StaticResource WinoIntelligenceChipButtonStyle}">
-                                                <Grid ColumnSpacing="8">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <Grid Width="16" Height="16" VerticalAlignment="Center">
-                                                        <FontIcon
-                                                            x:Name="SummaryChipGlyph"
-                                                            AutomationProperties.AccessibilityView="Raw"
-                                                            FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                                                            FontSize="14"
-                                                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                                            Glyph="&#xE8A5;" />
-                                                    </Grid>
-                                                    <TextBlock
-                                                        x:Name="PART_SummaryChipLabel"
-                                                        Grid.Column="1"
-                                                        VerticalAlignment="Center" />
-                                                    <Ellipse
-                                                        x:Name="PART_SummaryResultDot"
-                                                        Grid.Column="2"
-                                                        Width="6"
-                                                        Height="6"
-                                                        VerticalAlignment="Center"
-                                                        AutomationProperties.AccessibilityView="Raw"
-                                                        Fill="{ThemeResource SystemFillColorSuccessBrush}"
-                                                        Visibility="Collapsed" />
-                                                    <TextBlock
-                                                        x:Name="PART_SummaryChipHint"
-                                                        Grid.Column="3"
-                                                        VerticalAlignment="Center"
-                                                        Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}"
-                                                        Style="{StaticResource CaptionTextBlockStyle}"
-                                                        Visibility="Collapsed" />
-                                                </Grid>
-                                            </Button>
-
-                                            <Button
-                                                x:Name="PART_RepliesChipButton"
+                                <winoPrimitives:WinoWrapPanel HorizontalSpacing="6" VerticalSpacing="6">
+                                    <Button
+                                        x:Name="PART_SummaryChipButton"
+                                        AutomationProperties.AutomationId="WinoIntelligenceHeaderSummarizeButton"
+                                        Style="{StaticResource WinoIntelligenceChipButtonStyle}">
+                                        <Grid ColumnSpacing="8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid
+                                                Width="16"
+                                                Height="16"
+                                                VerticalAlignment="Center">
+                                                <FontIcon
+                                                    x:Name="SummaryChipGlyph"
+                                                    AutomationProperties.AccessibilityView="Raw"
+                                                    FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                                                    FontSize="14"
+                                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                    Glyph="&#xE8A5;" />
+                                            </Grid>
+                                            <TextBlock
+                                                x:Name="PART_SummaryChipLabel"
                                                 Grid.Column="1"
-                                                HorizontalAlignment="Stretch"
-                                                AutomationProperties.AutomationId="WinoIntelligenceHeaderDraftRepliesButton"
-                                                Style="{StaticResource WinoIntelligenceChipButtonStyle}">
-                                                <Grid ColumnSpacing="8">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <Grid Width="16" Height="16" VerticalAlignment="Center">
-                                                        <FontIcon
-                                                            x:Name="RepliesChipGlyph"
-                                                            AutomationProperties.AccessibilityView="Raw"
-                                                            FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                                                            FontSize="14"
-                                                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                                            Glyph="&#xE97A;" />
-                                                    </Grid>
-                                                    <TextBlock
-                                                        x:Name="PART_RepliesChipLabel"
-                                                        Grid.Column="1"
-                                                        VerticalAlignment="Center" />
-                                                    <Ellipse
-                                                        x:Name="PART_RepliesResultDot"
-                                                        Grid.Column="2"
-                                                        Width="6"
-                                                        Height="6"
-                                                        VerticalAlignment="Center"
-                                                        AutomationProperties.AccessibilityView="Raw"
-                                                        Fill="{ThemeResource SystemFillColorSuccessBrush}"
-                                                        Visibility="Collapsed" />
-                                                    <TextBlock
-                                                        x:Name="PART_RepliesChipHint"
-                                                        Grid.Column="3"
-                                                        VerticalAlignment="Center"
-                                                        Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}"
-                                                        Style="{StaticResource CaptionTextBlockStyle}"
-                                                        Visibility="Collapsed" />
-                                                </Grid>
-                                            </Button>
+                                                VerticalAlignment="Center" />
+                                            <Ellipse
+                                                x:Name="PART_SummaryResultDot"
+                                                Grid.Column="2"
+                                                Width="6"
+                                                Height="6"
+                                                VerticalAlignment="Center"
+                                                AutomationProperties.AccessibilityView="Raw"
+                                                Fill="{ThemeResource SystemFillColorSuccessBrush}"
+                                                Visibility="Collapsed" />
+                                            <TextBlock
+                                                x:Name="PART_SummaryChipHint"
+                                                Grid.Column="3"
+                                                VerticalAlignment="Center"
+                                                Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}"
+                                                Style="{StaticResource CaptionTextBlockStyle}"
+                                                Visibility="Collapsed" />
+                                        </Grid>
+                                    </Button>
 
-                                            <Button
-                                                x:Name="PART_TranslateChipButton"
-                                                Grid.Row="1"
-                                                HorizontalAlignment="Stretch"
-                                                AutomationProperties.AutomationId="WinoIntelligenceHeaderTranslateChipButton"
-                                                Style="{StaticResource WinoIntelligenceChipButtonStyle}">
-                                                <Grid ColumnSpacing="8">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <Grid Width="16" Height="16" VerticalAlignment="Center">
-                                                        <FontIcon
-                                                            x:Name="TranslateChipGlyph"
-                                                            AutomationProperties.AccessibilityView="Raw"
-                                                            FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                                                            FontSize="14"
-                                                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                                            Glyph="&#xF2B7;" />
-                                                    </Grid>
-                                                    <TextBlock
-                                                        x:Name="PART_TranslateChipLabel"
-                                                        Grid.Column="1"
-                                                        VerticalAlignment="Center" />
-                                                    <Ellipse
-                                                        x:Name="PART_TranslateResultDot"
-                                                        Grid.Column="2"
-                                                        Width="6"
-                                                        Height="6"
-                                                        VerticalAlignment="Center"
-                                                        AutomationProperties.AccessibilityView="Raw"
-                                                        Fill="{ThemeResource SystemFillColorSuccessBrush}"
-                                                        Visibility="Collapsed" />
-                                                    <TextBlock
-                                                        x:Name="PART_TranslateChipHint"
-                                                        Grid.Column="3"
-                                                        VerticalAlignment="Center"
-                                                        Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}"
-                                                        Style="{StaticResource CaptionTextBlockStyle}"
-                                                        Visibility="Collapsed" />
-                                                </Grid>
-                                            </Button>
-
-                                            <Button
-                                                x:Name="PART_SimilarChipButton"
-                                                Grid.Row="1"
+                                    <Button
+                                        x:Name="PART_RepliesChipButton"
+                                        AutomationProperties.AutomationId="WinoIntelligenceHeaderDraftRepliesButton"
+                                        Style="{StaticResource WinoIntelligenceChipButtonStyle}">
+                                        <Grid ColumnSpacing="8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid
+                                                Width="16"
+                                                Height="16"
+                                                VerticalAlignment="Center">
+                                                <FontIcon
+                                                    x:Name="RepliesChipGlyph"
+                                                    AutomationProperties.AccessibilityView="Raw"
+                                                    FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                                                    FontSize="14"
+                                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                    Glyph="&#xE97A;" />
+                                            </Grid>
+                                            <TextBlock
+                                                x:Name="PART_RepliesChipLabel"
                                                 Grid.Column="1"
-                                                HorizontalAlignment="Stretch"
-                                                AutomationProperties.AutomationId="WinoIntelligenceHeaderFindSimilarButton"
-                                                Style="{StaticResource WinoIntelligenceChipButtonStyle}">
-                                                <Grid ColumnSpacing="8">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <Grid Width="16" Height="16" VerticalAlignment="Center">
-                                                        <FontIcon
-                                                            x:Name="SimilarChipGlyph"
-                                                            AutomationProperties.AccessibilityView="Raw"
-                                                            FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                                                            FontSize="14"
-                                                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                                            Glyph="&#xE721;" />
-                                                    </Grid>
-                                                    <TextBlock
-                                                        x:Name="PART_SimilarChipLabel"
-                                                        Grid.Column="1"
-                                                        VerticalAlignment="Center" />
-                                                    <Ellipse
-                                                        x:Name="PART_SimilarResultDot"
-                                                        Grid.Column="2"
-                                                        Width="6"
-                                                        Height="6"
-                                                        VerticalAlignment="Center"
-                                                        AutomationProperties.AccessibilityView="Raw"
-                                                        Fill="{ThemeResource SystemFillColorSuccessBrush}"
-                                                        Visibility="Collapsed" />
-                                                    <TextBlock
-                                                        x:Name="PART_SimilarChipHint"
-                                                        Grid.Column="3"
-                                                        VerticalAlignment="Center"
-                                                        Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}"
-                                                        Style="{StaticResource CaptionTextBlockStyle}"
-                                                        Visibility="Collapsed" />
-                                                </Grid>
-                                            </Button>
-                                    </Grid>
-                                </StackPanel>
+                                                VerticalAlignment="Center" />
+                                            <Ellipse
+                                                x:Name="PART_RepliesResultDot"
+                                                Grid.Column="2"
+                                                Width="6"
+                                                Height="6"
+                                                VerticalAlignment="Center"
+                                                AutomationProperties.AccessibilityView="Raw"
+                                                Fill="{ThemeResource SystemFillColorSuccessBrush}"
+                                                Visibility="Collapsed" />
+                                            <TextBlock
+                                                x:Name="PART_RepliesChipHint"
+                                                Grid.Column="3"
+                                                VerticalAlignment="Center"
+                                                Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}"
+                                                Style="{StaticResource CaptionTextBlockStyle}"
+                                                Visibility="Collapsed" />
+                                        </Grid>
+                                    </Button>
 
-                                <Grid x:Name="PART_PanelHost" AutomationProperties.LiveSetting="Polite" Visibility="Collapsed">
-                                    <Border x:Name="PART_SummaryPanel" Padding="10" Background="{ThemeResource WinoIntelligenceHeaderCardBackgroundBrush}" BorderBrush="{ThemeResource WinoIntelligenceHeaderCardBorderBrush}" BorderThickness="1" CornerRadius="6" Visibility="Collapsed"><StackPanel Spacing="8"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{TemplateBinding SummaryHeadingText}" /><StackPanel Grid.Column="1" Orientation="Horizontal"><Button x:Name="PART_SummaryCopyButton" AutomationProperties.AutomationId="WinoIntelligenceHeaderSummaryCopyButton" AutomationProperties.Name="{TemplateBinding CopyText}" Style="{StaticResource WinoIntelligencePanelIconButtonStyle}"><FontIcon FontSize="13" Glyph="&#xE8C8;" /></Button><Button x:Name="PART_SummaryRegenerateButton" AutomationProperties.AutomationId="WinoIntelligenceHeaderSummaryRegenerateButton" AutomationProperties.Name="{TemplateBinding RegenerateText}" Style="{StaticResource WinoIntelligencePanelIconButtonStyle}"><FontIcon FontSize="13" Glyph="&#xE72C;" /></Button><Button x:Name="PART_SummaryCloseButton" AutomationProperties.AutomationId="WinoIntelligenceHeaderSummaryCloseButton" AutomationProperties.Name="{TemplateBinding ClosePanelText}" Style="{StaticResource WinoIntelligencePanelIconButtonStyle}"><FontIcon FontSize="12" Glyph="&#xE711;" /></Button></StackPanel></Grid><Grid x:Name="PART_SummaryWaitingPanel" ColumnSpacing="12" Visibility="Collapsed"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><intelligenceProgress:WinoIntelligenceProgressRing x:Name="PART_SummaryWaitingRing" Width="36" Height="36" VerticalAlignment="Center" Animation="Summarize" AutomationProperties.AccessibilityView="Raw" IsActive="False" /><Rectangle Grid.Column="1" Height="5" VerticalAlignment="Center" Fill="{ThemeResource SubtleFillColorSecondaryBrush}" RadiusX="2" RadiusY="2" /><Button x:Name="PART_SummaryCancelButton" Grid.Column="2" VerticalAlignment="Center" AutomationProperties.AutomationId="WinoIntelligenceHeaderSummaryCancelButton" Style="{StaticResource WinoIntelligenceHeaderTriggerButtonStyle}" /></Grid><TextBlock x:Name="PART_SummaryResultTextBlock" TextWrapping="WrapWholeWords" Visibility="Collapsed" /></StackPanel></Border>
-                                    <Border x:Name="PART_RepliesPanel" Padding="10" Background="{ThemeResource WinoIntelligenceHeaderCardBackgroundBrush}" BorderBrush="{ThemeResource WinoIntelligenceHeaderCardBorderBrush}" BorderThickness="1" CornerRadius="6" Visibility="Collapsed"><StackPanel Spacing="8"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{TemplateBinding SuggestedRepliesHeadingText}" /><StackPanel Grid.Column="1" Orientation="Horizontal"><Button x:Name="PART_RepliesRegenerateButton" AutomationProperties.AutomationId="WinoIntelligenceHeaderRepliesRegenerateButton" AutomationProperties.Name="{TemplateBinding RegenerateText}" Style="{StaticResource WinoIntelligencePanelIconButtonStyle}"><FontIcon FontSize="13" Glyph="&#xE72C;" /></Button><Button x:Name="PART_RepliesCloseButton" AutomationProperties.AutomationId="WinoIntelligenceHeaderRepliesCloseButton" AutomationProperties.Name="{TemplateBinding ClosePanelText}" Style="{StaticResource WinoIntelligencePanelIconButtonStyle}"><FontIcon FontSize="12" Glyph="&#xE711;" /></Button></StackPanel></Grid><Grid x:Name="PART_RepliesWaitingPanel" ColumnSpacing="12" Visibility="Collapsed"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><intelligenceProgress:WinoIntelligenceProgressRing x:Name="PART_RepliesWaitingRing" Width="36" Height="36" VerticalAlignment="Center" Animation="Rewrite" AutomationProperties.AccessibilityView="Raw" IsActive="False" /><Rectangle Grid.Column="1" Height="5" VerticalAlignment="Center" Fill="{ThemeResource SubtleFillColorSecondaryBrush}" RadiusX="2" RadiusY="2" /><Button x:Name="PART_RepliesCancelButton" Grid.Column="2" VerticalAlignment="Center" AutomationProperties.AutomationId="WinoIntelligenceHeaderRepliesCancelButton" Style="{StaticResource WinoIntelligenceHeaderTriggerButtonStyle}" /></Grid><ListView x:Name="PART_SuggestedRepliesList" MaxHeight="240" AutomationProperties.AutomationId="WinoIntelligenceHeaderSuggestedRepliesList" IsItemClickEnabled="True" ItemTemplate="{StaticResource WinoIntelligenceHeaderReplyItemTemplate}" SelectionMode="None" Visibility="Collapsed" /></StackPanel></Border>
-                                    <!--
-                                        Translate is the one feature that is configured before it runs, so
-                                        the chip only opens this panel and the run button here is what starts
-                                        the request. Language pair on one row, action and status on the next,
-                                        so neither gets squeezed when the reading pane is narrow.
-                                    -->
+                                    <Button
+                                        x:Name="PART_TranslateChipButton"
+                                        AutomationProperties.AutomationId="WinoIntelligenceHeaderTranslateChipButton"
+                                        Style="{StaticResource WinoIntelligenceChipButtonStyle}">
+                                        <Grid ColumnSpacing="8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid
+                                                Width="16"
+                                                Height="16"
+                                                VerticalAlignment="Center">
+                                                <FontIcon
+                                                    x:Name="TranslateChipGlyph"
+                                                    AutomationProperties.AccessibilityView="Raw"
+                                                    FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                                                    FontSize="14"
+                                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                    Glyph="&#xF2B7;" />
+                                            </Grid>
+                                            <TextBlock
+                                                x:Name="PART_TranslateChipLabel"
+                                                Grid.Column="1"
+                                                VerticalAlignment="Center" />
+                                            <Ellipse
+                                                x:Name="PART_TranslateResultDot"
+                                                Grid.Column="2"
+                                                Width="6"
+                                                Height="6"
+                                                VerticalAlignment="Center"
+                                                AutomationProperties.AccessibilityView="Raw"
+                                                Fill="{ThemeResource SystemFillColorSuccessBrush}"
+                                                Visibility="Collapsed" />
+                                            <TextBlock
+                                                x:Name="PART_TranslateChipHint"
+                                                Grid.Column="3"
+                                                VerticalAlignment="Center"
+                                                Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}"
+                                                Style="{StaticResource CaptionTextBlockStyle}"
+                                                Visibility="Collapsed" />
+                                        </Grid>
+                                    </Button>
+
+                                    <Button
+                                        x:Name="PART_SimilarChipButton"
+                                        AutomationProperties.AutomationId="WinoIntelligenceHeaderFindSimilarButton"
+                                        Style="{StaticResource WinoIntelligenceChipButtonStyle}">
+                                        <Grid ColumnSpacing="8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid
+                                                Width="16"
+                                                Height="16"
+                                                VerticalAlignment="Center">
+                                                <FontIcon
+                                                    x:Name="SimilarChipGlyph"
+                                                    AutomationProperties.AccessibilityView="Raw"
+                                                    FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                                                    FontSize="14"
+                                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                    Glyph="&#xE721;" />
+                                            </Grid>
+                                            <TextBlock
+                                                x:Name="PART_SimilarChipLabel"
+                                                Grid.Column="1"
+                                                VerticalAlignment="Center" />
+                                            <Ellipse
+                                                x:Name="PART_SimilarResultDot"
+                                                Grid.Column="2"
+                                                Width="6"
+                                                Height="6"
+                                                VerticalAlignment="Center"
+                                                AutomationProperties.AccessibilityView="Raw"
+                                                Fill="{ThemeResource SystemFillColorSuccessBrush}"
+                                                Visibility="Collapsed" />
+                                            <TextBlock
+                                                x:Name="PART_SimilarChipHint"
+                                                Grid.Column="3"
+                                                VerticalAlignment="Center"
+                                                Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}"
+                                                Style="{StaticResource CaptionTextBlockStyle}"
+                                                Visibility="Collapsed" />
+                                        </Grid>
+                                    </Button>
+                                </winoPrimitives:WinoWrapPanel>
+
+                                <Grid
+                                    x:Name="PART_PanelHost"
+                                    AutomationProperties.LiveSetting="Polite"
+                                    Visibility="Collapsed">
+                                    <Border
+                                        x:Name="PART_SummaryPanel"
+                                        Padding="10"
+                                        Background="{ThemeResource WinoIntelligenceHeaderCardBackgroundBrush}"
+                                        BorderBrush="{ThemeResource WinoIntelligenceHeaderCardBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="6"
+                                        Visibility="Collapsed">
+                                        <StackPanel Spacing="8">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock
+                                                    VerticalAlignment="Center"
+                                                    FontWeight="SemiBold"
+                                                    Text="{TemplateBinding SummaryHeadingText}" />
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                    <Button
+                                                        x:Name="PART_SummaryCopyButton"
+                                                        AutomationProperties.AutomationId="WinoIntelligenceHeaderSummaryCopyButton"
+                                                        AutomationProperties.Name="{TemplateBinding CopyText}"
+                                                        Style="{StaticResource WinoIntelligencePanelIconButtonStyle}">
+                                                        <FontIcon FontSize="13" Glyph="&#xE8C8;" />
+                                                    </Button>
+                                                    <Button
+                                                        x:Name="PART_SummaryRegenerateButton"
+                                                        AutomationProperties.AutomationId="WinoIntelligenceHeaderSummaryRegenerateButton"
+                                                        AutomationProperties.Name="{TemplateBinding RegenerateText}"
+                                                        Style="{StaticResource WinoIntelligencePanelIconButtonStyle}">
+                                                        <FontIcon FontSize="13" Glyph="&#xE72C;" />
+                                                    </Button>
+                                                    <Button
+                                                        x:Name="PART_SummaryCloseButton"
+                                                        AutomationProperties.AutomationId="WinoIntelligenceHeaderSummaryCloseButton"
+                                                        AutomationProperties.Name="{TemplateBinding ClosePanelText}"
+                                                        Style="{StaticResource WinoIntelligencePanelIconButtonStyle}">
+                                                        <FontIcon FontSize="12" Glyph="&#xE711;" />
+                                                    </Button>
+                                                </StackPanel>
+                                            </Grid>
+                                            <Grid
+                                                x:Name="PART_SummaryWaitingPanel"
+                                                ColumnSpacing="12"
+                                                Visibility="Collapsed">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <intelligenceProgress:WinoIntelligenceProgressRing
+                                                    x:Name="PART_SummaryWaitingRing"
+                                                    Width="36"
+                                                    Height="36"
+                                                    VerticalAlignment="Center"
+                                                    Animation="Summarize"
+                                                    AutomationProperties.AccessibilityView="Raw"
+                                                    IsActive="False" />
+                                                <Rectangle
+                                                    Grid.Column="1"
+                                                    Height="5"
+                                                    VerticalAlignment="Center"
+                                                    Fill="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                                    RadiusX="2"
+                                                    RadiusY="2" />
+                                                <Button
+                                                    x:Name="PART_SummaryCancelButton"
+                                                    Grid.Column="2"
+                                                    VerticalAlignment="Center"
+                                                    AutomationProperties.AutomationId="WinoIntelligenceHeaderSummaryCancelButton"
+                                                    Style="{StaticResource WinoIntelligenceHeaderTriggerButtonStyle}" />
+                                            </Grid>
+                                            <TextBlock
+                                                x:Name="PART_SummaryResultTextBlock"
+                                                TextWrapping="WrapWholeWords"
+                                                Visibility="Collapsed" />
+                                        </StackPanel>
+                                    </Border>
+                                    <Border
+                                        x:Name="PART_RepliesPanel"
+                                        Padding="10"
+                                        Background="{ThemeResource WinoIntelligenceHeaderCardBackgroundBrush}"
+                                        BorderBrush="{ThemeResource WinoIntelligenceHeaderCardBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="6"
+                                        Visibility="Collapsed">
+                                        <StackPanel Spacing="8">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock
+                                                    VerticalAlignment="Center"
+                                                    FontWeight="SemiBold"
+                                                    Text="{TemplateBinding SuggestedRepliesHeadingText}" />
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                    <Button
+                                                        x:Name="PART_RepliesRegenerateButton"
+                                                        AutomationProperties.AutomationId="WinoIntelligenceHeaderRepliesRegenerateButton"
+                                                        AutomationProperties.Name="{TemplateBinding RegenerateText}"
+                                                        Style="{StaticResource WinoIntelligencePanelIconButtonStyle}">
+                                                        <FontIcon FontSize="13" Glyph="&#xE72C;" />
+                                                    </Button>
+                                                    <Button
+                                                        x:Name="PART_RepliesCloseButton"
+                                                        AutomationProperties.AutomationId="WinoIntelligenceHeaderRepliesCloseButton"
+                                                        AutomationProperties.Name="{TemplateBinding ClosePanelText}"
+                                                        Style="{StaticResource WinoIntelligencePanelIconButtonStyle}">
+                                                        <FontIcon FontSize="12" Glyph="&#xE711;" />
+                                                    </Button>
+                                                </StackPanel>
+                                            </Grid>
+                                            <Grid
+                                                x:Name="PART_RepliesWaitingPanel"
+                                                ColumnSpacing="12"
+                                                Visibility="Collapsed">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <intelligenceProgress:WinoIntelligenceProgressRing
+                                                    x:Name="PART_RepliesWaitingRing"
+                                                    Width="36"
+                                                    Height="36"
+                                                    VerticalAlignment="Center"
+                                                    Animation="Rewrite"
+                                                    AutomationProperties.AccessibilityView="Raw"
+                                                    IsActive="False" />
+                                                <Rectangle
+                                                    Grid.Column="1"
+                                                    Height="5"
+                                                    VerticalAlignment="Center"
+                                                    Fill="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                                    RadiusX="2"
+                                                    RadiusY="2" />
+                                                <Button
+                                                    x:Name="PART_RepliesCancelButton"
+                                                    Grid.Column="2"
+                                                    VerticalAlignment="Center"
+                                                    AutomationProperties.AutomationId="WinoIntelligenceHeaderRepliesCancelButton"
+                                                    Style="{StaticResource WinoIntelligenceHeaderTriggerButtonStyle}" />
+                                            </Grid>
+                                            <ListView
+                                                x:Name="PART_SuggestedRepliesList"
+                                                MaxHeight="240"
+                                                AutomationProperties.AutomationId="WinoIntelligenceHeaderSuggestedRepliesList"
+                                                IsItemClickEnabled="True"
+                                                ItemTemplate="{StaticResource WinoIntelligenceHeaderReplyItemTemplate}"
+                                                SelectionMode="None"
+                                                Visibility="Collapsed" />
+                                        </StackPanel>
+                                    </Border>
+                                    <!--  Keep configuration, progress, and result on one compact horizontal rail.  -->
                                     <Border
                                         x:Name="PART_TranslatePanel"
                                         Padding="10"
@@ -903,12 +1273,6 @@
                                                 </Button>
                                             </Grid>
 
-                                            <!--
-                                                Everything is left aligned and auto sized. Stretching the
-                                                combo boxes across the panel made two short language names
-                                                look like a form; at their natural width the row reads as
-                                                one sentence: source, arrow, target, act.
-                                            -->
                                             <StackPanel
                                                 HorizontalAlignment="Left"
                                                 Orientation="Horizontal"
@@ -944,56 +1308,130 @@
                                                     x:Name="PART_TranslationRunButton"
                                                     AutomationProperties.AutomationId="WinoIntelligenceHeaderTranslateButton"
                                                     Style="{StaticResource AccentButtonStyle}" />
-                                            </StackPanel>
-
-                                            <StackPanel
-                                                x:Name="PART_TranslationWaitingPanel"
-                                                HorizontalAlignment="Left"
-                                                Orientation="Horizontal"
-                                                Spacing="10"
-                                                Visibility="Collapsed">
-                                                <intelligenceProgress:WinoIntelligenceProgressRing
-                                                    x:Name="PART_TranslationWaitingRing"
-                                                    Width="36"
-                                                    Height="36"
+                                                <StackPanel
+                                                    x:Name="PART_TranslationWaitingPanel"
                                                     VerticalAlignment="Center"
-                                                    Animation="Translate"
-                                                    AutomationProperties.AccessibilityView="Raw"
-                                                    IsActive="False" />
-                                                <TextBlock
-                                                    x:Name="PART_TranslationBusyTextBlock"
+                                                    Orientation="Horizontal"
+                                                    Spacing="8"
+                                                    Visibility="Collapsed">
+                                                    <intelligenceProgress:WinoIntelligenceProgressRing
+                                                        x:Name="PART_TranslationWaitingRing"
+                                                        Width="28"
+                                                        Height="28"
+                                                        VerticalAlignment="Center"
+                                                        Animation="Translate"
+                                                        AutomationProperties.AccessibilityView="Raw"
+                                                        IsActive="False" />
+                                                    <TextBlock
+                                                        x:Name="PART_TranslationBusyTextBlock"
+                                                        VerticalAlignment="Center"
+                                                        Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}"
+                                                        Style="{StaticResource CaptionTextBlockStyle}" />
+                                                    <Button
+                                                        x:Name="PART_TranslateCancelButton"
+                                                        VerticalAlignment="Center"
+                                                        AutomationProperties.AutomationId="WinoIntelligenceHeaderTranslateCancelButton"
+                                                        Style="{StaticResource WinoIntelligenceHeaderTriggerButtonStyle}" />
+                                                </StackPanel>
+                                                <StackPanel
+                                                    x:Name="PART_TranslationAppliedPanel"
                                                     VerticalAlignment="Center"
-                                                    Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}"
-                                                    Style="{StaticResource CaptionTextBlockStyle}" />
-                                                <Button
-                                                    x:Name="PART_TranslateCancelButton"
-                                                    VerticalAlignment="Center"
-                                                    AutomationProperties.AutomationId="WinoIntelligenceHeaderTranslateCancelButton"
-                                                    Style="{StaticResource WinoIntelligenceHeaderTriggerButtonStyle}" />
-                                            </StackPanel>
-
-                                            <StackPanel
-                                                x:Name="PART_TranslationAppliedPanel"
-                                                HorizontalAlignment="Left"
-                                                Orientation="Horizontal"
-                                                Spacing="6"
-                                                Visibility="Collapsed">
-                                                <FontIcon
-                                                    VerticalAlignment="Center"
-                                                    AutomationProperties.AccessibilityView="Raw"
-                                                    FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                                                    FontSize="12"
-                                                    Foreground="{ThemeResource SystemFillColorSuccessBrush}"
-                                                    Glyph="&#xE73E;" />
-                                                <TextBlock
-                                                    x:Name="PART_TranslationStatusTextBlock"
-                                                    VerticalAlignment="Center"
-                                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                                    TextWrapping="WrapWholeWords" />
+                                                    Orientation="Horizontal"
+                                                    Spacing="6"
+                                                    Visibility="Collapsed">
+                                                    <FontIcon
+                                                        VerticalAlignment="Center"
+                                                        AutomationProperties.AccessibilityView="Raw"
+                                                        FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                                                        FontSize="12"
+                                                        Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                                                        Glyph="&#xE73E;" />
+                                                    <TextBlock
+                                                        x:Name="PART_TranslationStatusTextBlock"
+                                                        MaxWidth="180"
+                                                        VerticalAlignment="Center"
+                                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                                        TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
                                             </StackPanel>
                                         </StackPanel>
                                     </Border>
-                                    <Border x:Name="PART_SimilarPanel" Padding="10" Background="{ThemeResource WinoIntelligenceHeaderCardBackgroundBrush}" BorderBrush="{ThemeResource WinoIntelligenceHeaderCardBorderBrush}" BorderThickness="1" CornerRadius="6" Visibility="Collapsed"><StackPanel Spacing="8"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{TemplateBinding SimilarMailHeadingText}" /><StackPanel Grid.Column="1" Orientation="Horizontal"><Button x:Name="PART_SimilarRegenerateButton" AutomationProperties.AutomationId="WinoIntelligenceHeaderSimilarRegenerateButton" AutomationProperties.Name="{TemplateBinding RegenerateText}" Style="{StaticResource WinoIntelligencePanelIconButtonStyle}"><FontIcon FontSize="13" Glyph="&#xE72C;" /></Button><Button x:Name="PART_SimilarCloseButton" AutomationProperties.AutomationId="WinoIntelligenceHeaderSimilarCloseButton" AutomationProperties.Name="{TemplateBinding ClosePanelText}" Style="{StaticResource WinoIntelligencePanelIconButtonStyle}"><FontIcon FontSize="12" Glyph="&#xE711;" /></Button></StackPanel></Grid><Grid x:Name="PART_SimilarWaitingPanel" ColumnSpacing="12" Visibility="Collapsed"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><intelligenceProgress:WinoIntelligenceProgressRing x:Name="PART_SimilarWaitingRing" Width="36" Height="36" VerticalAlignment="Center" Animation="Cubes" AutomationProperties.AccessibilityView="Raw" IsActive="False" /><Rectangle Grid.Column="1" Height="5" VerticalAlignment="Center" Fill="{ThemeResource SubtleFillColorSecondaryBrush}" RadiusX="2" RadiusY="2" /><Button x:Name="PART_SimilarCancelButton" Grid.Column="2" VerticalAlignment="Center" AutomationProperties.AutomationId="WinoIntelligenceHeaderSimilarCancelButton" Style="{StaticResource WinoIntelligenceHeaderTriggerButtonStyle}" /></Grid><ListView x:Name="PART_SimilarMailList" MaxHeight="260" AutomationProperties.AutomationId="WinoIntelligenceHeaderSimilarMailList" IsItemClickEnabled="True" ItemTemplate="{StaticResource WinoIntelligenceHeaderSimilarItemTemplate}" SelectionMode="None" Visibility="Collapsed" /></StackPanel></Border>
+                                    <Border
+                                        x:Name="PART_SimilarPanel"
+                                        Padding="10"
+                                        Background="{ThemeResource WinoIntelligenceHeaderCardBackgroundBrush}"
+                                        BorderBrush="{ThemeResource WinoIntelligenceHeaderCardBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="6"
+                                        Visibility="Collapsed">
+                                        <StackPanel Spacing="8">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock
+                                                    VerticalAlignment="Center"
+                                                    FontWeight="SemiBold"
+                                                    Text="{TemplateBinding SimilarMailHeadingText}" />
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                    <Button
+                                                        x:Name="PART_SimilarRegenerateButton"
+                                                        AutomationProperties.AutomationId="WinoIntelligenceHeaderSimilarRegenerateButton"
+                                                        AutomationProperties.Name="{TemplateBinding RegenerateText}"
+                                                        Style="{StaticResource WinoIntelligencePanelIconButtonStyle}">
+                                                        <FontIcon FontSize="13" Glyph="&#xE72C;" />
+                                                    </Button>
+                                                    <Button
+                                                        x:Name="PART_SimilarCloseButton"
+                                                        AutomationProperties.AutomationId="WinoIntelligenceHeaderSimilarCloseButton"
+                                                        AutomationProperties.Name="{TemplateBinding ClosePanelText}"
+                                                        Style="{StaticResource WinoIntelligencePanelIconButtonStyle}">
+                                                        <FontIcon FontSize="12" Glyph="&#xE711;" />
+                                                    </Button>
+                                                </StackPanel>
+                                            </Grid>
+                                            <Grid
+                                                x:Name="PART_SimilarWaitingPanel"
+                                                ColumnSpacing="12"
+                                                Visibility="Collapsed">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <intelligenceProgress:WinoIntelligenceProgressRing
+                                                    x:Name="PART_SimilarWaitingRing"
+                                                    Width="36"
+                                                    Height="36"
+                                                    VerticalAlignment="Center"
+                                                    Animation="Cubes"
+                                                    AutomationProperties.AccessibilityView="Raw"
+                                                    IsActive="False" />
+                                                <Rectangle
+                                                    Grid.Column="1"
+                                                    Height="5"
+                                                    VerticalAlignment="Center"
+                                                    Fill="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                                    RadiusX="2"
+                                                    RadiusY="2" />
+                                                <Button
+                                                    x:Name="PART_SimilarCancelButton"
+                                                    Grid.Column="2"
+                                                    VerticalAlignment="Center"
+                                                    AutomationProperties.AutomationId="WinoIntelligenceHeaderSimilarCancelButton"
+                                                    Style="{StaticResource WinoIntelligenceHeaderTriggerButtonStyle}" />
+                                            </Grid>
+                                            <ListView
+                                                x:Name="PART_SimilarMailList"
+                                                MaxHeight="260"
+                                                AutomationProperties.AutomationId="WinoIntelligenceHeaderSimilarMailList"
+                                                IsItemClickEnabled="True"
+                                                ItemTemplate="{StaticResource WinoIntelligenceHeaderSimilarItemTemplate}"
+                                                SelectionMode="None"
+                                                Visibility="Collapsed" />
+                                        </StackPanel>
+                                    </Border>
                                 </Grid>
                             </StackPanel>
                         </Border>

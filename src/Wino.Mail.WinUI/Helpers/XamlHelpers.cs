@@ -87,6 +87,29 @@ public static class XamlHelpers
         _ => "SystemFillColorAttentionBrush"
     });
 
+    // Daily briefing tiles: one Fluent system fill pair per semantic tone, so categories stay
+    // colorful without hand-picked colors that break in high contrast.
+    public static Brush GetBriefingToneBackground(DailyBriefingTone tone) => GetThemeBrush(tone switch
+    {
+        DailyBriefingTone.Critical => "SystemFillColorCriticalBackgroundBrush",
+        DailyBriefingTone.Caution => "SystemFillColorCautionBackgroundBrush",
+        DailyBriefingTone.Success => "SystemFillColorSuccessBackgroundBrush",
+        DailyBriefingTone.Attention => "SystemFillColorAttentionBackgroundBrush",
+        _ => "SubtleFillColorSecondaryBrush"
+    }, "SubtleFillColorSecondaryBrush");
+
+    public static Brush GetBriefingToneForeground(DailyBriefingTone tone) => GetThemeBrush(tone switch
+    {
+        DailyBriefingTone.Critical => "SystemFillColorCriticalBrush",
+        DailyBriefingTone.Caution => "SystemFillColorCautionBrush",
+        DailyBriefingTone.Success => "SystemFillColorSuccessBrush",
+        DailyBriefingTone.Attention => "SystemFillColorAttentionBrush",
+        _ => "TextFillColorSecondaryBrush"
+    }, "TextFillColorSecondaryBrush");
+
+    public static Brush GetBriefingPriorityBorderBrush(bool isPriority)
+        => GetThemeBrush(isPriority ? "SystemFillColorCriticalBackgroundBrush" : "CardStrokeColorDefaultBrush", "CardStrokeColorDefaultBrush");
+
     public static Brush GetSelectionBorderBrush(bool isSelected)
         => GetThemeBrush(isSelected ? "AccentFillColorDefaultBrush" : "CardStrokeColorDefaultBrush");
 
@@ -261,15 +284,6 @@ public static class XamlHelpers
 
         return (Brush)Application.Current.Resources[key];
     }
-
-    /// <summary>
-    /// The indexing card keeps its action on the right while idle, and gives the whole
-    /// card width to the progress lanes once a job is running.
-    /// </summary>
-    public static CommunityToolkit.WinUI.Controls.ContentAlignment IndexingCardContentAlignment(bool isJobActive)
-        => isJobActive
-            ? CommunityToolkit.WinUI.Controls.ContentAlignment.Vertical
-            : CommunityToolkit.WinUI.Controls.ContentAlignment.Right;
 
     public static bool IsRangePresetSelected(SemanticIndexRangePreset current, string targetPresetId)
         => current == SemanticIndexRangePresetExtensions.FromStableId(targetPresetId);

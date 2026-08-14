@@ -20,12 +20,12 @@ public sealed class WinoIntelligenceCoordinatorTests
     [Theory]
     [InlineData(false, true, true, true, true, MailProviderType.Outlook, false, false, false)]
     [InlineData(true, false, true, true, true, MailProviderType.Outlook, false, false, false)]
-    [InlineData(true, true, false, false, true, MailProviderType.Outlook, false, false, false)]
+    [InlineData(true, true, false, false, true, MailProviderType.Outlook, true, false, false)]
     [InlineData(true, true, true, false, true, MailProviderType.Outlook, true, true, false)]
     [InlineData(true, true, false, true, true, MailProviderType.Outlook, true, false, true)]
     [InlineData(true, true, true, true, false, MailProviderType.Outlook, true, true, false)]
     [InlineData(true, true, true, true, true, (MailProviderType)99, true, true, false)]
-    [InlineData(true, true, false, true, true, (MailProviderType)99, false, false, false)]
+    [InlineData(true, true, false, true, true, (MailProviderType)99, true, false, false)]
     [InlineData(true, true, true, true, true, MailProviderType.IMAP4, true, true, true)]
     public async Task Snapshot_GatesActionsByAccountPurchaseConsentPreferenceAndProvider(
         bool authenticated,
@@ -93,7 +93,7 @@ public sealed class WinoIntelligenceCoordinatorTests
     }
 
     [Fact]
-    public async Task Snapshot_RejectsOutdatedConsentPolicyVersions()
+    public async Task Snapshot_RejectsOutdatedConsentActionsButKeepsAddonHeaderVisible()
     {
         var localAccountId = Guid.NewGuid();
         var profile = new Mock<IWinoAccountProfileService>();
@@ -114,7 +114,10 @@ public sealed class WinoIntelligenceCoordinatorTests
         using var coordinator = CreateCoordinator(profile, billing, api);
         var snapshot = await coordinator.GetSnapshotAsync(Context(localAccountId));
 
-        snapshot.Should().Be(WinoIntelligenceSnapshot.Hidden);
+        snapshot.IsVisible.Should().BeTrue();
+        snapshot.IsSummaryAvailable.Should().BeFalse();
+        snapshot.IsTranslateAvailable.Should().BeFalse();
+        snapshot.IsProcessingAvailable.Should().BeFalse();
     }
 
     private static WinoIntelligenceCoordinator CreateCoordinator(

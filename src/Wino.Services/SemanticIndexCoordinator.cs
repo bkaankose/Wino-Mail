@@ -30,6 +30,7 @@ public sealed class SemanticIndexCoordinator(
     IWinoAccountApiClient apiClient,
     ISynchronizationManager synchronizationManager,
     ILocalIntelligenceStore localStore,
+    ILocalIntelligenceService localIntelligenceService,
     IContentEnvelopeEncryptor envelopeEncryptor,
     ISemanticIndexJobRegistry jobRegistry,
     ITranslationService translationService,
@@ -43,7 +44,8 @@ public sealed class SemanticIndexCoordinator(
     private const int UploadConcurrency = 4;
     private readonly ConcurrentDictionary<Guid, SemanticIndexJobSnapshot> _snapshots = new();
     private readonly ConcurrentDictionary<(Guid AccountId, string MessageId), SemanticMessageIndexState> _messageStates = new();
-    private readonly ConcurrentDictionary<Guid, ConcurrentDictionary<string, byte>> _manualQueues = new();
+    private readonly ConcurrentDictionary<Guid, ConcurrentDictionary<string, byte>> _automaticQueues = new();
+    private readonly ConcurrentDictionary<Guid, byte> _headlineTranslations = new();
     private readonly SemaphoreSlim _initializeLock = new(1, 1);
     private bool _initialized;
 
@@ -76,7 +78,7 @@ public sealed class SemanticIndexCoordinator(
                         intent.ThroughUtcExclusive,
                         intent.AutomaticallyIndexNewMessages,
                         cancellationToken).ConfigureAwait(false);
-                    StartWorker(intent.LocalAccountId, plan);
+                    StartWorker(intent.LocalAccountId, plan, notifyWhenCompleted: false);
                 }
                 catch
                 {
@@ -97,6 +99,8 @@ public sealed class SemanticIndexCoordinator(
         CancellationToken cancellationToken = default)
     {
         await InitializeAsync(cancellationToken).ConfigureAwait(false);
+        if (_headlineTranslations.ContainsKey(localMailAccountId))
+            throw new InvalidOperationException("Headline translation is already in progress for this mailbox.");
         SetSnapshot(new(localMailAccountId, SemanticIndexJobStatus.Calculating, 0, 0));
         try
         {
@@ -175,9 +179,15 @@ public sealed class SemanticIndexCoordinator(
         return await messageResolver.GetAvailableRangeAsync(localMailAccountId, cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task StartIndexingAsync(Guid localMailAccountId, SemanticIndexPlan plan, CancellationToken cancellationToken = default)
+    public async Task StartIndexingAsync(
+        Guid localMailAccountId,
+        SemanticIndexPlan plan,
+        CancellationToken cancellationToken = default,
+        bool notifyWhenCompleted = false)
     {
         await InitializeAsync(cancellationToken).ConfigureAwait(false);
+        if (_headlineTranslations.ContainsKey(localMailAccountId))
+            throw new InvalidOperationException("Headline translation is already in progress for this mailbox.");
         if (plan.LocalAccountId != localMailAccountId)
             throw new ArgumentException("The indexing plan belongs to another account.", nameof(plan));
         var account = await RequireAccountAsync(localMailAccountId).ConfigureAwait(false);
@@ -185,12 +195,55 @@ public sealed class SemanticIndexCoordinator(
             throw new InvalidOperationException("Mail intelligence is not enabled for this account.");
         var mailbox = await RequireMailboxAsync(account, cancellationToken).ConfigureAwait(false);
         await SaveProfileAsync(mailbox.MailboxId, plan, "in-progress", cancellationToken).ConfigureAwait(false);
-        StartWorker(localMailAccountId, plan);
+        StartWorker(localMailAccountId, plan, notifyWhenCompleted);
+    }
+
+    public async Task<HeadlineTranslationResultDto> TranslateHeadlinesAsync(
+        Guid localMailAccountId,
+        string targetLanguage,
+        CancellationToken cancellationToken = default)
+    {
+        await InitializeAsync(cancellationToken).ConfigureAwait(false);
+        if (jobRegistry.IsRunning(localMailAccountId) || !_headlineTranslations.TryAdd(localMailAccountId, 0))
+            throw new InvalidOperationException("Indexing and headline translation cannot run at the same time.");
+        try
+        {
+            var account = await RequireAccountAsync(localMailAccountId).ConfigureAwait(false);
+            var mailbox = await RequireMailboxAsync(account, cancellationToken).ConfigureAwait(false);
+            await localStore.SetHeadlineLanguageAsync(account.Id, mailbox.MailboxId, targetLanguage, cancellationToken).ConfigureAwait(false);
+            SetSnapshot(new(localMailAccountId, SemanticIndexJobStatus.TranslatingHeadlines, 0, 0));
+            var result = await apiClient.TranslateBriefingHeadlinesAsync(mailbox.MailboxId, targetLanguage, cancellationToken).ConfigureAwait(false);
+            await localStore.ApplyBriefingHeadlineUpdatesAsync(
+                account.Id, mailbox.MailboxId, result.HeadlineLanguage, result.Headlines, result.ThroughArtifactRevision, cancellationToken).ConfigureAwait(false);
+            SetSnapshot(new(localMailAccountId, SemanticIndexJobStatus.Completed, result.TranslatedCount, result.TranslatedCount + result.FailedCount));
+            return result;
+        }
+        catch
+        {
+            SetSnapshot(new(localMailAccountId, SemanticIndexJobStatus.Failed, 0, 0));
+            throw;
+        }
+        finally
+        {
+            _headlineTranslations.TryRemove(localMailAccountId, out _);
+        }
+    }
+
+    public async Task CancelIndexingAsync(Guid localMailAccountId)
+    {
+        if (_automaticQueues.TryGetValue(localMailAccountId, out var queue))
+            queue.Clear();
+
+        await jobRegistry.CancelAndWaitAsync(localMailAccountId).ConfigureAwait(false);
+        var current = GetJobSnapshot(localMailAccountId);
+        SetSnapshot(current with { Status = SemanticIndexJobStatus.Cancelled });
     }
 
     public async Task IndexMessageAsync(Guid localMailAccountId, string mailUniqueId, CancellationToken cancellationToken = default)
     {
         await InitializeAsync(cancellationToken).ConfigureAwait(false);
+        if (_headlineTranslations.ContainsKey(localMailAccountId))
+            throw new InvalidOperationException("Headline translation is in progress for this mailbox.");
         var account = await RequireAccountAsync(localMailAccountId).ConfigureAwait(false);
         var candidate = (await messageResolver.GetCandidatesAsync(account.Id, null, cancellationToken).ConfigureAwait(false))
             .SingleOrDefault(x => string.Equals(x.RemoteMessageId, mailUniqueId, StringComparison.Ordinal) ||
@@ -199,29 +252,31 @@ public sealed class SemanticIndexCoordinator(
             throw new InvalidOperationException("This message cannot be indexed.");
 
         var mailbox = await RequireMailboxAsync(account, cancellationToken).ConfigureAwait(false);
-        _manualQueues.GetOrAdd(localMailAccountId, _ => new ConcurrentDictionary<string, byte>())[candidate.RemoteMessageId] = 0;
-        _messageStates[(localMailAccountId, candidate.RemoteMessageId)] = SemanticMessageIndexState.Queued;
-        if (jobRegistry.IsRunning(localMailAccountId))
-            return;
-
-        SetSnapshot(new(localMailAccountId, SemanticIndexJobStatus.Queued, 0, 1));
-        jobRegistry.TryStart(localMailAccountId, async workerToken =>
+        var messageStateKey = (account.Id, candidate.RemoteMessageId);
+        _messageStates[messageStateKey] = SemanticMessageIndexState.Queued;
+        try
         {
-            try
-            {
-                await DrainManualQueueAsync(account, mailbox.MailboxId, workerToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                SetSnapshot(new(localMailAccountId, SemanticIndexJobStatus.Cancelled, 0, 1));
-                throw;
-            }
-            catch (Exception exception)
-            {
-                _messageStates[(localMailAccountId, candidate.RemoteMessageId)] = SemanticMessageIndexState.Failed;
-                SetSnapshot(new(localMailAccountId, SemanticIndexJobStatus.Failed, 0, 1, exception.Message));
-            }
-        }, out _);
+            _messageStates[messageStateKey] = SemanticMessageIndexState.Indexing;
+            var winoAccount = await databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false)
+                ?? throw new InvalidOperationException("A Wino account is required for mail intelligence.");
+            var result = await ProcessBatchAsync(
+                account,
+                winoAccount.Id,
+                mailbox.MailboxId,
+                [candidate],
+                static _ => { },
+                static _ => { },
+                cancellationToken).ConfigureAwait(false);
+            if (!result.IndexedRemoteMessageIds.Contains(candidate.RemoteMessageId))
+                throw new InvalidOperationException("The message could not be indexed.");
+
+            _messageStates[messageStateKey] = SemanticMessageIndexState.Indexed;
+        }
+        catch
+        {
+            _messageStates[messageStateKey] = SemanticMessageIndexState.Failed;
+            throw;
+        }
     }
 
     public SemanticIndexJobSnapshot GetJobSnapshot(Guid localMailAccountId)
@@ -240,12 +295,16 @@ public sealed class SemanticIndexCoordinator(
                                   string.Equals(x.ProviderMessageId, mailUniqueId, StringComparison.Ordinal));
         if (candidate is null)
             return SemanticMessageIndexState.Unsupported;
-        if (_messageStates.TryGetValue((localMailAccountId, candidate.RemoteMessageId), out var state))
-            return state;
-
         var artifacts = await localStore.GetCurrentArtifactsAsync(
             localMailAccountId, candidate.RemoteMessageId, cancellationToken).ConfigureAwait(false);
-        return artifacts.Count > 0 ? SemanticMessageIndexState.Indexed : SemanticMessageIndexState.NotIndexed;
+        // Persisted artifacts are authoritative. A stale in-memory queue/indexing marker must not
+        // make an already processed message look unfinished after metadata has been imported.
+        if (artifacts.Any(static artifact => !artifact.IsDeleted))
+            return SemanticMessageIndexState.Indexed;
+
+        return _messageStates.TryGetValue((localMailAccountId, candidate.RemoteMessageId), out var state)
+            ? state
+            : SemanticMessageIndexState.NotIndexed;
     }
 
     public async Task<SemanticIndexAccountState> GetStateAsync(Guid localMailAccountId, CancellationToken cancellationToken = default)
@@ -307,7 +366,7 @@ public sealed class SemanticIndexCoordinator(
             // Local deletion is unconditional. A mailbox that was never indexed is a successful
             // no-op, and revoked consent must never prevent local privacy cleanup.
             await localStore.DeleteMailboxAsync(account.Id, cancellationToken).ConfigureAwait(false);
-            _manualQueues.TryRemove(localMailAccountId, out _);
+            _automaticQueues.TryRemove(localMailAccountId, out _);
             SetSnapshot(new(localMailAccountId, SemanticIndexJobStatus.Idle, 0, 0));
         }
     }
@@ -316,8 +375,29 @@ public sealed class SemanticIndexCoordinator(
     {
         await jobRegistry.CancelAndWaitAsync(localMailAccountId).ConfigureAwait(false);
         await localStore.DeleteMailboxAsync(localMailAccountId, cancellationToken).ConfigureAwait(false);
-        _manualQueues.TryRemove(localMailAccountId, out _);
+        _automaticQueues.TryRemove(localMailAccountId, out _);
         SetSnapshot(new(localMailAccountId, SemanticIndexJobStatus.Idle, 0, 0));
+    }
+
+    public async Task ResetLocalStateAsync(CancellationToken cancellationToken = default)
+    {
+        var localAccountIds = (await accountService.GetAccountsAsync().ConfigureAwait(false))
+            .Select(static account => account.Id);
+        var accountIds = localAccountIds
+            .Concat(_snapshots.Keys)
+            .Concat(_automaticQueues.Keys)
+            .Concat(_messageStates.Keys.Select(static key => key.AccountId))
+            .Distinct()
+            .ToArray();
+        foreach (var accountId in accountIds)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await jobRegistry.CancelAndWaitAsync(accountId).ConfigureAwait(false);
+        }
+
+        _snapshots.Clear();
+        _messageStates.Clear();
+        _automaticQueues.Clear();
     }
 
     public async ValueTask DisposeAsync()
@@ -328,13 +408,17 @@ public sealed class SemanticIndexCoordinator(
         _initializeLock.Dispose();
     }
 
-    private void StartWorker(Guid accountId, SemanticIndexPlan plan)
+    private void StartWorker(Guid accountId, SemanticIndexPlan plan, bool notifyWhenCompleted)
     {
-        if (jobRegistry.TryStart(accountId, token => RunBackfillAsync(accountId, plan, token), out _))
+        if (jobRegistry.TryStart(accountId, token => RunBackfillAsync(accountId, plan, notifyWhenCompleted, token), out _))
             SetSnapshot(new(accountId, SemanticIndexJobStatus.Queued, 0, plan.MissingMessageCount));
     }
 
-    private async Task RunBackfillAsync(Guid accountId, SemanticIndexPlan plan, CancellationToken cancellationToken)
+    private async Task RunBackfillAsync(
+        Guid accountId,
+        SemanticIndexPlan plan,
+        bool notifyWhenCompleted,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -390,10 +474,12 @@ public sealed class SemanticIndexCoordinator(
                 ReportProgress,
                 cancellationToken).ConfigureAwait(false);
 
-            await DrainManualQueueAsync(account, mailbox.MailboxId, cancellationToken).ConfigureAwait(false);
+            await DrainAutomaticQueueAsync(account, mailbox.MailboxId, cancellationToken).ConfigureAwait(false);
 
             await SaveProfileAsync(mailbox.MailboxId, plan, "completed", cancellationToken).ConfigureAwait(false);
             ReportProgress(SemanticIndexJobStatus.Completed);
+            if (notifyWhenCompleted)
+                WeakReferenceMessenger.Default.Send(new SemanticIndexingCompleted(account.Id, account.Address, completed));
         }
         catch (OperationCanceledException)
         {
@@ -521,8 +607,8 @@ public sealed class SemanticIndexCoordinator(
                     _messageStates[(account.Id, item.Candidate.RemoteMessageId)] = indexed
                         ? SemanticMessageIndexState.Indexed
                         : SemanticMessageIndexState.Failed;
-                    if (indexed && _manualQueues.TryGetValue(account.Id, out var manualQueue))
-                        manualQueue.TryRemove(item.Candidate.RemoteMessageId, out _);
+                    if (indexed && _automaticQueues.TryGetValue(account.Id, out var automaticQueue))
+                        automaticQueue.TryRemove(item.Candidate.RemoteMessageId, out _);
                 }
             }
         })).ToArray();
@@ -675,9 +761,9 @@ public sealed class SemanticIndexCoordinator(
         return document;
     }
 
-    private async Task DrainManualQueueAsync(MailAccount account, Guid mailboxId, CancellationToken cancellationToken)
+    private async Task DrainAutomaticQueueAsync(MailAccount account, Guid mailboxId, CancellationToken cancellationToken)
     {
-        var queue = _manualQueues.GetOrAdd(account.Id, _ => new ConcurrentDictionary<string, byte>());
+        var queue = _automaticQueues.GetOrAdd(account.Id, _ => new ConcurrentDictionary<string, byte>());
         while (!queue.IsEmpty)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -730,6 +816,46 @@ public sealed class SemanticIndexCoordinator(
         }
     }
 
+    private void QueueAutomaticMessage(Guid accountId, string remoteMessageId)
+    {
+        _automaticQueues.GetOrAdd(accountId, _ => new ConcurrentDictionary<string, byte>())[remoteMessageId] = 0;
+        _messageStates[(accountId, remoteMessageId)] = SemanticMessageIndexState.Queued;
+    }
+
+    private async Task EnsureAutomaticQueueDrainedAsync(MailAccount account, Guid mailboxId)
+    {
+        var queue = _automaticQueues.GetOrAdd(account.Id, _ => new ConcurrentDictionary<string, byte>());
+        while (!queue.IsEmpty)
+        {
+            if (jobRegistry.TryStart(
+                    account.Id,
+                    token => RunAutomaticQueueAsync(account, mailboxId, token),
+                    out var completion))
+            {
+                SetSnapshot(new(account.Id, SemanticIndexJobStatus.Queued, 0, queue.Count));
+            }
+
+            await completion.ConfigureAwait(false);
+        }
+    }
+
+    private async Task RunAutomaticQueueAsync(MailAccount account, Guid mailboxId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await DrainAutomaticQueueAsync(account, mailboxId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            SetSnapshot(new(account.Id, SemanticIndexJobStatus.Cancelled, 0, 0));
+            throw;
+        }
+        catch (Exception exception)
+        {
+            SetSnapshot(new(account.Id, SemanticIndexJobStatus.Failed, 0, 0, exception.Message));
+        }
+    }
+
     private async Task<SemanticIndexPlan> CalculatePlanCoreAsync(
         MailAccount account,
         SemanticIndexRangePreset preset,
@@ -770,11 +896,16 @@ public sealed class SemanticIndexCoordinator(
             0,
             status.OldestReceivedAtUtc,
             status.NewestReceivedAtUtc,
-            0,
+            status.IndexedMessageCount,
             status.StorageSizeBytes,
-            0,
+            status.CurrentRevision,
             DateTimeOffset.UtcNow);
         var hasData = status.StorageSizeBytes > 0;
+        var canDownload = status.CurrentRevision > localRevision;
+        var isUpToDate = localRevision >= status.CurrentRevision;
+        var localIndexedMessageCount = isUpToDate
+            ? checked((int)Math.Min(status.IndexedMessageCount, int.MaxValue))
+            : 0;
         return new(
             account.Preferences.IsSemanticIndexingEnabled,
             mailbox.MailboxId,
@@ -782,9 +913,9 @@ public sealed class SemanticIndexCoordinator(
             localRevision,
             0,
             hasData,
-            hasData,
-            false,
-            0,
+            isUpToDate,
+            canDownload,
+            localIndexedMessageCount,
             null);
     }
 
@@ -832,21 +963,24 @@ public sealed class SemanticIndexCoordinator(
         {
             if (message.Result is SynchronizationCompletedState.Canceled or SynchronizationCompletedState.Failed)
                 return;
-            var intent = (await localStore.GetJobIntentsAsync().ConfigureAwait(false)).SingleOrDefault(x => x.LocalAccountId == message.AccountId);
-            if (jobRegistry.IsRunning(message.AccountId))
+            if (!await localIntelligenceService.ShouldAutomaticallyProcessAsync(message.AccountId).ConfigureAwait(false))
                 return;
+            var intent = (await localStore.GetJobIntentsAsync().ConfigureAwait(false))
+                .Single(x => x.LocalAccountId == message.AccountId);
             var account = await accountService.GetAccountAsync(message.AccountId).ConfigureAwait(false);
-            if (account is null || !account.Preferences.IsSemanticIndexingEnabled)
+
+            var candidates = await messageResolver.GetCandidatesAsync(
+                account.Id,
+                intent.UpdatedAtUtc,
+                throughUtcExclusive: null,
+                CancellationToken.None).ConfigureAwait(false);
+            if (candidates.Count == 0)
                 return;
-            if (intent is null || !intent.AutomaticallyIndexNewMessages)
-                return;
-            var throughUtcExclusive = intent.BackfillStatus == "in-progress" ? intent.ThroughUtcExclusive : null;
-            var cutoffUtc = intent.BackfillStatus == "completed" && intent.ThroughUtcExclusive is not null
-                ? intent.UpdatedAtUtc
-                : intent.CutoffUtc;
-            var plan = await CalculatePlanCoreAsync(account, intent.RangePreset, cutoffUtc, throughUtcExclusive, true, CancellationToken.None).ConfigureAwait(false);
-            if (plan.MissingMessageCount > 0)
-                await StartIndexingAsync(message.AccountId, plan).ConfigureAwait(false);
+
+            var mailbox = await RequireMailboxAsync(account, CancellationToken.None).ConfigureAwait(false);
+            foreach (var candidate in candidates)
+                QueueAutomaticMessage(account.Id, candidate.RemoteMessageId);
+            _ = EnsureAutomaticQueueDrainedAsync(account, mailbox.MailboxId);
         }
         catch
         {

@@ -35,23 +35,6 @@ public sealed record WinoSuggestedRepliesResult(
 
 public sealed record WinoSuggestedReply(string Text, string Tone);
 
-public sealed record WinoDailyBriefing(
-    Guid MailboxId,
-    DateOnly LocalDate,
-    string TimeZoneId,
-    string Language,
-    long ThroughArtifactRevision,
-    DateTimeOffset GeneratedAtUtc,
-    IReadOnlyList<WinoDailyBriefingItem> Items);
-
-public sealed record WinoDailyBriefingItem(
-    string RemoteMessageId,
-    DailyBriefingSection Section,
-    string Headline,
-    string Action,
-    DateTimeOffset? DueAtUtc,
-    double Confidence);
-
 public sealed record WinoDeadlineMetadata(
     string RemoteMessageId,
     string ContentHash,

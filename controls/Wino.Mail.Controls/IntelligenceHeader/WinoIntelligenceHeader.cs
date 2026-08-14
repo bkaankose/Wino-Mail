@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
 using Wino.Mail.Controls.Core.IntelligenceHeader;
+using Wino.Mail.Controls.Core.IntelligenceTileBar;
 using Wino.Mail.Controls.IntelligenceProgressRing;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.UI.ViewManagement;
@@ -52,6 +53,7 @@ public sealed partial class WinoIntelligenceHeader : Control
     private Button? _addToCalendarButton;
     private FrameworkElement? _needsReplyFactCard;
     private TextBlock? _needsReplyFactTextBlock;
+    private TextBlock? _briefingFactTextBlock;
     private FrameworkElement? _insightsLockedPanel;
     private TextBlock? _insightsLockedTextBlock;
 
@@ -130,9 +132,13 @@ public sealed partial class WinoIntelligenceHeader : Control
     [GeneratedDependencyProperty(DefaultValue = "")]
     public partial string NeedsReplyDetailText { get; set; }
 
-    /// <summary>Gets or sets the <c>NoSignalSubtitleText</c> value.</summary>
-    [GeneratedDependencyProperty(DefaultValue = "Summarize, translate, suggest replies")]
-    public partial string NoSignalSubtitleText { get; set; }
+    /// <summary>Gets or sets the briefing headline shown as a fact card while the header is expanded.</summary>
+    [GeneratedDependencyProperty(DefaultValue = "")]
+    public partial string BriefingFactText { get; set; }
+
+    /// <summary>Gets or sets the localized passive metadata tiles displayed above the expanded fact cards.</summary>
+    [GeneratedDependencyProperty]
+    public partial IEnumerable<WinoIntelligenceTile>? IntelligenceTiles { get; set; }
 
     /// <summary>Gets or sets the <c>UnprocessedSubtitleText</c> value.</summary>
     [GeneratedDependencyProperty(DefaultValue = "Not processed")]
@@ -373,6 +379,7 @@ public sealed partial class WinoIntelligenceHeader : Control
     private bool IsProcessingRunning => IsProcessingAvailable && ProcessingState is WinoIntelligenceProcessingState.Queued or WinoIntelligenceProcessingState.Processing;
     private bool CanExpand => IsSummaryAvailable || IsTranslateAvailable || CanRequestProcessing
         || (HasInsights && (NeedsReply || !string.IsNullOrWhiteSpace(DeadlineText)
+            || !string.IsNullOrWhiteSpace(BriefingFactText)
             || IsSuggestedRepliesAvailable || IsFindSimilarMailAvailable));
 
     protected override void OnApplyTemplate()
@@ -401,6 +408,7 @@ public sealed partial class WinoIntelligenceHeader : Control
         _addToCalendarButton = GetTemplateChild(PartAddToCalendarButtonName) as Button;
         _needsReplyFactCard = GetTemplateChild(PartNeedsReplyFactCardName) as FrameworkElement;
         _needsReplyFactTextBlock = GetTemplateChild(PartNeedsReplyFactTextBlockName) as TextBlock;
+        _briefingFactTextBlock = GetTemplateChild(PartBriefingFactTextBlockName) as TextBlock;
         _insightsLockedPanel = GetTemplateChild(PartInsightsLockedPanelName) as FrameworkElement;
         _insightsLockedTextBlock = GetTemplateChild(PartInsightsLockedTextBlockName) as TextBlock;
 
@@ -658,17 +666,17 @@ public sealed partial class WinoIntelligenceHeader : Control
 
     private void SyncHeaderVisuals()
     {
-        var hasDeadline = HasInsights && !string.IsNullOrWhiteSpace(DeadlineText);
-        var hasNeedsReply = HasInsights && NeedsReply;
+        var hasBriefingFact = HasInsights && !string.IsNullOrWhiteSpace(BriefingFactText);
         if (_titleTextBlock is not null) _titleTextBlock.Text = HeaderTitle;
-        if (_deadlinePillText is not null) _deadlinePillText.Text = DeadlineText;
-        if (_needsReplyPillText is not null) _needsReplyPillText.Text = NeedsReplyText;
-        if (_deadlinePill is not null) _deadlinePill.Visibility = ToVisibility(hasDeadline);
-        if (_needsReplyPill is not null) _needsReplyPill.Visibility = ToVisibility(hasNeedsReply);
+        if (_briefingFactTextBlock is not null)
+        {
+            _briefingFactTextBlock.Text = BriefingFactText;
+            _briefingFactTextBlock.Visibility = ToVisibility(hasBriefingFact);
+        }
         if (_subtitleTextBlock is not null)
         {
             _subtitleTextBlock.Text = ResolveSubtitleText();
-            _subtitleTextBlock.Visibility = ToVisibility(!hasDeadline && !hasNeedsReply && !IsProcessingRunning);
+            _subtitleTextBlock.Visibility = ToVisibility(!hasBriefingFact && !IsProcessingRunning);
         }
         if (_processButton is not null)
         {
@@ -682,9 +690,11 @@ public sealed partial class WinoIntelligenceHeader : Control
         if (_headerContentRoot is not null) _headerContentRoot.Opacity = CanExpand ? 1 : 0.6;
         if (_headerToggleButton is not null) _headerToggleButton.IsEnabled = CanExpand;
         if (_chevronIcon is not null) _chevronIcon.Visibility = ToVisibility(CanExpand);
-        UpdateHeaderAutomationName(hasDeadline, hasNeedsReply);
+        UpdateHeaderAutomationName(hasBriefingFact);
     }
 
+    // A processed message says nothing here: its tiles and chips already show what is on offer, so
+    // the row only carries text while processing is pending, running, failed or unavailable.
     private string ResolveSubtitleText() => ProcessingState switch
     {
         WinoIntelligenceProcessingState.Queued => QueuedSubtitleText,
@@ -692,16 +702,19 @@ public sealed partial class WinoIntelligenceHeader : Control
         WinoIntelligenceProcessingState.Failed => ProcessingFailedSubtitleText,
         WinoIntelligenceProcessingState.Unavailable => UnavailableSubtitleText,
         WinoIntelligenceProcessingState.NotProcessed => UnprocessedSubtitleText,
-        _ => NoSignalSubtitleText,
+        _ => string.Empty,
     };
 
-    private void UpdateHeaderAutomationName(bool hasDeadline, bool hasNeedsReply)
+    private void UpdateHeaderAutomationName(bool hasBriefingFact)
     {
         if (_headerToggleButton is null) return;
         var parts = new List<string> { HeaderTitle };
-        if (hasDeadline) parts.Add(DeadlineText);
-        if (hasNeedsReply) parts.Add(NeedsReplyText);
-        if (!hasDeadline && !hasNeedsReply) parts.Add(ResolveSubtitleText());
+        if (hasBriefingFact) parts.Add(BriefingFactText);
+        else
+        {
+            var subtitle = ResolveSubtitleText();
+            if (!string.IsNullOrWhiteSpace(subtitle)) parts.Add(subtitle);
+        }
         if (CanExpand) parts.Add(IsExpanded ? ExpandedText : CollapsedText);
         AutomationProperties.SetName(_headerToggleButton, string.Join(", ", parts));
     }

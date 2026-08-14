@@ -211,8 +211,8 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
     {
         var lastAccount = Items.OfType<IAccountMenuItem>().LastOrDefault();
 
-        // Index 0 is always the New Mail button.
-        var insertIndex = lastAccount == null ? 1 : Items.IndexOf(lastAccount) + 1;
+        // Indexes 0 and 1 are reserved for New Mail and Daily Briefing.
+        var insertIndex = lastAccount == null ? 2 : Items.IndexOf(lastAccount) + 1;
 
         Insert(insertIndex, accountMenuItem);
     }

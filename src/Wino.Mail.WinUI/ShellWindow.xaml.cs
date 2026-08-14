@@ -14,6 +14,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Extensions;
@@ -37,7 +38,9 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     IRecipient<InfoBarMessageRequested>,
     IRecipient<TitleBarShellContentUpdated>,
     IRecipient<WinoAccountProfileUpdatedMessage>,
-    IRecipient<WinoAccountProfileDeletedMessage>
+    IRecipient<WinoAccountProfileDeletedMessage>,
+    IRecipient<DailyBriefingStateChanged>,
+    IRecipient<WinoIntelligenceAccessChanged>
 {
     private const int AutomaticPlacementRestorationBehaviorValue = 1;
     private static readonly Guid ShellWindowPersistedStateId = new("6BEB6E1D-BEAF-4CE7-9967-13B2A4F46187");
@@ -48,6 +51,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     public INavigationService NavigationService { get; } = WinoApplication.Current.Services.GetService<INavigationService>() ?? throw new Exception("NavigationService not registered in DI container.");
     private IMailDialogService MailDialogService { get; } = WinoApplication.Current.Services.GetRequiredService<IMailDialogService>();
     private IWinoAccountProfileService WinoAccountProfileService { get; } = WinoApplication.Current.Services.GetRequiredService<IWinoAccountProfileService>();
+    private ILocalIntelligenceService LocalIntelligenceService { get; } = WinoApplication.Current.Services.GetRequiredService<ILocalIntelligenceService>();
 
     private bool _calendarReminderServerStartAttempted;
     private ITitleBarSearchHost? _activeTitleBarSearchHost;
@@ -61,12 +65,14 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         InitializeComponent();
         RegisterRecipients();
         StatePersistanceService.StatePropertyChanged += StatePersistenceServiceChanged;
+        DailyBriefingPanelControl.IsOpenChanged += DailyBriefingPanelIsOpenChanged;
 
         MinWidth = 420;
         MinHeight = 420;
         ConfigureWindowPlacementPersistence();
         ConfigureTitleBar();
         ApplyTitleBarSearchHost();
+        _ = RefreshDailyBriefingStateAsync();
 
         // Handle window closing event for terminate vs background/tray behavior.
         Closed += OnWindowClosed;
@@ -240,11 +246,52 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     public void Receive(WinoAccountProfileUpdatedMessage message)
     {
         DispatcherQueue.TryEnqueue(() => UpdateWinoAccountState(message.Account));
+        _ = RefreshDailyBriefingStateAsync();
     }
 
     public void Receive(WinoAccountProfileDeletedMessage message)
     {
         DispatcherQueue.TryEnqueue(() => UpdateWinoAccountState(null));
+        _ = RefreshDailyBriefingStateAsync();
+    }
+
+    public async void Receive(DailyBriefingStateChanged message) => await RefreshDailyBriefingStateAsync();
+
+    public async void Receive(WinoIntelligenceAccessChanged message) => await RefreshDailyBriefingStateAsync();
+
+    private async void DailyBriefingToggleButtonClicked(object sender, RoutedEventArgs e)
+    {
+        await DailyBriefingPanelControl.ToggleAsync();
+        DailyBriefingToggleButton.IsChecked = DailyBriefingPanelControl.IsOpen;
+    }
+
+    private void DailyBriefingPanelIsOpenChanged(object? sender, bool isOpen)
+        => DailyBriefingToggleButton.IsChecked = isOpen;
+
+    private async Task RefreshDailyBriefingStateAsync()
+    {
+        try
+        {
+            var eligible = await LocalIntelligenceService.GetEligibleAccountsAsync().ConfigureAwait(false);
+            var unseen = eligible.Count > 0
+                ? await LocalIntelligenceService.GetUnseenStateAsync().ConfigureAwait(false)
+                : new DailyBriefingUnseenState(false, null);
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                DailyBriefingUnseenBadge.Visibility = unseen.HasUnseenContent ? Visibility.Visible : Visibility.Collapsed;
+                RefreshDailyBriefingButtonVisibility();
+            });
+        }
+        catch (Exception exception)
+        {
+            Serilog.Log.Error(exception, "Failed to refresh the Daily Briefing title-bar state.");
+        }
+    }
+
+    private void RefreshDailyBriefingButtonVisibility()
+    {
+        var isMailMode = StatePersistanceService.ApplicationMode == WinoApplicationMode.Mail;
+        DailyBriefingToggleButton.Visibility = isMailMode ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void UpdateTitleBarColors(bool isDarkTheme)
@@ -307,6 +354,14 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
                 throw new InvalidOperationException("Could not marshal shell state changes onto the UI thread.");
 
             return;
+        }
+
+        // The briefing panel belongs to the mail surface it was opened over. A mode switch replaces
+        // that surface, so the panel goes with it instead of hanging over the new one.
+        if (propertyName == nameof(IStatePersistanceService.ApplicationMode))
+        {
+            DailyBriefingPanelControl.Close();
+            RefreshDailyBriefingButtonVisibility();
         }
 
         if (propertyName == nameof(IStatePersistanceService.ApplicationMode) ||
@@ -510,6 +565,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         Closed -= OnWindowClosed;
         AppWindow.Closing -= OnAppWindowClosing;
         StatePersistanceService.StatePropertyChanged -= StatePersistenceServiceChanged;
+        DailyBriefingPanelControl.IsOpenChanged -= DailyBriefingPanelIsOpenChanged;
 
         // No need to prepare for close or cleanup if the application is exiting, as the process will be terminated shortly after.
         if ((Application.Current as App)?.IsExiting == true)
@@ -557,6 +613,8 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WeakReferenceMessenger.Default.Register<InfoBarMessageRequested>(this);
         WeakReferenceMessenger.Default.Register<WinoAccountProfileUpdatedMessage>(this);
         WeakReferenceMessenger.Default.Register<WinoAccountProfileDeletedMessage>(this);
+        WeakReferenceMessenger.Default.Register<DailyBriefingStateChanged>(this);
+        WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this);
     }
 
     private void UnregisterRecipients()
@@ -566,6 +624,8 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WeakReferenceMessenger.Default.Unregister<InfoBarMessageRequested>(this);
         WeakReferenceMessenger.Default.Unregister<WinoAccountProfileUpdatedMessage>(this);
         WeakReferenceMessenger.Default.Unregister<WinoAccountProfileDeletedMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<DailyBriefingStateChanged>(this);
+        WeakReferenceMessenger.Default.Unregister<WinoIntelligenceAccessChanged>(this);
     }
 
     private void ShowInfoBarMessage(InfoBarMessageRequested message)
