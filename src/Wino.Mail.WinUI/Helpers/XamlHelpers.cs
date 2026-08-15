@@ -269,22 +269,6 @@ public static class XamlHelpers
         return (Brush)Application.Current.Resources[key];
     }
 
-    /// <summary>
-    /// Fill of one message volume histogram column. Indexed buckets read as done,
-    /// selected buckets as scheduled, and everything else recedes.
-    /// </summary>
-    public static Brush IntelligenceBucketBrush(SemanticIndexBucketCoverage coverage)
-    {
-        var key = coverage switch
-        {
-            SemanticIndexBucketCoverage.Indexed => "SystemFillColorSuccessBrush",
-            SemanticIndexBucketCoverage.Selected => "AccentFillColorDefaultBrush",
-            _ => "ControlStrongFillColorDisabledBrush",
-        };
-
-        return (Brush)Application.Current.Resources[key];
-    }
-
     public static bool IsRangePresetSelected(SemanticIndexRangePreset current, string targetPresetId)
         => current == SemanticIndexRangePresetExtensions.FromStableId(targetPresetId);
 

@@ -9,7 +9,7 @@ public partial class App
     private async Task HandleBillingSuccessProtocolActivationAsync(bool activateWindow)
     {
         var settingsContext = new SettingsPageActivationContext(
-            WinoPage.WinoAccountManagementPage,
+            WinoPage.WinoIntelligencePage,
             WinoAccountManagementActivationReason.CheckoutCompleted);
 
         await EnsureShellWindowAsync(

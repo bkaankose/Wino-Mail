@@ -32,13 +32,15 @@ using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
+using Wino.Messaging.UI;
 using Wino.Views.Abstract;
 
 namespace Wino.Views.Mail;
 
 public sealed partial class ComposePage : ComposePageAbstract,
     IPopoutClient,
-    IRecipient<ApplicationThemeChanged>
+    IRecipient<ApplicationThemeChanged>,
+    IRecipient<WinoIntelligenceAccessChanged>
 {
     private const int InitialFocusRetryCount = 3;
 
@@ -583,6 +585,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
         base.RegisterRecipients();
 
         WeakReferenceMessenger.Default.Register<ApplicationThemeChanged>(this);
+        WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -590,7 +593,11 @@ public sealed partial class ComposePage : ComposePageAbstract,
         base.UnregisterRecipients();
 
         WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
+        WeakReferenceMessenger.Default.Unregister<WinoIntelligenceAccessChanged>(this);
     }
+
+    public void Receive(WinoIntelligenceAccessChanged message)
+        => DispatcherQueue.TryEnqueue(Bindings.Update);
 
     // TODO: Save mime on closing the app.
     private async void OnClose(object sender, SystemNavigationCloseRequestedPreviewEventArgs e)

@@ -51,12 +51,14 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     public INavigationService NavigationService { get; } = WinoApplication.Current.Services.GetService<INavigationService>() ?? throw new Exception("NavigationService not registered in DI container.");
     private IMailDialogService MailDialogService { get; } = WinoApplication.Current.Services.GetRequiredService<IMailDialogService>();
     private IWinoAccountProfileService WinoAccountProfileService { get; } = WinoApplication.Current.Services.GetRequiredService<IWinoAccountProfileService>();
+    private IWinoBillingService WinoBillingService { get; } = WinoApplication.Current.Services.GetRequiredService<IWinoBillingService>();
     private ILocalIntelligenceService LocalIntelligenceService { get; } = WinoApplication.Current.Services.GetRequiredService<ILocalIntelligenceService>();
 
     private bool _calendarReminderServerStartAttempted;
     private ITitleBarSearchHost? _activeTitleBarSearchHost;
     private bool _isBackButtonVisibilityReady;
     private bool _isSynchronizingTitleBarSearch;
+    private bool _hasDailyBriefingAccess;
     private ISearchHistoryService SearchHistoryService { get; } = WinoApplication.Current.Services.GetRequiredService<ISearchHistoryService>();
     private bool _isPreparedForClose;
 
@@ -272,12 +274,20 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     {
         try
         {
-            var eligible = await LocalIntelligenceService.GetEligibleAccountsAsync().ConfigureAwait(false);
+            var winoAccount = await WinoAccountProfileService.GetAuthenticatedAccountAsync().ConfigureAwait(false);
+            var billing = winoAccount == null
+                ? null
+                : await WinoBillingService.GetStatusAsync().ConfigureAwait(false);
+            var hasAccess = billing?.IsSuccess == true && billing.Result?.AiPack?.HasAccess == true;
+            var eligible = hasAccess
+                ? await LocalIntelligenceService.GetEligibleAccountsAsync().ConfigureAwait(false)
+                : [];
             var unseen = eligible.Count > 0
                 ? await LocalIntelligenceService.GetUnseenStateAsync().ConfigureAwait(false)
                 : new DailyBriefingUnseenState(false, null);
             DispatcherQueue.TryEnqueue(() =>
             {
+                _hasDailyBriefingAccess = hasAccess;
                 DailyBriefingUnseenBadge.Visibility = unseen.HasUnseenContent ? Visibility.Visible : Visibility.Collapsed;
                 RefreshDailyBriefingButtonVisibility();
             });
@@ -285,13 +295,21 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         catch (Exception exception)
         {
             Serilog.Log.Error(exception, "Failed to refresh the Daily Briefing title-bar state.");
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                _hasDailyBriefingAccess = false;
+                DailyBriefingUnseenBadge.Visibility = Visibility.Collapsed;
+                RefreshDailyBriefingButtonVisibility();
+            });
         }
     }
 
     private void RefreshDailyBriefingButtonVisibility()
     {
         var isMailMode = StatePersistanceService.ApplicationMode == WinoApplicationMode.Mail;
-        DailyBriefingToggleButton.Visibility = isMailMode ? Visibility.Visible : Visibility.Collapsed;
+        DailyBriefingToggleButton.Visibility = isMailMode && _hasDailyBriefingAccess
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
     private void UpdateTitleBarColors(bool isDarkTheme)

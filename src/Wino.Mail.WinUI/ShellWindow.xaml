@@ -130,6 +130,7 @@
                         x:Name="DailyBriefingToggleButton"
                         Width="38"
                         Height="38"
+                        Padding="0"
                         AutomationProperties.AutomationId="ShellDailyBriefingToggleButton"
                         AutomationProperties.Name="{x:Bind domain:Translator.DailyBriefing_Menu, Mode=OneTime}"
                         Background="Transparent"
@@ -138,10 +139,9 @@
                         ToolTipService.ToolTip="{x:Bind domain:Translator.DailyBriefing_Menu, Mode=OneTime}"
                         Visibility="Collapsed">
                         <Grid>
-                            <FontIcon
-                                AutomationProperties.AccessibilityView="Raw"
-                                FontSize="16"
-                                Glyph="&#xE946;" />
+                            <Viewbox Width="16" Height="16">
+                                <PathIcon Data="{StaticResource WinoIntelligenceBrandSparklePathData}" Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
+                            </Viewbox>
                             <InfoBadge
                                 x:Name="DailyBriefingUnseenBadge"
                                 HorizontalAlignment="Right"

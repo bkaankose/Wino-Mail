@@ -139,50 +139,24 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     public Task<ApiEnvelope<AuthUserDto>> GetCurrentUserAsync(CancellationToken cancellationToken = default)
         => SendAuthorizedRequestAsync("api/v1/auth/me", WinoAccountApiJsonContext.Default.ApiEnvelopeAuthUserDto, cancellationToken);
 
-    public async Task<TransportConsentDto> GetTransportConsentAsync(CancellationToken cancellationToken = default)
+    public async Task<IntelligenceConsentDto> GetIntelligenceConsentAsync(CancellationToken cancellationToken = default)
     {
-        var envelope = await SendAuthorizedRequestAsync("api/v1/ai/consents/transport", WinoAccountApiJsonContext.Default.ApiEnvelopeTransportConsentDto, cancellationToken).ConfigureAwait(false);
-        return envelope.IsSuccess && envelope.Result is not null ? envelope.Result : throw new InvalidOperationException(envelope.ErrorCode ?? "Transport consent could not be loaded.");
+        var envelope = await SendAuthorizedRequestAsync("api/v1/ai/consent", WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceConsentDto, cancellationToken).ConfigureAwait(false);
+        return envelope.IsSuccess && envelope.Result is not null ? envelope.Result : throw new InvalidOperationException(envelope.ErrorCode ?? "Intelligence consent could not be loaded.");
     }
 
-    public async Task<TransportConsentDto> AcceptTransportConsentAsync(string policyVersion, string source, CancellationToken cancellationToken = default)
+    public async Task<IntelligenceConsentDto> AcceptIntelligenceConsentAsync(string policyVersion, string source, CancellationToken cancellationToken = default)
     {
-        var request = new UpdateTransportConsentRequest(policyVersion, source);
-        var envelope = await SendAuthorizedRequestAsync(HttpMethod.Put, "api/v1/ai/consents/transport", request, WinoAccountApiJsonContext.Default.UpdateTransportConsentRequest, WinoAccountApiJsonContext.Default.ApiEnvelopeTransportConsentDto, cancellationToken).ConfigureAwait(false);
-        return envelope.IsSuccess && envelope.Result is not null ? envelope.Result : throw new InvalidOperationException(envelope.ErrorCode ?? "Transport consent could not be saved.");
+        var request = new UpdateIntelligenceConsentRequest(policyVersion, source);
+        var envelope = await SendAuthorizedRequestAsync(HttpMethod.Put, "api/v1/ai/consent", request, WinoAccountApiJsonContext.Default.UpdateIntelligenceConsentRequest, WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceConsentDto, cancellationToken).ConfigureAwait(false);
+        return envelope.IsSuccess && envelope.Result is not null ? envelope.Result : throw new InvalidOperationException(envelope.ErrorCode ?? "Intelligence consent could not be saved.");
     }
 
-    public async Task<TransportConsentDto> RevokeTransportConsentAsync(string source, CancellationToken cancellationToken = default)
+    public async Task<IntelligenceConsentDto> RevokeIntelligenceConsentAsync(string source, CancellationToken cancellationToken = default)
     {
-        var request = new RevokeProcessConsentRequest(source);
-        var envelope = await SendAuthorizedRequestAsync(HttpMethod.Delete, "api/v1/ai/consents/transport", request, WinoAccountApiJsonContext.Default.RevokeProcessConsentRequest, WinoAccountApiJsonContext.Default.ApiEnvelopeTransportConsentDto, cancellationToken).ConfigureAwait(false);
-        return envelope.IsSuccess && envelope.Result is not null ? envelope.Result : throw new InvalidOperationException(envelope.ErrorCode ?? "Transport consent could not be revoked.");
-    }
-
-    public async Task<ProcessConsentListDto> GetProcessConsentsAsync(CancellationToken cancellationToken = default)
-    {
-        var envelope = await SendAuthorizedRequestAsync("api/v1/ai/consents/process", WinoAccountApiJsonContext.Default.ApiEnvelopeProcessConsentListDto, cancellationToken).ConfigureAwait(false);
-        return envelope.IsSuccess && envelope.Result is not null ? envelope.Result : throw new InvalidOperationException(envelope.ErrorCode ?? "Process consent could not be loaded.");
-    }
-
-    public async Task<MailboxProcessConsentDto> AcceptProcessConsentAsync(Guid mailboxId, string policyVersion, string source, CancellationToken cancellationToken = default)
-    {
-        var request = new UpdateProcessConsentRequest(policyVersion, source);
-        var envelope = await SendAuthorizedRequestAsync(HttpMethod.Put, $"api/v1/ai/consents/process/{mailboxId:D}", request, WinoAccountApiJsonContext.Default.UpdateProcessConsentRequest, WinoAccountApiJsonContext.Default.ApiEnvelopeMailboxProcessConsentDto, cancellationToken).ConfigureAwait(false);
-        return envelope.IsSuccess && envelope.Result is not null ? envelope.Result : throw new InvalidOperationException(envelope.ErrorCode ?? "Process consent could not be saved.");
-    }
-
-    public async Task<MailboxProcessConsentDto> RevokeProcessConsentAsync(Guid mailboxId, string source, CancellationToken cancellationToken = default)
-    {
-        var request = new RevokeProcessConsentRequest(source);
-        var envelope = await SendAuthorizedRequestAsync(HttpMethod.Delete, $"api/v1/ai/consents/process/{mailboxId:D}", request, WinoAccountApiJsonContext.Default.RevokeProcessConsentRequest, WinoAccountApiJsonContext.Default.ApiEnvelopeMailboxProcessConsentDto, cancellationToken).ConfigureAwait(false);
-        return envelope.IsSuccess && envelope.Result is not null ? envelope.Result : throw new InvalidOperationException(envelope.ErrorCode ?? "Process consent could not be revoked.");
-    }
-
-    public async Task<BatchProcessConsentResult> UpdateProcessConsentsAsync(BatchProcessConsentRequest request, CancellationToken cancellationToken = default)
-    {
-        var envelope = await SendAuthorizedRequestAsync(HttpMethod.Post, "api/v1/ai/consents/process:batch", request, WinoAccountApiJsonContext.Default.BatchProcessConsentRequest, WinoAccountApiJsonContext.Default.ApiEnvelopeBatchProcessConsentResult, cancellationToken).ConfigureAwait(false);
-        return envelope.IsSuccess && envelope.Result is not null ? envelope.Result : throw new InvalidOperationException(envelope.ErrorCode ?? "Process consents could not be updated.");
+        var request = new RevokeIntelligenceConsentRequest(source);
+        var envelope = await SendAuthorizedRequestAsync(HttpMethod.Delete, "api/v1/ai/consent", request, WinoAccountApiJsonContext.Default.RevokeIntelligenceConsentRequest, WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceConsentDto, cancellationToken).ConfigureAwait(false);
+        return envelope.IsSuccess && envelope.Result is not null ? envelope.Result : throw new InvalidOperationException(envelope.ErrorCode ?? "Intelligence consent could not be revoked.");
     }
 
     public async Task<ApiEnvelope<AiSummaryResultDto>> SummarizeAsync(IReadOnlyList<MailContentSegment> segments, string targetLanguage, CancellationToken cancellationToken = default)
@@ -359,6 +333,19 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/status",
             WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceMailboxStatusDto,
             cancellationToken).ConfigureAwait(false), "Intelligence status request failed.");
+
+    public async Task<IntelligenceCoverageTimelineDto> GetIntelligenceCoverageTimelineAsync(
+        Guid mailboxId,
+        DateTimeOffset fromUtc,
+        DateTimeOffset toUtc,
+        int bucketCount,
+        CancellationToken cancellationToken = default)
+        => RequireResult(await SendAuthorizedRequestAsync(
+            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/coverage-timeline" +
+            $"?fromUtc={Uri.EscapeDataString(fromUtc.ToUniversalTime().ToString("O"))}" +
+            $"&toUtc={Uri.EscapeDataString(toUtc.ToUniversalTime().ToString("O"))}&bucketCount={bucketCount}",
+            WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceCoverageTimelineDto,
+            cancellationToken).ConfigureAwait(false), "Intelligence coverage timeline request failed.");
 
     public async Task<IReadOnlyList<string>> ResolveIntelligenceDeltaAsync(
         Guid mailboxId,
@@ -1126,19 +1113,11 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceSemanticSearchResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<WinoSuggestedRepliesResult>))]
 [JsonSerializable(typeof(ApiEnvelope<HeadlineTranslationResultDto>))]
-[JsonSerializable(typeof(TransportConsentDto))]
-[JsonSerializable(typeof(UpdateTransportConsentRequest))]
-[JsonSerializable(typeof(MailboxProcessConsentDto))]
-[JsonSerializable(typeof(ProcessConsentListDto))]
-[JsonSerializable(typeof(UpdateProcessConsentRequest))]
-[JsonSerializable(typeof(RevokeProcessConsentRequest))]
-[JsonSerializable(typeof(BatchProcessConsentRequest))]
-[JsonSerializable(typeof(BatchProcessConsentResult))]
-[JsonSerializable(typeof(List<MailboxProcessConsentDto>))]
-[JsonSerializable(typeof(ApiEnvelope<TransportConsentDto>))]
-[JsonSerializable(typeof(ApiEnvelope<MailboxProcessConsentDto>))]
-[JsonSerializable(typeof(ApiEnvelope<ProcessConsentListDto>))]
-[JsonSerializable(typeof(ApiEnvelope<BatchProcessConsentResult>))]
+[JsonSerializable(typeof(IntelligenceConsentDto))]
+[JsonSerializable(typeof(UpdateIntelligenceConsentRequest))]
+[JsonSerializable(typeof(RevokeIntelligenceConsentRequest))]
+[JsonSerializable(typeof(ApiEnvelope<IntelligenceConsentDto>))]
+[JsonSerializable(typeof(ApiEnvelope<IntelligenceCoverageTimelineDto>))]
 internal sealed partial class WinoAccountApiJsonContext : JsonSerializerContext;
 
 internal sealed record CompactIntelligenceArtifactCursorPageDto(

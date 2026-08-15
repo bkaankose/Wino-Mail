@@ -21,6 +21,7 @@ public partial class NavigationMenuTemplateSelector : DataTemplateSelector
     public DataTemplate SettingsShellPageItemTemplate { get; set; } = null!;
     public DataTemplate SettingsShellSectionItemTemplate { get; set; } = null!;
     public DataTemplate WinoAccountSettingsShellPageItemTemplate { get; set; } = null!;
+    public DataTemplate WinoIntelligenceSettingsShellPageItemTemplate { get; set; } = null!;
     public DataTemplate MoreItemsFolderTemplate { get; set; } = null!;
     public DataTemplate RatingItemTemplate { get; set; } = null!;
     public DataTemplate CreateNewFolderTemplate { get; set; } = null!;
@@ -43,9 +44,20 @@ public partial class NavigationMenuTemplateSelector : DataTemplateSelector
         else if (item is SettingsItem)
             return SettingsItemTemplate;
         else if (item is SettingsShellPageMenuItem settingsShellPageMenuItem)
-            return string.Equals(settingsShellPageMenuItem.Title, Translator.WinoAccount_SettingsSection_Title, System.StringComparison.Ordinal)
-                ? WinoAccountSettingsShellPageItemTemplate
-                : SettingsShellPageItemTemplate;
+        {
+            if (string.Equals(settingsShellPageMenuItem.Title, Translator.WinoAccount_SettingsSection_Title, System.StringComparison.Ordinal))
+            {
+                return WinoAccountSettingsShellPageItemTemplate;
+
+            }
+            else if (string.Equals(settingsShellPageMenuItem.Title, Translator.WinoIntelligence_SettingsTitle, System.StringComparison.Ordinal))
+            {
+                return WinoIntelligenceSettingsShellPageItemTemplate;
+            }
+
+            return SettingsShellPageItemTemplate;
+        }
+
         else if (item is SettingsShellSectionMenuItem)
             return SettingsShellSectionItemTemplate;
         else if (item is SeperatorItem)
@@ -69,6 +81,7 @@ public partial class NavigationMenuTemplateSelector : DataTemplateSelector
             return MergedAccountFolderTemplate;
         else if (item is FolderMenuItem)
             return FolderMenuTemplate;
+
         else if (item is FixAccountIssuesMenuItem fixAccountIssuesMenuItem)
             return fixAccountIssuesMenuItem.Account.AttentionReason == Wino.Core.Domain.Enums.AccountAttentionReason.MissingSystemFolderConfiguration
                     ? FixMissingFolderConfigTemplate : FixAuthenticationIssueTemplate;

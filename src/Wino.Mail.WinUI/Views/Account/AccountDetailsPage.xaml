@@ -499,7 +499,7 @@
                     Header="{x:Bind domain:Translator.SemanticIndex_Title, Mode=OneTime}"
                     IsClickEnabled="True">
                     <controls:SettingsCard.HeaderIcon>
-                        <FontIcon Glyph="&#xE721;" />
+                        <PathIcon Data="{StaticResource WinoIntelligenceBrandSparklePathData}" Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
                     </controls:SettingsCard.HeaderIcon>
                 </controls:SettingsCard>
 

@@ -13,6 +13,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.ViewModels.Data;
 using Wino.Mail.Api.Contracts.Billing;
 using Wino.Mail.Api.Contracts.Common;
@@ -34,9 +35,11 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     private readonly IWinoAccountApiClient _apiClient;
     private readonly IAccountService _accountService;
     private readonly ISemanticIndexCoordinator _semanticIndexCoordinator;
+    private readonly IWinoAccountIntelligenceSnapshotService? _snapshotService;
     private readonly WinoAddOnItemViewModel _aiPackAddOn;
     private readonly WinoAddOnItemViewModel _unlimitedAccountsAddOn;
     private bool _isLoading;
+    private string _intelligencePolicyVersion = string.Empty;
 
     public ObservableCollection<WinoAddOnItemViewModel> AddOns { get; } = [];
     public ObservableCollection<WinoIntelligenceMailboxItemViewModel> IntelligenceMailboxes { get; } = [];
@@ -77,8 +80,39 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     public partial string IntelligenceStorageSummary { get; set; } = string.Empty;
 
     [ObservableProperty]
+    public partial string IntelligenceConsentStatusText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool IsConsentBusy { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsConsentGranted { get; set; }
+
+    [ObservableProperty]
+    public partial Uri? ConsentPolicyUri { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsConsentDeletionPending))]
+    [NotifyPropertyChangedFor(nameof(IsConsentDeletionFailed))]
+    public partial string ConsentDataDeletionStatus { get; set; } = IntelligenceDeletionStatuses.NotRequired;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasConsentError))]
+    public partial string ConsentErrorMessage { get; set; } = string.Empty;
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasIntelligenceDataError))]
     public partial string IntelligenceDataError { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool IsIntelligenceRefreshing { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasIntelligenceRefreshError))]
+    public partial string IntelligenceRefreshError { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string IntelligenceLastUpdatedText { get; set; } = string.Empty;
 
     /// <summary>
     /// Billing window for the AI pack, from the subscription's current period.
@@ -123,6 +157,13 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         : Translator.WinoAccount_Management_NotActiveShort;
 
     public bool HasIntelligenceDataError => !string.IsNullOrWhiteSpace(IntelligenceDataError);
+    public bool HasIntelligenceRefreshError => !string.IsNullOrWhiteSpace(IntelligenceRefreshError);
+
+    public bool HasConsentError => !string.IsNullOrWhiteSpace(ConsentErrorMessage);
+
+    public bool IsConsentDeletionPending => ConsentDataDeletionStatus == IntelligenceDeletionStatuses.Pending;
+
+    public bool IsConsentDeletionFailed => ConsentDataDeletionStatus == IntelligenceDeletionStatuses.Failed;
 
     public bool IsSignedOut => !IsSignedIn;
 
@@ -132,7 +173,8 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                                                IWinoBillingService billingService,
                                                IWinoAccountApiClient apiClient,
                                                IAccountService accountService,
-                                               ISemanticIndexCoordinator semanticIndexCoordinator)
+                                               ISemanticIndexCoordinator semanticIndexCoordinator,
+                                               IWinoAccountIntelligenceSnapshotService? snapshotService = null)
     {
         _profileService = profileService;
         _syncService = syncService;
@@ -141,6 +183,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         _apiClient = apiClient;
         _accountService = accountService;
         _semanticIndexCoordinator = semanticIndexCoordinator;
+        _snapshotService = snapshotService;
 
         _aiPackAddOn = CreateAddOnItem(WinoAddOnProductType.AI_PACK);
         _unlimitedAccountsAddOn = CreateAddOnItem(WinoAddOnProductType.UNLIMITED_ACCOUNTS);
@@ -340,8 +383,58 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         => mailbox?.CanManage == true;
 
     [RelayCommand]
-    private void OpenConsentManagement()
-        => Messenger.Send(new SettingsRootNavigationRequested(WinoPage.WinoAccountConsentPage));
+    private void OpenIntelligenceManagement()
+        => Messenger.Send(new SettingsRootNavigationRequested(WinoPage.WinoIntelligencePage));
+
+    public async Task<bool> SetIntelligenceConsentAsync(bool granted)
+    {
+        await ExecuteUIThread(() =>
+        {
+            IsConsentBusy = true;
+            ConsentErrorMessage = string.Empty;
+        });
+
+        try
+        {
+            var consent = granted
+                ? await _apiClient.AcceptIntelligenceConsentAsync(
+                    _intelligencePolicyVersion,
+                    ConsentActionSources.ConsentPage).ConfigureAwait(false)
+                : await _apiClient.RevokeIntelligenceConsentAsync(
+                    ConsentActionSources.ConsentPage).ConfigureAwait(false);
+
+            if (!granted)
+                await DisableAndClearAllLocalIntelligenceAsync().ConfigureAwait(false);
+
+            await ExecuteUIThread(() => ApplyIntelligenceConsent(consent));
+            await LoadIntelligenceDataAsync().ConfigureAwait(false);
+            WeakReferenceMessenger.Default.Send(new WinoIntelligenceAccessChanged());
+            return IsCurrentIntelligenceConsent(consent);
+        }
+        catch (Exception exception)
+        {
+            await ExecuteUIThread(() =>
+                ConsentErrorMessage = WinoAccountApiErrorTranslator.Translate(exception.Message));
+            return IsConsentGranted;
+        }
+        finally
+        {
+            await ExecuteUIThread(() => IsConsentBusy = false);
+        }
+    }
+
+    private async Task DisableAndClearAllLocalIntelligenceAsync()
+    {
+        foreach (var account in await _accountService.GetAccountsAsync().ConfigureAwait(false) ?? [])
+        {
+            await _semanticIndexCoordinator.DeleteLocalIndexAsync(account.Id).ConfigureAwait(false);
+            if (!account.Preferences.IsSemanticIndexingEnabled)
+                continue;
+
+            account.Preferences.IsSemanticIndexingEnabled = false;
+            await _accountService.UpdateAccountAsync(account).ConfigureAwait(false);
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(CanDeleteIntelligence))]
     private async Task DeleteIntelligenceAsync(WinoIntelligenceMailboxItemViewModel? mailbox)
@@ -378,6 +471,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             }
 
             await LoadIntelligenceDataAsync().ConfigureAwait(false);
+            WeakReferenceMessenger.Default.Send(new WinoIntelligenceAccessChanged());
         }
         catch (Exception exception)
         {
@@ -398,6 +492,50 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
     private bool CanDeleteIntelligence(WinoIntelligenceMailboxItemViewModel? mailbox)
         => mailbox?.HasServerIntelligence == true && !mailbox.IsDeleting && !IsBusy;
+
+    [RelayCommand]
+    private async Task ToggleIntelligenceMailboxAsync(WinoIntelligenceMailboxItemViewModel? mailbox)
+    {
+        if (mailbox?.LocalAccountId is not Guid localAccountId || mailbox.IsChangingEnabled)
+            return;
+
+        var requested = !mailbox.IsEnabled;
+        await ExecuteUIThread(() => mailbox.IsChangingEnabled = true);
+        try
+        {
+            var account = await _accountService.GetAccountAsync(localAccountId).ConfigureAwait(false);
+            if (account == null)
+                return;
+
+            if (requested)
+                await _semanticIndexCoordinator.EnsureMailboxAsync(localAccountId).ConfigureAwait(false);
+            else
+                await _semanticIndexCoordinator.DeleteIndexAsync(localAccountId).ConfigureAwait(false);
+
+            account.Preferences.IsSemanticIndexingEnabled = requested;
+            await _accountService.UpdateAccountAsync(account).ConfigureAwait(false);
+            await ExecuteUIThread(() => mailbox.IsEnabled = requested);
+            WeakReferenceMessenger.Default.Send(new WinoIntelligenceAccessChanged());
+        }
+        catch (Exception exception)
+        {
+            await ExecuteUIThread(() =>
+            {
+                // The CheckBox is intentionally one-way bound. Pulse the value so a failed
+                // server enable immediately restores the authoritative preference on screen.
+                mailbox.IsEnabled = requested;
+                mailbox.IsEnabled = !requested;
+            });
+            _dialogService.InfoBarMessage(
+                Translator.GeneralTitle_Error,
+                WinoAccountApiErrorTranslator.Translate(exception.Message),
+                InfoBarMessageType.Error);
+        }
+        finally
+        {
+            await ExecuteUIThread(() => mailbox.IsChangingEnabled = false);
+        }
+    }
 
     [RelayCommand]
     private async Task ExportSettingsAsync()
@@ -510,38 +648,44 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                 await ApplyAccountStateAsync(cachedAccount).ConfigureAwait(false);
             }
 
-            await ExecuteUIThread(() => IsBusy = true);
-            await ResetAddOnStatesAsync().ConfigureAwait(false);
-            await ResetIntelligenceDataAsync().ConfigureAwait(false);
-            var resolvedAccount = cachedAccount;
-
-            if (cachedAccount != null)
+            if (cachedAccount is null)
             {
+                await ResetStateAsync().ConfigureAwait(false);
+                return;
+            }
+
+            if (_snapshotService is null)
+            {
+                await ExecuteUIThread(() => IsBusy = true);
+                await ResetAddOnStatesAsync().ConfigureAwait(false);
+                await ResetIntelligenceDataAsync().ConfigureAwait(false);
+                var resolvedAccount = cachedAccount;
                 try
                 {
-                    var account = await _profileService.GetAuthenticatedAccountAsync().ConfigureAwait(false);
-                    if (account != null)
+                    var authenticatedAccount = await _profileService.GetAuthenticatedAccountAsync().ConfigureAwait(false);
+                    if (authenticatedAccount is not null)
                     {
-                        resolvedAccount = account;
-
+                        resolvedAccount = authenticatedAccount;
                         if (forceProfileRefresh || IsAccessTokenExpired(cachedAccount))
                         {
-                            var refreshedProfileResult = await _profileService.RefreshProfileAsync().ConfigureAwait(false);
-                            if (refreshedProfileResult.IsSuccess && refreshedProfileResult.Account != null)
-                            {
-                                resolvedAccount = refreshedProfileResult.Account;
-                            }
+                            var refreshed = await _profileService.RefreshProfileAsync().ConfigureAwait(false);
+                            if (refreshed.IsSuccess && refreshed.Account is not null) resolvedAccount = refreshed.Account;
                         }
                     }
                 }
-                catch (Exception)
-                {
-                    resolvedAccount ??= cachedAccount;
-                }
+                catch { }
+                await ApplyAccountStateAsync(resolvedAccount).ConfigureAwait(false);
+                await LoadAddOnsAsync(resolvedAccount).ConfigureAwait(false);
+                return;
             }
 
-            await ApplyAccountStateAsync(resolvedAccount).ConfigureAwait(false);
-            await LoadAddOnsAsync(resolvedAccount).ConfigureAwait(false);
+            var cachedSnapshot = await _snapshotService.GetCachedAsync(cachedAccount.Id).ConfigureAwait(false);
+            if (cachedSnapshot?.HasData == true)
+                await ApplyAccountIntelligenceSnapshotAsync(cachedSnapshot, null).ConfigureAwait(false);
+            else
+                await ExecuteUIThread(() => IsBusy = true);
+
+            _ = RefreshAccountIntelligenceSnapshotAsync(forceProfileRefresh);
         }
         catch (Exception)
         {
@@ -558,6 +702,89 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             await ExecuteUIThread(() => IsBusy = false);
             _isLoading = false;
         }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanRefreshPurchases))]
+    private Task RetryIntelligenceRefreshAsync() => RefreshAccountIntelligenceSnapshotAsync(forceProfileRefresh: true);
+
+    private async Task RefreshAccountIntelligenceSnapshotAsync(bool forceProfileRefresh)
+    {
+        if (_snapshotService is null) return;
+        await ExecuteUIThread(() =>
+        {
+            IsIntelligenceRefreshing = true;
+            IntelligenceRefreshError = string.Empty;
+        });
+        try
+        {
+            if (forceProfileRefresh)
+                await _profileService.RefreshProfileAsync().ConfigureAwait(false);
+            var result = await _snapshotService.RefreshAsync().ConfigureAwait(false);
+            if (result is not null)
+                await ApplyAccountIntelligenceSnapshotAsync(result.Snapshot, result.Error).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            await ExecuteUIThread(() => IntelligenceRefreshError = WinoAccountApiErrorTranslator.Translate(exception.Message));
+        }
+        finally
+        {
+            await ExecuteUIThread(() =>
+            {
+                IsBusy = false;
+                IsIntelligenceRefreshing = false;
+            });
+        }
+    }
+
+    private async Task ApplyAccountIntelligenceSnapshotAsync(WinoAccountIntelligenceSnapshot snapshot, string? refreshError)
+    {
+        var localAccounts = await _accountService.GetAccountsAsync().ConfigureAwait(false) ?? [];
+        var mailboxItems = snapshot.Mailboxes.Select(mailbox => CreateCachedIntelligenceMailboxItem(
+            mailbox, localAccounts, snapshot.MailboxStatuses.GetValueOrDefault(mailbox.MailboxId))).ToArray();
+        mailboxItems = [.. mailboxItems, .. localAccounts.Where(account => mailboxItems.All(item => item.LocalAccountId != account.Id))
+            .Select(CreateLocalIntelligenceMailboxItem)];
+        var aiPack = snapshot.Billing?.AiPack;
+        var usage = snapshot.Usage;
+        await ExecuteUIThread(() =>
+        {
+            _aiPackAddOn.IsPurchased = aiPack?.HasAccess == true;
+            _aiPackAddOn.IsLoading = false;
+            _aiPackAddOn.ErrorText = string.Empty;
+            _aiPackAddOn.RenewalText = aiPack?.RenewsAtUtc is DateTimeOffset renewal ? string.Format(Translator.WinoAccount_Management_AiPackRenews, renewal.LocalDateTime) : string.Empty;
+            HasIntelligenceAccess = _aiPackAddOn.IsPurchased;
+            ApplyAiPackBillingTexts(aiPack);
+            IntelligenceMailboxes.Clear();
+            foreach (var item in mailboxItems.OrderBy(item => item.Address, StringComparer.OrdinalIgnoreCase)) IntelligenceMailboxes.Add(item);
+            IsIntelligenceUsageAvailable = usage is not null;
+            IntelligenceUsagePercentage = usage is null ? 0 : (double)usage.UsagePercentage;
+            IntelligenceUsageSummary = usage is null ? Translator.WinoAccount_Management_IntelligenceUsageUnavailable : string.Format(Translator.WinoAccount_Management_IntelligenceUsageSummary, usage.UsagePercentage, usage.RemainingPercentage);
+            IntelligenceResetText = usage?.ResetsAtUtc is DateTimeOffset reset ? string.Format(Translator.WinoAccount_Management_IntelligenceResets, reset.LocalDateTime) : string.Empty;
+            IntelligenceStorageSummary = string.Format(Translator.WinoAccount_Management_IntelligenceStorageSummary, mailboxItems.Count(item => item.HasServerIntelligence), FormatStorageSize(mailboxItems.Sum(item => item.StorageSizeBytes)));
+            if (snapshot.Consent is not null) ApplyIntelligenceConsent(snapshot.Consent);
+            IntelligenceLastUpdatedText = snapshot.LastSuccessfulRefreshUtc is DateTimeOffset updated ? updated.LocalDateTime.ToString("g") : string.Empty;
+            IntelligenceRefreshError = string.IsNullOrWhiteSpace(refreshError) ? string.Empty : string.Format(
+                Translator.WinoIntelligence_CachedRefreshFailed,
+                string.IsNullOrWhiteSpace(IntelligenceLastUpdatedText) ? Translator.GeneralTitle_Info : IntelligenceLastUpdatedText);
+            ApplySubtitleTexts();
+            PurchaseAddOnCommand.NotifyCanExecuteChanged();
+        });
+    }
+
+    private IntelligenceMailboxData CreateCachedIntelligenceMailboxItem(SemanticMailboxDto mailbox, IReadOnlyList<MailAccount> localAccounts, IntelligenceMailboxStatusDto? status)
+    {
+        var localAccount = localAccounts.FirstOrDefault(account => (int)account.ProviderType == mailbox.ProviderType && string.Equals(account.Address?.Trim(), mailbox.Address?.Trim(), StringComparison.OrdinalIgnoreCase));
+        var storage = status?.StorageSizeBytes ?? mailbox.IndexState?.StorageSizeBytes ?? 0;
+        return new IntelligenceMailboxData
+        {
+            MailboxId = mailbox.MailboxId, Address = mailbox.Address, ProviderType = (MailProviderType)mailbox.ProviderType,
+            LocalAccountId = localAccount?.Id, HasServerIntelligence = storage > 0,
+            IsEnabled = localAccount?.Preferences?.IsSemanticIndexingEnabled == true,
+            CanToggle = localAccount is not null && (localAccount.Preferences?.IsSemanticIndexingEnabled == true || HasIntelligenceAccess && IsConsentGranted),
+            StorageSizeBytes = storage,
+            IntelligenceSummary = string.Format(Translator.WinoAccount_Management_IntelligenceMailboxSummary, 0, 0, FormatStorageSize(storage)),
+            ManageCommand = ManageIntelligenceMailboxCommand, DeleteCommand = DeleteIntelligenceCommand, ToggleEnabledCommand = ToggleIntelligenceMailboxCommand
+        };
     }
 
     private async Task ApplyAccountStateAsync(Wino.Core.Domain.Entities.Shared.WinoAccount? account)
@@ -763,7 +990,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             if (account is not null && response?.IsSuccess == true)
                 WeakReferenceMessenger.Default.Send(new WinoIntelligenceAccessChanged());
 
-            if (hasIntelligenceAccess)
+            if (account != null)
             {
                 await LoadIntelligenceDataAsync().ConfigureAwait(false);
             }
@@ -793,6 +1020,20 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
     private async Task LoadIntelligenceDataAsync()
     {
+        IntelligenceConsentDto? consent = null;
+        var consentError = string.Empty;
+        try
+        {
+            consent = await _apiClient.GetIntelligenceConsentAsync().ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            consentError = WinoAccountApiErrorTranslator.Translate(exception.Message);
+        }
+
+        if (consent != null)
+            await ExecuteUIThread(() => ApplyIntelligenceConsent(consent));
+
         ApiEnvelope<AiUsageStatusDto>? usageResponse = null;
         try
         {
@@ -814,7 +1055,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         }
         catch (Exception exception)
         {
-            mailboxError = exception.Message is WinoAccountApiErrorTranslator.ProcessConsentRequiredCode or WinoAccountApiErrorTranslator.ProcessConsentVersionOutdatedCode
+            mailboxError = exception.Message is WinoAccountApiErrorTranslator.IntelligenceConsentRequiredCode or WinoAccountApiErrorTranslator.IntelligenceConsentVersionOutdatedCode
                 ? string.Empty
                 : WinoAccountApiErrorTranslator.Translate(exception.Message);
         }
@@ -853,6 +1094,14 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                     FormatStorageSize(totalStorageSize))
                 : Translator.WinoAccount_Management_IntelligenceStorageUnavailable;
             IntelligenceDataError = mailboxError;
+            if (consent != null)
+                ApplyIntelligenceConsent(consent);
+            else
+            {
+                IsConsentGranted = false;
+                IntelligenceConsentStatusText = Translator.WinoAccount_IntelligenceConsentNotGranted;
+            }
+            ConsentErrorMessage = consentError;
         });
     }
 
@@ -882,6 +1131,10 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             ProviderType = (MailProviderType)mailbox.ProviderType,
             LocalAccountId = localAccount?.Id,
             HasServerIntelligence = storageSize > 0,
+            IsEnabled = localAccount?.Preferences?.IsSemanticIndexingEnabled == true,
+            CanToggle = localAccount != null &&
+                        (localAccount.Preferences?.IsSemanticIndexingEnabled == true ||
+                         HasIntelligenceAccess && IsConsentGranted),
             StorageSizeBytes = storageSize,
             IntelligenceSummary = string.Format(
                 Translator.WinoAccount_Management_IntelligenceMailboxSummary,
@@ -890,6 +1143,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                 FormatStorageSize(storageSize)),
             ManageCommand = ManageIntelligenceMailboxCommand,
             DeleteCommand = DeleteIntelligenceCommand,
+            ToggleEnabledCommand = ToggleIntelligenceMailboxCommand,
         };
     }
 
@@ -901,10 +1155,14 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             ProviderType = account.ProviderType,
             LocalAccountId = account.Id,
             HasServerIntelligence = false,
+            IsEnabled = account.Preferences?.IsSemanticIndexingEnabled == true,
+            CanToggle = account.Preferences?.IsSemanticIndexingEnabled == true ||
+                        HasIntelligenceAccess && IsConsentGranted,
             StorageSizeBytes = 0,
             IntelligenceSummary = Translator.WinoAccount_Management_NoIntelligenceData,
             ManageCommand = ManageIntelligenceMailboxCommand,
             DeleteCommand = DeleteIntelligenceCommand,
+            ToggleEnabledCommand = ToggleIntelligenceMailboxCommand,
         };
 
     private Task ResetIntelligenceDataAsync() => ExecuteUIThread(() =>
@@ -915,9 +1173,30 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         IntelligenceUsageSummary = string.Empty;
         IntelligenceResetText = string.Empty;
         IntelligenceStorageSummary = string.Empty;
+        IntelligenceConsentStatusText = string.Empty;
+        IsConsentGranted = false;
+        IsConsentBusy = false;
+        ConsentPolicyUri = null;
+        ConsentDataDeletionStatus = IntelligenceDeletionStatuses.NotRequired;
+        ConsentErrorMessage = string.Empty;
         IntelligenceDataError = string.Empty;
         IntelligenceMailboxes.Clear();
     });
+
+    private void ApplyIntelligenceConsent(IntelligenceConsentDto consent)
+    {
+        _intelligencePolicyVersion = consent.CurrentPolicyVersion;
+        ConsentPolicyUri = Uri.TryCreate(consent.PrivacyPolicyUrl, UriKind.Absolute, out var uri) ? uri : null;
+        IsConsentGranted = IsCurrentIntelligenceConsent(consent);
+        ConsentDataDeletionStatus = consent.DataDeletionStatus;
+        IntelligenceConsentStatusText = IsConsentGranted
+            ? Translator.WinoAccount_IntelligenceConsentGranted
+            : Translator.WinoAccount_IntelligenceConsentNotGranted;
+    }
+
+    private static bool IsCurrentIntelligenceConsent(IntelligenceConsentDto consent)
+        => consent.Status == ConsentStatuses.Active &&
+           consent.AcceptedPolicyVersion == consent.CurrentPolicyVersion;
 
     private static string FormatStorageSize(long bytes)
     {

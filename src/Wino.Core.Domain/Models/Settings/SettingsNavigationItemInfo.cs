@@ -41,6 +41,11 @@ public static class SettingsNavigationInfoProvider
                 Translator.WinoAccount_SettingsSection_Description,
                 "\uE77B",
                 searchKeywords: string.Empty),
+            new(WinoPage.WinoIntelligencePage,
+                Translator.WinoIntelligence_SettingsTitle,
+                Translator.WinoIntelligence_SettingsDescription,
+                "\uE945",
+                searchKeywords: "AI summarize translate insights semantic search"),
             new(null, Translator.SettingsOptions_GeneralSection, string.Empty, "\uE713", isSeparator: true),
             new(WinoPage.AppPreferencesPage,
                 Translator.SettingsAppPreferences_Title,
@@ -153,7 +158,7 @@ public static class SettingsNavigationInfoProvider
             WinoPage.ManageAccountsPage => Translator.SettingsManageAccountSettings_Title,
             WinoPage.AccountManagementPage => Translator.SettingsManageAccountSettings_Title,
             WinoPage.WinoAccountManagementPage => Translator.WinoAccount_SettingsSection_Title,
-            WinoPage.WinoAccountConsentPage => Translator.WinoAccount_ConsentPageTitle,
+            WinoPage.WinoIntelligencePage => Translator.WinoIntelligence_SettingsTitle,
             WinoPage.PersonalizationPage => Translator.SettingsPersonalization_Title,
             WinoPage.AboutPage => Translator.SettingsAbout_Title,
             WinoPage.MessageListPage => Translator.SettingsMessageList_Title,
@@ -191,7 +196,6 @@ public static class SettingsNavigationInfoProvider
             WinoPage.CreateEmailTemplatePage => WinoPage.EmailTemplatesPage,
             WinoPage.CalendarSettingsPage => WinoPage.CalendarPreferenceSettingsPage,
             WinoPage.CalendarAccountSettingsPage => WinoPage.CalendarPreferenceSettingsPage,
-            WinoPage.WinoAccountConsentPage => WinoPage.WinoAccountManagementPage,
             _ => pageType
         };
 

@@ -42,6 +42,7 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
     private readonly IIntelligenceBackend _intelligenceBackend;
     private readonly IContentEnvelopeEncryptor _envelopeEncryptor;
     private readonly IMailContentProjector _contentProjector;
+    private readonly IWinoAccountIntelligenceSnapshotService? _accountSnapshotService;
     private readonly ConcurrentDictionary<Guid, PendingRequest> _requests = new();
     private readonly SemaphoreSlim _accessLock = new(1, 1);
     private readonly Dictionary<(Guid WinoAccountId, Guid LocalAccountId), AccessSnapshot> _accessCache = [];
@@ -61,7 +62,8 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
         IWinoLogger logger,
         IIntelligenceBackend intelligenceBackend,
         IContentEnvelopeEncryptor envelopeEncryptor,
-        IMailContentProjector contentProjector)
+        IMailContentProjector contentProjector,
+        IWinoAccountIntelligenceSnapshotService? accountSnapshotService = null)
     {
         _profileService = profileService;
         _billingService = billingService;
@@ -78,15 +80,16 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
         _intelligenceBackend = intelligenceBackend;
         _envelopeEncryptor = envelopeEncryptor;
         _contentProjector = contentProjector;
+        _accountSnapshotService = accountSnapshotService;
 
         WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this, static (recipient, _) =>
             ((WinoIntelligenceCoordinator)recipient).InvalidateAccess());
         WeakReferenceMessenger.Default.Register<WinoAccountSignedInMessage>(this, static (recipient, _) =>
-            ((WinoIntelligenceCoordinator)recipient).InvalidateAccess());
+            ((WinoIntelligenceCoordinator)recipient).InvalidateAccessAndNotify());
         WeakReferenceMessenger.Default.Register<WinoAccountSignedOutMessage>(this, static (recipient, _) =>
-            ((WinoIntelligenceCoordinator)recipient).InvalidateAccess());
+            ((WinoIntelligenceCoordinator)recipient).InvalidateAccessAndNotify());
         WeakReferenceMessenger.Default.Register<WinoAccountProfileUpdatedMessage>(this, static (recipient, _) =>
-            ((WinoIntelligenceCoordinator)recipient).InvalidateAccess());
+            ((WinoIntelligenceCoordinator)recipient).InvalidateAccessAndNotify());
     }
 
     public async Task<WinoIntelligenceSnapshot> GetSnapshotAsync(
@@ -125,16 +128,16 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
                 access = AccessSnapshot.None;
             }
 
-            if (metadata?.HasVisibleMetadata != true && !access.HasAiPack)
+            if (!access.HasAiPack)
             {
                 return WinoIntelligenceSnapshot.Hidden;
             }
 
             var isSupportedProvider = context.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail or MailProviderType.IMAP4;
-            var candidate = access.HasProcessConsent && isSupportedProvider
+            var candidate = access.HasIntelligenceConsent && isSupportedProvider
                 ? await _messageResolver.FindCandidateAsync(context.LocalAccountId, context.MessageId, cancellationToken).ConfigureAwait(false)
                 : null;
-            var processingAvailable = access.HasProcessConsent &&
+            var processingAvailable = access.HasIntelligenceConsent &&
                                       context.IsSemanticIndexingEnabled &&
                                       candidate is not null &&
                                       isSupportedProvider;
@@ -145,7 +148,7 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
             var language = _translationService.CurrentLanguageModel?.Code ?? "en-US";
             var inference = context.InferenceProjection ??
                             _contentProjector.Project(context.Html, MailContentProjectionProfile.Inference).Projection;
-            var cachedSummary = access.HasTransportConsent
+            var cachedSummary = access.HasIntelligenceConsent
                 ? await _mimeFileService.GetSummaryTextAsync(
                     context.LocalAccountId,
                     context.FileId,
@@ -155,11 +158,11 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
             // The header is the entry point for consent, processing, and on-demand actions. An
             // account that owns the add-on must retain that entry point even before consent or
             // semantic indexing is enabled.
-            var visible = metadata?.HasVisibleMetadata == true || access.HasAiPack;
+            var visible = access.HasAiPack;
             return new WinoIntelligenceSnapshot(
                 visible,
-                access.HasTransportConsent,
-                access.HasTransportConsent,
+                access.HasIntelligenceConsent,
+                access.HasIntelligenceConsent,
                 processingAvailable,
                 processingAvailable,
                 processingAvailable,
@@ -186,7 +189,7 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
     {
         var snapshot = await GetSnapshotAsync(context, cancellationToken).ConfigureAwait(false);
         if (!snapshot.IsProcessingAvailable)
-            throw new InvalidOperationException(WinoAccountApiErrorTranslator.ProcessConsentRequiredCode);
+            throw new InvalidOperationException(WinoAccountApiErrorTranslator.IntelligenceConsentRequiredCode);
         await _semanticIndexCoordinator.IndexMessageAsync(context.LocalAccountId, context.MessageId, cancellationToken).ConfigureAwait(false);
     }
 
@@ -198,7 +201,7 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
         {
             var snapshot = await GetSnapshotAsync(context, token).ConfigureAwait(false);
             if (!snapshot.IsSummaryAvailable)
-                throw new InvalidOperationException(WinoAccountApiErrorTranslator.TransportConsentRequiredCode);
+                throw new InvalidOperationException(WinoAccountApiErrorTranslator.IntelligenceConsentRequiredCode);
             var language = _translationService.CurrentLanguageModel?.Code ?? "en-US";
             var projection = context.InferenceProjection ??
                              _contentProjector.Project(context.Html, MailContentProjectionProfile.Inference).Projection;
@@ -222,7 +225,7 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
         {
             var snapshot = await GetSnapshotAsync(context, token).ConfigureAwait(false);
             if (!snapshot.IsTranslateAvailable)
-                throw new InvalidOperationException(WinoAccountApiErrorTranslator.TransportConsentRequiredCode);
+                throw new InvalidOperationException(WinoAccountApiErrorTranslator.IntelligenceConsentRequiredCode);
             var projection = context.TranslationProjection ??
                              _contentProjector.Project(context.Html, MailContentProjectionProfile.Translation).Projection;
             var cacheKey = CreateTranslationCacheKey(projection, sourceLanguage, targetLanguage);
@@ -252,7 +255,7 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
         {
             var snapshot = await GetSnapshotAsync(context, token).ConfigureAwait(false);
             if (!snapshot.IsSuggestedRepliesAvailable || snapshot.MailboxId is null)
-                throw new InvalidOperationException(WinoAccountApiErrorTranslator.ProcessConsentRequiredCode);
+                throw new InvalidOperationException(WinoAccountApiErrorTranslator.IntelligenceConsentRequiredCode);
             var target = await _messageResolver.FindCandidateAsync(context.LocalAccountId, context.MessageId, token).ConfigureAwait(false)
                 ?? throw new InvalidOperationException("This message is not available for intelligence.");
             var candidates = await _messageResolver.GetCandidatesAsync(context.LocalAccountId, null, token).ConfigureAwait(false);
@@ -289,7 +292,7 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
         {
             var snapshot = await GetSnapshotAsync(context, token).ConfigureAwait(false);
             if (!snapshot.IsFindSimilarAvailable || snapshot.MailboxId is null)
-                throw new InvalidOperationException(WinoAccountApiErrorTranslator.ProcessConsentRequiredCode);
+                throw new InvalidOperationException(WinoAccountApiErrorTranslator.IntelligenceConsentRequiredCode);
             var processor = CreateProcessor();
             var prepared = processor.Prepare(
                 context.Sender,
@@ -388,6 +391,12 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
         _ = _localStore.DeleteAccessSnapshotsAsync();
     }
 
+    private void InvalidateAccessAndNotify()
+    {
+        InvalidateAccess();
+        WeakReferenceMessenger.Default.Send(new WinoIntelligenceAccessChanged());
+    }
+
     public void Dispose()
     {
         WeakReferenceMessenger.Default.UnregisterAll(this);
@@ -401,10 +410,22 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
         var winoAccount = await _profileService.GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false);
         if (winoAccount is null)
             return AccessSnapshot.None;
+        if (_accountSnapshotService is not null)
+        {
+            var accountSnapshot = await _accountSnapshotService.GetCachedAsync(winoAccount.Id, cancellationToken).ConfigureAwait(false);
+            if (accountSnapshot?.Billing?.AiPack.HasAccess == true)
+            {
+                var mailbox = accountSnapshot.Mailboxes.FirstOrDefault(x =>
+                    x.ProviderType == (int)context.ProviderType &&
+                    string.Equals(x.Address.Trim(), context.AccountAddress.Trim(), StringComparison.OrdinalIgnoreCase));
+                var hasConsent = accountSnapshot.Consent is { } consent && IsCurrent(consent);
+                return new(true, hasConsent, mailbox?.MailboxId);
+            }
+        }
         var key = (winoAccount.Id, context.LocalAccountId);
         var persisted = await _localStore.GetAccessSnapshotAsync(context.LocalAccountId, cancellationToken).ConfigureAwait(false);
         if (persisted is not null && persisted.WinoAccountId == winoAccount.Id)
-            return new(persisted.HasAiPack, persisted.HasTransportConsent, persisted.HasProcessConsent, persisted.MailboxId);
+            return new(persisted.HasAiPack, persisted.HasIntelligenceConsent, persisted.MailboxId);
         lock (_accessCache)
         {
             if (_accessCache.TryGetValue(key, out var cached))
@@ -420,25 +441,24 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
                     return cached;
             }
             var billingTask = _billingService.GetStatusAsync(cancellationToken);
-            var transportTask = _apiClient.GetTransportConsentAsync(cancellationToken);
-            var processTask = _apiClient.GetProcessConsentsAsync(cancellationToken);
-            await Task.WhenAll(billingTask, transportTask, processTask).ConfigureAwait(false);
+            var consentTask = _apiClient.GetIntelligenceConsentAsync(cancellationToken);
+            var mailboxesTask = _apiClient.GetSemanticMailboxesAsync(cancellationToken);
+            await Task.WhenAll(billingTask, consentTask, mailboxesTask).ConfigureAwait(false);
             var billing = await billingTask.ConfigureAwait(false);
             if (!billing.IsSuccess || billing.Result?.AiPack.HasAccess != true)
                 return AccessSnapshot.None;
-            var transport = await transportTask.ConfigureAwait(false);
-            var processList = await processTask.ConfigureAwait(false);
-            var process = processList.Mailboxes.FirstOrDefault(x =>
+            var consent = await consentTask.ConfigureAwait(false);
+            var mailbox = (await mailboxesTask.ConfigureAwait(false)).FirstOrDefault(x =>
                 x.ProviderType == (int)context.ProviderType &&
                 string.Equals(x.Address.Trim(), context.AccountAddress.Trim(), StringComparison.OrdinalIgnoreCase));
+            var hasConsent = IsCurrent(consent);
             var result = new AccessSnapshot(
                 true,
-                IsCurrent(transport),
-                IsCurrent(process),
-                process?.MailboxId);
+                hasConsent,
+                mailbox?.MailboxId);
             await _localStore.SaveAccessSnapshotAsync(new(
-                context.LocalAccountId, winoAccount.Id, result.HasAiPack, result.HasTransportConsent,
-                result.HasProcessConsent, result.MailboxId, DateTimeOffset.UtcNow), cancellationToken).ConfigureAwait(false);
+                context.LocalAccountId, winoAccount.Id, result.HasAiPack, result.HasIntelligenceConsent,
+                result.MailboxId, DateTimeOffset.UtcNow), cancellationToken).ConfigureAwait(false);
             lock (_accessCache)
                 _accessCache[key] = result;
             return result;
@@ -543,11 +563,8 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
             deadline.Confidence));
     }
 
-    private static bool IsCurrent(TransportConsentDto consent)
+    private static bool IsCurrent(IntelligenceConsentDto consent)
         => consent.Status == ConsentStatuses.Active && consent.AcceptedPolicyVersion == consent.CurrentPolicyVersion;
-
-    private static bool IsCurrent(MailboxProcessConsentDto? consent)
-        => consent is not null && consent.Status == ConsentStatuses.Active && consent.AcceptedPolicyVersion == consent.CurrentPolicyVersion;
 
     private static DateTimeOffset ToUtc(DateTime value) => value.Kind switch
     {
@@ -557,8 +574,8 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
     };
 
     private sealed record PendingRequest(string ContentKey, CancellationTokenSource Cancellation);
-    private sealed record AccessSnapshot(bool HasAiPack, bool HasTransportConsent, bool HasProcessConsent, Guid? MailboxId)
+    private sealed record AccessSnapshot(bool HasAiPack, bool HasIntelligenceConsent, Guid? MailboxId)
     {
-        public static AccessSnapshot None { get; } = new(false, false, false, null);
+        public static AccessSnapshot None { get; } = new(false, false, null);
     }
 }

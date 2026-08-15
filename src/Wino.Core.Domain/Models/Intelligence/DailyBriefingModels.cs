@@ -7,9 +7,9 @@ using Wino.Mail.AI.Abstractions;
 namespace Wino.Core.Domain.Models.Intelligence;
 
 public sealed record LocalIntelligenceAccessSnapshot(Guid LocalAccountId, Guid WinoAccountId,
-    bool HasAiPack, bool HasTransportConsent, bool HasProcessConsent, Guid? MailboxId, DateTimeOffset UpdatedAtUtc)
+    bool HasAiPack, bool HasIntelligenceConsent, Guid? MailboxId, DateTimeOffset UpdatedAtUtc)
 {
-    public bool IsEligible => HasAiPack && HasTransportConsent && HasProcessConsent && MailboxId is not null;
+    public bool IsEligible => HasAiPack && HasIntelligenceConsent && MailboxId is not null;
 }
 
 public sealed record DailyBriefingAccount(MailAccount Account, Guid MailboxId);

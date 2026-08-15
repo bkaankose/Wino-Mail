@@ -84,6 +84,12 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
             winoAccountEntry.Title = Translator.WinoAccount_SettingsSection_Title;
         }
 
+        var intelligenceEntry = PageHistory.FirstOrDefault(a => a.Request.PageType == WinoPage.WinoIntelligencePage);
+        if (intelligenceEntry != null)
+        {
+            intelligenceEntry.Title = Translator.WinoIntelligence_SettingsTitle;
+        }
+
         _ = RefreshCurrentPageStateAsync();
         UpdateWindowTitle();
     }

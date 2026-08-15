@@ -552,32 +552,26 @@ internal static class Program
         IWinoAccountApiClient apiClient,
         CancellationToken cancellationToken)
     {
-        var consents = await apiClient.GetProcessConsentsAsync(cancellationToken).ConfigureAwait(false);
-        var current = consents.Mailboxes.FirstOrDefault(item =>
-            item.ProviderType == (int)account.ProviderType &&
-            string.Equals(item.Address.Trim(), account.Address.Trim(), StringComparison.OrdinalIgnoreCase));
-        if (current is not null && current.Status == ConsentStatuses.Active &&
-            current.AcceptedPolicyVersion == current.CurrentPolicyVersion)
+        var consent = await apiClient.GetIntelligenceConsentAsync(cancellationToken).ConfigureAwait(false);
+        if (consent.Status == ConsentStatuses.Active &&
+            consent.AcceptedPolicyVersion == consent.CurrentPolicyVersion)
         {
             return true;
         }
 
-        if (!Confirm($"Approve the current mail-processing consent for {account.Address}?"))
+        if (!Confirm("Approve the current account-wide Wino Intelligence consent?"))
             return false;
 
-        var mailbox = await apiClient.EnsureSemanticMailboxAsync(account.Address, (int)account.ProviderType, cancellationToken)
-            .ConfigureAwait(false);
-        var accepted = await apiClient.AcceptProcessConsentAsync(
-            mailbox.MailboxId,
-            consents.CurrentPolicyVersion,
-            ConsentActionSources.IntelligenceEnable,
+        var accepted = await apiClient.AcceptIntelligenceConsentAsync(
+            consent.CurrentPolicyVersion,
+            ConsentActionSources.ConsentPage,
             cancellationToken).ConfigureAwait(false);
         var isCurrent = accepted.Status == ConsentStatuses.Active &&
                         accepted.AcceptedPolicyVersion == accepted.CurrentPolicyVersion;
         if (isCurrent)
-            ConsoleOutput.Success("Process consent approved.");
+            ConsoleOutput.Success("Wino Intelligence consent approved.");
         else
-            ConsoleOutput.Error("The server did not activate process consent.");
+            ConsoleOutput.Error("The server did not activate Wino Intelligence consent.");
         return isCurrent;
     }
 

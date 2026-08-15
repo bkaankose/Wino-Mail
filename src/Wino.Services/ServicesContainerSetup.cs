@@ -47,6 +47,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<IIntelligenceSearchService, IntelligenceSearchService>();
         services.AddSingleton<IWinoAccountProfileService, WinoAccountProfileService>();
         services.AddSingleton<IWinoBillingService, WinoBillingService>();
+        services.AddSingleton<IWinoAccountIntelligenceSnapshotService, WinoAccountIntelligenceSnapshotService>();
         services.AddSingleton<ISemanticIndexJobRegistry, SemanticIndexJobRegistry>();
         services.AddSingleton<IIntelligenceMessageContextResolver, IntelligenceMessageContextResolver>();
         services.AddSingleton<ISemanticIndexCoordinator, SemanticIndexCoordinator>();

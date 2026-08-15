@@ -57,7 +57,7 @@ public sealed class LocalIntelligenceServiceTests
         var store = new Mock<ILocalIntelligenceStore>();
         store.Setup(x => x.GetAccessSnapshotAsync(accountId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new LocalIntelligenceAccessSnapshot(
-                accountId, winoAccountId, true, true, true, mailboxId, DateTimeOffset.UtcNow));
+                accountId, winoAccountId, true, true, mailboxId, DateTimeOffset.UtcNow));
         var expectedRemoteMessageId = RemoteMessageIdentity.TryCreate(
             MailProviderType.Outlook, "message-1", null, 0, 0)!;
         var briefingId = Guid.NewGuid();

@@ -368,12 +368,12 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     private void ShowIntelligenceHeaderImmediately(MailItemViewModel mailItem)
     {
-        // Access is resolved asynchronously. Keep the stable reader surface visible for every
-        // non-draft until the account snapshot says that the add-on is unavailable.
-        var canShow = mailItem?.MailCopy is { IsDraft: false };
-        IntelligenceHeader.Visibility = canShow ? Visibility.Visible : Visibility.Collapsed;
+        // Eligibility is resolved asynchronously. Start collapsed so ineligible accounts never
+        // see an Intelligence header flash while the shared access snapshot is loading.
+        var canLoad = mailItem?.MailCopy is { IsDraft: false };
+        IntelligenceHeader.Visibility = Visibility.Collapsed;
         IntelligenceHeader.IntelligenceTiles = mailItem?.IntelligenceTiles;
-        if (!canShow)
+        if (!canLoad)
             return;
 
         if (mailItem.MailCopy.IntelligenceMetadata is { } metadata)

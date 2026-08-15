@@ -15,6 +15,7 @@ public partial class WinoIntelligenceMailboxItemViewModel : ObservableObject
     public required MailProviderType ProviderType { get; init; }
     public Guid? LocalAccountId { get; init; }
     public bool HasServerIntelligence { get; init; }
+    public bool CanToggle { get; init; }
 
     public string ProviderImage => $"ms-appx:///Assets/Providers/{ProviderType}.png";
     public bool CanManage => LocalAccountId.HasValue;
@@ -29,9 +30,20 @@ public partial class WinoIntelligenceMailboxItemViewModel : ObservableObject
         : null;
     public string ManageAutomationId => $"WinoAccountIntelligenceManage_{MailboxId:N}";
     public string DeleteAutomationId => $"WinoAccountIntelligenceDelete_{MailboxId:N}";
+    public string ToggleAutomationId => $"WinoAccountIntelligenceToggle_{MailboxId:N}";
+    public string? ToggleUnavailableTooltip => CanToggle
+        ? null
+        : Translator.WinoIntelligence_MailboxToggleUnavailable;
     public ICommand? ManageCommand { get; init; }
     public ICommand? DeleteCommand { get; init; }
+    public ICommand? ToggleEnabledCommand { get; init; }
 
     [ObservableProperty]
     public partial bool IsDeleting { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsChangingEnabled { get; set; }
 }

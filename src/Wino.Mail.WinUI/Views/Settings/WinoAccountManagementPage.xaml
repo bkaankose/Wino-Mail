@@ -15,14 +15,7 @@
 
     <Page.Resources>
 
-        <!--  Product marks. These are brand marks rather than symbolic icons, so they carry colour.  -->
-        <LinearGradientBrush x:Key="WinoIntelligenceMarkBrush" StartPoint="0,0" EndPoint="1,1">
-            <GradientStop Offset="0" Color="#075FCC" />
-            <GradientStop Offset="0.38" Color="#58BFFF" />
-            <GradientStop Offset="0.58" Color="#F4FCFF" />
-            <GradientStop Offset="1" Color="#1685EA" />
-        </LinearGradientBrush>
-
+        <!--  Non-Intelligence product mark. Intelligence branding comes from the shared dictionary.  -->
         <LinearGradientBrush x:Key="UnlimitedAccountsMarkBrush" StartPoint="0,0" EndPoint="1,1">
             <GradientStop Offset="0" Color="#FBBF24" />
             <GradientStop Offset="1" Color="#D97706" />
@@ -82,6 +75,15 @@
                 Padding="0,16,24,40"
                 HorizontalAlignment="Stretch"
                 Spacing="4">
+                <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind ViewModel.IsIntelligenceRefreshing, Mode=OneWay}">
+                    <ProgressRing Width="16" Height="16" IsActive="{x:Bind ViewModel.IsIntelligenceRefreshing, Mode=OneWay}" />
+                    <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.WinoIntelligence_Updating, Mode=OneTime}" />
+                </StackPanel>
+                <InfoBar AutomationProperties.AutomationId="WinoAccountCachedRefreshInfoBar" IsClosable="True" IsOpen="{x:Bind ViewModel.HasIntelligenceRefreshError, Mode=OneWay}" Message="{x:Bind ViewModel.IntelligenceRefreshError, Mode=OneWay}" Severity="Warning">
+                    <InfoBar.ActionButton>
+                        <Button AutomationProperties.AutomationId="WinoAccountRetryCachedRefreshButton" Command="{x:Bind ViewModel.RetryIntelligenceRefreshCommand}" Content="{x:Bind domain:Translator.Buttons_Retry, Mode=OneTime}" />
+                    </InfoBar.ActionButton>
+                </InfoBar>
 
                 <!--  ═══════════════  SIGNED OUT  ═══════════════  -->
                 <StackPanel
@@ -229,7 +231,7 @@
                                 <PathIcon
                                     VerticalAlignment="Top"
                                     Data="M 8.5,1.5 L 10.2,6.8 L 15.5,8.5 L 10.2,10.2 L 8.5,15.5 L 6.8,10.2 L 1.5,8.5 L 6.8,6.8 Z M 15.5,10.5 L 16.6,13.9 L 20,15 L 16.6,16.1 L 15.5,19.5 L 14.4,16.1 L 11,15 L 14.4,13.9 Z"
-                                    Foreground="{StaticResource WinoIntelligenceMarkBrush}" />
+                                    Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
                                 <StackPanel Grid.Column="1" Spacing="2">
                                     <StackPanel
                                         Orientation="Horizontal"
@@ -366,7 +368,7 @@
                                     <PathIcon
                                         VerticalAlignment="Center"
                                         Data="M 8.5,1.5 L 10.2,6.8 L 15.5,8.5 L 10.2,10.2 L 8.5,15.5 L 6.8,10.2 L 1.5,8.5 L 6.8,6.8 Z M 15.5,10.5 L 16.6,13.9 L 20,15 L 16.6,16.1 L 15.5,19.5 L 14.4,16.1 L 11,15 L 14.4,13.9 Z"
-                                        Foreground="{StaticResource WinoIntelligenceMarkBrush}" />
+                                        Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
                                     <StackPanel VerticalAlignment="Center">
                                         <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.WinoAddOn_AI_PACK_Name, Mode=OneTime}" />
                                         <TextBlock
@@ -415,13 +417,25 @@
                     </Grid>
 
                     <!--  Wino Intelligence product card  -->
+                    <controls:SettingsCard
+                        AutomationProperties.AutomationId="WinoAccountOpenIntelligenceCard"
+                        Command="{x:Bind ViewModel.OpenIntelligenceManagementCommand}"
+                        Description="{x:Bind ViewModel.AiPackSubtitleText, Mode=OneWay}"
+                        Header="{x:Bind domain:Translator.WinoIntelligence_SettingsTitle, Mode=OneTime}"
+                        IsClickEnabled="True">
+                        <controls:SettingsCard.HeaderIcon>
+                            <PathIcon Data="{StaticResource WinoIntelligenceBrandSparklePathData}" Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
+                        </controls:SettingsCard.HeaderIcon>
+                    </controls:SettingsCard>
+
                     <controls:SettingsExpander
                         AutomationProperties.AutomationId="WinoAccountIntelligenceExpander"
                         Description="{x:Bind ViewModel.AiPackSubtitleText, Mode=OneWay}"
                         Header="{x:Bind domain:Translator.WinoAddOn_AI_PACK_Name, Mode=OneTime}"
-                        IsExpanded="True">
+                        IsExpanded="False"
+                        Visibility="Collapsed">
                         <controls:SettingsExpander.HeaderIcon>
-                            <PathIcon Data="M 8.5,1.5 L 10.2,6.8 L 15.5,8.5 L 10.2,10.2 L 8.5,15.5 L 6.8,10.2 L 1.5,8.5 L 6.8,6.8 Z M 15.5,10.5 L 16.6,13.9 L 20,15 L 16.6,16.1 L 15.5,19.5 L 14.4,16.1 L 11,15 L 14.4,13.9 Z" Foreground="{StaticResource WinoIntelligenceMarkBrush}" />
+                            <PathIcon Data="{StaticResource WinoIntelligenceBrandSparklePathData}" Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
                         </controls:SettingsExpander.HeaderIcon>
 
                         <StackPanel Orientation="Horizontal" Spacing="8">
@@ -648,7 +662,7 @@
                                 </controls:SettingsCard.HeaderIcon>
                                 <Button
                                     AutomationProperties.AutomationId="WinoAccountOpenConsentManagementButton"
-                                    Command="{x:Bind ViewModel.OpenConsentManagementCommand}"
+                                    Command="{x:Bind ViewModel.OpenIntelligenceManagementCommand}"
                                     Content="{x:Bind domain:Translator.Buttons_Manage, Mode=OneTime}" />
                             </controls:SettingsCard>
                         </controls:SettingsExpander.Items>

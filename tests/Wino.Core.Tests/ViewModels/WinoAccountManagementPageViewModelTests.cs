@@ -90,7 +90,8 @@ public sealed class WinoAccountManagementPageViewModelTests
             Id = localAccountId,
             Address = "local@example.com",
             Name = "Local",
-            ProviderType = MailProviderType.Outlook
+            ProviderType = MailProviderType.Outlook,
+            Preferences = new MailAccountPreferences { IsSemanticIndexingEnabled = true }
         };
         var localMailboxId = Guid.NewGuid();
         var remoteMailboxId = Guid.NewGuid();
@@ -106,6 +107,9 @@ public sealed class WinoAccountManagementPageViewModelTests
                 new AiPackBillingStatusDto("active", true, null, null, null, false))));
 
         var apiClient = new Mock<IWinoAccountApiClient>();
+        apiClient.Setup(x => x.GetIntelligenceConsentAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
+            new IntelligenceConsentDto(ConsentStatuses.Active, "intelligence-v1", "intelligence-v1",
+                DateTimeOffset.UtcNow, null, "https://www.winomail.app/privacy", IntelligenceDeletionStatuses.NotRequired));
         apiClient.Setup(x => x.GetAiUsageAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
             ApiEnvelope<AiUsageStatusDto>.Success(new AiUsageStatusDto
             {
@@ -126,6 +130,8 @@ public sealed class WinoAccountManagementPageViewModelTests
 
         var accountService = new Mock<IAccountService>();
         accountService.Setup(x => x.GetAccountsAsync()).ReturnsAsync([localAccount]);
+        accountService.Setup(x => x.GetAccountAsync(localAccountId)).ReturnsAsync(localAccount);
+        var coordinator = new Mock<ISemanticIndexCoordinator>();
         var viewModel = new WinoAccountManagementPageViewModel(
             profileService.Object,
             Mock.Of<IWinoAccountDataSyncService>(),
@@ -133,7 +139,7 @@ public sealed class WinoAccountManagementPageViewModelTests
             billingService.Object,
             apiClient.Object,
             accountService.Object,
-            Mock.Of<ISemanticIndexCoordinator>());
+            coordinator.Object);
 
         viewModel.OnNavigatedTo(NavigationMode.New, null!);
 
@@ -145,101 +151,67 @@ public sealed class WinoAccountManagementPageViewModelTests
         viewModel.IntelligenceMailboxes.Single(x => x.Address == "remote@example.com").CanManage.Should().BeFalse();
         apiClient.Verify(x => x.GetIntelligenceStatusAsync(localMailboxId, It.IsAny<CancellationToken>()), Times.Once);
         apiClient.Verify(x => x.GetIntelligenceStatusAsync(remoteMailboxId, It.IsAny<CancellationToken>()), Times.Once);
-    }
 
-    [Fact]
-    public async Task ConsentPage_MergesLocalAndServerMailboxes_ByAddressAndProvider()
-    {
-        var localAccount = new MailAccount
-        {
-            Id = Guid.NewGuid(),
-            Address = "same@example.com",
-            Name = "Local",
-            ProviderType = MailProviderType.Outlook,
-        };
-        var serverMailboxId = Guid.NewGuid();
-        var apiClient = new Mock<IWinoAccountApiClient>();
-        apiClient.Setup(x => x.GetTransportConsentAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
-            new TransportConsentDto(ConsentStatuses.NotAccepted, "transport-v1", null, null, null, "https://www.winomail.app/privacy"));
-        apiClient.Setup(x => x.GetProcessConsentsAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
-            new ProcessConsentListDto("process-v1", "https://www.winomail.app/privacy",
-            [
-                new MailboxProcessConsentDto(serverMailboxId, "same@example.com", (int)MailProviderType.Outlook,
-                    ConsentStatuses.Active, "process-v1", "process-v1", DateTimeOffset.UtcNow, null, null, "https://www.winomail.app/privacy"),
-                new MailboxProcessConsentDto(Guid.NewGuid(), "same@example.com", (int)MailProviderType.Gmail,
-                    ConsentStatuses.NotAccepted, "process-v1", null, null, null, null, "https://www.winomail.app/privacy"),
-            ]));
-        var accountService = new Mock<IAccountService>();
-        accountService.Setup(x => x.GetAccountsAsync()).ReturnsAsync([localAccount]);
-        var viewModel = new WinoAccountConsentPageViewModel(apiClient.Object, accountService.Object, Mock.Of<ISemanticIndexCoordinator>());
+        var localItem = viewModel.IntelligenceMailboxes.Single(x => x.Address == localAccount.Address);
+        await viewModel.ToggleIntelligenceMailboxCommand.ExecuteAsync(localItem);
 
-        viewModel.OnNavigatedTo(NavigationMode.New, null!);
-        await WaitUntilAsync(() => viewModel.Mailboxes.Count == 2);
-
-        var outlook = viewModel.Mailboxes.Single(x => x.ProviderType == MailProviderType.Outlook);
-        outlook.LocalAccountId.Should().Be(localAccount.Id);
-        outlook.MailboxId.Should().Be(serverMailboxId);
-        outlook.IsProcessConsentGranted.Should().BeTrue();
-        viewModel.Mailboxes.Single(x => x.ProviderType == MailProviderType.Gmail).LocalAccountId.Should().BeNull();
-    }
-
-    [Fact]
-    public async Task ConsentPage_TransportConsent_IsAccountWide()
-    {
-        const string policyVersion = "transport-v1";
-        var apiClient = new Mock<IWinoAccountApiClient>();
-        apiClient.Setup(x => x.GetTransportConsentAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
-            new TransportConsentDto(ConsentStatuses.NotAccepted, policyVersion, null, null, null, "https://www.winomail.app/privacy"));
-        apiClient.Setup(x => x.GetProcessConsentsAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
-            new ProcessConsentListDto("process-v1", "https://www.winomail.app/privacy", []));
-        apiClient.Setup(x => x.AcceptTransportConsentAsync(policyVersion, ConsentActionSources.ConsentPage, It.IsAny<CancellationToken>())).ReturnsAsync(
-            new TransportConsentDto(ConsentStatuses.Active, policyVersion, policyVersion, DateTimeOffset.UtcNow, null, "https://www.winomail.app/privacy"));
-        var accountService = new Mock<IAccountService>();
-        accountService.Setup(x => x.GetAccountsAsync()).ReturnsAsync([]);
-        var viewModel = new WinoAccountConsentPageViewModel(apiClient.Object, accountService.Object, Mock.Of<ISemanticIndexCoordinator>());
-        await viewModel.LoadAsync();
-
-        (await viewModel.SetTransportConsentAsync(true)).Should().BeTrue();
-
-        viewModel.IsTransportConsentGranted.Should().BeTrue();
-        apiClient.Verify(x => x.AcceptTransportConsentAsync(policyVersion, ConsentActionSources.ConsentPage, It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
-    public async Task ConsentPage_ProcessRevocation_DeletesLocalDataAndDisablesIndexing()
-    {
-        var mailboxId = Guid.NewGuid();
-        var localAccount = new MailAccount
-        {
-            Id = Guid.NewGuid(),
-            Address = "mail@example.com",
-            Name = "Mail",
-            ProviderType = MailProviderType.IMAP4,
-            Preferences = new MailAccountPreferences { IsSemanticIndexingEnabled = true },
-        };
-        var consent = new MailboxProcessConsentDto(mailboxId, localAccount.Address, (int)localAccount.ProviderType,
-            ConsentStatuses.Active, "process-v1", "process-v1", DateTimeOffset.UtcNow, null, null, "https://www.winomail.app/privacy");
-        var apiClient = new Mock<IWinoAccountApiClient>();
-        apiClient.Setup(x => x.GetTransportConsentAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
-            new TransportConsentDto(ConsentStatuses.Active, "transport-v1", "transport-v1", DateTimeOffset.UtcNow, null, "https://www.winomail.app/privacy"));
-        apiClient.Setup(x => x.GetProcessConsentsAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
-            new ProcessConsentListDto("process-v1", "https://www.winomail.app/privacy", [consent]));
-        apiClient.Setup(x => x.RevokeProcessConsentAsync(mailboxId, ConsentActionSources.ConsentPage, It.IsAny<CancellationToken>())).ReturnsAsync(
-            consent with { Status = ConsentStatuses.Revoked, RevokedAtUtc = DateTimeOffset.UtcNow, DeletionStatus = "completed" });
-        var accountService = new Mock<IAccountService>();
-        accountService.Setup(x => x.GetAccountsAsync()).ReturnsAsync([localAccount]);
-        accountService.Setup(x => x.GetAccountAsync(localAccount.Id)).ReturnsAsync(localAccount);
-        var coordinator = new Mock<ISemanticIndexCoordinator>();
-        var viewModel = new WinoAccountConsentPageViewModel(apiClient.Object, accountService.Object, coordinator.Object);
-        await viewModel.LoadAsync();
-        var item = viewModel.Mailboxes.Single();
-
-        (await viewModel.SetProcessConsentAsync(item, false)).Should().BeFalse();
-
-        item.IsProcessConsentGranted.Should().BeFalse();
+        coordinator.Verify(x => x.DeleteIndexAsync(localAccountId, It.IsAny<CancellationToken>()), Times.Once);
+        coordinator.Verify(x => x.DeleteLocalIndexAsync(localAccountId, It.IsAny<CancellationToken>()), Times.Never);
         localAccount.Preferences.IsSemanticIndexingEnabled.Should().BeFalse();
-        coordinator.Verify(x => x.DeleteLocalIndexAsync(localAccount.Id, It.IsAny<CancellationToken>()), Times.Once);
-        accountService.Verify(x => x.UpdateAccountAsync(localAccount), Times.Once);
+    }
+
+    [Fact]
+    public async Task IntelligencePage_AcceptsOneAccountWideConsent()
+    {
+        const string policyVersion = "intelligence-v1";
+        var apiClient = new Mock<IWinoAccountApiClient>();
+        var notAccepted = new IntelligenceConsentDto(ConsentStatuses.NotAccepted, policyVersion, null, null, null,
+            "https://www.winomail.app/privacy", IntelligenceDeletionStatuses.NotRequired);
+        var accepted = new IntelligenceConsentDto(ConsentStatuses.Active, policyVersion, policyVersion, DateTimeOffset.UtcNow, null,
+            "https://www.winomail.app/privacy", IntelligenceDeletionStatuses.NotRequired);
+        apiClient.SetupSequence(x => x.GetIntelligenceConsentAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(notAccepted)
+            .ReturnsAsync(accepted);
+        apiClient.Setup(x => x.AcceptIntelligenceConsentAsync(policyVersion, ConsentActionSources.ConsentPage, It.IsAny<CancellationToken>())).ReturnsAsync(
+            accepted);
+        var viewModel = CreateConsentViewModel(apiClient, Mock.Of<IAccountService>(), Mock.Of<ISemanticIndexCoordinator>());
+        viewModel.OnNavigatedTo(NavigationMode.New, null!);
+        await WaitUntilAsync(() => viewModel.ConsentPolicyUri != null);
+
+        (await viewModel.SetIntelligenceConsentAsync(true)).Should().BeTrue();
+
+        viewModel.IsConsentGranted.Should().BeTrue();
+        apiClient.Verify(x => x.AcceptIntelligenceConsentAsync(
+            policyVersion, ConsentActionSources.ConsentPage, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task IntelligencePage_RevocationClearsAndDisablesEveryLocalMailbox()
+    {
+        var accounts = new[]
+        {
+            new MailAccount { Id = Guid.NewGuid(), Address = "one@example.com", Preferences = new MailAccountPreferences { IsSemanticIndexingEnabled = true } },
+            new MailAccount { Id = Guid.NewGuid(), Address = "two@example.com", Preferences = new MailAccountPreferences { IsSemanticIndexingEnabled = true } },
+        };
+        var active = new IntelligenceConsentDto(ConsentStatuses.Active, "intelligence-v1", "intelligence-v1",
+            DateTimeOffset.UtcNow, null, "https://www.winomail.app/privacy", IntelligenceDeletionStatuses.NotRequired);
+        var apiClient = new Mock<IWinoAccountApiClient>();
+        apiClient.Setup(x => x.GetIntelligenceConsentAsync(It.IsAny<CancellationToken>())).ReturnsAsync(active);
+        apiClient.Setup(x => x.RevokeIntelligenceConsentAsync(ConsentActionSources.ConsentPage, It.IsAny<CancellationToken>())).ReturnsAsync(
+            active with { Status = ConsentStatuses.Revoked, RevokedAtUtc = DateTimeOffset.UtcNow, DataDeletionStatus = IntelligenceDeletionStatuses.Completed });
+        var accountService = new Mock<IAccountService>();
+        accountService.Setup(x => x.GetAccountsAsync()).ReturnsAsync(accounts.ToList());
+        var coordinator = new Mock<ISemanticIndexCoordinator>();
+        var viewModel = CreateConsentViewModel(apiClient, accountService.Object, coordinator.Object);
+        viewModel.OnNavigatedTo(NavigationMode.New, null!);
+        await WaitUntilAsync(() => viewModel.IsConsentGranted);
+
+        (await viewModel.SetIntelligenceConsentAsync(false)).Should().BeFalse();
+
+        accounts.Should().OnlyContain(x => !x.Preferences.IsSemanticIndexingEnabled);
+        foreach (var account in accounts)
+            coordinator.Verify(x => x.DeleteLocalIndexAsync(account.Id, It.IsAny<CancellationToken>()), Times.Once);
+        accountService.Verify(x => x.UpdateAccountAsync(It.IsAny<MailAccount>()), Times.Exactly(2));
     }
 
     [Fact]
@@ -351,6 +323,39 @@ public sealed class WinoAccountManagementPageViewModelTests
             apiClient.Object,
             accountService.Object,
             Mock.Of<ISemanticIndexCoordinator>());
+    }
+
+    private static WinoAccountManagementPageViewModel CreateConsentViewModel(
+        Mock<IWinoAccountApiClient> apiClient,
+        IAccountService accountService,
+        ISemanticIndexCoordinator coordinator)
+    {
+        var account = new WinoAccount
+        {
+            Id = Guid.NewGuid(),
+            Email = "consent@example.com",
+            AccessToken = "access-token",
+            AccessTokenExpiresAtUtc = DateTime.UtcNow.AddHours(1)
+        };
+        var profileService = new Mock<IWinoAccountProfileService>();
+        profileService.Setup(x => x.GetActiveAccountAsync()).ReturnsAsync(account);
+        profileService.Setup(x => x.GetAuthenticatedAccountAsync(It.IsAny<CancellationToken>())).ReturnsAsync(account);
+        var billingService = new Mock<IWinoBillingService>();
+        billingService.Setup(x => x.HasUnlimitedAccountsAsync(It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        billingService.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
+            ApiEnvelope<BillingStatusResultDto>.Success(new BillingStatusResultDto(
+                false,
+                new AiPackBillingStatusDto("active", true, null, null, null, false))));
+        apiClient.Setup(x => x.GetSemanticMailboxesAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
+
+        return new WinoAccountManagementPageViewModel(
+            profileService.Object,
+            Mock.Of<IWinoAccountDataSyncService>(),
+            Mock.Of<IMailDialogService>(),
+            billingService.Object,
+            apiClient.Object,
+            accountService,
+            coordinator);
     }
 
     private static IntelligenceMailboxStatusDto CreateIntelligenceStatus(Guid mailboxId, long size)

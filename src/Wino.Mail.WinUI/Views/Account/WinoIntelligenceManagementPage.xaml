@@ -11,19 +11,31 @@
     xmlns:intelligenceProgress="using:Wino.Mail.Controls.IntelligenceProgressRing"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     x:Name="PageRoot"
-    Unloaded="PageRoot_Unloaded"
     mc:Ignorable="d">
 
     <Page.Resources>
         <DataTemplate x:Key="RangeBucketTemplate" x:DataType="data:SemanticIndexRangeBucketViewModel">
             <Grid Width="{x:Bind BarWidth}" Height="64">
-                <Border
-                    Height="{x:Bind BarHeight}"
+                <StackPanel
                     Margin="0,0,1.5,0"
                     VerticalAlignment="Bottom"
-                    Background="{x:Bind helpers:XamlHelpers.IntelligenceBucketBrush(Coverage), Mode=OneWay}"
-                    CornerRadius="1.5"
-                    ToolTipService.ToolTip="{x:Bind Tooltip}" />
+                    AutomationProperties.Name="{x:Bind Tooltip}"
+                    Opacity="{x:Bind SelectionOpacity, Mode=OneWay}"
+                    ToolTipService.ToolTip="{x:Bind Tooltip}">
+                    <Border
+                        Height="{x:Bind CloudOnlyHeight}"
+                        Background="{ThemeResource WinoIntelligenceCoverageCloudOnlyBrush}"
+                        CornerRadius="1.5,1.5,0,0" />
+                    <Border Height="{x:Bind LocalOnlyHeight}" Background="{ThemeResource WinoIntelligenceCoverageLocalOnlyBrush}" />
+                    <Border
+                        Height="{x:Bind LocalAndCloudHeight}"
+                        Background="{ThemeResource WinoIntelligenceCoverageLocalAndCloudBrush}"
+                        CornerRadius="0,0,1.5,1.5" />
+                    <Border
+                        Height="{x:Bind EmptyHeight}"
+                        Background="{ThemeResource WinoIntelligenceCoverageEmptyBrush}"
+                        CornerRadius="1.5" />
+                </StackPanel>
             </Grid>
         </DataTemplate>
     </Page.Resources>
@@ -63,8 +75,8 @@
                                 <PathIcon
                                     Width="22"
                                     Height="22"
-                                    Data="{StaticResource AiSparklePathIcon}"
-                                    Foreground="{StaticResource WinoIntelligenceIconBrush}" />
+                                    Data="{StaticResource WinoIntelligenceBrandSparklePathData}"
+                                    Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
                             </Border>
 
                             <StackPanel
@@ -155,6 +167,20 @@
 
                 <!--  Alerts. Only what the hero cannot say on its own.  -->
                 <StackPanel Margin="0,14,0,0" Spacing="8">
+                    <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind ViewModel.IsRemoteRefreshInProgress, Mode=OneWay}">
+                        <ProgressRing Width="16" Height="16" IsActive="{x:Bind ViewModel.IsRemoteRefreshInProgress, Mode=OneWay}" />
+                        <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.WinoIntelligence_Updating, Mode=OneTime}" />
+                    </StackPanel>
+                    <InfoBar
+                        AutomationProperties.AutomationId="WinoIntelligenceCachedRefreshInfoBar"
+                        IsClosable="True"
+                        IsOpen="{x:Bind ViewModel.HasRemoteRefreshError, Mode=OneWay}"
+                        Message="{x:Bind ViewModel.RemoteRefreshError, Mode=OneWay}"
+                        Severity="Warning">
+                        <InfoBar.ActionButton>
+                            <Button AutomationProperties.AutomationId="WinoIntelligenceManagementRetryCachedRefreshButton" Command="{x:Bind ViewModel.RetryRemoteRefreshCommand}" Content="{x:Bind domain:Translator.Buttons_Retry, Mode=OneTime}" />
+                        </InfoBar.ActionButton>
+                    </InfoBar>
                     <InfoBar
                         Title="{x:Bind ViewModel.StatusInfoBarTitle, Mode=OneWay}"
                         AutomationProperties.AutomationId="WinoIntelligenceStatusInfoBar"
@@ -165,7 +191,7 @@
                         <InfoBar.ActionButton>
                             <Button
                                 AutomationProperties.AutomationId="WinoIntelligenceReviewPrivacyPolicyButton"
-                                Click="ReviewPrivacyPolicyButton_Click"
+                                Command="{x:Bind ViewModel.OpenIntelligenceSettingsCommand}"
                                 Content="{x:Bind domain:Translator.Intelligence_ReviewPrivacyPolicyButton, Mode=OneTime}"
                                 Visibility="{x:Bind ViewModel.IsConsentActionVisible, Mode=OneWay}" />
                         </InfoBar.ActionButton>
@@ -201,7 +227,7 @@
                             Description="{x:Bind domain:Translator.SemanticIndex_Description, Mode=OneTime}"
                             Header="{x:Bind domain:Translator.SemanticIndex_EnableTitle, Mode=OneTime}">
                             <controls:SettingsCard.HeaderIcon>
-                                <PathIcon Data="{StaticResource AiSparklePathIcon}" Foreground="{StaticResource WinoIntelligenceIconBrush}" />
+                                <PathIcon Data="{StaticResource WinoIntelligenceBrandSparklePathData}" Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
                             </controls:SettingsCard.HeaderIcon>
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <ProgressRing
@@ -330,6 +356,48 @@
                                                 <StackLayout Orientation="Horizontal" Spacing="0" />
                                             </ItemsRepeater.Layout>
                                         </ItemsRepeater>
+
+                                        <controls:WrapPanel
+                                            Margin="0,8,0,4"
+                                            HorizontalSpacing="16"
+                                            VerticalSpacing="6">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <Rectangle
+                                                    Width="10"
+                                                    Height="10"
+                                                    Fill="{ThemeResource WinoIntelligenceCoverageLocalAndCloudBrush}"
+                                                    RadiusX="2"
+                                                    RadiusY="2" />
+                                                <TextBlock Style="{ThemeResource CaptionTextBlockStyle}" Text="{x:Bind domain:Translator.SemanticIndex_CoverageLocalAndCloud, Mode=OneTime}" />
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <Rectangle
+                                                    Width="10"
+                                                    Height="10"
+                                                    Fill="{ThemeResource WinoIntelligenceCoverageLocalOnlyBrush}"
+                                                    RadiusX="2"
+                                                    RadiusY="2" />
+                                                <TextBlock Style="{ThemeResource CaptionTextBlockStyle}" Text="{x:Bind domain:Translator.SemanticIndex_CoverageLocalOnly, Mode=OneTime}" />
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <Rectangle
+                                                    Width="10"
+                                                    Height="10"
+                                                    Fill="{ThemeResource WinoIntelligenceCoverageCloudOnlyBrush}"
+                                                    RadiusX="2"
+                                                    RadiusY="2" />
+                                                <TextBlock Style="{ThemeResource CaptionTextBlockStyle}" Text="{x:Bind domain:Translator.SemanticIndex_CoverageCloudOnly, Mode=OneTime}" />
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <Rectangle
+                                                    Width="10"
+                                                    Height="10"
+                                                    Fill="{ThemeResource WinoIntelligenceCoverageEmptyBrush}"
+                                                    RadiusX="2"
+                                                    RadiusY="2" />
+                                                <TextBlock Style="{ThemeResource CaptionTextBlockStyle}" Text="{x:Bind domain:Translator.SemanticIndex_CoverageEmpty, Mode=OneTime}" />
+                                            </StackPanel>
+                                        </controls:WrapPanel>
 
                                         <controls:RangeSelector
                                             Width="560"
@@ -489,6 +557,19 @@
                             </controls:SettingsCard.HeaderIcon>
                         </controls:SettingsCard>
 
+                        <controls:SettingsCard
+                            AutomationProperties.AutomationId="WinoIntelligenceDownloadCard"
+                            Description="{x:Bind domain:Translator.SemanticIndex_DownloadDescription, Mode=OneTime}"
+                            Header="{x:Bind domain:Translator.SemanticIndex_DownloadTitle, Mode=OneTime}">
+                            <controls:SettingsCard.HeaderIcon>
+                                <FontIcon Glyph="&#xE896;" />
+                            </controls:SettingsCard.HeaderIcon>
+                            <Button
+                                AutomationProperties.AutomationId="WinoIntelligenceDownloadButton"
+                                Command="{x:Bind ViewModel.DownloadAvailableIntelligenceCommand}"
+                                Content="{x:Bind domain:Translator.SemanticIndex_CloudDownloadButton, Mode=OneTime}" />
+                        </controls:SettingsCard>
+
                         <TextBlock
                             Margin="16,4,16,8"
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -544,49 +625,5 @@
             </StackPanel>
         </ScrollViewer>
 
-        <ContentDialog
-            x:Name="ProcessConsentPolicyDialog"
-            Title="{x:Bind domain:Translator.WinoAccount_ProcessConsentPolicyTitle, Mode=OneTime}"
-            MaxWidth="720"
-            AutomationProperties.AutomationId="WinoIntelligenceProcessConsentPolicyDialog"
-            CloseButtonText="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}"
-            DefaultButton="Primary"
-            PrimaryButtonClick="ProcessConsentPolicyDialog_PrimaryButtonClick"
-            PrimaryButtonText="{x:Bind domain:Translator.Intelligence_AcceptPrivacyPolicyButton, Mode=OneTime}">
-            <Grid
-                Width="640"
-                Height="520"
-                MaxWidth="640"
-                RowSpacing="12">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-                <TextBlock Text="{x:Bind ViewModel.ProcessConsentNotice, Mode=OneWay}" TextWrapping="WrapWholeWords" />
-                <WebView2
-                    x:Name="ProcessConsentPolicyWebView"
-                    Grid.Row="1"
-                    AutomationProperties.AutomationId="WinoIntelligenceProcessConsentPolicyWebView" />
-                <CheckBox
-                    x:Name="ProcessConsentAcknowledgementCheckBox"
-                    Grid.Row="2"
-                    AutomationProperties.AutomationId="WinoIntelligenceProcessConsentAcknowledgementCheckBox"
-                    Checked="ProcessConsentAcknowledgementCheckBox_Changed"
-                    Unchecked="ProcessConsentAcknowledgementCheckBox_Changed">
-                    <TextBlock
-                        MaxWidth="590"
-                        Text="{x:Bind domain:Translator.Intelligence_PrivacyPolicyAcknowledgement, Mode=OneTime}"
-                        TextWrapping="WrapWholeWords" />
-                </CheckBox>
-                <TextBlock
-                    x:Name="ProcessConsentPolicyErrorText"
-                    Grid.Row="3"
-                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                    TextWrapping="WrapWholeWords"
-                    Visibility="Collapsed" />
-            </Grid>
-        </ContentDialog>
     </Grid>
 </abstract:WinoIntelligenceManagementPageAbstract>

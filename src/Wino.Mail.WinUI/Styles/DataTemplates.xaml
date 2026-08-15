@@ -81,7 +81,17 @@
             DataContext="{x:Bind}">
             <muxc:NavigationViewItem.Icon>
                 <BitmapIcon ShowAsMonochrome="False" UriSource="/Assets/Wino_Icon.ico" />
-                <!--<FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="{x:Bind Glyph}" />-->
+            </muxc:NavigationViewItem.Icon>
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
+    <DataTemplate x:Key="SettingsShellWinoIntelligenceItemTemplate" x:DataType="menu:SettingsShellPageMenuItem">
+        <coreControls:WinoNavigationViewItem
+            AutomationProperties.AutomationId="DataTemplatesWinoNavigationViewItem6"
+            Content="{x:Bind Title}"
+            DataContext="{x:Bind}">
+            <muxc:NavigationViewItem.Icon>
+                <PathIcon Data="{StaticResource WinoIntelligenceBrandSparklePathData}" Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
             </muxc:NavigationViewItem.Icon>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>

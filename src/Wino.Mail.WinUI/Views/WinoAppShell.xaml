@@ -582,7 +582,8 @@
             SeperatorTemplate="{StaticResource SeperatorTemplate}"
             SettingsShellPageItemTemplate="{StaticResource SettingsShellPageItemTemplate}"
             SettingsShellSectionItemTemplate="{StaticResource SettingsShellSectionItemTemplate}"
-            WinoAccountSettingsShellPageItemTemplate="{StaticResource SettingsShellWinoAccountItemTemplate}" />
+            WinoAccountSettingsShellPageItemTemplate="{StaticResource SettingsShellWinoAccountItemTemplate}"
+            WinoIntelligenceSettingsShellPageItemTemplate="{StaticResource SettingsShellWinoIntelligenceItemTemplate}" />
 
     </Page.Resources>
 

@@ -50,7 +50,7 @@ public static class WinoAccountAiErrorTranslator
     }
 
     public static bool IsTransportConsentRequired(string? errorCode, string? errorMessage)
-        => errorCode is WinoAccountApiErrorTranslator.TransportConsentRequiredCode or WinoAccountApiErrorTranslator.TransportConsentVersionOutdatedCode ||
-           errorMessage is WinoAccountApiErrorTranslator.TransportConsentRequiredCode or WinoAccountApiErrorTranslator.TransportConsentVersionOutdatedCode ||
+        => errorCode is WinoAccountApiErrorTranslator.IntelligenceConsentRequiredCode or WinoAccountApiErrorTranslator.IntelligenceConsentVersionOutdatedCode ||
+           errorMessage is WinoAccountApiErrorTranslator.IntelligenceConsentRequiredCode or WinoAccountApiErrorTranslator.IntelligenceConsentVersionOutdatedCode ||
            string.Equals(errorMessage, Translator.WinoAccount_TransportConsentRequired, System.StringComparison.Ordinal);
 }

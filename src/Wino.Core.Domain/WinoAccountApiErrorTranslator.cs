@@ -8,10 +8,8 @@ namespace Wino.Core.Domain;
 /// </summary>
 public static class WinoAccountApiErrorTranslator
 {
-    public const string TransportConsentRequiredCode = "TRANSPORT_CONSENT_REQUIRED";
-    public const string TransportConsentVersionOutdatedCode = "TRANSPORT_CONSENT_VERSION_OUTDATED";
-    public const string ProcessConsentRequiredCode = "PROCESS_CONSENT_REQUIRED";
-    public const string ProcessConsentVersionOutdatedCode = "PROCESS_CONSENT_VERSION_OUTDATED";
+    public const string IntelligenceConsentRequiredCode = "INTELLIGENCE_CONSENT_REQUIRED";
+    public const string IntelligenceConsentVersionOutdatedCode = "INTELLIGENCE_CONSENT_VERSION_OUTDATED";
     public const string IntelligenceDeletionPendingCode = "INTELLIGENCE_DELETION_PENDING";
     public const string IntelligenceDeletionFailedCode = "INTELLIGENCE_DELETION_FAILED";
 
@@ -63,8 +61,7 @@ public static class WinoAccountApiErrorTranslator
             ApiErrorCodes.IntelligenceEnvelopeInvalid => Translator.WinoAccount_Error_IntelligenceEnvelopeInvalid,
             ApiErrorCodes.IntelligenceProfileInvalid => Translator.WinoAccount_Error_IntelligenceProfileInvalid,
             ApiErrorCodes.IntelligenceRequestConflict => Translator.WinoAccount_Error_IntelligenceRequestConflict,
-            TransportConsentRequiredCode or TransportConsentVersionOutdatedCode => Translator.WinoAccount_TransportConsentRequired,
-            ProcessConsentRequiredCode or ProcessConsentVersionOutdatedCode => Translator.WinoAccount_ProcessConsentRequired,
+            IntelligenceConsentRequiredCode or IntelligenceConsentVersionOutdatedCode => Translator.WinoAccount_TransportConsentRequired,
             IntelligenceDeletionPendingCode => Translator.WinoAccount_IntelligenceDeletionPending,
             IntelligenceDeletionFailedCode => Translator.WinoAccount_IntelligenceDeletionFailed,
             ApiErrorCodes.EmailConfigurationInvalid => Translator.WinoAccount_Error_EmailConfigurationInvalid,

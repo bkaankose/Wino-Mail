@@ -1,0 +1,283 @@
+<abstract:WinoIntelligencePageAbstract
+    x:Class="Wino.Views.Settings.WinoIntelligencePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewModelData="using:Wino.Core.ViewModels.Data"
+    x:Name="Root"
+    Title="{x:Bind domain:Translator.WinoIntelligence_SettingsTitle, Mode=OneTime}"
+    Unloaded="Root_Unloaded"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <DataTemplate x:Key="IntelligenceMailboxTemplate" x:DataType="viewModelData:WinoIntelligenceMailboxItemViewModel">
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="{x:Bind ManageAutomationId}"
+                Description="{x:Bind IntelligenceSummary}"
+                Header="{x:Bind Address}">
+                <controls:SettingsCard.HeaderIcon>
+                    <ImageIcon
+                        Width="22"
+                        Height="22"
+                        Source="{x:Bind ProviderImage}" />
+                </controls:SettingsCard.HeaderIcon>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <ProgressRing
+                        Width="18"
+                        Height="18"
+                        IsActive="{x:Bind IsChangingEnabled, Mode=OneWay}"
+                        Visibility="{x:Bind IsChangingEnabled, Mode=OneWay}" />
+                    <CheckBox
+                        AutomationProperties.AutomationId="{x:Bind ToggleAutomationId}"
+                        AutomationProperties.Name="{x:Bind domain:Translator.WinoIntelligence_EnableMailbox, Mode=OneTime}"
+                        Command="{x:Bind ToggleEnabledCommand}"
+                        CommandParameter="{x:Bind}"
+                        Content="{x:Bind domain:Translator.WinoIntelligence_MailboxEnabled, Mode=OneTime}"
+                        IsChecked="{x:Bind IsEnabled, Mode=OneWay}"
+                        IsEnabled="{x:Bind CanToggle, Mode=OneWay}"
+                        ToolTipService.ToolTip="{x:Bind ToggleUnavailableTooltip}"
+                        Visibility="{x:Bind CanManage, Mode=OneWay}" />
+                    <Button
+                        AutomationProperties.AutomationId="{x:Bind ManageAutomationId}"
+                        Command="{x:Bind ManageCommand}"
+                        CommandParameter="{x:Bind}"
+                        Content="{x:Bind domain:Translator.Buttons_Manage, Mode=OneTime}"
+                        IsEnabled="{x:Bind CanManage, Mode=OneWay}"
+                        ToolTipService.ToolTip="{x:Bind ManageUnavailableTooltip}" />
+                    <Button
+                        AutomationProperties.AutomationId="{x:Bind DeleteAutomationId}"
+                        Command="{x:Bind DeleteCommand}"
+                        CommandParameter="{x:Bind}"
+                        Content="{x:Bind domain:Translator.Buttons_Delete, Mode=OneTime}"
+                        Visibility="{x:Bind HasServerIntelligence, Mode=OneWay}" />
+                </StackPanel>
+            </controls:SettingsCard>
+        </DataTemplate>
+    </Page.Resources>
+
+    <Grid>
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <StackPanel
+            MaxWidth="1000"
+            Padding="0,16,24,40"
+            HorizontalAlignment="Stretch"
+            Spacing="12">
+            <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind ViewModel.IsIntelligenceRefreshing, Mode=OneWay}">
+                <ProgressRing Width="16" Height="16" IsActive="{x:Bind ViewModel.IsIntelligenceRefreshing, Mode=OneWay}" />
+                <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.WinoIntelligence_Updating, Mode=OneTime}" />
+            </StackPanel>
+            <InfoBar AutomationProperties.AutomationId="WinoIntelligenceCachedRefreshInfoBar" IsClosable="True" IsOpen="{x:Bind ViewModel.HasIntelligenceRefreshError, Mode=OneWay}" Message="{x:Bind ViewModel.IntelligenceRefreshError, Mode=OneWay}" Severity="Warning">
+                <InfoBar.ActionButton>
+                    <Button AutomationProperties.AutomationId="WinoIntelligenceRetryCachedRefreshButton" Command="{x:Bind ViewModel.RetryIntelligenceRefreshCommand}" Content="{x:Bind domain:Translator.Buttons_Retry, Mode=OneTime}" />
+                </InfoBar.ActionButton>
+            </InfoBar>
+            <StackPanel
+                x:Name="SignedOutPanel"
+                x:Load="{x:Bind ViewModel.IsSignedOut, Mode=OneWay}"
+                Spacing="12">
+                <Border
+                    Padding="28"
+                    Background="{ThemeResource WinoIntelligenceBrandSurfaceBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12">
+                    <Grid ColumnSpacing="24">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <PathIcon
+                            Width="56"
+                            Height="56"
+                            Data="{StaticResource WinoIntelligenceBrandSparklePathData}"
+                            Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
+                        <StackPanel Grid.Column="1" Spacing="10">
+                            <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind domain:Translator.WinoIntelligence_PromotionTitle, Mode=OneTime}" />
+                            <TextBlock
+                                MaxWidth="680"
+                                Text="{x:Bind domain:Translator.WinoIntelligence_PromotionDescription, Mode=OneTime}"
+                                TextWrapping="WrapWholeWords" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="{x:Bind domain:Translator.WinoIntelligence_AccountRequired, Mode=OneTime}"
+                                TextWrapping="WrapWholeWords" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button
+                                    AutomationProperties.AutomationId="WinoIntelligenceCreateAccountButton"
+                                    Command="{x:Bind ViewModel.RegisterCommand}"
+                                    Content="{x:Bind domain:Translator.Buttons_CreateAccount, Mode=OneTime}"
+                                    Style="{StaticResource AccentButtonStyle}" />
+                                <Button
+                                    AutomationProperties.AutomationId="WinoIntelligenceSignInButton"
+                                    Command="{x:Bind ViewModel.SignInCommand}"
+                                    Content="{x:Bind domain:Translator.Buttons_SignIn, Mode=OneTime}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </StackPanel>
+
+            <StackPanel
+                x:Name="SignedInPanel"
+                x:Load="{x:Bind ViewModel.IsSignedIn, Mode=OneWay}"
+                Spacing="12">
+                <Border
+                    Padding="28"
+                    Background="{ThemeResource WinoIntelligenceBrandSurfaceBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Visibility="{x:Bind ViewModel.AiPackAddOn.IsNotPurchased, Mode=OneWay}">
+                    <StackPanel Spacing="10">
+                        <PathIcon
+                            Width="42"
+                            Height="42"
+                            HorizontalAlignment="Left"
+                            Data="{StaticResource WinoIntelligenceBrandSparklePathData}"
+                            Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
+                        <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind domain:Translator.WinoIntelligence_PromotionTitle, Mode=OneTime}" />
+                        <TextBlock Text="{x:Bind domain:Translator.WinoIntelligence_PromotionDescription, Mode=OneTime}" TextWrapping="WrapWholeWords" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="{x:Bind domain:Translator.WinoIntelligence_AccountRequired, Mode=OneTime}"
+                            TextWrapping="WrapWholeWords" />
+                        <Button
+                            HorizontalAlignment="Left"
+                            AutomationProperties.AutomationId="WinoIntelligenceSubscribeButton"
+                            Command="{x:Bind ViewModel.PurchaseAddOnCommand}"
+                            CommandParameter="{x:Bind ViewModel.AiPackAddOn}"
+                            Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackGetButton, Mode=OneTime}"
+                            Style="{StaticResource AccentButtonStyle}" />
+                    </StackPanel>
+                </Border>
+
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="WinoIntelligenceSubscriptionCard"
+                    Description="{x:Bind ViewModel.AiPackRenewalOrCancellationText, Mode=OneWay}"
+                    Header="{x:Bind domain:Translator.WinoIntelligence_SubscriptionTitle, Mode=OneTime}"
+                    Visibility="{x:Bind ViewModel.HasIntelligenceAccess, Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <PathIcon Data="{StaticResource WinoIntelligenceBrandSparklePathData}" Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <StackPanel MinWidth="280" Spacing="6">
+                        <TextBlock Text="{x:Bind ViewModel.AiPackBillingPeriodText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
+                        <TextBlock Text="{x:Bind ViewModel.IntelligenceUsageSummary, Mode=OneWay}" TextWrapping="WrapWholeWords" />
+                        <ProgressBar
+                            AutomationProperties.AutomationId="WinoIntelligenceQuotaProgressBar"
+                            AutomationProperties.Name="{x:Bind domain:Translator.WinoAccount_Management_AiPackRequestsUsed, Mode=OneTime}"
+                            Maximum="100"
+                            Value="{x:Bind ViewModel.IntelligenceUsagePercentage, Mode=OneWay}" />
+                        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.IntelligenceResetText, Mode=OneWay}" />
+                    </StackPanel>
+                </controls:SettingsCard>
+
+                <InfoBar
+                    AutomationProperties.AutomationId="WinoIntelligenceConsentErrorInfoBar"
+                    IsClosable="False"
+                    IsOpen="{x:Bind ViewModel.HasConsentError, Mode=OneWay}"
+                    Message="{x:Bind ViewModel.ConsentErrorMessage, Mode=OneWay}"
+                    Severity="Error" />
+                <InfoBar
+                    AutomationProperties.AutomationId="WinoIntelligenceConsentDeletionPendingInfoBar"
+                    IsClosable="False"
+                    IsOpen="{x:Bind ViewModel.IsConsentDeletionPending, Mode=OneWay}"
+                    Message="{x:Bind domain:Translator.WinoAccount_IntelligenceConsentDeletionPending, Mode=OneTime}"
+                    Severity="Warning" />
+                <InfoBar
+                    AutomationProperties.AutomationId="WinoIntelligenceConsentDeletionFailedInfoBar"
+                    IsClosable="False"
+                    IsOpen="{x:Bind ViewModel.IsConsentDeletionFailed, Mode=OneWay}"
+                    Message="{x:Bind domain:Translator.WinoAccount_IntelligenceConsentDeletionFailed, Mode=OneTime}"
+                    Severity="Error" />
+
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="WinoIntelligenceConsentCard"
+                    Description="{x:Bind ViewModel.IntelligenceConsentStatusText, Mode=OneWay}"
+                    Header="{x:Bind domain:Translator.WinoAccount_IntelligenceConsentTitle, Mode=OneTime}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <PathIcon Data="{StaticResource WinoIntelligenceBrandSparklePathData}" Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <ProgressRing
+                            Width="18"
+                            Height="18"
+                            IsActive="{x:Bind ViewModel.IsConsentBusy, Mode=OneWay}"
+                            Visibility="{x:Bind ViewModel.IsConsentBusy, Mode=OneWay}" />
+                        <ToggleSwitch
+                            x:Name="IntelligenceConsentToggle"
+                            AutomationProperties.AutomationId="WinoIntelligenceConsentToggle"
+                            IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsConsentBusy), Mode=OneWay}"
+                            IsOn="{x:Bind ViewModel.IsConsentGranted, Mode=OneWay}"
+                            OffContent="{x:Bind domain:Translator.WinoAccount_NotAllowed, Mode=OneTime}"
+                            OnContent="{x:Bind domain:Translator.WinoAccount_Allowed, Mode=OneTime}"
+                            Toggled="IntelligenceConsentToggle_Toggled" />
+                    </StackPanel>
+                </controls:SettingsCard>
+
+                <TextBlock
+                    Margin="0,18,0,0"
+                    Style="{StaticResource SettingsSectionHeaderTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.WinoIntelligence_MailboxesTitle, Mode=OneTime}" />
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="{x:Bind domain:Translator.WinoIntelligence_MailboxesDescription, Mode=OneTime}"
+                    TextWrapping="WrapWholeWords" />
+                <InfoBar
+                    IsClosable="False"
+                    IsOpen="{x:Bind ViewModel.HasIntelligenceDataError, Mode=OneWay}"
+                    Message="{x:Bind ViewModel.IntelligenceDataError, Mode=OneWay}"
+                    Severity="Error" />
+                <ItemsControl ItemTemplate="{StaticResource IntelligenceMailboxTemplate}" ItemsSource="{x:Bind ViewModel.IntelligenceMailboxes, Mode=OneWay}" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+
+    <ContentDialog
+        x:Name="ConsentPolicyDialog"
+        AutomationProperties.AutomationId="WinoConsentPolicyDialog"
+        CloseButtonText="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}"
+        DefaultButton="Primary"
+        PrimaryButtonClick="ConsentPolicyDialog_PrimaryButtonClick"
+        PrimaryButtonText="{x:Bind domain:Translator.Intelligence_AcceptPrivacyPolicyButton, Mode=OneTime}"
+        Title="{x:Bind domain:Translator.WinoAccount_IntelligenceConsentPolicyTitle, Mode=OneTime}">
+        <Grid Width="720" Height="560" RowSpacing="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock Text="{x:Bind domain:Translator.WinoAccount_IntelligenceConsentPolicyNotice, Mode=OneTime}" TextWrapping="WrapWholeWords" />
+            <WebView2 x:Name="ConsentPolicyWebView" Grid.Row="1" AutomationProperties.AutomationId="WinoConsentPolicyWebView" />
+            <CheckBox
+                x:Name="ConsentPolicyAcknowledgementCheckBox"
+                Grid.Row="2"
+                AutomationProperties.AutomationId="WinoConsentPolicyAcknowledgementCheckBox"
+                Checked="ConsentPolicyAcknowledgementCheckBox_Changed"
+                Content="{x:Bind domain:Translator.Intelligence_PrivacyPolicyAcknowledgement, Mode=OneTime}"
+                Unchecked="ConsentPolicyAcknowledgementCheckBox_Changed" />
+            <TextBlock
+                x:Name="ConsentPolicyErrorText"
+                Grid.Row="3"
+                Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                TextWrapping="WrapWholeWords"
+                Visibility="Collapsed" />
+        </Grid>
+    </ContentDialog>
+
+    <ContentDialog
+        x:Name="ConsentRevokeDialog"
+        AutomationProperties.AutomationId="WinoConsentRevokeDialog"
+        CloseButtonText="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}"
+        DefaultButton="Primary"
+        PrimaryButtonText="{x:Bind domain:Translator.WinoAccount_DisableConsent, Mode=OneTime}"
+        Title="{x:Bind domain:Translator.WinoAccount_IntelligenceConsentDisableTitle, Mode=OneTime}">
+        <TextBlock Text="{x:Bind domain:Translator.WinoAccount_IntelligenceConsentDisableMessage, Mode=OneTime}" TextWrapping="WrapWholeWords" />
+    </ContentDialog>
+    </Grid>
+</abstract:WinoIntelligencePageAbstract>

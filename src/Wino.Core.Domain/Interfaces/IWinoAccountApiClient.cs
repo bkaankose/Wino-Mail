@@ -40,6 +40,7 @@ public interface IWinoAccountApiClient
     Task<SemanticMailboxDto> EnsureSemanticMailboxAsync(string address, int providerType, CancellationToken cancellationToken = default);
     Task<IntelligenceManifestDto> GetIntelligenceManifestAsync(CancellationToken cancellationToken = default);
     Task<IntelligenceMailboxStatusDto> GetIntelligenceStatusAsync(Guid mailboxId, CancellationToken cancellationToken = default);
+    Task<IntelligenceCoverageTimelineDto> GetIntelligenceCoverageTimelineAsync(Guid mailboxId, DateTimeOffset fromUtc, DateTimeOffset toUtc, int bucketCount, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<string>> ResolveIntelligenceDeltaAsync(Guid mailboxId, IReadOnlyList<string> remoteMessageIds, CancellationToken cancellationToken = default);
     Task<IntelligenceIngestResultDto> IngestIntelligenceAsync(Guid mailboxId, byte[] encryptedEnvelope, CancellationToken cancellationToken = default);
     Task<IntelligenceArtifactCursorPageDto> GetIntelligenceArtifactsAsync(Guid mailboxId, string? cursor, int pageSize, CancellationToken cancellationToken = default);
@@ -49,11 +50,7 @@ public interface IWinoAccountApiClient
     Task<WinoSuggestedRepliesResult> GetSuggestedRepliesAsync(Guid mailboxId, WinoSuggestedRepliesRequest request, Guid requestId, CancellationToken cancellationToken = default);
     Task<HeadlineTranslationResultDto> TranslateBriefingHeadlinesAsync(Guid mailboxId, string targetLanguage, CancellationToken cancellationToken = default);
     Task DeleteIntelligenceAsync(Guid mailboxId, CancellationToken cancellationToken = default);
-    Task<TransportConsentDto> GetTransportConsentAsync(CancellationToken cancellationToken = default);
-    Task<TransportConsentDto> AcceptTransportConsentAsync(string policyVersion, string source, CancellationToken cancellationToken = default);
-    Task<TransportConsentDto> RevokeTransportConsentAsync(string source, CancellationToken cancellationToken = default);
-    Task<ProcessConsentListDto> GetProcessConsentsAsync(CancellationToken cancellationToken = default);
-    Task<MailboxProcessConsentDto> AcceptProcessConsentAsync(Guid mailboxId, string policyVersion, string source, CancellationToken cancellationToken = default);
-    Task<MailboxProcessConsentDto> RevokeProcessConsentAsync(Guid mailboxId, string source, CancellationToken cancellationToken = default);
-    Task<BatchProcessConsentResult> UpdateProcessConsentsAsync(BatchProcessConsentRequest request, CancellationToken cancellationToken = default);
+    Task<IntelligenceConsentDto> GetIntelligenceConsentAsync(CancellationToken cancellationToken = default);
+    Task<IntelligenceConsentDto> AcceptIntelligenceConsentAsync(string policyVersion, string source, CancellationToken cancellationToken = default);
+    Task<IntelligenceConsentDto> RevokeIntelligenceConsentAsync(string source, CancellationToken cancellationToken = default);
 }

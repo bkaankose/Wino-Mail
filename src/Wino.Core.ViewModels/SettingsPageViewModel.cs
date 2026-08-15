@@ -75,8 +75,8 @@ public partial class SettingsPageViewModel : CoreBaseViewModel
                 return Translator.ImapCalDavSettingsPage_Subtitle;
             case WinoPage.WinoIntelligenceManagementPage:
                 return Translator.SemanticIndex_PageDescription;
-            case WinoPage.WinoAccountConsentPage:
-                return Translator.WinoAccount_ConsentNavigationDescription;
+            case WinoPage.WinoIntelligencePage:
+                return Translator.WinoIntelligence_SettingsDescription;
             case WinoPage.ProviderSelectionPage:
             case WinoPage.SpecialImapCredentialsPage:
             case WinoPage.AccountSetupProgressPage:

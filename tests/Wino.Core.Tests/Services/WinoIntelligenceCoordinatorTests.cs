@@ -10,6 +10,7 @@ using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.AI.ContentProcessing;
 using Wino.Mail.Contracts.Intelligence;
+using Wino.Mail.Contracts.SemanticIndex;
 using Wino.Services;
 using Xunit;
 
@@ -18,20 +19,16 @@ namespace Wino.Core.Tests.Services;
 public sealed class WinoIntelligenceCoordinatorTests
 {
     [Theory]
-    [InlineData(false, true, true, true, true, MailProviderType.Outlook, false, false, false)]
-    [InlineData(true, false, true, true, true, MailProviderType.Outlook, false, false, false)]
-    [InlineData(true, true, false, false, true, MailProviderType.Outlook, true, false, false)]
-    [InlineData(true, true, true, false, true, MailProviderType.Outlook, true, true, false)]
-    [InlineData(true, true, false, true, true, MailProviderType.Outlook, true, false, true)]
-    [InlineData(true, true, true, true, false, MailProviderType.Outlook, true, true, false)]
-    [InlineData(true, true, true, true, true, (MailProviderType)99, true, true, false)]
-    [InlineData(true, true, false, true, true, (MailProviderType)99, true, false, false)]
-    [InlineData(true, true, true, true, true, MailProviderType.IMAP4, true, true, true)]
+    [InlineData(false, true, true, true, MailProviderType.Outlook, false, false, false)]
+    [InlineData(true, false, true, true, MailProviderType.Outlook, false, false, false)]
+    [InlineData(true, true, false, true, MailProviderType.Outlook, true, false, false)]
+    [InlineData(true, true, true, false, MailProviderType.Outlook, true, true, false)]
+    [InlineData(true, true, true, true, (MailProviderType)99, true, true, false)]
+    [InlineData(true, true, true, true, MailProviderType.IMAP4, true, true, true)]
     public async Task Snapshot_GatesActionsByAccountPurchaseConsentPreferenceAndProvider(
         bool authenticated,
         bool hasAiPack,
-        bool transportConsent,
-        bool processConsent,
+        bool intelligenceConsent,
         bool indexingEnabled,
         MailProviderType providerType,
         bool expectedVisible,
@@ -49,11 +46,10 @@ public sealed class WinoIntelligenceCoordinatorTests
                 false,
                 new AiPackBillingStatusDto("active", hasAiPack, null, null, null, false))));
         var api = new Mock<IWinoAccountApiClient>();
-        api.Setup(x => x.GetTransportConsentAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
-            TransportConsent(transportConsent));
-        api.Setup(x => x.GetProcessConsentsAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
-            new ProcessConsentListDto("process-v2", "https://example.test/privacy",
-            [ProcessConsent(mailboxId, providerType, processConsent)]));
+        api.Setup(x => x.GetIntelligenceConsentAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
+            IntelligenceConsent(intelligenceConsent));
+        api.Setup(x => x.GetSemanticMailboxesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
+            [new SemanticMailboxDto(mailboxId, "mail@example.test", (int)providerType, null)]);
         var resolver = new Mock<IIntelligenceMessageContextResolver>();
         resolver.Setup(x => x.FindCandidateAsync(localAccountId, "provider-message", It.IsAny<CancellationToken>()))
             .ReturnsAsync(Candidate());
@@ -104,12 +100,10 @@ public sealed class WinoIntelligenceCoordinatorTests
             ApiEnvelope<BillingStatusResultDto>.Success(new BillingStatusResultDto(
                 false, new AiPackBillingStatusDto("active", true, null, null, null, false))));
         var api = new Mock<IWinoAccountApiClient>();
-        api.Setup(x => x.GetTransportConsentAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
-            new TransportConsentDto(ConsentStatuses.Active, "transport-v2", "transport-v1", DateTimeOffset.UtcNow, null, "https://example.test/privacy"));
-        api.Setup(x => x.GetProcessConsentsAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
-            new ProcessConsentListDto("process-v2", "https://example.test/privacy",
-            [new MailboxProcessConsentDto(Guid.NewGuid(), "mail@example.test", (int)MailProviderType.Outlook,
-                ConsentStatuses.Active, "process-v2", "process-v1", DateTimeOffset.UtcNow, null, null, "https://example.test/privacy")]));
+        api.Setup(x => x.GetIntelligenceConsentAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
+            new IntelligenceConsentDto(ConsentStatuses.Active, "intelligence-v2", "intelligence-v1", DateTimeOffset.UtcNow, null,
+                "https://example.test/privacy", IntelligenceDeletionStatuses.NotRequired));
+        api.Setup(x => x.GetSemanticMailboxesAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
 
         using var coordinator = CreateCoordinator(profile, billing, api);
         var snapshot = await coordinator.GetSnapshotAsync(Context(localAccountId));
@@ -136,16 +130,10 @@ public sealed class WinoIntelligenceCoordinatorTests
             "mail@example.test", MailProviderType.Outlook, true, "Subject", "sender@example.test",
             DateTimeOffset.UtcNow, "<p>Body</p>");
 
-    private static TransportConsentDto TransportConsent(bool current)
-        => new(current ? ConsentStatuses.Active : ConsentStatuses.NotAccepted, "transport-v2",
-            current ? "transport-v2" : null, current ? DateTimeOffset.UtcNow : null, null,
-            "https://example.test/privacy");
-
-    private static MailboxProcessConsentDto ProcessConsent(Guid mailboxId, MailProviderType providerType, bool current)
-        => new(mailboxId, "mail@example.test", (int)providerType,
-            current ? ConsentStatuses.Active : ConsentStatuses.NotAccepted, "process-v2",
-            current ? "process-v2" : null, current ? DateTimeOffset.UtcNow : null, null, null,
-            "https://example.test/privacy");
+    private static IntelligenceConsentDto IntelligenceConsent(bool current)
+        => new(current ? ConsentStatuses.Active : ConsentStatuses.NotAccepted, "intelligence-v2",
+            current ? "intelligence-v2" : null, current ? DateTimeOffset.UtcNow : null, null,
+            "https://example.test/privacy", IntelligenceDeletionStatuses.NotRequired);
 
     private static IntelligenceMessageCandidate Candidate()
         => new(Guid.NewGuid(), "remote-message", "provider-message", [Guid.NewGuid()], "Subject",

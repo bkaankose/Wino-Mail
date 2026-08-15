@@ -77,6 +77,7 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
             await connection.ExecuteAsync("DROP TABLE IF EXISTS LocalMessageKey").ConfigureAwait(false);
             await connection.CreateTableAsync<LocalPreparedDocumentRow>().ConfigureAwait(false);
             await connection.CreateTableAsync<LocalIntelligenceAccessRow>().ConfigureAwait(false);
+            await connection.CreateTableAsync<LocalAccountIntelligenceSnapshotRow>().ConfigureAwait(false);
             await connection.CreateTableAsync<LocalDailyBriefingStateRow>().ConfigureAwait(false);
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_LocalArtifact_Current " +
@@ -466,8 +467,8 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
         await lease.Connection.InsertOrReplaceAsync(new LocalIntelligenceAccessRow
         {
             LocalAccountId = snapshot.LocalAccountId, WinoAccountId = snapshot.WinoAccountId,
-            HasAiPack = snapshot.HasAiPack, HasTransportConsent = snapshot.HasTransportConsent,
-            HasProcessConsent = snapshot.HasProcessConsent, MailboxId = snapshot.MailboxId,
+            HasAiPack = snapshot.HasAiPack, HasIntelligenceConsent = snapshot.HasIntelligenceConsent,
+            MailboxId = snapshot.MailboxId,
             UpdatedAtUtc = snapshot.UpdatedAtUtc.UtcDateTime,
         }, typeof(LocalIntelligenceAccessRow)).ConfigureAwait(false);
     }
@@ -479,7 +480,7 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
         var row = await lease.Connection.Table<LocalIntelligenceAccessRow>()
             .Where(x => x.LocalAccountId == localAccountId).FirstOrDefaultAsync().ConfigureAwait(false);
         return row is null ? null : new(row.LocalAccountId, row.WinoAccountId, row.HasAiPack,
-            row.HasTransportConsent, row.HasProcessConsent, row.MailboxId, ToOffset(row.UpdatedAtUtc));
+            row.HasIntelligenceConsent, row.MailboxId, ToOffset(row.UpdatedAtUtc));
     }
 
     public async Task DeleteAccessSnapshotsAsync(CancellationToken cancellationToken = default)
@@ -487,6 +488,45 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
         if (!DatabaseExists) return;
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
         await lease.Connection.DeleteAllAsync<LocalIntelligenceAccessRow>().ConfigureAwait(false);
+    }
+
+    public async Task SaveAccountIntelligenceSnapshotAsync(WinoAccountIntelligenceSnapshot snapshot, CancellationToken cancellationToken = default)
+    {
+        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
+        await lease.Connection.InsertOrReplaceAsync(new LocalAccountIntelligenceSnapshotRow
+        {
+            WinoAccountId = snapshot.WinoAccountId,
+            Payload = JsonSerializer.Serialize(snapshot, LocalIntelligenceJsonContext.Default.WinoAccountIntelligenceSnapshot),
+            UpdatedAtUtc = DateTime.UtcNow
+        }, typeof(LocalAccountIntelligenceSnapshotRow)).ConfigureAwait(false);
+    }
+
+    public async Task<WinoAccountIntelligenceSnapshot?> GetAccountIntelligenceSnapshotAsync(Guid winoAccountId, CancellationToken cancellationToken = default)
+    {
+        if (!DatabaseExists) return null;
+        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
+        var row = await lease.Connection.Table<LocalAccountIntelligenceSnapshotRow>()
+            .Where(x => x.WinoAccountId == winoAccountId).FirstOrDefaultAsync().ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(row?.Payload)) return null;
+        try
+        {
+            return JsonSerializer.Deserialize(row.Payload, LocalIntelligenceJsonContext.Default.WinoAccountIntelligenceSnapshot);
+        }
+        catch (JsonException)
+        {
+            // A cache schema can evolve independently of intelligence artifacts. Treat an
+            // unreadable snapshot as a cold cache and let background revalidation replace it.
+            await lease.Connection.ExecuteAsync(
+                "DELETE FROM LocalAccountIntelligenceSnapshot WHERE WinoAccountId = ?", winoAccountId).ConfigureAwait(false);
+            return null;
+        }
+    }
+
+    public async Task DeleteAccountIntelligenceSnapshotsAsync(CancellationToken cancellationToken = default)
+    {
+        if (!DatabaseExists) return;
+        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
+        await lease.Connection.DeleteAllAsync<LocalAccountIntelligenceSnapshotRow>().ConfigureAwait(false);
     }
 
     public async Task<long> GetLatestBriefingFactRevisionAsync(Guid localAccountId, CancellationToken cancellationToken = default)
@@ -813,9 +853,16 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
         [PrimaryKey] public Guid LocalAccountId { get; set; }
         public Guid WinoAccountId { get; set; }
         public bool HasAiPack { get; set; }
-        public bool HasTransportConsent { get; set; }
-        public bool HasProcessConsent { get; set; }
+        public bool HasIntelligenceConsent { get; set; }
         public Guid? MailboxId { get; set; }
+        public DateTime UpdatedAtUtc { get; set; }
+    }
+
+    [Table("LocalAccountIntelligenceSnapshot")]
+    private sealed class LocalAccountIntelligenceSnapshotRow
+    {
+        [PrimaryKey] public Guid WinoAccountId { get; set; }
+        public string Payload { get; set; } = string.Empty;
         public DateTime UpdatedAtUtc { get; set; }
     }
 

@@ -49,7 +49,7 @@
             LabelPosition="Collapsed"
             ToolTipService.ToolTip="{x:Bind ToolTip}">
             <AppBarToggleButton.Icon>
-                <PathIcon Data="{StaticResource AiSparklePathIcon}" Foreground="{StaticResource WinoIntelligenceIconBrush}" />
+                <PathIcon Data="{StaticResource WinoIntelligenceBrandSparklePathData}" Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
             </AppBarToggleButton.Icon>
         </AppBarToggleButton>
     </DataTemplate>

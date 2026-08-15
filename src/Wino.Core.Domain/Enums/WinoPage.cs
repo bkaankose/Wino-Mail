@@ -44,7 +44,7 @@ public enum WinoPage
     CreateEmailTemplatePage,
     StoragePage,
     WinoAccountManagementPage,
-    WinoAccountConsentPage,
+    WinoIntelligencePage,
     WelcomePageV2,
     WelcomeHostPage,
     ProviderSelectionPage,

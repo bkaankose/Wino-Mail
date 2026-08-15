@@ -29,7 +29,7 @@ public sealed class LocalIntelligenceStoreRecoveryTests
             var mailboxId = Guid.NewGuid();
             await using (var store = new LocalIntelligenceStore(configuration))
             {
-                await store.SaveAccessSnapshotAsync(new(localAccountId, winoAccountId, true, true, true,
+                await store.SaveAccessSnapshotAsync(new(localAccountId, winoAccountId, true, true,
                     mailboxId, DateTimeOffset.UtcNow));
                 await store.ImportAsync(localAccountId, mailboxId,
                     [CreateBriefingFact("briefing-message", 9, replyRequired: true)], throughRevision: 9);

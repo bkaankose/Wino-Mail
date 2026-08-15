@@ -41,6 +41,7 @@ using Wino.Mail.WinUI.Services;
 using Wino.Mail.WinUI.Views;
 using Wino.MenuFlyouts.Context;
 using Wino.Messaging.Client.Mails;
+using Wino.Messaging.UI;
 using Wino.Views.Abstract;
 
 namespace Wino.Views.Mail;
@@ -51,6 +52,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
     IRecipient<SelectMailItemContainerEvent>,
     IRecipient<ComposeDetachedDraftRequested>,
     IRecipient<DisposeRenderingFrameRequested>,
+    IRecipient<WinoIntelligenceAccessChanged>,
     IHostedPopoutSource,
     IWinoFrameProvider,
     IMailTitleBarSearchHost
@@ -825,6 +827,9 @@ public sealed partial class MailListPage : MailListPageAbstract,
         UpdateAdaptiveness();
     }
 
+    public void Receive(WinoIntelligenceAccessChanged message)
+        => DispatcherQueue.TryEnqueue(Bindings.Update);
+
     protected override void RegisterRecipients()
     {
         WeakReferenceMessenger.Default.Register<ClearMailSelectionsRequested>(this);
@@ -832,6 +837,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         WeakReferenceMessenger.Default.Register<SelectMailItemContainerEvent>(this);
         WeakReferenceMessenger.Default.Register<ComposeDetachedDraftRequested>(this);
         WeakReferenceMessenger.Default.Register<DisposeRenderingFrameRequested>(this);
+        WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -841,6 +847,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         WeakReferenceMessenger.Default.Unregister<SelectMailItemContainerEvent>(this);
         WeakReferenceMessenger.Default.Unregister<ComposeDetachedDraftRequested>(this);
         WeakReferenceMessenger.Default.Unregister<DisposeRenderingFrameRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<WinoIntelligenceAccessChanged>(this);
     }
 
     private void PageSizeChanged(object sender, SizeChangedEventArgs e)
