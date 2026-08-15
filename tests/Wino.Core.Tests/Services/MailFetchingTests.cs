@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Collections.Concurrent;
 using FluentAssertions;
 using Moq;
@@ -114,6 +114,118 @@ public class MailFetchingTests : IAsyncLifetime
             "every returned mail must have its account and folder resolved");
         result.Count(m => m.ThreadId == threadA).Should().Be(3, "Thread A must be complete");
         result.Count(m => m.ThreadId == threadB).Should().Be(3, "Thread B must be complete");
+    }
+
+    // ── Correctness: Gmail label copies ────────────────────────────────────────
+
+    /// <summary>
+    /// Gmail stores one MailCopy row per label, all sharing the same server Id. Thread expansion
+    /// pulls every one of those rows for siblings outside the page, so they must be collapsed.
+    /// </summary>
+    [Fact]
+    public async Task FetchMailsAsync_WithThreadingEnabled_CollapsesGmailLabelCopiesOfSameServerMessage()
+    {
+        const int PageSize = 1;
+        var unreadFolder = await CreateFolderAsync(_testAccount, "Unread", "UNREAD", SpecialFolderType.Unread);
+        var categoryFolder = await CreateFolderAsync(_testAccount, "Personal", "CATEGORY_PERSONAL", SpecialFolderType.Personal);
+
+        var threadId = Guid.NewGuid().ToString();
+        var baseDate = DateTime.UtcNow;
+        var siblingServerId = Guid.NewGuid().ToString();
+
+        var mails = new List<MailCopy>
+        {
+            // Newest message - the only seed that fits in the page.
+            BuildMail(_inboxFolder.Id, baseDate.AddSeconds(-1), threadId: threadId),
+            // Older sibling, materialised once per Gmail label.
+            BuildMail(_inboxFolder.Id, baseDate.AddSeconds(-2), threadId: threadId, id: siblingServerId),
+            BuildMail(unreadFolder.Id, baseDate.AddSeconds(-2), threadId: threadId, id: siblingServerId),
+            BuildMail(categoryFolder.Id, baseDate.AddSeconds(-2), threadId: threadId, id: siblingServerId)
+        };
+        await _databaseService.Connection.InsertAllAsync(mails, typeof(MailCopy));
+
+        var result = await _mailService.FetchMailsAsync(BuildOptions([_inboxFolder], createThreads: true, take: PageSize));
+
+        result.Should().HaveCount(2,
+            "the three label rows of the older sibling represent a single server message");
+        result.Count(m => m.Id == siblingServerId).Should().Be(1,
+            "only one copy of a server message may be surfaced");
+    }
+
+    /// <summary>
+    /// The surviving copy must be the one in the folder being listed, because folder scoped
+    /// actions and the active-seed check target it. Insertion order and date must not win.
+    /// </summary>
+    [Fact]
+    public async Task FetchMailsAsync_WithThreadingEnabled_KeepsListedFolderCopyOfDuplicatedThreadSibling()
+    {
+        const int PageSize = 1;
+        var categoryFolder = await CreateFolderAsync(_testAccount, "Personal", "CATEGORY_PERSONAL", SpecialFolderType.Personal);
+
+        var threadId = Guid.NewGuid().ToString();
+        var baseDate = DateTime.UtcNow;
+        var siblingServerId = Guid.NewGuid().ToString();
+
+        var mails = new List<MailCopy>
+        {
+            BuildMail(_inboxFolder.Id, baseDate.AddSeconds(-1), threadId: threadId),
+            // Category copy is inserted first AND is newer, but the inbox copy must still win.
+            BuildMail(categoryFolder.Id, baseDate.AddSeconds(-2), threadId: threadId, id: siblingServerId),
+            BuildMail(_inboxFolder.Id, baseDate.AddSeconds(-3), threadId: threadId, id: siblingServerId)
+        };
+        await _databaseService.Connection.InsertAllAsync(mails, typeof(MailCopy));
+
+        var result = await _mailService.FetchMailsAsync(BuildOptions([_inboxFolder], createThreads: true, take: PageSize));
+
+        var sibling = result.Single(m => m.Id == siblingServerId);
+        sibling.FolderId.Should().Be(_inboxFolder.Id,
+            "the copy belonging to the listed folder must survive regardless of insertion order or date");
+    }
+
+    /// <summary>
+    /// Distinct server messages in one thread must never be merged by the collapse.
+    /// </summary>
+    [Fact]
+    public async Task FetchMailsAsync_WithThreadingEnabled_KeepsDistinctServerMessagesInSameThread()
+    {
+        const int PageSize = 1;
+        var threadId = Guid.NewGuid().ToString();
+        var baseDate = DateTime.UtcNow;
+
+        var mails = new List<MailCopy>
+        {
+            BuildMail(_inboxFolder.Id, baseDate.AddSeconds(-1), threadId: threadId),
+            BuildMail(_inboxFolder.Id, baseDate.AddSeconds(-2), threadId: threadId),
+            BuildMail(_inboxFolder.Id, baseDate.AddSeconds(-3), threadId: threadId)
+        };
+        await _databaseService.Connection.InsertAllAsync(mails, typeof(MailCopy));
+
+        var result = await _mailService.FetchMailsAsync(BuildOptions([_inboxFolder], createThreads: true, take: PageSize));
+
+        result.Should().HaveCount(3, "three different server messages must stay three rows");
+    }
+
+    /// <summary>
+    /// The collapse is gated on thread expansion actually running, so the non-threaded path
+    /// must keep returning every label row of the listed folder.
+    /// </summary>
+    [Fact]
+    public async Task FetchMailsAsync_WithThreadingDisabled_DoesNotCollapseLabelCopies()
+    {
+        var threadId = Guid.NewGuid().ToString();
+        var baseDate = DateTime.UtcNow;
+        var serverId = Guid.NewGuid().ToString();
+
+        var mails = new List<MailCopy>
+        {
+            BuildMail(_inboxFolder.Id, baseDate.AddSeconds(-1), threadId: threadId, id: serverId),
+            BuildMail(_inboxFolder.Id, baseDate.AddSeconds(-2), threadId: threadId, id: serverId)
+        };
+        await _databaseService.Connection.InsertAllAsync(mails, typeof(MailCopy));
+
+        var result = await _mailService.FetchMailsAsync(BuildOptions([_inboxFolder], createThreads: false));
+
+        result.Should().HaveCount(2, "collapsing must not happen when threading is disabled");
     }
 
     // ── Correctness: threading OFF ─────────────────────────────────────────────

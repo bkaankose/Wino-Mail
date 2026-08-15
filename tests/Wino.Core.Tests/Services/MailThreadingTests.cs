@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.Messaging;
+﻿using CommunityToolkit.Mvvm.Messaging;
 using FluentAssertions;
 using MimeKit;
 using Moq;
@@ -480,6 +480,87 @@ public class MailThreadingTests : IAsyncLifetime
         }
     }
 
+    /// <summary>
+    /// Gmail fans a single server message into one package per label, and all of those rows are
+    /// inserted in one CreateMailsAsync call. That means the UI receives a single
+    /// BulkMailAddedMessage carrying every label row, not one MailAddedMessage per row.
+    ///
+    /// MailListPageViewModel.OnBulkMailAdded relies on this shape: it filters the whole batch
+    /// before adding anything, so it has to collapse the label rows itself. If the batching here
+    /// ever changes, that collapse silently stops being reachable - hence this test.
+    /// </summary>
+    [Fact]
+    public async Task CreateMailsAsync_ForGmailLabelCopies_ReportsSingleBulkAddWithAllLabelRows()
+    {
+        var gmailAccount = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Name = "Gmail Test Account",
+            Address = "gmail@test.local",
+            SenderName = "Gmail User",
+            ProviderType = MailProviderType.Gmail
+        };
+        await _databaseService.Connection.InsertAsync(gmailAccount, typeof(MailAccount));
+
+        var labelIds = new[] { "UNREAD", "INBOX", "CATEGORY_PERSONAL" };
+        foreach (var labelId in labelIds)
+        {
+            await _databaseService.Connection.InsertAsync(new MailItemFolder
+            {
+                Id = Guid.NewGuid(),
+                MailAccountId = gmailAccount.Id,
+                FolderName = labelId,
+                RemoteFolderId = labelId,
+                SpecialFolderType = SpecialFolderType.Other,
+                IsSystemFolder = true,
+                IsSynchronizationEnabled = true
+            }, typeof(MailItemFolder));
+        }
+
+        // All label rows share the server id, thread id and file id, exactly as the synchronizer builds them.
+        var sharedServerId = "gmail-server-message-1";
+        var sharedFileId = Guid.NewGuid();
+        var packages = labelIds
+            .Select(labelId => new NewMailItemPackage(
+                new MailCopy
+                {
+                    UniqueId = Guid.NewGuid(),
+                    Id = sharedServerId,
+                    FileId = sharedFileId,
+                    ThreadId = "gmail-thread-1",
+                    Subject = "Label fan-out",
+                    FromAddress = "sender@example.com",
+                    FromName = "Sender",
+                    CreationDate = DateTime.UtcNow
+                },
+                Mime: null,
+                AssignedRemoteFolderId: labelId))
+            .ToList();
+
+        var bulkRecipient = new BulkMailAddRecipient();
+        var singleRecipient = new MailAddRecipient();
+        WeakReferenceMessenger.Default.Register<BulkMailAddedMessage>(bulkRecipient);
+        WeakReferenceMessenger.Default.Register<MailAddedMessage>(singleRecipient);
+
+        try
+        {
+            await _mailService.CreateMailsAsync(gmailAccount.Id, packages);
+
+            singleRecipient.Added.Should().BeEmpty(
+                "label rows are inserted together, so they are never reported one by one");
+            bulkRecipient.Added.Should().ContainSingle(
+                "the whole label fan-out arrives as one batch");
+            bulkRecipient.Added[0].AddedMails.Should().HaveCount(labelIds.Length);
+            bulkRecipient.Added[0].AddedMails.Should().OnlyContain(mail => mail.Id == sharedServerId,
+                "every row in the batch is the same server message");
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.Unregister<BulkMailAddedMessage>(bulkRecipient);
+            WeakReferenceMessenger.Default.Unregister<MailAddedMessage>(singleRecipient);
+        }
+    }
+
     private static MimeMessage CreateReferencedMimeMessage(string subject, string? messageId = null)
     {
         var message = new MimeMessage();
@@ -508,6 +589,13 @@ public class MailThreadingTests : IAsyncLifetime
         public List<MailAddedMessage> Added { get; } = [];
 
         public void Receive(MailAddedMessage message) => Added.Add(message);
+    }
+
+    internal sealed class BulkMailAddRecipient : IRecipient<BulkMailAddedMessage>
+    {
+        public List<BulkMailAddedMessage> Added { get; } = [];
+
+        public void Receive(BulkMailAddedMessage message) => Added.Add(message);
     }
 
     internal sealed class MailReadStatusRecipient : IRecipient<MailReadStatusChanged>, IRecipient<BulkMailReadStatusChanged>

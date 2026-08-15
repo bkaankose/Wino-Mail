@@ -1,10 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
@@ -170,10 +171,72 @@ public sealed class MailListStoreTests
         store.ItemIds.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task ContainsOtherServerMailCopy_WhenLabelSiblingIsListed_ReturnsTrue()
+    {
+        var store = CreateStore();
+        var account = new MailAccount { Id = Guid.NewGuid() };
+        var serverId = Guid.NewGuid().ToString("N");
+
+        var inboxCopy = CreateMailCopy("thread-1", serverId, account);
+        await store.AddAsync(inboxCopy);
+
+        // Same server message, different Gmail label folder, therefore a different UniqueId.
+        var unreadCopy = CreateMailCopy("thread-1", serverId, account);
+
+        store.ContainsOtherServerMailCopy(unreadCopy).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ContainsOtherServerMailCopy_ForSameUniqueId_ReturnsFalse()
+    {
+        var store = CreateStore();
+        var account = new MailAccount { Id = Guid.NewGuid() };
+
+        var copy = CreateMailCopy("thread-1", Guid.NewGuid().ToString("N"), account);
+        await store.AddAsync(copy);
+
+        // Re-adds and updates of an already listed row must never be suppressed.
+        store.ContainsOtherServerMailCopy(CloneMailCopy(copy)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ContainsOtherServerMailCopy_ForDifferentAccountWithSameServerId_ReturnsFalse()
+    {
+        var store = CreateStore();
+        var serverId = Guid.NewGuid().ToString("N");
+
+        await store.AddAsync(CreateMailCopy("thread-1", serverId, new MailAccount { Id = Guid.NewGuid() }));
+
+        var otherAccountCopy = CreateMailCopy("thread-1", serverId, new MailAccount { Id = Guid.NewGuid() });
+
+        store.ContainsOtherServerMailCopy(otherAccountCopy).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ContainsOtherServerMailCopy_WhenServerIdIsMissing_ReturnsFalse()
+    {
+        var store = CreateStore();
+        var account = new MailAccount { Id = Guid.NewGuid() };
+
+        await store.AddAsync(CreateMailCopy("thread-1", string.Empty, account));
+
+        // Local drafts have no server id yet and must stay visible.
+        store.ContainsOtherServerMailCopy(CreateMailCopy("thread-1", string.Empty, account)).Should().BeFalse();
+    }
+
     private static MailListStore CreateStore() => new()
     {
         CoreDispatcher = new ImmediateDispatcher(),
     };
+
+    private static MailCopy CreateMailCopy(string threadId, string serverId, MailAccount account)
+    {
+        var copy = CreateMailCopy(threadId);
+        copy.Id = serverId;
+        copy.AssignedAccount = account;
+        return copy;
+    }
 
     private static MailCopy CreateMailCopy(string threadId) => new()
     {

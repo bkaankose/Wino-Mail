@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -16,6 +16,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
@@ -1440,7 +1441,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     {
         if (!ShouldIncludeAddedMailInCurrentList(mail) ||
             ShouldPreventItemAdd(mail) ||
-            ShouldExcludeAddedMailByFocusedPivot(mail))
+            ShouldExcludeAddedMailByFocusedPivot(mail) ||
+            // Gmail lists the same server message once per label. If a sibling copy is already
+            // listed, this row is the same message and must not create a second one.
+            MailCollection.ContainsOtherServerMailCopy(mail))
         {
             return false;
         }
@@ -1979,10 +1983,14 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                     .ConfigureAwait(false);
             }
 
+            // The whole batch is filtered before anything is added, so the collection guard inside
+            // ShouldIncludeLiveMail cannot see siblings that arrive together. Collapse the Gmail
+            // label rows here, preferring the copy that belongs to the listing being rendered.
             var mailsToAdd = targetMails
                 .Where(mail => !MailCollection.ContainsMailUniqueId(mail.UniqueId))
                 .Where(mail => !ShouldSuppressDraftAdd(mail))
                 .Where(ShouldIncludeLiveMail)
+                .CollapseServerMessageDuplicates(accountIdsByFolderId: null, MatchesActiveFolderOrCategory)
                 .ToList();
 
             if (mailsToAdd.Count == 0)
