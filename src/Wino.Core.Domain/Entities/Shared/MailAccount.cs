@@ -35,6 +35,12 @@ public class MailAccount
     public string AuthenticationAddress { get; set; }
 
     /// <summary>
+    /// True when the user chosen an alias as mailbox address during setup.
+    /// Profile synchronization must not overwrite Address while this is set.
+    /// </summary>
+    public bool IsAddressUserOverridden { get; set; }
+
+    /// <summary>
     /// Provider type of the account. Outlook,Gmail etc...
     /// </summary>
     public MailProviderType ProviderType { get; set; }

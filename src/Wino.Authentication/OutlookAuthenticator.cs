@@ -349,7 +349,7 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
         if (account == null || tokenInformation == null)
             return;
 
-        if (!string.IsNullOrWhiteSpace(tokenInformation.AccountAddress))
+        if (!string.IsNullOrWhiteSpace(tokenInformation.AccountAddress) && !account.IsAddressUserOverridden)
             account.Address = tokenInformation.AccountAddress;
 
         if (!string.IsNullOrWhiteSpace(tokenInformation.AuthenticationAddress))

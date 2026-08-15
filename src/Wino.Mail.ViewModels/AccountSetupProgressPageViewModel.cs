@@ -248,6 +248,36 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 _createdAccount.Address = authTokenInfo.AccountAddress;
                 SetCurrentStepSucceeded();
 
+                // Microsoft accounts always resolve to their primary alias, which can be a
+                // non-Microsoft address that belongs to another Wino account. Aliases of personal
+                // Microsoft accounts are not discoverable through Graph, so on a conflict ask the
+                // user which address this account should use instead.
+                if (await _accountService.AccountAddressExistsAsync(_createdAccount.Address))
+                {
+                    var conflictingAddress = _createdAccount.Address;
+
+                    while (true)
+                    {
+                        var enteredAddress = await _dialogService.ShowAccountAddressEntryDialogAsync(conflictingAddress);
+
+                        // Dismissed. Continue with the resolved address; the conflict will surface below.
+                        if (string.IsNullOrWhiteSpace(enteredAddress)) break;
+
+                        enteredAddress = enteredAddress.Trim();
+
+                        // Re-prompt until the entered address doesn't collide with another account.
+                        if (await _accountService.AccountAddressExistsAsync(enteredAddress))
+                        {
+                            conflictingAddress = enteredAddress;
+                            continue;
+                        }
+
+                        _createdAccount.Address = enteredAddress;
+                        _createdAccount.IsAddressUserOverridden = true;
+                        break;
+                    }
+                }
+
                 // Step: Save to DB
                 SetStepInProgress(Translator.AccountSetup_Step_SavingAccount, SetupOperationSaveAccount);
                 await _accountService.CreateAccountAsync(_createdAccount, null);
@@ -267,7 +297,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                         _createdAccount.SenderName = profileResult.ProfileInformation.SenderName;
                         _createdAccount.Base64ProfilePictureData = profileResult.ProfileInformation.Base64ProfilePictureData;
 
-                        if (!string.IsNullOrEmpty(profileResult.ProfileInformation.AccountAddress))
+                        if (!string.IsNullOrEmpty(profileResult.ProfileInformation.AccountAddress) && !_createdAccount.IsAddressUserOverridden)
                         {
                             if (await _accountService.AccountAddressExistsAsync(profileResult.ProfileInformation.AccountAddress, _createdAccount.Id))
                                 throw new InvalidOperationException(Translator.DialogMessage_AccountAddressExistsMessage);

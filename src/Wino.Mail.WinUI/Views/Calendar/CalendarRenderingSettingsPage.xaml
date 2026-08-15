@@ -195,7 +195,6 @@
                     </controls:SettingsCard>
                 </controls:SettingsExpander.Items>
             </controls:SettingsExpander>
-        </StackPanel>
 
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="ClockIdentifierStates">
@@ -211,4 +210,5 @@
                 </VisualState>
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
+        </StackPanel>
 </abstract:CalendarRenderingSettingsPageAbstract>

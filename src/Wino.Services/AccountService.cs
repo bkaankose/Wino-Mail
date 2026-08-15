@@ -464,6 +464,7 @@ public class AccountService : BaseDatabaseService, IAccountService
             var profileAddress = profileInformation.AccountAddress?.Trim();
 
             if (!string.IsNullOrWhiteSpace(profileAddress) &&
+                !account.IsAddressUserOverridden &&
                 !string.Equals(account.Address?.Trim(), profileAddress, StringComparison.OrdinalIgnoreCase))
             {
                 if (await AccountAddressExistsAsync(profileAddress, account.Id).ConfigureAwait(false))

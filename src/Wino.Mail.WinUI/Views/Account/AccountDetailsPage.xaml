@@ -662,7 +662,6 @@
 
                 </StackPanel>
             </Grid>
-        </Grid>
 
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="TabStates">
@@ -698,4 +697,5 @@
                 </VisualState>
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
+        </Grid>
 </abstract:AccountDetailsPageAbstract>

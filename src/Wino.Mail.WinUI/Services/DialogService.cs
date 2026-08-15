@@ -221,6 +221,18 @@ public class DialogService : DialogServiceBase, IMailDialogService
         return accountPicker.PickedAccount ?? null!;
     }
 
+    public async Task<string> ShowAccountAddressEntryDialogAsync(string conflictingAddress)
+    {
+        var addressEntryDialog = new AccountAddressEntryDialog(conflictingAddress)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(addressEntryDialog);
+
+        return addressEntryDialog.EnteredAddress ?? null!;
+    }
+
     public async Task<AccountCalendarPickingResult> ShowSingleCalendarPickerDialogAsync(List<CalendarPickerAccountGroup> availableCalendarGroups)
     {
         var calendarPicker = new SingleCalendarPickerDialog(availableCalendarGroups)
