@@ -116,6 +116,38 @@ public class MailItemViewModelUpdateTests
         raisedProperties.Should().Contain(nameof(MailItemViewModel.IsRead));
     }
 
+    /// <summary>
+    /// CreationDate is stored as UTC everywhere, but the two ways a mail reaches the list disagree on
+    /// its DateTimeKind: sqlite returns Unspecified on a folder load, while a freshly synced copy is
+    /// still Utc. new DateTimeOffset(DateTime) reads Unspecified as local time, so the sort key used
+    /// to differ by the local UTC offset between those two paths and a newly arrived mail sorted into
+    /// the middle of the list until the folder was reloaded.
+    ///
+    /// Note this assertion can only fail on a machine that is not at UTC, because at UTC the two
+    /// interpretations coincide. Running the suite in a non-UTC zone is what actually protects this.
+    /// </summary>
+    [Fact]
+    public void DateSortKey_ForUnspecifiedKind_IsInterpretedAsUtc()
+    {
+        var creationDate = new DateTime(2026, 8, 15, 12, 0, 0, DateTimeKind.Unspecified);
+        var sut = new MailItemViewModel(CreateMailCopy("thread-1", creationDate));
+
+        sut.DateSortKey.UtcDateTime.Should().Be(DateTime.SpecifyKind(creationDate, DateTimeKind.Utc));
+    }
+
+    [Fact]
+    public void DateSortKey_ForUnspecifiedAndUtcKind_ProducesTheSameInstant()
+    {
+        var ticks = new DateTime(2026, 8, 15, 12, 0, 0, DateTimeKind.Unspecified);
+
+        var fromDatabase = new MailItemViewModel(CreateMailCopy("thread-1", ticks));
+        var fromSynchronizer = new MailItemViewModel(
+            CreateMailCopy("thread-1", DateTime.SpecifyKind(ticks, DateTimeKind.Utc)));
+
+        fromDatabase.DateSortKey.Should().Be(fromSynchronizer.DateSortKey,
+            "a mail loaded from the database and the same mail arriving live must sort identically");
+    }
+
     private static MailCopy CreateMailCopy(string threadId, DateTime creationDate)
         => new()
         {

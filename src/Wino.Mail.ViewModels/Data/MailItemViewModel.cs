@@ -101,7 +101,12 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
 
     public string? ThreadKey => ThreadId;
 
-    public DateTimeOffset DateSortKey => new(CreationDate);
+    // CreationDate is stored as UTC everywhere in the mail pipeline, but sqlite hands it back with
+    // DateTimeKind.Unspecified while a freshly synced copy still carries DateTimeKind.Utc.
+    // new DateTimeOffset(DateTime) assumes Unspecified means local, so without pinning the kind the
+    // two paths produce instants that differ by the local UTC offset and sort against each other.
+    // The display layer already reads it as UTC via DateTime.ToLocalTime, so this matches it.
+    public DateTimeOffset DateSortKey => new(DateTime.SpecifyKind(CreationDate, DateTimeKind.Utc));
 
     public string NameSortKey => SortingName ?? string.Empty;
 
