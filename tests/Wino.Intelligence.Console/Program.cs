@@ -71,6 +71,12 @@ internal static class Program
 
             await using var services = CreateServices(paths, apiUri, apiEnvironment);
             await InitializeServicesAsync(services, cancellation.Token).ConfigureAwait(false);
+            if (options.DailyBriefingAddress is not null)
+            {
+                return await RunDailyBriefingAsync(services, options.DailyBriefingAddress,
+                    cancellation.Token).ConfigureAwait(false);
+            }
+
             return await RunAsync(services, cancellation.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
@@ -213,6 +219,126 @@ internal static class Program
 
         return 0;
     }
+
+    private static async Task<int> RunDailyBriefingAsync(
+        IServiceProvider services, string address, CancellationToken cancellationToken)
+    {
+        var accountService = services.GetRequiredService<IAccountService>();
+        var localService = services.GetRequiredService<ILocalIntelligenceService>();
+        var accounts = await accountService.GetAccountsAsync().ConfigureAwait(false);
+        var account = accounts.FirstOrDefault(item =>
+            string.Equals(item.Address.Trim(), address.Trim(), StringComparison.OrdinalIgnoreCase));
+
+        if (account is null)
+        {
+            ConsoleOutput.Error($"Account was not found in Wino200.db: {address}");
+            return 1;
+        }
+
+        var eligibleAccounts = await localService.GetEligibleAccountsAsync(cancellationToken).ConfigureAwait(false);
+        var eligible = eligibleAccounts.FirstOrDefault(item => item.Account.Id == account.Id);
+        var access = await localService.GetAccessSnapshotAsync(account.Id, cancellationToken).ConfigureAwait(false);
+        var timeZone = TimeZoneInfo.Local;
+        var today = GetLocalToday(timeZone);
+        ConsoleOutput.Header($"\nDaily briefing diagnostic: {account.Address}");
+        System.Console.WriteLine($"  Account id: {account.Id:D}");
+        System.Console.WriteLine($"  Provider: {account.ProviderType}");
+        System.Console.WriteLine($"  Mail access granted: {account.IsMailAccessGranted}");
+        System.Console.WriteLine($"  Access snapshot: {(access is null ? "missing" : "present")}");
+        if (access is not null)
+        {
+            System.Console.WriteLine($"  Wino account id: {access.WinoAccountId:D}");
+            System.Console.WriteLine($"  AI pack: {access.HasAiPack}");
+            System.Console.WriteLine($"  Intelligence consent: {access.HasIntelligenceConsent}");
+            System.Console.WriteLine($"  Mailbox id: {access.MailboxId?.ToString("D") ?? "none"}");
+        }
+        System.Console.WriteLine($"  Eligible for briefing: {eligible is not null}");
+
+        if (eligible is null)
+        {
+            ConsoleOutput.Warning("The account is filtered out before briefing facts are queried.");
+            var storedTodayCount = await CountStoredBriefingFactsAsync(account.Id, today,
+                timeZone, services, cancellationToken).ConfigureAwait(false);
+            var storedYesterdayCount = await CountStoredBriefingFactsAsync(account.Id,
+                today.AddDays(-1), timeZone, services, cancellationToken).ConfigureAwait(false);
+            System.Console.WriteLine($"  Stored local facts for today: {storedTodayCount}");
+            System.Console.WriteLine($"  Stored local facts for yesterday: {storedYesterdayCount}");
+            return 1;
+        }
+
+        var yesterday = today.AddDays(-1);
+        var todayFacts = await localService.GetBriefingFactsAsync(today, timeZone, cancellationToken)
+            .ConfigureAwait(false);
+        var yesterdayFacts = await localService.GetBriefingFactsAsync(yesterday, timeZone, cancellationToken)
+            .ConfigureAwait(false);
+        var todayCount = todayFacts.Count(item => item.LocalAccountId == account.Id);
+        var yesterdayCount = yesterdayFacts.Count(item => item.LocalAccountId == account.Id);
+
+        System.Console.WriteLine($"  {today:yyyy-MM-dd}: {todayCount} briefing fact(s)");
+        System.Console.WriteLine($"  {yesterday:yyyy-MM-dd}: {yesterdayCount} briefing fact(s)");
+        if (todayCount >= 2 && yesterdayCount >= 2)
+        {
+            ConsoleOutput.Success("Daily briefing has at least two insights for both days.");
+            return 0;
+        }
+
+        ConsoleOutput.Warning("Expected briefing facts are missing for one or both days.");
+        return 1;
+    }
+
+    private static async Task<int> CountStoredBriefingFactsAsync(
+        Guid accountId, DateOnly date, TimeZoneInfo timeZone, IServiceProvider services,
+        CancellationToken cancellationToken)
+    {
+        var resolver = services.GetRequiredService<IIntelligenceMessageContextResolver>();
+        var store = services.GetRequiredService<ILocalIntelligenceStore>();
+        var candidates = await resolver.GetCandidatesAsync(accountId, null, cancellationToken).ConfigureAwait(false);
+        var artifacts = await store.GetCurrentArtifactsAsync(
+            accountId, candidates.Select(static item => item.RemoteMessageId).ToArray(), cancellationToken)
+            .ConfigureAwait(false);
+        var today = GetLocalToday(timeZone);
+        var count = 0;
+        foreach (var candidate in candidates)
+        {
+            if (!artifacts.TryGetValue(candidate.RemoteMessageId, out var values)) continue;
+            var fact = values.Where(static item => !item.IsDeleted &&
+                    item.Capability == IntelligenceCapability.BriefingFact)
+                .MaxBy(static item => item.ArtifactRevision)?.BriefingFact;
+            if (fact is null) continue;
+
+            var occurredAt = new DateTimeOffset(DateTime.SpecifyKind(candidate.ReceivedAt, DateTimeKind.Utc));
+            var occurredDate = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(occurredAt, timeZone).DateTime);
+            var temporalDates = EnumerateTemporalPoints(fact)
+                .Select(point => point.LocalDate ?? (point.InstantUtc is { } instant
+                    ? DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(instant, timeZone).DateTime)
+                    : null))
+                .Where(static value => value.HasValue)
+                .Select(static value => value!.Value);
+            if (occurredDate == date || temporalDates.Contains(date) ||
+                date == today && temporalDates.Any(value => value >= today && value <= today.AddDays(7)))
+                count++;
+        }
+
+        return count;
+    }
+
+    private static DateOnly GetLocalToday(TimeZoneInfo timeZone)
+        => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, timeZone).DateTime);
+
+    private static IEnumerable<TemporalPointPayload> EnumerateTemporalPoints(BriefingFactCapabilityPayload fact)
+        => fact.TemporalReferences.SelectMany(static temporal => temporal switch
+        {
+            DeadlineTemporalPayload x => new[] { x.Due },
+            EventTemporalPayload x => x.End is null ? new[] { x.Start } : new[] { x.Start, x.End },
+            DateRangeTemporalPayload x => new[] { x.Start, x.End },
+            AvailabilityWindowTemporalPayload x => new[] { x.Opens, x.Closes },
+            CoveragePeriodTemporalPayload x => new[] { x.Start, x.End },
+            ExpectedTemporalPayload x => new[] { x.ExpectedAt },
+            ExpirationTemporalPayload x => new[] { x.ExpiresAt },
+            RenewalTemporalPayload x => new[] { x.RenewsAt },
+            TravelTemporalPayload x => new[] { x.Departure, x.Arrival },
+            _ => Array.Empty<TemporalPointPayload>(),
+        });
 
     private static async Task RunAccountAsync(
         MailAccount account,
@@ -760,6 +886,7 @@ internal static class Program
         string? publisher = null;
         string? appData = null;
         var help = false;
+        string? dailyBriefingAddress = null;
         for (var index = 0; index < args.Length; index++)
         {
             switch (args[index])
@@ -773,13 +900,16 @@ internal static class Program
                 case "--app-data-folder" when index + 1 < args.Length:
                     appData = args[++index];
                     break;
+                case "--daily-briefing" when index + 1 < args.Length:
+                    dailyBriefingAddress = args[++index];
+                    break;
                 default:
                     options = default;
                     error = $"Unknown or incomplete argument: {args[index]}";
                     return false;
             }
         }
-        options = new CommandLineOptions(publisher, appData, help);
+        options = new CommandLineOptions(publisher, appData, dailyBriefingAddress, help);
         error = null;
         return true;
     }
@@ -789,6 +919,7 @@ internal static class Program
         System.Console.WriteLine("Wino Outlook intelligence test console");
         System.Console.WriteLine("  --publisher-folder <path>  Override the WinoShared publisher folder");
         System.Console.WriteLine("  --app-data-folder <path>   Override the Debug package LocalState folder");
+        System.Console.WriteLine("  --daily-briefing <email>   Report today's and yesterday's briefing facts for an account");
         System.Console.WriteLine("  --help                     Show help");
     }
 }
@@ -799,5 +930,6 @@ internal enum ApiEnvironment
     Production,
 }
 
-internal readonly record struct CommandLineOptions(string? PublisherFolder, string? ApplicationDataFolder, bool ShowHelp);
+internal readonly record struct CommandLineOptions(
+    string? PublisherFolder, string? ApplicationDataFolder, string? DailyBriefingAddress, bool ShowHelp);
 internal sealed record ConsolePaths(string PublisherFolder, string ApplicationDataFolder, string TempFolder);

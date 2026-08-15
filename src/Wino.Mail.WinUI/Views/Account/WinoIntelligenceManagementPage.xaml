@@ -167,8 +167,14 @@
 
                 <!--  Alerts. Only what the hero cannot say on its own.  -->
                 <StackPanel Margin="0,14,0,0" Spacing="8">
-                    <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind ViewModel.IsRemoteRefreshInProgress, Mode=OneWay}">
-                        <ProgressRing Width="16" Height="16" IsActive="{x:Bind ViewModel.IsRemoteRefreshInProgress, Mode=OneWay}" />
+                    <StackPanel
+                        Orientation="Horizontal"
+                        Spacing="8"
+                        Visibility="{x:Bind ViewModel.IsRemoteRefreshInProgress, Mode=OneWay}">
+                        <ProgressRing
+                            Width="16"
+                            Height="16"
+                            IsActive="{x:Bind ViewModel.IsRemoteRefreshInProgress, Mode=OneWay}" />
                         <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.WinoIntelligence_Updating, Mode=OneTime}" />
                     </StackPanel>
                     <InfoBar
@@ -178,7 +184,10 @@
                         Message="{x:Bind ViewModel.RemoteRefreshError, Mode=OneWay}"
                         Severity="Warning">
                         <InfoBar.ActionButton>
-                            <Button AutomationProperties.AutomationId="WinoIntelligenceManagementRetryCachedRefreshButton" Command="{x:Bind ViewModel.RetryRemoteRefreshCommand}" Content="{x:Bind domain:Translator.Buttons_Retry, Mode=OneTime}" />
+                            <Button
+                                AutomationProperties.AutomationId="WinoIntelligenceManagementRetryCachedRefreshButton"
+                                Command="{x:Bind ViewModel.RetryRemoteRefreshCommand}"
+                                Content="{x:Bind domain:Translator.Buttons_Retry, Mode=OneTime}" />
                         </InfoBar.ActionButton>
                     </InfoBar>
                     <InfoBar
@@ -548,27 +557,40 @@
                 <StackPanel Visibility="{x:Bind ViewModel.IsEnabledContentVisible, Mode=OneWay}">
                     <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="{x:Bind domain:Translator.Intelligence_DataManagementTitle, Mode=OneTime}" />
                     <StackPanel Spacing="2">
-                        <controls:SettingsCard
+                        <controls:SettingsExpander
                             AutomationProperties.AutomationId="WinoIntelligenceMessageCoverageCard"
                             Description="{x:Bind ViewModel.CoverageDescription, Mode=OneWay}"
                             Header="{x:Bind domain:Translator.SemanticIndex_MessageCoverage, Mode=OneTime}">
-                            <controls:SettingsCard.HeaderIcon>
+                            <controls:SettingsExpander.HeaderIcon>
                                 <FontIcon Glyph="&#xE8A5;" />
-                            </controls:SettingsCard.HeaderIcon>
-                        </controls:SettingsCard>
+                            </controls:SettingsExpander.HeaderIcon>
+                            <controls:SettingsExpander.Items>
+                                <controls:SettingsCard
+                                    AutomationProperties.AutomationId="WinoIntelligenceDownloadCard"
+                                    Description="{x:Bind domain:Translator.SemanticIndex_DownloadDescription, Mode=OneTime}"
+                                    Header="{x:Bind domain:Translator.SemanticIndex_DownloadTitle, Mode=OneTime}">
 
-                        <controls:SettingsCard
-                            AutomationProperties.AutomationId="WinoIntelligenceDownloadCard"
-                            Description="{x:Bind domain:Translator.SemanticIndex_DownloadDescription, Mode=OneTime}"
-                            Header="{x:Bind domain:Translator.SemanticIndex_DownloadTitle, Mode=OneTime}">
-                            <controls:SettingsCard.HeaderIcon>
-                                <FontIcon Glyph="&#xE896;" />
-                            </controls:SettingsCard.HeaderIcon>
-                            <Button
-                                AutomationProperties.AutomationId="WinoIntelligenceDownloadButton"
-                                Command="{x:Bind ViewModel.DownloadAvailableIntelligenceCommand}"
-                                Content="{x:Bind domain:Translator.SemanticIndex_CloudDownloadButton, Mode=OneTime}" />
-                        </controls:SettingsCard>
+                                    <Button
+                                        AutomationProperties.AutomationId="WinoIntelligenceDownloadButton"
+                                        Command="{x:Bind ViewModel.DownloadAvailableIntelligenceCommand}"
+                                        Content="{x:Bind domain:Translator.SemanticIndex_CloudDownloadButton, Mode=OneTime}" />
+                                </controls:SettingsCard>
+                                <controls:SettingsCard
+                                    AutomationProperties.AutomationId="WinoIntelligenceDeleteCard"
+                                    Description="{x:Bind domain:Translator.SemanticIndex_DeleteDescription, Mode=OneTime}"
+                                    Header="{x:Bind domain:Translator.SemanticIndex_DeleteTitle, Mode=OneTime}">
+                                    <!--<controls:SettingsCard.HeaderIcon>
+                                        <FontIcon Foreground="{ThemeResource SystemFillColorCriticalBrush}" Glyph="&#xE74D;" />
+                                    </controls:SettingsCard.HeaderIcon>-->
+                                    <Button
+                                        AutomationProperties.AutomationId="WinoIntelligenceDeleteButton"
+                                        Background="{ThemeResource DeleteBrush}"
+                                        Command="{x:Bind ViewModel.DeleteSemanticIndexCommand}"
+                                        Content="{x:Bind domain:Translator.SemanticIndex_Delete, Mode=OneTime}"
+                                        Foreground="White" />
+                                </controls:SettingsCard>
+                            </controls:SettingsExpander.Items>
+                        </controls:SettingsExpander>
 
                         <TextBlock
                             Margin="16,4,16,8"
@@ -604,22 +626,6 @@
                                 </StackPanel>
                             </InfoBar.Content>
                         </InfoBar>
-
-                        <controls:SettingsCard
-                            AutomationProperties.AutomationId="WinoIntelligenceDeleteCard"
-                            Description="{x:Bind domain:Translator.SemanticIndex_DeleteDescription, Mode=OneTime}"
-                            Header="{x:Bind domain:Translator.SemanticIndex_DeleteTitle, Mode=OneTime}">
-                            <controls:SettingsCard.HeaderIcon>
-                                <FontIcon Foreground="{ThemeResource SystemFillColorCriticalBrush}" Glyph="&#xE74D;" />
-                            </controls:SettingsCard.HeaderIcon>
-                            <Button
-                                AutomationProperties.AutomationId="WinoIntelligenceDeleteButton"
-                                Background="{ThemeResource DeleteBrush}"
-                                Command="{x:Bind ViewModel.DeleteSemanticIndexCommand}"
-                                Content="{x:Bind domain:Translator.SemanticIndex_Delete, Mode=OneTime}"
-                                Foreground="White" />
-                        </controls:SettingsCard>
-
                     </StackPanel>
                 </StackPanel>
             </StackPanel>

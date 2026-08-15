@@ -12,7 +12,6 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.SemanticIndexing;
 using Wino.Mail.Contracts.Intelligence;
 using Wino.Mail.ViewModels.Data;
@@ -1019,13 +1018,23 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
 
     private string CreateCoverageDescription(IntelligenceMailboxStatusDto? status)
     {
+
         if (status is null || status.StorageSizeBytes == 0)
             return Translator.SemanticIndex_NoIndexedMessages;
         var size = string.Format(Translator.SemanticIndex_StorageSize, FormatStorageSize(status.StorageSizeBytes));
         if (status.OldestReceivedAtUtc is null || status.NewestReceivedAtUtc is null)
             return size;
-        return $"{status.OldestReceivedAtUtc.Value.LocalDateTime:d MMMM yyyy} – " +
+
+        if (string.IsNullOrEmpty(status.HeadlineLanguage))
+        {
+            return $"{status.OldestReceivedAtUtc.Value.LocalDateTime:d MMMM yyyy} – " +
                $"{status.NewestReceivedAtUtc.Value.LocalDateTime:d MMMM yyyy}\n{size}";
+        }
+        else
+        {
+            return $"{status.OldestReceivedAtUtc.Value.LocalDateTime:d MMMM yyyy} – " +
+          $"{status.NewestReceivedAtUtc.Value.LocalDateTime:d MMMM yyyy}\n{size}\n{status.HeadlineLanguage}";
+        }
     }
 
     private async Task RefreshHeadlineLanguageAsync(IntelligenceMailboxStatusDto? status)

@@ -273,38 +273,21 @@
             </Button>
         </Grid>
 
-        <ListView
-            x:Name="DateListView"
+        <FlipView
+            x:Name="DateFlipView"
             Grid.Row="1"
             Height="60"
             Padding="6,4"
-            AutomationProperties.AutomationId="DailyBriefingDateList"
+            AutomationProperties.AutomationId="DailyBriefingDateFlipView"
             Background="Transparent"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="0,1,0,1"
-            IsItemClickEnabled="False"
             ItemsSource="{x:Bind ViewModel.Dates, Mode=OneWay}"
-            SelectedIndex="{x:Bind ViewModel.SelectedDateIndex, Mode=TwoWay}"
-            SelectionMode="Single">
-            <ListView.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <ItemsStackPanel Orientation="Horizontal" />
-                </ItemsPanelTemplate>
-            </ListView.ItemsPanel>
-            <ListView.ItemContainerStyle>
-                <Style TargetType="ListViewItem">
-                    <Setter Property="Width" Value="54" />
-                    <Setter Property="MinHeight" Value="50" />
-                    <Setter Property="Padding" Value="2" />
-                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                    <Setter Property="VerticalContentAlignment" Value="Stretch" />
-                </Style>
-            </ListView.ItemContainerStyle>
-            <ListView.ItemTemplate>
+            SelectedIndex="{x:Bind ViewModel.SelectedDateIndex, Mode=TwoWay}">
+            <FlipView.ItemTemplate>
                 <DataTemplate x:DataType="vm:DailyBriefingDateItem">
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                         <TextBlock
-                            MaxWidth="49"
                             HorizontalAlignment="Center"
                             FontSize="11"
                             FontWeight="SemiBold"
@@ -317,8 +300,8 @@
                             Text="{x:Bind Date.Day}" />
                     </StackPanel>
                 </DataTemplate>
-            </ListView.ItemTemplate>
-        </ListView>
+            </FlipView.ItemTemplate>
+        </FlipView>
 
         <Grid Grid.Row="2">
             <ScrollViewer
