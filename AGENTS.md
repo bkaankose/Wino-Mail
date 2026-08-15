@@ -138,8 +138,11 @@ Published cross-repository dependencies must use unconditional `PackageReference
 - Keep ViewModels limited to UI state and interaction. Put authentication, account API, token, preferences, and other business operations in services.
 - Avoid new NuGet packages when existing platform or repository libraries are sufficient.
 - Use `IWinoLogger` for errors and wrap async external operations in `try`/`catch`.
+- Use logical vertical spacing (code paragraphing) in C#: separate distinct guard clauses, retrievals, transformations, UI updates, and returns with a blank line; keep expressions that form one operation together. Do not add blank lines merely to isolate every individual statement.
 
 ## WinUI and XAML rules
+
+- Before designing a new user-facing Wino feature or changing a visual pattern, read `docs/wino-design-guideline.md`. Apply its Wino-specific layout, surfaces, command, state, accessibility, and verification decisions; update the guide when establishing a reusable new pattern.
 
 - Do not add XAML-backed controls, flyouts, templates, or visual composition in `.xaml.cs`. Keep code-behind for handlers and view glue.
 - Wire XAML-backed `Loaded`, `Unloaded`, and input events in XAML, not constructors.
