@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Wino.Mail.ViewModels.Data;
 using Wino.Views.Abstract;
 
 namespace Wino.Views;
@@ -7,6 +8,7 @@ namespace Wino.Views;
 public sealed partial class WinoIntelligenceManagementPage : WinoIntelligenceManagementPageAbstract
 {
     private bool _isApplyingToggleState;
+    private bool _isApplyingIntelligencePreferenceState;
 
     public WinoIntelligenceManagementPage() => InitializeComponent();
 
@@ -25,6 +27,44 @@ public sealed partial class WinoIntelligenceManagementPage : WinoIntelligenceMan
         finally
         {
             _isApplyingToggleState = false;
+        }
+    }
+
+    private async void DailyBriefingToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingIntelligencePreferenceState || !ViewModel.IsPageReady || sender is not ToggleSwitch toggleSwitch)
+            return;
+
+        _isApplyingIntelligencePreferenceState = true;
+        try
+        {
+            var actualState = await ViewModel.SetDailyBriefingEnabledAsync(toggleSwitch.IsOn);
+            if (toggleSwitch.IsOn != actualState)
+                toggleSwitch.IsOn = actualState;
+        }
+        finally
+        {
+            _isApplyingIntelligencePreferenceState = false;
+        }
+    }
+
+    private async void IntelligenceIndicatorToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingIntelligencePreferenceState || !ViewModel.IsPageReady ||
+            sender is not ToggleSwitch toggleSwitch || toggleSwitch.DataContext is not IntelligenceIndicatorSettingsItem item)
+            return;
+
+        _isApplyingIntelligencePreferenceState = true;
+        try
+        {
+            var actualState = await ViewModel.SetIntelligenceIndicatorVisibilityAsync(item.Identifier, toggleSwitch.IsOn);
+            item.IsVisible = actualState;
+            if (toggleSwitch.IsOn != actualState)
+                toggleSwitch.IsOn = actualState;
+        }
+        finally
+        {
+            _isApplyingIntelligencePreferenceState = false;
         }
     }
 }

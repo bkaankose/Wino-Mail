@@ -267,12 +267,12 @@ internal static class Program
         }
 
         var yesterday = today.AddDays(-1);
-        var todayFacts = await localService.GetBriefingFactsAsync(today, timeZone, cancellationToken)
+        var todayFacts = await localService.GetBriefingFactsAsync(today, timeZone, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
-        var yesterdayFacts = await localService.GetBriefingFactsAsync(yesterday, timeZone, cancellationToken)
+        var yesterdayFacts = await localService.GetBriefingFactsAsync(yesterday, timeZone, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
-        var todayCount = todayFacts.Count(item => item.LocalAccountId == account.Id);
-        var yesterdayCount = yesterdayFacts.Count(item => item.LocalAccountId == account.Id);
+        var todayCount = todayFacts.Facts.Count(item => item.LocalAccountId == account.Id);
+        var yesterdayCount = yesterdayFacts.Facts.Count(item => item.LocalAccountId == account.Id);
 
         System.Console.WriteLine($"  {today:yyyy-MM-dd}: {todayCount} briefing fact(s)");
         System.Console.WriteLine($"  {yesterday:yyyy-MM-dd}: {yesterdayCount} briefing fact(s)");

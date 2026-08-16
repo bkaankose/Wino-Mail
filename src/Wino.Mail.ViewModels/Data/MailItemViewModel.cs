@@ -194,7 +194,9 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
 
     public bool HasCategories => Categories.Count > 0;
 
-    public IReadOnlyList<WinoIntelligenceTile> IntelligenceTiles => MailIntelligenceTileFactory.Create(MailCopy?.IntelligenceMetadata);
+    public IReadOnlyList<WinoIntelligenceTile> IntelligenceTiles => MailIntelligenceTileFactory.Create(
+        MailCopy?.IntelligenceMetadata,
+        MailCopy?.AssignedAccount?.Preferences?.ExcludedIntelligenceIndicatorIds);
 
     public bool HasIntelligenceTiles => IntelligenceTiles.Count > 0;
 

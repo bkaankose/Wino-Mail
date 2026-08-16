@@ -36,6 +36,12 @@ public interface ILocalIntelligenceStore
     Task<WinoAccountIntelligenceSnapshot?> GetAccountIntelligenceSnapshotAsync(Guid winoAccountId, CancellationToken cancellationToken = default);
     Task DeleteAccountIntelligenceSnapshotsAsync(CancellationToken cancellationToken = default);
     Task<long> GetLatestBriefingFactRevisionAsync(Guid localAccountId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyDictionary<Guid, long>> GetDailyBriefingIgnoreRevisionsAsync(Guid localAccountId,
+        CancellationToken cancellationToken = default);
+    Task SaveDailyBriefingIgnoreAsync(Guid localAccountId, Guid briefingId, long artifactRevision,
+        DateTimeOffset ignoredAtUtc, CancellationToken cancellationToken = default);
+    Task DeleteDailyBriefingIgnoreAsync(Guid localAccountId, Guid briefingId,
+        CancellationToken cancellationToken = default);
     Task<DailyBriefingUnseenState> GetDailyBriefingUnseenStateAsync(IReadOnlyCollection<Guid> localAccountIds, CancellationToken cancellationToken = default);
     Task MarkDailyBriefingOpenedAsync(IReadOnlyCollection<Guid> localAccountIds, DateTimeOffset openedAtUtc, CancellationToken cancellationToken = default);
     Task MarkDailyBriefingViewedAsync(IReadOnlyCollection<Guid> localAccountIds, DateTimeOffset viewedAtUtc, CancellationToken cancellationToken = default);

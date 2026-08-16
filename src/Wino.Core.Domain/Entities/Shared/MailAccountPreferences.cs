@@ -1,10 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
 using SQLite;
+using Wino.Core.Domain.Models.Intelligence;
 
 namespace Wino.Core.Domain.Entities.Shared;
 
 public class MailAccountPreferences
 {
+    private HashSet<string>? _excludedIntelligenceIndicatorIds;
     [PrimaryKey]
     public Guid Id { get; set; }
 
@@ -51,6 +54,41 @@ public class MailAccountPreferences
     /// Disabled by default so existing synchronization behavior is unchanged.
     /// </summary>
     public bool IsSemanticIndexingEnabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether this mailbox contributes facts to Daily Briefing.
+    /// This is local mailbox state and is enabled for existing and new accounts.
+    /// </summary>
+    public bool IsDailyBriefingEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Newline-separated stable intelligence indicator ids excluded from local
+    /// presentation. The normalized set is exposed through
+    /// <see cref="ExcludedIntelligenceIndicatorIds"/> because SQLite cannot map a
+    /// mutable set directly.
+    /// </summary>
+    public string ExcludedIntelligenceIndicatorIdsStorage { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets the local set of excluded intelligence indicator ids. Unknown and
+    /// obsolete values are ignored when the set is materialized from storage.
+    /// </summary>
+    [Ignore]
+    public HashSet<string> ExcludedIntelligenceIndicatorIds
+    {
+        get => _excludedIntelligenceIndicatorIds ??= IntelligenceIndicatorId.ParsePersisted(ExcludedIntelligenceIndicatorIdsStorage);
+        set => _excludedIntelligenceIndicatorIds = IntelligenceIndicatorId.NormalizeExcluded(value);
+    }
+
+    /// <summary>Compatibility alias for callers that prefer the plural noun form.</summary>
+    [Ignore]
+    public IReadOnlySet<string> ExcludedIntelligenceIndicators => ExcludedIntelligenceIndicatorIds;
+
+    /// <summary>
+    /// Normalizes local intelligence preferences before a SQLite insert or update.
+    /// </summary>
+    public void PrepareForStorage()
+        => ExcludedIntelligenceIndicatorIdsStorage = IntelligenceIndicatorId.SerializePersisted(ExcludedIntelligenceIndicatorIds);
 
     /// <summary>
     /// Stable id of the range preset the user last chose for semantic indexing.

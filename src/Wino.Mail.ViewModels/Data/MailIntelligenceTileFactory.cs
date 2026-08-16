@@ -10,7 +10,22 @@ namespace Wino.Mail.ViewModels.Data;
 
 public static class MailIntelligenceTileFactory
 {
+    // Segoe Fluent Icons glyphs for the fact tiles. Shared so the settings checklist can show the
+    // same icon next to the indicator the user is turning on or off.
+    public const string DeadlineGlyph = "\uE787";           // Calendar
+    public const string NeedsReplyGlyph = "\uE97A";         // Reply
+    public const string PriorityGlyph = "\uE7BA";           // Warning
+    public const string BriefingGlyph = "\uE946";           // Info
+
+    /// <summary>Glyph used for a smart label that has no recognizable icon of its own.</summary>
+    public const string FallbackSmartLabelGlyph = "\uE7C1"; // Flag
+
     public static IReadOnlyList<WinoIntelligenceTile> Create(MailIntelligenceMetadata metadata)
+        => Create(metadata, excludedIndicatorIds: null);
+
+    public static IReadOnlyList<WinoIntelligenceTile> Create(
+        MailIntelligenceMetadata metadata,
+        IReadOnlySet<string>? excludedIndicatorIds)
     {
         if (metadata is null)
         {
@@ -19,28 +34,34 @@ public static class MailIntelligenceTileFactory
 
         var tiles = new List<WinoIntelligenceTile>();
 
-        if (metadata.Deadline?.HasDeadline == true)
+        if (metadata.Deadline?.HasDeadline == true &&
+            !IsExcluded(IntelligenceIndicatorIds.Deadline, excludedIndicatorIds))
         {
             var deadline = FormatDeadline(metadata.Deadline, CultureInfo.CurrentCulture);
             var accessibleText = $"{GetDeadlineKindText(metadata.Deadline.Kind)}: {deadline}";
-            tiles.Add(new(WinoIntelligenceTileKind.Deadline, "\uE787", deadline, accessibleText));
+            tiles.Add(new(WinoIntelligenceTileKind.Deadline, DeadlineGlyph, deadline, accessibleText));
         }
 
-        if (metadata.NeedsReply?.Value == true)
+        if (metadata.NeedsReply?.Value == true &&
+            !IsExcluded(IntelligenceIndicatorIds.NeedsReply, excludedIndicatorIds))
         {
-            tiles.Add(new(WinoIntelligenceTileKind.NeedsReply, "\uE97A", Translator.IntelligenceTile_NeedsReply, Translator.IntelligenceTile_NeedsReplyTooltip));
+            tiles.Add(new(WinoIntelligenceTileKind.NeedsReply, NeedsReplyGlyph, Translator.IntelligenceTile_NeedsReply, Translator.IntelligenceTile_NeedsReplyTooltip));
         }
 
-        if (metadata.Priority?.Level is MailPriority.High or MailPriority.Urgent)
+        if ((metadata.Priority?.Level is MailPriority.High or MailPriority.Urgent) &&
+            !IsExcluded(IntelligenceIndicatorIds.Priority, excludedIndicatorIds))
         {
             var priority = metadata.Priority.Level == MailPriority.Urgent
                 ? Translator.IntelligenceTile_PriorityUrgent
                 : Translator.IntelligenceTile_PriorityHigh;
-            tiles.Add(new(WinoIntelligenceTileKind.Priority, "\uE7BA", priority, priority, isWarning: true));
+            tiles.Add(new(WinoIntelligenceTileKind.Priority, PriorityGlyph, priority, priority, isWarning: true));
         }
 
         foreach (var smartLabel in metadata.SmartLabels)
         {
+            if (IsExcluded(IntelligenceIndicatorIds.ForSmartLabel(smartLabel.Label), excludedIndicatorIds))
+                continue;
+
             var label = GetSmartLabelText(smartLabel.Label);
             tiles.Add(new(
                 WinoIntelligenceTileKind.SmartLabel,
@@ -50,7 +71,8 @@ public static class MailIntelligenceTileFactory
                 isWarning: smartLabel.Label == MailSmartLabel.Important));
         }
 
-        if (metadata.BriefingFact is not null)
+        if (metadata.BriefingFact is not null &&
+            !IsExcluded(IntelligenceIndicatorIds.Briefing, excludedIndicatorIds))
         {
             var fact = metadata.BriefingFact;
             var accessibleText = string.Format(
@@ -59,11 +81,16 @@ public static class MailIntelligenceTileFactory
                 GetBriefingCategoryText(GetBriefingCategory(fact)),
                 GetPriorityText(fact.Urgency),
                 metadata.Headline);
-            tiles.Add(new(WinoIntelligenceTileKind.BriefingFact, "\uE946", string.Empty, accessibleText, true));
+            tiles.Add(new(WinoIntelligenceTileKind.BriefingFact, BriefingGlyph, string.Empty, accessibleText, true));
         }
 
         return tiles;
     }
+
+    private static bool IsExcluded(string indicatorId, IReadOnlySet<string>? excludedIndicatorIds)
+        => !IntelligenceVisibilityPolicy.IsVisible(
+            excludedIndicatorIds,
+            new IntelligenceIndicatorId(indicatorId));
 
     public static string FormatDeadline(DeadlineCapabilityPayload deadline, CultureInfo culture)
     {
@@ -117,7 +144,7 @@ public static class MailIntelligenceTileFactory
 
     // Segoe Fluent Icons glyphs, one per label so a tile is recognizable before its text is read.
     // A label with no glyph falls back to the neutral intelligence dot in the tile visuals.
-    private static string GetSmartLabelGlyph(MailSmartLabel label) => label switch
+    public static string GetSmartLabelGlyph(MailSmartLabel label) => label switch
     {
         MailSmartLabel.Important => "\uE734",     // Star
         MailSmartLabel.Action => "\uE945",        // Lightning bolt

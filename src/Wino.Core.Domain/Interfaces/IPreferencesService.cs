@@ -138,9 +138,9 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsCompactAccountMenuItemEnabled { get; set; }
 
     /// <summary>
-    /// Setting: Group daily briefing items by account instead of showing one flat list.
+    /// Setting: Show locally ignored Daily Briefing items for review.
     /// </summary>
-    bool IsDailyBriefingGroupedByAccount { get; set; }
+    bool IsDailyBriefingShowingIgnored { get; set; }
 
     /// <summary>
     /// Setting: Marking the item as read preference mode.

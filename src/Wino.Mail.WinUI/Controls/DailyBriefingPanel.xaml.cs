@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Numerics;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,6 +41,9 @@ public sealed partial class DailyBriefingPanel : UserControl
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         ViewModel.CloseRequested += ViewModelCloseRequested;
+        ViewModel.PropertyChanged += ViewModelPropertyChanged;
+
+        UpdateBriefingCollectionViewSource();
         ElementCompositionPreview.SetIsTranslationEnabled(PanelRoot, true);
         if (!_isOpen) SetTranslation(PanelWidth());
     }
@@ -47,6 +51,7 @@ public sealed partial class DailyBriefingPanel : UserControl
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         ViewModel.CloseRequested -= ViewModelCloseRequested;
+        ViewModel.PropertyChanged -= ViewModelPropertyChanged;
         ViewModel.Dispose();
     }
 
@@ -138,13 +143,36 @@ public sealed partial class DailyBriefingPanel : UserControl
 
     private void ActionClicked(object sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: DailyBriefingDisplayItem item })
+        if (sender is Button { Tag: DailyBriefingItem item })
             ViewModel.ExecuteActionCommand.Execute(item);
     }
 
     private void OpenItemClicked(object sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: DailyBriefingDisplayItem item })
+        if (sender is Button { Tag: DailyBriefingItem item })
             ViewModel.OpenItemCommand.Execute(item);
+    }
+
+    private void IgnoreClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: DailyBriefingItem item })
+            ViewModel.IgnoreCommand.Execute(item);
+    }
+
+    private void ViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ViewModel.SelectedDateGroups))
+            UpdateBriefingCollectionViewSource();
+    }
+
+    private void UpdateBriefingCollectionViewSource()
+    {
+        BriefingCollectionViewSource.Source = ViewModel.SelectedDateGroups;
+    }
+
+    private void ToggleIgnoreInvoked(SwipeItem sender, SwipeItemInvokedEventArgs args)
+    {
+        if (args.SwipeControl.Tag is DailyBriefingItem item)
+            ViewModel.IgnoreCommand.Execute(item);
     }
 }

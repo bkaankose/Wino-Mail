@@ -14,6 +14,7 @@
 		<DefineConstants>$(DefineConstants);WINRT_EXPOSED</DefineConstants>
 	</PropertyGroup>
 	<ItemGroup>
+		<PackageReference Include="CommunityToolkit.Mvvm" />
 		<PackageReference Include="EmailValidation" />
 		<PackageReference Include="Microsoft.Identity.Client" />
 		<PackageReference Include="Sentry.Serilog" />

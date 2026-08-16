@@ -15,7 +15,9 @@ using Wino.Messaging.UI;
 namespace Wino.Services;
 
 public sealed class LocalIntelligenceService : ILocalIntelligenceService,
-    IRecipient<IntelligenceMetadataChanged>, IDisposable
+    IRecipient<IntelligenceMetadataChanged>,
+    IRecipient<IntelligenceVisibilityChanged>,
+    IDisposable
 {
     private readonly IDatabaseService _databaseService;
     private readonly ILocalIntelligenceStore _store;
@@ -27,30 +29,30 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
         _databaseService = databaseService;
         _store = store;
         _accountService = accountService;
-        WeakReferenceMessenger.Default.Register(this);
+        WeakReferenceMessenger.Default.Register<LocalIntelligenceService, IntelligenceMetadataChanged>(
+            this, static (recipient, message) => recipient.Receive(message));
+        WeakReferenceMessenger.Default.Register<LocalIntelligenceService, IntelligenceVisibilityChanged>(
+            this, static (recipient, message) => recipient.Receive(message));
     }
 
     public async Task<IReadOnlyList<DailyBriefingAccount>> GetEligibleAccountsAsync(CancellationToken cancellationToken = default)
     {
-        await _databaseService.InitializeAsync().ConfigureAwait(false);
-        var profile = await _databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false);
-        if (profile is null || (string.IsNullOrWhiteSpace(profile.AccessToken) && string.IsNullOrWhiteSpace(profile.RefreshToken)))
-            return [];
         var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
-        var result = new List<DailyBriefingAccount>();
-        foreach (var account in accounts.Where(static x => x.IsMailAccessGranted).OrderBy(static x => x.Order))
-        {
-            var access = await _store.GetAccessSnapshotAsync(account.Id, cancellationToken).ConfigureAwait(false);
-            if (access is { IsEligible: true } && access.WinoAccountId == profile.Id)
-                result.Add(new(account, access.MailboxId!.Value));
-        }
-        return result;
+        return accounts
+            .Where(static x => x.IsMailAccessGranted && x.Preferences?.IsDailyBriefingEnabled != false)
+            .OrderBy(static x => x.Order)
+            .Select(static account => new DailyBriefingAccount(account))
+            .ToArray();
     }
 
-    public async Task<IReadOnlyList<DailyBriefingFact>> GetBriefingFactsAsync(DateOnly localDate, TimeZoneInfo timeZone, CancellationToken cancellationToken = default)
+    public async Task<DailyBriefingFactsResult> GetBriefingFactsAsync(
+        DateOnly localDate,
+        TimeZoneInfo timeZone,
+        bool includeIgnored = false,
+        CancellationToken cancellationToken = default)
     {
         var eligible = await GetEligibleAccountsAsync(cancellationToken).ConfigureAwait(false);
-        if (eligible.Count == 0) return [];
+        if (eligible.Count == 0) return new([], false);
         await _databaseService.InitializeAsync().ConfigureAwait(false);
         var startLocal = localDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified);
         var endLocal = localDate.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified);
@@ -68,10 +70,17 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
             .Where(x => x.CreationDate >= mailWindowStartUtc && x.CreationDate < mailWindowEndUtc)
             .ToListAsync().ConfigureAwait(false);
         var result = new List<DailyBriefingFact>();
+        var hasIgnoredFacts = false;
         foreach (var accountGroup in mails.Where(x => foldersById.ContainsKey(x.FolderId))
             .GroupBy(x => foldersById[x.FolderId].MailAccountId))
         {
             var account = accountsById[accountGroup.Key].Account;
+            if (!IntelligenceVisibilityPolicy.IsVisible(account.Preferences, IntelligenceFactKind.Briefing))
+                continue;
+
+            var ignoredRevisions = await _store.GetDailyBriefingIgnoreRevisionsAsync(
+                accountGroup.Key, cancellationToken).ConfigureAwait(false);
+
             var distinct = accountGroup.Select(mail =>
                 {
                     var folder = foldersById[mail.FolderId];
@@ -90,7 +99,9 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
             var artifacts = await _store.GetCurrentArtifactsAsync(accountGroup.Key,
                 distinct.Select(static x => x.RemoteMessageId!).ToArray(), cancellationToken).ConfigureAwait(false);
             var included = new List<(MailCopy Mail, string RemoteMessageId, DateTimeOffset OccurredAt,
-                BriefingFactCapabilityPayload Fact, long ArtifactRevision)>();
+                BriefingFactCapabilityPayload Fact, long ArtifactRevision,
+                IReadOnlyList<SmartLabelScore> SourceSmartLabels,
+                DailyBriefingIndicatorState IndicatorState)>();
             foreach (var candidate in distinct)
             {
                 var mail = candidate.Mail;
@@ -101,6 +112,22 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
                     .MaxBy(static x => x.ArtifactRevision);
                 if (factArtifact?.BriefingFact is not { } fact) continue;
 
+                var sourceSmartLabels = live
+                    .Where(static x => x.Capability == IntelligenceCapability.SmartLabels)
+                    .MaxBy(static x => x.ArtifactRevision)
+                    ?.SmartLabels?.Labels
+                    ?.DistinctBy(static label => label.Label)
+                    .ToArray() ?? [];
+                var includedSmartLabels = sourceSmartLabels
+                    .Where(label => IntelligenceVisibilityPolicy.IsVisible(account.Preferences, label.Label))
+                    .ToArray();
+                var indicatorState = new DailyBriefingIndicatorState(
+                    IntelligenceVisibilityPolicy.IsVisible(account.Preferences, IntelligenceFactKind.Deadline),
+                    IntelligenceVisibilityPolicy.IsVisible(account.Preferences, IntelligenceFactKind.NeedsReply),
+                    IntelligenceVisibilityPolicy.IsVisible(account.Preferences, IntelligenceFactKind.Priority),
+                    true,
+                    includedSmartLabels);
+
                 var occurredAt = new DateTimeOffset(DateTime.SpecifyKind(mail.CreationDate, DateTimeKind.Utc));
                 var occurredDate = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(occurredAt, timeZone).DateTime);
                 var temporalDates = EnumerateTemporalPoints(fact).Select(point => ResolveLocalDate(point, timeZone)).Where(x => x.HasValue).Select(x => x!.Value).ToArray();
@@ -108,7 +135,17 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
                 var inUpcomingWindow = localDate == today && temporalDates.Any(date => date >= today && date <= today.AddDays(7));
                 if (!inSelectedDay && !inUpcomingWindow) continue;
 
-                included.Add((mail, remoteMessageId, occurredAt, fact, factArtifact.ArtifactRevision));
+                var isIgnored = fact.BriefingId != Guid.Empty &&
+                    ignoredRevisions.TryGetValue(fact.BriefingId, out var ignoredRevision) &&
+                    factArtifact.ArtifactRevision <= ignoredRevision;
+                if (isIgnored)
+                {
+                    hasIgnoredFacts = true;
+                    if (!includeIgnored) continue;
+                }
+
+                included.Add((mail, remoteMessageId, occurredAt, fact, factArtifact.ArtifactRevision,
+                    sourceSmartLabels, indicatorState));
             }
 
             var headlines = await _store.GetBriefingHeadlinesAsync(accountGroup.Key,
@@ -118,12 +155,29 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
                 var mail = item.Mail;
                 var fact = item.Fact;
                 headlines.TryGetValue(fact.BriefingId, out var headline);
+                var isIgnored = ignoredRevisions.TryGetValue(fact.BriefingId, out var ignoredRevision) &&
+                    item.ArtifactRevision <= ignoredRevision;
                 result.Add(new(accountGroup.Key, mail.UniqueId, item.RemoteMessageId, mail.Subject, mail.FromName,
-                    item.OccurredAt, headline ?? string.Empty, item.ArtifactRevision, fact));
+                    item.OccurredAt, headline ?? string.Empty, item.ArtifactRevision, fact,
+                    item.SourceSmartLabels, item.IndicatorState, isIgnored));
             }
         }
-        return result.OrderByDescending(static x => x.OccurredAt).ToArray();
+        return new(result.OrderByDescending(static x => x.OccurredAt).ToArray(), hasIgnoredFacts);
     }
+
+    public Task IgnoreBriefingItemAsync(
+        Guid localAccountId,
+        Guid briefingId,
+        long artifactRevision,
+        CancellationToken cancellationToken = default)
+        => _store.SaveDailyBriefingIgnoreAsync(localAccountId, briefingId, artifactRevision,
+            DateTimeOffset.UtcNow, cancellationToken);
+
+    public Task UnignoreBriefingItemAsync(
+        Guid localAccountId,
+        Guid briefingId,
+        CancellationToken cancellationToken = default)
+        => _store.DeleteDailyBriefingIgnoreAsync(localAccountId, briefingId, cancellationToken);
 
     private static IEnumerable<TemporalPointPayload> EnumerateTemporalPoints(BriefingFactCapabilityPayload fact)
         => fact.TemporalReferences.SelectMany(static temporal => temporal switch
@@ -184,5 +238,7 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
     }
 
     public void Receive(IntelligenceMetadataChanged message) => WeakReferenceMessenger.Default.Send(new DailyBriefingStateChanged());
+
+    public void Receive(IntelligenceVisibilityChanged message) => WeakReferenceMessenger.Default.Send(new DailyBriefingStateChanged());
     public void Dispose() => WeakReferenceMessenger.Default.UnregisterAll(this);
 }

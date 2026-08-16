@@ -19,56 +19,11 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.AI.Abstractions;
 using Wino.Messaging.Client.Mails;
+using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels;
 
-public sealed partial class DailyBriefingDateItem : ObservableObject
-{
-    public required DateOnly Date { get; init; }
-    public required string DisplayName { get; init; }
-    public required string SecondaryName { get; init; }
-}
-
-/// <summary>One local briefing-fact row prepared for the panel's XAML template.</summary>
-public sealed partial class DailyBriefingDisplayItem : ObservableObject
-{
-    public required string Headline { get; init; }
-    public string Detail { get; init; } = string.Empty;
-    public string Source { get; init; } = string.Empty;
-    public string When { get; init; } = string.Empty;
-    public string DueText { get; init; } = string.Empty;
-    public string CategoryText { get; init; } = string.Empty;
-    public string CategoryGlyph { get; init; } = string.Empty;
-    public DailyBriefingTone Tone { get; init; } = DailyBriefingTone.Neutral;
-    public string UrgencyText { get; init; } = string.Empty;
-    public bool IsPriority { get; init; }
-    public Guid? MailUniqueId { get; init; }
-    public string VerificationCode { get; init; } = string.Empty;
-    public CalendarEventComposeNavigationArgs? CalendarArgs { get; init; }
-    public required DailyBriefingActionPresentation Action { get; init; }
-    public string AccountName { get; init; } = string.Empty;
-    public string AccountInitials { get; init; } = string.Empty;
-
-    public bool HasDetail => !string.IsNullOrWhiteSpace(Detail);
-    public bool HasSource => !string.IsNullOrWhiteSpace(Source);
-    public bool HasDue => !string.IsNullOrWhiteSpace(DueText);
-    public bool HasCategory => !string.IsNullOrWhiteSpace(CategoryText);
-    public bool HasUrgency => !string.IsNullOrWhiteSpace(UrgencyText);
-    public bool CanOpen => MailUniqueId is not null;
-    public bool ShowOpenAction => CanOpen && Action.Execution != DailyBriefingActionExecution.OpenSource;
-
-    [ObservableProperty] public partial bool IsAccountVisible { get; set; }
-}
-
-public sealed partial class DailyBriefingAccountGroup : ObservableObject
-{
-    public required DailyBriefingAccount Account { get; init; }
-    public string AccountName => Account.Account.Name;
-    public string AccountInitials => DailyBriefingPanelViewModel.GetInitials(Account.Account.Name);
-    public ObservableCollection<DailyBriefingDisplayItem> Items { get; } = [];
-}
-
-public sealed partial class DailyBriefingPanelViewModel : ObservableObject, IDisposable
+public sealed partial class DailyBriefingPanelViewModel : ObservableObject, IRecipient<IntelligenceVisibilityChanged>, IDisposable
 {
     private const int DateCount = 7;
 
@@ -86,20 +41,50 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject, IDis
     private CancellationTokenSource? _loadCancellation;
     private IReadOnlyList<DailyBriefingAccount> _eligibleAccounts = [];
     private bool _isInitialized;
+    private DailyBriefingDateItem? _selectedDate;
 
     public ObservableCollection<DailyBriefingDateItem> Dates { get; } = [];
-    public ObservableCollection<DailyBriefingAccountGroup> AccountGroups { get; } = [];
-    public ObservableCollection<DailyBriefingDisplayItem> FlatItems { get; } = [];
 
-    [ObservableProperty] public partial int SelectedDateIndex { get; set; }
-    [ObservableProperty] public partial bool IsGrouped { get; set; }
-    [ObservableProperty] public partial bool IsEmpty { get; set; }
-    [ObservableProperty] public partial bool IsUnavailable { get; set; }
-    [ObservableProperty] public partial bool IsLoading { get; set; }
-    [ObservableProperty] public partial string LoadError { get; set; } = string.Empty;
+    [ObservableProperty]
+    public partial int SelectedDateIndex { get; set; }
+
+    public DailyBriefingDateItem? SelectedDate
+    {
+        get => _selectedDate;
+        private set
+        {
+            if (ReferenceEquals(_selectedDate, value)) return;
+
+            _selectedDate = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SelectedDateGroups));
+            UpdateEmptyState();
+        }
+    }
+
+    public ObservableCollection<DailyBriefingAccountGroup>? SelectedDateGroups => SelectedDate?.Groups;
+
+    [ObservableProperty]
+    public partial bool IsShowingIgnored { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsEmpty { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsFilteredEmpty { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsUnavailable { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsLoading { get; set; }
+
+    [ObservableProperty]
+    public partial string LoadError { get; set; } = string.Empty;
 
     public bool HasLoadError => !string.IsNullOrWhiteSpace(LoadError);
-    public bool ShowContent => !IsLoading && !IsUnavailable && !IsEmpty && !HasLoadError;
+    public bool ShowContent => !IsLoading && !IsUnavailable && !IsEmpty && !IsFilteredEmpty && !HasLoadError;
+    public bool ShowFilteredEmpty => !IsLoading && !IsUnavailable && IsFilteredEmpty && !HasLoadError;
 
     public DailyBriefingPanelViewModel(ILocalIntelligenceService localService,
         IClipboardService clipboardService,
@@ -122,21 +107,26 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject, IDis
         _mimeFileService = mimeFileService;
         _requestDelegator = requestDelegator;
         _dialogService = dialogService;
-        IsGrouped = preferencesService.IsDailyBriefingGroupedByAccount;
+        IsShowingIgnored = preferencesService.IsDailyBriefingShowingIgnored;
+        WeakReferenceMessenger.Default.Register(this);
     }
 
-    /// <summary>Raised when an action needs the shell to close the panel and reveal mail or Calendar.</summary>
     public event EventHandler? CloseRequested;
 
     public async Task InitializeAsync()
     {
-        if (Dates.Count == 0) BuildDates();
+        if (Dates.Count == 0)
+            BuildDates();
 
-        _isInitialized = false;
-        await _dispatcher.ExecuteOnUIThread(() => SelectedDateIndex = 0).ConfigureAwait(false);
-        _isInitialized = true;
+        await _dispatcher.ExecuteOnUIThread(() =>
+        {
+            _isInitialized = false;
+            SelectedDateIndex = 0;
+            SelectedDate = Dates[0];
+            _isInitialized = true;
+        }).ConfigureAwait(false);
 
-        await LoadAsync(refreshAccounts: true).ConfigureAwait(false);
+        await LoadAllDatesAsync(refreshAccounts: true).ConfigureAwait(false);
     }
 
     private void BuildDates()
@@ -146,7 +136,7 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject, IDis
         {
             var date = today.AddDays(-offset);
             var moment = date.ToDateTime(TimeOnly.MinValue);
-            Dates.Add(new()
+            Dates.Add(new DailyBriefingDateItem
             {
                 Date = date,
                 DisplayName = offset switch
@@ -162,27 +152,51 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject, IDis
 
     partial void OnSelectedDateIndexChanged(int value)
     {
-        if (!_isInitialized) return;
-        _ = LoadAsync(refreshAccounts: false);
+        if (!_isInitialized || value < 0 || value >= Dates.Count) return;
+
+        SelectedDate = Dates[value];
     }
 
-    partial void OnIsGroupedChanged(bool value)
+    partial void OnIsShowingIgnoredChanged(bool value)
     {
-        _preferencesService.IsDailyBriefingGroupedByAccount = value;
-        foreach (var item in FlatItems) item.IsAccountVisible = !value;
+        _preferencesService.IsDailyBriefingShowingIgnored = value;
+        if (!_isInitialized) return;
+
+        foreach (var date in Dates)
+            ApplyProjection(date);
+
+        UpdateEmptyState();
     }
 
-    partial void OnIsLoadingChanged(bool value) => OnPropertyChanged(nameof(ShowContent));
-    partial void OnIsUnavailableChanged(bool value) => OnPropertyChanged(nameof(ShowContent));
+    partial void OnIsLoadingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowContent));
+        OnPropertyChanged(nameof(ShowFilteredEmpty));
+    }
+
+    partial void OnIsUnavailableChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowContent));
+        OnPropertyChanged(nameof(ShowFilteredEmpty));
+    }
+
     partial void OnIsEmptyChanged(bool value) => OnPropertyChanged(nameof(ShowContent));
+
+    partial void OnIsFilteredEmptyChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowContent));
+        OnPropertyChanged(nameof(ShowFilteredEmpty));
+    }
+
     partial void OnLoadErrorChanged(string value)
     {
         OnPropertyChanged(nameof(HasLoadError));
         OnPropertyChanged(nameof(ShowContent));
+        OnPropertyChanged(nameof(ShowFilteredEmpty));
     }
 
     [RelayCommand]
-    private Task RetryAsync() => LoadAsync(refreshAccounts: true);
+    private Task RetryAsync() => LoadAllDatesAsync(refreshAccounts: true);
 
     private void CancelPendingWork()
     {
@@ -191,7 +205,7 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject, IDis
         _loadCancellation = null;
     }
 
-    private async Task LoadAsync(bool refreshAccounts)
+    private async Task LoadAllDatesAsync(bool refreshAccounts)
     {
         CancelPendingWork();
         var cancellation = new CancellationTokenSource();
@@ -200,10 +214,9 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject, IDis
 
         await _dispatcher.ExecuteOnUIThread(() =>
         {
-            AccountGroups.Clear();
-            FlatItems.Clear();
             IsLoading = true;
             IsEmpty = false;
+            IsFilteredEmpty = false;
             IsUnavailable = false;
             LoadError = string.Empty;
         }).ConfigureAwait(false);
@@ -217,31 +230,42 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject, IDis
                 await _localService.MarkOpenedAsync(token).ConfigureAwait(false);
             }
 
-            await _dispatcher.ExecuteOnUIThread(() =>
+            if (_eligibleAccounts.Count == 0)
             {
-                foreach (var account in _eligibleAccounts)
-                    AccountGroups.Add(new() { Account = account });
-                IsUnavailable = _eligibleAccounts.Count == 0;
-            }).ConfigureAwait(false);
+                await _dispatcher.ExecuteOnUIThread(() =>
+                {
+                    foreach (var date in Dates)
+                    {
+                        date.Facts.Clear();
+                        ClearGroups(date.Groups);
+                        date.HasIgnoredFacts = false;
+                    }
 
-            if (_eligibleAccounts.Count == 0 || SelectedDateIndex < 0 || SelectedDateIndex >= Dates.Count)
+                    IsUnavailable = true;
+                    UpdateEmptyState();
+                }).ConfigureAwait(false);
                 return;
+            }
 
-            var selectedDate = Dates[SelectedDateIndex].Date;
-            var facts = await _localService.GetBriefingFactsAsync(selectedDate, _dateContext.TimeZone, token)
-                .ConfigureAwait(false);
+            var results = await Task.WhenAll(Dates.Select(date =>
+                _localService.GetBriefingFactsAsync(date.Date, _dateContext.TimeZone,
+                    includeIgnored: true, cancellationToken: token))).ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
 
             await _dispatcher.ExecuteOnUIThread(() =>
             {
                 if (token.IsCancellationRequested) return;
-                foreach (var group in AccountGroups)
+
+                for (var index = 0; index < Dates.Count; index++)
                 {
-                    var accountFacts = facts.Where(x => x.LocalAccountId == group.Account.Account.Id)
-                        .Select(fact => CreateFactItem(fact, group));
-                    foreach (var item in Order(accountFacts)) group.Items.Add(item);
+                    var date = Dates[index];
+                    date.Facts.Clear();
+                    date.Facts.AddRange(results[index].Facts);
+                    date.HasIgnoredFacts = results[index].HasIgnoredFacts || date.Facts.Any(static fact => fact.IsIgnored);
+                    ApplyProjection(date);
                 }
-                RebuildFlatItems();
+
+                UpdateEmptyState();
             }).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -251,10 +275,16 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject, IDis
         {
             await _dispatcher.ExecuteOnUIThread(() =>
             {
-                AccountGroups.Clear();
-                FlatItems.Clear();
-                IsEmpty = false;
+                foreach (var date in Dates)
+                {
+                    date.Facts.Clear();
+                    ClearGroups(date.Groups);
+                    date.HasIgnoredFacts = false;
+                }
+
                 IsUnavailable = false;
+                IsEmpty = false;
+                IsFilteredEmpty = false;
                 LoadError = Translator.DailyBriefing_LocalErrorMessage;
             }).ConfigureAwait(false);
         }
@@ -265,70 +295,104 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject, IDis
         }
     }
 
-    /// <summary>Urgent and high items first; everything else keeps the local service order.</summary>
-    private static IEnumerable<DailyBriefingDisplayItem> Order(IEnumerable<DailyBriefingDisplayItem> items)
+    private void ApplyProjection(DailyBriefingDateItem date)
     {
-        var materialized = items.ToArray();
-        return materialized.Where(static x => x.IsPriority)
-            .Concat(materialized.Where(static x => !x.IsPriority));
-    }
-
-    private void RebuildFlatItems()
-    {
-        FlatItems.Clear();
-        var all = AccountGroups.SelectMany(static group => group.Items).ToArray();
-        foreach (var item in all.Where(static x => x.IsPriority).Concat(all.Where(static x => !x.IsPriority)))
+        var desiredGroups = new List<(DailyBriefingAccount Account, IReadOnlyList<DailyBriefingFact> Facts)>();
+        foreach (var account in _eligibleAccounts)
         {
-            item.IsAccountVisible = !IsGrouped;
-            FlatItems.Add(item);
+            var facts = date.Facts
+                .Where(fact => fact.LocalAccountId == account.Account.Id && (IsShowingIgnored || !fact.IsIgnored))
+                .OrderByDescending(static fact => fact.IsPriorityVisible && fact.Fact.Urgency is MailPriority.Urgent or MailPriority.High)
+                .ThenByDescending(static fact => fact.OccurredAt)
+                .ToArray();
+            if (facts.Length > 0)
+                desiredGroups.Add((account, facts));
         }
-        IsEmpty = all.Length == 0;
+
+        var existingItems = date.Groups.SelectMany(static group => group).ToDictionary(GetItemKey);
+        for (var groupIndex = 0; groupIndex < desiredGroups.Count; groupIndex++)
+        {
+            var desired = desiredGroups[groupIndex];
+            var group = date.Groups.FirstOrDefault(candidate => candidate.Account.Account.Id == desired.Account.Account.Id);
+            if (group is null)
+            {
+                group = new DailyBriefingAccountGroup(desired.Account, []);
+                date.Groups.Insert(groupIndex, group);
+            }
+            else if (date.Groups.IndexOf(group) != groupIndex)
+            {
+                date.Groups.Move(date.Groups.IndexOf(group), groupIndex);
+            }
+
+            UpdateGroupItems(group, desired.Facts, desired.Account, existingItems);
+        }
+
+        while (date.Groups.Count > desiredGroups.Count)
+        {
+            var group = date.Groups[^1];
+            while (group.Count > 0)
+                group.RemoveAt(group.Count - 1);
+            date.Groups.RemoveAt(date.Groups.Count - 1);
+        }
     }
 
-    private DailyBriefingDisplayItem CreateFactItem(DailyBriefingFact fact, DailyBriefingAccountGroup group)
+    private void UpdateGroupItems(DailyBriefingAccountGroup group, IReadOnlyList<DailyBriefingFact> facts,
+        DailyBriefingAccount account, IReadOnlyDictionary<DailyBriefingItemKey, DailyBriefingItem> existingItems)
     {
-        var isPriority = fact.Fact.Urgency is MailPriority.Urgent or MailPriority.High;
-        var localTime = TimeZoneInfo.ConvertTime(fact.OccurredAt, _dateContext.TimeZone);
-        var category = Category(fact.Fact);
+        for (var targetIndex = 0; targetIndex < facts.Count; targetIndex++)
+        {
+            var fact = facts[targetIndex];
+            var key = GetItemKey(fact);
+            DailyBriefingItem item;
+            if (existingItems.TryGetValue(key, out var existing) && existing.ArtifactRevision == fact.ArtifactRevision)
+            {
+                item = existing;
+                item.IsIgnored = fact.IsIgnored;
+            }
+            else
+            {
+                item = CreateItem(fact, account);
+            }
+
+            if (targetIndex < group.Count && ReferenceEquals(group[targetIndex], item))
+                continue;
+
+            var existingIndex = group.IndexOf(item);
+            if (existingIndex >= 0)
+                group.Move(existingIndex, targetIndex);
+            else
+                group.Insert(targetIndex, item);
+        }
+
+        while (group.Count > facts.Count)
+            group.RemoveAt(group.Count - 1);
+    }
+
+    private DailyBriefingItem CreateItem(DailyBriefingFact fact, DailyBriefingAccount account)
+    {
         var calendarArgs = fact.Fact.PrimaryAction is AddToCalendarActionPayload add
             ? CreateCalendarArgs(fact, add.TemporalReferenceIndex)
             : null;
         var code = (fact.Fact.PrimaryAction as CopyVerificationCodeActionPayload)?.Code ?? string.Empty;
-        var action = DailyBriefingActionPresentationFactory.Create(
-            fact.Fact.PrimaryAction,
-            canAddToCalendar: calendarArgs is not null,
-            hasVerificationCode: !string.IsNullOrWhiteSpace(code));
-
-        return new()
-        {
-            Headline = string.IsNullOrWhiteSpace(fact.Headline) ? fact.Subject : fact.Headline,
-            Detail = StatusText(fact.Fact.Status),
-            Source = BuildSource(fact.Headline, fact.Sender, fact.Subject),
-            When = localTime.ToString("t", _dateContext.Culture),
-            DueText = FormatTemporal(fact.Fact.TemporalReferences.FirstOrDefault()),
-            CategoryText = CategoryText(category),
-            CategoryGlyph = DailyBriefingIcons.Category(category),
-            Tone = CategoryTone(category),
-            UrgencyText = isPriority ? UrgencyText(fact.Fact.Urgency) : string.Empty,
-            IsPriority = isPriority,
-            MailUniqueId = fact.MailUniqueId,
-            VerificationCode = code,
-            CalendarArgs = calendarArgs,
-            Action = action,
-            AccountName = group.AccountName,
-            AccountInitials = group.AccountInitials,
-        };
+        var item = new DailyBriefingItem(fact, account, calendarArgs, code);
+        item.IsIgnored = fact.IsIgnored;
+        return item;
     }
 
-    private static string BuildSource(string headline, string sender, string subject)
+    private static DailyBriefingItemKey GetItemKey(DailyBriefingFact fact)
+        => fact.Fact.BriefingId != Guid.Empty
+            ? new(fact.LocalAccountId, fact.Fact.BriefingId, true)
+            : new(fact.LocalAccountId, fact.MailUniqueId, false);
+
+    private static DailyBriefingItemKey GetItemKey(DailyBriefingItem item) => GetItemKey(item.Fact);
+
+    private static void ClearGroups(ObservableCollection<DailyBriefingAccountGroup> groups)
     {
-        var hasSubject = !string.IsNullOrWhiteSpace(subject)
-            && !headline.Contains(subject, StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(subject, headline, StringComparison.OrdinalIgnoreCase);
-
-        if (string.IsNullOrWhiteSpace(sender)) return hasSubject ? subject : string.Empty;
-        return hasSubject ? $"{sender} · {subject}" : sender;
+        while (groups.Count > 0)
+            groups.RemoveAt(groups.Count - 1);
     }
+
+    private readonly record struct DailyBriefingItemKey(Guid LocalAccountId, Guid ItemId, bool IsBriefingId);
 
     private CalendarEventComposeNavigationArgs CreateCalendarArgs(string title, DateTimeOffset? dueAtUtc,
         DateOnly? localDate, DateOnly? localDateEnd, string subject, string sender)
@@ -354,6 +418,7 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject, IDis
     private CalendarEventComposeNavigationArgs? CreateCalendarArgs(DailyBriefingFact fact, int temporalReferenceIndex)
     {
         if (temporalReferenceIndex < 0 || temporalReferenceIndex >= fact.Fact.TemporalReferences.Count) return null;
+
         var temporal = fact.Fact.TemporalReferences[temporalReferenceIndex];
         var (start, end) = temporal switch
         {
@@ -368,57 +433,23 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject, IDis
             _ => ((TemporalPointPayload?)null, null),
         };
         if (start is null) return null;
+
         return CreateCalendarArgs(
             string.IsNullOrWhiteSpace(fact.Subject) ? fact.Headline : fact.Subject,
             start.InstantUtc, start.LocalDate, end?.LocalDate, fact.Subject, fact.Sender);
     }
 
-    private string FormatTemporal(TemporalPayload? temporal) => temporal switch
-    {
-        DeadlineTemporalPayload x => FormatSingle(Translator.DailyBriefing_TemporalDue, x.Due),
-        EventTemporalPayload x => FormatRange(Translator.DailyBriefing_TemporalEvent, x.Start, x.End),
-        DateRangeTemporalPayload x => FormatRange(Translator.DailyBriefing_TemporalRange, x.Start, x.End),
-        AvailabilityWindowTemporalPayload x => FormatRange(Translator.DailyBriefing_TemporalAvailable, x.Opens, x.Closes),
-        CoveragePeriodTemporalPayload x => FormatRange(Translator.DailyBriefing_TemporalCoverage, x.Start, x.End),
-        ExpectedTemporalPayload x => FormatSingle(Translator.DailyBriefing_TemporalExpected, x.ExpectedAt),
-        ExpirationTemporalPayload x => FormatSingle(Translator.DailyBriefing_TemporalExpires, x.ExpiresAt),
-        RenewalTemporalPayload x => FormatSingle(Translator.DailyBriefing_TemporalRenews, x.RenewsAt),
-        TravelTemporalPayload x => FormatRange(Translator.DailyBriefing_TemporalTravel, x.Departure, x.Arrival),
-        _ => string.Empty,
-    };
-
-    private string FormatSingle(string label, TemporalPointPayload point)
-    {
-        var value = FormatPoint(point);
-        return string.IsNullOrEmpty(value) ? string.Empty : $"{label} {value}";
-    }
-
-    private string FormatRange(string label, TemporalPointPayload start, TemporalPointPayload? end)
-    {
-        var startText = FormatPoint(start);
-        if (string.IsNullOrEmpty(startText)) return string.Empty;
-        var endText = end is null ? string.Empty : FormatPoint(end);
-        return string.IsNullOrEmpty(endText) ? $"{label} {startText}" : $"{label} {startText} – {endText}";
-    }
-
-    private string FormatPoint(TemporalPointPayload point)
-    {
-        if (point.InstantUtc is { } instant)
-            return TimeZoneInfo.ConvertTime(instant, _dateContext.TimeZone).ToString("g", _dateContext.Culture);
-        if (point.LocalDate is { } date && point.LocalTime is { } time)
-        {
-            var zone = string.IsNullOrWhiteSpace(point.TimeZoneId) ? string.Empty : $" {point.TimeZoneId}";
-            return $"{date.ToString("d", _dateContext.Culture)} {time.ToString("t", _dateContext.Culture)}{zone}";
-        }
-        if (point.LocalDate is { } localDate) return localDate.ToString("d", _dateContext.Culture);
-        return point.LocalTime?.ToString("t", _dateContext.Culture) ?? string.Empty;
-    }
-
     [RelayCommand]
-    private async Task ExecuteActionAsync(DailyBriefingDisplayItem? item)
+    private async Task ExecuteActionAsync(DailyBriefingItem? item)
     {
         if (item is null) return;
-        switch (item.Action.Execution)
+
+        var action = DailyBriefingActionPresentationFactory.Create(
+            item.Fact.Fact.PrimaryAction,
+            canAddToCalendar: item.CalendarArgs is not null,
+            hasVerificationCode: !string.IsNullOrWhiteSpace(item.VerificationCode),
+            allowReplyAction: item.IndicatorState.IsNeedsReplyVisible);
+        switch (action.Execution)
         {
             case DailyBriefingActionExecution.OpenSource:
                 OpenItem(item);
@@ -427,8 +458,7 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject, IDis
                 await ReplyAsync(item).ConfigureAwait(false);
                 break;
             case DailyBriefingActionExecution.CopyVerificationCode:
-                if (!string.IsNullOrWhiteSpace(item.VerificationCode))
-                    await _clipboardService.CopyClipboardAsync(item.VerificationCode).ConfigureAwait(false);
+                await _clipboardService.CopyClipboardAsync(item.VerificationCode).ConfigureAwait(false);
                 break;
             case DailyBriefingActionExecution.AddToCalendar:
                 AddToCalendar(item);
@@ -437,28 +467,30 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject, IDis
     }
 
     [RelayCommand]
-    private void OpenItem(DailyBriefingDisplayItem? item)
+    private void OpenItem(DailyBriefingItem? item)
     {
-        if (item?.MailUniqueId is not Guid mailId) return;
+        if (item is null || item.MailUniqueId == Guid.Empty) return;
+
         CloseRequested?.Invoke(this, EventArgs.Empty);
-        WeakReferenceMessenger.Default.Send(new MailItemNavigationRequested(mailId, ScrollToItem: true));
+        WeakReferenceMessenger.Default.Send(new MailItemNavigationRequested(item.MailUniqueId, ScrollToItem: true));
     }
 
-    private void AddToCalendar(DailyBriefingDisplayItem item)
+    private void AddToCalendar(DailyBriefingItem item)
     {
         if (item.CalendarArgs is not { } args) return;
+
         CloseRequested?.Invoke(this, EventArgs.Empty);
         _navigationService.ChangeApplicationMode(WinoApplicationMode.Calendar,
             new ShellModeActivationContext { Parameter = args });
     }
 
-    private async Task ReplyAsync(DailyBriefingDisplayItem item)
+    private async Task ReplyAsync(DailyBriefingItem item)
     {
-        if (item.MailUniqueId is not Guid mailId) return;
+        if (item.MailUniqueId == Guid.Empty) return;
 
         try
         {
-            var mailCopy = await _mailService.GetSingleMailItemAsync(mailId).ConfigureAwait(false);
+            var mailCopy = await _mailService.GetSingleMailItemAsync(item.MailUniqueId).ConfigureAwait(false);
             if (mailCopy?.AssignedAccount is null || mailCopy.FileId == Guid.Empty) return;
 
             var mimeInformation = await _mimeFileService
@@ -485,6 +517,59 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject, IDis
         }
     }
 
+    [RelayCommand]
+    private async Task IgnoreAsync(DailyBriefingItem? item)
+    {
+        if (item is null || !item.CanToggleIgnore) return;
+
+        var wasIgnored = item.IsIgnored;
+        await _dispatcher.ExecuteOnUIThread(() => item.IsIgnorePending = true).ConfigureAwait(false);
+        try
+        {
+            if (wasIgnored)
+                await _localService.UnignoreBriefingItemAsync(item.LocalAccountId, item.BriefingId).ConfigureAwait(false);
+            else
+                await _localService.IgnoreBriefingItemAsync(item.LocalAccountId, item.BriefingId, item.ArtifactRevision)
+                    .ConfigureAwait(false);
+
+            await _dispatcher.ExecuteOnUIThread(() =>
+            {
+                foreach (var date in Dates)
+                {
+                    for (var index = 0; index < date.Facts.Count; index++)
+                    {
+                        var fact = date.Facts[index];
+                        if (fact.LocalAccountId == item.LocalAccountId && fact.Fact.BriefingId == item.BriefingId)
+                            date.Facts[index] = fact with { IsIgnored = !wasIgnored };
+                    }
+
+                    date.HasIgnoredFacts = date.Facts.Any(static fact => fact.IsIgnored);
+                    ApplyProjection(date);
+                }
+
+                item.IsIgnorePending = false;
+                UpdateEmptyState();
+            }).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            await _dispatcher.ExecuteOnUIThread(() =>
+            {
+                item.IsIgnorePending = false;
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
+                    $"{Translator.DailyBriefing_LocalActionError} {exception.Message}", InfoBarMessageType.Error);
+            }).ConfigureAwait(false);
+        }
+    }
+
+    private void UpdateEmptyState()
+    {
+        var hasItems = SelectedDate?.Groups.Any(static group => group.Count > 0) == true;
+        var hasIgnoredFacts = SelectedDate?.HasIgnoredFacts == true;
+        IsFilteredEmpty = !IsShowingIgnored && hasIgnoredFacts && !hasItems;
+        IsEmpty = !hasItems && !IsFilteredEmpty;
+    }
+
     public Task MarkViewedAsync() => _localService.MarkViewedAsync();
 
     internal static string GetInitials(string name)
@@ -496,57 +581,15 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject, IDis
             : $"{parts[0][0]}{parts[^1][0]}".ToUpper(CultureInfo.CurrentCulture);
     }
 
-    private static string UrgencyText(MailPriority priority) => priority switch
+    public void Receive(IntelligenceVisibilityChanged message)
     {
-        MailPriority.Urgent => Translator.DailyBriefing_UrgencyUrgent,
-        _ => Translator.DailyBriefing_UrgencyHigh,
-    };
+        if (_isInitialized)
+            _ = LoadAllDatesAsync(refreshAccounts: true);
+    }
 
-    private static BriefingFactCategory Category(BriefingFactCapabilityPayload fact) => fact switch
+    public void Dispose()
     {
-        SecurityFactPayload or AccountFactPayload => BriefingFactCategory.Security,
-        FinanceFactPayload or PurchaseFactPayload or SubscriptionFactPayload => BriefingFactCategory.Finance,
-        TravelFactPayload or ReservationFactPayload => BriefingFactCategory.Travel,
-        ConversationFactPayload or SocialFactPayload => BriefingFactCategory.Personal,
-        TaskFactPayload or ApprovalFactPayload or MeetingFactPayload => BriefingFactCategory.ActionRequired,
-        _ when fact.Status is BriefingStatus.AwaitingMyReply or BriefingStatus.AwaitingOthers => BriefingFactCategory.Waiting,
-        _ => BriefingFactCategory.Information,
-    };
-
-    private static DailyBriefingTone CategoryTone(BriefingFactCategory category) => category switch
-    {
-        BriefingFactCategory.ActionRequired or BriefingFactCategory.Security => DailyBriefingTone.Critical,
-        BriefingFactCategory.Finance or BriefingFactCategory.Waiting => DailyBriefingTone.Caution,
-        BriefingFactCategory.Travel => DailyBriefingTone.Success,
-        BriefingFactCategory.Personal => DailyBriefingTone.Attention,
-        _ => DailyBriefingTone.Neutral,
-    };
-
-    private static string CategoryText(BriefingFactCategory category) => category switch
-    {
-        BriefingFactCategory.Information => Translator.IntelligenceTile_BriefingCategoryInformation,
-        BriefingFactCategory.ActionRequired => Translator.IntelligenceTile_BriefingCategoryActionRequired,
-        BriefingFactCategory.Waiting => Translator.IntelligenceTile_BriefingCategoryWaiting,
-        BriefingFactCategory.Security => Translator.IntelligenceTile_BriefingCategorySecurity,
-        BriefingFactCategory.Finance => Translator.IntelligenceTile_BriefingCategoryFinance,
-        BriefingFactCategory.Travel => Translator.IntelligenceTile_BriefingCategoryTravel,
-        BriefingFactCategory.Personal => Translator.IntelligenceTile_BriefingCategoryPersonal,
-        _ => Translator.IntelligenceTile_BriefingCategoryOther,
-    };
-
-    private static string StatusText(BriefingStatus status) => status switch
-    {
-        BriefingStatus.ActionRequired => Translator.DailyBriefing_StatusActionRequired,
-        BriefingStatus.AwaitingMyReply => Translator.DailyBriefing_StatusAwaitingMyReply,
-        BriefingStatus.AwaitingOthers => Translator.DailyBriefing_StatusAwaitingOthers,
-        BriefingStatus.Scheduled => Translator.DailyBriefing_StatusScheduled,
-        BriefingStatus.InProgress => Translator.DailyBriefing_StatusInProgress,
-        BriefingStatus.Completed => Translator.DailyBriefing_StatusCompleted,
-        BriefingStatus.Updated => Translator.DailyBriefing_StatusUpdated,
-        BriefingStatus.Cancelled => Translator.DailyBriefing_StatusCancelled,
-        BriefingStatus.Expired => Translator.DailyBriefing_StatusExpired,
-        _ => string.Empty,
-    };
-
-    public void Dispose() => CancelPendingWork();
+        CancelPendingWork();
+        WeakReferenceMessenger.Default.Unregister<IntelligenceVisibilityChanged>(this);
+    }
 }

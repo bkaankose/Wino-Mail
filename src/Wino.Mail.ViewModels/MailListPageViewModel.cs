@@ -50,6 +50,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     IRecipient<MailOperationRequested>,
     IRecipient<UndoableMailActionPackChanged>,
     IRecipient<IntelligenceMetadataChanged>,
+    IRecipient<IntelligenceVisibilityChanged>,
     IRecipient<LanguageChanged>
 {
     private Guid? trackingSynchronizationId = null;
@@ -2998,6 +2999,18 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }
     }
 
+    public async void Receive(IntelligenceVisibilityChanged message)
+    {
+        await ExecuteUIThread(() =>
+        {
+            foreach (var mailItem in ((IEnumerable<MailItemViewModel>)MailCollection.Items).Where(item =>
+                item.MailCopy?.AssignedAccount?.Id == message.LocalAccountId))
+            {
+                mailItem.RefreshIntelligenceTiles();
+            }
+        });
+    }
+
     public async void Receive(LanguageChanged message)
     {
         await ExecuteUIThread(() =>
@@ -3023,6 +3036,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         Messenger.Register<MailOperationRequested>(this);
         Messenger.Register<UndoableMailActionPackChanged>(this);
         Messenger.Register<IntelligenceMetadataChanged>(this);
+        Messenger.Register<IntelligenceVisibilityChanged>(this);
         Messenger.Register<LanguageChanged>(this);
     }
 
@@ -3040,6 +3054,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         Messenger.Unregister<MailOperationRequested>(this);
         Messenger.Unregister<UndoableMailActionPackChanged>(this);
         Messenger.Unregister<IntelligenceMetadataChanged>(this);
+        Messenger.Unregister<IntelligenceVisibilityChanged>(this);
         Messenger.Unregister<LanguageChanged>(this);
     }
 

@@ -59,6 +59,15 @@ public interface IAccountService
     /// </summary>
     Task UpdateAccountAsync(MailAccount account);
 
+    /// <summary>Loads the local preferences for one mailbox.</summary>
+    Task<MailAccountPreferences> GetAccountPreferencesAsync(Guid accountId);
+
+    /// <summary>
+    /// Persists local mailbox preferences and notifies loaded presentation surfaces.
+    /// These preferences never participate in profile export or cloud synchronization.
+    /// </summary>
+    Task UpdateAccountPreferencesAsync(MailAccountPreferences preferences);
+
     /// <summary>
     /// Creates new account with the given server information if any.
     /// Also sets the account as Startup account if there are no accounts.

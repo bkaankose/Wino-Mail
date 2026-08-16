@@ -27,6 +27,7 @@ using Wino.Helpers;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.AI.ContentProcessing;
 using Wino.Mail.Controls.Core.IntelligenceHeader;
+using Wino.Mail.Controls.Core.IntelligenceTileBar;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Models;
 using Wino.Mail.WinUI;
@@ -45,7 +46,8 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     IRecipient<ApplicationThemeChanged>,
     IRecipient<SemanticIndexJobChanged>,
     IRecipient<WinoIntelligenceAccessChanged>,
-    IRecipient<IntelligenceMetadataChanged>
+    IRecipient<IntelligenceMetadataChanged>,
+    IRecipient<IntelligenceVisibilityChanged>
 {
     private static readonly Regex ExcessiveReaderBreaks = new(
         @"(?is)<pre\b.*?</pre>|(?:<br\s*/?>\s*){3,}",
@@ -420,14 +422,19 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             ApplyPassiveIntelligenceMetadata(metadata);
         else
         {
-            IntelligenceHeader.NeedsReply = snapshot.NeedsReply;
+            var excludedIndicators = _currentMailItem?.MailCopy?.AssignedAccount?.Preferences?
+                .ExcludedIntelligenceIndicatorIds;
+            var showNeedsReply = IntelligenceVisibilityPolicy.IsVisible(excludedIndicators, IntelligenceFactKind.NeedsReply);
+            var showDeadline = IntelligenceVisibilityPolicy.IsVisible(excludedIndicators, IntelligenceFactKind.Deadline);
+
+            IntelligenceHeader.NeedsReply = showNeedsReply && snapshot.NeedsReply;
             IntelligenceHeader.NeedsReplyDetailText = string.IsNullOrWhiteSpace(snapshot.NeedsReplyDetail)
                 ? Translator.WinoIntelligence_NeedsReplyDetail
                 : snapshot.NeedsReplyDetail;
             IntelligenceHeader.BriefingFactText = string.Empty;
-            IntelligenceHeader.DeadlineText = FormatDeadline(snapshot.Deadline);
+            IntelligenceHeader.DeadlineText = showDeadline ? FormatDeadline(snapshot.Deadline) : string.Empty;
             IntelligenceHeader.DeadlineDetailText = snapshot.Deadline?.ActionText ?? string.Empty;
-            IntelligenceHeader.IsAddToCalendarAvailable = snapshot.Deadline is not null;
+            IntelligenceHeader.IsAddToCalendarAvailable = showDeadline && snapshot.Deadline is not null;
         }
         if (!string.IsNullOrWhiteSpace(snapshot.CachedSummary))
             IntelligenceHeader.SummaryText = snapshot.CachedSummary;
@@ -437,14 +444,19 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     private void ApplyPassiveIntelligenceMetadata(MailIntelligenceMetadata metadata)
     {
-        IntelligenceHeader.NeedsReply = metadata.NeedsReply?.Value == true;
+        var visibleTiles = _currentMailItem?.IntelligenceTiles ?? [];
+        var hasDeadline = visibleTiles.Any(static tile => tile.Kind == WinoIntelligenceTileKind.Deadline);
+        var hasNeedsReply = visibleTiles.Any(static tile => tile.Kind == WinoIntelligenceTileKind.NeedsReply);
+        var hasBriefingFact = visibleTiles.Any(static tile => tile.Kind == WinoIntelligenceTileKind.BriefingFact);
+
+        IntelligenceHeader.NeedsReply = hasNeedsReply && metadata.NeedsReply?.Value == true;
         IntelligenceHeader.NeedsReplyDetailText = Translator.WinoIntelligence_NeedsReplyDetail;
-        IntelligenceHeader.BriefingFactText = metadata.Headline;
-        IntelligenceHeader.DeadlineText = metadata.Deadline?.HasDeadline == true
+        IntelligenceHeader.BriefingFactText = hasBriefingFact ? metadata.Headline : string.Empty;
+        IntelligenceHeader.DeadlineText = hasDeadline && metadata.Deadline?.HasDeadline == true
             ? MailIntelligenceTileFactory.FormatDeadline(metadata.Deadline, CultureInfo.CurrentCulture)
             : string.Empty;
         IntelligenceHeader.DeadlineDetailText = string.Empty;
-        IntelligenceHeader.IsAddToCalendarAvailable = metadata.Deadline?.HasDeadline == true;
+        IntelligenceHeader.IsAddToCalendarAvailable = hasDeadline && metadata.Deadline?.HasDeadline == true;
         CopyVerificationCodeButton.Tag = metadata.VerificationCode;
         CopyVerificationCodeButton.Visibility = string.IsNullOrWhiteSpace(metadata.VerificationCode) ? Visibility.Collapsed : Visibility.Visible;
     }
@@ -852,6 +864,23 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             DispatcherQueue.TryEnqueue(async () => await RefreshCurrentIntelligenceMetadataAsync(message.Scope));
     }
 
+    void IRecipient<IntelligenceVisibilityChanged>.Receive(IntelligenceVisibilityChanged message)
+    {
+        var account = _currentMailItem?.MailCopy?.AssignedAccount;
+        if (account?.Id != message.LocalAccountId)
+            return;
+
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            _currentMailItem?.RefreshIntelligenceTiles();
+            IntelligenceHeader.IntelligenceTiles = _currentMailItem?.IntelligenceTiles;
+            if (_currentMailItem?.MailCopy.IntelligenceMetadata is { } metadata)
+                ApplyPassiveIntelligenceMetadata(metadata);
+            else
+                IntelligenceHeader.IntelligenceTiles = _currentMailItem?.IntelligenceTiles;
+        });
+    }
+
 
     public override void OnLanguageChanged()
     {
@@ -937,6 +966,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         WeakReferenceMessenger.Default.Register<SemanticIndexJobChanged>(this);
         WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this);
         WeakReferenceMessenger.Default.Register<IntelligenceMetadataChanged>(this);
+        WeakReferenceMessenger.Default.Register<IntelligenceVisibilityChanged>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -947,6 +977,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         WeakReferenceMessenger.Default.Unregister<SemanticIndexJobChanged>(this);
         WeakReferenceMessenger.Default.Unregister<WinoIntelligenceAccessChanged>(this);
         WeakReferenceMessenger.Default.Unregister<IntelligenceMetadataChanged>(this);
+        WeakReferenceMessenger.Default.Unregister<IntelligenceVisibilityChanged>(this);
     }
 
     private void EscapeInvoked(Microsoft.UI.Xaml.Input.KeyboardAccelerator sender, Microsoft.UI.Xaml.Input.KeyboardAcceleratorInvokedEventArgs args)

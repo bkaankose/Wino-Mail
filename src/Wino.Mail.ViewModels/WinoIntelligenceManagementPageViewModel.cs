@@ -70,6 +70,12 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     public partial MailAccount Account { get; set; }
 
     [ObservableProperty]
+    public partial bool IsDailyBriefingEnabled { get; set; } = true;
+
+    /// <summary>Ordered, local visibility choices for the current mailbox.</summary>
+    public ObservableCollection<IntelligenceIndicatorSettingsItem> IntelligenceIndicatorSettings { get; } = [];
+
+    [ObservableProperty]
     public partial string AccountName { get; set; } = string.Empty;
 
     [ObservableProperty]
@@ -77,6 +83,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanChangeSemanticIndexingState))]
+    [NotifyPropertyChangedFor(nameof(CanChangeIntelligencePreferences))]
     [NotifyPropertyChangedFor(nameof(IsEnabledContentVisible))]
     [NotifyCanExecuteChangedFor(nameof(StartIndexingCommand))]
     [NotifyCanExecuteChangedFor(nameof(DeleteSemanticIndexCommand))]
@@ -90,6 +97,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEnabledContentVisible))]
     [NotifyPropertyChangedFor(nameof(CanChangeSemanticIndexingState))]
+    [NotifyPropertyChangedFor(nameof(CanChangeIntelligencePreferences))]
     [NotifyPropertyChangedFor(nameof(ShouldShowEverythingWarning))]
     [NotifyCanExecuteChangedFor(nameof(StartIndexingCommand))]
     [NotifyCanExecuteChangedFor(nameof(UpgradeEmbeddingProfileCommand))]
@@ -98,6 +106,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanChangeSemanticIndexingState))]
+    [NotifyPropertyChangedFor(nameof(CanChangeIntelligencePreferences))]
     [NotifyCanExecuteChangedFor(nameof(StartIndexingCommand))]
     [NotifyCanExecuteChangedFor(nameof(DeleteSemanticIndexCommand))]
     [NotifyCanExecuteChangedFor(nameof(DeleteLocalIntelligenceCommand))]
@@ -123,6 +132,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     [NotifyPropertyChangedFor(nameof(PlanCardDescription))]
     [NotifyCanExecuteChangedFor(nameof(TranslateHeadlinesCommand))]
     [NotifyCanExecuteChangedFor(nameof(DownloadAvailableIntelligenceCommand))]
+    [NotifyPropertyChangedFor(nameof(CanChangeIntelligencePreferences))]
     public partial bool IsJobActive { get; set; }
 
     [ObservableProperty]
@@ -321,6 +331,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
 
     public bool IsEnabledContentVisible => IsPageReady && IsSemanticIndexingEnabled;
     public bool CanChangeSemanticIndexingState => IsPageReady && !IsBusy && !IsJobActive;
+    public bool CanChangeIntelligencePreferences => IsPageReady && !IsBusy && !IsJobActive;
     public bool CanEditMessageRange => HasAvailableMessages && !IsJobActive;
 
     /// <summary>
@@ -417,6 +428,8 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
                 AccountName = account.Name;
                 AccountAddress = account.Address;
                 IsSemanticIndexingEnabled = account.Preferences.IsSemanticIndexingEnabled;
+                IsDailyBriefingEnabled = account.Preferences.IsDailyBriefingEnabled;
+                ReplaceIntelligenceIndicatorSettings(account.Preferences.ExcludedIntelligenceIndicatorIds);
             });
             // The available range is a local mail query. Loading it before the consent
             // check keeps the range editor usable the moment consent is granted.
@@ -542,6 +555,81 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
                 RefreshHeroState();
             });
         return isEnabled;
+    }
+
+    private void ReplaceIntelligenceIndicatorSettings(IEnumerable<string>? excludedIndicatorIds)
+    {
+        IntelligenceIndicatorSettings.Clear();
+        foreach (var item in IntelligenceIndicatorSettingsCatalog.Create(
+            excludedIndicatorIds?.ToHashSet(StringComparer.Ordinal)))
+        {
+            IntelligenceIndicatorSettings.Add(item);
+        }
+    }
+
+    public async Task<bool> SetDailyBriefingEnabledAsync(bool isEnabled)
+    {
+        if (!IsPageReady || Account is null || isEnabled == IsDailyBriefingEnabled)
+            return IsDailyBriefingEnabled;
+
+        var previous = IsDailyBriefingEnabled;
+        try
+        {
+            Account.Preferences.IsDailyBriefingEnabled = isEnabled;
+            await _accountService.UpdateAccountPreferencesAsync(Account.Preferences).ConfigureAwait(false);
+            await ExecuteUIThread(() => IsDailyBriefingEnabled = isEnabled);
+            return isEnabled;
+        }
+        catch (Exception exception)
+        {
+            Account.Preferences.IsDailyBriefingEnabled = previous;
+            await ExecuteUIThread(() => IsDailyBriefingEnabled = previous);
+            await ShowErrorAsync(exception);
+            return previous;
+        }
+    }
+
+    public async Task<bool> SetIntelligenceIndicatorVisibilityAsync(string indicatorId, bool isVisible)
+    {
+        if (!IsPageReady || Account is null || string.IsNullOrWhiteSpace(indicatorId))
+            return isVisible;
+
+        var previousExcluded = Account.Preferences.ExcludedIntelligenceIndicatorIds?.ToHashSet(StringComparer.Ordinal)
+            ?? new HashSet<string>(StringComparer.Ordinal);
+        var previousVisible = !previousExcluded.Contains(indicatorId);
+        if (previousVisible == isVisible)
+            return previousVisible;
+
+        var updatedExcluded = previousExcluded.ToHashSet(StringComparer.Ordinal);
+        if (isVisible)
+            updatedExcluded.Remove(indicatorId);
+        else
+            updatedExcluded.Add(indicatorId);
+
+        try
+        {
+            Account.Preferences.ExcludedIntelligenceIndicatorIds = updatedExcluded;
+            await _accountService.UpdateAccountPreferencesAsync(Account.Preferences).ConfigureAwait(false);
+            await ExecuteUIThread(() =>
+            {
+                var item = IntelligenceIndicatorSettings.FirstOrDefault(x => x.Identifier == indicatorId);
+                if (item is not null)
+                    item.IsVisible = isVisible;
+            });
+            return isVisible;
+        }
+        catch (Exception exception)
+        {
+            Account.Preferences.ExcludedIntelligenceIndicatorIds = previousExcluded;
+            await ExecuteUIThread(() =>
+            {
+                var item = IntelligenceIndicatorSettings.FirstOrDefault(x => x.Identifier == indicatorId);
+                if (item is not null)
+                    item.IsVisible = previousVisible;
+            });
+            await ShowErrorAsync(exception);
+            return previousVisible;
+        }
     }
 
     [RelayCommand]

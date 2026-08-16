@@ -229,7 +229,7 @@ public class AccountService : BaseDatabaseService, IAccountService
         await UpdateAccountAsync(account);
     }
 
-    private Task<MailAccountPreferences> GetAccountPreferencesAsync(Guid accountId)
+    public Task<MailAccountPreferences> GetAccountPreferencesAsync(Guid accountId)
         => Connection.Table<MailAccountPreferences>().FirstOrDefaultAsync(a => a.AccountId == accountId);
 
     public async Task<List<MailAccount>> GetAccountsAsync()
@@ -568,10 +568,27 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     public async Task UpdateAccountAsync(MailAccount account)
     {
-        await Connection.UpdateAsync(account.Preferences, typeof(MailAccountPreferences)).ConfigureAwait(false);
+        if (account.Preferences is not null)
+        {
+            account.Preferences.PrepareForStorage();
+            await Connection.UpdateAsync(account.Preferences, typeof(MailAccountPreferences)).ConfigureAwait(false);
+        }
+
         await Connection.UpdateAsync(account, typeof(MailAccount)).ConfigureAwait(false);
 
         ReportUIChange(new AccountUpdatedMessage(account));
+
+        if (account.Preferences is not null)
+            WeakReferenceMessenger.Default.Send(new IntelligenceVisibilityChanged(account.Id));
+    }
+
+    public async Task UpdateAccountPreferencesAsync(MailAccountPreferences preferences)
+    {
+        Guard.IsNotNull(preferences);
+
+        preferences.PrepareForStorage();
+        await Connection.UpdateAsync(preferences, typeof(MailAccountPreferences)).ConfigureAwait(false);
+        WeakReferenceMessenger.Default.Send(new IntelligenceVisibilityChanged(preferences.AccountId));
     }
 
     public async Task UpdateAccountCustomServerInformationAsync(CustomServerInformation customServerInformation)
@@ -588,6 +605,7 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         var previous = await GetAccountCustomServerInformationAsync(account.Id).ConfigureAwait(false);
         customServerInformation.AccountId = account.Id;
+        account.Preferences?.PrepareForStorage();
 
         await Connection.RunInTransactionAsync(connection =>
         {

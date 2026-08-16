@@ -20,7 +20,6 @@ public static class DailyBriefingIcons
     public const string Decline = "\uE711";
     public const string Download = "\uE896";
     public const string FollowUp = "\uE823";
-    public const string Group = "\uE8FD";
     public const string Information = "\uE946";
     public const string Link = "\uE71B";
     public const string Lock = "\uE72E";
@@ -44,14 +43,19 @@ public static class DailyBriefingIcons
     public const string Warning = "\uE783";
     public const string Close = "\uE8BB";
     public const string Priority = "\uE7BA";
+    public const string Hide = "\uE7B3";
+    public const string Show = "\uE7B2";
+    public const string Visibility = Hide;
 
     /// <summary>Bindable glyph values used directly by the panel XAML.</summary>
     public static string CloseGlyph => Close;
-    public static string GroupGlyph => Group;
     public static string InformationGlyph => Information;
     public static string LockGlyph => Lock;
     public static string OpenMailGlyph => OpenMail;
     public static string PriorityGlyph => Priority;
+    public static string HideGlyph => Hide;
+    public static string ShowGlyph => Show;
+    public static string VisibilityGlyph => Visibility;
     public static string TimeGlyph => Time;
     public static string WarningGlyph => Warning;
 

@@ -55,6 +55,8 @@ public sealed class LocalIntelligenceServiceTests
         });
 
         var store = new Mock<ILocalIntelligenceStore>();
+        store.Setup(x => x.GetDailyBriefingIgnoreRevisionsAsync(accountId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<Guid, long>());
         store.Setup(x => x.GetAccessSnapshotAsync(accountId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new LocalIntelligenceAccessSnapshot(
                 accountId, winoAccountId, true, true, mailboxId, DateTimeOffset.UtcNow));
@@ -95,13 +97,14 @@ public sealed class LocalIntelligenceServiceTests
                 Confidence = 1,
             },
         };
+        var currentArtifact = artifact;
         IReadOnlyCollection<string>? requestedMessageIds = null;
         store.Setup(x => x.GetCurrentArtifactsAsync(
                 accountId, It.IsAny<IReadOnlyCollection<string>>(), It.IsAny<CancellationToken>()))
             .Callback<Guid, IReadOnlyCollection<string>, CancellationToken>((_, ids, _) => requestedMessageIds = ids)
-            .ReturnsAsync(new Dictionary<string, IReadOnlyList<IntelligenceArtifactDto>>
+            .ReturnsAsync(() => new Dictionary<string, IReadOnlyList<IntelligenceArtifactDto>>
             {
-                [expectedRemoteMessageId] = [artifact],
+                [expectedRemoteMessageId] = [currentArtifact],
             });
         store.Setup(x => x.GetBriefingHeadlinesAsync(
                 accountId, It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
@@ -115,9 +118,40 @@ public sealed class LocalIntelligenceServiceTests
         var facts = await service.GetBriefingFactsAsync(
             DateOnly.FromDateTime(DateTime.UtcNow), TimeZoneInfo.Utc);
 
-        var fact = Assert.Single(facts);
+        var fact = Assert.Single(facts.Facts);
         Assert.Equal(expectedRemoteMessageId, fact.RemoteMessageId);
         Assert.Equal("Upcoming test item", fact.Headline);
         Assert.Equal([expectedRemoteMessageId], requestedMessageIds);
+
+        var ignoredRevisions = new Dictionary<Guid, long>();
+        store.Setup(x => x.GetDailyBriefingIgnoreRevisionsAsync(accountId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ignoredRevisions);
+        ignoredRevisions[briefingId] = 1;
+
+        var hidden = await service.GetBriefingFactsAsync(
+            DateOnly.FromDateTime(DateTime.UtcNow), TimeZoneInfo.Utc);
+        Assert.Empty(hidden.Facts);
+        Assert.True(hidden.HasIgnoredFacts);
+
+        var included = await service.GetBriefingFactsAsync(
+            DateOnly.FromDateTime(DateTime.UtcNow), TimeZoneInfo.Utc, includeIgnored: true);
+        var ignoredFact = Assert.Single(included.Facts);
+        Assert.True(ignoredFact.IsIgnored);
+
+        currentArtifact = new IntelligenceArtifactDto
+        {
+            RemoteMessageId = artifact.RemoteMessageId,
+            ContentHash = artifact.ContentHash,
+            Capability = artifact.Capability,
+            GenerationVersion = artifact.GenerationVersion,
+            PayloadSchemaVersion = artifact.PayloadSchemaVersion,
+            ArtifactRevision = 2,
+            GeneratedAtUtc = artifact.GeneratedAtUtc,
+            BriefingFact = artifact.BriefingFact,
+        };
+        var revised = await service.GetBriefingFactsAsync(
+            DateOnly.FromDateTime(DateTime.UtcNow), TimeZoneInfo.Utc);
+        var revisedFact = Assert.Single(revised.Facts);
+        Assert.False(revisedFact.IsIgnored);
     }
 }

@@ -55,12 +55,14 @@ public static class DailyBriefingActionPresentationFactory
     public static DailyBriefingActionPresentation Create(
         BriefingActionPayload action,
         bool canAddToCalendar = true,
-        bool hasVerificationCode = true)
+        bool hasVerificationCode = true,
+        bool allowReplyAction = true)
         => action switch
         {
             NoActionPayload => DailyBriefingActionPresentation.None,
-            ReplyActionPayload => Native(Translator.DailyBriefing_ActionReply, DailyBriefingIcons.Reply,
+            ReplyActionPayload when allowReplyAction => Native(Translator.DailyBriefing_ActionReply, DailyBriefingIcons.Reply,
                 "DailyBriefingReplyButton", DailyBriefingActionExecution.Reply),
+            ReplyActionPayload => Source(Translator.DailyBriefing_ActionOpen, DailyBriefingIcons.OpenMail, "OpenReplySource"),
             CopyVerificationCodeActionPayload when hasVerificationCode => Native(
                 Translator.Intelligence_ActionCopyCode, DailyBriefingIcons.Copy,
                 "DailyBriefingCopyCodeButton", DailyBriefingActionExecution.CopyVerificationCode),

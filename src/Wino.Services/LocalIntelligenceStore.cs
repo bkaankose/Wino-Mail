@@ -79,6 +79,7 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
             await connection.CreateTableAsync<LocalIntelligenceAccessRow>().ConfigureAwait(false);
             await connection.CreateTableAsync<LocalAccountIntelligenceSnapshotRow>().ConfigureAwait(false);
             await connection.CreateTableAsync<LocalDailyBriefingStateRow>().ConfigureAwait(false);
+            await connection.CreateTableAsync<LocalDailyBriefingIgnoreRow>().ConfigureAwait(false);
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_LocalArtifact_Current " +
                 "ON LocalArtifact(LocalAccountId, RemoteMessageId, CapabilityId, ArtifactRevision DESC)")
@@ -544,6 +545,53 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
         return await GetLatestBriefingFactRevisionAsync(lease.Connection, localAccountId).ConfigureAwait(false);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, long>> GetDailyBriefingIgnoreRevisionsAsync(
+        Guid localAccountId, CancellationToken cancellationToken = default)
+    {
+        if (!DatabaseExists) return new Dictionary<Guid, long>();
+
+        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
+        var rows = await lease.Connection.Table<LocalDailyBriefingIgnoreRow>()
+            .Where(x => x.LocalAccountId == localAccountId)
+            .ToListAsync().ConfigureAwait(false);
+        return rows.ToDictionary(static x => x.BriefingId, static x => x.IgnoredArtifactRevision);
+    }
+
+    public async Task SaveDailyBriefingIgnoreAsync(
+        Guid localAccountId,
+        Guid briefingId,
+        long artifactRevision,
+        DateTimeOffset ignoredAtUtc,
+        CancellationToken cancellationToken = default)
+    {
+        if (briefingId == Guid.Empty)
+            return;
+
+        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
+        await lease.Connection.InsertOrReplaceAsync(new LocalDailyBriefingIgnoreRow
+        {
+            Key = DailyBriefingIgnoreKey(localAccountId, briefingId),
+            LocalAccountId = localAccountId,
+            BriefingId = briefingId,
+            IgnoredArtifactRevision = artifactRevision,
+            IgnoredAtUtc = ignoredAtUtc.UtcDateTime,
+        }, typeof(LocalDailyBriefingIgnoreRow)).ConfigureAwait(false);
+    }
+
+    public async Task DeleteDailyBriefingIgnoreAsync(
+        Guid localAccountId,
+        Guid briefingId,
+        CancellationToken cancellationToken = default)
+    {
+        if (briefingId == Guid.Empty)
+            return;
+
+        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
+        await lease.Connection.ExecuteAsync(
+            "DELETE FROM LocalDailyBriefingIgnore WHERE LocalAccountId = ? AND BriefingId = ?",
+            localAccountId, briefingId).ConfigureAwait(false);
+    }
+
     public async Task<DailyBriefingUnseenState> GetDailyBriefingUnseenStateAsync(IReadOnlyCollection<Guid> localAccountIds, CancellationToken cancellationToken = default)
     {
         if (localAccountIds.Count == 0 || !DatabaseExists) return new(false, null);
@@ -592,6 +640,9 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
 
     private static DateTimeOffset ToOffset(DateTime value) => new(DateTime.SpecifyKind(value, DateTimeKind.Utc));
 
+    private static string DailyBriefingIgnoreKey(Guid localAccountId, Guid briefingId)
+        => $"{localAccountId:D}|{briefingId:D}";
+
     public async Task DeleteMailboxAsync(Guid localAccountId, CancellationToken cancellationToken = default)
     {
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
@@ -605,6 +656,7 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
             transaction.Execute("DELETE FROM LocalPreparedDocument WHERE LocalAccountId = ?", localAccountId);
             transaction.Execute("DELETE FROM LocalIntelligenceAccess WHERE LocalAccountId = ?", localAccountId);
             transaction.Execute("DELETE FROM LocalDailyBriefingState WHERE LocalAccountId = ?", localAccountId);
+            transaction.Execute("DELETE FROM LocalDailyBriefingIgnore WHERE LocalAccountId = ?", localAccountId);
         }).ConfigureAwait(false);
         WeakReferenceMessenger.Default.Send(new IntelligenceMetadataChanged(
             localAccountId,
@@ -881,6 +933,16 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
         public DateTime? LastOpenedAtUtc { get; set; }
         public DateTime? LastViewedAtUtc { get; set; }
         public long LastViewedFactRevision { get; set; }
+    }
+
+    [Table("LocalDailyBriefingIgnore")]
+    private sealed class LocalDailyBriefingIgnoreRow
+    {
+        [PrimaryKey] public string Key { get; set; } = string.Empty;
+        [Indexed] public Guid LocalAccountId { get; set; }
+        [Indexed] public Guid BriefingId { get; set; }
+        public long IgnoredArtifactRevision { get; set; }
+        public DateTime IgnoredAtUtc { get; set; }
     }
 
     private sealed class ConnectionLease(SQLiteAsyncConnection connection, SemaphoreSlim operationLock) : IDisposable

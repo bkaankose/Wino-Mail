@@ -17,6 +17,46 @@ namespace Wino.Core.Tests.SemanticIndexing;
 public sealed class LocalIntelligenceStoreRecoveryTests
 {
     [Fact]
+    public async Task DailyBriefingIgnore_PersistsUnignoresAndIsRemovedWithMailbox()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"wino-intelligence-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(folder);
+        try
+        {
+            var configuration = new TestConfiguration(folder);
+            var localAccountId = Guid.NewGuid();
+            var briefingId = Guid.NewGuid();
+            var ignoredAt = DateTimeOffset.Parse("2026-08-16T10:00:00Z");
+
+            await using (var store = new LocalIntelligenceStore(configuration))
+            {
+                await store.SaveDailyBriefingIgnoreAsync(localAccountId, briefingId, 12, ignoredAt);
+
+                var saved = await store.GetDailyBriefingIgnoreRevisionsAsync(localAccountId);
+                saved.Should().ContainSingle().Which.Should().Be(new KeyValuePair<Guid, long>(briefingId, 12));
+            }
+
+            await using (var reopened = new LocalIntelligenceStore(configuration))
+            {
+                (await reopened.GetDailyBriefingIgnoreRevisionsAsync(localAccountId))
+                    .Should().ContainSingle().Which.Value.Should().Be(12);
+
+                await reopened.DeleteDailyBriefingIgnoreAsync(localAccountId, briefingId);
+                (await reopened.GetDailyBriefingIgnoreRevisionsAsync(localAccountId)).Should().BeEmpty();
+
+                await reopened.SaveDailyBriefingIgnoreAsync(localAccountId, briefingId, 13, ignoredAt);
+                await reopened.DeleteMailboxAsync(localAccountId);
+                (await reopened.GetDailyBriefingIgnoreRevisionsAsync(localAccountId)).Should().BeEmpty();
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(folder))
+                Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task BriefingFactAndAccessSnapshot_PersistAndViewedStateClearsIndicator()
     {
         var folder = Path.Combine(Path.GetTempPath(), $"wino-intelligence-test-{Guid.NewGuid():N}");

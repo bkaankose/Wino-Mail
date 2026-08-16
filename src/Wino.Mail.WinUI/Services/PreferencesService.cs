@@ -118,10 +118,10 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(IsCompactAccountMenuItemEnabled), value);
     }
 
-    public bool IsDailyBriefingGroupedByAccount
+    public bool IsDailyBriefingShowingIgnored
     {
-        get => _configurationService.Get(nameof(IsDailyBriefingGroupedByAccount), true);
-        set => SetPropertyAndSave(nameof(IsDailyBriefingGroupedByAccount), value);
+        get => _configurationService.Get(nameof(IsDailyBriefingShowingIgnored), false);
+        set => SetPropertyAndSave(nameof(IsDailyBriefingShowingIgnored), value);
     }
 
     public bool IsHardDeleteProtectionEnabled
@@ -730,4 +730,3 @@ public partial class PreferencesService(IConfigurationService configurationServi
     private static IEnumerable<PreferenceAccessor> GetSyncablePreferenceProperties()
         => GetGeneratedSyncablePreferenceProperties();
 }
-

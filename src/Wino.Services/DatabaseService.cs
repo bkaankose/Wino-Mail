@@ -300,6 +300,20 @@ WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
                 .ConfigureAwait(false);
         }
 
+        if (!accountPreferencesColumns.Any(c => c.Name == nameof(MailAccountPreferences.IsDailyBriefingEnabled)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailAccountPreferences)} ADD COLUMN {nameof(MailAccountPreferences.IsDailyBriefingEnabled)} INTEGER NOT NULL DEFAULT 1")
+                .ConfigureAwait(false);
+        }
+
+        if (!accountPreferencesColumns.Any(c => c.Name == nameof(MailAccountPreferences.ExcludedIntelligenceIndicatorIdsStorage)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailAccountPreferences)} ADD COLUMN {nameof(MailAccountPreferences.ExcludedIntelligenceIndicatorIdsStorage)} TEXT NOT NULL DEFAULT ''")
+                .ConfigureAwait(false);
+        }
+
         var calendarItemColumns = await Connection.GetTableInfoAsync(nameof(CalendarItem)).ConfigureAwait(false);
 
         if (!calendarItemColumns.Any(c => c.Name == nameof(CalendarItem.SnoozedUntil)))

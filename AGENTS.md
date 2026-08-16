@@ -54,25 +54,22 @@ Do not create diagnostic logs or binlogs for successful routine builds.
 
 ## Installed Debug application
 
-Visual Studio owns the Wino Mail development package lifecycle.
+Agents may build, deploy, register, launch, and test the Wino Mail Debug package directly.
+Visual Studio remains supported, but it is not required for the normal agent verification loop.
 
-1. Open `WinoMail.slnx` in Visual Studio.
-2. Select `Wino.Mail.WinUI` as the startup project.
-3. Select Debug and x64.
-4. Use Visual Studio to build, deploy, register, and start the application.
-5. Redeploy after any source or resource change that must be verified in the running UI.
+1. Build `src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj` with Debug and x64.
+2. Use the build output containing the existing `Package.appxmanifest` with `winapp run --detach`.
+3. Verify that the manifest `Identity.Name` and publisher match the existing Wino Mail package registration before launching.
+4. Use the existing package identity and registration. Do not create a second package name, package family, display name, or side-by-side registration.
+5. Preserve application data between redeployments unless the user explicitly requests a clean run.
 
-Agents can test only the registered Debug package. Never create a side-by-side package or rewrite `AppxManifest.xml`.
-
-Never register a loose package layout or create an app entry named `Wino Mail (Debug)`.
-
-Do not use `winapp run`, `winapp create-debug-identity`, or `winapp unregister` for Wino Mail. Those commands change package registration. Do not run `Wino.Mail.WinUI.exe` directly.
-
-WinApp CLI 0.3.1 does not activate an already registered package or attach its debug-output collector to an existing process. If the Visual Studio-deployed application is not running, ask the user to start it from Visual Studio or Windows. Use Visual Studio for managed/native crash debugging.
+Never rewrite `Package.appxmanifest`, create a loose package with a different identity, or launch `Wino.Mail.WinUI.exe` directly.
+Do not use `--unregister-on-exit` for routine verification because the registered Debug package must remain available for subsequent UI tests.
+Use `winapp run` only with the current x64 Debug output and the manifest identity already registered for Wino Mail.
 
 ## WinApp UI verification
 
-After Visual Studio has deployed and started the current Debug build, use WinApp CLI directly against the running process:
+After the current x64 Debug build has been deployed and started, use WinApp CLI directly against the running process:
 
 ```powershell
 winapp ui list-windows -a Wino.Mail.WinUI --json
