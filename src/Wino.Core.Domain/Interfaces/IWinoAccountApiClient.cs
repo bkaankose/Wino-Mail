@@ -42,6 +42,7 @@ public interface IWinoAccountApiClient
     Task<IntelligenceMailboxStatusDto> GetIntelligenceStatusAsync(Guid mailboxId, CancellationToken cancellationToken = default);
     Task<IntelligenceCoverageTimelineDto> GetIntelligenceCoverageTimelineAsync(Guid mailboxId, DateTimeOffset fromUtc, DateTimeOffset toUtc, int bucketCount, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<string>> ResolveIntelligenceDeltaAsync(Guid mailboxId, IReadOnlyList<string> remoteMessageIds, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<string>> ResolveIntelligenceDeltaAsync(Guid mailboxId, IReadOnlyList<string> remoteMessageIds, DateTimeOffset? cutoffUtc, DateTimeOffset? throughUtcExclusive, CancellationToken cancellationToken = default);
     Task<IntelligenceIngestResultDto> IngestIntelligenceAsync(Guid mailboxId, byte[] encryptedEnvelope, CancellationToken cancellationToken = default);
     Task<IntelligenceArtifactCursorPageDto> GetIntelligenceArtifactsAsync(Guid mailboxId, string? cursor, int pageSize, CancellationToken cancellationToken = default);
     Task<IntelligenceMailboxStatusDto> RebuildIntelligenceEmbeddingsAsync(Guid mailboxId, CancellationToken cancellationToken = default);

@@ -251,6 +251,35 @@ public sealed class LocalIntelligenceStoreRecoveryTests
     }
 
     [Fact]
+    public async Task ImportAsync_DoesNotAdvanceDownloadCursorForIngestArtifacts()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"wino-intelligence-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(folder);
+        try
+        {
+            var configuration = new TestConfiguration(folder);
+            var accountId = Guid.NewGuid();
+            var mailboxId = Guid.NewGuid();
+            await using var store = new LocalIntelligenceStore(configuration);
+
+            await store.ImportAsync(
+                accountId,
+                mailboxId,
+                [CreateBriefingFact("outlook:new", revision: 42, replyRequired: true)],
+                throughRevision: 42,
+                advanceImportCursor: false);
+
+            (await store.GetLastImportedRevisionAsync(accountId)).Should().Be(0);
+            (await store.GetCurrentArtifactsAsync(accountId, "outlook:new")).Should().ContainSingle();
+        }
+        finally
+        {
+            if (Directory.Exists(folder))
+                Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task CompletedMessages_IncludeSeparateHeadlineRowsAndRemoveDeletedHeadlines()
     {
         var folder = Path.Combine(Path.GetTempPath(), $"wino-intelligence-test-{Guid.NewGuid():N}");

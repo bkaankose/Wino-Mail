@@ -84,6 +84,39 @@ public sealed class WinoAccountApiClientIntelligenceTests
     }
 
     [Fact]
+    public async Task ResolveIntelligenceDeltaAsync_SendsSelectedRange()
+    {
+        var userId = Guid.NewGuid();
+        var mailboxId = Guid.NewGuid();
+        var cutoffUtc = new DateTimeOffset(2026, 7, 29, 0, 0, 0, TimeSpan.Zero);
+        var throughUtcExclusive = new DateTimeOffset(2026, 8, 15, 0, 0, 0, TimeSpan.Zero);
+        await using var database = new InMemoryDatabaseService();
+        await database.InitializeAsync();
+        await database.Connection.InsertAsync(new WinoAccount
+        {
+            Id = userId,
+            Email = "intelligence@example.test",
+            AccessToken = "access-token",
+            AccessTokenExpiresAtUtc = DateTime.UtcNow.AddHours(1),
+        });
+
+        var handler = new DeltaRangeRequestHandler();
+        using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://api.example.test/") };
+        using var client = new WinoAccountApiClient(database, httpClient);
+
+        await client.ResolveIntelligenceDeltaAsync(
+            mailboxId,
+            ["message-1", "message-2"],
+            cutoffUtc,
+            throughUtcExclusive);
+
+        handler.RequestUri.Should().NotBeNull();
+        var query = Uri.UnescapeDataString(handler.RequestUri!.Query);
+        query.Should().Contain($"cutoffUtc={cutoffUtc:O}");
+        query.Should().Contain($"throughUtcExclusive={throughUtcExclusive:O}");
+    }
+
+    [Fact]
     public async Task IntelligenceFeatureCalls_UseTypedRoutesApplicationLanguageAndEncryptedReplyContent()
     {
         var userId = Guid.NewGuid();
@@ -248,6 +281,25 @@ public sealed class WinoAccountApiClientIntelligenceTests
                     : """
                       {"isSuccess":true,"result":{"nextCursor":null,"items":[{"remoteMessageId":"message-1","contentHash":"hash-1","capability":"smartLabels","generationVersion":1,"payloadSchemaVersion":1,"artifactRevision":5,"generatedAtUtc":"2026-08-12T10:00:00Z"}]}}
                       """, Encoding.UTF8, "application/json"),
+            });
+        }
+    }
+
+    private sealed class DeltaRangeRequestHandler : HttpMessageHandler
+    {
+        public Uri? RequestUri { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            RequestUri = request.RequestUri;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    "{\"sequence\":0,\"isFinal\":true,\"missingRemoteMessageIds\":[]}\n",
+                    Encoding.UTF8,
+                    "application/x-ndjson"),
             });
         }
     }

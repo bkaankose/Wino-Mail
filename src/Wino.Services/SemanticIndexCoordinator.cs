@@ -434,6 +434,8 @@ public sealed class SemanticIndexCoordinator(
             var missingIds = (await apiClient.ResolveIntelligenceDeltaAsync(
                 mailbox.MailboxId,
                 candidates.Select(candidate => candidate.RemoteMessageId).ToArray(),
+                plan.CutoffUtc,
+                plan.ThroughUtcExclusive,
                 cancellationToken).ConfigureAwait(false)).ToHashSet(StringComparer.Ordinal);
             var waiting = candidates.Where(candidate => missingIds.Contains(candidate.RemoteMessageId)).ToList();
             var completed = 0;
@@ -475,6 +477,11 @@ public sealed class SemanticIndexCoordinator(
                 cancellationToken).ConfigureAwait(false);
 
             await DrainAutomaticQueueAsync(account, mailbox.MailboxId, cancellationToken).ConfigureAwait(false);
+
+            // Ingest responses contain only artifacts created by this run. Downloading from the
+            // durable server cursor also restores artifacts that already existed for the selected
+            // range, which is essential after the user deletes local intelligence.
+            await DownloadAvailableIntelligenceAsync(account.Id, cancellationToken: cancellationToken).ConfigureAwait(false);
 
             await SaveProfileAsync(mailbox.MailboxId, plan, "completed", cancellationToken).ConfigureAwait(false);
             ReportProgress(SemanticIndexJobStatus.Completed);
@@ -688,7 +695,15 @@ public sealed class SemanticIndexCoordinator(
         if (result.Artifacts.Count > 0)
         {
             var throughRevision = result.Artifacts.Max(artifact => artifact.ArtifactRevision);
-            await localStore.ImportAsync(account.Id, mailboxId, result.Artifacts, throughRevision, cancellationToken).ConfigureAwait(false);
+            // An ingest result is not a complete revision feed. Advancing the download cursor here
+            // would skip older server artifacts when local intelligence has been deleted.
+            await localStore.ImportAsync(
+                account.Id,
+                mailboxId,
+                result.Artifacts,
+                throughRevision,
+                cancellationToken,
+                advanceImportCursor: false).ConfigureAwait(false);
         }
         var confirmedRemoteMessageIds = successfulRemoteIds.ToArray();
         await localStore.DeletePreparedDocumentsAsync(account.Id, confirmedRemoteMessageIds, cancellationToken).ConfigureAwait(false);

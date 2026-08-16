@@ -229,15 +229,15 @@
                 </StackPanel>
 
                 <StackPanel Spacing="8">
-                    <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="{x:Bind domain:Translator.Intelligence_SynchronizationTitle, Mode=OneTime}" />
                     <StackPanel Spacing="2">
-                        <controls:SettingsCard
+                        <controls:SettingsExpander
                             AutomationProperties.AutomationId="WinoIntelligenceEnabledCard"
                             Description="{x:Bind domain:Translator.SemanticIndex_Description, Mode=OneTime}"
+                            IsExpanded="{x:Bind ViewModel.IsSemanticIndexingEnabled, Mode=OneWay}"
                             Header="{x:Bind domain:Translator.SemanticIndex_EnableTitle, Mode=OneTime}">
-                            <controls:SettingsCard.HeaderIcon>
+                            <controls:SettingsExpander.HeaderIcon>
                                 <PathIcon Data="{StaticResource WinoIntelligenceBrandSparklePathData}" Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
-                            </controls:SettingsCard.HeaderIcon>
+                            </controls:SettingsExpander.HeaderIcon>
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <ProgressRing
                                     Width="20"
@@ -253,7 +253,7 @@
                                     OnContent="{x:Bind domain:Translator.SemanticIndex_On, Mode=OneTime}"
                                     Toggled="WinoIntelligenceToggle_Toggled" />
                             </StackPanel>
-                        </controls:SettingsCard>
+                            <controls:SettingsExpander.Items>
 
                         <!--  Range: the histogram shows where the mail actually is, over the same day offsets.  -->
                         <controls:SettingsCard
@@ -550,12 +550,13 @@
                                 </Grid>
                             </Grid>
                         </Border>
+                            </controls:SettingsExpander.Items>
+                        </controls:SettingsExpander>
 
                     </StackPanel>
                 </StackPanel>
 
-                <StackPanel Visibility="{x:Bind ViewModel.IsEnabledContentVisible, Mode=OneWay}">
-                    <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="{x:Bind domain:Translator.Intelligence_DataManagementTitle, Mode=OneTime}" />
+                <StackPanel Visibility="{x:Bind ViewModel.IsPageReady, Mode=OneWay}">
                     <StackPanel Spacing="2">
                         <controls:SettingsExpander
                             AutomationProperties.AutomationId="WinoIntelligenceMessageCoverageCard"
@@ -576,6 +577,15 @@
                                         Content="{x:Bind domain:Translator.SemanticIndex_CloudDownloadButton, Mode=OneTime}" />
                                 </controls:SettingsCard>
                                 <controls:SettingsCard
+                                    AutomationProperties.AutomationId="WinoIntelligenceDeleteLocalCard"
+                                    Description="{x:Bind domain:Translator.SemanticIndex_DeleteLocalDescription, Mode=OneTime}"
+                                    Header="{x:Bind domain:Translator.SemanticIndex_DeleteLocalTitle, Mode=OneTime}">
+                                    <Button
+                                        AutomationProperties.AutomationId="WinoIntelligenceDeleteLocalButton"
+                                        Command="{x:Bind ViewModel.DeleteLocalIntelligenceCommand}"
+                                        Content="{x:Bind domain:Translator.SemanticIndex_DeleteLocal, Mode=OneTime}" />
+                                </controls:SettingsCard>
+                                <controls:SettingsCard
                                     AutomationProperties.AutomationId="WinoIntelligenceDeleteCard"
                                     Description="{x:Bind domain:Translator.SemanticIndex_DeleteDescription, Mode=OneTime}"
                                     Header="{x:Bind domain:Translator.SemanticIndex_DeleteTitle, Mode=OneTime}">
@@ -586,7 +596,7 @@
                                         AutomationProperties.AutomationId="WinoIntelligenceDeleteButton"
                                         Background="{ThemeResource DeleteBrush}"
                                         Command="{x:Bind ViewModel.DeleteSemanticIndexCommand}"
-                                        Content="{x:Bind domain:Translator.SemanticIndex_Delete, Mode=OneTime}"
+                                        Content="{x:Bind domain:Translator.SemanticIndex_DeleteEverywhere, Mode=OneTime}"
                                         Foreground="White" />
                                 </controls:SettingsCard>
                             </controls:SettingsExpander.Items>

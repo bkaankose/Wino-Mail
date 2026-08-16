@@ -19,7 +19,7 @@ public interface ILocalIntelligenceStore
     Task<IntelligenceIndexDocumentRequest?> GetPreparedDocumentAsync(Guid localAccountId, string remoteMessageId, CancellationToken cancellationToken = default);
     Task SavePreparedDocumentAsync(Guid localAccountId, string remoteMessageId, IntelligenceIndexDocumentRequest document, CancellationToken cancellationToken = default);
     Task DeletePreparedDocumentsAsync(Guid localAccountId, IReadOnlyCollection<string> remoteMessageIds, CancellationToken cancellationToken = default);
-    Task ImportAsync(Guid localAccountId, Guid mailboxId, IReadOnlyList<IntelligenceArtifactDto> artifacts, long throughRevision, CancellationToken cancellationToken = default);
+    Task ImportAsync(Guid localAccountId, Guid mailboxId, IReadOnlyList<IntelligenceArtifactDto> artifacts, long throughRevision, CancellationToken cancellationToken = default, bool advanceImportCursor = true);
     Task<string?> GetHeadlineLanguageAsync(Guid localAccountId, CancellationToken cancellationToken = default);
     Task SetHeadlineLanguageAsync(Guid localAccountId, Guid mailboxId, string language, CancellationToken cancellationToken = default);
     Task<bool> GetHeadlineLanguagePromptSuppressedAsync(Guid localAccountId, CancellationToken cancellationToken = default);

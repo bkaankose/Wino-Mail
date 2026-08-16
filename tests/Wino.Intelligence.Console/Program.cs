@@ -357,17 +357,17 @@ internal static class Program
             PrintState(state);
             ConsoleOutput.Header("\nAccount actions:");
             System.Console.WriteLine("  1. Semantic search");
-            System.Console.WriteLine("  2. Synchronize embeddings and intelligence");
+            System.Console.WriteLine("  2. Manage intelligence indexing");
             System.Console.WriteLine("  0. Back");
-            ConsoleOutput.Prompt("Selection [1]: ");
+            ConsoleOutput.Prompt("Selection: ");
             switch (System.Console.ReadLine()?.Trim())
             {
-                case "" or null or "1":
+                case "1":
                     await RunSemanticSearchMenuAsync(
                         account, state, apiClient, messageResolver, mailService, cancellationToken).ConfigureAwait(false);
                     break;
                 case "2":
-                    await SynchronizeIntelligenceAsync(
+                    await RunIntelligenceManagementMenuAsync(
                         account, accountService, coordinator, apiClient, authenticationProvider,
                         messageResolver, localStore, cancellationToken).ConfigureAwait(false);
                     break;
@@ -380,7 +380,7 @@ internal static class Program
         }
     }
 
-    private static async Task SynchronizeIntelligenceAsync(
+    private static async Task RunIntelligenceManagementMenuAsync(
         MailAccount account,
         IAccountService accountService,
         ISemanticIndexCoordinator coordinator,
@@ -390,48 +390,248 @@ internal static class Program
         ILocalIntelligenceStore localStore,
         CancellationToken cancellationToken)
     {
-        var state = await coordinator.GetStateAsync(account.Id, cancellationToken).ConfigureAwait(false);
-        var hasIntelligence = HasIntelligence(state);
-        var hasIncompleteIntelligence = HasIncompleteIntelligence(state);
-
-        if (hasIntelligence || hasIncompleteIntelligence)
+        while (!cancellationToken.IsCancellationRequested)
         {
-            var deletePrompt = hasIntelligence
-                ? "Delete this account's server and local intelligence?"
-                : "An unfinished indexing job exists. Delete its server and local intelligence?";
-            if (Confirm(deletePrompt))
+            var state = await coordinator.GetStateAsync(account.Id, cancellationToken).ConfigureAwait(false);
+            await PrintIntelligenceDashboardAsync(
+                account, state, coordinator, apiClient, messageResolver, cancellationToken).ConfigureAwait(false);
+
+            var snapshot = coordinator.GetJobSnapshot(account.Id);
+            ConsoleOutput.Header("\nIntelligence indexing actions:");
+            System.Console.WriteLine($"  1. {(state.IsEnabled ? "Disable and delete intelligence" : "Enable intelligence")}");
+            System.Console.WriteLine("  2. Choose date range and start indexing");
+            System.Console.WriteLine("  3. Monitor indexing job");
+            System.Console.WriteLine("  4. Cancel indexing job");
+            System.Console.WriteLine("  5. Download and apply available cloud intelligence");
+            System.Console.WriteLine("  6. Rebuild embeddings and start indexing");
+            System.Console.WriteLine("  7. Translate briefing headlines");
+            System.Console.WriteLine("  8. Delete local intelligence cache only");
+            System.Console.WriteLine("  9. Refresh status and coverage chart");
+            System.Console.WriteLine(" 10. Verify downloaded metadata for a date range");
+            System.Console.WriteLine("  0. Back");
+            ConsoleOutput.Prompt("Selection: ");
+
+            switch (System.Console.ReadLine()?.Trim())
             {
-                await coordinator.DeleteIndexAsync(account.Id, cancellationToken).ConfigureAwait(false);
-                account.Preferences.IsSemanticIndexingEnabled = false;
-                await accountService.UpdateAccountAsync(account).ConfigureAwait(false);
-                ConsoleOutput.Success("Intelligence deleted. Process consent was preserved.");
-                state = await coordinator.GetStateAsync(account.Id, cancellationToken).ConfigureAwait(false);
-                PrintState(state);
-            }
-            else
-            {
-                if (Confirm("Reset only this account's local intelligence cache and download the server copy again?"))
+                case "1":
+                    if (state.IsEnabled)
+                        await DisableAndDeleteIntelligenceAsync(account, accountService, coordinator, cancellationToken)
+                            .ConfigureAwait(false);
+                    else
+                        await EnableIntelligenceAsync(account, accountService, coordinator, apiClient, cancellationToken)
+                            .ConfigureAwait(false);
+                    break;
+                case "2":
                 {
-                    await coordinator.DeleteLocalIndexAsync(account.Id, cancellationToken).ConfigureAwait(false);
-                    ConsoleOutput.Success("Local intelligence cache deleted. Server intelligence was preserved.");
+                    if (!await EnsureIntelligenceEnabledAsync(account, accountService, coordinator, apiClient, cancellationToken)
+                            .ConfigureAwait(false))
+                        break;
+
+                    var range = await SelectIndexingRangeAsync(
+                        account, coordinator, apiClient, messageResolver, cancellationToken).ConfigureAwait(false);
+                    if (range is null)
+                        break;
+
+                    await StartIndexingAsync(
+                        account, accountService, coordinator, apiClient, authenticationProvider, range, cancellationToken)
+                        .ConfigureAwait(false);
+                    break;
                 }
-                else
+                case "3":
                 {
-                    ConsoleOutput.Muted("Keeping existing immutable intelligence. Start-time delta resolution will resume only missing work.");
+                    if (!snapshot.IsActive)
+                        ConsoleOutput.Warning("There is no active indexing job.");
+                    else
+                        await MonitorJobAsync(account.Id, coordinator, cancellationToken).ConfigureAwait(false);
+                    break;
                 }
+                case "4":
+                    if (!snapshot.IsActive)
+                        ConsoleOutput.Warning("There is no active indexing job to cancel.");
+                    else if (Confirm("Cancel the active indexing job?"))
+                    {
+                        await coordinator.CancelIndexingAsync(account.Id).ConfigureAwait(false);
+                        ConsoleOutput.Success("Indexing cancellation requested.");
+                    }
+                    break;
+                case "5":
+                    if (!state.CanDownload)
+                        ConsoleOutput.Warning("No cloud intelligence is available to download for this account.");
+                    else
+                        await DownloadAvailableIntelligenceAsync(
+                            account, coordinator, apiClient, messageResolver, cancellationToken).ConfigureAwait(false);
+                    break;
+                case "6":
+                    if (!await EnsureIntelligenceEnabledAsync(account, accountService, coordinator, apiClient, cancellationToken)
+                            .ConfigureAwait(false))
+                        break;
+
+                    var mailboxId = await GetMailboxIdAsync(account, state, apiClient, cancellationToken).ConfigureAwait(false);
+                    if (mailboxId is null)
+                    {
+                        ConsoleOutput.Warning("This account has no semantic mailbox.");
+                        break;
+                    }
+
+                    if (!Confirm("Rebuild all embeddings for this mailbox?"))
+                        break;
+
+                    await apiClient.RebuildIntelligenceEmbeddingsAsync(mailboxId.Value, cancellationToken).ConfigureAwait(false);
+                    ConsoleOutput.Success("Embedding rebuild requested.");
+                    var rebuildRange = await SelectIndexingRangeAsync(
+                        account, coordinator, apiClient, messageResolver, cancellationToken).ConfigureAwait(false);
+                    if (rebuildRange is not null)
+                        await StartIndexingAsync(
+                            account, accountService, coordinator, apiClient, authenticationProvider, rebuildRange, cancellationToken)
+                            .ConfigureAwait(false);
+                    break;
+                case "7":
+                    if (!state.IsEnabled)
+                    {
+                        ConsoleOutput.Warning("Enable intelligence before translating briefing headlines.");
+                        break;
+                    }
+
+                    var defaultLanguage = string.IsNullOrWhiteSpace(CultureInfo.CurrentUICulture.Name)
+                        ? "en-US"
+                        : CultureInfo.CurrentUICulture.Name;
+                    ConsoleOutput.Prompt($"Target language [{defaultLanguage}]: ");
+                    var language = System.Console.ReadLine()?.Trim();
+                    language = string.IsNullOrWhiteSpace(language) ? defaultLanguage : language;
+                    var translated = await coordinator.TranslateHeadlinesAsync(account.Id, language, cancellationToken)
+                        .ConfigureAwait(false);
+                    ConsoleOutput.Success($"Briefing headlines translated to {translated.HeadlineLanguage}.");
+                    break;
+                case "8":
+                    if (Confirm("Delete only the local intelligence cache? Cloud intelligence will remain available."))
+                    {
+                        await coordinator.DeleteLocalIndexAsync(account.Id, cancellationToken).ConfigureAwait(false);
+                        ConsoleOutput.Success("Local intelligence cache deleted.");
+                    }
+                    break;
+                case "9":
+                    break;
+                case "10":
+                {
+                    var verificationRange = await SelectIndexingRangeAsync(
+                        account, coordinator, apiClient, messageResolver, cancellationToken).ConfigureAwait(false);
+                    if (verificationRange is null)
+                        break;
+
+                    var verificationPlan = await coordinator.CalculatePlanAsync(
+                        account.Id,
+                        verificationRange.CutoffUtc,
+                        verificationRange.ThroughUtcExclusive,
+                        verificationRange.AutomaticallyIndexNewMessages,
+                        cancellationToken).ConfigureAwait(false);
+                    await VerifyLocalMetadataAsync(
+                        account.Id, verificationPlan, messageResolver, localStore, cancellationToken).ConfigureAwait(false);
+                    break;
+                }
+                case "0":
+                    return;
+                default:
+                    ConsoleOutput.Warning("Select a listed action.");
+                    break;
             }
         }
+    }
 
+    private static async Task EnableIntelligenceAsync(
+        MailAccount account,
+        IAccountService accountService,
+        ISemanticIndexCoordinator coordinator,
+        IWinoAccountApiClient apiClient,
+        CancellationToken cancellationToken)
+    {
         if (!await EnsureProcessConsentAsync(account, apiClient, cancellationToken).ConfigureAwait(false))
             return;
 
-        var preset = SelectRange();
-        if (preset is null)
+        await coordinator.EnsureMailboxAsync(account.Id, cancellationToken).ConfigureAwait(false);
+        account.Preferences.IsSemanticIndexingEnabled = true;
+        await accountService.UpdateAccountAsync(account).ConfigureAwait(false);
+        ConsoleOutput.Success("Intelligence enabled.");
+
+        var state = await coordinator.GetStateAsync(account.Id, cancellationToken).ConfigureAwait(false);
+        if (state.CanDownload)
+            await DownloadAvailableIntelligenceAsync(account, coordinator, apiClient, null, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<bool> EnsureIntelligenceEnabledAsync(
+        MailAccount account,
+        IAccountService accountService,
+        ISemanticIndexCoordinator coordinator,
+        IWinoAccountApiClient apiClient,
+        CancellationToken cancellationToken)
+    {
+        if (account.Preferences.IsSemanticIndexingEnabled)
+            return true;
+
+        if (!Confirm("Intelligence is disabled. Enable it now?"))
+            return false;
+
+        await EnableIntelligenceAsync(account, accountService, coordinator, apiClient, cancellationToken).ConfigureAwait(false);
+        return account.Preferences.IsSemanticIndexingEnabled;
+    }
+
+    private static async Task DisableAndDeleteIntelligenceAsync(
+        MailAccount account,
+        IAccountService accountService,
+        ISemanticIndexCoordinator coordinator,
+        CancellationToken cancellationToken)
+    {
+        if (!Confirm("Delete this account's server and local intelligence?"))
             return;
 
-        ConsoleOutput.Muted("Calculating embedding plan...");
-        var plan = await coordinator.CalculatePlanAsync(account.Id, preset.Value, automaticallyIndexNewMessages: true, cancellationToken)
+        await coordinator.DeleteIndexAsync(account.Id, cancellationToken).ConfigureAwait(false);
+        account.Preferences.IsSemanticIndexingEnabled = false;
+        await accountService.UpdateAccountAsync(account).ConfigureAwait(false);
+        ConsoleOutput.Success("Intelligence disabled and deleted. Process consent was preserved.");
+    }
+
+    private static async Task DownloadAvailableIntelligenceAsync(
+        MailAccount account,
+        ISemanticIndexCoordinator coordinator,
+        IWinoAccountApiClient apiClient,
+        IIntelligenceMessageContextResolver? messageResolver,
+        CancellationToken cancellationToken)
+    {
+        ConsoleOutput.Header("Downloading available intelligence metadata...");
+        var progress = new Progress<SemanticIndexingProgress>(value =>
+            System.Console.WriteLine($"  Metadata: {value.CompletedMessageCount}/{value.TotalMessageCount}"));
+        var state = await coordinator.DownloadAvailableIntelligenceAsync(account.Id, progress, cancellationToken)
             .ConfigureAwait(false);
+        ConsoleOutput.Success($"Downloaded intelligence for {state.LocalIndexedMessageCount:N0} local message(s).");
+        PrintState(state);
+
+        if (messageResolver is not null)
+            await PrintCoverageChartAsync(account, state, coordinator, apiClient, messageResolver, null, cancellationToken)
+                .ConfigureAwait(false);
+    }
+
+    private static async Task StartIndexingAsync(
+        MailAccount account,
+        IAccountService accountService,
+        ISemanticIndexCoordinator coordinator,
+        IWinoAccountApiClient apiClient,
+        IAuthenticationProvider authenticationProvider,
+        ConsoleIndexingRange range,
+        CancellationToken cancellationToken)
+    {
+        var snapshot = coordinator.GetJobSnapshot(account.Id);
+        if (snapshot.IsActive)
+        {
+            ConsoleOutput.Warning("An indexing job is already active. Monitor or cancel it before starting another one.");
+            return;
+        }
+
+        ConsoleOutput.Muted("Calculating indexing plan...");
+        var plan = await coordinator.CalculatePlanAsync(
+            account.Id,
+            range.CutoffUtc,
+            range.ThroughUtcExclusive,
+            range.AutomaticallyIndexNewMessages,
+            cancellationToken).ConfigureAwait(false);
         PrintPlan(plan);
         if (plan.RequiresReset)
         {
@@ -442,50 +642,376 @@ internal static class Program
             account.Preferences.IsSemanticIndexingEnabled = false;
             await accountService.UpdateAccountAsync(account).ConfigureAwait(false);
             ConsoleOutput.Success("Conflicting intelligence deleted. Process consent was preserved.");
-            if (!await EnsureProcessConsentAsync(account, apiClient, cancellationToken).ConfigureAwait(false))
+
+            if (!await EnsureIntelligenceEnabledAsync(account, accountService, coordinator, apiClient, cancellationToken)
+                    .ConfigureAwait(false))
                 return;
-            plan = await coordinator.CalculatePlanAsync(account.Id, preset.Value, automaticallyIndexNewMessages: true, cancellationToken)
-                .ConfigureAwait(false);
+
+            plan = await coordinator.CalculatePlanAsync(
+                account.Id,
+                range.CutoffUtc,
+                range.ThroughUtcExclusive,
+                range.AutomaticallyIndexNewMessages,
+                cancellationToken).ConfigureAwait(false);
             PrintPlan(plan);
+            if (plan.RequiresReset)
+                throw new InvalidOperationException("The server still rejected the replacement indexing range.");
         }
-        if (!Confirm("Start embedding synchronization with this plan?"))
+
+        if (plan.MissingMessageCount == 0)
+        {
+            ConsoleOutput.Success("The selected date range is already indexed.");
+            return;
+        }
+
+        if (!Confirm("Start indexing with this plan?"))
             return;
 
         if (!await EnsureOutlookAuthenticationAsync(account, authenticationProvider).ConfigureAwait(false))
             return;
 
-        var wasEnabled = account.Preferences.IsSemanticIndexingEnabled;
+        await coordinator.StartIndexingAsync(account.Id, plan, cancellationToken).ConfigureAwait(false);
+        ConsoleOutput.Success("Indexing started. Use the monitor or cancel action to follow the job.");
+    }
+
+    private static async Task<ConsoleIndexingRange?> SelectIndexingRangeAsync(
+        MailAccount account,
+        ISemanticIndexCoordinator coordinator,
+        IWinoAccountApiClient apiClient,
+        IIntelligenceMessageContextResolver messageResolver,
+        CancellationToken cancellationToken)
+    {
+        var availableRange = await coordinator.GetAvailableRangeAsync(account.Id, cancellationToken).ConfigureAwait(false);
+        if (availableRange is null)
+        {
+            ConsoleOutput.Warning("No locally available messages can be indexed for this account.");
+            return null;
+        }
+
+        ConsoleOutput.Header("\nIndexing date range:");
+        System.Console.WriteLine($"  Available: {availableRange.OldestDate:dd.MM.yyyy} – {availableRange.NewestDate:dd.MM.yyyy}");
+        System.Console.WriteLine("  1. Only new messages");
+        System.Console.WriteLine("  2. One week");
+        System.Console.WriteLine("  3. One month");
+        System.Console.WriteLine("  4. Three months");
+        System.Console.WriteLine("  5. Six months");
+        System.Console.WriteLine("  6. One year");
+        System.Console.WriteLine("  7. Everything");
+        System.Console.WriteLine("  8. Custom dates (dd.MM.yyyy)");
+        System.Console.WriteLine("  0. Back");
+        ConsoleOutput.Prompt("Selection [3]: ");
+
+        var selection = System.Console.ReadLine()?.Trim();
+        if (selection == "0")
+            return null;
+
+        DateOnly start;
+        DateOnly end;
+        var preset = selection switch
+        {
+            "1" => SemanticIndexRangePreset.OnlyNew,
+            "2" => SemanticIndexRangePreset.OneWeek,
+            "4" => SemanticIndexRangePreset.ThreeMonths,
+            "5" => SemanticIndexRangePreset.SixMonths,
+            "6" => SemanticIndexRangePreset.OneYear,
+            "7" => SemanticIndexRangePreset.Everything,
+            "8" => SemanticIndexRangePreset.Custom,
+            "" or null or "3" => SemanticIndexRangePreset.OneMonth,
+            _ => (SemanticIndexRangePreset?)null,
+        };
+        if (preset is null)
+        {
+            ConsoleOutput.Warning("Select a listed indexing range.");
+            return null;
+        }
+
+        if (preset.Value == SemanticIndexRangePreset.Custom)
+        {
+            if (!TryReadCustomDateRange(availableRange, out start, out end))
+                return null;
+        }
+        else
+        {
+            var days = SemanticIndexRangeSelectionResolver.GetPresetDays(preset.Value, availableRange);
+            start = availableRange.OldestDate.AddDays(Math.Max(0, availableRange.DaySpan - days));
+            end = availableRange.NewestDate;
+        }
+
+        await PrintCoverageChartAsync(
+            account,
+            await coordinator.GetStateAsync(account.Id, cancellationToken).ConfigureAwait(false),
+            coordinator,
+            apiClient,
+            messageResolver,
+            new ConsoleDateRange(start, end),
+            cancellationToken).ConfigureAwait(false);
+
+        ConsoleOutput.Prompt("Automatically index new messages [Y/n]: ");
+        var automaticallyIndexNewMessages = !string.Equals(System.Console.ReadLine()?.Trim(), "n", StringComparison.OrdinalIgnoreCase);
+        return new ConsoleIndexingRange(
+            preset.Value,
+            ToStartOfLocalDayUtc(start),
+            ToStartOfLocalDayUtc(end.AddDays(1)),
+            automaticallyIndexNewMessages,
+            start,
+            end);
+    }
+
+    internal static bool TryParseConsoleDate(string? value, out DateOnly date)
+        => DateOnly.TryParseExact(value, "dd.MM.yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out date);
+
+    private static bool TryReadCustomDateRange(
+        SemanticIndexAvailableRange availableRange,
+        out DateOnly start,
+        out DateOnly end)
+    {
+        start = default;
+        end = default;
+        ConsoleOutput.Prompt("Start date (dd.MM.yyyy, or 0 to cancel): ");
+        var startText = System.Console.ReadLine()?.Trim();
+        if (startText == "0")
+            return false;
+        if (!TryParseConsoleDate(startText, out start))
+        {
+            ConsoleOutput.Warning("Use a valid date in exact dd.MM.yyyy format, for example 09.02.2026.");
+            return false;
+        }
+
+        ConsoleOutput.Prompt("End date (dd.MM.yyyy, inclusive): ");
+        if (!TryParseConsoleDate(System.Console.ReadLine()?.Trim(), out end))
+        {
+            ConsoleOutput.Warning("Use a valid date in exact dd.MM.yyyy format, for example 28.02.2026.");
+            return false;
+        }
+
+        if (start > end)
+        {
+            ConsoleOutput.Warning("The start date must be on or before the end date.");
+            return false;
+        }
+
+        if (start < availableRange.OldestDate || end > availableRange.NewestDate)
+        {
+            ConsoleOutput.Warning(
+                $"Custom dates must stay within {availableRange.OldestDate:dd.MM.yyyy} – {availableRange.NewestDate:dd.MM.yyyy}.");
+            return false;
+        }
+
+        return true;
+    }
+
+    private static DateTimeOffset ToStartOfLocalDayUtc(DateOnly date)
+        => new DateTimeOffset(DateTime.SpecifyKind(date.ToDateTime(TimeOnly.MinValue), DateTimeKind.Local)).ToUniversalTime();
+
+    private static async Task<Guid?> GetMailboxIdAsync(
+        MailAccount account,
+        SemanticIndexAccountState state,
+        IWinoAccountApiClient apiClient,
+        CancellationToken cancellationToken)
+    {
+        if (state.ServerMailboxId is { } mailboxId)
+            return mailboxId;
+
+        var mailboxes = await apiClient.GetSemanticMailboxesAsync(cancellationToken).ConfigureAwait(false);
+        return mailboxes.SingleOrDefault(mailbox =>
+            mailbox.ProviderType == (int)account.ProviderType &&
+            string.Equals(mailbox.Address.Trim(), account.Address.Trim(), StringComparison.OrdinalIgnoreCase))?.MailboxId;
+    }
+
+    private static async Task PrintIntelligenceDashboardAsync(
+        MailAccount account,
+        SemanticIndexAccountState state,
+        ISemanticIndexCoordinator coordinator,
+        IWinoAccountApiClient apiClient,
+        IIntelligenceMessageContextResolver messageResolver,
+        CancellationToken cancellationToken)
+    {
+        PrintState(state);
+        var mailboxId = await GetMailboxIdAsync(account, state, apiClient, cancellationToken).ConfigureAwait(false);
+        if (mailboxId is not null)
+        {
+            try
+            {
+                var status = await apiClient.GetIntelligenceStatusAsync(mailboxId.Value, cancellationToken).ConfigureAwait(false);
+                System.Console.WriteLine($"  Embedding model state: {status.EmbeddingModelStatus}");
+                System.Console.WriteLine($"  Headline language: {status.HeadlineLanguage ?? "none"}");
+            }
+            catch (Exception exception)
+            {
+                ConsoleOutput.Warning($"Could not refresh remote intelligence status: {exception.Message}");
+            }
+        }
+
         try
         {
-            if (!wasEnabled)
-            {
-                account.Preferences.IsSemanticIndexingEnabled = true;
-                await accountService.UpdateAccountAsync(account).ConfigureAwait(false);
-            }
-
-            await coordinator.StartIndexingAsync(account.Id, plan, cancellationToken).ConfigureAwait(false);
+            var usage = await apiClient.GetAiUsageAsync(cancellationToken).ConfigureAwait(false);
+            if (usage.IsSuccess && usage.Result is not null)
+                System.Console.WriteLine($"  AI quota: {usage.Result.UsagePercentage}% used; resets {usage.Result.ResetsAtUtc?.LocalDateTime.ToString("dd.MM.yyyy HH:mm") ?? "unknown"}");
         }
-        catch
+        catch (Exception exception)
         {
-            if (!wasEnabled)
-            {
-                account.Preferences.IsSemanticIndexingEnabled = false;
-                await accountService.UpdateAccountAsync(account).ConfigureAwait(false);
-            }
-            throw;
+            ConsoleOutput.Warning($"Could not refresh AI quota: {exception.Message}");
         }
 
-        var completed = await MonitorJobAsync(account.Id, coordinator, cancellationToken).ConfigureAwait(false);
-        if (!completed)
-            return;
-
-        ConsoleOutput.Header("Retrieving intelligence metadata...");
-        var progress = new Progress<SemanticIndexingProgress>(value =>
-            System.Console.WriteLine($"Metadata: {value.CompletedMessageCount}/{value.TotalMessageCount}"));
-        var finalState = await coordinator.DownloadAvailableIntelligenceAsync(account.Id, progress, cancellationToken)
+        await PrintCoverageChartAsync(account, state, coordinator, apiClient, messageResolver, null, cancellationToken)
             .ConfigureAwait(false);
-        PrintState(finalState);
-        await VerifyLocalMetadataAsync(account.Id, plan, messageResolver, localStore, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task PrintCoverageChartAsync(
+        MailAccount account,
+        SemanticIndexAccountState state,
+        ISemanticIndexCoordinator coordinator,
+        IWinoAccountApiClient apiClient,
+        IIntelligenceMessageContextResolver messageResolver,
+        ConsoleDateRange? selection,
+        CancellationToken cancellationToken)
+    {
+        var availableRange = await coordinator.GetAvailableRangeAsync(account.Id, cancellationToken).ConfigureAwait(false);
+        var localOldest = availableRange?.OldestDate;
+        var localNewest = availableRange?.NewestDate;
+        var cloudOldest = state.ServerIndex?.OldestIndexedAtUtc is { } oldest
+            ? DateOnly.FromDateTime(oldest.UtcDateTime)
+            : (DateOnly?)null;
+        var cloudNewest = state.ServerIndex?.NewestIndexedAtUtc is { } newest
+            ? DateOnly.FromDateTime(newest.UtcDateTime)
+            : (DateOnly?)null;
+        var oldestDate = MinDate(localOldest, cloudOldest);
+        var newestDate = MaxDate(localNewest, cloudNewest);
+        if (oldestDate is null || newestDate is null)
+        {
+            ConsoleOutput.Muted("Coverage chart: no local or cloud messages are available.");
+            return;
+        }
+
+        var candidates = await messageResolver.GetCandidatesAsync(account.Id, cancellationToken: cancellationToken).ConfigureAwait(false);
+        IReadOnlySet<string> missingIds = new HashSet<string>(StringComparer.Ordinal);
+        var mailboxId = await GetMailboxIdAsync(account, state, apiClient, cancellationToken).ConfigureAwait(false);
+        if (mailboxId is null)
+        {
+            PrintLocalCoverageChart(candidates, oldestDate.Value, newestDate.Value, selection);
+            return;
+        }
+
+        var timeline = await apiClient.GetIntelligenceCoverageTimelineAsync(
+            mailboxId.Value,
+            ToStartOfUtcDay(oldestDate.Value),
+            ToStartOfUtcDay(newestDate.Value.AddDays(1)),
+            72,
+            cancellationToken).ConfigureAwait(false);
+        missingIds = (await apiClient.ResolveIntelligenceDeltaAsync(
+            mailboxId.Value,
+            candidates.Select(candidate => candidate.RemoteMessageId).ToArray(),
+            cancellationToken).ConfigureAwait(false)).ToHashSet(StringComparer.Ordinal);
+
+        var buckets = timeline.Buckets.Select(bucket =>
+        {
+            var local = candidates.Where(candidate => candidate.ReceivedAt >= bucket.StartUtc && candidate.ReceivedAt < bucket.EndUtc).ToArray();
+            var localAndCloud = local.Count(candidate => !missingIds.Contains(candidate.RemoteMessageId));
+            var localOnly = local.Length - localAndCloud;
+            var cloudOnly = Math.Max(0L, bucket.IndexedMessageCount - localAndCloud);
+            return new ConsoleCoverageBucket(
+                DateOnly.FromDateTime(bucket.StartUtc.UtcDateTime),
+                DateOnly.FromDateTime(bucket.EndUtc.AddTicks(-1).UtcDateTime),
+                localAndCloud,
+                localOnly,
+                cloudOnly);
+        }).ToArray();
+        PrintCoverageChart(buckets, selection);
+    }
+
+    private static void PrintLocalCoverageChart(
+        IReadOnlyList<Wino.Core.Domain.Models.Intelligence.IntelligenceMessageCandidate> candidates,
+        DateOnly oldestDate,
+        DateOnly newestDate,
+        ConsoleDateRange? selection)
+    {
+        var buckets = candidates.GroupBy(candidate => DateOnly.FromDateTime(candidate.ReceivedAt))
+            .Select(group => new ConsoleCoverageBucket(group.Key, group.Key, 0, group.Count(), 0))
+            .ToArray();
+        if (buckets.Length == 0)
+            buckets = [new ConsoleCoverageBucket(oldestDate, newestDate, 0, 0, 0)];
+        PrintCoverageChart(buckets, selection);
+    }
+
+    private static void PrintCoverageChart(IReadOnlyList<ConsoleCoverageBucket> buckets, ConsoleDateRange? selection)
+    {
+        ConsoleOutput.Header("\nCoverage chart:");
+        System.Console.WriteLine("  Legend: █ local + cloud   ▓ local only   ░ cloud only   · no messages");
+        if (selection is not null)
+            System.Console.WriteLine($"  Selected: {selection.Value.Start:dd.MM.yyyy} – {selection.Value.End:dd.MM.yyyy}");
+        if (buckets.Count == 0)
+        {
+            ConsoleOutput.Muted("  No coverage buckets were returned.");
+            return;
+        }
+
+        var maximum = Math.Max(1L, buckets.Max(bucket => bucket.Total));
+        const int chartHeight = 8;
+        for (var row = chartHeight; row >= 1; row--)
+        {
+            System.Console.Write("  ");
+            foreach (var bucket in buckets)
+            {
+                var height = (int)Math.Ceiling(bucket.Total * chartHeight / (double)maximum);
+                var character = height < row ? ' ' : bucket.Character;
+                WriteCoverageCharacter(character, selection is not null && bucket.Overlaps(selection.Value));
+            }
+            System.Console.WriteLine();
+        }
+
+        System.Console.WriteLine($"  {buckets[0].Start:dd.MM.yyyy}{new string(' ', Math.Max(1, buckets.Count - 22))}{buckets[^1].End:dd.MM.yyyy}");
+        System.Console.WriteLine($"  Local + cloud: {buckets.Sum(bucket => bucket.LocalAndCloud):N0} | Local only: {buckets.Sum(bucket => bucket.LocalOnly):N0} | Cloud only: {buckets.Sum(bucket => bucket.CloudOnly):N0}");
+    }
+
+    private static void WriteCoverageCharacter(char value, bool isSelected)
+    {
+        if (System.Console.IsOutputRedirected || !isSelected)
+        {
+            System.Console.Write(value);
+            return;
+        }
+
+        var previous = System.Console.ForegroundColor;
+        try
+        {
+            System.Console.ForegroundColor = ConsoleColor.White;
+            System.Console.Write(value);
+        }
+        finally
+        {
+            System.Console.ForegroundColor = previous;
+        }
+    }
+
+    private static DateOnly? MinDate(DateOnly? first, DateOnly? second)
+        => first is null ? second : second is null ? first : first <= second ? first : second;
+
+    private static DateOnly? MaxDate(DateOnly? first, DateOnly? second)
+        => first is null ? second : second is null ? first : first >= second ? first : second;
+
+    private static DateTimeOffset ToStartOfUtcDay(DateOnly date)
+        => new(date.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+
+    private readonly record struct ConsoleDateRange(DateOnly Start, DateOnly End);
+
+    private sealed record ConsoleIndexingRange(
+        SemanticIndexRangePreset Preset,
+        DateTimeOffset CutoffUtc,
+        DateTimeOffset ThroughUtcExclusive,
+        bool AutomaticallyIndexNewMessages,
+        DateOnly Start,
+        DateOnly End);
+
+    private sealed record ConsoleCoverageBucket(
+        DateOnly Start,
+        DateOnly End,
+        int LocalAndCloud,
+        int LocalOnly,
+        long CloudOnly)
+    {
+        public long Total => LocalAndCloud + LocalOnly + CloudOnly;
+        public char Character => LocalAndCloud > 0 ? '█' : LocalOnly > 0 ? '▓' : CloudOnly > 0 ? '░' : '·';
+        public bool Overlaps(ConsoleDateRange range) => Start <= range.End && End >= range.Start;
     }
 
     private static async Task RunSemanticSearchMenuAsync(

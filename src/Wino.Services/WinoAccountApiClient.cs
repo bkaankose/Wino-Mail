@@ -351,10 +351,29 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         Guid mailboxId,
         IReadOnlyList<string> remoteMessageIds,
         CancellationToken cancellationToken = default)
+        => await ResolveIntelligenceDeltaAsync(
+            mailboxId,
+            remoteMessageIds,
+            cutoffUtc: null,
+            throughUtcExclusive: null,
+            cancellationToken).ConfigureAwait(false);
+
+    public async Task<IReadOnlyList<string>> ResolveIntelligenceDeltaAsync(
+        Guid mailboxId,
+        IReadOnlyList<string> remoteMessageIds,
+        DateTimeOffset? cutoffUtc,
+        DateTimeOffset? throughUtcExclusive,
+        CancellationToken cancellationToken = default)
     {
         var account = await _databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false)
             ?? throw new InvalidOperationException("A Wino account is required for mail intelligence.");
-        var route = $"/api/v1/ai/intelligence/mailboxes/{mailboxId:D}/delta:resolve";
+        var rangeQuery = string.Concat(
+            cutoffUtc is null ? string.Empty : $"?cutoffUtc={Uri.EscapeDataString(cutoffUtc.Value.ToUniversalTime().ToString("O"))}",
+            throughUtcExclusive is null
+                ? string.Empty
+                : $"{(cutoffUtc is null ? "?" : "&")}throughUtcExclusive={Uri.EscapeDataString(throughUtcExclusive.Value.ToUniversalTime().ToString("O"))}");
+        var route = $"/api/v1/ai/intelligence/mailboxes/{mailboxId:D}/delta:resolve{rangeQuery}";
+        var envelopeRoute = $"/api/v1/ai/intelligence/mailboxes/{mailboxId:D}/delta:resolve";
         using var response = await SendAuthorizedAsync(
             () => CreateAuthorizedRequestAsync(
                 HttpMethod.Post,
@@ -373,7 +392,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
                         {
                             var encrypted = _contentEnvelopeEncryptor.Encrypt(
                                 plaintext,
-                                new ContentEnvelopeContext(account.Id, mailboxId, route),
+                                new ContentEnvelopeContext(account.Id, mailboxId, envelopeRoute),
                                 Guid.NewGuid(),
                                 DateTimeOffset.UtcNow);
                             try { encoded = ContentEnvelopeBinaryCodec.Encode(encrypted); }

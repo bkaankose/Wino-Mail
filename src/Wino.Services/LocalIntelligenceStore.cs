@@ -297,7 +297,13 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
         }).ConfigureAwait(false);
     }
 
-    public async Task ImportAsync(Guid localAccountId, Guid mailboxId, IReadOnlyList<IntelligenceArtifactDto> artifacts, long throughRevision, CancellationToken cancellationToken = default)
+    public async Task ImportAsync(
+        Guid localAccountId,
+        Guid mailboxId,
+        IReadOnlyList<IntelligenceArtifactDto> artifacts,
+        long throughRevision,
+        CancellationToken cancellationToken = default,
+        bool advanceImportCursor = true)
     {
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
         var connection = lease.Connection;
@@ -357,7 +363,9 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
             {
                 LocalAccountId = localAccountId,
                 MailboxId = mailboxId,
-                LastImportedRevision = throughRevision,
+                LastImportedRevision = advanceImportCursor
+                    ? Math.Max(existingState?.LastImportedRevision ?? 0, throughRevision)
+                    : existingState?.LastImportedRevision ?? 0,
                 HeadlineLanguage = existingState?.HeadlineLanguage ?? string.Empty,
                 SuppressHeadlineLanguagePrompt = existingState?.SuppressHeadlineLanguagePrompt ?? false,
                 UpdatedAtUtc = DateTime.UtcNow,

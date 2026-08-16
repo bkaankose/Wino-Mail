@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
 
@@ -33,6 +34,7 @@ public partial class SemanticIndexRangeBucketViewModel : ObservableObject
     public required int LocalAndCloudCount { get; init; }
     public required int LocalOnlyCount { get; init; }
     public required int CloudOnlyCount { get; init; }
+    public required int EmptyCount { get; init; }
 
     /// <summary>
     /// Bar height relative to the busiest bucket of the same range.
@@ -54,7 +56,7 @@ public partial class SemanticIndexRangeBucketViewModel : ObservableObject
     public double LocalAndCloudHeight => SegmentHeight(LocalAndCloudCount);
     public double LocalOnlyHeight => SegmentHeight(LocalOnlyCount);
     public double CloudOnlyHeight => SegmentHeight(CloudOnlyCount);
-    public double EmptyHeight => IsEmpty ? BarHeight : 0;
+    public double EmptyHeight => MessageCount == 0 ? BarHeight : SegmentHeight(EmptyCount);
 
     public string Tooltip => string.Format(
         Translator.SemanticIndex_CoverageBucketTooltip,
@@ -62,16 +64,57 @@ public partial class SemanticIndexRangeBucketViewModel : ObservableObject
         EndDate.ToString("d MMMM yyyy"),
         LocalAndCloudCount,
         LocalOnlyCount,
-        CloudOnlyCount);
+        CloudOnlyCount,
+        EmptyCount);
 
     private double SegmentHeight(int count)
     {
-        var total = LocalAndCloudCount + LocalOnlyCount + CloudOnlyCount;
-        return total == 0 ? 0 : BarHeight * count / total;
+        return MessageCount == 0 ? 0 : BarHeight * count / MessageCount;
     }
 
     public static double CalculateBarHeight(int messageCount, int busiestBucketCount)
         => busiestBucketCount <= 0
             ? MinimumBarHeight
             : Math.Max(MinimumBarHeight, messageCount / (double)busiestBucketCount * MaximumBarHeight);
+}
+
+public readonly record struct SemanticIndexCoverageCounts(
+    int MessageCount,
+    int LocalAndCloudCount,
+    int LocalOnlyCount,
+    int CloudOnlyCount,
+    int EmptyCount);
+
+public static class SemanticIndexCoverageClassifier
+{
+    public static SemanticIndexCoverageCounts Classify(
+        IReadOnlyList<string> localMessageIds,
+        IReadOnlySet<string> localIntelligenceIds,
+        IReadOnlySet<string> cloudMissingIds,
+        int cloudIndexedMessageCount)
+    {
+        var localAndCloud = 0;
+        var localOnly = 0;
+        var empty = 0;
+
+        foreach (var messageId in localMessageIds)
+        {
+            var isLocal = localIntelligenceIds.Contains(messageId);
+            var isCloud = !cloudMissingIds.Contains(messageId);
+            if (isLocal && isCloud)
+                localAndCloud++;
+            else if (isLocal)
+                localOnly++;
+            else if (!isCloud)
+                empty++;
+        }
+
+        var cloudOnly = Math.Max(0, cloudIndexedMessageCount - localAndCloud);
+        return new(
+            localAndCloud + localOnly + cloudOnly + empty,
+            localAndCloud,
+            localOnly,
+            cloudOnly,
+            empty);
+    }
 }
