@@ -337,26 +337,43 @@
                         IsTabStop="False">
                         <StackPanel Spacing="2">
 
-                            <!--  The rule most mailboxes only ever need to set once.  -->
-                            <controls:SettingsCard
-                                AutomationProperties.AutomationId="WinoIntelligenceDefaultRuleCard"
-                                Description="{x:Bind ViewModel.DefaultRuleDetail, Mode=OneWay}"
-                                Header="{x:Bind ViewModel.DefaultRuleSummary, Mode=OneWay}"
-                                Visibility="{x:Bind ViewModel.HasCoverageFolders, Mode=OneWay}">
-                                <controls:SettingsCard.HeaderIcon>
-                                    <FontIcon Glyph="&#xE713;" />
-                                </controls:SettingsCard.HeaderIcon>
-                                <Button
-                                    AutomationProperties.AutomationId="WinoIntelligenceChangeDefaultRuleButton"
-                                    Click="ChangeDefaultCoverageRule_Click"
-                                    Content="{x:Bind domain:Translator.SemanticIndex_CoverageChangeButton, Mode=OneTime}" />
-                            </controls:SettingsCard>
-
-                            <ItemsControl
-                                AutomationProperties.AutomationId="WinoIntelligenceCoverageFolderList"
+                            <!--
+                                Picking comes first, and what you picked sits underneath it: the
+                                folder list is the expander's own content rather than a separate
+                                block, so the choice and its consequences read as one thing.
+                            -->
+                            <controls:SettingsExpander
+                                AutomationProperties.AutomationId="WinoIntelligenceFoldersCard"
+                                Description="{x:Bind ViewModel.SelectedIntelligenceFoldersDescription, Mode=OneWay}"
+                                Header="{x:Bind domain:Translator.SemanticIndex_FoldersTitle, Mode=OneTime}"
+                                IsExpanded="{x:Bind ViewModel.HasCoverageFolders, Mode=OneWay}"
                                 ItemTemplate="{StaticResource CoverageFolderTemplate}"
-                                ItemsSource="{x:Bind ViewModel.IntelligenceFolderCoverageItems, Mode=OneWay}"
-                                Visibility="{x:Bind ViewModel.HasCoverageFolders, Mode=OneWay}" />
+                                ItemsSource="{x:Bind ViewModel.IntelligenceFolderCoverageItems, Mode=OneWay}">
+                                <controls:SettingsExpander.HeaderIcon>
+                                    <FontIcon Glyph="&#xE8B7;" />
+                                </controls:SettingsExpander.HeaderIcon>
+                                <Button
+                                    AutomationProperties.AutomationId="WinoIntelligencePickFoldersButton"
+                                    Click="PickIntelligenceFolders_Click"
+                                    Content="{x:Bind domain:Translator.SemanticIndex_FoldersPick, Mode=OneTime}"
+                                    IsEnabled="{x:Bind ViewModel.CanEditIntelligenceFolders, Mode=OneWay}" />
+
+                                <!--  The rule those folders follow, stated where the folders are.  -->
+                                <controls:SettingsExpander.ItemsHeader>
+                                    <controls:SettingsCard
+                                        AutomationProperties.AutomationId="WinoIntelligenceDefaultRuleCard"
+                                        Description="{x:Bind ViewModel.DefaultRuleDetail, Mode=OneWay}"
+                                        Header="{x:Bind ViewModel.DefaultRuleSummary, Mode=OneWay}">
+                                        <controls:SettingsCard.HeaderIcon>
+                                            <FontIcon Glyph="&#xE713;" />
+                                        </controls:SettingsCard.HeaderIcon>
+                                        <Button
+                                            AutomationProperties.AutomationId="WinoIntelligenceChangeDefaultRuleButton"
+                                            Click="ChangeDefaultCoverageRule_Click"
+                                            Content="{x:Bind domain:Translator.SemanticIndex_CoverageChangeButton, Mode=OneTime}" />
+                                    </controls:SettingsCard>
+                                </controls:SettingsExpander.ItemsHeader>
+                            </controls:SettingsExpander>
 
                             <!--  Nothing is indexed until a folder is picked, so say that rather than showing an empty list.  -->
                             <Border
@@ -388,20 +405,6 @@
                                         Style="{ThemeResource AccentButtonStyle}" />
                                 </StackPanel>
                             </Border>
-
-                            <controls:SettingsCard
-                                AutomationProperties.AutomationId="WinoIntelligenceFoldersCard"
-                                Description="{x:Bind ViewModel.SelectedIntelligenceFoldersDescription, Mode=OneWay}"
-                                Header="{x:Bind domain:Translator.SemanticIndex_FoldersTitle, Mode=OneTime}">
-                                <controls:SettingsCard.HeaderIcon>
-                                    <FontIcon Glyph="&#xE8B7;" />
-                                </controls:SettingsCard.HeaderIcon>
-                                <Button
-                                    AutomationProperties.AutomationId="WinoIntelligencePickFoldersButton"
-                                    Click="PickIntelligenceFolders_Click"
-                                    Content="{x:Bind domain:Translator.SemanticIndex_FoldersPick, Mode=OneTime}"
-                                    IsEnabled="{x:Bind ViewModel.CanEditIntelligenceFolders, Mode=OneWay}" />
-                            </controls:SettingsCard>
 
                             <controls:SettingsCard
                                 AutomationProperties.AutomationId="WinoIntelligenceNewMessagesCard"

@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -1127,12 +1126,17 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         }
         catch (Exception exception)
         {
+            // This runs after an await, so it is on a background thread. The rollback puts the
+            // checkboxes back, which is bound state, so it has to go through the dispatcher.
             Account.Preferences.IsIntelligenceFolderSelectionInitialized = previousInitialized;
             Account.Preferences.SelectedIntelligenceFolderIds = previousSelection;
-            foreach (var item in IntelligenceFolderSelections)
-                item.IsSelected = previousSelection.Contains(item.RemoteFolderId);
-            OnPropertyChanged(nameof(HasSelectedIntelligenceFolders));
-            OnPropertyChanged(nameof(SelectedIntelligenceFoldersDescription));
+            await ExecuteUIThread(() =>
+            {
+                foreach (var item in IntelligenceFolderSelections)
+                    item.IsSelected = previousSelection.Contains(item.RemoteFolderId);
+                OnPropertyChanged(nameof(HasSelectedIntelligenceFolders));
+                OnPropertyChanged(nameof(SelectedIntelligenceFoldersDescription));
+            });
             await ShowErrorAsync(exception);
         }
     }
@@ -1409,14 +1413,17 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
                 await Task.Delay(CoverageReloadRetryDelay).ConfigureAwait(false);
 
             _inventory = await _messageContextResolver.GetCoverageInventoryAsync(account.Id).ConfigureAwait(false);
-            await LoadIntelligenceFolderSelectionsAsync(account).ConfigureAwait(false);
 
-            if (IntelligenceFolderSelections.Count > 0)
+            // The loaded count comes back as a return value rather than being read off
+            // IntelligenceFolderSelections: that collection belongs to the UI thread, and this
+            // method runs on a background one.
+            if (await LoadIntelligenceFolderSelectionsAsync(account).ConfigureAwait(false) > 0)
                 return;
         }
     }
 
-    private async Task LoadIntelligenceFolderSelectionsAsync(MailAccount account)
+    /// <returns>How many selectable folders the mailbox reported.</returns>
+    private async Task<int> LoadIntelligenceFolderSelectionsAsync(MailAccount account)
     {
         var folders = await _folderService.GetFoldersAsync(account.Id).ConfigureAwait(false);
         var selected = account.Preferences.IsIntelligenceFolderSelectionInitialized
@@ -1466,13 +1473,16 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
                 rules[folder.RemoteFolderId] = defaultRule with { RemoteFolderId = folder.RemoteFolderId };
         }
         account.Preferences.IntelligenceFolderCoverageRules = rules;
-        SelectedRangePreset = SemanticIndexRangePresetExtensions.FromStableId(account.Preferences.SemanticIndexRangePresetId);
+        var rangePreset = SemanticIndexRangePresetExtensions.FromStableId(account.Preferences.SemanticIndexRangePresetId);
         var coverageItems = items.Where(item => selected.Contains(item.RemoteFolderId))
             .Select(item => new IntelligenceFolderCoverageItem(item.RemoteFolderId, item.DisplayName, rules[item.RemoteFolderId]))
             .ToArray();
 
+        // Everything above this line is plain data on a background thread. Everything below touches
+        // bound state, so all of it — not just the collections — happens on the UI thread.
         await ExecuteUIThread(() =>
         {
+            SelectedRangePreset = rangePreset;
             DefaultCoverageRule = defaultRule;
             IntelligenceFolderSelections.Clear();
             foreach (var item in items) IntelligenceFolderSelections.Add(item);
@@ -1486,6 +1496,8 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
             OnPropertyChanged(nameof(HasCoverageFolders));
             OnPropertyChanged(nameof(IsCoverageEmptyStateVisible));
         });
+
+        return items.Length;
     }
 
     /// <summary>
@@ -1581,19 +1593,32 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         var hasDelta = _delta is { } current && current.Matches(inventory);
         var overrides = 0;
 
-        for (var index = 0; index < IntelligenceFolderCoverageItems.Count; index++)
-        {
-            var item = IntelligenceFolderCoverageItems[index];
-            var folder = selection.Folders[index];
-            var stats = IntelligenceCoverageCalculator.GetFolderStats(inventory, item.RemoteFolderId);
+        // Paired by folder id rather than by position: the calculator skips a rule that carries no
+        // folder id, so the two lists are not guaranteed to line up, and an index mismatch here
+        // would throw inside a dispatcher callback and abandon the whole load.
+        var resolvedFolders = new Dictionary<string, IntelligenceFolderSelectionResult>(StringComparer.Ordinal);
+        foreach (var folder in selection.Folders)
+            resolvedFolders[folder.RemoteFolderId] = folder;
 
+        foreach (var item in IntelligenceFolderCoverageItems)
+        {
+            var stats = IntelligenceCoverageCalculator.GetFolderStats(inventory, item.RemoteFolderId);
             item.AvailableMessageCount = stats.AvailableMessageCount;
-            item.SelectedMessageCount = folder.SelectedMessageCount;
-            item.MissingMessageCount = hasDelta ? selection.CountMissing(_delta, folder) : 0;
             item.SelectedSummary = DescribeRule(item.Rule);
             item.IsOverride = !FollowsRule(item.Rule, defaultRule);
             if (item.IsOverride)
                 overrides++;
+
+            if (resolvedFolders.TryGetValue(item.RemoteFolderId, out var folder))
+            {
+                item.SelectedMessageCount = folder.SelectedMessageCount;
+                item.MissingMessageCount = hasDelta ? selection.CountMissing(_delta, folder) : 0;
+            }
+            else
+            {
+                item.SelectedMessageCount = 0;
+                item.MissingMessageCount = 0;
+            }
         }
 
         TotalAvailableMessageCount = IntelligenceCoverageCalculator.CountDistinct(inventory, IncludedFolderIds());

@@ -104,13 +104,19 @@
             </StackPanel>
 
             <StackPanel Spacing="10" Visibility="{x:Bind Editor.IsLatestCountCoverageMode, Mode=OneWay}">
+                <!--  An ItemTemplate rather than DisplayMemberPath, which is not trim or AOT safe.  -->
                 <ComboBox
                     HorizontalAlignment="Stretch"
                     AutomationProperties.AutomationId="WinoIntelligenceRuleCountPresetComboBox"
-                    DisplayMemberPath="DisplayName"
                     Header="{x:Bind domain:Translator.SemanticIndex_CoverageNewestCount, Mode=OneTime}"
                     ItemsSource="{x:Bind Editor.CountPresets}"
-                    SelectedItem="{x:Bind Editor.SelectedCountPreset, Mode=TwoWay}" />
+                    SelectedItem="{x:Bind Editor.SelectedCountPreset, Mode=TwoWay}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="data:CoverageCountPresetOption">
+                            <TextBlock Text="{x:Bind DisplayName}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
                 <NumberBox
                     AutomationProperties.AutomationId="WinoIntelligenceRuleCountNumberBox"
                     AutomationProperties.Name="{x:Bind domain:Translator.SemanticIndex_CoverageNewestCount, Mode=OneTime}"
