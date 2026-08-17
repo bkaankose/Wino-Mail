@@ -22,65 +22,95 @@ public sealed class IntelligenceMessageContextResolver(
         Guid localAccountId,
         CancellationToken cancellationToken = default)
     {
+        var inventory = await GetCoverageInventoryAsync(localAccountId, cancellationToken).ConfigureAwait(false);
+        if (inventory.TotalMessageCount == 0)
+            return null;
+
+        var counts = new Dictionary<DateOnly, int>();
+        foreach (var ticks in inventory.ReceivedAtUtcTicks)
+        {
+            var day = DateOnly.FromDateTime(new DateTime(ticks, DateTimeKind.Utc));
+            counts[day] = counts.GetValueOrDefault(day) + 1;
+        }
+        return new SemanticIndexAvailableRange(counts.Keys.Min(), counts.Keys.Max(), counts);
+    }
+
+    public async Task<IntelligenceCoverageInventory> GetCoverageInventoryAsync(
+        Guid localAccountId,
+        CancellationToken cancellationToken = default)
+    {
         cancellationToken.ThrowIfCancellationRequested();
         var account = await accountService.GetAccountAsync(localAccountId).ConfigureAwait(false)
             ?? throw new InvalidOperationException("The mail account no longer exists.");
-        const string sql = """
+
+        // Identity and date only, and no folder filter: the coverage editor answers every
+        // per-folder question from this one read, including for folders the user has not picked yet.
+        var sql = $"""
             SELECT m.Id AS ProviderMessageId, m.CreationDate, m.ImapUid, m.ImapUidValidity,
                    f.RemoteFolderId, f.UidValidity AS FolderUidValidity
             FROM MailCopy m
             INNER JOIN MailItemFolder f ON f.Id = m.FolderId
             WHERE f.MailAccountId = ? AND m.IsDraft = 0 AND f.RemoteFolderId IS NOT NULL AND f.RemoteFolderId <> ''
-              AND f.SpecialFolderType NOT IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+              AND {IntelligenceFolderFilter.SqlNotInClause("f")};
             """;
         var rows = await databaseService.Connection.QueryAsync<AvailabilityRow>(sql,
-            account.Id,
-            (int)SpecialFolderType.Draft, (int)SpecialFolderType.Deleted, (int)SpecialFolderType.Junk,
-            (int)SpecialFolderType.Chat, (int)SpecialFolderType.Category, (int)SpecialFolderType.Unread,
-            (int)SpecialFolderType.Forums, (int)SpecialFolderType.Updates, (int)SpecialFolderType.Personal,
-            (int)SpecialFolderType.Promotions, (int)SpecialFolderType.Social, (int)SpecialFolderType.More,
-            (int)SpecialFolderType.Other).ConfigureAwait(false);
+            [account.Id, .. IntelligenceFolderFilter.ExcludedSpecialFolderTypeArguments()]).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        var messages = rows
-            .Select(row => new
-            {
-                RemoteMessageId = RemoteMessageIdentity.TryCreate(
-                    account.ProviderType,
-                    row.ProviderMessageId,
-                    row.RemoteFolderId,
-                    row.ImapUidValidity == 0 ? row.FolderUidValidity : row.ImapUidValidity,
-                    row.ImapUid),
-                row.CreationDate,
-            })
-            .Where(static row => row.RemoteMessageId is not null)
-            .GroupBy(row => row.RemoteMessageId!, StringComparer.Ordinal)
-            .Select(group => group.Max(row => ToUtc(row.CreationDate)))
-            .ToArray();
-        if (messages.Length == 0)
-            return null;
-        var counts = messages
-            .GroupBy(receivedAt => DateOnly.FromDateTime(receivedAt.UtcDateTime))
-            .ToDictionary(group => group.Key, group => group.Count());
-        return new SemanticIndexAvailableRange(counts.Keys.Min(), counts.Keys.Max(), counts);
+
+        var inventoryRows = new List<IntelligenceCoverageInventoryRow>(rows.Count);
+        foreach (var row in rows)
+        {
+            var remoteMessageId = RemoteMessageIdentity.TryCreate(
+                account.ProviderType,
+                row.ProviderMessageId,
+                row.RemoteFolderId,
+                row.ImapUidValidity == 0 ? row.FolderUidValidity : row.ImapUidValidity,
+                row.ImapUid);
+            if (remoteMessageId is null)
+                continue;
+            inventoryRows.Add(new IntelligenceCoverageInventoryRow(
+                remoteMessageId, ToUtc(row.CreationDate), row.RemoteFolderId));
+        }
+
+        return IntelligenceCoverageInventory.Create(account.Id, inventoryRows);
     }
 
     public async Task<IReadOnlyList<IntelligenceMessageCandidate>> GetCandidatesAsync(
         Guid localAccountId,
         DateTimeOffset? cutoffUtc = null,
         CancellationToken cancellationToken = default)
-        => await GetCandidatesAsync(localAccountId, cutoffUtc, null, cancellationToken).ConfigureAwait(false);
+        => await GetCandidatesCoreAsync(localAccountId, null, cutoffUtc, null, cancellationToken).ConfigureAwait(false);
 
     public async Task<IReadOnlyList<IntelligenceMessageCandidate>> GetCandidatesAsync(
         Guid localAccountId,
         DateTimeOffset? cutoffUtc,
         DateTimeOffset? throughUtcExclusive,
         CancellationToken cancellationToken = default)
+        => await GetCandidatesCoreAsync(localAccountId, null, cutoffUtc, throughUtcExclusive, cancellationToken).ConfigureAwait(false);
+
+    public Task<IReadOnlyList<IntelligenceMessageCandidate>> GetBackfillCandidatesAsync(
+        Guid localAccountId,
+        IReadOnlySet<string> selectedRemoteFolderIds,
+        CancellationToken cancellationToken = default)
+        => selectedRemoteFolderIds.Count == 0
+            ? Task.FromResult<IReadOnlyList<IntelligenceMessageCandidate>>([])
+            : GetCandidatesCoreAsync(localAccountId, selectedRemoteFolderIds, null, null, cancellationToken);
+
+    private async Task<IReadOnlyList<IntelligenceMessageCandidate>> GetCandidatesCoreAsync(
+        Guid localAccountId,
+        IReadOnlySet<string>? selectedRemoteFolderIds,
+        DateTimeOffset? cutoffUtc,
+        DateTimeOffset? throughUtcExclusive,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var account = await accountService.GetAccountAsync(localAccountId).ConfigureAwait(false)
             ?? throw new InvalidOperationException("The mail account no longer exists.");
         var cutoffClause = cutoffUtc is null ? string.Empty : " AND m.CreationDate >= ?";
         var throughClause = throughUtcExclusive is null ? string.Empty : " AND m.CreationDate < ?";
+        var folderClause = selectedRemoteFolderIds is null
+            ? string.Empty
+            : $" AND f.RemoteFolderId IN ({string.Join(", ", selectedRemoteFolderIds.Select(_ => "?"))})";
         var sql = $$"""
             SELECT m.UniqueId, m.Id AS ProviderMessageId, m.FileId, m.Subject, m.FromAddress, m.FromName, m.CreationDate,
                    m.IsRead, m.IsFlagged, m.HasAttachments,
@@ -89,19 +119,13 @@ public sealed class IntelligenceMessageContextResolver(
             FROM MailCopy m
             INNER JOIN MailItemFolder f ON f.Id = m.FolderId
             WHERE f.MailAccountId = ? AND m.IsDraft = 0 AND f.RemoteFolderId IS NOT NULL AND f.RemoteFolderId <> ''
-              AND f.SpecialFolderType NOT IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-              {{cutoffClause}}{{throughClause}}
+              AND {{IntelligenceFolderFilter.SqlNotInClause("f")}}
+              {{folderClause}}{{cutoffClause}}{{throughClause}}
             ORDER BY m.CreationDate DESC, m.Id;
             """;
-        var arguments = new List<object>
-        {
-            account.Id,
-            (int)SpecialFolderType.Draft, (int)SpecialFolderType.Deleted, (int)SpecialFolderType.Junk,
-            (int)SpecialFolderType.Chat, (int)SpecialFolderType.Category, (int)SpecialFolderType.Unread,
-            (int)SpecialFolderType.Forums, (int)SpecialFolderType.Updates, (int)SpecialFolderType.Personal,
-            (int)SpecialFolderType.Promotions, (int)SpecialFolderType.Social, (int)SpecialFolderType.More,
-            (int)SpecialFolderType.Other,
-        };
+        var arguments = new List<object> { account.Id };
+        arguments.AddRange(IntelligenceFolderFilter.ExcludedSpecialFolderTypeArguments());
+        if (selectedRemoteFolderIds is not null) arguments.AddRange(selectedRemoteFolderIds);
         if (cutoffUtc is not null) arguments.Add(cutoffUtc.Value.UtcDateTime);
         if (throughUtcExclusive is not null) arguments.Add(throughUtcExclusive.Value.UtcDateTime);
         var rows = await databaseService.Connection.QueryAsync<CandidateRow>(sql, arguments.ToArray()).ConfigureAwait(false);

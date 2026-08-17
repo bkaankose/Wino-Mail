@@ -44,7 +44,7 @@ public static class DailyBriefingIcons
     public const string Close = "\uE8BB";
     public const string Priority = "\uE7BA";
     public const string Hide = "\uE7B3";
-    public const string Show = "\uE7B2";
+    public const string Show = "\uED1A";
     public const string Visibility = Hide;
 
     /// <summary>Bindable glyph values used directly by the panel XAML.</summary>

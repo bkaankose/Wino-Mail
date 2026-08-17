@@ -13,7 +13,12 @@ public sealed record SemanticIndexPlan(
     int EligibleMessageCount,
     int MissingMessageCount,
     TimeSpan EstimatedDuration,
-    bool RequiresReset);
+    bool RequiresReset,
+    IReadOnlyList<SemanticIndexFolderCoverageRule>? CoverageRules = null,
+    IReadOnlyList<SemanticIndexFolderPlan>? FolderPlans = null)
+{
+    public IReadOnlyList<SemanticIndexFolderCoverageRule> ResolvedCoverageRules => CoverageRules ?? [];
+}
 
 public sealed record SemanticIndexAvailableRange(
     DateOnly OldestDate,
@@ -71,4 +76,5 @@ public sealed record SemanticIndexJobIntent(
     DateTimeOffset? ThroughUtcExclusive,
     bool AutomaticallyIndexNewMessages,
     string BackfillStatus,
-    DateTimeOffset UpdatedAtUtc);
+    DateTimeOffset UpdatedAtUtc,
+    IReadOnlyList<SemanticIndexFolderCoverageRule>? CoverageRules = null);

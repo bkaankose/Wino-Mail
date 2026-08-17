@@ -23,14 +23,6 @@ internal static class Program
     private const string PublisherRelativePath = @"Publishers\mhdqskaa8n2sj\WinoShared";
     private const string DebugLocalStateRelativePath = @"Packages\58272BurakKSE.WinoMailPreview.Debug_mhdqskaa8n2sj\LocalState";
     private const string PreviewLocalStateRelativePath = @"Packages\58272BurakKSE.WinoMailPreview_mhdqskaa8n2sj\LocalState";
-    private static readonly IReadOnlyList<SemanticSearchPreset> SemanticSearchPresets =
-    [
-        new("Rust developer recruiter", "A recruiter is looking for a Rust software developer or Rust engineer for a job opportunity.", false),
-        new("Wino Mail NuGet publishing", "Notifications from NuGet about publishing Wino Mail packages.", false),
-        new("Complexcity waste segregation", "Wiadomość od Complexcity o nieprawidłowej segregacji śmieci lub odpadów.", false),
-        new("Query builder: Messages from Upwork", "Messages from Upwork", true),
-    ];
-
     [STAThread]
     public static async Task<int> Main(string[] args)
     {
@@ -47,8 +39,9 @@ internal static class Program
             return 0;
         }
 
-        var apiEnvironment = SelectApiEnvironment();
+        var apiEnvironment = options.Stress?.Environment ?? SelectApiEnvironment();
         var apiUri = GetApiUri(apiEnvironment);
+        var stressRunId = options.Stress is null ? null : $"{DateTimeOffset.UtcNow:yyyyMMddTHHmmssZ}-{Guid.NewGuid():N}"[..32];
         var paths = ResolvePaths(options);
         if (!ValidatePaths(paths))
             return 2;
@@ -69,8 +62,13 @@ internal static class Program
             System.Console.WriteLine($"Application data: {paths.ApplicationDataFolder}");
             ConsoleOutput.Warning("Keep Wino Mail closed while this tool is using its databases.\n");
 
-            await using var services = CreateServices(paths, apiUri, apiEnvironment);
+            await using var services = CreateServices(paths, apiUri, apiEnvironment, options.Stress, stressRunId);
             await InitializeServicesAsync(services, cancellation.Token).ConfigureAwait(false);
+            if (options.Stress is not null)
+            {
+                return await new StressRunner(options.Stress, services, apiUri, stressRunId!)
+                    .RunAsync(cancellation.Token).ConfigureAwait(false);
+            }
             if (options.DailyBriefingAddress is not null)
             {
                 return await RunDailyBriefingAsync(services, options.DailyBriefingAddress,
@@ -122,7 +120,8 @@ internal static class Program
             _ => null,
         };
 
-    private static ServiceProvider CreateServices(ConsolePaths paths, Uri apiUri, ApiEnvironment environment)
+    private static ServiceProvider CreateServices(ConsolePaths paths, Uri apiUri, ApiEnvironment environment,
+        StressOptions? stressOptions = null, string? stressRunId = null)
     {
         var nativeAppService = new ConsoleNativeAppService(paths.ApplicationDataFolder);
         var serviceCollection = new ServiceCollection();
@@ -147,7 +146,10 @@ internal static class Program
                     request.RequestUri is not null && ShouldBypassCertificate(environment, request.RequestUri) ||
                     errors == System.Net.Security.SslPolicyErrors.None,
             };
-            return new HttpClient(handler) { BaseAddress = apiUri };
+            HttpMessageHandler transport = handler;
+            if (stressOptions is not null)
+                transport = new StressMeasurementHandler(handler, stressRunId!);
+            return new HttpClient(transport) { BaseAddress = apiUri };
         });
         serviceCollection.AddSingleton<IWinoAccountApiClient>(provider =>
         {
@@ -155,7 +157,8 @@ internal static class Program
                 provider.GetRequiredService<IDatabaseService>(),
                 provider.GetRequiredService<HttpClient>(),
                 provider.GetRequiredService<Wino.Mail.AI.Abstractions.IContentEnvelopeEncryptor>(),
-                provider.GetRequiredService<ITranslationService>());
+                provider.GetRequiredService<ITranslationService>(),
+                maximumEncryptedAttempts: stressOptions is null ? 5 : 1);
         });
 
         var provider = serviceCollection.BuildServiceProvider(new ServiceProviderOptions
@@ -1038,13 +1041,8 @@ internal static class Program
 
         while (!cancellationToken.IsCancellationRequested)
         {
-            ConsoleOutput.Header("\nSemantic search queries:");
-            for (var index = 0; index < SemanticSearchPresets.Count; index++)
-            {
-                System.Console.WriteLine($"  {index + 1}. {SemanticSearchPresets[index].Name}");
-                ConsoleOutput.Muted($"     {SemanticSearchPresets[index].Query}");
-            }
-            System.Console.WriteLine($"  {SemanticSearchPresets.Count + 1}. Enter my own query");
+            ConsoleOutput.Header("\nSemantic search:");
+            System.Console.WriteLine("  1. Enter a query");
             System.Console.WriteLine("  0. Back");
             ConsoleOutput.Prompt("Selection: ");
             var selection = ReadSemanticSearchSelection(System.Console.ReadLine(), System.Console.ReadLine);
@@ -1118,12 +1116,7 @@ internal static class Program
         var value = selection?.Trim();
         if (value == "0")
             return null;
-        if (int.TryParse(value, out var number) && number >= 1 && number <= SemanticSearchPresets.Count)
-        {
-            var preset = SemanticSearchPresets[number - 1];
-            return new(preset.Query, preset.UseQueryPlanner);
-        }
-        if (number == SemanticSearchPresets.Count + 1)
+        if (int.TryParse(value, out var number) && number == 1)
         {
             ConsoleOutput.Prompt("Query: ");
             return new(readCustomQuery()?.Trim() ?? string.Empty, false);
@@ -1138,8 +1131,6 @@ internal static class Program
         var normalized = string.Join(' ', preview.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         return normalized.Length <= 240 ? normalized : $"{normalized[..237]}...";
     }
-
-    private sealed record SemanticSearchPreset(string Name, string Query, bool UseQueryPlanner);
 
     internal sealed record SemanticSearchSelection(string Query, bool UseQueryPlanner);
 
@@ -1409,6 +1400,17 @@ internal static class Program
 
     private static bool TryParseArguments(string[] args, out CommandLineOptions options, out string? error)
     {
+        if (args.Contains("--stress", StringComparer.OrdinalIgnoreCase))
+        {
+            if (!StressCommandLine.TryParse(args, out var stress, out error))
+            {
+                options = default;
+                return false;
+            }
+            options = new CommandLineOptions(null, null, null, false, stress);
+            return true;
+        }
+
         string? publisher = null;
         string? appData = null;
         var help = false;
@@ -1435,7 +1437,7 @@ internal static class Program
                     return false;
             }
         }
-        options = new CommandLineOptions(publisher, appData, dailyBriefingAddress, help);
+        options = new CommandLineOptions(publisher, appData, dailyBriefingAddress, help, null);
         error = null;
         return true;
     }
@@ -1446,6 +1448,11 @@ internal static class Program
         System.Console.WriteLine("  --publisher-folder <path>  Override the WinoShared publisher folder");
         System.Console.WriteLine("  --app-data-folder <path>   Override the Debug package LocalState folder");
         System.Console.WriteLine("  --daily-briefing <email>   Report today's and yesterday's briefing facts for an account");
+        System.Console.WriteLine("  --stress                   Run the non-interactive intelligence stress harness");
+        System.Console.WriteLine("  Stress: --environment local|production --account <email> --output <folder>");
+        System.Console.WriteLine("          [--profile realistic|database|ai] [--start-rps 1] [--max-rps 256]");
+        System.Console.WriteLine("          [--max-concurrency 512] [--stage-duration 5] [--sustain-duration 60]");
+        System.Console.WriteLine("          [--ai-request-limit N] [--confirm-production-stress]");
         System.Console.WriteLine("  --help                     Show help");
     }
 }
@@ -1457,5 +1464,6 @@ internal enum ApiEnvironment
 }
 
 internal readonly record struct CommandLineOptions(
-    string? PublisherFolder, string? ApplicationDataFolder, string? DailyBriefingAddress, bool ShowHelp);
+    string? PublisherFolder, string? ApplicationDataFolder, string? DailyBriefingAddress, bool ShowHelp,
+    StressOptions? Stress);
 internal sealed record ConsolePaths(string PublisherFolder, string ApplicationDataFolder, string TempFolder);

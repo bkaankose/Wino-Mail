@@ -74,6 +74,12 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
                     $"ALTER TABLE LocalIndexJob ADD COLUMN {nameof(LocalIndexJobRow.ThroughUtcExclusive)} TEXT NULL")
                     .ConfigureAwait(false);
             }
+            if (jobColumns.All(x => x.Name != nameof(LocalIndexJobRow.CoverageRulesJson)))
+            {
+                await connection.ExecuteAsync(
+                    $"ALTER TABLE LocalIndexJob ADD COLUMN {nameof(LocalIndexJobRow.CoverageRulesJson)} TEXT NOT NULL DEFAULT ''")
+                    .ConfigureAwait(false);
+            }
             await connection.ExecuteAsync("DROP TABLE IF EXISTS LocalMessageKey").ConfigureAwait(false);
             await connection.CreateTableAsync<LocalPreparedDocumentRow>().ConfigureAwait(false);
             await connection.CreateTableAsync<LocalIntelligenceAccessRow>().ConfigureAwait(false);
@@ -715,6 +721,7 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
             AutomaticallyIndexNewMessages = intent.AutomaticallyIndexNewMessages,
             BackfillStatus = intent.BackfillStatus,
             UpdatedAtUtc = intent.UpdatedAtUtc.UtcDateTime,
+            CoverageRulesJson = JsonSerializer.Serialize(intent.CoverageRules ?? []),
         }, typeof(LocalIndexJobRow)).ConfigureAwait(false);
     }
 
@@ -731,7 +738,16 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
             row.ThroughUtcExclusive is null ? null : new DateTimeOffset(DateTime.SpecifyKind(row.ThroughUtcExclusive.Value, DateTimeKind.Utc)),
             row.AutomaticallyIndexNewMessages,
             row.BackfillStatus,
-            new DateTimeOffset(DateTime.SpecifyKind(row.UpdatedAtUtc, DateTimeKind.Utc)))).ToArray();
+            new DateTimeOffset(DateTime.SpecifyKind(row.UpdatedAtUtc, DateTimeKind.Utc)),
+            ParseCoverageRules(row.CoverageRulesJson))).ToArray();
+    }
+
+    private static IReadOnlyList<SemanticIndexFolderCoverageRule> ParseCoverageRules(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return [];
+        try { return JsonSerializer.Deserialize<SemanticIndexFolderCoverageRule[]>(value) ?? []; }
+        catch (JsonException) { return []; }
     }
 
     public async Task DeleteJobIntentAsync(Guid localAccountId, CancellationToken cancellationToken = default)
@@ -866,6 +882,7 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
         public string HeadlineLanguage { get; set; } = string.Empty;
         public bool SuppressHeadlineLanguagePrompt { get; set; }
         public DateTime UpdatedAtUtc { get; set; }
+        public string CoverageRulesJson { get; set; } = string.Empty;
     }
 
     [Table("LocalBriefingHeadline")]
@@ -894,6 +911,7 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
         public bool AutomaticallyIndexNewMessages { get; set; } = true;
         public string BackfillStatus { get; set; } = "not-started";
         public DateTime UpdatedAtUtc { get; set; }
+        public string CoverageRulesJson { get; set; } = string.Empty;
     }
 
     [Table("LocalPreparedDocument")]

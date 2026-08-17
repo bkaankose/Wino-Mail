@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -77,7 +78,8 @@ public sealed class SemanticIndexCoordinator(
                         intent.CutoffUtc,
                         intent.ThroughUtcExclusive,
                         intent.AutomaticallyIndexNewMessages,
-                        cancellationToken).ConfigureAwait(false);
+                        cancellationToken,
+                        intent.CoverageRules).ConfigureAwait(false);
                     StartWorker(intent.LocalAccountId, plan, notifyWhenCompleted: false);
                 }
                 catch
@@ -105,7 +107,12 @@ public sealed class SemanticIndexCoordinator(
         try
         {
             var account = await RequireAccountAsync(localMailAccountId).ConfigureAwait(false);
-            var cutoff = preset.CreateCutoff(DateTimeOffset.UtcNow);
+            // A custom preset carries no derivable cutoff — CreateCutoff throws for it by contract.
+            // It only ever reaches here as the account-level fallback for a mailbox whose per-folder
+            // rules already state their own bounds, so an open cutoff is the correct reading.
+            var cutoff = preset == SemanticIndexRangePreset.Custom
+                ? null
+                : preset.CreateCutoff(DateTimeOffset.UtcNow);
             return await CalculatePlanCoreAsync(account, preset, cutoff, null, automaticallyIndexNewMessages, cancellationToken).ConfigureAwait(false);
         }
         finally
@@ -176,7 +183,13 @@ public sealed class SemanticIndexCoordinator(
         CancellationToken cancellationToken = default)
     {
         await InitializeAsync(cancellationToken).ConfigureAwait(false);
-        return await messageResolver.GetAvailableRangeAsync(localMailAccountId, cancellationToken).ConfigureAwait(false);
+        var account = await RequireAccountAsync(localMailAccountId).ConfigureAwait(false);
+        var folders = await GetBackfillFolderIdsAsync(account, cancellationToken).ConfigureAwait(false);
+        var inventory = await messageResolver.GetCoverageInventoryAsync(localMailAccountId, cancellationToken).ConfigureAwait(false);
+        var counts = IntelligenceCoverageCalculator.BuildDailyCounts(inventory, folders);
+        return counts.Count == 0
+            ? null
+            : new SemanticIndexAvailableRange(counts.Keys.Min(), counts.Keys.Max(), counts);
     }
 
     public async Task StartIndexingAsync(
@@ -414,6 +427,11 @@ public sealed class SemanticIndexCoordinator(
             SetSnapshot(new(accountId, SemanticIndexJobStatus.Queued, 0, plan.MissingMessageCount));
     }
 
+    /// <summary>
+    /// Indexes what the plan's rules select. Only <see cref="SemanticIndexPlan.ResolvedCoverageRules"/>
+    /// is trusted: the candidate set is resolved from the database again here, so a plan calculated
+    /// against a slightly older view of the mailbox still indexes the correct messages.
+    /// </summary>
     private async Task RunBackfillAsync(
         Guid accountId,
         SemanticIndexPlan plan,
@@ -426,16 +444,17 @@ public sealed class SemanticIndexCoordinator(
             var mailbox = await RequireMailboxAsync(account, cancellationToken).ConfigureAwait(false);
             var winoAccount = await databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false)
                 ?? throw new InvalidOperationException("A Wino account is required for mail intelligence.");
-            var candidates = await messageResolver.GetCandidatesAsync(
-                account.Id,
-                plan.CutoffUtc,
-                plan.ThroughUtcExclusive,
-                cancellationToken).ConfigureAwait(false);
+            var folders = plan.ResolvedCoverageRules.Count > 0
+                ? plan.ResolvedCoverageRules.Select(rule => rule.RemoteFolderId).ToHashSet(StringComparer.Ordinal)
+                : await GetBackfillFolderIdsAsync(account, cancellationToken).ConfigureAwait(false);
+            var allCandidates = await messageResolver.GetBackfillCandidatesAsync(account.Id, folders, cancellationToken).ConfigureAwait(false);
+            var rules = plan.ResolvedCoverageRules.Count > 0
+                ? plan.ResolvedCoverageRules
+                : folders.Select(folder => SemanticIndexFolderCoverageRule.DateRange(folder, plan.RangePreset, plan.CutoffUtc, plan.ThroughUtcExclusive)).ToArray();
+            var candidates = SemanticIndexCoverageResolver.Resolve(allCandidates, rules).Candidates;
             var missingIds = (await apiClient.ResolveIntelligenceDeltaAsync(
                 mailbox.MailboxId,
                 candidates.Select(candidate => candidate.RemoteMessageId).ToArray(),
-                plan.CutoffUtc,
-                plan.ThroughUtcExclusive,
                 cancellationToken).ConfigureAwait(false)).ToHashSet(StringComparer.Ordinal);
             var waiting = candidates.Where(candidate => missingIds.Contains(candidate.RemoteMessageId)).ToList();
             var completed = 0;
@@ -877,20 +896,76 @@ public sealed class SemanticIndexCoordinator(
         DateTimeOffset? cutoffUtc,
         DateTimeOffset? throughUtcExclusive,
         bool automaticallyIndexNewMessages,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyList<SemanticIndexFolderCoverageRule>? coverageRules = null)
     {
-        var candidates = await messageResolver.GetCandidatesAsync(account.Id, cutoffUtc, throughUtcExclusive, cancellationToken).ConfigureAwait(false);
-        var missing = candidates.Count;
+        var folders = coverageRules is { Count: > 0 }
+            ? coverageRules.Select(rule => rule.RemoteFolderId).ToHashSet(StringComparer.Ordinal)
+            : await GetBackfillFolderIdsAsync(account, cancellationToken).ConfigureAwait(false);
+        var inventory = await messageResolver.GetCoverageInventoryAsync(account.Id, cancellationToken).ConfigureAwait(false);
+        var rules = (coverageRules is { Count: > 0 } ? coverageRules : account.Preferences.IntelligenceFolderCoverageRules.Values.ToArray())
+            .Where(rule => folders.Contains(rule.RemoteFolderId))
+            .ToArray();
+        if (rules.Length == 0)
+        {
+            rules = folders.Select(folder => SemanticIndexFolderCoverageRule.DateRange(folder, preset, cutoffUtc, throughUtcExclusive)).ToArray();
+        }
+        var selection = IntelligenceCoverageCalculator.Resolve(inventory, rules, DateTimeOffset.UtcNow);
+        var mailbox = await RequireMailboxAsync(account, cancellationToken).ConfigureAwait(false);
+        var missingIds = (await apiClient.ResolveIntelligenceDeltaAsync(
+            mailbox.MailboxId,
+            selection.ToRemoteMessageIds(),
+            cancellationToken).ConfigureAwait(false)).ToHashSet(StringComparer.Ordinal);
+        var folderPlans = selection.Folders.Select(folder =>
+        {
+            var eligibleIds = GetEligibleRemoteMessageIds(inventory, folder);
+            return new SemanticIndexFolderPlan(
+                rules.First(rule => string.Equals(rule.RemoteFolderId, folder.RemoteFolderId, StringComparison.Ordinal)),
+                folder.AvailableMessageCount,
+                folder.SelectedMessageCount,
+                eligibleIds.Count(missingIds.Contains),
+                eligibleIds);
+        }).ToArray();
+        var missing = missingIds.Count;
         return new SemanticIndexPlan(
             account.Id,
             preset,
             cutoffUtc,
             throughUtcExclusive,
             automaticallyIndexNewMessages,
-            candidates.Count,
+            // The messages the coverage rules actually select, not everything available in the
+            // chosen folders. RunBackfillAsync re-resolves from the database, so these counts are
+            // an estimate for display; the job itself is authoritative.
+            selection.DistinctSelectedCount,
             missing,
             TimeSpan.FromSeconds(missing * 0.6),
-            false);
+            false,
+            rules,
+            folderPlans);
+    }
+
+    private static IReadOnlySet<string> GetEligibleRemoteMessageIds(
+        IntelligenceCoverageInventory inventory, IntelligenceFolderSelectionResult folder)
+    {
+        var indices = inventory.GetFolderIndices(folder.RemoteFolderId);
+        var ids = new HashSet<string>(folder.SelectedMessageCount, StringComparer.Ordinal);
+        for (var position = folder.SliceStart; position < folder.SliceEnd; position++)
+            ids.Add(inventory.RemoteMessageIds[indices[position]]);
+        return ids;
+    }
+
+    private async Task<IReadOnlySet<string>> GetBackfillFolderIdsAsync(MailAccount account, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (account.Preferences.IsIntelligenceFolderSelectionInitialized)
+            return account.Preferences.SelectedIntelligenceFolderIds;
+
+        var folders = await databaseService.Connection.Table<MailItemFolder>()
+            .Where(folder => folder.MailAccountId == account.Id && folder.SpecialFolderType == SpecialFolderType.Inbox)
+            .ToListAsync().ConfigureAwait(false);
+        return folders.Select(folder => folder.RemoteFolderId)
+            .Where(static id => !string.IsNullOrWhiteSpace(id))
+            .ToHashSet(StringComparer.Ordinal);
     }
 
     private async Task<SemanticIndexAccountState> GetStateCoreAsync(Guid localMailAccountId, CancellationToken cancellationToken)
@@ -953,7 +1028,8 @@ public sealed class SemanticIndexCoordinator(
             plan.ThroughUtcExclusive,
             plan.AutomaticallyIndexNewMessages,
             status,
-            updatedAtUtc), cancellationToken).ConfigureAwait(false);
+            updatedAtUtc,
+            plan.ResolvedCoverageRules), cancellationToken).ConfigureAwait(false);
     }
 
     private async Task SaveLocalProfileAsync(Guid accountId, Guid mailboxId, IntelligenceIndexingProfileDto profile, CancellationToken cancellationToken)

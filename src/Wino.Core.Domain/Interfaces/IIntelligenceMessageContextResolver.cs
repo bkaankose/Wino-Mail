@@ -14,6 +14,21 @@ public interface IIntelligenceMessageContextResolver
         Guid localAccountId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Reads every indexable message in the account as identity and date only. This is the whole
+    /// input the coverage editor needs, so it is loaded once and every folder count, date range and
+    /// latest-N answer afterwards is computed in memory by
+    /// <see cref="Models.Intelligence.IntelligenceCoverageCalculator"/>.
+    /// </summary>
+    Task<IntelligenceCoverageInventory> GetCoverageInventoryAsync(
+        Guid localAccountId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<IntelligenceMessageCandidate>> GetBackfillCandidatesAsync(
+        Guid localAccountId,
+        IReadOnlySet<string> selectedRemoteFolderIds,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<IntelligenceMessageCandidate>> GetCandidatesAsync(
         Guid localAccountId,
         DateTimeOffset? cutoffUtc = null,

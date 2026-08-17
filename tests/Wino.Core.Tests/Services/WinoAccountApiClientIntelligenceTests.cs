@@ -84,12 +84,10 @@ public sealed class WinoAccountApiClientIntelligenceTests
     }
 
     [Fact]
-    public async Task ResolveIntelligenceDeltaAsync_SendsSelectedRange()
+    public async Task ResolveIntelligenceDeltaAsync_SendsIdsWithoutCoverageQuery()
     {
         var userId = Guid.NewGuid();
         var mailboxId = Guid.NewGuid();
-        var cutoffUtc = new DateTimeOffset(2026, 7, 29, 0, 0, 0, TimeSpan.Zero);
-        var throughUtcExclusive = new DateTimeOffset(2026, 8, 15, 0, 0, 0, TimeSpan.Zero);
         await using var database = new InMemoryDatabaseService();
         await database.InitializeAsync();
         await database.Connection.InsertAsync(new WinoAccount
@@ -104,16 +102,11 @@ public sealed class WinoAccountApiClientIntelligenceTests
         using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://api.example.test/") };
         using var client = new WinoAccountApiClient(database, httpClient);
 
-        await client.ResolveIntelligenceDeltaAsync(
-            mailboxId,
-            ["message-1", "message-2"],
-            cutoffUtc,
-            throughUtcExclusive);
+        await client.ResolveIntelligenceDeltaAsync(mailboxId, ["message-1", "message-2"]);
 
         handler.RequestUri.Should().NotBeNull();
         var query = Uri.UnescapeDataString(handler.RequestUri!.Query);
-        query.Should().Contain($"cutoffUtc={cutoffUtc:O}");
-        query.Should().Contain($"throughUtcExclusive={throughUtcExclusive:O}");
+        query.Should().BeEmpty();
     }
 
     [Fact]

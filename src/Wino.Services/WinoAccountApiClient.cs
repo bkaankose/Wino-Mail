@@ -42,6 +42,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     private readonly ITranslationService? _translationService;
     private readonly SemaphoreSlim _tokenRefreshLock = new(1, 1);
     private readonly bool _ownsHttpClient;
+    private readonly int _maximumEncryptedAttempts;
 
     private const string ApiUrl = "https://localhost:7204/";
     // private const string ApiUrl = "https://api.winomail.app/";
@@ -50,12 +51,16 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         IDatabaseService databaseService,
         HttpClient? httpClient = null,
         IContentEnvelopeEncryptor? contentEnvelopeEncryptor = null,
-        ITranslationService? translationService = null)
+        ITranslationService? translationService = null,
+        int maximumEncryptedAttempts = 5)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(maximumEncryptedAttempts, 1);
+
         _databaseService = databaseService;
         _contentEnvelopeEncryptor = contentEnvelopeEncryptor ??
             new PemContentEnvelopeEncryptor(EmbeddedIntelligencePublicKeyProvider.Load());
         _translationService = translationService;
+        _maximumEncryptedAttempts = maximumEncryptedAttempts;
 
         if (httpClient != null)
         {
@@ -351,28 +356,10 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         Guid mailboxId,
         IReadOnlyList<string> remoteMessageIds,
         CancellationToken cancellationToken = default)
-        => await ResolveIntelligenceDeltaAsync(
-            mailboxId,
-            remoteMessageIds,
-            cutoffUtc: null,
-            throughUtcExclusive: null,
-            cancellationToken).ConfigureAwait(false);
-
-    public async Task<IReadOnlyList<string>> ResolveIntelligenceDeltaAsync(
-        Guid mailboxId,
-        IReadOnlyList<string> remoteMessageIds,
-        DateTimeOffset? cutoffUtc,
-        DateTimeOffset? throughUtcExclusive,
-        CancellationToken cancellationToken = default)
     {
         var account = await _databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false)
             ?? throw new InvalidOperationException("A Wino account is required for mail intelligence.");
-        var rangeQuery = string.Concat(
-            cutoffUtc is null ? string.Empty : $"?cutoffUtc={Uri.EscapeDataString(cutoffUtc.Value.ToUniversalTime().ToString("O"))}",
-            throughUtcExclusive is null
-                ? string.Empty
-                : $"{(cutoffUtc is null ? "?" : "&")}throughUtcExclusive={Uri.EscapeDataString(throughUtcExclusive.Value.ToUniversalTime().ToString("O"))}");
-        var route = $"/api/v1/ai/intelligence/mailboxes/{mailboxId:D}/delta:resolve{rangeQuery}";
+        var route = $"/api/v1/ai/intelligence/mailboxes/{mailboxId:D}/delta:resolve";
         var envelopeRoute = $"/api/v1/ai/intelligence/mailboxes/{mailboxId:D}/delta:resolve";
         using var response = await SendAuthorizedAsync(
             () => CreateAuthorizedRequestAsync(
@@ -481,8 +468,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         string failureMessage,
         CancellationToken cancellationToken) where T : class
     {
-        const int maximumAttempts = 5;
-        for (var attempt = 0; attempt < maximumAttempts; attempt++)
+        for (var attempt = 0; attempt < _maximumEncryptedAttempts; attempt++)
         {
             try
             {
@@ -498,7 +484,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
                         }),
                     cancellationToken).ConfigureAwait(false)
                     ?? throw new InvalidOperationException("MissingAccessToken");
-                if (attempt < maximumAttempts - 1 && response.StatusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.Conflict or
+                if (attempt < _maximumEncryptedAttempts - 1 && response.StatusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.Conflict or
                     HttpStatusCode.BadGateway or HttpStatusCode.ServiceUnavailable or HttpStatusCode.GatewayTimeout)
                 {
                     await Task.Delay(TimeSpan.FromMilliseconds(250 * Math.Pow(2, attempt)), cancellationToken).ConfigureAwait(false);
@@ -514,7 +500,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
                     responseEnvelope ?? ApiEnvelope<T>.Failure($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim()),
                     failureMessage);
             }
-            catch (HttpRequestException) when (attempt < maximumAttempts - 1)
+            catch (HttpRequestException) when (attempt < _maximumEncryptedAttempts - 1)
             {
                 await Task.Delay(TimeSpan.FromMilliseconds(250 * Math.Pow(2, attempt)), cancellationToken).ConfigureAwait(false);
             }

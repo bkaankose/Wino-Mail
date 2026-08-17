@@ -1,13 +1,22 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
 using SQLite;
 using Wino.Core.Domain.Models.Intelligence;
+using Wino.Core.Domain.Models.SemanticIndexing;
 
 namespace Wino.Core.Domain.Entities.Shared;
 
 public class MailAccountPreferences
 {
+    /// <summary>How many newest messages a folder indexes when nothing else has been chosen.</summary>
+    public const int DefaultLatestMessageCount = 100;
+
     private HashSet<string>? _excludedIntelligenceIndicatorIds;
+    private HashSet<string>? _selectedIntelligenceFolderIds;
+    private Dictionary<string, SemanticIndexFolderCoverageRule>? _intelligenceFolderCoverageRules;
+    private SemanticIndexFolderCoverageRule? _intelligenceDefaultCoverageRule;
     [PrimaryKey]
     public Guid Id { get; set; }
 
@@ -69,6 +78,24 @@ public class MailAccountPreferences
     /// </summary>
     public string ExcludedIntelligenceIndicatorIdsStorage { get; set; } = string.Empty;
 
+    /// <summary>Whether the user has explicitly configured folders for historical intelligence indexing.</summary>
+    public bool IsIntelligenceFolderSelectionInitialized { get; set; }
+
+    /// <summary>Newline-separated provider folder ids included in historical intelligence indexing.</summary>
+    public string SelectedIntelligenceFolderIdsStorage { get; set; } = string.Empty;
+
+    public bool IsIntelligenceCoverageInitialized { get; set; }
+
+    public string IntelligenceFolderCoverageStorage { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The rule every included folder follows unless it carries one of its own. Most mailboxes
+    /// never need per-folder rules, so this is what the coverage editor changes by default.
+    /// </summary>
+    public string IntelligenceDefaultCoverageStorage { get; set; } = string.Empty;
+
+    public bool AutomaticallyIndexNewMessages { get; set; } = true;
+
     /// <summary>
     /// Gets the local set of excluded intelligence indicator ids. Unknown and
     /// obsolete values are ignored when the set is materialized from storage.
@@ -84,11 +111,96 @@ public class MailAccountPreferences
     [Ignore]
     public IReadOnlySet<string> ExcludedIntelligenceIndicators => ExcludedIntelligenceIndicatorIds;
 
+    [Ignore]
+    public HashSet<string> SelectedIntelligenceFolderIds
+    {
+        get => _selectedIntelligenceFolderIds ??= ParseFolderIds(SelectedIntelligenceFolderIdsStorage);
+        set => _selectedIntelligenceFolderIds = NormalizeFolderIds(value);
+    }
+
+    [Ignore]
+    public Dictionary<string, SemanticIndexFolderCoverageRule> IntelligenceFolderCoverageRules
+    {
+        get => _intelligenceFolderCoverageRules ??= ParseCoverageRules(IntelligenceFolderCoverageStorage);
+        set => _intelligenceFolderCoverageRules = value?
+            .Where(pair => !string.IsNullOrWhiteSpace(pair.Key))
+            .ToDictionary(pair => pair.Key.Trim(), pair => pair.Value, StringComparer.Ordinal)
+            ?? new Dictionary<string, SemanticIndexFolderCoverageRule>(StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// The rule new folders inherit and that the coverage editor edits first. Folders whose stored
+    /// rule differs from it are the exceptions the UI marks as having their own rule.
+    /// </summary>
+    [Ignore]
+    public SemanticIndexFolderCoverageRule IntelligenceDefaultCoverageRule
+    {
+        get => _intelligenceDefaultCoverageRule ??= ParseDefaultRule(IntelligenceDefaultCoverageStorage);
+        set => _intelligenceDefaultCoverageRule = value is null
+            ? SemanticIndexFolderCoverageRule.Latest(string.Empty, DefaultLatestMessageCount)
+            : value with { RemoteFolderId = string.Empty };
+    }
+
     /// <summary>
     /// Normalizes local intelligence preferences before a SQLite insert or update.
     /// </summary>
     public void PrepareForStorage()
-        => ExcludedIntelligenceIndicatorIdsStorage = IntelligenceIndicatorId.SerializePersisted(ExcludedIntelligenceIndicatorIds);
+    {
+        ExcludedIntelligenceIndicatorIdsStorage = IntelligenceIndicatorId.SerializePersisted(ExcludedIntelligenceIndicatorIds);
+        SelectedIntelligenceFolderIdsStorage = string.Join('\n', SelectedIntelligenceFolderIds.OrderBy(static id => id, StringComparer.Ordinal));
+        IntelligenceFolderCoverageStorage = JsonSerializer.Serialize(new CoverageStorage(
+            1,
+            IntelligenceFolderCoverageRules.Values.OrderBy(rule => rule.RemoteFolderId, StringComparer.Ordinal).ToArray()));
+        IntelligenceDefaultCoverageStorage = JsonSerializer.Serialize(IntelligenceDefaultCoverageRule);
+    }
+
+    private static SemanticIndexFolderCoverageRule ParseDefaultRule(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return SemanticIndexFolderCoverageRule.Latest(string.Empty, DefaultLatestMessageCount);
+
+        try
+        {
+            var rule = JsonSerializer.Deserialize<SemanticIndexFolderCoverageRule>(value);
+            return rule is null
+                ? SemanticIndexFolderCoverageRule.Latest(string.Empty, DefaultLatestMessageCount)
+                : rule with { RemoteFolderId = string.Empty };
+        }
+        catch (JsonException)
+        {
+            return SemanticIndexFolderCoverageRule.Latest(string.Empty, DefaultLatestMessageCount);
+        }
+    }
+
+    private static HashSet<string> ParseFolderIds(string? value)
+        => NormalizeFolderIds((value ?? string.Empty).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+
+    private static Dictionary<string, SemanticIndexFolderCoverageRule> ParseCoverageRules(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return new Dictionary<string, SemanticIndexFolderCoverageRule>(StringComparer.Ordinal);
+
+        try
+        {
+            var rules = JsonSerializer.Deserialize<CoverageStorage>(value)?.Rules
+                ?? JsonSerializer.Deserialize<SemanticIndexFolderCoverageRule[]>(value)
+                ?? [];
+            return rules.Where(rule => !string.IsNullOrWhiteSpace(rule.RemoteFolderId))
+                .GroupBy(rule => rule.RemoteFolderId.Trim(), StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
+        }
+        catch (JsonException)
+        {
+            return new Dictionary<string, SemanticIndexFolderCoverageRule>(StringComparer.Ordinal);
+        }
+    }
+
+    private sealed record CoverageStorage(int Version, IReadOnlyList<SemanticIndexFolderCoverageRule> Rules);
+
+    private static HashSet<string> NormalizeFolderIds(IEnumerable<string>? values)
+        => values?.Where(static id => !string.IsNullOrWhiteSpace(id))
+            .Select(static id => id.Trim())
+            .ToHashSet(StringComparer.Ordinal) ?? [];
 
     /// <summary>
     /// Stable id of the range preset the user last chose for semantic indexing.

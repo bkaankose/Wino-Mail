@@ -314,6 +314,41 @@ WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
                 .ConfigureAwait(false);
         }
 
+        if (!accountPreferencesColumns.Any(c => c.Name == nameof(MailAccountPreferences.IsIntelligenceFolderSelectionInitialized)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailAccountPreferences)} ADD COLUMN {nameof(MailAccountPreferences.IsIntelligenceFolderSelectionInitialized)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
+
+        if (!accountPreferencesColumns.Any(c => c.Name == nameof(MailAccountPreferences.SelectedIntelligenceFolderIdsStorage)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailAccountPreferences)} ADD COLUMN {nameof(MailAccountPreferences.SelectedIntelligenceFolderIdsStorage)} TEXT NOT NULL DEFAULT ''")
+                .ConfigureAwait(false);
+        }
+
+        if (!accountPreferencesColumns.Any(c => c.Name == nameof(MailAccountPreferences.IsIntelligenceCoverageInitialized)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailAccountPreferences)} ADD COLUMN {nameof(MailAccountPreferences.IsIntelligenceCoverageInitialized)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
+
+        if (!accountPreferencesColumns.Any(c => c.Name == nameof(MailAccountPreferences.IntelligenceFolderCoverageStorage)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailAccountPreferences)} ADD COLUMN {nameof(MailAccountPreferences.IntelligenceFolderCoverageStorage)} TEXT NOT NULL DEFAULT ''")
+                .ConfigureAwait(false);
+        }
+
+        if (!accountPreferencesColumns.Any(c => c.Name == nameof(MailAccountPreferences.AutomaticallyIndexNewMessages)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailAccountPreferences)} ADD COLUMN {nameof(MailAccountPreferences.AutomaticallyIndexNewMessages)} INTEGER NOT NULL DEFAULT 1")
+                .ConfigureAwait(false);
+        }
+
         var calendarItemColumns = await Connection.GetTableInfoAsync(nameof(CalendarItem)).ConfigureAwait(false);
 
         if (!calendarItemColumns.Any(c => c.Name == nameof(CalendarItem.SnoozedUntil)))

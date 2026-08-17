@@ -269,8 +269,11 @@ public static class XamlHelpers
         return (Brush)Application.Current.Resources[key];
     }
 
-    public static bool IsRangePresetSelected(SemanticIndexRangePreset current, string targetPresetId)
-        => current == SemanticIndexRangePresetExtensions.FromStableId(targetPresetId);
+    /// <summary>
+    /// Indents a row by a computed amount. The view model works in effective pixels because
+    /// <see cref="Thickness"/> is a XAML type it cannot reference.
+    /// </summary>
+    public static Thickness LeftMargin(double left) => new(left, 0, 0, 0);
 
     public static SolidColorBrush GetReadableTextColor(string backgroundColor)
     {

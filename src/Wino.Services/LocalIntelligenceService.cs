@@ -232,9 +232,7 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
             return false;
         var access = await _store.GetAccessSnapshotAsync(localAccountId, cancellationToken).ConfigureAwait(false);
         if (access is not { IsEligible: true }) return false;
-        var intent = (await _store.GetJobIntentsAsync(cancellationToken).ConfigureAwait(false))
-            .SingleOrDefault(x => x.LocalAccountId == localAccountId);
-        return intent?.AutomaticallyIndexNewMessages == true;
+        return account.Preferences.AutomaticallyIndexNewMessages;
     }
 
     public void Receive(IntelligenceMetadataChanged message) => WeakReferenceMessenger.Default.Send(new DailyBriefingStateChanged());
