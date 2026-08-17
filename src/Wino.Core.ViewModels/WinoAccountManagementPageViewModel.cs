@@ -902,6 +902,11 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             parts.Add(string.Format(Translator.WinoAccount_Management_ExportAccountsSucceeded, result.ExportedMailboxCount));
         }
 
+        if (result.ExportedAccountDataCount > 0)
+        {
+            parts.Add(string.Format(Translator.WinoAccount_Management_ExportAccountDataSucceeded, result.ExportedAccountDataCount));
+        }
+
         if (parts.Count == 0)
         {
             parts.Add(Translator.WinoAccount_Management_ExportSucceeded);
@@ -929,6 +934,11 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         if (result.SkippedDuplicateMailboxCount > 0)
         {
             parts.Add(string.Format(Translator.WinoAccount_Management_ImportDuplicateAccountsSkipped, result.SkippedDuplicateMailboxCount));
+        }
+
+        if (result.AppliedAccountDataCount > 0)
+        {
+            parts.Add(string.Format(Translator.WinoAccount_Management_ImportAccountDataSucceeded, result.AppliedAccountDataCount));
         }
 
         if (parts.Count == 0)

@@ -22,6 +22,8 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
     private Mock<IWinoAccountProfileService> _profileService = null!;
     private Mock<IPreferencesService> _preferencesService = null!;
     private AccountService _accountService = null!;
+    private FolderService _folderService = null!;
+    private SignatureService _signatureService = null!;
     private WinoAccountDataSyncService _service = null!;
 
     public async Task InitializeAsync()
@@ -34,7 +36,14 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
         _preferencesService.SetupProperty(a => a.StartupEntityId);
 
         _accountService = CreateAccountService(_databaseService, _preferencesService.Object);
-        _service = new WinoAccountDataSyncService(_profileService.Object, _preferencesService.Object, _accountService);
+        _folderService = new FolderService(_databaseService, _accountService, new MailCategoryService(_databaseService));
+        _signatureService = new SignatureService(_databaseService);
+        _service = new WinoAccountDataSyncService(
+            _profileService.Object,
+            _preferencesService.Object,
+            _accountService,
+            _folderService,
+            _signatureService);
     }
 
     public async Task DisposeAsync()
@@ -243,6 +252,315 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
         serverInformation.ConnectionPolicyVersion.Should().Be(ImapConnectionPolicyVersion.Legacy);
         serverInformation.MaxConcurrentClients.Should().Be(9);
         serverInformation.CalDavServiceUrl.Should().Be("https://dav.example.com");
+    }
+
+    [Fact]
+    public async Task ExportAsync_MapsAccountPreferencesSignaturesAndFolders()
+    {
+        var accountId = Guid.NewGuid();
+
+        await _accountService.CreateAccountAsync(
+            new MailAccount
+            {
+                Id = accountId,
+                Name = "Gmail",
+                SenderName = "Gmail Sender",
+                Address = "folders@example.com",
+                ProviderType = MailProviderType.Gmail
+            },
+            null!);
+
+        var preferences = (await _accountService.GetAccountAsync(accountId)).Preferences;
+        preferences.IsNotificationsEnabled = true;
+        preferences.IsTaskbarBadgeEnabled = false;
+        preferences.IsDailyBriefingEnabled = true;
+        preferences.IsSemanticIndexingEnabled = true;
+        await _accountService.UpdateAccountPreferencesAsync(preferences);
+
+        var signature = await _signatureService.CreateSignatureAsync(new AccountSignature
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = accountId,
+            Name = "Work",
+            HtmlBody = "<p>Regards</p>"
+        });
+
+        await _folderService.InsertFolderAsync(new MailItemFolder
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = accountId,
+            RemoteFolderId = "INBOX",
+            FolderName = "Inbox",
+            SpecialFolderType = SpecialFolderType.Inbox,
+            IsSticky = true,
+            IsHidden = false,
+            Order = 3,
+            ShowUnreadCount = true
+        });
+
+        ReplaceUserMailboxesRequestDto? capturedRequest = null;
+        _profileService
+            .Setup(a => a.ReplaceMailboxesAsync(It.IsAny<ReplaceUserMailboxesRequestDto>(), It.IsAny<CancellationToken>()))
+            .Callback<ReplaceUserMailboxesRequestDto, CancellationToken>((request, _) => capturedRequest = request)
+            .Returns(Task.CompletedTask);
+
+        var exportResult = await _service.ExportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
+
+        exportResult.ExportedAccountDataCount.Should().Be(1);
+
+        var exportedMailbox = capturedRequest!.Mailboxes.Single();
+        exportedMailbox.IsNotificationsEnabled.Should().BeTrue();
+        exportedMailbox.IsTaskbarBadgeEnabled.Should().BeFalse();
+        exportedMailbox.IsMailAccessGranted.Should().NotBeNull();
+
+        exportedMailbox.Signatures.Should().ContainSingle(a => a.Id == signature.Id && a.Name == "Work" && a.HtmlBody == "<p>Regards</p>");
+        exportedMailbox.Folders.Should().ContainSingle(a => a.RemoteFolderId == "INBOX" && a.IsSticky && a.Order == 3 && a.ShowUnreadCount);
+    }
+
+    [Fact]
+    public async Task ImportAsync_DuplicateMailbox_StillAppliesAccountDataAndFolderLayout()
+    {
+        var accountId = Guid.NewGuid();
+
+        await _accountService.CreateAccountAsync(
+            new MailAccount
+            {
+                Id = accountId,
+                Name = "Existing Gmail",
+                SenderName = "Existing Gmail",
+                Address = "User@Example.com",
+                ProviderType = MailProviderType.Gmail
+            },
+            null!);
+
+        var untouchedSignature = await _signatureService.CreateSignatureAsync(new AccountSignature
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = accountId,
+            Name = "Local only",
+            HtmlBody = "<p>Local</p>"
+        });
+
+        await _folderService.InsertFolderAsync(new MailItemFolder
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = accountId,
+            RemoteFolderId = "INBOX",
+            FolderName = "Inbox",
+            SpecialFolderType = SpecialFolderType.Inbox
+        });
+
+        var remoteSignatureId = Guid.NewGuid();
+
+        _profileService
+            .Setup(a => a.GetMailboxesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UserMailboxSyncListDto(
+            [
+                new UserMailboxSyncItemDto
+                {
+                    Address = "user@example.com",
+                    ProviderType = (int)MailProviderType.Gmail,
+                    AccountName = "Duplicate Gmail",
+                    IsNotificationsEnabled = false,
+                    IsTaskbarBadgeEnabled = false,
+                    SignatureIdForNewMessages = remoteSignatureId,
+                    Signatures =
+                    [
+                        new UserMailboxSignatureSyncItemDto
+                        {
+                            Id = remoteSignatureId,
+                            Name = "Work",
+                            HtmlBody = "<p>Regards</p>"
+                        }
+                    ],
+                    Folders =
+                    [
+                        new UserMailboxFolderSyncItemDto
+                        {
+                            RemoteFolderId = "INBOX",
+                            IsSticky = true,
+                            IsHidden = true,
+                            Order = 7,
+                            ShowUnreadCount = true
+                        }
+                    ]
+                }
+            ]));
+
+        var result = await _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
+
+        result.ImportedMailboxCount.Should().Be(0);
+        result.SkippedDuplicateMailboxCount.Should().Be(1);
+        result.AppliedAccountDataCount.Should().Be(1);
+        result.AppliedFolderConfigurationCount.Should().Be(1);
+        result.HasAnyRemoteData.Should().BeTrue();
+
+        var signatures = await _signatureService.GetSignaturesAsync(accountId);
+        signatures.Should().Contain(a => a.Name == "Work" && a.HtmlBody == "<p>Regards</p>");
+        signatures.Should().Contain(a => a.Id == untouchedSignature.Id);
+
+        var localSignature = signatures.Single(a => a.Name == "Work");
+        var preferences = (await _accountService.GetAccountAsync(accountId)).Preferences;
+        preferences.SignatureIdForNewMessages.Should().Be(localSignature.Id);
+        preferences.IsTaskbarBadgeEnabled.Should().BeFalse();
+
+        var folder = await _folderService.GetFolderAsync(accountId, "INBOX");
+        folder.IsSticky.Should().BeTrue();
+        folder.IsHidden.Should().BeTrue();
+        folder.Order.Should().Be(7);
+        folder.ShowUnreadCount.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ImportAsync_NewMailbox_ParksFolderLayoutUntilTheFolderArrives()
+    {
+        _profileService
+            .Setup(a => a.GetMailboxesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UserMailboxSyncListDto(
+            [
+                new UserMailboxSyncItemDto
+                {
+                    Address = "fresh@example.com",
+                    ProviderType = (int)MailProviderType.Gmail,
+                    AccountName = "Fresh Gmail",
+                    Folders =
+                    [
+                        new UserMailboxFolderSyncItemDto
+                        {
+                            RemoteFolderId = "Label_42",
+                            IsSticky = true,
+                            IsHidden = true,
+                            Order = 5,
+                            ShowUnreadCount = true,
+                            IsJumpListEnabled = true
+                        }
+                    ]
+                }
+            ]));
+
+        var result = await _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
+
+        result.ImportedMailboxCount.Should().Be(1);
+
+        // The folder does not exist yet, so nothing could be applied directly.
+        result.AppliedFolderConfigurationCount.Should().Be(0);
+
+        var importedAccount = (await _accountService.GetAccountsAsync()).Single();
+        var pendingOverrides = await _folderService.GetFolderConfigurationOverridesAsync(importedAccount.Id);
+        pendingOverrides.Should().ContainSingle(a => a.RemoteFolderId == "Label_42" && a.Order == 5);
+
+        // The synchronizer creates the folder with a brand new local id and the parked layout is applied.
+        await _folderService.InsertFolderAsync(new MailItemFolder
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = importedAccount.Id,
+            RemoteFolderId = "Label_42",
+            FolderName = "Receipts",
+            SpecialFolderType = SpecialFolderType.Other
+        });
+
+        var folder = await _folderService.GetFolderAsync(importedAccount.Id, "Label_42");
+        folder.IsSticky.Should().BeTrue();
+        folder.IsHidden.Should().BeTrue();
+        folder.Order.Should().Be(5);
+        folder.ShowUnreadCount.Should().BeTrue();
+        folder.IsJumpListEnabled.Should().BeTrue();
+
+        // The override must be consumed exactly once.
+        (await _folderService.GetFolderConfigurationOverridesAsync(importedAccount.Id)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ImportAsync_MailboxWithoutAccountData_LeavesLocalStateUntouched()
+    {
+        var accountId = Guid.NewGuid();
+
+        await _accountService.CreateAccountAsync(
+            new MailAccount
+            {
+                Id = accountId,
+                Name = "Existing Gmail",
+                SenderName = "Existing Gmail",
+                Address = "user@example.com",
+                ProviderType = MailProviderType.Gmail
+            },
+            null!);
+
+        var preferences = (await _accountService.GetAccountAsync(accountId)).Preferences;
+        preferences.IsNotificationsEnabled = true;
+        await _accountService.UpdateAccountPreferencesAsync(preferences);
+
+        // An older server does not send any of the new members.
+        _profileService
+            .Setup(a => a.GetMailboxesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UserMailboxSyncListDto(
+            [
+                new UserMailboxSyncItemDto
+                {
+                    Address = "user@example.com",
+                    ProviderType = (int)MailProviderType.Gmail,
+                    AccountName = "Duplicate Gmail"
+                }
+            ]));
+
+        var result = await _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
+
+        result.AppliedAccountDataCount.Should().Be(0);
+        result.AppliedFolderConfigurationCount.Should().Be(0);
+
+        var unchangedPreferences = (await _accountService.GetAccountAsync(accountId)).Preferences;
+        unchangedPreferences.IsNotificationsEnabled.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ImportFromJsonAsync_ReadsAccountDataFromVersionTwoFileAndAcceptsVersionOne()
+    {
+        var exportedAccountId = Guid.NewGuid();
+
+        await _accountService.CreateAccountAsync(
+            new MailAccount
+            {
+                Id = exportedAccountId,
+                Name = "Gmail",
+                SenderName = "Gmail",
+                Address = "roundtrip@example.com",
+                ProviderType = MailProviderType.Gmail
+            },
+            null!);
+
+        await _folderService.InsertFolderAsync(new MailItemFolder
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = exportedAccountId,
+            RemoteFolderId = "INBOX",
+            FolderName = "Inbox",
+            SpecialFolderType = SpecialFolderType.Inbox,
+            IsHidden = true,
+            Order = 4
+        });
+
+        var fileExport = await _service.ExportToJsonAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
+        fileExport.JsonContent.Should().Contain("\"RemoteFolderId\": \"INBOX\"");
+
+        // Re-importing the same file resolves to the same account and reapplies the layout.
+        var roundTripResult = await _service.ImportFromJsonAsync(fileExport.JsonContent);
+        roundTripResult.SkippedDuplicateMailboxCount.Should().Be(1);
+        roundTripResult.AppliedFolderConfigurationCount.Should().Be(1);
+
+        // A version 1 file has no account data at all and must still import.
+        const string legacyJson = """
+        {
+          "version": 1,
+          "includesPreferences": false,
+          "includesAccounts": true,
+          "preferences": null,
+          "mailboxes": [ { "Address": "legacy@example.com", "ProviderType": 1, "AccountName": "Legacy" } ]
+        }
+        """;
+
+        var legacyResult = await _service.ImportFromJsonAsync(legacyJson);
+        legacyResult.ImportedMailboxCount.Should().Be(1);
+        legacyResult.AppliedAccountDataCount.Should().Be(0);
     }
 
     private static AccountService CreateAccountService(InMemoryDatabaseService databaseService, IPreferencesService preferencesService)

@@ -39,6 +39,7 @@ public class InMemoryDatabaseService : IDatabaseService
         await Connection.CreateTableAsync<MailFilterAction>();
         await Connection.CreateTableAsync<MailFilterExecution>();
         await Connection.CreateTableAsync<MailItemFolder>();
+        await Connection.CreateTableAsync<FolderConfigurationOverride>();
         await Connection.CreateTableAsync<MailAccount>();
         await Connection.CreateTableAsync<AccountContact>();
         await Connection.CreateTableAsync<CustomServerInformation>();

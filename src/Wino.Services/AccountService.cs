@@ -366,6 +366,7 @@ public class AccountService : BaseDatabaseService, IAccountService
         await Connection.Table<AccountCalendar>().DeleteAsync(a => a.AccountId == account.Id).ConfigureAwait(false);
 
         await Connection.Table<MailItemFolder>().DeleteAsync(a => a.MailAccountId == account.Id);
+        await Connection.Table<FolderConfigurationOverride>().DeleteAsync(a => a.MailAccountId == account.Id);
         await Connection.Table<AccountSignature>().DeleteAsync(a => a.MailAccountId == account.Id);
         await Connection.Table<MailAccountAlias>().DeleteAsync(a => a.AccountId == account.Id);
         var filterIds = await Connection.Table<MailFilter>()

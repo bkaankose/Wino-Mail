@@ -2,7 +2,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -10,32 +9,45 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Mail.Api.Contracts.Users;
 using Wino.Messaging.Client.Accounts;
+using Wino.Messaging.UI;
 
 namespace Wino.Services;
 
 public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
 {
     private const int DefaultMaxConcurrentClients = 5;
-    private const int LocalExportVersion = 1;
+
+    /// <summary>
+    /// Version 2 added per-account preferences, signatures and folder layout to the exported mailboxes.
+    /// Version 1 files are still imported; they simply carry no account data.
+    /// </summary>
+    private const int LocalExportVersion = 2;
 
     private readonly IWinoAccountProfileService _profileService;
     private readonly IPreferencesService _preferencesService;
     private readonly IAccountService _accountService;
+    private readonly IFolderService _folderService;
+    private readonly ISignatureService _signatureService;
 
     public WinoAccountDataSyncService(
         IWinoAccountProfileService profileService,
         IPreferencesService preferencesService,
-        IAccountService accountService)
+        IAccountService accountService,
+        IFolderService folderService,
+        ISignatureService signatureService)
     {
         _profileService = profileService;
         _preferencesService = preferencesService;
         _accountService = accountService;
+        _folderService = folderService;
+        _signatureService = signatureService;
     }
 
     public async Task<WinoAccountSyncExportResult> ExportAsync(WinoAccountSyncSelection selection, CancellationToken cancellationToken = default)
@@ -170,12 +182,24 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             ? _preferencesService.ExportPreferences()
             : null;
 
-        var mailboxes = selection.IncludeAccounts
-            ? (await _accountService.GetAccountsAsync().ConfigureAwait(false))
-                .OrderBy(a => a.Order)
-                .Select(MapMailbox)
-                .ToList()
-            : [];
+        var mailboxes = new List<UserMailboxSyncItemDto>();
+        var exportedAccountDataCount = 0;
+
+        if (selection.IncludeAccounts)
+        {
+            var accounts = (await _accountService.GetAccountsAsync().ConfigureAwait(false)).OrderBy(a => a.Order);
+
+            foreach (var account in accounts)
+            {
+                var mailbox = await MapMailboxAsync(account).ConfigureAwait(false);
+                mailboxes.Add(mailbox);
+
+                if (mailbox.Signatures?.Count > 0 || mailbox.Folders?.Count > 0)
+                {
+                    exportedAccountDataCount++;
+                }
+            }
+        }
 
         return new PreparedSyncExport(
             preferencesJson,
@@ -184,7 +208,8 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             {
                 IncludedPreferences = selection.IncludePreferences,
                 IncludedAccounts = selection.IncludeAccounts,
-                ExportedMailboxCount = mailboxes.Count
+                ExportedMailboxCount = mailboxes.Count,
+                ExportedAccountDataCount = exportedAccountDataCount
             });
     }
 
@@ -228,6 +253,11 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
                 .Select(CreateMailboxKey)
                 .ToHashSet(StringComparer.Ordinal);
 
+            // Account data is applied to every mailbox that resolves to a local account, including the
+            // ones skipped as duplicates. Two devices holding the same mailboxes is the common case, and
+            // that is exactly when the settings are out of date.
+            var accountsByKey = localAccounts.ToDictionary(CreateMailboxKey, StringComparer.Ordinal);
+
             var importedMailboxCount = 0;
             var skippedDuplicateMailboxCount = 0;
 
@@ -262,12 +292,35 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
                     }
                 }
 
+                accountsByKey[mailboxKey] = account;
                 importedMailboxCount++;
             }
 
             if (importedMailboxCount > 0)
             {
                 WeakReferenceMessenger.Default.Send(new AccountsMenuRefreshRequested(false));
+            }
+
+            var appliedAccountDataCount = 0;
+            var appliedFolderConfigurationCount = 0;
+
+            foreach (var mailbox in orderedMailboxes)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (!accountsByKey.TryGetValue(CreateMailboxKey(mailbox.Address, mailbox.ProviderType), out var localAccount))
+                {
+                    continue;
+                }
+
+                var applied = await ApplyAccountDataAsync(localAccount, mailbox).ConfigureAwait(false);
+
+                if (applied.AppliedAnything)
+                {
+                    appliedAccountDataCount++;
+                }
+
+                appliedFolderConfigurationCount += applied.AppliedFolderCount;
             }
 
             result = new WinoAccountSyncImportResult
@@ -279,7 +332,9 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
                 FailedPreferenceCount = result.FailedPreferenceCount,
                 ImportedMailboxCount = importedMailboxCount,
                 SkippedDuplicateMailboxCount = skippedDuplicateMailboxCount,
-                RemoteMailboxCount = orderedMailboxes.Count
+                RemoteMailboxCount = orderedMailboxes.Count,
+                AppliedAccountDataCount = appliedAccountDataCount,
+                AppliedFolderConfigurationCount = appliedFolderConfigurationCount
             };
         }
 
@@ -288,13 +343,202 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         return result;
     }
 
-    private static UserMailboxSyncItemDto MapMailbox(MailAccount account)
+    /// <summary>
+    /// Applies the per-account preferences, signatures and folder layout carried by a synced mailbox.
+    /// Older servers and version 1 export files carry none of this, in which case nothing happens.
+    /// </summary>
+    private async Task<AppliedAccountData> ApplyAccountDataAsync(MailAccount account, UserMailboxSyncItemDto mailbox)
+    {
+        var signatureIdMap = await ApplySignaturesAsync(account.Id, mailbox.Signatures).ConfigureAwait(false);
+        var appliedPreferences = await ApplyAccountPreferencesAsync(account, mailbox, signatureIdMap).ConfigureAwait(false);
+        var appliedFolderCount = await ApplyFolderConfigurationAsync(account.Id, mailbox.Folders).ConfigureAwait(false);
+
+        var appliedAnything = appliedPreferences || signatureIdMap.Count > 0 || appliedFolderCount > 0;
+
+        return new AppliedAccountData(appliedAnything, appliedFolderCount);
+    }
+
+    /// <summary>
+    /// Matches incoming signatures to local ones by name and returns a source id to local id map so that
+    /// the account preference pointers can be translated. Local signatures that are absent from the
+    /// payload are never deleted.
+    /// </summary>
+    private async Task<Dictionary<Guid, Guid>> ApplySignaturesAsync(Guid accountId, List<UserMailboxSignatureSyncItemDto>? signatures)
+    {
+        var signatureIdMap = new Dictionary<Guid, Guid>();
+
+        if (signatures == null || signatures.Count == 0) return signatureIdMap;
+
+        var localSignatures = await _signatureService.GetSignaturesAsync(accountId).ConfigureAwait(false);
+
+        foreach (var signature in signatures)
+        {
+            var name = signature.Name?.Trim();
+            if (string.IsNullOrEmpty(name)) continue;
+
+            var localSignature = localSignatures.FirstOrDefault(a => string.Equals(a.Name, name, StringComparison.OrdinalIgnoreCase));
+
+            if (localSignature == null)
+            {
+                localSignature = await _signatureService.CreateSignatureAsync(new AccountSignature
+                {
+                    Id = Guid.NewGuid(),
+                    MailAccountId = accountId,
+                    Name = name,
+                    HtmlBody = signature.HtmlBody ?? string.Empty
+                }).ConfigureAwait(false);
+            }
+            else if (!string.Equals(localSignature.HtmlBody, signature.HtmlBody, StringComparison.Ordinal))
+            {
+                localSignature.HtmlBody = signature.HtmlBody ?? string.Empty;
+                localSignature = await _signatureService.UpdateSignatureAsync(localSignature).ConfigureAwait(false);
+            }
+
+            if (localSignature != null)
+            {
+                signatureIdMap[signature.Id] = localSignature.Id;
+            }
+        }
+
+        return signatureIdMap;
+    }
+
+    private async Task<bool> ApplyAccountPreferencesAsync(
+        MailAccount account,
+        UserMailboxSyncItemDto mailbox,
+        Dictionary<Guid, Guid> signatureIdMap)
+    {
+        var persistedAccount = await _accountService.GetAccountAsync(account.Id).ConfigureAwait(false);
+        var preferences = persistedAccount?.Preferences;
+
+        if (preferences == null) return false;
+
+        var hasChanges = false;
+
+        hasChanges |= AssignIfProvided(mailbox.ShouldAppendMessagesToSentFolder, preferences.ShouldAppendMessagesToSentFolder,
+            value => preferences.ShouldAppendMessagesToSentFolder = value);
+        hasChanges |= AssignIfProvided(mailbox.IsNotificationsEnabled, preferences.IsNotificationsEnabled,
+            value => preferences.IsNotificationsEnabled = value);
+        hasChanges |= AssignIfProvided(mailbox.IsSignatureEnabled, preferences.IsSignatureEnabled,
+            value => preferences.IsSignatureEnabled = value);
+        hasChanges |= AssignIfProvided(mailbox.IsTaskbarBadgeEnabled, preferences.IsTaskbarBadgeEnabled,
+            value => preferences.IsTaskbarBadgeEnabled = value);
+        hasChanges |= AssignIfProvided(mailbox.IsJumpListEnabled, preferences.IsJumpListEnabled,
+            value => preferences.IsJumpListEnabled = value);
+
+        if (mailbox.IsFocusedInboxEnabled != preferences.IsFocusedInboxEnabled && mailbox.IsFocusedInboxEnabled.HasValue)
+        {
+            preferences.IsFocusedInboxEnabled = mailbox.IsFocusedInboxEnabled;
+            hasChanges = true;
+        }
+
+        // Signature pointers reference ids from the exporting device. A pointer that cannot be
+        // resolved against the freshly matched local signatures is dropped instead of dangling.
+        hasChanges |= AssignSignaturePointer(mailbox.SignatureIdForNewMessages, signatureIdMap,
+            preferences.SignatureIdForNewMessages, value => preferences.SignatureIdForNewMessages = value);
+        hasChanges |= AssignSignaturePointer(mailbox.SignatureIdForFollowingMessages, signatureIdMap,
+            preferences.SignatureIdForFollowingMessages, value => preferences.SignatureIdForFollowingMessages = value);
+
+        if (!hasChanges) return false;
+
+        await _accountService.UpdateAccountPreferencesAsync(preferences).ConfigureAwait(false);
+
+        return true;
+    }
+
+    /// <summary>
+    /// Applies the folder layout to folders that already exist, and parks the rest for the synchronizers.
+    /// Returns how many entries were applied directly.
+    /// </summary>
+    private async Task<int> ApplyFolderConfigurationAsync(Guid accountId, List<UserMailboxFolderSyncItemDto>? folders)
+    {
+        if (folders == null || folders.Count == 0) return 0;
+
+        var appliedFolderCount = 0;
+
+        foreach (var folder in folders)
+        {
+            if (string.IsNullOrWhiteSpace(folder.RemoteFolderId)) continue;
+
+            var remoteFolderId = folder.RemoteFolderId.Trim();
+            var localFolder = await _folderService.GetFolderAsync(accountId, remoteFolderId).ConfigureAwait(false);
+
+            if (localFolder == null)
+            {
+                // The account was just imported and has no folders until it is re-authenticated
+                // and synchronized. Park the layout until the folder arrives.
+                await _folderService.UpsertFolderConfigurationOverrideAsync(new FolderConfigurationOverride
+                {
+                    MailAccountId = accountId,
+                    RemoteFolderId = remoteFolderId,
+                    IsSticky = folder.IsSticky,
+                    IsHidden = folder.IsHidden,
+                    Order = folder.Order,
+                    ShowUnreadCount = folder.ShowUnreadCount,
+                    IsJumpListEnabled = folder.IsJumpListEnabled
+                }).ConfigureAwait(false);
+
+                continue;
+            }
+
+            localFolder.IsSticky = folder.IsSticky;
+            localFolder.IsHidden = folder.IsHidden;
+            localFolder.Order = folder.Order;
+            localFolder.ShowUnreadCount = folder.ShowUnreadCount;
+            localFolder.IsJumpListEnabled = folder.IsJumpListEnabled;
+
+            await _folderService.UpdateFolderAsync(localFolder).ConfigureAwait(false);
+
+            appliedFolderCount++;
+        }
+
+        if (appliedFolderCount > 0)
+        {
+            // The bulk path has to announce the change itself. The single-folder mutators on
+            // IFolderService do not all broadcast, so the shell would keep the stale layout.
+            WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(accountId));
+        }
+
+        return appliedFolderCount;
+    }
+
+    private static bool AssignIfProvided(bool? incomingValue, bool currentValue, Action<bool> assign)
+    {
+        if (!incomingValue.HasValue || incomingValue.Value == currentValue) return false;
+
+        assign(incomingValue.Value);
+
+        return true;
+    }
+
+    private static bool AssignSignaturePointer(
+        Guid? incomingSignatureId,
+        Dictionary<Guid, Guid> signatureIdMap,
+        Guid? currentSignatureId,
+        Action<Guid?> assign)
+    {
+        if (!incomingSignatureId.HasValue) return false;
+
+        if (!signatureIdMap.TryGetValue(incomingSignatureId.Value, out var localSignatureId)) return false;
+
+        if (currentSignatureId == localSignatureId) return false;
+
+        assign(localSignatureId);
+
+        return true;
+    }
+
+    private async Task<UserMailboxSyncItemDto> MapMailboxAsync(MailAccount account)
     {
         var serverInformation = account.ProviderType == MailProviderType.IMAP4
             ? account.ServerInformation
             : null;
 
-        var mailbox = new UserMailboxSyncItemDto
+        var preferences = account.Preferences;
+        var signatures = await _signatureService.GetSignaturesAsync(account.Id).ConfigureAwait(false);
+        var folders = await _folderService.GetFoldersAsync(account.Id).ConfigureAwait(false);
+
+        return new UserMailboxSyncItemDto
         {
             Address = account.Address ?? string.Empty,
             ProviderType = (int)account.ProviderType,
@@ -319,12 +563,40 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             CalDavUsername = serverInformation?.CalDavUsername,
             ProxyServer = serverInformation?.ProxyServer,
             ProxyServerPort = serverInformation?.ProxyServerPort,
-            MaxConcurrentClients = serverInformation?.MaxConcurrentClients
+            MaxConcurrentClients = serverInformation?.MaxConcurrentClients,
+            IsMailAccessGranted = account.IsMailAccessGranted,
+
+            // Intelligence preferences (daily briefing, semantic indexing) are intentionally not synced.
+            // They must be enabled explicitly on every device.
+            ShouldAppendMessagesToSentFolder = preferences?.ShouldAppendMessagesToSentFolder,
+            IsNotificationsEnabled = preferences?.IsNotificationsEnabled,
+            IsFocusedInboxEnabled = preferences?.IsFocusedInboxEnabled,
+            IsSignatureEnabled = preferences?.IsSignatureEnabled,
+            IsTaskbarBadgeEnabled = preferences?.IsTaskbarBadgeEnabled,
+            IsJumpListEnabled = preferences?.IsJumpListEnabled,
+            SignatureIdForNewMessages = preferences?.SignatureIdForNewMessages,
+            SignatureIdForFollowingMessages = preferences?.SignatureIdForFollowingMessages,
+            Signatures = signatures
+                .Select(a => new UserMailboxSignatureSyncItemDto
+                {
+                    Id = a.Id,
+                    Name = a.Name ?? string.Empty,
+                    HtmlBody = a.HtmlBody ?? string.Empty
+                })
+                .ToList(),
+            Folders = folders
+                .Where(a => !string.IsNullOrEmpty(a.RemoteFolderId))
+                .Select(a => new UserMailboxFolderSyncItemDto
+                {
+                    RemoteFolderId = a.RemoteFolderId,
+                    IsSticky = a.IsSticky,
+                    IsHidden = a.IsHidden,
+                    Order = a.Order,
+                    ShowUnreadCount = a.ShowUnreadCount,
+                    IsJumpListEnabled = a.IsJumpListEnabled
+                })
+                .ToList()
         };
-
-        SetOptionalBooleanProperty(mailbox, "IsMailAccessGranted", account.IsMailAccessGranted);
-
-        return mailbox;
     }
 
     private static MailAccount CreateImportedAccount(UserMailboxSyncItemDto mailbox)
@@ -343,7 +615,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             Base64ProfilePictureData = string.Empty,
             CreatedAt = DateTime.UtcNow,
             InitialSynchronizationRange = InitialSynchronizationRange.SixMonths,
-            IsMailAccessGranted = GetOptionalBooleanProperty(mailbox, "IsMailAccessGranted", defaultValue: true),
+            IsMailAccessGranted = mailbox.IsMailAccessGranted ?? true,
             IsCalendarAccessGranted = mailbox.IsCalendarAccessGranted,
             SynchronizationDeltaIdentifier = string.Empty,
             CalendarSynchronizationDeltaIdentifier = string.Empty,
@@ -421,38 +693,6 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
     private static string CreateMailboxKey(string? address, int providerType)
         => $"{address?.Trim().ToLowerInvariant()}|{providerType}";
 
-    private static bool GetOptionalBooleanProperty<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(
-        T instance,
-        string propertyName,
-        bool defaultValue)
-    {
-        if (instance == null)
-            return defaultValue;
-
-        var property = typeof(T).GetProperty(propertyName);
-        if (property?.PropertyType != typeof(bool) || !property.CanRead)
-            return defaultValue;
-
-        return property.GetValue(instance) is bool boolValue
-            ? boolValue
-            : defaultValue;
-    }
-
-    private static void SetOptionalBooleanProperty<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(
-        T instance,
-        string propertyName,
-        bool value)
-    {
-        if (instance == null)
-            return;
-
-        var property = typeof(T).GetProperty(propertyName);
-        if (property?.PropertyType == typeof(bool) && property.CanWrite)
-        {
-            property.SetValue(instance, value);
-        }
-    }
-
     private static string TrimUtf8Bom(string jsonContent)
         => !string.IsNullOrEmpty(jsonContent) && jsonContent[0] == '\uFEFF'
             ? jsonContent[1..]
@@ -462,4 +702,6 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         string? PreferencesJson,
         List<UserMailboxSyncItemDto> Mailboxes,
         WinoAccountSyncExportResult ExportResult);
+
+    private readonly record struct AppliedAccountData(bool AppliedAnything, int AppliedFolderCount);
 }

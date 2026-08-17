@@ -83,9 +83,68 @@ public class FolderService : BaseDatabaseService, IFolderService
             conn.Execute(
                 "UPDATE MailItemFolder SET IsSticky = 1 WHERE MailAccountId = ? AND (IsSystemFolder = 1 OR SpecialFolderType = ?)",
                 accountId, (int)SpecialFolderType.Category);
+
+            // Drop imported layout that has not been applied yet, otherwise it would resurrect
+            // the customization the user just asked to reset once the folder arrives.
+            conn.Execute("DELETE FROM FolderConfigurationOverride WHERE MailAccountId = ?", accountId);
         }).ConfigureAwait(false);
 
         Messenger.Send(new AccountFolderConfigurationUpdated(accountId));
+    }
+
+    public async Task UpsertFolderConfigurationOverrideAsync(FolderConfigurationOverride configurationOverride)
+    {
+        if (configurationOverride == null || string.IsNullOrEmpty(configurationOverride.RemoteFolderId)) return;
+
+        var existingOverride = await GetFolderConfigurationOverrideAsync(configurationOverride.MailAccountId, configurationOverride.RemoteFolderId)
+            .ConfigureAwait(false);
+
+        if (existingOverride == null)
+        {
+            configurationOverride.Id = Guid.NewGuid();
+
+            await Connection.InsertAsync(configurationOverride, typeof(FolderConfigurationOverride)).ConfigureAwait(false);
+        }
+        else
+        {
+            configurationOverride.Id = existingOverride.Id;
+
+            await Connection.UpdateAsync(configurationOverride, typeof(FolderConfigurationOverride)).ConfigureAwait(false);
+        }
+    }
+
+    public Task<List<FolderConfigurationOverride>> GetFolderConfigurationOverridesAsync(Guid accountId)
+        => Connection.Table<FolderConfigurationOverride>().Where(a => a.MailAccountId == accountId).ToListAsync();
+
+    public Task ClearFolderConfigurationOverridesAsync(Guid accountId)
+        => Connection.ExecuteAsync("DELETE FROM FolderConfigurationOverride WHERE MailAccountId = ?", accountId);
+
+    private Task<FolderConfigurationOverride> GetFolderConfigurationOverrideAsync(Guid accountId, string remoteFolderId)
+        => Connection.Table<FolderConfigurationOverride>()
+                     .FirstOrDefaultAsync(a => a.MailAccountId == accountId && a.RemoteFolderId == remoteFolderId);
+
+    /// <summary>
+    /// Applies a pending Wino Account folder layout to a folder that has just arrived from a synchronizer,
+    /// then deletes the override so it is never applied twice.
+    /// </summary>
+    private async Task ApplyPendingFolderConfigurationAsync(MailItemFolder folder)
+    {
+        if (string.IsNullOrEmpty(folder.RemoteFolderId)) return;
+
+        var configurationOverride = await GetFolderConfigurationOverrideAsync(folder.MailAccountId, folder.RemoteFolderId).ConfigureAwait(false);
+
+        if (configurationOverride == null) return;
+
+        folder.IsSticky = configurationOverride.IsSticky;
+        folder.IsHidden = configurationOverride.IsHidden;
+        folder.Order = configurationOverride.Order;
+        folder.ShowUnreadCount = configurationOverride.ShowUnreadCount;
+        folder.IsJumpListEnabled = configurationOverride.IsJumpListEnabled;
+
+        await Connection.DeleteAsync(configurationOverride).ConfigureAwait(false);
+
+        _logger.Debug("Applied imported folder configuration for {RemoteFolderId} on account {MailAccountId}.",
+            folder.RemoteFolderId, folder.MailAccountId);
     }
 
     private static int GetDefaultFolderOrder(MailItemFolder folder)
@@ -624,6 +683,9 @@ public class FolderService : BaseDatabaseService, IFolderService
         {
             folder.IsJumpListEnabled = folder.SpecialFolderType == SpecialFolderType.Inbox;
 
+            // A Wino Account import may have parked a navigation layout for this folder before it existed.
+            await ApplyPendingFolderConfigurationAsync(folder).ConfigureAwait(false);
+
             _logger.Debug("Inserting folder {Id} - {FolderName}", folder.Id, folder.FolderName, folder.MailAccountId);
 
             await Connection.InsertAsync(folder, typeof(MailItemFolder)).ConfigureAwait(false);
@@ -648,6 +710,9 @@ public class FolderService : BaseDatabaseService, IFolderService
             folder.HighestKnownUid = existingFolder.HighestKnownUid;
             folder.LastUidReconcileUtc = existingFolder.LastUidReconcileUtc;
             folder.DeltaToken = existingFolder.DeltaToken;
+
+            // An imported layout represents newer user intent than the values preserved above, so it wins.
+            await ApplyPendingFolderConfigurationAsync(folder).ConfigureAwait(false);
 
             _logger.Debug("Folder {Id} - {FolderName} already exists. Updating.", folder.Id, folder.FolderName);
 

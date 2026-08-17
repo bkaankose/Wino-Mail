@@ -57,6 +57,7 @@ public class DatabaseService : IDatabaseService
             Connection.CreateTableAsync<MailFilterExecution>(),
             Connection.CreateTableAsync<AccountProviderFeature>(),
             Connection.CreateTableAsync<MailItemFolder>(),
+            Connection.CreateTableAsync<FolderConfigurationOverride>(),
             Connection.CreateTableAsync<MailAccount>(),
             Connection.CreateTableAsync<AccountContact>(),
             Connection.CreateTableAsync<ContactGroup>(),
@@ -494,6 +495,7 @@ SET {nameof(KeyboardShortcut.Action)} =
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailItemFolder_MailAccountId_RemoteFolderId ON MailItemFolder(MailAccountId, RemoteFolderId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailItemFolder_MailAccountId_ParentRemoteFolderId ON MailItemFolder(MailAccountId, ParentRemoteFolderId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailItemFolder_MailAccountId_SpecialFolderType ON MailItemFolder(MailAccountId, SpecialFolderType)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_FolderConfigurationOverride_MailAccountId_RemoteFolderId ON FolderConfigurationOverride(MailAccountId, RemoteFolderId)").ConfigureAwait(false);
 
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailAccount_MergedInboxId ON MailAccount(MergedInboxId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailAccount_Order ON MailAccount([Order])").ConfigureAwait(false);

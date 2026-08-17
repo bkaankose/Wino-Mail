@@ -43,6 +43,24 @@ public interface IFolderService
     /// </summary>
     Task ResetFolderCustomizationAsync(Guid accountId);
 
+    /// <summary>
+    /// Parks folder navigation settings that arrived from a Wino Account import before the folder existed locally.
+    /// The settings are applied and the row deleted when the synchronizer creates the folder.
+    /// </summary>
+    Task UpsertFolderConfigurationOverrideAsync(FolderConfigurationOverride configurationOverride);
+
+    /// <summary>
+    /// Returns the parked folder configuration overrides for the account. Used by tests and diagnostics.
+    /// </summary>
+    Task<List<FolderConfigurationOverride>> GetFolderConfigurationOverridesAsync(Guid accountId);
+
+    /// <summary>
+    /// Drops every parked folder configuration override for the account.
+    /// Called once the folder structure is fully synchronized, so overrides for folders that no longer
+    /// exist remotely cannot linger, and when the account is deleted.
+    /// </summary>
+    Task ClearFolderConfigurationOverridesAsync(Guid accountId);
+
     Task<MailAccount> UpdateSystemFolderConfigurationAsync(Guid accountId, SystemFolderConfiguration configuration);
     Task ChangeFolderSynchronizationStateAsync(Guid folderId, bool isSynchronizationEnabled);
     Task ChangeFolderShowUnreadCountStateAsync(Guid folderId, bool showUnreadCount);

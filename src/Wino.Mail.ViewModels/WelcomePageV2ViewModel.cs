@@ -165,6 +165,14 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
                 ? string.Format(Translator.WinoAccount_Management_ImportPreferencesSucceeded, result.AppliedPreferenceCount)
                 : string.Empty;
 
+        if (result.AppliedAccountDataCount > 0)
+        {
+            var accountDataMessage = string.Format(Translator.WinoAccount_Management_ImportAccountDataSucceeded, result.AppliedAccountDataCount);
+            preferencesMessage = string.IsNullOrWhiteSpace(preferencesMessage)
+                ? accountDataMessage
+                : $"{preferencesMessage} {accountDataMessage}";
+        }
+
         if (result.RemoteMailboxCount == 0)
         {
             return string.IsNullOrWhiteSpace(preferencesMessage)
