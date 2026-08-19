@@ -19,7 +19,7 @@ public class MailCopyIdentityExtensionsTests
             Id = serverId,
             FolderId = folderId,
             ThreadId = "thread-1",
-            CreationDate = creationDate ?? new DateTime(2026, 8, 15, 12, 0, 0, DateTimeKind.Utc),
+            CreationDate = creationDate ?? DateTime.UtcNow,
             AssignedAccount = account
         };
 
@@ -30,9 +30,11 @@ public class MailCopyIdentityExtensionsTests
         var inboxFolderId = Guid.NewGuid();
         var categoryFolderId = Guid.NewGuid();
 
+        var baseDate = DateTime.UtcNow;
+
         // The category copy is listed first and is newer, but the inbox copy is the preferred one.
-        var categoryCopy = BuildCopy("server-1", categoryFolderId, account, new DateTime(2026, 8, 15, 18, 0, 0, DateTimeKind.Utc));
-        var inboxCopy = BuildCopy("server-1", inboxFolderId, account, new DateTime(2026, 8, 15, 12, 0, 0, DateTimeKind.Utc));
+        var categoryCopy = BuildCopy("server-1", categoryFolderId, account, baseDate.AddHours(6));
+        var inboxCopy = BuildCopy("server-1", inboxFolderId, account, baseDate);
 
         var collapsed = new[] { categoryCopy, inboxCopy }
             .CollapseServerMessageDuplicates(null, mail => mail.FolderId == inboxFolderId)
@@ -80,8 +82,10 @@ public class MailCopyIdentityExtensionsTests
     {
         var account = new MailAccount { Id = Guid.NewGuid() };
 
-        var older = BuildCopy("server-1", Guid.NewGuid(), account, new DateTime(2026, 8, 15, 8, 0, 0, DateTimeKind.Utc));
-        var newer = BuildCopy("server-1", Guid.NewGuid(), account, new DateTime(2026, 8, 15, 20, 0, 0, DateTimeKind.Utc));
+        var baseDate = DateTime.UtcNow;
+
+        var older = BuildCopy("server-1", Guid.NewGuid(), account, baseDate.AddHours(-4));
+        var newer = BuildCopy("server-1", Guid.NewGuid(), account, baseDate.AddHours(8));
 
         var collapsed = new[] { older, newer }
             .CollapseServerMessageDuplicates(null, _ => false)
