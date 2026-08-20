@@ -39,7 +39,7 @@
     <PackageVersion Include="Nito.AsyncEx" Version="5.1.2" />
     <PackageVersion Include="Nito.AsyncEx.Tasks" Version="5.1.2" />
     <PackageVersion Include="NodaTime" Version="3.3.3" />
-    <PackageVersion Include="Sentry.Serilog" Version="6.8.0" />
+    <PackageVersion Include="Sentry.Serilog" Version="6.9.0" />
     <PackageVersion Include="Serilog" Version="4.4.0" />
     <PackageVersion Include="Serilog.Extensions.Logging" Version="10.0.0" />
     <PackageVersion Include="Serilog.Sinks.Debug" Version="3.0.0" />
