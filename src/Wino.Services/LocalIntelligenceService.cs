@@ -179,6 +179,12 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
         CancellationToken cancellationToken = default)
         => _store.DeleteDailyBriefingIgnoreAsync(localAccountId, briefingId, cancellationToken);
 
+    public Task DeleteBriefingItemAsync(
+        Guid localAccountId,
+        string remoteMessageId,
+        CancellationToken cancellationToken = default)
+        => _store.DeleteDailyBriefingItemAsync(localAccountId, remoteMessageId, cancellationToken);
+
     private static IEnumerable<TemporalPointPayload> EnumerateTemporalPoints(BriefingFactCapabilityPayload fact)
         => fact.TemporalReferences.SelectMany(static temporal => temporal switch
         {

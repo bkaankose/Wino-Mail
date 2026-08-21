@@ -159,6 +159,12 @@ public sealed partial class DailyBriefingPanel : UserControl
             ViewModel.IgnoreCommand.Execute(item);
     }
 
+    private void DeleteClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: DailyBriefingItem item })
+            ViewModel.DeleteCommand.Execute(item);
+    }
+
     private void ViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(ViewModel.SelectedDateGroups))

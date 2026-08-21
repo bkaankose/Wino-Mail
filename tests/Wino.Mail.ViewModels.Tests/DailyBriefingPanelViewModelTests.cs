@@ -100,6 +100,27 @@ public sealed class DailyBriefingPanelViewModelTests
     }
 
     [Fact]
+    public async Task DeleteCommand_RemovesMatchingFactFromEveryCachedDate()
+    {
+        var localService = new Mock<ILocalIntelligenceService>();
+        localService.Setup(service => service.DeleteBriefingItemAsync(
+            It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        var account = CreateAccount("Work");
+        SetupBriefing(localService, [account], [CreateFact(account, "Remove this", MailPriority.Normal)]);
+        var viewModel = CreateViewModel(localService);
+        await viewModel.InitializeAsync();
+
+        var item = viewModel.Dates[0].Groups.Single().Single();
+        await viewModel.DeleteCommand.ExecuteAsync(item);
+
+        viewModel.Dates.Should().OnlyContain(date => date.Groups.Count == 0);
+        localService.Verify(service => service.DeleteBriefingItemAsync(
+            item.LocalAccountId, item.Fact.RemoteMessageId, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
     public async Task ShowIgnored_ChangesAllSevenProjectionsLocallyAndPreservesVisibleItem()
     {
         var localService = new Mock<ILocalIntelligenceService>();

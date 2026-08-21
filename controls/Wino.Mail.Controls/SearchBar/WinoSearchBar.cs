@@ -891,7 +891,7 @@ public sealed partial class WinoSearchBar : Control
 
     private void OnHistoryCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) => RefreshHistoryItems();
 
-    private sealed class WeakHistoryCollectionChangedSubscription : IDisposable
+    private sealed partial class WeakHistoryCollectionChangedSubscription : IDisposable
     {
         private readonly INotifyCollectionChanged _source;
         private readonly WeakReference<WinoSearchBar> _owner;

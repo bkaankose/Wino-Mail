@@ -23,12 +23,15 @@
       Ical.Net 5.2.3 intentionally reflects over its RFC 5545 model and serializer types,
       MimeKit's otherwise-unused default context probes SQLite dynamically, and CsWinRT's
       generic WinRT fallback marshaler lacks the linker annotations required by IL2081.
+      Wino.Mail.AI.Abstractions also carries the package-level IL3053 summary for its
+      contract JSON converters; Wino serializes the concrete payloads it uses through
+      generated JSON contexts.
       Wino roots Ical.Net and the explicit Windows S/MIME context below, so only these
       upstream analyzer limitations are suppressed during the whole-program AOT link.
       Ordinary Release analyzer builds remain unsuppressed and continue to reject
       first-party IL warnings.
     -->
-    <NoWarn Condition="'$(Configuration)' == 'Release' and '$(PublishAot)' == 'true'">$(NoWarn);IL2026;IL2070;IL2072;IL2075;IL2077;IL2080;IL2081;IL2087</NoWarn>
+    <NoWarn Condition="'$(Configuration)' == 'Release' and '$(PublishAot)' == 'true'">$(NoWarn);IL2026;IL2070;IL2072;IL2075;IL2077;IL2080;IL2081;IL2087;IL3053</NoWarn>
     <Nullable>enable</Nullable>
 	<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	<!-- Single instancing -->
@@ -402,7 +405,7 @@
     <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
     <GenerateTestArtifacts>True</GenerateTestArtifacts>
     <AppxBundle>Always</AppxBundle>
-    <AppxBundlePlatforms>x86|x64|arm64</AppxBundlePlatforms>
+    <AppxBundlePlatforms>x64</AppxBundlePlatforms>
     <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
     <PackageCertificateThumbprint>4D0220C9CA6C704D170471B1A2335F76F94EB9DC</PackageCertificateThumbprint>
   </PropertyGroup>

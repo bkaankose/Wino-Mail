@@ -231,6 +231,28 @@
                                     Visibility="{x:Bind HasIgnoreAction, Mode=OneWay}">
                                     <FontIcon FontSize="13" Glyph="{x:Bind IgnoreActionGlyph, Mode=OneWay}" />
                                 </Button>
+                                <Button
+                                    Grid.Column="1"
+                                    Width="28"
+                                    Height="28"
+                                    MinWidth="28"
+                                    MinHeight="28"
+                                    Margin="40,0,0,0"
+                                    Padding="0"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Bottom"
+                                    AutomationProperties.AutomationId="DailyBriefingDeleteButton"
+                                    AutomationProperties.Name="{x:Bind DeleteActionText, Mode=OneWay}"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Click="DeleteClicked"
+                                    IsEnabled="{x:Bind CanDelete, Mode=OneWay}"
+                                    Style="{StaticResource TransparentActionButtonStyle}"
+                                    Tag="{x:Bind}"
+                                    ToolTipService.ToolTip="{x:Bind DeleteActionText, Mode=OneWay}"
+                                    Visibility="{x:Bind HasIgnoreAction, Mode=OneWay}">
+                                    <SymbolIcon Symbol="Delete" />
+                                </Button>
                             </Grid>
                         </StackPanel>
                     </Grid>

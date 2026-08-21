@@ -321,16 +321,17 @@ public partial class CoverageDatePresetOption(SemanticIndexRangePreset preset, s
         : DisplayName;
 
     public static IReadOnlyList<CoverageDatePresetOption> All =>
-    [
-        new(SemanticIndexRangePreset.OnlyNew, Translator.SemanticIndex_RangeOnlyNew),
-        new(SemanticIndexRangePreset.OneWeek, Translator.SemanticIndex_CoveragePeriodOneWeek),
-        new(SemanticIndexRangePreset.OneMonth, Translator.SemanticIndex_CoveragePeriodOneMonth),
-        new(SemanticIndexRangePreset.ThreeMonths, Translator.SemanticIndex_CoveragePeriodThreeMonths),
-        new(SemanticIndexRangePreset.SixMonths, Translator.SemanticIndex_CoveragePeriodSixMonths),
-        new(SemanticIndexRangePreset.OneYear, Translator.SemanticIndex_CoveragePeriodOneYear),
-        new(SemanticIndexRangePreset.Everything, Translator.SemanticIndex_RangeEverything),
-        new(SemanticIndexRangePreset.Custom, Translator.SemanticIndex_CoverageCustomRange),
-    ];
+        (CoverageDatePresetOption[])
+        [
+            new(SemanticIndexRangePreset.OnlyNew, Translator.SemanticIndex_RangeOnlyNew),
+            new(SemanticIndexRangePreset.OneWeek, Translator.SemanticIndex_CoveragePeriodOneWeek),
+            new(SemanticIndexRangePreset.OneMonth, Translator.SemanticIndex_CoveragePeriodOneMonth),
+            new(SemanticIndexRangePreset.ThreeMonths, Translator.SemanticIndex_CoveragePeriodThreeMonths),
+            new(SemanticIndexRangePreset.SixMonths, Translator.SemanticIndex_CoveragePeriodSixMonths),
+            new(SemanticIndexRangePreset.OneYear, Translator.SemanticIndex_CoveragePeriodOneYear),
+            new(SemanticIndexRangePreset.Everything, Translator.SemanticIndex_RangeEverything),
+            new(SemanticIndexRangePreset.Custom, Translator.SemanticIndex_CoverageCustomRange),
+        ];
 }
 
 /// <summary>A latest-N shortcut the dialog offers.</summary>

@@ -57,6 +57,32 @@ public sealed class LocalIntelligenceStoreRecoveryTests
     }
 
     [Fact]
+    public async Task DailyBriefingItem_SoftDeletesLocalFactAndKeepsItStored()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"wino-intelligence-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(folder);
+        try
+        {
+            var configuration = new TestConfiguration(folder);
+            var localAccountId = Guid.NewGuid();
+            var mailboxId = Guid.NewGuid();
+            var artifact = CreateBriefingFact("outlook:remove", revision: 2, replyRequired: false);
+
+            await using var store = new LocalIntelligenceStore(configuration);
+            await store.ImportAsync(localAccountId, mailboxId, [artifact], throughRevision: 2);
+            await store.DeleteDailyBriefingItemAsync(localAccountId, artifact.RemoteMessageId);
+
+            var stored = await store.GetCurrentArtifactsAsync(localAccountId, artifact.RemoteMessageId);
+            stored.Should().ContainSingle().Which.IsDeleted.Should().BeTrue();
+        }
+        finally
+        {
+            if (Directory.Exists(folder))
+                Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task BriefingFactAndAccessSnapshot_PersistAndViewedStateClearsIndicator()
     {
         var folder = Path.Combine(Path.GetTempPath(), $"wino-intelligence-test-{Guid.NewGuid():N}");

@@ -42,6 +42,8 @@ public interface ILocalIntelligenceStore
         DateTimeOffset ignoredAtUtc, CancellationToken cancellationToken = default);
     Task DeleteDailyBriefingIgnoreAsync(Guid localAccountId, Guid briefingId,
         CancellationToken cancellationToken = default);
+    Task DeleteDailyBriefingItemAsync(Guid localAccountId, string remoteMessageId,
+        CancellationToken cancellationToken = default);
     Task<DailyBriefingUnseenState> GetDailyBriefingUnseenStateAsync(IReadOnlyCollection<Guid> localAccountIds, CancellationToken cancellationToken = default);
     Task MarkDailyBriefingOpenedAsync(IReadOnlyCollection<Guid> localAccountIds, DateTimeOffset openedAtUtc, CancellationToken cancellationToken = default);
     Task MarkDailyBriefingViewedAsync(IReadOnlyCollection<Guid> localAccountIds, DateTimeOffset viewedAtUtc, CancellationToken cancellationToken = default);

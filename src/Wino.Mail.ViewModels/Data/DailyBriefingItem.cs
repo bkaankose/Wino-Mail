@@ -52,7 +52,12 @@ public sealed partial class DailyBriefingItem : ObservableObject
     [ObservableProperty]
     public partial bool IsIgnorePending { get; set; }
 
-    public bool CanToggleIgnore => HasIgnoreAction && !IsIgnorePending;
+    [ObservableProperty]
+    public partial bool IsDeletePending { get; set; }
+
+    public bool CanToggleIgnore => HasIgnoreAction && !IsIgnorePending && !IsDeletePending;
+    public bool CanDelete => HasIgnoreAction && !IsDeletePending && !IsIgnorePending;
+    public string DeleteActionText => Translator.Buttons_Delete;
     public string IgnoreActionText => IsIgnored ? Translator.DailyBriefing_ActionUnignore : Translator.DailyBriefing_ActionIgnore;
     public string IgnoreActionAutomationId => IsIgnored ? "DailyBriefingUnignoreButton" : "DailyBriefingIgnoreButton";
     public string IgnoreActionGlyph => IsIgnored ? DailyBriefingIcons.Show : DailyBriefingIcons.Hide;
@@ -71,4 +76,6 @@ public sealed partial class DailyBriefingItem : ObservableObject
     }
 
     partial void OnIsIgnorePendingChanged(bool value) => OnPropertyChanged(nameof(CanToggleIgnore));
+
+    partial void OnIsDeletePendingChanged(bool value) => OnPropertyChanged(nameof(CanDelete));
 }

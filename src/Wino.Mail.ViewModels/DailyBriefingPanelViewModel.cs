@@ -562,6 +562,42 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject, IRec
         }
     }
 
+    [RelayCommand]
+    private async Task DeleteAsync(DailyBriefingItem? item)
+    {
+        if (item is null || !item.CanDelete) return;
+
+        await _dispatcher.ExecuteOnUIThread(() => item.IsDeletePending = true).ConfigureAwait(false);
+        try
+        {
+            await _localService.DeleteBriefingItemAsync(item.LocalAccountId, item.Fact.RemoteMessageId)
+                .ConfigureAwait(false);
+
+            await _dispatcher.ExecuteOnUIThread(() =>
+            {
+                foreach (var date in Dates)
+                {
+                    date.Facts.RemoveAll(fact => fact.LocalAccountId == item.LocalAccountId &&
+                        fact.Fact.BriefingId == item.BriefingId);
+                    date.HasIgnoredFacts = date.Facts.Any(static fact => fact.IsIgnored);
+                    ApplyProjection(date);
+                }
+
+                item.IsDeletePending = false;
+                UpdateEmptyState();
+            }).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            await _dispatcher.ExecuteOnUIThread(() =>
+            {
+                item.IsDeletePending = false;
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
+                    $"{Translator.DailyBriefing_LocalActionError} {exception.Message}", InfoBarMessageType.Error);
+            }).ConfigureAwait(false);
+        }
+    }
+
     private void UpdateEmptyState()
     {
         var hasItems = SelectedDate?.Groups.Any(static group => group.Count > 0) == true;

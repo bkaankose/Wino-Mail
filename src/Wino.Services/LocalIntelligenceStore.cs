@@ -6,6 +6,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -598,6 +599,23 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
             localAccountId, briefingId).ConfigureAwait(false);
     }
 
+    public async Task DeleteDailyBriefingItemAsync(
+        Guid localAccountId,
+        string remoteMessageId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(remoteMessageId);
+
+        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
+        var briefingCapabilityId = IntelligenceCapabilityIds.GetStorageId(IntelligenceCapability.BriefingFact);
+        await lease.Connection.RunInTransactionAsync(transaction =>
+        {
+            transaction.Execute(
+                "UPDATE LocalArtifact SET IsDeleted = 1 WHERE LocalAccountId = ? AND RemoteMessageId = ? AND CapabilityId = ?",
+                localAccountId, remoteMessageId, briefingCapabilityId);
+        }).ConfigureAwait(false);
+    }
+
     public async Task<DailyBriefingUnseenState> GetDailyBriefingUnseenStateAsync(IReadOnlyCollection<Guid> localAccountIds, CancellationToken cancellationToken = default)
     {
         if (localAccountIds.Count == 0 || !DatabaseExists) return new(false, null);
@@ -721,7 +739,9 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
             AutomaticallyIndexNewMessages = intent.AutomaticallyIndexNewMessages,
             BackfillStatus = intent.BackfillStatus,
             UpdatedAtUtc = intent.UpdatedAtUtc.UtcDateTime,
-            CoverageRulesJson = JsonSerializer.Serialize(intent.CoverageRules ?? []),
+            CoverageRulesJson = JsonSerializer.Serialize(
+                intent.CoverageRules?.ToArray() ?? [],
+                LocalIntelligenceJsonContext.Default.SemanticIndexFolderCoverageRuleArray),
         }, typeof(LocalIndexJobRow)).ConfigureAwait(false);
     }
 
@@ -746,7 +766,12 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
     {
         if (string.IsNullOrWhiteSpace(value))
             return [];
-        try { return JsonSerializer.Deserialize<SemanticIndexFolderCoverageRule[]>(value) ?? []; }
+        try
+        {
+            return JsonSerializer.Deserialize(
+                value,
+                LocalIntelligenceJsonContext.Default.SemanticIndexFolderCoverageRuleArray) ?? [];
+        }
         catch (JsonException) { return []; }
     }
 
@@ -809,7 +834,17 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
     }
 
     private static IntelligenceArtifactDto DeserializeStoredArtifact(LocalArtifactRow row)
-        => DeserializeTypedArtifact(row.PayloadJson);
+    {
+        if (!row.IsDeleted)
+            return DeserializeTypedArtifact(row.PayloadJson);
+
+        var payload = JsonNode.Parse(row.PayloadJson)?.AsObject()
+            ?? throw new JsonException("Stored intelligence artifact is empty.");
+        payload["IsDeleted"] = true;
+        return JsonSerializer.Deserialize(
+            payload.ToJsonString(), WinoAccountApiJsonContext.Default.IntelligenceArtifactDto)
+            ?? throw new JsonException("Stored intelligence artifact is empty.");
+    }
 
     internal static string SerializeStoredArtifact(IntelligenceArtifactDto artifact)
         => JsonSerializer.Serialize(artifact, WinoAccountApiJsonContext.Default.IntelligenceArtifactDto);

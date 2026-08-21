@@ -2,13 +2,14 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using SQLite;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.SemanticIndexing;
 
 namespace Wino.Core.Domain.Entities.Shared;
 
-public class MailAccountPreferences
+public partial class MailAccountPreferences
 {
     /// <summary>How many newest messages a folder indexes when nothing else has been chosen.</summary>
     public const int DefaultLatestMessageCount = 100;
@@ -148,10 +149,14 @@ public class MailAccountPreferences
     {
         ExcludedIntelligenceIndicatorIdsStorage = IntelligenceIndicatorId.SerializePersisted(ExcludedIntelligenceIndicatorIds);
         SelectedIntelligenceFolderIdsStorage = string.Join('\n', SelectedIntelligenceFolderIds.OrderBy(static id => id, StringComparer.Ordinal));
-        IntelligenceFolderCoverageStorage = JsonSerializer.Serialize(new CoverageStorage(
-            1,
-            IntelligenceFolderCoverageRules.Values.OrderBy(rule => rule.RemoteFolderId, StringComparer.Ordinal).ToArray()));
-        IntelligenceDefaultCoverageStorage = JsonSerializer.Serialize(IntelligenceDefaultCoverageRule);
+        IntelligenceFolderCoverageStorage = JsonSerializer.Serialize(
+            new CoverageStorage(
+                1,
+                IntelligenceFolderCoverageRules.Values.OrderBy(rule => rule.RemoteFolderId, StringComparer.Ordinal).ToArray()),
+            PreferencesJsonContext.Default.CoverageStorage);
+        IntelligenceDefaultCoverageStorage = JsonSerializer.Serialize(
+            IntelligenceDefaultCoverageRule,
+            PreferencesJsonContext.Default.SemanticIndexFolderCoverageRule);
     }
 
     private static SemanticIndexFolderCoverageRule ParseDefaultRule(string? value)
@@ -161,7 +166,9 @@ public class MailAccountPreferences
 
         try
         {
-            var rule = JsonSerializer.Deserialize<SemanticIndexFolderCoverageRule>(value);
+            var rule = JsonSerializer.Deserialize(
+                value,
+                PreferencesJsonContext.Default.SemanticIndexFolderCoverageRule);
             return rule is null
                 ? SemanticIndexFolderCoverageRule.Latest(string.Empty, DefaultLatestMessageCount)
                 : rule with { RemoteFolderId = string.Empty };
@@ -182,8 +189,8 @@ public class MailAccountPreferences
 
         try
         {
-            var rules = JsonSerializer.Deserialize<CoverageStorage>(value)?.Rules
-                ?? JsonSerializer.Deserialize<SemanticIndexFolderCoverageRule[]>(value)
+            var rules = JsonSerializer.Deserialize(value, PreferencesJsonContext.Default.CoverageStorage)?.Rules
+                ?? JsonSerializer.Deserialize(value, PreferencesJsonContext.Default.SemanticIndexFolderCoverageRuleArray)
                 ?? [];
             return rules.Where(rule => !string.IsNullOrWhiteSpace(rule.RemoteFolderId))
                 .GroupBy(rule => rule.RemoteFolderId.Trim(), StringComparer.Ordinal)
@@ -196,6 +203,12 @@ public class MailAccountPreferences
     }
 
     private sealed record CoverageStorage(int Version, IReadOnlyList<SemanticIndexFolderCoverageRule> Rules);
+
+    [JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Metadata)]
+    [JsonSerializable(typeof(CoverageStorage))]
+    [JsonSerializable(typeof(SemanticIndexFolderCoverageRule))]
+    [JsonSerializable(typeof(SemanticIndexFolderCoverageRule[]))]
+    private sealed partial class PreferencesJsonContext : JsonSerializerContext;
 
     private static HashSet<string> NormalizeFolderIds(IEnumerable<string>? values)
         => values?.Where(static id => !string.IsNullOrWhiteSpace(id))

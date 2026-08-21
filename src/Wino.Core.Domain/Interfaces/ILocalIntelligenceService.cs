@@ -16,6 +16,8 @@ public interface ILocalIntelligenceService
         CancellationToken cancellationToken = default);
     Task UnignoreBriefingItemAsync(Guid localAccountId, Guid briefingId,
         CancellationToken cancellationToken = default);
+    Task DeleteBriefingItemAsync(Guid localAccountId, string remoteMessageId,
+        CancellationToken cancellationToken = default);
 
     /// <summary>Latest locally imported briefing-fact revision for the account.</summary>
     Task<long> GetLatestBriefingFactRevisionAsync(Guid localAccountId, CancellationToken cancellationToken = default);

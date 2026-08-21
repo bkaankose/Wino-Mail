@@ -834,7 +834,7 @@ public class MailService : BaseDatabaseService, IMailService
                 mailsByRemoteId.Keys.ToArray(),
                 cancellationToken).ConfigureAwait(false);
             var briefingIds = artifactsByRemoteId.Values.SelectMany(static x => x)
-                .Where(static x => !x.IsDeleted && x.BriefingFact is not null)
+                .Where(static x => x.BriefingFact is not null)
                 .Select(static x => x.BriefingFact!.BriefingId).Distinct().ToArray();
             var headlines = await _localIntelligenceStore.GetBriefingHeadlinesAsync(accountGroup.Key, briefingIds, cancellationToken).ConfigureAwait(false);
 
@@ -859,7 +859,8 @@ public class MailService : BaseDatabaseService, IMailService
             ?.SmartLabels?.Labels
             ?.DistinctBy(static label => label.Label)
             .ToArray() ?? [];
-        var briefingFact = current.FirstOrDefault(static artifact => artifact.Capability == IntelligenceCapability.BriefingFact)?.BriefingFact;
+        var briefingFact = (current.FirstOrDefault(static artifact => artifact.Capability == IntelligenceCapability.BriefingFact)
+            ?? artifacts.FirstOrDefault(static artifact => artifact.IsDeleted && artifact.Capability == IntelligenceCapability.BriefingFact))?.BriefingFact;
         var headline = briefingFact is not null && headlines.TryGetValue(briefingFact.BriefingId, out var value) ? value : string.Empty;
         var metadata = new MailIntelligenceMetadata(
             remoteMessageId,

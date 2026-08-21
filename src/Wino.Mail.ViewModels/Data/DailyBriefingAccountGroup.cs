@@ -5,7 +5,7 @@ using Wino.Core.Domain.Models.Intelligence;
 
 namespace Wino.Mail.ViewModels;
 
-public sealed class DailyBriefingAccountGroup : ObservableCollection<DailyBriefingItem>
+public sealed partial class DailyBriefingAccountGroup : ObservableCollection<DailyBriefingItem>
 {
     public DailyBriefingAccountGroup(DailyBriefingAccount account, IEnumerable<DailyBriefingItem> items)
         : base(items)

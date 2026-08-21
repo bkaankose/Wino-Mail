@@ -141,7 +141,7 @@ public class FolderService : BaseDatabaseService, IFolderService
         folder.ShowUnreadCount = configurationOverride.ShowUnreadCount;
         folder.IsJumpListEnabled = configurationOverride.IsJumpListEnabled;
 
-        await Connection.DeleteAsync(configurationOverride).ConfigureAwait(false);
+        await Connection.DeleteAsync<FolderConfigurationOverride>(configurationOverride.Id).ConfigureAwait(false);
 
         _logger.Debug("Applied imported folder configuration for {RemoteFolderId} on account {MailAccountId}.",
             folder.RemoteFolderId, folder.MailAccountId);

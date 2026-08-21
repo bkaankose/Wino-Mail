@@ -57,7 +57,19 @@ try
     await ExerciseAsync(connection, new MergedInbox { Id = mergedInboxId, Name = "before" }, item => item.Id == mergedInboxId, item => item.Name = "after");
 
     var preferencesId = Guid.NewGuid();
-    await ExerciseAsync(connection, new MailAccountPreferences { Id = preferencesId }, item => item.Id == preferencesId, item => item.IsNotificationsEnabled = true);
+    var preferences = new MailAccountPreferences { Id = preferencesId };
+    preferences.PrepareForStorage();
+    await ExerciseAsync(
+        connection,
+        preferences,
+        item => item.Id == preferencesId,
+        item =>
+        {
+            _ = item.IntelligenceDefaultCoverageRule;
+            _ = item.IntelligenceFolderCoverageRules;
+            item.IsNotificationsEnabled = true;
+            item.PrepareForStorage();
+        });
 
     var aliasId = Guid.NewGuid();
     await ExerciseAsync(connection, new MailAccountAlias { Id = aliasId, AliasAddress = "before@example.test" }, item => item.Id == aliasId, item => item.AliasAddress = "after@example.test");
