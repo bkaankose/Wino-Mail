@@ -68,7 +68,7 @@
         <!--  Margin -8 0 is used to remove the padding from the ListViewItem  -->
         <DataTemplate x:Key="ComposerFileAttachmentTemplate" x:DataType="data:MailAttachmentViewModel">
             <Grid
-                Height="50"
+                MinHeight="50"
                 Margin="0"
                 Padding="0"
                 Background="Transparent"
@@ -91,7 +91,7 @@
                     <ToolTip Content="{x:Bind FileName}" />
                 </ToolTipService.ToolTip>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="36" />
+                    <ColumnDefinition Width="40" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
@@ -105,7 +105,7 @@
                 <!--  Name && Size  -->
                 <Grid
                     Grid.Column="1"
-                    MaxWidth="200"
+                    HorizontalAlignment="Stretch"
                     VerticalAlignment="Center">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -114,14 +114,16 @@
 
                     <TextBlock
                 Style="{StaticResource CaptionTextBlockStyle}"
+                        HorizontalAlignment="Center"
                         MaxLines="2"
                         Text="{x:Bind FileName}"
+                        TextAlignment="Center"
                         TextTrimming="CharacterEllipsis" />
 
                     <TextBlock
                 Style="{StaticResource CaptionTextBlockStyle}"
                         Grid.Row="1"
-                        HorizontalAlignment="Right"
+                        HorizontalAlignment="Center"
                         VerticalAlignment="Bottom"
                         Foreground="Gray"
                         Text="{x:Bind ReadableSize}" />
