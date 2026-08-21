@@ -61,7 +61,12 @@ public enum WinoIntelligenceAction
     FindSimilarMail,
 }
 
-public sealed record WinoIntelligenceLanguageOption(string Code, string Label);
+// Bound by property path from the language DataTemplates in Generic.xaml. Keep the generated
+// WinRT binding metadata so the labels remain available after trimming and Native AOT compilation.
+#if WINRT_EXPOSED
+[GeneratedBindableCustomProperty]
+#endif
+public sealed partial record WinoIntelligenceLanguageOption(string Code, string Label);
 
 // Bound by property path from the reply DataTemplate in Generic.xaml, which a resource
 // dictionary cannot express with x:Bind. The attribute keeps those paths trimming and AOT safe.

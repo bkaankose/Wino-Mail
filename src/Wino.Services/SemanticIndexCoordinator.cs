@@ -46,6 +46,7 @@ public sealed class SemanticIndexCoordinator(
     private readonly ConcurrentDictionary<Guid, SemanticIndexJobSnapshot> _snapshots = new();
     private readonly ConcurrentDictionary<(Guid AccountId, string MessageId), SemanticMessageIndexState> _messageStates = new();
     private readonly ConcurrentDictionary<Guid, ConcurrentDictionary<string, byte>> _automaticQueues = new();
+    private readonly ConcurrentDictionary<Guid, ConcurrentDictionary<string, byte>> _synchronizedMailQueues = new();
     private readonly ConcurrentDictionary<Guid, byte> _headlineTranslations = new();
     private readonly SemaphoreSlim _initializeLock = new(1, 1);
     private bool _initialized;
@@ -64,6 +65,10 @@ public sealed class SemanticIndexCoordinator(
             await localStore.InitializeAsync(cancellationToken).ConfigureAwait(false);
             WeakReferenceMessenger.Default.Register<AccountSynchronizationCompleted>(this, static (recipient, message) =>
                 _ = ((SemanticIndexCoordinator)recipient).HandleSynchronizationCompletedAsync(message));
+            WeakReferenceMessenger.Default.Register<MailAddedMessage>(this, static (recipient, message) =>
+                ((SemanticIndexCoordinator)recipient).CaptureSynchronizedMails([message.AddedMail], message.Source));
+            WeakReferenceMessenger.Default.Register<BulkMailAddedMessage>(this, static (recipient, message) =>
+                ((SemanticIndexCoordinator)recipient).CaptureSynchronizedMails(message.AddedMails, message.Source));
             _initialized = true;
 
             var accounts = (await accountService.GetAccountsAsync().ConfigureAwait(false)).ToDictionary(x => x.Id);
@@ -411,6 +416,7 @@ public sealed class SemanticIndexCoordinator(
         _snapshots.Clear();
         _messageStates.Clear();
         _automaticQueues.Clear();
+        _synchronizedMailQueues.Clear();
     }
 
     public async ValueTask DisposeAsync()
@@ -1055,28 +1061,67 @@ public sealed class SemanticIndexCoordinator(
             if (message.Result is SynchronizationCompletedState.Canceled or SynchronizationCompletedState.Failed)
                 return;
             if (!await localIntelligenceService.ShouldAutomaticallyProcessAsync(message.AccountId).ConfigureAwait(false))
+            {
+                ClearSynchronizedMails(message.AccountId);
                 return;
-            var intent = (await localStore.GetJobIntentsAsync().ConfigureAwait(false))
-                .Single(x => x.LocalAccountId == message.AccountId);
+            }
             var account = await accountService.GetAccountAsync(message.AccountId).ConfigureAwait(false);
 
-            var candidates = await messageResolver.GetCandidatesAsync(
-                account.Id,
-                intent.UpdatedAtUtc,
-                throughUtcExclusive: null,
-                CancellationToken.None).ConfigureAwait(false);
-            if (candidates.Count == 0)
+            var synchronizedIds = TakeSynchronizedMailIds(account.Id);
+            if (synchronizedIds.Count == 0)
+            {
+                var intent = (await localStore.GetJobIntentsAsync().ConfigureAwait(false))
+                    .Single(x => x.LocalAccountId == message.AccountId);
+                var candidates = await messageResolver.GetCandidatesAsync(
+                    account.Id,
+                    intent.UpdatedAtUtc,
+                    throughUtcExclusive: null,
+                    CancellationToken.None).ConfigureAwait(false);
+                synchronizedIds = candidates.Select(static candidate => candidate.RemoteMessageId).ToArray();
+            }
+            if (synchronizedIds.Count == 0)
                 return;
 
             var mailbox = await RequireMailboxAsync(account, CancellationToken.None).ConfigureAwait(false);
-            foreach (var candidate in candidates)
-                QueueAutomaticMessage(account.Id, candidate.RemoteMessageId);
+            foreach (var remoteMessageId in synchronizedIds)
+                QueueAutomaticMessage(account.Id, remoteMessageId);
             _ = EnsureAutomaticQueueDrainedAsync(account, mailbox.MailboxId);
         }
         catch
         {
             // Background synchronization must not fail because intelligence is unavailable.
         }
+    }
+
+    private void CaptureSynchronizedMails(IReadOnlyList<MailCopy> mails, EntityUpdateSource source)
+    {
+        if (source != EntityUpdateSource.Server)
+            return;
+
+        foreach (var mail in mails)
+        {
+            if (mail.AssignedAccount is not { } account || RemoteMessageIdentity.TryCreate(mail) is not { } remoteMessageId)
+                continue;
+
+            _synchronizedMailQueues.GetOrAdd(account.Id, static _ => new ConcurrentDictionary<string, byte>())[remoteMessageId] = 0;
+        }
+    }
+
+    private IReadOnlyList<string> TakeSynchronizedMailIds(Guid accountId)
+    {
+        if (!_synchronizedMailQueues.TryGetValue(accountId, out var queue))
+            return [];
+
+        var ids = queue.Keys.ToArray();
+        foreach (var id in ids)
+            queue.TryRemove(id, out _);
+        return ids;
+    }
+
+    private void ClearSynchronizedMails(Guid accountId)
+    {
+        if (_synchronizedMailQueues.TryGetValue(accountId, out var queue))
+            queue.Clear();
     }
 
     private void SetSnapshot(SemanticIndexJobSnapshot snapshot)
