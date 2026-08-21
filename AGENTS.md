@@ -31,6 +31,12 @@ Use this command for a compile-only WinUI check. It does not deploy the applicat
 dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false
 ```
 
+If a task requires Release or Native AOT validation, build the app without launching it. Never deploy or test the Release package:
+
+```powershell
+dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Release --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false
+```
+
 Run the narrowest affected tests. After a successful build of the same test project, use `--no-build --no-restore` for repeated runs:
 
 ```powershell
@@ -54,18 +60,45 @@ Do not create diagnostic logs or binlogs for successful routine builds.
 
 ## Installed Debug application
 
-Agents may build, deploy, register, launch, and test the Wino Mail Debug package directly.
-Visual Studio remains supported, but it is not required for the normal agent verification loop.
+Use WinApp CLI 0.6 or later in project mode for the normal development cycle. Project mode accepts the `.csproj` as input. It builds the project and activates the package with its existing manifest identity.
 
-1. Build `src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj` with Debug and x64.
-2. Use the build output containing the existing `Package.appxmanifest` with `winapp run --detach`.
-3. Verify that the manifest `Identity.Name` and publisher match the existing Wino Mail package registration before launching.
-4. Use the existing package identity and registration. Do not create a second package name, package family, display name, or side-by-side registration.
-5. Preserve application data between redeployments unless the user explicitly requests a clean run.
+Before the first launch on a machine, run `winapp --version`. Verify that the installed version is 0.6 or later. Then compare the manifest identity with the installed Debug package:
 
-Never rewrite `Package.appxmanifest`, create a loose package with a different identity, or launch `Wino.Mail.WinUI.exe` directly.
-Do not use `--unregister-on-exit` for routine verification because the registered Debug package must remain available for subsequent UI tests.
-Use `winapp run` only with the current x64 Debug output and the manifest identity already registered for Wino Mail.
+```powershell
+$manifest = [xml](Get-Content 'src/Wino.Mail.WinUI/Package.appxmanifest')
+$identity = $manifest.Package.Identity
+Get-AppxPackage -Name $identity.Name | Select-Object Name, Publisher, PackageFamilyName, InstallLocation
+```
+
+If the name and publisher match, project mode updates the same package entry. If the publisher differs, stop. Do not create another identity or registration.
+
+Build, update the existing Debug registration, launch, and return the PID for UI automation:
+
+```powershell
+winapp run src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug -r win-x64 --no-restore -p Platform=x64 -p GenerateAppxPackageOnBuild=false -p AppxPackageSigningEnabled=false --detach --json
+```
+
+When the current Debug output is already built, skip compilation for the fastest relaunch:
+
+```powershell
+winapp run src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug -r win-x64 --no-build --no-restore -p Platform=x64 -p GenerateAppxPackageOnBuild=false -p AppxPackageSigningEnabled=false --detach --json
+```
+
+For launch or crash diagnosis, omit `--detach --json` and use `--debug-output`. This option keeps WinApp CLI attached. It captures first-chance exceptions and analyzes WinUI stowed exceptions after a crash. Do not attach another debugger at the same time:
+
+```powershell
+winapp run src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug -r win-x64 --no-restore -p Platform=x64 -p GenerateAppxPackageOnBuild=false -p AppxPackageSigningEnabled=false --debug-output
+```
+
+Obey these package rules:
+
+- Use the checked-in manifest and the existing package family.
+- Preserve application data between deployments.
+- Never use folder mode, `winapp init`, or `winapp create-debug-identity`.
+- Never use `--clean` or `--unregister-on-exit`.
+- Never rewrite the manifest or create a second package identity.
+- Never run `Wino.Mail.WinUI.exe` directly.
+- Never use `winapp run` with Release.
 
 ## WinApp UI verification
 
@@ -86,24 +119,28 @@ winapp ui wait-for "AutomationIdOrName" -a Wino.Mail.WinUI --timeout 5000
 winapp ui screenshot -a Wino.Mail.WinUI --json -o artifacts\wino-ui-current.png
 ```
 
+For timing-dependent or transient visual behavior, record a short bounded clip with agent-readable frames instead of taking many screenshots:
+
+```powershell
+winapp ui record -w <HWND> --duration-sec 10 --frames --fps 5 --max-edge 1280 --json -o artifacts\wino-ui-current.mp4
+```
+
 Prefer stable `AutomationProperties.AutomationId` values over localized labels. For changed XAML, run the existing static audit before UI verification:
 
 ```powershell
 .\scripts\audit-xaml-automationids.ps1
 ```
 
-A visible window or screenshot alone is not a passing interaction test. Report the action, assertion, process or HWND, and theme that were verified. If Visual Studio has not deployed the current changes, state that UI verification is pending rather than testing a stale package.
+A visible window, screenshot, or recording is not a passing interaction test. Report the action, assertion, process or HWND, and verified theme. Before testing, verify that project mode deployed the current source. Otherwise, report that UI verification is pending.
 
 ## Verification matrix
 
 - Domain or service logic: build the affected project and run the directly affected unit tests.
 - ViewModel or messenger changes: run affected unit tests, then verify the UI-bound state through the installed Debug app when behavior changed.
-- XAML, code-behind, navigation, activation, windowing, or controls: compile and redeploy with Visual Studio.
-  Then run the automation-ID audit and exercise the affected flow with WinApp CLI.
+- XAML, code-behind, navigation, activation, windowing, or controls: redeploy the existing Debug package with WinApp CLI project mode. Use Visual Studio only when interactive debugging is required. Then run the automation-ID audit and exercise the affected flow with WinApp CLI.
 - Reusable controls: follow `controls/AGENTS.md`, update the playground, and verify the relevant control states and themes.
 - Localization: change only `en_US/resources.json`, build the generator output, and leave other locale files untouched.
-- Package, trimming, or Native AOT work: use the explicit Release workflow for that task.
-  Do not add this work to the routine Debug loop.
+- Package, trimming, or Native AOT work: use an explicit compile-only Release build. Never deploy, launch, or UI-test Release. Use the existing Debug registration for all runtime and UI verification.
 
 ## Architecture
 
