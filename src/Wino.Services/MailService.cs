@@ -359,14 +359,7 @@ public class MailService : BaseDatabaseService, IMailService
         }
 
         query = options.DeduplicateByServerId
-            ? query
-                .GroupBy(m => (ResolveMailAccountId(m, accountIdsByFolderId), ResolveServerMailId(m)))
-                .Select(group => group
-                    .OrderByDescending(m => allowedFolderIds.Contains(m.FolderId))
-                    .ThenByDescending(m => m.CreationDate)
-                    .ThenBy(m => m.FolderId)
-                    .ThenBy(m => m.UniqueId)
-                    .First())
+            ? query.CollapseServerMessageDuplicates(accountIdsByFolderId, m => allowedFolderIds.Contains(m.FolderId))
             : query
                 .GroupBy(m => m.UniqueId)
                 .Select(group => group.First());
@@ -394,20 +387,6 @@ public class MailService : BaseDatabaseService, IMailService
 
         return query.ToList();
     }
-
-    private static Guid ResolveMailAccountId(MailCopy mail, IReadOnlyDictionary<Guid, Guid> accountIdsByFolderId)
-    {
-        if (mail?.AssignedAccount != null)
-            return mail.AssignedAccount.Id;
-
-        if (mail != null && accountIdsByFolderId.TryGetValue(mail.FolderId, out var accountId))
-            return accountId;
-
-        return Guid.Empty;
-    }
-
-    private static string ResolveServerMailId(MailCopy mail)
-        => string.IsNullOrWhiteSpace(mail?.Id) ? mail?.UniqueId.ToString("N") ?? string.Empty : mail.Id;
 
     public async Task<MailFetchPage> FetchMailPageAsync(
         MailListInitializationOptions options,
@@ -572,6 +551,8 @@ public class MailService : BaseDatabaseService, IMailService
 
         cancellationToken.ThrowIfCancellationRequested();
 
+        var didExpandThreads = false;
+
         if (options.CreateThreads && !options.IsCategoryView)
         {
             var threadIds = mails
@@ -594,6 +575,8 @@ public class MailService : BaseDatabaseService, IMailService
                     .Where(mail => mail != null && !existingIds.Contains(mail.UniqueId))
                     .DistinctBy(mail => mail.UniqueId)
                     .ToList();
+
+                didExpandThreads = true;
             }
         }
 
@@ -616,6 +599,21 @@ public class MailService : BaseDatabaseService, IMailService
             {
                 folderCache[folder.Id] = folder;
             }
+        }
+
+        if (didExpandThreads)
+        {
+            // Gmail keeps one MailCopy row per label, so thread expansion returns every label row of
+            // each sibling message. Collapse them down to a single copy per server message, preferring
+            // the copy that lives in the listed folders. This runs after the folder cache is resolved
+            // because expansion is not account scoped and siblings can live outside options.Folders.
+            var listedFolderIds = options.Folders
+                .Where(folder => folder != null)
+                .Select(folder => folder.Id)
+                .ToHashSet();
+            var accountIdsByFolderId = folderCache.ToDictionary(entry => entry.Key, entry => entry.Value.MailAccountId);
+
+            mails = [.. mails.CollapseServerMessageDuplicates(accountIdsByFolderId, mail => listedFolderIds.Contains(mail.FolderId))];
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -777,6 +775,8 @@ public class MailService : BaseDatabaseService, IMailService
         if (excludeMailIds.Count > 0)
         {
             var excludePlaceholders = string.Join(",", excludeMailIds.Select(_ => "?"));
+            // Only the seed rows are excluded here. Label siblings of non-seed messages are collapsed
+            // downstream in ExpandAndHydrateAsync, which can express the listed-folder preference.
             sql = $"SELECT MailCopy.* FROM MailCopy WHERE ThreadId IN ({threadPlaceholders}) AND Id NOT IN ({excludePlaceholders})";
             parameters.AddRange(excludeMailIds.Cast<object>());
         }

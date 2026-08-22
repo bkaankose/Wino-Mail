@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -48,6 +48,29 @@ public sealed class MailListStore
         !string.IsNullOrWhiteSpace(threadId) &&
         ((IEnumerable<MailItemViewModel>)Items).Any(
             item => string.Equals(item.ThreadKey, threadId, StringComparison.Ordinal));
+
+    /// <summary>
+    /// Returns true when another copy of the same server message is already listed under a
+    /// different <see cref="MailCopy.UniqueId"/>. Gmail materializes one row per label, so a
+    /// single incoming message arrives as several rows that must not all be shown.
+    /// </summary>
+    public bool ContainsOtherServerMailCopy(MailCopy mailCopy)
+    {
+        if (mailCopy == null)
+            return false;
+
+        var accountId = mailCopy.AssignedAccount?.Id ?? Guid.Empty;
+        var serverMailId = mailCopy.Id;
+
+        // Fail open for rows we cannot identify, so nothing is ever hidden by accident.
+        if (accountId == Guid.Empty || string.IsNullOrWhiteSpace(serverMailId))
+            return false;
+
+        return ((IEnumerable<MailItemViewModel>)Items).Any(item =>
+            item.UniqueId != mailCopy.UniqueId &&
+            string.Equals(item.Id, serverMailId, StringComparison.Ordinal) &&
+            item.MailCopy?.AssignedAccount?.Id == accountId);
+    }
 
     public bool ContainsMailUniqueId(Guid uniqueId) => Items.ContainsId(uniqueId);
 
