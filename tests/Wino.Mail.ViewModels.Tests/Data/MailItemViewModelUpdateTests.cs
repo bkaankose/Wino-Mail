@@ -116,6 +116,58 @@ public class MailItemViewModelUpdateTests
         raisedProperties.Should().Contain(nameof(MailItemViewModel.IsRead));
     }
 
+    /// <summary>
+    /// CreationDate is stored as UTC everywhere, but the two ways a mail reaches the list disagree on
+    /// its DateTimeKind: sqlite returns Unspecified on a folder load, while a freshly synced copy is
+    /// still Utc. new DateTimeOffset(DateTime) reads Unspecified as local time, so the sort key used
+    /// to differ by the local UTC offset between those two paths and a newly arrived mail sorted into
+    /// the middle of the list until the folder was reloaded.
+    ///
+    /// Note this assertion can only fail on a machine that is not at UTC, because at UTC the two
+    /// interpretations coincide. Running the suite in a non-UTC zone is what actually protects this.
+    /// </summary>
+    [Fact]
+    public void DateSortKey_ForUnspecifiedKind_IsInterpretedAsUtc()
+    {
+        foreach (var creationDate in CreateStoredCreationDates())
+        {
+            var sut = new MailItemViewModel(CreateMailCopy("thread-1", creationDate));
+
+            sut.DateSortKey.UtcDateTime.Should().Be(DateTime.SpecifyKind(creationDate, DateTimeKind.Utc));
+        }
+    }
+
+    [Fact]
+    public void DateSortKey_ForUnspecifiedAndUtcKind_ProducesTheSameInstant()
+    {
+        foreach (var creationDate in CreateStoredCreationDates())
+        {
+            var fromDatabase = new MailItemViewModel(CreateMailCopy("thread-1", creationDate));
+            var fromSynchronizer = new MailItemViewModel(
+                CreateMailCopy("thread-1", DateTime.SpecifyKind(creationDate, DateTimeKind.Utc)));
+
+            fromDatabase.DateSortKey.Should().Be(fromSynchronizer.DateSortKey,
+                "a mail loaded from the database and the same mail arriving live must sort identically");
+        }
+    }
+
+    /// <summary>
+    /// Current UTC instants with their kind stripped, which is what sqlite hands back on a folder load.
+    ///
+    /// Two samples six months apart, because new DateTimeOffset(DateTime) resolves the offset for the
+    /// date value itself. A zone that sits at UTC+0 for part of the year, such as the UK, would give
+    /// a zero offset for a single sample taken in winter, and then this assertion holds whether or not
+    /// the sort key is correct. Sampling both halves of the year guarantees at least one non zero
+    /// offset in any zone that ever has one. Nothing can catch it in a zone that is UTC all year.
+    /// </summary>
+    private static IEnumerable<DateTime> CreateStoredCreationDates()
+    {
+        var now = DateTime.UtcNow;
+
+        yield return DateTime.SpecifyKind(now, DateTimeKind.Unspecified);
+        yield return DateTime.SpecifyKind(now.AddMonths(6), DateTimeKind.Unspecified);
+    }
+
     private static MailCopy CreateMailCopy(string threadId, DateTime creationDate)
         => new()
         {

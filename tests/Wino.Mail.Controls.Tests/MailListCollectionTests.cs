@@ -237,6 +237,24 @@ public sealed class MailListCollectionTests
             new MailListProjectionGroupKey(true, null));
     }
 
+    [Fact]
+    public void Projection_SortsNewestItemToTheTop_WhenItIsAppendedLast()
+    {
+        var collection = new MailListCollection<TestItem>();
+        var older = new TestItem("older", date: DateTimeOffset.Now.AddHours(-3));
+        var oldest = new TestItem("oldest", date: DateTimeOffset.Now.AddHours(-6));
+        collection.AddRange([older, oldest]);
+
+        using var projection = new MailListProjection(collection);
+
+        // The flat collection only ever appends, so a live arrival lands at the end.
+        // The projection is what has to put it back on top.
+        var newest = new TestItem("newest", date: DateTimeOffset.Now);
+        collection.TryAdd(newest);
+
+        projection.Rows.First().SourceItem.StableId.Should().Be(newest.StableId);
+    }
+
     private sealed class TestItem : IMailListSourceItem
     {
         private bool _isPinned;
