@@ -789,17 +789,30 @@
                                         Glyph="&#xE70D;" />
                                 </Grid>
                             </Button>
-                            <Button
-                                x:Name="PART_ProcessButton"
+                            <StackPanel
                                 Grid.Column="1"
                                 Margin="6,4,6,4"
-                                Padding="9,3"
                                 VerticalAlignment="Center"
-                                AutomationProperties.AutomationId="WinoIntelligenceHeaderProcessButton"
-                                Content="{TemplateBinding ProcessButtonText}"
-                                CornerRadius="4"
-                                FontSize="11"
-                                Visibility="Collapsed" />
+                                Orientation="Horizontal"
+                                Spacing="10">
+                                <Button
+                                    x:Name="PART_ProcessButton"
+                                    Padding="9,3"
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="WinoIntelligenceHeaderProcessButton"
+                                    Content="{TemplateBinding ProcessButtonText}"
+                                    CornerRadius="4"
+                                    FontSize="11"
+                                    Visibility="Collapsed" />
+                                <HyperlinkButton
+                                    x:Name="PART_CopyCodeButton"
+                                    Padding="0"
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="WinoIntelligenceHeaderCopyCodeButton"
+                                    Content="{TemplateBinding CopyCodeText}"
+                                    FontSize="11"
+                                    Visibility="Collapsed" />
+                            </StackPanel>
                         </Grid>
 
                         <Border

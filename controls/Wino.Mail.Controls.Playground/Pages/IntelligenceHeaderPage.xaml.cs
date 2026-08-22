@@ -152,6 +152,12 @@ public sealed partial class IntelligenceHeaderPage : Page
         _processingTimer.Start();
     }
 
+    private void HeaderCopyCodeRequested(object? sender, EventArgs e)
+    {
+        AddTrace("Copy code requested");
+        ResultSummary.Text = "The host would copy the verification code here.";
+    }
+
     private void OnProcessingTimerTick(object? sender, object e)
     {
         switch (IntelligenceHeader.ProcessingState)

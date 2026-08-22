@@ -379,6 +379,40 @@ public class MailThreadingTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task ApplyMailStateUpdatesAsync_ForFocusedStateChange_SendsBulkMailUpdatedMessage()
+    {
+        var mail = new MailCopy
+        {
+            UniqueId = Guid.NewGuid(),
+            Id = Guid.NewGuid().ToString(),
+            FolderId = _draftFolder.Id,
+            IsFocused = true,
+            Subject = "Focused mail"
+        };
+
+        await _databaseService.Connection.InsertAsync(mail, typeof(MailCopy));
+
+        var recipient = new MailUpdateRecipient();
+        WeakReferenceMessenger.Default.Register<BulkMailUpdatedMessage>(recipient);
+
+        try
+        {
+            await _mailService.ApplyMailStateUpdatesAsync(
+                [new MailCopyStateUpdate(mail.Id, IsFocused: false)]);
+
+            recipient.BulkUpdates.Should().ContainSingle();
+            recipient.BulkUpdates[0].ChangedProperties.Should().Be(MailCopyChangeFlags.IsFocused);
+            recipient.BulkUpdates[0].UpdatedMails.Should().ContainSingle();
+            recipient.BulkUpdates[0].UpdatedMails[0].IsFocused.Should().BeFalse();
+            (await _databaseService.Connection.FindAsync<MailCopy>(mail.UniqueId))!.IsFocused.Should().BeFalse();
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.Unregister<BulkMailUpdatedMessage>(recipient);
+        }
+    }
+
+    [Fact]
     public async Task ApplyMailStateUpdatesAsync_ForBatchMarkRead_SendsBulkMailReadStatusChanged()
     {
         var mail1 = new MailCopy

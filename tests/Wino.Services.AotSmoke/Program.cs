@@ -65,8 +65,6 @@ try
         item => item.Id == preferencesId,
         item =>
         {
-            _ = item.IntelligenceDefaultCoverageRule;
-            _ = item.IntelligenceFolderCoverageRules;
             item.IsNotificationsEnabled = true;
             item.PrepareForStorage();
         });

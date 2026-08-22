@@ -724,6 +724,12 @@ public sealed partial class MailListPage : MailListPageAbstract,
     {
         try
         {
+            if (!await ViewModel.WaitForCurrentFolderInitializationAsync() ||
+                !IsPendingMailContainerSelectionCurrent(requestVersion))
+            {
+                return;
+            }
+
             for (var attempt = 0; attempt < SELECT_MAIL_CONTAINER_MAX_ATTEMPTS; attempt++)
             {
                 if (!IsPendingMailContainerSelectionCurrent(requestVersion)) return;

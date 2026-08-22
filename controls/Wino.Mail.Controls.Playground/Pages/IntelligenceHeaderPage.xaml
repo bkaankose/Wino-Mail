@@ -46,12 +46,15 @@
                         x:Name="IntelligenceHeader"
                         ActionInvoked="HeaderActionInvoked"
                         AutomationProperties.AutomationId="IntelligenceHeaderPlaygroundControl"
+                        CopyCodeText="Copy code"
                         ExpansionChanged="HeaderExpansionChanged"
                         FeatureCancelRequested="HeaderFeatureCancelRequested"
                         FeatureRequested="HeaderFeatureRequested"
                         ProcessRequested="HeaderProcessRequested"
+                        CopyCodeRequested="HeaderCopyCodeRequested"
                         SimilarMailChosen="HeaderSimilarMailChosen"
-                        SuggestedReplyChosen="HeaderSuggestedReplyChosen" />
+                        SuggestedReplyChosen="HeaderSuggestedReplyChosen"
+                        VerificationCode="123456" />
 
                     <StackPanel Spacing="8">
                         <TextBlock FontWeight="SemiBold" Text="Page response" />

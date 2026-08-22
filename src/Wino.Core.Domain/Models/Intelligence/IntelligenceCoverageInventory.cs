@@ -20,8 +20,7 @@ namespace Wino.Core.Domain.Models.Intelligence;
 /// Messages are distinct by <c>RemoteMessageId</c> and ordered by received date descending, then
 /// by id ordinal ascending. That order is load-bearing twice over: it makes
 /// <see cref="ReceivedAtUtcTicks"/> non-increasing along any folder's index list, so a date range
-/// is two binary searches; and it must match <c>SemanticIndexCoverageResolver</c> exactly, or a
-/// latest-N rule would pick different messages here than the backfill worker indexes.
+/// is two binary searches and a latest-N selection is deterministic.
 /// </para>
 /// </remarks>
 public sealed class IntelligenceCoverageInventory

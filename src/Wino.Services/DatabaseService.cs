@@ -343,6 +343,13 @@ WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
                 .ConfigureAwait(false);
         }
 
+        if (!accountPreferencesColumns.Any(c => c.Name == nameof(MailAccountPreferences.IntelligenceDefaultCoverageStorage)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailAccountPreferences)} ADD COLUMN {nameof(MailAccountPreferences.IntelligenceDefaultCoverageStorage)} TEXT NOT NULL DEFAULT ''")
+                .ConfigureAwait(false);
+        }
+
         if (!accountPreferencesColumns.Any(c => c.Name == nameof(MailAccountPreferences.AutomaticallyIndexNewMessages)))
         {
             await Connection

@@ -1389,7 +1389,8 @@ public class MailService : BaseDatabaseService, IMailService
                 updateLookup[update.MailCopyId] = new MailCopyStateUpdate(
                     update.MailCopyId,
                     update.IsRead ?? existingUpdate.IsRead,
-                    update.IsFlagged ?? existingUpdate.IsFlagged);
+                    update.IsFlagged ?? existingUpdate.IsFlagged,
+                    update.IsFocused ?? existingUpdate.IsFocused);
             }
             else
             {
@@ -1427,6 +1428,12 @@ public class MailService : BaseDatabaseService, IMailService
             {
                 mailCopy.IsFlagged = update.IsFlagged.Value;
                 changedProperties |= MailCopyChangeFlags.IsFlagged;
+            }
+
+            if (update.IsFocused.HasValue && mailCopy.IsFocused != update.IsFocused.Value)
+            {
+                mailCopy.IsFocused = update.IsFocused.Value;
+                changedProperties |= MailCopyChangeFlags.IsFocused;
             }
 
             if (changedProperties != MailCopyChangeFlags.None)

@@ -1,12 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using FluentAssertions;
+using SQLite;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.SemanticIndexing;
-using Wino.Core.Domain.Models.Intelligence;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.Contracts.Intelligence;
 using Wino.Services;
@@ -17,415 +17,132 @@ namespace Wino.Core.Tests.SemanticIndexing;
 public sealed class LocalIntelligenceStoreRecoveryTests
 {
     [Fact]
-    public async Task DailyBriefingIgnore_PersistsUnignoresAndIsRemovedWithMailbox()
+    public async Task OperationBeforeInitialization_FailsClearly()
     {
-        var folder = Path.Combine(Path.GetTempPath(), $"wino-intelligence-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(folder);
+        var folder = CreateTemporaryFolder();
+
         try
         {
-            var configuration = new TestConfiguration(folder);
-            var localAccountId = Guid.NewGuid();
+            await using var store = CreateStore(folder);
+            var operation = () => store.GetCurrentArtifactsAsync(Guid.NewGuid(), "message");
+
+            await operation.Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("The local intelligence store has not been initialized.");
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task InitializeAsync_IsIdempotent_AndDoesNotCreateRemovedTables()
+    {
+        var folder = CreateTemporaryFolder();
+
+        try
+        {
+            await using var store = CreateStore(folder);
+            await Task.WhenAll(store.InitializeAsync(), store.InitializeAsync(), store.InitializeAsync());
+
+            var connection = new SQLiteAsyncConnection(Path.Combine(folder, "WinoIntelligence.db"));
+            var tables = await connection.QueryAsync<TableNameRow>(
+                "SELECT name FROM sqlite_master WHERE type = 'table'");
+
+            tables.Select(static row => row.Name).Should().NotContain([
+                "LocalIndexJob",
+                "LocalPreparedDocument",
+            ]);
+
+            await connection.CloseAsync();
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ArtifactUpsert_PersistsLatestRevisionAndDeletionMarker()
+    {
+        var folder = CreateTemporaryFolder();
+
+        try
+        {
+            var accountId = Guid.NewGuid();
+            var mailboxId = Guid.NewGuid();
+            await using (var store = await CreateInitializedStoreAsync(folder))
+            {
+                await store.UpsertArtifactsAsync(accountId, mailboxId,
+                [
+                    CreateBriefingFact("message", revision: 1, isDeleted: false),
+                    CreateBriefingFact("message", revision: 2, isDeleted: true),
+                ]);
+            }
+
+            await using var reopened = await CreateInitializedStoreAsync(folder);
+            var artifact = (await reopened.GetCurrentArtifactsAsync(accountId, "message")).Single();
+
+            artifact.ArtifactRevision.Should().Be(2);
+            artifact.IsDeleted.Should().BeTrue();
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task AccessAndBriefingState_PersistAndAreRemovedWithMailbox()
+    {
+        var folder = CreateTemporaryFolder();
+
+        try
+        {
+            var accountId = Guid.NewGuid();
+            var mailboxId = Guid.NewGuid();
             var briefingId = Guid.NewGuid();
             var ignoredAt = DateTimeOffset.Parse("2026-08-16T10:00:00Z");
-
-            await using (var store = new LocalIntelligenceStore(configuration))
+            await using (var store = await CreateInitializedStoreAsync(folder))
             {
-                await store.SaveDailyBriefingIgnoreAsync(localAccountId, briefingId, 12, ignoredAt);
-
-                var saved = await store.GetDailyBriefingIgnoreRevisionsAsync(localAccountId);
-                saved.Should().ContainSingle().Which.Should().Be(new KeyValuePair<Guid, long>(briefingId, 12));
-            }
-
-            await using (var reopened = new LocalIntelligenceStore(configuration))
-            {
-                (await reopened.GetDailyBriefingIgnoreRevisionsAsync(localAccountId))
-                    .Should().ContainSingle().Which.Value.Should().Be(12);
-
-                await reopened.DeleteDailyBriefingIgnoreAsync(localAccountId, briefingId);
-                (await reopened.GetDailyBriefingIgnoreRevisionsAsync(localAccountId)).Should().BeEmpty();
-
-                await reopened.SaveDailyBriefingIgnoreAsync(localAccountId, briefingId, 13, ignoredAt);
-                await reopened.DeleteMailboxAsync(localAccountId);
-                (await reopened.GetDailyBriefingIgnoreRevisionsAsync(localAccountId)).Should().BeEmpty();
-            }
-        }
-        finally
-        {
-            if (Directory.Exists(folder))
-                Directory.Delete(folder, recursive: true);
-        }
-    }
-
-    [Fact]
-    public async Task DailyBriefingItem_SoftDeletesLocalFactAndKeepsItStored()
-    {
-        var folder = Path.Combine(Path.GetTempPath(), $"wino-intelligence-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(folder);
-        try
-        {
-            var configuration = new TestConfiguration(folder);
-            var localAccountId = Guid.NewGuid();
-            var mailboxId = Guid.NewGuid();
-            var artifact = CreateBriefingFact("outlook:remove", revision: 2, replyRequired: false);
-
-            await using var store = new LocalIntelligenceStore(configuration);
-            await store.ImportAsync(localAccountId, mailboxId, [artifact], throughRevision: 2);
-            await store.DeleteDailyBriefingItemAsync(localAccountId, artifact.RemoteMessageId);
-
-            var stored = await store.GetCurrentArtifactsAsync(localAccountId, artifact.RemoteMessageId);
-            stored.Should().ContainSingle().Which.IsDeleted.Should().BeTrue();
-        }
-        finally
-        {
-            if (Directory.Exists(folder))
-                Directory.Delete(folder, recursive: true);
-        }
-    }
-
-    [Fact]
-    public async Task BriefingFactAndAccessSnapshot_PersistAndViewedStateClearsIndicator()
-    {
-        var folder = Path.Combine(Path.GetTempPath(), $"wino-intelligence-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(folder);
-        try
-        {
-            var configuration = new TestConfiguration(folder);
-            var localAccountId = Guid.NewGuid();
-            var winoAccountId = Guid.NewGuid();
-            var mailboxId = Guid.NewGuid();
-            await using (var store = new LocalIntelligenceStore(configuration))
-            {
-                await store.SaveAccessSnapshotAsync(new(localAccountId, winoAccountId, true, true,
-                    mailboxId, DateTimeOffset.UtcNow));
-                await store.ImportAsync(localAccountId, mailboxId,
-                    [CreateBriefingFact("briefing-message", 9, replyRequired: true)], throughRevision: 9);
-                (await store.GetDailyBriefingUnseenStateAsync([localAccountId])).HasUnseenContent.Should().BeTrue();
-                await store.MarkDailyBriefingViewedAsync([localAccountId], DateTimeOffset.UtcNow.AddSeconds(1));
-                (await store.GetDailyBriefingUnseenStateAsync([localAccountId])).HasUnseenContent.Should().BeFalse();
-            }
-
-            await using var reopened = new LocalIntelligenceStore(configuration);
-            var access = await reopened.GetAccessSnapshotAsync(localAccountId);
-            access.Should().NotBeNull();
-            access!.IsEligible.Should().BeTrue();
-            access.MailboxId.Should().Be(mailboxId);
-            (await reopened.GetDailyBriefingUnseenStateAsync([localAccountId])).HasUnseenContent.Should().BeFalse();
-        }
-        finally
-        {
-            if (Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
-        }
-    }
-
-    [Fact]
-    public async Task JobIntent_PersistsAcrossStoreRestart_AndIsRemovedWithLocalMailbox()
-    {
-        var folder = Path.Combine(Path.GetTempPath(), $"wino-intelligence-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(folder);
-        try
-        {
-            var configuration = new TestConfiguration(folder);
-            var accountId = Guid.NewGuid();
-            var mailboxId = Guid.NewGuid();
-            var cutoff = DateTimeOffset.Parse("2026-01-01T00:00:00Z");
-            var through = DateTimeOffset.Parse("2026-02-01T00:00:00Z");
-            await using (var store = new LocalIntelligenceStore(configuration))
-            {
-                await store.SaveJobIntentAsync(new SemanticIndexJobIntent(
+                await store.SaveAccessSnapshotAsync(new(
+                    accountId,
+                    Guid.NewGuid(),
+                    true,
+                    true,
+                    mailboxId,
+                    DateTimeOffset.UtcNow));
+                await store.SaveDailyBriefingIgnoreAsync(accountId, briefingId, 12, ignoredAt);
+                await store.UpsertArtifactsAsync(
                     accountId,
                     mailboxId,
-                    SemanticIndexRangePreset.SixMonths,
-                    cutoff,
-                    through,
-                    true,
-                    "in-progress",
-                    DateTimeOffset.UtcNow));
+                    [CreateBriefingFact("briefing-message", revision: 9, isDeleted: false)]);
             }
 
-            await using (var reopened = new LocalIntelligenceStore(configuration))
-            {
-                var restored = (await reopened.GetJobIntentsAsync()).Single();
-                restored.LocalAccountId.Should().Be(accountId);
-                restored.ServerMailboxId.Should().Be(mailboxId);
-                restored.RangePreset.Should().Be(SemanticIndexRangePreset.SixMonths);
-                restored.CutoffUtc.Should().Be(cutoff);
-                restored.ThroughUtcExclusive.Should().Be(through);
-                restored.AutomaticallyIndexNewMessages.Should().BeTrue();
-                restored.BackfillStatus.Should().Be("in-progress");
-                await reopened.DeleteMailboxAsync(accountId);
-                (await reopened.GetJobIntentsAsync()).Should().BeEmpty();
-            }
+            await using var reopened = await CreateInitializedStoreAsync(folder);
+            (await reopened.GetAccessSnapshotAsync(accountId)).Should().NotBeNull();
+            (await reopened.GetDailyBriefingIgnoreRevisionsAsync(accountId))
+                .Should().ContainSingle().Which.Should().Be(new KeyValuePair<Guid, long>(briefingId, 12));
+
+            await reopened.DeleteMailboxAsync(accountId);
+
+            (await reopened.GetCurrentArtifactsAsync(accountId, "briefing-message")).Should().BeEmpty();
+            (await reopened.GetDailyBriefingIgnoreRevisionsAsync(accountId)).Should().BeEmpty();
         }
         finally
         {
-            if (Directory.Exists(folder))
-                Directory.Delete(folder, recursive: true);
-        }
-    }
-
-    [Fact]
-    public async Task PreparedDocument_IsProtectedAcrossRestart_AndDeletedAfterConfirmation()
-    {
-        var folder = Path.Combine(Path.GetTempPath(), $"wino-intelligence-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(folder);
-        try
-        {
-            var configuration = new TestConfiguration(folder);
-            var accountId = Guid.NewGuid();
-            const string remoteMessageId = "outlook:staged-message";
-            const string sensitiveContent = "private message body that must not appear in sqlite";
-            var document = new IntelligenceIndexDocumentRequest
-            {
-                ClientCorrelationId = Guid.NewGuid(),
-                ProviderMessageId = "provider-message",
-                ContentHash = "content-hash",
-                CanonicalContent = sensitiveContent,
-                OccurredAtUtc = DateTimeOffset.Parse("2026-08-12T10:00:00Z"),
-                SenderAddresses = ["sender@example.com"],
-                SenderDomains = ["example.com"],
-                ProviderFolderIds = ["inbox"],
-            };
-
-            await using (var store = new LocalIntelligenceStore(configuration))
-                await store.SavePreparedDocumentAsync(accountId, remoteMessageId, document);
-
-            var needle = Encoding.UTF8.GetBytes(sensitiveContent);
-            foreach (var file in Directory.GetFiles(folder, "WinoIntelligence.db*"))
-                ContainsSequence(File.ReadAllBytes(file), needle).Should().BeFalse();
-
-            await using (var reopened = new LocalIntelligenceStore(configuration))
-            {
-                var restored = await reopened.GetPreparedDocumentAsync(accountId, remoteMessageId);
-                restored.Should().NotBeNull();
-                restored!.CanonicalContent.Should().Be(sensitiveContent);
-                restored.ContentHash.Should().Be(document.ContentHash);
-
-                await reopened.DeletePreparedDocumentsAsync(accountId, [remoteMessageId]);
-                (await reopened.GetPreparedDocumentAsync(accountId, remoteMessageId)).Should().BeNull();
-            }
-        }
-        finally
-        {
-            if (Directory.Exists(folder))
-                Directory.Delete(folder, recursive: true);
-        }
-    }
-
-    [Fact]
-    public async Task TypedCapabilityArtifact_PersistsAcrossStoreRestart()
-    {
-        var folder = Path.Combine(Path.GetTempPath(), $"wino-intelligence-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(folder);
-        try
-        {
-            var configuration = new TestConfiguration(folder);
-            var accountId = Guid.NewGuid();
-            var mailboxId = Guid.NewGuid();
-            var generatedAt = DateTimeOffset.Parse("2026-08-12T10:00:00Z");
-            var briefingId = Guid.NewGuid();
-            var artifact = new IntelligenceArtifactDto
-            {
-                RemoteMessageId = "server-message-key",
-                ContentHash = "content-hash",
-                Capability = IntelligenceCapability.BriefingFact,
-                GenerationVersion = 1,
-                PayloadSchemaVersion = 2,
-                ArtifactRevision = 7,
-                GeneratedAtUtc = generatedAt,
-                IsDeleted = false,
-                Confidence = 0.94,
-                BriefingFact = new FinanceFactPayload
-                {
-                    BriefingId = briefingId,
-                    OccurredAtUtc = generatedAt,
-                    Kind = MessageKind.Invoice,
-                    Status = BriefingStatus.ActionRequired,
-                    Urgency = MailPriority.High,
-                    PrimaryAction = new PayActionPayload { Confidence = 0.94 },
-                    TemporalReferences =
-                    [
-                        new DateRangeTemporalPayload
-                        {
-                            Start = new TemporalPointPayload(new DateOnly(2026, 8, 15), null, null, "UTC", 0, TemporalPrecision.Date),
-                            End = new TemporalPointPayload(new DateOnly(2026, 8, 17), null, null, "UTC", 0, TemporalPrecision.Date),
-                            Confidence = 0.94,
-                        },
-                    ],
-                    Confidence = 0.94,
-                },
-            };
-            var serialized = LocalIntelligenceStore.SerializeStoredArtifact(artifact);
-            serialized.Should().Contain("\"category\":\"finance\"");
-            LocalIntelligenceStore.DeserializeTypedArtifact(serialized).BriefingFact.Should().BeOfType<FinanceFactPayload>();
-
-            await using (var store = new LocalIntelligenceStore(configuration))
-                await store.ImportAsync(accountId, mailboxId, [artifact], throughRevision: 7);
-
-            await using var reopened = new LocalIntelligenceStore(configuration);
-            var restored = (await reopened.GetCurrentArtifactsAsync(accountId, "server-message-key")).Single();
-            restored.Capability.Should().Be(IntelligenceCapability.BriefingFact);
-            var restoredFact = restored.BriefingFact.Should().BeOfType<FinanceFactPayload>().Subject;
-            restoredFact.BriefingId.Should().Be(briefingId);
-            restoredFact.PrimaryAction.Should().BeOfType<PayActionPayload>();
-            restoredFact.TemporalReferences.Should().ContainSingle().Which.Should().BeOfType<DateRangeTemporalPayload>();
-        }
-        finally
-        {
-            if (Directory.Exists(folder))
-                Directory.Delete(folder, recursive: true);
-        }
-    }
-
-    [Fact]
-    public async Task BatchedCurrentArtifacts_SelectsLatestRevisionAndIsolatesAccounts()
-    {
-        var folder = Path.Combine(Path.GetTempPath(), $"wino-intelligence-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(folder);
-        try
-        {
-            var configuration = new TestConfiguration(folder);
-            var accountId = Guid.NewGuid();
-            var otherAccountId = Guid.NewGuid();
-            var mailboxId = Guid.NewGuid();
-            await using var store = new LocalIntelligenceStore(configuration);
-            await store.ImportAsync(accountId, mailboxId,
-            [
-                CreateBriefingFact("outlook:one", revision: 1, replyRequired: false),
-                CreateBriefingFact("outlook:one", revision: 2, replyRequired: true),
-                CreateBriefingFact("outlook:two", revision: 3, replyRequired: true),
-                CreateBriefingFact("outlook:deleted", revision: 4, replyRequired: true),
-                CreateBriefingFact("outlook:deleted", revision: 5, replyRequired: false, isDeleted: true),
-            ], throughRevision: 5);
-            await store.ImportAsync(otherAccountId, Guid.NewGuid(),
-            [
-                CreateBriefingFact("outlook:one", revision: 4, replyRequired: false),
-            ], throughRevision: 4);
-
-            var result = await store.GetCurrentArtifactsAsync(accountId, ["outlook:one", "outlook:two", "outlook:deleted"]);
-
-            result.Should().HaveCount(3);
-            result["outlook:one"].Single().ArtifactRevision.Should().Be(2);
-            result["outlook:one"].Single().BriefingFact!.PrimaryAction.Should().BeOfType<ReplyActionPayload>();
-            result["outlook:two"].Single().BriefingFact!.PrimaryAction.Should().BeOfType<ReplyActionPayload>();
-            result["outlook:deleted"].Single().IsDeleted.Should().BeTrue();
-        }
-        finally
-        {
-            if (Directory.Exists(folder))
-                Directory.Delete(folder, recursive: true);
-        }
-    }
-
-    [Fact]
-    public async Task ImportAsync_DoesNotAdvanceDownloadCursorForIngestArtifacts()
-    {
-        var folder = Path.Combine(Path.GetTempPath(), $"wino-intelligence-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(folder);
-        try
-        {
-            var configuration = new TestConfiguration(folder);
-            var accountId = Guid.NewGuid();
-            var mailboxId = Guid.NewGuid();
-            await using var store = new LocalIntelligenceStore(configuration);
-
-            await store.ImportAsync(
-                accountId,
-                mailboxId,
-                [CreateBriefingFact("outlook:new", revision: 42, replyRequired: true)],
-                throughRevision: 42,
-                advanceImportCursor: false);
-
-            (await store.GetLastImportedRevisionAsync(accountId)).Should().Be(0);
-            (await store.GetCurrentArtifactsAsync(accountId, "outlook:new")).Should().ContainSingle();
-        }
-        finally
-        {
-            if (Directory.Exists(folder))
-                Directory.Delete(folder, recursive: true);
-        }
-    }
-
-    [Fact]
-    public async Task CompletedMessages_IncludeSeparateHeadlineRowsAndRemoveDeletedHeadlines()
-    {
-        var folder = Path.Combine(Path.GetTempPath(), $"wino-intelligence-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(folder);
-        try
-        {
-            var accountId = Guid.NewGuid();
-            var mailboxId = Guid.NewGuid();
-            var briefingId = Guid.NewGuid();
-            await using var store = new LocalIntelligenceStore(new TestConfiguration(folder));
-            await store.ImportAsync(accountId, mailboxId,
-            [
-                new IntelligenceArtifactDto
-                {
-                    RemoteMessageId = "outlook:complete", ContentHash = "hash",
-                    Capability = IntelligenceCapability.SmartLabels, GenerationVersion = 1,
-                    PayloadSchemaVersion = 1, ArtifactRevision = 1, GeneratedAtUtc = DateTimeOffset.UtcNow,
-                    SmartLabels = new SmartLabelsCapabilityPayload([]),
-                },
-                new IntelligenceArtifactDto
-                {
-                    RemoteMessageId = "outlook:complete", ContentHash = "hash",
-                    Capability = IntelligenceCapability.BriefingFact, GenerationVersion = 1,
-                    PayloadSchemaVersion = 2, ArtifactRevision = 2, GeneratedAtUtc = DateTimeOffset.UtcNow,
-                    BriefingFact = new ConversationFactPayload
-                    {
-                        BriefingId = briefingId, OccurredAtUtc = DateTimeOffset.UtcNow,
-                        Kind = MessageKind.Conversation, Status = BriefingStatus.Informational,
-                        Urgency = MailPriority.Normal, PrimaryAction = new NoActionPayload(),
-                        TemporalReferences = [], Confidence = 0.9,
-                    },
-                },
-                new IntelligenceArtifactDto
-                {
-                    RemoteMessageId = "outlook:complete", ContentHash = "hash",
-                    Capability = IntelligenceCapability.BriefingHeadline, GenerationVersion = 1,
-                    PayloadSchemaVersion = 1, ArtifactRevision = 3, GeneratedAtUtc = DateTimeOffset.UtcNow,
-                    BriefingHeadline = new BriefingHeadlineCapabilityPayload(briefingId, "A short headline"),
-                },
-            ], throughRevision: 3);
-            var capabilities = new[]
-            {
-                Capability(IntelligenceCapability.SmartLabels, 1, 1),
-                Capability(IntelligenceCapability.BriefingFact, 1, 2),
-                Capability(IntelligenceCapability.BriefingHeadline, 1, 1),
-            };
-
-            (await store.GetCompletedMessageIdsAsync(accountId, capabilities))
-                .Should().ContainSingle().Which.Should().Be("outlook:complete");
-
-            await store.ImportAsync(accountId, mailboxId,
-            [
-                new IntelligenceArtifactDto
-                {
-                    RemoteMessageId = "outlook:complete", ContentHash = "hash",
-                    Capability = IntelligenceCapability.BriefingHeadline, GenerationVersion = 1,
-                    PayloadSchemaVersion = 1, ArtifactRevision = 4, GeneratedAtUtc = DateTimeOffset.UtcNow,
-                    IsDeleted = true,
-                },
-            ], throughRevision: 4);
-
-            (await store.GetCompletedMessageIdsAsync(accountId, capabilities)).Should().BeEmpty();
-        }
-        finally
-        {
-            if (Directory.Exists(folder))
-                Directory.Delete(folder, recursive: true);
+            Directory.Delete(folder, recursive: true);
         }
     }
 
     [Fact]
     public async Task DeleteDatabase_RemovesDatabaseAndSidecarsWithoutRecreatingIt()
     {
-        var folder = Path.Combine(Path.GetTempPath(), $"wino-intelligence-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(folder);
+        var folder = CreateTemporaryFolder();
+
         try
         {
-            var configuration = new TestConfiguration(folder);
-            await using var store = new LocalIntelligenceStore(configuration);
-            await store.InitializeAsync();
+            await using var store = await CreateInitializedStoreAsync(folder);
             var databasePath = Path.Combine(folder, "WinoIntelligence.db");
             await File.WriteAllTextAsync(databasePath + "-wal", "wal");
             await File.WriteAllTextAsync(databasePath + "-shm", "shm");
@@ -438,12 +155,31 @@ public sealed class LocalIntelligenceStoreRecoveryTests
         }
         finally
         {
-            if (Directory.Exists(folder))
-                Directory.Delete(folder, recursive: true);
+            Directory.Delete(folder, recursive: true);
         }
     }
 
-    private static IntelligenceArtifactDto CreateBriefingFact(string remoteMessageId, long revision, bool replyRequired, bool isDeleted = false)
+    private static LocalIntelligenceStore CreateStore(string folder)
+        => new(new TestConfiguration(folder), new StrongReferenceMessenger());
+
+    private static async Task<LocalIntelligenceStore> CreateInitializedStoreAsync(string folder)
+    {
+        var store = CreateStore(folder);
+        await store.InitializeAsync();
+        return store;
+    }
+
+    private static string CreateTemporaryFolder()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"wino-intelligence-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(folder);
+        return folder;
+    }
+
+    private static IntelligenceArtifactDto CreateBriefingFact(
+        string remoteMessageId,
+        long revision,
+        bool isDeleted)
         => new()
         {
             RemoteMessageId = remoteMessageId,
@@ -459,32 +195,17 @@ public sealed class LocalIntelligenceStoreRecoveryTests
                 BriefingId = Guid.NewGuid(),
                 OccurredAtUtc = DateTimeOffset.UtcNow,
                 Kind = MessageKind.Conversation,
-                Status = replyRequired ? BriefingStatus.AwaitingMyReply : BriefingStatus.Informational,
+                Status = BriefingStatus.Informational,
                 Urgency = MailPriority.Normal,
-                PrimaryAction = replyRequired ? new ReplyActionPayload { Confidence = 0.9 } : new NoActionPayload { Confidence = 0.9 },
+                PrimaryAction = new NoActionPayload { Confidence = 0.9 },
                 TemporalReferences = [],
                 Confidence = 0.9,
             },
         };
 
-    private static IntelligenceCapabilityDto Capability(IntelligenceCapability capability, int generationVersion, int schemaVersion)
-        => new()
-        {
-            Capability = capability,
-            GenerationVersion = generationVersion,
-            PayloadSchemaVersion = schemaVersion,
-            RequiresContent = true,
-            Trigger = IntelligenceCapabilityTrigger.Synchronization,
-        };
-
-    private static bool ContainsSequence(byte[] source, byte[] value)
+    private sealed class TableNameRow
     {
-        for (var index = 0; index <= source.Length - value.Length; index++)
-        {
-            if (source.AsSpan(index, value.Length).SequenceEqual(value))
-                return true;
-        }
-        return false;
+        public string Name { get; set; } = string.Empty;
     }
 
     private sealed class TestConfiguration(string folder) : IApplicationConfiguration

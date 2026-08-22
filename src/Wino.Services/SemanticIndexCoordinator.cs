@@ -7,7 +7,6 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using System.Threading;
-using System.Threading.Channels;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Mail;
@@ -29,69 +28,53 @@ public sealed class SemanticIndexCoordinator(
     IDatabaseService databaseService,
     IAccountService accountService,
     IWinoAccountApiClient apiClient,
-    ISynchronizationManager synchronizationManager,
     ILocalIntelligenceStore localStore,
     ILocalIntelligenceService localIntelligenceService,
     IContentEnvelopeEncryptor envelopeEncryptor,
     ISemanticIndexJobRegistry jobRegistry,
     ITranslationService translationService,
-    IMimeFileService mimeFileService,
     IIntelligenceMessageContextResolver messageResolver,
-    IIntelligenceBackend intelligenceBackend) : ISemanticIndexCoordinator, IAsyncDisposable
+    IIntelligenceBackend intelligenceBackend,
+    IMessenger messenger) : ISemanticIndexCoordinator, IAsyncDisposable
 {
-    private const int DownloadPageSize = 100;
+    private const int ReconciliationBatchSize = 1_000;
     private const int UploadBatchSize = 20;
-    private const int DocumentPreparationConcurrency = 8;
-    private const int UploadConcurrency = 4;
+    private const int DocumentPreparationConcurrency = 4;
+
     private readonly ConcurrentDictionary<Guid, SemanticIndexJobSnapshot> _snapshots = new();
     private readonly ConcurrentDictionary<(Guid AccountId, string MessageId), SemanticMessageIndexState> _messageStates = new();
     private readonly ConcurrentDictionary<Guid, ConcurrentDictionary<string, byte>> _automaticQueues = new();
     private readonly ConcurrentDictionary<Guid, ConcurrentDictionary<string, byte>> _synchronizedMailQueues = new();
     private readonly ConcurrentDictionary<Guid, byte> _headlineTranslations = new();
+
+    /// <summary>
+    /// In-flight manual single-message runs, so repeated clicks on the same message join the run
+    /// already going instead of ingesting it twice and billing the user twice for it.
+    /// </summary>
+    private readonly ConcurrentDictionary<(Guid AccountId, string RemoteMessageId), Lazy<Task>> _singleMessageRuns = new();
     private readonly SemaphoreSlim _initializeLock = new(1, 1);
     private bool _initialized;
 
-    public async Task InitializeAsync(CancellationToken cancellationToken = default)
+    public async Task InitializeAsync()
     {
         if (_initialized)
             return;
 
-        await _initializeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await _initializeLock.WaitAsync().ConfigureAwait(false);
+
         try
         {
             if (_initialized)
                 return;
 
-            await localStore.InitializeAsync(cancellationToken).ConfigureAwait(false);
-            WeakReferenceMessenger.Default.Register<AccountSynchronizationCompleted>(this, static (recipient, message) =>
+            messenger.Register<AccountSynchronizationCompleted>(this, static (recipient, message) =>
                 _ = ((SemanticIndexCoordinator)recipient).HandleSynchronizationCompletedAsync(message));
-            WeakReferenceMessenger.Default.Register<MailAddedMessage>(this, static (recipient, message) =>
+            messenger.Register<MailAddedMessage>(this, static (recipient, message) =>
                 ((SemanticIndexCoordinator)recipient).CaptureSynchronizedMails([message.AddedMail], message.Source));
-            WeakReferenceMessenger.Default.Register<BulkMailAddedMessage>(this, static (recipient, message) =>
+            messenger.Register<BulkMailAddedMessage>(this, static (recipient, message) =>
                 ((SemanticIndexCoordinator)recipient).CaptureSynchronizedMails(message.AddedMails, message.Source));
-            _initialized = true;
 
-            var accounts = (await accountService.GetAccountsAsync().ConfigureAwait(false)).ToDictionary(x => x.Id);
-            var intents = await localStore.GetJobIntentsAsync(cancellationToken).ConfigureAwait(false);
-            foreach (var intent in intents.Where(x => x.BackfillStatus == "in-progress" && accounts.ContainsKey(x.LocalAccountId)))
-            {
-                try
-                {
-                    var plan = await CalculatePlanCoreAsync(
-                        accounts[intent.LocalAccountId],
-                        intent.RangePreset,
-                        intent.CutoffUtc,
-                        intent.ThroughUtcExclusive,
-                        intent.AutomaticallyIndexNewMessages,
-                        cancellationToken,
-                        intent.CoverageRules).ConfigureAwait(false);
-                    StartWorker(intent.LocalAccountId, plan, notifyWhenCompleted: false);
-                }
-                catch
-                {
-                    SetSnapshot(new(intent.LocalAccountId, SemanticIndexJobStatus.Failed, 0, 0));
-                }
-            }
+            _initialized = true;
         }
         finally
         {
@@ -99,121 +82,26 @@ public sealed class SemanticIndexCoordinator(
         }
     }
 
-    public async Task<SemanticIndexPlan> CalculatePlanAsync(
-        Guid localMailAccountId,
-        SemanticIndexRangePreset preset,
-        bool automaticallyIndexNewMessages,
-        CancellationToken cancellationToken = default)
-    {
-        await InitializeAsync(cancellationToken).ConfigureAwait(false);
-        if (_headlineTranslations.ContainsKey(localMailAccountId))
-            throw new InvalidOperationException("Headline translation is already in progress for this mailbox.");
-        SetSnapshot(new(localMailAccountId, SemanticIndexJobStatus.Calculating, 0, 0));
-        try
-        {
-            var account = await RequireAccountAsync(localMailAccountId).ConfigureAwait(false);
-            // A custom preset carries no derivable cutoff — CreateCutoff throws for it by contract.
-            // It only ever reaches here as the account-level fallback for a mailbox whose per-folder
-            // rules already state their own bounds, so an open cutoff is the correct reading.
-            var cutoff = preset == SemanticIndexRangePreset.Custom
-                ? null
-                : preset.CreateCutoff(DateTimeOffset.UtcNow);
-            return await CalculatePlanCoreAsync(account, preset, cutoff, null, automaticallyIndexNewMessages, cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            if (!jobRegistry.IsRunning(localMailAccountId))
-                SetSnapshot(new(localMailAccountId, SemanticIndexJobStatus.Idle, 0, 0));
-        }
-    }
-
-    public async Task<SemanticIndexPlan> CalculatePlanAsync(
-        Guid localMailAccountId,
-        DateTimeOffset cutoffUtc,
-        bool automaticallyIndexNewMessages,
-        CancellationToken cancellationToken = default)
-    {
-        await InitializeAsync(cancellationToken).ConfigureAwait(false);
-        SetSnapshot(new(localMailAccountId, SemanticIndexJobStatus.Calculating, 0, 0));
-        try
-        {
-            var account = await RequireAccountAsync(localMailAccountId).ConfigureAwait(false);
-            return await CalculatePlanCoreAsync(
-                account,
-                SemanticIndexRangePreset.Custom,
-                cutoffUtc,
-                null,
-                automaticallyIndexNewMessages,
-                cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            if (!jobRegistry.IsRunning(localMailAccountId))
-                SetSnapshot(new(localMailAccountId, SemanticIndexJobStatus.Idle, 0, 0));
-        }
-    }
-
-    public async Task<SemanticIndexPlan> CalculatePlanAsync(
-        Guid localMailAccountId,
-        DateTimeOffset cutoffUtc,
-        DateTimeOffset throughUtcExclusive,
-        bool automaticallyIndexNewMessages,
-        CancellationToken cancellationToken = default)
-    {
-        if (throughUtcExclusive <= cutoffUtc)
-            throw new ArgumentOutOfRangeException(nameof(throughUtcExclusive), "The range end must be after the range start.");
-
-        await InitializeAsync(cancellationToken).ConfigureAwait(false);
-        SetSnapshot(new(localMailAccountId, SemanticIndexJobStatus.Calculating, 0, 0));
-        try
-        {
-            var account = await RequireAccountAsync(localMailAccountId).ConfigureAwait(false);
-            return await CalculatePlanCoreAsync(
-                account,
-                SemanticIndexRangePreset.Custom,
-                cutoffUtc,
-                throughUtcExclusive,
-                automaticallyIndexNewMessages,
-                cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            if (!jobRegistry.IsRunning(localMailAccountId))
-                SetSnapshot(new(localMailAccountId, SemanticIndexJobStatus.Idle, 0, 0));
-        }
-    }
-
-    public async Task<SemanticIndexAvailableRange?> GetAvailableRangeAsync(
-        Guid localMailAccountId,
-        CancellationToken cancellationToken = default)
-    {
-        await InitializeAsync(cancellationToken).ConfigureAwait(false);
-        var account = await RequireAccountAsync(localMailAccountId).ConfigureAwait(false);
-        var folders = await GetBackfillFolderIdsAsync(account, cancellationToken).ConfigureAwait(false);
-        var inventory = await messageResolver.GetCoverageInventoryAsync(localMailAccountId, cancellationToken).ConfigureAwait(false);
-        var counts = IntelligenceCoverageCalculator.BuildDailyCounts(inventory, folders);
-        return counts.Count == 0
-            ? null
-            : new SemanticIndexAvailableRange(counts.Keys.Min(), counts.Keys.Max(), counts);
-    }
-
     public async Task StartIndexingAsync(
         Guid localMailAccountId,
-        SemanticIndexPlan plan,
+        IReadOnlyCollection<string> remoteMessageIds,
         CancellationToken cancellationToken = default,
         bool notifyWhenCompleted = false)
     {
-        await InitializeAsync(cancellationToken).ConfigureAwait(false);
-        if (_headlineTranslations.ContainsKey(localMailAccountId))
-            throw new InvalidOperationException("Headline translation is already in progress for this mailbox.");
-        if (plan.LocalAccountId != localMailAccountId)
-            throw new ArgumentException("The indexing plan belongs to another account.", nameof(plan));
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var ids = NormalizeIds(remoteMessageIds);
+        if (ids.Length == 0)
+            throw new ArgumentException("At least one message must be selected.", nameof(remoteMessageIds));
+
         var account = await RequireAccountAsync(localMailAccountId).ConfigureAwait(false);
         if (!account.Preferences.IsSemanticIndexingEnabled)
             throw new InvalidOperationException("Mail intelligence is not enabled for this account.");
-        var mailbox = await RequireMailboxAsync(account, cancellationToken).ConfigureAwait(false);
-        await SaveProfileAsync(mailbox.MailboxId, plan, "in-progress", cancellationToken).ConfigureAwait(false);
-        StartWorker(localMailAccountId, plan, notifyWhenCompleted);
+
+        if (_headlineTranslations.ContainsKey(localMailAccountId))
+            throw new InvalidOperationException("Headline translation is already in progress for this mailbox.");
+
+        StartWorker(account, ids, notifyWhenCompleted);
     }
 
     public async Task<HeadlineTranslationResultDto> TranslateHeadlinesAsync(
@@ -221,19 +109,42 @@ public sealed class SemanticIndexCoordinator(
         string targetLanguage,
         CancellationToken cancellationToken = default)
     {
-        await InitializeAsync(cancellationToken).ConfigureAwait(false);
         if (jobRegistry.IsRunning(localMailAccountId) || !_headlineTranslations.TryAdd(localMailAccountId, 0))
             throw new InvalidOperationException("Indexing and headline translation cannot run at the same time.");
+
         try
         {
             var account = await RequireAccountAsync(localMailAccountId).ConfigureAwait(false);
             var mailbox = await RequireMailboxAsync(account, cancellationToken).ConfigureAwait(false);
-            await localStore.SetHeadlineLanguageAsync(account.Id, mailbox.MailboxId, targetLanguage, cancellationToken).ConfigureAwait(false);
+
+            await localStore.SetHeadlineLanguageAsync(
+                account.Id,
+                mailbox.MailboxId,
+                targetLanguage,
+                cancellationToken).ConfigureAwait(false);
+
             SetSnapshot(new(localMailAccountId, SemanticIndexJobStatus.TranslatingHeadlines, 0, 0));
-            var result = await apiClient.TranslateBriefingHeadlinesAsync(mailbox.MailboxId, targetLanguage, cancellationToken).ConfigureAwait(false);
+
+            var result = await apiClient.TranslateBriefingHeadlinesAsync(
+                mailbox.MailboxId,
+                targetLanguage,
+                cancellationToken).ConfigureAwait(false);
+
             await localStore.ApplyBriefingHeadlineUpdatesAsync(
-                account.Id, mailbox.MailboxId, result.HeadlineLanguage, result.Headlines, result.ThroughArtifactRevision, cancellationToken).ConfigureAwait(false);
-            SetSnapshot(new(localMailAccountId, SemanticIndexJobStatus.Completed, result.TranslatedCount, result.TranslatedCount + result.FailedCount));
+                account.Id,
+                mailbox.MailboxId,
+                result.HeadlineLanguage,
+                result.Headlines,
+                result.ThroughArtifactRevision,
+                cancellationToken).ConfigureAwait(false);
+
+            SetSnapshot(new(
+                localMailAccountId,
+                SemanticIndexJobStatus.Completed,
+                result.TranslatedCount,
+                result.TranslatedCount + result.FailedCount,
+                FailedMessageCount: result.FailedCount));
+
             return result;
         }
         catch
@@ -253,46 +164,132 @@ public sealed class SemanticIndexCoordinator(
             queue.Clear();
 
         await jobRegistry.CancelAndWaitAsync(localMailAccountId).ConfigureAwait(false);
+
         var current = GetJobSnapshot(localMailAccountId);
         SetSnapshot(current with { Status = SemanticIndexJobStatus.Cancelled });
     }
 
-    public async Task IndexMessageAsync(Guid localMailAccountId, string mailUniqueId, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Indexes one message on demand, outside the batch pipeline.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately does not take the job registry lock. Asking for a single message is a direct
+    /// request from someone looking at that message, so it must not fail because a batch run
+    /// happens to hold the lock — which is exactly what it used to do, reporting "indexing is
+    /// already in progress" for a mailbox the user was only trying to read.
+    /// <para>
+    /// For the same reason it publishes no job snapshots: a one-message run has no meaningful
+    /// progress to show, and emitting snapshots would overwrite the running batch job's progress
+    /// with a two-step bar that finishes immediately.
+    /// </para>
+    /// </remarks>
+    public async Task IndexMessageAsync(
+        Guid localMailAccountId,
+        string mailUniqueId,
+        CancellationToken cancellationToken = default)
     {
-        await InitializeAsync(cancellationToken).ConfigureAwait(false);
-        if (_headlineTranslations.ContainsKey(localMailAccountId))
-            throw new InvalidOperationException("Headline translation is in progress for this mailbox.");
         var account = await RequireAccountAsync(localMailAccountId).ConfigureAwait(false);
-        var candidate = (await messageResolver.GetCandidatesAsync(account.Id, null, cancellationToken).ConfigureAwait(false))
-            .SingleOrDefault(x => string.Equals(x.RemoteMessageId, mailUniqueId, StringComparison.Ordinal) ||
-                                  string.Equals(x.ProviderMessageId, mailUniqueId, StringComparison.Ordinal));
+        if (!account.Preferences.IsSemanticIndexingEnabled)
+            throw new InvalidOperationException("Mail intelligence is not enabled for this account.");
+
+        var candidate = await messageResolver.FindCandidateAsync(
+            account.Id,
+            mailUniqueId,
+            cancellationToken).ConfigureAwait(false);
+
         if (candidate is null)
             throw new InvalidOperationException("This message cannot be indexed.");
 
-        var mailbox = await RequireMailboxAsync(account, cancellationToken).ConfigureAwait(false);
-        var messageStateKey = (account.Id, candidate.RemoteMessageId);
-        _messageStates[messageStateKey] = SemanticMessageIndexState.Queued;
+        var key = (account.Id, candidate.RemoteMessageId);
+
+        // The shared run is started without the caller's token: one caller walking away must not
+        // cancel the work another caller is still waiting on. The caller's token governs its own
+        // wait instead.
+        var run = _singleMessageRuns.GetOrAdd(key, _ => new Lazy<Task>(
+            () => IndexSingleMessageAsync(account, candidate, CancellationToken.None),
+            LazyThreadSafetyMode.ExecutionAndPublication));
+
         try
         {
-            _messageStates[messageStateKey] = SemanticMessageIndexState.Indexing;
-            var winoAccount = await databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false)
+            await run.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            if (run.Value.IsCompleted)
+                _singleMessageRuns.TryRemove(key, out _);
+        }
+
+        if (GetMessageState(account.Id, candidate) != SemanticMessageIndexState.Indexed)
+            throw new InvalidOperationException("The message could not be indexed.");
+    }
+
+    /// <summary>
+    /// The single-message ingest pipeline: reconcile that one id, and upload it only if the cloud
+    /// does not already hold it.
+    /// </summary>
+    private async Task IndexSingleMessageAsync(
+        MailAccount account,
+        IntelligenceMessageCandidate candidate,
+        CancellationToken cancellationToken)
+    {
+        var mailbox = await RequireMailboxAsync(account, cancellationToken).ConfigureAwait(false);
+        var key = (account.Id, candidate.RemoteMessageId);
+
+        // Reconcile first: a message already indexed on another device costs a download here
+        // rather than a fresh ingest.
+        var reconciled = await ReconcileBatchAsync(
+            mailbox.MailboxId,
+            [candidate.RemoteMessageId],
+            cancellationToken).ConfigureAwait(false);
+
+        if (reconciled.Artifacts.Count > 0)
+        {
+            await localStore.UpsertArtifactsAsync(
+                account.Id,
+                mailbox.MailboxId,
+                reconciled.Artifacts,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        if (reconciled.CoveredRemoteMessageIds.Contains(candidate.RemoteMessageId, StringComparer.Ordinal))
+        {
+            _messageStates[key] = SemanticMessageIndexState.Indexed;
+            return;
+        }
+
+        _messageStates[key] = SemanticMessageIndexState.Indexing;
+
+        try
+        {
+            var winoAccount = await databaseService.Connection.Table<WinoAccount>()
+                .FirstOrDefaultAsync().ConfigureAwait(false)
                 ?? throw new InvalidOperationException("A Wino account is required for mail intelligence.");
-            var result = await ProcessBatchAsync(
-                account,
+            var document = await PrepareDocumentAsync(account, candidate, cancellationToken).ConfigureAwait(false);
+            var ingestResult = await IngestBatchAsync(
                 winoAccount.Id,
                 mailbox.MailboxId,
-                [candidate],
-                static _ => { },
-                static _ => { },
+                [new PreparedDocument(candidate, document)],
                 cancellationToken).ConfigureAwait(false);
-            if (!result.IndexedRemoteMessageIds.Contains(candidate.RemoteMessageId))
-                throw new InvalidOperationException("The message could not be indexed.");
 
-            _messageStates[messageStateKey] = SemanticMessageIndexState.Indexed;
+            if (ingestResult.Artifacts.Count > 0)
+            {
+                await localStore.UpsertArtifactsAsync(
+                    account.Id,
+                    mailbox.MailboxId,
+                    ingestResult.Artifacts,
+                    cancellationToken).ConfigureAwait(false);
+            }
+
+            var succeeded = ingestResult.Items.Any(item =>
+                item.Status == "succeeded" &&
+                string.Equals(item.RemoteMessageId, candidate.RemoteMessageId, StringComparison.Ordinal));
+            _messageStates[key] = succeeded
+                ? SemanticMessageIndexState.Indexed
+                : SemanticMessageIndexState.Failed;
         }
         catch
         {
-            _messageStates[messageStateKey] = SemanticMessageIndexState.Failed;
+            _messageStates[key] = SemanticMessageIndexState.Failed;
             throw;
         }
     }
@@ -302,399 +299,434 @@ public sealed class SemanticIndexCoordinator(
             ? snapshot
             : new SemanticIndexJobSnapshot(localMailAccountId, SemanticIndexJobStatus.Idle, 0, 0);
 
-    public async Task<SemanticMessageIndexState> GetMessageStateAsync(Guid localMailAccountId, string mailUniqueId, CancellationToken cancellationToken = default)
+    public async Task<SemanticMessageIndexState> GetMessageStateAsync(
+        Guid localMailAccountId,
+        string mailUniqueId,
+        CancellationToken cancellationToken = default)
     {
-        await InitializeAsync(cancellationToken).ConfigureAwait(false);
         var account = await accountService.GetAccountAsync(localMailAccountId).ConfigureAwait(false);
         if (account is null || !account.Preferences.IsSemanticIndexingEnabled)
             return SemanticMessageIndexState.Unsupported;
-        var candidate = (await messageResolver.GetCandidatesAsync(account.Id, null, cancellationToken).ConfigureAwait(false))
-            .SingleOrDefault(x => string.Equals(x.RemoteMessageId, mailUniqueId, StringComparison.Ordinal) ||
-                                  string.Equals(x.ProviderMessageId, mailUniqueId, StringComparison.Ordinal));
+
+        var candidate = await messageResolver.FindCandidateAsync(
+            account.Id,
+            mailUniqueId,
+            cancellationToken).ConfigureAwait(false);
         if (candidate is null)
             return SemanticMessageIndexState.Unsupported;
+
         var artifacts = await localStore.GetCurrentArtifactsAsync(
-            localMailAccountId, candidate.RemoteMessageId, cancellationToken).ConfigureAwait(false);
-        // Persisted artifacts are authoritative. A stale in-memory queue/indexing marker must not
-        // make an already processed message look unfinished after metadata has been imported.
+            localMailAccountId,
+            candidate.RemoteMessageId,
+            cancellationToken).ConfigureAwait(false);
         if (artifacts.Any(static artifact => !artifact.IsDeleted))
             return SemanticMessageIndexState.Indexed;
 
-        return _messageStates.TryGetValue((localMailAccountId, candidate.RemoteMessageId), out var state)
-            ? state
-            : SemanticMessageIndexState.NotIndexed;
+        return GetMessageState(account.Id, candidate);
     }
 
-    public async Task<SemanticIndexAccountState> GetStateAsync(Guid localMailAccountId, CancellationToken cancellationToken = default)
-    {
-        await InitializeAsync(cancellationToken).ConfigureAwait(false);
-        return await GetStateCoreAsync(localMailAccountId, cancellationToken).ConfigureAwait(false);
-    }
+    public Task<SemanticIndexAccountState> GetStateAsync(
+        Guid localMailAccountId,
+        CancellationToken cancellationToken = default)
+        => GetStateCoreAsync(localMailAccountId, cancellationToken);
 
-    public async Task EnsureMailboxAsync(Guid localMailAccountId, CancellationToken cancellationToken = default)
+    public async Task EnsureMailboxAsync(
+        Guid localMailAccountId,
+        CancellationToken cancellationToken = default)
     {
-        await InitializeAsync(cancellationToken).ConfigureAwait(false);
         var account = await RequireAccountAsync(localMailAccountId).ConfigureAwait(false);
-        await apiClient.EnsureSemanticMailboxAsync(account.Address, (int)account.ProviderType, cancellationToken).ConfigureAwait(false);
+        await apiClient.EnsureSemanticMailboxAsync(
+            account.Address,
+            (int)account.ProviderType,
+            cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<SemanticIndexAccountState> DownloadAvailableIntelligenceAsync(
+    public async Task<IntelligenceDownloadResult> DownloadAvailableIntelligenceAsync(
         Guid localMailAccountId,
         IProgress<SemanticIndexingProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        await InitializeAsync(cancellationToken).ConfigureAwait(false);
         var account = await RequireAccountAsync(localMailAccountId).ConfigureAwait(false);
         var mailbox = await RequireMailboxAsync(account, cancellationToken).ConfigureAwait(false);
-        var revision = await localStore.GetLastImportedRevisionAsync(account.Id, cancellationToken).ConfigureAwait(false);
-        var cursor = revision == 0 ? null : Convert.ToBase64String(BitConverter.GetBytes(revision));
-        var downloaded = 0;
-        while (true)
-        {
-            var page = await apiClient.GetIntelligenceArtifactsAsync(
-                mailbox.MailboxId, cursor, DownloadPageSize, cancellationToken).ConfigureAwait(false);
-            if (page.Items.Count > 0)
-            {
-                revision = page.Items.Max(artifact => artifact.ArtifactRevision);
-                await localStore.ImportAsync(account.Id, mailbox.MailboxId, page.Items, revision, cancellationToken).ConfigureAwait(false);
-                downloaded += page.Items.Count;
-                progress?.Report(new(downloaded, downloaded));
-            }
-            if (page.NextCursor is null)
-                break;
-            cursor = page.NextCursor;
-        }
-        return await GetStateCoreAsync(localMailAccountId, cancellationToken).ConfigureAwait(false);
+        var candidates = await messageResolver.GetCandidatesAsync(
+            account.Id,
+            cutoffUtc: null,
+            cancellationToken).ConfigureAwait(false);
+        var selected = candidates
+            .Select(static candidate => candidate.RemoteMessageId)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var result = await ReconcileAsync(
+            account,
+            mailbox.MailboxId,
+            selected,
+            uploadMissing: false,
+            cancellationToken).ConfigureAwait(false);
+
+        progress?.Report(new(result.CoveredRemoteMessageIds.Count, selected.Length));
+        return new IntelligenceDownloadResult(result.CoveredRemoteMessageIds, result.RestoredArtifactCount);
     }
 
-    public async Task DeleteIndexAsync(Guid localMailAccountId, CancellationToken cancellationToken = default)
+    public async Task DeleteIndexAsync(
+        Guid localMailAccountId,
+        CancellationToken cancellationToken = default)
     {
         await jobRegistry.CancelAndWaitAsync(localMailAccountId).ConfigureAwait(false);
+
         var account = await RequireAccountAsync(localMailAccountId).ConfigureAwait(false);
+
         try
         {
             var mailbox = await FindMailboxAsync(account, cancellationToken).ConfigureAwait(false);
             if (mailbox is not null)
-            {
                 await apiClient.DeleteIntelligenceAsync(mailbox.MailboxId, cancellationToken).ConfigureAwait(false);
-            }
         }
         finally
         {
-            // Local deletion is unconditional. A mailbox that was never indexed is a successful
-            // no-op, and revoked consent must never prevent local privacy cleanup.
-            await localStore.DeleteMailboxAsync(account.Id, cancellationToken).ConfigureAwait(false);
-            _automaticQueues.TryRemove(localMailAccountId, out _);
-            SetSnapshot(new(localMailAccountId, SemanticIndexJobStatus.Idle, 0, 0));
+            await localStore.DeleteMailboxAsync(localMailAccountId, cancellationToken).ConfigureAwait(false);
+            ClearAccountState(localMailAccountId);
         }
     }
 
-    public async Task DeleteLocalIndexAsync(Guid localMailAccountId, CancellationToken cancellationToken = default)
+    public async Task DeleteLocalIndexAsync(
+        Guid localMailAccountId,
+        CancellationToken cancellationToken = default)
     {
         await jobRegistry.CancelAndWaitAsync(localMailAccountId).ConfigureAwait(false);
         await localStore.DeleteMailboxAsync(localMailAccountId, cancellationToken).ConfigureAwait(false);
-        _automaticQueues.TryRemove(localMailAccountId, out _);
-        SetSnapshot(new(localMailAccountId, SemanticIndexJobStatus.Idle, 0, 0));
+        ClearAccountState(localMailAccountId);
     }
 
     public async Task ResetLocalStateAsync(CancellationToken cancellationToken = default)
     {
-        var localAccountIds = (await accountService.GetAccountsAsync().ConfigureAwait(false))
-            .Select(static account => account.Id);
-        var accountIds = localAccountIds
-            .Concat(_snapshots.Keys)
-            .Concat(_automaticQueues.Keys)
-            .Concat(_messageStates.Keys.Select(static key => key.AccountId))
-            .Distinct()
-            .ToArray();
-        foreach (var accountId in accountIds)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
+        foreach (var accountId in _snapshots.Keys.Concat(_automaticQueues.Keys).Distinct())
             await jobRegistry.CancelAndWaitAsync(accountId).ConfigureAwait(false);
-        }
 
         _snapshots.Clear();
         _messageStates.Clear();
         _automaticQueues.Clear();
         _synchronizedMailQueues.Clear();
+        _headlineTranslations.Clear();
+
+        await localStore.DeleteAccessSnapshotsAsync(cancellationToken).ConfigureAwait(false);
+        await localStore.DeleteAccountIntelligenceSnapshotsAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public async ValueTask DisposeAsync()
     {
-        WeakReferenceMessenger.Default.UnregisterAll(this);
-        foreach (var accountId in _snapshots.Keys)
+        messenger.UnregisterAll(this);
+
+        foreach (var accountId in _snapshots.Keys.Concat(_automaticQueues.Keys).Distinct())
             await jobRegistry.CancelAndWaitAsync(accountId).ConfigureAwait(false);
+
         _initializeLock.Dispose();
     }
 
-    private void StartWorker(Guid accountId, SemanticIndexPlan plan, bool notifyWhenCompleted)
+    private void StartWorker(MailAccount account, IReadOnlyCollection<string> remoteMessageIds, bool notifyWhenCompleted)
     {
-        if (jobRegistry.TryStart(accountId, token => RunBackfillAsync(accountId, plan, notifyWhenCompleted, token), out _))
-            SetSnapshot(new(accountId, SemanticIndexJobStatus.Queued, 0, plan.MissingMessageCount));
+        if (!jobRegistry.TryStart(
+                account.Id,
+                token => RunIndexingAsync(account, remoteMessageIds, notifyWhenCompleted, token),
+                out _))
+        {
+            throw new InvalidOperationException("Indexing is already in progress for this mailbox.");
+        }
     }
 
-    /// <summary>
-    /// Indexes what the plan's rules select. Only <see cref="SemanticIndexPlan.ResolvedCoverageRules"/>
-    /// is trusted: the candidate set is resolved from the database again here, so a plan calculated
-    /// against a slightly older view of the mailbox still indexes the correct messages.
-    /// </summary>
-    private async Task RunBackfillAsync(
-        Guid accountId,
-        SemanticIndexPlan plan,
+    private async Task RunIndexingAsync(
+        MailAccount account,
+        IReadOnlyCollection<string> remoteMessageIds,
         bool notifyWhenCompleted,
         CancellationToken cancellationToken)
     {
+        var selectedCount = NormalizeIds(remoteMessageIds).Length;
+        SetSnapshot(new(
+            account.Id,
+            SemanticIndexJobStatus.Queued,
+            0,
+            selectedCount));
+
         try
         {
-            var account = await RequireAccountAsync(accountId).ConfigureAwait(false);
             var mailbox = await RequireMailboxAsync(account, cancellationToken).ConfigureAwait(false);
-            var winoAccount = await databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false)
-                ?? throw new InvalidOperationException("A Wino account is required for mail intelligence.");
-            var folders = plan.ResolvedCoverageRules.Count > 0
-                ? plan.ResolvedCoverageRules.Select(rule => rule.RemoteFolderId).ToHashSet(StringComparer.Ordinal)
-                : await GetBackfillFolderIdsAsync(account, cancellationToken).ConfigureAwait(false);
-            var allCandidates = await messageResolver.GetBackfillCandidatesAsync(account.Id, folders, cancellationToken).ConfigureAwait(false);
-            var rules = plan.ResolvedCoverageRules.Count > 0
-                ? plan.ResolvedCoverageRules
-                : folders.Select(folder => SemanticIndexFolderCoverageRule.DateRange(folder, plan.RangePreset, plan.CutoffUtc, plan.ThroughUtcExclusive)).ToArray();
-            var candidates = SemanticIndexCoverageResolver.Resolve(allCandidates, rules).Candidates;
-            var missingIds = (await apiClient.ResolveIntelligenceDeltaAsync(
-                mailbox.MailboxId,
-                candidates.Select(candidate => candidate.RemoteMessageId).ToArray(),
-                cancellationToken).ConfigureAwait(false)).ToHashSet(StringComparer.Ordinal);
-            var waiting = candidates.Where(candidate => missingIds.Contains(candidate.RemoteMessageId)).ToList();
-            var completed = 0;
-            var embeddingFailed = 0;
-            var metadataCompleted = 0;
-            var metadataFailed = 0;
-            void ReportProgress(SemanticIndexJobStatus status = SemanticIndexJobStatus.Indexing)
-                => SetSnapshot(new(
-                    accountId,
-                    status,
-                    Volatile.Read(ref completed),
-                    waiting.Count,
-                    null,
-                    Volatile.Read(ref embeddingFailed),
-                    Volatile.Read(ref metadataCompleted),
-                    Volatile.Read(ref metadataFailed)));
-            foreach (var candidate in waiting)
-                _messageStates[(accountId, candidate.RemoteMessageId)] = SemanticMessageIndexState.Queued;
-            ReportProgress();
-
-            await RunPreparedDocumentPipelineAsync(
+            var result = await ReconcileAsync(
                 account,
-                winoAccount.Id,
                 mailbox.MailboxId,
-                waiting,
-                result =>
-                {
-                    Interlocked.Add(ref completed, result.SucceededCount);
-                    Interlocked.Add(ref embeddingFailed, result.FailedCount);
-                    ReportProgress();
-                },
-                result =>
-                {
-                    Interlocked.Add(ref metadataCompleted, result.SucceededCount);
-                    Interlocked.Add(ref metadataFailed, result.FailedCount);
-                    ReportProgress();
-                },
-                ReportProgress,
+                remoteMessageIds,
+                uploadMissing: true,
                 cancellationToken).ConfigureAwait(false);
 
-            await DrainAutomaticQueueAsync(account, mailbox.MailboxId, cancellationToken).ConfigureAwait(false);
+            SetSnapshot(new(
+                account.Id,
+                SemanticIndexJobStatus.Completed,
+                result.UploadedCount,
+                selectedCount,
+                FailedMessageCount: result.FailedCount,
+                RestoredMessageCount: result.CoveredRemoteMessageIds.Count));
 
-            // Ingest responses contain only artifacts created by this run. Downloading from the
-            // durable server cursor also restores artifacts that already existed for the selected
-            // range, which is essential after the user deletes local intelligence.
-            await DownloadAvailableIntelligenceAsync(account.Id, cancellationToken: cancellationToken).ConfigureAwait(false);
-
-            await SaveProfileAsync(mailbox.MailboxId, plan, "completed", cancellationToken).ConfigureAwait(false);
-            ReportProgress(SemanticIndexJobStatus.Completed);
             if (notifyWhenCompleted)
-                WeakReferenceMessenger.Default.Send(new SemanticIndexingCompleted(account.Id, account.Address, completed));
+                messenger.Send(new SemanticIndexingCompleted(account.Id, account.Address, result.UploadedCount));
         }
         catch (OperationCanceledException)
         {
-            SetSnapshot(new(accountId, SemanticIndexJobStatus.Cancelled, 0, plan.MissingMessageCount));
+            var current = GetJobSnapshot(account.Id);
+            SetSnapshot(current with
+            {
+                Status = SemanticIndexJobStatus.Cancelled,
+                SelectedMessageCount = selectedCount,
+            });
             throw;
         }
         catch (Exception exception) when (exception.Message.Contains("AI_QUOTA_EXCEEDED", StringComparison.Ordinal))
         {
-            SetSnapshot(new(accountId, SemanticIndexJobStatus.PausedForQuota, 0, plan.MissingMessageCount, "AI_QUOTA_EXCEEDED"));
+            var current = GetJobSnapshot(account.Id);
+            SetSnapshot(current with
+            {
+                Status = SemanticIndexJobStatus.PausedForQuota,
+                SelectedMessageCount = selectedCount,
+                ErrorCode = "AI_QUOTA_EXCEEDED",
+            });
         }
         catch (Exception exception)
         {
-            SetSnapshot(new(accountId, SemanticIndexJobStatus.Failed, 0, plan.MissingMessageCount, exception.Message));
+            var current = GetJobSnapshot(account.Id);
+            SetSnapshot(current with
+            {
+                Status = SemanticIndexJobStatus.Failed,
+                SelectedMessageCount = selectedCount,
+                ErrorCode = exception.Message,
+            });
         }
     }
 
-    private async Task RunPreparedDocumentPipelineAsync(
+    private async Task<ReconciliationRunResult> ReconcileAsync(
         MailAccount account,
-        Guid winoUserId,
         Guid mailboxId,
-        IReadOnlyList<IntelligenceMessageCandidate> candidates,
-        Action<PipelineBatchResult> embeddingProgress,
-        Action<PipelineBatchResult> metadataProgress,
-        Action<SemanticIndexJobStatus> statusProgress,
+        IReadOnlyCollection<string> remoteMessageIds,
+        bool uploadMissing,
         CancellationToken cancellationToken)
     {
-        if (candidates.Count == 0)
-            return;
+        var distinctIds = NormalizeIds(remoteMessageIds);
+        var missingIds = new HashSet<string>(StringComparer.Ordinal);
+        var restoredIds = new HashSet<string>(StringComparer.Ordinal);
 
-        var prepared = Channel.CreateBounded<PreparedDocumentWork>(new BoundedChannelOptions(UploadBatchSize * UploadConcurrency)
-        {
-            FullMode = BoundedChannelFullMode.Wait,
-            SingleReader = true,
-            SingleWriter = false,
-        });
-        var batches = Channel.CreateBounded<PreparedDocumentWork[]>(new BoundedChannelOptions(UploadConcurrency)
-        {
-            FullMode = BoundedChannelFullMode.Wait,
-            SingleReader = false,
-            SingleWriter = true,
-        });
-        using var pipelineCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var token = pipelineCancellation.Token;
+        // Only an upload run is a job. A read-only restore reports progress through its own
+        // IProgress and must not publish job snapshots: they would render as indexing having
+        // started, and the read-only path returns below without ever publishing a terminal one,
+        // so that phantom job would never clear.
+        if (uploadMissing)
+            SetSnapshot(new(account.Id, SemanticIndexJobStatus.Calculating, 0, distinctIds.Length));
 
-        async Task GuardAsync(Func<Task> operation)
+        foreach (var batch in distinctIds.Chunk(ReconciliationBatchSize))
         {
-            try { await operation().ConfigureAwait(false); }
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var result = await ReconcileBatchAsync(
+                mailboxId,
+                batch,
+                cancellationToken).ConfigureAwait(false);
+
+            missingIds.UnionWith(result.MissingRemoteMessageIds);
+            restoredIds.UnionWith(result.CoveredRemoteMessageIds);
+
+            if (result.Artifacts.Count > 0)
+            {
+                await localStore.UpsertArtifactsAsync(
+                    account.Id,
+                    mailboxId,
+                    result.Artifacts,
+                    cancellationToken).ConfigureAwait(false);
+            }
+
+            if (uploadMissing)
+            {
+                SetSnapshot(new(
+                    account.Id,
+                    SemanticIndexJobStatus.Calculating,
+                    0,
+                    distinctIds.Length,
+                    RestoredMessageCount: restoredIds.Count));
+            }
+        }
+
+        foreach (var remoteMessageId in restoredIds)
+            _messageStates[(account.Id, remoteMessageId)] = SemanticMessageIndexState.Indexed;
+
+        if (!uploadMissing || missingIds.Count == 0)
+            return new(restoredIds, restoredIds.Count, 0, 0);
+
+        var missingCandidates = await ResolveCandidatesAsync(
+            account.Id,
+            missingIds,
+            cancellationToken).ConfigureAwait(false);
+        foreach (var candidate in missingCandidates)
+            _messageStates[(account.Id, candidate.RemoteMessageId)] = SemanticMessageIndexState.Queued;
+
+        var winoAccount = await databaseService.Connection.Table<WinoAccount>()
+            .FirstOrDefaultAsync().ConfigureAwait(false)
+            ?? throw new InvalidOperationException("A Wino account is required for mail intelligence.");
+        var uploaded = 0;
+        var failed = missingIds.Count - missingCandidates.Count;
+
+        foreach (var batch in missingCandidates.Chunk(UploadBatchSize))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            foreach (var candidate in batch)
+                _messageStates[(account.Id, candidate.RemoteMessageId)] = SemanticMessageIndexState.Indexing;
+
+            SetSnapshot(new(
+                account.Id,
+                SemanticIndexJobStatus.Indexing,
+                uploaded,
+                distinctIds.Length,
+                FailedMessageCount: failed,
+                RestoredMessageCount: restoredIds.Count));
+
+            var prepared = await PrepareBatchAsync(account, batch, cancellationToken).ConfigureAwait(false);
+            failed += batch.Length - prepared.Length;
+
+            if (prepared.Length == 0)
+                continue;
+
+            SetSnapshot(new(
+                account.Id,
+                SemanticIndexJobStatus.GeneratingInsights,
+                uploaded,
+                distinctIds.Length,
+                FailedMessageCount: failed,
+                RestoredMessageCount: restoredIds.Count));
+
+            var ingestResult = await IngestBatchAsync(
+                winoAccount.Id,
+                mailboxId,
+                prepared,
+                cancellationToken).ConfigureAwait(false);
+            var successfulIds = ingestResult.Items
+                .Where(static item => item.Status == "succeeded")
+                .Select(static item => item.RemoteMessageId)
+                .ToHashSet(StringComparer.Ordinal);
+
+            uploaded += successfulIds.Count;
+            failed += prepared.Length - successfulIds.Count;
+
+            if (ingestResult.Artifacts.Count > 0)
+            {
+                await localStore.UpsertArtifactsAsync(
+                    account.Id,
+                    mailboxId,
+                    ingestResult.Artifacts,
+                    cancellationToken).ConfigureAwait(false);
+            }
+
+            foreach (var item in prepared)
+            {
+                _messageStates[(account.Id, item.Candidate.RemoteMessageId)] = successfulIds.Contains(item.Candidate.RemoteMessageId)
+                    ? SemanticMessageIndexState.Indexed
+                    : SemanticMessageIndexState.Failed;
+            }
+
+            SetSnapshot(new(
+                account.Id,
+                SemanticIndexJobStatus.Indexing,
+                uploaded,
+                distinctIds.Length,
+                FailedMessageCount: failed,
+                RestoredMessageCount: restoredIds.Count));
+        }
+
+        return new(restoredIds, restoredIds.Count, uploaded, failed);
+    }
+
+    private async Task<IntelligenceReconciliationResultDto> ReconcileBatchAsync(
+        Guid mailboxId,
+        IReadOnlyList<string> remoteMessageIds,
+        CancellationToken cancellationToken)
+    {
+        var winoAccount = await databaseService.Connection.Table<WinoAccount>()
+            .FirstOrDefaultAsync().ConfigureAwait(false)
+            ?? throw new InvalidOperationException("A Wino account is required for mail intelligence.");
+        var route = $"/api/v1/ai/intelligence/mailboxes/{mailboxId:D}/reconcile";
+        var request = new ReconcileIntelligenceRequest(remoteMessageIds);
+        var envelope = EncryptRequest(
+            request,
+            WinoAccountApiJsonContext.Default.ReconcileIntelligenceRequest,
+            winoAccount.Id,
+            mailboxId,
+            route);
+
+        try
+        {
+            return await apiClient.ReconcileIntelligenceAsync(
+                mailboxId,
+                envelope,
+                cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(envelope);
+        }
+    }
+
+    private async Task<PreparedDocument[]> PrepareBatchAsync(
+        MailAccount account,
+        IReadOnlyCollection<IntelligenceMessageCandidate> candidates,
+        CancellationToken cancellationToken)
+    {
+        var prepared = new ConcurrentBag<PreparedDocument>();
+
+        await Parallel.ForEachAsync(candidates, new ParallelOptions
+        {
+            MaxDegreeOfParallelism = DocumentPreparationConcurrency,
+            CancellationToken = cancellationToken,
+        }, async (candidate, token) =>
+        {
+            try
+            {
+                var document = await PrepareDocumentAsync(account, candidate, token).ConfigureAwait(false);
+                prepared.Add(new(candidate, document));
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                throw;
+            }
             catch
             {
-                await pipelineCancellation.CancelAsync().ConfigureAwait(false);
-                throw;
+                _messageStates[(account.Id, candidate.RemoteMessageId)] = SemanticMessageIndexState.Failed;
             }
-        }
+        }).ConfigureAwait(false);
 
-        var producer = GuardAsync(async () =>
-        {
-            Exception? failure = null;
-            try
-            {
-                await Parallel.ForEachAsync(candidates, new ParallelOptions
-                {
-                    MaxDegreeOfParallelism = DocumentPreparationConcurrency,
-                    CancellationToken = token,
-                }, async (candidate, itemToken) =>
-                {
-                    while (synchronizationManager.IsAccountSynchronizing(account.Id))
-                    {
-                        statusProgress(SemanticIndexJobStatus.PausedForSynchronization);
-                        await Task.Delay(TimeSpan.FromSeconds(1), itemToken).ConfigureAwait(false);
-                    }
-
-                    _messageStates[(account.Id, candidate.RemoteMessageId)] = SemanticMessageIndexState.Indexing;
-                    var document = await PrepareDocumentAsync(account, candidate, itemToken).ConfigureAwait(false);
-                    await prepared.Writer.WriteAsync(new(candidate, document), itemToken).ConfigureAwait(false);
-                }).ConfigureAwait(false);
-            }
-            catch (Exception exception)
-            {
-                failure = exception;
-                throw;
-            }
-            finally { prepared.Writer.TryComplete(failure); }
-        });
-
-        var batcher = GuardAsync(async () =>
-        {
-            Exception? failure = null;
-            try
-            {
-                var current = new List<PreparedDocumentWork>(UploadBatchSize);
-                await foreach (var item in prepared.Reader.ReadAllAsync(token).ConfigureAwait(false))
-                {
-                    current.Add(item);
-                    if (current.Count < UploadBatchSize)
-                        continue;
-                    await batches.Writer.WriteAsync(current.ToArray(), token).ConfigureAwait(false);
-                    current.Clear();
-                }
-                if (current.Count > 0)
-                    await batches.Writer.WriteAsync(current.ToArray(), token).ConfigureAwait(false);
-            }
-            catch (Exception exception)
-            {
-                failure = exception;
-                throw;
-            }
-            finally { batches.Writer.TryComplete(failure); }
-        });
-
-        var consumers = Enumerable.Range(0, UploadConcurrency).Select(workerIndex => GuardAsync(async () =>
-        {
-            await foreach (var batch in batches.Reader.ReadAllAsync(token).ConfigureAwait(false))
-            {
-                var result = await ProcessPreparedBatchAsync(
-                    account,
-                    winoUserId,
-                    mailboxId,
-                    batch,
-                    embeddingProgress,
-                    metadataProgress,
-                    token).ConfigureAwait(false);
-                foreach (var item in batch)
-                {
-                    var indexed = result.IndexedRemoteMessageIds.Contains(item.Candidate.RemoteMessageId);
-                    _messageStates[(account.Id, item.Candidate.RemoteMessageId)] = indexed
-                        ? SemanticMessageIndexState.Indexed
-                        : SemanticMessageIndexState.Failed;
-                    if (indexed && _automaticQueues.TryGetValue(account.Id, out var automaticQueue))
-                        automaticQueue.TryRemove(item.Candidate.RemoteMessageId, out _);
-                }
-            }
-        })).ToArray();
-
-        await Task.WhenAll(consumers.Prepend(batcher).Prepend(producer)).ConfigureAwait(false);
-        statusProgress(SemanticIndexJobStatus.Indexing);
+        return prepared
+            .OrderBy(static item => item.Candidate.RemoteMessageId, StringComparer.Ordinal)
+            .ToArray();
     }
 
-    private async Task<BatchProcessingResult> ProcessBatchAsync(
-        MailAccount account,
+    private async Task<IntelligenceIngestResultDto> IngestBatchAsync(
         Guid winoUserId,
         Guid mailboxId,
-        IReadOnlyList<IntelligenceMessageCandidate> batch,
-        Action<PipelineBatchResult> embeddingProgress,
-        Action<PipelineBatchResult> metadataProgress,
+        IReadOnlyCollection<PreparedDocument> batch,
         CancellationToken cancellationToken)
     {
-        var documents = await PrepareDocumentsAsync(account, batch, cancellationToken).ConfigureAwait(false);
-        var work = batch.Select((candidate, index) => new PreparedDocumentWork(candidate, documents[index])).ToArray();
-        return await ProcessPreparedBatchAsync(
-            account, winoUserId, mailboxId, work, embeddingProgress, metadataProgress, cancellationToken).ConfigureAwait(false);
-    }
-
-    private async Task<BatchProcessingResult> ProcessPreparedBatchAsync(
-        MailAccount account,
-        Guid winoUserId,
-        Guid mailboxId,
-        IReadOnlyList<PreparedDocumentWork> batch,
-        Action<PipelineBatchResult> embeddingProgress,
-        Action<PipelineBatchResult> metadataProgress,
-        CancellationToken cancellationToken)
-    {
-        var candidates = batch.Select(x => x.Candidate).ToArray();
-        var documents = batch.Select(x => x.Document).ToArray();
         var route = $"/api/v1/ai/intelligence/mailboxes/{mailboxId:D}/ingest";
         var request = new IngestIntelligenceRequest
         {
             Language = translationService.CurrentLanguageModel?.Code ?? "en-US",
-            Documents = documents.Select(document => new IntelligenceIngestDocumentRequest
+            Documents = batch.Select(static item => new IntelligenceIngestDocumentRequest
             {
-                RemoteMessageId = document.ProviderMessageId,
-                ContentHash = document.ContentHash,
-                CanonicalContent = document.CanonicalContent,
-                OccurredAtUtc = document.OccurredAtUtc,
-                IsOutgoing = document.IsOutgoing,
-                IsRead = document.IsRead,
-                IsFlagged = document.IsFlagged,
-                HasAttachments = document.HasAttachments,
-                IsDirectRecipient = document.IsDirectRecipient,
-                HasLaterOutgoingReply = document.HasLaterOutgoingReply,
-                ProviderImportance = document.ProviderImportance,
-                ProviderFolderIds = document.ProviderFolderIds,
-                SenderAddresses = document.SenderAddresses,
-                SenderDomains = document.SenderDomains,
+                RemoteMessageId = item.Document.ProviderMessageId,
+                ContentHash = item.Document.ContentHash,
+                CanonicalContent = item.Document.CanonicalContent,
+                OccurredAtUtc = item.Document.OccurredAtUtc,
+                IsOutgoing = item.Document.IsOutgoing,
+                IsRead = item.Document.IsRead,
+                IsFlagged = item.Document.IsFlagged,
+                HasAttachments = item.Document.HasAttachments,
+                IsDirectRecipient = item.Document.IsDirectRecipient,
+                HasLaterOutgoingReply = item.Document.HasLaterOutgoingReply,
+                ProviderImportance = item.Document.ProviderImportance,
+                ProviderFolderIds = item.Document.ProviderFolderIds,
+                SenderAddresses = item.Document.SenderAddresses,
+                SenderDomains = item.Document.SenderDomains,
             }).ToArray(),
         };
         var envelope = EncryptRequest(
@@ -703,50 +735,18 @@ public sealed class SemanticIndexCoordinator(
             winoUserId,
             mailboxId,
             route);
-        IntelligenceIngestResultDto result;
-        try { result = await intelligenceBackend.IngestAsync(mailboxId, envelope, cancellationToken).ConfigureAwait(false); }
-        finally { CryptographicOperations.ZeroMemory(envelope); }
 
-        var successfulRemoteIds = result.Items.Where(item => item.Status == "succeeded")
-            .Select(item => item.RemoteMessageId).ToHashSet(StringComparer.Ordinal);
-        var succeeded = successfulRemoteIds.Count;
-        var progress = new PipelineBatchResult(
-            succeeded,
-            result.Items.Count - succeeded,
-            candidates.Where(candidate => successfulRemoteIds.Contains(candidate.RemoteMessageId))
-                .Select(candidate => candidate.UniqueId).ToHashSet());
-        embeddingProgress(progress);
-        metadataProgress(progress);
-        if (result.Artifacts.Count > 0)
+        try
         {
-            var throughRevision = result.Artifacts.Max(artifact => artifact.ArtifactRevision);
-            // An ingest result is not a complete revision feed. Advancing the download cursor here
-            // would skip older server artifacts when local intelligence has been deleted.
-            await localStore.ImportAsync(
-                account.Id,
+            return await intelligenceBackend.IngestAsync(
                 mailboxId,
-                result.Artifacts,
-                throughRevision,
-                cancellationToken,
-                advanceImportCursor: false).ConfigureAwait(false);
+                envelope,
+                cancellationToken).ConfigureAwait(false);
         }
-        var confirmedRemoteMessageIds = successfulRemoteIds.ToArray();
-        await localStore.DeletePreparedDocumentsAsync(account.Id, confirmedRemoteMessageIds, cancellationToken).ConfigureAwait(false);
-        return new BatchProcessingResult(successfulRemoteIds);
-    }
-
-    private async Task<IntelligenceIndexDocumentRequest[]> PrepareDocumentsAsync(
-        MailAccount account,
-        IReadOnlyList<IntelligenceMessageCandidate> batch,
-        CancellationToken cancellationToken)
-    {
-        var documents = new IntelligenceIndexDocumentRequest[batch.Count];
-        await Parallel.ForEachAsync(Enumerable.Range(0, batch.Count), new ParallelOptions
+        finally
         {
-            MaxDegreeOfParallelism = DocumentPreparationConcurrency,
-            CancellationToken = cancellationToken,
-        }, async (index, token) => documents[index] = await PrepareDocumentAsync(account, batch[index], token).ConfigureAwait(false)).ConfigureAwait(false);
-        return documents;
+            CryptographicOperations.ZeroMemory(envelope);
+        }
     }
 
     private async Task<IntelligenceIndexDocumentRequest> PrepareDocumentAsync(
@@ -754,32 +754,25 @@ public sealed class SemanticIndexCoordinator(
         IntelligenceMessageCandidate candidate,
         CancellationToken cancellationToken)
     {
-        var hasLocalMime = false;
-        foreach (var fileId in candidate.FileIds)
-        {
-            if (await mimeFileService.IsMimeExistAsync(account.Id, fileId).ConfigureAwait(false))
-            {
-                hasLocalMime = true;
-                break;
-            }
-        }
-
-        if (!hasLocalMime)
-        {
-            var cached = await localStore.GetPreparedDocumentAsync(account.Id, candidate.RemoteMessageId, cancellationToken).ConfigureAwait(false);
-            if (cached is not null)
-                return cached;
-        }
-
-        var content = await messageResolver.GetContentAsync(account.Id, candidate, cancellationToken).ConfigureAwait(false);
-        var from = content.From.Count > 0 ? content.From : [new MailAddress(candidate.Sender, candidate.SenderName)];
+        var content = await messageResolver.GetContentAsync(
+            account.Id,
+            candidate,
+            cancellationToken).ConfigureAwait(false);
+        var from = content.From.Count > 0
+            ? content.From
+            : [new MailAddress(candidate.Sender, candidate.SenderName)];
         var prepared = new MailContentProcessor(new HtmlContentSanitizer()).Prepare(
             from,
             candidate.Subject,
             content.Body,
             EmbeddingProfile.OpenAiTextEmbedding3Small768);
-        var senderAddresses = from.Select(x => x.Address).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-        var document = new IntelligenceIndexDocumentRequest
+        var senderAddresses = from
+            .Select(static address => address.Address)
+            .Where(static address => !string.IsNullOrWhiteSpace(address))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return new IntelligenceIndexDocumentRequest
         {
             ClientCorrelationId = candidate.UniqueId,
             ProviderMessageId = candidate.RemoteMessageId,
@@ -790,306 +783,93 @@ public sealed class SemanticIndexCoordinator(
             IsRead = candidate.IsRead,
             IsFlagged = candidate.IsFlagged,
             HasAttachments = candidate.HasAttachments,
-            IsDirectRecipient = content.ToRecipients.Any(x => string.Equals(x, account.Address, StringComparison.OrdinalIgnoreCase)),
+            IsDirectRecipient = content.ToRecipients.Any(address =>
+                string.Equals(address, account.Address, StringComparison.OrdinalIgnoreCase)),
             HasLaterOutgoingReply = candidate.HasLaterOutgoingReply,
             ProviderImportance = candidate.ProviderImportance,
             ProviderFolderIds = candidate.RemoteFolderIds,
             SenderAddresses = senderAddresses,
-            SenderDomains = senderAddresses.Select(x => x[(x.LastIndexOf('@') + 1)..]).Where(x => x.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
+            SenderDomains = senderAddresses
+                .Select(static address => address[(address.LastIndexOf('@') + 1)..])
+                .Where(static domain => domain.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray(),
         };
-        await localStore.SavePreparedDocumentAsync(account.Id, candidate.RemoteMessageId, document, cancellationToken).ConfigureAwait(false);
-        return document;
     }
 
-    private async Task DrainAutomaticQueueAsync(MailAccount account, Guid mailboxId, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<IntelligenceMessageCandidate>> ResolveCandidatesAsync(
+        Guid accountId,
+        IReadOnlyCollection<string> remoteMessageIds,
+        CancellationToken cancellationToken)
     {
-        var queue = _automaticQueues.GetOrAdd(account.Id, _ => new ConcurrentDictionary<string, byte>());
-        while (!queue.IsEmpty)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var requestedIds = queue.Keys.ToHashSet(StringComparer.Ordinal);
-            foreach (var id in requestedIds)
-                queue.TryRemove(id, out _);
-            var candidates = (await messageResolver.GetCandidatesAsync(account.Id, null, cancellationToken).ConfigureAwait(false))
-                .Where(x => requestedIds.Contains(x.RemoteMessageId)).ToArray();
-            var missingIds = (await apiClient.ResolveIntelligenceDeltaAsync(
-                mailboxId,
-                candidates.Select(candidate => candidate.RemoteMessageId).ToArray(),
-                cancellationToken).ConfigureAwait(false)).ToHashSet(StringComparer.Ordinal);
-            candidates = candidates.Where(candidate => missingIds.Contains(candidate.RemoteMessageId)).ToArray();
-            var winoAccount = await databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false)
-                ?? throw new InvalidOperationException("A Wino account is required for mail intelligence.");
-            foreach (var batch in candidates.Chunk(UploadBatchSize))
-            {
-                foreach (var candidate in batch)
-                    _messageStates[(account.Id, candidate.RemoteMessageId)] = SemanticMessageIndexState.Indexing;
-                SetSnapshot(new(account.Id, SemanticIndexJobStatus.Indexing, 0, candidates.Length));
-                var processed = await ProcessBatchAsync(
-                    account,
-                    winoAccount.Id,
-                    mailboxId,
-                    batch,
-                    embedding => SetSnapshot(new(
-                        account.Id,
-                        SemanticIndexJobStatus.Indexing,
-                        embedding.SucceededCount,
-                        candidates.Length,
-                        null,
-                        embedding.FailedCount)),
-                    metadata =>
-                    {
-                        var current = GetJobSnapshot(account.Id);
-                        SetSnapshot(current with
-                        {
-                            MetadataCompletedMessageCount = metadata.SucceededCount,
-                            MetadataFailedMessageCount = metadata.FailedCount,
-                        });
-                    },
-                    cancellationToken).ConfigureAwait(false);
-                var indexed = processed.IndexedRemoteMessageIds;
-                foreach (var candidate in batch)
-                    _messageStates[(account.Id, candidate.RemoteMessageId)] = indexed.Contains(candidate.RemoteMessageId)
-                        ? SemanticMessageIndexState.Indexed
-                        : SemanticMessageIndexState.Failed;
-            }
-            SetSnapshot(new(account.Id, SemanticIndexJobStatus.Completed, candidates.Length, candidates.Length));
-        }
-    }
-
-    private void QueueAutomaticMessage(Guid accountId, string remoteMessageId)
-    {
-        _automaticQueues.GetOrAdd(accountId, _ => new ConcurrentDictionary<string, byte>())[remoteMessageId] = 0;
-        _messageStates[(accountId, remoteMessageId)] = SemanticMessageIndexState.Queued;
-    }
-
-    private async Task EnsureAutomaticQueueDrainedAsync(MailAccount account, Guid mailboxId)
-    {
-        var queue = _automaticQueues.GetOrAdd(account.Id, _ => new ConcurrentDictionary<string, byte>());
-        while (!queue.IsEmpty)
-        {
-            if (jobRegistry.TryStart(
-                    account.Id,
-                    token => RunAutomaticQueueAsync(account, mailboxId, token),
-                    out var completion))
-            {
-                SetSnapshot(new(account.Id, SemanticIndexJobStatus.Queued, 0, queue.Count));
-            }
-
-            await completion.ConfigureAwait(false);
-        }
-    }
-
-    private async Task RunAutomaticQueueAsync(MailAccount account, Guid mailboxId, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await DrainAutomaticQueueAsync(account, mailboxId, cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            SetSnapshot(new(account.Id, SemanticIndexJobStatus.Cancelled, 0, 0));
-            throw;
-        }
-        catch (Exception exception)
-        {
-            SetSnapshot(new(account.Id, SemanticIndexJobStatus.Failed, 0, 0, exception.Message));
-        }
-    }
-
-    private async Task<SemanticIndexPlan> CalculatePlanCoreAsync(
-        MailAccount account,
-        SemanticIndexRangePreset preset,
-        DateTimeOffset? cutoffUtc,
-        DateTimeOffset? throughUtcExclusive,
-        bool automaticallyIndexNewMessages,
-        CancellationToken cancellationToken,
-        IReadOnlyList<SemanticIndexFolderCoverageRule>? coverageRules = null)
-    {
-        var folders = coverageRules is { Count: > 0 }
-            ? coverageRules.Select(rule => rule.RemoteFolderId).ToHashSet(StringComparer.Ordinal)
-            : await GetBackfillFolderIdsAsync(account, cancellationToken).ConfigureAwait(false);
-        var inventory = await messageResolver.GetCoverageInventoryAsync(account.Id, cancellationToken).ConfigureAwait(false);
-        var rules = (coverageRules is { Count: > 0 } ? coverageRules : account.Preferences.IntelligenceFolderCoverageRules.Values.ToArray())
-            .Where(rule => folders.Contains(rule.RemoteFolderId))
-            .ToArray();
-        if (rules.Length == 0)
-        {
-            rules = folders.Select(folder => SemanticIndexFolderCoverageRule.DateRange(folder, preset, cutoffUtc, throughUtcExclusive)).ToArray();
-        }
-        var selection = IntelligenceCoverageCalculator.Resolve(inventory, rules, DateTimeOffset.UtcNow);
-        var mailbox = await RequireMailboxAsync(account, cancellationToken).ConfigureAwait(false);
-        var missingIds = (await apiClient.ResolveIntelligenceDeltaAsync(
-            mailbox.MailboxId,
-            selection.ToRemoteMessageIds(),
-            cancellationToken).ConfigureAwait(false)).ToHashSet(StringComparer.Ordinal);
-        var folderPlans = selection.Folders.Select(folder =>
-        {
-            var eligibleIds = GetEligibleRemoteMessageIds(inventory, folder);
-            return new SemanticIndexFolderPlan(
-                rules.First(rule => string.Equals(rule.RemoteFolderId, folder.RemoteFolderId, StringComparison.Ordinal)),
-                folder.AvailableMessageCount,
-                folder.SelectedMessageCount,
-                eligibleIds.Count(missingIds.Contains),
-                eligibleIds);
-        }).ToArray();
-        var missing = missingIds.Count;
-        return new SemanticIndexPlan(
-            account.Id,
-            preset,
-            cutoffUtc,
-            throughUtcExclusive,
-            automaticallyIndexNewMessages,
-            // The messages the coverage rules actually select, not everything available in the
-            // chosen folders. RunBackfillAsync re-resolves from the database, so these counts are
-            // an estimate for display; the job itself is authoritative.
-            selection.DistinctSelectedCount,
-            missing,
-            TimeSpan.FromSeconds(missing * 0.6),
-            false,
-            rules,
-            folderPlans);
-    }
-
-    private static IReadOnlySet<string> GetEligibleRemoteMessageIds(
-        IntelligenceCoverageInventory inventory, IntelligenceFolderSelectionResult folder)
-    {
-        var indices = inventory.GetFolderIndices(folder.RemoteFolderId);
-        var ids = new HashSet<string>(folder.SelectedMessageCount, StringComparer.Ordinal);
-        for (var position = folder.SliceStart; position < folder.SliceEnd; position++)
-            ids.Add(inventory.RemoteMessageIds[indices[position]]);
-        return ids;
-    }
-
-    private async Task<IReadOnlySet<string>> GetBackfillFolderIdsAsync(MailAccount account, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (account.Preferences.IsIntelligenceFolderSelectionInitialized)
-            return account.Preferences.SelectedIntelligenceFolderIds;
-
-        var folders = await databaseService.Connection.Table<MailItemFolder>()
-            .Where(folder => folder.MailAccountId == account.Id && folder.SpecialFolderType == SpecialFolderType.Inbox)
-            .ToListAsync().ConfigureAwait(false);
-        return folders.Select(folder => folder.RemoteFolderId)
-            .Where(static id => !string.IsNullOrWhiteSpace(id))
-            .ToHashSet(StringComparer.Ordinal);
-    }
-
-    private async Task<SemanticIndexAccountState> GetStateCoreAsync(Guid localMailAccountId, CancellationToken cancellationToken)
-    {
-        var account = await RequireAccountAsync(localMailAccountId).ConfigureAwait(false);
-        var mailbox = await FindMailboxAsync(account, cancellationToken).ConfigureAwait(false);
-        if (mailbox is null && account.Preferences.IsSemanticIndexingEnabled)
-            mailbox = await apiClient.EnsureSemanticMailboxAsync(account.Address, (int)account.ProviderType, cancellationToken).ConfigureAwait(false);
-        if (mailbox is null)
-            return new(account.Preferences.IsSemanticIndexingEnabled, null, null, 0, 0, false, false, false);
-
-        var status = await apiClient.GetIntelligenceStatusAsync(mailbox.MailboxId, cancellationToken).ConfigureAwait(false);
-        var localRevision = await localStore.GetLastImportedRevisionAsync(account.Id, cancellationToken).ConfigureAwait(false);
-        var syntheticState = new SemanticMailboxIndexStateDto(
-            status.MailboxId,
-            status.ActiveEmbeddingModelId,
-            status.ActiveEmbeddingModelId,
-            0,
-            status.OldestReceivedAtUtc,
-            status.NewestReceivedAtUtc,
-            status.IndexedMessageCount,
-            status.StorageSizeBytes,
-            status.CurrentRevision,
-            DateTimeOffset.UtcNow);
-        var hasData = status.StorageSizeBytes > 0;
-        var canDownload = status.CurrentRevision > localRevision;
-        var isUpToDate = localRevision >= status.CurrentRevision;
-        var localIndexedMessageCount = isUpToDate
-            ? checked((int)Math.Min(status.IndexedMessageCount, int.MaxValue))
-            : 0;
-        return new(
-            account.Preferences.IsSemanticIndexingEnabled,
-            mailbox.MailboxId,
-            syntheticState,
-            localRevision,
-            0,
-            hasData,
-            isUpToDate,
-            canDownload,
-            localIndexedMessageCount,
-            null);
-    }
-
-    private async Task SaveProfileAsync(Guid mailboxId, SemanticIndexPlan plan, string status, CancellationToken cancellationToken)
-    {
-        var updatedAtUtc = DateTimeOffset.UtcNow;
-        if (status == "completed" && plan.ThroughUtcExclusive is not null)
-        {
-            var existing = (await localStore.GetJobIntentsAsync(cancellationToken).ConfigureAwait(false))
-                .SingleOrDefault(x => x.LocalAccountId == plan.LocalAccountId);
-            if (existing?.BackfillStatus == "in-progress" && existing.ThroughUtcExclusive == plan.ThroughUtcExclusive)
-                updatedAtUtc = existing.UpdatedAtUtc;
-        }
-
-        await localStore.SaveJobIntentAsync(new SemanticIndexJobIntent(
-            plan.LocalAccountId,
-            mailboxId,
-            plan.RangePreset,
-            plan.CutoffUtc,
-            plan.ThroughUtcExclusive,
-            plan.AutomaticallyIndexNewMessages,
-            status,
-            updatedAtUtc,
-            plan.ResolvedCoverageRules), cancellationToken).ConfigureAwait(false);
-    }
-
-    private async Task SaveLocalProfileAsync(Guid accountId, Guid mailboxId, IntelligenceIndexingProfileDto profile, CancellationToken cancellationToken)
-    {
-        var existing = (await localStore.GetJobIntentsAsync(cancellationToken).ConfigureAwait(false))
-            .SingleOrDefault(x => x.LocalAccountId == accountId && x.ServerMailboxId == mailboxId);
-        var preserveBoundedRange = existing?.ThroughUtcExclusive is not null;
-        await localStore.SaveJobIntentAsync(new SemanticIndexJobIntent(
+        var requested = NormalizeIds(remoteMessageIds).ToHashSet(StringComparer.Ordinal);
+        var candidates = await messageResolver.GetCandidatesAsync(
             accountId,
-            mailboxId,
-            SemanticIndexRangePresetExtensions.FromStableId(profile.RangePresetId),
-            profile.CutoffUtc,
-            preserveBoundedRange ? existing!.ThroughUtcExclusive : null,
-            profile.AutomaticallyIndexNewMessages,
-            profile.BackfillStatus,
-            preserveBoundedRange ? existing!.UpdatedAtUtc : profile.UpdatedAtUtc), cancellationToken).ConfigureAwait(false);
+            cutoffUtc: null,
+            cancellationToken).ConfigureAwait(false);
+
+        return candidates
+            .Where(candidate => requested.Contains(candidate.RemoteMessageId))
+            .DistinctBy(static candidate => candidate.RemoteMessageId, StringComparer.Ordinal)
+            .ToArray();
     }
 
     private async Task HandleSynchronizationCompletedAsync(AccountSynchronizationCompleted message)
     {
+        if (message.Result is SynchronizationCompletedState.Canceled or SynchronizationCompletedState.Failed)
+        {
+            ClearSynchronizedMails(message.AccountId);
+            return;
+        }
+
         try
         {
-            if (message.Result is SynchronizationCompletedState.Canceled or SynchronizationCompletedState.Failed)
-                return;
             if (!await localIntelligenceService.ShouldAutomaticallyProcessAsync(message.AccountId).ConfigureAwait(false))
             {
                 ClearSynchronizedMails(message.AccountId);
                 return;
             }
-            var account = await accountService.GetAccountAsync(message.AccountId).ConfigureAwait(false);
 
-            var synchronizedIds = TakeSynchronizedMailIds(account.Id);
-            if (synchronizedIds.Count == 0)
-            {
-                var intent = (await localStore.GetJobIntentsAsync().ConfigureAwait(false))
-                    .Single(x => x.LocalAccountId == message.AccountId);
-                var candidates = await messageResolver.GetCandidatesAsync(
-                    account.Id,
-                    intent.UpdatedAtUtc,
-                    throughUtcExclusive: null,
-                    CancellationToken.None).ConfigureAwait(false);
-                synchronizedIds = candidates.Select(static candidate => candidate.RemoteMessageId).ToArray();
-            }
-            if (synchronizedIds.Count == 0)
+            var ids = TakeSynchronizedMailIds(message.AccountId);
+            if (ids.Count == 0)
                 return;
 
-            var mailbox = await RequireMailboxAsync(account, CancellationToken.None).ConfigureAwait(false);
-            foreach (var remoteMessageId in synchronizedIds)
-                QueueAutomaticMessage(account.Id, remoteMessageId);
-            _ = EnsureAutomaticQueueDrainedAsync(account, mailbox.MailboxId);
+            var queue = _automaticQueues.GetOrAdd(
+                message.AccountId,
+                static _ => new ConcurrentDictionary<string, byte>(StringComparer.Ordinal));
+            foreach (var id in ids)
+                queue[id] = 0;
+
+            await EnsureAutomaticQueueDrainedAsync(message.AccountId).ConfigureAwait(false);
         }
         catch
         {
-            // Background synchronization must not fail because intelligence is unavailable.
+            // Intelligence must never fail mail synchronization.
+        }
+    }
+
+    private async Task EnsureAutomaticQueueDrainedAsync(Guid accountId)
+    {
+        while (_automaticQueues.TryGetValue(accountId, out var queue) && !queue.IsEmpty)
+        {
+            var account = await RequireAccountAsync(accountId).ConfigureAwait(false);
+
+            if (jobRegistry.TryStart(accountId, token => DrainAutomaticQueueAsync(account, token), out var completion))
+                SetSnapshot(new(accountId, SemanticIndexJobStatus.Queued, 0, queue.Count));
+
+            await completion.ConfigureAwait(false);
+        }
+    }
+
+    private async Task DrainAutomaticQueueAsync(MailAccount account, CancellationToken cancellationToken)
+    {
+        while (_automaticQueues.TryGetValue(account.Id, out var queue) && !queue.IsEmpty)
+        {
+            var ids = queue.Keys.ToArray();
+            foreach (var id in ids)
+                queue.TryRemove(id, out _);
+
+            await RunIndexingAsync(account, ids, false, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -1103,7 +883,8 @@ public sealed class SemanticIndexCoordinator(
             if (mail.AssignedAccount is not { } account || RemoteMessageIdentity.TryCreate(mail) is not { } remoteMessageId)
                 continue;
 
-            _synchronizedMailQueues.GetOrAdd(account.Id, static _ => new ConcurrentDictionary<string, byte>())[remoteMessageId] = 0;
+            _synchronizedMailQueues
+                .GetOrAdd(account.Id, static _ => new ConcurrentDictionary<string, byte>(StringComparer.Ordinal))[remoteMessageId] = 0;
         }
     }
 
@@ -1115,6 +896,7 @@ public sealed class SemanticIndexCoordinator(
         var ids = queue.Keys.ToArray();
         foreach (var id in ids)
             queue.TryRemove(id, out _);
+
         return ids;
     }
 
@@ -1124,31 +906,80 @@ public sealed class SemanticIndexCoordinator(
             queue.Clear();
     }
 
-    private void SetSnapshot(SemanticIndexJobSnapshot snapshot)
+    private async Task<SemanticIndexAccountState> GetStateCoreAsync(
+        Guid localMailAccountId,
+        CancellationToken cancellationToken)
     {
-        _snapshots[snapshot.LocalAccountId] = snapshot;
-        WeakReferenceMessenger.Default.Send(new SemanticIndexJobChanged(snapshot.LocalAccountId, snapshot));
+        var account = await RequireAccountAsync(localMailAccountId).ConfigureAwait(false);
+        var mailbox = await FindMailboxAsync(account, cancellationToken).ConfigureAwait(false);
+        if (mailbox is null && account.Preferences.IsSemanticIndexingEnabled)
+        {
+            mailbox = await apiClient.EnsureSemanticMailboxAsync(
+                account.Address,
+                (int)account.ProviderType,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        if (mailbox is null)
+            return new(account.Preferences.IsSemanticIndexingEnabled, null, null, 0, 0, false, false, false);
+
+        var status = await apiClient.GetIntelligenceStatusAsync(
+            mailbox.MailboxId,
+            cancellationToken).ConfigureAwait(false);
+        var candidates = await messageResolver.GetCandidatesAsync(
+            account.Id,
+            cutoffUtc: null,
+            cancellationToken).ConfigureAwait(false);
+        var artifacts = await localStore.GetCurrentArtifactsAsync(
+            account.Id,
+            candidates.Select(static candidate => candidate.RemoteMessageId).ToArray(),
+            cancellationToken).ConfigureAwait(false);
+        var localCoveredCount = artifacts.Count(static pair => pair.Value.Any(static artifact => !artifact.IsDeleted));
+        var hasServerData = status.IndexedMessageCount > 0 || status.StorageSizeBytes > 0;
+        var isUpToDate = localCoveredCount >= status.IndexedMessageCount;
+        var syntheticState = new SemanticMailboxIndexStateDto(
+            status.MailboxId,
+            status.ActiveEmbeddingModelId,
+            status.ActiveEmbeddingModelId,
+            0,
+            status.OldestReceivedAtUtc,
+            status.NewestReceivedAtUtc,
+            status.IndexedMessageCount,
+            status.StorageSizeBytes,
+            status.CurrentRevision,
+            DateTimeOffset.UtcNow);
+
+        return new(
+            account.Preferences.IsSemanticIndexingEnabled,
+            mailbox.MailboxId,
+            syntheticState,
+            localCoveredCount,
+            0,
+            hasServerData,
+            isUpToDate,
+            hasServerData && !isUpToDate,
+            localCoveredCount,
+            null);
     }
 
-    private sealed record PreparedDocumentWork(
-        IntelligenceMessageCandidate Candidate,
-        IntelligenceIndexDocumentRequest Document);
-    private sealed record PipelineBatchResult(
-        int SucceededCount,
-        int FailedCount,
-        IReadOnlySet<Guid> SucceededMessageIds);
-    private sealed record BatchProcessingResult(IReadOnlySet<string> IndexedRemoteMessageIds);
-
-    private async Task<SemanticMailboxDto?> FindMailboxAsync(MailAccount account, CancellationToken cancellationToken)
+    private async Task<SemanticMailboxDto?> FindMailboxAsync(
+        MailAccount account,
+        CancellationToken cancellationToken)
     {
         var mailboxes = await apiClient.GetSemanticMailboxesAsync(cancellationToken).ConfigureAwait(false);
-        return mailboxes.SingleOrDefault(x => x.ProviderType == (int)account.ProviderType &&
-            string.Equals(x.Address.Trim(), account.Address.Trim(), StringComparison.OrdinalIgnoreCase));
+        return mailboxes.SingleOrDefault(mailbox =>
+            mailbox.ProviderType == (int)account.ProviderType &&
+            string.Equals(mailbox.Address.Trim(), account.Address.Trim(), StringComparison.OrdinalIgnoreCase));
     }
 
-    private async Task<SemanticMailboxDto> RequireMailboxAsync(MailAccount account, CancellationToken cancellationToken)
+    private async Task<SemanticMailboxDto> RequireMailboxAsync(
+        MailAccount account,
+        CancellationToken cancellationToken)
         => await FindMailboxAsync(account, cancellationToken).ConfigureAwait(false)
-            ?? await apiClient.EnsureSemanticMailboxAsync(account.Address, (int)account.ProviderType, cancellationToken).ConfigureAwait(false);
+            ?? await apiClient.EnsureSemanticMailboxAsync(
+                account.Address,
+                (int)account.ProviderType,
+                cancellationToken).ConfigureAwait(false);
 
     private byte[] EncryptRequest<T>(
         T request,
@@ -1158,6 +989,7 @@ public sealed class SemanticIndexCoordinator(
         string route)
     {
         var plaintext = JsonSerializer.SerializeToUtf8Bytes(request, typeInfo);
+
         try
         {
             var encrypted = envelopeEncryptor.Encrypt(
@@ -1165,6 +997,7 @@ public sealed class SemanticIndexCoordinator(
                 new ContentEnvelopeContext(winoUserId, mailboxId, route),
                 Guid.NewGuid(),
                 DateTimeOffset.UtcNow);
+
             try
             {
                 return ContentEnvelopeBinaryCodec.Encode(encrypted);
@@ -1187,8 +1020,10 @@ public sealed class SemanticIndexCoordinator(
         => await accountService.GetAccountAsync(accountId).ConfigureAwait(false)
             ?? throw new InvalidOperationException("The mail account no longer exists.");
 
-    private static bool IsNarrower(DateTimeOffset? existingCutoff, DateTimeOffset? newCutoff)
-        => newCutoff is not null && (existingCutoff is null || newCutoff > existingCutoff);
+    private SemanticMessageIndexState GetMessageState(Guid accountId, IntelligenceMessageCandidate candidate)
+        => _messageStates.TryGetValue((accountId, candidate.RemoteMessageId), out var state)
+            ? state
+            : SemanticMessageIndexState.NotIndexed;
 
     private static DateTimeOffset ToUtc(DateTime value) => value.Kind switch
     {
@@ -1197,4 +1032,36 @@ public sealed class SemanticIndexCoordinator(
         _ => new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc)),
     };
 
+    private void SetSnapshot(SemanticIndexJobSnapshot snapshot)
+    {
+        _snapshots[snapshot.LocalAccountId] = snapshot;
+        messenger.Send(new SemanticIndexJobChanged(snapshot.LocalAccountId, snapshot));
+    }
+
+    private void ClearAccountState(Guid accountId)
+    {
+        _snapshots.TryRemove(accountId, out _);
+        _automaticQueues.TryRemove(accountId, out _);
+        _synchronizedMailQueues.TryRemove(accountId, out _);
+
+        foreach (var key in _messageStates.Keys.Where(key => key.AccountId == accountId))
+            _messageStates.TryRemove(key, out _);
+    }
+
+    private static string[] NormalizeIds(IEnumerable<string> remoteMessageIds)
+        => remoteMessageIds
+            .Where(static id => !string.IsNullOrWhiteSpace(id))
+            .Select(static id => id.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+    private sealed record PreparedDocument(
+        IntelligenceMessageCandidate Candidate,
+        IntelligenceIndexDocumentRequest Document);
+
+    private sealed record ReconciliationRunResult(
+        IReadOnlySet<string> CoveredRemoteMessageIds,
+        int RestoredArtifactCount,
+        int UploadedCount,
+        int FailedCount);
 }

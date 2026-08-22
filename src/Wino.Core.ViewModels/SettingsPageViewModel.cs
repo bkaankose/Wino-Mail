@@ -75,6 +75,8 @@ public partial class SettingsPageViewModel : CoreBaseViewModel
                 return Translator.ImapCalDavSettingsPage_Subtitle;
             case WinoPage.WinoIntelligenceManagementPage:
                 return Translator.SemanticIndex_PageDescription;
+            case WinoPage.IntelligenceCoveragePage:
+                return Translator.SemanticIndex_CoverageEditorPageDescription;
             case WinoPage.WinoIntelligencePage:
                 return Translator.WinoIntelligence_SettingsDescription;
             case WinoPage.ProviderSelectionPage:

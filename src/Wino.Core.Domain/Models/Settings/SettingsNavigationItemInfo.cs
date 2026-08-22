@@ -159,6 +159,7 @@ public static class SettingsNavigationInfoProvider
             WinoPage.AccountManagementPage => Translator.SettingsManageAccountSettings_Title,
             WinoPage.WinoAccountManagementPage => Translator.WinoAccount_SettingsSection_Title,
             WinoPage.WinoIntelligencePage => Translator.WinoIntelligence_SettingsTitle,
+            WinoPage.IntelligenceCoveragePage => Translator.SemanticIndex_CoverageEditorTitle,
             WinoPage.PersonalizationPage => Translator.SettingsPersonalization_Title,
             WinoPage.AboutPage => Translator.SettingsAbout_Title,
             WinoPage.MessageListPage => Translator.SettingsMessageList_Title,

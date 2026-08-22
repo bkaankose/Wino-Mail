@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Reflection;
 using FluentAssertions;
 using Microsoft.Kiota.Abstractions;
+using Microsoft.Graph.Models;
 using Moq;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
@@ -10,6 +11,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Calendar;
@@ -61,6 +63,69 @@ public sealed class OutlookSynchronizerRequestSuccessTests
         await InvokeHandleSuccessfulResponseAsync(synchronizer, bundle, response);
 
         changeProcessor.Verify(x => x.ChangeFlagStatusAsync("mail-id", true), Times.Once);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task HandleSuccessfulResponseAsync_MoveToFocusedRequest_PersistsLocalFocusedState(bool moveToFocused)
+    {
+        var changeProcessor = new Mock<IOutlookChangeProcessor>(MockBehavior.Strict);
+        changeProcessor
+            .Setup(x => x.ApplyMailStateUpdatesAsync(It.IsAny<IEnumerable<MailCopyStateUpdate>>()))
+            .Returns(Task.CompletedTask);
+
+        var synchronizer = CreateSynchronizer(changeProcessor.Object);
+        var request = new MoveToFocusedRequest(CreateMailCopy(), moveToFocused);
+        var bundle = new HttpRequestBundle<RequestInformation>(new RequestInformation(), request, request);
+        using var response = new HttpResponseMessage(HttpStatusCode.NoContent)
+        {
+            Content = new StringContent(string.Empty)
+        };
+
+        await InvokeHandleSuccessfulResponseAsync(synchronizer, bundle, response);
+
+        changeProcessor.Verify(x => x.ApplyMailStateUpdatesAsync(
+            It.Is<IEnumerable<MailCopyStateUpdate>>(updates =>
+                updates.Single() == new MailCopyStateUpdate("mail-id", null, null, moveToFocused))),
+            Times.Once);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task HandleItemRetrievedAsync_ExistingMail_PersistsFocusedState(bool isFocused)
+    {
+        var changeProcessor = new Mock<IOutlookChangeProcessor>(MockBehavior.Strict);
+        var folder = new MailItemFolder
+        {
+            Id = Guid.NewGuid(),
+            RemoteFolderId = "inbox",
+            FolderName = "Inbox"
+        };
+
+        changeProcessor
+            .Setup(x => x.IsMailExistsInFolderAsync("mail-id", folder.Id))
+            .ReturnsAsync(true);
+        changeProcessor
+            .Setup(x => x.ApplyMailStateUpdatesAsync(It.IsAny<IEnumerable<MailCopyStateUpdate>>()))
+            .Returns(Task.CompletedTask);
+
+        var synchronizer = CreateSynchronizer(changeProcessor.Object);
+        var message = new Message
+        {
+            Id = "mail-id",
+            InferenceClassification = isFocused
+                ? InferenceClassificationType.Focused
+                : InferenceClassificationType.Other
+        };
+
+        await InvokeHandleItemRetrievedAsync(synchronizer, message, folder);
+
+        changeProcessor.Verify(x => x.ApplyMailStateUpdatesAsync(
+            It.Is<IEnumerable<MailCopyStateUpdate>>(updates =>
+                updates.Single() == new MailCopyStateUpdate("mail-id", null, null, isFocused))),
+            Times.Once);
     }
 
     [Theory]
@@ -197,5 +262,23 @@ public sealed class OutlookSynchronizerRequestSuccessTests
         var task = method!.Invoke(synchronizer, [bundle, response]) as Task;
         task.Should().NotBeNull();
         await task!;
+    }
+
+    private static async Task InvokeHandleItemRetrievedAsync(
+        OutlookSynchronizer synchronizer,
+        Message message,
+        MailItemFolder folder)
+    {
+        var method = typeof(OutlookSynchronizer).GetMethod(
+            "HandleItemRetrievedAsync",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        method.Should().NotBeNull();
+
+        var task = method!.Invoke(
+            synchronizer,
+            [message, folder, new List<string>(), CancellationToken.None]) as Task<bool>;
+        task.Should().NotBeNull();
+        (await task!).Should().BeTrue();
     }
 }

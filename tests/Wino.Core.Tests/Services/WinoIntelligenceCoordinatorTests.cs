@@ -6,7 +6,6 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.SemanticIndexing;
 using Wino.Mail.Api.Contracts.Billing;
-using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.AI.ContentProcessing;
 using Wino.Mail.Contracts.Intelligence;
@@ -36,20 +35,16 @@ public sealed class WinoIntelligenceCoordinatorTests
         bool expectedProcessing)
     {
         var localAccountId = Guid.NewGuid();
+        var winoAccountId = Guid.NewGuid();
         var mailboxId = Guid.NewGuid();
         var profile = new Mock<IWinoAccountProfileService>();
-        profile.Setup(x => x.GetAuthenticatedAccountAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(authenticated ? new WinoAccount { Id = Guid.NewGuid() } : null);
-        var billing = new Mock<IWinoBillingService>();
-        billing.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
-            ApiEnvelope<BillingStatusResultDto>.Success(new BillingStatusResultDto(
-                false,
-                new AiPackBillingStatusDto("active", hasAiPack, null, null, null, false))));
-        var api = new Mock<IWinoAccountApiClient>();
-        api.Setup(x => x.GetIntelligenceConsentAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
-            IntelligenceConsent(intelligenceConsent));
-        api.Setup(x => x.GetSemanticMailboxesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
-            [new SemanticMailboxDto(mailboxId, "mail@example.test", (int)providerType, null)]);
+        profile.Setup(x => x.GetActiveAccountAsync())
+            .ReturnsAsync(authenticated ? new WinoAccount { Id = winoAccountId } : null);
+        var api = new Mock<IWinoAccountApiClient>(MockBehavior.Strict);
+        var accountSnapshotService = new Mock<IWinoAccountIntelligenceSnapshotService>();
+        accountSnapshotService
+            .Setup(x => x.GetCachedAsync(winoAccountId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(AccountSnapshot(winoAccountId, hasAiPack, intelligenceConsent, mailboxId, providerType));
         var resolver = new Mock<IIntelligenceMessageContextResolver>();
         resolver.Setup(x => x.FindCandidateAsync(localAccountId, "provider-message", It.IsAny<CancellationToken>()))
             .ReturnsAsync(Candidate());
@@ -60,7 +55,6 @@ public sealed class WinoIntelligenceCoordinatorTests
 
         using var coordinator = new WinoIntelligenceCoordinator(
             profile.Object,
-            billing.Object,
             api.Object,
             semantic.Object,
             resolver.Object,
@@ -73,7 +67,8 @@ public sealed class WinoIntelligenceCoordinatorTests
             Mock.Of<IWinoLogger>(),
             Mock.Of<IIntelligenceBackend>(),
             Mock.Of<IContentEnvelopeEncryptor>(),
-            new MailContentProjector());
+            new MailContentProjector(),
+            accountSnapshotService.Object);
 
         var snapshot = await coordinator.GetSnapshotAsync(new WinoIntelligenceContext(
             "content", localAccountId, Guid.NewGuid(), Guid.NewGuid(), "provider-message",
@@ -86,44 +81,101 @@ public sealed class WinoIntelligenceCoordinatorTests
         snapshot.IsProcessingAvailable.Should().Be(expectedProcessing);
         snapshot.IsSuggestedRepliesAvailable.Should().Be(expectedProcessing);
         snapshot.IsFindSimilarAvailable.Should().Be(expectedProcessing);
+        api.VerifyNoOtherCalls();
     }
 
     [Fact]
     public async Task Snapshot_RejectsOutdatedConsentActionsButKeepsAddonHeaderVisible()
     {
         var localAccountId = Guid.NewGuid();
+        var winoAccountId = Guid.NewGuid();
         var profile = new Mock<IWinoAccountProfileService>();
-        profile.Setup(x => x.GetAuthenticatedAccountAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new WinoAccount { Id = Guid.NewGuid() });
-        var billing = new Mock<IWinoBillingService>();
-        billing.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
-            ApiEnvelope<BillingStatusResultDto>.Success(new BillingStatusResultDto(
-                false, new AiPackBillingStatusDto("active", true, null, null, null, false))));
-        var api = new Mock<IWinoAccountApiClient>();
-        api.Setup(x => x.GetIntelligenceConsentAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
-            new IntelligenceConsentDto(ConsentStatuses.Active, "intelligence-v2", "intelligence-v1", DateTimeOffset.UtcNow, null,
-                "https://example.test/privacy", IntelligenceDeletionStatuses.NotRequired));
-        api.Setup(x => x.GetSemanticMailboxesAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        profile.Setup(x => x.GetActiveAccountAsync()).ReturnsAsync(new WinoAccount { Id = winoAccountId });
+        var api = new Mock<IWinoAccountApiClient>(MockBehavior.Strict);
+        var accountSnapshotService = new Mock<IWinoAccountIntelligenceSnapshotService>();
+        accountSnapshotService
+            .Setup(x => x.GetCachedAsync(winoAccountId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WinoAccountIntelligenceSnapshot(
+                winoAccountId,
+                BillingStatus(hasAccess: true),
+                new IntelligenceConsentDto(ConsentStatuses.Active, "intelligence-v2", "intelligence-v1",
+                    DateTimeOffset.UtcNow, null, "https://example.test/privacy", IntelligenceDeletionStatuses.NotRequired),
+                null,
+                [],
+                new Dictionary<Guid, IntelligenceMailboxStatusDto>(),
+                null, null, null, null, null, null));
 
-        using var coordinator = CreateCoordinator(profile, billing, api);
+        using var coordinator = CreateCoordinator(profile, api, accountSnapshotService.Object);
         var snapshot = await coordinator.GetSnapshotAsync(Context(localAccountId));
 
         snapshot.IsVisible.Should().BeTrue();
         snapshot.IsSummaryAvailable.Should().BeFalse();
         snapshot.IsTranslateAvailable.Should().BeFalse();
         snapshot.IsProcessingAvailable.Should().BeFalse();
+        api.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task Snapshot_WithNoLocalAccessSnapshot_DoesNotCallAccountApi()
+    {
+        var localAccountId = Guid.NewGuid();
+        var winoAccountId = Guid.NewGuid();
+        var profile = new Mock<IWinoAccountProfileService>();
+        profile.Setup(x => x.GetActiveAccountAsync()).ReturnsAsync(new WinoAccount { Id = winoAccountId });
+        var api = new Mock<IWinoAccountApiClient>(MockBehavior.Strict);
+        var accountSnapshotService = new Mock<IWinoAccountIntelligenceSnapshotService>();
+        accountSnapshotService
+            .Setup(x => x.GetCachedAsync(winoAccountId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((WinoAccountIntelligenceSnapshot?)null);
+        var localStore = new Mock<ILocalIntelligenceStore>();
+        localStore
+            .Setup(x => x.GetAccessSnapshotAsync(localAccountId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LocalIntelligenceAccessSnapshot?)null);
+
+        using var coordinator = new WinoIntelligenceCoordinator(
+            profile.Object, api.Object, Mock.Of<ISemanticIndexCoordinator>(),
+            Mock.Of<IIntelligenceMessageContextResolver>(), localStore.Object,
+            Mock.Of<IMimeFileService>(), Mock.Of<IMailService>(), Mock.Of<IAccountService>(),
+            Mock.Of<IWinoRequestDelegator>(), Mock.Of<ITranslationService>(), Mock.Of<IWinoLogger>(),
+            Mock.Of<IIntelligenceBackend>(), Mock.Of<IContentEnvelopeEncryptor>(), new MailContentProjector(),
+            accountSnapshotService.Object);
+
+        var snapshot = await coordinator.GetSnapshotAsync(Context(localAccountId));
+
+        snapshot.Should().Be(WinoIntelligenceSnapshot.Hidden);
+        profile.Verify(x => x.GetAuthenticatedAccountAsync(It.IsAny<CancellationToken>()), Times.Never);
+        api.VerifyNoOtherCalls();
     }
 
     private static WinoIntelligenceCoordinator CreateCoordinator(
         Mock<IWinoAccountProfileService> profile,
-        Mock<IWinoBillingService> billing,
-        Mock<IWinoAccountApiClient> api)
+        Mock<IWinoAccountApiClient> api,
+        IWinoAccountIntelligenceSnapshotService accountSnapshotService)
         => new(
-            profile.Object, billing.Object, api.Object, Mock.Of<ISemanticIndexCoordinator>(),
+            profile.Object, api.Object, Mock.Of<ISemanticIndexCoordinator>(),
             Mock.Of<IIntelligenceMessageContextResolver>(), Mock.Of<ILocalIntelligenceStore>(),
             Mock.Of<IMimeFileService>(), Mock.Of<IMailService>(), Mock.Of<IAccountService>(),
             Mock.Of<IWinoRequestDelegator>(), Mock.Of<ITranslationService>(), Mock.Of<IWinoLogger>(),
-            Mock.Of<IIntelligenceBackend>(), Mock.Of<IContentEnvelopeEncryptor>(), new MailContentProjector());
+            Mock.Of<IIntelligenceBackend>(), Mock.Of<IContentEnvelopeEncryptor>(), new MailContentProjector(),
+            accountSnapshotService);
+
+    private static WinoAccountIntelligenceSnapshot AccountSnapshot(
+        Guid winoAccountId,
+        bool hasAiPack,
+        bool intelligenceConsent,
+        Guid mailboxId,
+        MailProviderType providerType)
+        => new(
+            winoAccountId,
+            BillingStatus(hasAiPack),
+            IntelligenceConsent(intelligenceConsent),
+            null,
+            [new SemanticMailboxDto(mailboxId, "mail@example.test", (int)providerType, null)],
+            new Dictionary<Guid, IntelligenceMailboxStatusDto>(),
+            null, null, null, null, null, null);
+
+    private static BillingStatusResultDto BillingStatus(bool hasAccess)
+        => new(false, new AiPackBillingStatusDto("active", hasAccess, null, null, null, false));
 
     private static WinoIntelligenceContext Context(Guid localAccountId)
         => new("content", localAccountId, Guid.NewGuid(), Guid.NewGuid(), "provider-message",

@@ -21,8 +21,8 @@ internal static class ConsoleOutput
         {
             SemanticIndexJobStatus.Completed => ConsoleColor.Green,
             SemanticIndexJobStatus.Failed or SemanticIndexJobStatus.Cancelled => ConsoleColor.Red,
-            SemanticIndexJobStatus.PausedForQuota or SemanticIndexJobStatus.PausedForSynchronization => ConsoleColor.Yellow,
-            SemanticIndexJobStatus.Indexing => ConsoleColor.Cyan,
+            SemanticIndexJobStatus.PausedForQuota => ConsoleColor.Yellow,
+            SemanticIndexJobStatus.Indexing or SemanticIndexJobStatus.GeneratingInsights => ConsoleColor.Cyan,
             _ => ConsoleColor.Gray,
         };
         WriteLine(text, color);

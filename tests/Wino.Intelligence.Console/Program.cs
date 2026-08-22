@@ -39,7 +39,8 @@ internal static class Program
             return 0;
         }
 
-        var apiEnvironment = options.Stress?.Environment ?? SelectApiEnvironment();
+        var apiEnvironment = options.Stress?.Environment ??
+            (options.IndexAccountAddress is null ? SelectApiEnvironment() : ApiEnvironment.Local);
         var apiUri = GetApiUri(apiEnvironment);
         var stressRunId = options.Stress is null ? null : $"{DateTimeOffset.UtcNow:yyyyMMddTHHmmssZ}-{Guid.NewGuid():N}"[..32];
         var paths = ResolvePaths(options);
@@ -72,6 +73,16 @@ internal static class Program
             if (options.DailyBriefingAddress is not null)
             {
                 return await RunDailyBriefingAsync(services, options.DailyBriefingAddress,
+                    cancellation.Token).ConfigureAwait(false);
+            }
+            if (options.IndexAccountAddress is not null)
+            {
+                return await RunIndexDiagnosticAsync(
+                    services,
+                    options.IndexAccountAddress,
+                    options.IndexFolderName ?? "Inbox",
+                    options.IndexMessageCount,
+                    options.ResetIntelligence,
                     cancellation.Token).ConfigureAwait(false);
             }
 
@@ -149,7 +160,11 @@ internal static class Program
             HttpMessageHandler transport = handler;
             if (stressOptions is not null)
                 transport = new StressMeasurementHandler(handler, stressRunId!);
-            return new HttpClient(transport) { BaseAddress = apiUri };
+            return new HttpClient(transport)
+            {
+                BaseAddress = apiUri,
+                Timeout = TimeSpan.FromMinutes(10),
+            };
         });
         serviceCollection.AddSingleton<IWinoAccountApiClient>(provider =>
         {
@@ -176,9 +191,10 @@ internal static class Program
     private static async Task InitializeServicesAsync(IServiceProvider services, CancellationToken cancellationToken)
     {
         await services.GetRequiredService<IDatabaseService>().InitializeAsync().ConfigureAwait(false);
+        await services.GetRequiredService<ILocalIntelligenceStore>().InitializeAsync().ConfigureAwait(false);
         await services.GetRequiredService<ITranslationService>().InitializeAsync().ConfigureAwait(false);
         await services.GetRequiredService<SynchronizationManagerInitializer>().InitializeAsync().ConfigureAwait(false);
-        await services.GetRequiredService<ISemanticIndexCoordinator>().InitializeAsync(cancellationToken).ConfigureAwait(false);
+        await services.GetRequiredService<ISemanticIndexCoordinator>().InitializeAsync().ConfigureAwait(false);
     }
 
     private static async Task<int> RunAsync(IServiceProvider services, CancellationToken cancellationToken)
@@ -287,6 +303,89 @@ internal static class Program
 
         ConsoleOutput.Warning("Expected briefing facts are missing for one or both days.");
         return 1;
+    }
+
+    private static async Task<int> RunIndexDiagnosticAsync(
+        IServiceProvider services,
+        string address,
+        string folderName,
+        int messageCount,
+        bool resetIntelligence,
+        CancellationToken cancellationToken)
+    {
+        var accountService = services.GetRequiredService<IAccountService>();
+        var coordinator = services.GetRequiredService<ISemanticIndexCoordinator>();
+        var apiClient = services.GetRequiredService<IWinoAccountApiClient>();
+        var authenticationProvider = services.GetRequiredService<IAuthenticationProvider>();
+        var messageResolver = services.GetRequiredService<IIntelligenceMessageContextResolver>();
+        var folderService = services.GetRequiredService<IFolderService>();
+        var accounts = await accountService.GetAccountsAsync().ConfigureAwait(false);
+        var account = accounts.FirstOrDefault(item =>
+            string.Equals(item.Address.Trim(), address.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (account is null)
+        {
+            ConsoleOutput.Error($"Account was not found in Wino200.db: {address}");
+            return 1;
+        }
+
+        if (!IsSupportedAccount(account))
+        {
+            ConsoleOutput.Error($"The diagnostic currently supports Outlook accounts only: {address}");
+            return 1;
+        }
+
+        if (resetIntelligence)
+        {
+            ConsoleOutput.Warning("Deleting all local and server intelligence for this account...");
+            await coordinator.DeleteIndexAsync(account.Id, cancellationToken).ConfigureAwait(false);
+            account.Preferences.IsSemanticIndexingEnabled = true;
+            await accountService.UpdateAccountAsync(account).ConfigureAwait(false);
+            ConsoleOutput.Success("All intelligence data was deleted. Intelligence was enabled for the test run.");
+        }
+
+        var folders = await folderService.GetFoldersAsync(account.Id).ConfigureAwait(false);
+        var folder = folders.FirstOrDefault(item =>
+            string.Equals(item.FolderName, folderName, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(item.RemoteFolderId, folderName, StringComparison.OrdinalIgnoreCase));
+        if (folder is null)
+        {
+            ConsoleOutput.Error($"Folder was not found: {folderName}");
+            return 1;
+        }
+
+        if (!await EnsureIntelligenceEnabledAsync(
+                account, accountService, coordinator, apiClient, cancellationToken).ConfigureAwait(false) ||
+            !await EnsureOutlookAuthenticationAsync(account, authenticationProvider).ConfigureAwait(false))
+        {
+            return 1;
+        }
+
+        var selectionTimer = System.Diagnostics.Stopwatch.StartNew();
+        var candidates = await messageResolver.GetCandidatesAsync(
+            account.Id, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var remoteMessageIds = candidates
+            .Where(candidate => candidate.RemoteFolderIds.Contains(folder.RemoteFolderId, StringComparer.Ordinal))
+            .OrderByDescending(static candidate => candidate.ReceivedAt)
+            .Select(static candidate => candidate.RemoteMessageId)
+            .Distinct(StringComparer.Ordinal)
+            .Take(messageCount)
+            .ToArray();
+        selectionTimer.Stop();
+
+        ConsoleOutput.Header($"\nIndex diagnostic: {account.Address}");
+        System.Console.WriteLine($"  Folder: {folder.FolderName} ({folder.RemoteFolderId})");
+        System.Console.WriteLine($"  Selected: {remoteMessageIds.Length:N0}");
+        System.Console.WriteLine($"  Selection elapsed: {selectionTimer.Elapsed.TotalSeconds:0.00}s");
+        if (remoteMessageIds.Length == 0)
+            return 1;
+
+        var totalTimer = System.Diagnostics.Stopwatch.StartNew();
+        await coordinator.StartIndexingAsync(account.Id, remoteMessageIds, cancellationToken).ConfigureAwait(false);
+        var completed = await MonitorJobAsync(account.Id, coordinator, cancellationToken).ConfigureAwait(false);
+        totalTimer.Stop();
+        System.Console.WriteLine($"  Total elapsed: {totalTimer.Elapsed.TotalSeconds:0.00}s");
+        System.Console.WriteLine($"  Average: {totalTimer.Elapsed.TotalSeconds / remoteMessageIds.Length:0.00}s/message");
+        return completed ? 0 : 1;
     }
 
     private static async Task<int> CountStoredBriefingFactsAsync(
@@ -436,7 +535,7 @@ internal static class Program
                         break;
 
                     await StartIndexingAsync(
-                        account, accountService, coordinator, apiClient, authenticationProvider, range, cancellationToken)
+                        account, accountService, coordinator, apiClient, messageResolver, authenticationProvider, range, cancellationToken)
                         .ConfigureAwait(false);
                     break;
                 }
@@ -485,7 +584,7 @@ internal static class Program
                         account, coordinator, apiClient, messageResolver, cancellationToken).ConfigureAwait(false);
                     if (rebuildRange is not null)
                         await StartIndexingAsync(
-                            account, accountService, coordinator, apiClient, authenticationProvider, rebuildRange, cancellationToken)
+                            account, accountService, coordinator, apiClient, messageResolver, authenticationProvider, rebuildRange, cancellationToken)
                             .ConfigureAwait(false);
                     break;
                 case "7":
@@ -521,14 +620,13 @@ internal static class Program
                     if (verificationRange is null)
                         break;
 
-                    var verificationPlan = await coordinator.CalculatePlanAsync(
+                    await VerifyLocalMetadataAsync(
                         account.Id,
                         verificationRange.CutoffUtc,
                         verificationRange.ThroughUtcExclusive,
-                        verificationRange.AutomaticallyIndexNewMessages,
+                        messageResolver,
+                        localStore,
                         cancellationToken).ConfigureAwait(false);
-                    await VerifyLocalMetadataAsync(
-                        account.Id, verificationPlan, messageResolver, localStore, cancellationToken).ConfigureAwait(false);
                     break;
                 }
                 case "0":
@@ -602,9 +700,10 @@ internal static class Program
         ConsoleOutput.Header("Downloading available intelligence metadata...");
         var progress = new Progress<SemanticIndexingProgress>(value =>
             System.Console.WriteLine($"  Metadata: {value.CompletedMessageCount}/{value.TotalMessageCount}"));
-        var state = await coordinator.DownloadAvailableIntelligenceAsync(account.Id, progress, cancellationToken)
+        var result = await coordinator.DownloadAvailableIntelligenceAsync(account.Id, progress, cancellationToken)
             .ConfigureAwait(false);
-        ConsoleOutput.Success($"Downloaded intelligence for {state.LocalIndexedMessageCount:N0} local message(s).");
+        var state = await coordinator.GetStateAsync(account.Id, cancellationToken).ConfigureAwait(false);
+        ConsoleOutput.Success($"Downloaded intelligence for {result.CoveredRemoteMessageIds.Count:N0} local message(s).");
         PrintState(state);
 
         if (messageResolver is not null)
@@ -617,6 +716,7 @@ internal static class Program
         IAccountService accountService,
         ISemanticIndexCoordinator coordinator,
         IWinoAccountApiClient apiClient,
+        IIntelligenceMessageContextResolver messageResolver,
         IAuthenticationProvider authenticationProvider,
         ConsoleIndexingRange range,
         CancellationToken cancellationToken)
@@ -628,52 +728,30 @@ internal static class Program
             return;
         }
 
-        ConsoleOutput.Muted("Calculating indexing plan...");
-        var plan = await coordinator.CalculatePlanAsync(
+        ConsoleOutput.Muted("Resolving selected messages...");
+        var candidates = await messageResolver.GetCandidatesAsync(
             account.Id,
             range.CutoffUtc,
             range.ThroughUtcExclusive,
-            range.AutomaticallyIndexNewMessages,
             cancellationToken).ConfigureAwait(false);
-        PrintPlan(plan);
-        if (plan.RequiresReset)
+        var remoteMessageIds = candidates
+            .Select(static candidate => candidate.RemoteMessageId)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        if (remoteMessageIds.Length == 0)
         {
-            if (!Confirm("The existing range conflicts with this plan. Delete the current intelligence before continuing?"))
-                return;
-
-            await coordinator.DeleteIndexAsync(account.Id, cancellationToken).ConfigureAwait(false);
-            account.Preferences.IsSemanticIndexingEnabled = false;
-            await accountService.UpdateAccountAsync(account).ConfigureAwait(false);
-            ConsoleOutput.Success("Conflicting intelligence deleted. Process consent was preserved.");
-
-            if (!await EnsureIntelligenceEnabledAsync(account, accountService, coordinator, apiClient, cancellationToken)
-                    .ConfigureAwait(false))
-                return;
-
-            plan = await coordinator.CalculatePlanAsync(
-                account.Id,
-                range.CutoffUtc,
-                range.ThroughUtcExclusive,
-                range.AutomaticallyIndexNewMessages,
-                cancellationToken).ConfigureAwait(false);
-            PrintPlan(plan);
-            if (plan.RequiresReset)
-                throw new InvalidOperationException("The server still rejected the replacement indexing range.");
-        }
-
-        if (plan.MissingMessageCount == 0)
-        {
-            ConsoleOutput.Success("The selected date range is already indexed.");
+            ConsoleOutput.Success("The selected date range contains no messages.");
             return;
         }
 
-        if (!Confirm("Start indexing with this plan?"))
+        if (!Confirm($"Reconcile and index {remoteMessageIds.Length} selected messages?"))
             return;
 
         if (!await EnsureOutlookAuthenticationAsync(account, authenticationProvider).ConfigureAwait(false))
             return;
 
-        await coordinator.StartIndexingAsync(account.Id, plan, cancellationToken).ConfigureAwait(false);
+        await coordinator.StartIndexingAsync(account.Id, remoteMessageIds, cancellationToken).ConfigureAwait(false);
         ConsoleOutput.Success("Indexing started. Use the monitor or cancel action to follow the job.");
     }
 
@@ -684,7 +762,7 @@ internal static class Program
         IIntelligenceMessageContextResolver messageResolver,
         CancellationToken cancellationToken)
     {
-        var availableRange = await coordinator.GetAvailableRangeAsync(account.Id, cancellationToken).ConfigureAwait(false);
+        var availableRange = await messageResolver.GetAvailableRangeAsync(account.Id, cancellationToken).ConfigureAwait(false);
         if (availableRange is null)
         {
             ConsoleOutput.Warning("No locally available messages can be indexed for this account.");
@@ -869,7 +947,7 @@ internal static class Program
         ConsoleDateRange? selection,
         CancellationToken cancellationToken)
     {
-        var availableRange = await coordinator.GetAvailableRangeAsync(account.Id, cancellationToken).ConfigureAwait(false);
+        var availableRange = await messageResolver.GetAvailableRangeAsync(account.Id, cancellationToken).ConfigureAwait(false);
         var localOldest = availableRange?.OldestDate;
         var localNewest = availableRange?.NewestDate;
         var cloudOldest = state.ServerIndex?.OldestIndexedAtUtc is { } oldest
@@ -1136,7 +1214,8 @@ internal static class Program
 
     private static async Task VerifyLocalMetadataAsync(
         Guid accountId,
-        SemanticIndexPlan plan,
+        DateTimeOffset? cutoffUtc,
+        DateTimeOffset? throughUtcExclusive,
         IIntelligenceMessageContextResolver messageResolver,
         ILocalIntelligenceStore localStore,
         CancellationToken cancellationToken)
@@ -1147,7 +1226,7 @@ internal static class Program
             IntelligenceCapabilityIds.BriefingFact,
         };
         var candidates = await messageResolver.GetCandidatesAsync(
-            accountId, plan.CutoffUtc, plan.ThroughUtcExclusive, cancellationToken).ConfigureAwait(false);
+            accountId, cutoffUtc, throughUtcExclusive, cancellationToken).ConfigureAwait(false);
         var artifactsByMessage = new Dictionary<string, IReadOnlyList<IntelligenceArtifactDto>>(StringComparer.Ordinal);
         var briefingIds = new HashSet<Guid>();
         foreach (var candidate in candidates)
@@ -1246,21 +1325,25 @@ internal static class Program
         CancellationToken cancellationToken)
     {
         SemanticIndexJobSnapshot? previous = null;
+        var phaseTimer = System.Diagnostics.Stopwatch.StartNew();
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var snapshot = coordinator.GetJobSnapshot(accountId);
             if (snapshot != previous)
             {
+                var elapsed = phaseTimer.Elapsed;
                 ConsoleOutput.Status(
-                    $"Embedding: {snapshot.EmbeddingProcessedMessageCount}/{snapshot.TotalMessageCount} " +
-                    $"({snapshot.CompletedMessageCount} succeeded, {snapshot.EmbeddingFailedMessageCount} failed) | " +
-                    $"Metadata: {snapshot.MetadataProcessedMessageCount}/{snapshot.TotalMessageCount} " +
-                    $"({snapshot.MetadataCompletedMessageCount} succeeded, {snapshot.MetadataFailedMessageCount} failed) | " +
-                    $"Status: {snapshot.Status}" +
+                    $"Selected: {snapshot.SelectedMessageCount} | " +
+                    $"Restored: {snapshot.RestoredMessageCount} | " +
+                    $"Uploaded: {snapshot.UploadedMessageCount} | " +
+                    $"Failed: {snapshot.FailedMessageCount} | " +
+                    $"Status: {snapshot.Status} | " +
+                    $"Phase elapsed: {elapsed.TotalSeconds:0.00}s" +
                     (string.IsNullOrWhiteSpace(snapshot.ErrorCode) ? string.Empty : $" — {snapshot.ErrorCode}"),
                     snapshot.Status);
                 previous = snapshot;
+                phaseTimer.Restart();
             }
 
             switch (snapshot.Status)
@@ -1332,18 +1415,6 @@ internal static class Program
         System.Console.WriteLine($"  Up to date: {state.IsUpToDate}");
     }
 
-    private static void PrintPlan(SemanticIndexPlan plan)
-    {
-        ConsoleOutput.Header("\nEmbedding plan:");
-        System.Console.WriteLine($"  Range: {plan.RangePreset}");
-        System.Console.WriteLine($"  Cutoff: {plan.CutoffUtc?.ToString("u") ?? "none"}");
-        System.Console.WriteLine($"  Eligible messages: {plan.EligibleMessageCount}");
-        System.Console.WriteLine($"  Messages needing embeddings: {plan.MissingMessageCount}");
-        System.Console.WriteLine($"  Estimated duration: {plan.EstimatedDuration:g}");
-        System.Console.WriteLine($"  Automatically index new messages: {plan.AutomaticallyIndexNewMessages}");
-        System.Console.WriteLine($"  Requires reset: {plan.RequiresReset}");
-    }
-
     private static bool Confirm(string prompt)
     {
         ConsoleOutput.Prompt($"{prompt} [y/N]: ");
@@ -1407,7 +1478,7 @@ internal static class Program
                 options = default;
                 return false;
             }
-            options = new CommandLineOptions(null, null, null, false, stress);
+            options = new CommandLineOptions(null, null, null, null, null, 100, false, false, stress);
             return true;
         }
 
@@ -1415,6 +1486,10 @@ internal static class Program
         string? appData = null;
         var help = false;
         string? dailyBriefingAddress = null;
+        string? indexAccountAddress = null;
+        string? indexFolderName = null;
+        var indexMessageCount = 100;
+        var resetIntelligence = false;
         for (var index = 0; index < args.Length; index++)
         {
             switch (args[index])
@@ -1431,13 +1506,36 @@ internal static class Program
                 case "--daily-briefing" when index + 1 < args.Length:
                     dailyBriefingAddress = args[++index];
                     break;
+                case "--index-account" when index + 1 < args.Length:
+                    indexAccountAddress = args[++index];
+                    break;
+                case "--folder" when index + 1 < args.Length:
+                    indexFolderName = args[++index];
+                    break;
+                case "--top" when index + 1 < args.Length &&
+                    int.TryParse(args[index + 1], out var parsedCount) && parsedCount > 0:
+                    indexMessageCount = parsedCount;
+                    index++;
+                    break;
+                case "--reset-intelligence":
+                    resetIntelligence = true;
+                    break;
                 default:
                     options = default;
                     error = $"Unknown or incomplete argument: {args[index]}";
                     return false;
             }
         }
-        options = new CommandLineOptions(publisher, appData, dailyBriefingAddress, help, null);
+        options = new CommandLineOptions(
+            publisher,
+            appData,
+            dailyBriefingAddress,
+            indexAccountAddress,
+            indexFolderName,
+            indexMessageCount,
+            resetIntelligence,
+            help,
+            null);
         error = null;
         return true;
     }
@@ -1448,6 +1546,10 @@ internal static class Program
         System.Console.WriteLine("  --publisher-folder <path>  Override the WinoShared publisher folder");
         System.Console.WriteLine("  --app-data-folder <path>   Override the Debug package LocalState folder");
         System.Console.WriteLine("  --daily-briefing <email>   Report today's and yesterday's briefing facts for an account");
+        System.Console.WriteLine("  --index-account <email>    Reconcile and index a real account without menus");
+        System.Console.WriteLine("  --folder <name-or-id>      Folder for --index-account (default: Inbox)");
+        System.Console.WriteLine("  --top <count>              Newest messages for --index-account (default: 100)");
+        System.Console.WriteLine("  --reset-intelligence       Delete local and server intelligence before indexing");
         System.Console.WriteLine("  --stress                   Run the non-interactive intelligence stress harness");
         System.Console.WriteLine("  Stress: --environment local|production --account <email> --output <folder>");
         System.Console.WriteLine("          [--profile realistic|database|ai] [--start-rps 1] [--max-rps 256]");
@@ -1464,6 +1566,13 @@ internal enum ApiEnvironment
 }
 
 internal readonly record struct CommandLineOptions(
-    string? PublisherFolder, string? ApplicationDataFolder, string? DailyBriefingAddress, bool ShowHelp,
+    string? PublisherFolder,
+    string? ApplicationDataFolder,
+    string? DailyBriefingAddress,
+    string? IndexAccountAddress,
+    string? IndexFolderName,
+    int IndexMessageCount,
+    bool ResetIntelligence,
+    bool ShowHelp,
     StressOptions? Stress);
 internal sealed record ConsolePaths(string PublisherFolder, string ApplicationDataFolder, string TempFolder);

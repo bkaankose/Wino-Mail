@@ -126,10 +126,113 @@ public static class IntelligenceCoverageCalculator
     }
 
     /// <summary>
-    /// The received ticks of every distinct message in the given folders, newest first. The editor
-    /// draws its histogram from this, so one folder and a whole selection use the same shape.
+    /// Turns a set of remote message ids into a bitmap over the inventory's index space, so the
+    /// histogram can test membership per message without hashing a string per bar.
     /// </summary>
-    public static long[] GetOrderedTicks(IntelligenceCoverageInventory inventory, IReadOnlySet<string> remoteFolderIds)
+    public static BitArray BuildIndexBitmap(
+        IntelligenceCoverageInventory inventory, IReadOnlySet<string> remoteMessageIds)
+    {
+        var bitmap = new BitArray(inventory.TotalMessageCount);
+        if (remoteMessageIds.Count == 0)
+            return bitmap;
+
+        // Iterating the smaller side would be tempting, but only the inventory knows the index of
+        // an id, and an id it has never heard of has no bit to set.
+        foreach (var remoteMessageId in remoteMessageIds)
+        {
+            if (inventory.TryGetMessageIndex(remoteMessageId, out var index))
+                bitmap[index] = true;
+        }
+        return bitmap;
+    }
+
+    /// <summary>
+    /// The message-volume histogram behind the coverage editor's range slider: equal-width slices
+    /// of the folder union in the inventory's newest-first order, each split into the three states
+    /// the editor draws.
+    /// </summary>
+    /// <remarks>
+    /// Slices are cut by message position rather than by calendar day, because that is what the
+    /// slider addresses — a "newest 500" rule has to line up with the bars above it, and calendar
+    /// buckets would put a quiet month and a busy one on the same footing.
+    /// <para>
+    /// The three states are mutually exclusive and cover every message: a message that already has
+    /// an artifact counts as indexed whether or not the current rule selects it, because narrowing
+    /// the rule does not un-index it. So dragging the slider only ever moves messages between
+    /// <see cref="IntelligenceCoverageBucket.SelectedNotIndexedCount"/> and
+    /// <see cref="IntelligenceCoverageBucket.OutsideCount"/>.
+    /// </para>
+    /// </remarks>
+    /// <param name="selectedByIndex">
+    /// <see cref="IntelligenceCoverageSelection.SelectedByIndex"/> for the rules being previewed.
+    /// </param>
+    /// <param name="indexedByIndex">
+    /// Messages holding a live local artifact, from <see cref="BuildIndexBitmap"/>.
+    /// </param>
+    public static IntelligenceCoverageBuckets BuildBuckets(
+        IntelligenceCoverageInventory inventory,
+        IReadOnlySet<string> remoteFolderIds,
+        BitArray selectedByIndex,
+        BitArray indexedByIndex,
+        int bucketCount)
+    {
+        if (bucketCount <= 0)
+            throw new ArgumentOutOfRangeException(nameof(bucketCount));
+
+        var ordered = GetOrderedIndices(inventory, remoteFolderIds);
+        if (ordered.Length == 0)
+            return IntelligenceCoverageBuckets.Empty;
+
+        // Fewer messages than buckets would otherwise produce empty bars at the far end, which read
+        // as "no mail here" rather than "the histogram ran out of mail".
+        var effectiveCount = Math.Min(bucketCount, ordered.Length);
+        var buckets = new IntelligenceCoverageBucket[effectiveCount];
+        var totalIndexed = 0;
+        var totalSelectedNotIndexed = 0;
+
+        for (var bucket = 0; bucket < effectiveCount; bucket++)
+        {
+            // Spreading the remainder across the leading buckets keeps every bar within one
+            // message of every other, so no bar is visibly short just from integer division.
+            var start = (int)((long)ordered.Length * bucket / effectiveCount);
+            var end = (int)((long)ordered.Length * (bucket + 1) / effectiveCount);
+
+            var indexed = 0;
+            var selectedNotIndexed = 0;
+            for (var position = start; position < end; position++)
+            {
+                var index = ordered[position];
+                if (indexedByIndex[index])
+                    indexed++;
+                else if (selectedByIndex[index])
+                    selectedNotIndexed++;
+            }
+
+            totalIndexed += indexed;
+            totalSelectedNotIndexed += selectedNotIndexed;
+            buckets[bucket] = new IntelligenceCoverageBucket(
+                start,
+                end,
+                ToDateOnly(inventory.ReceivedAtUtcTicks[ordered[start]]),
+                ToDateOnly(inventory.ReceivedAtUtcTicks[ordered[end - 1]]),
+                indexed,
+                selectedNotIndexed,
+                end - start - indexed - selectedNotIndexed);
+        }
+
+        return new IntelligenceCoverageBuckets(
+            buckets,
+            ordered.Length,
+            totalIndexed,
+            totalSelectedNotIndexed,
+            ordered.Length - totalIndexed - totalSelectedNotIndexed);
+    }
+
+    /// <summary>
+    /// The inventory indices of every distinct message in the given folders, newest first.
+    /// </summary>
+    private static int[] GetOrderedIndices(
+        IntelligenceCoverageInventory inventory, IReadOnlySet<string> remoteFolderIds)
     {
         if (remoteFolderIds.Count == 0 || inventory.TotalMessageCount == 0)
             return [];
@@ -149,42 +252,19 @@ public static class IntelligenceCoverageCalculator
 
         // Walking the global array keeps the result in the inventory's newest-first order without
         // a sort, because the inventory is already ordered that way.
-        var ticks = new long[count];
+        var ordered = new int[count];
         var next = 0;
         for (var index = 0; index < inventory.TotalMessageCount && next < count; index++)
         {
             if (seen[index])
-                ticks[next++] = inventory.ReceivedAtUtcTicks[index];
+                ordered[next++] = index;
         }
-        return ticks;
-    }
-
-    /// <summary>Per-UTC-day message counts across the union of the given folders.</summary>
-    public static IReadOnlyDictionary<DateOnly, int> BuildDailyCounts(
-        IntelligenceCoverageInventory inventory, IReadOnlySet<string> remoteFolderIds)
-    {
-        var counts = new Dictionary<DateOnly, int>();
-        if (remoteFolderIds.Count == 0 || inventory.TotalMessageCount == 0)
-            return counts;
-
-        var seen = new BitArray(inventory.TotalMessageCount);
-        foreach (var remoteFolderId in remoteFolderIds)
-        {
-            foreach (var index in inventory.GetFolderIndices(remoteFolderId))
-            {
-                if (seen[index])
-                    continue;
-                seen[index] = true;
-                var day = ToDateOnly(inventory.ReceivedAtUtcTicks[index]);
-                counts[day] = counts.GetValueOrDefault(day) + 1;
-            }
-        }
-        return counts;
+        return ordered;
     }
 
     /// <summary>
-    /// The effective lower bound of a date rule. Mirrors <see cref="SemanticIndexCoverageResolver"/>:
-    /// an explicit cutoff wins, otherwise a non-custom preset derives one from <paramref name="nowUtc"/>.
+    /// The effective lower bound of a date rule. An explicit cutoff wins; otherwise a non-custom
+    /// preset derives one from <paramref name="nowUtc"/>.
     /// </summary>
     public static DateTimeOffset? ResolveCutoff(SemanticIndexFolderCoverageRule rule, DateTimeOffset nowUtc)
         => rule.CutoffUtc ?? (rule.DatePreset == SemanticIndexRangePreset.Custom
@@ -233,6 +313,55 @@ public static class IntelligenceCoverageCalculator
         => DateOnly.FromDateTime(new DateTime(utcTicks, DateTimeKind.Utc));
 }
 
+/// <summary>
+/// One bar of the coverage histogram. The three counts partition the bucket, so they always sum to
+/// <see cref="MessageCount"/>.
+/// </summary>
+/// <param name="StartOffset">First position in the folder union, newest-first, inclusive.</param>
+/// <param name="EndOffset">Last position in the folder union, exclusive.</param>
+/// <param name="NewestDate">Received date at <paramref name="StartOffset"/>.</param>
+/// <param name="OldestDate">Received date at the last position in the bucket.</param>
+public readonly record struct IntelligenceCoverageBucket(
+    int StartOffset,
+    int EndOffset,
+    DateOnly NewestDate,
+    DateOnly OldestDate,
+    int IndexedCount,
+    int SelectedNotIndexedCount,
+    int OutsideCount)
+{
+    public int MessageCount => IndexedCount + SelectedNotIndexedCount + OutsideCount;
+}
+
+/// <summary>The whole histogram, plus the totals the editor prints under it.</summary>
+public sealed record IntelligenceCoverageBuckets(
+    IReadOnlyList<IntelligenceCoverageBucket> Buckets,
+    int MessageCount,
+    int IndexedCount,
+    int SelectedNotIndexedCount,
+    int OutsideCount)
+{
+    public static IntelligenceCoverageBuckets Empty { get; } = new([], 0, 0, 0, 0);
+
+    /// <summary>
+    /// The tallest bucket, so bars can be scaled against their own histogram rather than against a
+    /// figure the caller would otherwise have to recompute.
+    /// </summary>
+    public int BusiestBucketCount
+    {
+        get
+        {
+            var busiest = 0;
+            foreach (var bucket in Buckets)
+            {
+                if (bucket.MessageCount > busiest)
+                    busiest = bucket.MessageCount;
+            }
+            return busiest;
+        }
+    }
+}
+
 public readonly record struct IntelligenceFolderInventoryStats(
     string RemoteFolderId,
     int AvailableMessageCount,
@@ -277,45 +406,4 @@ public sealed class IntelligenceCoverageSelection(
         return ids;
     }
 
-    /// <summary>How many selected messages the cloud does not have yet.</summary>
-    public int CountMissing(IntelligenceCoverageDelta delta)
-    {
-        var missing = 0;
-        for (var index = 0; index < inventory.TotalMessageCount; index++)
-        {
-            if (SelectedByIndex[index] && delta.MissingByIndex[index])
-                missing++;
-        }
-        return missing;
-    }
-
-    /// <summary>How many of one folder's selected messages the cloud does not have yet.</summary>
-    public int CountMissing(IntelligenceCoverageDelta delta, IntelligenceFolderSelectionResult folder)
-    {
-        var indices = inventory.GetFolderIndices(folder.RemoteFolderId);
-        var missing = 0;
-        for (var position = folder.SliceStart; position < folder.SliceEnd; position++)
-        {
-            if (delta.MissingByIndex[indices[position]])
-                missing++;
-        }
-        return missing;
-    }
-}
-
-/// <summary>
-/// Which of an inventory's messages the cloud index is missing, as a bitset parallel to the
-/// inventory's indices. Resolved once over the whole account: for any subset S of the account,
-/// missing(S) is S intersected with this, so no selection change needs another round-trip.
-/// </summary>
-public sealed record IntelligenceCoverageDelta(
-    Guid LocalAccountId,
-    DateTimeOffset InventoryBuiltAtUtc,
-    BitArray MissingByIndex,
-    DateTimeOffset ResolvedAtUtc)
-{
-    public bool Matches(IntelligenceCoverageInventory inventory)
-        => inventory.LocalAccountId == LocalAccountId &&
-           inventory.BuiltAtUtc == InventoryBuiltAtUtc &&
-           inventory.TotalMessageCount == MissingByIndex.Length;
 }

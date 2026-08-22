@@ -23,6 +23,8 @@ public sealed partial class WinoIntelligenceHeader
     partial void OnUnavailableSubtitleTextChanged(string newValue) => OnStatePropertyChanged(this, UnavailableSubtitleTextProperty);
     partial void OnProcessButtonTextChanged(string newValue) => OnStatePropertyChanged(this, ProcessButtonTextProperty);
     partial void OnRetryProcessButtonTextChanged(string newValue) => OnStatePropertyChanged(this, RetryProcessButtonTextProperty);
+    partial void OnVerificationCodeChanged(string newValue) => OnStatePropertyChanged(this, VerificationCodeProperty);
+    partial void OnCopyCodeTextChanged(string newValue) => OnStatePropertyChanged(this, CopyCodeTextProperty);
     partial void OnInsightsLockedTextChanged(string newValue) => OnStatePropertyChanged(this, InsightsLockedTextProperty);
     partial void OnIsAddToCalendarAvailableChanged(bool newValue) => OnStatePropertyChanged(this, IsAddToCalendarAvailableProperty);
     partial void OnIsProcessingAvailableChanged(bool newValue) => OnStatePropertyChanged(this, IsProcessingAvailableProperty);

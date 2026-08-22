@@ -1,0 +1,394 @@
+<abstract:IntelligenceCoveragePageAbstract
+    x:Class="Wino.Views.IntelligenceCoveragePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:data="using:Wino.Mail.ViewModels.Data"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    x:Name="PageRoot"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <!--
+            One folder. There is no inclusion checkbox: a folder is included exactly when its rule
+            selects something, so the dot reports that state rather than offering a second control
+            that could disagree with the range beside it.
+        -->
+        <DataTemplate x:Key="CoverageFolderNodeTemplate" x:DataType="data:IntelligenceFolderNode">
+            <TreeViewItem
+                AutomationProperties.AutomationId="{x:Bind RemoteFolderId}"
+                AutomationProperties.Name="{x:Bind RowAutomationName, Mode=OneWay}"
+                IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
+                ItemsSource="{x:Bind ChildNodes}">
+                <Grid ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="8" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <Ellipse
+                        Width="8"
+                        Height="8"
+                        VerticalAlignment="Center"
+                        AutomationProperties.AccessibilityView="Raw"
+                        Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                        ToolTipService.ToolTip="{x:Bind CoverageBadgeTooltip, Mode=OneWay}"
+                        Visibility="{x:Bind IsIncluded, Mode=OneWay}" />
+
+                    <TextBlock
+                        Grid.Column="1"
+                        VerticalAlignment="Center"
+                        Style="{ThemeResource BodyTextBlockStyle}"
+                        Text="{x:Bind DisplayName}"
+                        TextTrimming="CharacterEllipsis" />
+
+                    <TextBlock
+                        Grid.Column="2"
+                        VerticalAlignment="Center"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{ThemeResource CaptionTextBlockStyle}"
+                        Text="{x:Bind AvailableMessageCountText}" />
+                </Grid>
+            </TreeViewItem>
+        </DataTemplate>
+
+        <!--
+            One histogram column. Segments stack from the bottom in band order, so the already
+            indexed part of a bucket always sits at the base and does not move while dragging.
+        -->
+        <DataTemplate x:Key="CoverageBucketTemplate" x:DataType="data:SemanticIndexRangeBucketViewModel">
+            <StackPanel
+                Width="{x:Bind BarWidth, Mode=OneWay}"
+                Margin="1,0"
+                VerticalAlignment="Bottom"
+                ToolTipService.ToolTip="{x:Bind Tooltip, Mode=OneWay}">
+                <Rectangle
+                    Height="{x:Bind OutsideHeight, Mode=OneWay}"
+                    Fill="{ThemeResource ControlStrongStrokeColorDisabledBrush}"
+                    RadiusX="1"
+                    RadiusY="1" />
+                <Rectangle
+                    Height="{x:Bind SelectedNotIndexedHeight, Mode=OneWay}"
+                    Fill="{ThemeResource AccentFillColorDefaultBrush}" />
+                <Rectangle Height="{x:Bind IndexedHeight, Mode=OneWay}" Fill="{ThemeResource SystemFillColorSuccessBrush}" />
+            </StackPanel>
+        </DataTemplate>
+
+        <Style x:Key="CoveragePanelStyle" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="14" />
+        </Style>
+    </Page.Resources>
+
+    <Grid Padding="24,16,24,20" RowSpacing="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--
+            The running total and the two commit actions, together at the top. The breadcrumb and
+            the settings header already name the page, so it carries no title of its own.
+        -->
+        <InfoBar
+            Title="{x:Bind ViewModel.TotalSummary, Mode=OneWay}"
+            AutomationProperties.AutomationId="IntelligenceCoverageSummaryBar"
+            IsClosable="False"
+            IsOpen="True"
+            Message="{x:Bind ViewModel.ScopeSummary, Mode=OneWay}"
+            Severity="Informational">
+            <!--  Two buttons, so they go in Content: ActionButton takes a single ButtonBase.  -->
+            <InfoBar.Content>
+                <StackPanel
+                    Margin="0,0,0,12"
+                    HorizontalAlignment="Right"
+                    Orientation="Horizontal"
+                    Spacing="8">
+                    <Button
+                        AutomationProperties.AutomationId="IntelligenceCoverageCancelButton"
+                        Command="{x:Bind ViewModel.CancelCommand}"
+                        Content="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}" />
+                    <Button
+                        AutomationProperties.AutomationId="IntelligenceCoverageApplyButton"
+                        Command="{x:Bind ViewModel.ApplyCommand}"
+                        Content="{x:Bind domain:Translator.Buttons_Apply, Mode=OneTime}"
+                        Style="{ThemeResource AccentButtonStyle}" />
+                </StackPanel>
+            </InfoBar.Content>
+        </InfoBar>
+
+        <Grid Grid.Row="1" ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" MinWidth="260" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!--  ============ folders ============  -->
+            <Border Width="300" Style="{StaticResource CoveragePanelStyle}">
+                <Grid RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Style="{ThemeResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.SemanticIndex_CoverageIncludedFolders, Mode=OneTime}" />
+
+                    <TreeView
+                        x:Name="FolderTreeView"
+                        Grid.Row="1"
+                        AutomationProperties.AutomationId="IntelligenceCoverageFolderTree"
+                        CanDragItems="False"
+                        CanReorderItems="False"
+                        ItemInvoked="FolderTreeView_ItemInvoked"
+                        ItemTemplate="{StaticResource CoverageFolderNodeTemplate}"
+                        ItemsSource="{x:Bind ViewModel.RootFolders, Mode=OneWay}"
+                        SelectionMode="Single" />
+
+                </Grid>
+            </Border>
+
+            <!--  ============ range for the selected folder ============  -->
+            <Border Grid.Column="1" Style="{StaticResource CoveragePanelStyle}">
+                <Grid RowSpacing="14">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            AutomationProperties.AutomationId="IntelligenceCoverageSelectedFolderName"
+                            Style="{ThemeResource BodyStrongTextBlockStyle}"
+                            Text="{x:Bind ViewModel.SelectedFolderName, Mode=OneWay}"
+                            TextTrimming="CharacterEllipsis" />
+                        <StackPanel
+                            Grid.Column="1"
+                            Orientation="Horizontal"
+                            Spacing="8">
+                            <Button
+                                AutomationProperties.AutomationId="IntelligenceCoverageApplyToAllButton"
+                                Command="{x:Bind ViewModel.ApplyToAllFoldersCommand}"
+                                Content="{x:Bind domain:Translator.SemanticIndex_CoverageApplyToAll, Mode=OneTime}"
+                                IsEnabled="{x:Bind ViewModel.IsEditorVisible, Mode=OneWay}" />
+                            <Button
+                                AutomationProperties.AutomationId="IntelligenceCoverageClearFolderButton"
+                                Command="{x:Bind ViewModel.ClearFolderCommand}"
+                                Content="{x:Bind domain:Translator.SemanticIndex_CoverageClearFolder, Mode=OneTime}"
+                                IsEnabled="{x:Bind ViewModel.IsEditorVisible, Mode=OneWay}"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.SemanticIndex_CoverageClearFolderTooltip, Mode=OneTime}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!--  A folder with no mail has nothing to configure, so say that rather than showing dead controls.  -->
+                    <TextBlock
+                        Grid.Row="1"
+                        MaxWidth="360"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        AutomationProperties.AutomationId="IntelligenceCoverageEmptyFolderNotice"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{ThemeResource BodyTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.SemanticIndex_CoverageFolderEmptyNotice, Mode=OneTime}"
+                        TextAlignment="Center"
+                        TextWrapping="Wrap"
+                        Visibility="{x:Bind ViewModel.IsEmptyFolderNoticeVisible, Mode=OneWay}" />
+
+                    <StackPanel
+                        Grid.Row="1"
+                        Spacing="14"
+                        Visibility="{x:Bind ViewModel.IsEditorVisible, Mode=OneWay}">
+
+                        <controls:Segmented AutomationProperties.AutomationId="IntelligenceCoverageModeSegmented" SelectedIndex="{x:Bind ViewModel.CoverageModeIndex, Mode=TwoWay}">
+                            <controls:SegmentedItem Content="{x:Bind domain:Translator.SemanticIndex_CoverageModeLatestCount, Mode=OneTime}" />
+                            <controls:SegmentedItem Content="{x:Bind domain:Translator.SemanticIndex_CoverageModeDateRange, Mode=OneTime}" />
+                        </controls:Segmented>
+
+                        <ItemsControl AutomationProperties.AutomationId="IntelligenceCoverageCountPresets" ItemsSource="{x:Bind ViewModel.CountPresets}" Visibility="{x:Bind ViewModel.IsLatestCountMode, Mode=OneWay}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <controls:WrapPanel HorizontalSpacing="6" VerticalSpacing="6" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="data:CoverageCountPresetOption">
+                                    <Button
+                                        Command="{Binding ElementName=PageRoot, Path=ViewModel.ApplyCountPresetCommand}"
+                                        CommandParameter="{x:Bind}"
+                                        Content="{x:Bind DisplayName}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <ItemsControl AutomationProperties.AutomationId="IntelligenceCoverageDatePresets" ItemsSource="{x:Bind ViewModel.DatePresets}" Visibility="{x:Bind ViewModel.IsDateRangeMode, Mode=OneWay}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <controls:WrapPanel HorizontalSpacing="6" VerticalSpacing="6" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="data:CoverageDatePresetOption">
+                                    <Button
+                                        Command="{Binding ElementName=PageRoot, Path=ViewModel.ApplyDatePresetCommand}"
+                                        CommandParameter="{x:Bind}"
+                                        Content="{x:Bind DisplayName}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!--
+                            The histogram and the control underneath it address the same axis, so
+                            the bars are sized to whatever width this host reports.
+                        -->
+                        <Grid
+                            x:Name="HistogramHost"
+                            SizeChanged="HistogramHost_SizeChanged"
+                            Visibility="{x:Bind ViewModel.IsHistogramVisible, Mode=OneWay}">
+                            <ItemsControl
+                                Height="88"
+                                VerticalAlignment="Bottom"
+                                AutomationProperties.AutomationId="IntelligenceCoverageHistogram"
+                                ItemTemplate="{StaticResource CoverageBucketTemplate}"
+                                ItemsSource="{x:Bind ViewModel.Buckets, Mode=OneWay}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </Grid>
+
+                        <Slider
+                            AutomationProperties.AutomationId="IntelligenceCoverageLatestCountSlider"
+                            AutomationProperties.Name="{x:Bind domain:Translator.SemanticIndex_CoverageNewestCount, Mode=OneTime}"
+                            Header="{x:Bind domain:Translator.SemanticIndex_CoverageNewestCount, Mode=OneTime}"
+                            Maximum="{x:Bind ViewModel.RangeMaximum, Mode=OneWay}"
+                            Minimum="0"
+                            StepFrequency="1"
+                            Value="{x:Bind ViewModel.LatestCount, Mode=TwoWay}"
+                            Visibility="{x:Bind ViewModel.IsLatestCountMode, Mode=OneWay}" />
+
+                        <controls:RangeSelector
+                            AutomationProperties.AutomationId="IntelligenceCoverageRangeSelector"
+                            AutomationProperties.Name="{x:Bind ViewModel.ReachSummary, Mode=OneWay}"
+                            Maximum="{x:Bind ViewModel.RangeMaximum, Mode=OneWay}"
+                            Minimum="0"
+                            RangeEnd="{x:Bind ViewModel.RangeEndOffset, Mode=TwoWay}"
+                            RangeStart="{x:Bind ViewModel.RangeStartOffset, Mode=TwoWay}"
+                            StepFrequency="1"
+                            Visibility="{x:Bind ViewModel.IsDateRangeMode, Mode=OneWay}" />
+
+                        <Grid>
+                            <TextBlock
+                                HorizontalAlignment="Left"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{ThemeResource CaptionTextBlockStyle}"
+                                Text="{x:Bind domain:Translator.SemanticIndex_CoverageNewestEdge, Mode=OneTime}" />
+                            <TextBlock
+                                HorizontalAlignment="Right"
+                                AutomationProperties.AutomationId="IntelligenceCoverageReachSummary"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{ThemeResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ViewModel.ReachSummary, Mode=OneWay}" />
+                        </Grid>
+
+                        <!--  The three bands, in the same order and colour as the bars above.  -->
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <Border Padding="10" Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4">
+                                <StackPanel Spacing="2">
+                                    <StackPanel Orientation="Horizontal" Spacing="7">
+                                        <Rectangle
+                                            Width="8"
+                                            Height="8"
+                                            VerticalAlignment="Center"
+                                            Fill="{ThemeResource SystemFillColorSuccessBrush}"
+                                            RadiusX="2"
+                                            RadiusY="2" />
+                                        <TextBlock
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{ThemeResource CaptionTextBlockStyle}"
+                                            Text="{x:Bind domain:Translator.SemanticIndex_CoverageBandIndexed, Mode=OneTime}" />
+                                    </StackPanel>
+                                    <TextBlock
+                                        AutomationProperties.AutomationId="IntelligenceCoverageIndexedCount"
+                                        Style="{ThemeResource SubtitleTextBlockStyle}"
+                                        Text="{x:Bind ViewModel.FolderIndexedCount, Mode=OneWay}" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border
+                                Grid.Column="1"
+                                Padding="10"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                CornerRadius="4">
+                                <StackPanel Spacing="2">
+                                    <StackPanel Orientation="Horizontal" Spacing="7">
+                                        <Rectangle
+                                            Width="8"
+                                            Height="8"
+                                            VerticalAlignment="Center"
+                                            Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                                            RadiusX="2"
+                                            RadiusY="2" />
+                                        <TextBlock
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{ThemeResource CaptionTextBlockStyle}"
+                                            Text="{x:Bind domain:Translator.SemanticIndex_CoverageBandToIndex, Mode=OneTime}" />
+                                    </StackPanel>
+                                    <TextBlock
+                                        AutomationProperties.AutomationId="IntelligenceCoverageToIndexCount"
+                                        Style="{ThemeResource SubtitleTextBlockStyle}"
+                                        Text="{x:Bind ViewModel.FolderSelectedNotIndexedCount, Mode=OneWay}" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border
+                                Grid.Column="2"
+                                Padding="10"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                CornerRadius="4">
+                                <StackPanel Spacing="2">
+                                    <StackPanel Orientation="Horizontal" Spacing="7">
+                                        <Rectangle
+                                            Width="8"
+                                            Height="8"
+                                            VerticalAlignment="Center"
+                                            Fill="{ThemeResource ControlStrongStrokeColorDisabledBrush}"
+                                            RadiusX="2"
+                                            RadiusY="2" />
+                                        <TextBlock
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{ThemeResource CaptionTextBlockStyle}"
+                                            Text="{x:Bind domain:Translator.SemanticIndex_CoverageBandOutside, Mode=OneTime}" />
+                                    </StackPanel>
+                                    <TextBlock
+                                        AutomationProperties.AutomationId="IntelligenceCoverageOutsideCount"
+                                        Style="{ThemeResource SubtitleTextBlockStyle}"
+                                        Text="{x:Bind ViewModel.FolderOutsideCount, Mode=OneWay}" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</abstract:IntelligenceCoveragePageAbstract>

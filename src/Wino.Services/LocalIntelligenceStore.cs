@@ -3,53 +3,45 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using SQLite;
+using Wino.Core.Domain.Entities.Intelligence;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
-using Wino.Core.Domain.Models.SemanticIndexing;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.Contracts.Intelligence;
 using Wino.Messaging.UI;
 
 namespace Wino.Services;
 
-public sealed class LocalIntelligenceStore(IApplicationConfiguration applicationConfiguration) : ILocalIntelligenceStore, IAsyncDisposable
+public sealed class LocalIntelligenceStore(
+    IApplicationConfiguration applicationConfiguration,
+    IMessenger messenger) : ILocalIntelligenceStore, IAsyncDisposable
 {
     private const string DatabaseName = "WinoIntelligence.db";
-    private static readonly string[] LegacyDatabaseNames = ["WinoSemanticIndex.db", "WinoSemantic.db"];
     private readonly SemaphoreSlim _initializeLock = new(1, 1);
     private readonly SemaphoreSlim _operationLock = new(1, 1);
     private SQLiteAsyncConnection? _connection;
 
     public bool DatabaseExists => File.Exists(GetDatabasePath());
 
-    public async Task InitializeAsync(CancellationToken cancellationToken = default)
-    {
-        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
-    }
-
-    private async Task InitializeCoreAsync(CancellationToken cancellationToken)
+    public async Task InitializeAsync()
     {
         if (_connection is not null)
             return;
 
-        await _initializeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await _initializeLock.WaitAsync().ConfigureAwait(false);
         try
         {
             if (_connection is not null)
                 return;
 
             Directory.CreateDirectory(applicationConfiguration.ApplicationDataFolderPath);
-            RemoveLegacyDatabases(applicationConfiguration.ApplicationDataFolderPath);
-            if (!string.Equals(applicationConfiguration.PublisherSharedFolderPath, applicationConfiguration.ApplicationDataFolderPath, StringComparison.OrdinalIgnoreCase))
-                RemoveLegacyDatabases(applicationConfiguration.PublisherSharedFolderPath);
+
             var path = Path.Combine(applicationConfiguration.ApplicationDataFolderPath, DatabaseName);
             var connection = new SQLiteAsyncConnection(path, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.FullMutex);
             await connection.CreateTableAsync<LocalArtifactRow>().ConfigureAwait(false);
@@ -67,22 +59,7 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
                 await connection.ExecuteAsync($"ALTER TABLE LocalBriefingHeadline ADD COLUMN {nameof(LocalBriefingHeadlineRow.ContentHash)} TEXT NOT NULL DEFAULT ''").ConfigureAwait(false);
             if (headlineColumns.All(x => x.Name != nameof(LocalBriefingHeadlineRow.GenerationVersion)))
                 await connection.ExecuteAsync($"ALTER TABLE LocalBriefingHeadline ADD COLUMN {nameof(LocalBriefingHeadlineRow.GenerationVersion)} INTEGER NOT NULL DEFAULT 0").ConfigureAwait(false);
-            await connection.CreateTableAsync<LocalIndexJobRow>().ConfigureAwait(false);
-            var jobColumns = await connection.GetTableInfoAsync("LocalIndexJob").ConfigureAwait(false);
-            if (jobColumns.All(x => x.Name != nameof(LocalIndexJobRow.ThroughUtcExclusive)))
-            {
-                await connection.ExecuteAsync(
-                    $"ALTER TABLE LocalIndexJob ADD COLUMN {nameof(LocalIndexJobRow.ThroughUtcExclusive)} TEXT NULL")
-                    .ConfigureAwait(false);
-            }
-            if (jobColumns.All(x => x.Name != nameof(LocalIndexJobRow.CoverageRulesJson)))
-            {
-                await connection.ExecuteAsync(
-                    $"ALTER TABLE LocalIndexJob ADD COLUMN {nameof(LocalIndexJobRow.CoverageRulesJson)} TEXT NOT NULL DEFAULT ''")
-                    .ConfigureAwait(false);
-            }
             await connection.ExecuteAsync("DROP TABLE IF EXISTS LocalMessageKey").ConfigureAwait(false);
-            await connection.CreateTableAsync<LocalPreparedDocumentRow>().ConfigureAwait(false);
             await connection.CreateTableAsync<LocalIntelligenceAccessRow>().ConfigureAwait(false);
             await connection.CreateTableAsync<LocalAccountIntelligenceSnapshotRow>().ConfigureAwait(false);
             await connection.CreateTableAsync<LocalDailyBriefingStateRow>().ConfigureAwait(false);
@@ -97,47 +74,6 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
         {
             _initializeLock.Release();
         }
-    }
-
-    public async Task<long> GetLastImportedRevisionAsync(Guid localAccountId, CancellationToken cancellationToken = default)
-    {
-        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
-        var connection = lease.Connection;
-        var row = await connection.Table<LocalMailboxStateRow>()
-            .Where(x => x.LocalAccountId == localAccountId)
-            .FirstOrDefaultAsync().ConfigureAwait(false);
-        return row?.LastImportedRevision ?? 0;
-    }
-
-    public async Task<IReadOnlySet<string>> GetCompletedMessageIdsAsync(
-        Guid localAccountId,
-        IReadOnlyList<IntelligenceCapabilityDto> capabilities,
-        CancellationToken cancellationToken = default)
-    {
-        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
-        var connection = lease.Connection;
-        var rows = await connection.Table<LocalArtifactRow>()
-            .Where(x => x.LocalAccountId == localAccountId && !x.IsDeleted)
-            .ToListAsync().ConfigureAwait(false);
-        var required = capabilities.ToDictionary(x => x.CapabilityId, x => x.GenerationVersion, StringComparer.Ordinal);
-        var headlineCapabilityId = IntelligenceCapabilityIds.BriefingHeadline;
-        var headlineGeneration = required.GetValueOrDefault(headlineCapabilityId);
-        required.Remove(headlineCapabilityId);
-        var headlines = headlineGeneration > 0
-            ? await connection.Table<LocalBriefingHeadlineRow>()
-                .Where(x => x.LocalAccountId == localAccountId)
-                .ToListAsync().ConfigureAwait(false)
-            : [];
-        return rows
-            .GroupBy(x => new { x.RemoteMessageId, x.ContentHash })
-            .Where(group => required.All(capability => group.Any(row =>
-                row.CapabilityId == capability.Key && row.GenerationVersion >= capability.Value)) &&
-                (headlineGeneration == 0 || headlines.Any(headline =>
-                    headline.RemoteMessageId == group.Key.RemoteMessageId &&
-                    headline.ContentHash == group.Key.ContentHash &&
-                    headline.GenerationVersion >= headlineGeneration)))
-            .Select(group => group.Key.RemoteMessageId)
-            .ToHashSet(StringComparer.Ordinal);
     }
 
     public async Task<IReadOnlyList<IntelligenceArtifactDto>> GetCurrentArtifactsAsync(
@@ -165,7 +101,7 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
             .Where(static id => !string.IsNullOrWhiteSpace(id))
             .Distinct(StringComparer.Ordinal)
             .ToArray() ?? [];
-        if (distinctIds.Length == 0 || !DatabaseExists)
+        if (distinctIds.Length == 0)
             return new Dictionary<string, IReadOnlyList<IntelligenceArtifactDto>>(StringComparer.Ordinal);
 
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
@@ -211,107 +147,11 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
         return result;
     }
 
-    public async Task<IntelligenceIndexDocumentRequest?> GetPreparedDocumentAsync(
-        Guid localAccountId,
-        string remoteMessageId,
-        CancellationToken cancellationToken = default)
-    {
-        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
-        var connection = lease.Connection;
-        var key = PreparedDocumentKey(localAccountId, remoteMessageId);
-        var row = await connection.Table<LocalPreparedDocumentRow>()
-            .Where(x => x.Key == key)
-            .FirstOrDefaultAsync().ConfigureAwait(false);
-        if (row is null)
-            return null;
-
-        byte[]? plaintext = null;
-        try
-        {
-            plaintext = Unprotect(row.ProtectedPayload, localAccountId, remoteMessageId);
-            var document = JsonSerializer.Deserialize(
-                plaintext,
-                WinoAccountApiJsonContext.Default.IntelligenceIndexDocumentRequest);
-            if (document is null || !string.Equals(document.ContentHash, row.ContentHash, StringComparison.Ordinal))
-                throw new CryptographicException("The staged intelligence document failed its integrity check.");
-            return document;
-        }
-        catch (Exception exception) when (exception is CryptographicException or JsonException)
-        {
-            await connection.ExecuteAsync("DELETE FROM LocalPreparedDocument WHERE Key = ?", key).ConfigureAwait(false);
-            return null;
-        }
-        finally
-        {
-            if (plaintext is not null)
-                CryptographicOperations.ZeroMemory(plaintext);
-        }
-    }
-
-    public async Task SavePreparedDocumentAsync(
-        Guid localAccountId,
-        string remoteMessageId,
-        IntelligenceIndexDocumentRequest document,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(remoteMessageId);
-        ArgumentNullException.ThrowIfNull(document);
-        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
-        var connection = lease.Connection;
-        var plaintext = JsonSerializer.SerializeToUtf8Bytes(
-            document,
-            WinoAccountApiJsonContext.Default.IntelligenceIndexDocumentRequest);
-        byte[]? protectedPayload = null;
-        try
-        {
-            protectedPayload = Protect(plaintext, localAccountId, remoteMessageId);
-            await connection.InsertOrReplaceAsync(new LocalPreparedDocumentRow
-            {
-                Key = PreparedDocumentKey(localAccountId, remoteMessageId),
-                LocalAccountId = localAccountId,
-                RemoteMessageId = remoteMessageId,
-                ContentHash = document.ContentHash,
-                ProtectedPayload = protectedPayload,
-                UpdatedAtUtc = DateTime.UtcNow,
-            }, typeof(LocalPreparedDocumentRow)).ConfigureAwait(false);
-        }
-        finally
-        {
-            CryptographicOperations.ZeroMemory(plaintext);
-            if (protectedPayload is not null)
-                CryptographicOperations.ZeroMemory(protectedPayload);
-        }
-    }
-
-    public async Task DeletePreparedDocumentsAsync(
-        Guid localAccountId,
-        IReadOnlyCollection<string> remoteMessageIds,
-        CancellationToken cancellationToken = default)
-    {
-        if (remoteMessageIds.Count == 0)
-            return;
-
-        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
-        var connection = lease.Connection;
-        await connection.RunInTransactionAsync(transaction =>
-        {
-            foreach (var remoteMessageId in remoteMessageIds.Distinct(StringComparer.Ordinal))
-            {
-                transaction.Execute(
-                    "DELETE FROM LocalPreparedDocument WHERE LocalAccountId = ? AND RemoteMessageId = ?",
-                    localAccountId,
-                    remoteMessageId);
-            }
-        }).ConfigureAwait(false);
-    }
-
-    public async Task ImportAsync(
+    public async Task UpsertArtifactsAsync(
         Guid localAccountId,
         Guid mailboxId,
         IReadOnlyList<IntelligenceArtifactDto> artifacts,
-        long throughRevision,
-        CancellationToken cancellationToken = default,
-        bool advanceImportCursor = true)
+        CancellationToken cancellationToken = default)
     {
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
         var connection = lease.Connection;
@@ -371,9 +211,7 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
             {
                 LocalAccountId = localAccountId,
                 MailboxId = mailboxId,
-                LastImportedRevision = advanceImportCursor
-                    ? Math.Max(existingState?.LastImportedRevision ?? 0, throughRevision)
-                    : existingState?.LastImportedRevision ?? 0,
+                LastImportedRevision = existingState?.LastImportedRevision ?? 0,
                 HeadlineLanguage = existingState?.HeadlineLanguage ?? string.Empty,
                 SuppressHeadlineLanguagePrompt = existingState?.SuppressHeadlineLanguagePrompt ?? false,
                 UpdatedAtUtc = DateTime.UtcNow,
@@ -386,7 +224,7 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
             .ToHashSet(StringComparer.Ordinal);
         if (changedIds.Count > 0)
         {
-            WeakReferenceMessenger.Default.Send(new IntelligenceMetadataChanged(
+            messenger.Send(new IntelligenceMetadataChanged(
                 localAccountId,
                 changedIds,
                 IntelligenceMetadataChangeScope.Messages));
@@ -459,11 +297,15 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
                 existingHeadlines.TryGetValue(headline.BriefingId, out var existing);
                 transaction.InsertOrReplace(new LocalBriefingHeadlineRow
                 {
-                    Key = $"{localAccountId:D}|{headline.BriefingId:D}", LocalAccountId = localAccountId, MailboxId = mailboxId,
+                    Key = $"{localAccountId:D}|{headline.BriefingId:D}",
+                    LocalAccountId = localAccountId,
+                    MailboxId = mailboxId,
                     RemoteMessageId = existing?.RemoteMessageId ?? string.Empty,
                     ContentHash = existing?.ContentHash ?? string.Empty,
                     GenerationVersion = existing?.GenerationVersion ?? 0,
-                    BriefingId = headline.BriefingId, Headline = headline.Headline, ArtifactRevision = headline.ArtifactRevision,
+                    BriefingId = headline.BriefingId,
+                    Headline = headline.Headline,
+                    ArtifactRevision = headline.ArtifactRevision,
                     UpdatedAtUtc = headline.UpdatedAtUtc.UtcDateTime,
                 }, typeof(LocalBriefingHeadlineRow));
             }
@@ -474,7 +316,10 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
             state.UpdatedAtUtc = DateTime.UtcNow;
             transaction.InsertOrReplace(state, typeof(LocalMailboxStateRow));
         }).ConfigureAwait(false);
-        WeakReferenceMessenger.Default.Send(new IntelligenceMetadataChanged(localAccountId, new HashSet<string>(), IntelligenceMetadataChangeScope.Messages));
+        messenger.Send(new IntelligenceMetadataChanged(
+            localAccountId,
+            new HashSet<string>(),
+            IntelligenceMetadataChangeScope.Messages));
     }
 
     public async Task SaveAccessSnapshotAsync(LocalIntelligenceAccessSnapshot snapshot, CancellationToken cancellationToken = default)
@@ -482,8 +327,10 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
         await lease.Connection.InsertOrReplaceAsync(new LocalIntelligenceAccessRow
         {
-            LocalAccountId = snapshot.LocalAccountId, WinoAccountId = snapshot.WinoAccountId,
-            HasAiPack = snapshot.HasAiPack, HasIntelligenceConsent = snapshot.HasIntelligenceConsent,
+            LocalAccountId = snapshot.LocalAccountId,
+            WinoAccountId = snapshot.WinoAccountId,
+            HasAiPack = snapshot.HasAiPack,
+            HasIntelligenceConsent = snapshot.HasIntelligenceConsent,
             MailboxId = snapshot.MailboxId,
             UpdatedAtUtc = snapshot.UpdatedAtUtc.UtcDateTime,
         }, typeof(LocalIntelligenceAccessRow)).ConfigureAwait(false);
@@ -676,13 +523,11 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
             transaction.Execute("DELETE FROM LocalArtifact WHERE LocalAccountId = ?", localAccountId);
             transaction.Execute("DELETE FROM LocalBriefingHeadline WHERE LocalAccountId = ?", localAccountId);
             transaction.Execute("DELETE FROM LocalMailboxState WHERE LocalAccountId = ?", localAccountId);
-            transaction.Execute("DELETE FROM LocalIndexJob WHERE LocalAccountId = ?", localAccountId);
-            transaction.Execute("DELETE FROM LocalPreparedDocument WHERE LocalAccountId = ?", localAccountId);
             transaction.Execute("DELETE FROM LocalIntelligenceAccess WHERE LocalAccountId = ?", localAccountId);
             transaction.Execute("DELETE FROM LocalDailyBriefingState WHERE LocalAccountId = ?", localAccountId);
             transaction.Execute("DELETE FROM LocalDailyBriefingIgnore WHERE LocalAccountId = ?", localAccountId);
         }).ConfigureAwait(false);
-        WeakReferenceMessenger.Default.Send(new IntelligenceMetadataChanged(
+        messenger.Send(new IntelligenceMetadataChanged(
             localAccountId,
             new HashSet<string>(StringComparer.Ordinal),
             IntelligenceMetadataChangeScope.MailboxReset));
@@ -719,67 +564,10 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
             _operationLock.Release();
         }
 
-        WeakReferenceMessenger.Default.Send(new IntelligenceMetadataChanged(
+        messenger.Send(new IntelligenceMetadataChanged(
             null,
             new HashSet<string>(StringComparer.Ordinal),
             IntelligenceMetadataChangeScope.DatabaseReset));
-    }
-
-    public async Task SaveJobIntentAsync(SemanticIndexJobIntent intent, CancellationToken cancellationToken = default)
-    {
-        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
-        var connection = lease.Connection;
-        await connection.InsertOrReplaceAsync(new LocalIndexJobRow
-        {
-            LocalAccountId = intent.LocalAccountId,
-            MailboxId = intent.ServerMailboxId,
-            RangePresetId = intent.RangePreset.ToStableId(),
-            CutoffUtc = intent.CutoffUtc?.UtcDateTime,
-            ThroughUtcExclusive = intent.ThroughUtcExclusive?.UtcDateTime,
-            AutomaticallyIndexNewMessages = intent.AutomaticallyIndexNewMessages,
-            BackfillStatus = intent.BackfillStatus,
-            UpdatedAtUtc = intent.UpdatedAtUtc.UtcDateTime,
-            CoverageRulesJson = JsonSerializer.Serialize(
-                intent.CoverageRules?.ToArray() ?? [],
-                LocalIntelligenceJsonContext.Default.SemanticIndexFolderCoverageRuleArray),
-        }, typeof(LocalIndexJobRow)).ConfigureAwait(false);
-    }
-
-    public async Task<IReadOnlyList<SemanticIndexJobIntent>> GetJobIntentsAsync(CancellationToken cancellationToken = default)
-    {
-        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
-        var connection = lease.Connection;
-        var rows = await connection.Table<LocalIndexJobRow>().ToListAsync().ConfigureAwait(false);
-        return rows.Select(row => new SemanticIndexJobIntent(
-            row.LocalAccountId,
-            row.MailboxId,
-            SemanticIndexRangePresetExtensions.FromStableId(row.RangePresetId),
-            row.CutoffUtc is null ? null : new DateTimeOffset(DateTime.SpecifyKind(row.CutoffUtc.Value, DateTimeKind.Utc)),
-            row.ThroughUtcExclusive is null ? null : new DateTimeOffset(DateTime.SpecifyKind(row.ThroughUtcExclusive.Value, DateTimeKind.Utc)),
-            row.AutomaticallyIndexNewMessages,
-            row.BackfillStatus,
-            new DateTimeOffset(DateTime.SpecifyKind(row.UpdatedAtUtc, DateTimeKind.Utc)),
-            ParseCoverageRules(row.CoverageRulesJson))).ToArray();
-    }
-
-    private static IReadOnlyList<SemanticIndexFolderCoverageRule> ParseCoverageRules(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return [];
-        try
-        {
-            return JsonSerializer.Deserialize(
-                value,
-                LocalIntelligenceJsonContext.Default.SemanticIndexFolderCoverageRuleArray) ?? [];
-        }
-        catch (JsonException) { return []; }
-    }
-
-    public async Task DeleteJobIntentAsync(Guid localAccountId, CancellationToken cancellationToken = default)
-    {
-        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
-        var connection = lease.Connection;
-        await connection.ExecuteAsync("DELETE FROM LocalIndexJob WHERE LocalAccountId = ?", localAccountId).ConfigureAwait(false);
     }
 
     public async ValueTask DisposeAsync()
@@ -804,8 +592,10 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
         await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await InitializeCoreAsync(cancellationToken).ConfigureAwait(false);
-            return new ConnectionLease(_connection!, _operationLock);
+            var connection = _connection
+                ?? throw new InvalidOperationException("The local intelligence store has not been initialized.");
+
+            return new ConnectionLease(connection, _operationLock);
         }
         catch
         {
@@ -852,152 +642,6 @@ public sealed class LocalIntelligenceStore(IApplicationConfiguration application
     internal static IntelligenceArtifactDto DeserializeTypedArtifact(string json)
         => JsonSerializer.Deserialize(json, WinoAccountApiJsonContext.Default.IntelligenceArtifactDto)
             ?? throw new JsonException("Stored intelligence artifact is empty.");
-
-    private static void RemoveLegacyDatabases(string folder)
-    {
-        foreach (var databaseName in LegacyDatabaseNames)
-        {
-            foreach (var suffix in new[] { string.Empty, "-wal", "-shm" })
-            {
-                var path = Path.Combine(folder, databaseName + suffix);
-                if (File.Exists(path))
-                    File.Delete(path);
-            }
-        }
-    }
-
-    private static string PreparedDocumentKey(Guid localAccountId, string remoteMessageId)
-        => $"{localAccountId:D}|{remoteMessageId}";
-
-    private static byte[] Protect(byte[] plaintext, Guid localAccountId, string remoteMessageId)
-    {
-        if (!OperatingSystem.IsWindows())
-            throw new PlatformNotSupportedException("Prepared intelligence documents require Windows data protection.");
-        var entropy = CreateEntropy(localAccountId, remoteMessageId);
-        try { return ProtectedData.Protect(plaintext, entropy, DataProtectionScope.CurrentUser); }
-        finally { CryptographicOperations.ZeroMemory(entropy); }
-    }
-
-    private static byte[] Unprotect(byte[] protectedPayload, Guid localAccountId, string remoteMessageId)
-    {
-        if (!OperatingSystem.IsWindows())
-            throw new PlatformNotSupportedException("Prepared intelligence documents require Windows data protection.");
-        var entropy = CreateEntropy(localAccountId, remoteMessageId);
-        try { return ProtectedData.Unprotect(protectedPayload, entropy, DataProtectionScope.CurrentUser); }
-        finally { CryptographicOperations.ZeroMemory(entropy); }
-    }
-
-    private static byte[] CreateEntropy(Guid localAccountId, string remoteMessageId)
-        => SHA256.HashData(Encoding.UTF8.GetBytes($"wino-intelligence-document-v1|{localAccountId:D}|{remoteMessageId}"));
-
-    [Table("LocalArtifact")]
-    private sealed class LocalArtifactRow
-    {
-        [PrimaryKey] public string Key { get; set; } = string.Empty;
-        [Indexed] public Guid LocalAccountId { get; set; }
-        public Guid MailboxId { get; set; }
-        [Indexed] public string RemoteMessageId { get; set; } = string.Empty;
-        public string ContentHash { get; set; } = string.Empty;
-        [Indexed] public string CapabilityId { get; set; } = string.Empty;
-        public int GenerationVersion { get; set; }
-        public int PayloadSchemaVersion { get; set; }
-        [Indexed] public long ArtifactRevision { get; set; }
-        public DateTime GeneratedAtUtc { get; set; }
-        public double? Confidence { get; set; }
-        public bool IsDeleted { get; set; }
-        public string PayloadJson { get; set; } = "{}";
-    }
-
-    [Table("LocalMailboxState")]
-    private sealed class LocalMailboxStateRow
-    {
-        [PrimaryKey] public Guid LocalAccountId { get; set; }
-        public Guid MailboxId { get; set; }
-        public long LastImportedRevision { get; set; }
-        public string HeadlineLanguage { get; set; } = string.Empty;
-        public bool SuppressHeadlineLanguagePrompt { get; set; }
-        public DateTime UpdatedAtUtc { get; set; }
-        public string CoverageRulesJson { get; set; } = string.Empty;
-    }
-
-    [Table("LocalBriefingHeadline")]
-    private sealed class LocalBriefingHeadlineRow
-    {
-        [PrimaryKey] public string Key { get; set; } = string.Empty;
-        [Indexed] public Guid LocalAccountId { get; set; }
-        public Guid MailboxId { get; set; }
-        [Indexed] public string RemoteMessageId { get; set; } = string.Empty;
-        public string ContentHash { get; set; } = string.Empty;
-        public int GenerationVersion { get; set; }
-        [Indexed] public Guid BriefingId { get; set; }
-        public string Headline { get; set; } = string.Empty;
-        public long ArtifactRevision { get; set; }
-        public DateTime UpdatedAtUtc { get; set; }
-    }
-
-    [Table("LocalIndexJob")]
-    private sealed class LocalIndexJobRow
-    {
-        [PrimaryKey] public Guid LocalAccountId { get; set; }
-        public Guid MailboxId { get; set; }
-        public string RangePresetId { get; set; } = "only-new";
-        public DateTime? CutoffUtc { get; set; }
-        public DateTime? ThroughUtcExclusive { get; set; }
-        public bool AutomaticallyIndexNewMessages { get; set; } = true;
-        public string BackfillStatus { get; set; } = "not-started";
-        public DateTime UpdatedAtUtc { get; set; }
-        public string CoverageRulesJson { get; set; } = string.Empty;
-    }
-
-    [Table("LocalPreparedDocument")]
-    private sealed class LocalPreparedDocumentRow
-    {
-        [PrimaryKey] public string Key { get; set; } = string.Empty;
-        [Indexed] public Guid LocalAccountId { get; set; }
-        [Indexed] public string RemoteMessageId { get; set; } = string.Empty;
-        public string ContentHash { get; set; } = string.Empty;
-        public byte[] ProtectedPayload { get; set; } = [];
-        public DateTime UpdatedAtUtc { get; set; }
-    }
-
-    [Table("LocalIntelligenceAccess")]
-    private sealed class LocalIntelligenceAccessRow
-    {
-        [PrimaryKey] public Guid LocalAccountId { get; set; }
-        public Guid WinoAccountId { get; set; }
-        public bool HasAiPack { get; set; }
-        public bool HasIntelligenceConsent { get; set; }
-        public Guid? MailboxId { get; set; }
-        public DateTime UpdatedAtUtc { get; set; }
-    }
-
-    [Table("LocalAccountIntelligenceSnapshot")]
-    private sealed class LocalAccountIntelligenceSnapshotRow
-    {
-        [PrimaryKey] public Guid WinoAccountId { get; set; }
-        public string Payload { get; set; } = string.Empty;
-        public DateTime UpdatedAtUtc { get; set; }
-    }
-
-    [Table("LocalDailyBriefingState")]
-    private sealed class LocalDailyBriefingStateRow
-    {
-        [PrimaryKey] public Guid LocalAccountId { get; set; }
-        public DateTime? LastOpenedAtUtc { get; set; }
-        public DateTime? LastViewedAtUtc { get; set; }
-        public long LastViewedFactRevision { get; set; }
-    }
-
-    [Table("LocalDailyBriefingIgnore")]
-    private sealed class LocalDailyBriefingIgnoreRow
-    {
-        [PrimaryKey] public string Key { get; set; } = string.Empty;
-        [Indexed] public Guid LocalAccountId { get; set; }
-        [Indexed] public Guid BriefingId { get; set; }
-        public long IgnoredArtifactRevision { get; set; }
-        public DateTime IgnoredAtUtc { get; set; }
-    }
-
     private sealed class ConnectionLease(SQLiteAsyncConnection connection, SemaphoreSlim operationLock) : IDisposable
     {
         public SQLiteAsyncConnection Connection { get; } = connection;

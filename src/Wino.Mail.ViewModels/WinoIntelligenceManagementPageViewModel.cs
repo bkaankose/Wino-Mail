@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -28,18 +27,6 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     private const int LargeMailboxMessageThreshold = 2_000;
 
     /// <summary>
-    /// Number of columns in the message volume histogram. A day per column is far
-    /// more detail than the control can draw, so days are folded into fixed buckets.
-    /// </summary>
-    private const int RangeHistogramBucketCount = 72;
-
-    /// <summary>
-    /// Message ids per cloud delta request. The whole account is resolved at once, and a mailbox
-    /// with tens of thousands of messages would otherwise be a multi-megabyte request body.
-    /// </summary>
-    private const int DeltaResolutionBatchSize = 2_000;
-
-    /// <summary>
     /// How long to wait before re-reading a mailbox that came back with no folders at all, which
     /// means the page opened while the account's folders were still being written.
     /// </summary>
@@ -55,8 +42,10 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     private readonly ITranslationService _translationService;
     private readonly IWinoAccountProfileService? _profileService;
     private readonly IWinoAccountIntelligenceSnapshotService? _snapshotService;
-    private SemanticIndexPlan _currentPlan;
+    private readonly IIntelligenceCoverageHandoff _coverageHandoff;
     private bool _isApplyingProfile;
+    private HashSet<string> _selectedRemoteMessageIds = new(StringComparer.Ordinal);
+    private HashSet<string> _coveredRemoteMessageIds = new(StringComparer.Ordinal);
 
     /// <summary>
     /// The account's mail as identity and date, read once per navigation. Every folder count, date
@@ -65,13 +54,12 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     private IntelligenceCoverageInventory? _inventory;
 
     /// <summary>
-    /// Which inventory messages the cloud is missing, resolved once over the whole account. Any
-    /// selection's missing count is then an intersection, so no rule edit needs a round-trip.
+    /// The account's folders, read alongside the inventory. Kept so the coverage editor can be
+    /// opened without a second folder read.
     /// </summary>
-    private IntelligenceCoverageDelta? _delta;
+    private IReadOnlyCollection<MailItemFolder> _folders = [];
 
     private IntelligenceMailboxStatusDto? _intelligenceStatus;
-    private CancellationTokenSource _rangeRecalculationCancellation;
     public WinoIntelligenceManagementPageViewModel(
         IMailDialogService dialogService,
         IAccountService accountService,
@@ -81,9 +69,11 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         IWinoAccountApiClient apiClient,
         ILocalIntelligenceStore localStore,
         ITranslationService translationService,
+        IIntelligenceCoverageHandoff coverageHandoff,
         IWinoAccountProfileService? profileService = null,
         IWinoAccountIntelligenceSnapshotService? snapshotService = null)
     {
+        _coverageHandoff = coverageHandoff;
         _dialogService = dialogService;
         _accountService = accountService;
         _folderService = folderService;
@@ -105,8 +95,6 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     /// <summary>Ordered, local visibility choices for the current mailbox.</summary>
     public ObservableCollection<IntelligenceIndicatorSettingsItem> IntelligenceIndicatorSettings { get; } = [];
 
-    public ObservableCollection<IntelligenceFolderSelectionItem> IntelligenceFolderSelections { get; } = [];
-
     /// <summary>
     /// One row per folder the user included, each holding that folder's own rule. Populated once
     /// per navigation from the inventory and recomputed in memory afterwards.
@@ -121,12 +109,6 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     public partial SemanticIndexFolderCoverageRule DefaultCoverageRule { get; set; }
         = SemanticIndexFolderCoverageRule.Latest(string.Empty, MailAccountPreferences.DefaultLatestMessageCount);
 
-    /// <summary>"Every folder: latest 100 messages" — the banner headline.</summary>
-    [ObservableProperty] public partial string DefaultRuleSummary { get; set; } = string.Empty;
-
-    /// <summary>How many folders deviate from the default, if any.</summary>
-    [ObservableProperty] public partial string DefaultRuleDetail { get; set; } = string.Empty;
-
     public bool HasCoverageFolders => IntelligenceFolderCoverageItems.Count > 0;
     public bool IsCoverageEmptyStateVisible => IsPageReady && IntelligenceFolderCoverageItems.Count == 0;
 
@@ -135,9 +117,6 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     /// switch look like it discarded the configuration — but nothing in it can be edited.
     /// </summary>
     public bool IsCoverageEditable => IsPageReady && IsSemanticIndexingEnabled && !IsJobActive && !IsBusy;
-
-    /// <summary>Shown in place of the coverage controls' silence, to say the settings are kept.</summary>
-    public bool IsCoverageDisabledNoticeVisible => IsPageReady && !IsSemanticIndexingEnabled;
 
     /// <summary>
     /// Features are hidden rather than disabled while intelligence is off: a Daily Briefing toggle
@@ -200,6 +179,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     [NotifyCanExecuteChangedFor(nameof(UpgradeEmbeddingProfileCommand))]
     [NotifyCanExecuteChangedFor(nameof(TranslateHeadlinesCommand))]
     [NotifyCanExecuteChangedFor(nameof(DownloadAvailableIntelligenceCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CancelIndexingCommand))]
     [NotifyPropertyChangedFor(nameof(IsStatusInfoBarVisible))]
     public partial bool IsBusy { get; set; }
 
@@ -373,9 +353,6 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     /// each folder carries its own rule — but the plan calculation still takes it as the fallback
     /// for a mailbox that has no rules stored yet.
     /// </summary>
-    [ObservableProperty]
-    public partial SemanticIndexRangePreset SelectedRangePreset { get; set; } = SemanticIndexRangePreset.Everything;
-
     /// <summary>
     /// The indexing card states its title and its one-line summary once, in the card
     /// header, whether it is describing a plan or a running job.
@@ -391,16 +368,20 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     public bool CanChangeIntelligencePreferences => IsPageReady && !IsBusy && !IsJobActive;
     public bool CanEditMessageRange => HasAvailableMessages && !IsJobActive;
     public bool CanEditIntelligenceFolders => IsPageReady && !IsBusy && !IsJobActive;
-    public bool HasSelectedIntelligenceFolders => IntelligenceFolderSelections.Any(selection => selection.IsSelected);
+    public bool HasSelectedIntelligenceFolders => IntelligenceFolderCoverageItems.Count > 0;
     public string SelectedIntelligenceFoldersDescription => HasSelectedIntelligenceFolders
-        ? string.Join(", ", IntelligenceFolderSelections.Where(selection => selection.IsSelected).Select(selection => selection.DisplayName))
+        ? string.Join(", ", IntelligenceFolderCoverageItems.Select(item => item.DisplayName))
         : Translator.SemanticIndex_FoldersNoneSelected;
 
     /// <summary>
     /// The hero already carries the busy message and the healthy state, so the status
     /// bar is only raised for what the hero cannot say on its own.
     /// </summary>
-    public bool IsIndexingInProgress => JobStatus is SemanticIndexJobStatus.Queued or SemanticIndexJobStatus.Indexing;
+    public bool IsIndexingInProgress => JobStatus is
+        SemanticIndexJobStatus.Calculating or
+        SemanticIndexJobStatus.Queued or
+        SemanticIndexJobStatus.Indexing or
+        SemanticIndexJobStatus.GeneratingInsights;
     public string StatusInfoBarTitle => IsIndexingInProgress ? Translator.SemanticIndex_IndexingInfoBarTitle : string.Empty;
     public string StatusInfoBarMessage => IsIndexingInProgress ? Translator.SemanticIndex_IndexingInfoBarMessage : StatusMessage;
     public InfoBarMessageType StatusInfoBarType => IsIndexingInProgress ? InfoBarMessageType.Information : StatusType;
@@ -414,8 +395,8 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     public bool IsEverythingSelected => HasAvailableMessages &&
         IntelligenceFolderCoverageItems.Count > 0 &&
         IntelligenceFolderCoverageItems.All(item =>
-            item.Mode == SemanticIndexCoverageMode.DateRange &&
-            item.DatePreset == SemanticIndexRangePreset.Everything);
+            item.Rule.Mode == SemanticIndexCoverageMode.DateRange &&
+            item.Rule.DatePreset == SemanticIndexRangePreset.Everything);
 
     /// <summary>
     /// The warning tells the user that "Everything" is a poor default, so it is only
@@ -432,18 +413,35 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
 
     partial void OnAutomaticallyIndexNewMessagesChanged(bool value)
     {
-        if (Account is not null)
-        {
-            Account.Preferences.AutomaticallyIndexNewMessages = value;
-            _ = _accountService.UpdateAccountPreferencesAsync(Account.Preferences);
-        }
-        if (!_isApplyingProfile && IsPageReady && IsSemanticIndexingEnabled)
-            _ = RecalculatePlanAsync();
+        if (!_isApplyingProfile && Account is not null)
+            _ = SaveAutomaticIndexingPreferenceAsync(value);
     }
 
     partial void OnNewMessageModeIndexChanged(int value)
     {
         AutomaticallyIndexNewMessages = value == 0;
+    }
+
+    private async Task SaveAutomaticIndexingPreferenceAsync(bool value)
+    {
+        Account.Preferences.AutomaticallyIndexNewMessages = value;
+
+        try
+        {
+            await _accountService.UpdateAccountPreferencesAsync(Account.Preferences).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            Account.Preferences.AutomaticallyIndexNewMessages = !value;
+            await ExecuteUIThread(() =>
+            {
+                _isApplyingProfile = true;
+                AutomaticallyIndexNewMessages = !value;
+                NewMessageModeIndex = AutomaticallyIndexNewMessages ? 0 : 1;
+                _isApplyingProfile = false;
+            });
+            await ShowErrorAsync(exception);
+        }
     }
 
     partial void OnIsPageReadyChanged(bool value)
@@ -464,7 +462,6 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         OnPropertyChanged(nameof(HasCoverageFolders));
         OnPropertyChanged(nameof(IsCoverageEmptyStateVisible));
         OnPropertyChanged(nameof(IsCoverageEditable));
-        OnPropertyChanged(nameof(IsCoverageDisabledNoticeVisible));
         OnPropertyChanged(nameof(IsFeaturesGroupVisible));
         OnPropertyChanged(nameof(IsIndexedDataGroupVisible));
     }
@@ -500,6 +497,26 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         if (parameters is not Guid accountId)
             return;
 
+        // Returning from the coverage editor. The page is cached, so this instance still holds the
+        // inventory the editor worked from — applying its result in memory is both correct and
+        // instant, and reloading here would put a progress ring in front of a finished decision.
+        if (mode == NavigationMode.Back && IsPageReady &&
+            _coverageHandoff.TryTake(out var coverageResult) &&
+            coverageResult is not null && coverageResult.AccountId == accountId)
+        {
+            try
+            {
+                await ApplyCoverageResultAsync(coverageResult);
+                if (IsSemanticIndexingEnabled)
+                    await RecalculatePlanAsync().ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                await ShowErrorAsync(exception);
+            }
+            return;
+        }
+
         try
         {
             await SetBusyAsync(true, Translator.SemanticIndex_OperationLoading);
@@ -513,6 +530,11 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
                 IsSemanticIndexingEnabled = account.Preferences.IsSemanticIndexingEnabled;
                 IsDailyBriefingEnabled = account.Preferences.IsDailyBriefingEnabled;
                 ReplaceIntelligenceIndicatorSettings(account.Preferences.ExcludedIntelligenceIndicatorIds);
+
+                // A job that started before this page opened is still running in the coordinator.
+                // Seeding from it is what makes the progress card and its Cancel button appear on
+                // arrival, instead of waiting for whatever snapshot the job broadcasts next.
+                ApplySnapshot(_coordinator.GetJobSnapshot(accountId));
             });
             // The one mail read this page performs. It is deliberately before the consent check:
             // it is a local query, so the coverage editor is usable the moment consent is granted,
@@ -536,7 +558,6 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
             {
                 await RefreshLocalIndexStateAsync().ConfigureAwait(false);
                 await ExecuteUIThread(() => IsPageReady = true);
-                _ = ResolveCoverageDeltaAsync();
                 if (IsSemanticIndexingEnabled)
                     await RecalculatePlanAsync().ConfigureAwait(false);
                 return;
@@ -559,7 +580,6 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
                 ? await _apiClient.GetIntelligenceStatusAsync(mailboxId).ConfigureAwait(false)
                 : null;
             await ExecuteUIThread(() => ApplyStatus(status));
-            _ = ResolveCoverageDeltaAsync();
             await RefreshHeadlineLanguageAsync(status).ConfigureAwait(false);
         }
         catch (Exception exception)
@@ -600,7 +620,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
             Account.Preferences.IsSemanticIndexingEnabled = isEnabled;
             await _accountService.UpdateAccountAsync(Account).ConfigureAwait(false);
             await ExecuteUIThread(() => IsSemanticIndexingEnabled = isEnabled);
-            WeakReferenceMessenger.Default.Send(new WinoIntelligenceAccessChanged());
+            Messenger.Send(new WinoIntelligenceAccessChanged());
         }
         catch (Exception exception)
         {
@@ -621,13 +641,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
             // Enabling can be the first point at which the range is reachable, so the
             // editor gets its data before the plan is calculated against it.
             await RefreshIntelligenceStatusAsync().ConfigureAwait(false);
-            if (HasIndexData)
-                await DownloadAvailableIntelligenceCoreAsync(showSuccess: false).ConfigureAwait(false);
-            else
-            {
-                await ResolveCoverageDeltaAsync().ConfigureAwait(false);
-                await RefreshIndexedMessageCountAsync().ConfigureAwait(false);
-            }
+            await DownloadAvailableIntelligenceCoreAsync(showSuccess: false).ConfigureAwait(false);
             await RecalculatePlanAsync().ConfigureAwait(false);
         }
         else
@@ -725,8 +739,11 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     {
         try
         {
-            var plan = _currentPlan ?? await CalculatePlanAsync().ConfigureAwait(false);
-            await _coordinator.StartIndexingAsync(Account.Id, plan, notifyWhenCompleted: true).ConfigureAwait(false);
+            var selectedIds = _selectedRemoteMessageIds.ToArray();
+            await _coordinator.StartIndexingAsync(
+                Account.Id,
+                selectedIds,
+                notifyWhenCompleted: true).ConfigureAwait(false);
             await ExecuteUIThread(() => ApplySnapshot(_coordinator.GetJobSnapshot(Account.Id)));
         }
         catch (Exception exception)
@@ -846,7 +863,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         }
     }
 
-    private bool CanCancelIndexing() => IsJobActive && !IsBusy;
+    private bool CanCancelIndexing() => IsJobActive;
 
     [RelayCommand(CanExecute = nameof(CanDownloadAvailableIntelligence))]
     private async Task DownloadAvailableIntelligenceAsync()
@@ -860,7 +877,9 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         try
         {
             await SetBusyAsync(true, Translator.SemanticIndex_OperationDownloading);
-            var state = await _coordinator.DownloadAvailableIntelligenceAsync(Account.Id).ConfigureAwait(false);
+            var result = await _coordinator.DownloadAvailableIntelligenceAsync(Account.Id).ConfigureAwait(false);
+            _coveredRemoteMessageIds = result.CoveredRemoteMessageIds.ToHashSet(StringComparer.Ordinal);
+            await LoadCoverageAsync(Account).ConfigureAwait(false);
             var status = SemanticMailboxId is { } mailboxId
                 ? await _apiClient.GetIntelligenceStatusAsync(mailboxId).ConfigureAwait(false)
                 : null;
@@ -873,14 +892,13 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
                 {
                     StatusMessage = string.Format(
                         Translator.SemanticIndex_CloudRestored,
-                        state.LocalIndexedMessageCount);
+                        result.CoveredRemoteMessageIds.Count);
                     StatusType = InfoBarMessageType.Success;
                 }
             });
             await RefreshIndexedMessageCountAsync().ConfigureAwait(false);
-            await RefreshLocalIndexStateAsync().ConfigureAwait(false);
+            await RefreshLocalIndexStateAsync(updateCoverage: false).ConfigureAwait(false);
             await RefreshHeadlineLanguageAsync(status).ConfigureAwait(false);
-            await ResolveCoverageDeltaAsync().ConfigureAwait(false);
         }
         catch (Exception exception)
         {
@@ -915,10 +933,9 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
                 StatusType = InfoBarMessageType.Success;
                 RefreshHeroState();
             });
-            // The cloud index is gone, so the delta over the same local mail has to be redrawn.
-            _delta = null;
+            _coveredRemoteMessageIds.Clear();
             await ExecuteUIThread(RecomputeCoverage);
-            WeakReferenceMessenger.Default.Send(new WinoIntelligenceAccessChanged());
+            Messenger.Send(new WinoIntelligenceAccessChanged());
         }
         catch (Exception exception)
         {
@@ -992,13 +1009,14 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
                 HasIndexData = false;
                 HasLocalIndexData = false;
                 _intelligenceStatus = null;
+                _coveredRemoteMessageIds.Clear();
                 IndexedMessageCount = 0;
                 CoverageDescription = Translator.SemanticIndex_NoIndexedMessages;
                 StatusMessage = Translator.SemanticIndex_DisabledCallout;
                 RefreshHeroState();
             });
             await ExecuteUIThread(RecomputeCoverage);
-            WeakReferenceMessenger.Default.Send(new WinoIntelligenceAccessChanged());
+            Messenger.Send(new WinoIntelligenceAccessChanged());
         }
         catch (Exception exception)
         {
@@ -1015,8 +1033,14 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         if (Account?.Id != message.AccountId)
             return;
         _ = ExecuteUIThread(() => ApplySnapshot(message.Snapshot));
-        if (message.Snapshot.Status is SemanticIndexJobStatus.Completed or SemanticIndexJobStatus.PausedForQuota or SemanticIndexJobStatus.Failed)
-            _ = RefreshAfterJobAsync(message.Snapshot.Status == SemanticIndexJobStatus.Completed);
+        if (message.Snapshot.Status is
+            SemanticIndexJobStatus.Completed or
+            SemanticIndexJobStatus.PausedForQuota or
+            SemanticIndexJobStatus.Failed or
+            SemanticIndexJobStatus.Cancelled)
+        {
+            _ = RefreshAfterJobAsync();
+        }
     }
 
     protected override void RegisterRecipients()
@@ -1031,68 +1055,36 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         base.UnregisterRecipients();
     }
 
-    private async Task RecalculatePlanAsync()
+    private Task RecalculatePlanAsync()
     {
         if (Account is null || !IsSemanticIndexingEnabled || IsJobActive)
-            return;
-        try
-        {
-            await ExecuteUIThread(() =>
-            {
-                IsCalculatingPlan = true;
-                PlanSummary = Translator.SemanticIndex_PlanCalculating;
-                HasError = false;
-                IsConsentActionVisible = false;
-            });
-            var plan = await CalculatePlanAsync().ConfigureAwait(false);
-            _currentPlan = plan;
-            await ExecuteUIThread(() =>
-            {
-                // The per-folder counts already on screen came from the inventory and agree with
-                // this plan, so only the cloud-side missing counts are worth taking from it.
-                TotalMissingMessageCount = plan.MissingMessageCount;
-                if (plan.FolderPlans is not null)
-                {
-                    foreach (var folderPlan in plan.FolderPlans)
-                    {
-                        var item = IntelligenceFolderCoverageItems.FirstOrDefault(x => x.RemoteFolderId == folderPlan.Rule.RemoteFolderId);
-                        if (item is null)
-                            continue;
-                        item.MissingMessageCount = folderPlan.MissingMessageCount;
-                    }
-                }
-                ProgressSummary = plan.MissingMessageCount == 0
-                    ? Translator.SemanticIndex_PlanEmpty
-                    : string.Format(Translator.SemanticIndex_OverallProgress, 0, plan.MissingMessageCount, plan.MissingMessageCount);
-                PlanSummary = plan.MissingMessageCount == 0
-                    ? Translator.SemanticIndex_PlanEmpty
-                    : string.Format(Translator.SemanticIndex_PlanSummary, plan.MissingMessageCount, FormatDuration(plan.EstimatedDuration));
+            return Task.CompletedTask;
 
-                StartIndexingCommand.NotifyCanExecuteChanged();
-
-                if (plan.MissingMessageCount == 0)
-                {
-                    StatusMessage = Translator.SemanticIndex_UpToDate;
-                    StatusType = InfoBarMessageType.Success;
-                }
-                else if (!HasIndexData)
-                {
-                    StatusMessage = Translator.SemanticIndex_NotReady;
-                    StatusType = InfoBarMessageType.Information;
-                }
-            });
-        }
-        catch (Exception exception)
+        return ExecuteUIThread(() =>
         {
-            await ShowErrorAsync(exception);
-        }
-        finally
-        {
-            await ExecuteUIThread(() => IsCalculatingPlan = false);
-        }
+            RecomputeCoverage();
+            PlanSummary = TotalMissingMessageCount == 0
+                ? Translator.SemanticIndex_PlanEmpty
+                : string.Format(
+                    Translator.SemanticIndex_PlanSummary,
+                    TotalMissingMessageCount,
+                    FormatDuration(TimeSpan.FromSeconds(TotalMissingMessageCount)));
+            ProgressSummary = TotalMissingMessageCount == 0
+                ? Translator.SemanticIndex_PlanEmpty
+                : string.Format(
+                    Translator.SemanticIndex_OverallProgress,
+                    0,
+                    TotalMissingMessageCount,
+                    TotalMissingMessageCount);
+        });
     }
 
-    public async Task SetIntelligenceFolderSelectionAsync(IReadOnlyCollection<string> remoteFolderIds)
+    /// <param name="rebuildRows">
+    /// False when the caller has already built the coverage rows itself, which is what returning
+    /// from the coverage editor does — rebuilding them there would throw away its per-folder rules.
+    /// </param>
+    public async Task SetIntelligenceFolderSelectionAsync(
+        IReadOnlyCollection<string> remoteFolderIds, bool rebuildRows = true)
     {
         if (Account is null || !CanEditIntelligenceFolders)
             return;
@@ -1100,17 +1092,11 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         var previousInitialized = Account.Preferences.IsIntelligenceFolderSelectionInitialized;
         var previousSelection = Account.Preferences.SelectedIntelligenceFolderIds.ToHashSet(StringComparer.Ordinal);
         var selected = remoteFolderIds.ToHashSet(StringComparer.Ordinal);
-        foreach (var item in IntelligenceFolderSelections)
-            item.IsSelected = selected.Contains(item.RemoteFolderId);
         Account.Preferences.IsIntelligenceFolderSelectionInitialized = true;
         Account.Preferences.SelectedIntelligenceFolderIds = selected;
-        var rules = Account.Preferences.IntelligenceFolderCoverageRules;
-        foreach (var folderId in selected)
-        {
-            if (!rules.ContainsKey(folderId))
-                rules[folderId] = SemanticIndexFolderCoverageRule.Latest(folderId, 100);
-        }
-        Account.Preferences.IntelligenceFolderCoverageRules = rules;
+        Account.Preferences.IsIntelligenceCoverageInitialized = true;
+        Account.Preferences.IntelligenceFolderCoverageRules = [.. IntelligenceFolderCoverageItems.Select(item => item.Rule)];
+        Account.Preferences.IntelligenceDefaultCoverageRule = DefaultCoverageRule;
         Account.Preferences.PrepareForStorage();
         OnPropertyChanged(nameof(HasSelectedIntelligenceFolders));
         OnPropertyChanged(nameof(SelectedIntelligenceFoldersDescription));
@@ -1120,7 +1106,8 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
             await _accountService.UpdateAccountPreferencesAsync(Account.Preferences).ConfigureAwait(false);
             // The inventory covers the whole account, so a folder that was just included already
             // has its counts in memory. Rebuilding the rows is all that is needed here.
-            await LoadIntelligenceFolderSelectionsAsync(Account).ConfigureAwait(false);
+            if (rebuildRows)
+                await LoadIntelligenceFolderSelectionsAsync(Account).ConfigureAwait(false);
             if (IsSemanticIndexingEnabled)
                 await RecalculatePlanAsync().ConfigureAwait(false);
         }
@@ -1132,8 +1119,6 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
             Account.Preferences.SelectedIntelligenceFolderIds = previousSelection;
             await ExecuteUIThread(() =>
             {
-                foreach (var item in IntelligenceFolderSelections)
-                    item.IsSelected = previousSelection.Contains(item.RemoteFolderId);
                 OnPropertyChanged(nameof(HasSelectedIntelligenceFolders));
                 OnPropertyChanged(nameof(SelectedIntelligenceFoldersDescription));
             });
@@ -1141,24 +1126,72 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         }
     }
 
-    private async Task PersistCoveragePreferencesAsync()
+    /// <summary>
+    /// Opens the coverage editor, handing it everything this page has already read so it needs no
+    /// I/O of its own.
+    /// </summary>
+    [RelayCommand]
+    private void OpenCoverageEditor()
     {
-        try
-        {
-            if (Account is not null)
-                await _accountService.UpdateAccountPreferencesAsync(Account.Preferences).ConfigureAwait(false);
-        }
-        catch
-        {
-        }
+        if (Account is null || _inventory is null || !CanEditIntelligenceFolders)
+            return;
+
+        var args = new IntelligenceCoverageEditorArgs(
+            Account.Id,
+            _folders,
+            _inventory,
+            _coveredRemoteMessageIds,
+            IncludedFolderIds(),
+            [.. IntelligenceFolderCoverageItems.Select(item => item.Rule)],
+            DefaultCoverageRule);
+
+        Messenger.Send(new BreadcrumbNavigationRequested(
+            Translator.SemanticIndex_CoverageEditorTitle,
+            WinoPage.IntelligenceCoveragePage,
+            args));
     }
 
-    private Task<SemanticIndexPlan> CalculatePlanAsync()
-        => _coordinator.CalculatePlanAsync(Account.Id, SelectedRangePreset, AutomaticallyIndexNewMessages);
+    /// <summary>
+    /// Applies what the coverage editor decided, without re-reading anything.
+    /// </summary>
+    /// <remarks>
+    /// The editor computed its rows from the very inventory this page still holds, so the rows can
+    /// be rebuilt in memory. Re-running the load here would put a progress ring and a mail query in
+    /// front of a decision the user has already made.
+    /// </remarks>
+    private async Task ApplyCoverageResultAsync(IntelligenceCoverageResult result)
+    {
+        var rulesByFolderId = result.Rules
+            .Where(static rule => !string.IsNullOrWhiteSpace(rule.RemoteFolderId))
+            .GroupBy(static rule => rule.RemoteFolderId, StringComparer.Ordinal)
+            .ToDictionary(static group => group.Key, static group => group.Last(), StringComparer.Ordinal);
+        var displayNames = GetIntelligenceFolderDisplayNames(_folders);
+
+        await ExecuteUIThread(() =>
+        {
+            DefaultCoverageRule = result.DefaultRule with { RemoteFolderId = string.Empty };
+            IntelligenceFolderCoverageItems.Clear();
+            foreach (var remoteFolderId in result.IncludedRemoteFolderIds)
+            {
+                IntelligenceFolderCoverageItems.Add(new IntelligenceFolderCoverageItem(
+                    remoteFolderId,
+                    displayNames.GetValueOrDefault(remoteFolderId, remoteFolderId),
+                    rulesByFolderId.TryGetValue(remoteFolderId, out var rule)
+                        ? rule
+                        : DefaultCoverageRule with { RemoteFolderId = remoteFolderId }));
+            }
+
+            RecomputeCoverage();
+            OnPropertyChanged(nameof(HasCoverageFolders));
+            OnPropertyChanged(nameof(IsCoverageEmptyStateVisible));
+        });
+
+        await SetIntelligenceFolderSelectionAsync(result.IncludedRemoteFolderIds, rebuildRows: false).ConfigureAwait(false);
+    }
 
     private bool CanStartIndexing()
         => IsPageReady && IsSemanticIndexingEnabled && !IsBusy && !IsCalculatingPlan && !IsJobActive &&
-           _currentPlan?.MissingMessageCount > 0;
+           _selectedRemoteMessageIds.Count > 0;
 
     private bool CanDeleteSemanticIndex()
         => IsPageReady && !IsBusy && !IsJobActive && HasIndexData;
@@ -1172,9 +1205,10 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         {
             await SetBusyAsync(true, Translator.SemanticIndex_UpgradeInProgress);
             await _apiClient.RebuildIntelligenceEmbeddingsAsync(SemanticMailboxId.Value).ConfigureAwait(false);
-            var plan = await CalculatePlanAsync().ConfigureAwait(false);
-            _currentPlan = plan;
-            await _coordinator.StartIndexingAsync(Account.Id, plan, notifyWhenCompleted: true).ConfigureAwait(false);
+            await _coordinator.StartIndexingAsync(
+                Account.Id,
+                _selectedRemoteMessageIds.ToArray(),
+                notifyWhenCompleted: true).ConfigureAwait(false);
             await ExecuteUIThread(() => IsUpgradeRecommended = false);
         }
         catch (Exception exception)
@@ -1254,27 +1288,28 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     {
         JobStatus = snapshot.Status;
         IsJobActive = snapshot.IsActive;
-        ProgressValue = snapshot.EmbeddingProcessedMessageCount;
-        ProgressMaximum = Math.Max(1, snapshot.TotalMessageCount);
+        ProgressValue = snapshot.ProcessedMessageCount;
+        ProgressMaximum = Math.Max(1, snapshot.SelectedMessageCount);
         ProgressText = string.Format(
             Translator.SemanticIndex_EmbeddingProgress,
-            snapshot.EmbeddingProcessedMessageCount,
-            snapshot.TotalMessageCount,
-            snapshot.EmbeddingFailedMessageCount);
-        MetadataProgressValue = snapshot.MetadataProcessedMessageCount;
+            snapshot.SucceededMessageCount,
+            snapshot.SelectedMessageCount,
+            snapshot.FailedMessageCount);
+        MetadataProgressValue = snapshot.SucceededMessageCount;
         MetadataProgressText = string.Format(
             Translator.SemanticIndex_MetadataProgress,
-            snapshot.MetadataProcessedMessageCount,
-            snapshot.TotalMessageCount,
-            snapshot.MetadataFailedMessageCount);
-        var completedMessageCount = Math.Min(snapshot.EmbeddingProcessedMessageCount, snapshot.MetadataProcessedMessageCount);
-        var remainingMessageCount = Math.Max(snapshot.TotalMessageCount - completedMessageCount, 0);
-        ProgressSummary = snapshot.TotalMessageCount == 0
+            snapshot.SucceededMessageCount,
+            snapshot.SelectedMessageCount,
+            snapshot.FailedMessageCount);
+        var remainingMessageCount = Math.Max(snapshot.SelectedMessageCount - snapshot.ProcessedMessageCount, 0);
+        ProgressSummary = snapshot.SelectedMessageCount == 0
             ? Translator.SemanticIndex_PlanEmpty
-            : string.Format(Translator.SemanticIndex_OverallProgress, completedMessageCount, snapshot.TotalMessageCount, remainingMessageCount);
-        if (snapshot.Status == SemanticIndexJobStatus.PausedForSynchronization)
-            StatusMessage = Translator.SemanticIndex_PausedForSync;
-        else if (snapshot.Status == SemanticIndexJobStatus.PausedForQuota)
+            : string.Format(
+                Translator.SemanticIndex_OverallProgress,
+                snapshot.ProcessedMessageCount,
+                snapshot.SelectedMessageCount,
+                remainingMessageCount);
+        if (snapshot.Status == SemanticIndexJobStatus.PausedForQuota)
         {
             StatusMessage = Translator.SemanticIndex_PausedForQuota;
             StatusType = InfoBarMessageType.Warning;
@@ -1287,7 +1322,16 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         RefreshHeroState();
     }
 
-    private async Task RefreshAfterJobAsync(bool refreshCoverage = false)
+    /// <remarks>
+    /// Deliberately local-only where coverage is concerned. Indexing writes each artifact to the
+    /// local store as it goes, so reading that store back is enough to know what is now covered.
+    /// This used to reconcile the entire mailbox against the server instead, which walked every
+    /// message in the account rather than the ones the job touched — and because a reconcile
+    /// publishes its own job snapshots, finishing or cancelling one job immediately looked like a
+    /// second, much larger one starting. Cancelling in particular restarted the very work the user
+    /// had just stopped.
+    /// </remarks>
+    private async Task RefreshAfterJobAsync()
     {
         try
         {
@@ -1296,8 +1340,6 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
                 : null;
             await SaveCachedMailboxStatusAsync(status).ConfigureAwait(false);
             await ExecuteUIThread(() => ApplyStatus(status));
-            if (refreshCoverage)
-                await ResolveCoverageDeltaAsync().ConfigureAwait(false);
             await RefreshLocalIndexStateAsync().ConfigureAwait(false);
             await RefreshQuotaAsync().ConfigureAwait(false);
             if (!IsJobActive)
@@ -1414,9 +1456,8 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
 
             _inventory = await _messageContextResolver.GetCoverageInventoryAsync(account.Id).ConfigureAwait(false);
 
-            // The loaded count comes back as a return value rather than being read off
-            // IntelligenceFolderSelections: that collection belongs to the UI thread, and this
-            // method runs on a background one.
+            // The loaded count comes back as a return value rather than being read off the bound
+            // collections: those belong to the UI thread, and this method runs on a background one.
             if (await LoadIntelligenceFolderSelectionsAsync(account).ConfigureAwait(false) > 0)
                 return;
         }
@@ -1426,6 +1467,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     private async Task<int> LoadIntelligenceFolderSelectionsAsync(MailAccount account)
     {
         var folders = await _folderService.GetFoldersAsync(account.Id).ConfigureAwait(false);
+        _folders = folders;
         var selected = account.Preferences.IsIntelligenceFolderSelectionInitialized
             ? account.Preferences.SelectedIntelligenceFolderIds
             : folders.Where(folder => folder.SpecialFolderType == SpecialFolderType.Inbox)
@@ -1434,59 +1476,43 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
                 .ToHashSet(StringComparer.Ordinal);
         var displayNames = GetIntelligenceFolderDisplayNames(folders);
         var inventory = _inventory ?? IntelligenceCoverageInventory.Empty(account.Id);
-        var depths = GetIntelligenceFolderDepths(folders);
         var items = folders.Where(IntelligenceFolderFilter.IsSelectable)
             .OrderBy(folder => displayNames[folder.RemoteFolderId], StringComparer.CurrentCultureIgnoreCase)
-            .Select(folder => new IntelligenceFolderSelectionItem(
-                folder.RemoteFolderId,
-                displayNames[folder.RemoteFolderId],
-                selected.Contains(folder.RemoteFolderId),
-                inventory.GetFolderIndices(folder.RemoteFolderId).Length,
-                depths.GetValueOrDefault(folder.RemoteFolderId)))
+            .Select(folder => folder.RemoteFolderId)
             .ToArray();
 
-        var rules = account.Preferences.IntelligenceFolderCoverageRules;
-        if (!account.Preferences.IsIntelligenceCoverageInitialized)
-        {
-            foreach (var folderId in selected)
-            {
-                var migratedPreset = string.IsNullOrWhiteSpace(account.Preferences.SemanticIndexRangePresetId)
-                    ? SemanticIndexRangePreset.OneMonth
-                    : SemanticIndexRangePresetExtensions.FromStableId(account.Preferences.SemanticIndexRangePresetId);
-                rules[folderId] = SemanticIndexFolderCoverageRule.DateRange(
-                    folderId,
-                    migratedPreset,
-                    account.Preferences.SemanticIndexRangeCutoffUtc is { } cutoff ? new DateTimeOffset(cutoff, TimeSpan.Zero) : null,
-                    account.Preferences.SemanticIndexRangeThroughUtc is { } through ? new DateTimeOffset(through, TimeSpan.Zero) : null);
-            }
-            account.Preferences.IsIntelligenceCoverageInitialized = true;
-            account.Preferences.IntelligenceFolderCoverageRules = rules;
-            account.Preferences.PrepareForStorage();
-            await _accountService.UpdateAccountPreferencesAsync(account.Preferences).ConfigureAwait(false);
-        }
-        // A folder that has never been configured inherits the account default rather than a
-        // hard-coded rule, so including a folder does what the coverage banner promises.
-        var defaultRule = account.Preferences.IntelligenceDefaultCoverageRule;
-        foreach (var folder in items)
-        {
-            if (!rules.ContainsKey(folder.RemoteFolderId))
-                rules[folder.RemoteFolderId] = defaultRule with { RemoteFolderId = folder.RemoteFolderId };
-        }
-        account.Preferences.IntelligenceFolderCoverageRules = rules;
-        var rangePreset = SemanticIndexRangePresetExtensions.FromStableId(account.Preferences.SemanticIndexRangePresetId);
-        var coverageItems = items.Where(item => selected.Contains(item.RemoteFolderId))
-            .Select(item => new IntelligenceFolderCoverageItem(item.RemoteFolderId, item.DisplayName, rules[item.RemoteFolderId]))
+        // Rules survive navigation now, so a returning user sees what they configured rather than
+        // the hundred-newest default every time.
+        var defaultRule = account.Preferences.IsIntelligenceCoverageInitialized
+            ? account.Preferences.IntelligenceDefaultCoverageRule
+            : SemanticIndexFolderCoverageRule.Latest(
+                string.Empty,
+                MailAccountPreferences.DefaultLatestMessageCount);
+        var storedRules = account.Preferences.IntelligenceFolderCoverageRules
+            .Where(static rule => !string.IsNullOrWhiteSpace(rule.RemoteFolderId))
+            .GroupBy(static rule => rule.RemoteFolderId, StringComparer.Ordinal)
+            .ToDictionary(static group => group.Key, static group => group.Last(), StringComparer.Ordinal);
+        var restoredFolders = inventory.KnownRemoteFolderIds
+            .Where(folderId => inventory.GetFolderIndices(folderId).Any(index =>
+                _coveredRemoteMessageIds.Contains(inventory.RemoteMessageIds[index])))
+            .ToHashSet(StringComparer.Ordinal);
+        var coverageItems = items
+            .Where(remoteFolderId => selected.Contains(remoteFolderId) || restoredFolders.Contains(remoteFolderId))
+            .Select(remoteFolderId => new IntelligenceFolderCoverageItem(
+                remoteFolderId,
+                displayNames[remoteFolderId],
+                !selected.Contains(remoteFolderId)
+                    ? SemanticIndexFolderCoverageRule.Latest(remoteFolderId, 0)
+                    : storedRules.TryGetValue(remoteFolderId, out var storedRule)
+                        ? storedRule
+                        : defaultRule with { RemoteFolderId = remoteFolderId }))
             .ToArray();
 
         // Everything above this line is plain data on a background thread. Everything below touches
         // bound state, so all of it — not just the collections — happens on the UI thread.
         await ExecuteUIThread(() =>
         {
-            SelectedRangePreset = rangePreset;
             DefaultCoverageRule = defaultRule;
-            IntelligenceFolderSelections.Clear();
-            foreach (var item in items) IntelligenceFolderSelections.Add(item);
-
             IntelligenceFolderCoverageItems.Clear();
             foreach (var item in coverageItems) IntelligenceFolderCoverageItems.Add(item);
 
@@ -1498,36 +1524,6 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         });
 
         return items.Length;
-    }
-
-    /// <summary>
-    /// How deep each folder sits under the account root, so the picker can indent instead of
-    /// printing a path. Cycles in the parent chain are treated as roots rather than looping.
-    /// </summary>
-    private static IReadOnlyDictionary<string, int> GetIntelligenceFolderDepths(
-        IReadOnlyCollection<MailItemFolder> folders)
-    {
-        var foldersByRemoteId = folders.Where(folder => !string.IsNullOrWhiteSpace(folder.RemoteFolderId))
-            .GroupBy(folder => folder.RemoteFolderId, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
-        var depths = new Dictionary<string, int>(StringComparer.Ordinal);
-
-        foreach (var folder in foldersByRemoteId.Values)
-        {
-            var depth = 0;
-            var visited = new HashSet<string>(StringComparer.Ordinal) { folder.RemoteFolderId };
-            var current = folder;
-            while (!string.IsNullOrWhiteSpace(current.ParentRemoteFolderId) &&
-                   foldersByRemoteId.TryGetValue(current.ParentRemoteFolderId, out var parent) &&
-                   visited.Add(parent.RemoteFolderId))
-            {
-                depth++;
-                current = parent;
-            }
-            depths[folder.RemoteFolderId] = depth;
-        }
-
-        return depths;
     }
 
     private static IReadOnlyDictionary<string, string> GetIntelligenceFolderDisplayNames(
@@ -1587,11 +1583,8 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         }
 
         var now = DateTimeOffset.UtcNow;
-        var defaultRule = DefaultCoverageRule;
         var rules = IntelligenceFolderCoverageItems.Select(item => item.Rule).ToArray();
         var selection = IntelligenceCoverageCalculator.Resolve(inventory, rules, now);
-        var hasDelta = _delta is { } current && current.Matches(inventory);
-        var overrides = 0;
 
         // Paired by folder id rather than by position: the calculator skips a rule that carries no
         // folder id, so the two lists are not guaranteed to line up, and an index mismatch here
@@ -1604,36 +1597,33 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         {
             var stats = IntelligenceCoverageCalculator.GetFolderStats(inventory, item.RemoteFolderId);
             item.AvailableMessageCount = stats.AvailableMessageCount;
-            item.SelectedSummary = DescribeRule(item.Rule);
-            item.IsOverride = !FollowsRule(item.Rule, defaultRule);
-            if (item.IsOverride)
-                overrides++;
 
             if (resolvedFolders.TryGetValue(item.RemoteFolderId, out var folder))
             {
                 item.SelectedMessageCount = folder.SelectedMessageCount;
-                item.MissingMessageCount = hasDelta ? selection.CountMissing(_delta, folder) : 0;
+                var folderIndices = inventory.GetFolderIndices(item.RemoteFolderId);
+                var covered = 0;
+                for (var position = folder.SliceStart; position < folder.SliceEnd; position++)
+                {
+                    if (_coveredRemoteMessageIds.Contains(inventory.RemoteMessageIds[folderIndices[position]]))
+                        covered++;
+                }
+
+                item.CoveredMessageCount = covered;
             }
             else
             {
                 item.SelectedMessageCount = 0;
-                item.MissingMessageCount = 0;
+                item.CoveredMessageCount = 0;
             }
         }
 
         TotalAvailableMessageCount = IntelligenceCoverageCalculator.CountDistinct(inventory, IncludedFolderIds());
         TotalSelectedMessageCount = selection.DistinctSelectedCount;
-
-        // Until the cloud answers, treat everything selected as not yet indexed. That is the
-        // pessimistic reading, so the page never claims work is done that has not happened.
-        var missing = hasDelta ? selection.CountMissing(_delta) : selection.DistinctSelectedCount;
+        _selectedRemoteMessageIds = selection.ToRemoteMessageIds().ToHashSet(StringComparer.Ordinal);
+        var missing = _selectedRemoteMessageIds.Count(id => !_coveredRemoteMessageIds.Contains(id));
         TotalMissingMessageCount = missing;
         EstimatedMissingMessageCount = missing;
-
-        DefaultRuleSummary = string.Format(Translator.SemanticIndex_CoverageDefaultRuleTitle, DescribeRule(defaultRule));
-        DefaultRuleDetail = overrides == 0
-            ? Translator.SemanticIndex_CoverageDefaultRuleAllFollow
-            : string.Format(Translator.SemanticIndex_CoverageDefaultRuleOverrides, overrides, IntelligenceFolderCoverageItems.Count);
 
         OnPropertyChanged(nameof(IsEverythingSelected));
         OnPropertyChanged(nameof(ShouldShowEverythingWarning));
@@ -1642,147 +1632,6 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
 
     private IReadOnlySet<string> IncludedFolderIds()
         => IntelligenceFolderCoverageItems.Select(item => item.RemoteFolderId).ToHashSet(StringComparer.Ordinal);
-
-    /// <summary>
-    /// Resolves which messages the cloud is missing, once, over the whole account. Every later
-    /// missing count is an intersection with this, so no rule edit reaches the network.
-    /// </summary>
-    private async Task ResolveCoverageDeltaAsync()
-    {
-        if (_inventory is not { TotalMessageCount: > 0 } inventory || SemanticMailboxId is not Guid mailboxId)
-            return;
-
-        try
-        {
-            var missing = new BitArray(inventory.TotalMessageCount);
-            for (var offset = 0; offset < inventory.RemoteMessageIds.Length; offset += DeltaResolutionBatchSize)
-            {
-                var batch = inventory.RemoteMessageIds
-                    .Skip(offset)
-                    .Take(DeltaResolutionBatchSize)
-                    .ToArray();
-                var missingIds = await _apiClient.ResolveIntelligenceDeltaAsync(mailboxId, batch).ConfigureAwait(false);
-                foreach (var missingId in missingIds)
-                {
-                    if (inventory.TryGetMessageIndex(missingId, out var index))
-                        missing[index] = true;
-                }
-            }
-
-            await ExecuteUIThread(() =>
-            {
-                // The inventory is fixed for the lifetime of the page, but a navigation away and
-                // back builds a new one, so the delta states which inventory it belongs to.
-                _delta = new IntelligenceCoverageDelta(
-                    inventory.LocalAccountId, inventory.BuiltAtUtc, missing, DateTimeOffset.UtcNow);
-                RecomputeCoverage();
-            });
-        }
-        catch
-        {
-            // Missing counts are an estimate shown next to the plan. Failing to refine them must
-            // not break the editor, which works entirely from local mail.
-        }
-    }
-
-    /// <summary>
-    /// Whether a folder still follows the account default. The folder id differs by definition, so
-    /// only what the rule actually selects is compared.
-    /// </summary>
-    private static bool FollowsRule(SemanticIndexFolderCoverageRule rule, SemanticIndexFolderCoverageRule other)
-        => rule.Mode == other.Mode &&
-           (rule.Mode == SemanticIndexCoverageMode.LatestCount
-               ? rule.LatestMessageCount == other.LatestMessageCount
-               : rule.DatePreset == other.DatePreset &&
-                 rule.CutoffUtc == other.CutoffUtc &&
-                 rule.ThroughUtcExclusive == other.ThroughUtcExclusive);
-
-    internal static string DescribeRule(SemanticIndexFolderCoverageRule rule)
-    {
-        if (rule.Mode == SemanticIndexCoverageMode.LatestCount)
-            return string.Format(Translator.SemanticIndex_CoverageRuleLatest, rule.LatestMessageCount);
-
-        return rule.DatePreset switch
-        {
-            SemanticIndexRangePreset.OnlyNew => Translator.SemanticIndex_RangeOnlyNew,
-            SemanticIndexRangePreset.Everything => Translator.SemanticIndex_RangeEverything,
-            SemanticIndexRangePreset.Custom => Translator.SemanticIndex_CoverageRuleCustomRange,
-            SemanticIndexRangePreset.OneWeek => Translator.SemanticIndex_CoveragePeriodOneWeek,
-            SemanticIndexRangePreset.OneMonth => Translator.SemanticIndex_CoveragePeriodOneMonth,
-            SemanticIndexRangePreset.ThreeMonths => Translator.SemanticIndex_CoveragePeriodThreeMonths,
-            SemanticIndexRangePreset.SixMonths => Translator.SemanticIndex_CoveragePeriodSixMonths,
-            SemanticIndexRangePreset.OneYear => Translator.SemanticIndex_CoveragePeriodOneYear,
-            _ => Translator.SemanticIndex_CoverageRuleCustomRange,
-        };
-    }
-
-    /// <summary>
-    /// Builds the editor for one folder, or for the account default when no folder is given.
-    /// Returns null when there is nothing to measure the rule against yet.
-    /// </summary>
-    public IntelligenceCoverageRuleEditor? CreateRuleEditor(IntelligenceFolderCoverageItem? item)
-    {
-        if (_inventory is not { } inventory)
-            return null;
-
-        if (item is null)
-        {
-            var included = IncludedFolderIds();
-            return new IntelligenceCoverageRuleEditor(
-                inventory,
-                null,
-                included,
-                DefaultCoverageRule,
-                Translator.SemanticIndex_CoverageDefaultRuleDialogTitle,
-                canApplyToAllFolders: false);
-        }
-
-        return new IntelligenceCoverageRuleEditor(
-            inventory,
-            item.RemoteFolderId,
-            new HashSet<string>(StringComparer.Ordinal) { item.RemoteFolderId },
-            item.Rule,
-            string.Format(Translator.SemanticIndex_CoverageFolderDialogTitle, item.DisplayName),
-            canApplyToAllFolders: IntelligenceFolderCoverageItems.Count > 1);
-    }
-
-    /// <summary>
-    /// Stores an accepted rule. Editing the default re-points every folder that was still following
-    /// it, so changing one setting keeps doing what the banner says it does.
-    /// </summary>
-    public void ApplyRuleEditor(IntelligenceCoverageRuleEditor editor)
-    {
-        if (Account is null)
-            return;
-
-        if (editor.RemoteFolderId is null)
-        {
-            var previous = DefaultCoverageRule;
-            DefaultCoverageRule = editor.ToRule(string.Empty);
-            foreach (var item in IntelligenceFolderCoverageItems)
-            {
-                if (FollowsRule(item.Rule, previous))
-                    item.Rule = editor.ToRule(item.RemoteFolderId);
-            }
-        }
-        else if (editor.ApplyToAllFolders)
-        {
-            DefaultCoverageRule = editor.ToRule(string.Empty);
-            foreach (var item in IntelligenceFolderCoverageItems)
-                item.Rule = editor.ToRule(item.RemoteFolderId);
-        }
-        else
-        {
-            var item = IntelligenceFolderCoverageItems
-                .FirstOrDefault(x => string.Equals(x.RemoteFolderId, editor.RemoteFolderId, StringComparison.Ordinal));
-            if (item is null)
-                return;
-            item.Rule = editor.ToRule(item.RemoteFolderId);
-        }
-
-        RecomputeCoverage();
-        PersistCoverageRules();
-    }
 
     /// <summary>
     /// Stops indexing one folder. Inclusion belongs to the folder picker, so this does exactly what
@@ -1794,30 +1643,11 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         if (item is null || !CanEditIntelligenceFolders)
             return;
 
-        var remaining = IntelligenceFolderSelections
-            .Where(selection => selection.IsSelected &&
-                !string.Equals(selection.RemoteFolderId, item.RemoteFolderId, StringComparison.Ordinal))
-            .Select(selection => selection.RemoteFolderId)
+        var remaining = IntelligenceFolderCoverageItems
+            .Where(row => !string.Equals(row.RemoteFolderId, item.RemoteFolderId, StringComparison.Ordinal))
+            .Select(row => row.RemoteFolderId)
             .ToArray();
         await SetIntelligenceFolderSelectionAsync(remaining).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Writes every folder rule and the default onto the account and schedules the save. The
-    /// numbers on screen are already correct by this point, so nothing the user sees waits for it.
-    /// </summary>
-    private void PersistCoverageRules()
-    {
-        if (Account?.Preferences is not { } preferences)
-            return;
-
-        var rules = preferences.IntelligenceFolderCoverageRules;
-        foreach (var item in IntelligenceFolderCoverageItems)
-            rules[item.RemoteFolderId] = item.Rule;
-        preferences.IntelligenceFolderCoverageRules = rules;
-        preferences.IntelligenceDefaultCoverageRule = DefaultCoverageRule;
-        preferences.PrepareForStorage();
-        SchedulePlanRecalculation();
     }
 
     #endregion
@@ -1940,15 +1770,28 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         }
     }
 
-    private async Task RefreshLocalIndexStateAsync()
+    private async Task RefreshLocalIndexStateAsync(bool updateCoverage = true)
     {
-        if (Account is null)
+        if (Account is null || _inventory is null)
             return;
 
         try
         {
-            var revision = await _localStore.GetLastImportedRevisionAsync(Account.Id).ConfigureAwait(false);
-            await ExecuteUIThread(() => HasLocalIndexData = revision > 0);
+            var artifacts = await _localStore.GetCurrentArtifactsAsync(
+                Account.Id,
+                _inventory.RemoteMessageIds).ConfigureAwait(false);
+            var coveredIds = artifacts
+                .Where(static pair => pair.Value.Any(static artifact => !artifact.IsDeleted))
+                .Select(static pair => pair.Key)
+                .ToHashSet(StringComparer.Ordinal);
+
+            await ExecuteUIThread(() =>
+            {
+                HasLocalIndexData = coveredIds.Count > 0;
+                if (updateCoverage)
+                    _coveredRemoteMessageIds = coveredIds;
+                RecomputeCoverage();
+            });
         }
         catch
         {
@@ -2022,30 +1865,6 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
 
     #endregion
 
-
-    private void SchedulePlanRecalculation()
-    {
-        _rangeRecalculationCancellation?.Cancel();
-        _rangeRecalculationCancellation?.Dispose();
-        _rangeRecalculationCancellation = new CancellationTokenSource();
-        _ = RecalculatePlanAfterDelayAsync(_rangeRecalculationCancellation.Token);
-    }
-
-    private async Task RecalculatePlanAfterDelayAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            await Task.Delay(250, cancellationToken).ConfigureAwait(false);
-
-            // Only a settled user edit reaches this point, so this is where the choice is worth
-            // remembering. Every number on screen was already updated the moment it was edited.
-            await PersistCoveragePreferencesAsync().ConfigureAwait(false);
-            await RecalculatePlanAsync().ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-        }
-    }
 
     private Task SetBusyAsync(bool value, string message = "") => ExecuteUIThread(() =>
     {

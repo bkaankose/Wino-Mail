@@ -14,6 +14,7 @@ namespace Wino.Mail.Controls.IntelligenceHeader;
 [TemplatePart(Name = PartNeedsReplyPillName, Type = typeof(FrameworkElement))]
 [TemplatePart(Name = PartNeedsReplyPillTextName, Type = typeof(TextBlock))]
 [TemplatePart(Name = PartProcessButtonName, Type = typeof(Button))]
+[TemplatePart(Name = PartCopyCodeButtonName, Type = typeof(HyperlinkButton))]
 [TemplatePart(Name = PartProcessingStatusPanelName, Type = typeof(FrameworkElement))]
 [TemplatePart(Name = PartProcessingProgressRingName, Type = typeof(WinoIntelligenceProgressRing))]
 [TemplatePart(Name = PartProcessingStatusTextBlockName, Type = typeof(TextBlock))]
@@ -90,6 +91,7 @@ public sealed partial class WinoIntelligenceHeader
     private const string PartNeedsReplyPillName = "PART_NeedsReplyPill";
     private const string PartNeedsReplyPillTextName = "PART_NeedsReplyPillText";
     private const string PartProcessButtonName = "PART_ProcessButton";
+    private const string PartCopyCodeButtonName = "PART_CopyCodeButton";
     private const string PartProcessingStatusPanelName = "PART_ProcessingStatusPanel";
     private const string PartProcessingProgressRingName = "PART_ProcessingProgressRing";
     private const string PartProcessingStatusTextBlockName = "PART_ProcessingStatusTextBlock";

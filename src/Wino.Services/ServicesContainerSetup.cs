@@ -1,5 +1,6 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Interfaces;
+using CommunityToolkit.Mvvm.Messaging;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.AI.Cryptography;
 using Wino.Mail.AI.ContentProcessing;
@@ -10,6 +11,7 @@ public static class ServicesContainerSetup
 {
     public static void RegisterSharedServices(this IServiceCollection services)
     {
+        services.AddSingleton<IMessenger>(WeakReferenceMessenger.Default);
         services.AddSingleton<ITranslationService, TranslationService>();
         services.AddSingleton<IMailContentProjector, MailContentProjector>();
         services.AddSingleton<IDatabaseService, DatabaseService>();
@@ -52,6 +54,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<IIntelligenceMessageContextResolver, IntelligenceMessageContextResolver>();
         services.AddSingleton<ISemanticIndexCoordinator, SemanticIndexCoordinator>();
         services.AddSingleton<IWinoIntelligenceCoordinator, WinoIntelligenceCoordinator>();
+        services.AddSingleton<IIntelligenceCoverageHandoff, IntelligenceCoverageHandoff>();
         services.AddSingleton<ILocalIntelligenceStore, LocalIntelligenceStore>();
         services.AddSingleton<ILocalIntelligenceService, LocalIntelligenceService>();
         services.AddSingleton<IContentEnvelopeEncryptor>(_ =>

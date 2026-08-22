@@ -28,7 +28,6 @@ namespace Wino.Services;
 public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, IDisposable
 {
     private readonly IWinoAccountProfileService _profileService;
-    private readonly IWinoBillingService _billingService;
     private readonly IWinoAccountApiClient _apiClient;
     private readonly ISemanticIndexCoordinator _semanticIndexCoordinator;
     private readonly IIntelligenceMessageContextResolver _messageResolver;
@@ -44,12 +43,9 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
     private readonly IMailContentProjector _contentProjector;
     private readonly IWinoAccountIntelligenceSnapshotService? _accountSnapshotService;
     private readonly ConcurrentDictionary<Guid, PendingRequest> _requests = new();
-    private readonly SemaphoreSlim _accessLock = new(1, 1);
-    private readonly Dictionary<(Guid WinoAccountId, Guid LocalAccountId), AccessSnapshot> _accessCache = [];
 
     public WinoIntelligenceCoordinator(
         IWinoAccountProfileService profileService,
-        IWinoBillingService billingService,
         IWinoAccountApiClient apiClient,
         ISemanticIndexCoordinator semanticIndexCoordinator,
         IIntelligenceMessageContextResolver messageResolver,
@@ -66,7 +62,6 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
         IWinoAccountIntelligenceSnapshotService? accountSnapshotService = null)
     {
         _profileService = profileService;
-        _billingService = billingService;
         _apiClient = apiClient;
         _semanticIndexCoordinator = semanticIndexCoordinator;
         _messageResolver = messageResolver;
@@ -386,8 +381,6 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
 
     public void InvalidateAccess()
     {
-        lock (_accessCache)
-            _accessCache.Clear();
         _ = _localStore.DeleteAccessSnapshotsAsync();
     }
 
@@ -402,19 +395,24 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
         WeakReferenceMessenger.Default.UnregisterAll(this);
         foreach (var request in _requests.Values)
             request.Cancellation.Cancel();
-        _accessLock.Dispose();
     }
 
     private async Task<AccessSnapshot> GetAccessAsync(WinoIntelligenceContext context, CancellationToken cancellationToken)
     {
-        var winoAccount = await _profileService.GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false);
+        // Reader initialization must stay local. Authentication refreshes and entitlement API calls
+        // are explicit account/intelligence-management operations, never a side effect of opening mail.
+        var winoAccount = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
         if (winoAccount is null)
             return AccessSnapshot.None;
+
         if (_accountSnapshotService is not null)
         {
             var accountSnapshot = await _accountSnapshotService.GetCachedAsync(winoAccount.Id, cancellationToken).ConfigureAwait(false);
-            if (accountSnapshot?.Billing?.AiPack.HasAccess == true)
+            if (accountSnapshot is not null)
             {
+                if (accountSnapshot.Billing?.AiPack.HasAccess != true)
+                    return AccessSnapshot.None;
+
                 var mailbox = accountSnapshot.Mailboxes.FirstOrDefault(x =>
                     x.ProviderType == (int)context.ProviderType &&
                     string.Equals(x.Address.Trim(), context.AccountAddress.Trim(), StringComparison.OrdinalIgnoreCase));
@@ -422,51 +420,14 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
                 return new(true, hasConsent, mailbox?.MailboxId);
             }
         }
-        var key = (winoAccount.Id, context.LocalAccountId);
+
+        // Keep compatibility with the earlier account-scoped cache while existing installations
+        // migrate to WinoAccountIntelligenceSnapshot. A cache miss intentionally means no access.
         var persisted = await _localStore.GetAccessSnapshotAsync(context.LocalAccountId, cancellationToken).ConfigureAwait(false);
         if (persisted is not null && persisted.WinoAccountId == winoAccount.Id)
             return new(persisted.HasAiPack, persisted.HasIntelligenceConsent, persisted.MailboxId);
-        lock (_accessCache)
-        {
-            if (_accessCache.TryGetValue(key, out var cached))
-                return cached;
-        }
 
-        await _accessLock.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            lock (_accessCache)
-            {
-                if (_accessCache.TryGetValue(key, out var cached))
-                    return cached;
-            }
-            var billingTask = _billingService.GetStatusAsync(cancellationToken);
-            var consentTask = _apiClient.GetIntelligenceConsentAsync(cancellationToken);
-            var mailboxesTask = _apiClient.GetSemanticMailboxesAsync(cancellationToken);
-            await Task.WhenAll(billingTask, consentTask, mailboxesTask).ConfigureAwait(false);
-            var billing = await billingTask.ConfigureAwait(false);
-            if (!billing.IsSuccess || billing.Result?.AiPack.HasAccess != true)
-                return AccessSnapshot.None;
-            var consent = await consentTask.ConfigureAwait(false);
-            var mailbox = (await mailboxesTask.ConfigureAwait(false)).FirstOrDefault(x =>
-                x.ProviderType == (int)context.ProviderType &&
-                string.Equals(x.Address.Trim(), context.AccountAddress.Trim(), StringComparison.OrdinalIgnoreCase));
-            var hasConsent = IsCurrent(consent);
-            var result = new AccessSnapshot(
-                true,
-                hasConsent,
-                mailbox?.MailboxId);
-            await _localStore.SaveAccessSnapshotAsync(new(
-                context.LocalAccountId, winoAccount.Id, result.HasAiPack, result.HasIntelligenceConsent,
-                result.MailboxId, DateTimeOffset.UtcNow), cancellationToken).ConfigureAwait(false);
-            lock (_accessCache)
-                _accessCache[key] = result;
-            return result;
-        }
-        finally
-        {
-            _accessLock.Release();
-        }
+        return AccessSnapshot.None;
     }
 
     private async Task<WinoIntelligenceOperationResult<T>> RunAsync<T>(

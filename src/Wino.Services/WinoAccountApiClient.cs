@@ -43,6 +43,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     private readonly SemaphoreSlim _tokenRefreshLock = new(1, 1);
     private readonly bool _ownsHttpClient;
     private readonly int _maximumEncryptedAttempts;
+    private static readonly TimeSpan RequestTimeout = TimeSpan.FromMinutes(10);
 
     private const string ApiUrl = "https://localhost:7204/";
     // private const string ApiUrl = "https://api.winomail.app/";
@@ -86,6 +87,8 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 
     private static void ConfigureHttpVersion(HttpClient client)
     {
+        client.Timeout = RequestTimeout;
+
         // TODO: Azure Support HTTPS 2.0
         //client.DefaultRequestVersion = HttpVersion.Version20;
         //client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrHigher;
@@ -433,6 +436,24 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 
         return new IntelligenceIngestResultDto(
             result.Items,
+            result.Artifacts.Select(static artifact => artifact.ToContract()).ToArray());
+    }
+
+    public async Task<IntelligenceReconciliationResultDto> ReconcileIntelligenceAsync(
+        Guid mailboxId,
+        byte[] encryptedEnvelope,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await SendEncryptedIntelligenceAsync(
+            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/reconcile",
+            encryptedEnvelope,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeCompactIntelligenceReconciliationResultDto,
+            "Intelligence reconciliation failed.",
+            cancellationToken).ConfigureAwait(false);
+
+        return new IntelligenceReconciliationResultDto(
+            result.CoveredRemoteMessageIds,
+            result.MissingRemoteMessageIds,
             result.Artifacts.Select(static artifact => artifact.ToContract()).ToArray());
     }
 
@@ -1090,6 +1111,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(GenerateInsightsRequest))]
 [JsonSerializable(typeof(IntelligenceDeltaFrameRequest))]
 [JsonSerializable(typeof(IntelligenceDeltaFrameResult))]
+[JsonSerializable(typeof(ReconcileIntelligenceRequest))]
 [JsonSerializable(typeof(IngestIntelligenceRequest))]
 [JsonSerializable(typeof(IntelligenceIngestDocumentRequest))]
 [JsonSerializable(typeof(IntelligenceCoverageRequest))]
@@ -1103,6 +1125,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceMailboxStatusDto>))]
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceIngestResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<CompactIntelligenceIngestResultDto>))]
+[JsonSerializable(typeof(ApiEnvelope<CompactIntelligenceReconciliationResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceArtifactCursorPageDto>))]
 [JsonSerializable(typeof(ApiEnvelope<CompactIntelligenceArtifactCursorPageDto>))]
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceMailboxStateDto>))]
@@ -1131,6 +1154,11 @@ internal sealed record CompactIntelligenceArtifactCursorPageDto(
 
 internal sealed record CompactIntelligenceIngestResultDto(
     IReadOnlyList<IntelligenceIngestItemResultDto> Items,
+    IReadOnlyList<CompactIntelligenceArtifactDto> Artifacts);
+
+internal sealed record CompactIntelligenceReconciliationResultDto(
+    IReadOnlyList<string> CoveredRemoteMessageIds,
+    IReadOnlyList<string> MissingRemoteMessageIds,
     IReadOnlyList<CompactIntelligenceArtifactDto> Artifacts);
 
 internal sealed class CompactIntelligenceArtifactDto

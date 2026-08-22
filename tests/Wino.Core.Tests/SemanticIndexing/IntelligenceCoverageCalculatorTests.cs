@@ -1,3 +1,4 @@
+using System.Linq;
 using FluentAssertions;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.SemanticIndexing;
@@ -179,100 +180,111 @@ public sealed class IntelligenceCoverageCalculatorTests
     }
 
     [Fact]
-    public void CountMissing_IntersectsTheSelectionWithTheDelta()
+    public void BuildIndexBitmap_SetsOnlyKnownIds()
     {
         var inventory = Build(
             Row("a", "folder", 2026, 8, 10),
-            Row("b", "folder", 2026, 8, 11),
-            Row("c", "folder", 2026, 8, 12));
-        var missing = new System.Collections.BitArray(inventory.TotalMessageCount);
-        // "c" is newest so it sits at index 0; mark it and the oldest as absent from the cloud.
-        missing[0] = true;
-        missing[2] = true;
-        var delta = new IntelligenceCoverageDelta(inventory.LocalAccountId, inventory.BuiltAtUtc, missing, Now);
+            Row("b", "folder", 2026, 8, 11));
 
-        var selection = IntelligenceCoverageCalculator.Resolve(
-            inventory, [SemanticIndexFolderCoverageRule.Latest("folder", 2)], Now);
+        var bitmap = IntelligenceCoverageCalculator.BuildIndexBitmap(
+            inventory, Ids("b", "never-seen"));
 
-        selection.CountMissing(delta).Should().Be(1);
-        selection.CountMissing(delta, selection.Folders[0]).Should().Be(1);
-        delta.Matches(inventory).Should().BeTrue();
+        // "b" is the newer of the two, so it leads the newest-first order.
+        bitmap[0].Should().BeTrue();
+        bitmap[1].Should().BeFalse();
     }
 
     [Fact]
-    public void BuildDailyCounts_CountsEachMessageOncePerDayAcrossFolders()
+    public void BuildBuckets_PartitionsEveryMessageAcrossTheThreeBands()
+    {
+        var inventory = BuildRange("folder", 40);
+        var selection = IntelligenceCoverageCalculator.Resolve(
+            inventory, [SemanticIndexFolderCoverageRule.Latest("folder", 25)], Now);
+        var indexed = IntelligenceCoverageCalculator.BuildIndexBitmap(inventory, Ids("message-0", "message-1"));
+
+        var histogram = IntelligenceCoverageCalculator.BuildBuckets(
+            inventory, Ids("folder"), selection.SelectedByIndex, indexed, 8);
+
+        histogram.MessageCount.Should().Be(40);
+        histogram.IndexedCount.Should().Be(2);
+        histogram.SelectedNotIndexedCount.Should().Be(23);
+        histogram.OutsideCount.Should().Be(15);
+        histogram.Buckets.Sum(bucket => bucket.MessageCount).Should().Be(40);
+        histogram.Buckets.Should().HaveCount(8);
+    }
+
+    [Fact]
+    public void BuildBuckets_CountsAnIndexedMessageAsIndexedEvenWhenTheRuleExcludesIt()
+    {
+        var inventory = BuildRange("folder", 10);
+        var selection = IntelligenceCoverageCalculator.Resolve(
+            inventory, [SemanticIndexFolderCoverageRule.Latest("folder", 2)], Now);
+
+        // message-9 is the oldest, so a "latest 2" rule leaves it out — but it stays indexed.
+        var indexed = IntelligenceCoverageCalculator.BuildIndexBitmap(inventory, Ids("message-9"));
+
+        var histogram = IntelligenceCoverageCalculator.BuildBuckets(
+            inventory, Ids("folder"), selection.SelectedByIndex, indexed, 5);
+
+        histogram.IndexedCount.Should().Be(1);
+        histogram.SelectedNotIndexedCount.Should().Be(2);
+        histogram.OutsideCount.Should().Be(7);
+    }
+
+    [Fact]
+    public void BuildBuckets_NeverEmitsAnEmptyColumnWhenBucketsOutnumberMessages()
+    {
+        var inventory = BuildRange("folder", 3);
+        var selection = IntelligenceCoverageCalculator.Resolve(inventory, [], Now);
+        var indexed = IntelligenceCoverageCalculator.BuildIndexBitmap(inventory, Ids());
+
+        var histogram = IntelligenceCoverageCalculator.BuildBuckets(
+            inventory, Ids("folder"), selection.SelectedByIndex, indexed, 32);
+
+        histogram.Buckets.Should().HaveCount(3);
+        histogram.Buckets.Should().OnlyContain(bucket => bucket.MessageCount == 1);
+        histogram.BusiestBucketCount.Should().Be(1);
+    }
+
+    [Fact]
+    public void BuildBuckets_CountsAMessageInTwoSelectedFoldersOnce()
     {
         var inventory = Build(
-            Row("a", "folder-a", 2026, 8, 10),
-            Row("b", "folder-a", 2026, 8, 10, hour: 20),
-            Row("shared", "folder-a", 2026, 8, 11),
-            Row("shared", "folder-b", 2026, 8, 11),
-            Row("elsewhere", "folder-c", 2026, 8, 11));
+            Row("shared", "folder-a", 2026, 8, 12),
+            Row("shared", "folder-b", 2026, 8, 12),
+            Row("only-a", "folder-a", 2026, 8, 11));
+        var selection = IntelligenceCoverageCalculator.Resolve(inventory, [], Now);
+        var indexed = IntelligenceCoverageCalculator.BuildIndexBitmap(inventory, Ids());
 
-        var counts = IntelligenceCoverageCalculator.BuildDailyCounts(
-            inventory, new HashSet<string>(StringComparer.Ordinal) { "folder-a", "folder-b" });
+        var histogram = IntelligenceCoverageCalculator.BuildBuckets(
+            inventory, Ids("folder-a", "folder-b"), selection.SelectedByIndex, indexed, 4);
 
-        counts[new DateOnly(2026, 8, 10)].Should().Be(2);
-        counts[new DateOnly(2026, 8, 11)].Should().Be(1);
-        counts.Should().HaveCount(2);
+        histogram.MessageCount.Should().Be(2);
     }
 
-    /// <summary>
-    /// The calculator estimates what the backfill worker will index, and the worker still resolves
-    /// its own candidates through <see cref="SemanticIndexCoverageResolver"/>. If the two ever pick
-    /// different messages the page lies about the plan, so they are pinned to each other here.
-    /// </summary>
-    [Theory]
-    [MemberData(nameof(EquivalenceRuleSets))]
-    public void Resolve_MatchesSemanticIndexCoverageResolver(SemanticIndexFolderCoverageRule[] rules)
+    [Fact]
+    public void BuildBuckets_ReturnsEmptyForFoldersWithNoMail()
     {
-        var candidates = new[]
-        {
-            Candidate("m1", "folder-a", new DateTime(2026, 8, 16, 9, 0, 0)),
-            Candidate("m2", "folder-a", new DateTime(2026, 8, 14, 9, 0, 0)),
-            // Same instant as m2: the ordinal id tie-break decides which one a latest-N rule takes.
-            Candidate("m3", "folder-a", new DateTime(2026, 8, 14, 9, 0, 0)),
-            Candidate("m4", "folder-a", new DateTime(2026, 5, 1, 9, 0, 0)),
-            Candidate("m5", "folder-b", new DateTime(2026, 8, 15, 9, 0, 0)),
-            Candidate("shared", "folder-a", new DateTime(2026, 8, 10, 9, 0, 0), "folder-b"),
-        };
-        var inventory = IntelligenceCoverageInventory.Create(
-            Guid.Empty,
-            candidates.SelectMany(candidate => candidate.RemoteFolderIds.Select(folder =>
-                new IntelligenceCoverageInventoryRow(
-                    candidate.RemoteMessageId,
-                    new DateTimeOffset(DateTime.SpecifyKind(candidate.ReceivedAt, DateTimeKind.Utc)),
-                    folder))));
+        var inventory = BuildRange("folder", 5);
+        var selection = IntelligenceCoverageCalculator.Resolve(inventory, [], Now);
+        var indexed = IntelligenceCoverageCalculator.BuildIndexBitmap(inventory, Ids());
 
-        var expected = SemanticIndexCoverageResolver.Resolve(candidates, rules);
-        var actual = IntelligenceCoverageCalculator.Resolve(inventory, rules, Now);
+        var histogram = IntelligenceCoverageCalculator.BuildBuckets(
+            inventory, Ids("absent-folder"), selection.SelectedByIndex, indexed, 8);
 
-        actual.ToRemoteMessageIds().Should().Equal(expected.Candidates.Select(x => x.RemoteMessageId));
-        actual.DistinctSelectedCount.Should().Be(expected.EligibleMessageCount);
-        for (var index = 0; index < rules.Length; index++)
-        {
-            actual.Folders[index].SelectedMessageCount.Should()
-                .Be(expected.FolderPlans[index].EligibleMessageCount, "folder {0} must agree", rules[index].RemoteFolderId);
-            actual.Folders[index].AvailableMessageCount.Should()
-                .Be(expected.FolderPlans[index].AvailableMessageCount);
-        }
+        histogram.Should().BeSameAs(IntelligenceCoverageBuckets.Empty);
+        histogram.BusiestBucketCount.Should().Be(0);
     }
 
-    public static TheoryData<SemanticIndexFolderCoverageRule[]> EquivalenceRuleSets() =>
-    [
-        [SemanticIndexFolderCoverageRule.Latest("folder-a", 3), SemanticIndexFolderCoverageRule.Latest("folder-b", 1)],
-        [SemanticIndexFolderCoverageRule.Latest("folder-a", 0), SemanticIndexFolderCoverageRule.Latest("folder-b", 99)],
-        [
-            SemanticIndexFolderCoverageRule.DateRange("folder-a", SemanticIndexRangePreset.OneMonth, null, null),
-            SemanticIndexFolderCoverageRule.DateRange("folder-b", SemanticIndexRangePreset.Everything, null, null),
-        ],
-        [
-            SemanticIndexFolderCoverageRule.DateRange("folder-a", SemanticIndexRangePreset.Custom,
-                new DateTimeOffset(2026, 8, 14, 9, 0, 0, TimeSpan.Zero),
-                new DateTimeOffset(2026, 8, 16, 9, 0, 0, TimeSpan.Zero)),
-            SemanticIndexFolderCoverageRule.Latest("folder-b", 2),
-        ],
-    ];
+    private static IReadOnlySet<string> Ids(params string[] values)
+        => new HashSet<string>(values, StringComparer.Ordinal);
+
+    /// <summary>A folder of <paramref name="count"/> messages, one per day, newest first.</summary>
+    private static IntelligenceCoverageInventory BuildRange(string remoteFolderId, int count)
+        => Build([.. Enumerable.Range(0, count).Select(offset => new IntelligenceCoverageInventoryRow(
+            $"message-{offset}",
+            Now.AddDays(-offset),
+            remoteFolderId))]);
 
     private static IntelligenceCoverageInventory Build(params IntelligenceCoverageInventoryRow[] rows)
         => IntelligenceCoverageInventory.Create(Guid.NewGuid(), rows);
@@ -281,9 +293,4 @@ public sealed class IntelligenceCoverageCalculatorTests
         string remoteMessageId, string remoteFolderId, int year, int month, int day, int hour = 0)
         => new(remoteMessageId, new DateTimeOffset(year, month, day, hour, 0, 0, TimeSpan.Zero), remoteFolderId);
 
-    private static IntelligenceMessageCandidate Candidate(
-        string id, string folder, DateTime receivedAt, params string[] additionalFolders)
-        => new(Guid.NewGuid(), id, id, [], string.Empty, string.Empty, string.Empty, receivedAt, null,
-            false, false, false, false, false, "normal", [folder, .. additionalFolders],
-            new MailBodyLocator(id, folder, 0, 0, id));
 }

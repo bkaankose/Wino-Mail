@@ -42,6 +42,7 @@ public sealed partial class WinoIntelligenceHeader : Control
     private FrameworkElement? _needsReplyPill;
     private TextBlock? _needsReplyPillText;
     private Button? _processButton;
+    private HyperlinkButton? _copyCodeButton;
     private FrameworkElement? _processingStatusPanel;
     private WinoIntelligenceProgressRing? _processingProgressRing;
     private TextBlock? _processingStatusTextBlock;
@@ -167,6 +168,14 @@ public sealed partial class WinoIntelligenceHeader : Control
     /// <summary>Gets or sets the <c>RetryProcessButtonText</c> value.</summary>
     [GeneratedDependencyProperty(DefaultValue = "Try again")]
     public partial string RetryProcessButtonText { get; set; }
+
+    /// <summary>Gets or sets the verification code available from the current message.</summary>
+    [GeneratedDependencyProperty(DefaultValue = "")]
+    public partial string VerificationCode { get; set; }
+
+    /// <summary>Gets or sets the copy-code action text.</summary>
+    [GeneratedDependencyProperty(DefaultValue = "Copy code")]
+    public partial string CopyCodeText { get; set; }
 
     /// <summary>Gets or sets the <c>InsightsLockedText</c> value.</summary>
     [GeneratedDependencyProperty(DefaultValue = "Process this message to get deadlines, reply status and suggested replies.")]
@@ -359,6 +368,9 @@ public sealed partial class WinoIntelligenceHeader : Control
     /// <summary>Occurs when the current message should be processed.</summary>
     public event EventHandler? ProcessRequested;
 
+    /// <summary>Occurs when the user requests the current verification code.</summary>
+    public event EventHandler? CopyCodeRequested;
+
     /// <summary>Gets the current summary request state.</summary>
     public WinoIntelligenceFeatureState SummaryState { get; private set; } = WinoIntelligenceFeatureState.Idle;
 
@@ -397,6 +409,7 @@ public sealed partial class WinoIntelligenceHeader : Control
         _needsReplyPill = GetTemplateChild(PartNeedsReplyPillName) as FrameworkElement;
         _needsReplyPillText = GetTemplateChild(PartNeedsReplyPillTextName) as TextBlock;
         _processButton = GetTemplateChild(PartProcessButtonName) as Button;
+        _copyCodeButton = GetTemplateChild(PartCopyCodeButtonName) as HyperlinkButton;
         _processingStatusPanel = GetTemplateChild(PartProcessingStatusPanelName) as FrameworkElement;
         _processingProgressRing = GetTemplateChild(PartProcessingProgressRingName) as WinoIntelligenceProgressRing;
         _processingStatusTextBlock = GetTemplateChild(PartProcessingStatusTextBlockName) as TextBlock;
@@ -469,6 +482,7 @@ public sealed partial class WinoIntelligenceHeader : Control
     {
         if (_headerToggleButton is not null) _headerToggleButton.Click += OnHeaderToggleClicked;
         if (_processButton is not null) _processButton.Click += OnProcessClicked;
+        if (_copyCodeButton is not null) _copyCodeButton.Click += OnCopyCodeClicked;
         AttachFeatureHandlers(_summaryParts, OnSummaryClicked, OnSummaryCancelClicked);
         AttachFeatureHandlers(_repliesParts, OnRepliesClicked, OnRepliesCancelClicked);
         AttachFeatureHandlers(_translateParts, OnTranslateChipClicked, OnTranslateCancelClicked);
@@ -493,6 +507,7 @@ public sealed partial class WinoIntelligenceHeader : Control
     {
         if (_headerToggleButton is not null) _headerToggleButton.Click -= OnHeaderToggleClicked;
         if (_processButton is not null) _processButton.Click -= OnProcessClicked;
+        if (_copyCodeButton is not null) _copyCodeButton.Click -= OnCopyCodeClicked;
         DetachFeatureHandlers(_summaryParts, OnSummaryClicked, OnSummaryCancelClicked);
         DetachFeatureHandlers(_repliesParts, OnRepliesClicked, OnRepliesCancelClicked);
         DetachFeatureHandlers(_translateParts, OnTranslateChipClicked, OnTranslateCancelClicked);
@@ -683,6 +698,12 @@ public sealed partial class WinoIntelligenceHeader : Control
             _processButton.Content = ProcessingState == WinoIntelligenceProcessingState.Failed ? RetryProcessButtonText : ProcessButtonText;
             _processButton.Visibility = ToVisibility(CanRequestProcessing);
             AutomationProperties.SetName(_processButton, ProcessAutomationText);
+        }
+        if (_copyCodeButton is not null)
+        {
+            _copyCodeButton.Content = CopyCodeText;
+            _copyCodeButton.Visibility = ToVisibility(!string.IsNullOrWhiteSpace(VerificationCode));
+            AutomationProperties.SetName(_copyCodeButton, CopyCodeText);
         }
         if (_processingStatusTextBlock is not null) _processingStatusTextBlock.Text = ResolveSubtitleText();
         if (_processingStatusPanel is not null) _processingStatusPanel.Visibility = ToVisibility(IsProcessingRunning);
@@ -1008,6 +1029,10 @@ public sealed partial class WinoIntelligenceHeader : Control
 
     private void OnHeaderToggleClicked(object sender, RoutedEventArgs e) { if (CanExpand) IsExpanded = !IsExpanded; }
     private void OnProcessClicked(object sender, RoutedEventArgs e) { if (CanRequestProcessing) ProcessRequested?.Invoke(this, EventArgs.Empty); }
+    private void OnCopyCodeClicked(object sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrWhiteSpace(VerificationCode)) CopyCodeRequested?.Invoke(this, EventArgs.Empty);
+    }
 
     private void OnSummaryClicked(object sender, RoutedEventArgs e)
     {

@@ -32,6 +32,7 @@ using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.Controls.Core;
+using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.Server;
@@ -78,6 +79,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private CancellationTokenSource mailLoadCancellationTokenSource = new();
     private long mailLoadGeneration;
     private long folderChangeGeneration;
+    private int mailNavigationRequestVersion;
     private bool isLoadingMore;
     private MailFetchCursor nextMailCursor;
     private FolderPivotViewModel lastRequestedPivot;
@@ -2358,6 +2360,17 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         completion?.TrySetResult(result);
     }
 
+    public async Task<bool> WaitForCurrentFolderInitializationAsync()
+    {
+        Task<bool> pendingInitialization;
+        lock (mailLoadSync)
+        {
+            pendingInitialization = pendingFolderCompletion?.Task;
+        }
+
+        return pendingInitialization is null || await pendingInitialization.ConfigureAwait(false);
+    }
+
     private MailListInitializationOptions CreateInitializationOptions(
         MailListLoadContext context,
         string searchQuery,
@@ -2858,13 +2871,52 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         });
     }
 
-    void IRecipient<MailItemNavigationRequested>.Receive(MailItemNavigationRequested message)
+    async void IRecipient<MailItemNavigationRequested>.Receive(MailItemNavigationRequested message)
     {
-        // TODO: Remove this.
+        if (message.UniqueMailId == Guid.Empty)
+            return;
 
-        _ = ExecuteUIThread(() =>
-            WeakReferenceMessenger.Default.Send(
-                new SelectMailItemContainerEvent(message.UniqueMailId, message.ScrollToItem)));
+        var requestVersion = Interlocked.Increment(ref mailNavigationRequestVersion);
+
+        try
+        {
+            var mailCopy = await _mailService.GetSingleMailItemAsync(message.UniqueMailId).ConfigureAwait(false);
+            if (mailCopy is null || requestVersion != Volatile.Read(ref mailNavigationRequestVersion))
+                return;
+
+            var isTargetFolderActive = false;
+            await ExecuteUIThread(() =>
+            {
+                isTargetFolderActive = ActiveFolder?.HandlingFolders
+                    .Any(folder => folder.Id == mailCopy.FolderId) == true;
+            }).ConfigureAwait(false);
+
+            if (requestVersion != Volatile.Read(ref mailNavigationRequestVersion))
+                return;
+
+            if (isTargetFolderActive)
+            {
+                Messenger.Send(new SelectMailItemContainerEvent(message.UniqueMailId, message.ScrollToItem));
+                return;
+            }
+
+            if (mailCopy.AssignedAccount is null || mailCopy.FolderId == Guid.Empty)
+            {
+                _logger.Warning("Mail navigation target has no assigned account or folder. MailUniqueId: {MailUniqueId}",
+                    message.UniqueMailId);
+                return;
+            }
+
+            // The shell owns account and folder navigation. Its AccountMenuItemExtended handler
+            // switches the account, waits for folder initialization, and sends this request again
+            // only after the target folder's mail collection is ready.
+            Messenger.Send(new AccountMenuItemExtended(mailCopy.FolderId, mailCopy));
+        }
+        catch (Exception exception)
+        {
+            _logger.Error(exception, "Failed to resolve mail navigation target. MailUniqueId: {MailUniqueId}",
+                message.UniqueMailId);
+        }
     }
 
     #endregion

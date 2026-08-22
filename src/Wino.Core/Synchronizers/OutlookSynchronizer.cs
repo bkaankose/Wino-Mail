@@ -1224,6 +1224,15 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                     await _outlookChangeProcessor.ChangeFlagStatusAsync(item.Id, isFlagged).ConfigureAwait(false);
                 }
 
+                if (item.InferenceClassification != null)
+                {
+                    var isFocused = item.GetIsFocused();
+                    _logger.Debug("Updating focused state for mail {MessageId}: IsFocused={IsFocused}", item.Id, isFocused);
+                    await _outlookChangeProcessor.ApplyMailStateUpdatesAsync(
+                        [new MailCopyStateUpdate(item.Id, IsFocused: isFocused)])
+                        .ConfigureAwait(false);
+                }
+
                 if (item.Categories != null)
                 {
                     await EnsureDeltaMailCategoriesAvailableAsync(item.Categories, cancellationToken).ConfigureAwait(false);
@@ -2477,6 +2486,26 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             if (bundle?.UIChangeRequest is ChangeFlagRequest changeFlagRequest)
             {
                 await _outlookChangeProcessor.ChangeFlagStatusAsync(changeFlagRequest.Item.Id, changeFlagRequest.IsFlagged).ConfigureAwait(false);
+                return;
+            }
+
+            if (bundle?.UIChangeRequest is MoveToFocusedRequest moveToFocusedRequest)
+            {
+                await _outlookChangeProcessor.ApplyMailStateUpdatesAsync(
+                    [new MailCopyStateUpdate(
+                        moveToFocusedRequest.Item.Id,
+                        IsFocused: moveToFocusedRequest.MoveToFocused)])
+                    .ConfigureAwait(false);
+                return;
+            }
+
+            if (bundle?.UIChangeRequest is AlwaysMoveToRequest alwaysMoveToRequest)
+            {
+                await _outlookChangeProcessor.ApplyMailStateUpdatesAsync(
+                    [new MailCopyStateUpdate(
+                        alwaysMoveToRequest.Item.Id,
+                        IsFocused: alwaysMoveToRequest.MoveToFocused)])
+                    .ConfigureAwait(false);
                 return;
             }
 

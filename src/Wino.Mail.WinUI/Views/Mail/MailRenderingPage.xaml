@@ -510,6 +510,7 @@
             CancelButtonText="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}"
             ClosePanelText="{x:Bind domain:Translator.WinoIntelligence_ClosePanel, Mode=OneTime}"
             CollapsedText="{x:Bind domain:Translator.WinoIntelligence_Collapsed, Mode=OneTime}"
+            CopyCodeText="{x:Bind domain:Translator.Intelligence_ActionCopyCode, Mode=OneTime}"
             CopyText="{x:Bind domain:Translator.WinoIntelligence_Copy, Mode=OneTime}"
             DraftingRepliesText="{x:Bind domain:Translator.WinoIntelligence_DraftingReplies, Mode=OneTime}"
             ExpandedText="{x:Bind domain:Translator.WinoIntelligence_Expanded, Mode=OneTime}"
@@ -546,20 +547,9 @@
             FeatureCancelRequested="IntelligenceHeader_FeatureCancelRequested"
             FeatureRequested="IntelligenceHeader_FeatureRequested"
             ProcessRequested="IntelligenceHeader_ProcessRequested"
+            CopyCodeRequested="IntelligenceHeader_CopyCodeRequested"
             SimilarMailChosen="IntelligenceHeader_SimilarMailChosen"
             SuggestedReplyChosen="IntelligenceHeader_SuggestedReplyChosen" />
-
-        <Button
-            x:Name="CopyVerificationCodeButton"
-            Grid.Row="1"
-            Margin="0,8,16,0"
-            HorizontalAlignment="Right"
-            VerticalAlignment="Top"
-            AutomationProperties.AutomationId="MailRenderingCopyVerificationCodeButton"
-            Click="CopyVerificationCodeButton_Click"
-            Content="{x:Bind domain:Translator.Intelligence_ActionCopyCode, Mode=OneTime}"
-            Style="{StaticResource AccentButtonStyle}"
-            Visibility="Collapsed" />
 
         <Border
             Grid.Row="2"

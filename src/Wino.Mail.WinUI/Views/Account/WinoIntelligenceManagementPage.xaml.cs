@@ -1,8 +1,6 @@
-using System;
-using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Wino.Dialogs;
+using Microsoft.UI.Xaml.Navigation;
 using Wino.Mail.ViewModels.Data;
 using Wino.Views.Abstract;
 
@@ -13,7 +11,15 @@ public sealed partial class WinoIntelligenceManagementPage : WinoIntelligenceMan
     private bool _isApplyingToggleState;
     private bool _isApplyingIntelligencePreferenceState;
 
-    public WinoIntelligenceManagementPage() => InitializeComponent();
+    public WinoIntelligenceManagementPage()
+    {
+        InitializeComponent();
+
+        // The coverage editor hands its result back through back navigation, which only works if
+        // this page and its view model survive in the back stack. Without this the page is rebuilt
+        // and the whole mailbox load runs again on every return.
+        NavigationCacheMode = NavigationCacheMode.Required;
+    }
 
     private async void WinoIntelligenceToggle_Toggled(object sender, RoutedEventArgs e)
     {
@@ -69,44 +75,5 @@ public sealed partial class WinoIntelligenceManagementPage : WinoIntelligenceMan
         {
             _isApplyingIntelligencePreferenceState = false;
         }
-    }
-
-    private void CoverageFolderCard_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { DataContext: IntelligenceFolderCoverageItem item })
-            _ = ShowCoverageRuleDialogAsync(item);
-    }
-
-    private void ChangeDefaultCoverageRule_Click(object sender, RoutedEventArgs e)
-        => _ = ShowCoverageRuleDialogAsync(null);
-
-    /// <summary>
-    /// Opens the coverage editor for one folder, or for the account default when none is given.
-    /// The dialog edits a copy, so dismissing it changes nothing.
-    /// </summary>
-    private async Task ShowCoverageRuleDialogAsync(IntelligenceFolderCoverageItem item)
-    {
-        if (!ViewModel.IsCoverageEditable || ViewModel.CreateRuleEditor(item) is not { } editor)
-            return;
-
-        var dialog = new IntelligenceCoverageRuleDialog(editor)
-        {
-            XamlRoot = XamlRoot,
-        };
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-            ViewModel.ApplyRuleEditor(editor);
-    }
-
-    private async void PickIntelligenceFolders_Click(object sender, RoutedEventArgs e)
-    {
-        if (!ViewModel.CanEditIntelligenceFolders)
-            return;
-
-        var dialog = new IntelligenceFolderPickerDialog(ViewModel.IntelligenceFolderSelections)
-        {
-            XamlRoot = XamlRoot,
-        };
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-            await ViewModel.SetIntelligenceFolderSelectionAsync(dialog.SelectedRemoteFolderIds);
     }
 }

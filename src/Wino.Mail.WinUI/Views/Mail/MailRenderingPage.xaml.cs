@@ -54,27 +54,12 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>()!;
     private readonly IMailDialogService _dialogService = App.Current.Services.GetService<IMailDialogService>()!;
-    private readonly INavigationService _navigationService = App.Current.Services.GetRequiredService<INavigationService>();
-    private readonly IWinoIntelligenceCoordinator _intelligenceCoordinator = App.Current.Services.GetRequiredService<IWinoIntelligenceCoordinator>();
     private readonly IMailContentProjector _contentProjector = App.Current.Services.GetRequiredService<IMailContentProjector>();
-    private readonly IAiActionOptionsService _aiActionOptionsService = App.Current.Services.GetRequiredService<IAiActionOptionsService>();
-    private readonly IMailService _mailService = App.Current.Services.GetRequiredService<IMailService>();
-    private readonly IClipboardService _clipboardService = App.Current.Services.GetRequiredService<IClipboardService>();
 
     private bool isRenderingInProgress = false;
     private string _currentRenderedHtml = string.Empty;
     private MailContentProjectionResult? _readerProjection;
-    private MailContentProjectionResult? _translationProjection;
-    private MailContentProjection? _inferenceProjection;
-    private IReadOnlyDictionary<string, string>? _translationMap;
-    private bool _isShowingTranslation;
     private bool _isPoppedOut;
-    private MailItemViewModel? _currentMailItem;
-    private WinoIntelligenceContext? _intelligenceContext;
-    private WinoIntelligenceSnapshot? _intelligenceSnapshot;
-    private CancellationTokenSource? _intelligenceContextCancellation;
-    private readonly HashSet<Guid> _liveFeatureRequestIds = [];
-    private Guid? _translationRequestId;
 
     public bool SupportsPopOut => !_isPoppedOut;
     public event EventHandler<PopOutRequestedEventArgs>? PopOutRequested;
@@ -85,13 +70,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     {
         InitializeComponent();
 
-        IntelligenceHeader.TranslationLanguages = new[]
-        {
-            new WinoIntelligenceLanguageOption(string.Empty, Translator.WinoIntelligence_DetectLanguage),
-        }.Concat(_aiActionOptionsService.GetTranslateLanguageOptions()
-            .Select(x => new WinoIntelligenceLanguageOption(x.Code, x.Label))).ToArray();
-        IntelligenceHeader.SelectedSourceLanguage = string.Empty;
-        IntelligenceHeader.SelectedTargetLanguage = _preferencesService.AiDefaultTranslationLanguageCode;
+        InitializeWinoIntelligenceHeader();
 
         WebViewExtensions.EnsureWebView2Environment();
 
@@ -316,6 +295,159 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         DispatcherQueue.TryEnqueue(async () => await RenderActiveContentAsync());
     }
 
+    private void AttachmentClicked(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is MailAttachmentViewModel attachmentViewModel)
+        {
+            ViewModel?.OpenAttachmentCommand.Execute(attachmentViewModel);
+        }
+    }
+
+    private async Task UpdateEditorThemeAsync()
+    {
+        await MailRenderer.SetThemeAsync(ViewModel.IsDarkWebviewRenderer);
+    }
+
+    private async Task InitializeMailRendererAsync()
+    {
+        try
+        {
+            await MailRenderer.InitializeAsync();
+        }
+        catch (Exception)
+        {
+            // TODO: Debug object disposal.
+            // throw new InvalidOperationException(Translator.Exception_WebView2RuntimeMissing_Message, ex);
+        }
+    }
+
+    private async Task UpdateReaderFontPropertiesAsync()
+    {
+        var fontName = $"{_preferencesService.ReaderFont}, sans-serif";
+        await MailRenderer.SetReaderTypographyAsync(fontName, _preferencesService.ReaderFontSize);
+    }
+
+    void IRecipient<ApplicationThemeChanged>.Receive(ApplicationThemeChanged message)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+            ViewModel.IsDarkWebviewRenderer = message.IsUnderlyingThemeDark);
+    }
+
+    private void InternetAddressClicked(object sender, RoutedEventArgs e)
+    {
+        // TODO: Popped out windows don't have xaml root assigned properly, therefore ShowAt will fail.
+        if (sender is HyperlinkButton hyperlinkButton && !_isPoppedOut)
+        {
+            hyperlinkButton.ContextFlyout.ShowAt(hyperlinkButton);
+        }
+    }
+
+    private void CopyAddress_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is HyperlinkButton button && button.CommandParameter is string address)
+        {
+            ViewModel.CopyClipboardCommand.Execute(address);
+        }
+    }
+
+    private void RendererCommandBar_PopOutClicked(object? sender, EventArgs e)
+    {
+        PopOutRequested?.Invoke(this, PopOutRequestedEventArgs.Default);
+    }
+
+    private void ViewModel_CloseRequested(object? sender, EventArgs e)
+    {
+        HostActionRequested?.Invoke(this, new PopoutHostActionRequestedEventArgs(PopoutHostActionKind.CloseHostedInstance));
+    }
+
+    private void ViewModel_ComposeRequested(object? sender, ComposeDraftRequestedEventArgs e)
+    {
+        HostActionRequested?.Invoke(this, new PopoutHostActionRequestedEventArgs(PopoutHostActionKind.PopOutNextNavigation, typeof(ComposePage), e.DraftUniqueId));
+    }
+
+    private void OpenAttachment_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuFlyoutItem item && item.CommandParameter is MailAttachmentViewModel attachment)
+        {
+            ViewModel.OpenAttachmentCommand.Execute(attachment);
+        }
+    }
+
+    private void SaveAttachment_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuFlyoutItem item && item.CommandParameter is MailAttachmentViewModel attachment)
+        {
+            ViewModel.SaveAttachmentCommand.Execute(attachment);
+        }
+    }
+
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+
+        WeakReferenceMessenger.Default.Register<ApplicationThemeChanged>(this);
+        RegisterWinoIntelligenceRecipients();
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+
+        WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
+        UnregisterWinoIntelligenceRecipients();
+    }
+
+    private void EscapeInvoked(Microsoft.UI.Xaml.Input.KeyboardAccelerator sender, Microsoft.UI.Xaml.Input.KeyboardAcceleratorInvokedEventArgs args)
+    {
+        WeakReferenceMessenger.Default.Send(new ClearMailSelectionsRequested());
+    }
+
+    #region Wino Intelligence
+
+    private readonly INavigationService _navigationService = App.Current.Services.GetRequiredService<INavigationService>();
+    private readonly IWinoIntelligenceCoordinator _intelligenceCoordinator = App.Current.Services.GetRequiredService<IWinoIntelligenceCoordinator>();
+    private readonly IAiActionOptionsService _aiActionOptionsService = App.Current.Services.GetRequiredService<IAiActionOptionsService>();
+    private readonly IMailService _mailService = App.Current.Services.GetRequiredService<IMailService>();
+    private readonly IClipboardService _clipboardService = App.Current.Services.GetRequiredService<IClipboardService>();
+    private readonly HashSet<Guid> _liveFeatureRequestIds = [];
+
+    private MailContentProjectionResult? _translationProjection;
+    private MailContentProjection? _inferenceProjection;
+    private IReadOnlyDictionary<string, string>? _translationMap;
+    private bool _isShowingTranslation;
+    private MailItemViewModel? _currentMailItem;
+    private WinoIntelligenceContext? _intelligenceContext;
+    private WinoIntelligenceSnapshot? _intelligenceSnapshot;
+    private CancellationTokenSource? _intelligenceContextCancellation;
+    private Guid? _translationRequestId;
+
+    private void InitializeWinoIntelligenceHeader()
+    {
+        IntelligenceHeader.TranslationLanguages = new[]
+        {
+            new WinoIntelligenceLanguageOption(string.Empty, Translator.WinoIntelligence_DetectLanguage),
+        }.Concat(_aiActionOptionsService.GetTranslateLanguageOptions()
+            .Select(x => new WinoIntelligenceLanguageOption(x.Code, x.Label))).ToArray();
+        IntelligenceHeader.SelectedSourceLanguage = string.Empty;
+        IntelligenceHeader.SelectedTargetLanguage = _preferencesService.AiDefaultTranslationLanguageCode;
+    }
+
+    private void RegisterWinoIntelligenceRecipients()
+    {
+        WeakReferenceMessenger.Default.Register<SemanticIndexJobChanged>(this);
+        WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this);
+        WeakReferenceMessenger.Default.Register<IntelligenceMetadataChanged>(this);
+        WeakReferenceMessenger.Default.Register<IntelligenceVisibilityChanged>(this);
+    }
+
+    private void UnregisterWinoIntelligenceRecipients()
+    {
+        WeakReferenceMessenger.Default.Unregister<SemanticIndexJobChanged>(this);
+        WeakReferenceMessenger.Default.Unregister<WinoIntelligenceAccessChanged>(this);
+        WeakReferenceMessenger.Default.Unregister<IntelligenceMetadataChanged>(this);
+        WeakReferenceMessenger.Default.Unregister<IntelligenceVisibilityChanged>(this);
+    }
+
     private async Task LoadIntelligenceContextAsync()
     {
         var mailCopy = _currentMailItem?.MailCopy;
@@ -457,8 +589,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             : string.Empty;
         IntelligenceHeader.DeadlineDetailText = string.Empty;
         IntelligenceHeader.IsAddToCalendarAvailable = hasDeadline && metadata.Deadline?.HasDeadline == true;
-        CopyVerificationCodeButton.Tag = metadata.VerificationCode;
-        CopyVerificationCodeButton.Visibility = string.IsNullOrWhiteSpace(metadata.VerificationCode) ? Visibility.Collapsed : Visibility.Visible;
+        IntelligenceHeader.VerificationCode = metadata.VerificationCode ?? string.Empty;
     }
 
     private void ClearPassiveIntelligenceMetadata()
@@ -469,14 +600,13 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         IntelligenceHeader.DeadlineText = string.Empty;
         IntelligenceHeader.DeadlineDetailText = string.Empty;
         IntelligenceHeader.IsAddToCalendarAvailable = false;
-        CopyVerificationCodeButton.Tag = null;
-        CopyVerificationCodeButton.Visibility = Visibility.Collapsed;
+        IntelligenceHeader.VerificationCode = string.Empty;
     }
 
-    private async void CopyVerificationCodeButton_Click(object sender, RoutedEventArgs e)
+    private async void IntelligenceHeader_CopyCodeRequested(object? sender, EventArgs e)
     {
-        if (CopyVerificationCodeButton.Tag is string code && !string.IsNullOrWhiteSpace(code))
-            await _clipboardService.CopyClipboardAsync(code);
+        if (!string.IsNullOrWhiteSpace(IntelligenceHeader.VerificationCode))
+            await _clipboardService.CopyClipboardAsync(IntelligenceHeader.VerificationCode);
     }
 
     private void ClearIntelligenceContext()
@@ -502,8 +632,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         _intelligenceContext = null;
         _intelligenceSnapshot = null;
         IntelligenceHeader.Visibility = Visibility.Collapsed;
-        CopyVerificationCodeButton.Tag = null;
-        CopyVerificationCodeButton.Visibility = Visibility.Collapsed;
+        IntelligenceHeader.VerificationCode = string.Empty;
     }
 
     private async void IntelligenceHeader_FeatureRequested(object? sender, WinoIntelligenceRequestEventArgs e)
@@ -797,44 +926,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         _ => new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc)),
     };
 
-    private void AttachmentClicked(object sender, ItemClickEventArgs e)
-    {
-        if (e.ClickedItem is MailAttachmentViewModel attachmentViewModel)
-        {
-            ViewModel?.OpenAttachmentCommand.Execute(attachmentViewModel);
-        }
-    }
-
-    private async Task UpdateEditorThemeAsync()
-    {
-        await MailRenderer.SetThemeAsync(ViewModel.IsDarkWebviewRenderer);
-    }
-
-    private async Task InitializeMailRendererAsync()
-    {
-        try
-        {
-            await MailRenderer.InitializeAsync();
-        }
-        catch (Exception)
-        {
-            // TODO: Debug object disposal.
-            // throw new InvalidOperationException(Translator.Exception_WebView2RuntimeMissing_Message, ex);
-        }
-    }
-
-    private async Task UpdateReaderFontPropertiesAsync()
-    {
-        var fontName = $"{_preferencesService.ReaderFont}, sans-serif";
-        await MailRenderer.SetReaderTypographyAsync(fontName, _preferencesService.ReaderFontSize);
-    }
-
-    void IRecipient<ApplicationThemeChanged>.Receive(ApplicationThemeChanged message)
-    {
-        DispatcherQueue.TryEnqueue(() =>
-            ViewModel.IsDarkWebviewRenderer = message.IsUnderlyingThemeDark);
-    }
-
     void IRecipient<SemanticIndexJobChanged>.Receive(SemanticIndexJobChanged message)
     {
         if (_intelligenceContext?.LocalAccountId != message.AccountId)
@@ -910,79 +1001,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         await LoadIntelligenceContextAsync();
     }
 
-    private void InternetAddressClicked(object sender, RoutedEventArgs e)
-    {
-        // TODO: Popped out windows don't have xaml root assigned properly, therefore ShowAt will fail.
-        if (sender is HyperlinkButton hyperlinkButton && !_isPoppedOut)
-        {
-            hyperlinkButton.ContextFlyout.ShowAt(hyperlinkButton);
-        }
-    }
-
-    private void CopyAddress_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is HyperlinkButton button && button.CommandParameter is string address)
-        {
-            ViewModel.CopyClipboardCommand.Execute(address);
-        }
-    }
-
-    private void RendererCommandBar_PopOutClicked(object? sender, EventArgs e)
-    {
-        PopOutRequested?.Invoke(this, PopOutRequestedEventArgs.Default);
-    }
-
-    private void ViewModel_CloseRequested(object? sender, EventArgs e)
-    {
-        HostActionRequested?.Invoke(this, new PopoutHostActionRequestedEventArgs(PopoutHostActionKind.CloseHostedInstance));
-    }
-
-    private void ViewModel_ComposeRequested(object? sender, ComposeDraftRequestedEventArgs e)
-    {
-        HostActionRequested?.Invoke(this, new PopoutHostActionRequestedEventArgs(PopoutHostActionKind.PopOutNextNavigation, typeof(ComposePage), e.DraftUniqueId));
-    }
-
-    private void OpenAttachment_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is MenuFlyoutItem item && item.CommandParameter is MailAttachmentViewModel attachment)
-        {
-            ViewModel.OpenAttachmentCommand.Execute(attachment);
-        }
-    }
-
-    private void SaveAttachment_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is MenuFlyoutItem item && item.CommandParameter is MailAttachmentViewModel attachment)
-        {
-            ViewModel.SaveAttachmentCommand.Execute(attachment);
-        }
-    }
-
-    protected override void RegisterRecipients()
-    {
-        base.RegisterRecipients();
-
-        WeakReferenceMessenger.Default.Register<ApplicationThemeChanged>(this);
-        WeakReferenceMessenger.Default.Register<SemanticIndexJobChanged>(this);
-        WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this);
-        WeakReferenceMessenger.Default.Register<IntelligenceMetadataChanged>(this);
-        WeakReferenceMessenger.Default.Register<IntelligenceVisibilityChanged>(this);
-    }
-
-    protected override void UnregisterRecipients()
-    {
-        base.UnregisterRecipients();
-
-        WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
-        WeakReferenceMessenger.Default.Unregister<SemanticIndexJobChanged>(this);
-        WeakReferenceMessenger.Default.Unregister<WinoIntelligenceAccessChanged>(this);
-        WeakReferenceMessenger.Default.Unregister<IntelligenceMetadataChanged>(this);
-        WeakReferenceMessenger.Default.Unregister<IntelligenceVisibilityChanged>(this);
-    }
-
-    private void EscapeInvoked(Microsoft.UI.Xaml.Input.KeyboardAccelerator sender, Microsoft.UI.Xaml.Input.KeyboardAcceleratorInvokedEventArgs args)
-    {
-        WeakReferenceMessenger.Default.Send(new ClearMailSelectionsRequested());
-    }
+    #endregion
 
 }
