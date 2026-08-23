@@ -136,7 +136,7 @@ public static class MailkitClientExtensions
         var references = mime?.References?.GetReferences() ?? messageSummary.References?.GetReferences();
         var inReplyTo = MailHeaderExtensions.NormalizeMessageId(mime != null ? mime.GetInReplyTo() : envelope?.InReplyTo);
         var threadId = ResolveThreadId(messageSummary, messageId, references, inReplyTo);
-        var hasAttachments = mime != null ? mime.Attachments.Any() : false;
+        var hasAttachments = messageSummary.HasMailAttachments(mime);
         var itemType = mime != null ? GetMailItemTypeFromMime(mime) : MailItemType.Mail;
 
         var copy = new MailCopy()
